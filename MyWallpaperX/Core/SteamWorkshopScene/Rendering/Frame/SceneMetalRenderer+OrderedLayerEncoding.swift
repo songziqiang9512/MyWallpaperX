@@ -111,14 +111,12 @@ extension SceneMetalRenderer {
                 lastLayerPass?.closeForOffscreen()
             }
             lastLayerPass = layerMainPass
-            // Its graph was already executed and published before an earlier
-            // consumer. Keep authored trigger order, but never consume the
-            // same launch/frame claim twice.
-            if forwardGraphProviderLayerIDs.contains(layer.id) { continue }
+            let reusesForwardOutput = forwardGraphProviderLayerIDs.contains(layer.id)
+            if reusesForwardOutput && !frameVisibleLayerIDs.contains(layer.id) { continue }
             let baseSelection: SceneBaseMaterialTextureSelection
             switch layer.contentKind {
             case "image", "solid", "text":
-                baseSelection = baseMaterialTextureSelection(
+                baseSelection = reusesForwardOutput ? .missing : baseMaterialTextureSelection(
                     for: layer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
@@ -162,7 +160,8 @@ extension SceneMetalRenderer {
 #endif
 
             }
-            if let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
+            if !reusesForwardOutput,
+               let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
                 layer: layer,
                 isVisibleExecutionRoot: frameVisibleLayerIDs.contains(layer.id),
                 framePlan: resolvedMaterialFrameTargetPlans[layer.id],
@@ -180,7 +179,7 @@ extension SceneMetalRenderer {
                 }
                 continue
             }
-            if let imagePipeline, dependencyRuntime.requiresCapture(
+            if !reusesForwardOutput, let imagePipeline, dependencyRuntime.requiresCapture(
                 for: layer.id,
                 activeStaticModelConsumerLayerIDs:
                     activeStaticModelNamedAlbedoLayerIDs
@@ -223,7 +222,7 @@ extension SceneMetalRenderer {
                     initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
                 }
                 let observesOrdinaryVideo: Bool
-                if layerMainPass !== mainPass {
+                if reusesForwardOutput || layerMainPass !== mainPass {
                     observesOrdinaryVideo = false
                 } else if case .provider(.video)? = baseSource?.candidate?.identity {
                     observesOrdinaryVideo = true
@@ -234,12 +233,12 @@ extension SceneMetalRenderer {
                 } else {
                     observesOrdinaryVideo = false
                 }
-                guard baseSource != nil || observesOrdinaryVideo else { continue }
-                let layerAlpha = SceneDynamicLayerValues.alpha(
+                guard baseSource != nil || observesOrdinaryVideo || reusesForwardOutput else { continue }
+                let layerAlpha = reusesForwardOutput ? 1 : SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 )
-                let sourceMaterialAlpha = baseMaterialProviderBindings.sourceMaterialAlpha(
+                let sourceMaterialAlpha: Float = reusesForwardOutput ? 1 : baseMaterialProviderBindings.sourceMaterialAlpha(
                     layer: layer, snapshot: frameContext.dynamicValues
                 )
                 let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
@@ -272,35 +271,45 @@ extension SceneMetalRenderer {
                         initialVideoPresentation?.hasUnavailableVideo = true
                     }
                 }
-                guard let baseSource else { continue }
-                let imageResult = encodeImageLayer(
-                    layer: layer,
-                    baseSource: baseSource,
-                    imageTextures: imageTextures,
-                    imagePipeline: imagePipeline,
-                    specializedBaseTextureSamplings: specializedBaseTextureSamplings,
-                    spriteAnimations: spriteAnimations,
-                    spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
-                    resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
-                    frameContext: frameContext,
-                    frameWorldFrames: frameWorldFrames,
-                    cameraFrame: cameraFrame,
-                    model: model,
-                    mvp: mvp,
-                    usesPerspective: usesPerspective,
-                    layerAlpha: layerAlpha,
-                    sourceMaterialAlpha: sourceMaterialAlpha,
-                    viewportSize: viewportSize,
-                    time: time,
-                    offscreenTexturePool: offscreenTexturePool,
-                    frameLightSnapshot: frameLightSnapshot,
-                    reflection: reflection,
-                    environmentSource: environmentSource,
-                    modelFrame: modelFrame,
-                    layerMainPass: layerMainPass,
-                    commandBuffer: commandBuffer,
-                    effectExecutionTrace: effectExecutionTrace
-                )
+                let imageResult: (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?)
+                if reusesForwardOutput {
+                    imageResult = encodePreparedImageLayerOutput(layer: layer,
+                        geometryProduct: imageTextures.geometryProducts[layer.id], imagePipeline: imagePipeline,
+                        model: model, mvp: mvp, cameraFrame: cameraFrame, usesPerspective: usesPerspective,
+                        time: time, frameLightSnapshot: frameLightSnapshot, modelFrame: modelFrame,
+                        layerMainPass: layerMainPass, commandBuffer: commandBuffer,
+                        effectExecutionTrace: effectExecutionTrace)
+                } else {
+                    guard let baseSource else { continue }
+                    imageResult = encodeImageLayer(
+                        layer: layer,
+                        baseSource: baseSource,
+                        imageTextures: imageTextures,
+                        imagePipeline: imagePipeline,
+                        specializedBaseTextureSamplings: specializedBaseTextureSamplings,
+                        spriteAnimations: spriteAnimations,
+                        spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
+                        resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
+                        frameContext: frameContext,
+                        frameWorldFrames: frameWorldFrames,
+                        cameraFrame: cameraFrame,
+                        model: model,
+                        mvp: mvp,
+                        usesPerspective: usesPerspective,
+                        layerAlpha: layerAlpha,
+                        sourceMaterialAlpha: sourceMaterialAlpha,
+                        viewportSize: viewportSize,
+                        time: time,
+                        offscreenTexturePool: offscreenTexturePool,
+                        frameLightSnapshot: frameLightSnapshot,
+                        reflection: reflection,
+                        environmentSource: environmentSource,
+                        modelFrame: modelFrame,
+                        layerMainPass: layerMainPass,
+                        commandBuffer: commandBuffer,
+                        effectExecutionTrace: effectExecutionTrace
+                    )
+                }
                 if imageResult.stop {
                     stopsAfterClaimedFailure = true
                     break frameLayers
@@ -319,11 +328,13 @@ extension SceneMetalRenderer {
                     }
                 }
 #endif
-                dependencyRuntime.recordBindingIfRequired(
-                    for: layer.id,
-                    encoded: drawOutcome.consumedDependency,
-                    on: commandBuffer
-                )
+                if !reusesForwardOutput {
+                    dependencyRuntime.recordBindingIfRequired(
+                        for: layer.id,
+                        encoded: drawOutcome.consumedDependency,
+                        on: commandBuffer
+                    )
+                }
                 if !drawOutcome.encoded,
                    resolvedMaterialFrameTargetPlans[layer.id] != nil {
                     stopsAfterClaimedFailure = true

@@ -503,10 +503,10 @@ enum Harness {
     static func clear(
         _ texture: MTLTexture,
         color: MTLClearColor,
-        device: MTLDevice
+        device: MTLDevice,
+        commandBuffer provided: MTLCommandBuffer? = nil
     ) -> Bool {
-        guard let queue = device.makeCommandQueue(),
-              let commandBuffer = queue.makeCommandBuffer() else { return false }
+        guard let commandBuffer = provided ?? device.makeCommandQueue()?.makeCommandBuffer() else { return false }
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = texture
         pass.colorAttachments[0].loadAction = .clear
@@ -516,14 +516,15 @@ enum Harness {
             return false
         }
         encoder.endEncoding()
+        if provided != nil { return true }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         return commandBuffer.status == .completed
     }
 
-    static func pixel(_ texture: MTLTexture, device: MTLDevice) -> [UInt8]? {
-        guard let queue = device.makeCommandQueue(),
-              let commandBuffer = queue.makeCommandBuffer(),
+    static func pixel(_ texture: MTLTexture, device: MTLDevice,
+                      commandBuffer provided: MTLCommandBuffer? = nil) -> [UInt8]? {
+        guard let commandBuffer = provided ?? device.makeCommandQueue()?.makeCommandBuffer(),
               let readback = device.makeBuffer(length: 4, options: .storageModeShared),
               let encoder = commandBuffer.makeBlitCommandEncoder() else { return nil }
         encoder.copy(
@@ -904,6 +905,7 @@ enum Harness {
             defaultBudgetPool: budget.defaultBudgetPool,
             explicit128Pool: budget.explicit128Pool))
         append(sharedFramebufferChecks(device))
+        append(retainedOutputPixelChecks(device))
         append(sourceMaterialResidencyChecks(device))
         append(singleChannelChecks(device))
         let chain = directChainChecks(device)

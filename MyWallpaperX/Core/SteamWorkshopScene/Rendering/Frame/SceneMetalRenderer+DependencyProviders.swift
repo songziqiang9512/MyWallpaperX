@@ -60,6 +60,7 @@ extension SceneMetalRenderer {
     func executeDependencyGraphProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
         isVisibleExecutionRoot: Bool,
+        preservesVisibleComposite: Bool = false,
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         textureRegistry: SceneFrameTextureRegistry,
         dependencyRuntime: SceneDependencyFrameRuntime,
@@ -180,10 +181,11 @@ extension SceneMetalRenderer {
             )
         case let .unavailable(reasonCode) where ticket.finalContent != .data:
             return imageCompositor
-                .discardResolvedMaterialNamedPublicationLocally(
+                .resolveResolvedMaterialPublicationMiss(
                     ticket,
                     texture: texture,
                     reasonCode: reasonCode,
+                    preservesVisibleComposite: preservesVisibleComposite,
                     layerID: layer.id,
                     executionTrace: executionTrace,
                     executionOrigin: .image
@@ -255,6 +257,7 @@ extension SceneMetalRenderer {
     func prepareForwardDependencyProviders(
         orderedLayerIDs: [Int],
         layersByID: [Int: SceneRenderDescriptor.Layer],
+        frameVisibleLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,
         frameContext: SceneFrameContext,
@@ -302,6 +305,7 @@ extension SceneMetalRenderer {
                 guard executeDependencyGraphProviderIfRequired(
                     layer: provider,
                     isVisibleExecutionRoot: false,
+                    preservesVisibleComposite: frameVisibleLayerIDs.contains(provider.id),
                     framePlan: framePlans[provider.id],
                     textureRegistry: textureRegistry,
                     dependencyRuntime: dependencyRuntime,

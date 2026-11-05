@@ -12,6 +12,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameVisibleLayerIDs: Set<Int>,
+        authoredLayerIDs: [Int],
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
@@ -42,14 +43,21 @@ extension SceneMetalRenderer {
         }
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
+        let activeStaticModelConsumerLayerIDs = frameVisibleLayerIDs
+            .intersection(staticModelResources.namedAlbedoLayerIDs)
         let demand = dependencyRuntime.resolvedMaterialFrameDemand(
             visibleRootLayerIDs: frameVisibleLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             liveLayerIDs: liveLayerIDs,
-            activeStaticModelConsumerLayerIDs: frameVisibleLayerIDs
-                .intersection(staticModelResources.namedAlbedoLayerIDs)
+            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs
         )
         let activeExecutionLayerIDs = demand.activeExecutionLayerIDs
+        guard let forwardLayerIDs = dependencyRuntime.forwardDependencyPreparationOrder(
+            authoredLayerIDs: authoredLayerIDs,
+            activeExecutionLayerIDs: activeExecutionLayerIDs,
+            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs
+        ) else { return .rejected(reasonCode: "resolved-material-preparation-order-invalid") }
+        let deferredCompositeLayerIDs = Set(forwardLayerIDs).intersection(frameVisibleLayerIDs)
         compositionGroupRuntime?.reserveSources(
             orderedRootIDs: utilityExecution.orderedRootIDs,
             visibleLayerIDs: frameVisibleLayerIDs,
@@ -446,7 +454,8 @@ extension SceneMetalRenderer {
                 extentPolicy: effectSourceExtentContract.targetPolicy,
                 requestedWidth: requestedWidth,
                 requestedHeight: requestedHeight,
-                usesSharedFullFrameWorkingPair: true,
+                // Later graphs may overwrite shared scratch before this layer's authored draw.
+                usesSharedFullFrameWorkingPair: !deferredCompositeLayerIDs.contains(layerID),
                 orderingContext: orderingContext,
                 plansMemoIdentity: .init(
                     capabilityToken: claim.token,

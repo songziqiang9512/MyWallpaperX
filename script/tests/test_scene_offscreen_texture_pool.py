@@ -212,6 +212,20 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["batchPrepareOnlyPublishesSharedPair"])
         self.assertTrue(self.result["sharedPairBudgetRejectsBeforeAllocation"])
 
+    def test_owned_output_keeps_pixels_after_same_cb_shared_successor_writes(self) -> None:
+        pixels = self.result["retainedOutputPixels"]
+        self.assertEqual(pixels["shared"]["upstreamBGRA"], [255, 0, 0, 255])
+        self.assertEqual(pixels["owned"]["upstreamBGRA"], [0, 0, 255, 255])
+        self.assertFalse(pixels["shared"]["upstreamOwned"])
+        self.assertTrue(pixels["owned"]["upstreamOwned"])
+        self.assertTrue(pixels["shared"]["upstreamAliasesSuccessor"])
+        self.assertFalse(pixels["owned"]["upstreamAliasesSuccessor"])
+        for mode in ("shared", "owned"):
+            with self.subTest(mode=mode):
+                self.assertTrue(pixels[mode]["completed"])
+                self.assertTrue(pixels[mode]["successorsShared"])
+                self.assertTrue(pixels[mode]["successorTargetsAlias"])
+
     def test_persistent_chain_uses_one_two_member_full_frame_pair(self) -> None:
         self.assertTrue(self.result["persistentPairSharedAcrossStages"])
         self.assertTrue(self.result["persistentPairHasTwoPhysicalObjects"])

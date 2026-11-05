@@ -125,12 +125,12 @@
       "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 136,
-      "bytes": 21256
+      "lines": 149,
+      "bytes": 23794
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 80,
-      "bytes": 30820
+      "lines": 83,
+      "bytes": 32465
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 31726
+      "bytes": 31797
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -412,33 +412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "f41e98978de02a5dab9a2cb47e5f8ad1b9b1f7ec449d4995d7e76a193897808a",
-      "after": "010d6acb9f76fb0e624727704f9b606ca8423a9b44a9eab177f97d2f2495d179",
-      "owner": "Scene prepared named inputs and forward provider publication",
-      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4c58efdb79a3c2733f65f0585e890f8d4d7fbb5622c032fc33cbb54eee578684",
-      "after": "6715e3a071b674eb1ae7a46d01bc6d40e836ae032b3ce9aea53a3d3ae41ae1f6",
-      "owner": "Scene prepared named inputs and forward provider publication",
-      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b056207347f5d3e1dd0fa8f44724449ccd6f8a95ac33de8df7ecfeec10ee39e7",
-      "after": "b5aa07abdd2be86cb1515419100868ba6f41333630b5ebfb2aa7fe10dcf8ba52",
-      "owner": "Scene prepared named inputs and forward provider publication",
-      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
       "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
       "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
@@ -481,6 +454,33 @@
       "after": "003818c59b91071d97feef612a8ce228b3e9748399b5a9887aeabb38b5a52f84",
       "reason": "Replace full-history native controls with diffable table reuse and one lightweight task presentation lifetime; preserve all source preparation, progress, warm revisit and close behavior. Record paired 100/1000 native resource counts, corrected fixture lifetimes and actual scoped validation; compact prior target-size results without changing proof ceilings.",
       "decision": "docs/development/main-window-playlists-redesign.md#page-catalog"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "010d6acb9f76fb0e624727704f9b606ca8423a9b44a9eab177f97d2f2495d179",
+      "after": "34e29bdf1610b8294ce19735e64eeb2e7d9a2558504f2a736dca1bb55a7add84",
+      "owner": "Scene original forward graph output and frame target lifetime owners",
+      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6715e3a071b674eb1ae7a46d01bc6d40e836ae032b3ce9aea53a3d3ae41ae1f6",
+      "after": "fdb0ccaab29d87e462bb567ebac8ae4a22bffa40baf10e4f453736707b8bd1f3",
+      "owner": "Scene original forward graph output and frame target lifetime owners",
+      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b5aa07abdd2be86cb1515419100868ba6f41333630b5ebfb2aa7fe10dcf8ba52",
+      "after": "0560b773731d61b9e49da08f06c42848488ef6653292aa0d25564f11ab111e5e",
+      "owner": "Scene original forward graph output and frame target lifetime owners",
+      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
     }
   ]
 }

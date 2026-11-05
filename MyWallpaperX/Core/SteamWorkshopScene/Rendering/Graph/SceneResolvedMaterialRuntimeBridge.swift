@@ -677,6 +677,20 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func outputForComposite(
+        layerID: Int,
+        commandBuffer: MTLCommandBuffer
+    ) -> ExecutionResult? {
+        submissions.outputForComposite(layerID: layerID, commandBuffer: commandBuffer)
+    }
+
+    func markOutputReady(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture
+    ) -> CompositeOutcome {
+        submissions.markOutputReady(ticket, texture: texture)
+    }
+
     func drawTerminalMaterialReplay(
         _ ticket: ExecutionTicket,
         mainPass: SceneMainPassEncoder

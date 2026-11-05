@@ -4,6 +4,50 @@ import Foundation
 import Metal
 
 extension Harness {
+    static func retainedOutputPixelChecks(_ device: MTLDevice) -> [String: Any] {
+        let fixtures = (0..<3).map { directFixture(effectIndex: 950 + $0, layerID: 901 + $0) }
+        let colors = [MTLClearColorMake(1, 0, 0, 1), MTLClearColorMake(0, 1, 0, 1),
+                      MTLClearColorMake(0, 0, 1, 1)]
+        var outcomes: [String: Any] = [:]
+        for ownsUpstream in [false, true] {
+            let pool = SceneOffscreenTexturePool(device: device, pixelFormat: .bgra8Unorm,
+                residentByteBudget: 1_048_576)
+            guard let queue = device.makeCommandQueue(), let buffer = queue.makeCommandBuffer() else {
+                fatalError("retained output buffer unavailable")
+            }
+            let plans = fixtures.enumerated().compactMap { index, fixture in
+                pool.framePlanForPersistentGraphTargets(admittedGraphs: admittedGraphs([fixture]),
+                    pairPlan: pairPlan([fixture]), requestedWidth: 8, requestedHeight: 8,
+                    usesSharedFullFrameWorkingPair: !(ownsUpstream && index == 0),
+                    orderingContext: .init(commandBuffer: buffer))
+            }
+            guard plans.count == 3, pool.preflightPersistentGraphTargets(plans) == .ready,
+                  let prepared = pool.preparePersistentGraphTargets(framePlans: plans),
+                  let commits = pool.commitAndPinPersistentGraphTargets(prepared,
+                    historyTokensByTarget: [[:], [:], [:]], commandBuffer: buffer) else {
+                fatalError("retained output allocation unavailable")
+            }
+            let targets = prepared.compactMap { $0.leases.last?.table.outputTexture }
+            guard targets.count == 3 else { fatalError("retained output target unavailable") }
+            for index in targets.indices {
+                guard clear(targets[index], color: colors[index], device: device,
+                            commandBuffer: buffer) else { fatalError("retained output clear failed") }
+            }
+            // The readback is encoded after all three writes on this same CB.
+            let bytes = pixel(targets[0], device: device, commandBuffer: buffer)
+            let outcome: [String: Any] = [
+                "upstreamBGRA": bytes ?? [], "completed": buffer.status == .completed,
+                "upstreamOwned": plans[0].graphPlan.pairStorage == .owned,
+                "successorsShared": plans.dropFirst().allSatisfy { $0.graphPlan.pairStorage == .shared },
+                "successorTargetsAlias": targets[1] === targets[2],
+                "upstreamAliasesSuccessor": targets[0] === targets[1],
+            ]
+            outcomes[ownsUpstream ? "owned" : "shared"] = outcome
+            commits.forEach { $0.releaseAll() }
+        }
+        return ["retainedOutputPixels": outcomes]
+    }
+
     static func staticPlanMemoChecks(_ device: MTLDevice) -> [String: Any] {
         let fixture = fixture(effectIndex: 935, precise: true)
         let graphs = admittedGraphs([fixture])

@@ -217,6 +217,7 @@ extension SceneMetalRenderer {
             spriteAnimations: spriteAnimations,
             spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
+            authoredLayerIDs: frameProjection.orderedLayerIDs,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
@@ -461,6 +462,7 @@ extension SceneMetalRenderer {
 
             if let prepared = prepareForwardDependencyProviders(
                 orderedLayerIDs: frameProjection.orderedLayerIDs, layersByID: frameLayersByID,
+                frameVisibleLayerIDs: frameVisibleLayerIDs,
                 imageTextures: imageTextures,
                 imagePipeline: imagePipeline,
                 frameContext: frameContext,

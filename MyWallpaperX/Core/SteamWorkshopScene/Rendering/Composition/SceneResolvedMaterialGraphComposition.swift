@@ -498,25 +498,23 @@ extension SceneImageLayerCompositor {
         }
     }
 
-    func discardResolvedMaterialNamedPublicationLocally(
+    func resolveResolvedMaterialPublicationMiss(
         _ ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
         texture: MTLTexture,
         reasonCode: String,
+        preservesVisibleComposite: Bool = false,
         layerID: Int,
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
     ) -> Bool {
         guard let resolvedMaterialRuntime else { return false }
-        // The coordinator accepts exactly one canonical reason, so an
-        // integrity rejection can never enter this ordinary-miss route. The
-        // caller's specific typed reason is kept for the route trace instead
-        // of being collapsed into the canonical one.
-        let canonicalReasonCode = "named-provider-publication-unavailable"
-        switch resolvedMaterialRuntime.discardNamedPublicationOutputLocally(
-            ticket,
-            texture: texture,
-            reasonCode: canonicalReasonCode
-        ) {
+        // A visible color result still owns its authored main output when
+        // the independent named publication is unavailable.
+        let result = preservesVisibleComposite
+            ? resolvedMaterialRuntime.markOutputReady(ticket, texture: texture)
+            : resolvedMaterialRuntime.discardNamedPublicationOutputLocally(
+                ticket, texture: texture, reasonCode: "named-provider-publication-unavailable")
+        switch result {
         case .consumed:
 #if DEBUG
             executionTrace?.recordRouteOperation(

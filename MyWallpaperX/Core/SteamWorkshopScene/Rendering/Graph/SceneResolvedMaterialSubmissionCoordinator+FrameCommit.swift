@@ -366,6 +366,18 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         )
     }
 
+    func markOutputReady(
+        _ ticket: Bridge.ExecutionTicket,
+        texture: MTLTexture
+    ) -> Bridge.CompositeOutcome {
+        guard case let .color(.resolved(representation)) = ticket.finalContent,
+              representation != .independentAlphaSignal else {
+            return .failed(reasonCode: "offscreen-output-color-unavailable")
+        }
+        return markFinalOutput(ticket, texture: texture, consumed: true,
+            compositor: false, reasonPrefix: "offscreen-output")
+    }
+
     /// Terminates one already encoded named-provider transaction without
     /// publishing its candidate output or advancing its history.  The encoded
     /// resources remain pinned through the shared command-buffer completion,
@@ -492,7 +504,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             emit(emission)
             return .failed(reasonCode: reason)
         }
-        guard !ledger.ticketConsumed else {
+        let completesOffscreenOutput = compositor && ledger.ticketConsumed
+            && ledger.phase == .outputConsumed && !ledger.compositorConsumed
+            && ledger.localOutputFailureReasonCode == nil
+        guard !ledger.ticketConsumed || completesOffscreenOutput else {
             let reason = "\(reasonPrefix)-ticket-reused"
             frameFailures += 1
             emission = failActiveFrameLocked(reason: reason)
@@ -513,7 +528,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         activeByID[ticket.identity] = ledger
         guard ticket.finalTextureIdentity == ObjectIdentifier(texture),
               texture === ledger.prepared.finalTexture,
-              ledger.phase == .encoded,
+              (ledger.phase == .encoded || completesOffscreenOutput),
               ledger.candidateTails != nil else {
             let reason = "\(reasonPrefix)-texture-mismatch"
             frameFailures += 1
@@ -536,7 +551,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         ledger.compositorConsumed = compositor
         ledger.phase = .outputConsumed
         activeByID[ticket.identity] = ledger
-        scheduledTails = ledger.candidateTails ?? scheduledTails
+        // Named supply already advanced this ledger's history. A later authored
+        // composite must not replace tails containing its executed successors.
+        if !completesOffscreenOutput {
+            scheduledTails = ledger.candidateTails ?? scheduledTails
+        }
         lock.unlock()
         return .consumed
     }

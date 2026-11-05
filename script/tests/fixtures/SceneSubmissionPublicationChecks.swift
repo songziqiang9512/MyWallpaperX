@@ -601,6 +601,182 @@ enum SceneSubmissionPublicationChecks {
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
         }
 
+        try deferredAuthoredComposite(device: device, queue: queue, results: &results)
+    }
+
+    static func deferredAuthoredComposite(
+        device: MTLDevice, queue: MTLCommandQueue,
+        results: inout [String: Bool]
+    ) throws {
+        let cases = [
+            ("published", "namedOutputLaterCompositesWithoutRewindingSuccessors"),
+            ("ordinary-miss", "visiblePublicationMissRetainsAuthoredOutputAndHistory"),
+            ("hidden-miss", "hiddenPublicationMissCannotBorrowDiscardedOutput"),
+            ("data", "namedDataNeverBecomesAuthoredColor"),
+            ("alpha-signal", "namedIndependentAlphaNeverBecomesAuthoredColor"),
+            ("duplicate", "authoredOutputRejectsRepeatedBorrowAndComposite"),
+            ("stale", "authoredOutputRejectsStaleReceipt"),
+            ("foreign", "authoredOutputRejectsForeignTexture"),
+        ]
+        for (mode, key) in cases {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.encodeInputs = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            defer {
+                SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+                SceneResolvedMaterialGraphExecutor.encodeInputs = []
+                SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
+            }
+            let ids = [9, 8, 7] // U supplies P, then C; U's main draw is last.
+            let prepared = Dictionary(uniqueKeysWithValues: ids.enumerated().map { index, id in
+                var content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+                if id == 9 {
+                    if mode == "data" { content = .data }
+                    else if mode == "alpha-signal" { content = .color(.resolved(.independentAlphaSignal)) }
+                }
+                return (id, makeAtomicPrepared(device: device, layerID: id,
+                    generation: UInt64(index + 1), terminalContent: content))
+            })
+            SceneResolvedMaterialGraphExecutor.preparedByToken = prepared
+            let bindings = [externalPrimaryBinding(consumerLayerID: 8, providerLayerID: 9),
+                externalPrimaryBinding(consumerLayerID: 7, providerLayerID: 8)]
+            let inputs = Dictionary(uniqueKeysWithValues: bindings.map { binding in
+                (binding.consumerLayerID, dependencyInput(binding: binding,
+                    texture: makeTexture(device, "separate-named-\(binding.providerLayerID)"), frameEpoch: 31)
+                    .withContent(prepared[binding.providerLayerID]!.finalResource.publication.candidate.content))
+            })
+            let coordinator = makeCoordinator(device, layerIDs: ids,
+                dependencyOwnershipByLayerID: [8: .externalPrimary(bindings[0]), 7: .externalPrimary(bindings[1])])
+            // C retires real prior history. Restoring U's old candidate tails
+            // after C runs would wrongly resurrect it.
+            let oldPin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "C-prior")]), generation: 1)
+            let prior = makeTail(device: device, token: "C-prior", generation: 1, pin: oldPin)
+            coordinator.committedTails = [effect: prior]
+            coordinator.scheduledTails = [effect: prior]
+            let targets = Dictionary(uniqueKeysWithValues: ids.enumerated().map { index, id in
+                (id, makeAtomicTargets(layerID: id, generation: UInt64(index + 1)))
+            })
+            let pool = SceneOffscreenTexturePool(factory: { targets[$0.graphPlan.key.layerID]!.prepared })
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(textureSnapshot: .init(frameIndex: 31, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init())
+            let requests = ids.map { id -> SceneResolvedMaterialRuntimeBridge.FramePreparationRequest in
+                guard case let .claimed(claim) = coordinator.preflightClaim(layerID: id) else {
+                    fatalError("deferred composite preflight unavailable")
+                }
+                return .init(claim: claim, targetPlan: .init(token: claim.token,
+                    allocation: .init(graphPlan: .init(key: .init(layerID: id)))),
+                    sourceTexture: makeTexture(device, "authored-source-\(id)"),
+                    sourceUniforms: .init(), sourcePipeline: .init(),
+                    frameInputs: .fixture.replacingDependencyEffects(inputs[id].map { [$0] } ?? []))
+            }
+            guard case .ready = coordinator.prepareFrame(requests, pool: pool, commandBuffer: buffer),
+                  case let .claimed(uClaim) = coordinator.claim(layerID: 9),
+                  case let .encoded(uTexture, uTicket) = coordinator.executeClaimed(
+                    claim: uClaim, commandBuffer: buffer) else {
+                results[key] = false
+                _ = coordinator.endFrame()
+                continue
+            }
+            let uReceipt: SceneResolvedMaterialRuntimeBridge.CompositeOutcome
+            switch mode {
+            case "ordinary-miss": uReceipt = coordinator.markOutputReady(uTicket, texture: uTexture)
+            case "hidden-miss": uReceipt = coordinator.discardNamedPublicationOutputLocally(
+                uTicket, texture: uTexture, reasonCode: "named-provider-publication-unavailable")
+            default: uReceipt = coordinator.markNamedPublication(uTicket, texture: uTexture, published: true)
+            }
+            guard case .consumed = uReceipt else {
+                results[key] = false
+                _ = coordinator.endFrame()
+                continue
+            }
+            let uIdentity = uTicket.identity
+            var downstream = coordinator.scheduledTails[effect]?.historyPin === oldPin
+            for id in [8, 7] {
+                let ready: [SceneDependencyEffectInput] = id == 8 && (mode == "ordinary-miss" || mode == "hidden-miss")
+                    ? [] : inputs[id].map { [$0] } ?? []
+                guard case let .claimed(claim) = coordinator.claim(layerID: id),
+                      case let .encoded(texture, ticket) = coordinator.executeClaimed(
+                        claim: claim, dependencyEffects: ready, commandBuffer: buffer) else {
+                    downstream = false
+                    break
+                }
+                let receipt = id == 8
+                    ? coordinator.markNamedPublication(ticket, texture: texture, published: true)
+                    : coordinator.markComposite(ticket, texture: texture, consumed: true)
+                if case .failed = receipt { downstream = false }
+            }
+            let beforeBorrow = (SceneResolvedMaterialGraphExecutor.prepareCallCount,
+                SceneResolvedMaterialGraphExecutor.encodeInputs.count, pool.batchCommitCount)
+            let tailsRetired = coordinator.scheduledTails.isEmpty
+            let borrowed = coordinator.outputForComposite(layerID: 9, commandBuffer: buffer)
+            var borrowedCorrectly = false
+            if mode == "hidden-miss" || mode == "data" || mode == "alpha-signal" {
+                borrowedCorrectly = borrowed == nil
+                    && coordinator.activeByID[uIdentity]?.compositorConsumed == false
+                if mode == "hidden-miss" {
+                    borrowedCorrectly = borrowedCorrectly && coordinator.preparedLedgerByLayerID[9] == nil
+                        && coordinator.frameLocalFallbacks[9] == "named-provider-publication-unavailable"
+                }
+            } else if case let .encoded(texture, ticket)? = borrowed {
+                let foreignBuffer = queue.makeCommandBuffer()!
+                let wrongBufferRejected: Bool
+                if case .failed? = coordinator.outputForComposite(layerID: 9, commandBuffer: foreignBuffer) {
+                    wrongBufferRejected = true
+                } else { wrongBufferRejected = false }
+                borrowedCorrectly = texture === uTexture && ticket == uTicket && wrongBufferRejected
+                    && coordinator.preparedLedgerByLayerID[9] == uIdentity
+                    && coordinator.frameLocalFallbacks[9] == nil && oldPin.active
+                let receiptTicket = mode == "stale" ? SceneResolvedMaterialRuntimeBridge.ExecutionTicket(
+                    identity: ticket.identity, epoch: ticket.epoch + 1,
+                    finalTextureIdentity: ticket.finalTextureIdentity, finalContent: ticket.finalContent,
+                    consumesExternalPrimaryDependency: ticket.consumesExternalPrimaryDependency,
+                    effectFailures: ticket.effectFailures) : ticket
+                let receipt = coordinator.markComposite(receiptTicket,
+                    texture: mode == "foreign" ? makeTexture(device, "foreign-final") : texture, consumed: true)
+                if mode == "stale" || mode == "foreign" {
+                    if case .failed = receipt {
+                        results[key] = downstream && tailsRetired && borrowedCorrectly
+                            && coordinator.frameRequiresDrop && coordinator.frameFailures > 0
+                    } else { results[key] = false }
+                    _ = coordinator.endFrame()
+                    continue
+                }
+                if case .failed = receipt { borrowedCorrectly = false }
+                if mode == "duplicate" {
+                    let repeatedBorrow: Bool
+                    if case .failed? = coordinator.outputForComposite(layerID: 9, commandBuffer: buffer) {
+                        repeatedBorrow = true
+                    } else { repeatedBorrow = false }
+                    if case .failed = coordinator.markComposite(ticket, texture: texture, consumed: true) {
+                        results[key] = downstream && tailsRetired && borrowedCorrectly && repeatedBorrow
+                            && coordinator.frameRequiresDrop && coordinator.frameFailures > 0
+                    } else { results[key] = false }
+                    _ = coordinator.endFrame()
+                    continue
+                }
+                borrowedCorrectly = borrowedCorrectly
+                    && coordinator.activeByID[uIdentity]?.compositorConsumed == true
+            }
+            let noSecondWork = beforeBorrow.0 == SceneResolvedMaterialGraphExecutor.prepareCallCount
+                && beforeBorrow.1 == SceneResolvedMaterialGraphExecutor.encodeInputs.count
+                && beforeBorrow.2 == pool.batchCommitCount && beforeBorrow.1 == 3
+            let historiesStayedRetired = coordinator.scheduledTails.isEmpty
+            let pinsRetained = targets.values.allSatisfy { $0.commit.submissionPin.active }
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            coordinator.completeCommandBuffer(identity: ObjectIdentifier(buffer),
+                observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
+                status: buffer.status == .completed && buffer.error == nil ? .completed : .failed)
+            results[key] = downstream && tailsRetired && borrowedCorrectly && noSecondWork
+                && historiesStayedRetired && pinsRetained && sealed && buffer.status == .completed
+                && buffer.error == nil && coordinator.committedTails.isEmpty && oldPin.releaseCount == 1
+                && pool.batchCommitCount == 1 && coordinator.activeByID.isEmpty
+                && targets.values.allSatisfy { $0.commit.submissionPin.releaseCount == 1 }
+            _ = coordinator.endFrame()
+        }
     }
 
     static func repeatedTerminalPublication(

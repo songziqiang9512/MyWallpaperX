@@ -231,7 +231,7 @@ enum SceneShaderStableDigest {
         "graph-\(graph.layerID)-\(graph.nodes.count)"
     }
 }
-enum StubAlpha: Hashable { case opaque, premultipliedAlpha, straightAlpha }
+enum StubAlpha: Hashable { case opaque, premultipliedAlpha, straightAlpha, independentAlphaSignal }
 enum StubColor: Hashable { case resolved(StubAlpha) }
 enum SceneTextureContent: Hashable {
     case data

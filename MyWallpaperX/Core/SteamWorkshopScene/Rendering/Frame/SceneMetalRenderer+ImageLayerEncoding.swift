@@ -57,29 +57,13 @@ extension SceneMetalRenderer {
         let dependencyEffects = dependencyResolution.dependencyEffects
         let resolvedDependencyFailure = dependencyResolution.failure
         let geometryProduct = imageTextures.geometryProducts[layer.id]
-        let terminalMaterialState = modelFrame.imageMaterialStates[layer.id]
-        let terminalDepth: SceneImageLayerTerminalDepthBinding?
-        if terminalMaterialState?.requiresDepthAttachment == true {
-            guard let binding = modelFrame.terminalDepthBinding(
-                pass: layerMainPass, commandBuffer: commandBuffer) else {
-                // Qualification already reserved this exact frame/pass. Losing
-                // it now is an identity/lifecycle failure, not a visual fallback.
-                modelFrame.sceneDepthFailureReason = "image-terminal-depth-binding-invalid"
-                return (true, nil)
-            }
-            terminalDepth = binding
-        } else { terminalDepth = nil }
-        // The native camera contract is proven for world-space images.
-        // Orthographic Fog's distance domain remains unproven; neither canvas
-        // depth nor the fitted perspective eye is established by current probes.
-        let fog = cameraFrame.defaultsToPerspective && usesPerspective ? SceneImageDistanceFogUniforms(
-            color: frameLightSnapshot.distanceFogColor,
-            range: frameLightSnapshot.distanceFogRange,
-            cameraRelativeOrigin: model.columns.3
-                - SIMD4(cameraFrame.perspectiveEyePosition, 0),
-            modelX: model.columns.0,
-            modelY: model.columns.1
-        ) : .init()
+        guard let terminal = imageLayerTerminalInputs(layerID: layer.id, model: model,
+            cameraFrame: cameraFrame, usesPerspective: usesPerspective,
+            frameLightSnapshot: frameLightSnapshot, modelFrame: modelFrame,
+            pass: layerMainPass, commandBuffer: commandBuffer) else { return (true, nil) }
+        let terminalMaterialState = terminal.state
+        let terminalDepth = terminal.depth
+        let fog = terminal.fog
         let cursorInverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(mvp)
         let cursorUV = SceneLayerCursorGeometry.layerUV(
             mouseNormalized: frameContext.pointer.current,
@@ -258,5 +242,85 @@ extension SceneMetalRenderer {
 #endif
         }
         return (false, drawOutcome)
+    }
+
+    func encodePreparedImageLayerOutput(
+        layer: SceneRenderDescriptor.Layer,
+        geometryProduct: SceneGeometryProduct?,
+        imagePipeline: SceneImageLayerPipeline,
+        model: simd_float4x4,
+        mvp: simd_float4x4,
+        cameraFrame: SceneParticleCameraFrame,
+        usesPerspective: Bool,
+        time: Float,
+        frameLightSnapshot: SceneLightSnapshot,
+        modelFrame: StaticModelFrame,
+        layerMainPass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer,
+        effectExecutionTrace: SceneEffectExecutionFrameTrace?
+    ) -> (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?) {
+        guard let result = imageCompositor.resolvedMaterialRuntime?.outputForComposite(
+            layerID: layer.id, commandBuffer: commandBuffer) else { return (false, nil) }
+        switch result {
+        case let .failed(reasonCode):
+            imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
+            return (true, nil)
+        case let .encoded(texture, ticket):
+            guard let terminal = imageLayerTerminalInputs(layerID: layer.id, model: model,
+                cameraFrame: cameraFrame, usesPerspective: usesPerspective,
+                frameLightSnapshot: frameLightSnapshot, modelFrame: modelFrame,
+                pass: layerMainPass, commandBuffer: commandBuffer) else { return (true, nil) }
+            // Source color/coverage and effect inputs are already in the
+            // output; this request enters only the shared final compositor.
+            var request = SceneImageLayerDrawRequest(layer: layer, texture: texture,
+                masks: .empty, textureFrame: .identity, mvp: mvp,
+                uniforms: .init(time: time, alpha: 1, cursorUV: .zero),
+                offscreenTexturePool: nil, effectSourceExtent: nil,
+                requiresSourceCopy: false, finalCompositeAlpha: nil,
+                geometryProduct: geometryProduct, distanceFog: terminal.fog)
+            request.terminalMaterialState = terminal.state
+            request.terminalDepth = terminal.depth
+            request.terminalMVP = terminal.depth == nil ? nil : SceneMatrix.reversingDepth(mvp)
+            return (false, imageCompositor.drawPreparedOutput(request, ticket: ticket,
+                pipeline: imagePipeline, mainPass: layerMainPass,
+                executionTrace: effectExecutionTrace,
+                executionOrigin: Self.effectExecutionOrigin(for: layer.contentKind)))
+        }
+    }
+
+    private func imageLayerTerminalInputs(
+        layerID: Int,
+        model: simd_float4x4,
+        cameraFrame: SceneParticleCameraFrame,
+        usesPerspective: Bool,
+        frameLightSnapshot: SceneLightSnapshot,
+        modelFrame: StaticModelFrame,
+        pass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer
+    ) -> (state: SceneMaterialRenderState?, depth: SceneImageLayerTerminalDepthBinding?, fog: SceneImageDistanceFogUniforms)? {
+        let terminalMaterialState = modelFrame.imageMaterialStates[layerID]
+        let terminalDepth: SceneImageLayerTerminalDepthBinding?
+        if terminalMaterialState?.requiresDepthAttachment == true {
+            guard let binding = modelFrame.terminalDepthBinding(
+                pass: pass, commandBuffer: commandBuffer) else {
+                // Qualification already reserved this exact frame/pass. Losing
+                // it now is an identity/lifecycle failure, not a visual fallback.
+                modelFrame.sceneDepthFailureReason = "image-terminal-depth-binding-invalid"
+                return nil
+            }
+            terminalDepth = binding
+        } else { terminalDepth = nil }
+        // The native camera contract is proven for world-space images.
+        // Orthographic Fog's distance domain remains unproven; neither canvas
+        // depth nor the fitted perspective eye is established by current probes.
+        let fog = cameraFrame.defaultsToPerspective && usesPerspective ? SceneImageDistanceFogUniforms(
+            color: frameLightSnapshot.distanceFogColor,
+            range: frameLightSnapshot.distanceFogRange,
+            cameraRelativeOrigin: model.columns.3
+                - SIMD4(cameraFrame.perspectiveEyePosition, 0),
+            modelX: model.columns.0,
+            modelY: model.columns.1
+        ) : .init()
+        return (terminalMaterialState, terminalDepth, fog)
     }
 }

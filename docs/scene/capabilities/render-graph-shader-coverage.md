@@ -84,6 +84,19 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
+<a id="forward-graph-output-consumption"></a>
+### 图输出的供货与作者位合成
+
+同帧 graph 结果完成 named 供货，不代表可见层已经完成作者位的主合成。原 Coordinator ledger 保留唯一 texture、content、ticket、history 与 pin；提前供货后的可见层在自己的作者位置借用该结果，沿原 final-composite 消费当前 placement、alpha、depth 和 fog。晚消费不重新 claim、解析依赖、取 layer source、执行 graph、分配或发布，不增加结果缓存、持久标志或第二输出 owner。原 `compositorConsumed` 区分主合成是否完成；晚到的主合成回执只接纳这一消费，不能用上游旧 candidate tails 覆盖已包含后继的 scheduled tails。
+
+强引用和 submission pin 只保 GPU 对象寿命，不能阻止同 command buffer 的后继写入共享工作 pair。原 Preflight 在准备入口复用原 forward-order memo，以真实作者顺序、活动 graph 和当前可见集合确定晚消费需求；仅这部分 graph 选择已有 owned pair，其余保持共享。原 `pairStorage` key、预算、memo、lease、回滚和 pin 承接这项寿命，不复制结果或新增缓存，也不把所有可见 graph 一律私有化。合法同需求帧复用同一供货顺序；实际准备失败导致需求改变时，再按已成功计划求值。
+
+静态 material 的 data 存储只描述成功输出，activation 或局部失败仍可保留之前的 color；分配前不能用它取消可见闭包的 owned 保护。最终内容在 Executor 准备完成后才确定，当前沿原有界 pair 分配保这一潜在消费，不增加扫描、内容缓存或后置复制。
+
+可见 color 结果遇到普通 named publication miss 时，仍保已编码结果与原 lookup，供作者位合成；不伪称供货成功，也不沿 hidden discard 撤销有效主输出。hidden miss 保原局部回退，data 不进入颜色合成，错误资源或回执仍由实际 owner 拒绝最小不安全单元。供货可执行性取决于真实 source 截点；background/prefix、utility 或成员顺序依赖不能借本修复升级为全局 prepass 独立来源。
+
+验收沿原 Coordinator/Bridge 门核 U→P→C 后的晚主消费、history/pin、普通供货失败及重复/过期回执；签名 App 用独立来源的 visible U、hidden P 和更早 C，核双 UV 贡献、作者位遮挡、单次 graph/主消费、改名与 hidden 邻例。先限定这个可复验结果，前缀正确取时和多上游调度仍分别留在原队列。
+
 <a id="color"></a>
 ## 颜色、数据与显示
 

@@ -132,38 +132,71 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             ledger.preparationContext = nil
             activeByID[identity] = ledger
             frameEncoded += 1
-            let consumesExternalPrimaryDependency = !dependencyEffects.isEmpty
-            let result = Bridge.ExecutionResult.encoded(
-                texture: ledger.prepared.finalTexture,
-                ticket: .init(
-                    identity: identity,
-                    epoch: executionEpoch,
-                    finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
-                    finalContent: ledger.prepared.finalResource.publication.candidate.content,
-                    consumesExternalPrimaryDependency:
-                        consumesExternalPrimaryDependency,
-                    effectFailures: ledger.prepared.stages.compactMap { stage in
-                        guard let reasonCode = stage.effectLocalFailureReasonCode else {
-                            return nil
-                        }
-                        return .init(
-                            layerID: stage.effect.layerID,
-                            effectIndex: stage.effect.effectIndex,
-                            descriptorID: stage.effect.descriptorID,
-                            reasonCode: reasonCode
-                        )
-                    },
-                    hasTerminalMaterialReplay:
-                        ledger.prepared.terminalMaterialReplay != nil,
-                    terminalReplayBlendMode:
-                        ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode ?? 0,
-                    terminalReadsCurrentAttachment:
-                        ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true
-                )
-            )
+            let effectFailures: [Bridge.ExecutionTicket.EffectFailure] =
+                ledger.prepared.stages.compactMap { stage in
+                    guard let reasonCode = stage.effectLocalFailureReasonCode else { return nil }
+                    return .init(layerID: stage.effect.layerID,
+                        effectIndex: stage.effect.effectIndex,
+                        descriptorID: stage.effect.descriptorID, reasonCode: reasonCode)
+                }
+            let result = executionOutput(for: ledger, effectFailures: effectFailures)
             lock.unlock()
             return result
         }
+    }
+
+    func outputForComposite(
+        layerID: Int,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bridge.ExecutionResult? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard terminalFailureReason == nil, frameIsActive,
+              framePreparationComplete, !frameRequiresDrop,
+              frameFailure == nil else {
+            return .failed(reasonCode: "composite-output-frame-unavailable")
+        }
+        guard let identity = preparedLedgerByLayerID[layerID] else { return nil }
+        guard let ledger = activeByID[identity], ledger.layerID == layerID,
+              ledger.epoch == executionEpoch,
+              ledger.commandBuffer === commandBuffer,
+              commandBuffer.status == .notEnqueued else {
+            return .failed(reasonCode: "composite-output-identity-mismatch")
+        }
+        guard !ledger.compositorConsumed else {
+            return .failed(reasonCode: "final-composite-ticket-reused")
+        }
+        guard ledger.localOutputFailureReasonCode == nil else { return nil }
+        guard ledger.phase == .outputConsumed, ledger.ticketConsumed,
+              ledger.prepared.terminalMaterialReplay == nil else {
+            return .failed(reasonCode: "composite-output-not-ready")
+        }
+        guard case let .color(.resolved(representation)) =
+                ledger.prepared.finalResource.publication.candidate.content,
+              representation != .independentAlphaSignal else { return nil }
+        return executionOutput(for: ledger, effectFailures: [])
+    }
+
+    private func executionOutput(
+        for ledger: PreparedLedger,
+        effectFailures: [Bridge.ExecutionTicket.EffectFailure]
+    ) -> Bridge.ExecutionResult {
+        .encoded(
+            texture: ledger.prepared.finalTexture,
+            ticket: .init(
+                identity: ledger.identity,
+                epoch: ledger.epoch,
+                finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
+                finalContent: ledger.prepared.finalResource.publication.candidate.content,
+                consumesExternalPrimaryDependency: !ledger.preparedDependencyEffects.isEmpty,
+                effectFailures: effectFailures,
+                hasTerminalMaterialReplay: ledger.prepared.terminalMaterialReplay != nil,
+                terminalReplayBlendMode:
+                    ledger.prepared.terminalMaterialReplay?.role.terminalReplayBlendMode ?? 0,
+                terminalReadsCurrentAttachment:
+                    ledger.prepared.terminalMaterialReplay?.role.readsCurrentAttachment == true
+            )
+        )
     }
 
     /// The single admission ladder for a claimed execution.

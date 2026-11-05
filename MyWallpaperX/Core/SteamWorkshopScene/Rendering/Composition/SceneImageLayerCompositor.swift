@@ -437,7 +437,7 @@ struct SceneImageLayerCompositor {
                     graphOutputPublished = true
                 case let .unavailable(reasonCode):
                     if !compositeOutput {
-                        guard discardResolvedMaterialNamedPublicationLocally(
+                        guard resolveResolvedMaterialPublicationMiss(
                             graphExecutionTicket, texture: finalTexture,
                             reasonCode: reasonCode, layerID: request.layer.id,
                             executionTrace: executionTrace, executionOrigin: executionOrigin
@@ -445,20 +445,16 @@ struct SceneImageLayerCompositor {
                         return .normal(consumedDependency:
                             graphExecutionTicket.consumesExternalPrimaryDependency)
                     }
-#if DEBUG
-                    executionTrace?.recordRouteOperation(
-                        layerID: request.layer.id,
-                        origin: executionOrigin,
-                        operation: "named-provider-publication",
-                        outcome: .failed(reasonCode: reasonCode)
-                    )
-#endif
-
                     // Color providers still own a visible authored-order
                     // output.  Preserve that main-compositor result; the
                     // absent named target makes only its dependent consumer
                     // take the ordinary local-miss path.
                     guard graphExecutionTicket.finalContent != .data else {
+#if DEBUG
+                        executionTrace?.recordRouteOperation(layerID: request.layer.id,
+                            origin: executionOrigin, operation: "named-provider-publication",
+                            outcome: .failed(reasonCode: reasonCode))
+#endif
                         _ = consumeResolvedMaterialNamedPublication(
                             graphExecutionTicket,
                             texture: finalTexture,
@@ -469,6 +465,12 @@ struct SceneImageLayerCompositor {
                         )
                         return .failed
                     }
+                    guard resolveResolvedMaterialPublicationMiss(
+                        graphExecutionTicket, texture: finalTexture,
+                        reasonCode: reasonCode, preservesVisibleComposite: true,
+                        layerID: request.layer.id, executionTrace: executionTrace,
+                        executionOrigin: executionOrigin
+                    ) else { return .failed }
                 case let .invalid(reasonCode):
 #if DEBUG
                     executionTrace?.recordRouteOperation(
@@ -511,64 +513,12 @@ struct SceneImageLayerCompositor {
                         graphExecutionTicket.consumesExternalPrimaryDependency
                 )
             }
-            let finalValues = SceneImageLayerUniformValues(
-                time: request.uniforms.time,
-                alpha: request.finalCompositeAlpha ?? 1,
-                cursorUV: request.uniforms.cursorUV
+            return compositeOffscreenOutput(
+                request, texture: finalTexture, ticket: graphExecutionTicket,
+                dependencyEffect: dependencyEffect, hasDependencyInput: hasDependencyInput,
+                colorBlendPipeline: colorBlendPipeline, pipeline: pipeline, mainPass: mainPass,
+                executionTrace: executionTrace, executionOrigin: executionOrigin
             )
-            let dependencyConsumed = graphExecutionTicket?
-                .consumesExternalPrimaryDependency == true
-            let finalRepresentation: SceneShaderColorRepresentation
-            if let graphExecutionTicket {
-                guard case let .color(.resolved(representation)) =
-                    graphExecutionTicket.finalContent,
-                    representation != .independentAlphaSignal else {
-                    return .failed
-                }
-                finalRepresentation = representation
-            } else {
-                finalRepresentation = .premultipliedAlpha
-            }
-            let finalUniforms = makeFragmentUniforms(
-                values: finalValues,
-                textureFrame: .identity,
-                tint: SIMD3(repeating: 1),
-                dependencyBlendMode: dependencyConsumed
-                    ? nil
-                    : dependencyEffect?.blendMode,
-                sourceRepresentation: finalRepresentation
-            )
-            let finalDependencyTexture = dependencyConsumed
-                ? nil : dependencyEffect?.texture
-            let composited = SceneImageLayerMainPassRenderer.draw(
-                texture: finalTexture,
-                mvp: request.mvp,
-                uniforms: finalUniforms,
-                dependencyTexture: finalDependencyTexture,
-                layer: request.layer,
-                pipeline: pipeline,
-                colorBlendPipeline: colorBlendPipeline,
-                distanceFog: request.distanceFog,
-                geometryProduct: request.geometryProduct,
-                terminalDepth: request.terminalDepth,
-                terminalMaterialState: request.terminalMaterialState,
-                terminalMVP: request.terminalMVP,
-                mainPass: mainPass
-            )
-            if let graphExecutionTicket {
-                guard consumeResolvedMaterialComposite(
-                    graphExecutionTicket,
-                    texture: finalTexture,
-                    consumed: composited,
-                    layerID: request.layer.id,
-                    executionTrace: executionTrace,
-                    executionOrigin: executionOrigin
-                ) else { return .failed }
-            }
-            guard composited else { return .failed }
-            return request.geometryProduct == nil
-                ? .normal(consumedDependency: hasDependencyInput)
-                : .geometryEncoded(consumedDependency: hasDependencyInput)
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
@@ -711,5 +661,101 @@ struct SceneImageLayerCompositor {
             executionTrace: executionTrace,
             executionOrigin: executionOrigin
         )
+    }
+
+    func compositeOffscreenOutput(
+        _ request: SceneImageLayerDrawRequest,
+        texture: MTLTexture,
+        ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket?,
+        dependencyEffect: SceneDependencyEffectInput? = nil,
+        hasDependencyInput: Bool,
+        colorBlendPipeline: SceneLayerColorBlendPipeline?,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> DrawOutcome {
+        let finalValues = SceneImageLayerUniformValues(
+            time: request.uniforms.time,
+            alpha: request.finalCompositeAlpha ?? 1,
+            cursorUV: request.uniforms.cursorUV
+        )
+        let dependencyConsumed = ticket?
+            .consumesExternalPrimaryDependency == true
+        let finalRepresentation: SceneShaderColorRepresentation
+        if let ticket {
+            guard case let .color(.resolved(representation)) =
+                ticket.finalContent,
+                representation != .independentAlphaSignal else {
+                return .failed
+            }
+            finalRepresentation = representation
+        } else {
+            finalRepresentation = .premultipliedAlpha
+        }
+        let finalUniforms = makeFragmentUniforms(
+            values: finalValues,
+            textureFrame: .identity,
+            tint: SIMD3(repeating: 1),
+            dependencyBlendMode: dependencyConsumed
+                ? nil
+                : dependencyEffect?.blendMode,
+            sourceRepresentation: finalRepresentation
+        )
+        let finalDependencyTexture = dependencyConsumed
+            ? nil : dependencyEffect?.texture
+        let composited = SceneImageLayerMainPassRenderer.draw(
+            texture: texture,
+            mvp: request.mvp,
+            uniforms: finalUniforms,
+            dependencyTexture: finalDependencyTexture,
+            layer: request.layer,
+            pipeline: pipeline,
+            colorBlendPipeline: colorBlendPipeline,
+            distanceFog: request.distanceFog,
+            geometryProduct: request.geometryProduct,
+            terminalDepth: request.terminalDepth,
+            terminalMaterialState: request.terminalMaterialState,
+            terminalMVP: request.terminalMVP,
+            mainPass: mainPass
+        )
+        if let ticket {
+            guard consumeResolvedMaterialComposite(
+                ticket,
+                texture: texture,
+                consumed: composited,
+                layerID: request.layer.id,
+                executionTrace: executionTrace,
+                executionOrigin: executionOrigin
+            ) else { return .failed }
+        }
+        guard composited else { return .failed }
+        return request.geometryProduct == nil
+            ? .normal(consumedDependency: hasDependencyInput)
+            : .geometryEncoded(consumedDependency: hasDependencyInput)
+    }
+
+    func drawPreparedOutput(
+        _ request: SceneImageLayerDrawRequest,
+        ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> DrawOutcome {
+        let mode = request.layer.colorBlendMode ?? 0
+        guard SceneLayerColorBlendRenderer.supports(mode) else {
+            resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: "layer-color-blend-unsupported")
+            return .failed
+        }
+        let colorBlendPipeline = mode == 0 ? nil : colorBlendPipelineSlot.resolve()
+        guard mode == 0 || colorBlendPipeline != nil else {
+            resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: "layer-color-blend-pipeline-unavailable")
+            return .failed
+        }
+        return compositeOffscreenOutput(request, texture: request.texture, ticket: ticket,
+            hasDependencyInput: ticket.consumesExternalPrimaryDependency,
+            colorBlendPipeline: colorBlendPipeline, pipeline: pipeline, mainPass: mainPass,
+            executionTrace: executionTrace, executionOrigin: executionOrigin)
     }
 }
