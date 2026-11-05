@@ -375,11 +375,11 @@
     },
     {
       "id": "scene-particle-scalar-remap",
-      "title": "Rain scalar speed Remap 作者运动",
+      "title": "粒子 Remap 标量消费与时间来源",
       "owner": "scene-particle",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "Generic scalar input/range/transform/operation/output ownership: docs/scene/architecture/runtime-architecture.md#particle-scalar-remap. Qualify defaults and sine/time semantics before implementing; reuse the original clock, blend, ordered writer and one execution plan, preserve existing noise behavior, and retire shape admission instead of adding a time-opacity profile.",
+      "design_notes": "Generic scalar input/range/transform/operation/output ownership: docs/scene/architecture/runtime-architecture.md#particle-scalar-remap. Qualify defaults, range/implicit transform and sine/time independently before implementing; the bounded time control does not qualify Simulator.simulationTime as this source. Reuse the existing typed SceneFrameTiming supply only after source semantics are established, with the original blend, ordered writer and one execution plan; preserve noise behavior and retire shape admission rather than add a time-opacity profile.",
       "matchPatterns": [],
       "contentPatterns": [
         "SceneParticleScalarSpeedRemapPlan",

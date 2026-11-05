@@ -149,7 +149,7 @@ Root 新生沿原 birthPositionOffset 进入 reference。Child 复用原系统 o
 
 Remap 的 input、range、transform、operation、output 和原 lifecycle blend 分别准备、消费；不得再以一组字段形状授执行许可，或另加“某input+某output+某flags”的样本式 profile。新增消费者沿原 Parser → OperatorExecutionPlan → Simulator → batch/GPU，不增加时钟、组件注册表或每帧解析。外层 blend 已由 Operator 解析，Remap 不重复将其判为未知字段。
 
-首个新增值源是原粒子系统时间，首个输出是 opacity。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 的既有行为保留在同一执行计划中，替换平行可选计划，不增加第三份专用许可；超出已有真实消费者的源或值维度保持局部不可用。
+首个待接通的 input 是作者 `particlesystemtime`，首个输出是 opacity。其供值必须与 range/缺省 transform 分开资格，不能按字段名称直接别名为含预热和 rate 缩放的 `Simulator.simulationTime`。现有 SceneClock/SceneFrameTiming 是 typed 时间载体，不因此替未资格的 input 定义语义；沿原 frame→runtime→step 只传消费者需要的值，不增加第二时钟。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 的既有行为保留在同一执行计划中，替换平行可选计划，不增加第三份专用许可；超出已有真实消费者的源或值维度保持局部不可用。
 
 缺省 operation、input/output range、sine 的相位/单位/幅度及实际 clock 必须先有可区分证据，再写入数值合同，不能猜公式或沿用 noise 近似。先做一组有界官方控制：缺省与显式参数、常量输出运算、可见时钟与冻结相位、预热；无法区分时保留问题，重新评估下一项，不反复扩大矩阵。数值验收含有限值、0 scale、逆序范围、真正无效输入、改名与既有噪声/RNG邻例，不增加编辑器数值上限或整壁纸拒绝。
 
