@@ -9,7 +9,8 @@ func mixedSystemNamedProviderTokens(
     let shader = contract(
         revision: "mixed-system-named-overlay",
         secondSamplerMetadata: #"{"mode":"rgbmask","default":"util/white"}"#,
-        overlayAlphaBlend: true
+        overlayAlphaBlend: true,
+        semanticProbes: false
     )
     let namedReference = SceneNamedTextureReference(
         providerLayerID: 879,
@@ -130,15 +131,27 @@ func mixedSystemNamedProviderTokens(
     )))
     let countersAfter = cache.counters
     let snapshot = cache.launchEnvelopeCapabilitySnapshot()
+    func mask(_ result: Result<Program, SceneResolvedMaterialFailure>) -> Int {
+        guard case let .success(program) = result,
+              let bits = inputAssociationMask(program) else { return -1 }
+        return Int(bits)
+    }
+    func namedBoundaryConsumesPMA(_ result: Result<Program, SceneResolvedMaterialFailure>) -> Bool {
+        guard case let .success(program) = result,
+              let boundary = program.frontendProgram.colorBoundary,
+              Set([0, 1]).isSubset(of: Set(boundary.colorInputSlots)),
+              boundary.requiresInputMask, boundary.outputRepresentation == .straightAlpha,
+              Set(program.frontendProgram.textureBindings.map(\.slot)) == [0, 1],
+              program.textureSlots[1]?.resource.publication.candidate.content
+                == .color(.resolved(.premultipliedAlpha)),
+              case let .color(output) = program.semanticIdentity.outputContract else { return false }
+        return output.framebufferInput == .straightAlpha && output.fragmentOutput == .straightAlpha
+    }
     return [
         "variantCount": snapshot.variants.count,
         "allReady": snapshot.allEntriesReady,
-        "abiSlots": snapshot.variants.map {
-            $0.premultipliedColorInputSlots.sorted()
-        }.sorted { $0.lexicographicallyPrecedes($1) },
-        "profiles": Array(Set(snapshot.variants.map {
-            $0.routeDecision.profile
-        })).sorted(),
+        "inputMasks": [mask(ready), mask(absent), mask(readyAgain), mask(pending), mask(unavailable)],
+        "namedBoundaryConsumesPMA": [absent, pending, unavailable].allSatisfy(namedBoundaryConsumesPMA),
         "ready": selectionToken(ready),
         "absent": selectionToken(absent),
         "readyAgain": selectionToken(readyAgain),

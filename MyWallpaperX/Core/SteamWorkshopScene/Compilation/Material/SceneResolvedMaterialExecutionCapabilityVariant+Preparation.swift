@@ -10,6 +10,7 @@ private nonisolated func normalBlendIdentifiers(
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func prepareVariantSources(
         template: Template,
+        seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         variantKey: SceneResolvedMaterialVariantKey,
         readinessMask: UInt8,
         readiness: [Int: Bool],
@@ -94,6 +95,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let cachedAnalysis = variantAnalysisKey.flatMap {
             SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: $0)
         }
+        let resolvedIntegerCombos: [String: Int]
+        if let cachedAnalysis {
+            resolvedIntegerCombos = cachedAnalysis.resolvedIntegerCombos
+        } else {
+            guard let resolved = SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                contract: template.shaderContract, prepared: prepared, combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
+                textureReadiness: readiness, textureFormats: variantKey.resolvedTextureFormats)
+            else { throw failure(.shaderPreparationFailed, phase: .preparation) }
+            resolvedIntegerCombos = resolved
+        }
 #if DEBUG
         let canonicalizeStart = CACurrentMediaTime()
 #endif
@@ -114,7 +126,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .canonicalize(
                     vertex: prepared.vertex.source,
                     fragment: prepared.fragment.source,
-                    boundTextureSlots: boundTextureSlots
+                    boundTextureSlots: boundTextureSlots,
+                    unboundTextureResolutionSlots: SceneResolvedMaterialShaderSchema.unboundOptionalTextureResolutionSlots(
+                        template: template, samplers: seedSamplers, resolvedCombos: resolvedIntegerCombos)
                 )
         }
 #if DEBUG
@@ -137,13 +151,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     prepared: prepared
                 )
         }
-        let resolvedIntegerCombos: [String: Int]
         let activeSamplerNames: Set<String>
         let sourceActiveSamplers: [
             Int: SceneResolvedMaterialShaderSchema.Sampler
         ]
         if let cachedAnalysis {
-            resolvedIntegerCombos = cachedAnalysis.resolvedIntegerCombos
             activeSamplerNames = cachedAnalysis.activeSamplerNames
             sourceActiveSamplers = cachedAnalysis.sourceActiveSamplers
         } else {
@@ -154,20 +166,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     runtimeLoopBounds: runtimeLoopBounds,
                     boundTextureSlots: boundTextureSlots
                 ) ?? []
-            guard let resolved =
-                    SceneAuthoredShaderPreparation.resolvedIntegerCombos(
-                        contract: template.shaderContract,
-                        prepared: prepared,
-                        combos: template.comboValues,
-                        inactiveComboProviders: Set(
-                            template.inheritedInactiveCombos
-                        ),
-                        textureReadiness: readiness,
-                        textureFormats: variantKey.resolvedTextureFormats
-                    ) else {
-                throw failure(.shaderPreparationFailed, phase: .preparation)
-            }
-            resolvedIntegerCombos = resolved
             do {
                 // Source-proven texture typing reads the prepared source:
                 // the canonical pair is a derived compiler input shape, and

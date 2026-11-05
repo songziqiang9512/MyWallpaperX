@@ -244,6 +244,65 @@ private func runFramebufferCases(
     rtDefaultResults: [String: Bool],
     results: [String: Bool]
 ) {
+    var optionalResolutionResults: [String: Bool] = [:]
+    for (name, slots, expression) in [
+        ("single", [1], "vec3(g_Texture1Resolution.x * 0.125, g_Texture1Resolution.y * 0.25, g_Texture1Resolution.z * 0.375)"),
+        ("multiple", [2, 5], "(g_Texture2Resolution.xyz + g_Texture5Resolution.xyz) * vec3(0.0625, 0.125, 0.1875)"),
+        ("renamedEquivalent", [7], "vec3((g_Texture7Resolution.x + g_Texture7Resolution.x) / 16.0, g_Texture7Resolution.y / 4.0, g_Texture7Resolution.w * 0.375)")
+    ] {
+        let declarations = slots.map { slot in
+            "uniform vec4 g_Texture\(slot)Resolution;\n"
+                + "uniform sampler2D g_Texture\(slot); // {\"material\":\"\(name) arbitrary key\",\"combo\":\"AUX_\(slot)\"}\n"
+        }.joined()
+        let guardedSamples = slots.map { slot in
+            "#if AUX_\(slot)\nrenamedValue += texSample2D(g_Texture\(slot), vec2(0.5)).rgb;\n#endif\n"
+        }.joined()
+        let shader = shaderContract(nodeIndex: 0, pass: false, fragmentOverride: """
+        varying vec2 v_TexCoord;
+        \(declarations)
+        void main() {
+            vec3 renamedValue = \(expression);
+            \(guardedSamples)
+            gl_FragColor = vec4(renamedValue, 1.0);
+        }
+        """)
+        let value = Template.validated(textureSlots: Array(repeating: nil, count: 8),
+            combos: [], uniformDeclarations: [], renderState: SceneMaterialRenderState.compile(
+                blending: "normal", depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
+            graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
+                nodeTarget: .effectOutput, bindings: []), shaderContract: shader,
+            diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: shader.identity,
+                contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        let probeGraph = graph(targets: [], nodes: [implicitFramebufferMaterial(0, ordinal: 0, target: output)])
+        let chain = admittedGraph(probeGraph)
+        let entry = SceneResolvedMaterialRuntimeCatalog.Entry.template(value,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
+        let values = capabilities(chain, catalog: .init(entries: [.init(effect: effect, nodeIndex: 0): entry],
+            resourceDemandIssues: []))
+        let key = "missingOptionalResolution-" + name
+        optionalResolutionResults[key] = false
+        guard let claim = values.claim(chain), let capability = values.resolve(claim.token, for: chain),
+              let leases = makeChainedLeases(capability, device: device, generation: 204),
+              let executor = Executor(device: device, capabilities: values),
+              let command = queue.makeCommandBuffer() else { continue }
+        let result = executor.prepare(token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+            frame: frame(204), sourceTexture: source, sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+            frameInputs: .init(), commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: 1, resetGeneration: 1)
+        guard case let .success(prepared) = result, prepared.stages.count == 1,
+              prepared.stages[0].effectLocalFailureReasonCode == nil,
+              prepared.stages[0].effectLocalActivationBypassReasonCode == nil,
+              executor.encode(prepared, commandBuffer: command),
+              let readback = appendReadback(prepared.finalTexture, commandBuffer: command) else { continue }
+        command.commit(); command.waitUntilCompleted()
+        // BGRA readback: independent RGB oracle is (2/8,2/4,2*3/8).
+        optionalResolutionResults[key] = command.status == .completed && command.error == nil
+            && matches(readback.firstPixel, [191, 128, 64, 255])
+            && matches(readback.lastPixel, [191, 128, 64, 255])
+            && executor.effectLocalFallbackCounts.isEmpty
+            && values.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+    }
     let implicitFramebufferGraph = graph(
         targets: [],
         nodes: [
@@ -452,7 +511,7 @@ private func runFramebufferCases(
         "unreadableSourceCaptureRejectedDuringPreflight":
             failureCode(unreadableCapturePreparation)
                 == Executor.Failure.captureRejected.rawValue,
-    ]
+    ].merging(optionalResolutionResults) { _, new in new }
     return (
         rtDefaultResults,
         results

@@ -70,7 +70,7 @@ typealias SceneAuthoredShaderGraphInputColorBlendFact = SceneResolvedMaterialVar
 enum SceneShaderTextureFormat: String { case fixture }
 
 private typealias Cache = SceneResolvedMaterialVariantAnalysisCache
-private let currentSchemaVersion = 30
+private let currentSchemaVersion = 31
 private var checks: [String: Bool] = [:]
 
 private func record() -> Cache.Record {

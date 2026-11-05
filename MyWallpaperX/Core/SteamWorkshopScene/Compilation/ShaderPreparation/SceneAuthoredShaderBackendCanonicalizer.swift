@@ -24,7 +24,8 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
     private static let maximumSourceBytes = 512 * 1_024
 
     static func canonicalize(
-        vertex: String, fragment: String, boundTextureSlots: Set<Int> = []
+        vertex: String, fragment: String, boundTextureSlots: Set<Int> = [],
+        unboundTextureResolutionSlots: Set<Int> = []
     ) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
         var result = Pair(
@@ -104,11 +105,79 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
               result.fragment.utf8.count <= maximumSourceBytes else {
             return original
         }
+        result = lowerUnboundTextureResolutions(result, slots: unboundTextureResolutionSlots)
         let projected = SceneAuthoredShaderDeadBindingAnalyzer.projectSources(
             vertex: result.vertex, fragment: result.fragment,
             boundTextureSlots: boundTextureSlots
         )
         return Pair(vertex: projected.vertex, fragment: projected.fragment)
+    }
+
+    private static func lowerUnboundTextureResolutions(_ pair: Pair, slots: Set<Int>) -> Pair {
+        guard !slots.isEmpty else { return pair }
+        let outputs = [
+            SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: pair.vertex, stage: .vertex), stage: .vertex),
+            SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: pair.fragment, stage: .fragment), stage: .fragment),
+        ]
+        guard outputs.allSatisfy({ $0.diagnostics.isEmpty }),
+              let vertex = outputs[0].unit, let fragment = outputs[1].unit else { return pair }
+        let units = [vertex, fragment]
+        let metadata = [pair.vertex, pair.fragment].map {
+            SceneShaderContractSourceParser().parse($0, stageRelativePath: "")
+        }
+        guard metadata.allSatisfy({ $0.diagnostics.isEmpty }) else { return pair }
+        let uniqueDeclarations = units.map { SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(in: $0.tokens) }
+        let names = Set(slots.compactMap { slot -> String? in
+            let sampler = "g_Texture\(slot)", name = sampler + "Resolution"
+            guard !units.contains(where: {
+                SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(sampler, in: $0)
+            }) else { return nil }
+            let declarations = units.flatMap { $0.declarations.filter { $0.name == name } }
+            guard !declarations.isEmpty,
+                  declarations.allSatisfy({ $0.storage == .uniform && $0.typeName == "vec4" && $0.arraySize == nil }),
+                  zip(units, uniqueDeclarations).allSatisfy({ unit, declarations in
+                      !unit.declarations.contains(where: { $0.name == name }) || declarations[name] != nil
+                  }), zip(units, metadata).allSatisfy({ unit, parsed in
+                      unit.declarations.filter { $0.name == name }.allSatisfy { declaration in
+                          parsed.annotations.filter { $0.line == declaration.line }.allSatisfy { annotation in
+                              guard case let .object(values) = annotation.value else { return false }
+                              return values["default"] == nil
+                                  && (values["material"] == nil || values["material"]?.stringValue == name)
+                          }
+                      }
+                  }) else { return nil }
+            return name
+        })
+        func lower(_ source: String, unit: SceneAuthoredShaderSyntaxUnit) -> String {
+            var scalars = Array(source.unicodeScalars), lineStarts = [0]
+            for index in scalars.indices where scalars[index] == "\n" { lineStarts.append(index + 1) }
+            var edits: [(Range<Int>, String)] = []
+            for declaration in unit.declarations where names.contains(declaration.name) {
+                let tokens = unit.tokens[declaration.range]
+                guard let first = tokens.first, let last = tokens.last,
+                      lineStarts.indices.contains(first.line - 1), lineStarts.indices.contains(last.line - 1)
+                else { return source }
+                let start = lineStarts[first.line - 1] + first.column - 1
+                let end = lineStarts[last.line - 1] + last.column - 1 + last.text.unicodeScalars.count
+                // Macro-expanded tokens cannot authorize edits at authored offsets.
+                guard start >= 0, start < end, end <= scalars.count,
+                      tokens.allSatisfy({ token in
+                          guard lineStarts.indices.contains(token.line - 1) else { return false }
+                          let offset = lineStarts[token.line - 1] + token.column - 1
+                          let spelling = Array(token.text.unicodeScalars)
+                          return offset >= start && offset + spelling.count <= end
+                              && Array(scalars[offset..<(offset + spelling.count)]) == spelling
+                      }) else { return source }
+                edits.append((start..<end, "const vec4 \(declaration.name) = vec4(2.0);"))
+            }
+            for (range, value) in edits.sorted(by: { $0.0.lowerBound > $1.0.lowerBound }) {
+                scalars.replaceSubrange(range, with: value.unicodeScalars)
+            }
+            return String(String.UnicodeScalarView(scalars))
+        }
+        return Pair(vertex: lower(pair.vertex, unit: vertex), fragment: lower(pair.fragment, unit: fragment))
     }
 
     /// Both compiler backends consume the same explicit scalar assignment

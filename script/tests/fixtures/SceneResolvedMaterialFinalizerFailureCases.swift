@@ -446,7 +446,7 @@ final class SceneResolvedMaterialFinalizerFailureCases {
         )),
         "arithmeticOutput": failureToken(arithmeticOutputProgram),
         "arithmeticScalarOutput": failureToken(finalize(
-            shader: contract(revision: "arithmetic-scalar-output", arithmetic: true),
+            shader: contract(revision: "arithmetic-scalar-output", arithmetic: true, semanticProbes: false),
             device: self.fixture.device,
             outputStorage: .scalarRedUnorm
         )),

@@ -48,7 +48,11 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         })
         let inactiveSamplerNames = samplerNames.subtracting(activeSamplerNames)
         let resolutionSamplers = Dictionary(uniqueKeysWithValues:
-            inactiveSamplerNames.map { ($0 + "Resolution", $0) }
+            inactiveSamplerNames.filter { name in
+                units.contains { unit in unit.declarations.contains {
+                    $0.storage == .uniform && $0.name == name + "Resolution"
+                } }
+            }.map { ($0 + "Resolution", $0) }
         )
         let uniformNames = Set(vertex.declarations.compactMap { declaration -> String? in
             guard declaration.storage == .uniform,

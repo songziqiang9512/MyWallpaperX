@@ -16,8 +16,8 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    // v30 removes the retired composite eligibility payload.
-    private static let schemaVersion = 30
+    // Recompute canonical sources that previously required an unbound Resolution texture.
+    private static let schemaVersion = 31
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()

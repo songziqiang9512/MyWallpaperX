@@ -445,6 +445,9 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
         payload = json.loads(completed.stdout)
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
+        self.assertEqual(sorted(key for key in payload["results"] if key.startswith("missingOptionalResolution-")),
+                         ["missingOptionalResolution-multiple", "missingOptionalResolution-renamedEquivalent",
+                          "missingOptionalResolution-single"])
         self.assertEqual(
             [
                 name

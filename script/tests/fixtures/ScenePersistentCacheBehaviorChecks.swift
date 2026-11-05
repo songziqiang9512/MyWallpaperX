@@ -317,7 +317,7 @@ private func runVariantProbe(denied: Bool = false) throws -> ProbeOutput {
         from: JSONSerialization.data(withJSONObject: unknownPayload))
     try expect(into: &output, unknown.rebuild() == nil, "sampler-purpose-unknown-miss")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v30")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v31")
     let key = "probe-variant-key"
     try expect(
         into: &output,

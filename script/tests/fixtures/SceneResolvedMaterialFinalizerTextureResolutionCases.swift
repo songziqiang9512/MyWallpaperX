@@ -476,6 +476,76 @@ func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
     ]
 }
 
+func optionalResolutionProgramTokens(_ device: MTLDevice) -> [String: String] {
+    var results: [String: String] = [:]
+    for name in ["single", "multiple", "renamed", "equivalent", "candidate", "default", "pending", "sampledMissing"] {
+        let slot = name == "renamed" ? 5 : 1
+        let varying = name == "renamed" ? "anotherCarrier" : "resolutionCarrier"
+        let resource = ["candidate", "default", "pending"].contains(name)
+        let path = SceneVFSAssetPath("textures/optional-\(name).tex")!
+        let identity = SceneFrameTextureIdentity.asset(.init(path: path, purpose: .mask))
+        let metadata = name == "default"
+            ? "\"mode\":\"opacitymask\",\"default\":\"\(path.value)\","
+            : resource ? "\"mode\":\"opacitymask\"," : ""
+        let extraUniform = name == "multiple" ? "uniform vec4 g_Texture3Resolution;" : ""
+        let extraSampler = name == "multiple"
+            ? "uniform sampler2D g_Texture3; // {\"material\":\"Other key\",\"combo\":\"OTHER_AUX\"}\n" : ""
+        let expression = name == "equivalent" ? "(g_Texture\(slot)Resolution.xy + g_Texture\(slot)Resolution.xy) * 0.5"
+            : "g_Texture\(slot)Resolution.xy"
+        let vertex = """
+        attribute vec3 a_Position;
+        uniform vec4 g_Texture\(slot)Resolution;
+        \(extraUniform)
+        varying vec4 \(varying);
+        void main() {
+            gl_Position = vec4(a_Position, 1.0);
+            \(varying) = vec4(\(expression), \(name == "multiple" ? "g_Texture3Resolution.zw" : "g_Texture\(slot)Resolution.zw"));
+        }
+        """
+        let color = name == "sampledMissing" ? "texSample2D(g_Texture\(slot), vec2(0.5))"
+            : "vec4(\(varying).xy * 0.125, \(varying).z * 0.25, 1.0)"
+        let fragment = """
+        varying vec4 \(varying);
+        uniform sampler2D g_Texture\(slot); // {\(metadata)"material":"\(name == "renamed" ? "Unseen buffer" : "textbuffer")","combo":"OPTIONAL_AUX"}
+        \(extraSampler)void main() {
+            vec4 outputColor = \(color);
+        #if OPTIONAL_AUX
+            outputColor.rgb += vec3(texSample2D(g_Texture\(slot), vec2(0.5)).r * 0.125);
+        #endif
+        \(name == "multiple" ? "#if OTHER_AUX\noutputColor.rgb += vec3(texSample2D(g_Texture3, vec2(0.5)).r * 0.125);\n#endif" : "")
+            gl_FragColor = outputColor;
+        }
+        """
+        let shader = contract(revision: "optional-resolution-\(name)", uniformMetadata: nil,
+            semanticProbes: false, vertexSourceOverride: vertex, fragmentSourceOverride: fragment)
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        if name == "candidate" || name == "pending" {
+            slots[slot] = .init(index: slot, candidates: [.init(reference: .asset(path), provenance: .material)])
+        }
+        let entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = resource
+            ? [identity: name == "pending" ? .pending : readyStatus(device, identity: identity,
+                purpose: .mask, content: .data, physicalSize: CGSize(width: 64, height: 32),
+                mappedSize: CGSize(width: 64, height: 32))] : [:]
+        let result = finalize(shader: shader, device: device, includePrimaryCandidate: false,
+            additionalEntries: entries, outputStorage: .preservedRGBAUnorm, textureSlotsOverride: slots)
+        guard case let .success(program) = result else {
+            results["optionalResolution-" + name] = failureToken(result); continue
+        }
+        if resource {
+            let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms)
+                .first { $0.0.field.name == "g_Texture\(slot)Resolution" }
+            results["optionalResolution-" + name] = uniform.map { binding in
+                (0..<4).map { sceneResolvedMaterialFixtureFloat(binding.1.encodedValue, at: $0 * 4) }
+            } == [64, 32, 64, 32] ? "resource" : "resource-metadata-lost"
+        } else {
+            results["optionalResolution-" + name] = program.textureSlots[slot] == nil
+                && (name != "multiple" || program.textureSlots[3] == nil)
+                ? "success" : "manufactured-resource"
+        }
+    }
+    return results
+}
+
 func neutralTextureResolutionFinalizerFailures(
     _ device: MTLDevice
 ) -> [String: String] {
@@ -566,7 +636,7 @@ func neutralTextureResolutionFinalizerFailures(
             )
         )),
         "unsampledDefaultResolution": defaultToken,
-    ]
+    ].merging(optionalResolutionProgramTokens(device)) { _, new in new }
 }
 
 func mappedTextureResolutionTokens(

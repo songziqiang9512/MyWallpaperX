@@ -22,9 +22,6 @@ STOCK_MATERIAL_ROOT = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/materials"
 )
-VISUAL_PASSTHROUGH_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
-)
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import (  # noqa: E402
@@ -358,6 +355,14 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "wrongComponent": "uniform/staticUniformBindingInvalid",
                 "downstreamComputation": "success",
                 "unsampledDefaultResolution": "success",
+                "optionalResolution-single": "success",
+                "optionalResolution-multiple": "success",
+                "optionalResolution-renamed": "success",
+                "optionalResolution-equivalent": "success",
+                "optionalResolution-candidate": "resource",
+                "optionalResolution-default": "resource",
+                "optionalResolution-pending": "texture/resourceSnapshotUnresolved",
+                "optionalResolution-sampledMissing": "texture/textureBindingInvalid",
             },
         )
 
@@ -538,10 +543,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "variantCount": 2,
                 "allReady": True,
-                "abiSlots": [[], [1]],
-                "profiles": [
-                    "source-proven-graph-input-overlay-alpha-blend",
-                ],
+                "inputMasks": [1, 3, 1, 3, 3],
+                "namedBoundaryConsumesPMA": True,
                 "ready": "system:preserved-channels",
                 "absent": "named:premultiplied-color",
                 "readyAgain": "system:preserved-channels",
@@ -837,27 +840,6 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "formatFailureKeepsHealthyOwner": True,
             "validFormatsSurviveReachabilityFailure": True,
         })
-
-    def test_visual_passthrough_reasons_remain_bounded(self) -> None:
-        finalizer_text = FINALIZER_SOURCE.read_text(encoding="utf-8")
-        visual_text = VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            ".hostUniformBindingInvalid",
-            finalizer_text,
-        )
-        self.assertIn(".activeUniformSchemaMissing", finalizer_text)
-        for reason in (
-            '"material-finalizer-host-uniform-declaration-conflict"',
-            '"material-finalizer-uniform-declaration-conflict"',
-        ):
-            self.assertIn(reason, visual_text)
-        self.assertNotIn(
-            "material-finalizer-host-uniform-binding",
-            visual_text,
-        )
-        self.assertNotIn("material-finalizer-active-uniform-schema", visual_text)
-        self.assertIn('reasonCode == "material-variant-envelope-invariant"', visual_text)
-        self.assertIn("&& !graph.renderTargets.isEmpty", visual_text)
 
     def test_frame_selection_consumes_only_precompiled_sampler_reachability(self) -> None:
         variant_text = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")

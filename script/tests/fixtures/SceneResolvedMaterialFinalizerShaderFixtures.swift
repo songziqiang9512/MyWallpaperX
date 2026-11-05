@@ -43,7 +43,7 @@ func vertexSource(
     } else {
         stageLocalUniform = ""
     }
-    let stageLocalProbe = stageLocalUniforms ? "float vertexProbe = g_Gain;" : ""
+    let stageLocalProbe = stageLocalUniforms || sharedStageLocalBinding ? "float vertexProbe = g_Gain;" : ""
     return """
     #if 1
     uniform mat4 g_ModelViewProjectionMatrixInverse;
@@ -72,7 +72,7 @@ func vertexSource(
             + effectModelViewProjectionProbe[0][0]
             + forwardProjectionProbe[0][0]
             + layerModelProbe[0][0]
-            \(stageLocalUniforms ? "+ vertexProbe" : "");
+            \(stageLocalUniforms || sharedStageLocalBinding ? "+ vertexProbe" : "");
         v_TexCoord.xy = a_TexCoord + parallaxProbe + vec2(hostProbe);
         \(maskCoordinates)
         gl_Position = mul(
@@ -247,7 +247,7 @@ func fragmentSource(
     } else {
         stageLocalUniform = ""
     }
-    let stageLocalProbe = stageLocalUniforms ? "float fragmentProbe = g_Gain;" : ""
+    let stageLocalProbe = stageLocalUniforms || sharedStageLocalBinding ? "float fragmentProbe = g_Gain;" : ""
     let metadataProbes = semanticProbes
         ? "vec3 tintProbe = u_Tint;\nfloat timeProbe = g_Time;"
         : ""
@@ -275,6 +275,15 @@ func fragmentSource(
         : ""
     let pointerStateUniform = pointerState ? "uniform vec4 g_PointerState;" : ""
     let pointerStateProbe = pointerState ? "vec4 pointerState = g_PointerState;" : ""
+    let scaleComponent = scalarSplatType == "float" ? "scaleProbe" : "scaleProbe.x"
+    let probeConsumers: [String?] = [
+        semanticProbes ? "gl_FragColor.rgb *= tintProbe * (1.0 + timeProbe);" : nil,
+        audioSpectrum ? "gl_FragColor.rgb *= 1.0 + audioProbe;" : nil,
+        stageLocalUniforms || sharedStageLocalBinding ? "gl_FragColor.rgb *= fragmentProbe;" : nil,
+        runtimeLoop ? "gl_FragColor.rgb *= 1.0 + runtimeProbe;" : nil,
+        pointerState ? "gl_FragColor.rgb *= 1.0 + dot(pointerState, vec4(1.0));" : nil,
+        scalarSplatScale ? "gl_FragColor.rgb *= 1.0 + \(scaleComponent);" : nil,
+    ]
     return """
     varying \(optionalMask ? "vec4" : "vec2") v_TexCoord;
     \(combo)
@@ -298,6 +307,7 @@ func fragmentSource(
         \(metadataProbes)
         \(scalarSplatProbe)
         \(output)
+        \(probeConsumers.compactMap { $0 }.joined(separator: "\n"))
     }
     """
 }

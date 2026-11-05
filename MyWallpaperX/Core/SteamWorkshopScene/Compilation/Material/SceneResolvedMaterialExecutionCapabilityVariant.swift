@@ -737,6 +737,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         do {
             let variant = try Self.compile(
                 template: template,
+                seedSamplers: seedSamplers,
                 variantKey: key,
                 outputStorage: outputStorage,
                 outputIsRGBA8Unorm: outputIsRGBA8Unorm,

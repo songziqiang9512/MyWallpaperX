@@ -118,7 +118,7 @@ def fixture_entries(case):
 
 
 def text_entries(case):
-    renamed = case == 8
+    renamed = case in (8, 12)
     entries = fixture_entries(1 if renamed else 0)
     graph_entries = fixture_entries(4 if renamed else 3)
     word, shift = ("retitled_source", 1000) if renamed else ("own_parent", 0)
@@ -150,6 +150,30 @@ def text_entries(case):
         source["effects"].insert(0, {"id": 299, "file": f"effects/{key}/effect.json", "visible": True})
         if case == 10:
             entries[f"materials/{word}/absent-text-effect-asset.tex"] = solid_texture((255,255,255))
+    if case in (11, 12):
+        slots = (1, 7) if renamed else (3,)
+        uv, metadata = ("v_RetitledUV", "v_RetitledMetadata") if renamed else ("v_TexCoord", "v_Metadata")
+        declarations = "".join(f"uniform vec4 g_Texture{slot}Resolution;\n" for slot in slots)
+        value = (f"vec4(g_Texture{slots[0]}Resolution.xy,g_Texture{slots[-1]}Resolution.xy)"
+                 if renamed else f"g_Texture{slots[0]}Resolution")
+        entries[f"shaders/{word}/parent-gbr.vert"] = (
+            "attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
+            "uniform mat4 g_ModelViewProjectionMatrix;\n" + declarations +
+            f"varying vec2 {uv};\nvarying vec4 {metadata};\n"
+            f"void main(){{gl_Position=mul(vec4(a_Position,1.0),g_ModelViewProjectionMatrix);"
+            f"{uv}=a_TexCoord;{metadata}={value};}}\n").encode()
+        optional = "".join(f'uniform sampler2D g_Texture{slot}; // '
+            f'{{"material":"{word}_optional_{ordinal}","combo":"OWN_AUX_{ordinal}"}}\n'
+            for ordinal, slot in enumerate(slots))
+        guarded = "".join(f"\n#if OWN_AUX_{ordinal}\n"
+            f"color=texSample2D(g_Texture{slot},{uv});\n#endif\n"
+            for ordinal, slot in enumerate(slots))
+        gain = f"({metadata}.x+{metadata}.w)*0.125" if renamed else f"dot({metadata}.xy,vec2(0.125))"
+        entries[f"shaders/{word}/parent-gbr.frag"] = (
+            'uniform sampler2D g_Texture0; // {"material":"previous"}\n' + optional +
+            f"varying vec2 {uv};\nvarying vec4 {metadata};\n"
+            f"void main(){{vec4 color=texSample2D(g_Texture0,{uv});" + guarded +
+            f"gl_FragColor=vec4(color.gbr*({gain}),color.a);}}\n").encode()
     suffix = f"shaders/{word}/external-suffix.frag"
     entries[suffix] = entries[suffix].replace(b"vec3(1.0,0.5,1.0)", b"vec3(0.5)")
     scene["objects"].append({"id": 42 + shift, "name": f"{word} green text peer",
@@ -160,11 +184,11 @@ def text_entries(case):
 
 
 def text_protocol(case):
-    return {"case": case, "source": 1020 if case == 8 else 20,
-        "consumer": 1023 if case == 8 else 23, "slot": 2 if case == 8 else 5,
+    return {"case": case, "source": 1020 if case in (8, 12) else 20,
+        "consumer": 1023 if case in (8, 12) else 23, "slot": 2 if case in (8, 12) else 5,
         "sourceHasGraph": case != 6, "sourceMissingAsset": case == 9,
         "sourceHasAssetPass": case in (9,10), "sourceColorEffectIndex": 1 if case in (9,10) else 0,
-        "consumerCoreRGB": [128, 0, 0] if case == 6 else [0, 0, 128],
+        "consumerCoreRGB": [128, 0, 0] if case == 6 else [0, 0, 64] if case in (11, 12) else [0, 0, 128],
         "rects": {"consumer": [320, 96, 448, 160], "hidden": [64, 96, 192, 160],
                   "glyphPeer": [64, 32, 192, 64]},
         "minimumCorePixels": 64, "tolerance": 2,
@@ -300,10 +324,15 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             with self.subTest(case=case):
                 self.run_text_case(case)
 
+    def test_unbound_optional_resolution_reaches_coretext_named_output(self):
+        for case in (11, 12):
+            with self.subTest(case=case):
+                self.run_text_case(case)
+
     def run_text_case(self, case):
         requested = text_protocol(case)
         (self.evidence_root / f"text-protocol-{case}.json").write_bytes(encoded(requested))
-        word = "retitled_source" if case == 8 else "own_parent"
+        word = "retitled_source" if case in (8, 12) else "own_parent"
         with patch.object(app_runner, "fixture_entries", text_entries), patch.object(
                 app_runner, "measure_capture", lambda path: measure_text_capture(path, requested)):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,

@@ -4,6 +4,7 @@ import QuartzCore
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
+        seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         variantKey: SceneResolvedMaterialVariantKey,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
         outputIsRGBA8Unorm: Bool,
@@ -33,6 +34,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers
         ) = try prepareVariantSources(
             template: template,
+            seedSamplers: seedSamplers,
             variantKey: variantKey,
             readinessMask: readinessMask,
             readiness: readiness,

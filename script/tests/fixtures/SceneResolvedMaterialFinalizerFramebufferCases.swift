@@ -323,7 +323,8 @@ final class SceneResolvedMaterialFinalizerFramebufferCases {
     lazy var scalarRedConsumerProgram = finalize(
         shader: contract(
             revision: "scalar-red-consumer",
-            directRedInput: true
+            directRedInput: true,
+            semanticProbes: false
         ),
         device: self.fixture.device,
         primaryReference: .graph(framebufferTexture()),
@@ -352,7 +353,8 @@ final class SceneResolvedMaterialFinalizerFramebufferCases {
     lazy var scalarRedForgedTEXFormat = finalize(
         shader: contract(
             revision: "scalar-red-forged-tex-format",
-            directRedInput: true
+            directRedInput: true,
+            semanticProbes: false
         ),
         device: self.fixture.device,
         primaryReference: .graph(framebufferTexture()),
@@ -382,7 +384,8 @@ final class SceneResolvedMaterialFinalizerFramebufferCases {
     lazy var scalarRedWrongFormat = finalize(
         shader: contract(
             revision: "scalar-red-wrong-format",
-            directRedInput: true
+            directRedInput: true,
+            semanticProbes: false
         ),
         device: self.fixture.device,
         primaryReference: .graph(framebufferTexture()),
@@ -424,7 +427,7 @@ final class SceneResolvedMaterialFinalizerFramebufferCases {
     }()
 
     lazy var rgbaDataConsumerProgram = finalize(
-        shader: contract(revision: "rgba-data-consumer"),
+        shader: contract(revision: "rgba-data-consumer", semanticProbes: false),
         device: self.fixture.device,
         primaryReference: .graph(framebufferTexture()),
         primaryGraphTextureRole: .framebuffer,

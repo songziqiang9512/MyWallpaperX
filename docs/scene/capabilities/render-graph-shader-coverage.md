@@ -30,6 +30,17 @@ Generic 当前有固定 float varying 数组的有界路径，较宽数组要求
 
 原 dead-binding 行为门覆盖改局部/资源/槽位名、等价纯表达式及死值链，同时核两 backend 的 emission 和 ABI；活读、alpha-only、Resolution-only、vertex/varying、branch/discard、坐标副作用及 helper/global 写保持原语义。bounded 不支持的 discard 仍保原边界；非法调用分别核 AST/发射与实际 Metal 库编译，不能以存在接口当完整接纳。签名 App 的 source 与 effect 死采样控制已核可区分像素，活缺资源仍只回退当前 effect 并让健康后继完成。具体作者断点与验证范围由[运行证据](runtime-evidence-current.md#coverage)维护，不授任意控制流 DCE、官方像素或性能。
 
+<a id="unbound-texture-resolution"></a>
+### 未绑定可选纹理的 Resolution
+
+实现合同：可选 sampler 未设置来源且当前变体不采样时，Resolution 的数值消费不得被当成必需 GPU 纹理。`material` 是作者纹理键，不能按 textbuffer 等名称猜文字或 previous 来源。[官方纹理合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#optional-visible-texture)只定义绑定资源尺寸；固定客户端的未绑定数值观察及边界归[运行证据](runtime-evidence-current.md)。
+
+当前修正采用原准备链上的常量降低：原 Schema/Template 一次确认没有 authored candidate、shader default 或 graph/current 来源，真实 readiness 关闭且没有采样后，将该槽的 `vec4 Resolution` 降为已资格的 `vec4(2)`，保留作者后续计算。共同 compiler 输入供 bounded/generic 使用，不建第二 metadata/store/clock，不伪造纹理，也不加普通帧分析或 nil-resource fallback。该规则适用于多个槽及任意合法表达式，不再要求固定 UV 乘除形状。已声明但文件缺失、pending、default、named、graph/current 和真实采样继续原资源选择与失败半径；不能将它们压成“未绑定”。
+
+复用现有准备身份和缓存版本退出旧分析，保作者原始源码与诊断身份。被替代的中性 UV AST 许可及无消费者的 fact/cache/frame 透传同批退出；若尚有独立消费者，只保其原范围并明确后续退出条件，不能为新表达式追加白名单。
+
+验收使用直接 x/y 与等价表达式、改变量/资源名及多未绑定槽，核两 backend 和实际 Metal/终端像素；真实资源/default/named 尺寸、缺文件与 pending 以及活跃缺采样保反例。作者 1087 的拒绝消除须由原 Program 实际执行与最终命名消费者确认；准备通过不能代替画面恢复，不授全字体、完整圆环或性能一致。
+
 <a id="intrinsic-argument-conversion"></a>
 ### Intrinsic 参数转换
 
@@ -87,7 +98,7 @@ source 的角色由模型、材质及实际编译输入决定。已声明 passth
 
 冷启动关闭的普通 effect 沿[输入准备合同](runtime-input-property-coverage.md#properties)保留真实 Program 与 Binding，不再因 DirectBool 来源加一层整层 named consumer/声明依赖禁令。准备仍以实际 graph 和停用拓扑为准；本帧需求沿[唯一 activation 与 slot 投影](#named-source-execution-cuts)选择，潜在输入不取得执行权，其他活动 slot 也不能使停用 slot 重入。standalone utility 与 provider 的现有准备边界保持；真实入口与 off/on/off 像素结果归[运行证据](runtime-evidence-current.md)。
 
-隐藏、无子层、无 utility 且无声明依赖的普通 text 保留自身 named 来源，不因存在活动效果取消 carrier。复用现有 imageLayerBlend 与实际 active effect 推导的 requiredGraphProvider 集合：有 FramePlan 时经原 Program 执行并发布 graph-final，不能以 raw glyph 捕获冒称效果执行；没有 Program 时的精确 base-source fail-soft 与图内局部旁路仍沿原 owner，保留实际降级事实。text 的 ready source、PMA、已接受 graph extent、frame epoch 与 ledger/publication 生命周期保持，visible effectful text 和其他来源域不随此范围开放。可区分着色效果、改名及缺资源/补资源的真实输出见[运行证据](runtime-evidence-current.md)；隐式 textbuffer 输入保独立缺口，不猜填来源。
+隐藏、无子层、无 utility 且无声明依赖的普通 text 保留自身 named 来源，不因存在活动效果取消 carrier。复用现有 imageLayerBlend 与实际 active effect 推导的 requiredGraphProvider 集合：有 FramePlan 时经原 Program 执行并发布 graph-final，不能以 raw glyph 捕获冒称效果执行；没有 Program 时的精确 base-source fail-soft 与图内局部旁路仍沿原 owner，保留实际降级事实。text 的 ready source、PMA、已接受 graph extent、frame epoch 与 ledger/publication 生命周期保持，visible effectful text 和其他来源域不随此范围开放。可区分着色效果、改名及缺资源/补资源的真实输出见[运行证据](runtime-evidence-current.md)；material 纹理键不授隐式文字资源；未绑定可选输入的 Resolution 数值由[原 shader 准备合同](#unbound-texture-resolution)处理，作者当前执行与画面资格归运行证据。
 
 - 材质编译负责 shader、combo、颜色/数据角色、uniform 与真实采样；资源计划只负责精确 provider、投影/来源能力、依赖顺序和循环。可执行的普通 solid/image 与 utility 消费同一有序资源向量，不按效果名、blend combo、固定槽数或 pass0/slot1 放行。同一 provider 多槽保每个 consumer 身份，共用原 publication；前向隐藏 graph 读取同一上游的多个 primary 槽也沿原有序 Binding 和供货闭包执行，不再以引用数一为条件。单来源的既有直接合成语义不能被当作任意 shader 的执行替身。
 - Aggregate 在准备入口形成唯一有序 Binding 数组，slot 留在各 Binding 中；不另存作者顺序数组，不在每帧重建 Dictionary/Set 认证静态结构。Program fold 按实际 stage/slot 消费多个输入，成功 stage 与局部旁路分别形成当前需求；失效输入不能借首 provider、错误槽或其他 publication 顶替。

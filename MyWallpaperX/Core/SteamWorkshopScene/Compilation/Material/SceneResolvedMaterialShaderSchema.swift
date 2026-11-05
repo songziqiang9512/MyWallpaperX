@@ -89,7 +89,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     /// readiness starts the normal fixed-point iteration.
     nonisolated static func bootstrapSamplers(
         _ template: Template,
-        textureFormats: [Int: SceneShaderTextureFormat] = [:]
+        textureFormats: [Int: SceneShaderTextureFormat] = [:],
+        seedSamplers: [Int: Sampler]? = nil
     ) throws -> [Int: Sampler] {
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, false)
@@ -103,13 +104,22 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             textureFormats: textureFormats
         ) {
         case let .accepted(prepared):
+            guard let resolvedCombos = SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                contract: template.shaderContract, prepared: prepared, combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
+                textureReadiness: readiness, textureFormats: textureFormats),
+                  let graph = template.shaderContract.sourceGraph else { throw Issue.sampler("bootstrap-frontend") }
+            let seed = try seedSamplers ?? samplerSchemas(records(
+                SceneShaderVariantSchemaSeed.unconditional(contract: template.shaderContract, graph: graph)))
             let boundTextureSlots = Set(template.textureSlots.indices.filter {
                 template.textureSlots[$0] != nil
             })
             let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: prepared.vertex.source,
                 fragment: prepared.fragment.source,
-                boundTextureSlots: boundTextureSlots
+                boundTextureSlots: boundTextureSlots,
+                unboundTextureResolutionSlots: unboundOptionalTextureResolutionSlots(
+                    template: template, samplers: seed, resolvedCombos: resolvedCombos)
             )
             let loopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
                 template: template,
@@ -121,16 +131,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                         fragmentSource: sources.fragment,
                         runtimeLoopBounds: loopBounds,
                         boundTextureSlots: boundTextureSlots
-                    ), let resolvedCombos =
-                    SceneAuthoredShaderPreparation.resolvedIntegerCombos(
-                        contract: template.shaderContract,
-                        prepared: prepared,
-                        combos: template.comboValues,
-                        inactiveComboProviders: Set(
-                            template.inheritedInactiveCombos
-                        ),
-                        textureReadiness: readiness,
-                        textureFormats: textureFormats
                     ) else {
                 throw Issue.sampler("bootstrap-frontend")
             }
@@ -163,7 +163,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             graph: graph
         )
         var result = try samplerSchemas(records(sources))
-        if let bootstrap = try? bootstrapSamplers(template) {
+        if let bootstrap = try? bootstrapSamplers(template, seedSamplers: result) {
             for (slot, active) in bootstrap {
                 guard let seed = result[slot],
                       let merged = mergingVariantFacts(seed, from: active) else {
@@ -173,6 +173,20 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             }
         }
         return result
+    }
+
+    static func unboundOptionalTextureResolutionSlots(
+        template: Template, samplers: [Int: Sampler], resolvedCombos: [String: Int]
+    ) -> Set<Int> {
+        let boundSlots = Set(template.graphRole.bindings.map(\.slot))
+        return Set(samplers.compactMap { slot, sampler in
+            guard let combo = sampler.readinessCombo, (resolvedCombos[combo] ?? 0) == 0,
+                  template.textureSlots[slot] == nil, sampler.defaultTexture == nil,
+                  !boundSlots.contains(slot), !usesGraphInputMaterialAlias(sampler),
+                  !template.uniformDeclarations.contains(where: { $0.name == sampler.name + "Resolution" })
+            else { return nil }
+            return slot
+        })
     }
 
     /// Fixed model draws can consume an explicitly declared ordinary color
