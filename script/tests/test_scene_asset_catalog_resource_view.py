@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import shutil
 import subprocess
 import tempfile
@@ -125,7 +126,7 @@ enum Harness {
         let puppetModel = catalog.models.first { $0.relativePath == "models/puppet-owner.json" }
         let brokenPuppetModel = catalog.models.first { $0.relativePath == "models/broken-puppet-owner.json" }
         let renamedPuppetModel = catalog.models.first { $0.relativePath == "models/renamed-owner.json" }
-        let result: [String: Any] = [
+        var result: [String: Any] = [
             "modelFound": model != nil,
             "solid": model?.isSolidLayer ?? false,
             "materialPath": model?.materialPath ?? "missing",
@@ -154,6 +155,61 @@ enum Harness {
             "sharedComputedTemplateRemainsAvailable": selectedModels.contains("models/literal.json"),
             "selectedMaterialRoot": catalog.materials.first { $0.relativePath == "materials/shared.json" }?.passes.first?.shader ?? "",
         ]
+        let normalCases = ["omitted", "null", "empty", "renamed", "valid", "missing",
+                           "whitespace", "missing-color", "bad-material", "peer"]
+        let normalRoots = normalCases.map { "particles/optional-normal/\($0).json" }
+        var normalDefinitions: [String: SceneParticleAssetGraphLoader.PreparedDefinition] = [:]
+        let normalCatalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: [], particlePaths: normalRoots,
+            preparedParticleDefinition: { normalDefinitions[$0] = $1 })
+        // These raw fixtures have no constants. Preserve the Catalog's typed slots
+        // and material metadata; the production planners decide their meaning.
+        let normalPasses = normalCatalog.materials.flatMap { material in
+            material.passes.enumerated().map { index, pass in
+                SceneParticleMaterialPass(materialPath: material.relativePath, passIndex: index,
+                    shaderPath: pass.shader, texturePaths: pass.textures, textureSlots: pass.textureSlots,
+                    blending: pass.blending, combos: pass.combos,
+                    hasUserTextureInputs: !pass.userTextureInputs.isEmpty,
+                    hasUserShaderValues: !pass.userShaderValues.isEmpty,
+                    depthTest: pass.depthTest, depthWrite: pass.depthWrite,
+                    cullMode: pass.cullMode, alphaWriting: pass.alphaWriting)
+            }
+        }
+        let normalReads = AssetReadProbe.calls
+        let normalParses = ParticleParseProbe.calls
+        let normalGraph = try SceneParticleAssetGraphLoader(resourceView: view, stockTextureBundleURL: nil)
+            .load(rootPaths: normalRoots, materialPasses: normalPasses, preparedDefinitions: normalDefinitions)
+        var normalRows: [String: Any] = [:]
+        for (name, path) in zip(normalCases, normalRoots) {
+            let asset = normalGraph.assetsByPath[path]
+            let pass = asset?.materialPass
+            let plan = pass.flatMap { pass in
+                SceneMaterialRenderState.compile(blending: pass.blending, depthTest: pass.depthTest,
+                    depthWrite: pass.depthWrite, cullMode: pass.cullMode, alphaWriting: pass.alphaWriting,
+                    missingBlending: .translucent).flatMap {
+                        SceneParticleRefractionPlanner.plan(for: pass, renderState: $0)
+                    }
+            }
+            let row: [String: Any] = [
+                "asset": asset != nil, "slots": pass?.textureSlots.map { $0 as Any? ?? NSNull() } ?? [],
+                "textures": pass?.texturePaths ?? [], "plan": plan != nil,
+                "normal": plan?.normalReference as Any? ?? NSNull(),
+                "amount": plan?.amount as Any? ?? NSNull(),
+                "overbright": plan?.overbright as Any? ?? NSNull(),
+                "textureReady": asset?.textureSource != nil,
+                "refractionReady": asset?.refraction != nil,
+                "normalReady": asset?.refraction?.normalTextureSource != nil,
+                "pipelineReady": asset?.pipelineState != nil,
+                "diagnostics": normalGraph.diagnostics.filter { $0.assetPath == path }.map {
+                    ["kind": $0.kind.rawValue, "detail": $0.detail ?? ""]
+                },
+            ]
+            normalRows[name] = row
+        }
+        result["optionalNormalCases"] = normalRows
+        result["optionalNormalDefinitionsReused"] = normalParses == ParticleParseProbe.calls
+            && normalParses - parsesAfterCatalog == normalCases.count
+        result["optionalNormalDefinitionReadsReused"] = normalReads == AssetReadProbe.calls
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -268,6 +324,34 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         author("particles/child.json", {"material": "materials/particle-child.json",
             "emitter": [{"name": "boxRandom"}], "children": [{"name": "Particles/Root.JSON"}]})
         author("particles/hidden.json", "{bad hidden")
+        color = "optional-normal/color"
+        normal = "optional-normal/normal"
+        normal_slots = {
+            "omitted": [color], "null": [color, None], "empty": [color, ""],
+            "renamed": ["relocated/renamed-color", None], "valid": [color, normal],
+            "missing": [color, "optional-normal/absent"], "whitespace": [color, "   "],
+            "missing-color": ["optional-normal/absent-color", None],
+            "bad-material": [color, None], "peer": [color],
+        }
+        for name, slots in normal_slots.items():
+            material = f"materials/optional-normal/{name}.json"
+            author(f"particles/optional-normal/{name}.json", {
+                "material": material, "emitter": [{"name": "sphereRandom"}],
+                "renderer": [{"name": "sprite"}],
+            })
+            author(material, "{invalid material" if name == "bad-material" else {"passes": [{
+                "shader": "relocated/genericparticle" if name == "renamed" else "genericparticle",
+                "textures": slots, "combos": {} if name == "peer" else {"REFRACT": 1},
+                "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled",
+                "cullmode": "nocull",
+            }]})
+        # AssetGraph resolves resource identity; decoding/upload belongs to the
+        # existing refraction pixel gate. Use actual PNG bytes for these leaves.
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=")
+        for relative in (color, normal, "relocated/renamed-color"):
+            path = package / f"materials/{relative}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(png)
         for relative, payload in (
             ("models/unreferenced.json", {"material": "materials/unreferenced.json"}),
             ("models/unreferenced-invalid.json", "{bad unused"),
@@ -432,6 +516,51 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         self.assertIn("models/material-created.json", self.result["modelCatalogPaths"])
         self.assertIn("materials/particle-root.json", self.result["materialCatalogPaths"])
         self.assertIn("materials/particle-child.json", self.result["materialCatalogPaths"])
+
+    def test_raw_optional_normal_slots_reach_the_real_planner_and_asset_graph(self) -> None:
+        rows = self.result["optionalNormalCases"]
+        color = "optional-normal/color"
+        for name, slots in (("omitted", [color]), ("null", [color, None]),
+                            ("empty", [color, None]), ("renamed", ["relocated/renamed-color", None])):
+            with self.subTest(optional=name):
+                row = rows[name]
+                self.assertEqual(row["slots"], slots)
+                self.assertEqual(row["textures"], [slots[0]])
+                self.assertTrue(row["asset"] and row["plan"] and row["textureReady"])
+                self.assertTrue(row["refractionReady"] and row["pipelineReady"])
+                self.assertIsNone(row["normal"])
+                self.assertFalse(row["normalReady"])
+                self.assertAlmostEqual(row["amount"], 0.05, places=6)
+                self.assertEqual(row["overbright"], 1)
+                self.assertEqual(row["diagnostics"], [])
+        valid = rows["valid"]
+        self.assertEqual(valid["slots"], [color, "optional-normal/normal"])
+        self.assertEqual(valid["normal"], "optional-normal/normal")
+        self.assertTrue(valid["plan"] and valid["textureReady"] and valid["normalReady"])
+        self.assertTrue(valid["refractionReady"] and valid["pipelineReady"])
+        self.assertEqual(valid["diagnostics"], [])
+        for name, reference in (("missing", "optional-normal/absent"), ("whitespace", "   ")):
+            with self.subTest(explicit_normal=name):
+                row = rows[name]
+                self.assertTrue(row["plan"])
+                self.assertEqual(row["slots"], [color, reference])
+                self.assertEqual(row["normal"], reference)
+                self.assertFalse(row["refractionReady"] or row["textureReady"])
+                self.assertIn({"kind": "refractionUnsupported", "detail": "normalTextureUnavailable"},
+                              row["diagnostics"])
+        missing_color = rows["missing-color"]
+        self.assertTrue(missing_color["plan"])
+        self.assertFalse(missing_color["textureReady"])
+        self.assertIn({"kind": "missingTextureFile", "detail": "optional-normal/absent-color"},
+                      missing_color["diagnostics"])
+        self.assertFalse(rows["bad-material"]["plan"] or rows["bad-material"]["textureReady"])
+        self.assertIn("missingMaterial", [d["kind"] for d in rows["bad-material"]["diagnostics"]])
+        peer = rows["peer"]
+        self.assertTrue(peer["asset"] and peer["textureReady"] and peer["pipelineReady"])
+        self.assertFalse(peer["refractionReady"])
+        self.assertEqual(peer["diagnostics"], [])
+        self.assertTrue(self.result["optionalNormalDefinitionsReused"])
+        self.assertTrue(self.result["optionalNormalDefinitionReadsReused"])
 
 
 if __name__ == "__main__":

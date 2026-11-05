@@ -121,8 +121,8 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 180,
-      "bytes": 30160
+      "lines": 189,
+      "bytes": 31734
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 215,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 118,
-      "bytes": 66470
+      "bytes": 66857
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 175,
-      "bytes": 34329
+      "lines": 174,
+      "bytes": 33852
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -512,29 +512,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "e8c950e30979b95625f7c14a7b064dc8d41ddc81e1d1aed8944f651ecb39f55e",
-      "after": "7a44c87eae516597e118985138596d6b686da80af77da18540528bebb09f9c04",
-      "owner": "scene-particle-event-values",
-      "reason": "One typed parse-to-event consumer replaces raw-key and whole-template admission. Record bounded official scalar units/order, actual CPU/Metal/author output and explicit limits in existing authorities; remove contradicted child rejection, preserve independent Remap/spatial and gate debt. No new document or owner.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance"
+      "before": "7a44c87eae516597e118985138596d6b686da80af77da18540528bebb09f9c04",
+      "after": "426e500bf9f5c8887402e57ef08e91cf801f30e9f328143f12a331b09f7c6425",
+      "owner": "scene-particle-optional-normal",
+      "reason": "Document the original typed optional-slot consumer and its failure radius; replace the current rejection with actual signed-App batch/capture evidence and remove the resolved queue item. Preserve the failed full official normal-displacement qualification and unrelated capability debt; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#optional-refraction-normal"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2327ecdf9ab3dbc7d1242d9388c467e2ec840f813586239cc1ae7608e2d27255",
-      "after": "ee81960f8fe963a15e9e897ca9cdc5fd35c0e882f8500e7b7a6effc4d06814b7",
-      "owner": "scene-refraction-normal-qualification",
-      "reason": "Record current exact null-slot first rejection and bounded official top-level source observations. Preserve failed normal displacement control as unknown and stop condition; no product capability or parity claimed. Reuse existing2authorities, no new document.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+      "before": "ee81960f8fe963a15e9e897ca9cdc5fd35c0e882f8500e7b7a6effc4d06814b7",
+      "after": "6d0363bbd612fd23f6c0c793ca15bf89612de95d29c9ba514d91725470ce2437",
+      "owner": "scene-particle-optional-normal",
+      "reason": "Document the original typed optional-slot consumer and its failure radius; replace the current rejection with actual signed-App batch/capture evidence and remove the resolved queue item. Preserve the failed full official normal-displacement qualification and unrelated capability debt; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#optional-refraction-normal"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4b9bdc85dd3c3380b7e14789a80b398b7e8154d7b87ad955eb5ad27ff37aca19",
-      "after": "3116958cce01fc281e83a54ece93372e2cfb1214dfe4ec33553f0f8daee1bf27",
-      "owner": "scene-refraction-normal-qualification",
-      "reason": "Record current exact null-slot first rejection and bounded official top-level source observations. Preserve failed normal displacement control as unknown and stop condition; no product capability or parity claimed. Reuse existing2authorities, no new document.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+      "before": "3116958cce01fc281e83a54ece93372e2cfb1214dfe4ec33553f0f8daee1bf27",
+      "after": "3cfdea563c6225e807c7684643eb328698610bb33411e9825f759da1b712a1e2",
+      "owner": "scene-particle-optional-normal",
+      "reason": "Document the original typed optional-slot consumer and its failure radius; replace the current rejection with actual signed-App batch/capture evidence and remove the resolved queue item. Preserve the failed full official normal-displacement qualification and unrelated capability debt; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#optional-refraction-normal"
     }
   ]
 }

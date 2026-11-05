@@ -411,7 +411,7 @@ enum Harness {
                     combos: ["REFRACT": 1]
                 )
             )?.normalReference == "particle/refract-normal",
-            "normalSlotHoleRejected": refractionPlan(
+            "normalSlotHoleEqualsOmitted": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -420,7 +420,7 @@ enum Harness {
                     blending: "translucent",
                     combos: ["REFRACT": 1]
                 )
-            ) == nil,
+            ) == singleSlotPlan,
             "depthRefractionReadOnly": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/renamed-mask.json",
@@ -972,7 +972,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["normalCullRefractionPreservesInput"])
         self.assertTrue(result["singleSlotRefractionUsesFlatNormal"])
         self.assertTrue(result["twoSlotRefractionPreservesNormal"])
-        self.assertTrue(result["normalSlotHoleRejected"])
+        self.assertTrue(result["normalSlotHoleEqualsOmitted"])
         self.assertTrue(result["depthRefractionReadOnly"])
         self.assertEqual(
             result["diagnostics"],

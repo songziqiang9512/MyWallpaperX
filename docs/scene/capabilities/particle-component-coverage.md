@@ -143,6 +143,15 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
 
+<a id="optional-refraction-normal"></a>
+### REFRACT 的可选 normal
+
+材质 Catalog 在唯一入口保留纹理槽位并把缺省值投影为 `[String?]`。Planner 对可选第二槽只消费这个 typed 值：省略槽和显式 nil 都交给原无 normal 分支；非空引用继续经过真实资源解析、装载与格式判断，显式缺失或坏文件只使受影响资产不可用。不能通过 compactMap 把后续纹理移入空槽，也不为已解析的 nil 增加原始字段复验、默认纹理或资源 owner。条件/user texture 的动态生产者保持独立职责。
+
+原 TextureLoader 的 nil 分支复用既有绑定并以 authoredFormat=nil 供 Pipeline 的原无 normal 标记；生产 shader 跳过 normal sample/displacement，继续实际背景采样、albedo、tint、coverage 与 overbright。本合同沿用本引擎已有的 canonical 无 normal 语义，不定义新的位移单位或公式。官方省略/null 的有界同外观结果只支持可选输入等价；合法 normal 的可定位位移仍未知，原完整对照未通过，不能写成官方零位移或完整一致。
+
+验收在真实 Catalog→Planner/AssetGraph 检查省略、null、空值和资源改名的等价，以及显式正常/缺失 normal 与健康后继；复用原无 normal/有效 normal 的生产 Metal 像素门，再核原作者两个活动资产的实际纹理、实例、目标、command buffer 与最终捕获。不能以准备放行或全景非黑代替实际编码，不以本修复授全部材质输入、Rope/动画组合或逐输入像素贡献。
+
 <a id="rope-source"></a>
 ### 单图 Rope 纹理
 

@@ -40,15 +40,7 @@ nonisolated enum SceneParticleRefractionPlanner {
             return nil
         }
 
-        let normal: String?
-        if pass.textureSlots.count == 2 {
-            guard let reference = pass.textureSlots[1], !reference.isEmpty else {
-                return nil
-            }
-            normal = reference
-        } else {
-            normal = nil
-        }
+        let normal = pass.textureSlots.count == 2 ? pass.textureSlots[1] : nil
 
         let allowed = Set([
             "ui_editor_properties_refract_amount",
