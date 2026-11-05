@@ -40,7 +40,7 @@ extension Harness {
             utilityLayer: nil,
             dependencyLayerIDs: [],
             childLayerIDs: [],
-            visible: true,
+            visible: false,
             effects: [.init(
                 id: "effect-36",
                 file: "effects/tint/effect.json",
@@ -218,6 +218,46 @@ extension Harness {
         ]
         let solidCarrier = plan.bindingsByConsumerLayerID[31]
         let materialProgramSolidCarrier = materialProgramSolidCarrierBinding()
+        var textGraphRoutes: [String: Any] = [:]
+        for variant in ["hidden", "renamed", "visible", "child", "utility", "cycle", "secondary"] {
+            let providerID = variant == "renamed" ? 6830 : 136
+            let consumerID = providerID + 1
+            let slot = variant == "renamed" ? 5 : 1
+            let token = "_rt_imageLayerComposite_\(providerID)_\(variant == "secondary" ? "b" : "a")"
+            let text = SceneRenderDescriptor.Layer(id: providerID,
+                contentKind: variant == "utility" ? "composition" : "text",
+                utilityLayer: variant == "utility" ? .init(kind: .composition) : nil,
+                dependencyLayerIDs: variant == "cycle" ? [consumerID] : [],
+                childLayerIDs: variant == "child" ? [providerID + 2] : [],
+                visible: variant == "visible", effects: variant == "cycle"
+                    ? [effect(id: providerID, provider: consumerID, opacity: 1)]
+                    : localEffects(layerID: providerID, count: 1, suffix: variant))
+            let reader = SceneRenderDescriptor.Layer(id: consumerID, contentKind: "image",
+                utilityLayer: nil, dependencyLayerIDs: [providerID], childLayerIDs: [], visible: true,
+                effects: [.init(id: "reader-\(variant)", file: "effects/\(variant)/consumer.json", visible: true,
+                    passes: [.init(passIndex: variant == "renamed" ? 2 : 0,
+                        texturePaths: [token], textureSlots: Array(repeating: nil, count: slot) + [token],
+                        combos: [:], constantShaderValues: [:])])])
+            var inputs = [text, reader]
+            if variant == "child" {
+                var child = consumer(providerID + 2, provider: providerID)
+                child.parentID = providerID
+                inputs.append(child)
+            }
+            let descriptor = SceneRenderDescriptor(layers: inputs, renderOrderLayerIDs: inputs.map(\.id))
+            let visibleIDs = Set(inputs.filter { $0.visible != false }.map(\.id))
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, visibleLayerIDs: visibleIDs)
+            let selected = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visibleIDs,
+                admittedResolvedMaterialReferences: Set(SceneDependencyGraphAnalysis.references(in: inputs)),
+                preparedNamedInputBindingsByConsumerLayerID: candidates)
+            let binding = selected.bindingsByConsumerLayerID[consumerID]
+            textGraphRoutes[variant] = ["kind": binding.map { "\($0.kind)" } ?? "none",
+                "provider": binding?.providerLayerID ?? -1, "slot": binding?.slot.slotIndex ?? -1,
+                "requiresProgram": binding?.requiresResolvedMaterialProgram ?? false,
+                "graphProviders": selected.requiredGraphOutputProviderLayerIDs.sorted(),
+                "cycles": selected.cyclicLayerIDs.sorted()]
+        }
         return [
             "utilitySelection": utilitySelection(),
             "preparedUtility": preparedUtilityResults(),
@@ -234,7 +274,12 @@ extension Harness {
                     "requiresProgram": $0.requiresResolvedMaterialProgram,
                 ]
             },
-            "effectfulTextMaskBinding": plan.bindingsByConsumerLayerID[37] != nil,
+            "effectfulTextMaskRoute": plan.bindingsByConsumerLayerID[37].map {
+                ["kind": "\($0.kind)", "provider": $0.providerLayerID,
+                    "slot": $0.slot.slotIndex, "requiresProgram": $0.requiresResolvedMaterialProgram]
+            },
+            "textGraphRoutes": textGraphRoutes,
+            "requiredGraphProviders": plan.requiredGraphOutputProviderLayerIDs.sorted(),
             "executableUtilityConsumers": plan.executableUtilityConsumerLayerIDs.sorted(),
             "requiredEffectConsumers": plan.requiredEffectConsumerLayerIDs.sorted(),
             "bindingConsumers": plan.bindingsByConsumerLayerID.keys.sorted(),

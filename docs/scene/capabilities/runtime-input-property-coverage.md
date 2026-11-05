@@ -84,6 +84,8 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 
 初始与动态文字均作为 layer source，raster 颜色与 layer tint 保原乘色语义。没有实际活 layer/clone/named/particle 消费者时退休活动 producer 并撤迟到发布权，保留准备模板与冻结/GPU 引用；hidden 不作为退出。Surface rebuild 复用共享 Store，完整 stop 排空已接纳任务。
 
+隐藏文字的效果后 named 供货沿[原输入与发布 owner](render-graph-shader-coverage.md#named-input-ownership)接入。Store 只提供冻结的 ready raster、原 extent/几何和内容 generation；原 Program 消费它并发布实际最终图结果，不重栅格、另建 clock 或混用 glyph generation 与 named frame epoch。无效果文字保持原来源路径；已有 FramePlan 时核实际 graph 输出，缺资源的局部旁路与无 Program 的精确 base-source fail-soft 分别保原责任，不将它们称为效果执行。当前边界与真实 CoreText 供货结果归[运行证据](runtime-evidence-current.md)，隐式 textbuffer、任意文字图及作者完整恢复不由该结果授予。
+
 ### 文字 HDR 亮度
 
 文字前景 `brightness` 是 HDR gain，[官方作者说明](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)也将文字列为此选项的消费者。Document 准备 TextStyle 时按已解析的 `hdrEnabled` 采用：非 HDR 为1、HDR保留声明值；原始对象和 Layer 继续保真。初始/动态栅格共用有效样式，替代无条件烘入亮度的采用方式，不向 Store/loader 传 general，也不加普通帧分支。

@@ -198,13 +198,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             # Layer 3 joins as the hidden conditional consumer's binding
             # since the conditional provider chain slice.
             self.result["bindingConsumers"],
-            [2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 35],
+            [2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 35, 37],
         )
         self.assertFalse(self.result["defaultUtilityBinding"])
-        self.assertEqual(self.result["requiredProviders"], [1, 30, 34])
-        # A plain dependency-free text provider carries the same composite
-        # route as a hidden image provider; a text provider with authored
-        # effects has no plain-raster composite contract yet.
+        self.assertEqual(self.result["requiredProviders"], [1, 30, 34, 36])
+        self.assertEqual(self.result["requiredGraphProviders"], [36])
         self.assertEqual(
             self.result["textMaskRoute"],
             {
@@ -214,7 +212,18 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "requiresProgram": True,
             },
         )
-        self.assertFalse(self.result["effectfulTextMaskBinding"])
+        self.assertEqual(self.result["effectfulTextMaskRoute"], {
+            "kind": "imageLayerBlend", "provider": 36, "slot": 1, "requiresProgram": True})
+        for key, provider, slot in (("hidden", 136, 1), ("renamed", 6830, 5)):
+            self.assertEqual(self.result["textGraphRoutes"][key], {"kind": "imageLayerBlend",
+                "provider": provider, "slot": slot, "requiresProgram": True,
+                "graphProviders": [provider], "cycles": []})
+        self.assertEqual(self.result["textGraphRoutes"]["utility"], {"kind": "resolvedMaterial",
+            "provider": 136, "slot": 1, "requiresProgram": True, "graphProviders": [136], "cycles": []})
+        for key in ("visible", "child", "cycle", "secondary"):
+            self.assertEqual(self.result["textGraphRoutes"][key]["kind"], "none", key)
+            self.assertEqual(self.result["textGraphRoutes"][key]["graphProviders"], [], key)
+        self.assertEqual(self.result["textGraphRoutes"]["cycle"]["cycles"], [136, 137])
 
     def test_named_provider_route_rollback_is_generic_only_and_fail_closed(self) -> None:
         self.assertEqual(

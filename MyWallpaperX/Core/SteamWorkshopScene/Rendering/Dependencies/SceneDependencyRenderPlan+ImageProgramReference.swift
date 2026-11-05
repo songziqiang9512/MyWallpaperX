@@ -423,10 +423,8 @@ extension SceneDependencyRenderPlan {
         return false
     }
 
-    /// Providers whose named composite is their own rendered base content.
-    /// Hidden image providers retain their existing dependency-plan route.
-    /// A plain dependency-free image or text source has the same composite
-    /// whether its separate main-pass display is visible or hidden.
+    /// Providers whose primary named output belongs to the layer itself.
+    /// Active hidden effects use graph publication; plain sources use capture.
     /// Transform children do not enter an ordinary image's own base source.
     nonisolated static func isImageOrTextCompositeProvider(
         _ provider: SceneRenderDescriptor.Layer
@@ -440,11 +438,10 @@ extension SceneDependencyRenderPlan {
                         && provider.authoredDependencies.isEmpty))
         }
         if provider.contentKind == "text" {
-            // Authored-invisible effects never execute, so the composite is
-            // still the plain per-frame rasterized text publication.
             return hasNoUtilityLayer(provider)
                 && provider.childLayerIDs.isEmpty
-                && !provider.effects.contains(where: { $0.visible != false })
+                && (provider.visible == false
+                    || !provider.effects.contains(where: { $0.visible != false }))
                 && provider.dependencyLayerIDs.isEmpty
                 && provider.authoredDependencies.isEmpty
         }

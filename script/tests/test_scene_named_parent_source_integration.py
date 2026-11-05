@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Ordinary parent base -> named child/external inputs through the real App.
+"""Own layer sources and graph-final outputs -> named readers in the real App.
 
-The existing reflection-history runner owns the process, immutable identities,
-Metal snapshots and stop/drain. These owned data distinguish parent base from
-healthy descendants, and distinguish an ordinary parent's graph-final output.
-They do not authorize utility/subtree or dynamic-video semantics.
+The existing reflection-history runner owns process, immutable inputs, Metal
+snapshots and stop/drain. Controls distinguish parent base from descendants
+and actual CoreText raster from hidden text effect output; they do not grant
+utility/subtree, font-shape parity or dynamic-video semantics.
 """
 from __future__ import annotations
 
@@ -116,6 +116,81 @@ def fixture_entries(case):
     return entries
 
 
+
+def text_entries(case):
+    renamed = case == 8
+    entries = fixture_entries(1 if renamed else 0)
+    graph_entries = fixture_entries(4 if renamed else 3)
+    word, shift = ("retitled_source", 1000) if renamed else ("own_parent", 0)
+    scene = json.loads(entries["scene.json"])
+    keep = {20 + shift, 23 + shift, 40 + shift}
+    scene["objects"] = [obj for obj in scene["objects"] if obj["id"] in keep]
+    source = next(obj for obj in scene["objects"] if obj["id"] == 20 + shift)
+    source.clear()
+    source.update(id=20 + shift, name=f"{word} hidden red text", text="MMMM",
+        font="systemfont_arial", pointsize=20, color="1 0 0", origin="128 128 0",
+        size="128 64", visible=False)
+    if case != 6:
+        graph_source = next(obj for obj in json.loads(graph_entries["scene.json"])["objects"] if obj["id"] == 20 + shift)
+        source["effects"] = graph_source["effects"]
+        for name, data in graph_entries.items():
+            if "parent-gbr" in name:
+                entries[name] = data
+    if case in (9, 10):
+        key = f"{word}/missing-text-effect-input"
+        entries[f"effects/{key}/effect.json"] = encoded({"passes": [{"material": f"materials/{key}.json"}]})
+        entries[f"materials/{key}.json"] = encoded({"passes": [{"shader": key,
+            "textures": [None, f"{word}/absent-text-effect-asset"], "blending": "normal",
+            "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+        entries[f"shaders/{key}.vert"] = entries[f"shaders/{word}/read-external.vert"]
+        entries[f"shaders/{key}.frag"] = b'\n'.join([
+            b'uniform sampler2D g_Texture0; // {"material":"previous"}',
+            b'uniform sampler2D g_Texture1; // {"material":"albedo"}',
+            b'varying vec2 v_TexCoord;', b'void main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord)*texSample2D(g_Texture1,v_TexCoord);}'])
+        source["effects"].insert(0, {"id": 299, "file": f"effects/{key}/effect.json", "visible": True})
+        if case == 10:
+            entries[f"materials/{word}/absent-text-effect-asset.tex"] = solid_texture((255,255,255))
+    suffix = f"shaders/{word}/external-suffix.frag"
+    entries[suffix] = entries[suffix].replace(b"vec3(1.0,0.5,1.0)", b"vec3(0.5)")
+    scene["objects"].append({"id": 42 + shift, "name": f"{word} green text peer",
+        "text": "MMMM", "font": "systemfont_arial", "pointsize": 20, "color": "0 1 0",
+        "origin": "128 48 0", "size": "128 32", "visible": True})
+    entries["scene.json"] = encoded(scene)
+    return entries
+
+
+def text_protocol(case):
+    return {"case": case, "source": 1020 if case == 8 else 20,
+        "consumer": 1023 if case == 8 else 23, "slot": 2 if case == 8 else 5,
+        "sourceHasGraph": case != 6, "sourceMissingAsset": case == 9,
+        "sourceHasAssetPass": case in (9,10), "sourceColorEffectIndex": 1 if case in (9,10) else 0,
+        "consumerCoreRGB": [128, 0, 0] if case == 6 else [0, 0, 128],
+        "rects": {"consumer": [320, 96, 448, 160], "hidden": [64, 96, 192, 160],
+                  "glyphPeer": [64, 32, 192, 64]},
+        "minimumCorePixels": 64, "tolerance": 2,
+        "scope": "Actual CoreText glyph, prepared effect output and explicit named slot; no font-shape or author parity."}
+
+
+def measure_text_capture(path, requested):
+    decoded = png_rgb_pixels(path)
+    if decoded is None:
+        raise AssertionError(f"undecodable text PNG: {path}")
+    width, height, rows = decoded
+    scale = max(width / CANVAS[0], height / CANVAS[1])
+    result = {"size": [width, height]}
+    for name, (left, bottom, right, top) in requested["rects"].items():
+        x0, x1 = [round(width / 2 + (x - CANVAS[0] / 2) * scale) for x in (left, right)]
+        y0, y1 = [round(height / 2 - (y - CANVAS[1] / 2) * scale) for y in (top, bottom)]
+        if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
+            raise AssertionError(f"declared text region cropped: {name}")
+        values = [rows[y][x*3:x*3+3] for y in range(y0,y1) for x in range(x0,x1)]
+        expected = CLEAR if name == "hidden" else (0,255,0) if name == "glyphPeer" else requested["consumerCoreRGB"]
+        result[name] = {"bounds": [x0,y0,x1,y1], "pixels": len(values),
+            "core": sum(max(abs(v[c]-expected[c]) for c in range(3)) <= requested["tolerance"] for v in values),
+            "wrongRawRed": sum(v[0] > 64 and v[1] < 4 and v[2] < 4 for v in values)}
+    return result
+
+
 def protocol(case):
     base_case = case % 3
     shift = 1000 if base_case == 1 else 0
@@ -219,6 +294,74 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
         for case in (4, 5):
             with self.subTest(case=case):
                 self.run_parent_case(case)
+
+    def test_hidden_coretext_graph_final_and_local_failure_supply_named_readers(self):
+        for case in range(6, 11):
+            with self.subTest(case=case):
+                self.run_text_case(case)
+
+    def run_text_case(self, case):
+        requested = text_protocol(case)
+        (self.evidence_root / f"text-protocol-{case}.json").write_bytes(encoded(requested))
+        word = "retitled_source" if case == 8 else "own_parent"
+        with patch.object(app_runner, "fixture_entries", text_entries), patch.object(
+                app_runner, "measure_capture", lambda path: measure_text_capture(path, requested)):
+            result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,
+                extra_arguments=("--mwx-debug-scene-after-snapshot-delay", "3"),
+                material_input_path=f"materials/{word}/parent.json")
+        work = self.evidence_root / f"Ref{case}-capture-on"
+        for name, measurements in result["pixels"].items():
+            self.assertGreaterEqual(measurements["consumer"]["core"], requested["minimumCorePixels"], (name, measurements))
+            self.assertGreaterEqual(measurements["glyphPeer"]["core"], requested["minimumCorePixels"], (name, measurements))
+            self.assertEqual(measurements["hidden"]["core"], measurements["hidden"]["pixels"], (name, measurements))
+            if requested["sourceHasGraph"]:
+                self.assertEqual(measurements["consumer"]["wrongRawRed"], 0, (name, measurements))
+        log = (work / "app.log").read_text()
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        receipts = []
+        for name in ("scene-ready-window.png", "scene-after-window.png"):
+            path = work / "evidence" / name
+            reason = name.removeprefix("scene-").removesuffix("-window.png")
+            request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
+            self.assertIsNotNone(request)
+            capture = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
+            self.assertIsNotNone(capture)
+            receipt = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
+                "command_buffer_token": capture[1], "texture_token": capture[2],
+                "source_width": int(capture[3]), "source_height": int(capture[4])}, observations)
+            self.assertTrue(receipt["composition_receipt_matched"], receipt)
+            event = next(e for e in observations["events"] if e.get("captureRequestID") == int(request[1])
+                         and e.get("commandBufferToken") == capture[1])
+            self.assertEqual(event["truncatedRows"], 0)
+            rows, provider, consumer = event["rows"], requested["source"], requested["consumer"]
+            reads = [r for r in rows if r["kind"] == "material" and r.get("layerID") == consumer
+                and r.get("effectIndex") == 0 and r.get("slot") == requested["slot"] and r.get("outcome") == "draw-encoded"]
+            self.assertEqual(len(reads), 1, reads)
+            tail = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == consumer
+                    and r.get("outcome") == "terminal-consumed"]
+            self.assertEqual(len(tail), 1, tail)
+            graph = [r for r in rows if r["kind"] == "graph-transaction" and r.get("layerID") == provider]
+            self.assertEqual(len(graph), int(requested["sourceHasGraph"]))
+            if requested["sourceHasGraph"]:
+                materials = [r for r in rows if r["kind"] == "material" and r.get("layerID") == provider
+                             and r.get("outcome") == "draw-encoded"]
+                expected = [(requested["sourceColorEffectIndex"], 0)]
+                if requested["sourceHasAssetPass"] and not requested["sourceMissingAsset"]:
+                    expected = [(0,0), (0,1), (1,0)]
+                self.assertEqual([(r["effectIndex"], r["slot"]) for r in materials], expected)
+                publication = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == provider]
+                self.assertEqual(len(publication), 1, publication)
+                self.assertEqual(publication[0]["access"], "named-publication-only")
+                self.assertLess(rows.index(materials[-1]), rows.index(publication[0]))
+                self.assertLess(rows.index(publication[0]), rows.index(reads[0]))
+                if requested["sourceMissingAsset"]:
+                    self.assertTrue(any(r["kind"] == "copy" and r.get("layerID") == provider
+                                        and r.get("effectIndex") == 0 for r in rows))
+            receipts.append({"capture": name, "frame": event["frameIndex"], "request": event["captureRequestID"],
+                "surface": event["surfaceIdentity"], "CB": event["commandBufferToken"],
+                "read": reads[0], "tail": tail[0], "providerGraph": graph})
+        (work / "named-text-chain.json").write_bytes(encoded(receipts))
 
     def run_parent_case(self, case):
         requested = protocol(case)

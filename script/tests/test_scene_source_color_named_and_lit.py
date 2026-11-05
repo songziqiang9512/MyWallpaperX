@@ -210,6 +210,55 @@ LOCAL_NAMED_MAIN = r'''
         graphCommand.commit(); graphCommand.waitUntilCompleted()
         facts["graphGPUCompleted"] = graphCommand.status == .completed && graphCommand.error == nil
 
+        // Typed text graph resources only; CoreText/Program pixels are the App gate.
+        var textProvider = SceneRenderDescriptor.Layer(id: 700, contentKind: "text",
+            utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1])
+        textProvider.effects = [.init(visible: true)]
+        let textLink = binding(700, 701, .imageLayerBlend), textRegistry = SceneFrameTextureRegistry()
+        let textRuntime = SceneDependencyFrameRuntime(descriptor: .init(layers: [textProvider],
+            bindings: [701: textLink], graphOutputProviderLayerIDs: [700]), visibleLayerIDs: [701],
+            executableUtilityConsumerLayerIDs: [], device: device)
+        let textEpoch = textRegistry.beginFrame(frameIndex: 3, layerSources: [:])
+        let textCommand = queue.makeCommandBuffer()!, textMain = SceneMainPassEncoder(
+            commandBuffer: textCommand, target: attachment, clearColor: MTLClearColor(), clearEnabled: false)
+        let raw = textRuntime.captureProviderIfRequired(layer: textProvider,
+            sourceTexture: attachment, sourceCandidate: nil, layerMVP: worldMVP,
+            viewportSize: CGSize(width: 256, height: 256), pipeline: pipeline,
+            textureRegistry: textRegistry, mainPass: textMain)
+        let textReference = SceneNamedTextureReference(providerLayerID: 700, variant: .primary)
+        facts["textGraphRawSourceRefused"] = raw == .unavailable(reasonCode: "graph-provider-raw-capture-unavailable")
+        facts["textGraphRawSourceNotPublished"] = textRegistry.completeNamedLayerTargetResource(
+            reference: textReference, frameEpoch: textEpoch) == nil
+        reason = nil
+        _ = textRuntime.reserveEffectInput(for: textLink, providerLayer: textProvider,
+            providerTexture: attachment, providerCandidate: nil, layerMVP: worldMVP,
+            viewportSize: CGSize(width: 256, height: 256), preparedOutputExtent: (32, 16),
+            frameEpoch: textEpoch, failureReason: &reason)
+        let markerPass = MTLRenderPassDescriptor()
+        markerPass.colorAttachments[0].texture = graphOutput
+        markerPass.colorAttachments[0].loadAction = .clear
+        markerPass.colorAttachments[0].storeAction = .store
+        markerPass.colorAttachments[0].clearColor = MTLClearColorMake(1, 0, 1, 1)
+        textCommand.makeRenderCommandEncoder(descriptor: markerPass)!.endEncoding()
+        facts["textGraphFinalPublished"] = reason == nil && textRuntime.publishGraphOutputIfRequired(
+            layerID: 700, texture: graphOutput, publicationRole: .namedProviderPrepass,
+            textureRegistry: textRegistry, commandBuffer: textCommand,
+            content: .color(.resolved(.premultipliedAlpha))) == .published
+        let textFinal = textRegistry.completeNamedLayerTargetResource(reference: textReference, frameEpoch: textEpoch)
+        facts["textGraphFinalResourceFacts"] = textFinal?.publication.texture.width == 32
+            && textFinal?.publication.texture.height == 16
+            && textFinal?.publication.candidate.content == .color(.resolved(.premultipliedAlpha))
+            && textRegistry.completeNamedLayerTargetResource(reference: textReference, frameEpoch: textEpoch + 1) == nil
+        let textRead = textCommand.makeBlitCommandEncoder()!
+        textRead.copy(from: textFinal!.publication.texture, sourceSlice: 0, sourceLevel: 0,
+            sourceOrigin: MTLOrigin(), sourceSize: MTLSize(width: 32, height: 16, depth: 1),
+            to: pixels, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 16 * 256)
+        textRead.endEncoding(); precondition(textMain.finishEnsuringClear())
+        textMain.armCompositionPins(); textCommand.commit(); textCommand.waitUntilCompleted()
+        facts["textGraphGPUCompleted"] = textCommand.status == .completed && textCommand.error == nil
+        facts["textGraphFinalPixelsRetained"] = Array(UnsafeBufferPointer(
+            start: pixels.contents().assumingMemoryBound(to: UInt8.self), count: 4)) == [255, 0, 255, 255]
+
         // The enclosing mapping must not redefine independent asset publication.
         let asset = SceneRenderDescriptor.Layer(id: 610, contentKind: "image", utilityLayer: nil,
             alpha: 1, colorRGB: [1, 1, 1]), assetLink = binding(610, 611, .imageLayerBlend)
@@ -442,7 +491,7 @@ class SceneSourceColorNamedAndLitTests(unittest.TestCase):
         report = run_frozen(sources, local_named_support, "local-utility-named",
                             [SCENE / "Rendering/Composition/SceneImageLayer.metal"],
                             read_inputs=[PROVIDER_HELPER, COMPLETED_SOURCE_UNIFORMS])
-        self.assertEqual(len(report), 11, report)
+        self.assertEqual(len(report), 17, report)
         self.assertTrue(all(report.values()), report)
 
     def test_actual_named_capture_readiness_model_representation_and_data_rejection(self):

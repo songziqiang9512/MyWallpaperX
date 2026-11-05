@@ -125,16 +125,16 @@
       "bytes": 24855
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 193,
-      "bytes": 35886
+      "lines": 195,
+      "bytes": 36694
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 109,
-      "bytes": 52020
+      "lines": 110,
+      "bytes": 53666
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 113,
-      "bytes": 15446
+      "lines": 115,
+      "bytes": 16172
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 33228
+      "bytes": 33254
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -475,38 +475,38 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "cc1160d84465cd2115ff6be3950d632d30b61c009f831ee6111b98cd98acd27b",
-      "after": "92211e677a7998e662ac4858f19f8033929ab9dccaeb05dfc564d91771cea4ea",
-      "owner": "scene-cold-inactive-named-program",
-      "reason": "Keep ordinary DirectBool cold-inactive named Programs through the original route, separate candidate preparation from current slot demand, retain utility/provider and actual graph/resource boundaries, and replace the resolved queue item with bounded off/on/off App evidence.",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "bcac90bfb7756cca6b326a79667d5238b76c65f7b53f86acdf080c692180aedd",
+      "after": "4e00035ae3de6aecb65130c906c66e758a2eb34a9100cc981c5840c1342c3443",
+      "owner": "scene-hidden-text-graph-source",
+      "reason": "Retain hidden effectful text through the original graph-final publication owner, distinguish real CoreText/graph output from raw/no-Program fallback, record bounded native/App/author evidence and replace the resolved consumer issue with the actual remaining implicit textbuffer gap.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "19669d61c7223e7378f000f82f3c19604f1163cea97011830428b099ac5b6101",
-      "after": "bcac90bfb7756cca6b326a79667d5238b76c65f7b53f86acdf080c692180aedd",
-      "owner": "scene-cold-inactive-named-program",
-      "reason": "Keep ordinary DirectBool cold-inactive named Programs through the original route, separate candidate preparation from current slot demand, retain utility/provider and actual graph/resource boundaries, and replace the resolved queue item with bounded off/on/off App evidence.",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "92211e677a7998e662ac4858f19f8033929ab9dccaeb05dfc564d91771cea4ea",
+      "after": "da0bcc1aa70fe3a57b5db73d09853891f237a33a932afbb383123e9b7ea13ede",
+      "owner": "scene-hidden-text-graph-source",
+      "reason": "Retain hidden effectful text through the original graph-final publication owner, distinguish real CoreText/graph output from raw/no-Program fallback, record bounded native/App/author evidence and replace the resolved consumer issue with the actual remaining implicit textbuffer gap.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4fa6e00012ca0fa2e546bac570087320887ce4c8caaceb9d866b743e0c764158",
-      "after": "7d36dd4092d8b5d75b62e402600f5c97e1fd0d0b7452c4ef6e9beea2ef5f0cc3",
-      "owner": "scene-cold-inactive-named-program",
-      "reason": "Keep ordinary DirectBool cold-inactive named Programs through the original route, separate candidate preparation from current slot demand, retain utility/provider and actual graph/resource boundaries, and replace the resolved queue item with bounded off/on/off App evidence.",
+      "before": "7d36dd4092d8b5d75b62e402600f5c97e1fd0d0b7452c4ef6e9beea2ef5f0cc3",
+      "after": "cde1dde0c503b1b5a6f1e2687ee2c6f25a52eef60a32a4bc6d17d9d33d1ed59c",
+      "owner": "scene-hidden-text-graph-source",
+      "reason": "Retain hidden effectful text through the original graph-final publication owner, distinguish real CoreText/graph output from raw/no-Program fallback, record bounded native/App/author evidence and replace the resolved consumer issue with the actual remaining implicit textbuffer gap.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b4e9a1d7cee3e07e3c4112c1963894db601256904f579fd16b0d62603ad66a70",
-      "after": "ebbdc91f6b49c31dba07f9df8524460202ab214641a51120f3d6c63d96543692",
-      "owner": "scene-cold-inactive-named-program",
-      "reason": "Keep ordinary DirectBool cold-inactive named Programs through the original route, separate candidate preparation from current slot demand, retain utility/provider and actual graph/resource boundaries, and replace the resolved queue item with bounded off/on/off App evidence.",
+      "before": "ebbdc91f6b49c31dba07f9df8524460202ab214641a51120f3d6c63d96543692",
+      "after": "3300d4a65c17ae58e26846f914c6fc7e59b51bdd3898bd6a1e8e66e2e6fa6093",
+      "owner": "scene-hidden-text-graph-source",
+      "reason": "Retain hidden effectful text through the original graph-final publication owner, distinguish real CoreText/graph output from raw/no-Program fallback, record bounded native/App/author evidence and replace the resolved consumer issue with the actual remaining implicit textbuffer gap.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
     }
   ]
