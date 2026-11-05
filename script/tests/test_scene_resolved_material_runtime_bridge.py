@@ -708,7 +708,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "executorInvalidationRemainsFailure",
                 "unknownCancellationRemainsFailure",
                 "surfaceStopGPUFailureRemainsFailure",
-                "invalidSurfaceStopLedgerRemainsFailure",
                 "productionObservationBuilderSuccess",
                 "productionObservationBuilderFailure",
                 "claimUsesCentralCapabilityAdmission",

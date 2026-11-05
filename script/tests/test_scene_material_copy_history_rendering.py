@@ -147,7 +147,10 @@ HARNESS_PATH = (
 )
 HARNESS = HARNESS_PATH.read_text(encoding="utf-8") + HARNESS_PATH.with_name(
     "SceneMaterialCopyHistoryRetirementChecks.swift"
-).read_text(encoding="utf-8")
+).read_text(encoding="utf-8") + _declaration(
+    HARNESS_PATH.with_name("SceneSubmissionScenarioInputs.swift").read_text(),
+    "LogRecorder", marker="private final class LogRecorder: @unchecked Sendable {",
+)
 RETIREMENT_SURFACE_SUPPORT = HARNESS_PATH.with_name(
     "SceneMaterialCopyHistoryRetirementSurfaceSupport.swift"
 ).read_text(encoding="utf-8")
@@ -187,6 +190,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
                     "-parse-as-library",
                     "-D",
                     "SCENE_GRAPH_TESTING",
+                    "-D", "DEBUG",
                     str(support),
                     *(str(path) for path in SWIFT_SOURCES),
                     str(SURFACE_ADOPTION),
@@ -220,6 +224,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
         payload = json.loads(completed.stdout)
+        print("COPY_HISTORY_RESULTS " + json.dumps(payload, sort_keys=True), flush=True)
         if not payload["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         def assert_checks(value):
@@ -228,7 +233,8 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
                     assert_checks(child)
             elif isinstance(value, bool):
                 self.assertTrue(value, payload)
-        for section in ("resourceBundleIdentity", "resourceBundleCapacity", "environmentOverlay", "historyRetirement"):
+        self.assertEqual(set(payload["sceneColorCancellation"]), {"surface-stop", "scene-switch"})
+        for section in ("resourceBundleIdentity", "resourceBundleCapacity", "environmentOverlay", "historyRetirement", "sceneColorCancellation"):
             assert_checks(payload[section])
         self.assertEqual(payload["quarterFailure"], "success", payload)
         self.assertEqual(payload["threeQuarterFailure"], "success", payload)

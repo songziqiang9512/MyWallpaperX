@@ -139,6 +139,8 @@ private enum Harness {
                 .outputPixels != inFlightThreeQuarters.frames[0].outputPixels,
             "historyRetirement": graphHistoryRetirementChecks(
                 device: device, queue: queue, source: source, pipeline: pipeline),
+            "sceneColorCancellation": graphSceneColorCancellationChecks(
+                device: device, queue: queue, source: source, pipeline: pipeline),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,

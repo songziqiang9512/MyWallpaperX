@@ -233,19 +233,6 @@ enum SceneSubmissionLifecycleChecks {
             gpuStatus: .failed
         )
 
-        let invalidSurfaceStop = runPendingCancellation(
-            device: device,
-            queue: queue,
-            reasonCode: SceneGraphExecutionResetReason.surfaceStop.rawValue,
-            gpuStatus: .completed,
-            consumed: false
-        )
-        results["invalidSurfaceStopLedgerRemainsFailure"] = recordedFailure(
-            invalidSurfaceStop,
-            reasonCode: "lifecycle-cancellation-ledger-invariant-rejected",
-            gpuStatus: nil
-        )
-
         do {
             let prepared = makeObservationTransition(device: device)
             let success = try SceneResolvedMaterialGraphObservationBuilder.make(

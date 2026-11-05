@@ -94,6 +94,15 @@ MTLLibrary/PSO 在 graph/source 准备入口 warmup；PassEncoder 是其正/负�
 
 Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成版本。Surface 实际采用 destroyed 成员时清其 committed 与 pending final tails；在途 pin 沿原 terminal 释放，晚 completion 不能复活 dead tail。跨层 named 是独立 reservation/copy/publication，不连带清健康 consumer 自有 history。隐藏活 provider 仍可因真实 demand 执行。
 
+<a id="submission-cancellation"></a>
+### 提交与生命周期取消
+
+`seal` 在原锁内把已经确认的 ledger、资源 pin 和 command buffer 交给 pending submission；完成回调只接纳该注册的 observation identity。正常提交在 GPU terminal 后校验当前 epoch、可发布的 sceneColor 与 tails，再提升 current/history。Surface stop 或 Scene switch 会先使旧 epoch 和池版本失效；其已提交候选完成后只退出使用期，不再要求旧内容仍可发布到新 epoch。
+
+因此这两种生命周期取消在真实 GPU completed 后直接沿原 cancelled 终态退休，不能复用 commit 校验，也不对已封口内部载荷再建一套去重/消费许可。原 `terminalizeLedgerLocked` 按唯一 ledger ID 原子取走记录，command-buffer 注册挡旧回调；重复完成不能重复发布或释放。未到 GPU terminal 的资源继续由 pending 持有，sceneColor 的失败完成只释放、不提升版本。GPU failed、reprepare、device/executor 或未知原因仍沿原失败分类，不能通过过滤日志或修改测量器冒充修复。
+
+验收使用原 reserve/encode/mark/seal 后调用真实 invalidate 的路径，覆盖 surfaceStop/sceneSwitch、池失效和非空 sceneColor/history、尾帧保留、重复回调与 GPU 失败；对原 bad seal、ticket 复用和正常 commit 保留独立反例。不用手工构造未消费的 sealed ledger 作为取消重认证的依据，不新增取消 owner、shadow state 或 ordinary-frame 工作。
+
 局部视觉失败保安全 current/previous 与健康内容；非法来源、越界、错误 identity 或 GPU hazard 只拒最小不安全单元。不伪造 binding/history/资源，不把诊断或可选 cache 成功当播放许可。领域细节归[graph/shader](../capabilities/render-graph-shader-coverage.md)、[effect/composition](../capabilities/effect-execution-coverage.md)。
 
 源码：[运行能力](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift)、[Bridge](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift)、[Executor](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift)、[PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)、[提交与完成](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift)。

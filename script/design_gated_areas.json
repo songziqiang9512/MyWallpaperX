@@ -261,7 +261,7 @@
       "owner": "SceneResolvedMaterialSubmissionCoordinator",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "",
+      "design_notes": "DesignDoc#submission-cancellation separates publication from retirement. Keep current-epoch checks at commit; retire completed stop/switch candidates through the original command-buffer registration and atomic ledger lifetime owners. Verification and limits remain in the canonical contract, with no cancellation reauthentication, second owner or shadow state.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator*.swift"
       ],

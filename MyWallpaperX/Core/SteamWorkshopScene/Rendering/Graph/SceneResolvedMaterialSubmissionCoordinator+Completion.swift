@@ -148,8 +148,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 pendingSubmissions.removeFirst()
                 let terminal = cancellationTerminal(
                     reasonCode: reason,
-                    gpuStatus: status,
-                    submission: head
+                    gpuStatus: status
                 )
                 for identity in head.ledgerIDs {
                     emission.append(terminalizeLedgerLocked(
@@ -213,8 +212,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func cancellationTerminal(
         reasonCode: String,
-        gpuStatus: SceneGraphExecutionGPUCompletionStatus,
-        submission: PendingSubmission
+        gpuStatus: SceneGraphExecutionGPUCompletionStatus
     ) -> LedgerTerminal {
         guard gpuStatus == .completed else {
             return .failed(reasonCode: reasonCode, gpu: .failed)
@@ -224,25 +222,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         switch reasonCode {
         case SceneGraphExecutionResetReason.surfaceStop.rawValue,
              SceneGraphExecutionResetReason.sceneSwitch.rawValue:
-            return submissionCanCancelSilentlyLocked(submission)
-                ? .cancelled
-                : .failed(
-                    reasonCode: "lifecycle-cancellation-ledger-invariant-rejected",
-                    gpu: nil
-                )
+            return .cancelled
         default:
             return .failed(reasonCode: reasonCode, gpu: nil)
         }
-    }
-
-    func submissionCanCancelSilentlyLocked(
-        _ submission: PendingSubmission
-    ) -> Bool {
-        let identities = Set(submission.ledgerIDs)
-        guard !identities.isEmpty || submission.sceneColor != nil || submission.displayScratchPin != nil,
-              identities.count == submission.ledgerIDs.count,
-              !submission.commandBufferIdentities.isEmpty else { return false }
-        return submissionCanCommitLocked(submission)
     }
 
     func submissionCanCommitLocked(_ submission: PendingSubmission) -> Bool {

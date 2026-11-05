@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 173,
-      "bytes": 23979
+      "lines": 182,
+      "bytes": 25498
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -129,8 +129,8 @@
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 119,
-      "bytes": 68227
+      "lines": 120,
+      "bytes": 69641
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 34023
+      "bytes": 34231
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,11 +440,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "61963b6c5a720ac5e09f6ee63f96e959a610d9bd38615bf6ce2fc8e2b05aced1",
-      "after": "28fa787cd60560e7e32209701bb1d29f96c6bda8ed93956ab3358bb46d608caf",
-      "owner": "scene-particle-remap-time-source",
-      "reason": "Reconcile the current three author first-breakpoints and one frozen official time-source joint falsification. Keep strict source qualification, omitted transform/range, sine and clock producer unknown; correct the original-clock implementation hint without adding a new authority, consumer, clock or experiment.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "28fa787cd60560e7e32209701bb1d29f96c6bda8ed93956ab3358bb46d608caf",
+      "after": "96085bb8aab016a1c477fedd6cfba356c15e3193306494c68ccf4b0e6b396665",
+      "owner": "scene-cancellation-terminal",
+      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
     },
     {
       "section": "bodies",
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6d0363bbd612fd23f6c0c793ca15bf89612de95d29c9ba514d91725470ce2437",
-      "after": "7eabbad6e5d00f2d5534a950b941050e09c00a96c287e11c991c98cde5c9e73f",
-      "owner": "scene-particle-remap-time-source",
-      "reason": "Reconcile the current three author first-breakpoints and one frozen official time-source joint falsification. Keep strict source qualification, omitted transform/range, sine and clock producer unknown; correct the original-clock implementation hint without adding a new authority, consumer, clock or experiment.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "7eabbad6e5d00f2d5534a950b941050e09c00a96c287e11c991c98cde5c9e73f",
+      "after": "07ac2c5990ae25713bd0bede3eb63d4eb37e36bcd734cb3c01fb4d1c73349b56",
+      "owner": "scene-cancellation-terminal",
+      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3cfdea563c6225e807c7684643eb328698610bb33411e9825f759da1b712a1e2",
-      "after": "d21b28fe43b5e4d4153d9d67446593a25bb976f18caa5cd9617a9ea07108f5cf",
-      "owner": "scene-particle-remap-time-source",
-      "reason": "Reconcile the current three author first-breakpoints and one frozen official time-source joint falsification. Keep strict source qualification, omitted transform/range, sine and clock producer unknown; correct the original-clock implementation hint without adding a new authority, consumer, clock or experiment.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "d21b28fe43b5e4d4153d9d67446593a25bb976f18caa5cd9617a9ea07108f5cf",
+      "after": "b7838dd4c3be6d8e7f98a8bd583c6ce99da4ea59476dbab7a056ddfca5f70a33",
+      "owner": "scene-cancellation-terminal",
+      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
     }
   ]
 }

@@ -555,8 +555,7 @@ private func runPendingCancellation(
     device: MTLDevice,
     queue: MTLCommandQueue,
     reasonCode: String,
-    gpuStatus: SceneGraphExecutionGPUCompletionStatus,
-    consumed: Bool = true
+    gpuStatus: SceneGraphExecutionGPUCompletionStatus
 ) -> CancellationResult {
     let recorder = LogRecorder()
     let coordinator = makeCoordinator(
@@ -589,7 +588,7 @@ private func runPendingCancellation(
         candidate: [effect: tail],
         phase: .sealed,
         submissionID: 1,
-        consumed: consumed
+        consumed: true
     )
     coordinator.pendingSubmissions = [.init(
         identity: 1,

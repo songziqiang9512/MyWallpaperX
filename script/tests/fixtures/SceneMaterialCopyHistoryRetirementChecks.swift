@@ -58,7 +58,7 @@ private func submitCoordinatorFrame(
     expectedContent: SceneTextureContent,
     usesExternalResourceBundle: Bool = true,
     dependencyEffects: [SceneDependencyEffectInput] = [], requiresHistory: Bool = true,
-    enqueue: Bool = true, waitEvent: MTLSharedEvent? = nil
+    enqueue: Bool = true, waitEvent: MTLSharedEvent? = nil, includesSceneColor: Bool = false
 ) -> PendingCoordinatorFrame {
     guard let commandBuffer = queue.makeCommandBuffer() else {
         fatalError("coordinator command buffer unavailable")
@@ -139,6 +139,17 @@ private func submitCoordinatorFrame(
             texture: texture,
             consumed: true
         )
+    }
+    if includesSceneColor {
+        guard let color = coordinator.reserveSceneColor(pool: pool, width: extent.width,
+                height: extent.height, frameIndex: index, commandBuffer: commandBuffer, intent: .snapshot),
+              let encoder = commandBuffer.makeBlitCommandEncoder()
+        else { fatalError("lifecycle scene color unavailable") }
+        encoder.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: extent.width, height: extent.height, depth: 1),
+            to: color.raw, destinationSlice: 0, destinationLevel: 0, destinationOrigin: .init(x: 0, y: 0, z: 0))
+        encoder.endEncoding()
+        precondition(coordinator.markSceneColorSnapshot(on: commandBuffer))
     }
     guard ticket.finalContent == expectedContent,
           let stage = coordinator.activeByID[ticket.identity]?.prepared.stages.first,
@@ -276,25 +287,28 @@ private struct HistoryRetirementFixture {
     let owner: SceneResolvedMaterialSubmissionCoordinator
     let pool: SceneOffscreenTexturePool
     let surface: SceneDesktopWallpaperSession.Surface
-    init(_ device: MTLDevice, additional: [Graph] = []) {
+    init(_ device: MTLDevice, additional: [Graph] = [],
+         logSink: @escaping SceneResolvedMaterialSubmissionCoordinator.LogSink = { _ in }) {
         let graphs = [victim, peer] + additional
         descriptor = retirementDescriptor(graphs)
         catalog = retirementCapabilities(graphs, descriptor: descriptor)
-        owner = .init(device: device, capabilities: catalog, logSink: { _ in })
+        owner = .init(device: device, capabilities: catalog, logSink: logSink)
         pool = .init(device: device, maxDimension: 64, residentByteBudget: 1_048_576)
         surface = .init(owner, descriptor: descriptor)
         adoptHistoryTopology(surface, revision: 0, destroyed: [], frame: 0)
     }
     func submit(
         _ renderGraph: Graph, index: UInt64, source: MTLTexture, pipeline: SceneImageLayerPipeline,
-        queue: MTLCommandQueue, enqueue: Bool = true, waitEvent: MTLSharedEvent? = nil
+        queue: MTLCommandQueue, enqueue: Bool = true, waitEvent: MTLSharedEvent? = nil,
+        includesSceneColor: Bool = false
     ) -> PendingCoordinatorFrame {
         submitCoordinatorFrame(index: index, coordinator: owner,
             claim: claimedExecution(catalog: catalog, admitted: admitted(renderGraph)),
             graph: renderGraph, executionPlan: admitted(renderGraph).stagePrograms[0].executionPlan,
             pool: pool, source: source, pipeline: pipeline, queue: queue,
             expectedContent: .color(.resolved(.straightAlpha)),
-            requiresHistory: !renderGraph.renderTargets.isEmpty, enqueue: enqueue, waitEvent: waitEvent)
+            requiresHistory: !renderGraph.renderTargets.isEmpty, enqueue: enqueue, waitEvent: waitEvent,
+            includesSceneColor: includesSceneColor)
     }
     func close() {
         owner.invalidate(reason: .surfaceStop)
@@ -438,6 +452,60 @@ private func retirementThenStopChecks(
             && !frozen.isEmpty && owner.pendingSubmissions.isEmpty && owner.activeByID.isEmpty,
         "stopCannotPromoteRetiredTails": owner.committedTails.isEmpty && owner.scheduledTails.isEmpty,
     ]
+}
+
+func graphSceneColorCancellationChecks(
+    device: MTLDevice, queue: MTLCommandQueue, source: MTLTexture, pipeline: SceneImageLayerPipeline
+) -> [String: [String: Bool]] {
+    var results: [String: [String: Bool]] = [:]
+    for reason: SceneGraphExecutionResetReason in [.surfaceStop, .sceneSwitch] {
+        let recorder = LogRecorder()
+        let fixture = HistoryRetirementFixture(device, logSink: { recorder.append($0) })
+        let owner = fixture.owner
+        _ = completeCoordinatorFrame(fixture.submit(fixture.victim, index: 0,
+            source: source, pipeline: pipeline, queue: queue), coordinator: owner)
+        let previous = owner.committedTails[effect]!
+        let event = device.makeSharedEvent()!
+        defer { event.signaledValue = 1; fixture.close() }
+        let pending = fixture.submit(fixture.victim, index: 1,
+            source: source, pipeline: pipeline, queue: queue, waitEvent: event, includesSceneColor: true)
+        let registration = owner.commandBufferRecords[ObjectIdentifier(pending.commandBuffer)]!.observationID
+        let color = owner.pendingSubmissions[0].sceneColor!
+        let pins = historyPinCount(fixture.pool, layer: layerID)
+        let sealed = owner.pendingSubmissions.count == 1
+            && owner.pendingSubmissions[0].ledgerIDs.count == 1
+            && !owner.pendingSubmissions[0].finalTails.isEmpty
+            && color.snapshotCopied && pins > 0
+        owner.invalidate(reason: reason); fixture.pool.reset()
+        let held = owner.pendingSubmissions.count == 1 && owner.activeByID.count == 1
+            && owner.completedSceneColor == nil && owner.committedTails.isEmpty
+            && color.epoch != owner.executionEpoch && !color.matchesCurrentEpoch
+            && historyPinCount(fixture.pool, layer: layerID) == pins
+            && fixture.pool.residentByteCost > 0
+        event.signaledValue = 1
+        let completed = completeCoordinatorFrame(pending, coordinator: owner)
+        let logBeforeReplay = recorder.lines
+        let retired = owner.pendingSubmissions.isEmpty && owner.activeByID.isEmpty
+            && owner.commandBufferRecords.isEmpty && historyPinCount(fixture.pool, layer: layerID) == 0
+            && fixture.pool.residentTextureCount == 0 && fixture.pool.residentByteCost == 0
+        owner.completeCommandBuffer(identity: ObjectIdentifier(pending.commandBuffer),
+            observationID: registration, status: .completed)
+        results[reason.rawValue] = [
+            "realGraphHistoryAndSceneColorSealed": sealed && !previous.persistentResources.isEmpty,
+            "invalidatedContentHeldUntilGPUTerminal": held,
+            "actualGPUReadsPriorHistory": completed.completed
+                && approximately(completed.outputPixels, expected(scale: 0.4375)),
+            "normalLifecycleHasNoFalseFailure": !logBeforeReplay.contains {
+                $0.contains("outcome=failed") || $0.contains("lifecycle-cancellation-ledger-invariant-rejected")
+            },
+            "allPinsRetiredWithoutPromotion": retired && owner.completedSceneColor == nil
+                && owner.committedTails.isEmpty && owner.scheduledTails.isEmpty,
+            "repeatedTerminalCannotRepublishOrReleaseAgain": recorder.lines == logBeforeReplay
+                && owner.pendingSubmissions.isEmpty && owner.activeByID.isEmpty
+                && owner.completedSceneColor == nil && fixture.pool.residentByteCost == 0,
+        ]
+    }
+    return results
 }
 
 private func reverseCompletionRetirementChecks(
