@@ -48,11 +48,6 @@ extension WallpaperManager {
     func handleMissingWallpaperDuringSwitch(_ value: VideoWallpaper, userInitiated: Bool) { unexpectedMissingFallbacks += 1 }
     func presentImportSummary(_ value: ImportSummary, in window: NSWindow?) { importSummaryCount += 1; onImportSummary?() }
     func scheduleImportedAssetsProcessing(_ urls: [URL]) { importedAssetRequests.append(contentsOf: urls) }
-    func navigateLibraryPlayback(_ direction: ManualNavigationDirection,
-                                 policy: WallpaperPlaybackSequence.NavigationPolicy = .adjacent) {
-        manualNavigationExecutions += 1
-        manualNavigationDirections.append(direction)
-        manualNavigationPolicies.append(policy)
-    }
+
     // IMPORT_AND_APPLY_METHODS
 }

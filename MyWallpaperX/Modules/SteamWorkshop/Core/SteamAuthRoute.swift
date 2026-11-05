@@ -45,7 +45,6 @@ final class SteamAuthRoute: ObservableObject {
 
     let client: SteamServiceClient
     private let persistence: Persistence
-    private var eventObserverID: UUID?
     private let accountSession: SteamAccountSession
 
     init(client: SteamServiceClient, persistence: Persistence? = nil) {
@@ -69,7 +68,7 @@ final class SteamAuthRoute: ObservableObject {
                 self.connectionLost()
             }
         }
-        eventObserverID = client.addEventObserver { [weak self] frame in
+        client.addEventObserver { [weak self] frame in
             guard let self, frame.event == "accountState", frame.accountEpoch == self.client.accountEpoch,
                   frame.root["state"]?.stringValue == "disconnected" else { return }
             // Anonymous public browse owns no account session. Its Steam

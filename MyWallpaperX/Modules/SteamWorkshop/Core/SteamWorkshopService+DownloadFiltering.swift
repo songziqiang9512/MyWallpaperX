@@ -113,11 +113,6 @@ extension SteamWorkshopService {
         return itemIDs.contains(itemID)
     }
 
-    /// 现役账号下该 item 是否存在持久失败意图（ready 卡「更新失败」附加状态的判定）。
-    func hasFailedDownloadIntent(for itemID: String) -> Bool {
-        guard let account = currentSteamDownloadAccount else { return false }
-        return downloadJobStore.failedJob(forWorkshopItemId: itemID, accountSteamId: account) != nil
-    }
 
     /// 现役账号下该 item 失败意图的失败摘要（无失败意图或无摘要返回 nil）。
     func failedDownloadIntentMessage(for itemID: String) -> String? {

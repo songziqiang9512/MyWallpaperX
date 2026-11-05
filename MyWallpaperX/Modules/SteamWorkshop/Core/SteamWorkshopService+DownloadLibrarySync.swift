@@ -527,12 +527,6 @@ extension SteamWorkshopService {
         try? data.write(to: url, options: Data.WritingOptions.atomic)
     }
 
-    func loadDownloadMetadataEntry(forItemID itemID: String) -> (url: URL, snapshot: SteamWorkshopDownloadMetadataSnapshot)? {
-        Self.scanLoadDownloadMetadataEntry(
-            forItemID: itemID,
-            metadataIndexDirectory: downloadMetadataIndexDirectoryURL()
-        )
-    }
 
     nonisolated static func scanLoadDownloadMetadataEntry(
         forItemID itemID: String,

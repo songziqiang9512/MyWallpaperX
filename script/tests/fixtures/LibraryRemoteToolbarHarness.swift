@@ -26,9 +26,7 @@ enum AuthDisplayState { case online, connecting, awaitingInput, expired, failed,
 @MainActor final class ToolbarJobs {
     @Published var jobs: [SteamDownloadJob] = []
     @Published var history: [SteamDownloadHistoryEntry] = []
-    var prunes = 0
     var clearedAccounts: [String] = []
-    func pruneExpiredHistory() { prunes += 1 }
     func clearHistory(forAccount account: String? = nil) {
         clearedAccounts.append(account ?? "all-local")
         history = account.map { account in history.filter { $0.accountSteamId != account } } ?? []

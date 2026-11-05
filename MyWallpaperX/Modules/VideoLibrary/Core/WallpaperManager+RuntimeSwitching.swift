@@ -448,7 +448,6 @@ extension WallpaperManager {
             switch value {
             case let .video(wallpaper):
                 currentWallpaper = wallpaper; activeWallpaperRuntime = .video; lastWorkshopPlaybackRecordID = nil
-                updateCurrentWallpaperIndex(for: wallpaper.id)
             case let .web(recordID):
                 currentWallpaper = nil; activeWallpaperRuntime = .web; lastWorkshopPlaybackRecordID = recordID
             case let .scene(recordID):

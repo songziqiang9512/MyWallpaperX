@@ -33,13 +33,6 @@ extension WallpaperManager {
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
     }
 
-    func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) {
-        let now = CACurrentMediaTime()
-        guard now - lastInteractiveWallpaperSetTime > interactiveWallpaperSetDebounceInterval else { return }
-        lastInteractiveWallpaperSetTime = now
-        _ = requestLibraryPlayback(reference: .init(provider: .videoLibrary, sourceID: wallpaper.id))
-    }
-
     func syncSystemWallpaper(with wallpaper: VideoWallpaper) {
         let committedExecution = playbackSwitch.committed
         // 同步系统壁纸优先用已缓存静帧，只有缓存存在时才写系统桌面图。
@@ -342,15 +335,6 @@ extension WallpaperManager {
     }
 
 
-
-    func updateCurrentWallpaperIndex(for wallpaperID: String) {
-        if wallpapers.indices.contains(currentIndex),
-           wallpapers[currentIndex].id == wallpaperID {
-            return
-        }
-        guard let index = wallpapers.firstIndex(where: { $0.id == wallpaperID }) else { return }
-        currentIndex = index
-    }
 
     func reportMissingIndexedFile(path: String, displayTitle: String) {
         let normalized = normalizedPath(path)

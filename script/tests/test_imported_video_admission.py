@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ImportedVideoAdmissionTests(unittest.TestCase):
-    def test_admission_async_import_stop_failure_and_queued_navigation(self):
+    def test_admission_async_import_stop_failure_and_new_intents(self):
         source = product_harness().replace('struct VideoWallpaper {let path:String;var id:String{path}}', '')
         source = source.replace('import Foundation', 'import AppKit\nimport QuartzCore\nimport CryptoKit\nimport UniformTypeIdentifiers\nimport Foundation', 1)
         source = source.replace('var autoSwitchEnabled=true,randomInterval=', 'var volume: Double = 100\n        var autoSwitchEnabled=true,randomInterval=')
@@ -36,13 +36,6 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
     var importSummaryCount = 0, recentRequests = 0, historyRequests = 0, unexpectedMissingFallbacks = 0
     var timerRefreshAudit = 0
     var importedAssetRequests: [URL] = []
-    var pendingManualNavigationDirection: ManualNavigationDirection?
-    var pendingManualNavigationWorkItem: DispatchWorkItem?
-    var lastManualNavigationAt: CFTimeInterval = 0
-    let manualNavigationMinInterval: CFTimeInterval = 0.18
-    var manualNavigationExecutions = 0
-    var manualNavigationDirections: [ManualNavigationDirection] = []
-    var manualNavigationPolicies: [WallpaperPlaybackSequence.NavigationPolicy] = []
 '''
         marker = '@MainActor final class WallpaperManager: ObservableObject {'
         self.assertEqual(source.count(marker), 1)
@@ -58,9 +51,8 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
         presentation = (MANAGER / 'WallpaperManager+ImportPresentation.swift').read_text()
         application = (MANAGER / 'WallpaperManager+WallpaperApplication.swift').read_text()
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
-        navigation = (MANAGER / 'WallpaperManager+PlaybackControl.swift').read_text()
         library = (MANAGER / 'WallpaperLibrarySupport.swift').read_text()
-        types = '\n'.join(declaration(library, sig) for sig in ['struct ImportSummary', 'enum ImportContext', 'enum ManualNavigationDirection'])
+        types = '\n'.join(declaration(library, sig) for sig in ['struct ImportSummary', 'enum ImportContext'])
         methods = '\n'.join(declaration(imports, sig) for sig in [
             '    private struct ImportCounters', '    private enum ImportSourceValidationResult',
             '    private struct PreparedImportEntry', '    private struct ImportPreparationResult',
@@ -74,8 +66,6 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
         methods += '\n' + declaration(application, '    func setAsWallpaper(')
         methods += '\n' + declaration(removal, '    func clearCurrentWallpaperReference(')
         methods += '\n' + declaration(removal, '    func stopCurrentPlayback(')
-        methods += '\n' + '\n'.join(declaration(navigation, signature) for signature in (
-            '    func navigateWallpaperManually(', '    private func scheduleManualNavigationIfNeeded('))
         persistence = (MANAGER / 'WallpaperManager+Persistence.swift').read_text()
         methods += '\n' + declaration(persistence, '    func saveCodableValue<')
         methods += '\n' + declaration(persistence, '    private func encode<')
@@ -117,11 +107,6 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             self.assertTrue({
                 'actualCacheLookupReachesImportedAndPreparedWallpaper',
                 'uncachedLatestSourceDoesNotBorrowPreviousAssetPaths',
-                'stopRevokesQueuedDirectionFlagsAndWorkItem',
-                'manualNavigationFirstRequestDispatchesImmediatelyThroughRandomHistory',
-                'manualNavigationDebounceKeepsOnlyTheLastDirection',
-                'manualNavigationDelayedDispatchRunsExactlyOnceAndClearsItsReceipt',
-                'manualNavigationOldGenerationCannotDispatchItsQueuedDirection',
             }.issubset(checks), checks)
             for name, passed in checks.items():
                 with self.subTest(name=name):

@@ -16,7 +16,6 @@ nonisolated enum WallpaperPlaybackSequence {
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var currentWallpaper: VideoWallpaper?
     var pendingWallpaper: VideoWallpaper?
-    var currentIndex = 0
     let recentWallpapersKey = "RecentWallpapers"
     var unreadableRecoveryCount = 0
     var importSummaries: [ImportSummary] = []
@@ -346,7 +345,7 @@ nonisolated enum WallpaperPlaybackSequence {
                 checks["futureCommitUsesStableIdentity"] = selected.id == a.id
             }
             checks["allVisibleReferencesRebindWithoutPlayback"] = manager.currentWallpaper?.id == a.id
-                && manager.pendingWallpaper?.id == a.id && manager.currentIndex == 0 && manager.autoplayRequests == 0
+                && manager.pendingWallpaper?.id == a.id && manager.autoplayRequests == 0
 
             let subject = WallpaperManager()
             subject.startInitialLoad(); _ = try store.loadWallpapers()

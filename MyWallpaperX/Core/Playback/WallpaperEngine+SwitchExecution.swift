@@ -233,7 +233,6 @@ extension WallpaperEngine {
         currentVideoFillMode = execution.fillMode
         currentMultiDisplayEnabled = execution.multiDisplayEnabled
         currentShouldLoopCurrentItem = execution.shouldLoop
-        lastFailureVideoPath = nil; lastFailureAt = 0
         if switchPrepared == nil, let previous { retireVideoExecution(previous, completion: {}) }
         NotificationCenter.default.post(name: Self.playbackReadyNotification,
             object: self, userInfo: ["videoPath": execution.path])

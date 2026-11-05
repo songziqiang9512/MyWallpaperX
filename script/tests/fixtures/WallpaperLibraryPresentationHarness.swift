@@ -613,6 +613,23 @@ import Foundation
         }?.addedAt == Date(timeIntervalSince1970: 300)
         checks["actual-sql-rejoined-member-sorts-first"] = try WallpaperLibraryQuery.project(page: .playlist(joined), state: .init(),
             catalog: catalog, relationships: rejoined).items.map(\.reference) == [a, b]
+        let downloadScrollCatalog = WallpaperLibraryCatalog(downloads: [item(steam)],
+            loadedProviders: Set(WallpaperProvider.allCases))
+        let downloadScrollRelations = try await store.snapshot()
+        _ = model.update(catalog: downloadScrollCatalog, relationships: downloadScrollRelations)
+        _ = model.switchPage(.downloads)
+        model.setQueryState(.init(preferredColumns: 4, scrollAnchor: steam, scrollOffset: -19.25, scrollAtTop: false))
+        let downloadQuery = model.queryState
+        _ = model.switchPage(.workshop)
+        _ = model.switchPage(.downloads)
+        checks["downloads-return-restores-real-page-session-scroll-and-density"] = model.queryState == downloadQuery
+            && model.queryResult.items.map(\.reference) == [steam] && model.queryState.scrollAnchor == steam
+            && model.queryState.scrollOffset == -19.25 && model.queryState.scrollAtTop == false
+        let restoredDownloads = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+        _ = restoredDownloads.update(catalog: downloadScrollCatalog, relationships: downloadScrollRelations)
+        _ = restoredDownloads.switchPage(.downloads)
+        checks["downloads-scroll-restores-from-current-page-preferences"] = restoredDownloads.queryState == downloadQuery
+            && restoredDownloads.queryResult.items.map(\.reference) == [steam]
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

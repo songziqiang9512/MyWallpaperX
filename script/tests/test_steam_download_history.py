@@ -415,9 +415,10 @@ import Foundation
         let expiring = expiringStore.enqueue(
             workshopItemId: "old", title: "Old", accountSteamId: "A").job
         precondition(expiringStore.cancel(id: expiring.id) != nil)
+        precondition(expiringStore.history.count == 1)
         clock.addTimeInterval(SteamDownloadJobStore.historyRetentionInterval + 1)
-        precondition(expiringStore.pruneExpiredHistory() == 1)
-        precondition(expiringStore.history.isEmpty)
+        let reloadedExpiringStore = SteamDownloadJobStore(persistenceURL: expiringURL, now: { clock })
+        precondition(reloadedExpiringStore.history.isEmpty)
 
         print("Download history: current v5 recovery, old-format rejection, retention, account clear and atomic failure PASS")
     }

@@ -190,11 +190,6 @@ final class InspectorHostStore {
         onChange?()
     }
 
-    func unmountContent(for token: InspectorCardToken? = nil) {
-        guard token == nil || currentRequest?.token == token else { return }
-        hostedContentView = nil
-        onChange?()
-    }
 
     func dismiss() {
         hostedContentView = nil

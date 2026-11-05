@@ -67,7 +67,6 @@ class SteamAppKitInteractionTests(unittest.TestCase):
         harness = r'''
 import AppKit
 import Combine
-@MainActor enum UIInteractionAnimation { static let minimumPressVisualDuration: TimeInterval = 0 }
 final class WallpaperCardGlassBarView: NSView {
     func setProgressAnimationVisible(_ visible: Bool) {}
 }

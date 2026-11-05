@@ -85,7 +85,6 @@ final class WebRuntimeDiagnosticsStore {
     var currentSystemAudioSpectrumBarCount = 28, currentSystemAudioSpectrumColorHex = "#ffffff"
     var currentSystemAudioSpectrumOffsetX: Float = 0, currentSystemAudioSpectrumOffsetY: Float = 0
     var currentSystemAudioSpectrumPeakCapsEnabled = false, playbackPaused = false
-    var lastFailureVideoPath: String?, lastFailureAt: TimeInterval = 0
     let spectrumDelivery = PlaybackSpectrumDelivery()
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = WebDaemonHostAdapter(spectrumDelivery: spectrumDelivery)
     var currentWebRequestID: UUID?
@@ -352,7 +351,6 @@ protocol PlaybackResourceLifetime: AnyObject {}
         owner = source_block(product_harness(), '@MainActor final class WallpaperManager: ObservableObject')
         owner = owner.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         owner = owner.replace('var autoSwitchTimer:Timer?',
-            'var pendingManualNavigationWorkItem:DispatchWorkItem?\n    var pendingManualNavigationDirection:Int?\n'
             '    var autoSwitchTimer:Timer?')
         owner += '\nextension WallpaperManager {\n' + '\n'.join(declaration(removal, signature) for signature in (
             '    func clearCurrentWallpaperReference(', '    func stopCurrentPlayback(')) + '\n}\n'

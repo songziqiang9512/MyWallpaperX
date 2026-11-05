@@ -37,16 +37,6 @@ nonisolated enum SteamServiceProtocol {
 
 /// 出站帧构造（App → helper 的 request；Swift 侧不构造 result/event）。
 enum SteamServiceRequestBuilder {
-    static func ping(requestId: String, processEpoch: Int, accountEpoch: Int) -> Data? {
-        encode([
-            "v": .int(SteamServiceProtocol.version),
-            "type": .string("request"),
-            "requestId": .string(requestId),
-            "command": .string("ping"),
-            "processEpoch": .int(processEpoch),
-            "accountEpoch": .int(accountEpoch),
-        ])
-    }
 
     static func shutdown(requestId: String, processEpoch: Int, accountEpoch: Int) -> Data? {
         encode([

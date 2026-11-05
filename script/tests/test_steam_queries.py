@@ -75,8 +75,6 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
  var suppressAutomaticBrowseNavigation = false
  var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
  var authorWorkshopReturnDestination: SteamWorkshopAuthorReturnDestination?
- var currentDownloadsScrollOffsetY: CGFloat = 0
- var pendingDownloadsScrollRestoreOffsetY: CGFloat?
  var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
  var savedDiscoveryQueryBeforeAuthorBrowse: String?
  func dismissItemDetail() { selectedBrowserItem = nil }

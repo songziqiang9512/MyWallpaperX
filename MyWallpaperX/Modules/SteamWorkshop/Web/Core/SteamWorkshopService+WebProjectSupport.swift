@@ -135,9 +135,6 @@ extension SteamWorkshopService {
         case external(String)
     }
 
-    nonisolated func loadWebProjectRoot(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
-        Self.loadWebProjectRootStatic(for: record)
-    }
 
     nonisolated static func loadWebProjectRootStatic(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
         loadWebProjectRootStatic(projectFileURL: record.projectFileURL)

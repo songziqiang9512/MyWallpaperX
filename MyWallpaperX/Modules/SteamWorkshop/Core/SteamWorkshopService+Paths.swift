@@ -53,7 +53,6 @@ extension SteamWorkshopService {
         libraryRootURL.appendingPathComponent("Scene", isDirectory: true)
     }
 
-    var exportedVideosRootURL: URL { videoLibraryRootURL }
 
     var cacheDirectoryURL: URL {
         FileManager.default.homeDirectoryForCurrentUser

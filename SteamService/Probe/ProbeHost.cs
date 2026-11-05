@@ -8,7 +8,6 @@ internal static class ProbeHost
 {
     private const string QueryFilesUrl = "queryfiles";
     private const string DetailsUrl = "getpublishedfiledetails";
-    private const string CollectionUrl = "getcollectiondetails";
 
     /// 路径守卫：绝对路径、规整化后不含 .. 段、且限定在仓库根或系统临时根
     /// 之下。探针只写 fixture 与隔离 state，不写任意位置。

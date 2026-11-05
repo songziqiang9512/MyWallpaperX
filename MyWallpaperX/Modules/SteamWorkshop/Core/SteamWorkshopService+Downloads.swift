@@ -615,7 +615,6 @@ extension SteamWorkshopService {
         return error.localizedDescription
     }
 
-    func cancelActiveDownload() { cancelDownloadImmediately(showFeedback: true) }
     func cancelDownload(itemID: String) { cancelDownloadImmediately(itemID: itemID, showFeedback: true) }
 
     /// 用户暂停：helper 侧复用 CancelDownload 收口在途传输；staging 与已下载

@@ -115,8 +115,6 @@ class WallpaperManager: ObservableObject {
     // 自动切换计时器
     var autoSwitchTimer: Timer?
 
-    // 视频索引中的当前位置，由真实播放提交更新。
-    var currentIndex: Int = 0
     let deletionQueue = DispatchQueue(label: "com.mywallpaper.delete", qos: .utility)
     
     let thumbnailQueue = DispatchQueue(label: "com.mywallpaper.thumbnail", qos: .utility, attributes: .concurrent)
@@ -182,14 +180,6 @@ class WallpaperManager: ObservableObject {
     // 用于存储 Combine 订阅
     private var cancellables = Set<AnyCancellable>()
     var previousAudibleVolume: Double = 50.0
-    var lastInteractiveWallpaperSetTime: CFTimeInterval = 0
-    let interactiveWallpaperSetDebounceInterval: CFTimeInterval = 0.22
-    var lastManualNavigationAt: CFTimeInterval = 0
-    let manualNavigationMinInterval: CFTimeInterval = 0.18
-    var pendingManualNavigationDirection: ManualNavigationDirection?
-    var pendingManualNavigationWorkItem: DispatchWorkItem?
-    // #7 已移除 Manager 侧 lastPlaybackFailure/Ended 去重变量。
-    // Engine 在 handlePlaybackFailureEvent / handlePlaybackEndedEvent 已有 1s 去重窗口，Manager 侧不再重复过滤。
     let thumbnailReadySubject = PassthroughSubject<String, Never>()
     
     let thumbnailCacheDirectory: URL = {
@@ -295,9 +285,6 @@ class WallpaperManager: ObservableObject {
         pathExists(normalizedPath(path))
     }
 
-    func normalizedSourcePathReadable(_ path: String) -> Bool {
-        isReadablePath(normalizedPath(path))
-    }
 
     func findWallpaperIndex(forPath path: String) -> Int? {
         // 主库索引查找只按标准化路径命中，避免同一文件被当成多份资源。
@@ -315,16 +302,6 @@ class WallpaperManager: ObservableObject {
 
         wallpapers.append(wallpaper)
         return wallpaper.id
-    }
-
-    func currentWallpaperIndex() -> Int? {
-        // currentIndex 是热路径缓存，命中时直接返回；不命中才回退到全库查找。
-        guard let currentWallpaper else { return nil }
-        if wallpapers.indices.contains(currentIndex),
-           wallpapers[currentIndex].id == currentWallpaper.id {
-            return currentIndex
-        }
-        return wallpapers.firstIndex(where: { $0.id == currentWallpaper.id })
     }
 
 

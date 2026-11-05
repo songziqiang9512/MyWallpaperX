@@ -439,18 +439,6 @@ final class SteamDownloadJobStore: ObservableObject {
         return removedCount
     }
 
-    /// Refresh the time-based retention boundary on a user-visible history read,
-    /// without a timer or a second in-memory history owner.
-    @discardableResult
-    func pruneExpiredHistory() -> Int {
-        let candidate = normalizedHistory(history, now: now())
-        let removedCount = history.count - candidate.count
-        guard removedCount > 0 else { return 0 }
-        save(jobs, history: candidate)
-        guard lastSaveSucceeded else { return 0 }
-        history = candidate
-        return removedCount
-    }
 
     /// Caller supplies only available, published metadata pointers. Unpublished directories cannot settle a job.
     func reconcileInterruptedCommits(published: [String: SteamWorkshopLibraryCommit]) {

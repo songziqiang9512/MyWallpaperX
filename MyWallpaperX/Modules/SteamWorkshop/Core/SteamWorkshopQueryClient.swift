@@ -290,7 +290,7 @@ final class SteamWorkshopQueryClient {
 
     /// 发起 helper 下载：授权→manifest→有界 chunk→校验→stagedComplete。
     /// 进度经事件观察者（downloadProgress）；终态为本调用返回。
-    /// timeout 为 nil：下载不受请求超时约束，取消走 cancelStagedDownload。
+    /// timeout 为 nil：下载不受请求超时约束；任务取消处理器按原 jobId 发送 cancelDownload。
     func startStagedDownload(
         jobId: String,
         workshopId: String,
@@ -353,11 +353,6 @@ final class SteamWorkshopQueryClient {
             accountSteamId: accountSteamId, accountEpoch: epoch, stagingRoot: stagingRoot)
     }
 
-    /// 取消在途分级下载；helper 以 cancelled terminal 收口该请求。
-    /// jobId 与 startDownload 一致放信封（helper 的 cancelDownload 只读信封字段）。
-    func cancelStagedDownload(jobId: String) async throws {
-        _ = try await client.request(command: "cancelDownload", jobId: jobId)
-    }
 
     /// Release the helper's pre-write barrier only after the App has persisted
     /// the exact lease identity for this logical attempt.

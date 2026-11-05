@@ -187,6 +187,7 @@ struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var 
                 ROOT/'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                 ROOT/'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
                 ROOT/'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift',
+                ROOT/'MyWallpaperX/Shared/ThumbnailRequest.swift',
                 *[CORE/name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',
                     'SteamWorkshopQueryClient.swift', 'SteamWorkshopSubscriptionStore.swift',
                     'SteamWorkshopBrowseFilters.swift', 'SteamWorkshopAgeRatingSupport.swift',

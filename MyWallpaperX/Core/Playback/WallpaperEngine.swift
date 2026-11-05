@@ -41,8 +41,6 @@ public final class WallpaperEngine: NSObject {
 #endif
         var latestFinalizedPlayRequestID: Int?
 
-        // 退避计数：连续崩溃次数，成功播放后清零。
-        var consecutiveCrashCount: Int = 0
 
         init(displayID: CGDirectDisplayID, transport: DaemonProcessTransport) {
             self.displayID = displayID
@@ -116,8 +114,6 @@ public final class WallpaperEngine: NSObject {
     var sceneAudioSpectrumCaptureRouting = SceneAudioSpectrumCaptureRoutingState()
     let spectrumDelivery: PlaybackSpectrumDelivery
 
-    var lastFailureVideoPath: String?
-    var lastFailureAt: TimeInterval = 0
     static let defaultSpectrumBarCount = 28
 
     override init() {
@@ -142,19 +138,6 @@ public final class WallpaperEngine: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(handleScreenParametersChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         scanDisplays()
-    }
-
-    public func setWallpaper(
-        _ wallpaper: VideoWallpaper,
-        multiDisplayEnabled: Bool,
-        videoFillMode: String,
-        shouldLoopCurrentItem: Bool
-    ) {
-        beginPlaybackIntent()
-        prepareVideoSwitch(wallpaper,
-            ticket: .init(epoch: playbackIntentEpoch, id: UUID(), runtime: .video),
-            multiDisplayEnabled: multiDisplayEnabled, videoFillMode: videoFillMode,
-            shouldLoopCurrentItem: shouldLoopCurrentItem)
     }
 
     /// Rebuilds an execution of the committed ticket without inventing a new
@@ -316,10 +299,6 @@ public final class WallpaperEngine: NSObject {
     public func refreshPlaybackState() {
         // 状态评估只走统一入口，避免 UI / 系统通知各自直接改 pause 状态。
         PlaybackPolicyController.shared.refresh()
-    }
-
-    public func getCurrentWallpaper() -> VideoWallpaper? {
-        currentWallpaper
     }
 
 }

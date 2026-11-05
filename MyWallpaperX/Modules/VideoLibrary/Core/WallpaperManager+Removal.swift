@@ -154,9 +154,6 @@ extension WallpaperManager {
     /// 的 `.stop`（video handler）与 Scene 的 `.stopped` 事件都汇聚
     /// 到这里，保证 stopped 状态只有这一个归属。
     func stopCurrentPlayback() {
-        pendingManualNavigationWorkItem?.cancel()
-        pendingManualNavigationWorkItem = nil
-        pendingManualNavigationDirection = nil
         let epoch = beginPlaybackIntent()
         guard playbackIntentEpoch == epoch else { return }
         // E2a-3: 停止同时撤销未提交的 requested 选择。

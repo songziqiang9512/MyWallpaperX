@@ -77,6 +77,20 @@ extension PersonalSettingsImportHarness {
             && prefsJSON["scrollAtTop"] == nil && prefsJSON["page"] == nil
             && prefsJSON["providers"] == nil && prefsJSON["kinds"] == nil && prefsJSON["statuses"] == nil
 
+        var settings = WallpaperSettings.defaults
+        settings.volume = 37
+        settings.playbackRate = 1.5
+        settings.playbackRateEnabled = true
+        let settingsData = try JSONEncoder().encode(settings)
+        var settingsObject = try JSONSerialization.jsonObject(with: settingsData) as! [String: Any]
+        let decodedSettings = try JSONDecoder().decode(WallpaperSettings.self, from: settingsData)
+        checks["SettingsCodecKeepsActivePreferencesWithoutShadowSortState"] = settingsObject["sortMode"] == nil
+            && settingsObject["sortAscending"] == nil && decodedSettings == settings
+        settingsObject["sortMode"] = "unused-value"
+        settingsObject["sortAscending"] = false
+        let extraFields = try JSONSerialization.data(withJSONObject: settingsObject)
+        checks["UnusedSortFieldsCannotOverrideOrRejectCurrentPreferences"] = try JSONDecoder().decode(WallpaperSettings.self, from: extraFields) == settings
+
         for mode in [WallpaperLibraryVideoSortPreference.Mode.sourceOrder, .name, .fileSize, .createdAt, .lastUsed] {
             let preference = WallpaperLibraryVideoSortPreference(mode: mode, ascending: false)
             try writeCurrentSort(preference)

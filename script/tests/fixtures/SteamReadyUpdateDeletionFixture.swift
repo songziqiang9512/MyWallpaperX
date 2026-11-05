@@ -137,10 +137,12 @@ extension SteamWorkshopService {
             selectedDownloadDetailItem = other
             selectedDownloadDetailError = "B metadata status"
             isRefreshingSelectedDownloadDetailItem = true
-            var results: [[String: Bool]] = []
-            deleteDownloads(itemIDs: [ready.id]) { results.append($0) }
+            var results: [WallpaperSourceDeletionResult] = []
+            deleteSourceFiles(itemIDs: [ready.id]) { results.append($0) }
             while removingDownloadIDs.contains(ready.id) { await Task.yield() }
-            precondition(results.count == 1 && results[0][ready.id] == true && downloads.isEmpty)
+            precondition(results.count == 1 && results[0].items.count == 1
+                && results[0].items[0].reference == WallpaperReference(provider: .steamWorkshop, sourceID: ready.id)
+                && results[0].items[0].succeeded && downloads.isEmpty)
             precondition(!FileManager.default.fileExists(atPath: installedLibrarySnapshotURL.path), "real source deletion invalidates its display baseline")
             precondition(!FileManager.default.fileExists(atPath: content.path))
             precondition(selectedDownloadInspectorItem?.id == other.id && selectedDownloadDetailItem?.id == other.id
@@ -171,7 +173,7 @@ extension SteamWorkshopService {
             // Missing index means no per-item pointer; it must still block whole-library GC.
             do { _ = try loadManagedDownloadSnapshots(requireComplete: true)
                 fatalError("missing full index admitted reclamation") } catch {}
-            deleteDownload(itemID: ready.id)
+            deleteSourceFiles(itemIDs: [ready.id]) { _ in }
             while removingDownloadIDs.contains(ready.id) { await Task.yield() }
             precondition(!FileManager.default.fileExists(atPath: content.path), statusMessage)
             precondition(downloads.isEmpty)
@@ -210,7 +212,7 @@ extension SteamWorkshopService {
         if mode.hasSuffix("save-failure") {
             try FileManager.default.moveItem(at: jobStoreURL, to: savedJobStoreURL)
             try FileManager.default.createDirectory(at: jobStoreURL, withIntermediateDirectories: false)
-            deleteDownload(itemID: "123456")
+            deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
             let retained = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]?.commit
             precondition(retained?.removed == false && retained?.jobId == commit.jobId,
@@ -231,7 +233,7 @@ extension SteamWorkshopService {
                 .appendingPathComponent(SteamWorkshopLibraryTransaction.metadataName, isDirectory: true)
                 .appendingPathComponent("123456.json")
             try Data("broken-json".utf8).write(to: metadata, options: .atomic)
-            deleteDownload(itemID: "123456")
+            deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
             precondition(statusMessage.contains("无法安全读取"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running)
@@ -245,7 +247,7 @@ extension SteamWorkshopService {
         }
 
         if commitBearingAlias {
-            deleteDownload(itemID: "123456")
+            deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
             precondition(statusMessage.contains("无法安全读取"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running,
@@ -261,7 +263,7 @@ extension SteamWorkshopService {
             return
         }
 
-        deleteDownload(itemID: "123456")
+        deleteSourceFiles(itemIDs: ["123456"]) { _ in }
         while removingDownloadIDs.contains("123456") { await Task.yield() }
         if mode.hasSuffix("scene-busy") {
             precondition(statusMessage.contains("仍在切换"), statusMessage)

@@ -101,17 +101,15 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     var isPlaying=false
     var wallpapers=[VideoWallpaper(path:"/old-video"),VideoWallpaper(path:"/new-video")]
     var autoSwitchTimer:Timer?
-    var timerFires=0,snapshots=0
+    var timerFires=0
     var endedPaths:[String]=[],failedPaths:[String]=[]
-    var onFlush:(()->Void)?,onPersist:(()->Void)?
+    var onFlush:(()->Void)?
     func isSwitchingPlaybackMode()->Bool{true}
     func shouldLoopCurrentItemInEngine()->Bool{true}
     func normalizedPath(_ path:String)->String{path}
     func timerDidFire(){timerFires += 1}
-    func persistCurrentWallpaperSnapshot(){snapshots += 1;onPersist?()}
     @discardableResult func advanceLibraryPlayback(cause:WallpaperPlaybackCause)->Bool{timerFires += 1;return false}
     func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}
-    func updateCurrentWallpaperIndex(for id:String){}
     func recordInitialIndexUserSelection(_ wallpaper:VideoWallpaper){}
     func syncSystemWallpaper(with wallpaper:VideoWallpaper){}
     func scheduleRuntimeFrameSystemWallpaperSync(kind:WallpaperRuntimeKind,recordID:String){}
@@ -287,6 +285,14 @@ struct Record {let id="fixture"}
         launches += 1
     }
 }
+@MainActor final class ScreenSaverCoordinator {
+    static let shared=ScreenSaverCoordinator()
+    func cancel(){Trace.values.append("screenSaverCancel")}
+}
+@MainActor final class ScreenSaverActivityMonitor {
+    static let shared=ScreenSaverActivityMonitor()
+    func stop(){Trace.values.append("screenSaverMonitorStop")}
+}
 @MainActor final class AppDelegate {
     var didPrepareProductTermination=false
     var pendingInitialWindowOpen:DispatchWorkItem?,statusBarController:Int?
@@ -319,9 +325,9 @@ struct Record {let id="fixture"}
         let deferred=Task{@MainActor in await Task.yield();service.complete(pendingGeneration,preparation)}
         let app=AppDelegate();app.prepareProductTermination();await deferred.value
         precondition(service.launches == 1 && cancellations == 1 && engine.epoch == manager.playbackIntentEpoch)
-        precondition(Trace.values == ["cancelEndpoint","adopt","steamCancel","restoreDesktop","flush","cleanup"])
+        precondition(Trace.values == ["screenSaverCancel","cancelEndpoint","adopt","steamCancel","restoreDesktop","flush","cleanup","screenSaverMonitorStop"])
         app.prepareProductTermination()
-        precondition(engine.cleanups == 1 && cancellations == 1 && Trace.values.count == 6)
+        precondition(engine.cleanups == 1 && cancellations == 1 && Trace.values.count == 8)
         print("termination-revoke-pass")
     }
 }
@@ -337,6 +343,8 @@ struct Record {let id="fixture"}
     @MainActor static func main() async {
         let manager=WallpaperManager(),engine=WallpaperEngine.shared
         var cancellables=Set<AnyCancellable>();manager.observePlaybackEvents(storeIn:&cancellables)
+        var commits:[PlaybackSwitchTicket]=[]
+        manager.libraryPlaybackCommitted={commits.append($0.ticket)}
         let web=candidate(manager,.web);web.show(manager)
         let video=candidate(manager,.video)
         precondition(video.activations == 1 && manager.currentWallpaper == nil
@@ -354,7 +362,7 @@ struct Record {let id="fixture"}
         }
         video.show(manager)
         let timer=manager.autoSwitchTimer!
-        precondition(video.finalizations == 1 && web.retirements == 1 && manager.snapshots == 2)
+        precondition(video.finalizations == 1 && web.retirements == 1 && commits == [web.ticket,video.ticket])
         video.show(manager)
         NotificationCenter.default.post(name:WallpaperEngine.playbackReadyNotification,
             object:nil,userInfo:["videoPath":"/new-video"])
@@ -489,8 +497,8 @@ struct Record {let id="fixture"}
             let old=candidate(manager,.scene);old.show(manager)
             let successor=candidate(manager,.web)
             var latestEpoch:UInt64?
-            manager.onPersist={
-                manager.onPersist=nil
+            manager.libraryPlaybackCommitted={_ in
+                manager.libraryPlaybackCommitted=nil
                 if reenters {latestEpoch=manager.beginPlaybackIntent(runtime:runtime)}
             }
             successor.show(manager)

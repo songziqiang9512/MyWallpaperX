@@ -11,9 +11,6 @@ extension SteamWorkshopService {
         isRefreshingSelectedDownloadDetailItem = false
     }
 
-    func deleteDownload(itemID: String) {
-        deleteDownloads(itemIDs: [itemID])
-    }
 
     func presentDownloadInspector(_ item: SteamWorkshopBrowserItem) {
         if selectedDownloadInspectorItem?.id != item.id || selectedBrowserItem != nil {
@@ -43,20 +40,6 @@ extension SteamWorkshopService {
         )
     }
 
-    func deleteDownloads(itemIDs: [String], completion: (([String: Bool]) -> Void)? = nil) {
-        guard Set(itemIDs.map { WallpaperReference(provider: .steamWorkshop, sourceID: $0) }).count == Set(itemIDs).count else {
-            statusMessage = "删除未开始：旧回执接口不能区分这些文件身份。"
-            completion?([:])
-            return
-        }
-        deleteSourceFiles(itemIDs: itemIDs) { result in
-            var legacy: [String: Bool] = [:]
-            // Compatibility for original callers. Typed product consumers keep
-            // exact provider/UTF8 identity and never use this lossy String map.
-            for item in result.items { legacy[item.reference.sourceID] = item.succeeded }
-            completion?(legacy)
-        }
-    }
 
     func deleteSourceFiles(itemIDs: [String], completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
         guard hasCompletedInstalledLibraryLoad else {

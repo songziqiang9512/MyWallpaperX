@@ -14,7 +14,6 @@ import Combine
     var onPreview: ((WallpaperContentItem) -> Void)?
     var onAddWallpapers: ((UUID) -> Void)?
     var onCloseInspector: (() -> Void)?
-    var onFocusSearch: (() -> Void)?
     private(set) var relationshipUndo: WallpaperLibraryRelationshipUndo?
     private(set) var playlists: PlaylistOrganizationActions?
     private lazy var imports = WallpaperLibraryImportCoordinator(workspace: workspace, manager: manager, images: images, hostWindow: hostWindow)

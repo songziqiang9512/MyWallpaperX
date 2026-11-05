@@ -96,8 +96,6 @@ private final class WallpaperManager {
     var playbackIntentEpoch: UInt64 = 0
     var allowsLibraryMutation = true
     var preservesLegacyMigrationInputs = false
-    var pendingManualNavigationWorkItem: DispatchWorkItem?
-    var pendingManualNavigationDirection: Int?
     var lastWorkshopPlaybackRecordID: String?
     var switchDeadline: DispatchWorkItem?
     var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?

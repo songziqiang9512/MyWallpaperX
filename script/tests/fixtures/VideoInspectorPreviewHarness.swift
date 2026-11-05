@@ -223,7 +223,6 @@ final class WallpaperManager: ObservableObject {
     func markCardInteraction() {}
     var primaryWrites = 0
     func stopCurrentPlayback() { primaryWrites += 1 }
-    func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) { primaryWrites += 1 }
 }
 
 // MARK: - 断言辅助

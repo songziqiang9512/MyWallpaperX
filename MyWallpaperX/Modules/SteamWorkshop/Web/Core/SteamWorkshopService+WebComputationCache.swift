@@ -14,10 +14,3 @@ nonisolated struct CachedWebProjectDescriptor: Codable, Equatable, Sendable {
             && fileRevisions.allSatisfy(\.isCurrent) && dependencyReferences.allSatisfy(\.isCurrent)
     }
 }
-
-extension SteamWorkshopService {
-    func invalidateAllCachedWebRuntime() {
-        webProjectDescriptorCache.removeAll()
-        SteamWorkshopWebRuntimeCachePublication.shared.invalidateAll()
-    }
-}

@@ -166,7 +166,7 @@ CHECKS = r'''
                "surface withdrawal preserves the other display's consumer")
         send(adapter, 1, payload(a))
         adapter.webView(first, didStartProvisionalNavigation: WKNavigation())
-        expect(adapter.lastPublishedAudioSpectrumDemand && !adapter.frameEndpointRegistry.hasEndpoints(in: first),
+        expect(adapter.lastPublishedAudioSpectrumDemand && adapter.frameEndpointRegistry.endpoints(in: first).isEmpty,
                "real main-navigation branch retires only its own display")
         adapter.webView(second, didStartProvisionalNavigation: WKNavigation())
         expect(!adapter.lastPublishedAudioSpectrumDemand, "navigation of the last consumer releases capture")

@@ -147,9 +147,7 @@ extension SteamWorkshopService {
         discoveryBrowseSnapshot = nil
         suppressAutomaticBrowseNavigation = false
         guard selectOrigin else { return }
-        if destination == .downloads {
-            pendingDownloadsScrollRestoreOffsetY = currentDownloadsScrollOffsetY
-        } else {
+        if destination != .downloads {
             prepareForBrowserEntry()
         }
         NotificationCenter.default.post(name: .appKitSelectItemRequested, object: nil,

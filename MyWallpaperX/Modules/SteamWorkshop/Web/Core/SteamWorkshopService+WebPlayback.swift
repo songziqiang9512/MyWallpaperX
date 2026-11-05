@@ -13,19 +13,6 @@ extension SteamWorkshopService {
         FinderRevealCoordinator.shared.reveal([record.folderURL])
     }
 
-    func promptDeleteIncompatibleWebSample(_ record: SteamWorkshopDownloadRecord) {
-        let alert = makeAppAlert(
-            title: "样本不兼容",
-            message: "“\(record.title)”暂不兼容，可能导致卡顿。要删除本地样本吗？",
-            style: .warning,
-            buttons: ["保留", "删除样本"]
-        )
-        presentAppAlert(alert, in: appModalHostWindow()) { [weak self] response in
-            guard let self, response == .alertSecondButtonReturn else { return }
-            self.deleteDownload(itemID: record.id)
-        }
-    }
-
     @discardableResult
     func setAsWallpaper(_ record: SteamWorkshopDownloadRecord,
                         libraryPending: WallpaperPlaybackSequence.Pending? = nil) -> Bool {

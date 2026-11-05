@@ -41,7 +41,6 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
 @MainActor final class ToolbarManager {
     var manual: [ManualNavigationDirection] = []
     var adjacent: [ManualNavigationDirection] = []
-    func navigateWallpaperManually(_ direction: ManualNavigationDirection) { manual.append(direction) }
     func navigateLibraryPlayback(_ direction: ManualNavigationDirection, policy: WallpaperPlaybackSequence.NavigationPolicy) {
         if policy == .adjacent { adjacent.append(direction) }
     }
@@ -54,7 +53,6 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
     let workspace: WallpaperLibraryWorkspace
     let manager = ToolbarManager()
     let playlists: ToolbarPlaylists? = ToolbarPlaylists()
-    var onFocusSearch: (() -> Void)?
     var onAddWallpapers: ((UUID) -> Void)?
     var imports = 0, removals = 0, favorites = 0, plays = 0, randoms = 0, playlistChoices = 0, recentClears = 0
     let availabilityInvalidations = PassthroughSubject<Void, Never>()

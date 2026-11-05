@@ -25,19 +25,6 @@ extension SteamWorkshopService {
         fields.append(SteamWorkshopDetailField(label: label, value: value))
     }
 
-    nonisolated static func appendNormalizedDetailField(
-        label: String,
-        value: String,
-        to fields: inout [SteamWorkshopDetailField],
-        seen: inout Set<String>
-    ) {
-        let normalizedLabel = normalizeText(label.replacingOccurrences(of: ":", with: ""))
-        let normalizedValue = normalizeText(value)
-        guard !normalizedLabel.isEmpty, !normalizedValue.isEmpty else { return }
-        let key = "\(normalizedLabel)|\(normalizedValue)"
-        guard seen.insert(key).inserted else { return }
-        fields.append(SteamWorkshopDetailField(label: normalizedLabel, value: normalizedValue))
-    }
 
     nonisolated static func buildOfficialDetailFields(
         fileSizeText: String?,

@@ -61,7 +61,6 @@ nonisolated struct SteamWorkshopBrowserContentMode: OptionSet, CaseIterable, Ide
         if isEmpty { self = .all }
     }
 
-    nonisolated var searchPlaceholder: String { "搜索" }
 
 }
 
@@ -97,16 +96,6 @@ enum SteamWorkshopSource: String, CaseIterable, Identifiable {
         }
     }
 
-    nonisolated var browseFilter: String {
-        switch self {
-        case .featured: return "trend"
-        case .recent: return "mostrecent"
-        case .mostSubscribed: return "totaluniquesubscribers"
-        case .updated: return "lastupdated"
-        case .mySubscriptions: return "mysubscriptions"
-        case .myFavorites: return "myfavorites"
-        }
-    }
 
     nonisolated var supportsTimeRange: Bool {
         self == .featured

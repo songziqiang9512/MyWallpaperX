@@ -132,7 +132,7 @@ enum WKContentWorld { case page }
         let expired = adapter.frameEndpointRegistry.register(documentNonce: "expired", frameInfo: WKFrameInfo(4), in: first)!
         expired.leaseExpiresAt = 0
         adapter.pushAudioSpectrum(WebWallpaperSpectrumPush(levels), to: first)
-        expect(!adapter.frameEndpointRegistry.hasEndpoints(in: first), "expired endpoints are revoked")
+        expect(adapter.frameEndpointRegistry.endpoints(in: first).isEmpty, "expired endpoints are revoked")
         expect(adapter.subscriptionRefreshes == 1, "lease revocation refreshes current media demand")
         expect(first.sent.count == beforeExpired, "expired endpoint receives no new spectrum")
         let disabled = adapter.frameEndpointRegistry.register(documentNonce: "disabled", frameInfo: WKFrameInfo(7), in: first)!

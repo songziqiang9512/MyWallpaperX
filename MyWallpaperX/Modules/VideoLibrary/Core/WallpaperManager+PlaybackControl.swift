@@ -47,45 +47,6 @@ extension WallpaperManager {
         refreshAutoSwitchTimerIfNeeded()
     }
 
-    func navigateWallpaperManually(_ direction: ManualNavigationDirection) {
-        guard libraryPlaybackSequence.committed != nil else { return }
-        // 手动切换统一走去抖调度，避免工具栏/快捷键/鼠标连点同时打到同一条切换链路。
-        guard !scheduleManualNavigationIfNeeded(direction) else { return }
-        navigateLibraryPlayback(direction, policy: .randomHistory)
-    }
-
-    private func scheduleManualNavigationIfNeeded(_ direction: ManualNavigationDirection) -> Bool {
-        // 在最小间隔内合并重复导航，只保留最后一次方向。
-        let generation = libraryPlaybackSequence.rotationGeneration
-        let now = CACurrentMediaTime()
-        let elapsed = now - lastManualNavigationAt
-
-        if elapsed >= manualNavigationMinInterval {
-            pendingManualNavigationWorkItem?.cancel()
-            pendingManualNavigationWorkItem = nil
-            pendingManualNavigationDirection = nil
-            lastManualNavigationAt = now
-            return false
-        }
-
-        pendingManualNavigationDirection = direction
-        pendingManualNavigationWorkItem?.cancel()
-
-        let delay = manualNavigationMinInterval - elapsed
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self, self.libraryPlaybackSequence.rotationGeneration == generation else { return }
-            guard let pendingDirection = self.pendingManualNavigationDirection else { return }
-            self.pendingManualNavigationDirection = nil
-            self.pendingManualNavigationWorkItem = nil
-            self.lastManualNavigationAt = CACurrentMediaTime()
-            self.navigateLibraryPlayback(pendingDirection, policy: .randomHistory)
-        }
-
-        pendingManualNavigationWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
-        return true
-    }
-
     func handlePlaybackEnded(forPath path: String) {
         guard let session = libraryPlaybackSequence.committed,
               libraryPlaybackSequence.pending == nil, session.ticket.runtime == .video,

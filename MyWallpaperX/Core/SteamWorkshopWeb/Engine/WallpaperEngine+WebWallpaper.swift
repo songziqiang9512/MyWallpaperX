@@ -144,7 +144,6 @@ extension WallpaperEngine {
             currentWebRequestID = requestID; currentWebRecordID = request.recordID
             currentWebPropertiesJSON = request.propertiesJSON
             currentMultiDisplayEnabled = request.multiDisplayEnabled
-            lastFailureVideoPath = nil; lastFailureAt = 0
             // Demand may arrive during preparation, before this committed ID
             // exists. Refresh after adoption even if the demand bit is unchanged.
             refreshSystemAudioSpectrumCapture()
@@ -177,13 +176,6 @@ extension WallpaperEngine {
         adapter.captureSurfaceFrame(completion: completion)
     }
 
-    /// Revoke execution candidates without changing committed engine facts.
-    /// Manager cancellation barriers remain the only activation authority.
-    func cancelPreparationRetainingActivePlayback(preservingPreparedRequestID: UUID? = nil) {
-        cancelVideoPreparationRetainingActivePlayback()
-        (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?
-            .cancelPreparation(preservingPreparedRequestID: preservingPreparedRequestID)
-    }
 
     private func mergedWebPropertiesJSON(baseJSON: String?, deltaJSON: String?) -> String {
         guard let deltaJSON,

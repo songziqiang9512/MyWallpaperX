@@ -2,8 +2,6 @@ import Foundation
 
 extension Notification.Name {
     static let appKitRequestScrollToTopForCurrentSelection = Notification.Name("AppKitRequestScrollToTopForCurrentSelection")
-    static let appKitLibraryGridScrollToTopAnimationWillStart = Notification.Name("AppKitLibraryGridScrollToTopAnimationWillStart")
-    static let appKitLibraryGridScrollToTopAnimationDidEnd = Notification.Name("AppKitLibraryGridScrollToTopAnimationDidEnd")
     static let appKitSelectItemRequested = Notification.Name("AppKitSelectItemRequested")
     static let appOpenSettingsRequested = Notification.Name("AppOpenSettingsRequested")
     /// 在线图库模式切换通知，由 Shell 发出，Pixabay 模块接收

@@ -129,15 +129,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         latestDownloadRecord?.failureMessage
     }
 
-    var webDownloadRecord: SteamWorkshopDownloadRecord? {
-        guard let latestDownloadRecord, latestDownloadRecord.contentType == .web else { return nil }
-        return latestDownloadRecord
-    }
 
-    var sceneDownloadRecord: SteamWorkshopDownloadRecord? {
-        guard let latestDownloadRecord, latestDownloadRecord.contentType == .scene else { return nil }
-        return latestDownloadRecord
-    }
 
     private var isRefreshingDetail: Bool {
         if service.selectedDownloadInspectorItem?.id == currentItem.id {
@@ -337,19 +329,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         contentStack.addArrangedSubview(stack)
-    }
-
-    private func progressPaletteTone(
-        for phase: SteamWorkshopDownloadProgressSnapshot.Phase
-    ) -> WallpaperCardProgressPalette.Tone {
-        switch phase {
-        case .connecting, .preparing, .transferring, .validating, .saving:
-            return .transfer
-        case .waiting:
-            return .waiting
-        case .failed:
-            return .failure
-        }
     }
 
     private func buildContentSection() {
@@ -683,12 +662,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
-    }
-
-    func sectionTitle(_ text: String) -> NSTextField {
-        let title = label(text, font: .systemFont(ofSize: 11, weight: .semibold), color: .secondaryLabelColor, lines: 1)
-        title.alignment = .center
-        return title
     }
 
 

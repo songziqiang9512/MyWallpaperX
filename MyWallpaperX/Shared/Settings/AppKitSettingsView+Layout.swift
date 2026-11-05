@@ -125,7 +125,6 @@ extension AppKitSettingsContainerView {
         rateControls.alignment = .centerY
         rateControls.spacing = 8
         let rateRow = makeSettingRow(title: "播放速率", iconSystemName: "speedometer", trailing: rateControls)
-        playbackRateRowView = rateRow
         audioSection.addRow(rateRow)
     }
 
@@ -154,7 +153,6 @@ extension AppKitSettingsContainerView {
             trailing: systemAudioSpectrumSwitch
         )
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
-        systemAudioSpectrumRowView = systemAudioSpectrumRow
         systemSection.addRow(systemAudioSpectrumRow)
         for barCount in [16, 20, 28, 36, 48] {
             systemAudioSpectrumBarCountPopup.addItem(withTitle: "\(barCount) 根")
@@ -560,37 +558,6 @@ extension AppKitSettingsContainerView {
         row.spacing = 0
         row.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         return row
-    }
-
-    private func makeCenteredControlRow(content: NSView) -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        content.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(content)
-
-        NSLayoutConstraint.activate([
-            content.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            content.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            content.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8)
-        ])
-
-        return container
-    }
-
-    private func makeMaintenanceControlRow(content: NSView) -> NSView {
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        content.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(content)
-
-        NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
-            content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            content.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            content.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8)
-        ])
-
-        return container
     }
 
     private func makeInlineSeparator(horizontalInset: CGFloat) -> NSView {

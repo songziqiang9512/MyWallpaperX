@@ -653,16 +653,6 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
 #endif
     }
 
-    private func resetConsumersAfterCaptureFailure() {
-        overlayEnabled = false
-        webEnabled = false
-        sceneEnabled = false
-        processScope = .excludesCurrentProcess
-        onLevels?(overlayAnalyzer.reset())
-        onWebLevels?(Self.clearedWebLevels)
-        clearSceneLevels(resetAnalyzer: true)
-    }
-
     func processAudioBufferList(
         _ inputData: UnsafePointer<AudioBufferList>,
         resourceGeneration: Int,

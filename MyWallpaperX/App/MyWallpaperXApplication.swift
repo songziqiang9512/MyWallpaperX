@@ -198,7 +198,7 @@ enum MyWallpaperXApplication {
         // downloads 投影与模块自身的删除意图一同翻译成 Host 事实（Host 不直呼
         // Modules 单例），派生算法、删除判定、宽限期复核与孤儿退役都留在 Host 层。
         // 订阅同步投递（不用 receive(on:)）：删除意图只在删除期间存在
-        // （SteamWorkshopService.deleteDownloads 的 defer 会撤下它），延迟投递会
+        // （SteamWorkshopService.deleteSourceFiles 的 defer 会撤下它），延迟投递会
         // 让真删除被当成"无意图的投影缺席"而永不回收。
         // 宽限期末的复核现读在用事实（provider 在 work item 执行时调用）：30s 内
         // 新建的 surface / 新起播的记录只有在删除时刻仍被排除，WebKit 的

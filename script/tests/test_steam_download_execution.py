@@ -62,8 +62,6 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             methods.append(member)
         selection = (CORE / 'SteamWorkshopService+DownloadSelection.swift').read_text()
         for signature in (
-            '    func deleteDownload(itemID:',
-            '    func deleteDownloads(',
             '    func deleteSourceFiles(',
             '    private func deleteDownloadIfPossible(',
             '    private func legacyDownloadSnapshot(',

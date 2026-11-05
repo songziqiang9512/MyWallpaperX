@@ -21,6 +21,7 @@ class GridPlaybackPublicationTests(unittest.TestCase):
         source = product_harness()
         workspace_fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift').read_text()
         source += '\n' + declaration(workspace_fixture, '@MainActor final class ScreenSaverCoordinator')
+        source += '\n' + declaration(workspace_fixture, '@MainActor enum WallpaperLibraryCommands')
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         source = source.replace('var libraryPlaybackStopped:(()->Void)?', 'var libraryPlaybackStopped:(()->Void)?\n    var libraryPlaybackResetRequested:(()->Void)?\n    var libraryBackingPublished:((WallpaperContentBackingPublication)->Void)?')
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
@@ -30,8 +31,6 @@ class GridPlaybackPublicationTests(unittest.TestCase):
         source += '\nextension WallpaperManager {\n' + '\n'.join(declaration(routing, signature) for signature in (
             '    func prepareSceneDownloadRemoval(', '    private func sceneSelection(')) + '\n}\n'
         source = source.replace('@MainActor final class WallpaperManager: ObservableObject {', '''@MainActor final class WallpaperManager: ObservableObject {
-    var pendingManualNavigationWorkItem:DispatchWorkItem?
-    var pendingManualNavigationDirection:Int?
 ''', 1)
         source = source.replace('var autoSwitchTimer:Timer?', 'var autoSwitchTimer:PublicationTimer?')
         source = source.replace('let timer = Timer(timeInterval:', 'let timer = PublicationTimer(timeInterval:')

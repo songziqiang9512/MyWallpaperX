@@ -160,58 +160,6 @@
         do {
             let (manager, _, observer) = setup()
             defer { NotificationCenter.default.removeObserver(observer); manager.stopAutoSwitchTimer() }
-            manager.lastManualNavigationAt = CACurrentMediaTime()
-            manager.navigateWallpaperManually(.next)
-            let queued = manager.pendingManualNavigationWorkItem!
-            manager.stopCurrentPlayback()
-            let epoch = manager.playbackIntentEpoch
-            queued.perform()
-            try await Task.sleep(for: .milliseconds(250))
-            checks["stopRevokesQueuedDirectionFlagsAndWorkItem"] = manager.pendingManualNavigationWorkItem == nil
-                && manager.pendingManualNavigationDirection == nil
-                && manager.manualNavigationExecutions == 0 && manager.playbackIntentEpoch == epoch
-                && manager.playbackSwitch.pending == nil
-        }
-        do {
-            let (manager, _, observer) = setup()
-            defer { NotificationCenter.default.removeObserver(observer); manager.stopCurrentPlayback() }
-            manager.navigateWallpaperManually(.next)
-            checks["manualNavigationFirstRequestDispatchesImmediatelyThroughRandomHistory"] =
-                manager.manualNavigationExecutions == 1 && manager.manualNavigationDirections == [.next]
-                && manager.manualNavigationPolicies == [.randomHistory]
-                && manager.pendingManualNavigationWorkItem == nil && manager.pendingManualNavigationDirection == nil
-            manager.navigateWallpaperManually(.next)
-            let replaced = manager.pendingManualNavigationWorkItem
-            manager.navigateWallpaperManually(.previous)
-            checks["manualNavigationDebounceKeepsOnlyTheLastDirection"] = manager.manualNavigationMinInterval == 0.18
-                && replaced?.isCancelled == true && manager.pendingManualNavigationWorkItem !== replaced
-                && manager.pendingManualNavigationDirection == .previous && manager.manualNavigationExecutions == 1
-            try await Task.sleep(for: .milliseconds(250))
-            checks["manualNavigationDelayedDispatchRunsExactlyOnceAndClearsItsReceipt"] =
-                manager.manualNavigationExecutions == 2 && manager.manualNavigationDirections == [.next, .previous]
-                && manager.manualNavigationPolicies == [.randomHistory, .randomHistory]
-                && manager.pendingManualNavigationDirection == nil && manager.pendingManualNavigationWorkItem == nil
-        }
-        do {
-            let (manager, _, observer) = setup()
-            defer { NotificationCenter.default.removeObserver(observer); manager.stopCurrentPlayback() }
-            manager.lastManualNavigationAt = CACurrentMediaTime()
-            manager.navigateWallpaperManually(.next)
-            let queued = manager.pendingManualNavigationWorkItem!
-            let generation = manager.libraryPlaybackSequence.rotationGeneration
-            let reference = WallpaperReference(provider: .videoLibrary, sourceID: "new-navigation-source")
-            let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .single(reference), revision: 1,
-                entries: [.init(reference: reference, runtime: .video, isPlayable: true)])
-            let proposal = manager.libraryPlaybackSequence.proposeSelection(reference, from: snapshot)
-            precondition(proposal != nil && manager.libraryPlaybackSequence.rotationGeneration != generation)
-            queued.perform()
-            try await Task.sleep(for: .milliseconds(250))
-            checks["manualNavigationOldGenerationCannotDispatchItsQueuedDirection"] = manager.manualNavigationExecutions == 0
-                && manager.manualNavigationDirections.isEmpty && manager.manualNavigationPolicies.isEmpty
-        }
-        do {
-            let (manager, _, observer) = setup()
-            defer { NotificationCenter.default.removeObserver(observer); manager.stopAutoSwitchTimer() }
             let oldCandidate = candidate(manager, .scene)
             var newer: ImportedVideoPlaybackAdmission?
             var newerDeadline: DispatchWorkItem?

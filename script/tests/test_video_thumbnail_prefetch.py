@@ -424,7 +424,6 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
                            'GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift',
                            'AppearanceAwareContainerView.swift', 'NSViewExtensions.swift',
                            'UIInteractionAnimation.swift', 'WallpaperGridScrollView.swift',
-                           'WallpaperGridIdentifiable.swift', 'GridCollectionViewProtocol.swift',
                            'BoxSelectionState.swift', 'GridThumbnailPrefetchDemand.swift']]]
             sources += [ROOT / 'MyWallpaperX' / path for path in [
                 'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',

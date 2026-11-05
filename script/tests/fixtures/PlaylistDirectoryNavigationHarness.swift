@@ -5,7 +5,6 @@ import Foundation
     enum Section: Equatable { case personal, discovery }
     var isBrowsingAuthorWorkshop = false
     var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop }
-    var pendingDownloadsScrollRestoreOffsetY: Double? = 42
     var events: [String] = []
     func returnToDiscoveryBrowse(selectOrigin: Bool) {
         events.append("return-author-\(selectOrigin)"); isBrowsingAuthorWorkshop = false
@@ -74,6 +73,7 @@ import Foundation
         let a = try await collections.createPlaylist(name: "Playlist A", members: [content.organizationItem])
         let b = try await collections.createPlaylist(name: "Playlist B")
         let c = try await collections.createPlaylist(name: "Playlist C")
+        _ = try await collections.perform(.reorderPlaylists([b, c, a]))
         let workspace = NavigationWorkspace(collections: collections, presentation: presentation,
             catalog: .init(videos: [content], loadedProviders: [.videoLibrary]))
         let owner = CompositionNavigationChecks(workspace)
@@ -89,7 +89,7 @@ import Foundation
         owner.openDirectoryCard(a)
         let firstReturn = owner.makeDirectoryReturnAction()
         checks["actual-directory-card-open-creates-return-context-for-the-same-uuid"] = presentation.page == .playlist(a)
-            && firstReturn != nil && presentation.queryResult.items.map(\.reference) == [reference] && directoryIDs == [c, b, a]
+            && firstReturn != nil && presentation.queryResult.items.map(\.reference) == [reference] && directoryIDs == [b, c, a]
         presentation.setQueryState(.init(search: "different member query", sort: .name, preferredColumns: 3))
         firstReturn?()
         checks["actual-return-restores-directory-query-density-and-uuid-anchor"] = presentation.page == .playlists
@@ -98,7 +98,7 @@ import Foundation
             && presentation.directoryScrollAtTop == false && owner.makeDirectoryReturnAction() == nil
         let afterNavigation = try await store.snapshot()
         checks["directory-return-does-not-enter-steam-play-scroll-top-or-write-relationships"] = owner.steam.events.isEmpty
-            && owner.steam.pendingDownloadsScrollRestoreOffsetY == 42 && workspace.playbackRequests.isEmpty
+            && workspace.playbackRequests.isEmpty
             && owner.grid.scrollToTopCalls == 0 && afterNavigation == beforeNavigation
 
         owner.navigate(to: .playlist(b))
@@ -181,13 +181,13 @@ import Foundation
         owner.navigate(to: .videos); owner.navigate(to: .workshop)
         checks["actual-workshop-sidebar-roundtrip-preserves-author-and-scroll-without-source-reset"] =
             owner.steam.events.count == beforeSteam && owner.steam.isBrowsingAuthorWorkshop
-            && owner.steam.pendingDownloadsScrollRestoreOffsetY == 42 && presentation.page == .workshop
+            && presentation.page == .workshop
         owner.steam.returnToDiscoveryBrowse(selectOrigin: false)
         owner.steam.enterBrowseSection(.discovery); owner.steam.prepareForBrowserEntry()
         owner.navigate(to: .workshop)
         checks["source-owned-explicit-return-recording-leaves-remain-a-positive-control"] = owner.steam.events.count == beforeSteam + 3
             && owner.steam.events.suffix(3).elementsEqual(["return-author-false", "enter-discovery", "prepare"])
-            && !owner.steam.isBrowsingAuthorWorkshop && owner.steam.pendingDownloadsScrollRestoreOffsetY == 42
+            && !owner.steam.isBrowsingAuthorWorkshop
         checks["actual-context-lifecycle-notifies-toolbar-without-entering-playback"] = workspace.playbackRequests.isEmpty
             && toolbarContextRefreshes > 0
         workspace.play(reference)

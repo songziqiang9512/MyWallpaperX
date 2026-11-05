@@ -557,7 +557,7 @@ final class Transport: SteamServiceTransporting {
             transport.finishHeldSuccess(jobId: second["jobId"] as? String)
         }
         if mode == "cancel" {
-            service.cancelActiveDownload()
+            service.cancelDownload(itemID: "123456")
             while !transport.commands.contains(where: { $0["command"] as? String == "cancelDownload" }) {
                 await Task.yield()
             }

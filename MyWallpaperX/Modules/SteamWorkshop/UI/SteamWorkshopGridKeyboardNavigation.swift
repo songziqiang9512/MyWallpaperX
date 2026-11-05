@@ -27,7 +27,4 @@ enum SteamWorkshopGridKeyboardNavigation {
         return destination
     }
 
-    static func isPrimaryActionKey(_ keyCode: UInt16) -> Bool {
-        keyCode == 36 || keyCode == 76
-    }
 }

@@ -338,7 +338,6 @@ extension Notification.Name {
     func handleMissingWallpaperDuringSwitch(_ wallpaper: VideoWallpaper, userInitiated: Bool) { preconditionFailure() }
     func recordInitialIndexUserSelection(_ wallpaper: VideoWallpaper) {}
     func recordPlaybackHistoryIfNeeded(current: VideoWallpaper?, targetNormalizedPath: String, enabled: Bool) {}
-    func updateCurrentWallpaperIndex(for id: String) {}
     func updateRecentWallpapers(_ wallpaper: VideoWallpaper) {}
     func startAutoSwitchTimer() {}
     func stopAutoSwitchTimer() {}

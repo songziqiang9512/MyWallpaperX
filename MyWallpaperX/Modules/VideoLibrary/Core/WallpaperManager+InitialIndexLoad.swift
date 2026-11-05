@@ -147,7 +147,6 @@ extension WallpaperManager {
                 switchSelections[id] = .video(canonical)
             }
         }
-        if let current = currentWallpaper, let index = merged.firstIndex(where: { $0.id == current.id }) { currentIndex = index }
         initialIndexSeedWallpapers = []
         scanForMissingMetadata()
         scheduleInitialIndexFileSizes(merged)

@@ -73,9 +73,9 @@ import Foundation
 
         let countBeforeRemoval = itemAEvents.count
         store.removeObserver(observerA)
-        store.markWaiting(itemID: "A", jobKey: "job-2")
-        precondition(store.snapshot(for: "A")?.phase == .waiting)
-        precondition(store.snapshot(for: "A")?.statusText() == "等待重连")
+        store.markSaving(itemID: "A", jobKey: "job-2")
+        precondition(store.snapshot(for: "A")?.phase == .saving)
+        precondition(store.snapshot(for: "A")?.statusText() == "正在保存")
         precondition(itemAEvents.count == countBeforeRemoval)
 
         final class Owner {}

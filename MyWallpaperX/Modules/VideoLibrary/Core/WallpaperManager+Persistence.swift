@@ -267,18 +267,12 @@ extension WallpaperManager {
         wallpapersAutoSaveWorkItem = nil
         pendingSystemWallpaperSyncWorkItem?.cancel()
         pendingSystemWallpaperSyncWorkItem = nil
-        pendingManualNavigationWorkItem?.cancel()
-        pendingManualNavigationWorkItem = nil
         missingIndexedAlertWorkItem?.cancel()
         missingIndexedAlertWorkItem = nil
         missingIndexedSourceScanWorkItem?.cancel()
         missingIndexedSourceScanWorkItem = nil
 
-        currentIndex = 0
         isPlaying = true
-        lastInteractiveWallpaperSetTime = 0
-        lastManualNavigationAt = 0
-        pendingManualNavigationDirection = nil
         // #7 Manager 侧去重变量已移除，Engine 侧统一去重。
 
         settings = defaultSettings

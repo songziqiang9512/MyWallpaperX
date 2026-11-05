@@ -57,16 +57,6 @@ extension WallpaperEngine {
         }
     }
 
-    func reportVideoPlaybackFailure(path failedPath: String, message: String) {
-        if let execution = videoCandidate, execution.path == failedPath {
-            switchFailed?(execution.ticket, message)
-            cancelVideoExecution(execution, completion: {})
-        }
-        NotificationCenter.default.post(name: Self.playbackFailedNotification,
-            object: self, userInfo: ["videoPath": failedPath, "message": message,
-                                    "contentKind": PlaybackContentKind.video.rawValue])
-    }
-
     private func handlePlaybackEndedEvent(_ event: DaemonEvent, for session: DisplayDaemonSession) {
         if let candidate = videoCandidate, candidate.activated, !candidate.cancelling,
            candidate.sessions[session.displayID] === session,

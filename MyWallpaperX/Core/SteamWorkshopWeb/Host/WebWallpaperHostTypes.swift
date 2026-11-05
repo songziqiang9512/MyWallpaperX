@@ -294,9 +294,6 @@ final class WebWallpaperFrameEndpointRegistry {
         Array(endpointsByWebView[ObjectIdentifier(webView)]?.values ?? [:].values)
     }
 
-    func hasEndpoints(in webView: WKWebView) -> Bool {
-        endpointsByWebView[ObjectIdentifier(webView)]?.isEmpty == false
-    }
 
     func contains(_ endpoint: Endpoint, in webView: WKWebView) -> Bool {
         endpointsByWebView[ObjectIdentifier(webView)]?[endpoint.token] === endpoint

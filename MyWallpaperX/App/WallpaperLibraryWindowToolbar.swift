@@ -79,7 +79,6 @@ import Combine
         onlineImages.onChange = { [weak self] in self?.refresh() }
         steam.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
         pixabay.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
-        commands.onFocusSearch = { [weak self] in self?.focusSearch() }
         // Native scroll receipts and page notices do not change toolbar commands.
         // Keep zoom and the source revisions that change titles or capabilities.
         struct RefreshInput: Equatable {

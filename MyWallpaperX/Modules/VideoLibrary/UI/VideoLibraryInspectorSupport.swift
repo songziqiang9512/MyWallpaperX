@@ -31,28 +31,6 @@ enum VideoLibraryInspectorViews {
         return label
     }
 
-    static func makeLoadingView(_ text: String) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 8
-        row.translatesAutoresizingMaskIntoConstraints = false
-
-        let indicator = NSProgressIndicator()
-        indicator.style = .spinning
-        indicator.controlSize = .small
-        indicator.startAnimation(nil)
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-
-        row.addArrangedSubview(indicator)
-        row.addArrangedSubview(makeLabel(text, font: .systemFont(ofSize: 13), color: .secondaryLabelColor))
-        NSLayoutConstraint.activate([
-            indicator.widthAnchor.constraint(equalToConstant: 16),
-            indicator.heightAnchor.constraint(equalToConstant: 16)
-        ])
-        return row
-    }
-
 
 
     static func makeNotice(icon: String, text: String) -> NSView {

@@ -277,7 +277,6 @@ import Darwin
             }
             let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: library)
             precondition(commit.version == 2)
-            precondition(SteamWorkshopLibraryTransaction.isManagedPublicDirectory(content, libraryRoot: library))
             precondition(SteamWorkshopLibraryTransaction.storageIdentity(
                 containing: content.appendingPathComponent("project.json"), libraryRoot: library
             ) == SteamWorkshopLibraryTransaction.storageIdentity(for: commit))

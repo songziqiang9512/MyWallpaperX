@@ -277,7 +277,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
     def test_real_online_view_binds_initial_actions_through_coordinator_before_native_turn(self):
         sources = list(INSPECTOR_COORDINATOR_SOURCES) + [ROOT / "MyWallpaperX" / name for name in (
             "Shared/ThumbnailRequest.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift",
-            "Shared/UI/InspectorFooterMetrics.swift", "Shared/UI/InspectorFadingScrollView.swift",
+            "Shared/UI/InspectorFadingScrollView.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Shared/UI/OnlineImageInspectorView.swift")]
         sources += [ROOT / "script/tests/fixtures" / name for name in (
             "OnlineImageLibraryAppStub.swift", "NativeAppHarness.swift", "InspectorOnlineFirstTurnChecks.swift")]

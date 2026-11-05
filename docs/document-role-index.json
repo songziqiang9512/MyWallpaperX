@@ -143,10 +143,10 @@
       "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3e919557fd4ed3fafa31fe38f942d98e98939ed29b3a8032c1baecda653ae2da",
+        "sourceSHA256": "f0268ae86a58ae9f2f217f64ef2ca609da9a0b4e2c9a0d7c3c1706ee3ef80600",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
-        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+        "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, and current JobStore v5/ready v3 ownership.",
+        "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
       }
     },
     {
@@ -183,10 +183,10 @@
       "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "666dfab670361e588fb37087d54ea7ba9cdc70ec70932196393cceff1e8609b6",
+        "sourceSHA256": "5fb9918f725e561af6db91622db26c7a9fc75ac02bdfefc9df48da28284cb57e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
-        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+        "scope": "Independent review of prior 91 cleanup paths, P3 scroll-parameter proof correction, and retired unused grid marker; current behavior owners retained.",
+        "limitations": "Static independent review plus frozen build and scoped behavior evidence. No full native card runtime, real-user-library/account, FPS or latest parallel Scene integration claim."
       }
     },
     {
@@ -217,10 +217,10 @@
       "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b0a8d568b634f49ab75ad582be85169ecf2681bd58566294b5900a304f4db519",
+        "sourceSHA256": "85400b969f07f1ce0cde0d50f0d801a49ebc2084817517b65d8d61bc693c81d5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
-        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+        "scope": "Retire eight unused non-Scene entry/state groups and obsolete route assertions; preserve current navigation, ticketed playback, page sorting and audio recovery owners.",
+        "limitations": "Current source/caller and document audit; runtime and build results have separate bounded evidence. No real user-library, live account or actual system-host parity claim."
       }
     },
     {
@@ -954,13 +954,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3976038c42d49bdcc61fa518bc3f154fb2c734db897e01ed8e6569d993eb1b36",
+        "sourceSHA256": "503701e565bc8947e4c84b020fd5883a010852fc0398cb4aa81bc4fc4c9d025e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P33核实际登录恢复字段与精简链现状指针；只维护角色/源码与导航绑定，运行适用范围仍由原证据限定。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "Retire eight unused non-Scene entry/state groups and obsolete route assertions; preserve current navigation, ticketed playback, page sorting and audio recovery owners.",
+        "limitations": "Current source/caller and document audit; runtime and build results have separate bounded evidence. No real user-library, live account or actual system-host parity claim."
       }
     },
     {

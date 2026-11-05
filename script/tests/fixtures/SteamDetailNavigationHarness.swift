@@ -33,8 +33,6 @@ import Combine
     var navigationVersion = 0
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
     var authorWorkshopReturnDestination: SteamWorkshopAuthorReturnDestination?
-    var currentDownloadsScrollOffsetY: CGFloat = 0
-    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var savedDiscoveryQueryBeforeAuthorBrowse: String?
     var suppressAutomaticBrowseNavigation = false
     var currentBrowserScrollOffsetY: CGFloat = 0
@@ -370,7 +368,6 @@ import Combine
         let downloadOrigin = SteamWorkshopService(query)
         downloadOrigin.source = .mySubscriptions
         downloadOrigin.selectedDownloadInspectorItem = detailed
-        downloadOrigin.currentDownloadsScrollOffsetY = 780
         downloadOrigin.browserState = .loading
         var selectedRoute: String?
         let observer = NotificationCenter.default.addObserver(forName: .appKitSelectItemRequested,
@@ -389,7 +386,7 @@ import Combine
         downloadOrigin.isRefreshingBrowserFeed = true
         downloadOrigin.returnToDiscoveryBrowse()
         precondition(!downloadOrigin.isLoadingMoreBrowserItems && !downloadOrigin.isRefreshingBrowserFeed)
-        precondition(selectedRoute == "steamDownloads" && downloadOrigin.pendingDownloadsScrollRestoreOffsetY == 780)
+        precondition(selectedRoute == "steamDownloads")
         precondition(downloadOrigin.fetches == authorFetches && downloadOrigin.browserState == .idle,
             "returning to Downloads does not load an interrupted invisible browser page")
         downloadOrigin.selectedDownloadInspectorItem = detailed

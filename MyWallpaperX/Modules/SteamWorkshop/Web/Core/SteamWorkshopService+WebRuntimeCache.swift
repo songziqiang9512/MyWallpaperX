@@ -61,12 +61,6 @@ nonisolated final class SteamWorkshopWebRuntimeCachePublication: @unchecked Send
         }
     }
 
-    func invalidateAll() {
-        let currentSlots = registryLock.withLock { slots.values.compactMap(\.value) }
-        for slot in currentSlots {
-            slot.lock.withLock { slot.generation = UUID() }
-        }
-    }
 
     func remove(_ files: [URL], ticket: Ticket) {
         ticket.slot.lock.withLock {

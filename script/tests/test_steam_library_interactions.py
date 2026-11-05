@@ -42,7 +42,6 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var source = Source.featured
     var browserEntryChecks = 0, browserSectionEntries = 0
     var browserQuery = "author-query", currentBrowserScrollOffsetY: CGFloat = 317.25
-    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var isBrowsingAuthorWorkshop = true
     var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop || source.isPersonal }
     var suppressAutomaticBrowseNavigation = false
@@ -199,12 +198,11 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         service.source = .mySubscriptions
         service.requestSteamWorkshopBrowserSelection()
         precondition(shell.selected == .workshop && service.isBrowsingAuthorWorkshop)
-        service.pendingDownloadsScrollRestoreOffsetY = 42
         let originalQuery = service.browserQuery, originalScroll = service.currentBrowserScrollOffsetY
         shell.navigate(to: .videos); shell.navigate(to: .workshop)
         precondition(service.isBrowsingAuthorWorkshop && service.source == .mySubscriptions && service.browserEntryChecks == 0
             && service.browserSectionEntries == 0 && service.browserQuery == originalQuery
-            && service.currentBrowserScrollOffsetY == originalScroll && service.pendingDownloadsScrollRestoreOffsetY == 42,
+            && service.currentBrowserScrollOffsetY == originalScroll,
             "returning to Workshop must preserve the source-owned author context, query and scroll without entry work")
         shell.navigate(to: .workshop)
         precondition(service.browserEntryChecks == 0 && service.browserSectionEntries == 0,

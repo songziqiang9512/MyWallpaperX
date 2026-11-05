@@ -180,9 +180,6 @@ final class SteamWorkshopDownloadProgressStore {
         transition(itemID: itemID, jobKey: jobKey, phase: .saving, failureMessage: nil)
     }
 
-    func markWaiting(itemID: String, jobKey: String) {
-        transition(itemID: itemID, jobKey: jobKey, phase: .waiting, failureMessage: nil)
-    }
 
     func fail(itemID: String, jobKey: String, message: String) {
         transition(itemID: itemID, jobKey: jobKey, phase: .failed, failureMessage: message)

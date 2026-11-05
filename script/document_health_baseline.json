@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18327
+      "bytes": 18252
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 40,
@@ -33,8 +33,8 @@
       "bytes": 77975
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 212,
-      "bytes": 54430
+      "lines": 249,
+      "bytes": 63364
     },
     "docs/development/local-library-loading-design.md": {
       "lines": 173,
@@ -46,7 +46,7 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 555,
-      "bytes": 102538
+      "bytes": 102577
     },
     "docs/development/pixiv-online-browser-design.md": {
       "lines": 166,
@@ -177,8 +177,8 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 140,
-      "bytes": 53460
+      "lines": 139,
+      "bytes": 52143
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
@@ -385,15 +385,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/code-slimming-program.md",
-      "before": "1d36f94fc8a43e30915c18130dfb5f81d1763ddeb34e83f5571ff5efc97f98a4",
-      "after": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
-      "owner": "app-current-strategy",
-      "reason": "Record current-only state reconstruction accepted by the user, retire legacy App conversion paths, and bind the bounded rebuild verification and commit authorization to the existing design.",
-      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/thumbnail-delivery-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "af6609f3e0b876bbde5fb2fbe918d8af146627c2339575c4080580e0bb2f3edf",
@@ -463,6 +454,24 @@
       "owner": "scene-particle-ancestor-translation",
       "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
       "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/code-slimming-program.md",
+      "before": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
+      "after": "1fe25764911947a6767b14f887c115056baf31e7c34888c1122820beb1a7cbec",
+      "owner": "app-unused-entry-cleanup",
+      "reason": "Record confirmed unused-code retirements, independent review findings and narrowed scroll proof; preserve parallel Scene records and all current behavior boundaries.",
+      "decision": "docs/development/code-slimming-program.md#overload-writeonly-cleanup"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "61081b07fdb5780ade398937f3a203a11627fb7cab8924333662a22d910fe939",
+      "after": "73b8d381e45bb0417fa58ab7d1e248d3ce8dd0f777f15546cc6850529b31ec14",
+      "owner": "app-unused-entry-cleanup",
+      "reason": "Document the eight explicitly authorized zero-consumer cleanup groups and preserved active owners, remove obsolete navigation/Web-path claims, and bind nearest validation without changing Scene or current data formats.",
+      "decision": "docs/development/code-slimming-program.md#dead-entry-cleanup"
     },
     {
       "section": "bodies",

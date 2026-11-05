@@ -217,7 +217,8 @@ enum AppKitSteamWorkshopBrowserItem {
             binary = root / "checks"
             build = subprocess.run(
                 ["xcrun", "swiftc", "-parse-as-library", "-warnings-as-errors", str(collection),
-                 str(ROOT / "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift"), str(source), "-o", str(binary)],
+                 str(ROOT / "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift"),
+                 str(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift"), str(source), "-o", str(binary)],
                 capture_output=True, text=True, timeout=120,
             )
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
@@ -249,10 +250,7 @@ import Foundation
         precondition(destination(125, 9) == nil)
         precondition(destination(12, 5) == nil)
         precondition(destination(124, 0, count: 0) == nil)
-        precondition(SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(36))
-        precondition(SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(76))
-        precondition(!SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(49))
-        print("Steam grid keyboard navigation: arrows, bounds and primary keys PASS")
+        print("Steam grid keyboard navigation: arrows and bounds PASS")
     }
 }
 '''

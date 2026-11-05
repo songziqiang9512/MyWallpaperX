@@ -94,7 +94,6 @@ final class AppKitSettingsContainerView: NSView {
     let playbackRateSlider = NSSlider(value: 1.0, minValue: 0.25, maxValue: 2.0, target: nil, action: nil)
     let playbackRateValueLabel = NSTextField(labelWithString: "1.0x")
     let playbackRateSwitch = NSSwitch()
-    var playbackRateRowView: NSView?
 
     let startOnBootSwitch = NSSwitch()
     let restorePlaybackOnLaunchSwitch = NSSwitch()
@@ -114,7 +113,6 @@ final class AppKitSettingsContainerView: NSView {
     let systemHotkeysSwitch = NSSwitch()
     let hotkeyRowsStack = NSStackView()
     var hotkeyRowsContainer: NSView?
-    var systemAudioSpectrumRowView: NSView?
     var hotkeyEnableSwitches: [SystemHotkeyAction: NSSwitch] = [:]
     var hotkeyPopups: [SystemHotkeyAction: NSPopUpButton] = [:]
 

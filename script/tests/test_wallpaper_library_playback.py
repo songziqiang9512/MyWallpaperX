@@ -33,8 +33,6 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         fields = '''
     enum PlaybackMode { case loop, sequential, random }
     var mode:PlaybackMode { get { playbackMode() } set { applyPlaybackMode(newValue) } }
-    var pendingManualNavigationWorkItem:DispatchWorkItem?
-    var pendingManualNavigationDirection:ManualNavigationDirection?
     func pathExists(_ path:String)->Bool{FileManager.default.fileExists(atPath:path)}
     func applySystemAudioSpectrumToEngine(){}
 '''

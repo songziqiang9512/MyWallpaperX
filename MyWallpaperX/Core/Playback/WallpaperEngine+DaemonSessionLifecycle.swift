@@ -108,10 +108,4 @@ print(trimmed)
         session.transport.requestGracefulStop()
     }
 
-    func cancelVideoPreparationRetainingActivePlayback() {
-        if let videoCandidate,
-           videoCandidate.visibleDisplays.count != videoCandidate.sessions.count {
-            cancelVideoExecution(videoCandidate, completion: {})
-        }
-    }
 }

@@ -50,10 +50,11 @@ import Combine
     let fillModeFitButton = NSButton(radioButtonWithTitle: "Fit", target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: "Fill", target: nil, action: nil)
     let displaySection = BackgroundRows()
-    func makeSettingRow(title: String, iconSystemName: String?, trailing: NSView) -> NSView {
+    func makeSettingRow(title: String, iconSystemName: String?, subtitle: String? = nil, trailing: NSView) -> NSView {
         trailing.identifier = NSUserInterfaceItemIdentifier(title)
         return trailing
     }
+    @objc private func openScreenSaverSettings() {}
     // ACTUAL_DISPLAY_SETUP
     // ACTUAL_STYLE_ACTION
     // ACTUAL_CLICK_ACTION

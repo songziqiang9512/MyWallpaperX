@@ -37,9 +37,6 @@ nonisolated extension SteamWorkshopDownloadRecord {
         return dependencyHostEntryHTMLURL
     }
 
-    var isWebPlayable: Bool {
-        status == .ready && webEntryURL != nil
-    }
 
 
     var isDependencyBackedWeb: Bool {

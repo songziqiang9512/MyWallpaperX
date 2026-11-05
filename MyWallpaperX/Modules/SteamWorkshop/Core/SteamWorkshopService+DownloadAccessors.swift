@@ -51,10 +51,6 @@ extension SteamWorkshopService {
         return parts.isEmpty ? "未筛选" : parts.joined(separator: " · ")
     }
 
-    var activeBrowserContextSummary: String? {
-        guard let activeAuthorWorkshopName else { return nil }
-        return "当前正在浏览 \(activeAuthorWorkshopName) 的创意工坊作品"
-    }
 
     var hasVisibleBrowserItems: Bool {
         !displayedBrowserItems.isEmpty
@@ -109,7 +105,4 @@ extension SteamWorkshopService {
         downloadRecord(for: itemID) != nil
     }
 
-    func latestDownloadFailure(for itemID: String) -> String? {
-        latestDownloadRecord(for: itemID)?.failureMessage
-    }
 }

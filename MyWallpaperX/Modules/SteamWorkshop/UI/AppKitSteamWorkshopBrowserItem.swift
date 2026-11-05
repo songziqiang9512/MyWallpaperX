@@ -53,7 +53,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     var currentDisplayContext: DisplayContext = .browser
     var currentBarState: BarState = .idle
     var shouldPersistBarVisibility = false
-    private var currentDebugID = ""
     var isPreviewVisible = false
     private weak var downloadProgressStore: SteamWorkshopDownloadProgressStore?
     private var downloadProgressObserverID: UUID?
@@ -155,7 +154,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         currentDisplayContext = .browser
         currentBarState = .idle
         shouldPersistBarVisibility = false
-        currentDebugID = ""
         isPreviewVisible = false
         currentItem = nil
         currentDownloadRecord = nil
@@ -206,7 +204,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         if displayContext == .browser { (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = nil }
         isPlayingRecord = isPlaying && (displayContext == .downloads || organization != nil)
         currentDownloadVideoURL = downloadRecord?.videoURL
-        currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
             self?.currentContextMenu()
@@ -275,7 +272,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         if displayContext == .browser { (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = nil }
         isPlayingRecord = isPlaying && (displayContext == .downloads || organization != nil)
         currentDownloadVideoURL = downloadRecord?.videoURL
-        currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
             self?.currentContextMenu()

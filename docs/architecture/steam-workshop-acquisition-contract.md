@@ -49,7 +49,7 @@ ready 必须校验版本与命令所需 capability。下载要求 `download-stag
 
 ## 4. 持久任务、staging 与取消
 
-JobStore 只写 `jobs-v5.json`。当前文件缺席时按 v4→v3→jobs.json 选择最新存在的前代，只读导入、保留原字节；当前或选中前代损坏、超前 schema、symlink/特殊项等不安全输入使该 store 实例停止写入，不能隔离后当空库继续，也不能回退更旧意图。缺完整 birth identity 的旧 partial 不获得恢复/清理权，已持久化的 prepared commit 仍沿原对账处理。历史按账号隔离，现有限额为 100 条且最长 30 天；清历史不删已下载内容或活动任务。任务面板失败行仅保留一个清除入口：当前账号先结算原失败意图、再清该任务历史，写入失败保留记录；其他账号仅清本地历史。
+JobStore 只读写当前 `jobs-v5.json`；文件缺席时创建当前格式，不查找或导入前代文件。当前文件损坏、超前 schema、symlink/特殊项等不安全输入使该 store 实例停止写入并保留原件，不能隔离后当空库继续。缺完整 birth identity 的旧 partial 不获得恢复/清理权，已持久化的 prepared commit 仍沿原对账处理。历史按账号隔离，现有限额为 100 条且最长 30 天；清历史不删已下载内容或活动任务。任务面板失败行仅保留一个清除入口：当前账号先结算原失败意图、再清该任务历史，写入失败保留记录；其他账号仅清本地历史。
 
 Swift JobStore 决定排队、去重、attempt 与取消，helper 仅执行活动网络作业。当前双方最多 2 个活动下载，helper 每作业最多 4 个 worker、全作业共享 4 个物理 chunk 槽；槽位包含网络、解密和写入，等原作业物理 terminal 后才释放。活动取消先停止新工作并排空，worker 永久失败只取消同作业 sibling，以原错误收口；helper EOF/崩溃不产生成功。账号换代撤旧授权，但不能丢弃等待旧物理排空的 waiter。
 
@@ -63,11 +63,11 @@ CDN 候选与 token 只属于当前账号 lease 的单个作业。manifest/chunk
 
 helper 仅产出 staged 内容与 typed receipt，不决定 ready。receipt v2 核对 job/account/epoch/Workshop/manifest、完成状态、非空 project.json、相等且有界的 verified/total bytes 及独占 lease。App 在复制流中核下载摘要：NFC UTF-8 路径排序，逐文件编码 UInt32-LE 路径长度、路径、UInt64-LE 文件长度及文件 SHA-256，再对串联求 SHA-256；不在复制前额外全文扫描。可选 preview 不成为整项目发布关卡，由原预览链在实际选择时局部处理。下载完整性不能成为日后播放许可，普通播放不核历史整树摘要。
 
-v3 使用 `Video|Web|Scene/<WorkshopID>`；generation 在 commit/ownership marker，兼容 v2 UUID 目录。incoming 校验后保存 publication intent，经 rename/exchange 安装并原子发布 `.mywallpaperx-steam-metadata/<WorkshopID>.json`。**metadata 是唯一 ready 点**；目录、marker、stagedComplete 不代表 ready。失败经同一 journal 回滚/恢复，未知目录勿覆盖；复制/摘要在后台，账号/attempt 复核至发布不挂起。`firstDownloadedAt` 保存首次入库时间，刷新和版本替换不重置；旧记录沿用 commit/本地创建时间。排序与详情共用后台目录统计的原始字节数。
+当前 ready 使用 v3 的 `Video|Web|Scene/<WorkshopID>`；generation 在 commit/ownership marker，不执行旧 ready 格式的自动迁移。incoming 校验后保存 publication intent，经 rename/exchange 安装并原子发布 `.mywallpaperx-steam-metadata/<WorkshopID>.json`。**metadata 是唯一 ready 点**；目录、marker、stagedComplete 不代表 ready。失败经同一 journal 回滚/恢复，未知目录勿覆盖；复制/摘要在后台，账号/attempt 复核至发布不挂起。`firstDownloadedAt` 保存首次入库时间，刷新和版本替换不重置；旧记录沿用 commit/本地创建时间。排序与详情共用后台目录统计的原始字节数。
 
 任务沿 `running → staged → committing → completed` 持久化推进，receipt/commit 先落盘再推进。失败、取消、空间不足或重复 terminal 不破坏旧 ready；成功后的 staging 清理失败不回滚已发布 ready，未释放清理责任保留并有界重试。
 
-旧 v1 隐藏内容只读兼容，迁移复用同一容量/发布 owner，复制当前内容并记录本次摘要，不用历史摘要拒绝合法变化；旧 v2 只有在无消费引用时迁至纯 ID。迁移前后复核当前 metadata，旧路径继续供现有播放/导入使用，不因专项计划删除兼容代码。保留命名空间即使 marker 损坏也从 legacy discovery 排除，避免第二 ready。旧 generation 先改名为同类型隐藏退役目录，再交既有回收器，不在主线程递归清理。
+v2 仍是当前准备事务与退休 generation 的身份格式，不是可随意删除的旧缓存；v1/v2 ready 迁移和目录复制链已退出。普通目录仍沿当前中央 metadata/无 commit 发现链读取，不因缺少 managed marker 排除正常内容。保留命名空间即使 marker 损坏也从 legacy discovery 排除，避免第二 ready。旧 generation 先改名为同类型隐藏退役目录，再交既有回收器，不在主线程递归清理。
 
 播放/导入消费持有具体 storage identity 的租约，依赖 Web 同时保壳与宿主；新 ready 不能代替旧消费者的身份。删除先阻止该项目的新播放/入库并取消精确作业，Scene 消费等当次 daemon generations 的真实退出后释放，再按身份发布 tombstone/删除；后继进程不能拖住旧代际回调。普通回收要求完整可读索引、超过 24 小时、未在 ready/未决事务/播放与视频库引用保留集，并经原 lease registry 预约及目录身份/marker 复核。未知、损坏或替换目录不被收养；同代际 tombstone 不得被崩溃恢复复活。入口为 [LibraryReclamation](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift)。
 

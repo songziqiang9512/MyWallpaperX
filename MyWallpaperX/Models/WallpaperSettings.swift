@@ -2,8 +2,8 @@
 //  WallpaperSettings.swift
 //  MyWallpaperX
 //
-//  设置面板持久化的全部字段与其词汇类型（时间单位/填充模式/排序/
-//  频谱风格/灵敏度/排序状态）。
+//  设置面板持久化的全部字段与其词汇类型（时间单位/填充模式/
+//  频谱风格/灵敏度）。
 //
 //  Models/ 是全 App 的底层共享值类型层：WallpaperSettings 同时被
 //  Core（策略控制器）、Modules（管理器/库）与 Shared（设置面板）
@@ -46,8 +46,6 @@ public struct WallpaperSettings: Codable, Equatable {
     var systemAudioSpectrumOffsetY: Double = 0.0
     var systemAudioSpectrumBarCount: Int = 28
     var systemAudioSpectrumPeakCapsEnabled: Bool = true
-    var sortMode: WallpaperSortMode = .none // 壁纸排序方式
-    var sortAscending: Bool = true // 排序方向：true=升序，false=降序
     var libraryBackgroundStyle: LibraryBackgroundStyle = .listCoverTint
     var libraryCardClickAction: LibraryCardClickAction = .selectOnly
     var screenSaver = ScreenSaverPreferences()
@@ -109,8 +107,6 @@ public struct WallpaperSettings: Codable, Equatable {
         systemAudioSpectrumOffsetY = try container.decodeIfPresent(Double.self, forKey: .systemAudioSpectrumOffsetY) ?? defaults.systemAudioSpectrumOffsetY
         systemAudioSpectrumBarCount = try container.decodeIfPresent(Int.self, forKey: .systemAudioSpectrumBarCount) ?? defaults.systemAudioSpectrumBarCount
         systemAudioSpectrumPeakCapsEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemAudioSpectrumPeakCapsEnabled) ?? defaults.systemAudioSpectrumPeakCapsEnabled
-        sortMode = try container.decodeIfPresent(WallpaperSortMode.self, forKey: .sortMode) ?? defaults.sortMode
-        sortAscending = try container.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? defaults.sortAscending
         libraryBackgroundStyle = (try? container.decode(String.self, forKey: .libraryBackgroundStyle))
             .flatMap(LibraryBackgroundStyle.init(rawValue:)) ?? defaults.libraryBackgroundStyle
         libraryCardClickAction = (try? container.decode(String.self, forKey: .libraryCardClickAction))
@@ -156,8 +152,6 @@ public struct WallpaperSettings: Codable, Equatable {
         case systemAudioSpectrumOffsetY
         case systemAudioSpectrumBarCount
         case systemAudioSpectrumPeakCapsEnabled
-        case sortMode
-        case sortAscending
         case libraryBackgroundStyle
         case libraryCardClickAction
         case screenSaver
@@ -216,33 +210,6 @@ public enum VideoFillMode: String, Codable, CaseIterable, Identifiable {
     }
 
 
-}
-
-public enum WallpaperSortMode: String, Codable, CaseIterable, Identifiable {
-    case none = "none"         // 默认顺序（导入顺序）
-    case name = "name"         // 名称 A-Z
-    case size = "size"         // 文件大小
-    case dateAdded = "dateAdded" // 添加日期
-
-    public var id: String { rawValue }
-
-    public var displayName: String {
-        switch self {
-        case .none: return "默认顺序"
-        case .name: return "文件名称"
-        case .size: return "文件大小"
-        case .dateAdded: return "添加时间"
-        }
-    }
-
-    public var symbolName: String {
-        switch self {
-        case .none: return "line.3.horizontal.decrease"
-        case .name: return "textformat.abc"
-        case .size: return "internaldrive"
-        case .dateAdded: return "calendar"
-        }
-    }
 }
 
 
