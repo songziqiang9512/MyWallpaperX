@@ -174,7 +174,7 @@ nonisolated struct SceneParticleDefinitionParser {
         case "mapsequencebetweencontrolpoints":
             kind = .positionBetweenControlPoints(.init(root: root))
         case "inheritinitialvaluefromevent":
-            kind = .inheritEventColor(.init(root: root))
+            kind = .inheritEventValue(.init(root: root))
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedInitializer, path: "initializer", componentName: name))

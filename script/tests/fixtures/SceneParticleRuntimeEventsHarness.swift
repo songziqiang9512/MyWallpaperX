@@ -192,7 +192,213 @@ extension Harness {
         ]
     }
 
+    static func eventValueBehavior(
+        directory: URL, device: MTLDevice,
+        materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
+    ) throws -> [String: Any] {
+        func raw(size: Double = 4, alpha: Double = 0.25, life: Double = 2,
+                 extra: [[String: Any]] = [], operators: [[String: Any]] = [],
+                 children: [[String: Any]] = [], rate: Double = 0,
+                 instantaneous: Int = 1) -> [String: Any] {
+            ["material": "materials/shared.json", "maxcount": 4,
+             "emitter": [["name": "boxrandom", "distancemax": 0, "rate": rate,
+                          "instantaneous": instantaneous]],
+             "initializer": [["name": "lifetimerandom", "min": life, "max": life],
+                 ["name": "sizerandom", "min": size, "max": size],
+                 ["name": "colorrandom", "min": "255 255 255", "max": "255 255 255"],
+                 ["name": "alpharandom", "min": alpha, "max": alpha]] + extra,
+             "operator": operators, "renderer": [["name": "sprite"]], "children": children]
+        }
+        let inherit: [[String: Any]] = [["id": 31, "name": "inheritinitialvaluefromevent"],
+            ["id": 32, "name": "inheritinitialvaluefromevent", "input": "multiplysize"],
+            ["id": 33, "name": "inheritinitialvaluefromevent", "input": "setopacity"]]
+        let deathChildren: [[String: Any]] = ["values-child", "values-after", "values-renamed", "values-bad",
+                             "values-overflow", "values-healthy"].map {
+            ["name": "particles/\($0).json", "type": "eventdeath"]
+        }
+        let constant: [[String: Any]] = [
+            ["name": "sizechange", "startvalue": 3, "endvalue": 3],
+            ["name": "alphachange", "startvalue": 0.5, "endvalue": 0.5],
+            ["name": "colorchange", "startvalue": "0.2 0.4 0.6", "endvalue": "0.2 0.4 0.6"]]
+        try writeJSON(raw(size: 10, alpha: 1, life: 3.0 / 60,
+            operators: constant, children: deathChildren),
+            to: directory.appendingPathComponent("particles/values-root.json"))
+        try writeJSON(raw(extra: inherit), to: directory.appendingPathComponent("particles/values-child.json"))
+        try writeJSON(raw(extra: inherit + [
+            ["name": "sizerandom", "min": 2, "max": 2],
+            ["name": "alpharandom", "min": 0.4, "max": 0.4]]),
+            to: directory.appendingPathComponent("particles/values-after.json"))
+        var renamed = raw(extra: inherit.map { item in
+            var value = item; value["id"] = 900 + (item["id"] as! Int)
+            value["unconsumedEditorField"] = ["arbitrary": true]; return value
+        })
+        renamed["material"] = "materials/renamed.json"
+        try writePNG(directory.appendingPathComponent("materials/renamed.png"))
+        try writeJSON(renamed, to: directory.appendingPathComponent("particles/values-renamed.json"))
+        try writeJSON(raw(size: 4, alpha: 0.75,
+            extra: [["name": "inheritinitialvaluefromevent", "input": "not-an-event-selector"]],
+            operators: [["name": "alphachange", "startvalue": 0.5, "endvalue": 0.5]]),
+            to: directory.appendingPathComponent("particles/values-bad.json"))
+        try writeJSON(raw(size: 1e38, alpha: 1,
+            extra: [["name": "inheritinitialvaluefromevent", "input": "multiplysize"]]),
+            to: directory.appendingPathComponent("particles/values-overflow.json"))
+        try writeJSON(raw(size: 6, alpha: 0.75),
+            to: directory.appendingPathComponent("particles/values-healthy.json"))
+        try writeJSON(raw(size: 4, alpha: 0.5, extra: [
+            ["name": "sizerandom", "min": 6, "max": 6],
+            ["name": "alpharandom", "min": 0.8, "max": 0.8]]),
+            to: directory.appendingPathComponent("particles/values-repeat.json"))
+        var noSize = raw()
+        noSize["initializer"] = (noSize["initializer"] as! [[String: Any]]).filter {
+            $0["name"] as? String != "sizerandom"
+        }
+        try writeJSON(noSize, to: directory.appendingPathComponent("particles/values-default-size.json"))
+        let followOperators: [[String: Any]] = [
+            ["name": "sizechange", "starttime": 0.02, "endtime": 0.02, "startvalue": 2, "endvalue": 4],
+            ["name": "alphachange", "starttime": 0.02, "endtime": 0.02, "startvalue": 0.5, "endvalue": 0.25],
+            ["name": "colorchange", "starttime": 0.04, "endtime": 0.04,
+             "startvalue": "1 1 1", "endvalue": "0 0.5 1"]]
+        try writeJSON(raw(size: 10, alpha: 1, life: 1, operators: followOperators,
+            children: [["name": "particles/values-follow-child.json", "type": "eventfollow"]]),
+            to: directory.appendingPathComponent("particles/values-follow-root.json"))
+        try writeJSON(raw(extra: inherit, operators: [
+            ["name": "inheritvaluefromevent"],
+            ["name": "inheritvaluefromevent", "input": "multiplysize"],
+            ["name": "inheritvaluefromevent", "input": "setopacity"]], rate: 60, instantaneous: 0),
+            to: directory.appendingPathComponent("particles/values-follow-child.json"))
+        let passes = materialPasses + [.init(materialPath: "materials/renamed.json",
+            shaderPath: "genericparticle", texturePaths: ["renamed.png"], blending: "additive")]
+        let descriptor = SceneRenderDescriptor(layers: [
+            layer(20, "particles/values-root.json"), layer(21, "particles/values-follow-root.json"),
+            layer(22, "particles/values-repeat.json"), layer(23, "particles/values-default-size.json")],
+            renderOrderLayerIDs: [20, 21, 22, 23], materialPasses: passes)
+        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        func frames(_ value: SceneParticleRuntime.FrameSnapshot, layerID: Int)
+            -> [SceneParticleChildRuntime.FrameSnapshot.SystemSnapshot] {
+            let index = runtime.layers.firstIndex { $0.layerID == layerID }!
+            return value.layers[index].child?.systems ?? []
+        }
+        func matches(_ value: SceneParticleGPUInstance?, halfSize: Float, alpha: Float) -> Bool {
+            guard let value else { return false }
+            return abs(value.positionAndSize.w - halfSize) < 1e-5
+                && abs(value.rotationAndAlpha.w - alpha) < 1e-6
+        }
+        func state(_ snapshot: SceneParticleRuntime.FrameSnapshot, layerID: Int,
+                   childPath: String? = nil) -> SceneParticleState? {
+            let index = runtime.layers.firstIndex { $0.layerID == layerID }!
+            guard let childPath else { return snapshot.layers[index].root?.simulatorFrame.particles.first }
+            let declarationIndex = deathChildren.firstIndex { $0["name"] as? String == "particles/\(childPath).json" }!
+            return frames(snapshot, layerID: layerID).first { $0.templateIndex == declarationIndex }?.simulatorFrame.particles.first
+        }
+        func batch(_ batches: [SceneParticleDrawBatch], _ path: String) -> SceneParticleGPUInstance? {
+            batches.first { $0.particlePath == "particles/\(path).json" }?.instances.first
+        }
+        var facts: [String: Bool] = [:]
+        _ = runtime.advance(by: 1.0 / 60)
+        let earlyFollow = frames(runtime.frameSnapshot(), layerID: 21).first?.simulatorFrame
+        facts["follow-start-context-has-real-current-values-before-any-child-birth"] =
+            earlyFollow?.eventValueContext == .follow(.init(color: SIMD3(repeating: 1), size: 20, alpha: 0.5))
+            && earlyFollow?.particles.isEmpty == true
+        _ = runtime.advance(by: 1.0 / 60)
+        let before = runtime.frameSnapshot()
+        let rootIndex = runtime.layers.firstIndex { $0.layerID == 20 }!
+        let parent = before.layers[rootIndex].root?.simulatorFrame.particles.first
+        facts["real-parent-current-and-initial-values-are-distinct"] = parent?.size == 30
+            && parent?.initialSize == 10 && parent?.alpha == 0.5 && parent?.initialAlpha == 1
+            && parent?.color == SIMD3(0.2, 0.4, 0.6) && parent?.initialColor == SIMD3(repeating: 1)
+        _ = runtime.advance(by: 1.0 / 60)
+        let follow = frames(runtime.frameSnapshot(), layerID: 21).first?.simulatorFrame
+        facts["follow-later-births-refresh-scalars-without-reinitializing-the-old-particle"] =
+            follow?.particles.map(\.initialSize) == [80, 80]
+            && follow?.particles.map(\.initialAlpha) == [0.25, 0.25]
+            && follow?.particles.map(\.size) == [80, 80]
+            && follow?.particles.map(\.alpha) == [0.25, 0.25]
+        facts["continuous-operator-keeps-only-color-live"] =
+            follow?.particles.first?.initialColor == SIMD3(repeating: 1)
+            && follow?.particles.map(\.color) == [SIMD3(0, 0.5, 1), SIMD3(0, 0.5, 1)]
+        let batches = runtime.advance(by: 1.0 / 60)
+        let accepted = runtime.frameSnapshot()
+        let value = batch(batches, "values-child")
+        let after = batch(batches, "values-after")
+        let childState = state(accepted, layerID: 20, childPath: "values-child")
+        let afterState = state(accepted, layerID: 20, childPath: "values-after")
+        facts["death-three-values-reach-production-batch-with-half-parent-size-units"] =
+            childState?.size == 60 && childState?.alpha == 0.5
+            && matches(value, halfSize: 30, alpha: 0.5)
+            && value?.colorAndFrameMix.x == 0.2 && value?.colorAndFrameMix.y == 0.4
+            && value?.colorAndFrameMix.z == 0.6
+        facts["post-inheritance-random-writers-multiply-the-current-values"] =
+            afterState?.size == 120 && afterState?.alpha == 0.2
+            && matches(after, halfSize: 60, alpha: 0.2)
+        facts["independent-repeated-writers-use-multiplicative-identity"] =
+            state(accepted, layerID: 22)?.size == 24 && state(accepted, layerID: 22)?.alpha == 0.4
+            && state(accepted, layerID: 23)?.size == 20 && state(accepted, layerID: 23)?.alpha == 0.25
+            && matches(batch(batches, "values-repeat"), halfSize: 12, alpha: 0.4)
+            && matches(batch(batches, "values-default-size"), halfSize: 10, alpha: 0.25)
+        facts["renamed-resource-id-and-unconsumed-field-keep-exact-numeric-output"] =
+            state(accepted, layerID: 20, childPath: "values-renamed")?.size == 60
+            && state(accepted, layerID: 20, childPath: "values-renamed")?.alpha == 0.5
+            && matches(batch(batches, "values-renamed"), halfSize: 30, alpha: 0.5)
+        facts["unknown-selector-is-local-and-healthy-operator-still-runs"] =
+            state(accepted, layerID: 20, childPath: "values-bad")?.size == 4
+            && state(accepted, layerID: 20, childPath: "values-bad")?.alpha == 0.375
+            && matches(batch(batches, "values-bad"), halfSize: 2, alpha: 0.375)
+        facts["overflow-birth-does-not-remove-the-healthy-sibling"] =
+            state(accepted, layerID: 20, childPath: "values-overflow") == nil
+            && batch(batches, "values-overflow") == nil
+            && state(accepted, layerID: 20, childPath: "values-healthy")?.size == 6
+            && state(accepted, layerID: 20, childPath: "values-healthy")?.alpha == 0.75
+            && matches(batch(batches, "values-healthy"), halfSize: 3, alpha: 0.75)
+        let inherited = frames(accepted, layerID: 20).filter {
+            $0.simulatorFrame.particles.first?.initialSize == 60
+        }
+        facts["child-context-and-birth-initials-store-the-actual-event-values"] =
+            !inherited.isEmpty && inherited.allSatisfy {
+                $0.simulatorFrame.eventValueContext == .snapshot(.init(color: SIMD3(0.2, 0.4, 0.6), size: 30, alpha: 0.5))
+                    && $0.simulatorFrame.particles.first?.initialAlpha == 0.5
+            }
+        var observed: [String: Any] = ["cpuChildValues": frames(accepted, layerID: 20).map {
+            ["templateIndex": $0.templateIndex, "values": $0.simulatorFrame.particles.map {
+                [$0.size, $0.alpha, $0.color.x, $0.color.y, $0.color.z]
+            }] as [String: Any]
+        }, "batchValues": batches.map {
+            ["path": $0.particlePath, "values": $0.instances.map {
+                [$0.positionAndSize.w, $0.rotationAndAlpha.w, $0.colorAndFrameMix.x,
+                 $0.colorAndFrameMix.y, $0.colorAndFrameMix.z]
+            }] as [String: Any]
+        }]
+#if DEBUG
+        let evaluations = runtime.consumeComponentObservations()
+        facts["eventValueDebugWitness"] = evaluations.contains {
+            $0.particlePath == "particles/values-child.json" && $0.evaluation.category == "initializer"
+                && $0.evaluation.stage == "evaluated" && $0.evaluation.reason == "event-value-applied"
+        } && evaluations.contains {
+            $0.particlePath == "particles/values-bad.json" && $0.evaluation.category == "initializer"
+                && $0.evaluation.stage == "unavailable"
+        }
+        observed["eventValueDiagnostics"] = evaluations.filter {
+            $0.particlePath.contains("values-") && $0.evaluation.category == "initializer"
+        }.map { ["path": $0.particlePath, "index": $0.evaluation.componentIndex,
+                 "stage": $0.evaluation.stage, "reason": $0.evaluation.reason] as [String: Any] }
+#endif
+        runtime.restoreFrame(before)
+        _ = runtime.advance(by: 1.0 / 60)
+        let replayBatches = runtime.advance(by: 1.0 / 60)
+        let replay = runtime.frameSnapshot()
+        let expectedSystems = frames(accepted, layerID: 20), replaySystems = frames(replay, layerID: 20)
+        facts["snapshot-retry-restores-event-values-particles-rng-and-identities"] =
+            expectedSystems.count == replaySystems.count && zip(expectedSystems, replaySystems).allSatisfy { left, right in
+                left.id == right.id && left.simulatorFrame.particles == right.simulatorFrame.particles
+                    && left.simulatorFrame.random.state == right.simulatorFrame.random.state
+                    && left.simulatorFrame.nextParticleID == right.simulatorFrame.nextParticleID
+                    && left.simulatorFrame.eventValueContext == right.simulatorFrame.eventValueContext
+            } && state(replay, layerID: 20, childPath: "values-child")?.size == 60
+            && matches(batch(replayBatches, "values-child"), halfSize: 30, alpha: 0.5)
+        return ["facts": facts, "observed": observed]
+    }
+
     static func syntheticEventFollow() throws -> [String: Any] {
+        setenv("MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION", "1", 1)
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-follow-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -342,7 +548,7 @@ extension Harness {
         }
         try writeParticle(
             "particles/invalid-inherit-root.json", material: "materials/shared.json",
-            rate: 0, instantaneous: 1,
+            lifetime: 3.0 / 60.0, rate: 0, instantaneous: 1,
             children: [
                 ["name": "particles/invalid-inherit-static.json", "type": "static"],
                 ["name": "particles/invalid-inherit-death.json", "type": "eventdeath"],
@@ -433,8 +639,13 @@ extension Harness {
         var windowCounts: [Int] = []
         var inheritedFollowMatches: [Bool] = []
         var inheritedDeathColors: [[Float]] = []
+        var localFallbackPaths: Set<String> = []
         for _ in 0..<6 {
             let batches = runtime.advance(by: 1.0 / 60.0)
+            for batch in batches where batch.particlePath.hasPrefix("particles/invalid-inherit-")
+                && !batch.particlePath.hasSuffix("root.json") && !batch.instances.isEmpty {
+                localFallbackPaths.insert(batch.particlePath)
+            }
             let instances = batches.first {
                 $0.particlePath == "particles/follow-child.json"
             }?.instances ?? []
@@ -486,6 +697,9 @@ extension Harness {
             "budgetCounts": budgetCounts,
             "inheritedFollowMatches": inheritedFollowMatches,
             "inheritedDeathColors": inheritedDeathColors,
+            "eventValueLocalFallbackPaths": localFallbackPaths.sorted(),
+            "eventValues": try eventValueBehavior(directory: directory, device: device,
+                                                  materialPasses: descriptor.materialPasses),
             "hasAudioConsumer": runtime.hasAudioConsumer,
             "activeChildAudioInput": activeChildAudioInput,
         ]
@@ -495,14 +709,6 @@ extension Harness {
         facts3["retryChurnObservationCount"] = retryChurnObservations.count
         facts3["retryChurnObservationPaths"] = retryChurnObservations.map(\.particlePath)
         facts3["laterChurnObservationCount"] = laterChurnObservationCount
-        facts3["eventColorMarkers"] = runtime.diagnostics.compactMap {
-            $0.kind == .simulationLimitation && $0.detail?.contains("eventColor") == true
-                ? $0.detail : nil
-        }
-        facts3["invalidEventColorDetails"] = runtime.diagnostics.compactMap {
-            $0.layerID == 17 && $0.kind == .childSystemsUnsupported
-                && $0.detail?.contains("eventColor") == true ? $0.detail : nil
-        }
         facts3["childUnsupportedLayers"] = runtime.diagnostics.compactMap {
             $0.kind == .childSystemsUnsupported && ![13, 17].contains($0.layerID)
                 ? $0.layerID : nil

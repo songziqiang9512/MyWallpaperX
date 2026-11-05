@@ -46,7 +46,7 @@ nonisolated struct SceneParticleRandomColorPlan: Sendable {
 }
 
 /// Launch-stable authored projections used by the particle initializer hot path.
-/// Turbulent velocity and event color remain live because they consume position/time,
+/// Turbulent velocity and event values remain live because they consume position/time,
 /// audio or frame-local event state.
 nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
     let scalar: SceneParticleRandomScalarPlan?
@@ -58,7 +58,6 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
     let positionOffset: SceneParticlePositionOffsetPlan?
     let positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
     let positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
-    let inheritsEventColor: Bool
 
     nonisolated init(_ value: SceneParticleInitializer, definition: SceneParticleDefinition) {
         var scalar: SceneParticleRandomScalarPlan?
@@ -70,7 +69,6 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         var positionOffset: SceneParticlePositionOffsetPlan?
         var positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
         var positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
-        var inheritsEventColor = false
 
         switch value.kind {
         case .lifetime:
@@ -106,8 +104,6 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
             }
         case .positionBetweenControlPoints:
             positionBetweenControlPoints = value.positionBetweenControlPointsPlan
-        case let .inheritEventColor(declaration):
-            inheritsEventColor = declaration.isBoundedSetColor
         default:
             break
         }
@@ -121,7 +117,6 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         self.positionOffset = positionOffset
         self.positionAroundControlPoint = positionAroundControlPoint
         self.positionBetweenControlPoints = positionBetweenControlPoints
-        self.inheritsEventColor = inheritsEventColor
     }
 }
 
@@ -154,9 +149,9 @@ extension SceneParticleSimulator {
 #endif
                     break
                 }
-                particle.size = randomScalar(plan)
+                particle.size *= randomScalar(plan)
 #if DEBUG
-                componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "size-assigned", time: simulationTime, particleID: particle.id)
+                componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "size-multiplied", time: simulationTime, particleID: particle.id)
 #endif
             case .velocity:
                 // Wallpaper Engine initializes both authored velocity vectors to zero before
@@ -207,9 +202,9 @@ extension SceneParticleSimulator {
 #endif
                     break
                 }
-                particle.alpha = randomScalar(plan)
+                particle.alpha *= randomScalar(plan)
 #if DEBUG
-                componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "alpha-assigned", time: simulationTime, particleID: particle.id)
+                componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "alpha-multiplied", time: simulationTime, particleID: particle.id)
 #endif
             case .rotation:
                 guard let plan = executionPlan.vector else {
@@ -293,18 +288,26 @@ extension SceneParticleSimulator {
                 }
 #endif
                 if !applied, strict { return false }
-            case .inheritEventColor:
-                if executionPlan.inheritsEventColor,
-                   let color = eventColorContext.initializerColor {
-                    particle.color = color
+            case let .inheritEventValue(operation):
+                guard let operation,
+                      let values = eventValueContext.initializerValues,
+                      operation.canConsume(values) else {
 #if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "event-color-assigned", time: simulationTime, particleID: particle.id)
+                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "event-value-unavailable", time: simulationTime, particleID: particle.id)
 #endif
-                } else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "event-color-unavailable", time: simulationTime, particleID: particle.id)
-#endif
+                    break
                 }
+                switch operation {
+                case .setColor:
+                    particle.color = values.color
+                case .multiplySize:
+                    particle.size *= values.size * 0.5
+                case .setOpacity:
+                    particle.alpha = values.alpha
+                }
+#if DEBUG
+                componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "event-value-applied", time: simulationTime, particleID: particle.id)
+#endif
             case .unsupported:
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "unsupported", reason: "unknown-initializer-kind", time: simulationTime, particleID: particle.id)

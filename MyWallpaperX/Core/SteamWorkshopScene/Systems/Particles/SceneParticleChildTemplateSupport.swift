@@ -8,16 +8,6 @@ enum SceneParticleChildControlPointCopyAdmission {
     case unsupported(String)
 }
 
-enum SceneParticleChildEventColorAdmission {
-    case disabled
-#if DEBUG
-    case supported([String])
-#else
-    case supported
-#endif
-    case unsupported(String)
-}
-
 /// Project-owned bounded child transform profile. Screen-plane scale stays uniform;
 /// mirroring, rotation, nested scaling, and world-space movement remain fail-closed.
 /// Rope consumes this frame only in the depth-one static profile.
@@ -78,45 +68,6 @@ enum SceneParticleChildTemplateSupport {
     /// This is preparation work credit, not a GPU slot or total resident budget.
     static let maximumStaticRopeExpansionSegments =
         SceneParticleRopePlan.maximumGeneratedSegmentCount - maximumRopeSegmentsPerTemplate
-
-    static func eventColorAdmission(
-        definition: SceneParticleDefinition,
-        trigger: SceneParticleChildTrigger
-    ) -> SceneParticleChildEventColorAdmission {
-        let initializers = definition.initializers.compactMap { initializer -> SceneParticleEventColorDeclaration? in
-            guard case let .inheritEventColor(value) = initializer.kind else { return nil }
-            return value
-        }
-        let operators = definition.operators.compactMap { value -> SceneParticleEventColorDeclaration? in
-            guard case let .inheritEventColor(declaration) = value.kind else { return nil }
-            return declaration
-        }
-        guard !initializers.isEmpty || !operators.isEmpty else { return .disabled }
-        guard initializers.allSatisfy(\.isBoundedSetColor) else {
-            return .unsupported("eventColorInitializerUnsupported")
-        }
-        guard operators.allSatisfy(\.isBoundedSetColor) else {
-            return .unsupported("eventColorOperatorUnsupported")
-        }
-        guard initializers.isEmpty || trigger != .staticChild else {
-            return .unsupported("eventColorInitializerOutsideEventChild")
-        }
-        guard operators.isEmpty || trigger == .follow else {
-            return .unsupported("eventColorOperatorOutsideFollowChild")
-        }
-#if DEBUG
-        var markers: [String] = []
-        if !initializers.isEmpty {
-            markers.append("eventColorInitializerBounded:setcolor")
-        }
-        if !operators.isEmpty {
-            markers.append("eventColorOperatorBounded:setcolor")
-        }
-        return .supported(markers)
-#else
-        return .supported
-#endif
-    }
 
     static func rawParentControlPointOverride(
         childDefinition: SceneParticleDefinition,
@@ -320,14 +271,17 @@ enum SceneParticleChildTemplateSupport {
 }
 
 extension SceneParticleChildTemplate {
-    func eventColorContext(
+    func eventValueContext(
         for parent: SceneParticleState
-    ) -> SceneParticleEventColorContext {
-        switch trigger {
+    ) -> SceneParticleEventValueContext {
+        let values = SceneParticleEventValues(
+            color: parent.color, size: parent.size, alpha: parent.alpha
+        )
+        return switch trigger {
         case .spawn, .death:
-            .snapshot(parent.color)
+            .snapshot(values)
         case .follow:
-            .follow(parent.color)
+            .follow(values)
         case .staticChild:
             .unavailable
         }

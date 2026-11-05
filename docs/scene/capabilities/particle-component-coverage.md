@@ -119,6 +119,17 @@ Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合�
 
 hidden/dormant child 的实例和潜在 renderer 需求保持。已提交销毁 root 时，由实际归属退休其 CPU root 与独占 ChildRuntime；健康 root 的 RNG、clock 和状态不变。冻结 DrawBatch 继续是值，不被退休操作追写。
 
+<a id="event-value-inheritance"></a>
+### 事件值继承的职责合同
+
+父出生/死亡事件已经携带真实粒子状态；ChildRuntime 在原有 child 系统构造点只投影继承消费者需要的 color、size、alpha，follow 在原父状态刷新点更新同一 typed context，不能另建 parent registry、时钟或 per-particle 影子状态。Snapshot、restore、clear 继续由原 Simulator frame 值持有。上下文不得依赖 Parser 目标之外的完整粒子类型，投影留在实际 runtime owner。
+
+`inheritinitialvaluefromevent` 的 input 在原解析入口一次转为已实现操作的 typed enum，缺省 setcolor；multiplysize 以触发时父 size 的一半乘当前子 size，setopacity 赋父当前 alpha；固定官方的父倍率2/3及独立同源参照限定这两个消费者的单位和供值候选，不能外推全部死亡末帧混合公式。未消费的编辑器字段不参与播放许可；未知或错型 input 只使该 writer 不可用，不整批拒绝健康 child。实际无 parent 的初始化不伪造供值；连续 operator 仍只有原 follow setcolor 消费者，不由共享 enum 顺带扩其他模式。原全字段白名单、整 template 的继承许可和 initializer plan 的重复 Bool 随替换退出。
+
+初始化沿原作者顺序修改同一新生状态，最后由原构造点统一建立 initialColor/Alpha/Size 并校验最终 GPU 数值。随机 size/alpha writer 沿作者顺序相乘；继承 opacity 后的 alpharandom 继续乘该继承值。官方两次 size4→6、alpha.5→.8及固定父.4→继承→random.5分别与独立24/.4/.2参照相容，直接覆盖候选不成立。原 Simulator 冷准备一个出生 size seed：有 size writer 时取乘法单位1，无 size writer 保原默认20；它不进入活动快照，不在逐出生时反复扫描定义。不能按样本或固定声明形状分支。无消费者、缺上下文和坏值局部降级；最终实际溢出仍沿原出生拒绝，不让一个新生污染健康系统。
+
+验收使用真实 Parser→Simulator→ChildRuntime→实例/生产 Metal，包含原事件载荷、当前/出生基值可区分输入、follow 后续出生、随机 writer 交错、改名/无关字段、坏 selector、无 event、最终溢出与健康 peer，保原快照/RNG/显式事务。真实作者须取得死亡触发、child 接纳出生、目标 batch 及最终 capture，不能以 root 已有 draw 或准备门放行代替。公开组件说明与本机有界对照不授全部 selector、RGB 取值时点、世界空间、完整作者效果或性能一致。
+
 <a id="rendering"></a>
 ## Renderer、材质与 GPU
 

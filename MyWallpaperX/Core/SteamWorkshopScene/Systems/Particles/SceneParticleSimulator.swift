@@ -62,8 +62,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// fail closed without rescanning for every emitted particle.
     let controlPointSourcesAreValid: Bool
     /// Launch-stable scalar/vector/color initializer projections. Turbulence,
-    /// event color and control-point values stay frame-local in their consumers.
+    /// event values and control-point values stay frame-local in their consumers.
     let initializerExecutionPlans: [SceneParticleInitializerExecutionPlan]
+    private let birthSizeSeed: Double
     /// Launch-stable emitter vectors, ranges and admission results. Dynamic
     /// control-point/instance values and random state remain frame-local.
     private let emitterSpawnPlans: [SceneParticleEmitterSpawnPlan]
@@ -96,7 +97,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     var pendingAudioEvaluationObservations:
         [SceneParticleAudioEvaluationObservation] = []
 #endif
-    var eventColorContext: SceneParticleEventColorContext
+    var eventValueContext: SceneParticleEventValueContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var controlPointConstraintHistory: [SceneParticleControlPointConstraintHistory]
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
@@ -120,7 +121,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         controlPointFrame: SceneParticleControlPointFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
-        eventColorContext: SceneParticleEventColorContext = .unavailable
+        eventValueContext: SceneParticleEventValueContext = .unavailable
     ) {
         self.playback = initialPlayback
         self.playbackHasWork = definition.preparedPlaybackWork(
@@ -135,7 +136,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
         self.rootWorldTranslation = rootWorldTranslation
-        self.eventColorContext = eventColorContext
+        self.eventValueContext = eventValueContext
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
         )
@@ -166,6 +167,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initializerExecutionPlans = definition.initializers.map {
             SceneParticleInitializerExecutionPlan($0, definition: definition)
         }
+        // Random writers multiply, while an absent size writer retains the default.
+        birthSizeSeed = definition.initializers.contains { $0.kind == .size } ? 1 : 20
         explicitInitializerWork = Self.explicitInitializerWork(
             definition: definition, plans: initializerExecutionPlans)
         var pointConsumers = definition.emitters.compactMap { definition.emitterControlPointSource(for: $0) }
@@ -207,7 +210,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         componentObservation?.origin = "prewarm"
         diagnostics = SceneParticleSimulationMath.diagnostics(
-            definition, instanceOverride, eventColorContext: eventColorContext,
+            definition, instanceOverride, eventValueContext: eventValueContext,
             controlPointForceEnvironment: controlPointForceEnvironment
         )
 #endif
@@ -348,7 +351,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
-            eventColorContext: eventColorContext,
+            eventValueContext: eventValueContext,
             stepSnapshotRecorder: stepSnapshotRecorder,
             positionOscillationCache: positionOscillationCache,
             controlPointConstraintHistory: controlPointConstraintHistory
@@ -387,7 +390,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
         componentObservation = snapshot.componentObservation
 #endif
-        eventColorContext = snapshot.eventColorContext
+        eventValueContext = snapshot.eventValueContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
         positionOscillationCache = snapshot.positionOscillationCache
         controlPointConstraintHistory = snapshot.controlPointConstraintHistory
@@ -434,9 +437,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         return birthEvents[lower]
     }
 
-    nonisolated func updateFollowEventColor(_ color: SIMD3<Double>) {
-        guard case .follow = eventColorContext else { return }
-        eventColorContext = .follow(color)
+    nonisolated func updateFollowEventValues(_ values: SceneParticleEventValues) {
+        guard case .follow = eventValueContext else { return }
+        eventValueContext = .follow(values)
     }
 
     private nonisolated func warmUp(
@@ -741,9 +744,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
         var particle = SceneParticleState(
             id: nextParticleID, position: position, velocity: velocity,
-            color: SIMD3(repeating: 1), alpha: 1, size: 20,
+            color: SIMD3(repeating: 1), alpha: 1, size: birthSizeSeed,
             rotation: .zero, angularVelocity: .zero, age: 0, lifetime: 1,
-            initialColor: SIMD3(repeating: 1), initialAlpha: 1, initialSize: 20
+            initialColor: SIMD3(repeating: 1), initialAlpha: 1, initialSize: birthSizeSeed
         )
         nextParticleID &+= 1
         guard applyInitializers(to: &particle, strict: strict,

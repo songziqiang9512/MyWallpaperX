@@ -747,7 +747,7 @@ final class SceneDesktopWallpaperSession {
                 explicitBirthEventStart:old.explicitBirthEventStart,emitters:old.emitters,random:old.random,accumulator:old.accumulator,
                 nextParticleID:UInt64.max,normalizedLives:old.normalizedLives,dynamicControlPoints:old.dynamicControlPoints,
                 dynamicControlPointAngles:old.dynamicControlPointAngles,audioInput:old.audioInput,
-                eventColorContext:old.eventColorContext,stepSnapshotRecorder:old.stepSnapshotRecorder,
+                eventValueContext:old.eventValueContext,stepSnapshotRecorder:old.stepSnapshotRecorder,
                 positionOscillationCache:old.positionOscillationCache)
 #if DEBUG
             saturated.diagnostics = old.diagnostics

@@ -529,7 +529,7 @@ nonisolated extension SceneParticleDefinition {
                 guard sawMovement, !sawVortex else { return false }
                 sawVortex = true
             case .alphaFade, .alphaChange, .sizeChange, .colorChange,
-                 .angularMovement, .oscillateAlpha, .oscillateSize, .inheritEventColor:
+                 .angularMovement, .oscillateAlpha, .oscillateSize, .inheritEventValue:
                 break
             default:
                 return false

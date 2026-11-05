@@ -751,14 +751,15 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
 
     def assert_draw(self, name, layer_id, population, instances):
         row = self.rows[name]
+        counts = instances if isinstance(instances, list) else [instances]
         self.assertEqual(self.result["sampleCount"], 1)
         self.assertEqual(row["activeLayerIDs"], [layer_id, 201])
-        self.assertEqual(row["batchLayerIDs"], [layer_id, 201])
-        self.assertEqual(row["instances"], [instances, 1])
+        self.assertEqual(row["batchLayerIDs"], [layer_id] * len(counts) + [201])
+        self.assertEqual(row["instances"], counts + [1])
         self.assertEqual(row["rootPopulation"], population)
-        self.assertEqual(row["encoded"], [True, True])
+        self.assertEqual(row["encoded"], [True] * (len(counts) + 1))
         self.assertTrue(row["completed"])
-        self.assertEqual(row["textureExtents"], [[4, 4], [4, 4]])
+        self.assertEqual(row["textureExtents"], [[4, 4]] * (len(counts) + 1))
         return row
 
     def test_world_between_count_size_and_instance_replacement_reach_production_vertices(self):
@@ -813,7 +814,7 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
         self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 3 + [[0, 0, 0, 0], [0, 255, 0, 255]])
 
     def test_static_child_world_endpoint_reaches_production_vertices_after_its_own_transform(self):
-        self.assertEqual(len(self.result["rows"]), 12)
+        self.assertEqual(len(self.result["rows"]), 14)
         row = self.assert_draw("static-child-world-between", 104, 1, 3)
         self.assertEqual(row["rootTargetPopulation"], 0)
         self.assertEqual(row["childPopulation"], 3)
@@ -834,7 +835,7 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
             + [[0, 255, 0, 255], [0, 0, 0, 0], [0, 0, 0, 0]])
 
     def test_world_follow_child_keeps_its_birth_origin_when_parent_moves(self):
-        self.assertEqual(len(self.result["rows"]), 12)
+        self.assertEqual(len(self.result["rows"]), 14)
         for stage, parent_x in [(2, 20), (3, 30)]:
             row = self.rows[f"follow-world-{stage}"]
             self.assertEqual(row["activeLayerIDs"], [105, 201])
@@ -890,6 +891,41 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
         self.assertEqual(warm["dynamicControlPoints"], {"0": [0, 0, 0], "1": [96, 79.5, 0]})
         self.assertEqual(self.rows["radius-dynamic-carry"]["dynamicControlPoints"],
                          {"0": [0, 0, 0], "1": [96, 0, 0]})
+
+    def test_death_event_values_and_unavailable_writer_reach_actual_rgba(self):
+        for name in ["event-death-inherited-values", "event-unknown-keeps-random-suffix"]:
+            with self.subTest(name=name):
+                row = self.assert_draw(name, 109, 1, [1, 1])
+                self.assertEqual(row["positions"], [])
+                self.assertEqual(row["childSystemCount"], 2)
+                self.assertEqual(row["childPopulation"], 2)
+                self.assertEqual(row["parentBeforeDeathSizes"], [30])
+                self.assertEqual(row["parentBeforeDeathColors"], [[0, 1, 0]])
+                self.assertEqual(row["eventSourceSizes"], [30, 30])
+                self.assertEqual(row["eventSourceColors"], [[0, 1, 0], [0, 1, 0]])
+                for values in [row["parentBeforeDeathAlphas"], row["eventSourceAlphas"]]:
+                    for value in values:
+                        self.assertAlmostEqual(value, 0.4, delta=0.000001)
+                self.assertEqual(row["childSizes"], [[60], [24]])
+                self.assertEqual(row["childInitialSizes"], [[60], [24]])
+                self.assertEqual(row["childColors"], [[[0, 1, 0]], [[0, 0, 1]]])
+                for field in ["childAlphas", "childInitialAlphas"]:
+                    for values, expected in zip(row[field], [0.2, 0.4], strict=True):
+                        self.assertEqual(len(values), 1)
+                        self.assertAlmostEqual(values[0], expected, delta=0.000001)
+                geometry = dict(zip(row["particlePaths"], row["vertexBounds"], strict=True))
+                for path, cx, extent in [("particles/event-values.json", 64, 30),
+                                         ("particles/event-unknown.json", 144, 12)]:
+                    self.assertEqual(len(geometry[path]), 1)
+                    bounds = geometry[path][0]
+                    self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, cx, delta=0.001)
+                    self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, 80.5, delta=0.001)
+                    self.assertAlmostEqual(bounds[2] - bounds[0], extent, delta=0.001)
+                    self.assertAlmostEqual(bounds[3] - bounds[1], extent, delta=0.001)
+                # Opaque white source and premultiplied over on clear give literal UNorm bytes.
+                green, blue = [0, 51, 0, 51], [0, 0, 102, 102]
+                target, other = (green, blue) if name == "event-death-inherited-values" else (blue, green)
+                self.assertEqual(row["rgba"], [target] * 9 + [other, [0, 0, 0, 0], [0, 255, 0, 255]])
 
 
 if __name__ == "__main__":

@@ -14,45 +14,59 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case positionOffset
     case positionAroundControlPoint(SceneParticlePositionAroundControlPoint)
     case positionBetweenControlPoints(SceneParticlePositionBetweenControlPoints)
-    case inheritEventColor(SceneParticleEventColorDeclaration)
+    case inheritEventValue(SceneParticleEventValueOperation?)
     case unsupported(String)
 }
 
-nonisolated struct SceneParticleEventColorDeclaration: Equatable, Sendable {
-    let input: String?
-    let hasMalformedInput: Bool
-    let unsupportedFieldNames: [String]
+nonisolated enum SceneParticleEventValueOperation: String, Equatable, Sendable {
+    case setColor = "setcolor"
+    case multiplySize = "multiplysize"
+    case setOpacity = "setopacity"
 
-    nonisolated init(root: [String: Any]) {
-        input = root["input"] as? String
-        hasMalformedInput = root["input"] != nil && input == nil
-        let supported = Set(["id", "name", "input"])
-        unsupportedFieldNames = root.keys.filter { !supported.contains($0) }.sorted()
+    nonisolated init?(root: [String: Any]) {
+        let input: String
+        if let raw = root["input"] {
+            guard let value = raw as? String else { return nil }
+            input = value
+        } else {
+            input = "setcolor"
+        }
+        self.init(rawValue: input)
     }
 
-    nonisolated var isBoundedSetColor: Bool {
-        !hasMalformedInput && unsupportedFieldNames.isEmpty
-            && (input == nil || input == "setcolor")
+    nonisolated func canConsume(_ values: SceneParticleEventValues) -> Bool {
+        switch self {
+        case .setColor:
+            values.color.x.isFinite && values.color.y.isFinite && values.color.z.isFinite
+        case .multiplySize:
+            values.size.isFinite
+        case .setOpacity:
+            values.alpha.isFinite
+        }
     }
 }
 
-nonisolated enum SceneParticleEventColorContext: Equatable, Sendable {
-    case unavailable
-    case snapshot(SIMD3<Double>)
-    case follow(SIMD3<Double>)
+nonisolated struct SceneParticleEventValues: Equatable, Sendable {
+    let color: SIMD3<Double>
+    let size: Double
+    let alpha: Double
+}
 
-    nonisolated var initializerColor: SIMD3<Double>? {
+nonisolated enum SceneParticleEventValueContext: Equatable, Sendable {
+    case unavailable
+    case snapshot(SceneParticleEventValues)
+    case follow(SceneParticleEventValues)
+
+    nonisolated var initializerValues: SceneParticleEventValues? {
         switch self {
         case .unavailable: nil
-        case let .snapshot(color), let .follow(color):
-            color.x.isFinite && color.y.isFinite && color.z.isFinite ? color : nil
+        case let .snapshot(values), let .follow(values): values
         }
     }
 
-    nonisolated var operatorColor: SIMD3<Double>? {
-        guard case let .follow(color) = self,
-              color.x.isFinite, color.y.isFinite, color.z.isFinite else { return nil }
-        return color
+    nonisolated var operatorValues: SceneParticleEventValues? {
+        guard case let .follow(values) = self else { return nil }
+        return values
     }
 }
 

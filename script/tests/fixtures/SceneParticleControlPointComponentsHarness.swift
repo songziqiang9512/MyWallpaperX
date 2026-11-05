@@ -216,7 +216,7 @@ enum SceneParticleControlPointComponentsHarness {
         lateRoot["initializer"] = writers
         let late = try simulator(lateRoot); late.advance(by: 0.25)
         results["flags/author-ordered-following-writers-execute-after-enveloping"] =
-            velocities(late, [[0, 7, 0], [0, 19, 0], [0, 23, 0]]) && sizes(late, [9, 9, 9])
+            velocities(late, [[0, 7, 0], [0, 19, 0], [0, 23, 0]]) && sizes(late, [21.6, 167.4, 216])
         record("flags23", simulations[23]!); record("size-half", half); record("following-writers", late)
     }
 

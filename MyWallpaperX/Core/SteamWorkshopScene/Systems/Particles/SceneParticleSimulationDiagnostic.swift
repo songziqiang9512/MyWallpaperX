@@ -17,14 +17,14 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case positionBetweenControlPointsBounded
     case positionBetweenControlPointsUnsupported
     case positionBetweenControlPointsPartial
-    case eventColorInitializerBounded
-    case eventColorInitializerUnsupported
+    case eventValueInitializerBounded
+    case eventValueInitializerUnsupported
     case unsupportedOperator
     case invalidEmitterState
     case invalidSimulationTime
     case invalidOperatorState
-    case eventColorOperatorBounded
-    case eventColorOperatorUnsupported
+    case eventValueOperatorBounded
+    case eventValueOperatorUnsupported
     case boidsBounded
     case boidsUnsupported
     case vortexBounded
@@ -151,7 +151,7 @@ extension SceneParticleSimulationMath {
     nonisolated static func diagnostics(
         _ definition: SceneParticleDefinition,
         _ instanceOverride: SceneParticleInstanceOverride?,
-        eventColorContext: SceneParticleEventColorContext = .unavailable,
+        eventValueContext: SceneParticleEventValueContext = .unavailable,
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
     ) -> [SceneParticleSimulationDiagnostic] {
         var result = audioDiagnostics(definition)
@@ -254,11 +254,12 @@ extension SceneParticleSimulationMath {
                 if plan?.hasUnconsumedOptions == true {
                     add(.positionBetweenControlPointsPartial, "between-options-unconsumed")
                 }
-            case let .inheritEventColor(declaration):
-                add(declaration.isBoundedSetColor
-                    && eventColorContext.initializerColor != nil
-                    ? .eventColorInitializerBounded
-                    : .eventColorInitializerUnsupported,
+            case let .inheritEventValue(operation):
+                add(operation.flatMap { op in
+                    eventValueContext.initializerValues.map(op.canConsume)
+                } == true
+                    ? .eventValueInitializerBounded
+                    : .eventValueInitializerUnsupported,
                     "inheritinitialvaluefromevent")
             case let .unsupported(name):
                 add(.unsupportedInitializer, name)
@@ -295,11 +296,13 @@ extension SceneParticleSimulationMath {
                 add(value.collisionPlanePlan == nil
                     ? .collisionPlaneUnsupported : .collisionPlaneBounded,
                     "collisionplane")
-            case let .inheritEventColor(declaration):
-                add(declaration.isBoundedSetColor
-                    && eventColorContext.operatorColor != nil
-                    ? .eventColorOperatorBounded
-                    : .eventColorOperatorUnsupported,
+            case let .inheritEventValue(operation):
+                add(operation == .setColor
+                    && eventValueContext.operatorValues.map(
+                        SceneParticleEventValueOperation.setColor.canConsume
+                    ) == true
+                    ? .eventValueOperatorBounded
+                    : .eventValueOperatorUnsupported,
                     "inheritvaluefromevent")
             case let .unsupported(name):
                 add(name.contains("controlpoint") ? .controlPointForceUnsupported : .unsupportedOperator, name)

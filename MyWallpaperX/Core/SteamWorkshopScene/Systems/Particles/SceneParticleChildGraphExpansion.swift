@@ -220,21 +220,6 @@ enum SceneParticleChildGraphExpansion {
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
         }
-        switch SceneParticleChildTemplateSupport.eventColorAdmission(
-            definition: asset.definition, trigger: trigger
-        ) {
-        case .disabled:
-            break
-#if DEBUG
-        case let .supported(markers):
-            result.performanceDetails.append(contentsOf: markers.map { "\(path):\($0)" })
-#else
-        case .supported:
-            break
-#endif
-        case let .unsupported(detail):
-            return .rejected("\(path):\(detail)")
-        }
         let permitsStaticRope = render.rope != nil && depth == 1
             && trigger == .staticChild && asset.definition.children.isEmpty
             && !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -428,7 +413,7 @@ extension SceneParticleChildTemplate {
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         maximumEmissionDuration: Double? = nil,
-        eventColorContext: SceneParticleEventColorContext = .unavailable
+        eventValueContext: SceneParticleEventValueContext = .unavailable
     ) -> SceneParticleSimulator {
         let simulator = SceneParticleSimulator(
             definition: definition,
@@ -444,7 +429,7 @@ extension SceneParticleChildTemplate {
                 ? controlPointFrame?.childFrame(origin: origin - (definition.flags.isWorldSpace ? rootTranslationOffset : .zero), scale: transform.scale) : nil,
             initialControlPointParticleSpace: definition.flags.isWorldSpace
                 ? .init(currentOrigin: origin, scale: transform.scale, birthOrigins: [:]) : nil,
-            eventColorContext: eventColorContext
+            eventValueContext: eventValueContext
         )
 #if DEBUG
         simulator.observeSelectedRenderer(typedIndex: debugRendererTypedIndex)

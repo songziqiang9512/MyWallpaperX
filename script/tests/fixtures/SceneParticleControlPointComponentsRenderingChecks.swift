@@ -220,6 +220,75 @@ enum SceneParticleControlPointComponentsRenderingChecks {
             descriptor: badRadiusDescriptor, worldFrames: badRadiusFrames, device: device, queue: queue,
             pipeline: pipeline, probe: probe, pixels: [[63, 79], [64, 79], [65, 79],
                 [63, 80], [64, 80], [65, 80], [63, 81], [64, 81], [65, 81], [72, 80], [32, 130]]))
+
+        var inherited = definition(color: "255 255 255", size: 4)
+        var inheritedWriters = inherited["initializer"] as! [[String: Any]]
+        inheritedWriters[3]["min"] = 0.75; inheritedWriters[3]["max"] = 0.75
+        inheritedWriters += [
+            ["name": "inheritinitialvaluefromevent", "unusedEditorOption": ["not-a-scalar": false]],
+            ["name": "inheritinitialvaluefromevent", "input": "multiplysize"],
+            ["name": "inheritinitialvaluefromevent", "input": "setopacity"],
+            ["name": "alpharandom", "min": 0.5, "max": 0.5],
+        ]
+        inherited["initializer"] = inheritedWriters
+        try Harness.writeJSON(inherited, to: directory.appendingPathComponent("particles/event-values.json"))
+        var unknown = definition(color: "0 0 255", origin: "80 0 0", size: 4)
+        var unknownWriters = unknown["initializer"] as! [[String: Any]]
+        unknownWriters[3]["min"] = 0.5; unknownWriters[3]["max"] = 0.5
+        unknownWriters += [
+            ["name": "inheritinitialvaluefromevent", "input": "future-value", "unusedEditorOption": false],
+            ["name": "sizerandom", "min": 6, "max": 6],
+            ["name": "alpharandom", "min": 0.8, "max": 0.8],
+        ]
+        unknown["initializer"] = unknownWriters
+        try Harness.writeJSON(unknown, to: directory.appendingPathComponent("particles/event-unknown.json"))
+        var eventParent = definition(color: "0 255 0", origin: "16 0 0", size: 10,
+            operators: [["name": "sizechange", "startvalue": 3, "endvalue": 3],
+                        ["name": "alphachange", "startvalue": 0.5, "endvalue": 0.5]])
+        var eventParentWriters = eventParent["initializer"] as! [[String: Any]]
+        eventParentWriters[0]["min"] = 2.0 / 60; eventParentWriters[0]["max"] = 2.0 / 60
+        eventParentWriters[3]["min"] = 0.8; eventParentWriters[3]["max"] = 0.8
+        eventParent["initializer"] = eventParentWriters
+        eventParent["children"] = [
+            ["name": "particles/event-values.json", "type": "eventdeath", "maxcount": 1],
+            ["name": "particles/event-unknown.json", "type": "eventdeath", "maxcount": 1],
+        ]
+        try Harness.writeJSON(eventParent, to: directory.appendingPathComponent("particles/event-parent.json"))
+        var eventLayer = Harness.layer(109, "particles/event-parent.json")
+        eventLayer.originXYZ = [48, 79.5, 0]
+        let eventDescriptor = descriptor(eventLayer), eventFrames = frames(eventDescriptor)
+        let eventRuntime = SceneParticleRuntime(descriptor: eventDescriptor, cacheDirectory: directory,
+            device: device, stockTextureBundleURL: nil)
+        _ = eventRuntime.advance(by: 1.0 / 60, layerWorldFrames: eventFrames)
+        let parentBeforeDeath = eventRuntime.frameSnapshot().layers[0].root!.simulatorFrame.particles
+        _ = eventRuntime.advance(by: 1.0 / 60, layerWorldFrames: eventFrames)
+        for (name, pixels) in [
+            ("event-death-inherited-values", [[63, 79], [64, 79], [65, 79],
+                [63, 80], [64, 80], [65, 80], [63, 81], [64, 81], [65, 81], [144, 80], [84, 80], [32, 130]]),
+            ("event-unknown-keeps-random-suffix", [[143, 79], [144, 79], [145, 79],
+                [143, 80], [144, 80], [145, 80], [143, 81], [144, 81], [145, 81], [64, 80], [154, 80], [32, 130]]),
+        ] {
+            batches = eventRuntime.advance(by: 1.0 / 60, layerWorldFrames: eventFrames)
+            var row = try draw(name, runtime: eventRuntime, batches: batches,
+                descriptor: eventDescriptor, worldFrames: eventFrames, device: device, queue: queue,
+                pipeline: pipeline, probe: probe, pixels: pixels, expectedBatchCount: 3)
+            let systems = eventRuntime.frameSnapshot().layers[0].child?.systems ?? []
+            let values = systems.compactMap { $0.simulatorFrame.eventValueContext.initializerValues }
+            row["parentBeforeDeathSizes"] = parentBeforeDeath.map(\.size)
+            row["parentBeforeDeathAlphas"] = parentBeforeDeath.map(\.alpha)
+            row["parentBeforeDeathColors"] = parentBeforeDeath.map { [$0.color.x, $0.color.y, $0.color.z] }
+            row["eventSourceSizes"] = values.map(\.size)
+            row["eventSourceAlphas"] = values.map(\.alpha)
+            row["eventSourceColors"] = values.map { [$0.color.x, $0.color.y, $0.color.z] }
+            row["childPopulation"] = eventRuntime.lifecycleSnapshot.childParticleCount
+            row["childSystemCount"] = eventRuntime.lifecycleSnapshot.childSystemCount
+            row["childSizes"] = systems.map { $0.simulatorFrame.particles.map(\.size) }
+            row["childAlphas"] = systems.map { $0.simulatorFrame.particles.map(\.alpha) }
+            row["childColors"] = systems.map { $0.simulatorFrame.particles.map { [$0.color.x, $0.color.y, $0.color.z] } }
+            row["childInitialSizes"] = systems.map { $0.simulatorFrame.particles.map(\.initialSize) }
+            row["childInitialAlphas"] = systems.map { $0.simulatorFrame.particles.map(\.initialAlpha) }
+            rows.append(row)
+        }
         return ["device": device.name, "sampleCount": 1, "rows": rows]
     }
 

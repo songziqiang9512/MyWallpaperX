@@ -846,15 +846,14 @@ class SceneParticleRuntimeTests(
         for color in result["inheritedDeathColors"]:
             for actual, expected in zip(color, [0.2, 0.4, 0.6]):
                 self.assertAlmostEqual(actual, expected, places=6)
-        self.assertEqual(set(result["eventColorMarkers"]), {
-            "particles/inherit-follow-child.json:eventColorOperatorBounded:setcolor",
-            "particles/inherit-death-child.json:eventColorInitializerBounded:setcolor",
+        self.assertEqual(set(result["eventValueLocalFallbackPaths"]), {
+            "particles/invalid-inherit-static.json", "particles/invalid-inherit-death.json",
+            "particles/invalid-inherit-follow.json",
         })
-        self.assertEqual(set(result["invalidEventColorDetails"]), {
-            "particles/invalid-inherit-static.json:eventColorInitializerOutsideEventChild",
-            "particles/invalid-inherit-death.json:eventColorOperatorOutsideFollowChild",
-            "particles/invalid-inherit-follow.json:eventColorOperatorUnsupported",
-        })
+        self.assertTrue(result["eventValues"]["facts"])
+        for name, passed in result["eventValues"]["facts"].items():
+            with self.subTest(event_value=name):
+                self.assertTrue(passed, result["eventValues"]["observed"])
 
     def test_simulation_evidence_advances_without_drawables_and_survives_dormancy(self) -> None:
         result = self.run_harness("batch-evidence-synthetic")

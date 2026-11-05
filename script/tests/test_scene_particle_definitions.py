@@ -319,18 +319,24 @@ enum Harness {
             initializer: ["name": "inheritinitialvaluefromevent", "future": true],
             operator: ["name": "inheritvaluefromevent", "input": "SetColor"]
         )
+        let size = definition(initializer: ["name": "inheritinitialvaluefromevent", "input": "multiplysize"],
+                              operator: ["name": "inheritvaluefromevent"])
+        let opacity = definition(initializer: ["name": "inheritinitialvaluefromevent", "input": "setopacity"],
+                                 operator: ["name": "inheritvaluefromevent"])
         func initializerBounded(_ value: SceneParticleDefinition) -> Bool {
-            guard case let .inheritEventColor(declaration) = value.initializers[0].kind else {
+            guard case let .inheritEventValue(operation) = value.initializers[0].kind else {
                 return false
             }
-            return declaration.isBoundedSetColor
+            return operation == .setColor
         }
         func operatorBounded(_ value: SceneParticleDefinition) -> Bool {
-            guard case let .inheritEventColor(declaration) = value.operators[0].kind else {
+            guard case let .inheritEventValue(operation) = value.operators[0].kind else {
                 return false
             }
-            return declaration.isBoundedSetColor
+            return operation == .setColor
         }
+        let sizeIsTyped: Bool = if case .inheritEventValue(.multiplySize?) = size.initializers[0].kind { true } else { false }
+        let opacityIsTyped: Bool = if case .inheritEventValue(.setOpacity?) = opacity.initializers[0].kind { true } else { false }
         return [
             "omittedInitializer": initializerBounded(omitted),
             "omittedOperator": operatorBounded(omitted),
@@ -340,6 +346,7 @@ enum Harness {
             "malformedOperator": operatorBounded(unsupported),
             "extraInitializer": initializerBounded(extra),
             "caseChangedOperator": operatorBounded(extra),
+            "sizeOperation": sizeIsTyped, "opacityOperation": opacityIsTyped,
             "recognizedDiagnostics": omitted.diagnostics.count + explicit.diagnostics.count,
         ]
     }
@@ -690,7 +697,7 @@ enum Harness {
         case .positionOffset: "positionoffsetrandom"
         case .positionAroundControlPoint: "mapsequencearoundcontrolpoint"
         case .positionBetweenControlPoints: "mapsequencebetweencontrolpoints"
-        case .inheritEventColor: "inheritinitialvaluefromevent"
+        case .inheritEventValue: "inheritinitialvaluefromevent"
         case let .unsupported(name): name
         }
     }
@@ -716,7 +723,7 @@ enum Harness {
         case .remapValue: "remapvalue"
         case .reduceMovement: "reducemovementnearcontrolpoint"
         case .collisionPlane: "collisionplane"
-        case .inheritEventColor: "inheritvaluefromevent"
+        case .inheritEventValue: "inheritvaluefromevent"
         case let .unsupported(name): name
         }
     }
@@ -909,7 +916,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         for key in ("fraction", "huge", "boolean", "nan", "infinity"):
             self.assertIsNone(result[key], key)
 
-    def test_event_color_inheritance_parser_keeps_a_bounded_setcolor_profile(self) -> None:
+    def test_event_inheritance_parser_projects_only_consumed_typed_operations(self) -> None:
         result = self.run_harness("event-color")
         self.assertTrue(result["omittedInitializer"])
         self.assertTrue(result["omittedOperator"])
@@ -917,8 +924,10 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertTrue(result["explicitOperator"])
         self.assertFalse(result["unsupportedInitializer"])
         self.assertFalse(result["malformedOperator"])
-        self.assertFalse(result["extraInitializer"])
+        self.assertTrue(result["extraInitializer"])
         self.assertFalse(result["caseChangedOperator"])
+        self.assertTrue(result["sizeOperation"])
+        self.assertTrue(result["opacityOperation"])
         self.assertEqual(result["recognizedDiagnostics"], 0)
 
     def test_reduce_movement_parser_preserves_and_bounds_the_stock_shape(self) -> None:

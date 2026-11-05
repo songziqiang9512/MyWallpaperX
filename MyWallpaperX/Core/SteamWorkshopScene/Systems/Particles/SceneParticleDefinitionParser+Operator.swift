@@ -33,7 +33,7 @@ extension SceneParticleDefinitionParser {
             kind = .reduceMovement(.init(root: root))
         case "collisionplane": kind = .collisionPlane(.init(root: root))
         case "inheritvaluefromevent":
-            kind = .inheritEventColor(.init(root: root))
+            kind = .inheritEventValue(.init(root: root))
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(

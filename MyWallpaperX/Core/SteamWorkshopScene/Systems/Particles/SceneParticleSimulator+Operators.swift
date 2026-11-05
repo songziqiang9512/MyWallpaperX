@@ -382,15 +382,21 @@ nonisolated extension SceneParticleSimulator {
                 plan: operatorExecutionPlans[operatorIndex].collisionPlane,
                 controlPointParticleSpace: controlPointParticleSpace
             )
-        case let .inheritEventColor(declaration):
-            guard declaration.isBoundedSetColor,
-                  let color = eventColorContext.operatorColor else { break }
+        case let .inheritEventValue(operation):
+            guard operation == .setColor,
+                  let values = eventValueContext.operatorValues,
+                  SceneParticleEventValueOperation.setColor.canConsume(values) else {
+#if DEBUG
+                componentObservation?.record("operator", operatorIndex, "unavailable", reason: "event-value-unavailable", time: simulationTime)
+#endif
+                break
+            }
             for index in particles.indices {
-                particles[index].color = color
+                particles[index].color = values.color
             }
 #if DEBUG
             if observesParticles {
-                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "event-color-applied", time: simulationTime, particleID: particles[0].id)
+                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "event-value-applied", time: simulationTime, particleID: particles[0].id)
             }
 #endif
         case .unsupported:

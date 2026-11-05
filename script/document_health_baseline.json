@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 169,
-      "bytes": 27563
+      "lines": 180,
+      "bytes": 30160
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 215,
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 116,
-      "bytes": 63323
+      "lines": 117,
+      "bytes": 65349
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 175,
-      "bytes": 34230
+      "bytes": 34021
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -466,15 +466,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "e5e10cb514963e4fbf3396a34ca3fd4db6fc2ee7939eb8233a6a07d802f4b076",
-      "after": "e8c950e30979b95625f7c14a7b064dc8d41ddc81e1d1aed8944f651ecb39f55e",
-      "owner": "scene-control-point-radius",
-      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "da0bcc1aa70fe3a57b5db73d09853891f237a33a932afbb383123e9b7ea13ede",
       "after": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
@@ -511,15 +502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c9ecec73129b85fe43abcf5b9087188757a5c546d8451f2507651db97265a753",
-      "after": "608c83b946b1bacb4b843887256efd3bb2e8112019cc44059ff6452bb9927dfa",
-      "owner": "scene-control-point-radius",
-      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
       "after": "aab7cee49e905774c6811507867e3cf7ea39ae8d1ed54107ec4827c2e2d29530",
@@ -529,12 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "e8c950e30979b95625f7c14a7b064dc8d41ddc81e1d1aed8944f651ecb39f55e",
+      "after": "7a44c87eae516597e118985138596d6b686da80af77da18540528bebb09f9c04",
+      "owner": "scene-particle-event-values",
+      "reason": "One typed parse-to-event consumer replaces raw-key and whole-template admission. Record bounded official scalar units/order, actual CPU/Metal/author output and explicit limits in existing authorities; remove contradicted child rejection, preserve independent Remap/spatial and gate debt. No new document or owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "608c83b946b1bacb4b843887256efd3bb2e8112019cc44059ff6452bb9927dfa",
+      "after": "2327ecdf9ab3dbc7d1242d9388c467e2ec840f813586239cc1ae7608e2d27255",
+      "owner": "scene-particle-event-values",
+      "reason": "One typed parse-to-event consumer replaces raw-key and whole-template admission. Record bounded official scalar units/order, actual CPU/Metal/author output and explicit limits in existing authorities; remove contradicted child rejection, preserve independent Remap/spatial and gate debt. No new document or owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d2c5b62f27ed7e483e9dce805de69246c81ea4c3f8c0753cebcd207b27486e51",
-      "after": "04b79d4b0beb86eb3a914b391eb32d166d8ebc8345f7b569dd1a6d3506c6d314",
-      "owner": "scene-control-point-radius",
-      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
+      "before": "04b79d4b0beb86eb3a914b391eb32d166d8ebc8345f7b569dd1a6d3506c6d314",
+      "after": "4b9bdc85dd3c3380b7e14789a80b398b7e8154d7b87ad955eb5ad27ff37aca19",
+      "owner": "scene-particle-event-values",
+      "reason": "One typed parse-to-event consumer replaces raw-key and whole-template admission. Record bounded official scalar units/order, actual CPU/Metal/author output and explicit limits in existing authorities; remove contradicted child rejection, preserve independent Remap/spatial and gate debt. No new document or owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance"
     }
   ]
 }

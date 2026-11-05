@@ -513,7 +513,9 @@ final class SceneParticleChildRuntime {
             {
                 systems[index].origin = parent.position
                     - (systems[index].isWorldSpace ? .zero : rootTranslationOffset)
-                systems[index].simulator.updateFollowEventColor(parent.color)
+                systems[index].simulator.updateFollowEventValues(.init(
+                    color: parent.color, size: parent.size, alpha: parent.alpha
+                ))
             }
             guard let template = templatesByIndex[systems[index].templateIndex] else { continue }
             if template.trigger == .staticChild && systems[index].isWorldSpace {
@@ -590,7 +592,9 @@ final class SceneParticleChildRuntime {
             {
                 systems[index].origin = parent.frame.position(for: particle)
                     - (systems[index].isWorldSpace ? .zero : rootTranslationOffset)
-                systems[index].simulator.updateFollowEventColor(particle.color)
+                systems[index].simulator.updateFollowEventValues(.init(
+                    color: particle.color, size: particle.size, alpha: particle.alpha
+                ))
             }
             guard let template = templatesByIndex[systems[index].templateIndex] else { continue }
             advanceSystem(at: index, template: template, by: frameDelta,
@@ -909,7 +913,7 @@ final class SceneParticleChildRuntime {
             initialDynamicControlPointAngles: dynamicControlPointAngles,
             maximumEmissionDuration: template.trigger == .follow ? nil
                 : SceneParticleChildLifecycle.maximumParticleLifetime(template.definition),
-            eventColorContext: template.eventColorContext(for: parentParticle)
+            eventValueContext: template.eventValueContext(for: parentParticle)
         )
         systems.append(SceneParticleChildSystem(
             id: nextSystemID,

@@ -1543,27 +1543,27 @@ enum Harness {
         let secondEventColor = SIMD3(0.8, 0.3, 0.1)
         var inheritedSnapshot = simulator(
             inheritEventColorJSON, seed: 45, step: 0.1,
-            eventColorContext: .snapshot(firstEventColor)
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
         )
         inheritedSnapshot.advance(by: 0.1)
         var inheritThenAuthored = simulator(
             inheritThenAuthoredColorJSON, seed: 45, step: 0.1,
-            eventColorContext: .snapshot(firstEventColor)
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
         )
         inheritThenAuthored.advance(by: 0.1)
         var authoredThenInherit = simulator(
             authoredThenInheritColorJSON, seed: 45, step: 0.1,
-            eventColorContext: .snapshot(firstEventColor)
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
         )
         authoredThenInherit.advance(by: 0.1)
         var followedColor = simulator(
             followEventColorJSON, seed: 46, step: 0.1,
-            eventColorContext: .follow(firstEventColor)
+            eventValueContext: .follow(.init(color: firstEventColor, size: 20, alpha: 1))
         )
         followedColor.advance(by: 0.1)
         let followedInitialColor = followedColor.particles[0].color
         let followedInitialCount = followedColor.particles.count
-        followedColor.updateFollowEventColor(secondEventColor)
+        followedColor.updateFollowEventValues(.init(color: secondEventColor, size: 20, alpha: 1))
         followedColor.advance(by: 0.1)
         var unavailableEventColor = simulator(
             inheritEventColorJSON, seed: 45, step: 0.1
@@ -1571,12 +1571,12 @@ enum Harness {
         unavailableEventColor.advance(by: 0.1)
         var unsupportedEventColor = simulator(
             unsupportedEventColorJSON, seed: 46, step: 0.1,
-            eventColorContext: .follow(firstEventColor)
+            eventValueContext: .follow(.init(color: firstEventColor, size: 20, alpha: 1))
         )
         unsupportedEventColor.advance(by: 0.1)
         var nonfiniteEventColor = simulator(
             followEventColorJSON, seed: 46, step: 0.1,
-            eventColorContext: .follow(SIMD3(.infinity, 0.4, 0.6))
+            eventValueContext: .follow(.init(color: SIMD3(.infinity, 0.4, 0.6), size: 20, alpha: 1))
         )
         nonfiniteEventColor.advance(by: 0.1)
         var positionOffset = simulator(positionOffsetJSON, seed: 47, step: 0.1)
@@ -2570,7 +2570,7 @@ enum Harness {
         step: Double,
         particleBudget: Int? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
-        eventColorContext: SceneParticleEventColorContext = .unavailable
+        eventValueContext: SceneParticleEventValueContext = .unavailable
     ) -> SceneParticleSimulator {
         let definition = SceneParticleDefinitionParser().parse(root: try! object(source))
         return SceneParticleSimulator(
@@ -2581,7 +2581,7 @@ enum Harness {
             fixedTimeStep: step,
             particleBudget: particleBudget,
             worldSpaceFrame: worldSpaceFrame,
-            eventColorContext: eventColorContext
+            eventValueContext: eventValueContext
         )
     }
 
@@ -3137,7 +3137,7 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"inheritinitialvaluefromevent","input":"setsize"}],
-     "operator":[{"name":"inheritvaluefromevent","future":true}],
+     "operator":[{"name":"inheritvaluefromevent","input":"setsize","future":true}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -4060,7 +4060,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["inheritedSnapshotColor"], [0.2, 0.4, 0.6])
         self.assertEqual(
             self.results["inheritedSnapshotDiagnostics"],
-            ["eventColorInitializerBounded"],
+            ["eventValueInitializerBounded"],
         )
         self.assertEqual(self.results["inheritThenAuthoredColor"], [1, 0, 0])
         self.assertEqual(self.results["authoredThenInheritColor"], [0.2, 0.4, 0.6])
@@ -4068,24 +4068,24 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["followedUpdatedColor"], [0.8, 0.3, 0.1])
         self.assertTrue(self.results["followedParticleCountStable"])
         self.assertEqual(
-            self.results["followedDiagnostics"], ["eventColorOperatorBounded"]
+            self.results["followedDiagnostics"], ["eventValueOperatorBounded"]
         )
 
     def test_event_color_inheritance_fails_closed_without_event_or_bounded_input(self) -> None:
         self.assertEqual(self.results["unavailableEventColor"], [1, 1, 1])
         self.assertEqual(
             self.results["unavailableEventDiagnostics"],
-            ["eventColorInitializerUnsupported"],
+            ["eventValueInitializerUnsupported"],
         )
         self.assertEqual(self.results["unsupportedEventColor"], [1, 1, 1])
         self.assertEqual(
             self.results["unsupportedEventDiagnostics"],
-            ["eventColorInitializerUnsupported", "eventColorOperatorUnsupported"],
+            ["eventValueInitializerUnsupported", "eventValueOperatorUnsupported"],
         )
         self.assertEqual(self.results["nonfiniteEventColor"], [1, 1, 1])
         self.assertEqual(
             self.results["nonfiniteEventDiagnostics"],
-            ["eventColorOperatorUnsupported"],
+            ["eventValueOperatorUnsupported"],
         )
 
     def test_position_offset_executes_project_owned_bounded_noise(self) -> None:

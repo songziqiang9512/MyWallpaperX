@@ -38,7 +38,7 @@ nonisolated extension SceneParticleSimulator {
         var pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation] = []
         var componentObservation: SceneParticleComponentObservationState? = nil
 #endif
-        let eventColorContext: SceneParticleEventColorContext
+        let eventValueContext: SceneParticleEventValueContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
         var controlPointConstraintHistory: [SceneParticleControlPointConstraintHistory] = []
@@ -149,7 +149,7 @@ nonisolated extension SceneParticleSimulator {
                 guard let turbulence = plan.turbulentVelocity,
                       !turbulence.audioResponseEnabled || turbulence.audioResponsePlan != nil else { return nil }
                 work += 96 + UInt64(turbulence.audioResponsePlan?.frequencies.count ?? 0)
-            case .inheritEventColor:
+            case .inheritEventValue:
                 // The root profile has no parent event producer. Its ordinary
                 // fallback still renders; explicit exact-n cannot claim support.
                 return nil
