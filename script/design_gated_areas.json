@@ -2126,10 +2126,11 @@
       "owner": "Existing Shader Syntax / GlobalReferenceAnalyzer / Generic runtime constant normalizer",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "uniform-derived-global-scope: reuse original cold lexical binding/declaration facts for actual global and per-call identity. Retire whole-source name uniqueness/token-count permission and unrelated scope call rejection. Preserve initializer/evaluation, true shadowing, write/out-inout/purity proof. Mandatory strict compiler owns case-label constant-expression grammar; do not mirror it with a new Swift qualification Set; no second parser, normalizer, Program state or ordinary-frame scan. Validate actual compiler red/green, same-program A/B/A Metal and signed App effect/terminal controls before claiming restored execution.",
+      "design_notes": "uniform-derived-global-scope: reuse original cold lexical binding/declaration facts for actual global and per-call identity. Match a callee prototype to its unique definition using return type and all parameter types/directions; retain unresolved overloads and true value shadows in the existing non-value blocker facts. Preserve initializer/evaluation, write/out-inout/purity proof. Mandatory strict compiler owns case-label constant-expression grammar; no second parser, declaration table, normalizer, Program state or ordinary-frame scan. Validate compiler red/green, same-program A/B/A Metal and signed App effect/terminal controls before claiming restored execution.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFunctionSemantics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift"
       ],

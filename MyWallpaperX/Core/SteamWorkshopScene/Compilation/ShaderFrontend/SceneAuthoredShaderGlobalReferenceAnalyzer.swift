@@ -84,7 +84,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         var structureRanges: [Range<Int>] = []
         var structureValues: [Range<Int>] = []
         var unknownStructures: [Range<Int>] = []
-        var prototypeParameters: [Range<Int>] = []
+        var prototypes: [(range: Range<Int>, parameters: Range<Int>)] = []
         var prototypeValues: [Range<Int>] = []
         for index in tokens.indices where tokens[index].text == "struct"
             || (index + 2 < tokens.count && tokens[index + 2].text == "(") {
@@ -99,7 +99,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
                 unknownStructures += members.unknown
             } else if let header = SceneAuthoredShaderSyntaxAnalyzer.functionHeader(at: index, tokens: tokens),
                       header.range.upperBound < tokens.count, tokens[header.range.upperBound].text == ";" {
-                prototypeParameters.append(header.parameters)
+                prototypes.append(header)
                 let parameters = parameterBindings(header.parameters, unit: unit)
                 prototypeValues += parameters.references
                 facts.possibleGlobals.formUnion(parameters.uncertain)
@@ -107,9 +107,19 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         }
         // Only the global namespace uses a name map. Local identity is resolved
         // by the same lexical walk that records global references below.
+        let prototypeParameters = prototypes.map(\.parameters)
         facts.globalDeclarations = SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationFacts(
-            in: tokens, excluding: functions + structureRanges + prototypeParameters
+            in: tokens, excluding: functions + structureRanges + prototypes.map(\.range)
         )
+        // An unresolved prototype remains a non-value blocker, including void
+        // overloads that the numeric value-declaration scan cannot represent.
+        for header in prototypes where !SceneAuthoredShaderFunctionSemantics
+            .prototypeMatchesUniqueDefinition(header, in: unit) {
+            let typeIndex = header.range.lowerBound, nameIndex = typeIndex + 1
+            facts.globalDeclarations[tokens[nameIndex].text, default: []].append((
+                tokens[typeIndex].text, nameIndex, false, typeIndex
+            ))
+        }
         let globalTypes = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
             from: facts.globalDeclarations
         ).compactMapValues {

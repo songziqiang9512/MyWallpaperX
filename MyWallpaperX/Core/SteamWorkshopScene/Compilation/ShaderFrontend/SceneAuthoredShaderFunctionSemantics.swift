@@ -55,6 +55,37 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
         return SceneAuthoredShaderValueType(authoredName: tokens[start].text)
     }
 
+    static func prototypeMatchesUniqueDefinition(
+        _ header: (range: Range<Int>, parameters: Range<Int>),
+        in unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Bool {
+        let tokens = unit.tokens
+        let definitions = unit.functions.filter { $0.name == tokens[header.range.lowerBound + 1].text }
+        guard definitions.count == 1, let definition = definitions.first,
+              definition.returnType == tokens[header.range.lowerBound].text else { return false }
+        func signature(_ range: Range<Int>) -> [(type: SceneAuthoredShaderValueType, direction: String)]? {
+            guard let parameters = SceneAuthoredShaderTokenScanner.argumentRanges(in: range, tokens: tokens)
+            else { return nil }
+            var result: [(type: SceneAuthoredShaderValueType, direction: String)] = []
+            for parameter in parameters {
+                var value = parameter
+                let direction: String
+                if let first = tokens[parameter].first, ["out", "inout"].contains(first.text) {
+                    direction = first.text
+                    value = (parameter.lowerBound + 1)..<parameter.upperBound
+                } else { direction = "in" }
+                guard let type = valueInputType(in: value, tokens: tokens, permitsConst: direction == "in")
+                else { return nil }
+                result.append((type, direction))
+            }
+            return result
+        }
+        guard let declared = signature(header.parameters),
+              let defined = signature(definition.parameterRange), declared.count == defined.count
+        else { return false }
+        return zip(declared, defined).allSatisfy { $0.type == $1.type && $0.direction == $1.direction }
+    }
+
     static func diagnostics(
         for unit: SceneAuthoredShaderSyntaxUnit
     ) -> [SceneAuthoredShaderFrontendDiagnostic] {
