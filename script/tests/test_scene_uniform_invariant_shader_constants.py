@@ -84,6 +84,40 @@ void main() {{
             "threshold": threshold, "operation": operation,
             "initializers": [vector_rhs, scalar_rhs],
         })
+    originals = {case["name"]: case for case in result}
+    for name, source, scope in (
+        ("pow-unrelated-formal", "pure-pow", "builtin"),
+        ("renamed-uniform-formal", "renamed-equivalent-pow", "uniform"),
+        ("derived-local-and-formal", "direct-uniform", "derived"),
+        ("vector-member-names", "vector-pow", "members"),
+        ("uniform-prototype-formal", "direct-uniform", "prototype"),
+        ("switch-value-read", "direct-uniform", "switch"),
+    ):
+        case = dict(originals[source], name=name)
+        if scope == "builtin":
+            prefix = "float observeScope(float pow){return pow;}\n"
+        elif scope == "uniform":
+            prefix = f"float observeScope(float {case['gain']}){{return {case['gain']};}}\n"
+        elif scope == "derived":
+            prefix = (f"float observeScope(float {case['scalar']}){{"
+                      f"float {case['vector']}={case['scalar']};return {case['vector']};}}\n")
+        elif scope == "members":
+            prefix = (f"struct ScopeValues{{float pow;vec4 {case['drive']};"
+                      f"float {case['gain']};}};\n")
+        elif scope == "prototype":
+            prefix = f"float observePrototype(float {case['gain']});\n"
+        else:
+            prefix = ""
+        fragment = prefix + case["pair"]["fragment"]
+        if scope == "switch":
+            declarations, body = fragment.split("void main() {\n")
+            body = body.removesuffix("}\n")
+            fragment = (declarations + "void main() {\nswitch(0){\ncase 0:\n" + body
+                        + "break;\ndefault:\n" + body + "break;\n}\n}\n")
+        case["pair"] = {"vertex": case["pair"]["vertex"],
+                        "fragment": fragment}
+        case["equivalentTo"] = source
+        result.append(case)
     return result
 
 
@@ -187,7 +221,7 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         self.assertTrue(output["runtimeConstantIdempotent"], name)
         return root, output
 
-    def compile_generic(self, root: Path, output: dict) -> dict[str, str]:
+    def compile_generic(self, root: Path, output: dict, *, expect_failure: bool = False) -> dict[str, str]:
         self.assertNotIn("normalizerFailure", output)
         for suffix, field in (("vert", "normalizedVertex"), ("frag", "normalizedFragment")):
             (root / ("source." + suffix)).write_text(output[field])
@@ -206,6 +240,9 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
             (root / (phase + ".stdout")).write_text(result.stdout)
             (root / (phase + ".stderr")).write_text(result.stderr)
+            if phase == "link" and expect_failure:
+                self.assertNotEqual(result.returncode, 0, "unproved shader unexpectedly linked: " + str(root))
+                return {}
             self.assertEqual(result.returncode, 0, phase + result.stdout + result.stderr)
         return {"vertexMSL": (root / "vert.metal").read_text(),
                 "fragmentMSL": (root / "frag.metal").read_text(),
@@ -215,12 +252,12 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         root, output = self.analyze(case["name"], case["pair"])
         original = case["pair"]["fragment"]
         rewritten = output["runtimeConstantFragment"]
+        packet = self.compile_generic(root, output)
         self.assertEqual(re.sub(r"\s+", "", rewritten),
                          re.sub(r"\s+", "", re.sub(r"\bconst\b", "", original)))
         for initializer in case["initializers"]:
             self.assertIn(initializer, rewritten)
         self.assertEqual(output["runtimeConstantVertex"], case["pair"]["vertex"])
-        packet = self.compile_generic(root, output)
         fragment = packet["fragmentMSL"]
         entry = fragment.index("fragment constantFragment_out constantFragment(")
         for kind, name in (("float2", case["vector"]), ("float", case["scalar"])):
@@ -286,9 +323,6 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             "unknown-consumer": "const float k=u_gain;\nvoid main(){gl_FragColor=vec4(unknown(k));}",
             "unknown-rhs": "const float k=unknown(u_gain);\nvoid main(){gl_FragColor=vec4(k);}",
             "source-helper-rhs": "float derive(float x){return x*0.5;}\nconst float k=derive(u_gain);\nvoid main(){gl_FragColor=vec4(k);}",
-            "local-shadow": "const float k=u_gain;\nvoid main(){float k=0.5;gl_FragColor=vec4(k);}",
-            "formal-shadow": "const float k=u_gain;\nfloat consume(float k){return k;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
-            "uniform-shadow": "const float k=u_gain;\nfloat consume(float u_gain){return u_gain;}\nvoid main(){gl_FragColor=vec4(k);}",
             "constructor-shadow": "vec2 vec2(float x){return u_drive.xy;}\nconst vec2 k=vec2(u_gain);\nvoid main(){gl_FragColor=vec4(k,0.0,1.0);}",
             "array-global": "const vec2 k[2]=vec2[2](u_drive.xy,u_drive.zw);\nvoid main(){gl_FragColor=vec4(k[0],0.0,1.0);}",
             "uniform-array": "uniform float u_values[2];\nconst float k=u_values[0];\nvoid main(){gl_FragColor=vec4(k);}",
@@ -303,8 +337,8 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             "mutable-global": "float k=u_gain;\nvoid main(){gl_FragColor=vec4(k);}",
             "compiletime-constant": "const vec2 k=vec2(0.25,0.5);\nvoid main(){gl_FragColor=vec4(k,0.0,1.0);}",
             "pow-function-shadow": "float pow(float x,float y){return x+y;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
-            "pow-value-shadow": "float observe(float pow){return pow;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
-            "pow-uniform-shadow": "float observe(float u_gain){return u_gain;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-global-value-shadow": "float pow;\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "callee-local-value-shadow": "const float k=u_gain;\nfloat consume(float x){return x;}\nvoid main(){float consume=0.5;gl_FragColor=vec4(consume(k));}",
             "pow-sample-rhs": "uniform sampler2D g_Texture0;\nconst float k=pow(texSample2D(g_Texture0,vec2(0.5)).r,u_gain);\nvoid main(){gl_FragColor=vec4(k);}",
             "pow-derivative-rhs": "const float k=pow(dFdx(u_gain),2.0);\nvoid main(){gl_FragColor=vec4(k);}",
             "pow-inout-consumer": "const float k=pow(u_gain,u_drive.z);\nfloat touch(inout float x){x+=0.5;return x;}\nvoid main(){gl_FragColor=vec4(touch(k));}",
@@ -321,6 +355,39 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
                 self.assertEqual(output["runtimeConstantFragment"], output["canonicalFragment"])
                 if name in ("mutable-global", "compiletime-constant", "pow-missing-uniform-dependency"):
                     self.compile_generic(root, output)
+                elif "normalizerFailure" not in output:
+                    self.compile_generic(root, output, expect_failure=True)
+
+    def test_case_label_constant_requirement_is_owned_by_strict_compiler(self) -> None:
+        body = "const float k=u_gain;\nvoid main(){switch(0){case int(k):gl_FragColor=vec4(1.0);break;default:gl_FragColor=vec4(k);break;}}"
+        root, output = self.analyze("compiletime-case-label", {
+            "vertex": vertex_source("coordinate", width=2),
+            "fragment": "uniform vec4 u_drive;\nuniform float u_gain;\nvarying vec2 coordinate;\n" + body,
+        })
+        self.compile_generic(root, output, expect_failure=True)
+        diagnostics = (root / "link.stdout").read_text() + (root / "link.stderr").read_text()
+        self.assertIn("'case' : constant expression required", diagnostics)
+        self.assertNotIn("global const initializers must be constant", diagnostics)
+        self.assertIn("SPIR-V is not generated for failed compile or link", diagnostics)
+        self.assertEqual(list(root.glob("*.spv")), [])
+        self.assertFalse((root / "generic-uniform-sequence.json").exists())
+
+    def test_unrelated_local_and_formal_names_keep_real_global_bindings(self) -> None:
+        cases = {
+            "local-shadow": "const float k=u_gain;\nvoid main(){float k=0.5;gl_FragColor=vec4(k);}",
+            "formal-shadow": "const float k=u_gain;\nfloat consume(float k){return k;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "uniform-shadow": "const float k=u_gain;\nfloat consume(float u_gain){return u_gain;}\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-value-shadow": "float observe(float pow){return pow;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+            "pow-uniform-shadow": "float observe(float u_gain){return u_gain;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
+        }
+        for name, body in cases.items():
+            fragment = "uniform vec4 u_drive;\nuniform float u_gain;\nvarying vec2 coordinate;\n" + body
+            with self.subTest(name=name):
+                root, output = self.analyze(name, {
+                    "vertex": vertex_source("coordinate", width=2), "fragment": fragment,
+                })
+                self.compile_generic(root, output)
+                self.assertNotIn("const float k=", output["runtimeConstantFragment"])
 
     def test_dynamic_loop_keeps_type_preparation_without_bounded_execution(self) -> None:
         fragment = """uniform float u_count;
@@ -360,6 +427,9 @@ void main() {
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             observed = json.loads(result.stdout)
             expected = json.loads((root / "expected.json").read_text())
+            if equivalent := case.get("equivalentTo"):
+                reference = json.loads((self.work / "cases" / equivalent / "gpu.stdout").read_text())
+                self.assertEqual(observed, reference, "unrelated declarations must preserve each draw")
             self.assertEqual(len(observed), 3)
             for index, (actual, target) in enumerate(zip(observed, expected)):
                 with self.subTest(name=case["name"], draw=index):

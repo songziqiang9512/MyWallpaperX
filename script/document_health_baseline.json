@@ -125,12 +125,12 @@
       "bytes": 36365
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 215,
-      "bytes": 40357
+      "lines": 226,
+      "bytes": 42590
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 122,
-      "bytes": 73051
+      "lines": 123,
+      "bytes": 74760
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 34288
+      "bytes": 34270
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -466,15 +466,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "6bd0958fa5825bb8b839e503338a043593e4de4ba2384a35071bba59a920e97f",
-      "after": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
-      "owner": "scene-generic-vector-array-interface",
-      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "bb615fc61c2bf3db6e609d9c66ade5ba88a626ccb573e92cf1195c7aa2c83c7f",
       "after": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
+      "after": "8b1473ff883502c4b7a476c60aab62255bfee0512bb56ec55342a155b2fdd49c",
+      "owner": "scene-uniform-derived-global-scope",
+      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "93b6e4a9d511db77b1111cbad6cbd9389c767ad13bfdfbae8750df4e5072cb00",
-      "after": "681ed533a50fc9ae10ae2cecb0215be8d5236f642f6fca08394ce7f7a9c7cc78",
-      "owner": "scene-child-declaration-options",
-      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
+      "before": "681ed533a50fc9ae10ae2cecb0215be8d5236f642f6fca08394ce7f7a9c7cc78",
+      "after": "6e2ea60f8fd8089cd73f4989ce5f84a21c17678fb2c5fd541f64ff134e883ba4",
+      "owner": "scene-uniform-derived-global-scope",
+      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "72557471469ae7013e2c6d21d05a0f9e0eeb74700774459231130fd71a56dc96",
-      "after": "7c3a082122746f64b9e157b9fd1d76b6360982f444aed87d6e1f5c12805f3bb5",
-      "owner": "scene-child-declaration-options",
-      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
+      "before": "7c3a082122746f64b9e157b9fd1d76b6360982f444aed87d6e1f5c12805f3bb5",
+      "after": "1c768d39082771b7fc942b07e5a73369a805ab6af06e50aed1ee63b8c82ee4f6",
+      "owner": "scene-uniform-derived-global-scope",
+      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
     }
   ]
 }

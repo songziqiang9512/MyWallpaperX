@@ -406,7 +406,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
     }
 
-    private static func unshadowedCall(
+    static func unshadowedCall(
         at index: Int, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit
     ) -> Bool {
         let token = tokens[index]

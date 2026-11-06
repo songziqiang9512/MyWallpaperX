@@ -2111,6 +2111,26 @@
         "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-uniform-derived-global-scope",
+      "title": "uniform派生全局值的词法身份",
+      "owner": "Existing Shader Syntax / GlobalReferenceAnalyzer / Generic runtime constant normalizer",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "design_notes": "uniform-derived-global-scope: reuse original cold lexical binding/declaration facts for actual global and per-call identity. Retire whole-source name uniqueness/token-count permission and unrelated scope call rejection. Preserve initializer/evaluation, true shadowing, write/out-inout/purity proof. Mandatory strict compiler owns case-label constant-expression grammar; do not mirror it with a new Swift qualification Set; no second parser, normalizer, Program state or ordinary-frame scan. Validate actual compiler red/green, same-program A/B/A Metal and signed App effect/terminal controls before claiming restored execution.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift"
+      ],
+      "contentPatterns": [
+        "SceneGenericShaderRuntimeConstantNormalizer",
+        "globalValueDeclarations",
+        "unshadowedCall",
+        "ValueDeclarationFacts"
+      ]
     }
   ]
 }

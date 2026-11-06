@@ -39,6 +39,9 @@ nonisolated struct SceneAuthoredShaderSyntaxUnit {
 }
 
 nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
+    typealias ValueDeclarationFact = (type: String, index: Int, value: Bool, typeIndex: Int)
+    typealias ValueDeclarationFacts = [String: [ValueDeclarationFact]]
+
     struct Output {
         let unit: SceneAuthoredShaderSyntaxUnit?
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
@@ -68,7 +71,13 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
     static func uniqueValueDeclarations(
         in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>] = []
     ) -> [String: (type: String, index: Int)] {
-        valueDeclarationFacts(in: tokens, excluding: ranges).compactMapValues { facts in
+        uniqueValueDeclarations(from: valueDeclarationFacts(in: tokens, excluding: ranges))
+    }
+
+    static func uniqueValueDeclarations(
+        from declarations: ValueDeclarationFacts
+    ) -> [String: (type: String, index: Int)] {
+        declarations.compactMapValues { facts in
             guard facts.count == 1, facts[0].value else { return nil }
             return (facts[0].type, facts[0].index)
         }
@@ -81,7 +90,15 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>] = [],
         before limit: Int = .max
     ) -> [String: (type: String, indices: [Int])] {
-        valueDeclarationFacts(in: tokens, excluding: ranges).compactMapValues { facts in
+        consistentValueDeclarations(
+            from: valueDeclarationFacts(in: tokens, excluding: ranges), before: limit
+        )
+    }
+
+    static func consistentValueDeclarations(
+        from declarations: ValueDeclarationFacts, before limit: Int = .max
+    ) -> [String: (type: String, indices: [Int])] {
+        declarations.compactMapValues { facts in
             let preceding = facts.filter { $0.index < limit }
             guard let first = preceding.first,
                   preceding.allSatisfy({ $0.value && $0.type == first.type }) else { return nil }
@@ -100,10 +117,10 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
             .flatMap { $0.map(\.typeIndex) })
     }
 
-    private static func valueDeclarationFacts(
+    static func valueDeclarationFacts(
         in tokens: [SceneAuthoredShaderToken], excluding ranges: [Range<Int>]
-    ) -> [String: [(type: String, index: Int, value: Bool, typeIndex: Int)]] {
-        var declarations: [String: [(type: String, index: Int, value: Bool, typeIndex: Int)]] = [:]
+    ) -> ValueDeclarationFacts {
+        var declarations: ValueDeclarationFacts = [:]
         func record(_ index: Int, type: String, typeIndex: Int) {
             guard !ranges.contains(where: { $0.contains(index) }) else { return }
             let next = index + 1 < tokens.count ? tokens[index + 1].text : ""
@@ -342,26 +359,34 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         )
     }
 
-    private static func function(
+    static func functionHeader(
         at index: Int,
         tokens: [SceneAuthoredShaderToken]
-    ) -> SceneAuthoredShaderSyntaxUnit.Function? {
+    ) -> (range: Range<Int>, parameters: Range<Int>)? {
         guard index + 3 < tokens.count,
               tokens[index].kind == .identifier,
               tokens[index + 1].kind == .identifier,
               tokens[index + 2].text == "(",
-              let close = matchingDelimiter(at: index + 2, tokens: tokens),
-              close + 1 < tokens.count,
-              tokens[close + 1].text == "{",
-              let bodyClose = matchingDelimiter(at: close + 1, tokens: tokens) else {
+              let close = matchingDelimiter(at: index + 2, tokens: tokens) else { return nil }
+        return (index..<(close + 1), (index + 3)..<close)
+    }
+
+    private static func function(
+        at index: Int,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> SceneAuthoredShaderSyntaxUnit.Function? {
+        guard let header = functionHeader(at: index, tokens: tokens),
+              header.range.upperBound < tokens.count,
+              tokens[header.range.upperBound].text == "{",
+              let bodyClose = matchingDelimiter(at: header.range.upperBound, tokens: tokens) else {
             return nil
         }
         return .init(
             name: tokens[index + 1].text,
             returnType: tokens[index].text,
-            headerRange: index..<(close + 1),
-            parameterRange: (index + 3)..<close,
-            bodyRange: (close + 1)..<(bodyClose + 1),
+            headerRange: header.range,
+            parameterRange: header.parameters,
+            bodyRange: header.range.upperBound..<(bodyClose + 1),
             line: tokens[index].line
         )
     }

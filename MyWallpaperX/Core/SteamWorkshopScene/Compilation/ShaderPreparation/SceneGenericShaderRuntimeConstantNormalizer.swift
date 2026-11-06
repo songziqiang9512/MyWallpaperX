@@ -18,8 +18,8 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
         )
         guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return source }
         let tokens = unit.tokens
-        let declarations = SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(in: tokens)
-        let valueNames = SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationNames(in: tokens)
+        let globalDeclarations = SceneAuthoredShaderGlobalReferenceAnalyzer.globalValueDeclarations(in: unit)
+        let declarations = SceneAuthoredShaderSyntaxAnalyzer.uniqueValueDeclarations(from: globalDeclarations)
         let constantUses = unit.functions.flatMap { function in
             function.bodyRange.compactMap { index -> Range<Int>? in
                 guard tokens[index].text == "const",
@@ -50,9 +50,9 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
                   declarations[tokens[index + 2].text]?.index == index + 2,
                   let end = initializerEnd(after: index + 3, tokens: tokens),
                   invariantInitializer((index + 4)..<end, type: type, unit: unit,
-                    uniforms: uniformTypes, valueNames: valueNames),
+                    uniforms: uniformTypes, globalDeclarations: globalDeclarations),
                   readonlyUses(of: tokens[index + 2].text, declaredAt: index + 2,
-                    unit: unit, valueNames: valueNames, constantUses: constantUses)
+                    unit: unit, globalDeclarations: globalDeclarations, constantUses: constantUses)
             else { continue }
             qualifiers.append(index)
         }
@@ -103,7 +103,8 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
 
     private static func invariantInitializer(
         _ range: Range<Int>, type: SceneAuthoredShaderValueType, unit: Unit,
-        uniforms: [String: SceneAuthoredShaderValueType], valueNames: Set<String>
+        uniforms: [String: SceneAuthoredShaderValueType],
+        globalDeclarations: SceneAuthoredShaderSyntaxAnalyzer.ValueDeclarationFacts
     ) -> Bool {
         let tokens = unit.tokens
         func valueExpression(_ range: Range<Int>) -> SceneAuthoredShaderBuiltInVectorConversion.Expression? {
@@ -129,7 +130,9 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
             if index > range.lowerBound, tokens[index - 1].text == "." { continue }
             if index + 1 < range.upperBound, tokens[index + 1].text == "(" {
                 let constructor = SceneAuthoredShaderValueType(authoredName: name)
-                guard !valueNames.contains(name), !unit.functions.contains(where: { $0.name == name }),
+                guard globalDeclarations[name] == nil,
+                      SceneAuthoredShaderBuiltInVectorConversion.unshadowedCall(
+                        at: index, tokens: tokens, unit: unit),
                       let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                         tokens: tokens, opening: index + 1), close < range.upperBound,
                       (constructor.map(isFloatingValue) == true
@@ -151,39 +154,35 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
                 continue
             }
             guard uniforms[name] != nil,
-                  let declaration = unit.declarations.first(where: { $0.name == name }),
                   let references = SceneAuthoredShaderGlobalReferenceAnalyzer
-                    .exactReferenceIndices(name, in: unit), references.contains(index),
-                  Set(tokens.indices.filter { tokens[$0].text == name })
-                    == Set(references + [declaration.range.lowerBound + 2]) else { return false }
+                    .exactReferenceIndices(name, in: unit), references.contains(index) else { return false }
             readsUniform = true
         }
         return readsUniform
     }
 
     private static func readonlyUses(
-        of name: String, declaredAt declaration: Int, unit: Unit, valueNames: Set<String>,
+        of name: String, declaredAt declaration: Int, unit: Unit,
+        globalDeclarations: SceneAuthoredShaderSyntaxAnalyzer.ValueDeclarationFacts,
         constantUses: [Range<Int>]
     ) -> Bool {
         let tokens = unit.tokens
         guard let references = SceneAuthoredShaderGlobalReferenceAnalyzer
-                .exactReferenceIndices(name, in: unit),
-              Set(tokens.indices.filter { tokens[$0].text == name })
-                == Set(references + [declaration]) else { return false }
+                .exactReferenceIndices(name, in: unit) else { return false }
         for index in references where index != declaration {
-            // Other global initializers, dimensions and labels are not runtime
+            // Other global initializers and dimensions are not runtime
             // value consumers; dependent const graphs remain unmodified.
             guard let function = unit.functions.first(where: { $0.bodyRange.contains(index) }),
                   !constantUses.contains(where: { $0.contains(index) }),
-                  !tokens[function.bodyRange].contains(where: { $0.text == "case" }),
                   readonlyValue(at: index, body: function.bodyRange, unit: unit,
-                    valueNames: valueNames) else { return false }
+                    globalDeclarations: globalDeclarations) else { return false }
         }
         return true
     }
 
     private static func readonlyValue(
-        at index: Int, body: Range<Int>, unit: Unit, valueNames: Set<String>
+        at index: Int, body: Range<Int>, unit: Unit,
+        globalDeclarations: SceneAuthoredShaderSyntaxAnalyzer.ValueDeclarationFacts
     ) -> Bool {
         let tokens = unit.tokens
         var end = index + 1
@@ -227,12 +226,12 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
                   let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
                     in: (opening + 1)..<close, tokens: tokens),
                   let ordinal = arguments.firstIndex(where: { $0.contains(index) }) else { return false }
-            if unit.functions.contains(where: { $0.name == name }) {
-                guard let function = SceneAuthoredShaderFunctionSemantics.uniqueUnshadowedSourceFunction(
-                        named: name, tokens: tokens, functions: unit.functions,
-                        permitsReference: { index in
-                            unit.functions.contains(where: { $0.bodyRange.contains(index) })
-                        }),
+            guard globalDeclarations[name] == nil else { return false }
+            let definitions = unit.functions.filter { $0.name == name }
+            if !definitions.isEmpty {
+                guard let callReferences = SceneAuthoredShaderGlobalReferenceAnalyzer
+                        .exactReferenceIndices(name, in: unit), callReferences.contains(opening - 1),
+                      definitions.count == 1, let function = definitions.first,
                       let parameters = SceneAuthoredShaderTokenScanner.argumentRanges(
                         in: function.parameterRange, tokens: tokens),
                       parameters.count == arguments.count,
@@ -241,7 +240,8 @@ nonisolated enum SceneGenericShaderRuntimeConstantNormalizer {
                       isFloatingValue(type) else { return false }
                 continue
             }
-            guard !valueNames.contains(name) else { return false }
+            guard SceneAuthoredShaderBuiltInVectorConversion.unshadowedCall(
+                at: opening - 1, tokens: tokens, unit: unit) else { return false }
             if SceneAuthoredShaderValueType(authoredName: name) != nil { continue }
             if let count = SceneAuthoredShaderMetalEmitter.textureSampleArgumentCount(name, functionNames: []),
                arguments.count == count, ordinal > 0 { continue }

@@ -13,7 +13,7 @@
 - `VERSION`/`SHADERVERSION` 没有可信客户端版本 provider。未消费记录不阻止无关源码，但不能注入宏或授权实际版本分支；活跃读取仍拒绝。
 - sampler 的 editor `require` 不代替运行 readiness。实际声明、候选绑定与编译后的接口决定资源需求。
 - backend 已删除的纹理参数只有在实际 MSL 接口缺席且没有 Resolution 活读时才退出绑定。fragment-dead varying 的纯顶点计算按既有数据流证明投影；live `gl_Position`、副作用、歧义和实际 inverse 消费不能被删或补 identity。
-- uniform 派生只读常量由原 frontend/normalizer 降低。实际资源、类型、反射及 ABI 仍在原入口验证，不能用 metadata 推出整段 shader 已可执行。
+- uniform 派生只读常量由原 frontend/normalizer 沿[词法身份合同](#uniform-derived-global-scope)降低。实际资源、类型、反射及 ABI 仍在原入口验证，不能用 metadata 推出整段 shader 已可执行。
 
 Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
 
@@ -49,6 +49,17 @@ Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件�
 复用现有准备身份和缓存版本退出旧分析，保作者原始源码与诊断身份。被替代的中性 UV AST 许可及无消费者的 fact/cache/frame 透传同批退出；若尚有独立消费者，只保其原范围并明确后续退出条件，不能为新表达式追加白名单。
 
 验收使用直接 x/y 与等价表达式、改变量/资源名及多未绑定槽，核两 backend 和实际 Metal/终端像素；真实资源/default/named 尺寸、缺文件与 pending 以及活跃缺采样保反例。作者 1087 的拒绝消除须由原 Program 实际执行与最终命名消费者确认；准备通过不能代替画面恢复，不授全字体、完整圆环或性能一致。
+
+<a id="uniform-derived-global-scope"></a>
+### uniform派生全局值的词法身份
+
+目标是让无关函数的形参、局部值或struct成员与全局uniform/只读派生值同名时，仍按实际绑定执行原常量降低。原GenericShaderRuntimeConstantNormalizer只移除已证明可在每次调用初始化的存储qualifier，保作者initializer及顺序；SourceNormalizer、glslang、SPIR-V/MSL、Program、uniform ABI与PSO继续各自原职责。准备失败只影响当前shader/effect，健康后继保持。
+
+初始化及具体读写/调用点复用原Syntax/GlobalReferenceAnalyzer的一次词法声明和binding事实；顶层候选只看顶层声明，函数prototype形参和局部影子不作全局重复声明；case-label等编译期表达式资格由原mandatory编译器检查，Swift不另存case资格状态，也不能用整个函数含case作为否决。退出全文value-name许可、exact引用之后的同名token计数及无关函数的名字对调用点的否决，不复制scope parser、内建名单、Program字段、cache或普通帧工作。若现事实缺少消费者所需声明身份，在原binding owner暴露同一次准备结果，不另建声明表权威或重扫各initializer。
+
+真实全局值/作者函数对内建的覆盖、未知绑定、数组及写入/成员写/递增、out/inout、采样/derivative/有副作用helper和compile-time消费者保原语言/纯度限制；证明不足保留原source交原编译器，不静默放行非法类型或猜默认。语言合法的局部影子按其自身作用域判断，不能因另一个作用域存在同名值而拒绝全局值的正常读取。
+
+验收先在现源取得真实strict compiler失败，再由同输入的实际编译、反射/MSL及同一PSO的A/B/A数值与RGBA验证修复；覆盖uniform、派生值、内建/用户函数的同名形参/局部/成员、改名与等价括号，并保上述负例。签名App自有effect控制核真实Program→effect→终端、健康peer和局部失败，独立作者邻例保原结果；未找到作者命中时明确不授该作者恢复。完整backend语言能力、官方像素或性能不由本切片取得。
 
 <a id="intrinsic-argument-conversion"></a>
 ### Intrinsic 参数转换

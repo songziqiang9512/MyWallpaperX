@@ -16,6 +16,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
     }
 
     struct BindingFacts {
+        var globalDeclarations: SceneAuthoredShaderSyntaxAnalyzer.ValueDeclarationFacts = [:]
         var valueTypes: [Token: SceneAuthoredShaderValueType] = [:]
         var globalIndices: [String: [Int]] = [:]
         var possibleGlobals: Set<String> = []
@@ -56,6 +57,12 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         bindings(in: unit).structureTypeNames
     }
 
+    static func globalValueDeclarations(
+        in unit: Unit
+    ) -> SceneAuthoredShaderSyntaxAnalyzer.ValueDeclarationFacts {
+        bindings(in: unit).globalDeclarations
+    }
+
     static func valueType(
         at index: Int, tokens: [Token], in unit: Unit
     ) -> SceneAuthoredShaderValueType? {
@@ -77,23 +84,35 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         var structureRanges: [Range<Int>] = []
         var structureValues: [Range<Int>] = []
         var unknownStructures: [Range<Int>] = []
-        for index in tokens.indices where tokens[index].text == "struct" {
-            guard !structures.contains(index), !functions.contains(where: { $0.contains(index) }),
-                  let structure = structureBody(at: index, before: tokens.count, tokens: tokens)
-            else { continue }
-            structures.formUnion(index...structure.end)
-            if let name = structure.name { facts.structureTypeNames.insert(tokens[name].text) }
-            structureRanges.append(index..<(structure.end + 1))
-            let members = structureMemberValues(in: structure.body, tokens: tokens)
-            structureValues += members.known
-            unknownStructures += members.unknown
+        var prototypeParameters: [Range<Int>] = []
+        var prototypeValues: [Range<Int>] = []
+        for index in tokens.indices where tokens[index].text == "struct"
+            || (index + 2 < tokens.count && tokens[index + 2].text == "(") {
+            guard !structures.contains(index), !functions.contains(where: { $0.contains(index) }) else { continue }
+            if tokens[index].text == "struct",
+               let structure = structureBody(at: index, before: tokens.count, tokens: tokens) {
+                structures.formUnion(index...structure.end)
+                if let name = structure.name { facts.structureTypeNames.insert(tokens[name].text) }
+                structureRanges.append(index..<(structure.end + 1))
+                let members = structureMemberValues(in: structure.body, tokens: tokens)
+                structureValues += members.known
+                unknownStructures += members.unknown
+            } else if let header = SceneAuthoredShaderSyntaxAnalyzer.functionHeader(at: index, tokens: tokens),
+                      header.range.upperBound < tokens.count, tokens[header.range.upperBound].text == ";" {
+                prototypeParameters.append(header.parameters)
+                let parameters = parameterBindings(header.parameters, unit: unit)
+                prototypeValues += parameters.references
+                facts.possibleGlobals.formUnion(parameters.uncertain)
+            }
         }
         // Only the global namespace uses a name map. Local identity is resolved
         // by the same lexical walk that records global references below.
-        let globalDeclarations = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
-            in: tokens, excluding: functions + structureRanges
+        facts.globalDeclarations = SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationFacts(
+            in: tokens, excluding: functions + structureRanges + prototypeParameters
         )
-        let globalTypes = globalDeclarations.compactMapValues {
+        let globalTypes = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
+            from: facts.globalDeclarations
+        ).compactMapValues {
             SceneAuthoredShaderValueType(rawValue: $0.type)
         }
         let declarationRanges = Dictionary(grouping: unit.declarations, by: \.name)
@@ -108,8 +127,12 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
             }
         }
         for index in tokens.indices where !functions.contains(where: { $0.contains(index) })
-            && !structures.contains(index) { readGlobal(index) }
+            && !structures.contains(index)
+            && !prototypeParameters.contains(where: { $0.contains(index) }) { readGlobal(index) }
         for range in structureValues { for index in range { readGlobal(index) } }
+        for range in prototypeValues {
+            for index in range { readGlobal(index) }
+        }
         for range in unknownStructures {
             facts.possibleGlobals.formUnion(range.compactMap {
                 tokens[$0].kind == .identifier ? tokens[$0].text : nil
@@ -127,7 +150,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         globalTypes: [String: SceneAuthoredShaderValueType], facts: inout BindingFacts
     ) {
         let tokens = unit.tokens
-        let parameters = parameterBindings(function, unit: unit)
+        let parameters = parameterBindings(function.parameterRange, unit: unit)
         var scopes = [parameters.bindings]
         var uncertainScopes = [parameters.uncertain]
         facts.possibleGlobals.formUnion(parameters.uncertain)
@@ -516,15 +539,16 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
     }
 
     private static func parameterBindings(
-        _ function: Unit.Function, unit: Unit
-    ) -> (bindings: [String: Binding], uncertain: Set<String>) {
-        guard !function.parameterRange.isEmpty else { return ([:], []) }
+        _ range: Range<Int>, unit: Unit
+    ) -> (bindings: [String: Binding], uncertain: Set<String>, references: [Range<Int>]) {
+        guard !range.isEmpty else { return ([:], [], []) }
         let tokens = unit.tokens
         guard let parameters = SceneAuthoredShaderTokenScanner.split(
-            function.parameterRange, separator: ",", tokens: tokens
-        ) else { return ([:], Set(tokens[function.parameterRange].map(\.text))) }
+            range, separator: ",", tokens: tokens
+        ) else { return ([:], Set(tokens[range].map(\.text)), []) }
         var bindings: [String: Binding] = [:]
         var uncertain: Set<String> = []
+        var references: [Range<Int>] = []
         for parameter in parameters {
             var index = parameter.lowerBound
             while index < parameter.upperBound,
@@ -536,10 +560,11 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
                index + 1 < parameter.upperBound, tokens[index + 1].kind == .identifier {
                 bindings[tokens[index + 1].text] = Binding(
                     type: index + 2 == parameter.upperBound ? type : nil)
+                if index + 2 < parameter.upperBound { references.append((index + 2)..<parameter.upperBound) }
             } else {
                 uncertain.formUnion(tokens[parameter].filter { $0.kind == .identifier }.map(\.text))
             }
         }
-        return (bindings, uncertain)
+        return (bindings, uncertain, references)
     }
 }
