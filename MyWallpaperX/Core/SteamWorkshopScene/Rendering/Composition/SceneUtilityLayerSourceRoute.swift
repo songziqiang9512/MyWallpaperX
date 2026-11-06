@@ -110,14 +110,6 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                         && (child.childLayerIDs.isEmpty || child.effects.isEmpty)) else {
                     return .failure(.compositionSubtreeShape)
                 }
-            } else {
-                // Model drawing does not yet consume the group's local raster map.
-                switch child.contentKind {
-                case "model":
-                    return .failure(.compositionSubtreeShape)
-                default:
-                    break
-                }
             }
         }
         return .success(.init(

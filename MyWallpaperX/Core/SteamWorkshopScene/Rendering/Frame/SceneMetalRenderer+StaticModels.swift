@@ -232,6 +232,9 @@ extension SceneMetalRenderer {
         guard let pipeline = staticModelResources.pipeline else { return false }
         let draws = state.prepared?[layer.id]
             ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues, state: state) ?? []
+        let viewProjection = pass.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
+            usesPerspective: cameraFrame.resolvesPerspective(for: layer)))
+        let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
         for draw in draws {
             _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
@@ -245,8 +248,8 @@ extension SceneMetalRenderer {
                 emissiveMaskSampling: draw.entry.emissiveMask?.sampling,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
-                viewProjection: cameraFrame.reverseDepthViewProjection(
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)),
+                viewProjection: viewProjection,
+                frontFacing: frontFacing,
                 cameraPosition: cameraFrame.perspectiveEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material,

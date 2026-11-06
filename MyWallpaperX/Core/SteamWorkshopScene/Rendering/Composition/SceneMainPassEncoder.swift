@@ -43,6 +43,13 @@ final class SceneMainPassEncoder {
         return map * viewProjection
     }
 
+    var rasterFrontFacing: MTLWinding {
+        let rows = rasterClipRows
+        let determinant = Double(rows.x.x) * Double(rows.y.y)
+            - Double(rows.x.y) * Double(rows.y.x)
+        return determinant < 0 ? .clockwise : .counterClockwise
+    }
+
     var rasterClipRows: (x: SIMD4<Float>, y: SIMD4<Float>) {
         guard let map = worldClipToTargetClip else {
             return (SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0))

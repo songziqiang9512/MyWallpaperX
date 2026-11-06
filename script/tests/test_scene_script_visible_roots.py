@@ -425,7 +425,7 @@ struct SceneDependencyRenderPlan {
             case "not-orthographic": ortho = false
             case "root-perspective": root.usesPerspective = true
             case "child-perspective": child.usesPerspective = true
-            case "model-member": child.contentKind = "model"
+            case "model-member": child.contentKind = "model"; child.staticModelPath = "models/owned.mdl"
             case "spot-light-member": child.contentKind = "spotLight"
             case "missing-child": root.childLayerIDs = [childID + 1]
             case "unlisted-child": root.childLayerIDs = []
@@ -876,7 +876,10 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 neighbor = name.partition(':')[2]
                 self.assertFalse(facts['inactive'], facts)
                 self.assertFalse(facts['scriptInactive'], facts)
-                if neighbor in ('model-member', 'missing-child', 'wrong-parent', 'cycle'):
+                if neighbor == 'model-member':
+                    self.assertTrue(facts['sourceAccepted'] and facts['local'], facts)
+                    self.assertFalse(facts['layer'] or facts['preparesMembers'], facts)
+                elif neighbor in ('missing-child', 'wrong-parent', 'cycle'):
                     self.assertFalse(facts['sourceAccepted'], facts)
                     self.assertFalse(facts['local'], facts)
                     self.assertFalse(facts['layer'], facts)

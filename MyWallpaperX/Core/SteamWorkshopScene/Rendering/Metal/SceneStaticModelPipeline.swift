@@ -319,6 +319,7 @@ struct SceneStaticModelPipeline {
         // admitted before depth/shadow preparation; standalone draws derive it.
         normalMatrix preparedNormalMatrix: simd_float3x3? = nil,
         viewProjection: simd_float4x4,
+        frontFacing: MTLWinding = .counterClockwise,
         cameraPosition: SIMD3<Float>,
         textureFrame: SceneTextureUVTransform,
         sampling: SceneTextureSampling,
@@ -497,7 +498,7 @@ struct SceneStaticModelPipeline {
         encoder.setDepthStencilState(
             writesDepth ? writingDepthState : nonwritingDepthState
         )
-        encoder.setFrontFacing(.counterClockwise)
+        encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(material.cullMode)
         defer {
             encoder.setCullMode(.none)

@@ -109,12 +109,12 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 85,
-      "bytes": 12632
+      "lines": 96,
+      "bytes": 15012
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 84,
-      "bytes": 12326
+      "bytes": 12381
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -129,8 +129,8 @@
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 156,
-      "bytes": 90766
+      "lines": 169,
+      "bytes": 93999
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 36572
+      "bytes": 36771
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -503,38 +503,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
-      "after": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
+      "before": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
+      "after": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
       "owner": "scene-visible-progress",
-      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "ccb88a22390c70c29d203aa837a6b1864b536b2ec4a1338a0d4f1b087fe0f720",
-      "after": "61b859fd9958a9be715fcce1e17b173faf6831c4fed6d53193640a9e68f8764b",
+      "before": "61b859fd9958a9be715fcce1e17b173faf6831c4fed6d53193640a9e68f8764b",
+      "after": "ef736a7d1294e73888fab6c648588dd7f8e1f6d5e5a035b24fe6662561c31d4d",
       "owner": "scene-visible-progress",
-      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a5430713a45ac64a3a5e32422b5d2955be7c72236873e7d986b82964d1dfc430",
-      "after": "03d6880cfb648145702b0f246841065faadc0f68ae933c947a84b22b617617cb",
+      "before": "03d6880cfb648145702b0f246841065faadc0f68ae933c947a84b22b617617cb",
+      "after": "6a61b1e8080a738015e1e59834a23f73c7a48002095e4f71858b5c1d6f2e07b0",
       "owner": "scene-visible-progress",
-      "reason": "Record newly discriminating same-batch Rope958 geometry/UV/mip/coverage evidence and replace the unresolved broad sampling direction with a bounded repeated-node UV ownership qualification; no product behavior claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rope-958-sampling"
+      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ba1b1e44969a9f93a69bbe11f64c6f278b142d931df013a12e1024e6b3c2ff33",
-      "after": "ab7e55511004f10b16d9199e848f36de7c5c7b95dd1232193f3c04ff70a8e8ab",
+      "before": "ab7e55511004f10b16d9199e848f36de7c5c7b95dd1232193f3c04ff70a8e8ab",
+      "after": "0fd9deef77753d39fa68394be73a3a09568c8515f52834b194b3af47fef1df2c",
       "owner": "scene-visible-progress",
-      "reason": "Record newly discriminating same-batch Rope958 geometry/UV/mip/coverage evidence and replace the unresolved broad sampling direction with a bounded repeated-node UV ownership qualification; no product behavior claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rope-958-sampling"
+      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     }
   ]
 }

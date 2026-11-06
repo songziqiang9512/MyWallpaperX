@@ -510,9 +510,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(routes["project-nested-background"], {
             "root": 20, "members": [21, 1020], "isolated": True, "local": False,
             "copyBackground": True, "authoredCopyOmitted": True})
-        for name in ("model-member", "spot-light-member", "project-model-member", "project-spot-light-member"):
+        for name, members in (("model-member", [42, 21]), ("spot-light-member", [21]),
+                              ("project-model-member", [42, 21]), ("project-spot-light-member", [21])):
             with self.subTest(route=name):
-                self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
+                self.assertEqual(routes[name], {
+                    "root": 20, "members": members, "isolated": True, "local": True,
+                    "copyBackground": True, "authoredCopyOmitted": True})
 
     def test_named_sampler_dependencies_do_not_become_composition_main_source(self) -> None:
         routes = self.result["sourceRoutes"]

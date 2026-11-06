@@ -148,6 +148,19 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 真实vertex V域[.24242425,1]：约631.34px主干仅消费V .30303031→.27272725，开头5.522px却跨V1→.32900429。原RopePlan在几何去重前按存活索引分q，距离去重保first sample/UV且未在可画域重归一，后续FrameTransform/vertex没有二次UV缩放；本次首次在958实际batch观察到该端域边界。原sickle同SHA的base非零mask止于y<18、A255核心止于y<15，支持主干落透明边缘/低alpha区的空间解释，不能代替实际过滤alpha或官方端域。下一资格由[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护；不从这些图选择重归一、弧长、半宽、alpha、mip或MSAA修复。单个simulationLimitation只保kind未含detail，本项也不授完整模拟、旧App整轨恢复、官方像素或性能。
 
+<a id="model-subtree-raster"></a>
+## 模型的局部 source 与深度
+
+本项基于 `ee3bd0539`，签名标准 Debug App 的 CDHash `47b497d3a1bde0c18d3c807ed1d655b8bec869a9`、实际 debug dylib SHA `18db08a78cfcc553e411fc954bc8606496b1b60dba4c5c7493e572f2f2ad074d`。StaticModel color 每 layer/pass 一次消费 nearest MainPass 的保 Z/W 局部 VP 与 XY 绕序，原 world/normal/lighting/shadow、PMA/材质及按 pass 的深度保持；SourceRoute 退出 model 整类拒绝。四个产品文件净增3行，无新 owner、state、cache 或 MSL ABI。合同与剩余准备边界归[模型局部合成](advanced-object-coverage.md#model-subtree-raster)。
+
+签名 App 直接 Scene Host 的三场自有 MDL/材质输入，7张原尺寸 PNG、71个预登记固定 ROI 的正确率均1、最大RGB通道误差0：composition 的 near 先画仍遮后 far、nonwriting translucent 不挡后 far并保半alpha条；同 extent 的第二组更远模型独立合成，坏 MDL 仅缺自身，普通 transform reference 与 green peer 健康。改名 Project 使用父X负缩放/非均匀比例/90°，双负 child 单面正例保可见，单负反例被剔除，和同世界TRS的普通参考一致。第三场父组及 Program 恒定活动，仅 prepared model leaf 在同 Surface/window 内显示→隐藏→显示；材料 tintback 脚本与字面 post-cycle reference 一致，隐藏帧真实clear且无残色。
+
+所选 capture 的 actual model target→200×120 group source→父 Program 输入/输出→terminal/tail→main/seal/GPU逐帧闭合；Project terminal 的实际 kind=ordinary 与 composition group 使用同target链，不凭种类猜结果。原深度回执在各场首三帧见证各组与main的独立域；所选帧颜色闭环不冒充该帧独立 depth readback。完整单模型 TRS clock 为frame时间括号；该读口不提供color，tintback由实际材料script、sole vector binding、无失败及像素反例证明，未解析Swift值描述字符串。
+
+独审提出的镜像反例在只接VP的中间 App 已复现：两个PNG的普通参考/peer全对，group双负正例黑、单负反例误画cyan。原测试先因采样层数超过8而得到invalid-configuration，且把TRS读口误当color，整门未过；观察配置/reader纠正后离线恢复原合成链，原negative仍无clock资格。没有重跑该negative或改输入/ROI/颜色/阈值。最终三场原样fixture均通过；原native blending门的过时Outcome源码截取改为既有完整声明提取后，当前depth/blending 9项通过，source/visibility最近门和Debug build通过。
+
+独立3437487219、3477054430与上批同完整输入摘要，各四秒新运行均取得两张终端PNG、GPU完成及正常排空；实际模型分别112/114和14/23/47/68进入main/seal。它们是普通模型相邻回归，没有作者 composition-model 正命中；不授作者组恢复、父组动态显隐/初始关闭effect热准备、组内image/effect terminal共享深度、全部三维/材质组合、官方像素或性能。两处观察/夹具失败、独审、冻结身份、自有7图、negative2图及各作者一张after原图保于 `.artifacts/scene-model-subtree-20261107/`；作者Ready图经核对哈希后退役。
+
 <a id="limits"></a>
 ## 未取得的资格
 
