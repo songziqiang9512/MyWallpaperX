@@ -64,7 +64,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 }
 
 /// A dynamic visibility owner prepares its supported subtree without making
-/// it visible or changing child visibility. Fixed composition groups reuse
+/// it visible or changing child visibility. Fixed source groups reuse
 /// their existing source route; unsupported utilities or changing hierarchy
 /// still require rebuild. The frame snapshot remains the visibility authority.
 nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
@@ -194,7 +194,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
             if let utility = layer.utilityLayer {
                 // Resolve each nested group too: a valid outer member list
                 // does not prove a nested group's dependency/source contract.
-                guard utility.kind == .composition,
+                guard utility.kind != .fullscreen,
                       layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
                       let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(

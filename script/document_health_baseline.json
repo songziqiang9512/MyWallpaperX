@@ -129,8 +129,8 @@
       "bytes": 42590
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 125,
-      "bytes": 76832
+      "lines": 126,
+      "bytes": 78472
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 92,
-      "bytes": 11270
+      "lines": 97,
+      "bytes": 12465
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 173,
-      "bytes": 34256
+      "bytes": 34466
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -457,15 +457,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "bb615fc61c2bf3db6e609d9c66ade5ba88a626ccb573e92cf1195c7aa2c83c7f",
-      "after": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
-      "owner": "scene-player-editor-context",
-      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
       "after": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
+      "after": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
+      "owner": "scene-prepared-group-visibility",
+      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9a1518a29474a8f64c4da5ceb8c09652b1cf1cc1c7f877e13ad821875c56a99b",
-      "after": "cb39f8d72c235013dead035fbbb35d7fdae443b91042fee7aa35450f8f871b48",
-      "owner": "scene-project-subtree-source",
-      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
+      "before": "cb39f8d72c235013dead035fbbb35d7fdae443b91042fee7aa35450f8f871b48",
+      "after": "00e4d11319d6c6887099e2a8dca1580d17e42c23e19f92f2e9d013a10951aeef",
+      "owner": "scene-prepared-group-visibility",
+      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "94a134d8692134e22fcb00e3d771cca5765ff05ad74b6ae6a499b2bf806b5c7a",
-      "after": "f11652426c91f1d4f387653db13ac84ec0d02cabbf798d13611c66ee31c3584c",
-      "owner": "scene-project-subtree-source",
-      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
+      "before": "f11652426c91f1d4f387653db13ac84ec0d02cabbf798d13611c66ee31c3584c",
+      "after": "6e3b6d63e3d51fb9c17c05f383613cac1a47fed4d1c7c988ddf21303ab4d0bbd",
+      "owner": "scene-prepared-group-visibility",
+      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
     }
   ]
 }

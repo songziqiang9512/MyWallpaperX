@@ -27,6 +27,11 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
 
+<a id="prepared-group-visibility"></a>
+层级显隐以原 `SourceRoute` 已接通的组来源和合法成员闭包决定准备范围，composition 与 project 共用这一事实；fullscreen 保留独立的 viewport 消费入口。作者 Bool 与脚本 visibility 目标经同一 `SceneDynamicLayerVisibilityRouteAdmission` 形成 targets、preparationLayerIDs、particleRequirements 和 liveConsumers。初值 false 保留实际可显示成员的 Program、几何和粒子资源准备，不发布子层可见值，也不覆盖 child 自己的 false；普通帧沿原 typed snapshot 更新，资源与 topology owner 分别保持其原失效边界。
+
+运行资格须在同一 window/Surface 核 cold false→true→false、共享属性的父组与独立粒子、改名及健康后继；图像、实际成员目标→父来源→Program→末合成和输入 generation 同时匹配。依赖、坏树、未接 source 或缺实际资源仍沿原 owner 局部失败；不新增显隐状态、资源表或运行期补编译。此合同针对 layer visibility，effect 的 inactive stage 准备另归[运行输入](runtime-input-property-coverage.md)，不由层目标接纳推定热效果资格。
+
 动态创建仍拒绝未接入的 Puppet animation/effects 以及复杂 composition 的 parent/children/dependency/copybackground 组合。普通动态 image 不自动继承作者 Sprite/Timeline/effect 能力；资源定义可供合法消费者复用，不等于实例已获全部组件。
 
 源码：[SceneHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)、[LayerHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c)。

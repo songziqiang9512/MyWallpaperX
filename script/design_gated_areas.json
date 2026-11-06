@@ -354,15 +354,17 @@
     },
     {
       "id": "scene-ordinary-hierarchy-visibility",
-      "title": "RF05 层级显隐与实际资源准入",
+      "title": "层级显隐与实际组来源、资源准备",
       "owner": "scene-dynamic-layer-visibility-admission",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "design_notes": "designDoc#prepared-group-visibility: layer visibility reuses the original admitted group source and member closure for targets, preparationLayerIDs, particleRequirements and liveConsumers. Retain cold-hidden Project descendants without forcing child visibility, adding state, recompiling at reveal or changing the fullscreen viewport owner. Validate one shared Bool across a parent group and independent particle, cold false/true/false, renamed inputs, stable window/Surface and actual source-to-terminal pixels. Effect inactive-stage qualification remains a separate input contract.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
       ],
-      "contentPatterns": []
+      "contentPatterns": [
+        "SceneDynamicLayerVisibilityRouteAdmission"
+      ]
     },
     {
       "id": "scene-particle-vortex-v2",

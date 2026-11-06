@@ -90,17 +90,19 @@ struct SceneDependencyRenderPlan {
         }
         return .init(layers: layers)
     }
-    static func composition(_ violation: String? = nil) -> SceneRenderDescriptor {
+    static func composition(_ violation: String? = nil, kind: SceneRenderDescriptor.Utility.Kind = .composition,
+                            particles: Bool = false) -> SceneRenderDescriptor {
         var ancestor = SceneRenderDescriptor.Layer(
             id: 90, visible: true, childLayerIDs: [100], contentKind: "container")
         var root = SceneRenderDescriptor.Layer(
-            id: 100, parentID: 90, childLayerIDs: [110, 120], contentKind: "composition",
-            utilityLayer: .init(kind: .composition, copyBackground: false))
+            id: 100, parentID: 90, childLayerIDs: [110, 120], contentKind: kind.rawValue,
+            utilityLayer: .init(kind: kind, copyBackground: false))
         var inner = SceneRenderDescriptor.Layer(
             id: 110, visible: true, parentID: 100, childLayerIDs: [111, 112],
-            contentKind: "composition", utilityLayer: .init(kind: .composition),
+            contentKind: kind.rawValue, utilityLayer: .init(kind: kind),
             effects: [.init(visible: false)])
-        var image = SceneRenderDescriptor.Layer(id: 111, visible: true, parentID: 110)
+        var image = SceneRenderDescriptor.Layer(id: 111, visible: true, parentID: 110,
+            contentKind: particles ? "particle" : "image", particlePath: particles ? "renamed-child.json" : nil)
         let text = SceneRenderDescriptor.Layer(id: 112, parentID: 110, contentKind: "text")
         let solid = SceneRenderDescriptor.Layer(id: 120, visible: true, parentID: 100,
                                                contentKind: "solid")
@@ -122,7 +124,9 @@ struct SceneDependencyRenderPlan {
         case nil: break
         default: fatalError("unknown owned composition fixture")
         }
-        return .init(layers: [ancestor, root, inner, image, text, solid, peer])
+        let cohort: [SceneRenderDescriptor.Layer] = particles
+            ? [.init(id: 132, contentKind: "particle", particlePath: "independent-particle.json")] : []
+        return .init(layers: [ancestor, root, inner, image, text, solid, peer] + cohort)
     }
     static func particleTree(_ violation: String? = nil) -> SceneRenderDescriptor {
         var root = SceneRenderDescriptor.Layer(id: 200, childLayerIDs: [201, 204],
@@ -245,16 +249,16 @@ struct SceneDependencyRenderPlan {
     static func main() throws {
         if CommandLine.arguments.count > 1 {
             let name = CommandLine.arguments[1]
-            let isComposition = name.hasPrefix("composition-")
-            let descriptor = isComposition
-                ? composition(String(name.dropFirst("composition-".count))) : negative(name)
-            let candidates: Set<SceneDynamicTarget> = isComposition
+            let kind: SceneRenderDescriptor.Utility.Kind = name.hasPrefix("project-") ? .project : .composition
+            let isGroup = name.hasPrefix("composition-") || name.hasPrefix("project-")
+            let descriptor = isGroup ? composition(String(name.dropFirst(kind.rawValue.count + 1)), kind: kind) : negative(name)
+            let candidates: Set<SceneDynamicTarget> = isGroup
                 ? [target(100), target(110), target(111), target(130)] : [target(10)]
             let targets = ids(descriptor, candidates: candidates)
             var output: [String: Any] = ["targets": targets]
 #if PREPARATION_API
             output["preparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
-                in: descriptor, candidates: [isComposition ? target(100) : target(10)]).sorted()
+                in: descriptor, candidates: [isGroup ? target(100) : target(10)]).sorted()
 #endif
             print(String(data: try JSONSerialization.data(withJSONObject: output), encoding: .utf8)!)
             return
@@ -574,38 +578,31 @@ struct SceneDependencyRenderPlan {
             invalidParticles[violation] = result
         }
         output["invalidParticles"] = invalidParticles
-        let groups = composition()
-        let groupTargets: Set<SceneDynamicTarget> = [target(90), target(100), target(110),
-                                                    target(111), target(112), target(120)]
-        output["compositionTargets"] = ids(groups, candidates: groupTargets)
-        output["scriptCompositionTargets"] = ids(groups, candidates: [], scripts: true)
-        let groupDefinition = SceneDynamicTargetDefinition(
-            target: target(100), valueType: .bool, authoredValue: .bool(false))
-        func groupVisible(_ value: Bool, frame: UInt64) -> [Int] {
-            let snapshot = SceneDynamicSnapshotResolver().resolve(
-                frameIndex: frame, generation: 1, definitions: [groupDefinition],
-                userValues: [target(100): .bool(value)]).snapshot
-            return SceneLayerVisibility.visibleLayerIDs(in: groups, snapshot: snapshot).sorted()
-        }
-        output["compositionHidden"] = groupVisible(false, frame: 0)
-        output["compositionShown"] = groupVisible(true, frame: 1)
-        output["compositionHiddenAgain"] = groupVisible(false, frame: 2)
-        output["compositionShownAgain"] = groupVisible(true, frame: 3)
+        for (key, kind, particles) in [("composition", SceneRenderDescriptor.Utility.Kind.composition, false),
+                                       ("compositionParticle", .composition, true), ("projectParticle", .project, true)] {
+            let groups = composition(kind: kind, particles: particles)
+            let groupTargets = Set(([90, 100, 110, 111, 112, 120] + (particles ? [132] : [])).map(target))
+            let cohort: Set<SceneDynamicTarget> = particles ? [target(100), target(132)] : [target(100)]
+            let definitions = [100] + (particles ? [132] : [])
+            func groupVisible(_ value: Bool) -> [Int] {
+                let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                    definitions: definitions.map { .init(target: target($0), valueType: .bool, authoredValue: .bool(false)) },
+                    userValues: Dictionary(uniqueKeysWithValues: definitions.map { (target($0), SceneDynamicValue.bool(value)) })).snapshot
+                return SceneLayerVisibility.visibleLayerIDs(in: groups, snapshot: snapshot).sorted()
+            }
+            var facts: [String: Any] = ["targets": ids(groups, candidates: groupTargets),
+                "scripts": ids(groups, candidates: [], scripts: true), "noOwner": ids(groups, candidates: []),
+                "cycle": [groupVisible(false), groupVisible(true), groupVisible(false)],
+                "requirements": particleRequirements(groups, candidates: cohort)]
 #if PREPARATION_API
-        output["compositionPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
-            in: groups, candidates: [target(100)]).sorted()
-        output["compositionAncestorPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
-            in: groups, candidates: [target(90)]).sorted()
-        output["compositionLeafPreparation"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
-            in: groups, candidates: [target(111)]).sorted()
+            for (field, candidates) in [("preparation", Set([target(100)])), ("ancestorPreparation", [target(90)]),
+                                        ("leafPreparation", [target(111)]), ("cohortPreparation", cohort)] {
+                facts[field] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+                    in: groups, candidates: candidates).sorted()
+            }
 #endif
-        let initiallyVisibleGroup = SceneRenderDescriptor(layers: [
-            .init(id: 140, visible: true, childLayerIDs: [141, 142], contentKind: "composition",
-                  utilityLayer: .init(kind: .composition)),
-            .init(id: 141, visible: true, parentID: 140),
-            .init(id: 142, parentID: 140, contentKind: "text")])
-        output["compositionBackgroundTargets"] = ids(
-            initiallyVisibleGroup, candidates: [target(140), target(141), target(142)])
+            output[key + "Group"] = facts
+        }
         let hiddenBackground = SceneRenderDescriptor(layers: [
             .init(id: 150, contentKind: "composition", utilityLayer: .init(kind: .composition),
                   effects: [.init(visible: true)]),
@@ -671,7 +668,6 @@ struct SceneDependencyRenderPlan {
             var extras: [SceneRenderDescriptor.Layer] = []
             switch violation {
             case "parent": root.parentID = 950
-            case "child": root.childLayerIDs = [941]; extras = [.init(id: 941, parentID: 940)]
             case "unlisted-child": extras = [.init(id: 941, parentID: 940)]
             case "dependency": root.dependencyLayerIDs = [950]
             case "authored-dependency": root.authoredDependencies = [950]
@@ -691,7 +687,7 @@ struct SceneDependencyRenderPlan {
         output["projectShown"] = backgroundVisible(project, owner: 940, value: true)
         output["projectHiddenAgain"] = backgroundVisible(project, owner: 940, value: false)
         output["invalidProjectTargets"] = Dictionary(uniqueKeysWithValues:
-            ["parent", "child", "unlisted-child", "dependency", "authored-dependency",
+            ["parent", "unlisted-child", "dependency", "authored-dependency",
              "kind", "utility", "duplicate"].map {
                 ($0, ids(projectCapture($0), candidates: [target(940)]))
             })
@@ -921,21 +917,16 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 self.assertEqual(result['preparation'], [200, 201, 202, 203, 204] if supported else [])
                 self.assertEqual(result['requirements'], {'200': [202, 203], '202': [202]} if supported else {})
 
-    def test_isolated_composition_parents_and_descendants_share_visibility_admission(self):
-        self.assertEqual(self.result['compositionTargets'], [90, 100, 110, 111, 112, 120])
-        self.assertEqual(self.result['scriptCompositionTargets'], [90, 100, 110, 111, 112, 120, 130])
-        self.assertEqual(self.result['compositionBackgroundTargets'], [140, 141, 142])
-
-    def test_composition_preparation_contains_hidden_descendants_without_revealing_them(self):
-        self.assertEqual(self.result['compositionPreparation'], [100, 110, 111, 112, 120])
-        self.assertEqual(self.result['compositionAncestorPreparation'], [90, 100, 110, 111, 112, 120])
-        self.assertEqual(self.result['compositionLeafPreparation'], [111])
-        self.assertEqual(self.result['compositionHidden'], [90, 130])
-
-    def test_composition_visibility_cycles_keep_child_false_and_independent_peer(self):
-        self.assertEqual(self.result['compositionShown'], [90, 100, 110, 111, 120, 130])
-        self.assertEqual(self.result['compositionHiddenAgain'], [90, 130])
-        self.assertEqual(self.result['compositionShownAgain'], [90, 100, 110, 111, 120, 130])
+    def test_prepared_groups_keep_exact_resources_candidates_and_parent_visibility(self):
+        for key, particles in [('composition', False), ('compositionParticle', True), ('projectParticle', True)]:
+            with self.subTest(group=key):
+                self.assertEqual(self.result[key + 'Group'], {
+                    'targets': [90, 100, 110, 111, 112, 120] + ([132] if particles else []),
+                    'scripts': [90, 100, 110, 111, 112, 120, 130] + ([132] if particles else []), 'noOwner': [],
+                    'preparation': [100, 110, 111, 112, 120], 'ancestorPreparation': [90, 100, 110, 111, 112, 120],
+                    'leafPreparation': [111], 'cohortPreparation': [100, 110, 111, 112, 120] + ([132] if particles else []),
+                    'requirements': {'100': [111], '132': [132]} if particles else {},
+                    'cycle': [[90, 130], [90, 100, 110, 111, 120, 130] + ([132] if particles else []), [90, 130]]})
 
     def test_hidden_childless_background_capture_prepares_without_revealing(self):
         self.assertEqual(self.result['hiddenBackgroundTargets'], [150])
@@ -977,20 +968,22 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 self.assertEqual(targets, [])
 
     def test_unsupported_composition_subtrees_reject_locally(self):
-        for name in ('passthrough', 'dependency', 'authored-dependency', 'inner-dependency',
-                     'inner-authored-dependency', 'inner-passthrough', 'inner-kind',
-                     'particle', 'model', 'fullscreen', 'missing-parent', 'child-index'):
-            with self.subTest(case=name):
-                run = subprocess.run([str(self.binary), 'composition-' + name],
-                                     capture_output=True, text=True)
-                self.assertEqual(run.returncode, 0, run.stderr[-3000:])
-                result = json.loads(run.stdout)
-                self.assertEqual(result['targets'], [130])
-                self.assertEqual(result['preparation'], [])
+        for kind in ('composition', 'project'):
+            for name in ('passthrough', 'dependency', 'authored-dependency', 'inner-dependency',
+                         'inner-authored-dependency', 'inner-passthrough', 'inner-kind',
+                         'particle', 'model', 'fullscreen', 'missing-parent', 'child-index'):
+                with self.subTest(group=kind, case=name):
+                    run = subprocess.run([str(self.binary), kind + '-' + name],
+                                         capture_output=True, text=True)
+                    self.assertEqual(run.returncode, 0, run.stderr[-3000:])
+                    result = json.loads(run.stdout)
+                    self.assertEqual(result['targets'], [130])
+                    self.assertEqual(result['preparation'], [])
 
     def test_composition_structural_member_keeps_visibility_and_healthy_peer(self):
-        run = subprocess.run([str(self.binary), 'composition-container'], capture_output=True, text=True)
-        self.assertEqual(run.returncode, 0, run.stderr[-3000:])
-        result = json.loads(run.stdout)
-        self.assertEqual(result['targets'], [100, 110, 111, 130])
-        self.assertEqual(result['preparation'], [100, 110, 111, 112, 120])
+        for kind in ('composition', 'project'):
+            run = subprocess.run([str(self.binary), kind + '-container'], capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr[-3000:])
+            result = json.loads(run.stdout)
+            self.assertEqual(result['targets'], [100, 110, 111, 130])
+            self.assertEqual(result['preparation'], [100, 110, 111, 112, 120])
