@@ -911,7 +911,7 @@ enum Harness {
             "operator": [["name": "movement", "gravity": "0 0 0"]],
             "renderer": [["name": "sprite"]]
         ]
-        func make(_ root: [String: Any], budget: Int = 3_600,
+        func make(_ root: [String: Any], budget: Int? = nil,
                   step: Double = 1.0 / 60.0) -> SceneParticleSimulator {
             SceneParticleSimulator(
                 definition: SceneParticleDefinitionParser().parse(root: root), seed: 52,
@@ -3674,14 +3674,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(value["historyCount"], 5)
         self.assertTrue(value["historyNonempty"])
 
-    def test_prewarm_extension_is_bounded_and_not_given_to_frame_children(self) -> None:
+    def test_complete_root_prewarm_keeps_child_and_invalid_duration_boundaries(self) -> None:
         value = self.results["extendedPrewarm"]
         self.assertAlmostEqual(value["childTime"], 4)
         self.assertTrue(value["childLimited"])
         self.assertAlmostEqual(value["exactTime"], 60)
         self.assertFalse(value["exactLimited"])
-        self.assertAlmostEqual(value["overTime"], 60)
-        self.assertTrue(value["overLimited"])
+        self.assertAlmostEqual(value["overTime"], 60.01)
+        self.assertFalse(value["overLimited"])
         self.assertAlmostEqual(value["capacityTime"], 60)
         self.assertAlmostEqual(value["operatorTime"], 60)
         self.assertAlmostEqual(value["quadraticTime"], value["linearTime"])

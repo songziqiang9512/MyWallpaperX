@@ -291,12 +291,15 @@ class SceneFramePresentationIntegrationTests(unittest.TestCase):
                         self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
                     captured, requested = before["capturedTopology"], before["requestedTopology"]
                     self.assertTrue(captured, observed)
-                    self.assertEqual([row["displayID"] for row in captured],
-                                     [row["displayID"] for row in requested], observed)
+                    self.assertTrue({row["displayID"] for row in captured}.issubset(
+                        {row["displayID"] for row in requested}), observed)
+                    self.assertEqual({str(row["displayID"]) for row in requested},
+                                     set(before["surfacesByDisplay"]), observed)
                     self.assertNotEqual(captured[0]["frame"], requested[0]["frame"], observed)
                     self.assertAlmostEqual(requested[0]["frame"][0] - captured[0]["frame"][0], 0.5)
                     self.assertAlmostEqual(requested[0]["frame"][2] - captured[0]["frame"][2], -1)
-                    self.assertEqual(captured[1:], requested[1:], observed)
+                    for row in requested[1:]:
+                        self.assertEqual(row["frame"], before["surfacesByDisplay"][str(row["displayID"])]["targetFrame"], observed)
                     self.assertTrue({str(row["displayID"]) for row in captured}.issubset(
                         after["spriteAnimationLayerIDsByDisplay"]), observed)
                     for phase in ("after", "settled"):

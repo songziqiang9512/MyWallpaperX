@@ -259,20 +259,6 @@ nonisolated struct SceneVideoProviderLifecycleState {
         isAdvancingPlayback ? itemTime(at: sceneTime) : heldItemTime
     }
 
-    nonisolated mutating func rebuild(
-        sceneTime: TimeInterval,
-        hostTime: TimeInterval
-    ) {
-        if isPlaying {
-            heldItemTime = currentTime(at: sceneTime)
-        }
-        anchorSceneTime = sceneTime
-        anchorItemTime = heldItemTime
-        lastObservedSceneTime = sceneTime
-        lastPlan = nil
-        _ = hostTime
-    }
-
     @discardableResult
     nonisolated mutating func stop() -> Bool {
         guard !isStopped else { return false }

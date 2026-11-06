@@ -1215,7 +1215,10 @@
         "Scene组件",
         "Scene 组件",
         "组件职责",
-        "Scene目录"
+        "Scene目录",
+        "Scene显示配置",
+        "Scene新增屏",
+        "Scene多屏"
       ],
       "documents": [
         "docs/scene/architecture/runtime-architecture.md",
@@ -1226,7 +1229,8 @@
         "docs/scene/capabilities/effect-execution-coverage.md"
       ],
       "sourcePaths": [
-        "MyWallpaperX/Core/SteamWorkshopScene"
+        "MyWallpaperX/Core/SteamWorkshopScene",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift"
       ],
       "verification": "先核目标与当前owner；文档用既有文档/设计门，产品改动再按最近inner/checkpoint/integration验证，不新增组件认证。",
       "owner": "Scene Host/Session, Compilation, Systems, Resources and Rendering owners",

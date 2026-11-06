@@ -124,7 +124,8 @@ final class SceneParticleChildRuntime {
         controlPointFrame: SceneParticleControlPointFrame? = nil,
         rootTranslationOffset: SIMD3<Double> = .zero,
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
-        initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:]
+        initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent
     ) {
         self.layerID = layerID
         let expansion = SceneParticleChildGraphExpansion.expand(
@@ -224,7 +225,8 @@ final class SceneParticleChildRuntime {
                     pointerLocalPosition: nil, dynamicControlPoints: initialDynamicControlPoints,
                     rootTranslationOffset: rootTranslationOffset
                 ),
-                initialDynamicControlPointAngles: initialDynamicControlPointAngles
+                initialDynamicControlPointAngles: initialDynamicControlPointAngles,
+                initialAudioInput: initialAudioInput
             )
             systems.append(SceneParticleChildSystem(
                 id: nextSystemID,

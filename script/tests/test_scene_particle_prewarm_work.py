@@ -89,17 +89,15 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertFalse(row["limited"], row)
         self.assertGreater(row["deaths"], 0)
 
-    def test_dense_failed_birth_and_short_lived_work_keep_a_real_prefix(self) -> None:
+    def test_failed_birth_and_short_lived_work_complete_and_drain(self) -> None:
         for name, row in self.result["workload"].items():
             with self.subTest(name=name):
                 self.assertReplay(row)
-                self.assertTrue(row["limited"], row)
-                self.assertGreaterEqual(row["completedSteps"], 240)
-                self.assertLess(row["time"], 60)
+                self.assertFalse(row["limited"], row)
+                self.assertEqual(row["completedSteps"], 1920)
+                self.assertEqual(row["time"], 60)
                 self.assertGreater(row["nextID"], 0)
-                if name == "dense":
-                    self.assertEqual(row["population"], 20_000)
-                elif name == "failed-initializer":
+                if name == "failed-initializer":
                     self.assertEqual(row["population"], 0)
                     self.assertEqual(row["acceptedBirths"], 0)
                     self.assertEqual(row["processedPopulation"], 0)
@@ -109,18 +107,8 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     self.assertEqual(row["acceptedBirths"], row["nextID"])
                     self.assertEqual(row["deaths"], row["nextID"])
 
-    def test_boids_cost_has_a_real_populated_consumer(self) -> None:
-        rows = self.result["populationWork"]
-        for name in ("linear", "boids"):
-            row = rows[name]
-            self.assertReplay(row)
-            self.assertTrue(row["limited"], row)
-            self.assertEqual(row["population"], 64)
-        self.assertTrue(rows["boids"]["boidsPlanPrepared"])
-        self.assertLess(rows["boids"]["time"], rows["linear"]["time"])
-
-    def test_empty_capacity_boids_dispatch_and_zero_rate_do_not_spend_live_work(self) -> None:
-        rows = self.result["populationWork"]
+    def test_empty_capacity_and_zero_rate_keep_their_simulation_clock(self) -> None:
+        rows = self.result["emptySystems"]
         for name in ("capacity", "boids", "dispatch", "rate-zero"):
             row = rows["empty-" + name]
             with self.subTest(name=name):
@@ -129,14 +117,14 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                 self.assertEqual(row["time"], 0 if name == "rate-zero" else 60)
                 self.assertFalse(row["limited"], row)
 
-    def test_child_root_step_bounds_and_partial_last_step_stay_distinct(self) -> None:
+    def test_child_step_bound_and_complete_root_partial_step_stay_distinct(self) -> None:
         row = self.result["bounds"]
         self.assertEqual(row["childTime"], 7.5)
         self.assertTrue(row["childLimited"])
         self.assertEqual(row["exactTime"], 112.5)
         self.assertFalse(row["exactLimited"])
-        self.assertEqual(row["overTime"], 112.5)
-        self.assertTrue(row["overLimited"])
+        self.assertEqual(row["overTime"], 112.5 + 1 / 32)
+        self.assertFalse(row["overLimited"])
         self.assertEqual(row["partialTime"], 8 + 1 / 128)
         self.assertEqual(row["partialAge"], 8 + 1 / 128)
         self.assertEqual(row["partialX"], 512.5)
@@ -173,7 +161,7 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
 
     def test_cancellation_stops_at_complete_steps_without_changing_live_handoff(self) -> None:
         expected = {"beforeStart": 0, "threeSteps": 3, "step240": 240,
-                    "step241": 241, "bounded": 241}
+                    "step241": 241, "childCancelled": 3}
         for name, steps in expected.items():
             row = self.result["cancellation"][name]
             with self.subTest(name=name):

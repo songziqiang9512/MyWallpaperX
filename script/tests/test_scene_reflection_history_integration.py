@@ -441,8 +441,10 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                         and (row.get("history") == "seeded" or int(row["historyRehydrateCopyCount"]) > 0)
                         for row in rows), qualification)
             self.assertTrue(before["capturedTopology"] and before["requestedTopology"], observed)
-            self.assertEqual([row["displayID"] for row in before["capturedTopology"]],
-                             [row["displayID"] for row in before["requestedTopology"]], observed)
+            self.assertTrue({row["displayID"] for row in before["capturedTopology"]}.issubset(
+                {row["displayID"] for row in before["requestedTopology"]}), observed)
+            self.assertEqual({str(row["displayID"]) for row in before["requestedTopology"]},
+                             set(before["surfacesByDisplay"]), observed)
             self.assertNotEqual(before["capturedTopology"], before["requestedTopology"], observed)
             self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
             self.assertFalse(settled["isPlaybackPaused"], observed)

@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 200,
-      "bytes": 32871
+      "lines": 203,
+      "bytes": 35673
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 229,
-      "bytes": 39159
+      "bytes": 39167
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 226,
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 180,
-      "bytes": 97139
+      "lines": 184,
+      "bytes": 98302
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 35180
+      "bytes": 35503
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -484,15 +484,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "fee258d9336b6145edcefee4131ebcf4c0c37f9635a5e29a7099375c370e0fb4",
-      "after": "7906071613b7b6e88eba75176cc5ef4d7b77aa8591407d0b18c9cb8b81d4ba1c",
-      "owner": "scene-rope-trail-world-subdivision",
-      "reason": "Record the existing common orientation consumer and native-proven input normalization, focused runtime and fixed-pixel results, actual author root output and retained failure limits; retire the resolved rejection queue entry and isolate measured diagnostic prewarm cost without adding a new documentation owner.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-world-subdivision"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
       "after": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
@@ -512,28 +503,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8531f905faa2c9a1dd22595210a99d9c545bda6f72a1b1dee2e7e65158864e26",
-      "after": "f8b69a445fb5a4a72159c5ad348c580ca891b5b1ce8b20c1f458505fc2992240",
-      "owner": "scene-display-removal",
-      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
+      "before": "f8b69a445fb5a4a72159c5ad348c580ca891b5b1ce8b20c1f458505fc2992240",
+      "after": "bd81263fee07f68eb87ffe8ba00a66378047d80183ab4b3be2d40281347735be",
+      "owner": "scene-display-addition",
+      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7e99b1b639ba5137673c3d41f7fa83dc13851d6f9eb19c8388e5915174ed9f89",
-      "after": "1b09b86e3699747e656860603e977e1cab0995de52442c48525c58e1a272068e",
-      "owner": "scene-display-removal",
-      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "7906071613b7b6e88eba75176cc5ef4d7b77aa8591407d0b18c9cb8b81d4ba1c",
+      "after": "5117bc658d901f6a4e898acf3a7b3dd3316c95058ccf23985b9d08e1e886f231",
+      "owner": "scene-display-addition",
+      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "219652b0c31bacdf8fb799787528d93edd09fc35581fd8ac8a7781c31a8f8583",
-      "after": "96edc9ffbc55be003b4ab1e32971f64be7fbd4d4d65bb04d4ca521e5e23d2883",
-      "owner": "scene-display-removal",
-      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
+      "before": "96edc9ffbc55be003b4ab1e32971f64be7fbd4d4d65bb04d4ca521e5e23d2883",
+      "after": "f46947e72b17f7a3637c9649fa053a6143465ebfb90020407a3ae6b97d6e1cc1",
+      "owner": "scene-display-addition",
+      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1b09b86e3699747e656860603e977e1cab0995de52442c48525c58e1a272068e",
+      "after": "a4ba40b89cadc14ab4f66bb74d5fb7c2e05198dfe5b697cf97bf8f45156a7c40",
+      "owner": "scene-display-addition",
+      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache. Manual non-Swift audit records the unchanged 4438-line Simulator harness under the existing verification-carrier debt; this is no waiver or claim of all-language compliance.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     }
   ]

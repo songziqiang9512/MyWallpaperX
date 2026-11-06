@@ -18,6 +18,7 @@ extension SceneDesktopWallpaperSession {
         if clearContext {
             releaseUserShortcutScopes()
             cancelPendingUserTextureUpdates()
+            pendingSurfacePreparation?.cancellation.cancel()
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil
             screenTopology = []

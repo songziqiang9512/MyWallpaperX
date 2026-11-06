@@ -162,15 +162,19 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 独立3437487219、3477054430与上批同完整输入摘要，各四秒新运行均取得两张终端PNG、GPU完成及正常排空；实际模型分别112/114和14/23/47/68进入main/seal。它们是普通模型相邻回归，没有作者 composition-model 正命中；不授作者组恢复、父组动态显隐/初始关闭effect热准备、组内image/effect terminal共享深度、全部三维/材质组合、官方像素或性能。两处观察/夹具失败、独审、冻结身份、自有7图、negative2图及各作者一张after原图保于 `.artifacts/scene-model-subtree-20261107/`；作者Ready图经核对哈希后退役。
 
 <a id="display-reconciliation"></a>
-## 显示协调的保留与单屏退休
+## 显示协调与独占屏实例准备
 
-基于 `e0f26d373` 的7个产品路径，标准签名 Debug CDHash `428600242fb76d14b981bc9073ba1ccb958bcbdd`、实际 dylib SHA `a58e5e5a4e1a866882efeeefe7b7c34d1fefb18500f3b60751c33fe7339a6bf6`；源码与App运行前后冻结一致。原Session一次解析实际成员，同集合与非空旧实例子集保survivors，只退休差集；prepared IDs/storage/audio共用一次成员发布，cursor pending只补原来源ID以精准撤removed重试，保物理按钮边沿与健康输入。无新owner、clock、cache或retired ID表，完整目标归[显示配置合同](../architecture/runtime-architecture.md#display-reconciliation)。
+本批 base `e5859d705`，22个产品路径；最终标准签名 Debug CDHash `5cdd24f9fffe92a3603ac1b714e6c97c1ccb7606`、实际 dylib SHA `b7b75aa89fba53beb95b765d215805bc32a1387ef00b973131c29d77de9b4428`，构建与运行源码冻结一致。原 Session 保 resolved 交集，单屏退休差集；新增从 job-start committed typed 值/audio 在原 Host queue 完整准备独占粒子/material runtime，采用时对齐当前 intent/revision/destroyed、生成新屏零步首帧后加入实际 map。同 loader 在主线程采用/丢弃及 eviction 后才能开始下一项。非空全量 rebuild、主线程 cold-root fallback、root3,600/加权关卡与媒体/VM 专属 rebuild API 已退役；static/frame-created child240仍保。职责归[显示配置合同](../architecture/runtime-architecture.md#display-reconciliation)。
 
-现构建3方法/3次有效App运行：playing2→1、paused3→1及已commit未采用destroy的暂停Sprite几何邻例。survivor的Surface/View/纹理registry/graph/粒子实例保持，原各屏实例独立；移除仅退休对应lifecycle，最终各实例一次退休。paused frame64及VM/adopted/root/active-child观测JSON前后不变，两个3024×1964 PNG的5,939,136个RGB像素完全一致；playing与恢复后root/child继续，红/蓝/cyan/green原阈值不变。原生40个cursor方法核来源、按住移除不伪造down/click及健康重试；22种暂停恢复、实际debounce/一次解析、3→1成员/storage/audio、未解析ID、added/mixed/空解析和退出反例通过。真实GPU门在removed PNG导出被持有时，keeper仍完成独立queue工作；先stop再重复drain仍等原导出尾，并保迟到失败/nil barrier。原AppKit终止15模式的相同执行输入资格复用。
+同一最终 App 的 A→AB playing/paused、AB→BC、A→B 实际运行通过：合成场景声明 starttime512 的新 root 完整准备并出粒子，Surface/View/graph/PlaybackState 独占；retained 原对象、窗口/几何与活动 child保持。playing add/mixed 各有 `worker started < keeper encode < 同CB GPU completed < worker returned`、真实 root/child/peer draw 与原绿/红/蓝/cyan 像素；只证明观测期间确有输出，不授最大帧隙/FPS。paused 原屏完整观测值与首后原PNG字节相等，VM/frame/clock不进；新增本地时钟约512且零步首帧有自己的GPU/PNG，pre/trigger/post/实际resume顺序闭合。约1.37e−10的累计时钟误差用1e−7容差并核近512上界，远小于一步，未放宽旧截断门。disjoint 的旧目标立即退休，允许准备空窗，随后新屏恢复；不称无缝。
 
-独立作者3437487219的22文件/68,987,759字节保持原三摘要。12秒3→1中三份实例各有103的5,000及105的75粒子，精确退休两屏，原survivor完整particleLayers观测值、frame36和sceneTime保持；最低window确属该survivor。前后3024×1964原生16-bit RGBA PNG每份22,320,420字节，逐字节相同，SHA `c8818ebbe5aa0fc3c75e4409cdf9a9892f556ff2f2ef7359e8f13d370829d915`，不靠8-bit读图掩盖低位差异。实际req2编码在trigger前、req3在trigger后且早于真正恢复入口；五图各以encoded之后request/CB/seal texture/extent唯一关联原Surface、模型112/114到main/GPU，无截断。恢复capture frame81/237、正常stop1→0与排空，原件/副本/App/源码均未变。
+原仅移除两门与 paused sprite/destroy 门在本批首签名 App `15622c509e72675826fe319c7a03c6962512a77a`通过；末次构建只补未进入这些用例分支的 DEBUG 完成交付、新请求取消与死API退役，按原生产者/输入/断言等价复用，不称最终 App 重跑。同集合的 prior HDR/history观测资格仍保 `.artifacts/scene-display-retention-20261107/` 原身份，不升级为本次新证据。
 
-证据与独审在 `.artifacts/scene-display-removal-20261107/`；首Logger构建和平台替身编译失败保留。初次paused夹具把ready与pause排同点，FIFO使pre在移除后、post在恢复后才编码，未授跨移除像素；分相后仍硬核pre<trigger<post<`playback-state requested=resumed`，不以文件名或较晚诊断授资格，未给多pending截图另加轮询/registry或及时排空承诺。前批同集合/HDR/history资格保其`.artifacts/scene-display-retention-20261107/`原身份，不算本构建重跑。仅授已观测冻结值与输出，不授严格RNG轨迹同态、媒体时钟/decoded连续、真实多屏/物理DPI/EDR、最大帧隙、性能或官方parity；新增/混合增量准备与完整worker预热仍开放。
+真实协调器门覆盖 added/mixed/disjoint、部分 pending 交集、同次完成退/装只发布最终成员一次、完成时 resolver 空、失败不自动重试、三阶段取消、loader main接力和新 candidate 先于旧 retry。受控安装叶只验证 typed 边界与后继计算，partial候选的真实淘汰仍为完整 installer 代码事实，未假授 App 动态二次目标运行。粒子真 Runtime/Simulator 门核初始 root/static-child audio、当前 intent/revision、emit跳revision不重启已结束 emitter、stop清人口/拖尾及下一真实命令；完整预热/取消/child/无效时长门、音频/视频生命周期、实际AV借用/GPU与QuickJS当前视频绑定门通过。新增 AppKit worker-held、worker-returned/main待消费、stop-before-drain三模式及22个冻结帧回归通过，CPU处置/eviction先于原GPU/导出排空与退出；新请求只在原合作取消点让路，不授最大切换延迟。
+
+独立作者3437487219的22文件/68,987,759字节原源与副本、最终 App 运行前后稳定，1→2→2屏：两root分别5000/75粒子，模型112/114在六次独立捕获均到main/seal/GPU；新增B的3024×1964、16-bit RGBA原PNG保留。作者starttime0，额外during图实际晚于worker返回，不借它授长预热期间输出；该资格只来自上面的合成两例。正常stop2→0并排空，未改作者内容。
+
+证据、失败原件身份与独审保于 `.artifacts/scene-display-addition-20261107/`，单包有界保留；首音频子夹具越过现有child能力、首transition发射已结束、浮点边界、终止夹具二次wait与作者reader旧5图计数均有明确失败/修正范围，未据此改播放准入、减像素断言或重做已有效分支。未授真实多屏/物理DPI/EDR、严格RNG轨迹同态、App多屏媒体时钟/decoded连续、最大帧隙/能耗或官方parity。Host/client同值过滤未改，无新事件时晚到resolved ID自动恢复、实际空窗的所有live更新与Session终态回流另沿[开放队列](../roadmap/scene-open-breakpoint-queue.md)取证。
 
 <a id="limits"></a>
 ## 未取得的资格

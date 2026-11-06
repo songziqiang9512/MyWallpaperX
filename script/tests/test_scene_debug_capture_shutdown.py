@@ -60,7 +60,7 @@ void deliverControlledRetirementFailure(void) {
     heldHandler=nil;heldRetirement=nil;
 }
 '''
-HARNESS = r'''
+SESSION_SHUTDOWN_SUPPORT = r'''
 import AppKit
 @preconcurrency import Metal
 
@@ -74,7 +74,7 @@ final class ControlledFontWorker: @unchecked Sendable {
     private var closeCalls=0,cancelCalls=0
     var closeCallCount:Int {lock.lock();defer {lock.unlock()};return closeCalls}
     var cancelCallCount:Int {lock.lock();defer {lock.unlock()};return cancelCalls}
-    init() {queue.async { [self] in entered.signal();release.wait() }}
+    init(held:Bool=true) {queue.async { [self] in entered.signal();if held {release.wait()} }}
     func close() {lock.lock();closeCalls += 1;lock.unlock()}
     func enqueue(_ work:@escaping @Sendable ()->Void) {queue.async(execute:work)}
     func cancelDeferredPreparation() {}
@@ -85,17 +85,21 @@ final class ControlledFontWorker: @unchecked Sendable {
     func cancelAndDrainDeferredPreparation(completion:@escaping @Sendable ()->Void) {closeAndDrain(completion:completion)}
 }
 
+enum SceneDesktopWallpaperHostLaunchError:Error {case cancelled,preparationFailed}
+// SHARED_PREPARATION_LEAVES
+// PRODUCTION_CANCELLATION
+
 enum SceneGraphExecutionResetReason {case surfaceStop}
-final class TestResettable {func reset() {};func revoke() {};func cancel() {};func stop() {}}
+final class TestResettable {var cancellation:TestResettable {self};func reset() {};func revoke() {};func cancel() {};func stop() {}}
 final class TestWindow {var closeCalls=0;func orderOut(_ sender:Any?) {};func close() {closeCalls += 1}}
 enum TestCursorState {case empty}
-struct TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
 enum TestUserTextureLoad {case empty}
 struct TestDeferredUpdate {let generation:UInt64;let layerIDs:Set<Int>}
 final class SceneSystemMediaDemandRegistry {static let shared=SceneSystemMediaDemandRegistry();func release(_ id:UUID) {}}
 
 struct TestPreparedResources {let baseImages:ControlledFontWorker}
-struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let sceneScriptCursorProgram=TestCursorProgram()}
+typealias TestLaunchContext = SceneDesktopWallpaperLaunchContext
+extension TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
 @MainActor final class SceneDesktopWallpaperSession {
     var launchContext:TestLaunchContext?
     var dynamicTextTextures:ControlledFontWorker?
@@ -105,6 +109,10 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
     var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
+    // PRODUCTION_PENDING_TYPES
+    var pendingSurfacePreparation:PendingSurfacePreparation?
+    var evaluationTransaction=TestEvaluationTransaction(),sceneClock=TestClock()
+    let surfacePreparationQueue=DispatchQueue(label:"test.pending-surface-preparation")
     var screenTopology:[Int]=[]
     var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
     var debugSurfaceReferenceFrames:[Int:Int]=[:]
@@ -138,16 +146,39 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
         func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {particleTeardownCalls += 1}
         init(_ q: MTLCommandQueue, _ c: SceneDebugFrameCapture) { metalView=View(q,c) }
     }
-    var surfaces: [Int: Surface] = [:]
+    var surfaces: [CGDirectDisplayID: Surface] = [:]
     var retiringSurfaces: [ObjectIdentifier: Surface] = [:]
     var drainStarted=false
     var drainResult: Bool?
     var surfaceDrainFailed=false
     let retiringSurfaceDrain=DispatchGroup()
     var drainCallbacks: [@MainActor (Bool)->Void] = []
-    func stop() { teardownSurfaces(clearContext:true,reason:.surfaceStop) }
+    func startControlledSurfacePreparation() {
+        prepareAddedSurfaces([(NSScreen.screens[0],1)],context:launchContext!)
+    }
+    static func surfaceScreens(topology:[Int])->[(NSScreen,CGDirectDisplayID)] {
+        preconditionFailure("departed pending callback resolved live screens")
+    }
+    func reconcileSurfaceScreens(_ screens:[(NSScreen,CGDirectDisplayID)],context:TestLaunchContext,
+                                 publishMembership:Bool=true)->Bool {
+        preconditionFailure("departed pending callback reconciled live surfaces")
+    }
+    func installPreparedSurfaces(_ prepared:[PreparedSurface],screens:[(NSScreen,CGDirectDisplayID)],
+                                context:TestLaunchContext,dynamicValues:SceneDynamicSnapshot?)->Int {
+        preconditionFailure("cancelled pending callback installed a surface")
+    }
+    func updatePreparedSurfaceMembership(_ context:TestLaunchContext) {preconditionFailure("departed membership")}
+    func startFrameDriver() {preconditionFailure("departed frame driver")}
+    // PRODUCTION_PENDING_METHODS
+    func stop() {
+        let previous=Array(surfaces.values)
+        teardownSurfaces(clearContext:true,reason:.surfaceStop)
+        precondition(previous.allSatisfy {$0.puppetPlaybackStates.isEmpty},"shutdown retained CPU Puppet owners")
+    }
 }
 enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
+'''
+HARNESS = SESSION_SHUTDOWN_SUPPORT + r'''
 @MainActor final class SceneDesktopWallpaperHost {
     static let usesDebugEvidenceWindow=false
     func applyPerformanceProfile(_ profile:PlaybackPerformanceProfile) {}
@@ -442,86 +473,7 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 }
 '''
 
-APPKIT_TEMPLATE = r'''
-import AppKit
-@preconcurrency import Metal
-
-final class ControlledFontWorker: @unchecked Sendable {
-    let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)
-    private let queue=DispatchQueue(label:"test.font-work")
-    private let lock=NSLock()
-    private var closeCalls=0,cancelCalls=0
-    var closeCallCount:Int {lock.lock();defer {lock.unlock()};return closeCalls}
-    var cancelCallCount:Int {lock.lock();defer {lock.unlock()};return cancelCalls}
-    init() {queue.async { [self] in entered.signal();release.wait() }}
-    func close() {lock.lock();closeCalls += 1;lock.unlock()}
-    func cancelDeferredPreparation() {}
-    func closeAndDrain(completion:@escaping @Sendable ()->Void) {close();queue.async {completion()}}
-    func cancelAndDrain(completion:@escaping @Sendable ()->Void) {
-        lock.lock();cancelCalls += 1;lock.unlock();queue.async {completion()}
-    }
-    func cancelAndDrainDeferredPreparation(completion:@escaping @Sendable ()->Void) {closeAndDrain(completion:completion)}
-}
-
-enum SceneGraphExecutionResetReason {case surfaceStop}
-final class TestResettable {func reset() {};func revoke() {};func cancel() {};func stop() {}}
-final class TestWindow {func orderOut(_ sender:Any?) {};func close() {}}
-enum TestCursorState {case empty}
-struct TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
-enum TestUserTextureLoad {case empty}
-struct TestDeferredUpdate {let generation:UInt64;let layerIDs:Set<Int>}
-final class SceneSystemMediaDemandRegistry {static let shared=SceneSystemMediaDemandRegistry();func release(_ id:UUID) {}}
-
-struct TestPreparedResources {let baseImages:ControlledFontWorker}
-struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let sceneScriptCursorProgram=TestCursorProgram()}
-@MainActor final class SceneDesktopWallpaperSession {
-    var launchContext:TestLaunchContext?
-    var dynamicTextTextures:ControlledFontWorker?
-    var mediaThumbnailTextures:ControlledFontWorker?
-    var pendingProviderUpdate:(dynamicValues:Int,dynamicLayers:[Int],dynamicTextFieldsByLayerID:[Int:Set<Int>],mediaInput:Int)?
-
-    let lifecycleID=UUID()
-    let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
-    var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
-    var screenTopology:[Int]=[]
-    var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
-    var debugSurfaceReferenceFrames:[Int:Int]=[:]
-    var pendingDeferredLayerVisibilityUpdate:TestDeferredUpdate?
-    var audioDemand=(false,false)
-    var onAudioDemandChanged:(()->Void)?
-    var debugDropDynamicValuesFrameIndex:UInt64?
-    var debugDidDropDynamicValues=false,debugDidLogDynamicValuesRecovery=false
-    var videoTextureSourceRegistry:TestResettable?,soundPlaybackRegistry:TestResettable?
-    var firstFramePresentationRegistration:Int?
-    var userPropertyTextureLoad=TestUserTextureLoad.empty
-    var debugPointerOverride:Int?
-    func releaseUserShortcutScopes() {};func cancelPendingUserTextureUpdates() {};func removePointerEventMonitors() {}
-    func teardownSceneScriptOwners(_ context:TestLaunchContext,reason:SceneGraphExecutionResetReason) {}
-    func logDeferredLayerVisibilityTransition(generation:UInt64,layerIDs:Set<Int>,state:String) {}
-
-    final class Renderer { let commandQueue: MTLCommandQueue; init(_ queue: MTLCommandQueue) {commandQueue=queue} }
-    final class View { let renderer:Renderer;let debugFrameCapture:SceneDebugFrameCapture;func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {renderer=Renderer(queue);debugFrameCapture=capture} }
-    final class Surface {
-        let metalView:View
-        let window=TestWindow()
-        var puppetPlaybackStates: [Int: Int] = [17: 1]
-        func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {}
-        init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {metalView=View(queue,capture)}
-    }
-    var surfaces:[Int:Surface]=[:]
-    var retiringSurfaces:[ObjectIdentifier:Surface]=[:]
-    let retiringSurfaceDrain=DispatchGroup()
-    var surfaceDrainFailed=false,drainStarted=false
-    var drainResult:Bool?
-    var drainCallbacks:[@MainActor(Bool)->Void]=[]
-    func stop() {
-        let previous = Array(surfaces.values)
-        teardownSurfaces(clearContext:true,reason:.surfaceStop)
-        precondition(previous.allSatisfy {$0.puppetPlaybackStates.isEmpty},
-                     "AppKit shutdown retained CPU Puppet owners")
-    }
-}
-enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
+APPKIT_TEMPLATE = SESSION_SHUTDOWN_SUPPORT + r'''
 @MainActor final class SceneDesktopWallpaperHost {
     static let usesDebugEvidenceWindow=false
     func applyPerformanceProfile(_ profile:PlaybackPerformanceProfile) {}
@@ -574,6 +526,8 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
     func prepareProductTermination() {}
     let terminationEntered=DispatchSemaphore(value:0)
     var observedPending=false
+    var surfacePreparation:SceneDesktopWallpaperSession.PendingSurfacePreparation?
+    var preparationStep:TestPreparationStep?,preparationTrace:TestTrace?
     // PRODUCTION_TERMINATION_METHOD
     func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {
         let result=ownedApplicationShouldTerminate(sender)
@@ -590,6 +544,42 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
     }
     func applicationDidFinishLaunching(_ notification:Notification) {
         let args=CommandLine.arguments
+        if args.contains("--surface-worker") || args.contains("--surface-main-tail")
+            || args.contains("--surface-stopped-before-drain") {
+            let step=TestPreparationStep(held:true),trace=TestTrace()
+            let session=DebugScenePlaybackRunner.runtimeHost.session
+            session.launchContext = .init([step],trace:trace)
+            session.startControlledSurfacePreparation()
+            surfacePreparation=session.pendingSurfacePreparation;preparationStep=step;preparationTrace=trace
+            if args.contains("--surface-stopped-before-drain") {
+                precondition(step.entered.wait(timeout:.now()+5) == .success)
+                session.stop()
+                precondition(session.pendingSurfacePreparation != nil)
+            }
+            if args.contains("--surface-main-tail") {
+                DispatchQueue.main.async {
+                    precondition(step.entered.wait(timeout:.now()+5) == .success)
+                    let returned=DispatchSemaphore(value:0)
+                    session.surfacePreparationQueue.async {returned.signal()}
+                    step.release.signal()
+                    precondition(returned.wait(timeout:.now()+5) == .success)
+                    precondition(step.prepared.count == 1)
+                    NSLog("APPKIT TEST pending preparation main tail queued")
+                    NSApp.terminate(nil)
+                }
+            } else {
+                DispatchQueue.global().async {
+                    if !args.contains("--surface-stopped-before-drain") {
+                        precondition(step.entered.wait(timeout:.now()+5) == .success)
+                    }
+                    precondition(self.terminationEntered.wait(timeout:.now()+5) == .success)
+                    NSLog("APPKIT TEST pending preparation worker release")
+                    step.release.signal()
+                }
+                DispatchQueue.main.async {NSApp.terminate(nil)}
+            }
+            return
+        }
         if args.contains("--terminal-failed") {DebugScenePlaybackRunner.runtimeHost.session.surfaceDrainFailed=true}
         if args.contains("--font-work") || args.contains("--font-without-surface")
             || args.contains("--font-stopped-before-drain") || args.contains("--deferred-work")
@@ -680,6 +670,14 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
     }
     func applicationWillTerminate(_ notification:Notification) {
         precondition(DebugScenePlaybackRunner.isFinished, "application terminated before owned drain")
+        if let surfacePreparation,let preparationStep,let preparationTrace {
+            precondition(surfacePreparation.cancellation.isCancelled)
+            precondition(DebugScenePlaybackRunner.runtimeHost.session.pendingSurfacePreparation == nil)
+            precondition(preparationTrace.values.filter {$0 == "evict-1"}.count == 1)
+            if CommandLine.arguments.contains("--surface-main-tail") {
+                precondition(preparationStep.prepared[0].teardownReasons == ["preparationCancelled"])
+            }
+        }
         if CommandLine.arguments.contains("--export") || CommandLine.arguments.contains("--retiring-export") || CommandLine.arguments.contains("--overlap-owned") || CommandLine.arguments.contains("--invalid-profile") {
             let path=URL(fileURLWithPath:CommandLine.arguments.last!,isDirectory:true).appendingPathComponent("scene-appkit-pending-window.png").path
             precondition(FileManager.default.fileExists(atPath:path),"application terminated before PNG")
@@ -698,184 +696,6 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 }
 '''
 
-DISPLAY_RECONCILIATION_TEMPLATE = r'''
-import AppKit
-
-final class TestScreen {
-    static var screens:[TestScreen] {[]}
-    let frame:CGRect
-    let backingScaleFactor:CGFloat=1
-    var deviceDescription:[NSDeviceDescriptionKey:Any] {[:]}
-    init(_ frame:CGRect) {self.frame=frame}
-}
-typealias NSScreen = TestScreen
-final class TestWindow {
-    var frame:CGRect
-    var frameUpdates=0
-    init(_ frame:CGRect) {self.frame=frame}
-    func setFrame(_ frame:CGRect,display:Bool,animate:Bool) {self.frame=frame;frameUpdates += 1}
-}
-final class TestView {
-    var drawableUpdates=0,outputUpdates=0
-    func updateDrawableSize() {drawableUpdates += 1}
-    func refreshDisplayOutput() {outputUpdates += 1}
-}
-enum SceneGraphExecutionResetReason {case surfaceStop}
-final class TestCursorProgram {
-    var retired:[Set<CGDirectDisplayID>]=[]
-    func retireSurfaceInputs(_ ids:Set<CGDirectDisplayID>) {retired.append(ids)}
-}
-final class TestStorageDomain {
-    var identities:[String?]=[]
-    func setStorageScreenIdentity(_ value:String?) throws {identities.append(value)}
-}
-struct TestVectorProgram {let domain:TestStorageDomain?=TestStorageDomain()}
-struct SceneDesktopWallpaperLaunchContext {
-    let sceneScriptCursorProgram=TestCursorProgram()
-    let propertyVectorScriptProgram=TestVectorProgram()
-}
-struct TestParticlePlayback {var hasAudioConsumer=false}
-struct TestLogger {func info(_ message:String) {}}
-@MainActor final class SceneDesktopWallpaperSession {
-    final class Surface {
-        let window:TestWindow
-        let metalView=TestView()
-        var particlePlayback:TestParticlePlayback?=TestParticlePlayback()
-        init(_ frame:CGRect) {window=TestWindow(frame)}
-    }
-    static let performanceLogger=TestLogger()
-    static var resolved:[(TestScreen,CGDirectDisplayID)]=[]
-    static var resolutions=0
-    var launchContext:SceneDesktopWallpaperLaunchContext? = .init()
-    var screenTopology:[SceneScreenTopology]=[]
-    var preparedSurfaceIDs:Set<CGDirectDisplayID>=[]
-    var surfaces:[CGDirectDisplayID:Surface]=[:]
-    var retired:[Surface]=[]
-    var debugSurfaceReferenceFrames:[CGDirectDisplayID:CGRect]=[:]
-    var screenReconciliationWorkItem:DispatchWorkItem?
-    var rebuilds=0,audioUpdates=0,visibilityUpdates=0,stops=0
-    var audioInputs:[Bool?]=[]
-    var rebuildSucceeds=true
-    var rebuiltScreens:[(TestScreen,CGDirectDisplayID)] = []
-    static func surfaceScreens(topology:[SceneScreenTopology])->[(TestScreen,CGDirectDisplayID)] {
-        resolutions += 1
-        return resolved
-    }
-    func updateAudioSpectrumDemand(_ context:SceneDesktopWallpaperLaunchContext,hasParticleAudioConsumer:Bool?) {
-        audioUpdates += 1;audioInputs.append(hasParticleAudioConsumer)
-    }
-    nonisolated static func sceneScriptStorageScreenIdentity(_ id:CGDirectDisplayID)->String? {"screen-\(id)"}
-    func teardownSurface(_ surface:Surface,reason:SceneGraphExecutionResetReason) {
-        precondition(!surfaces.values.contains {$0 === surface},"removed owner was still active during retirement")
-        retired.append(surface)
-    }
-    func rebuildSurfaces(screens:[(TestScreen,CGDirectDisplayID)]?=nil)->Bool {
-        guard let screens else {fatalError("reconciliation discarded its resolved input")}
-        rebuilds += 1;rebuiltScreens=screens
-        return rebuildSucceeds
-    }
-    func reassertSurfaceVisibility() {visibilityUpdates += 1}
-    func stop() {stops += 1;launchContext=nil;surfaces.removeAll()}
-    // PRODUCTION_DISPLAY_METHODS
-}
-@main enum Harness {
-    static func check(_ condition:@autoclosure()->Bool,_ message:String) {
-        guard condition() else {fatalError(message)}
-    }
-    static func settle() async throws {try await Task.sleep(nanoseconds:300_000_000)}
-    @MainActor static func main() async throws {
-        let live=CGRect(x:80,y:40,width:640,height:360)
-        let typed=SceneScreenTopology(displayID:1,frame:CGRect(x:0,y:0,width:123,height:45),backingScaleFactor:3)
-        let other=SceneScreenTopology(displayID:2,frame:CGRect(x:720,y:40,width:400,height:300),backingScaleFactor:1)
-        let screen=TestScreen(live),secondScreen=TestScreen(other.frame)
-        let original=SceneDesktopWallpaperSession.Surface(CGRect(x:0,y:0,width:320,height:180))
-        let session=SceneDesktopWallpaperSession()
-        session.surfaces[1]=original
-        SceneDesktopWallpaperSession.resolved=[(screen,1)]
-        session.applyDisplayConfiguration([typed])
-        check(session.screenTopology == [typed],"target did not publish before debounce")
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1,"geometry resolved more than once")
-        check(session.surfaces[1] === original && original.window.frame == live,
-              "geometry replaced the surface or used IPC frame instead of live frame")
-        check(original.window.frameUpdates == 1 && original.metalView.drawableUpdates == 1
-              && original.metalView.outputUpdates == 1 && session.visibilityUpdates == 1,
-              "retained geometry did not reach its existing window/view leaves")
-        check(session.rebuilds == 0 && session.audioUpdates == 0,"retained geometry rebuilt resources")
-        SceneDesktopWallpaperSession.resolutions=0
-        session.applyDisplayConfiguration([typed])
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && original.window.frameUpdates == 1
-              && session.rebuilds == 0,"same frame was set again or rebuilt")
-        SceneDesktopWallpaperSession.resolutions=0
-        session.applyDisplayConfiguration([typed,other])
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && session.surfaces[1] === original
-              && session.rebuilds == 0 && session.audioUpdates == 0,
-              "unresolved requested display dismantled an unchanged actual surface set")
-        let shrinking=SceneDesktopWallpaperSession(),keeper=SceneDesktopWallpaperSession.Surface(live)
-        let removedA=SceneDesktopWallpaperSession.Surface(live),removedB=SceneDesktopWallpaperSession.Surface(live)
-        removedA.particlePlayback?.hasAudioConsumer=true
-        shrinking.surfaces=[1:keeper,2:removedA,3:removedB]
-        shrinking.preparedSurfaceIDs=[1,2,3];shrinking.debugSurfaceReferenceFrames=[1:live,2:live,3:live]
-        SceneDesktopWallpaperSession.resolutions=0
-        shrinking.applyDisplayConfiguration([typed]);try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && shrinking.surfaces.count == 1
-              && shrinking.surfaces[1] === keeper && shrinking.retired.count == 2
-              && Set(shrinking.retired.map(ObjectIdentifier.init)) == Set([removedA,removedB].map(ObjectIdentifier.init)),
-              "removed-only reconciliation replaced a survivor or retired the wrong owners")
-        check(shrinking.preparedSurfaceIDs == [1] && shrinking.audioInputs == [false]
-              && shrinking.launchContext!.propertyVectorScriptProgram.domain!.identities == ["screen-1"]
-              && shrinking.launchContext!.sceneScriptCursorProgram.retired == [Set([2,3])]
-              && Set(shrinking.debugSurfaceReferenceFrames.keys) == [1],
-              "removed membership did not publish exact prepared/audio/storage/input consumers once")
-        check(shrinking.rebuilds == 0 && shrinking.stops == 0 && keeper.window.frameUpdates == 0
-              && keeper.metalView.drawableUpdates == 1 && keeper.metalView.outputUpdates == 1,
-              "removed-only reconciliation entered global rebuild or missed survivor geometry")
-        let mixed=SceneDesktopWallpaperSession()
-        mixed.surfaces=[1:keeper,2:removedA]
-        SceneDesktopWallpaperSession.resolved=[(screen,1),(secondScreen,3)]
-        SceneDesktopWallpaperSession.resolutions=0
-        mixed.applyDisplayConfiguration([typed,other]);try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && mixed.rebuilds == 1
-              && mixed.audioInputs.count == 1 && mixed.audioInputs[0] == nil && mixed.retired.isEmpty
-              && mixed.rebuiltScreens.map(\.1) == [1,3],"mixed replacement escaped original fallback")
-        SceneDesktopWallpaperSession.resolutions=0
-        SceneDesktopWallpaperSession.resolved=[(screen,1),(secondScreen,2)]
-        session.applyDisplayConfiguration([typed,other])
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && session.rebuilds == 1
-              && session.audioUpdates == 1 && session.stops == 0,
-              "resolved membership change did not use one fallback/audio transaction")
-        check(session.rebuiltScreens.count == 2 && session.rebuiltScreens[0].0 === screen
-              && session.rebuiltScreens[1].0 === secondScreen
-              && session.rebuiltScreens.map(\.1) == [1,2],"fallback did not reuse the resolved screens")
-        let empty=SceneDesktopWallpaperSession()
-        empty.rebuildSucceeds=false
-        SceneDesktopWallpaperSession.resolutions=0
-        SceneDesktopWallpaperSession.resolved=[]
-        empty.applyDisplayConfiguration([typed])
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 1 && empty.rebuilds == 1
-              && empty.audioUpdates == 1 && empty.stops == 1 && empty.launchContext == nil,
-              "empty resolution bypassed the original rebuild failure/revoke")
-        let departed=SceneDesktopWallpaperSession()
-        let untouched=SceneDesktopWallpaperSession.Surface(.zero)
-        departed.surfaces[1]=untouched
-        SceneDesktopWallpaperSession.resolutions=0
-        SceneDesktopWallpaperSession.resolved=[(screen,1)]
-        departed.applyDisplayConfiguration([typed])
-        departed.launchContext=nil
-        try await settle()
-        check(SceneDesktopWallpaperSession.resolutions == 0 && untouched.window.frameUpdates == 0
-              && untouched.metalView.drawableUpdates == 0 && untouched.metalView.outputUpdates == 0
-              && departed.rebuilds == 0 && departed.audioUpdates == 0 && departed.visibilityUpdates == 0,
-              "queued reconciliation touched a departed context")
-        print("PASS: actual Session display reconciliation, live geometry, unresolved/stable/resolved/empty and departed context")
-    }
-}
-'''
-
 
 def production_method(source, signature):
     # Compile the actual owner method without unrelated host services.
@@ -888,25 +708,52 @@ def production_method(source, signature):
         end += 1
     return source[start:end]
 
+
+def preparation_sources():
+    directory = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session"
+    session = (directory / "SceneDesktopWallpaperSession.swift").read_text()
+    owner = (directory / "SceneDesktopWallpaperSession+SurfacePreparation.swift").read_text()
+    models = (directory / "SceneDesktopWallpaperLaunchModels.swift").read_text()
+    cancellation = production_method(models, "nonisolated final class SceneWallpaperLaunchCancellation:")
+    types = "\n".join(production_method(owner, signature) for signature in
+        ("    struct PreparedSurface {", "    final class PendingSurfacePreparation {"))
+    pending = "\n".join(production_method(owner, signature) for signature in
+        ("    private func prepareAddedSurfaces(", "    private func finishSurfacePreparation("))
+    coordinator = "\n".join([
+        production_method(session, "    func applyDisplayConfiguration("),
+        production_method(session, "    private func scheduleScreenConfigurationReconciliation("),
+        production_method(owner, "    func reconcileSurfaceScreens("), pending,
+        production_method(owner, "    func updatePreparedSurfaceMembership(")])
+    return cancellation, types, pending, coordinator
+
+
+def shutdown_harness(template):
+    fixture = (ROOT / "script/tests/fixtures/SceneSurfacePreparationHarness.swift").read_text()
+    leaves = fixture.split("// PREPARATION_LEAVES_BEGIN\n", 1)[1].split("// PREPARATION_LEAVES_END", 1)[0]
+    cancellation, types, pending, _ = preparation_sources()
+    return (template.replace("// SHARED_PREPARATION_LEAVES", leaves)
+            .replace("// PRODUCTION_CANCELLATION", cancellation)
+            .replace("// PRODUCTION_PENDING_TYPES", types)
+            .replace("// PRODUCTION_PENDING_METHODS", pending))
+
+
 class SceneDebugCaptureShutdownTests(unittest.TestCase):
     def test_display_reconciliation_preserves_actual_members_and_reuses_resolution(self):
-        session = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift").read_text()
-        audio = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift").read_text()
-        methods = [production_method(session, "    func applyDisplayConfiguration("),
-                   production_method(session, "    private func scheduleScreenConfigurationReconciliation("),
-                   production_method(session, "    private func reconcileSurfaceScreens("),
-                   production_method(session, "    private func updatePreparedSurfaceMembership("),
-                   production_method(audio, "    func rebuildSurfacesReconcilingAudioDemand(")]
+        cancellation, types, pending, coordinator = preparation_sources()
+        fixture = (ROOT / "script/tests/fixtures/SceneSurfacePreparationHarness.swift").read_text()
+        source = (fixture.replace("// PRODUCTION_CANCELLATION", cancellation)
+                  .replace("// PRODUCTION_PREPARATION_TYPES", types)
+                  .replace("// PRODUCTION_DISPLAY_METHODS", coordinator))
         with tempfile.TemporaryDirectory(prefix="mwx-display-reconciliation-") as raw:
             directory = Path(raw)
             harness = directory / "Harness.swift"
-            harness.write_text(DISPLAY_RECONCILIATION_TEMPLATE.replace("// PRODUCTION_DISPLAY_METHODS", "\n".join(methods)))
+            harness.write_text(source)
             binary = directory / "harness"
             topology = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift"
             compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", str(topology), str(harness), "-o", str(binary)],
                                          capture_output=True, text=True)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("PASS:", result.stdout)
 
@@ -914,7 +761,7 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-capture-shutdown-") as raw:
             directory = Path(raw)
             harness = directory / "Harness.swift"
-            harness.write_text(HARNESS)
+            harness.write_text(shutdown_harness(HARNESS))
             binary = directory / "harness"
             sources = [
                 "Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
@@ -933,7 +780,7 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             obj = directory / "Proxy.o"
             objc_result = subprocess.run(["xcrun", "clang", "-fobjc-arc", "-c", str(proxy), "-o", str(obj)], capture_output=True, text=True)
             self.assertEqual(objc_result.returncode, 0, objc_result.stderr)
-            compile_result = subprocess.run(["xcrun", "swiftc", "-import-objc-header", str(header), str(obj), "-D", "DEBUG", *[str(ROOT / "MyWallpaperX" / p) for p in sources], str(harness), "-o", str(binary)], capture_output=True, text=True)
+            compile_result = subprocess.run(["xcrun", "swiftc", "-import-objc-header", str(header), str(obj), "-D", "DEBUG", "-D", "SCENE_SHUTDOWN_PREPARATION", *[str(ROOT / "MyWallpaperX" / p) for p in sources], str(harness), "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
             result = subprocess.run([str(binary), "--mwx-debug-scene-evidence-dir", str(directory / "evidence")], capture_output=True, text=True, timeout=40)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -943,11 +790,17 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             self.assertIn("PASS:", failure.stdout)
 
     def test_real_appkit_termination_delivers_pending_and_completed_drains(self):
+        self.run_appkit_modes(("predrained", "pending", "terminal-failed", "owned", "export", "retiring-export", "overlap-owned", "invalid-profile", "font-work", "font-without-surface", "font-stopped-before-drain", "media-work", "media-without-surface", "media-stopped-before-drain", "deferred-work"))
+
+    def test_appkit_termination_delivers_added_preparation_tails(self):
+        self.run_appkit_modes(("surface-worker", "surface-main-tail", "surface-stopped-before-drain"))
+
+    def run_appkit_modes(self, modes):
         with tempfile.TemporaryDirectory(prefix="mwx-appkit-shutdown-") as raw:
             directory = Path(raw)
             delegate = (ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
             runner = (ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift").read_text()
-            source = APPKIT_TEMPLATE.replace("// PRODUCTION_TERMINATION_METHOD", production_method(
+            source = shutdown_harness(APPKIT_TEMPLATE).replace("// PRODUCTION_TERMINATION_METHOD", production_method(
                 delegate, " func applicationShouldTerminate(_ sender: NSApplication)").replace("func applicationShouldTerminate(", "func ownedApplicationShouldTerminate(") + "\n" + production_method(
                 delegate, " private func replyAfterPlaybackProcessesExit(_ sender: NSApplication)"))
             source = source.replace("// PRODUCTION_RUNNER_TERMINATION", production_method(
@@ -964,10 +817,10 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
                        "Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
                 "Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
                        "App/Debug/DebugScenePlaybackRunner+HostOwnership.swift"]
-            compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", *[str(ROOT / "MyWallpaperX" / p) for p in sources],
+            compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", "-D", "SCENE_SHUTDOWN_PREPARATION", *[str(ROOT / "MyWallpaperX" / p) for p in sources],
                                           str(harness), "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            for mode in ("predrained", "pending", "terminal-failed", "owned", "export", "retiring-export", "overlap-owned", "invalid-profile", "font-work", "font-without-surface", "font-stopped-before-drain", "media-work", "media-without-surface", "media-stopped-before-drain", "deferred-work"):
+            for mode in modes:
                 with self.subTest(mode=mode):
                     evidence = directory / mode
                     evidence.mkdir()
@@ -979,6 +832,12 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
                     self.assertLess(result.stderr.index("phase=stopped"), result.stderr.index("APPKIT TEST did-terminate"))
                     if mode in ("font-work", "font-without-surface", "font-stopped-before-drain", "media-work", "media-without-surface", "media-stopped-before-drain", "deferred-work"):
                         self.assertLess(result.stderr.index("APPKIT TEST provider worker release"), result.stderr.index("phase=stopped"))
+                    if mode.startswith("surface-"):
+                        self.assertLess(result.stderr.index("state=resources-finished"), result.stderr.index("phase=stopped"))
+                        if mode == "surface-main-tail":
+                            self.assertLess(result.stderr.index("state=worker-returned"), result.stderr.index("APPKIT TEST pending preparation main tail queued"))
+                        else:
+                            self.assertLess(result.stderr.index("APPKIT TEST pending preparation worker release"), result.stderr.index("state=resources-finished"))
                     if mode in ("export", "retiring-export", "overlap-owned", "invalid-profile"):
                         self.assertTrue((evidence / "scene-appkit-pending-window.png").is_file())
                         self.assertLess(result.stderr.index("phase=snapshot "), result.stderr.index("phase=stopped"))

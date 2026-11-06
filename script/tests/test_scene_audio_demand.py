@@ -179,29 +179,7 @@ final class SceneDesktopWallpaperSession {
             SceneAudioSpectrumInbox.shared.setDemand(audioDemand.spectrum, requiresCurrentProcessAudioCapture: audioDemand.currentProcess)
         }
     }
-    var rebuildSucceeds = true
-    var resolvedParticleConsumer = false
-    private(set) var rebuildCalls = 0
-    private(set) var stopCalls = 0
-    var context: SceneDesktopWallpaperLaunchContext!
 
-    func rebuildSurfaces() -> Bool {
-        rebuildCalls += 1
-        guard rebuildSucceeds else { return false }
-        updateAudioSpectrumDemand(
-            context,
-            hasParticleAudioConsumer: resolvedParticleConsumer
-        )
-        return true
-    }
-
-    func stop() {
-        stopCalls += 1
-        SceneAudioSpectrumInbox.shared.setDemand(
-            false,
-            requiresCurrentProcessAudioCapture: false
-        )
-    }
 }
 
 @main
@@ -212,43 +190,25 @@ enum AudioDemandTransitionHarness {
         let particleOnly = SceneDesktopWallpaperLaunchContext()
 
         inbox.reset(demanded: true)
-        host.context = particleOnly
-        host.resolvedParticleConsumer = true
-        precondition(host.rebuildSurfacesReconcilingAudioDemand(
-            particleOnly,
-            rebuild: host.rebuildSurfaces,
-            revokeLaunch: host.stop
-        ))
+        host.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: nil)
+        host.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: true)
         precondition(inbox.current.demanded)
         precondition(inbox.updates.isEmpty)
-        precondition(host.rebuildCalls == 1)
-        precondition(host.stopCalls == 0)
 
         inbox.reset(demanded: true)
         let noConsumerHost = SceneDesktopWallpaperSession()
-        noConsumerHost.context = particleOnly
-        precondition(noConsumerHost.rebuildSurfacesReconcilingAudioDemand(
-            particleOnly,
-            rebuild: noConsumerHost.rebuildSurfaces,
-            revokeLaunch: noConsumerHost.stop
-        ))
+        noConsumerHost.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: nil)
+        noConsumerHost.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: false)
         precondition(!inbox.current.demanded)
         precondition(inbox.updates == [.init(
             demanded: false,
             includesCurrentProcess: false
         )])
-        precondition(noConsumerHost.rebuildCalls == 1)
-        precondition(noConsumerHost.stopCalls == 0)
 
         inbox.reset(demanded: false)
         let initialParticleHost = SceneDesktopWallpaperSession()
-        initialParticleHost.context = particleOnly
-        initialParticleHost.resolvedParticleConsumer = true
-        precondition(initialParticleHost.rebuildSurfacesReconcilingAudioDemand(
-            particleOnly,
-            rebuild: initialParticleHost.rebuildSurfaces,
-            revokeLaunch: initialParticleHost.stop
-        ))
+        initialParticleHost.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: nil)
+        initialParticleHost.updateAudioSpectrumDemand(particleOnly, hasParticleAudioConsumer: true)
         precondition(inbox.current.demanded)
         precondition(inbox.updates == [.init(
             demanded: true,
@@ -261,36 +221,15 @@ enum AudioDemandTransitionHarness {
             sound: true
         )
         let knownConsumerHost = SceneDesktopWallpaperSession()
-        knownConsumerHost.context = materialAndSound
         knownConsumerHost.soundPlaybackRegistry = StubSoundRegistry()
-        precondition(knownConsumerHost.rebuildSurfacesReconcilingAudioDemand(
-            materialAndSound,
-            rebuild: knownConsumerHost.rebuildSurfaces,
-            revokeLaunch: knownConsumerHost.stop
-        ))
+        knownConsumerHost.updateAudioSpectrumDemand(materialAndSound, hasParticleAudioConsumer: nil)
+        knownConsumerHost.updateAudioSpectrumDemand(materialAndSound, hasParticleAudioConsumer: false)
         precondition(inbox.current.demanded)
         precondition(inbox.current.includesCurrentProcess)
         precondition(inbox.updates == [.init(
             demanded: true,
             includesCurrentProcess: true
         )])
-
-        inbox.reset(demanded: true, includesCurrentProcess: true)
-        let failedHost = SceneDesktopWallpaperSession()
-        failedHost.context = particleOnly
-        failedHost.rebuildSucceeds = false
-        precondition(!failedHost.rebuildSurfacesReconcilingAudioDemand(
-            particleOnly,
-            rebuild: failedHost.rebuildSurfaces,
-            revokeLaunch: failedHost.stop
-        ))
-        precondition(!inbox.current.demanded)
-        precondition(inbox.updates == [.init(
-            demanded: false,
-            includesCurrentProcess: false
-        )])
-        precondition(failedHost.rebuildCalls == 1)
-        precondition(failedHost.stopCalls == 1)
 
         knownConsumerHost.soundPlaybackRegistry?.hasSources = false
         knownConsumerHost.reconcileSystemInputConsumers(materialAndSound, topologyChanged: true)

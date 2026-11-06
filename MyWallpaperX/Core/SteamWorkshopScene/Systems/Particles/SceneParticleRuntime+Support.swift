@@ -43,6 +43,12 @@ extension SceneParticleRuntime {
         layers.first { $0.layerID == layerID }?.rootRender?.simulator.playbackObservation
     }
 
+    func adoptPlayback(_ states: [Int: SceneParticlePlaybackSnapshot]) {
+        for (layerID, simulator) in playbackSimulators {
+            simulator.adoptPlayback(states[layerID] ?? .init())
+        }
+    }
+
     /// Official particle containers parse `renderer` and `children` as
     /// independent collections. We admit only the bounded form whose root has
     /// no renderer and whose complete root-child set is static and executable;

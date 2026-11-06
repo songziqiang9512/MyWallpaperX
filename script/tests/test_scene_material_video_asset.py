@@ -555,7 +555,7 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
             (self.evidence / "storage.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
         print(json.dumps(result, sort_keys=True), flush=True)
         required = {"embeddedActualFrameKeepsRedPixels", "embeddedBorrowsActualSourceAVAsset",
-            "ordinarySurfaceRebuildReusesActualSource", "independentPackageMountKeepsActualSource",
+            "addedViewReusesActualAssetSource", "independentPackageMountKeepsActualSource",
             "retiredCachePollutionDoesNotChangePackageBytes", "retiredCachePollutionKeepsBorrowedEmbeddedBytes",
             "retiredCachePollutionKeepsCurrentDeclaration", "embeddedAVBorrowerAlonePinsFile",
             "embeddedFinalAVBorrowerUnlinksFile", "externalCandidatePrimesActualDecoder",
@@ -708,11 +708,11 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
             'cancelledRequestIsRejected', 'cancelledRequestExpectedIO', 'sourceChangedEscapesBeforePayload',
             'actualAssetKeepsCompletedFile', 'lastBorrowActuallyReleased', 'lastBorrowMissReadsOriginalPayload'}
         expected.update({'preparedColdAvoidsPayloadAndDuplicateFile', 'preparedActualFrameUsesCompletedMP4',
-            'preparedLiveCacheHitAvoidsPayload', 'preparedRebuildKeepsReachableSource',
+            'preparedLiveCacheHitAvoidsPayload', 'addedViewReusesSourceWithoutPayload',
             'preparedCancelledCacheHitIsRejected', 'preparedStopRetiresActualPlayer',
             'preparedAssetAlonePinsCompletedFile', 'preparedFinalBorrowReturnsReservation',
             'layerIndexExcludesAssetAndKeepsBothLayers', 'layerIndexSharesResourceAndTargetsDistinctRevision',
-            'wrongLayerRejectedAtomically', 'knownNativeDurationRejectedAtomically', 'staleSourceCommandRejected', 'missingSourceCommandRejected', 'layerIndexRebuildKeepsSiblingAndRemovesObsolete',
+            'wrongLayerRejectedAtomically', 'knownNativeDurationRejectedAtomically', 'staleSourceCommandRejected', 'missingSourceCommandRejected', 'retireAndAddedViewKeepOnlyCurrentBinding',
             'layerIndexRetiredCommandsAreUnavailable', 'layerIndexStopClearsBindings',
             'catalogZeroCarrierReusesSourceAndFile'})
         self.assertEqual(set(result['checks']), expected)

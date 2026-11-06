@@ -184,8 +184,8 @@ final class SceneParticleRuntime {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent,
         destroyedAuthoredLayerIDs: Set<Int> = [],
-        rootPrewarmStepBudget: Int? = 3_600,
         shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
         self.device = device
@@ -317,7 +317,8 @@ final class SceneParticleRuntime {
                 controlPointFrame: initialControlPointFrame,
                 rootTranslationOffset: translation?.frame.birthPositionOffset ?? .zero,
                 initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
-                initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id)
+                initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
+                initialAudioInput: initialAudioInput
             )
 #if DEBUG
             for detail in childRuntime.unsupportedDetails {
@@ -383,7 +384,7 @@ final class SceneParticleRuntime {
                     controlPointFrame: initialControlPointFrame,
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
-                    prewarmStepBudget: rootPrewarmStepBudget,
+                    initialAudioInput: initialAudioInput,
                     shouldCancelPrewarm: shouldCancelPrewarm,
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry
@@ -836,7 +837,7 @@ final class SceneParticleRuntime {
         controlPointFrame: SceneParticleControlPointFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
-        prewarmStepBudget: Int?,
+        initialAudioInput: SceneParticleAudioInput,
         shouldCancelPrewarm: (() -> Bool)?,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
@@ -920,8 +921,9 @@ final class SceneParticleRuntime {
             initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
             initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput,
             seed: UInt64(bitPattern: Int64(layer.id)),
-            prewarmStepBudget: prewarmStepBudget,
+            prewarmStepBudget: nil,
             shouldCancelPrewarm: shouldCancelPrewarm,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,

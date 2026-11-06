@@ -32,6 +32,8 @@ def production_harness(sources=None):
     submission = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift")
     pause = read("Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift")
     teardown = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift")
+    assembly_path = "Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift"
+    assembly = sources.get(assembly_path, session) if sources is not None else read(assembly_path)
     context = read("Runtime/Frame/SceneFrameContext.swift")
     outcome = read("Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift")
     view = read("Rendering/Frame/SceneMetalView.swift")
@@ -63,7 +65,7 @@ def production_harness(sources=None):
         method(teardown, "func teardownSurface("),
         retirement,
     ])
-    harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
+    harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(assembly, "metalView.onRenderInvalidated =") + "\n")
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))

@@ -168,15 +168,6 @@ static int video_table_case(MWXSceneQuickJSDomain *domain) {
     failures += check(domain->video_observations[0].current_time == 1
         && domain->video_observations[0].source_incarnation[0] == 11 && domain->layers[0].video_source_index == 0,
         "rollback restores original incarnation and consumer binding", diagnostic);
-    failures += stage_video_table(domain, 11, rows, 0);
-    failures += check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain, diagnostic, sizeof(diagnostic))
-        == MWX_SCENE_QUICKJS_OK, "withdrawal probe commits replacement", diagnostic);
-    failures += check(mwx_scene_quickjs_domain_withdraw_authored_video_sources(domain) == MWX_SCENE_QUICKJS_OK,
-        "preparation withdraws authored consumers", diagnostic);
-    failures += check(mwx_scene_quickjs_domain_rollback_layer_snapshot(domain), "withdrawal probe can roll back values", diagnostic);
-    failures += check(domain->layers[0].video_source_index == UINT32_MAX && domain->layers[1].video_source_index == UINT32_MAX
-        && domain->video_observations[0].current_time == 1 && domain->video_observations[0].source_incarnation[0] == 11,
-        "rollback restores source values without reviving withdrawn consumers", diagnostic);
     return failures;
 }
 

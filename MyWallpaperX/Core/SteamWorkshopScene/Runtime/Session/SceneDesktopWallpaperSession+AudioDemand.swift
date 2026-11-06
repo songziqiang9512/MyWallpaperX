@@ -21,25 +21,6 @@ extension SceneDesktopWallpaperSession {
         installPointerEventMonitorsIfNeeded()
     }
 
-    /// Owns the demand lifecycle around a surface rebuild.  Particle demand is
-    /// unknown until the new surfaces have loaded, so the current exact demand
-    /// is preserved first and only reconciled by `rebuildSurfaces` after the
-    /// particle plans are available.  A failed rebuild is a terminal host
-    /// state: `stop()` revokes the demand and all other launch-scoped owners.
-    @discardableResult
-    func rebuildSurfacesReconcilingAudioDemand(
-        _ context: SceneDesktopWallpaperLaunchContext,
-        rebuild: () -> Bool,
-        revokeLaunch: () -> Void
-    ) -> Bool {
-        updateAudioSpectrumDemand(context, hasParticleAudioConsumer: nil)
-        guard rebuild() else {
-            revokeLaunch()
-            return false
-        }
-        return true
-    }
-
     func updateAudioSpectrumDemand(
         _ context: SceneDesktopWallpaperLaunchContext,
         hasParticleAudioConsumer: Bool?
@@ -58,9 +39,9 @@ extension SceneDesktopWallpaperSession {
                 || context.sceneScriptStringProgram.hasAudioConsumers
                 || context.sceneScriptCursorProgram.hasAudioConsumers(excludingTargets: disabledTargets)
                 || hasSourceMaterialAudioConsumer(context, topology: topology))
-        // Particle plans are known only after the new surfaces load.  When no
+        // Particle plans are known only after the initial surfaces load.  When no
         // other prepared consumer proves demand, preserve the previous scene's
-        // exact demand until rebuild resolves the particle result.  Converting
+        // exact demand until installation resolves the particle result.  Converting
         // this unknown to false would clear the shared snapshot and retire the
         // system tap during an audio -> particle-only scene switch.
         guard demandsSpectrum || hasParticleAudioConsumer != nil else { return }

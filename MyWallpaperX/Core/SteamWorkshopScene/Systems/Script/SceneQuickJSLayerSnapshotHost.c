@@ -376,20 +376,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_source(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_withdraw_authored_video_sources(
-    MWXSceneQuickJSDomain *domain
-) {
-    if (domain == NULL || domain->callback_active) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
-        domain->layers[index].video_source_index = UINT32_MAX;
-        if (domain->pending_layer_snapshot != NULL)
-            domain->pending_layer_snapshot[index].video_source_index = UINT32_MAX;
-        if (domain->rollback_layer_snapshot != NULL)
-            domain->rollback_layer_snapshot[index].video_source_index = UINT32_MAX;
-    }
-    return MWX_SCENE_QUICKJS_OK;
-}
-
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_sound_fields(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index,
     uint32_t available, uint32_t is_playing,

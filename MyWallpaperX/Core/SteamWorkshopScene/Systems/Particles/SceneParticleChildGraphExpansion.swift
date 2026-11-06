@@ -421,6 +421,7 @@ extension SceneParticleChildTemplate {
         rootTranslationOffset: SIMD3<Double> = .zero,
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent,
         maximumEmissionDuration: Double? = nil,
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) -> SceneParticleSimulator {
@@ -430,6 +431,7 @@ extension SceneParticleChildTemplate {
             initialDynamicInstanceOverride: instanceOverride?.resolving(dynamicInstanceValues),
             initialDynamicControlPoints: initialDynamicControlPoints,
             initialDynamicControlPointAngles: initialDynamicControlPointAngles,
+            initialAudioInput: initialAudioInput,
             seed: seed,
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,

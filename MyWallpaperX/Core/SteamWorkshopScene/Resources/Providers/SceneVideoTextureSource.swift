@@ -745,13 +745,6 @@ final class SceneVideoTextureSource {
         if hasStarted { markPlayerAnchorRequired() }
     }
 
-    func rebuild(sceneTime: TimeInterval, hostTime: TimeInterval) {
-        player.pause()
-        guard hasStarted else { return }
-        lifecycle.rebuild(sceneTime: sceneTime, hostTime: hostTime)
-        markPlayerAnchorRequired()
-    }
-
     /// Losing the final consumer suspends decoder work, not author playback.
     /// A returning consumer positions from the existing Scene clock; the last
     /// ready publication remains usable while that positioning completes.

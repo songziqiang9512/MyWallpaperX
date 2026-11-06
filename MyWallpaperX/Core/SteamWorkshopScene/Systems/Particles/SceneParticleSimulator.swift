@@ -109,6 +109,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         initialPlayback: SceneParticlePlaybackSnapshot = .init(),
+        initialAudioInput: SceneParticleAudioInput = .silent,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -133,6 +134,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.dynamicControlPoints = initialDynamicControlPoints
         self.dynamicControlPointAngles = initialDynamicControlPointAngles
+        self.audioInput = initialAudioInput
         self.maximumEmissionDuration = maximumEmissionDuration
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
@@ -223,7 +225,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // prewarmed world-space systems convert through the launch frame.
         activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
-               historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0,
                controlPointParticleSpace: initialControlPointParticleSpace,
                shouldCancel: shouldCancelPrewarm)
 #if DEBUG
@@ -249,6 +250,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             discardPopulationForPlayback()
         }
         playback.revision = transition.revision
+    }
+
+    /// Revision can advance through emits while this surface is still preparing.
+    func adoptPlayback(_ state: SceneParticlePlaybackSnapshot) {
+        if state.intent == .stopped || (state.intent == .playing && playback.intent == .stopped) {
+            for index in emitters.indices { emitters[index].rearm() }
+        }
+        playback = state
+        if state.intent == .stopped { discardPopulationForPlayback() }
     }
 
     /// Completed emitters and author pause/stop intent survive visibility changes.
@@ -445,7 +455,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(
-        duration: Double, stepBudget: Int?, historyCapacity: Int,
+        duration: Double, stepBudget: Int?,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
         shouldCancel: (() -> Bool)?
     ) {
@@ -458,24 +468,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
-        // Background preparation completes the request. Synchronous callers
-        // retain their existing bounded steps and work estimate.
+        // Roots complete on the worker; ordinary child construction keeps its step bound.
         let requestedCount = Int(requestedSteps)
-        let count = stepBudget.map { min(requestedCount, min(max($0, 0), 3_600)) }
+        let count = stepBudget.map { min(requestedCount, max($0, 0)) }
             ?? requestedCount
-        var initializerCost = 0.0
-        var operatorCost = 0.0
-        var boidsCount = 0.0
-        if stepBudget != nil && count > 240 {
-            for value in definition.initializers {
-                initializerCost += 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
-            }
-            for value in definition.operators {
-                operatorCost += 32
-                if case .boids = value.kind { boidsCount += 1 }
-            }
-        }
-        var workRemaining = 4_000_000.0
         var completedSteps = 0
         var remaining = duration
 #if DEBUG
@@ -488,25 +484,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
                 break
             }
-            if stepBudget != nil && completedSteps >= 240 && workRemaining <= 0 { break }
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
-            let previousID = nextParticleID
-            let previousTime = simulationTime
             step(by: slice, controlPointParticleSpace: controlPointParticleSpace)
             completedSteps += 1
-            if stepBudget != nil && completedSteps > 240 {
-                // IDs include failed births that reached initialization; lives
-                // still contains the actual pre-death-compaction population.
-                let births = Double(nextParticleID - previousID)
-                let live = simulationTime != previousTime ? Double(normalizedLives.count) : 0
-                let work = Double(definition.emitters.count + definition.operators.count)
-                    + births * initializerCost
-                    + live * (32 + operatorCost + Double(historyCapacity))
-                    + boidsCount * live * live
-                workRemaining -= max(1, work)
-            }
             // These events have never been replayed to children after warmup.
             // Drain per step so a long, short-lived emitter cannot retain its
             // entire prehistory. The bounded trail recorder remains intact.

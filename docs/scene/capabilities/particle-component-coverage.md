@@ -16,11 +16,11 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 <a id="prewarm-work"></a>
 ### 预热准备与工作边界
 
-初始 launch 在原 Host preparation queue 的资源/Program join 后，为主线程冻结的每个目标 Surface 构造独占 PlaybackState/Runtime，完整执行作者 starttime 的原步序列，再随 PreparedLaunch 一次移交。Session 只安装实例与 GPU pipeline，不共享 mutable Simulator、不重新冷构造或恢复种子。原请求 token 在完整步之间响应取消，未完成结果丢弃，原队列 fence 等待退出；不迁移 VM、Clock 或最终输出。
+初始 launch 在原 Host preparation queue 的资源/Program join 后，为冻结目标构造独占 PlaybackState/Runtime 与 material runtime，再随 PreparedLaunch 移交。增量新增屏复用同一显式 worker：取 job-start committed typed 值、当前粒子意图/销毁集合和 audio，完整执行作者 starttime；audio 在 root/static-child warmup 前接入。Session 共用单屏安装与 GPU pipeline，不共享 mutable Simulator、不冷构造或恢复种子。采用时当前意图/revision、无历史 emit、零步首帧及取消/同 loader 接力归[显示协调](../architecture/runtime-architecture.md#display-reconciliation)；VM、Clock 与最终输出不迁移。
 
 LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outcome 时的既有 inline 重试前移，保存最终 loaded/failed outcome，Surface 与 compiler 采用同一 texture/animation。正常已加载输入不重复读取，最终失败不增加第三次重试；deferred、视频及动态 source 继续原 provider 边界。
 
-预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，逐步排空历史事件，保部分末步和后续 live 随机序列；实例 rate 在原 step 内应用一次，simulationTime 不必等于 starttime 请求。完整初始 root 不计算虚拟权重，也不受3,600步/四百万工作单位限制。frame-created child 保持240步；后续同 Session display rebuild 仍有上述 root 步数/实际出生与死亡压缩前人口的加权上限，预算耗尽保部分状态及诊断，完整后台化归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。入口无效时长、容量与资源边界不变。
+预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，逐步排空历史事件，保部分末步和后续 live 随机序列；实例 rate 在原 step 内应用一次，simulationTime 不必等于 starttime 请求。所有 root 沿 worker 完整准备，退役3,600步、四百万加权关卡及专属工作计数；static/frame-created child 仍保240步及截断诊断。入口无效时长、容量与资源边界不变。
 
 验收核完整真实状态/RNG/事件/历史与 live handoff、多 Surface 独占、取消释放、真实初始画面和候选准备期间旧 Scene 输出。[运行证据](runtime-evidence-current.md)拥有当前结果；standalone 成本、直接 DEBUG Host 与物理多屏、daemon IPC、官方 starttime 全语义和逐帧流畅度分别设证明上限。
 

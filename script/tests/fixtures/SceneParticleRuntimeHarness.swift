@@ -241,6 +241,8 @@ enum Harness {
             ])
         case "playback-control":
             try printJSON(playbackControl())
+        case "prepared-surface-handoff":
+            try printJSON(preparedSurfaceHandoff())
         case "authored-retirement":
             try printJSON(authoredRetirement())
         case "delayed-children":
@@ -671,7 +673,8 @@ extension SceneParticleRuntime {
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent
     ) {
         let view = resourceView ?? SceneResourceView(
             projectRootURL: cacheDirectory, packageRootURL: nil)
@@ -684,7 +687,8 @@ extension SceneParticleRuntime {
             staticWorldSpaceFrames: staticWorldSpaceFrames,
             staticWorldSpaceChains: staticWorldSpaceChains,
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
-            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput)
     }
 }
 
@@ -698,7 +702,8 @@ extension SceneParticlePlaybackState {
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent
     ) {
         let view = resourceView ?? SceneResourceView(
             projectRootURL: cacheDirectory, packageRootURL: nil)
@@ -708,6 +713,7 @@ extension SceneParticlePlaybackState {
         self.init(descriptor: descriptor, preparedAssets: assets, device: device,
             textureLoader: textureLoader, layerImage: layerImage,
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
-            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput)
     }
 }

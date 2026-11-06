@@ -1025,12 +1025,16 @@
     {
       "id": "display-reconciliation-evidence",
       "patterns": [
-        "script/tests/scene_display_reconciliation_fixture.py"
+        "script/tests/scene_display_reconciliation_fixture.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift",
+        "script/tests/fixtures/SceneSurfacePreparationHarness.swift"
       ],
       "modules": [
         "test_scene_frame_presentation_integration",
         "test_scene_particle_playback_integration",
-        "test_scene_reflection_history_integration"
+        "test_scene_reflection_history_integration",
+        "test_scene_debug_capture_shutdown",
+        "test_scene_paused_frame_recovery"
       ]
     },
     {

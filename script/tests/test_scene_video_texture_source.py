@@ -101,9 +101,7 @@ enum Harness {
             sceneTime: 20.25,
             hostTime: 200.25
         )
-        state.rebuild(sceneTime: 20.5, hostTime: 200.5)
-        let rebuiltEpoch = state.epoch
-        let rebuilt = state.planFrame(
+        let continued = state.planFrame(
             frameIndex: 13,
             sceneTime: 20.75,
             hostTime: 8_000
@@ -124,18 +122,6 @@ enum Harness {
         suspendedPause.suspend(sceneTime: 1, hostTime: 11)
         suspendedPause.pause(sceneTime: 9, hostTime: 19)
         let pausedWhileSuspended = suspendedPause.planFrame(
-            frameIndex: 1,
-            sceneTime: 12,
-            hostTime: 22
-        )
-
-        var suspendedRebuild = SceneVideoProviderLifecycleState(epoch: 82)
-        suspendedRebuild.start(sceneTime: 0, hostTime: 10)
-        _ = suspendedRebuild.planFrame(frameIndex: 0, sceneTime: 0, hostTime: 10)
-        _ = suspendedRebuild.didPublish(frameIndex: 0)
-        suspendedRebuild.suspend(sceneTime: 1, hostTime: 11)
-        suspendedRebuild.rebuild(sceneTime: 9, hostTime: 19)
-        let rebuiltWhileSuspended = suspendedRebuild.planFrame(
             frameIndex: 1,
             sceneTime: 12,
             hostTime: 22
@@ -214,14 +200,11 @@ enum Harness {
         earlyPaused.resume(sceneTime: 105.5, hostTime: 205.5)
         var earlyRate = earlyAnchor
         earlyRate.setRate(2, sceneTime: 105.01, hostTime: 205.01)
-        var earlyRebuilt = earlyAnchor
-        earlyRebuilt.rebuild(sceneTime: 105.01, hostTime: 205.01)
         var finalEnd = earlyAnchor
         finalEnd.setLoop(false)
         finalEnd.didReachEnd(duration: 5)
         let negativeAnchorTransitions = close(earlyPaused.currentTime(at: 105.52), 0.015)
             && close(earlyRate.currentTime(at: 105.03), 0.05)
-            && close(earlyRebuilt.currentTime(at: 105.03), 0.03)
             && close(finalEnd.currentTime(at: 110), 5) && !finalEnd.isPlaying
 
         var playerEvents = SceneVideoPlayerEventState()
@@ -282,12 +265,10 @@ enum Harness {
                 && close(paused.itemTime, 0.75),
             "resumeIsContinuous": resumed.shouldDecode
                 && close(resumed.itemTime, 1.0),
-            "rebuildIsContinuous": rebuilt.shouldDecode
-                && close(rebuilt.itemTime, 1.5),
+            "laterFrameUsesSameSceneAnchor": continued.shouldDecode
+                && close(continued.itemTime, 1.5),
             "suspendedPauseDoesNotAdvance": !pausedWhileSuspended.shouldDecode
                 && close(pausedWhileSuspended.itemTime, 1),
-            "suspendedRebuildDoesNotAdvance": !rebuiltWhileSuspended.shouldDecode
-                && close(rebuiltWhileSuspended.itemTime, 1),
             "firstStartPreservesGlobalSuspension": startsSuspended
                 && frozenFirst.shouldDecode && close(frozenFirst.itemTime, 0)
                 && frozenFirstPublication == 1
@@ -312,10 +293,9 @@ enum Harness {
             "epochIsInherited": initialEpoch == 73
                 && pausedEpoch == initialEpoch
                 && resumedEpoch == initialEpoch
-                && rebuiltEpoch == initialEpoch
                 && paused.epoch == initialEpoch
                 && resumed.epoch == initialEpoch
-                && rebuilt.epoch == initialEpoch,
+                && continued.epoch == initialEpoch,
             "stopIsIdempotent": firstStopRequestsCleanup
                 && !secondStopRequestsCleanup
                 && !state.isPlaying && !state.isAdvancingPlayback,
@@ -402,9 +382,8 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "generationIsPublicationDriven",
             "pauseHoldsItemTime",
             "resumeIsContinuous",
-            "rebuildIsContinuous",
+            "laterFrameUsesSameSceneAnchor",
             "suspendedPauseDoesNotAdvance",
-            "suspendedRebuildDoesNotAdvance",
             "firstStartPreservesGlobalSuspension",
             "resumeAfterFrozenFirstUsesSceneAnchor",
             "resumeBeforeFirstStartClearsSuspension",

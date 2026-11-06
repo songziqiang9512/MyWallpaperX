@@ -7,7 +7,7 @@ extension SceneDesktopWallpaperHost {
         let model: SceneRuntimeModel
         var context: SceneDesktopWallpaperLaunchContext
         let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
-        let particleSurfaces: [SceneDesktopWallpaperSession.PreparedParticleSurface]
+        let preparedSurfaces: [SceneDesktopWallpaperSession.PreparedSurface]
     }
 
     func requestLaunch(
@@ -25,6 +25,7 @@ extension SceneDesktopWallpaperHost {
         rollbackUnconfirmedPromotion()
         cancelPendingLaunch()
         activeSession?.cancelPendingUserTextureUpdates()
+        activeSession?.pendingSurfacePreparation?.cancellation.cancel()
         nextLaunchRequestGeneration &+= 1
         nextSceneScriptGeneration &+= 1
         let requestGeneration = nextLaunchRequestGeneration
@@ -44,6 +45,11 @@ extension SceneDesktopWallpaperHost {
             message: "已接受 Scene 壁纸请求"
         ))
 
+#if DEBUG
+        if Self.usesDebugEvidenceWindow {
+            screenTopology = SceneDesktopWallpaperSession.debugInitialSurfaceTopology(screenTopology)
+        }
+#endif
         let surfaceDisplayIDs = SceneDesktopWallpaperSession.surfaceScreens(topology: screenTopology).map(\.1)
         launchPreparationQueue.async { [weak self] in
             guard let self else { return }
@@ -80,7 +86,7 @@ extension SceneDesktopWallpaperHost {
                 let model = prepared.model
                 let context = prepared.context
                 let userPropertyTextureLoad = prepared.userPropertyTextureLoad
-                let particleSurfaces = prepared.particleSurfaces
+                let preparedSurfaces = prepared.preparedSurfaces
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.nextLaunchRequestGeneration == requestGeneration else {
@@ -96,7 +102,7 @@ extension SceneDesktopWallpaperHost {
                         ))
                         try self.beginCandidate(
                             context,
-                            particleSurfaces: particleSurfaces,
+                            preparedSurfaces: preparedSurfaces,
                             userPropertyTextureLoad: userPropertyTextureLoad,
                             firstPresentation: .init(requestID: requestID, recordID: recordID)
                         ) { [weak self] result in
@@ -869,14 +875,24 @@ extension SceneDesktopWallpaperHost {
         let particlePreparationStart = CACurrentMediaTime()
         let framesBeforeParticlePreparation = ScenePerformanceCounterHub.shared.snapshot()[.framesRendered] ?? 0
 #endif
-        let particleSurfaces = try context.prepareParticleSurfaces(
-            displayIDs: surfaceDisplayIDs, cancellation: cancellation)
+        let initialValues = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 0, generation: 0, index: context.dynamicDefinitionIndex,
+            userValues: context.liveState.userValues,
+            timelineValues: context.timelinePlaybackRuntime.values(sceneTime: 0),
+            sceneScriptValues: [:]).snapshot
+        let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
+        let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
+        let preparedSurfaces = try context.makeSurfacePreparationInput(
+            dynamicValues: initialValues, particlePlayback: topology.particlePlayback,
+            destroyedAuthoredLayerIDs: topology.destroyedAuthoredLayerIDs,
+            audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation)
+        ).prepare(displayIDs: surfaceDisplayIDs, cancellation: cancellation)
 #if DEBUG
         let preparedFrameCount = (ScenePerformanceCounterHub.shared.snapshot()[.framesRendered] ?? 0)
             - framesBeforeParticlePreparation
         NSLog("MWX LAUNCH-STAGE: stage=particle-prewarm elapsedMs=%.3f surfaces=%d concurrentRenderedFrames=%llu",
               (CACurrentMediaTime() - particlePreparationStart) * 1000,
-              particleSurfaces.count, preparedFrameCount)
+              preparedSurfaces.count, preparedFrameCount)
 #endif
         try cancellation?.check()
 #if DEBUG
@@ -884,7 +900,7 @@ extension SceneDesktopWallpaperHost {
 #endif
         return PreparedLaunch(model: model, context: context,
                               userPropertyTextureLoad: userPropertyTextureLoad,
-                              particleSurfaces: particleSurfaces)
+                              preparedSurfaces: preparedSurfaces)
     }
 
     private func finishLaunchFailure(

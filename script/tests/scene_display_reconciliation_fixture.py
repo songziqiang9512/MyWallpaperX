@@ -22,35 +22,40 @@ def load_reconciliation_snapshots(evidence: Path) -> dict:
 
 
 def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool,
-                             remaining_screens: int | None = None) -> tuple:
+                             remaining_screens: int | None = None,
+                             target_displays: set[str] | None = None) -> tuple:
     before, after, settled = (observed[stage] for stage in STAGES)
     case.assertTrue(before["sessionID"] and before["requestID"], observed)
     displays = set(before["surfacesByDisplay"])
     case.assertEqual(len(displays), screens, observed)
-    retained = set(after["surfacesByDisplay"])
-    if remaining_screens is None:
-        case.assertEqual(retained, displays, observed)
+    targets = set(after["surfacesByDisplay"])
+    if target_displays is not None:
+        case.assertEqual(targets, target_displays, observed)
+    elif remaining_screens is None:
+        case.assertEqual(targets, displays, observed)
     else:
-        case.assertEqual(len(retained), remaining_screens, observed)
-        case.assertTrue(retained and retained < displays, observed)
+        case.assertEqual(len(targets), remaining_screens, observed)
+        case.assertTrue(targets and targets < displays, observed)
+    retained = displays & targets
     live_frames = {str(row["displayID"]): row["frame"] for row in before["capturedTopology"]}
     case.assertTrue(live_frames, observed)
     for stage, snapshot in observed.items():
         for key in ("sessionID", "requestID"):
             case.assertEqual(snapshot[key], before[key], observed)
-        current_displays = displays if stage == "before" else retained
+        current_displays = displays if stage == "before" else targets
         case.assertEqual(snapshot["surfaceCount"], len(current_displays), observed)
         case.assertEqual(set(snapshot["surfacesByDisplay"]), current_displays, observed)
         for field in SURFACE_IDENTITIES:
             identities = [row[field] for row in snapshot["surfacesByDisplay"].values()]
             case.assertTrue(all(identities), (field, observed))
             case.assertEqual(len(set(identities)), len(current_displays), (field, observed))
-    for display in retained:
-        original = before["surfacesByDisplay"][display]
+    for display in targets:
+        original = before["surfacesByDisplay"].get(display)
         for snapshot in (after, settled):
             current = snapshot["surfacesByDisplay"][display]
-            for field in SURFACE_IDENTITIES:
-                case.assertEqual(current[field], original[field], (display, field, observed))
+            if original is not None:
+                for field in SURFACE_IDENTITIES:
+                    case.assertEqual(current[field], original[field], (display, field, observed))
             case.assertEqual(current["windowFrame"], current["targetFrame"], (display, observed))
             if display in live_frames:
                 case.assertEqual(current["targetFrame"], live_frames[display], observed)
@@ -59,7 +64,7 @@ def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool
             case.assertEqual(bounds[2:], current["windowFrame"][2:], (display, observed))
             for actual, points in zip(drawable, bounds[2:], strict=True):
                 case.assertAlmostEqual(actual, points * current["contentsScale"], delta=1, msg=str(observed))
-        if remaining_screens is None:
+        if remaining_screens is None and target_displays is None:
             case.assertNotEqual(original["windowFrame"][2:], after["surfacesByDisplay"][display]["windowFrame"][2:], observed)
     if paused:
         for snapshot in (before, after):
@@ -93,8 +98,35 @@ def reconciliation_interval(case, log: str, *, state: str = "retained") -> str:
     return interval
 
 
+def capture_receipts(case, log: str, targets: dict[str, tuple[str, str]]) -> dict:
+    lines = log.splitlines()
+    observations = [(index, json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]))
+        for index, line in enumerate(lines) if "MWX SCENE COMPOSITION OBSERVATION: " in line]
+    encoded = [(index, dict(re.findall(r"(\w+)=([^\s]+)", line)))
+        for index, line in enumerate(lines) if "phase=snapshot-encoded " in line]
+    requests = dict(re.findall(r"phase=snapshot reason=(\S+) request=(\d+) source=metal", log))
+    result = {}
+    for reason, (display, identity) in targets.items():
+        matching = []
+        for encoded_index, event in encoded:
+            if event["request"] != requests[reason]:
+                continue
+            for index, row in observations:
+                if (index > encoded_index and row.get("captureRequestID") == int(requests[reason])
+                    and str(row.get("displayID")) == display and row.get("surfaceIdentity") == identity
+                    and row.get("commandBufferToken") == event["commandBufferToken"]
+                    and any(item["kind"] == "frame-seal" and item.get("target", {}).get("textureToken") == event["textureToken"]
+                        and item["target"].get("width") == int(event["width"])
+                        and item["target"].get("height") == int(event["height"]) for item in row["rows"])):
+                    matching.append((encoded_index, row))
+        case.assertEqual(len(matching), 1, (reason, [(index, event) for index, event in encoded]))
+        result[reason] = matching[0]
+    return result
+
+
 def assert_retained_particles(case, observed: dict, *, paused: bool, active_children: bool = False,
-                              retained_displays: set[str] | None = None):
+                              retained_displays: set[str] | None = None,
+                              all_particles_survive: bool = True):
     before, after, settled = (observed[stage] for stage in STAGES)
     lifecycle_ids = set()
     simulator_ids = set()
@@ -121,8 +153,9 @@ def assert_retained_particles(case, observed: dict, *, paused: bool, active_chil
                         case.assertGreater(current["root"]["simulationTime"], root["simulationTime"], observed)
                         case.assertGreaterEqual(int(current["root"]["nextParticleID"]), int(root["nextParticleID"]), observed)
                         case.assertTrue(current["root"]["particles"], observed)
-                        case.assertTrue({row["id"] for row in root["particles"]}.issubset(
-                            {row["id"] for row in current["root"]["particles"]}), observed)
+                        if all_particles_survive:
+                            case.assertTrue({row["id"] for row in root["particles"]}.issubset(
+                                {row["id"] for row in current["root"]["particles"]}), observed)
             all_systems = [root, *[child["frame"] for child in layer["children"]]]
             for system in all_systems:
                 case.assertNotIn(system["simulatorIdentity"], simulator_ids, observed)

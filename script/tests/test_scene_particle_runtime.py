@@ -170,8 +170,9 @@ class SceneParticleRuntimeTests(
     def run_harness(self, *arguments: str, configuration: str = "debug") -> dict[str, object]:
         completed = subprocess.run(
             [str(self.binaries[configuration]), *arguments],
-            check=True, capture_output=True, text=True,
+            check=False, capture_output=True, text=True,
         )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         return json.loads(completed.stdout)
 
     def test_authored_retirement_preserves_peer_rng_and_frozen_batches(self) -> None:
@@ -187,6 +188,13 @@ class SceneParticleRuntimeTests(
         for name, value in result.items():
             with self.subTest(name=name):
                 self.assertTrue(value, name)
+
+    def test_prepared_surface_audio_and_current_playback_handoff(self) -> None:
+        for configuration in ("debug", "release"):
+            result = self.run_harness("prepared-surface-handoff", configuration=configuration)
+            for name, value in result.items():
+                with self.subTest(configuration=configuration, name=name):
+                    self.assertTrue(value, name)
 
     def test_generic_layer_alpha_preserves_root_and_child_instance_alpha(self) -> None:
         result = self.run_harness("layer-alpha-synthetic")

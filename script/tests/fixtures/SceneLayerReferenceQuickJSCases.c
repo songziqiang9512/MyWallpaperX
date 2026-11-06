@@ -722,59 +722,6 @@ static void dynamic_slot_reuse_and_retained_media(void) {
     mwx_scene_quickjs_domain_destroy(d);
 }
 
-static void withdrawn_video_cannot_revive_after_rollback(void) {
-    MWXSceneQuickJSDomain *d = domain();
-    MWXSceneQuickJSVideoObservation video = {.duration=10, .rate=1, .current_time=2,
-        .loop=1, .is_playing=1, .available=1, .source_incarnation={11,22}};
-    publish_video_observation(d, &video, 0, false);
-    const char *source =
-        "let held,escaped,fresh,oldEnded=0,newEnded=0;"
-        "function stale(video){let failed=false;try{video.play();}catch(e){failed=e instanceof TypeError;}"
-        "if(!failed)throw Error('withdrawn handle revived');}"
-        "export function update(v){const layer=thisScene.getLayer('Caption');"
-        "if(v==='old'){held=layer.getVideoTexture();held.addEndedCallback(()=>oldEnded++);}"
-        "if(v==='escape'){escaped=layer.getVideoTexture();escaped.play();}"
-        "if(v==='withdrawn'){stale(held);stale(escaped);"
-        "if(layer.getVideoTexture()!==undefined||oldEnded!==0)throw Error('withdrawal rollback revived EOF');}"
-        "if(v==='fresh'){stale(held);stale(escaped);fresh=layer.getVideoTexture();"
-        "if(fresh.getCurrentTime()!==4||oldEnded!==0)throw Error('new observation');fresh.addEndedCallback(()=>newEnded++);}"
-        "if(v==='ended'){if(oldEnded!==0||newEnded!==1)throw Error('old EOF callback transferred');fresh.play();}return v;}";
-    MWXSceneQuickJSOwner *o = at(d, source, 17, 94, 0);
-    run(o, 94, 0, "old", MWX_SCENE_QUICKJS_OK, NULL, "authored source handle and EOF register");
-    mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    video.source_incarnation[0] = 33; video.source_incarnation[1] = 44;
-    video.current_time = 7; video.ended_generation = 1;
-    publish_video_observation(d, &video, 0, true);
-    run(o, 94, 1, "escape", MWX_SCENE_QUICKJS_OK, NULL, "pending replacement emits its own source identity");
-    MWXSceneQuickJSMediaPlaybackCommand escaped = {0};
-    check(mwx_scene_quickjs_owner_media_playback_command_at(o, 0, &escaped, diagnostic, sizeof(diagnostic))
-        == MWX_SCENE_QUICKJS_OK && escaped.video_source_incarnation[0] == 33
-        && escaped.video_source_incarnation[1] == 44, "typed command preserves the pending source incarnation");
-    mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    check(mwx_scene_quickjs_domain_withdraw_authored_video_sources(d) == MWX_SCENE_QUICKJS_OK,
-        "rebuild withdraws current and rollback consumers");
-    check(mwx_scene_quickjs_domain_rollback_layer_snapshot(d), "pending source values roll back");
-    check(d->layers[0].video_source_index == UINT32_MAX && d->video_observations[0].source_incarnation[0] == 11,
-        "rollback restores source values while the consumer stays withdrawn");
-    video.source_incarnation[0] = 11; video.source_incarnation[1] = 22;
-    video.current_time = 2;
-    publish_video_observation(d, &video, UINT32_MAX, false);
-    run(o, 94, 2, "withdrawn", MWX_SCENE_QUICKJS_OK, NULL, "late old-source EOF cannot revive withdrawn consumer");
-    mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    check(escaped.video_source_incarnation[0] == 33 && escaped.video_source_incarnation[1] == 44,
-        "rollback never rewrites an already exported command identity");
-    video.source_incarnation[0] = 55; video.source_incarnation[1] = 66;
-    video.current_time = 4; video.ended_generation = 2;
-    publish_video_observation(d, &video, 0, false);
-    run(o, 94, 3, "fresh", MWX_SCENE_QUICKJS_OK, NULL, "newly published consumer acquires a fresh video handle");
-    mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    video.ended_generation = 3;
-    publish_video_observation(d, &video, UINT32_MAX, false);
-    run(o, 94, 4, "ended", MWX_SCENE_QUICKJS_OK, NULL, "only fresh source EOF callback delivers");
-    mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
-}
-
 static void failed_newborn_and_peer_journal(void) {
     MWXSceneQuickJSDomain *d = domain();
     MWXSceneQuickJSOwner *a = at(d,
@@ -964,7 +911,6 @@ int main(void) {
     shared_basic_fields();
     namespace_method_table();
     dynamic_slot_reuse_and_retained_media();
-    withdrawn_video_cannot_revive_after_rollback();
     failed_newborn_and_peer_journal();
     snapshot_and_newborn_retirement();
     sustained_dynamic_slot_lifetime();

@@ -43,8 +43,8 @@ final class SceneParticlePlaybackState {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent,
         destroyedAuthoredLayerIDs: Set<Int> = [],
-        rootPrewarmStepBudget: Int? = 3_600,
         shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
         let runtime = SceneParticleRuntime(
@@ -58,8 +58,8 @@ final class SceneParticlePlaybackState {
                 preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
-            rootPrewarmStepBudget: rootPrewarmStepBudget,
             shouldCancelPrewarm: shouldCancelPrewarm
         )
         self.runtime = runtime
@@ -73,7 +73,8 @@ final class SceneParticlePlaybackState {
             )
         )
         self.batches = runtime.advance(
-            by: 0, dynamicValues: initialDynamicValues, layerWorldFrames: initialWorldFrames
+            by: 0, dynamicValues: initialDynamicValues,
+            audioInput: initialAudioInput, layerWorldFrames: initialWorldFrames
         )
 #if DEBUG
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
@@ -121,6 +122,12 @@ final class SceneParticlePlaybackState {
         })
         runtime.applyPlaybackTransitions(transitions)
         batches.removeAll { stopped.contains($0.layerID) }
+    }
+
+    /// A prepared surface joins current intent without replaying absent commands.
+    func adoptPlayback(_ states: [Int: SceneParticlePlaybackSnapshot]) {
+        runtime.adoptPlayback(states)
+        clearStoppedPlaybackCaches(Set(states.compactMap { $0.value.intent == .stopped ? $0.key : nil }))
     }
 
     func advance(

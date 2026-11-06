@@ -17,7 +17,7 @@ import simd
          "renderer": [["name": "sprite"]]]
     }
 
-    static func make(_ root: [String: Any], budget: Int? = 3_600, step: Double = 1.0 / 32,
+    static func make(_ root: [String: Any], budget: Int? = nil, step: Double = 1.0 / 32,
                      rate: Double = 1, history: Int = 0,
                      shouldCancel: (() -> Bool)? = nil) -> SceneParticleSimulator {
         SceneParticleSimulator(definition: parser.parse(root: root),
@@ -134,14 +134,12 @@ import simd
 
     static func workload() -> [String: Any] {
         var output: [String: Any] = [:]
-        for name in ["dense", "failed-initializer", "short-lived"] {
+        for name in ["failed-initializer", "short-lived"] {
             var root = source(rate: name == "short-lived" ? 32_000 : 64_000,
                               lifetime: name == "failed-initializer" ? 0 : (name == "short-lived" ? 0.001 : 100))
-            if name != "dense" {
-                root["initializer"] = [["name": "lifetimerandom",
-                    "min": name == "failed-initializer" ? 0 : 0.001,
-                    "max": name == "failed-initializer" ? 0 : 0.001]]
-            }
+            root["initializer"] = [["name": "lifetimerandom",
+                "min": name == "failed-initializer" ? 0 : 0.001,
+                "max": name == "failed-initializer" ? 0 : 0.001]]
             let warm = make(root)
             let completed = Int((warm.simulationTime / step).rounded())
             output[name] = replay(warm, source: root, completedSteps: completed)
@@ -149,22 +147,11 @@ import simd
         return output
     }
 
-    static func boidsAndEmpty() -> [String: Any] {
+    static func emptySystems() -> [String: Any] {
         let movement: [String: Any] = ["name": "movement", "gravity": "0 0 0"]
         let boids: [String: Any] = ["name": "boids", "neighborthreshold": 100,
             "alignmentfactor": 1, "cohesionfactor": 1, "separationfactor": 0]
         var result: [String: Any] = [:]
-        for flock in [false, true] {
-            let root = source(capacity: 64, rate: 0, burst: 64, lifetime: 3600,
-                              operators: flock ? [boids, movement] : [movement])
-            let warm = make(root)
-            let completed = Int((warm.simulationTime / step).rounded())
-            var row = replay(warm, source: root, completedSteps: completed)
-            row["boidsPlanPrepared"] = flock
-                ? warm.definition.boidsPlan(for: warm.definition.operators[0]) != nil : false
-            row["velocities"] = warm.particles.prefix(2).map { [$0.velocity.x, $0.velocity.y, $0.velocity.z] }
-            result[flock ? "boids" : "linear"] = row
-        }
         for name in ["capacity", "boids", "dispatch", "rate-zero"] {
             var root = source(capacity: name == "boids" ? 64 : 20_000, rate: 0,
                 operators: name == "boids" ? [boids, movement]
@@ -257,7 +244,7 @@ import simd
         let input = source(capacity: 64, start: 20, rate: 32, lifetime: 0.125, operators: operators)
         let cases: [(String, Int?, Int)] = [
             ("beforeStart", nil, 0), ("threeSteps", nil, 3),
-            ("step240", nil, 240), ("step241", nil, 241), ("bounded", 3600, 241)]
+            ("step240", nil, 240), ("step241", nil, 241), ("childCancelled", 240, 3)]
         var rows: [String: Any] = [:]
         for (name, budget, stop) in cases {
             var checks = 0
@@ -288,7 +275,7 @@ import simd
 
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
-            "populationWork": boidsAndEmpty(), "bounds": boundaries(),
+            "emptySystems": emptySystems(), "bounds": boundaries(),
             "complete": complete(), "cancellation": cancellation()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

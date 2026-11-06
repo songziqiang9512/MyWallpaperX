@@ -703,14 +703,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         Set((preparedResourceLayerCatalog ?? [:]).filter { $0.value.isVideo }.map(\.key))
     }
 
-    func withdrawAuthoredVideoSources() throws {
-        guard mwx_scene_quickjs_domain_withdraw_authored_video_sources(handle) == MWX_SCENE_QUICKJS_OK else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument("video consumers cannot rebuild inside a callback")
-        }
-    }
-
-    /// Source construction and this immutable model binding precede callbacks.
-    /// Rebuilds may change the first device; stable Registry rows retain clocks.
+    /// Bind the initial prepared catalog once before callbacks; display changes reuse its sources.
     func configurePreparedVideoSources(_ references: [String: Int]) throws {
         for path in preparedVideoModelPaths {
             let index = references[path].map(UInt32.init) ?? UInt32.max

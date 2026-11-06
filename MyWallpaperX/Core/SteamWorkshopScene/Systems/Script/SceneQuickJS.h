@@ -242,12 +242,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_source(
     size_t diagnostic_capacity
 );
 
-/// Surface rebuilding withdraws authored consumers before replacing bindings.
-/// A later numeric snapshot rollback cannot resurrect a withdrawn consumer.
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_withdraw_authored_video_sources(
-    MWXSceneQuickJSDomain *domain
-);
-
 /// Bind a prepared video template before its first script callback. The
 /// renderer owns this launch-stable Source index; the catalog owns eligibility.
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_prepared_video_source(

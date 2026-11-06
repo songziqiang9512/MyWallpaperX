@@ -190,7 +190,12 @@ final class SceneMetalView {
     func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {}
 }
 
+final class PendingSurfacePreparation {
+    let cancellation = DispatchWorkItem {}
+}
+
 final class SceneDesktopWallpaperSession {
+    var pendingSurfacePreparation: PendingSurfacePreparation?
     final class Surface {
         let window = Window()
         let metalView = SceneMetalView()
