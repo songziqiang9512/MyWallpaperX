@@ -36,7 +36,17 @@
 | 粒子球体与画布碰撞 | 静态Sphere消费者见[组件合同](../capabilities/particle-component-coverage.md#sphere-collision)；首次接触顺序、精确轨迹/size裕量、CP锁定位及缺省数值仍未资格，不能由3773747576/183的CP333或CP1同位推断开关规则。Bounds的3780119725/891 operator2仍`unknown-operator-kind`，只有name/id；缺实际wallpaper边界经当前变换到粒子空间的供货和缺省响应，不能用drawable或发射盒代替。沿原碰撞/空间/Simulator补消费者，不把正常batch/GPU或退出授为完整碰撞能力。 |
 | 双控制点的弧向与周期序列 | Between的raw0x08、0x20及arc参数仍有未消费语义；三个闪电root实际initializer5为arcamount.1/flags23，没有请求0x20重启；Parser未保arc字段，现flags23的partial也未覆盖它。partial只记录当前未知位/坏size选项，不包含flags23的arcamount，其余字段继续。固定官方周期输入的mask32显示新窗从首端恢复；落实需沿原emitter状态与跨窗出生批次定义序列，不能拿全局particleID减首ID猜多emitter/显式交错。arcamount/方向默认已取证，但非零arcamount尚无消费者，不能因flags23缺bit8便断言其无效；完整曲线、位关联与随机协议未资格；沿用当前组件证据包，补有效/零控制和改名邻例。自然本步新生与存量边界已执行，CP变化同cadence的显式新生/后续Maintain顺序仍需有界对照，不加整链许可。 |
 | 发射器Directions数值域 | `SceneParticleEmitter.hasBoundedDirectionsAndSign`仍把有限Directions限制在abs≤1e6；原Sphere/Box消费及最终新生Float检查没有同名语义上限。应分别核零半径、有效大值、实际乘积溢出和健康peer后，清理无用的幅度许可。当前全量样本未见该幅度门独立活动拒绝，不以它解释其他birth失败。准备期另有静态反例：Directions=(1e200,1e200,0)、固定radius=1e-200时，二维`pow(radius,2)`下溢0；若直接放域会出生在origin，最终Float有限检查抓不到错误零。先沿原径向准备/抽样明确数值语义，不再堆幅度名单或为极罕见输入新增运行防线。 |
-| 同会话显示器重建的粒子预热 | `Session.rebuildSurfaces` 仍在主线程重建每屏粒子，沿原3,600步/四百万加权单位上限保部分状态；frame-created child 的240步另属普通帧边界。下一批沿原 launch preparation queue，在重建时冻结真实 typed/topology/playback 输入，为每屏独立准备，再安装与退休旧 Surface；不得使用初始 launch 的已消费状态或共享 mutable Simulator。保 VM/Clock、动态层与请求取消/队列排空，按真实 topology 变化、播放/暂停及晚取消验收。职责见[预热准备](../capabilities/particle-component-coverage.md#prewarm-work)。 |
+| 显示器协调与新增屏预热 | 当前 `Session.rebuildSurfaces` 在显示配置变化时仍全量拆建 Surface，主线程重新构造粒子；root 沿3,600步/四百万加权单位上限保部分状态，frame-created child 的240步另属普通帧边界。待实施方向与验收见[显示器增量协调](#display-reconciliation)。 |
+
+<a id="display-reconciliation"></a>
+### 待实施：显示器增量协调
+
+目标是显示配置变化时继续播放，优先保留仍在目标集的原 Surface/View/PlaybackState，沿 `SceneMetalView+Geometry` 更新窗口、backing scale、drawable 与 HDR；新增屏才沿原 Host preparation queue 完整准备独占实例，移除屏只走原 Surface/GPU/capture 退役。现有 resize 与 paused camera 路径不要求替换同 ID 的 View；不再默认全量重建，也不增加 controller、Clock 或常驻缓存。
+
+- **准备输入与新屏语义**：主线程冻结 `evaluationTransaction.committedSnapshot` 与 committed topology，只把消费者需要的不可变资源和 typed 值交给 worker，VM 留在主线程。保留屏的 emit、RNG、轨迹与媒体状态继续原链；新增屏按 job-start typed 值创建新实例，采用时一次对齐当前 playback intent/revision 与已销毁层，不回放其出生前的 emit。完整 Runtime checkpoint 含原 Simulator 引用，不能跨屏 clone；不按每帧 generation 变化取消重做长预热。
+- **取消与资源尾**：复用现 debounce、请求 token、Host 队列和 `retiringSurfaceDrain`；入队前登记，取消 before-start 也必须在真实采用/丢弃后结束资源工作，stop 等待 CPU 尾与原 GPU 排空。Surface 装配和同 loader 的 eviction 在 worker 退出后进行；未发现旧屏普通帧并发访问该 loader 的实际路径，不预加锁或拆一套冷/热 API。
+- **视频与输入职责**：added-only 装配不能套用会清空所有 retained bindings 的 `beginSurfaceRebuild/completeSurfaceRebuild`；沿原 source key/owner/device 复用供货。移除屏仅撤对应输入与呈现 scope，不全局清空保留屏状态。DEBUG 及集成门中“新旧 windowNumbers 必须完全 disjoint”的旧断言改为保留身份稳定、新增独立、移除退役，并核粒子实例身份。
+- **实施与验收**：先落实上述生命周期设计，再改代码。核 playing/paused 下同 ID 尺寸与缩放、加减屏、长 starttime、准备期间 size/rate/CP edit、stop/emit/destroy、晚取消及 stop-before-drain；观察旧屏继续产帧、新屏完整状态与首 GPU 消费。全部 root 构造离开主线程后，再退役无消费者的加权工作与3,600步关卡；child 的240步不混作本项完成。逐帧最大间隔、真实多屏及新增屏与旧屏当前人口/RNG同态仍须各自证据。
 
 ## 内容与观测资格
 
@@ -54,7 +64,6 @@
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。本轮3788897599的291/259 composition行`rendererKind=unknown`，定位`SceneParticleMetalPipeline+Frame`的可选debug字段及原component observation供货；复测先核现有按需观测输入，不由路径猜种类，也不将此元数据缺口判为绘制失败。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
 | 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍超过1000行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码行数与职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
-| 粒子QuickJS事务回归夹具 | `script/tests/test_scene_particle_playback_transaction.py`的`LaunchContext.Program` stand-in缺少真实`domain`，提取的`commitSceneScriptLayerPlan`因此无法编译，后续world projection的`.init`也失去类型上下文。本批前HEAD九个粒子产品文件的替换复现同一首错，记录在`.artifacts/scene-goal-particle-cp-distance-20261106/task/native-transaction-head-baseline-validation.json`。对齐夹具与现役typed Program/投影后重跑原事务行为；该门当前未取得执行资格。 |
 | 全仓链接门 · 非Scene文档 | `docs/architecture/steam-workshop-acquisition-contract.md`与`docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md`指向`SteamWorkshopLegacyAcquisitionRetirement.swift`的源码链接解析失败；`docs/history/cross-topic/code-slimming-r1-r26-2026-11-01.md`指向`main-window-playlists-redesign.md#93-正式个人设置导入导出兼容`的锚点解析失败。相关正文均与HEAD一致；沿各自文档owner修正真实链接。该全仓门当前失败，本批Scene文档的局部链接及角色/导航另核。 |
 | 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
 | 条件/周期分支 | 3042492564需click开关/父组，3768303048需day/night与pointer输入；延长秒数不能替代。3764725758的后续inactive事实、3830665420的10个鸟实例都不能证第二轮，首事实去重没有保完整周期回执；按实际模拟时刻/事件资格，不由墙钟授通过。 |

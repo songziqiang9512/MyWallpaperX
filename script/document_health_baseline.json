@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 172,
-      "bytes": 34113
+      "lines": 181,
+      "bytes": 35699
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -530,11 +530,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7b822beb000a03baa5c57933b0a503c21661697c01bcd9eb290c743e732de407",
-      "after": "82e1fcc9036b3f1a61e642bacff5ccef3ff5171d869c4086c00e08ad8fadbee3",
-      "owner": "scene-complete-initial-prewarm",
-      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "82e1fcc9036b3f1a61e642bacff5ccef3ff5171d869c4086c00e08ad8fadbee3",
+      "after": "4a90c0742d4b16fb76a12e7eadad62192e9ab4192354ddd78650b0946e3997bd",
+      "owner": "scene-display-followup-handoff",
+      "reason": "Record the pending incremental display direction, exact lifecycle owners, fresh-instance semantics and verification boundaries in the existing open queue; remove the transaction-fixture issue whose real regression now passes. No product implementation or new document authority.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#display-reconciliation"
     }
   ]
 }
