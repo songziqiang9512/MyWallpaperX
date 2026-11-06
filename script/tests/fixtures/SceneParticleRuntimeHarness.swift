@@ -473,6 +473,7 @@ enum Harness {
         renderer: String = "sprite",
         rendererFlags: Int = 0,
         rendererLength: Any? = nil,
+        rendererSubdivision: Any? = nil,
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         additionalRenderers: [Any] = [],
@@ -507,6 +508,7 @@ enum Harness {
             "flags": rendererFlags,
         ]
         if let rendererLength { rendererDefinition["length"] = rendererLength }
+        if let rendererSubdivision { rendererDefinition["subdivision"] = rendererSubdivision }
         if let rendererMinimumLength { rendererDefinition["minlength"] = rendererMinimumLength }
         if let rendererMaximumLength { rendererDefinition["maxlength"] = rendererMaximumLength }
         var emitter: [String: Any] = [

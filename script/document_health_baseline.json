@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 220,
-      "bytes": 37598
+      "lines": 229,
+      "bytes": 39159
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 226,
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 127,
-      "bytes": 81341
+      "lines": 128,
+      "bytes": 83246
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 181,
-      "bytes": 35670
+      "lines": 182,
+      "bytes": 36112
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -512,29 +512,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "3807ae73269435e49e8805fc1b46f885a8944f450e884c59b9c25abdc4b21e36",
-      "after": "fee258d9336b6145edcefee4131ebcf4c0c37f9635a5e29a7099375c370e0fb4",
-      "owner": "scene-rope-trail-default-length",
-      "reason": "Record the native missing-member normalization source and the existing Parser-to-RopeTrailPlan contract, then qualify actual default/explicit-one history and terminal pixels plus restored author roots. Preserve the initial verifier-width failure and explicit nonpositive/official-unit boundaries without a new state or owner.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-length"
+      "before": "fee258d9336b6145edcefee4131ebcf4c0c37f9635a5e29a7099375c370e0fb4",
+      "after": "7906071613b7b6e88eba75176cc5ef4d7b77aa8591407d0b18c9cb8b81d4ba1c",
+      "owner": "scene-rope-trail-world-subdivision",
+      "reason": "Record the existing common orientation consumer and native-proven input normalization, focused runtime and fixed-pixel results, actual author root output and retained failure limits; retire the resolved rejection queue entry and isolate measured diagnostic prewarm cost without adding a new documentation owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-world-subdivision"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d09c5b567b6f00e69a8f570981a816b14a04c91a1a93d45eec0ba04ce2f05a1e",
-      "after": "15548a4dbca2bcb6b75e8964dc77475eb6a7e369af4c9ba531b210806ff5579b",
-      "owner": "scene-rope-trail-default-length",
-      "reason": "Record the native missing-member normalization source and the existing Parser-to-RopeTrailPlan contract, then qualify actual default/explicit-one history and terminal pixels plus restored author roots. Preserve the initial verifier-width failure and explicit nonpositive/official-unit boundaries without a new state or owner.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-length"
+      "before": "15548a4dbca2bcb6b75e8964dc77475eb6a7e369af4c9ba531b210806ff5579b",
+      "after": "87f585f2119ccdf99e71860c45d3156a9ff2d215660edc30147ba14a11f0951b",
+      "owner": "scene-rope-trail-world-subdivision",
+      "reason": "Record the existing common orientation consumer and native-proven input normalization, focused runtime and fixed-pixel results, actual author root output and retained failure limits; retire the resolved rejection queue entry and isolate measured diagnostic prewarm cost without adding a new documentation owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-world-subdivision"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c4d258a3e75b5e716827e32e8a884ef51a74ade605e85e7facf2329fff2945a1",
-      "after": "3dcd2435d4e19c454d3690a3c9230ed7c7792e09a78e7231a19dae9afcbc7558",
-      "owner": "scene-rope-trail-default-length",
-      "reason": "Record the native missing-member normalization source and the existing Parser-to-RopeTrailPlan contract, then qualify actual default/explicit-one history and terminal pixels plus restored author roots. Preserve the initial verifier-width failure and explicit nonpositive/official-unit boundaries without a new state or owner.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-length"
+      "before": "3dcd2435d4e19c454d3690a3c9230ed7c7792e09a78e7231a19dae9afcbc7558",
+      "after": "40188126e7271be326885a9f40795251656f0eab0cadb36c5d0272e451dc1474",
+      "owner": "scene-rope-trail-world-subdivision",
+      "reason": "Record the existing common orientation consumer and native-proven input normalization, focused runtime and fixed-pixel results, actual author root output and retained failure limits; retire the resolved rejection queue entry and isolate measured diagnostic prewarm cost without adding a new documentation owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-trail-world-subdivision"
     }
   ]
 }

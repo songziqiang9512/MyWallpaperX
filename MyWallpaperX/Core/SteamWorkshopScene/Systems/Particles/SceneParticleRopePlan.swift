@@ -32,12 +32,8 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         // spline to straight segments.
         let rawSubdivision = renderer.subdivision ?? 3
         let rawUVScale = renderer.uvScale ?? 1
-        // Renderer flag bit0 marks the pointer-trail rope family (all six
-        // corpus shapes with this profile). The Catmull-Rom spline is
-        // affine-invariant, so building it from layer-local positions and
-        // rendering through the layer's affine model matrix is
-        // image-identical to a world-space construction; no separate
-        // world-space geometry path is needed.
+        // Renderer Worldspace is consumed by the shared orientation path;
+        // General Worldspace separately controls simulated positions and size.
         guard rendererCount == 1,
               renderer.kind == .rope,
               renderer.orientation == nil || renderer.orientation == "screen",

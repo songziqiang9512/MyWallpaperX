@@ -936,18 +936,20 @@
     },
     {
       "id": "scene-native-rope-camera",
-      "title": "已准入Rope相机与screen displacement截面",
+      "title": "公共粒子朝向与Rope相机及几何准备",
       "owner": "Scene prepared particle geometry / existing CameraFrame",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/runtime-systems-reference.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Current public orientation / existing typed batch and camera owner; RopeTrail input preparation is specified at #rope-trail-world-subdivision. Retire the kind-specific rejection of the existing Worldspace bit0, preserve unknown bits and independent General world semantics. Normalize integral subdivision to0...32 in the original cold plan using fixed-client loader evidence; keep budgets/history/geometry and camera policies. Prove real input-to-root draw/target/composition/GPU with variants, counterexamples and an independent sample; no official parity claim from static storage.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift"
       ],
       "contentPatterns": []
     },

@@ -572,11 +572,17 @@ class SceneParticleRuntimeTests(
                       "orientationScreen", "healthyPeerMatches", "missingSpriteRenderer"]:
             self.assertTrue(result[field], field)
         histories = result["histories"]
-        for name in ["default", "explicit", "renamed"]:
+        for name in ["default", "explicit", "renamed", "renderer-world", "general-world", "both-world",
+                     "subdivision-negative", "subdivision-zero", "subdivision-near-upper",
+                     "subdivision-upper", "subdivision-overflow"]:
             with self.subTest(history=name):
                 history = histories[name]
                 signatures = history["signatures"]
                 self.assertEqual(history["liveCounts"], [1, 1, 1, 0, 0, 0])
+                orientation = "worldScreen" if name in ["renderer-world", "both-world"] else "screen"
+                self.assertEqual(history["orientations"], [orientation] * 6)
+                self.assertEqual(history["sizeIsWorldSpace"],
+                                 [name in ["general-world", "both-world"]] * 6)
                 self.assertTrue(history["replayMatches"])
                 self.assertEqual(len(signatures), 6)
                 for signature in signatures[:-1]:
@@ -584,14 +590,21 @@ class SceneParticleRuntimeTests(
                 self.assertEqual(signatures[-1], [])
                 self.assertNotEqual(signatures[0], signatures[2])
                 self.assertNotEqual(signatures[3], signatures[4])
-                self.assertEqual(signatures, histories["explicit"]["signatures"])
+                if not name.startswith("subdivision-"):
+                    self.assertEqual(signatures, histories["explicit"]["signatures"])
+        for left, right in [("subdivision-negative", "subdivision-zero"),
+                            ("subdivision-overflow", "subdivision-upper")]:
+            self.assertEqual(histories[left], histories[right], (left, right))
+        self.assertGreater(len(histories["subdivision-upper"]["signatures"][1]),
+                           len(histories["subdivision-zero"]["signatures"][1]))
         for field in ["mixedRendererLoaded", "malformedRendererLoaded", "objectRendererLoaded",
                       "onlyMalformedRendererLoaded", "emptyRendererLoaded"]:
             self.assertFalse(result[field], field)
         for layer_id, reason in [(33, "animatedTexture"), (34, "unsupportedProfile"),
                                  (35, "unsupportedProfile"), (39, "unsupportedProfile"),
                                  (40, "unsupportedProfile"), (41, "unsupportedProfile"),
-                                 (42, "unsupportedProfile")]:
+                                 (42, "unsupportedProfile"), (43, "unsupportedProfile"),
+                                 (44, "unsupportedProfile")]:
             self.assertIn(f"trailRendererUnsupported:{layer_id}:ropetrail:{reason}",
                           result["diagnosticDetails"])
         for layer_id in [36, 37, 38]:

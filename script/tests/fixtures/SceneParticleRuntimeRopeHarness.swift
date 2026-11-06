@@ -40,24 +40,37 @@ extension Harness {
             under: directory
         )
         try writePNG(directory.appendingPathComponent("materials/renamed.png"))
-        let historyVariants: [(name: String, id: Int, path: String, material: String, length: Any?)] = [
-            ("default", 32, "particles/rope-trail-missing-length.json", "materials/shared.json", nil),
-            ("explicit", 32, "particles/rope-trail-unit-length.json", "materials/shared.json", 1),
-            ("renamed", 132, "particles/renamed-trace.json", "materials/renamed.json", nil),
+        let historyVariants: [(name: String, id: Int, path: String, material: String,
+                               length: Any?, rendererFlags: Int, flags: Int, subdivision: Any?)] = [
+            ("default", 32, "particles/rope-trail-missing-length.json", "materials/shared.json", nil, 0, 0, nil),
+            ("explicit", 32, "particles/rope-trail-unit-length.json", "materials/shared.json", 1, 0, 0, 1),
+            ("renamed", 132, "particles/renamed-trace.json", "materials/renamed.json", nil, 0, 0, nil),
+            ("renderer-world", 133, "particles/world-renderer.json", "materials/shared.json", 1, 1, 0, nil),
+            ("general-world", 134, "particles/world-system.json", "materials/shared.json", 1, 0, 1, nil),
+            ("both-world", 135, "particles/world-both.json", "materials/renamed.json", 1, 1, 1, nil),
+            ("subdivision-negative", 136, "particles/subdivision-negative.json", "materials/shared.json", 1, 0, 0, -16),
+            ("subdivision-zero", 137, "particles/subdivision-zero.json", "materials/renamed.json", 1, 0, 0, 0),
+            ("subdivision-near-upper", 138, "particles/subdivision-near-upper.json", "materials/shared.json", 1, 0, 0, 31),
+            ("subdivision-upper", 139, "particles/subdivision-upper.json", "materials/shared.json", 1, 0, 0, 32),
+            ("subdivision-overflow", 140, "particles/subdivision-overflow.json", "materials/renamed.json", 1, 0, 0, 33),
         ]
         // Fixed ranges and a zero-radius emitter make ID/seed renaming geometric equivalence.
         for variant in historyVariants {
-            try writeParticle(variant.path, material: variant.material, renderer: "ropetrail",
-                rendererLength: variant.length, velocityX: 100, lifetime: 1.25,
+            try writeParticle(variant.path, material: variant.material, flags: variant.flags,
+                renderer: "ropetrail", rendererFlags: variant.rendererFlags,
+                rendererLength: variant.length, rendererSubdivision: variant.subdivision,
+                velocityX: 100, lifetime: 1.25,
                 moves: true, rate: 0, instantaneous: 1, under: directory)
         }
-        let rejectedLengths: [(id: Int, name: String, value: Any)] = [
-            (39, "null", NSNull()), (40, "text", "bad"), (41, "zero", 0), (42, "negative", -1),
+        let rejectedRenderers: [(id: Int, name: String, length: Any, flags: Int)] = [
+            (39, "length-null", NSNull(), 0), (40, "length-text", "bad", 0),
+            (41, "length-zero", 0, 0), (42, "length-negative", -1, 0),
+            (43, "flags-two", 1, 2), (44, "flags-three", 1, 3),
         ]
-        for item in rejectedLengths {
-            try writeParticle("particles/rope-trail-length-\(item.name).json",
-                material: "materials/shared.json", renderer: "ropetrail",
-                rendererLength: item.value, velocityX: 100, moves: true, under: directory)
+        for item in rejectedRenderers {
+            try writeParticle("particles/rope-trail-\(item.name).json",
+                material: "materials/shared.json", renderer: "ropetrail", rendererFlags: item.flags,
+                rendererLength: item.length, velocityX: 100, moves: true, under: directory)
         }
         try writeParticle(
             "particles/rope-trail-animated.json",
@@ -110,8 +123,8 @@ extension Harness {
                 layer(36, "particles/rope-trail-object-renderer.json"),
                 layer(37, "particles/rope-trail-only-malformed-renderer.json"),
                 layer(38, "particles/rope-trail-empty-renderer.json"),
-            ] + rejectedLengths.map { layer($0.id, "particles/rope-trail-length-\($0.name).json") },
-            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37, 38] + rejectedLengths.map(\.id),
+            ] + rejectedRenderers.map { layer($0.id, "particles/rope-trail-\($0.name).json") },
+            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37, 38] + rejectedRenderers.map(\.id),
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -130,16 +143,16 @@ extension Harness {
             ]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let worldSpaceFrames = Dictionary(uniqueKeysWithValues:
+            ([31] + historyVariants.filter { $0.flags == 1 }.map(\.id)).map {
+                ($0, SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!)
+            })
         func makeRuntime(_ input: SceneRenderDescriptor? = nil) -> SceneParticleRuntime {
             SceneParticleRuntime(
                 descriptor: input ?? descriptor,
                 cacheDirectory: directory,
                 device: device,
-                staticWorldSpaceFrames: [
-                    31: SceneParticleWorldSpaceFrame(
-                        worldFrame: matrix_identity_float4x4
-                    )!,
-                ]
+                staticWorldSpaceFrames: worldSpaceFrames
             )
         }
         let coarseRuntime = makeRuntime()
@@ -166,14 +179,19 @@ extension Harness {
             == ropeTrailSignature(coarseBatch)
         healthyRuntime.teardown()
         func historySequence(_ runtime: SceneParticleRuntime, layerID: Int, deltas: [TimeInterval])
-            -> (signatures: [[Float]], liveCounts: [Int]) {
+            -> (signatures: [[Float]], liveCounts: [Int], orientations: [String], worldSizes: [Bool]) {
             var signatures: [[Float]] = []
             var liveCounts: [Int] = []
+            var orientations: [String] = []
+            var worldSizes: [Bool] = []
             for delta in deltas {
-                signatures.append(ropeTrailSignature(runtime.advance(by: delta).first { $0.layerID == layerID }))
+                let batch = runtime.advance(by: delta).first { $0.layerID == layerID }
+                signatures.append(ropeTrailSignature(batch))
                 liveCounts.append(runtime.lifecycleSnapshot.rootParticleCount)
+                orientations.append(batch.map { String(describing: $0.orientation) } ?? "missing")
+                worldSizes.append(batch?.sizeIsWorldSpace ?? false)
             }
-            return (signatures, liveCounts)
+            return (signatures, liveCounts, orientations, worldSizes)
         }
         var histories: [String: [String: Any]] = [:]
         for variant in historyVariants {
@@ -191,7 +209,10 @@ extension Harness {
             histories[variant.name] = [
                 "signatures": birth.signatures + history.signatures,
                 "liveCounts": birth.liveCounts + history.liveCounts,
-                "replayMatches": history.signatures == replay.signatures && history.liveCounts == replay.liveCounts,
+                "orientations": birth.orientations + history.orientations,
+                "sizeIsWorldSpace": birth.worldSizes + history.worldSizes,
+                "replayMatches": history.signatures == replay.signatures && history.liveCounts == replay.liveCounts
+                    && history.orientations == replay.orientations && history.worldSizes == replay.worldSizes,
             ]
             runtime.teardown()
         }

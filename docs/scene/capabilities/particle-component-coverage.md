@@ -170,9 +170,18 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 省略 `length` 的合法轨迹与显式 `1` 使用同一准备计划。固定官方2.8.0.42的原生加载归一静态观察支持缺键填1.0；不据常量推时间单位、完整history公式或官方像素一致。
 
-原DefinitionParser入口仅为RopeTrail真正缺键补1，传原typed Double给RopeTrailPlan；null、坏类型与显式非正值保原边界，不把所有nil都变缺省。原step snapshot、history裁尾/退役、UV/joins、资源与GPU继续消费同一计划；不新增字段、状态、缓存或普通帧分支。此处替换缺键误拒，不扩renderer flags、负subdivision、动画或预算。
+原DefinitionParser入口仅为RopeTrail真正缺键补1，传原typed Double给RopeTrailPlan；null、坏类型与显式非正值保原边界，不把所有nil都变缺省。原step snapshot、history裁尾/退役、UV/joins、资源与GPU继续消费同一计划；不新增字段、状态、缓存或普通帧分支。缺键语义与[公共朝向及subdivision](#rope-trail-world-subdivision)分别在原owner准备，不扩动画或预算。
 
 回归沿真实Parser→Runtime比较省略/显式1及改名的出生、轨迹与快照重试，保null/坏值/零/负值及健康peer；App核同帧两轨平移后实际像素、原作者活动root的出生/材质/主合成/GPU，另核未参与修改的RopeTrail。无实际轨迹或首障碍转移时记录断点，不调长度救图。
+
+<a id="rope-trail-world-subdivision"></a>
+### 公共朝向与 RopeTrail subdivision
+
+RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)，由原`isWorldSpace → Orientation → CameraFrame → Metal`消费朝向；它与General的存量位置/尺寸语义分开。几何计划不再只因已解释bit0拒绝整renderer，未知位仍局限该renderer。此接线不新增raw bit映射、owner或视觉算法；固定客户端的特定draw reader仍未知，不授官方像素一致。
+
+原RopeTrailPlan把已接纳整数subdivision一次归一到0…32，再派生段数、snapshot间隔及容量；固定2.8.0.42的加载静态证支持该钳制。负数不取abs，缺省1、length准备及原history/UV/joins/预算不变；退出负数误拒和归一后重复的范围检查。不在帧内重新解析或检查原声明。
+
+验收沿真实Parser/Runtime保flags0/1、General world独立、-16/0与33/32、资源/ID及参数顺序变体、unknown2/3和健康peer；生产Metal与App补非identity系统朝向、固定像素/形态和实际root材质→target→合成→GPU。原作者活动十root与未参与修复的内容分别取证。相机view轴和geometry轴的既有独立选择不在本批改写；其差异尚非已证错误，若阻断实际结果则另沿原owner定位，不用新许可或fallback掩盖。后继无实际出生/轨迹、资源失败或现预算不足时记录首断点，不提预算或缩内容冒称恢复。
 
 <a id="optional-refraction-normal"></a>
 ### REFRACT 的可选 normal
