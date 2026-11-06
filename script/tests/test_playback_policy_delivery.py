@@ -279,6 +279,7 @@ final class Host {
     var sceneClock = Clock()
     struct Cohort { var isHeld = false }
     var initialPresentationCohort = Cohort()
+    var initialVideoPreparation: Task<Void, Never>?
     var awaitsInitialPresentation = false
     var isVisible = true
     var isOutputActive = true

@@ -7,12 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */ = {isa = PBXBuildFile; fileRef = A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		A50000092FA10001005688A8 /* LICENSE in Screen Saver Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
-		A500000A2FA10001005688A8 /* NOTICE.md in Screen Saver Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
-		F80000012F810001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
-		F80000022F810001005688A8 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
-		F80000032F810001005688A8 /* QuickJSNG LICENSE in CopyFiles */ = {isa = PBXBuildFile; fileRef = F80000132F810001005688A8 /* QuickJSNG LICENSE */; };
 		A10000012F6B0001005688A8 /* MyWallpaperXWallpaperDaemon in CopyFiles */ = {isa = PBXBuildFile; fileRef = A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A10000022F6B0001005688A8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000122F6B0001005688A8 /* AppKit.framework */; };
 		A10000032F6B0001005688A8 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000132F6B0001005688A8 /* AVFoundation.framework */; };
@@ -23,11 +17,17 @@
 		A20000022F800002005688A8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000122F800002005688A8 /* AppIntents.framework */; };
 		A30000012F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A30000022F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross in CopyFiles */ = {isa = PBXBuildFile; fileRef = A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */ = {isa = PBXBuildFile; fileRef = A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		A50000092FA10001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
+		A500000A2FA10001005688A8 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
 		F70000012F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh in Resources */ = {isa = PBXBuildFile; fileRef = F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */; };
+		F80000012F810001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
+		F80000022F810001005688A8 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
+		F80000032F810001005688A8 /* QuickJSNG LICENSE in Embed QuickJS license */ = {isa = PBXBuildFile; fileRef = F80000132F810001005688A8 /* QuickJSNG LICENSE */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		A50000712FA10001005688A8 /* System Wallpaper target proxy */ = {
+		A50000712FA10001005688A8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 98CED6312F6AF877005688A8 /* Project object */;
 			proxyType = 1;
@@ -37,26 +37,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A50000352FA10001005688A8 /* Embed System Wallpaper */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = Contents/Extensions;
-			dstSubfolderSpec = 1;
-			files = (A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */, );
-			name = "Embed System Wallpaper";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F80000312F810001005688A8 /* Embed QuickJS license */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = Contents/Resources/QuickJSNG;
-			dstSubfolderSpec = 1;
-			files = (
-				F80000032F810001005688A8 /* QuickJSNG LICENSE in CopyFiles */,
-			);
-			name = "Embed QuickJS license";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		A10000322F6B0001005688A8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -69,12 +49,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A50000352FA10001005688A8 /* Embed System Wallpaper */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Extensions;
+			dstSubfolderSpec = 1;
+			files = (
+				A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */,
+			);
+			name = "Embed System Wallpaper";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F80000312F810001005688A8 /* Embed QuickJS license */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Resources/QuickJSNG;
+			dstSubfolderSpec = 1;
+			files = (
+				F80000032F810001005688A8 /* QuickJSNG LICENSE in Embed QuickJS license */,
+			);
+			name = "Embed QuickJS license";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		F80000112F810001005688A8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
-		F80000122F810001005688A8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
-		F80000132F810001005688A8 /* QuickJSNG LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = "QuickJSNG LICENSE"; path = MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE; sourceTree = SOURCE_ROOT; };
 		98CED6392F6AF877005688A8 /* MyWallpaperX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWallpaperX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MyWallpaperXWallpaperDaemon; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000122F6B0001005688A8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -84,16 +83,14 @@
 		A20000122F800002005688A8 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
 		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
-		F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
 		A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyWallpaperXSystemWallpaper.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
+		F80000112F810001005688A8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
+		F80000122F810001005688A8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
+		F80000132F810001005688A8 /* QuickJSNG LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = "QuickJSNG LICENSE"; path = MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A50000292FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperX */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (Info.plist, ScreenSaver.entitlements, Native/SystemWallpaperCatalog.swift, Native/SystemWallpaperConnection.swift, Native/SystemWallpaperHostProtocol.swift, Native/SystemWallpaperRuntime.swift, Native/SystemWallpaperVideoSurface.swift, Native/SystemWallpaperWire.swift, );
-			target = 98CED6382F6AF877005688A8 /* MyWallpaperX */;
-		};
 		98CED6592F6AF9E3005688A8 /* Exceptions for "MyWallpaperX" folder in "MyWallpaperX" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -118,9 +115,24 @@
 			);
 			target = A10000412F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */;
 		};
-		A60000262FB10001005688A8 /* Exceptions for ScreenSaverSources */ = {
+		A50000292FA10001005688A8 /* Exceptions for "ScreenSaverSources" folder in "MyWallpaperX" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (Info.plist, ScreenSaver.entitlements, );
+			membershipExceptions = (
+				Info.plist,
+				Native/SystemWallpaperCatalog.swift,
+				Native/SystemWallpaperConnection.swift,
+				Native/SystemWallpaperHostProtocol.swift,
+				Native/SystemWallpaperRuntime.swift,
+				Native/SystemWallpaperVideoSurface.swift,
+				Native/SystemWallpaperWire.swift,
+			);
+			target = 98CED6382F6AF877005688A8 /* MyWallpaperX */;
+		};
+		A60000262FB10001005688A8 /* Exceptions for "ScreenSaverSources" folder in "MyWallpaperXSystemWallpaper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
 			target = A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -147,7 +159,10 @@
 		};
 		A50000212FA10001005688A8 /* ScreenSaverSources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (A60000262FB10001005688A8 /* Exceptions for Native System Wallpaper */, A50000292FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperX */, );
+			exceptions = (
+				A50000292FA10001005688A8 /* Exceptions for "ScreenSaverSources" folder in "MyWallpaperX" target */,
+				A60000262FB10001005688A8 /* Exceptions for "ScreenSaverSources" folder in "MyWallpaperXSystemWallpaper" target */,
+			);
 			path = ScreenSaverSources;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -174,7 +189,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A60000312FB10001005688A8 /* System Wallpaper Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000312FB10001005688A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -247,7 +268,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				A50000722FA10001005688A8 /* MyWallpaperXSystemWallpaper */,
+				A50000722FA10001005688A8 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				98CED63B2F6AF877005688A8 /* MyWallpaperX */,
@@ -284,13 +305,22 @@
 		};
 		A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A60000612FB10001005688A8 /* Build configuration list for MyWallpaperXSystemWallpaper */;
-			buildPhases = (A60000332FB10001005688A8 /* System Wallpaper Sources */, A60000312FB10001005688A8 /* System Wallpaper Frameworks */, A60000322FB10001005688A8 /* System Wallpaper Resources */, );
-			buildRules = ();
-			dependencies = ();
-			fileSystemSynchronizedGroups = (A50000212FA10001005688A8 /* ScreenSaverSources */, );
+			buildConfigurationList = A60000612FB10001005688A8 /* Build configuration list for PBXNativeTarget "MyWallpaperXSystemWallpaper" */;
+			buildPhases = (
+				A60000332FB10001005688A8 /* Sources */,
+				A60000312FB10001005688A8 /* Frameworks */,
+				A60000322FB10001005688A8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A50000212FA10001005688A8 /* ScreenSaverSources */,
+			);
 			name = MyWallpaperXSystemWallpaper;
-			packageProductDependencies = ();
+			packageProductDependencies = (
+			);
 			productName = MyWallpaperXSystemWallpaper;
 			productReference = A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -353,7 +383,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A60000322FB10001005688A8 /* System Wallpaper Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A50000092FA10001005688A8 /* LICENSE */, A500000A2FA10001005688A8 /* NOTICE.md */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A60000322FB10001005688A8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A50000092FA10001005688A8 /* LICENSE in Resources */,
+				A500000A2FA10001005688A8 /* NOTICE.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -440,14 +478,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A60000332FB10001005688A8 /* System Wallpaper Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000332FB10001005688A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A50000722FA10001005688A8 /* MyWallpaperXSystemWallpaper */ = {
+		A50000722FA10001005688A8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */;
-			targetProxy = A50000712FA10001005688A8 /* System Wallpaper target proxy */;
+			targetProxy = A50000712FA10001005688A8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -591,7 +635,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -621,7 +665,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -631,7 +675,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = MyWallpaperX/App/MyWallpaperX-Bridging-Header.h;
+				SWIFT_OBJC_BRIDGING_HEADER = "MyWallpaperX/App/MyWallpaperX-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -648,7 +692,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
@@ -678,7 +722,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -688,7 +732,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = MyWallpaperX/App/MyWallpaperX-Bridging-Header.h;
+				SWIFT_OBJC_BRIDGING_HEADER = "MyWallpaperX/App/MyWallpaperX-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -698,12 +742,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -716,12 +760,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -737,15 +781,19 @@
 				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -762,15 +810,19 @@
 				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 285;
+				CURRENT_PROJECT_VERSION = 286;
 				DEVELOPMENT_TEAM = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.12.1;
+				MARKETING_VERSION = 2.12.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -810,7 +862,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A60000612FB10001005688A8 /* Build configuration list for MyWallpaperXSystemWallpaper */ = {isa = XCConfigurationList; buildConfigurations = (A60000512FB10001005688A8 /* Debug */, A60000522FB10001005688A8 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A60000612FB10001005688A8 /* Build configuration list for PBXNativeTarget "MyWallpaperXSystemWallpaper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A60000512FB10001005688A8 /* Debug */,
+				A60000522FB10001005688A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */

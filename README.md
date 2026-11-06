@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="MyWallpaperX/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024x1024@1x.png" width="112" height="112" alt="MyWallpaperX 应用图标">
+  <img src="MyWallpaperX/AppIcon.icon/Assets/Icon-iOS-Default-1024x1024@1x.png" width="112" height="112" alt="MyWallpaperX 应用图标">
 </p>
 
 <h1 align="center">MyWallpaperX</h1>
 
 <p align="center"><strong>初心至简，保持纯粹。</strong></p>
-<p align="center">让喜欢的风景、影像与互动，成为 Mac 桌面的一部分。<br>原生体验 · 动态壁纸 · 开源自由</p>
+<p align="center">目前macOS上最佳的Wallpaper Engine壁纸引擎。<br>原生体验 · 动态壁纸 · 开源自由</p>
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest"><img src="https://img.shields.io/github/v/release/songziqiang9512/MyWallpaperX?style=flat-square&color=5b6ee1" alt="最新正式版本"></a>
@@ -16,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest">下载正式版</a> ·
-  <a href="docs/releases/2.12.1.md">2.12.1 更新说明</a> ·
+  <a href="docs/releases/2.12.2.md">2.12.2 更新说明</a> ·
   <a href="https://www.mwpx.me">官方网站</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">问题反馈</a>
 </p>
 
 ---
 
-**MyWallpaperX** 是一款为 Apple Silicon Mac 打造的开源壁纸应用。把本地视频、静态图片、互动网页和实时场景带到桌面，在同一处发现、收藏、整理和播放喜欢的作品。界面以 macOS 原生控件构建，让浏览与日常控制自然融入系统。
+**MyWallpaperX** 是一款为 Apple Silicon Mac 专属适配开发的开源壁纸引擎应用。完全兼容Wallpaper Engine场景壁纸/web壁纸等。可自由导入本地视频和图片，创建你自己的播放列表。定时切换，自动更换屏保。界面以 macOS 原生控件构建，让浏览与日常控制自然融入系统。
 
 ## 看见喜欢的桌面
 

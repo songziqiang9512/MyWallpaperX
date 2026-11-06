@@ -112,7 +112,7 @@ struct SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token { var layerID: Int }
     struct Claim { var token: Token }
     var executionLayerIDs: Set<Int> = []
-    var admittedResolvedMaterialReferences: [Int] = []
+    var preparedNamedInputBindingsByConsumerLayerID: [Int: [Int]] = [:]
     var liveConsumerTargets: Set<SceneDynamicTarget> = []
     var capabilities: [Int: Capability] = [:]
     var unresolvedLayerIDs: Set<Int> = []
@@ -132,7 +132,7 @@ enum SceneUtilityLayerRuntimePlanner {
         var shouldCapture: Bool
     }
     static func plans(in descriptor: SceneRenderDescriptor,
-        resolvedMaterialLayerIDs: Set<Int>, admittedResolvedMaterialReferences: [Int])
+        resolvedMaterialLayerIDs: Set<Int>, preparedNamedInputBindingsByConsumerLayerID: [Int: [Int]])
         -> [Int: Plan] { [:] }
 }
 enum SceneLightSnapshot {

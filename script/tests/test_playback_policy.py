@@ -18,6 +18,7 @@ func CGSCopyManagedDisplaySpaces(_ connection: UInt32) -> CFArray {
     managedDisplaySpaceReads += 1
     return simulatedSpaces as CFArray
 }
+enum FunctionKeyShortcut: String, Codable { case none }
 struct WallpaperSettings: Codable {
     var volume: Double = 50
     var pauseWhenOtherAppFocused = false
@@ -25,6 +26,19 @@ struct WallpaperSettings: Codable {
     var pauseWhenUnplugged = false
     var pauseWhenIdle = false
     var idleTimeoutMinutes = 1
+    var previousWallpaperHotkey: FunctionKeyShortcut = .none
+    var nextWallpaperHotkey: FunctionKeyShortcut = .none
+    var togglePlaybackHotkey: FunctionKeyShortcut = .none
+    var toggleMuteHotkey: FunctionKeyShortcut = .none
+    // Hotkey de-duplication is not under test here; keep the persistence
+    // entry points compiling against this settings double.
+    static func normalizedHotkeyBindings(
+        previous: FunctionKeyShortcut, next: FunctionKeyShortcut,
+        playPause: FunctionKeyShortcut, muteToggle: FunctionKeyShortcut
+    ) -> (previous: FunctionKeyShortcut, next: FunctionKeyShortcut,
+          playPause: FunctionKeyShortcut, muteToggle: FunctionKeyShortcut) {
+        (previous, next, playPause, muteToggle)
+    }
 }
 final class WallpaperManager {
     var settings = WallpaperSettings()
