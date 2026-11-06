@@ -129,8 +129,8 @@
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 140,
-      "bytes": 87425
+      "lines": 156,
+      "bytes": 90766
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 36442
+      "bytes": 36572
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6d1b0c97829c426a51c349331307aab9c5c189c60a0409cc3aa9fb3997708db4",
-      "after": "a5430713a45ac64a3a5e32422b5d2955be7c72236873e7d986b82964d1dfc430",
+      "before": "a5430713a45ac64a3a5e32422b5d2955be7c72236873e7d986b82964d1dfc430",
+      "after": "03d6880cfb648145702b0f246841065faadc0f68ae933c947a84b22b617617cb",
       "owner": "scene-visible-progress",
-      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "reason": "Record newly discriminating same-batch Rope958 geometry/UV/mip/coverage evidence and replace the unresolved broad sampling direction with a bounded repeated-node UV ownership qualification; no product behavior claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rope-958-sampling"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "29c91fd2664ccad34ce9ea71a88d0c18c0d36fef31c6326b6d77c8a62ce73664",
-      "after": "ba1b1e44969a9f93a69bbe11f64c6f278b142d931df013a12e1024e6b3c2ff33",
+      "before": "ba1b1e44969a9f93a69bbe11f64c6f278b142d931df013a12e1024e6b3c2ff33",
+      "after": "ab7e55511004f10b16d9199e848f36de7c5c7b95dd1232193f3c04ff70a8e8ab",
       "owner": "scene-visible-progress",
-      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "reason": "Record newly discriminating same-batch Rope958 geometry/UV/mip/coverage evidence and replace the unresolved broad sampling direction with a bounded repeated-node UV ownership qualification; no product behavior claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rope-958-sampling"
     }
   ]
 }

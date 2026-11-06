@@ -132,6 +132,22 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 独立3437487219与3477054430同三输入摘要、四秒窗口的前后8张PNG均有终端/GPU完成和正常排空；前者112/114、后者14/23/47/68模型实际写各自同帧sealed target。两输入均没有显式castvolumetrics=true的可见cone请求，Plan仍0，不能称作者光锥恢复。Project复用同准备/栅格合同，本项没有单独Project光锥App像素样本。native root现在消费共享世界TRS。未消费effect、radius/density等writer、缺省体积/solid语义、一般体积散射、官方精确公式/像素及更广三维组合未授资格；当前合同见[可见光锥](advanced-object-coverage.md#spot-light-frame)。
 
+<a id="rope-958-sampling"></a>
+## Rope958 的同批几何、UV 与 mip 诊断
+
+本项在 `3628b293b` 上没有产品或正式测试变更。现役113个产品源与5个task源组成DEBUG原生探针，最终binary SHA `8d20f7c6d8255ac60dd5ea867e2884b55faaa776c39379f22c2527d5fe0d6e62`、protocol SHA `ffc8b5e76869ad895a5e846a42db0f184646cbd343fbb3395b347ec3b0fc7177`。一次错误的目录/包适配在Runtime创建前退出，0draw；改用现役打开包的namespace后，单Runtime固定157×1/60外层advance并冻结21个Rope实例，再完成14draw、8次顺序GPU提交。CB地址可复用，不称8个唯一token。原包、两定义/材质及实际sickle source身份匹配；原媒体全部文件字节前后不变。原失败、编译/输入/冻结字节、原尺寸G/Mauthored PNG、读回与独审归 `.artifacts/scene-rope-958-visibility-20261107/`。
+
+新受控frame固定camera origin0/zoom1、关闭相机parallax/shake，无场景后处理；不是旧App截图相位或完整作者场景。原rate5使当前源码公式推得13.0833模拟秒，该值不是独立live clock读回。P0已不在本批mesh近邻，P1/P2有支撑；这些距离是观察，不是三点存活的播放许可。原实际texture为64²/六mip/flags2/straightAlbedo，shared linear min/mag/mip、clamp/aniso16；Mauthored保全部实例原字节，私有unit/alphaOne只改预登记RGB/alpha lanes。先production vertex回读，再按固定barycentric/3×3内点规则冻结ROI，之后逐级通过G/U才运行后继；没有按颜色移动ROI。
+
+| 控制 | 实际读回与资格 |
+|---|---|
+| G / flat | 排固定peer矩形后，最大通道差0、覆盖11761像素；白内点、健康Sprite及outside成立。flat使用同production positions，仅授ABI/硬件转发，不能独立授模拟/曲线/官方几何。 |
+| U | 两固定内点精确red/green；只命中V0带，横向读口成立，纵向方向仍unknown，缺桶未作整batch许可。 |
+| L / LA | L两内点base红，但整batch G/B总和662/493证明少量lower加权贡献，不报整数LOD。仅base alpha1/lower alpha0时覆盖11759，较G损2、无新增；不支持lower-mip alpha单独解释本freeze整批缺线，也不排除其与稀疏mask交互。 |
+| 原sickle控制 | particle alphaOne覆盖7，原实例alpha约.309… .52时覆盖0；peer/outside保持。coverage取真实target A>0（原A2C alpha-to-one、clearA0），RGB另计。部分alpha可露更早重叠primitive，只授整批因果差异；7点坐标未保，不给单primitive归因。 |
+
+真实vertex V域[.24242425,1]：约631.34px主干仅消费V .30303031→.27272725，开头5.522px却跨V1→.32900429。原RopePlan在几何去重前按存活索引分q，距离去重保first sample/UV且未在可画域重归一，后续FrameTransform/vertex没有二次UV缩放；本次首次在958实际batch观察到该端域边界。原sickle同SHA的base非零mask止于y<18、A255核心止于y<15，支持主干落透明边缘/低alpha区的空间解释，不能代替实际过滤alpha或官方端域。下一资格由[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护；不从这些图选择重归一、弧长、半宽、alpha、mip或MSAA修复。单个simulationLimitation只保kind未含detail，本项也不授完整模拟、旧App整轨恢复、官方像素或性能。
+
 <a id="limits"></a>
 ## 未取得的资格
 
