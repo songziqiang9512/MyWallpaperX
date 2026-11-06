@@ -58,10 +58,9 @@ extension DebugScenePlaybackRunner {
                 runtimeHost.setPlaybackPaused(false)
                 let resumed = runtimeHost.debugSnapshot()
                 let resumeAccepted = pauseAccepted
-                    && beforeResume.surfaceCount == paused.surfaceCount
                     && beforeResume.isPlaybackPaused
                     && !beforeResume.isFrameDriverActive
-                    && resumed.surfaceCount == paused.surfaceCount
+                    && resumed.surfaceCount == beforeResume.surfaceCount
                     && !resumed.isPlaybackPaused
                     && resumed.isFrameDriverActive
                 NSLog(

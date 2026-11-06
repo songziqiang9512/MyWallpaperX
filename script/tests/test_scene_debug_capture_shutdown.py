@@ -87,7 +87,7 @@ final class ControlledFontWorker: @unchecked Sendable {
 
 enum SceneGraphExecutionResetReason {case surfaceStop}
 final class TestResettable {func reset() {};func revoke() {};func cancel() {};func stop() {}}
-final class TestWindow {func orderOut(_ sender:Any?) {};func close() {}}
+final class TestWindow {var closeCalls=0;func orderOut(_ sender:Any?) {};func close() {closeCalls += 1}}
 enum TestCursorState {case empty}
 struct TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
 enum TestUserTextureLoad {case empty}
@@ -125,7 +125,8 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     final class View {
         let renderer: Renderer
         let debugFrameCapture: SceneDebugFrameCapture
-        func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {}
+        var invalidations=0
+        func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {invalidations += 1}
         init(_ q: MTLCommandQueue, _ c: SceneDebugFrameCapture) { renderer=Renderer(q);debugFrameCapture=c }
     }
     final class Surface {
@@ -262,28 +263,53 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         let capture=SceneDebugFrameCapture(beforeExport:{entered.signal();release.wait()})
         let session=SceneDesktopWallpaperSession()
         let surface=SceneDesktopWallpaperSession.Surface(queue,capture)
-        session.surfaces[1]=surface
+        session.surfaces[2]=surface
+        let keeperCapture=SceneDebugFrameCapture()
+        let keeperQueue=device.makeCommandQueue()!
+        let keeper=SceneDesktopWallpaperSession.Surface(keeperQueue,keeperCapture)
+        session.surfaces[1]=keeper
         capture.request(reason:"retired",outputDirectory:dir)
         let command=queue.makeCommandBuffer()!
         capture.encodeIfRequested(texture:texture,commandBuffer:command)
         command.commit()
         await wait(entered)
-        session.retireSurface(surface)
-        session.surfaces.removeAll()
+        session.teardownSurface(session.surfaces.removeValue(forKey:2)!,reason:.surfaceStop)
+        check(session.surfaces[1] === keeper && keeper.particleTeardownCalls == 0
+              && keeper.window.closeCalls == 0 && keeper.metalView.invalidations == 0
+              && surface.particleTeardownCalls == 1 && surface.puppetPlaybackStates.isEmpty
+              && surface.window.closeCalls == 1 && surface.metalView.invalidations == 1,
+              "removed teardown touched a survivor or retained removed CPU owners")
         let barrier=queue.makeCommandBuffer()!
         let terminal=DispatchSemaphore(value:0)
         barrier.addCompletedHandler {_ in terminal.signal()};barrier.commit()
         await wait(terminal)
         check(session.retiringSurfaces.count == 1,"retired surface released before export")
+        guard case .accepted = keeperCapture.request(reason:"survivor",outputDirectory:dir) else {
+            fatalError("removed retirement closed survivor capture admission")
+        }
+        let keeperCommand=keeperQueue.makeCommandBuffer()!
+        keeperCapture.encodeIfRequested(texture:texture,commandBuffer:keeperCommand)
+        let keeperDone=DispatchSemaphore(value:0)
+        keeperCommand.addCompletedHandler {_ in keeperDone.signal()};keeperCommand.commit()
+        await wait(keeperDone)
+        check(session.retiringSurfaces.count == 1 && session.surfaces[1] === keeper,
+              "removed export blocked survivor GPU progress or disposed its active owner")
         var results:[Bool]=[]
         let drained=DispatchSemaphore(value:0)
+        session.stop()
         session.stopAndDrainGPU { results.append($0);drained.signal() }
         session.stopAndDrainGPU { results.append($0);drained.signal() }
         check(results.isEmpty && session.drainResult == nil,"session reported early drain")
         release.signal()
         await wait(drained);await wait(drained)
         check(results == [true,true] && session.retiringSurfaces.isEmpty,"retired capture or repeated drain failed")
+        check(surface.particleTeardownCalls == 1 && keeper.particleTeardownCalls == 1
+              && surface.window.closeCalls == 1 && keeper.window.closeCalls == 1
+              && surface.metalView.invalidations == 1 && keeper.metalView.invalidations == 1,
+              "removed and retained CPU owners did not each retire exactly once")
         check(FileManager.default.fileExists(atPath:dir.appendingPathComponent("scene-retired-window.png").path),"drain preceded file")
+        check(FileManager.default.fileExists(atPath:dir.appendingPathComponent("scene-survivor-window.png").path),
+              "stop drain preceded survivor export")
         session.stopAndDrainGPU { results.append($0) }
         check(results == [true,true,true],"completed drain not idempotent")
         let fontSession=SceneDesktopWallpaperSession()
@@ -675,7 +701,14 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 DISPLAY_RECONCILIATION_TEMPLATE = r'''
 import AppKit
 
-final class TestScreen {let frame:CGRect;init(_ frame:CGRect) {self.frame=frame}}
+final class TestScreen {
+    static var screens:[TestScreen] {[]}
+    let frame:CGRect
+    let backingScaleFactor:CGFloat=1
+    var deviceDescription:[NSDeviceDescriptionKey:Any] {[:]}
+    init(_ frame:CGRect) {self.frame=frame}
+}
+typealias NSScreen = TestScreen
 final class TestWindow {
     var frame:CGRect
     var frameUpdates=0
@@ -687,12 +720,27 @@ final class TestView {
     func updateDrawableSize() {drawableUpdates += 1}
     func refreshDisplayOutput() {outputUpdates += 1}
 }
-struct SceneDesktopWallpaperLaunchContext {}
+enum SceneGraphExecutionResetReason {case surfaceStop}
+final class TestCursorProgram {
+    var retired:[Set<CGDirectDisplayID>]=[]
+    func retireSurfaceInputs(_ ids:Set<CGDirectDisplayID>) {retired.append(ids)}
+}
+final class TestStorageDomain {
+    var identities:[String?]=[]
+    func setStorageScreenIdentity(_ value:String?) throws {identities.append(value)}
+}
+struct TestVectorProgram {let domain:TestStorageDomain?=TestStorageDomain()}
+struct SceneDesktopWallpaperLaunchContext {
+    let sceneScriptCursorProgram=TestCursorProgram()
+    let propertyVectorScriptProgram=TestVectorProgram()
+}
+struct TestParticlePlayback {var hasAudioConsumer=false}
 struct TestLogger {func info(_ message:String) {}}
 @MainActor final class SceneDesktopWallpaperSession {
     final class Surface {
         let window:TestWindow
         let metalView=TestView()
+        var particlePlayback:TestParticlePlayback?=TestParticlePlayback()
         init(_ frame:CGRect) {window=TestWindow(frame)}
     }
     static let performanceLogger=TestLogger()
@@ -700,9 +748,13 @@ struct TestLogger {func info(_ message:String) {}}
     static var resolutions=0
     var launchContext:SceneDesktopWallpaperLaunchContext? = .init()
     var screenTopology:[SceneScreenTopology]=[]
+    var preparedSurfaceIDs:Set<CGDirectDisplayID>=[]
     var surfaces:[CGDirectDisplayID:Surface]=[:]
+    var retired:[Surface]=[]
+    var debugSurfaceReferenceFrames:[CGDirectDisplayID:CGRect]=[:]
     var screenReconciliationWorkItem:DispatchWorkItem?
     var rebuilds=0,audioUpdates=0,visibilityUpdates=0,stops=0
+    var audioInputs:[Bool?]=[]
     var rebuildSucceeds=true
     var rebuiltScreens:[(TestScreen,CGDirectDisplayID)] = []
     static func surfaceScreens(topology:[SceneScreenTopology])->[(TestScreen,CGDirectDisplayID)] {
@@ -710,8 +762,12 @@ struct TestLogger {func info(_ message:String) {}}
         return resolved
     }
     func updateAudioSpectrumDemand(_ context:SceneDesktopWallpaperLaunchContext,hasParticleAudioConsumer:Bool?) {
-        precondition(hasParticleAudioConsumer == nil)
-        audioUpdates += 1
+        audioUpdates += 1;audioInputs.append(hasParticleAudioConsumer)
+    }
+    nonisolated static func sceneScriptStorageScreenIdentity(_ id:CGDirectDisplayID)->String? {"screen-\(id)"}
+    func teardownSurface(_ surface:Surface,reason:SceneGraphExecutionResetReason) {
+        precondition(!surfaces.values.contains {$0 === surface},"removed owner was still active during retirement")
+        retired.append(surface)
     }
     func rebuildSurfaces(screens:[(TestScreen,CGDirectDisplayID)]?=nil)->Bool {
         guard let screens else {fatalError("reconciliation discarded its resolved input")}
@@ -757,6 +813,33 @@ struct TestLogger {func info(_ message:String) {}}
         check(SceneDesktopWallpaperSession.resolutions == 1 && session.surfaces[1] === original
               && session.rebuilds == 0 && session.audioUpdates == 0,
               "unresolved requested display dismantled an unchanged actual surface set")
+        let shrinking=SceneDesktopWallpaperSession(),keeper=SceneDesktopWallpaperSession.Surface(live)
+        let removedA=SceneDesktopWallpaperSession.Surface(live),removedB=SceneDesktopWallpaperSession.Surface(live)
+        removedA.particlePlayback?.hasAudioConsumer=true
+        shrinking.surfaces=[1:keeper,2:removedA,3:removedB]
+        shrinking.preparedSurfaceIDs=[1,2,3];shrinking.debugSurfaceReferenceFrames=[1:live,2:live,3:live]
+        SceneDesktopWallpaperSession.resolutions=0
+        shrinking.applyDisplayConfiguration([typed]);try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && shrinking.surfaces.count == 1
+              && shrinking.surfaces[1] === keeper && shrinking.retired.count == 2
+              && Set(shrinking.retired.map(ObjectIdentifier.init)) == Set([removedA,removedB].map(ObjectIdentifier.init)),
+              "removed-only reconciliation replaced a survivor or retired the wrong owners")
+        check(shrinking.preparedSurfaceIDs == [1] && shrinking.audioInputs == [false]
+              && shrinking.launchContext!.propertyVectorScriptProgram.domain!.identities == ["screen-1"]
+              && shrinking.launchContext!.sceneScriptCursorProgram.retired == [Set([2,3])]
+              && Set(shrinking.debugSurfaceReferenceFrames.keys) == [1],
+              "removed membership did not publish exact prepared/audio/storage/input consumers once")
+        check(shrinking.rebuilds == 0 && shrinking.stops == 0 && keeper.window.frameUpdates == 0
+              && keeper.metalView.drawableUpdates == 1 && keeper.metalView.outputUpdates == 1,
+              "removed-only reconciliation entered global rebuild or missed survivor geometry")
+        let mixed=SceneDesktopWallpaperSession()
+        mixed.surfaces=[1:keeper,2:removedA]
+        SceneDesktopWallpaperSession.resolved=[(screen,1),(secondScreen,3)]
+        SceneDesktopWallpaperSession.resolutions=0
+        mixed.applyDisplayConfiguration([typed,other]);try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && mixed.rebuilds == 1
+              && mixed.audioInputs.count == 1 && mixed.audioInputs[0] == nil && mixed.retired.isEmpty
+              && mixed.rebuiltScreens.map(\.1) == [1,3],"mixed replacement escaped original fallback")
         SceneDesktopWallpaperSession.resolutions=0
         SceneDesktopWallpaperSession.resolved=[(screen,1),(secondScreen,2)]
         session.applyDisplayConfiguration([typed,other])
@@ -811,6 +894,8 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
         audio = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift").read_text()
         methods = [production_method(session, "    func applyDisplayConfiguration("),
                    production_method(session, "    private func scheduleScreenConfigurationReconciliation("),
+                   production_method(session, "    private func reconcileSurfaceScreens("),
+                   production_method(session, "    private func updatePreparedSurfaceMembership("),
                    production_method(audio, "    func rebuildSurfacesReconcilingAudioDemand(")]
         with tempfile.TemporaryDirectory(prefix="mwx-display-reconciliation-") as raw:
             directory = Path(raw)

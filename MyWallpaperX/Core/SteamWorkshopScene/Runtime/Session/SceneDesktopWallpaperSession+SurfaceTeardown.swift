@@ -28,12 +28,7 @@ extension SceneDesktopWallpaperSession {
         frameDriverDeadline = nil
         pausedFrameRetryDeadline = nil
         for surface in surfaces.values {
-            surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
-            surface.teardownParticlePlayback(reason: reason)
-            surface.puppetPlaybackStates.removeAll()
-            surface.window.orderOut(nil)
-            surface.window.close()
-            if !drainStarted { retireSurface(surface) }
+            teardownSurface(surface, reason: reason)
         }
         surfaces.removeAll()
         // A display ID can be reused by a new view. Cancel input tied to the
@@ -102,5 +97,14 @@ extension SceneDesktopWallpaperSession {
             debugPointerOverride = nil
 #endif
         }
+    }
+
+    func teardownSurface(_ surface: Surface, reason: SceneGraphExecutionResetReason) {
+        surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
+        surface.teardownParticlePlayback(reason: reason)
+        surface.puppetPlaybackStates.removeAll()
+        surface.window.orderOut(nil)
+        surface.window.close()
+        if !drainStarted { retireSurface(surface) }
     }
 }

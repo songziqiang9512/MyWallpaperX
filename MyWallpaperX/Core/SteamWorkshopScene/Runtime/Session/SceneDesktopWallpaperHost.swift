@@ -234,6 +234,7 @@ final class SceneDesktopWallpaperHost {
         activeSession?.setDebugPointerOverride(input)
     }
     func debugResizeSurfaces(scale: CGFloat) -> Bool { activeSession?.debugResizeSurfaces(scale: scale) ?? false }
+    func debugRetainSurfaces(_ count: Int) -> Bool { activeSession?.debugRetainSurfaces(count) ?? false }
     func debugInvalidateResolvedMaterialRuntimes(reason: SceneGraphExecutionResetReason) -> Bool {
         activeSession?.debugInvalidateResolvedMaterialRuntimes(reason: reason) ?? false
     }

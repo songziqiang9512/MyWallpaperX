@@ -416,6 +416,14 @@ final class SceneDesktopWallpaperSession {
         return true
     }
 
+    func debugRetainSurfaces(_ count: Int) -> Bool {
+        guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow, let context = launchContext else { return false }
+        let screens = Self.surfaceScreens(topology: screenTopology).filter { surfaces[$0.1] != nil }
+        guard count > 0, count < surfaces.count, count <= screens.count else { return false }
+        reconcileSurfaceScreens(Array(screens.prefix(count)), context: context)
+        return surfaces.count == count
+    }
+
     @discardableResult
     func debugInvalidateResolvedMaterialRuntimes(
         reason: SceneGraphExecutionResetReason
@@ -449,8 +457,7 @@ final class SceneDesktopWallpaperSession {
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
         guard !topology.isEmpty else { return }
-        // 先落权威目标集：主 App 裁决的显示集（多屏开=全部、关=首屏）
-        // 是 rebuildSurfaces 的表面来源，不能只当变更触发器。
+        // 主 App 裁决目标屏；实际几何在协调时取对应 live screen。
         screenTopology = topology
         scheduleScreenConfigurationReconciliation(topology)
     }
@@ -462,37 +469,57 @@ final class SceneDesktopWallpaperSession {
         screenReconciliationWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self, let launchContext = self.launchContext else { return }
-            let surfaceScreens = Self.surfaceScreens(topology: topology)
-            if !surfaceScreens.isEmpty, Set(surfaceScreens.map(\.1)) == Set(self.surfaces.keys) {
-                for (screen, displayID) in surfaceScreens {
-                    let surface = self.surfaces[displayID]!
-                    if surface.window.frame != screen.frame {
-                        surface.window.setFrame(screen.frame, display: true, animate: false)
-                    }
-                    surface.metalView.updateDrawableSize()
-                    surface.metalView.refreshDisplayOutput()
-                }
-                self.reassertSurfaceVisibility()
-#if DEBUG
-                Self.performanceLogger.info(
-                    "Retained Scene surfaces after screen geometry change; surfaces=\(self.surfaces.count)"
-                )
-#endif
-                return
-            }
-#if DEBUG
-            Self.performanceLogger.info(
-                    "Rebuilding Scene surfaces after screen topology change; old=\(self.surfaces.count) new=\(surfaceScreens.count)"
-            )
-#endif
-            _ = self.rebuildSurfacesReconcilingAudioDemand(
-                launchContext,
-                rebuild: { self.rebuildSurfaces(screens: surfaceScreens) },
-                revokeLaunch: { self.stop() }
-            )
+            self.reconcileSurfaceScreens(Self.surfaceScreens(topology: topology), context: launchContext)
         }
         screenReconciliationWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+    }
+
+    private func reconcileSurfaceScreens(
+        _ surfaceScreens: [(NSScreen, CGDirectDisplayID)],
+        context: SceneDesktopWallpaperLaunchContext
+    ) {
+        let currentIDs = Set(surfaces.keys)
+        let targetIDs = Set(surfaceScreens.map(\.1))
+        if !surfaceScreens.isEmpty, targetIDs.isSubset(of: currentIDs) {
+            let removedIDs = currentIDs.subtracting(targetIDs)
+            if !removedIDs.isEmpty {
+                context.sceneScriptCursorProgram.retireSurfaceInputs(removedIDs)
+                for displayID in removedIDs {
+                    let surface = surfaces.removeValue(forKey: displayID)!
+                    teardownSurface(surface, reason: .surfaceStop)
+#if DEBUG
+                    debugSurfaceReferenceFrames.removeValue(forKey: displayID)
+#endif
+                }
+                updatePreparedSurfaceMembership(context)
+            }
+            for (screen, displayID) in surfaceScreens {
+                let surface = surfaces[displayID]!
+                if surface.window.frame != screen.frame {
+                    surface.window.setFrame(screen.frame, display: true, animate: false)
+                }
+                surface.metalView.updateDrawableSize()
+                surface.metalView.refreshDisplayOutput()
+            }
+            reassertSurfaceVisibility()
+#if DEBUG
+            Self.performanceLogger.info(
+                "Retained Scene surfaces after display reconciliation; retained=\(targetIDs.count) removed=\(removedIDs.count)"
+            )
+#endif
+            return
+        }
+#if DEBUG
+        Self.performanceLogger.info(
+            "Rebuilding Scene surfaces after screen topology change; old=\(currentIDs.count) new=\(surfaceScreens.count)"
+        )
+#endif
+        _ = rebuildSurfacesReconcilingAudioDemand(
+            context,
+            rebuild: { self.rebuildSurfaces(screens: surfaceScreens) },
+            revokeLaunch: { self.stop() }
+        )
     }
 
     private func reassertSurfaceVisibility() {
@@ -785,7 +812,13 @@ final class SceneDesktopWallpaperSession {
             return false
         }
 
-        preparedSurfaceIDs = Set(surfaceScreens.map(\.1))
+        updatePreparedSurfaceMembership(launchContext)
+        videoTextureSourceRegistry.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
+        return prepareInitialVideos()
+    }
+
+    private func updatePreparedSurfaceMembership(_ launchContext: SceneDesktopWallpaperLaunchContext) {
+        preparedSurfaceIDs = Set(surfaces.keys)
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.particlePlayback?.hasAudioConsumer == true })
         let storageScreenIdentity = surfaces.count == 1
             ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
@@ -795,14 +828,12 @@ final class SceneDesktopWallpaperSession {
                 .setStorageScreenIdentity(storageScreenIdentity)
         } catch {
 #if DEBUG
-        NSLog(
+            NSLog(
                 "MWX SceneScript VM: localStorage screen identity unavailable failure=%@ fallback=global-only",
                 String(describing: error)
             )
 #endif
         }
-        videoTextureSourceRegistry.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
-        return prepareInitialVideos()
     }
 
     func textTexturePublicationDidChange(_ store: SceneDynamicTextTextureStore) {

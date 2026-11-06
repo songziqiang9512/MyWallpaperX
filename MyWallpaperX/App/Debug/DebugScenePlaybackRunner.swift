@@ -11,6 +11,7 @@ import Foundation
 enum DebugScenePlaybackRunner {
     private static let debugRecordID = "debug-scene-playback"
     private static let surfaceRebuildDelayEnvironmentKey = "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER"
+    private static let surfaceRetainCountEnvironmentKey = "MWX_SCENE_DEBUG_SURFACE_RETAIN_COUNT"
     private struct SceneRuntimeEvidence: Encodable {
         let schemaVersion = 1
         let sourceEntryPath: String
@@ -144,6 +145,7 @@ enum DebugScenePlaybackRunner {
             environmentKey: surfaceRebuildDelayEnvironmentKey,
             duration: requestedDuration
         )
+        let surfaceRetainCount = environment[surfaceRetainCountEnvironmentKey].flatMap(Int.init)
         let pauseResumeRequest = requestedPauseResumeRequest(
             duration: requestedDuration
         )
@@ -185,6 +187,12 @@ enum DebugScenePlaybackRunner {
         }
         guard environment[surfaceRebuildDelayEnvironmentKey] == nil || surfaceRebuildDelay != nil else {
             NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=invalid-surface-rebuild-delay")
+            terminate(after: 0.1)
+            return
+        }
+        guard environment[surfaceRetainCountEnvironmentKey] == nil
+                || (surfaceRetainCount != nil && surfaceRebuildDelay != nil) else {
+            NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=invalid-surface-retain-count")
             terminate(after: 0.1)
             return
         }
@@ -400,7 +408,8 @@ enum DebugScenePlaybackRunner {
                     request: pauseResumeRequest,
                     outputDirectory: evidenceDirectory
                 )
-                scheduleSurfaceRebuild(delay: surfaceRebuildDelay, outputDirectory: evidenceDirectory)
+                scheduleSurfaceRebuild(delay: surfaceRebuildDelay, retaining: surfaceRetainCount,
+                    outputDirectory: evidenceDirectory)
             }
             if let sequence = requestedLivePropertySequence {
                 if !sequence.isEmpty {
@@ -447,7 +456,9 @@ enum DebugScenePlaybackRunner {
         terminate(after: duration)
     }
 
-    private static func scheduleSurfaceRebuild(delay: TimeInterval?, outputDirectory: URL) {
+    private static func scheduleSurfaceRebuild(
+        delay: TimeInterval?, retaining retainedCount: Int?, outputDirectory: URL
+    ) {
         guard !isClosing, let delay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard !isClosing else { return }
@@ -457,31 +468,39 @@ enum DebugScenePlaybackRunner {
                 return
             }
             var requested = captured
-            requested[0] = .init(displayID: first.displayID, frame: first.frame.insetBy(dx: 0.5, dy: 0),
-                backingScaleFactor: first.backingScaleFactor)
-            guard runtimeHost.debugResizeSurfaces(scale: 0.8) else { return }
+            if retainedCount == nil {
+                requested[0] = .init(displayID: first.displayID, frame: first.frame.insetBy(dx: 0.5, dy: 0),
+                    backingScaleFactor: first.backingScaleFactor)
+                guard runtimeHost.debugResizeSurfaces(scale: 0.8) else { return }
+            }
             let before = runtimeHost.debugSnapshot(captureSurfaceState: true)
             recordSurfaceRebuildSnapshot(before, stage: "before", captured: captured,
                 requested: requested, outputDirectory: outputDirectory)
             NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=triggered surfaces=%d", before.surfaceCount)
-            runtimeHost.applyDisplayConfiguration(requested)
+            if let retainedCount {
+                guard runtimeHost.debugRetainSurfaces(retainedCount) else {
+                    NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=rejected reason=invalid-retained-subset")
+                    return
+                }
+            } else {
+                runtimeHost.applyDisplayConfiguration(requested)
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
                 guard !isClosing else { return }
                 let after = runtimeHost.debugSnapshot(captureSurfaceState: true)
                 let accepted = before.sessionID != nil && before.sessionID == after.sessionID
                     && before.requestID != nil && before.requestID == after.requestID
-                    && before.surfaceCount > 0 && before.surfaceCount == after.surfaceCount
-                    && Set(before.surfacesByDisplay.keys) == Set(after.surfacesByDisplay.keys)
-                    && before.surfacesByDisplay.allSatisfy { displayID, previous in
-                        guard let current = after.surfacesByDisplay[displayID] else { return false }
+                    && before.surfaceCount > 0 && after.surfaceCount == (retainedCount ?? before.surfaceCount)
+                    && after.surfacesByDisplay.allSatisfy { displayID, current in
+                        guard let previous = before.surfacesByDisplay[displayID] else { return false }
                         return previous.surfaceIdentity == current.surfaceIdentity
                             && previous.viewIdentity == current.viewIdentity
                             && previous.rendererTextureRegistryIdentity == current.rendererTextureRegistryIdentity
                             && previous.windowNumber == current.windowNumber
                             && current.windowFrame == current.targetFrame
                     }
-                NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=retained accepted=%@ surfacesBefore=%d surfacesAfter=%d",
-                    accepted ? "true" : "false", before.surfaceCount, after.surfaceCount)
+                NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=%@ accepted=%@ surfacesBefore=%d surfacesAfter=%d",
+                    retainedCount == nil ? "retained" : "removed", accepted ? "true" : "false", before.surfaceCount, after.surfaceCount)
                 recordSurfaceRebuildSnapshot(after, stage: "after", captured: captured,
                     requested: requested, outputDirectory: outputDirectory)
                 requestSnapshot(reason: "surface-rebuild-after", outputDirectory: outputDirectory)

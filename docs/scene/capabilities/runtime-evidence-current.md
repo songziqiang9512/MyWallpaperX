@@ -162,15 +162,15 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 独立3437487219、3477054430与上批同完整输入摘要，各四秒新运行均取得两张终端PNG、GPU完成及正常排空；实际模型分别112/114和14/23/47/68进入main/seal。它们是普通模型相邻回归，没有作者 composition-model 正命中；不授作者组恢复、父组动态显隐/初始关闭effect热准备、组内image/effect terminal共享深度、全部三维/材质组合、官方像素或性能。两处观察/夹具失败、独审、冻结身份、自有7图、negative2图及各作者一张after原图保于 `.artifacts/scene-model-subtree-20261107/`；作者Ready图经核对哈希后退役。
 
 <a id="display-reconciliation"></a>
-## 同成员显示协调的播放连续性
+## 显示协调的保留与单屏退休
 
-基于 `135c0bbc0` 的7个产品路径，标准签名 Debug CDHash `9eb5db32fe36d031b5db45370b3fc844c5602fad`、实际 dylib SHA `9205e7dcc7b88a8564b850a10a9fdf884593edc826520bc6e60cb96bfac4e494`；源码与 App 在运行前后冻结一致。Session 一次解析实际成员，集合不变时沿原窗口更新 live 几何，退役 rebuiltTopology 与 client 启动 callback 事实的显示事件清零。完整目标与未实施成员增量归[显示配置合同](../architecture/runtime-architecture.md#display-reconciliation)。
+基于 `e0f26d373` 的7个产品路径，标准签名 Debug CDHash `428600242fb76d14b981bc9073ba1ccb958bcbdd`、实际 dylib SHA `a58e5e5a4e1a866882efeeefe7b7c34d1fefb18500f3b60751c33fe7339a6bf6`；源码与App运行前后冻结一致。原Session一次解析实际成员，同集合与非空旧实例子集保survivors，只退休差集；prepared IDs/storage/audio共用一次成员发布，cursor pending只补原来源ID以精准撤removed重试，保物理按钮边沿与健康输入。无新owner、clock、cache或retired ID表，完整目标归[显示配置合同](../architecture/runtime-architecture.md#display-reconciliation)。
 
-原三门加 HDR/SDR 暂停缩放共7方法、9次有效 App 运行：同屏 Surface/View/纹理registry/graph 与粒子实例保持，DEBUG 两屏各自独立；暂停 VM、已采用 Sprite/root/active-child 的观测状态不推进，已 commit 未采用的 destroy 等恢复模拟才退休；playing 继续、健康 peer 与 child 实际像素保持。history 沿原 allocationReprepare 合法重建尺寸资源，graph owner不换。原生覆盖实际 debounce/一次解析、未解析新增 ID、实际成员变化/空解析/退出反例、callback 撤销、22种暂停提交恢复及 capture/AppKit 排空。旧 App 同输入会重复执行第0帧；首 capture 缺唤醒与新 child 被红 root 遮挡的失败均保留，未降低原像素阈值。
+现构建3方法/3次有效App运行：playing2→1、paused3→1及已commit未采用destroy的暂停Sprite几何邻例。survivor的Surface/View/纹理registry/graph/粒子实例保持，原各屏实例独立；移除仅退休对应lifecycle，最终各实例一次退休。paused frame64及VM/adopted/root/active-child观测JSON前后不变，两个3024×1964 PNG的5,939,136个RGB像素完全一致；playing与恢复后root/child继续，红/蓝/cyan/green原阈值不变。原生40个cursor方法核来源、按住移除不伪造down/click及健康重试；22种暂停恢复、实际debounce/一次解析、3→1成员/storage/audio、未解析ID、added/mixed/空解析和退出反例通过。真实GPU门在removed PNG导出被持有时，keeper仍完成独立queue工作；先stop再重复drain仍等原导出尾，并保迟到失败/nil barrier。原AppKit终止15模式的相同执行输入资格复用。
 
-独立作者3437487219的22文件/68,987,759字节保持原摘要。12秒观察中原 Surface/graph 与103、105的5,000及75粒子保留；暂停前后均frame65，sceneTime与root粒子、RNG、emitter/CP观测值相等。真正缩窗后恢复 live 尺寸，两张3024×1964 PNG的5,939,136个RGB像素逐字节一致，最大通道误差0；两个request均在恢复播放前编码。五张PNG逐一关联request/CB/Surface、模型112/114到main/seal/GPU，无截断；恢复后capture frame112/268，正常stop和导出排空。原件、副本、源码和App均未变，未改作者内容。
+独立作者3437487219的22文件/68,987,759字节保持原三摘要。12秒3→1中三份实例各有103的5,000及105的75粒子，精确退休两屏，原survivor完整particleLayers观测值、frame36和sceneTime保持；最低window确属该survivor。前后3024×1964原生16-bit RGBA PNG每份22,320,420字节，逐字节相同，SHA `c8818ebbe5aa0fc3c75e4409cdf9a9892f556ff2f2ef7359e8f13d370829d915`，不靠8-bit读图掩盖低位差异。实际req2编码在trigger前、req3在trigger后且早于真正恢复入口；五图各以encoded之后request/CB/seal texture/extent唯一关联原Surface、模型112/114到main/GPU，无截断。恢复capture frame81/237、正常stop1→0与排空，原件/副本/App/源码均未变。
 
-证据与独审在 `.artifacts/scene-display-retention-20261107/`。首8秒作者窗的末截图因原双导出lane占用而pending到stop，延长观察后五图闭合；原始失败与tuple/list读数纠正保留。HDR邻门另有同allocation的mapping-only完成，未测成本；reflection夹具的早截图在geometry前已完成，不授在途capture跨geometry资格。仅授本片观测的冻结值和输出，不授完整RNG轨迹同态、媒体时钟/decoded连续性、真实多屏/物理DPI/EDR、最大帧隙、性能或官方parity；新增/移除和worker完整预热仍开放。
+证据与独审在 `.artifacts/scene-display-removal-20261107/`；首Logger构建和平台替身编译失败保留。初次paused夹具把ready与pause排同点，FIFO使pre在移除后、post在恢复后才编码，未授跨移除像素；分相后仍硬核pre<trigger<post<`playback-state requested=resumed`，不以文件名或较晚诊断授资格，未给多pending截图另加轮询/registry或及时排空承诺。前批同集合/HDR/history资格保其`.artifacts/scene-display-retention-20261107/`原身份，不算本构建重跑。仅授已观测冻结值与输出，不授严格RNG轨迹同态、媒体时钟/decoded连续、真实多屏/物理DPI/EDR、最大帧隙、性能或官方parity；新增/混合增量准备与完整worker预热仍开放。
 
 <a id="limits"></a>
 ## 未取得的资格

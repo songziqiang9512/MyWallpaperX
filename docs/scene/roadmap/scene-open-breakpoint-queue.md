@@ -34,12 +34,12 @@
 | 粒子球体与画布碰撞 | 静态Sphere消费者见[组件合同](../capabilities/particle-component-coverage.md#sphere-collision)；首次接触顺序、精确轨迹/size裕量、CP锁定位及缺省数值仍未资格，不能由3773747576/183的CP333或CP1同位推断开关规则。Bounds的3780119725/891 operator2仍`unknown-operator-kind`，只有name/id；缺实际wallpaper边界经当前变换到粒子空间的供货和缺省响应，不能用drawable或发射盒代替。沿原碰撞/空间/Simulator补消费者，不把正常batch/GPU或退出授为完整碰撞能力。 |
 | 双控制点的弧向与周期序列 | Between的raw0x08、0x20及arc参数仍有未消费语义；三个闪电root实际initializer5为arcamount.1/flags23，没有请求0x20重启；Parser未保arc字段，现flags23的partial也未覆盖它。partial只记录当前未知位/坏size选项，不包含flags23的arcamount，其余字段继续。固定官方周期输入的mask32显示新窗从首端恢复；落实需沿原emitter状态与跨窗出生批次定义序列，不能拿全局particleID减首ID猜多emitter/显式交错。arcamount/方向默认已取证，但非零arcamount尚无消费者，不能因flags23缺bit8便断言其无效；完整曲线、位关联与随机协议未资格；沿用当前组件证据包，补有效/零控制和改名邻例。自然本步新生与存量边界已执行，CP变化同cadence的显式新生/后续Maintain顺序仍需有界对照，不加整链许可。 |
 | 发射器Directions数值域 | `SceneParticleEmitter.hasBoundedDirectionsAndSign`仍把有限Directions限制在abs≤1e6；原Sphere/Box消费及最终新生Float检查没有同名语义上限。应分别核零半径、有效大值、实际乘积溢出和健康peer后，清理无用的幅度许可。当前全量样本未见该幅度门独立活动拒绝，不以它解释其他birth失败。准备期另有静态反例：Directions=(1e200,1e200,0)、固定radius=1e-200时，二维`pow(radius,2)`下溢0；若直接放域会出生在origin，最终Float有限检查抓不到错误零。先沿原径向准备/抽样明确数值语义，不再堆幅度名单或为极罕见输入新增运行防线。 |
-| 显示器协调与新增屏预热 | 实际解析成员不变时已保留原 Surface、冻结帧和播放实例，仅更新 live 几何；实际成员变化仍全量拆建，并在主线程按3,600步/四百万加权单位上限准备粒子。新增/移除的分屏安装、退休与完整预热尚未闭合，frame-created child 的240步另属普通帧边界；目标与验收见[显示器增量协调](#display-reconciliation)。 |
+| 显示器协调与新增屏预热 | 实际解析结果为旧实例非空子集时已保survivors、冻结帧及健康输入，只退休移除屏；新增/混合仍全量拆建，并在主线程按3,600步/四百万加权单位上限准备粒子。待补原worker的typed输入、完整预热/单屏安装和采用取消尾；frame-created child的240步另属普通帧边界，目标见[显示器增量协调](#display-reconciliation)。 |
 
 <a id="display-reconciliation"></a>
 ### 显示器增量协调
 
-完整职责与验收归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)。实际解析成员不变时已接通原 Surface 几何更新，暂停已采用帧与播放实例保持，范围见[当前运行证据](../capabilities/runtime-evidence-current.md#display-reconciliation)。新增/移除屏仍需增量安装、单屏退休和原队列完整预热，不因本片通过关闭整项。真实多屏、物理 backing/HDR、最大帧间隔与新增屏人口/RNG关系分别取证。
+完整职责与验收归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)。同集合几何更新与非空子集的仅移除已接通原实例保留、精准输入撤销和原退休尾，范围见[当前运行证据](../capabilities/runtime-evidence-current.md#display-reconciliation)。下一步补新增屏的job-start typed值、原队列完整准备/零步首帧安装与采用取消尾，避免paused新屏触发全局VM重跑；混合变化保留仍属目标的健康屏，旧目标差集不为等待新增而续播。新增/混合仍保旧路径，整项继续开放；真实多屏、物理backing/HDR、最大帧隙与新增屏人口/RNG关系分别取证。
 
 ## 内容与观测资格
 

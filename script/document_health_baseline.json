@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 197,
-      "bytes": 31096
+      "lines": 200,
+      "bytes": 32871
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 180,
-      "bytes": 96565
+      "bytes": 97139
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 34992
+      "bytes": 35180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -512,28 +512,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3dae57fe23995055a2970ab9ef62341a0daafe62bbbeb6003e30c8efd740df33",
-      "after": "8531f905faa2c9a1dd22595210a99d9c545bda6f72a1b1dee2e7e65158864e26",
-      "owner": "scene-display-retention",
-      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "before": "8531f905faa2c9a1dd22595210a99d9c545bda6f72a1b1dee2e7e65158864e26",
+      "after": "f8b69a445fb5a4a72159c5ad348c580ca891b5b1ce8b20c1f458505fc2992240",
+      "owner": "scene-display-removal",
+      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0fd9deef77753d39fa68394be73a3a09568c8515f52834b194b3af47fef1df2c",
-      "after": "7e99b1b639ba5137673c3d41f7fa83dc13851d6f9eb19c8388e5915174ed9f89",
-      "owner": "scene-display-retention",
-      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "before": "7e99b1b639ba5137673c3d41f7fa83dc13851d6f9eb19c8388e5915174ed9f89",
+      "after": "1b09b86e3699747e656860603e977e1cab0995de52442c48525c58e1a272068e",
+      "owner": "scene-display-removal",
+      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6a61b1e8080a738015e1e59834a23f73c7a48002095e4f71858b5c1d6f2e07b0",
-      "after": "219652b0c31bacdf8fb799787528d93edd09fc35581fd8ac8a7781c31a8f8583",
-      "owner": "scene-display-retention",
-      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "before": "219652b0c31bacdf8fb799787528d93edd09fc35581fd8ac8a7781c31a8f8583",
+      "after": "96edc9ffbc55be003b4ab1e32971f64be7fbd4d4d65bb04d4ca521e5e23d2883",
+      "owner": "scene-display-removal",
+      "reason": "Extend the original display reconciliation to nonempty existing-member subsets, shared single-surface retirement and survivor membership publication; add only consumed cursor event provenance. Replace obsolete whole-membership rebuild facts with native, bounded App and same-survivor native PNG evidence and precise remaining added-worker/physical/media limitations. No additional document authority, playback owner or cache.",
       "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     }
   ]

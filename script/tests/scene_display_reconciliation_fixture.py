@@ -21,23 +21,31 @@ def load_reconciliation_snapshots(evidence: Path) -> dict:
             for stage in STAGES}
 
 
-def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool) -> tuple:
+def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool,
+                             remaining_screens: int | None = None) -> tuple:
     before, after, settled = (observed[stage] for stage in STAGES)
     case.assertTrue(before["sessionID"] and before["requestID"], observed)
     displays = set(before["surfacesByDisplay"])
     case.assertEqual(len(displays), screens, observed)
+    retained = set(after["surfacesByDisplay"])
+    if remaining_screens is None:
+        case.assertEqual(retained, displays, observed)
+    else:
+        case.assertEqual(len(retained), remaining_screens, observed)
+        case.assertTrue(retained and retained < displays, observed)
     live_frames = {str(row["displayID"]): row["frame"] for row in before["capturedTopology"]}
     case.assertTrue(live_frames, observed)
-    for snapshot in observed.values():
+    for stage, snapshot in observed.items():
         for key in ("sessionID", "requestID"):
             case.assertEqual(snapshot[key], before[key], observed)
-        case.assertEqual(snapshot["surfaceCount"], screens, observed)
-        case.assertEqual(set(snapshot["surfacesByDisplay"]), displays, observed)
+        current_displays = displays if stage == "before" else retained
+        case.assertEqual(snapshot["surfaceCount"], len(current_displays), observed)
+        case.assertEqual(set(snapshot["surfacesByDisplay"]), current_displays, observed)
         for field in SURFACE_IDENTITIES:
             identities = [row[field] for row in snapshot["surfacesByDisplay"].values()]
             case.assertTrue(all(identities), (field, observed))
-            case.assertEqual(len(set(identities)), screens, (field, observed))
-    for display in displays:
+            case.assertEqual(len(set(identities)), len(current_displays), (field, observed))
+    for display in retained:
         original = before["surfacesByDisplay"][display]
         for snapshot in (after, settled):
             current = snapshot["surfacesByDisplay"][display]
@@ -51,7 +59,8 @@ def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool
             case.assertEqual(bounds[2:], current["windowFrame"][2:], (display, observed))
             for actual, points in zip(drawable, bounds[2:], strict=True):
                 case.assertAlmostEqual(actual, points * current["contentsScale"], delta=1, msg=str(observed))
-        case.assertNotEqual(original["windowFrame"][2:], after["surfacesByDisplay"][display]["windowFrame"][2:], observed)
+        if remaining_screens is None:
+            case.assertNotEqual(original["windowFrame"][2:], after["surfacesByDisplay"][display]["windowFrame"][2:], observed)
     if paused:
         for snapshot in (before, after):
             case.assertTrue(snapshot["isPlaybackPaused"], observed)
@@ -59,7 +68,7 @@ def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool
         for field in ("sceneTime", "committedFrameIndex", "committedGeneration",
                       "committedTopologyRevision", "committedDestroyedLayerIDs"):
             case.assertEqual(before[field], after[field], (field, observed))
-        for display in displays:
+        for display in retained:
             for field in FROZEN_FRAME_FIELDS:
                 case.assertEqual(before["surfacesByDisplay"][display][field],
                                  after["surfacesByDisplay"][display][field], (display, field, observed))
@@ -71,19 +80,21 @@ def assert_retained_surfaces(case, observed: dict, screens: int, *, paused: bool
     return before, after, settled
 
 
-def reconciliation_interval(case, log: str) -> str:
+def reconciliation_interval(case, log: str, *, state: str = "retained") -> str:
     triggered = re.search(r"(?m)^.*phase=surface-reconciliation state=triggered[^\n]*", log)
-    retained = re.search(r"(?m)^.*phase=surface-reconciliation state=retained accepted=true[^\n]*", log)
+    retained = re.search(rf"(?m)^.*phase=surface-reconciliation state={state} accepted=true[^\n]*", log)
     case.assertIsNotNone(triggered, log[-6000:])
     case.assertIsNotNone(retained, log[-6000:])
     case.assertLess(triggered.start(), retained.start(), log[-6000:])
     interval = log[triggered.start():retained.end()]
     case.assertNotIn("phase=surface-teardown", interval)
-    case.assertNotIn("lifecycle=teardown", interval)
+    if state == "retained":
+        case.assertNotIn("lifecycle=teardown", interval)
     return interval
 
 
-def assert_retained_particles(case, observed: dict, *, paused: bool, active_children: bool = False):
+def assert_retained_particles(case, observed: dict, *, paused: bool, active_children: bool = False,
+                              retained_displays: set[str] | None = None):
     before, after, settled = (observed[stage] for stage in STAGES)
     lifecycle_ids = set()
     simulator_ids = set()
@@ -92,7 +103,8 @@ def assert_retained_particles(case, observed: dict, *, paused: bool, active_chil
         case.assertTrue(identity, observed)
         case.assertNotIn(identity, lifecycle_ids, observed)
         lifecycle_ids.add(identity)
-        for snapshot in (after, settled):
+        current_snapshots = (after, settled) if retained_displays is None or display in retained_displays else ()
+        for snapshot in current_snapshots:
             case.assertEqual(snapshot["surfacesByDisplay"][display]["particleStateIdentity"], identity, observed)
         layers = {str(row["layerID"]): row for row in original["particleLayers"]}
         case.assertTrue(layers, observed)
@@ -100,7 +112,7 @@ def assert_retained_particles(case, observed: dict, *, paused: bool, active_chil
             root = layer["root"]
             case.assertIsNotNone(root, observed)
             case.assertTrue(root["simulatorIdentity"] and root["particles"], observed)
-            for snapshot in (after, settled):
+            for snapshot in current_snapshots:
                 current = {str(row["layerID"]): row for row in
                            snapshot["surfacesByDisplay"][display]["particleLayers"]}.get(layer_id)
                 if current is not None:
@@ -122,7 +134,7 @@ def assert_retained_particles(case, observed: dict, *, paused: bool, active_chil
             if active_children and layer_id == "42":
                 case.assertTrue(layer["children"], observed)
                 case.assertTrue(all(child["frame"]["particles"] for child in layer["children"]), observed)
-        if paused:
+        if paused and current_snapshots:
             case.assertEqual(after["surfacesByDisplay"][display]["particleLayers"], original["particleLayers"], observed)
         if active_children:
             case.assertIn("42", layers, observed)

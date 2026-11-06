@@ -60,6 +60,7 @@ def production_harness(sources=None):
         method(session, "func textTexturePublicationDidChange("),
         method(session, "func enqueueMediaThumbnailPublication("),
         method(driver, "func refreshPausedMediaPublications("),
+        method(teardown, "func teardownSurface("),
         retirement,
     ])
     harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
