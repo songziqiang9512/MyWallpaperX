@@ -16,6 +16,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+# The graph contract fixture compiles the whole Scene pipeline. A cold CI
+# compile is several times slower than a warm local one; keep a bounded
+# budget that still fails on a real hang.
+GRAPH_COMPILE_TIMEOUT_SECONDS = 600
 SOURCES = [
     SCENE / "Diagnostics/ScenePerformanceCounterHub.swift",
     SCENE / "Diagnostics/SceneGPUCensus.swift",
@@ -155,8 +159,9 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                            "-framework", "ImageIO", "-module-cache-path",
                            str(directory / "modules")]
                 binary = directory / "check"
-                compiled = subprocess.run([*command, "-o", str(binary)], cwd=ROOT,
-                                          env=environment, capture_output=True, text=True, timeout=180)
+                compiled = subprocess.run(
+                    [*command, "-o", str(binary)], cwd=ROOT, env=environment,
+                    capture_output=True, text=True, timeout=GRAPH_COMPILE_TIMEOUT_SECONDS)
                 (directory / "compile.json").write_text(json.dumps({
                     "command": [*command, "-o", str(binary)], "returncode": compiled.returncode,
                     "stdout": compiled.stdout, "stderr": compiled.stderr, "sourceSHA256": before,
@@ -182,8 +187,9 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 output = directory / "diagnostics.sil"
                 sil_command = [*command, "-emit-silgen", "-module-name", "GraphKeyIsolation",
                                "-o", str(output)]
-                emitted = subprocess.run(sil_command, cwd=ROOT, env=environment,
-                                         capture_output=True, text=True, timeout=180)
+                emitted = subprocess.run(
+                    sil_command, cwd=ROOT, env=environment,
+                    capture_output=True, text=True, timeout=GRAPH_COMPILE_TIMEOUT_SECONDS)
                 (directory / "sil-compile.json").write_text(json.dumps({
                     "command": sil_command, "returncode": emitted.returncode,
                     "stdout": emitted.stdout, "stderr": emitted.stderr,
