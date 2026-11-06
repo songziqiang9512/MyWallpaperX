@@ -119,7 +119,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/effect-execution-coverage.md",
-      "design_notes": "Current contracts: designDoc#project-subtree-source and #particle-subtree-raster. Project descendants use the existing prepared utility group/source/order/geometry and unique compositor. A bounded official visible, top-level, orthographic full-canvas default-input control qualifies prior prefix plus own members at the root cut; source model flags alone do not qualify other domains. Preserve explicit authored background choice, original childless/fullscreen paths and resource/pin lifecycle; missing local-raster consumers stay explicit. No new renderer, source owner, permission table or ordinary-frame classification. Canonical camera/viewport and existing particle raster/REFRACT mapping remain owned by their original contracts.",
+      "design_notes": "Current contracts: designDoc#project-subtree-source and #particle-subtree-raster. Project descendants use the existing prepared utility group/source/order/geometry and unique compositor. A bounded official visible, top-level, orthographic full-canvas default-input control qualifies prior prefix plus own members at the root cut; source model flags alone do not qualify other domains. Preserve explicit authored background choice, original childless/fullscreen paths and resource/pin lifecycle; missing local-raster consumers stay explicit. No new renderer, source owner, permission table or ordinary-frame classification. Canonical camera/viewport and existing particle raster/REFRACT mapping remain owned by their original contracts. Visible SpotLight frame contract: docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame. Reuse complete shared worldFrame and typed appearance, original Plan geometry preparation, nearest MainPass depth-preserving clip XY and the existing cone/unique compositor. Retire parent/leaf/dependency and sample-shaped angle/timeline gates plus worldOrigin/currentAngle reconstruction. Existing scalar/vector definitions are the source authority; preserve unconsumed writer/effect boundaries. No new resource, clock, renderer, cache or GPU ABI; static model depth remains separate. The original RuntimeModel color-producer selection includes the existing volumetric cone consumer independently of static-model presence and its ancestor launch visibility; runtime visibility still owns drawing.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
@@ -134,7 +134,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
       ],
       "contentPatterns": [
         "SceneUtilityLayerSourceRoute",

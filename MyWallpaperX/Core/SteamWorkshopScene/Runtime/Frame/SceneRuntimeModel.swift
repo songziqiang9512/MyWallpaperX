@@ -161,8 +161,11 @@ struct SceneRuntimeModelBuilder {
         }
         let sceneScriptColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
+                let hasVolumetricConeConsumer = layer.spotLight?.castsVolumetrics == true
+                    && layer.spotLight?.isSolid == true
                 let hasConsumer = layer.supportsDirectLayerColorConsumer
                     || layer.staticModelPath != nil
+                    || hasVolumetricConeConsumer
                     || (layer.contentKind == "text"
                         && layer.text != nil
                         && layer.textStyle != nil)
@@ -172,6 +175,7 @@ struct SceneRuntimeModelBuilder {
                 guard hasConsumer,
                       visibleLayerIDs.contains(layer.id)
                         || typedVisibilityOwnerLayerIDs.contains(layer.id)
+                        || hasVolumetricConeConsumer
                 else { return nil }
                 return layer.id
             }

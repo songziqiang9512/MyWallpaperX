@@ -109,12 +109,12 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 73,
-      "bytes": 8522
+      "lines": 85,
+      "bytes": 12632
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 84,
-      "bytes": 12189
+      "bytes": 12326
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -129,8 +129,8 @@
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 129,
-      "bytes": 84620
+      "lines": 140,
+      "bytes": 87425
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 36349
+      "bytes": 36442
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -448,15 +448,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
-      "after": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
       "after": "aab7cee49e905774c6811507867e3cf7ea39ae8d1ed54107ec4827c2e2d29530",
@@ -472,15 +463,6 @@
       "owner": "scene-uniform-derived-global-scope",
       "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "e5b6f55653a82c812ba5d5924e1a33d38c9eea0eb4d690ec33a5e8c517d13884",
-      "after": "ccb88a22390c70c29d203aa837a6b1864b536b2ec4a1338a0d4f1b087fe0f720",
-      "owner": "scene-project-subtree-source",
-      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
     },
     {
       "section": "bodies",
@@ -520,21 +502,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
+      "after": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
+      "owner": "scene-visible-progress",
+      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "ccb88a22390c70c29d203aa837a6b1864b536b2ec4a1338a0d4f1b087fe0f720",
+      "after": "61b859fd9958a9be715fcce1e17b173faf6831c4fed6d53193640a9e68f8764b",
+      "owner": "scene-visible-progress",
+      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "87f585f2119ccdf99e71860c45d3156a9ff2d215660edc30147ba14a11f0951b",
-      "after": "6d1b0c97829c426a51c349331307aab9c5c189c60a0409cc3aa9fb3997708db4",
-      "owner": "scene-prefix-source-qualification",
-      "reason": "Replace the obsolete ordinary-color blocker with the bounded constant-effect carrier observation, preserve the indistinguishable named controls and unqualified semantics, and record the strict stop and VM/input cleanup. No product behavior or new documentation owner is added.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#prefix-source-qualification"
+      "before": "6d1b0c97829c426a51c349331307aab9c5c189c60a0409cc3aa9fb3997708db4",
+      "after": "a5430713a45ac64a3a5e32422b5d2955be7c72236873e7d986b82964d1dfc430",
+      "owner": "scene-visible-progress",
+      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "40188126e7271be326885a9f40795251656f0eab0cadb36c5d0272e451dc1474",
-      "after": "29c91fd2664ccad34ce9ea71a88d0c18c0d36fef31c6326b6d77c8a62ce73664",
-      "owner": "scene-prefix-source-qualification",
-      "reason": "Replace the obsolete ordinary-color blocker with the bounded constant-effect carrier observation, preserve the indistinguishable named controls and unqualified semantics, and record the strict stop and VM/input cleanup. No product behavior or new documentation owner is added.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#prefix-source-qualification"
+      "before": "29c91fd2664ccad34ce9ea71a88d0c18c0d36fef31c6326b6d77c8a62ce73664",
+      "after": "ba1b1e44969a9f93a69bbe11f64c6f278b142d931df013a12e1024e6b3c2ff33",
+      "owner": "scene-visible-progress",
+      "reason": "Record the existing-owner SpotLight frame/typed-producer/local-raster contract and bounded actual App/GPU evidence; retire the resolved cone gap from the open queue while retaining model depth and unqualified domains.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     }
   ]
 }

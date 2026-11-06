@@ -111,9 +111,9 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                     return .failure(.compositionSubtreeShape)
                 }
             } else {
-                // These draw paths do not yet consume the group's local raster map.
+                // Model drawing does not yet consume the group's local raster map.
                 switch child.contentKind {
-                case "model", "spotLight":
+                case "model":
                     return .failure(.compositionSubtreeShape)
                 default:
                     break

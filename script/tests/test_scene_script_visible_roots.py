@@ -479,10 +479,13 @@ struct SceneDependencyRenderPlan {
         output["particleNonpassthrough"] = populatedInactiveComposition(passthrough: false, particlePath: "particles/source.json")
         output["renamedParticleNonpassthrough"] = populatedInactiveComposition(ids: [9031, 2219, 3307],
             passthrough: false, particlePath: "particles/renamed/input.json")
+        output["spotLightPassthrough"] = populatedInactiveComposition("spot-light-member")
+        output["spotLightNonpassthrough"] = populatedInactiveComposition("spot-light-member", passthrough: false)
+        output["renamedSpotLightSource"] = populatedInactiveComposition("spot-light-member", ids: [9123, 2231, 3317], passthrough: false)
         output["activeParticleNonpassthrough"] = populatedInactiveComposition("active-effect", passthrough: false,
             particlePath: "particles/source.json")
         output["viewportNonpassthrough"] = populatedInactiveComposition("not-orthographic", passthrough: false)
-        let commonInactiveNeighbors = ["nested", "model-member", "spot-light-member", "missing-child", "unlisted-child",
+        let commonInactiveNeighbors = ["nested", "model-member", "missing-child", "unlisted-child",
             "wrong-parent", "cycle", "particle-effect", "dependency", "authored-dependency", "provider",
             "graph-provider", "effect-consumer", "named-consumer", "binding-consumer", "reference-consumer", "blocked-source"]
         output["populatedInactiveNeighbors"] = Dictionary(uniqueKeysWithValues:
@@ -857,7 +860,8 @@ class ScriptVisibleRootTests(unittest.TestCase):
         # Real visibility/source admissions only; complete Program preparation
         # and GPU toggle results remain the integration gate's responsibility.
         for key in ('populatedInactiveComposition', 'renamedPopulatedInactiveComposition', 'backgroundNonpassthrough',
-                    'transparentNonpassthrough', 'particleNonpassthrough', 'renamedParticleNonpassthrough', 'viewportNonpassthrough'):
+                    'transparentNonpassthrough', 'particleNonpassthrough', 'renamedParticleNonpassthrough',
+                    'viewportNonpassthrough', 'spotLightPassthrough', 'spotLightNonpassthrough', 'renamedSpotLightSource'):
             with self.subTest(case=key):
                 self.assertEqual(self.result[key], {
                     'sourceAccepted': True, 'local': key != 'viewportNonpassthrough', 'layer': True, 'preparesMembers': True,
@@ -869,14 +873,14 @@ class ScriptVisibleRootTests(unittest.TestCase):
     def test_populated_hidden_effect_keeps_profile_hierarchy_and_dependency_boundaries(self):
         for name, facts in self.result['populatedInactiveNeighbors'].items():
             with self.subTest(case=name):
+                neighbor = name.partition(':')[2]
                 self.assertFalse(facts['inactive'], facts)
                 self.assertFalse(facts['scriptInactive'], facts)
-                if name.split(':')[1] in ('model-member', 'spot-light-member', 'missing-child', 'wrong-parent',
-                                         'cycle'):
+                if neighbor in ('model-member', 'missing-child', 'wrong-parent', 'cycle'):
                     self.assertFalse(facts['sourceAccepted'], facts)
                     self.assertFalse(facts['local'], facts)
                     self.assertFalse(facts['layer'], facts)
-                elif name.split(':')[1] in ('dependency', 'authored-dependency'):
+                elif neighbor in ('dependency', 'authored-dependency'):
                     self.assertTrue(facts['sourceAccepted'] and facts['local'], facts)
                     self.assertFalse(facts['layer'] or facts['preparesMembers'], facts)
 

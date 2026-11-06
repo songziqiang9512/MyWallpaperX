@@ -541,9 +541,8 @@ final class SceneDesktopWallpaperSession {
                 hasDynamicBloom: launchContext.runtimeInput.propertyBindingProgram
                     .instructions.contains { $0.target == .scene(.bloomEnabled) },
                 instantiatedSceneScriptTargets: Set(
-                    launchContext.sceneScriptScalarProgram.definitions.map(
-                        \.target
-                    )
+                    (launchContext.sceneScriptScalarProgram.definitions
+                        + launchContext.propertyVectorScriptProgram.definitions).map(\.target)
                 ),
                 scriptSourceEvidence:
                     launchContext.sceneScriptSourceEvidence,

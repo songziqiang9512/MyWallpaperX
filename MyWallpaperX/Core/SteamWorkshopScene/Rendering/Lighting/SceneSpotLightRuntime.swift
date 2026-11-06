@@ -15,8 +15,8 @@ final class SceneSpotLightRuntime {
             commandBuffer: MTLCommandBuffer
         ) {
             dynamicValues = frameContext.dynamicValues
-            viewProjection = cameraFrame.viewProjection(
-                usesPerspective: cameraFrame.defaultsToPerspective
+            viewProjection = mainPass.rasterClipProjection(
+                cameraFrame.viewProjection(usesPerspective: cameraFrame.defaultsToPerspective)
             )
             self.mainPass = mainPass
             self.commandBuffer = commandBuffer
@@ -75,11 +75,22 @@ final class SceneSpotLightRuntime {
             plan: plan,
             color: color,
             intensity: intensity,
-            worldOrigin: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
+            alpha: SceneDynamicLayerValues.alpha(
+                layerID: layerID,
+                authoredValue: plan.alpha,
+                snapshot: frame.dynamicValues
+            ),
+            worldFrame: worldFrame,
             viewProjection: frame.viewProjection,
-            authoredAngle: plan.currentAngle(in: frame.dynamicValues),
             encoder: encoder
         )
+#if DEBUG
+        if encoded, let trace = frame.mainPass.compositionTrace, trace.isCompositionSelected {
+            trace.recordComposition(.init(kind: "geometry", layerID: layerID,
+                target: frame.mainPass.compositionTarget,
+                details: ["geometryKind": "spotLight"]))
+        }
+#endif
         telemetry.record(layerID: layerID, encoded: encoded, on: frame.commandBuffer)
     }
 

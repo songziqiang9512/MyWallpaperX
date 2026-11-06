@@ -31,6 +31,18 @@ final class SceneMainPassEncoder {
         worldClipToTargetClip.map { $0 * worldMVP } ?? worldMVP
     }
 
+    func rasterClipProjection(_ viewProjection: simd_float4x4) -> simd_float4x4 {
+        guard worldClipToTargetClip != nil else { return viewProjection }
+        let rows = rasterClipRows
+        let map = simd_float4x4(columns: (
+            SIMD4(rows.x.x, rows.y.x, 0, 0),
+            SIMD4(rows.x.y, rows.y.y, 0, 0),
+            SIMD4(rows.x.z, rows.y.z, 1, 0),
+            SIMD4(rows.x.w, rows.y.w, 0, 1)
+        ))
+        return map * viewProjection
+    }
+
     var rasterClipRows: (x: SIMD4<Float>, y: SIMD4<Float>) {
         guard let map = worldClipToTargetClip else {
             return (SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0))
