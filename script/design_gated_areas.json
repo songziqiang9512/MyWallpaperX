@@ -1670,7 +1670,7 @@
       "status": "approved",
       "owner": "Existing layer handles, animation journals and shared playback runtimes",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "Numeric linked effect targets and sampling membership use docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Full pass targets retain distinct curves/fallbacks and share only the prepared owner state; root names use the existing scene-only animation handles.",
+      "design_notes": "Numeric linked effect sampling and no-lane authored-value consumers use docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Reuse original binding/shared clock/typed values and complete numeric ingress facts; preserve other-host, relative and invalid-component boundaries. No parallel producer or state. Source/value/clock responsibilities and evidence ceilings belong to that contract.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetAnimationHost.c",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHandleHost.c",
@@ -1686,7 +1686,10 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPuppetAnimationBridge.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTimelineAnimation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift"
       ],
       "title": "Prepared cross-layer animation controls and Timeline seeking",
       "contentPatterns": []

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from . import test_scene_timeline_runtime as timeline_gate
-from .fixtures.scene_timeline_combined_cases import effect_linked_cases
+from .fixtures.scene_timeline_combined_cases import effect_linked_cases, non_effect_no_lane_cases
 
 
 FIXTURE = Path(__file__).with_name("fixtures") / "SceneEffectTimelineGroupsHarness.swift"
@@ -42,6 +42,15 @@ class SceneEffectTimelineGroupsTests(unittest.TestCase):
             if observed.returncode:
                 raise RuntimeError(f"{name}: {observed.stderr}")
             cls.results[name] = expected, json.loads(observed.stdout)
+        cls.host_results = {}
+        for name, (scene, expected) in non_effect_no_lane_cases().items():
+            path = root / f"host-{name}.json"
+            path.write_text(json.dumps(scene, allow_nan=False))
+            observed = subprocess.run([str(binary), str(path), "host-boundary"],
+                                      capture_output=True, text=True, timeout=20)
+            if observed.returncode:
+                raise RuntimeError(f"{name}: {observed.stderr}")
+            cls.host_results[name] = expected, json.loads(observed.stdout)
 
     def assert_values(self, actual, expected):
         for target, value in expected.items():
@@ -69,6 +78,7 @@ class SceneEffectTimelineGroupsTests(unittest.TestCase):
                 for row in group:
                     self.assertEqual((row["fps"], row["length"], row["mode"], row["paused"]), (10, 40, expected["mode"], True))
                     self.assertEqual(row["authored"], expected["fallbacks"][row["target"]])
+                    self.assertEqual(row["laneCount"], 0 if row["target"] in expected["constantTargets"] else 1)
                     if expected["response"]:
                         self.assertEqual([row["smoothing"], row["stiffness"]], expected["response"])
                 if expected["response"]:
@@ -103,6 +113,7 @@ class SceneEffectTimelineGroupsTests(unittest.TestCase):
             with self.subTest(case=name):
                 if expected["mode"] == "single":
                     for label, frame in phases.items():
+                        self.assertIn(label, observed)
                         self.assert_values(observed[label], expected["frames"][frame])
                 else:
                     self.assert_values(observed["key10"], expected["frames"]["10"])
@@ -110,6 +121,31 @@ class SceneEffectTimelineGroupsTests(unittest.TestCase):
                 self.assertTrue(observed["previewDidNotCommit"])
                 self.assertTrue(observed["independentTracksUnchanged"])
                 self.assertTrue(all(observed["retirement"].values()), observed["retirement"])
+
+    def test_no_lane_child_uses_its_own_value_through_shared_commands_and_retirement(self):
+        for name in ("missing-lanes", "constant-child", "different-constants", "renamed-constant-child"):
+            expected, observed = self.results[name]
+            with self.subTest(case=name):
+                self.assertEqual(len(expected["constantTargets"]), 2)
+                for target in expected["constantTargets"]:
+                    own = expected["fallbacks"][target]
+                    for phase in ("initial", "key10", "played30", "paused30", "seekPlaying30", "stopped0"):
+                        self.assertIn(target, observed[phase])
+                        self.assertEqual(observed[phase][target], own, (target, phase))
+                    if name != "missing-lanes":
+                        self.assertNotEqual(own, 7)
+                self.assertTrue(all(observed["retirement"].values()), observed["retirement"])
+
+    def test_effect_constant_route_does_not_create_general_or_layer_no_lane_producers(self):
+        for name, (expected, observed) in self.host_results.items():
+            with self.subTest(case=name):
+                self.assertEqual(observed["generalHosts"], expected["generalHosts"])
+                self.assertEqual(observed["layerHosts"], expected["layerHosts"])
+                self.assertEqual(observed["targets"], sorted(expected["values"]))
+                self.assertEqual(observed["values"], expected["values"])
+                self.assertEqual(observed["sources"], dict.fromkeys(expected["values"], "timeline"))
+                if name.endswith("-empty"):
+                    self.assertTrue(observed["diagnostics"])
 
     def test_signed_zero_aliases_keep_their_actual_snapshot_bits(self):
         expected, observed = self.results["signed-zero"]

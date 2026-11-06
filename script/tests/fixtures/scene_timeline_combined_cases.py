@@ -259,7 +259,36 @@ def effect_linked_scene(*, renamed=False, variant="aliases", autoplay=False):
                     wrapper["animation"]["options"].setdefault("children", []).append({"key": tail_key})
         placements.append((4, tail_key, tail, values))
 
-    rejected = variant in ("missing-child", "missing-parent", "cycle", "clock-conflict", "missing-lanes")
+    constant_variants = ("missing-lanes", "constant-child", "different-constants", "constant-missing-value",
+                         "constant-partial-value", "constant-nonfinite", "constant-empty-lane",
+                         "constant-leading-gap", "constant-bad-link")
+    if variant in constant_variants:
+        for index, (pass_index, key, wrapper, _) in enumerate(placements):
+            if key != child_key:
+                continue
+            animation = wrapper["animation"]
+            del animation["c0"]
+            if variant != "missing-lanes":
+                wrapper["value"] = 3 if variant == "different-constants" and pass_index == 3 else 5
+                animation["previewvalue"] = 7
+            values = (wrapper["value"],) * 5
+            if variant == "constant-missing-value":
+                del wrapper["value"]
+            elif variant == "constant-partial-value":
+                wrapper["value"] = "5 invalid"
+            elif variant == "constant-nonfinite":
+                wrapper["value"] = "NaN"
+            elif variant == "constant-empty-lane":
+                animation["c0"] = []
+            elif variant == "constant-leading-gap":
+                animation["c1"] = lane(values)
+            elif variant == "constant-bad-link":
+                animation["options"]["parent"] = {"key": "absent"}
+            placements[index] = (pass_index, key, wrapper, values)
+
+    rejected = variant in ("missing-child", "missing-parent", "cycle", "clock-conflict",
+                           "constant-missing-value", "constant-partial-value", "constant-nonfinite",
+                           "constant-empty-lane", "constant-leading-gap", "constant-bad-link")
     if variant == "missing-child":
         placements = [entry for entry in placements if entry[1] != child_key]
     elif variant == "missing-parent":
@@ -275,18 +304,16 @@ def effect_linked_scene(*, renamed=False, variant="aliases", autoplay=False):
                 options["children"] = [{"key": root_key}]
     elif variant == "clock-conflict":
         placements[2][2]["animation"]["options"]["fps"] = 20
-    elif variant == "missing-lanes":
-        for _, key, wrapper, _ in placements:
-            if key == child_key:
-                del wrapper["animation"]["c0"]
 
     passes = [{} for _ in range(max(entry[0] for entry in placements) + 1)]
-    targets, frame_values, fallbacks = [], {str(frame): {} for frame in (0, 10, 30, 40)}, {}
+    targets, constant_targets, frame_values, fallbacks = [], [], {str(frame): {} for frame in (0, 10, 30, 40)}, {}
     for pass_index, key, wrapper, values in placements:
         passes[pass_index].setdefault("constantshadervalues", {})[key] = wrapper
         target = f"effect:{layer}:0:{pass_index}:{key}"
         targets.append(target)
-        fallbacks[target] = wrapper["value"]
+        fallbacks[target] = wrapper.get("value")
+        if variant in constant_variants and key == child_key:
+            constant_targets.append(target)
         for frame in (0, 10, 30, 40):
             frame_values[str(frame)][target] = values[frames.index(frame)]
     # Same keys in another effect are real independent contributors, not sources
@@ -318,7 +345,7 @@ def effect_linked_scene(*, renamed=False, variant="aliases", autoplay=False):
                 "mode": "loop" if variant == "loop-response" else "single", "response": response,
                 "signedZero": ({"positive": f"effect:{layer}:0:0:{root_key}",
                                 "negative": f"effect:{layer}:0:2:{root_key}"} if variant == "signed-zero" else None),
-                "independentE0": independent_e0,
+                "independentE0": independent_e0, "constantTargets": sorted(constant_targets),
                 "names": [root["animation"]["options"]["name"]] + (["second root handle"] if variant == "names" else [])}
     return scene, expected
 
@@ -326,7 +353,48 @@ def effect_linked_scene(*, renamed=False, variant="aliases", autoplay=False):
 def effect_linked_cases():
     variants = ("aliases", "different-curves", "names", "chain", "fork", "unlinked-same-key",
                 "signed-zero", "distributed-wire", "wide-finite-response", "loop-response", "missing-child",
-                "missing-parent", "cycle", "clock-conflict", "missing-lanes")
+                "missing-parent", "cycle", "clock-conflict", "missing-lanes", "constant-child",
+                "different-constants", "constant-missing-value", "constant-partial-value", "constant-nonfinite",
+                "constant-empty-lane", "constant-leading-gap", "constant-bad-link")
     cases = {variant: effect_linked_scene(variant=variant) for variant in variants}
     cases["renamed"] = effect_linked_scene(renamed=True)
+    cases["renamed-constant-child"] = effect_linked_scene(renamed=True, variant="constant-child")
+    return cases
+
+
+def non_effect_no_lane_cases():
+    """Real General/layer parse paths must not borrow an effect-only value route."""
+    cases = {}
+    for label, host, own, relative, sampled in (
+        ("general", "bloomstrength", None, False, .5),
+        ("alpha", "alpha", None, False, .5),
+        ("origin-missing", "origin", None, False, [2, 3, 4]),
+        ("origin-short", "origin", "10 20", False, [2, 3, 4]),
+        ("origin-relative", "origin", "10 20 30", True, [12, 23, 34]),
+    ):
+        for has_lanes in (False, True):
+            animation = {"options": {"fps": 30, "length": 30, "mode": "single"}, "relative": relative}
+            if has_lanes:
+                endpoints = ((.25, .75),) if host != "origin" else ((1, 3), (2, 4), (3, 5))
+                animation.update({f"c{i}": [{"frame": 0, "value": a}, {"frame": 30, "value": b}]
+                                  for i, (a, b) in enumerate(endpoints)})
+            wrapper = {"animation": animation}
+            if own is not None:
+                wrapper["value"] = own
+            scene = {"version": 3, "general": {"bloom": True, "hdr": False}, "objects": [
+                {"id": 701, "image": "models/host.json", "size": "32 32"},
+                {"id": 801, "image": "models/healthy.json", "size": "16 16", "alpha": {
+                    "value": .75, "animation": {"options": {"fps": 30, "length": 30, "mode": "single"},
+                    "c0": [{"frame": 0, "value": .75}, {"frame": 30, "value": .75}]}}}]}
+            if label == "general":
+                scene["general"][host] = wrapper
+            else:
+                scene["objects"][0][host] = wrapper
+            target = "scene:bloomStrength" if label == "general" else f"layer:701:{host}"
+            expected = {"values": {"layer:801:alpha": .75},
+                        "generalHosts": [host] if label == "general" else [],
+                        "layerHosts": {"701": [] if label == "general" else [host], "801": ["alpha"]}}
+            if has_lanes:
+                expected["values"][target] = sampled
+            cases[label + ("-sampled" if has_lanes else "-empty")] = scene, expected
     return cases

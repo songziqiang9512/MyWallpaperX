@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 126,
-      "bytes": 78472
+      "bytes": 78948
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 115,
-      "bytes": 16321
+      "lines": 117,
+      "bytes": 17485
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 173,
-      "bytes": 34466
+      "lines": 172,
+      "bytes": 33994
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -448,15 +448,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "da0bcc1aa70fe3a57b5db73d09853891f237a33a932afbb383123e9b7ea13ede",
-      "after": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
-      "owner": "scene-unbound-optional-resolution",
-      "reason": "Implement the existing prepared no-source/off contract with a shared numeric lowering, retain explicit/default/pending resource boundaries, replace the resolved author rejection with qualified Program/pixel evidence and retain measured partial prewarm facts.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#unbound-texture-resolution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
       "after": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
+      "after": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
+      "owner": "scene-linked-authored-constant",
+      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cb39f8d72c235013dead035fbbb35d7fdae443b91042fee7aa35450f8f871b48",
-      "after": "00e4d11319d6c6887099e2a8dca1580d17e42c23e19f92f2e9d013a10951aeef",
-      "owner": "scene-prepared-group-visibility",
-      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
+      "before": "00e4d11319d6c6887099e2a8dca1580d17e42c23e19f92f2e9d013a10951aeef",
+      "after": "cfb7995c3ae4b748e00936ba7585b9f0ce380f59d8c955ba17c43ce1d124d3fe",
+      "owner": "scene-linked-authored-constant",
+      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f11652426c91f1d4f387653db13ac84ec0d02cabbf798d13611c66ee31c3584c",
-      "after": "6e3b6d63e3d51fb9c17c05f383613cac1a47fed4d1c7c988ddf21303ab4d0bbd",
-      "owner": "scene-prepared-group-visibility",
-      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
+      "before": "6e3b6d63e3d51fb9c17c05f383613cac1a47fed4d1c7c988ddf21303ab4d0bbd",
+      "after": "1a5619839048e3cbd67021a4afc98de7f4d61c2d8d847f8f2e4ff368a13e46c7",
+      "owner": "scene-linked-authored-constant",
+      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
     }
   ]
 }

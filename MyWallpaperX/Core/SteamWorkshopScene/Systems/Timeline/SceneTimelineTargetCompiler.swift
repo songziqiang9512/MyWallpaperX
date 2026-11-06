@@ -486,7 +486,8 @@ nonisolated enum SceneTimelineTargetCompiler {
                         animation: isLinked ? groupedAnimation(animation, owner: rootAnimation,
                             name: exportedName) : animation,
                         target: definition.target, valueType: definition.valueType,
-                        authoredValue: definition.authoredValue, label: track.label,
+                        authoredValue: definition.authoredValue,
+                        authoredConstantAvailable: true, label: track.label,
                         playbackOwner: isLinked ? rootDefinition.target : nil,
                         into: &groupCandidates, diagnostics: &diagnostics
                     )
@@ -571,6 +572,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         target: SceneDynamicTarget,
         valueType: SceneDynamicValueType,
         authoredValue: SceneDynamicValue,
+        authoredConstantAvailable: Bool = false,
         label: String,
         playbackOwner: SceneDynamicTarget? = nil,
         into candidates: inout [(binding: SceneTimelineBinding, label: String)],
@@ -591,7 +593,10 @@ nonisolated enum SceneTimelineTargetCompiler {
             diagnostics.append("\(label): \(Diagnostic.combinedAnimationUnsupported.rawValue)")
             return
         }
-        guard animation.componentCount == componentCount(of: valueType) else {
+        // Only the original numeric parser supplies this fact; host defaults
+        // and padded values retain their existing sampled-lane boundary.
+        guard (animation.lanes.isEmpty && authoredConstantAvailable)
+            || animation.componentCount == componentCount(of: valueType) else {
             diagnostics.append("\(label): \(Diagnostic.componentMismatch.rawValue)")
             return
         }

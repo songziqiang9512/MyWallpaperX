@@ -79,7 +79,7 @@ nonisolated struct SceneTimelineOptions: Codable, Equatable {
 }
 
 nonisolated struct SceneTimelineAnimation: Codable, Equatable {
-    /// 按 component 下标排列的 lane：`[0]` 对应 `c0`。随包只出现 1 或 3 条。
+    /// 按 component 下标排列的采样 lane；空数组保留无曲线成员的 options 与组关系。
     let lanes: [[SceneTimelineKeyframe]]
     let options: SceneTimelineOptions
     /// 推断语义为「最终值 = 作者基值 + 动画值」，尚未取得官方定义，消费方必须显式处理。
@@ -136,7 +136,6 @@ nonisolated struct SceneTimelineDiagnostic: Equatable {
         case unknownMode
         case invalidFPS
         case invalidLength
-        case missingLanes
         case laneGap
         case emptyLane
         case unorderedFrames
@@ -270,8 +269,8 @@ nonisolated enum SceneTimelineAnimationParser {
         )
     }
 
-    /// lane 必须从 `c0` 起连续。`c0` 缺失或中间缺号都 fail closed，避免把 `c2` 当成
-    /// component 0 写回错误的轴。
+    /// 已声明的 lane 必须从 `c0` 起连续，避免把 `c2` 写回 component 0。
+    /// 没有声明任何 lane 时，由原目标编译器验证成员自身的数值来源。
     private nonisolated static func parseLanes(
         _ root: [String: Any],
         diagnostics: inout [SceneTimelineDiagnostic]
@@ -289,10 +288,6 @@ nonisolated enum SceneTimelineAnimationParser {
                 return nil
             }
             lanes.append(keyframes)
-        }
-        guard !lanes.isEmpty else {
-            diagnostics.append(.init(code: .missingLanes, laneIndex: nil))
-            return nil
         }
         let declared = (0 ..< maximumLaneCount).filter { root["c\($0)"] != nil }
         guard declared == Array(0 ..< lanes.count) else {

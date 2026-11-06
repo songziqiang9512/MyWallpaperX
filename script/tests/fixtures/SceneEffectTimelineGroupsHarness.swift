@@ -9,6 +9,7 @@ enum EffectTimelineGroupsProbe {
         case let .effectConstant(layer, effect, pass, name):
             return "effect:\(layer):\(effect):\(pass):\(name)"
         case let .layer(layer, field): return "layer:\(layer):\(field.rawValue)"
+        case let .scene(field): return "scene:\(field.rawValue)"
         default: return String(describing: target)
         }
     }
@@ -58,7 +59,7 @@ enum EffectTimelineGroupsProbe {
             let options = binding.animation.options
             let authored = try scalar(binding.definition.authoredValue)
             let row: [String: Any] = ["target": key(binding.target), "owner": key(binding.playbackOwnerTarget),
-                    "grouped": binding.playbackOwner != nil, "authored": authored,
+                    "grouped": binding.playbackOwner != nil, "laneCount": binding.animation.componentCount, "authored": authored,
                     "authoredBits": String(authored.bitPattern, radix: 16),
                     "fps": options.fps, "length": options.length, "mode": options.mode.rawValue,
                     "paused": options.startsPaused, "name": options.name ?? "",
@@ -83,7 +84,8 @@ enum EffectTimelineGroupsProbe {
         removed.insert(root)
         facts["retiredOwnerKeepsClock"] = retired.values(sceneTime: 3)
             == control.values(sceneTime: 3).filter { !removed.contains($0.key) }
-        guard let survivor = group.first(where: { !removed.contains($0.target) }) else {
+        let surviving = group.filter { !removed.contains($0.target) }
+        guard let survivor = surviving.first(where: { $0.animation.lanes.isEmpty }) ?? surviving.first else {
             throw NSError(domain: "fixture requires a surviving real pass alias", code: 3)
         }
         for runtime in [retired, control] {
@@ -170,10 +172,38 @@ enum EffectTimelineGroupsProbe {
         return result
     }
 
+    static func hostBoundary(_ descriptor: SceneRenderDescriptor) throws -> [String: Any] {
+        let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+        let actual = SceneTimelineRuntime.values(program: program, sceneTime: 0.5)
+        var values: [String: Any] = [:]
+        for (target, value) in actual {
+            switch value {
+            case let .scalar(number): values[key(target)] = number
+            case let .vector3(x, y, z): values[key(target)] = [x, y, z]
+            default: throw NSError(domain: "expected real host scalar/vector3", code: 5)
+            }
+        }
+        let resolved = SceneDynamicSnapshotResolver().resolve(frameIndex: 15, generation: 1,
+            definitions: SceneTimelineRuntime.mergedDefinitions(propertyDefinitions: [], timelineProgram: program),
+            timelineValues: actual).snapshot
+        return ["targets": program.bindings.map { key($0.target) }.sorted(), "values": values,
+            "sources": Dictionary(uniqueKeysWithValues: program.bindings.map {
+                (key($0.target), resolved[$0.target]?.source.rawValue ?? "missing") }),
+            "generalHosts": descriptor.generalTimelines?.map { $0.host.rawValue } ?? [],
+            "layerHosts": Dictionary(uniqueKeysWithValues: descriptor.layers.map {
+                (String($0.id), $0.timelines.map { $0.host.rawValue }) }), "diagnostics": program.diagnostics]
+    }
+
     static func main() throws {
-        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        guard (2...3).contains(CommandLine.arguments.count) else { throw HarnessError.missingFixture }
         let input = URL(fileURLWithPath: CommandLine.arguments[1])
-        let result = try run(descriptor(input))
+        let prepared = try descriptor(input)
+        let result: [String: Any]
+        if CommandLine.arguments.last == "host-boundary" {
+            result = try hostBoundary(prepared)
+        } else {
+            result = try run(prepared)
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }

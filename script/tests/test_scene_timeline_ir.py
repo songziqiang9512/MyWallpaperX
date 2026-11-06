@@ -225,7 +225,7 @@ CASES = {
             },
         },
     },
-    # --- 负例 ---
+    # --- Absence, value-source shape and malformed-input boundaries ---
     "no_animation": {"value": 1},
     "missing_options": {"value": 1, "animation": {"c0": [keyframe(0, 0)]}},
     "unknown_mode": {
@@ -268,6 +268,10 @@ CASES = {
         "value": 1,
         "animation": {"options": {"fps": 30, "length": 30, "mode": "loop"}},
     },
+    "constant_child": {"value": 5, "animation": {"previewvalue": 7,
+        "options": {"fps": 30, "length": 360, "mode": "single", "parent": {"key": "Drive"}}}},
+    "leading_lane_gap": {"value": 5, "animation": {"c1": [keyframe(0, 5)],
+        "options": {"fps": 30, "length": 30, "mode": "single"}}},
     "null_tangent_and_group_links": {
         "value": 1,
         "animation": {
@@ -544,6 +548,17 @@ class SceneTimelineIRTests(unittest.TestCase):
         self.assertNotIn("animation", self.result["no_animation"])
         self.assertEqual(self.diagnostic_codes("no_animation"), [])
 
+    def test_omitted_lanes_preserve_clock_and_links_without_synthesizing_keyframes(self) -> None:
+        for name, parent, preview, length in (("missing_lanes", "-", "-", 30), ("constant_child", "Drive", "7.0", 360)):
+            with self.subTest(case=name):
+                animation = self.animation(name)
+                self.assertEqual(animation["componentCount"], 0)
+                self.assertEqual(animation["lanes"], [])
+                self.assertEqual(animation["options"]["parent"], parent)
+                self.assertEqual((animation["options"]["fps"], animation["options"]["length"]), (30, length))
+                self.assertEqual(animation["previewValue"], preview)
+                self.assertEqual(self.diagnostic_codes(name), [])
+
     def test_malformed_animations_fail_closed_with_diagnostics(self) -> None:
         expected = {
             "missing_options": "missingOptions",
@@ -552,7 +567,7 @@ class SceneTimelineIRTests(unittest.TestCase):
             "unordered_frames": "unorderedFrames",
             "lane_gap": "laneGap",
             "empty_lane": "emptyLane",
-            "missing_lanes": "missingLanes",
+            "leading_lane_gap": "laneGap",
             "malformed_tangent": "invalidTangent",
             "out_of_segment_front_tangent": "invalidTangent",
             "out_of_segment_back_tangent": "invalidTangent",

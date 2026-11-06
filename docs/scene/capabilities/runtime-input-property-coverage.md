@@ -49,7 +49,7 @@ Program 保轨道、作者 key、FPS/length、曲线、relative/Combined 关系�
 - target 与 playback owner 不同。Combined/peer 可共享时间 anchor；销毁一个 target 只撤该活动轨道，幸存成员仍保 clock/命令/事件。
 - 稳定 Program/C/named 索引不因压缩活动数组而改义；隐藏与暂停不退休轨道。
 - 事件按实际时间区间与原确认边界派发，同 cadence 重读或无 drawable 不重复消费。
-- 无 lane 的联动值、无真实 target/control owner 的 event-only 及部分类型组合仍有限制；不能只因解析到 track 就声称可播放。
+- 无真实 target/control owner 的 event-only 及部分类型组合仍有限制；不能只因解析到 track 就声称可播放。
 
 源码：[PlaybackRuntime](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift)、[TargetCompiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift)。
 
@@ -58,9 +58,11 @@ Program 保轨道、作者 key、FPS/length、曲线、relative/Combined 关系�
 
 effect instance 的数值常量在同一 layer/effect 内一次收集，再按作者 key 解析 parent/children；每个 pass 的完整 target、类型、fallback 与自身曲线分别保留，不按效果名、属性名或 pass 数准入。未联动的同名常量继续独立。联动可有多个实际 pass 成员、分叉或链式关系，只共享唯一根 clock，不制造子组偏移、独立响应或第二 state。关系解析复用原 TargetCompiler 的准备职责；layer 的值类型、relative 与响应消费边界保持。
 
-同 key 的不同 lanes/fallback 不构成拒绝理由。各 pass 可分布声明 children，合并后须 reciprocal；多个根别名的实际 clock 设置须一致，canonical root 是真实且可执行 target。每个成员继承根时间，继续读取自己的 lanes。effect 不借 layer 的响应模式/UI 数值范围准入；未实现响应保原 descriptor 元数据并明确基础曲线近似。缺成员、矛盾、循环、无可执行根或缺真实值只使相连分量不发布，健康独立输入继续。无 lane 的 child 不从 root、preview、user property 或 shader default 猜值；材质 default 动画的解析与有效 consumer identity 另行接入，不由 instance 资格代验。
+同 key 的不同 lanes/fallback 不构成拒绝理由。各 pass 可分布声明 children，合并后须 reciprocal；多个根别名的实际 clock 设置须一致，canonical root 是真实且可执行 target。每个成员继承根时间；有 lanes 的成员读取自身曲线，无 lanes 的合法数值成员保留自己的 authored value。effect 不借 layer 的响应模式/UI 数值范围准入；未实现响应保原 descriptor 元数据并明确基础曲线近似。缺成员、矛盾、循环、无可执行根或缺真实值只使相连分量不发布，健康独立输入继续。无 lane 的成员不从 root、preview、user property 或 shader default 猜值；它必须有完整、有限且与目标类型相符的 authored 数值，并保留合法 options 和组关系。原 Parser 只把实际缺省的 lanes 保为空，不伪造 c0；显式空 lane、断号、坏关键帧与错 options 继续在原入口失败。材质 default 动画的解析与有效 consumer identity 另行接入，不由 instance 资格代验。
 
 名称只服务既有动画 handle：同 owner 的相同根名字导出一次，不同名字保各自实际 target；其他 owner 同名沿原作用域/歧义处理。名称不决定数值资格。原 groupedAnimation 显式接收导出名，layer/camera 继续传其原根名；effect 的多个 pass 名称不能制造多个 clock。
+
+无采样成员必须由原入口完整验证的作者数值形成；当前 effect constant 的原数值解析提供此事实，不能以其他 host 补齐或默认的 fallback 取得新准入。共享目标编译器只在冷期接收这一已有来源事实，缺事实的其他 host 保原 component 边界。成员沿原 Binding、stateIndices 和共享 playback owner 保持身份与命令/退休关系，原 typed 值入口直接消费已准备的 authoredValue；不把未通过关系分量的成员降为静态 uniform 绕过 producer 门，不新增常量 producer、clock、状态表或伪曲线。等价常量成员仍由原冷期取值分组去重，只做一次 fallback 投影和实际 target 写回，不运行 Bézier 数学。仅需数值的单通道观察不授常量句柄控制、relative、缺值或任意 host 组合的官方资格。
 
 原 PlaybackRuntime 在准备时把同一 state 的实际等价取值成员归组，替换原 flat stateMembers；每帧每种曲线/类型/组合/fallback及有效采样选项求值一次，再写回全部原 target。仅忽略不参与取值的名称，曲线及数值 fallback 按实际 bit 保留 signed zero，不合并不同语义；不建并列 alias registry、帧缓存或整轨 hash。退休成员或代表后，幸存成员保原 owner animation/state、命令和观测；坏值保原分量原子失败，binding/handle ordinal 不改义。
 

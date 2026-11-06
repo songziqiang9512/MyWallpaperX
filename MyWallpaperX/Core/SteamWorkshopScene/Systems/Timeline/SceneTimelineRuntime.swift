@@ -38,7 +38,8 @@ nonisolated enum SceneTimelineRuntime {
         of binding: SceneTimelineBinding,
         sceneTime: Double
     ) -> SceneDynamicValue? {
-        value(
+        if binding.animation.lanes.isEmpty { return binding.definition.authoredValue }
+        return value(
             of: binding,
             lanes: SceneTimelineEvaluator.values(
                 of: binding.animation,
@@ -51,7 +52,8 @@ nonisolated enum SceneTimelineRuntime {
         of binding: SceneTimelineBinding,
         elapsedFrames: Double
     ) -> SceneDynamicValue? {
-        value(
+        if binding.animation.lanes.isEmpty { return binding.definition.authoredValue }
+        return value(
             of: binding,
             lanes: SceneTimelineEvaluator.values(
                 of: binding.animation,
