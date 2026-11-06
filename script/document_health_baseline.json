@@ -125,12 +125,12 @@
       "bytes": 39167
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 226,
-      "bytes": 42588
+      "lines": 230,
+      "bytes": 43890
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 184,
-      "bytes": 98302
+      "bytes": 98918
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 35503
+      "bytes": 35632
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -457,15 +457,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
-      "after": "8b1473ff883502c4b7a476c60aab62255bfee0512bb56ec55342a155b2fdd49c",
-      "owner": "scene-uniform-derived-global-scope",
-      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
       "after": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "2ffb8a9450966dff8141d51fb8cb22dc8c1f95b1c9216f48bd6e70e721b68377",
+      "after": "41a0f8000ad047caa10fecbc3974fa1aa048857199692c6c6ee2c7ce0454015a",
+      "owner": "scene-named-primary-input-set",
+      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "96edc9ffbc55be003b4ab1e32971f64be7fbd4d4d65bb04d4ca521e5e23d2883",
-      "after": "f46947e72b17f7a3637c9649fa053a6143465ebfb90020407a3ae6b97d6e1cc1",
-      "owner": "scene-display-addition",
-      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
+      "before": "f46947e72b17f7a3637c9649fa053a6143465ebfb90020407a3ae6b97d6e1cc1",
+      "after": "0bedb88662a5c1f171451d0f6c485a12c3e4bb1fbdd42603fc4f2bef925918e3",
+      "owner": "scene-named-primary-input-set",
+      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1b09b86e3699747e656860603e977e1cab0995de52442c48525c58e1a272068e",
-      "after": "a4ba40b89cadc14ab4f66bb74d5fb7c2e05198dfe5b697cf97bf8f45156a7c40",
-      "owner": "scene-display-addition",
-      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache. Manual non-Swift audit records the unchanged 4438-line Simulator harness under the existing verification-carrier debt; this is no waiver or claim of all-language compliance.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
+      "before": "a4ba40b89cadc14ab4f66bb74d5fb7c2e05198dfe5b697cf97bf8f45156a7c40",
+      "after": "366b24ba70572de2b5698cc8412e49f55b6b12c927529e6e3d6c00ec25ebb319",
+      "owner": "scene-named-primary-input-set",
+      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     }
   ]
 }

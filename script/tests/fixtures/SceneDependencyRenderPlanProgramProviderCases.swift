@@ -433,16 +433,19 @@ extension Harness {
 
     static func forwardRepeatedProviderResults() -> [String: Any] {
         var rows: [String: Any] = [:]
-        for mode in ["same", "renamed", "twoProviders", "secondary", "self", "background", "visible"] {
-            let renamed = mode == "renamed"
+        for mode in ["same", "renamed", "twoProviders", "threeProviders", "multiRenamed", "reordered",
+                     "unknown", "incomplete", "cycle", "secondary", "self", "background", "visible"] {
+            let renamed = mode == "renamed" || mode == "multiRenamed"
             let upstreamID = renamed ? 2901 : 1901
             let otherID = upstreamID + 1, middleID = upstreamID + 2, consumerID = upstreamID + 3
             let effectID = renamed ? "omega" : "vector"
             let passIndex = renamed ? 2 : 0
-            let indices = renamed ? [1, 6] : [2, 5]
+            let indices = mode == "threeProviders" ? [1, 3, 6] : renamed ? [1, 6] : [2, 5]
             let providers = mode == "self" ? [middleID, middleID]
-                : mode == "twoProviders" ? [upstreamID, otherID] : [upstreamID, upstreamID]
-            var textures = Array<String?>(repeating: nil, count: indices[1] + 1)
+                : mode == "threeProviders" ? [upstreamID, otherID, upstreamID + 4]
+                : ["twoProviders", "multiRenamed", "reordered", "unknown", "incomplete", "cycle"].contains(mode)
+                    ? [upstreamID, otherID] : [upstreamID, upstreamID]
+            var textures = Array<String?>(repeating: nil, count: indices.last! + 1)
             for index in indices.indices {
                 let suffix = mode == "secondary" && index == 1 ? "b" : "a"
                 textures[indices[index]] = "_rt_imageLayerComposite_\(providers[index])_\(suffix)"
@@ -457,7 +460,12 @@ extension Harness {
                         textureSlots: textures, combos: [:], constantShaderValues: [:])])])
             let front = consumer(consumerID, provider: middleID,
                                  effectPath: "effects/owned/front/effect.json")
-            let layers = [front, middle, layer(upstreamID, visible: false), layer(otherID, visible: false)]
+            let other = mode == "cycle" ? consumer(otherID, provider: middleID, visible: false)
+                : layer(otherID, dependencies: mode == "incomplete" ? [9999] : [], visible: false)
+            var sources = [layer(upstreamID, visible: false)] + (mode == "unknown" ? [] : [other])
+            if mode == "threeProviders" { sources.append(layer(upstreamID + 4, visible: false)) }
+            if mode == "reordered" { sources.reverse() }
+            let layers = [front, middle] + sources
             let order = layers.map(\.id)
             let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order)
             let visible: Set<Int> = mode == "visible" ? [consumerID, middleID] : [consumerID]
@@ -465,6 +473,7 @@ extension Harness {
                 descriptor: descriptor, visibleLayerIDs: visible)
             let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible,
                 preparedNamedInputBindingsByConsumerLayerID: candidates)
+            let rawPlan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible)
             let bindings = plan.multiProviderAggregatesByConsumerLayerID[middleID]?.bindings ?? []
             rows[mode] = [
                 "candidateCount": candidates[consumerID]?.count ?? 0,
@@ -472,6 +481,9 @@ extension Harness {
                 "middleBindings": bindings.map { "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)" },
                 "middleProviders": bindings.map(\.providerLayerID),
                 "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
+                "rawMiddleClosed": rawPlan.multiProviderAggregatesByConsumerLayerID[middleID] != nil,
+                "rawIssues": rawPlan.issues.map { $0.kind.rawValue },
+                "cyclicMiddle": rawPlan.cyclicLayerIDs.contains(middleID),
                 "forwardOrder": plan.sourcePreparationPlan(authoredLayerIDs: order,
                     availableExecutionLayerIDs: plan.requiredGraphOutputProviderLayerIDs.union([consumerID]),
                     visibleRootLayerIDs: visible, activeStaticModelConsumerLayerIDs: [],

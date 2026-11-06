@@ -153,6 +153,10 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 来源的资源预约与内容就绪是两件事。读取 enclosing attachment 的 raw 来源只能在原作者捕获位置取得 prefix；独立图像、solid 和透明来源可以提前准备。目标是让 `O → U(prefix) → C → P(hidden)` 在 U 捕获后、C 编码前执行 P，而 `C → U → P → D` 中早 C 局部缺 P，晚 D 仍取得 P 的正确结果。不能为了早 C 提前执行并发布降级 P，污染后面的合法消费者。
 
+冷准备的前向独立性按完整 primary 输入集合判定，不按上游数量授许可。首片为较早 C 读取普通 hidden image graph P，P 真实读取两个独立 image A/B；每条 reference 仍须属于 P 的实际 effect/pass/slot、指向原 active dependency 集合中的 primary provider，所有来源都由原完整 ownership 闭包接纳。原 singleton 数量与路径比较退出；多边拓扑、来源最早位置和同截点排序复用原 Plan，最终只消费 prepared Program 选中的槽。无新调度器、状态、纹理或普通帧分析，缺一来源仍沿原局部 previous-current 处理。真实 self/cycle、未知 provider、secondary、背景依赖及可见 graph 作者位期限保持；utility、model 和死 lower candidate 不借此扩域。
+
+该片验收沿原 Plan、真实 Metal 与签名 App：两源各自清零和交换、三项 primary 闭包、ID/资源/变量/槽位改名与上游顺序互换，核 A/B→P→C 单次执行、两源可区分像素及健康 suffix/peer。缺源、循环和上述相邻拒绝保持；只得到 candidate/ready 不算恢复。未找到精确真实作者命中时，仅授自有作者图的实际合成，并以独立真实样本保回归，不宣称作者缺图恢复、官方像素或性能。
+
 原 DependencyPlan 与 FrameRuntime 缓存当前根可达的 prepared DAG，使用 utility 展开后的实际顺序、已选 Binding、当前可见 graph 和 model 需求；候选来源准备顺序不是提交或编码顺序。来源准备阶段一次取得原 source、尺寸、MVP/cursor 与 FrameInputs，沿原路径预约 group source 容量，但不创建 graph ledger、bundle 或命令；所有 activation 依原 policy 使用这个实际逐层 pointer 输入求值一次。原 StageCapability 的 prepared passthrough 事实与精确 slot 投影决定本帧不读取的依赖，不能把任意 false 或全局 pointer inside 当作局部取源证明。同一份 Decision 交 Executor 消费，不重新求值。取 ready publication 时也只消费同一份已准备的 binding/slot 选择；同 provider 的其他活跃槽已供货，不得使已停用槽重新进入向量。实际 epoch、纹理、内容或绑定漂移仍在原消费者拒绝，不以放宽一致性比较掩盖选择漏接。原 Coordinator 从唯一 prepared ledger 临时投影 slot 集合，经现有 Bridge/compositor facade 交普通 image、hidden graph provider 与 utility 的同一个 ready resolver；替换只表示全有/全无的 bypass getter。空集合表示当前可消费 ledger 没有预约外部输入，nil 表示没有当前可消费 ledger；不另存状态、不重求 activation，也不将 effect slot 投影应用于无该slot语义的 model albedo路径。实际截点计划同时给出 graph request/ledger 顺序、原预处理供货及每个作者位置前的供货列表，替代互相重叠的 preparation/global-forward 排序。普通 layer loop 只取本位置的列表，不做依赖遍历、source 分析或重复准备，不增加 phase registry、等待状态、第二份 graph 输出或历史分支。
 
 计划只移除该消费者 Binding 的所有 referenceSlots 本帧均不被读取的边；同来源还有一个活跃槽就保留依赖。DAG 准备事实保持，实际截点 memo 比较这个小投影。计划先沿本帧无环绑定确定真实来源最早可用位置，再从消费者向上游传播可满足的请求。raw prefix 位置在 U 原捕获之后；没有合成顺序依赖的来源可用于预处理。可见 graph 自己的作者主位是执行期限，不能为等待更晚输入而推迟或丢弃其主输出；尚未可用的输入保持该消费者原局部失败语义。hidden graph 不为一个过早请求生成临时降级输出，保留给后续可满足的请求。model 的提前需求不能越过真实来源位置；独立 albedo 仍保原提前准备。
@@ -172,7 +176,7 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 可见 color 结果遇到普通 named publication miss 时，仍保已编码结果与原 lookup，供作者位合成；不伪称供货成功，也不沿 hidden discard 撤销有效主输出。hidden miss 保原局部回退，data 不进入颜色合成，错误资源或回执仍由实际 owner 拒绝最小不安全单元。供货可执行性取决于真实 source 截点；background/prefix、utility 或成员顺序依赖不能借本修复升级为全局 prepass 独立来源。
 
-验收沿原 Coordinator/Bridge 门核 U→P→C 后的晚主消费、history/pin、普通供货失败及重复/过期回执；签名 App 用独立来源的 visible U、hidden P 和更早 C，核双 UV 贡献、作者位遮挡、单次 graph/主消费、改名与 hidden 邻例。先限定这个可复验结果，前缀正确取时和多上游调度仍分别留在原队列。
+验收沿原 Coordinator/Bridge 门核 U→P→C 后的晚主消费、history/pin、普通供货失败及重复/过期回执；签名 App 用独立来源的 visible U、hidden P 和更早 C，核双 UV 贡献、作者位遮挡、单次 graph/主消费、改名与 hidden 邻例。先限定这个可复验结果，更广前缀来源、utility/model与其他组合仍沿原队列分别资格。
 
 <a id="color"></a>
 ## 颜色、数据与显示

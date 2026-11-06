@@ -408,7 +408,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
 
-    def test_one_provider_program_vector_preserves_authored_slot_order(self) -> None:
+    def test_primary_vectors_keep_authored_slots_and_forward_closure(self) -> None:
         self.assertEqual(
             self.result["singleProviderProgramVector"],
             {
@@ -432,25 +432,29 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.result,
         )
 
-    def test_hidden_forward_provider_keeps_two_slots_of_one_upstream(self) -> None:
         rows = self.result["forwardRepeatedProvider"]
-        for name, upstream, middle, slots in [
-            ("same", 1901, 1903, ["vector:0:2=1901", "vector:0:5=1901"]),
-            ("renamed", 2901, 2903, ["omega:2:1=2901", "omega:2:6=2901"]),
+        for name, middle, slots, providers, order in [
+            ("same", 1903, ["vector:0:2=1901", "vector:0:5=1901"], [1901, 1901], [1901, 1903]),
+            ("renamed", 2903, ["omega:2:1=2901", "omega:2:6=2901"], [2901, 2901], [2901, 2903]),
+            ("twoProviders", 1903, ["vector:0:2=1901", "vector:0:5=1902"], [1901, 1902], [1901, 1902, 1903]),
+            ("threeProviders", 1903, ["vector:0:1=1901", "vector:0:3=1902", "vector:0:6=1905"], [1901, 1902, 1905], [1901, 1902, 1905, 1903]),
+            ("multiRenamed", 2903, ["omega:2:1=2901", "omega:2:6=2902"], [2901, 2902], [2901, 2902, 2903]),
+            ("reordered", 1903, ["vector:0:2=1901", "vector:0:5=1902"], [1901, 1902], [1902, 1901, 1903]),
         ]:
             with self.subTest(variant=name):
                 row = rows[name]
-                self.assertEqual(row["candidateCount"], 1)
-                self.assertEqual(row["consumerProvider"], middle)
-                self.assertEqual(row["middleBindings"], slots)
-                self.assertEqual(row["middleProviders"], [upstream, upstream])
-                self.assertEqual(row["requiredProviders"], [upstream, middle])
-                self.assertEqual(row["forwardOrder"], [upstream, middle])
-        for name in ["twoProviders", "secondary", "self", "background", "visible"]:
+                expected = {"candidateCount": 1, "consumerProvider": middle, "middleBindings": slots,
+                            "middleProviders": providers, "requiredProviders": sorted(order), "forwardOrder": order}
+                self.assertEqual({key: row[key] for key in expected}, expected)
+        for name in ["secondary", "self", "background", "visible"]:
             with self.subTest(rejected=name):
                 self.assertEqual(rows[name]["candidateCount"], 0)
                 self.assertEqual(rows[name]["consumerProvider"], -1)
         self.assertFalse(rows["foreignConsumerAccepted"])
+        self.assertTrue(rows["twoProviders"]["rawMiddleClosed"])
+        self.assertTrue(all(not rows[name]["rawMiddleClosed"] for name in ("unknown", "incomplete", "cycle")))
+        self.assertIn("missingProvider", rows["unknown"]["rawIssues"])
+        self.assertTrue(rows["cycle"]["cyclicMiddle"])
 
     def test_definition_material_candidates_keep_effective_pass_identity(self) -> None:
         # These are potential source carriers. Actual Program selection and

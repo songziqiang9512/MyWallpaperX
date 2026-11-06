@@ -7,7 +7,7 @@ extension SceneDependencyRenderPlan {
 
     /// A forward graph runs before any authored compositor layer. It may use
     /// its own layer source, static assets, frame inputs and primary named
-    /// inputs from one upstream that the same dependency plan schedules
+    /// inputs from upstreams that the same dependency plan schedules
     /// first. The main target and secondary targets retain authored-order
     /// dependencies and are rejected here.
     nonisolated static func providerGraphIsAuthoredOrderIndependent(
@@ -28,20 +28,18 @@ extension SceneDependencyRenderPlan {
         if activeDependencies.isEmpty {
             guard references.isEmpty else { return false }
         } else {
-            guard activeDependencies.count == 1,
-                  let dependencyLayerID = activeDependencies.first,
-                  references.allSatisfy({
-                      $0.consumerLayerID == layer.id
-                          && $0.providerLayerID == dependencyLayerID
-                          && $0.variant == .primary
-                  }) else { return false }
+            guard references.allSatisfy({
+                $0.consumerLayerID == layer.id
+                    && activeDependencies.contains($0.providerLayerID)
+                    && $0.variant == .primary
+            }) else { return false }
         }
         let paths = texturePaths ?? layer.effects.filter { $0.visible != false }
             .flatMap(\.passes).flatMap { $0.texturePaths + $0.textureSlots.compactMap { $0 } }
         return paths.allSatisfy { path in
             guard path.caseInsensitiveCompare("_rt_FullFrameBuffer") != .orderedSame else { return false }
             guard let named = SceneNamedTextureReference.parse(path) else { return true }
-            return activeDependencies == [named.providerLayerID] && named.variant == .primary
+            return activeDependencies.contains(named.providerLayerID) && named.variant == .primary
         }
     }
     /// Reconstructs the descriptor's authored effect/pass/slot order for the
