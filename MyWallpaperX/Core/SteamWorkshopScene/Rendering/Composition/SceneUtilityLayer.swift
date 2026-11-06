@@ -29,7 +29,7 @@ nonisolated struct SceneUtilityLayer: Codable, Equatable {
         let authoredCopyBackground = boolValue(object["copybackground"])
         return SceneUtilityLayer(
             kind: kind,
-            copyBackground: authoredCopyBackground ?? (kind == .composition),
+            copyBackground: authoredCopyBackground ?? (kind != .fullscreen),
             passthrough: boolValue(config?["passthrough"]) ?? false,
             authoredCopyBackground: authoredCopyBackground
         )

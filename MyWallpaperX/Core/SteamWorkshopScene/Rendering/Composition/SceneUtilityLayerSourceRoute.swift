@@ -1,6 +1,6 @@
 import Foundation
 
-/// Selects the prepared source for a utility. Composition descendants belong
+/// Selects the prepared source for a utility. Group descendants belong
 /// to their root's input in authored relative order, independent of the root's
 /// array position. Background inclusion is an authored flag, never a prefix
 /// or child-count inference.
@@ -38,7 +38,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         }
         // A childless passthrough has no members to pass through. Its explicit
         // background choice still owns the effect input, including transparency.
-        guard utility.kind == .composition else {
+        guard utility.kind != .fullscreen else {
             return .failure(.compositionSubtreeShape)
         }
         let groupedLayers = Dictionary(grouping: descriptor.layers, by: \.id)
@@ -88,8 +88,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 }
                 // A nested background group still requires its original
                 // viewport copy. Do not change that input by partial migration.
-                return child.utilityLayer?.kind != .composition
-                    || child.utilityLayer?.passthrough == true
+                return child.utilityLayer?.passthrough == true
                     || child.utilityLayer?.copyBackground != true
                     || child.childLayerIDs.isEmpty
             }
@@ -105,7 +104,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 // Newly admitted passthrough roots contain plain producers.
                 // Nested utilities retain their original group/preparation
                 // policy until their effect-visibility closure is qualified.
-                guard !utility.passthrough, childUtility.kind == .composition,
+                guard !utility.passthrough, childUtility.kind != .fullscreen,
                       child.contentKind == childUtility.kind.rawValue,
                       !childUtility.passthrough || (localSource
                         && (child.childLayerIDs.isEmpty || child.effects.isEmpty)) else {

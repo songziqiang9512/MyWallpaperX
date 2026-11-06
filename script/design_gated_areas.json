@@ -115,11 +115,11 @@
     },
     {
       "id": "scene-composition-render-target",
-      "title": "composition作者采集成员、模式与顺序",
+      "title": "composition与project作者采集成员、来源与顺序",
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/effect-execution-coverage.md",
-      "design_notes": "粒子子树栅格合同见 designDoc#粒子子树栅格合同：保 canonical camera/viewport 几何，在原 MainPass 映射末端转换 XY、保 ZW；同映射转换既有 REFRACT 位移，深度/快照/输出 owner 不变。去除已接消费者的 particle 整类拒绝，保留已准备成员组的 inactive stage。官方 composition amount 单位和任意 projective 语义不预支。验证后稳定合同留原专题，本登记不授权未定范围。",
+      "design_notes": "Current contracts: designDoc#project-subtree-source and #particle-subtree-raster. Project descendants use the existing prepared utility group/source/order/geometry and unique compositor. A bounded official visible, top-level, orthographic full-canvas default-input control qualifies prior prefix plus own members at the root cut; source model flags alone do not qualify other domains. Preserve explicit authored background choice, original childless/fullscreen paths and resource/pin lifecycle; missing local-raster consumers stay explicit. No new renderer, source owner, permission table or ordinary-frame classification. Canonical camera/viewport and existing particle raster/REFRACT mapping remain owned by their original contracts.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
@@ -132,11 +132,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ImageLayerEncoding.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
       ],
       "contentPatterns": [
-        "SceneCompositionRenderTarget",
-        "compositionGroupRenderTarget"
+        "SceneUtilityLayerSourceRoute",
+        "SceneUtilityLayerRuntimePlanner",
+        "SceneCaptureGeometryResolver"
       ]
     },
     {

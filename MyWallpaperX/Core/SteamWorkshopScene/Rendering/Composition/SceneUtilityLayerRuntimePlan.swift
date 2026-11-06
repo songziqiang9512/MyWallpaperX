@@ -131,26 +131,18 @@ enum SceneUtilityLayerRuntimePlanner {
                 && resolvedMaterialLayerIDs.contains(layer.id)
                 && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && layer.dependencyLayerIDs.isEmpty && sourceRoute != nil
-            let preparedProject = utility.kind == .project
-                && layer.contentKind == "project"
-                && layer.parentID == nil && layer.childLayerIDs.isEmpty
-                && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
-                && sourceRoute != nil && resolvedMaterialLayerIDs.contains(layer.id)
-            let isolatedComposition = utility.kind == .composition
-                && sourceRoute?.usesIsolatedGroupTarget == true
-            let preparedComposition = utility.kind == .composition
+            let isolatedGroup = sourceRoute?.usesIsolatedGroupTarget == true
+            let preparedSource = utility.kind != .fullscreen
                 && sourceRoute != nil
                 && resolvedMaterialLayerIDs.contains(layer.id)
-            let preparedCompositionSource = sourceRoute?.usesAuthoredLocalSource == true
+            let preparedLocalSource = sourceRoute?.usesAuthoredLocalSource == true
                 && !hasVisibleEffects
-            let preparedUtility = preparedFullscreen || preparedProject || preparedComposition
-                || preparedCompositionSource
-            // Hidden prepared groups retain their source plan. No-effect
-            // groups retain only ordering and allocate no capture target.
+            let preparedUtility = preparedFullscreen || preparedSource || preparedLocalSource
+            // Local sources retain their raster without an active effect.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
-                && !(isolatedComposition && !hasVisibleEffects) {
+                && !(isolatedGroup && !hasVisibleEffects) {
                 disposition = .skippedHidden
-            } else if !layer.dependencyLayerIDs.isEmpty && !preparedComposition {
+            } else if !layer.dependencyLayerIDs.isEmpty && !preparedSource {
                 // Prepared Programs already own their actual external demand,
                 // including no reads from a descriptor's dependency superset.
                 disposition = .unsupportedDependencies
@@ -159,7 +151,7 @@ enum SceneUtilityLayerRuntimePlanner {
             } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
                 disposition = .unsupportedChildren
             } else if sourceRoute != nil,
-                      resolvedMaterialLayerIDs.contains(layer.id) || preparedCompositionSource {
+                      resolvedMaterialLayerIDs.contains(layer.id) || preparedLocalSource {
                 disposition = .capture
             } else {
                 disposition = .unsupportedEffects

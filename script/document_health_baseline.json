@@ -113,8 +113,8 @@
       "bytes": 8522
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 75,
-      "bytes": 10382
+      "lines": 84,
+      "bytes": 12189
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -129,8 +129,8 @@
       "bytes": 42590
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 124,
-      "bytes": 75304
+      "lines": 125,
+      "bytes": 76832
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 173,
-      "bytes": 33860
+      "bytes": 34256
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -394,15 +394,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "78a45a7b78afaaba262f100752dca29b0db0cf1a2ff93745dfec6048eabb2abe",
-      "after": "e5b6f55653a82c812ba5d5924e1a33d38c9eea0eb4d690ec33a5e8c517d13884",
-      "owner": "scene-framebuffer-source-declarations",
-      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
       "after": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "e5b6f55653a82c812ba5d5924e1a33d38c9eea0eb4d690ec33a5e8c517d13884",
+      "after": "ccb88a22390c70c29d203aa837a6b1864b536b2ec4a1338a0d4f1b087fe0f720",
+      "owner": "scene-project-subtree-source",
+      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6e2ea60f8fd8089cd73f4989ce5f84a21c17678fb2c5fd541f64ff134e883ba4",
-      "after": "9a1518a29474a8f64c4da5ceb8c09652b1cf1cc1c7f877e13ad821875c56a99b",
-      "owner": "scene-compositor-dependency-borrow-retirement",
-      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
-      "decision": "docs/scene/architecture/runtime-architecture.md"
+      "before": "9a1518a29474a8f64c4da5ceb8c09652b1cf1cc1c7f877e13ad821875c56a99b",
+      "after": "cb39f8d72c235013dead035fbbb35d7fdae443b91042fee7aa35450f8f871b48",
+      "owner": "scene-project-subtree-source",
+      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1c768d39082771b7fc942b07e5a73369a805ab6af06e50aed1ee63b8c82ee4f6",
-      "after": "94a134d8692134e22fcb00e3d771cca5765ff05ad74b6ae6a499b2bf806b5c7a",
-      "owner": "scene-compositor-dependency-borrow-retirement",
-      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
-      "decision": "docs/scene/architecture/runtime-architecture.md"
+      "before": "94a134d8692134e22fcb00e3d771cca5765ff05ad74b6ae6a499b2bf806b5c7a",
+      "after": "f11652426c91f1d4f387653db13ac84ec0d02cabbf798d13611c66ee31c3584c",
+      "owner": "scene-project-subtree-source",
+      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
     }
   ]
 }

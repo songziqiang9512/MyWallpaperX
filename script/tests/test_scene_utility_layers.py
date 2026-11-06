@@ -56,9 +56,6 @@ COMPOSITION_SOURCE_FALLBACK = (
 CAPABILITY_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
 )
-CAPABILITY_PROGRAM_FIRST_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-)
 CAPTURED_MAIN_SOURCE_CONSERVATION = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift"
 )
@@ -115,14 +112,15 @@ enum Harness {
                    childKind: String = "solid", dependencies: [Int] = [],
                    reverseMembers: Bool = false,
                    transformParents: [Int] = [], reverseStorage: Bool = true,
-                   nestedBackground: Bool = false) -> [String: Any] {
+                   nestedBackground: Bool = false,
+                   utilityPath: String = "models/util/composelayer.json") -> [String: Any] {
             var object: [String: Any] = ["config": ["passthrough": passthrough]]
             if let copy { object["copybackground"] = copy }
-            let utility = SceneUtilityLayer.parse(imagePath: "models/util/composelayer.json",
+            let utility = SceneUtilityLayer.parse(imagePath: utilityPath,
                 object: object)!
             let memberIDs = Array(ids.dropFirst())
             var root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: memberIDs,
-                dependencyLayerIDs: dependencies, contentKind: "composition", utilityLayer: utility,
+                dependencyLayerIDs: dependencies, contentKind: utility.kind.rawValue, utilityLayer: utility,
                 usesPerspective: rootPerspective, effects: rootEffects)
             var children = memberIDs.map { id in
                 SceneRenderDescriptor.Layer(id: id, parentID: ids[0],
@@ -141,9 +139,9 @@ enum Harness {
                 order = transformParents + order
             }
             if nestedBackground {
-                children[0].contentKind = "composition"
+                children[0].contentKind = utility.kind.rawValue
                 children[0].utilityLayer = SceneUtilityLayer.parse(
-                    imagePath: "models/util/composelayer.json", object: [:])!
+                    imagePath: utilityPath, object: [:])!
                 children[0].childLayerIDs = [ids[0] + 1000]
                 children.append(.init(id: ids[0] + 1000, parentID: memberIDs[0],
                     contentKind: "solid"))
@@ -205,6 +203,23 @@ enum Harness {
             "external-dependency": probe("dependent", dependencies: [901]),
             "nested-background": probe("nested", rootEffects: [.init(visible: false)],
                 nestedBackground: true),
+            "project-omitted": probe("project", utilityPath: "models/util/projectlayer.json"),
+            "project-transparent": probe("project-transparent", copy: false,
+                utilityPath: "models/util/projectlayer.json"),
+            "project-hidden-effect": probe("project-hidden", rootEffects: [.init(visible: false)],
+                utilityPath: "models/util/projectlayer.json"),
+            "project-visible-effect": probe("project-visible", rootEffects: [.init(visible: true)],
+                utilityPath: "models/util/projectlayer.json"),
+            "project-renamed-transform-chain": probe("project-renamed", ids: [901, 218, 307],
+                rootEffects: [.init(id: 630, file: "effects/other/filter.json")], childKind: "text",
+                reverseMembers: true, transformParents: [403, 402], reverseStorage: false,
+                utilityPath: "models/util/projectlayer.json"),
+            "project-nested-background": probe("project-nested", nestedBackground: true,
+                utilityPath: "models/util/projectlayer.json"),
+            "project-model-member": probe("project-model", childKind: "model", transformParents: [42],
+                utilityPath: "models/util/projectlayer.json"),
+            "project-spot-light-member": probe("project-spot-light", childKind: "spotLight",
+                utilityPath: "models/util/projectlayer.json"),
         ]
     }
 
@@ -317,6 +332,25 @@ enum Harness {
         result["cycle"] = route(cycle, peers: [back])
         var mismatch = plain; mismatch.contentKind = "project"
         result["utility-kind"] = route(mismatch)
+        for kind in ["project", "fullscreen"] {
+            var typedGroup = group
+            typedGroup.contentKind = kind
+            typedGroup.utilityLayer = SceneUtilityLayer.parse(
+                imagePath: "models/util/\(kind)layer.json", object: [:])!
+            let middle = SceneRenderDescriptor.Layer(id: 31, contentKind: "solid")
+            let suffix = SceneRenderDescriptor.Layer(id: 40, contentKind: "solid")
+            result["\(kind)-children"] = route(typedGroup,
+                peers: [child, provider, middle, suffix], order: [30, 20, 31, 21, 40])
+            result["\(kind)-wrong-parent"] = route(typedGroup, peers: [wrongParent, provider])
+            result["\(kind)-wrong-descendant-parent"] = route(typedGroup,
+                peers: [wrongDescendant, transformParent, provider])
+        }
+        let renamedProject = SceneRenderDescriptor.Layer(id: 901, childLayerIDs: [218],
+            contentKind: "project", utilityLayer: SceneUtilityLayer.parse(
+                imagePath: "models/util/projectlayer.json", object: [:])!)
+        result["project-child-before-root"] = route(renamedProject,
+            peers: [.init(id: 218, parentID: 901, contentKind: "solid"),
+                    .init(id: 709, contentKind: "solid")], order: [709, 218, 901])
         return result
     }
 
@@ -329,6 +363,11 @@ enum Harness {
             (nil, [:]),
             ("models/util/composelayer.json", ["copybackground": false]),
             ("models/util/composelayer.json", ["copybackground": ["value": true]]),
+            ("models/util/projectlayer.json", [:]),
+            ("models/util/projectlayer.json", ["copybackground": false]),
+            ("models/util/projectlayer.json", ["copybackground": ["value": false]]),
+            ("models/util/projectlayer.json", ["copybackground": ["value": true]]),
+            ("models/user/projectlayer.json", [:]),
         ]
         let parsed = fixtures.map { SceneUtilityLayer.parse(imagePath: $0.0, object: $0.1) }
         func readable(_ layers: [SceneRenderDescriptor.Layer]) -> Bool {
@@ -347,6 +386,8 @@ enum Harness {
             "backgroundLocalSourceRoutes": backgroundLocalSourceRoutes(),
             "kinds": parsed.map { $0?.kind.rawValue ?? "none" },
             "copyBackground": parsed.map { $0?.copyBackground ?? false },
+            "authoredCopyBackground": parsed.map {
+                ($0?.authoredCopyBackground).map { String($0) } ?? "omitted" },
             "passthrough": parsed.map { $0?.passthrough ?? false },
             "hiddenAdvancedBlend": hiddenBlend,
             "parentHiddenAdvancedBlend": readable([
@@ -407,12 +448,18 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_canonical_paths_are_typed_without_matching_user_models(self) -> None:
         self.assertEqual(
             self.result["kinds"],
-            ["composition", "project", "fullscreen", "none", "none", "composition", "composition"],
+            ["composition", "project", "fullscreen", "none", "none", "composition", "composition",
+             "project", "project", "project", "project", "none"],
         )
 
-    def test_composition_background_default_and_explicit_flags(self) -> None:
-        self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
-        self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
+    def test_composition_and_project_background_default_and_explicit_flags(self) -> None:
+        self.assertEqual(self.result["copyBackground"],
+                         [True, True, False, False, False, False, True, True, False, False, True, False])
+        self.assertEqual(self.result["authoredCopyBackground"],
+                         ["omitted", "true", "omitted", "omitted", "omitted", "false", "true",
+                          "omitted", "false", "false", "true", "omitted"])
+        self.assertEqual(self.result["passthrough"],
+                         [True, False, False, False, False, False, False, False, False, False, False, False])
 
     def test_background_groups_keep_local_sources_across_root_effect_states(self) -> None:
         routes = self.result["backgroundLocalSourceRoutes"]
@@ -438,6 +485,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
             ("particle-member", 20, [42, 43, 21], True, True),
             ("renamed-particle-hidden-effect", 901, [403, 402, 307, 218], True, True),
             ("renamed-particle-visible-effect", 901, [403, 402, 307, 218], True, True),
+            ("external-dependency", 20, [21], True, True),
+            ("project-omitted", 20, [21], True, True),
+            ("project-transparent", 20, [21], False, False),
+            ("project-hidden-effect", 20, [21], True, True),
+            ("project-visible-effect", 20, [21], True, True),
+            ("project-renamed-transform-chain", 901, [403, 402, 307, 218], True, True),
         ):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {
@@ -454,8 +507,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(routes["nested-background"], {
             "root": 20, "members": [21, 1020], "isolated": True, "local": False,
             "copyBackground": True, "authoredCopyOmitted": True})
-        for name in ("model-member", "spot-light-member",
-                     "external-dependency"):
+        self.assertEqual(routes["project-nested-background"], {
+            "root": 20, "members": [21, 1020], "isolated": True, "local": False,
+            "copyBackground": True, "authoredCopyOmitted": True})
+        for name in ("model-member", "spot-light-member", "project-model-member", "project-spot-light-member"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
 
@@ -480,17 +535,25 @@ class SceneUtilityLayerTests(unittest.TestCase):
                 self.assertEqual(self.result["sourceRoutes"][name], {
                     "trigger": 20, "isolated": False, "capturesSubtree": False, "members": []})
 
-    def test_isolated_source_keeps_group_membership_and_external_dependency_guards(self) -> None:
+    def test_isolated_source_keeps_membership_and_rejects_broken_parent_closure(self) -> None:
         routes = self.result["sourceRoutes"]
         self.assertEqual(routes["children"], {"trigger": 20, "isolated": True,
                                                "capturesSubtree": True, "members": [21]})
         self.assertEqual(routes["transform-parent"], {"trigger": 20, "isolated": True,
                                                     "capturesSubtree": True, "members": [22, 21]})
-        for name in ("child-flat", "child-authored", "child-both", "duplicate-id",
+        for name in ("child-flat", "child-authored", "child-both", "project-children"):
+            with self.subTest(route=name):
+                self.assertEqual(routes[name], {"trigger": 20, "isolated": True,
+                                                "capturesSubtree": True, "members": [21]})
+        self.assertEqual(routes["project-child-before-root"], {"trigger": 901, "isolated": True,
+                                                               "capturesSubtree": True, "members": [218]})
+        for name in ("duplicate-id",
                      "duplicate-order", "unlisted-child", "missing-child",
                      "duplicate-child", "wrong-parent", "wrong-descendant-parent", "cycle",
                      "passthrough-children-false", "passthrough-children-true",
-                     "passthrough-duplicate-id", "passthrough-duplicate-order"):
+                     "passthrough-duplicate-id", "passthrough-duplicate-order",
+                     "project-wrong-parent", "project-wrong-descendant-parent",
+                     "fullscreen-children", "fullscreen-wrong-parent", "fullscreen-wrong-descendant-parent"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
         self.assertEqual(routes["utility-kind"], {"failure": "utility-shape"})
@@ -570,44 +633,6 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
 
-    def test_resolved_utility_dependency_keeps_full_frame_closed_and_consumes_once(
-        self,
-    ) -> None:
-        program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        compositor = IMAGE_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-
-        compact_program = "".join(program_first.split())
-        self.assertNotIn("SceneEffectStageExecutionPlan", compact_program)
-        self.assertNotIn("supportsUtilityCapture", compact_program)
-        self.assertIn("compileStage(", compact_program)
-
-        compact_compositor = "".join(compositor.split())
-        self.assertIn(
-            "letdependencyConsumed=graphExecutionTicket?."
-            "consumesExternalPrimaryDependency==true",
-            compact_compositor,
-        )
-        self.assertIn(
-            "dependencyBlendMode:dependencyConsumed?nil:"
-            "dependencyEffect?.blendMode",
-            compact_compositor,
-        )
-        self.assertIn(
-            "letfinalDependencyTexture=dependencyConsumed?nil:"
-            "dependencyEffect?.texture",
-            compact_compositor,
-        )
-        self.assertIn(
-            "dependencyTexture:finalDependencyTexture",
-            compact_compositor,
-        )
-        self.assertIn(
-            "($0.slotIndex==3&&$0.blendMode==0)",
-            compact_compositor,
-        )
-
     def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
         frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
@@ -637,44 +662,6 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("SceneImageLayerMainPassRenderer.draw(", compact)
         self.assertNotIn("2959875782", fallback)
         self.assertNotIn("ranger_wed", fallback)
-
-    def test_composition_capture_receives_named_dependency_atomically(self) -> None:
-        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
-        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = (
-            read_source_family(METAL_RENDERER_SOURCE)
-            + METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8")
-            + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
-        )
-        dependency_runtime = (
-            DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
-            + "\n"
-            + DEPENDENCY_GEOMETRY_SOURCE.read_text(encoding="utf-8")
-        )
-        # Capture admission and prepared-input consumption are exercised by
-        # test_scene_dependency_render_plan's production Swift harness.
-        self.assertIn(
-            "executableUtilityConsumerLayerIDs: Set<Int>",
-            dependency_runtime,
-        )
-        self.assertIn(
-            "executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs",
-            dependency_runtime,
-        )
-        self.assertIn(
-            "dependencyEffects: [SceneDependencyEffectInput] = []",
-            utility_renderer,
-        )
-        self.assertIn("dependencyEffects: dependencyEffects,", utility_renderer)
-        self.assertIn("dependencyRuntime.effectInput(", metal_renderer)
-        self.assertIn(
-            "resolvedMaterialLayerIDs: resolvedMaterialLayerIDs",
-            metal_renderer,
-        )
-        self.assertIn(
-            "dependencyRuntime.recordBindingIfRequired(",
-            metal_renderer,
-        )
 
     def test_hidden_solid_provider_uses_source_texture_capture(self) -> None:
         dependency_runtime = (

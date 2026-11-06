@@ -42,6 +42,15 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
 
+<a id="project-subtree-source"></a>
+### Project 子树来源
+
+Project 的后代沿原 utility 组来源、执行顺序和合成职责接入。根之前的 enclosing 背景与该根的后代共同进入父级 effect；数组中位于根之后的无关层保持后置。省略 `copybackground` 的 project 保留背景输入，显式值仍由作者选择。官方有界观察仅涵盖顶层、可见、满画布、正交、identity 变换及省略 object config 的输入；stock model 的 passthrough/autosize 元数据本身不能证明来源截点或覆盖其他组合。
+
+`SourceRoute` 在原准备边界选择来源并保 parent 闭包；`RuntimePlanner` 把同一成员集交给既有组排序与 capture 计划。`CaptureGeometry` 消费实际组源的局部 extent 或 enclosing viewport，`GroupFrameRuntime/MainPass` 负责原 target、背景复制和成员栅格；父 Program 读取这一来源，唯一 compositor 在根位置输出。资源、clock、粒子模拟、named publication 和 GPU pin 继续由各自原 owner 持有，普通帧不重新判断子树资格。Project 的 childless 绘制与 fullscreen 的来源职责分别保留。
+
+来源、预约或 Program 失败沿原组的局部失败与输出释放处理，健康后继继续；模型或 spotlight 缺少局部 raster 消费者的边界另行定位。验收同时核背景、跨色底 child、中间非 child 与后置遮挡的真实像素，再核改名、静态 effect-off、无效果与背景字段反例；作者雨层须闭合粒子目标→父来源→mask Program→末合成，独立样本保相邻能力。动态显隐准备范围归[开放问题](../roadmap/scene-open-breakpoint-queue.md)，官方 hidden、named、嵌套、TRS、显式配置及 REFRACT 数学继续保持各自资格，不能由本观察外推。
+
 <a id="particle-subtree-raster"></a>
 ### 粒子子树栅格合同
 

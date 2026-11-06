@@ -65,7 +65,7 @@ enum Harness {
             kind: .composition, layerMVP: localMVP, viewportSize: viewport,
             compositionSourceMemberLayerIDs: [777]
         )!
-        let projectWithMemberFlag = SceneCaptureGeometryResolver.resolve(
+        let projectMembers = SceneCaptureGeometryResolver.resolve(
             kind: .project, layerMVP: localMVP, viewportSize: viewport,
             compositionSourceMemberLayerIDs: [777], authoredRenderSizeWH: [2000, 2000]
         )!
@@ -214,7 +214,7 @@ enum Harness {
             "localSize": [local.pixelSize.width, local.pixelSize.height],
             "localOutput": matrix(local.outputMVP),
             "memberGroup": geometry(memberGroup),
-            "projectWithMemberFlag": geometry(projectWithMemberFlag),
+            "projectMembers": geometry(projectMembers),
             "parentEmpty": geometry(parentEmpty),
             "parentMembers": geometry(parentMembers),
             "authoredParent": geometry(authoredParent),
@@ -610,14 +610,13 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 0, 0.5, -0.25, 0, 1],
         )
 
-    def test_legacy_composition_member_source_uses_viewport_geometry(self) -> None:
+    def test_composition_and_project_viewport_members_use_viewport_geometry(self) -> None:
         full = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-        self.assertEqual(self.result["memberGroup"], {
-            "sourceUV": [[0, 0], [1, 0], [0, 1]],
-            "outputMVP": full, "pixelSize": [1000, 800]})
-        self.assertEqual(self.result["projectWithMemberFlag"], {
-            "sourceUV": [[0.5, 0.5], [0.5, 0], [0, 0.25]],
-            "outputMVP": self.result["localOutput"], "pixelSize": [500, 200]})
+        for key in ("memberGroup", "projectMembers"):
+            with self.subTest(source=key):
+                self.assertEqual(self.result[key], {
+                    "sourceUV": [[0, 0], [1, 0], [0, 1]],
+                    "outputMVP": full, "pixelSize": [1000, 800]})
 
     def test_empty_composition_keeps_parent_transform_on_non_square_viewport(self) -> None:
         self.assertEqual(self.result["parentEmpty"], {
@@ -841,7 +840,7 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertGreater(finite_neighbor, 0)
         self.assertAlmostEqual(finite_neighbor / 2.5e38, 1, delta=1e-6)
 
-    def test_local_source_extent_does_not_change_legacy_or_other_utility_routes(self) -> None:
+    def test_project_local_source_uses_prepared_extent_and_preserves_neighbor_routes(self) -> None:
         result = self.result["compositionLocalSource"]
         full = {"sourceUV": [[0, 0], [1, 0], [0, 1]],
                 "outputMVP": [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
@@ -851,7 +850,9 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         projected = {"sourceUV": [[0.53125, 0.65625], [0, -0.375], [0.0625, 0]],
                      "outputMVP": result["rootMVP"], "pixelSize": [40, 135]}
         self.assertEqual(result["nilMembers"], dict(projected, pixelSize=[135, 40]))
-        self.assertEqual(result["project"], projected)
+        self.assertEqual(result["project"], {
+            "sourceUV": [[0, 0], [1, 0], [0, 1]],
+            "outputMVP": result["rootMVP"], "pixelSize": [80, 40]})
         self.assertEqual(result["empty"], dict(projected, pixelSize=[80, 40]))
 
 

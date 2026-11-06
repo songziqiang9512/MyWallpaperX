@@ -5,6 +5,7 @@ authored by this test; solid geometry uses the product's procedural solid lane.
 This checks the bounded ordinary-composition behavior, not official pixel parity
 between this solid fixture and the official client's differently formatted base.
 Run only against an explicitly frozen Debug App with MWX_SCENE_INTEGRATION_APP.
+Project variants reuse this internal fixture; they are not the official stock A/B input.
 """
 
 from pathlib import Path
@@ -57,7 +58,7 @@ def encoded(value):
 def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
                     effect=True, childless=False, hide_child_next_frame=False,
                     container=False, renamed=False, hide_container_next_frame=False, quad=False,
-                    quad_input=None):
+                    quad_input=None, project_layer=False):
     """None omits the authored field; false and true remain distinct inputs."""
     if copy_background is not None and not isinstance(copy_background, bool):
         raise ValueError("copy_background must be omitted, false, or true")
@@ -67,8 +68,9 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
     solid_path = "models/alternate_card.json" if renamed else "models/own_solid.json"
     shader = "alternate_invert" if renamed else "own_invert"
     effect_path = f"effects/{shader}/effect.json"
+    utility_path = f"models/util/{'project' if project_layer else 'compose'}layer.json"
     root = {"id": ids["composition"], "name": "Owned composition root",
-            "image": "models/util/composelayer.json", "origin": "128 128 0",
+            "image": utility_path, "origin": "128 128 0",
             "size": "256 256", "visible": True}
     if copy_background is not None:
         root["copybackground"] = copy_background
@@ -123,7 +125,7 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
         solid_path: encoded({"solidlayer": True, "width": 256, "height": 256}),
         # This utility path is the public authored type discriminator. Its
         # bytes are ours; no stock model, material, image, or shader is read.
-        "models/util/composelayer.json": encoded({"width": 256, "height": 256, "autosize": False}),
+        utility_path: encoded({"width": 256, "height": 256, "autosize": False}),
         effect_path: encoded({"passes": [{"material": f"materials/{shader}.json"}]}),
         f"materials/{shader}.json": encoded({"passes": [{
             "shader": shader, "textures": [None], "blending": "normal",
@@ -131,6 +133,11 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
         f"shaders/{shader}.vert": VERTEX,
         f"shaders/{shader}.frag": FRAGMENT,
     }
+    if project_layer and renamed:
+        entries[f"shaders/{shader}.vert"] = VERTEX.replace(b"v_TexCoord", b"v_ProjectUV")
+        entries[f"shaders/{shader}.frag"] = (FRAGMENT.replace(b"v_TexCoord", b"v_ProjectUV")
+            .replace(b"vec4 c=", b"vec4 sampled=").replace(b"-c.rgb", b"-sampled.rgb")
+            .replace(b",c.a", b",sampled.a"))
     if quad:
         entries.update({
             "effects/own_yellow/effect.json": encoded({"passes": [{"material": "materials/own_yellow.json"}]}),
@@ -180,7 +187,7 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
 def preregistration(*, copy_background=None, order="baseline", enabled=True,
                     effect=True, childless=False, hide_child_next_frame=False,
                     container=False, renamed=False, hide_container_next_frame=False, quad=False,
-                    quad_input=None):
+                    quad_input=None, project_layer=False):
     """The expected colors come from the approved contract, never the capture."""
     active_effect = effect and enabled
     copies = copy_background is not False
@@ -211,6 +218,11 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             "captureMapping": "centered orthographic cover, scale=max(width/256,height/256)",
             "timingBoundary": "ready and later after Metal readbacks; no strict adjacent-frame binding",
             "evidenceBoundary": "bounded D1 order/copybackground behavior using owned procedural solids; not official pixel parity"}
+    if project_layer:
+        protocol["parameters"]["projectLayer"] = True
+        protocol["evidenceBoundary"] = (
+            "internal project subtree/copybackground behavior using owned models and shaders; "
+            "not the official stock A/B fixture or official pixel parity")
     if container:
         protocol["containerGeometry"] = {
             "worldTransform": ("T(128,128) T(-32,0) S(2,.5) T(-8,0) T(-8,0)"
@@ -596,6 +608,21 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
     def test_renamed_nested_quad_samples_slot3_and_clears_after_cohort_hides(self):
         self.run_case(copy_background=True, container=True, quad=True, renamed=True,
                       order="child-before-root", quad_input={"slot": 3, "initialVisible": True})
+
+    def test_project_omitted_background_inverts_prior_scene_and_child(self):
+        self.run_case(project_layer=True)
+
+    def test_project_false_background_preserves_background_and_nonchild(self):
+        self.run_case(project_layer=True, copy_background=False)
+
+    def test_project_renamed_transform_chain_keeps_members_at_root_cut(self):
+        self.run_case(project_layer=True, container=True, renamed=True, order="child-before-root")
+
+    def test_project_inactive_effect_keeps_group_members(self):
+        self.run_case(project_layer=True, enabled=False)
+
+    def test_project_missing_effect_keeps_group_members(self):
+        self.run_case(project_layer=True, effect=False)
 
 
 if __name__ == "__main__":

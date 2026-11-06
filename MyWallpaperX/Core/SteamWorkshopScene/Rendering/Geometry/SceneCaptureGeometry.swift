@@ -218,8 +218,7 @@ enum SceneCaptureGeometryResolver {
             return .init(sourceUV: .identity, outputMVP: layerMVP, pixelSize: extent.pixelSize,
                          outputUnitModelMatrix: outputUnitModelMatrix)
         }
-        if kind == .composition,
-           compositionSourceMemberLayerIDs?.isEmpty == false,
+        if kind != .fullscreen, compositionSourceMemberLayerIDs?.isEmpty == false,
            let localCompositionSourceExtent {
             return SceneCaptureGeometry(sourceUV: .identity, outputMVP: layerMVP,
                                         pixelSize: localCompositionSourceExtent,
@@ -227,8 +226,7 @@ enum SceneCaptureGeometryResolver {
         }
         // Legacy members already occupy enclosing viewport coordinates. Empty
         // transparent inputs instead retain the utility's authored local quad.
-        if kind == .fullscreen || (kind == .composition
-            && compositionSourceMemberLayerIDs?.isEmpty == false) {
+        if kind == .fullscreen || compositionSourceMemberLayerIDs?.isEmpty == false {
             return SceneCaptureGeometry(
                 sourceUV: .identity,
                 outputMVP: fullTargetMVP,
@@ -243,7 +241,7 @@ enum SceneCaptureGeometryResolver {
             return nil
         }
         let pixelSize: CGSize
-        if kind == .composition, compositionSourceMemberLayerIDs?.isEmpty == true,
+        if compositionSourceMemberLayerIDs?.isEmpty == true,
            let authoredRenderSizeWH {
             // Transparent procedural input has authored local pixels, not
             // the aspect of its projected screen footprint.
