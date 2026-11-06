@@ -190,6 +190,7 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     var performanceProfile: (maxFPS: Int, unused: Int) = (60, 0)
     __ACTIVE_FACT_TYPE__
     __ACTIVE_FACT_PROPERTY__
+    __DISPLAY_CONFIGURATION_PROPERTY__
     func failPendingFrameCaptures() {}; func revokeAudioSpectrumDemand(generation: UInt64) {}
     func revokeSystemMediaDemand(generation:UInt64) {}
     func finishShutdownIfPossible() {}; func finishPendingTextureUpdates(_ outcome: ScenePlaybackTextureUpdateOutcome) {}
@@ -213,6 +214,11 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     @MainActor static func main() throws {
         var results: [String: Bool] = [:]
         let client = SceneDaemonClient()
+        let firstScreen = SceneScreenTopology(displayID: 11,
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600), backingScaleFactor: 2)
+        let secondScreen = SceneScreenTopology(displayID: 12,
+            frame: CGRect(x: 800, y: 0, width: 800, height: 600), backingScaleFactor: 1)
+        client.displayConfiguration = [firstScreen, secondScreen]
         let source = ScenePreparedCallbackPropertyReachability.Source(rootPath: "/own", projectWitness: "p1", sceneWitness: "s1")
         func request() -> ScenePlaybackLoadRequest { .init(rootURL: URL(fileURLWithPath: "/own"), recordID: "record") }
         func payload(_ id: UUID, _ phase: String, record: String = "record", sourceOverride: ScenePreparedCallbackPropertyReachability.Source? = nil) throws -> [String: Any] {
@@ -233,6 +239,16 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
         let loadCommands = client.sent.filter { $0["cmd"] as? String == "loadScene" }
         results["launched-facts-source-bound"] = client.preparedCallbackPropertyKeys(for: "record", source: source) == ["choice"]
             && loadCommands.count == 1 && loadCommands.first?["requestID"] as? String == first.uuidString
+        let launchedFacts = client.activeCallbackPropertyFacts
+        client.displayConfiguration = [.init(displayID: 11,
+            frame: CGRect(x: 0, y: 0, width: 900, height: 600), backingScaleFactor: 1), secondScreen]
+        results["geometry-keeps-launch-observation"] = client.activeCallbackPropertyFacts == launchedFacts
+            && client.preparedCallbackPropertyKeys(for: "record", source: source) == ["choice"]
+        client.displayConfiguration.reverse()
+        results["display-order-keeps-launch-observation"] = client.activeCallbackPropertyFacts == launchedFacts
+        client.displayConfiguration = [secondScreen]
+        results["display-membership-is-not-callback-authority"] = client.activeCallbackPropertyFacts == launchedFacts
+            && client.preparedCallbackPropertyKeys(for: "record", source: source) == ["choice"]
         let wrongSource = ScenePreparedCallbackPropertyReachability.Source(rootPath: "/own", projectWitness: "p2", sceneWitness: "s1")
         results["same-path-changed-project-rejected"] = client.preparedCallbackPropertyKeys(for: "record", source: wrongSource).isEmpty
         results["same-path-changed-scene-rejected"] = client.preparedCallbackPropertyKeys(for: "record", source: .init(
@@ -315,6 +331,11 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         client, events = CLIENT.read_text(), EVENTS.read_text()
         source = CLIENT_LEAVES.replace('__ACTIVE_FACT_TYPE__', method_body(client, '    nonisolated struct ActiveCallbackPropertyFacts:'))
         source = source.replace('__ACTIVE_FACT_PROPERTY__', method_body(client, '    var activeCallbackPropertyFacts:'))
+        signature = '    var displayConfiguration ='
+        declaration = client[client.index(signature):].splitlines()[0]
+        if declaration.rstrip().endswith('{'):
+            declaration = method_body(client, signature)
+        source = source.replace('__DISPLAY_CONFIGURATION_PROPERTY__', declaration)
         event_types = method_body(client, 'nonisolated struct SceneDaemonActiveSessionFactsChange:')
         notification_name = method_body(client, 'extension Notification.Name {')
         source = '\n'.join([event_types, notification_name, source])
@@ -331,4 +352,5 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         self.run_probe(source, [MODELS, ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift',
             SCENE / 'Systems/Properties/SceneUserProperty.swift',
             ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
-            SCENE / 'Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift'])
+            SCENE / 'Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift',
+            SCENE / 'Runtime/Frame/SceneScreenTopology.swift'])

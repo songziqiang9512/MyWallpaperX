@@ -1023,6 +1023,17 @@
       ]
     },
     {
+      "id": "display-reconciliation-evidence",
+      "patterns": [
+        "script/tests/scene_display_reconciliation_fixture.py"
+      ],
+      "modules": [
+        "test_scene_frame_presentation_integration",
+        "test_scene_particle_playback_integration",
+        "test_scene_reflection_history_integration"
+      ]
+    },
+    {
       "id": "spot-light",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",

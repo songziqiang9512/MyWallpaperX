@@ -6,15 +6,45 @@ import QuartzCore
 /// entirely in SceneDesktopWallpaperSession, including candidate and drain roles.
 final class SceneDesktopWallpaperHost {
 #if DEBUG
-    struct DebugSnapshot {
+    nonisolated struct DebugSnapshot {
         let surfaceCount: Int
         let windowNumbers: [Int]
         let sessionID: UUID?
         let requestID: UUID?
         let sceneTime: TimeInterval
+        let committedFrameIndex: UInt64?
+        let committedGeneration: UInt64?
+        let committedTopologyRevision: UInt64?
+        let committedDestroyedLayerIDs: [Int]
+        let surfacesByDisplay: [CGDirectDisplayID: DebugSurfaceSnapshot]
         let spriteAnimationLayerIDsByDisplay: [CGDirectDisplayID: [Int]]
         let isPlaybackPaused: Bool
         let isFrameDriverActive: Bool
+    }
+
+    nonisolated struct DebugSurfaceSnapshot: Encodable {
+        let surfaceIdentity: String
+        let viewIdentity: String
+        let rendererTextureRegistryIdentity: String
+        let graphRuntimeIdentity: String?
+        let windowNumber: Int
+        let windowFrame: [Double]
+        let viewBounds: [Double]
+        let drawableSize: [Double]
+        let contentsScale: Double
+        let targetFrame: [Double]?
+        let simulationFrameIndex: UInt64?
+        let dynamicGeneration: UInt64?
+        let sceneTime: TimeInterval?
+        let topologyRevision: UInt64?
+        let destroyedLayerIDs: [Int]
+        let spriteTimes: [Int: Float]
+        let particleStateIdentity: String?
+        let particleLayers: [SceneParticlePlaybackState.DebugLayerSnapshot]
+
+        static func rectangle(_ frame: CGRect) -> [Double] {
+            [Double(frame.minX), Double(frame.minY), Double(frame.width), Double(frame.height)]
+        }
     }
 
 #endif
@@ -183,9 +213,11 @@ final class SceneDesktopWallpaperHost {
         session.onAudioDemandChanged = { [weak self] in self?.reconcileAudioDemand() }
     }
 #if DEBUG
-    func debugSnapshot() -> DebugSnapshot {
-        activeSession?.debugSnapshot() ?? .init(surfaceCount: 0, windowNumbers: [],
-            sessionID: nil, requestID: nil, sceneTime: 0, spriteAnimationLayerIDsByDisplay: [:],
+    func debugSnapshot(captureSurfaceState: Bool = false) -> DebugSnapshot {
+        activeSession?.debugSnapshot(captureSurfaceState: captureSurfaceState) ?? .init(
+            surfaceCount: 0, windowNumbers: [], sessionID: nil, requestID: nil, sceneTime: 0,
+            committedFrameIndex: nil, committedGeneration: nil, committedTopologyRevision: nil,
+            committedDestroyedLayerIDs: [], surfacesByDisplay: [:], spriteAnimationLayerIDsByDisplay: [:],
             isPlaybackPaused: playbackPaused, isFrameDriverActive: false)
     }
     func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL,

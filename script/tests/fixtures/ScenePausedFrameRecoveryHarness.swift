@@ -84,9 +84,6 @@ final class MTLCommandBuffer {
 }
 
 struct SceneMetalRenderer {}
-struct SceneResolvedMaterialFrameTargetPlan {}
-struct SceneResolvedMaterialRuntimeBridge { struct FramePreparationRequest {} }
-struct SceneResolvedMaterialFrameResourceBundle {}
 enum SceneDesktopWallpaperHost { static let usesDebugEvidenceWindow = false }
 enum SceneFramePerformanceTelemetry { static let debugEvidence: Int? = nil }
 struct PlaybackPerformanceProfile { var maxFPS = 60 }
@@ -237,7 +234,7 @@ final class SceneDesktopWallpaperSession {
     var initialVideoPreparation: WorkItem?
     var performanceProfile = PlaybackPerformanceProfile()
     var screenReconciliationWorkItem: WorkItem?
-    var screenTopology: [Int] = [], rebuiltTopology: [Int] = []
+    var screenTopology: [Int] = []
     var drainStarted = false
     var retiredSurfaces = 0
     func cancelPendingUserTextureUpdates() {}

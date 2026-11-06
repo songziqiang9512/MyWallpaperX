@@ -128,6 +128,27 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     private var periodicRandom: SceneParticleRandomGenerator
     private var periodicUsedCount = 0.0
 
+#if DEBUG
+    nonisolated struct DebugSnapshot: Encodable {
+        let elapsed: Double
+        let remainder: Double
+        let emittedInstantaneous: Bool
+        let initialDelayElapsed: Double
+        let emittedRateThisFrame: Bool
+        let periodicIsEmitting: Bool
+        let periodicRemaining: Double?
+        let periodicRandomState: String
+        let periodicUsedCount: Double
+    }
+
+    nonisolated var debugSnapshot: DebugSnapshot {
+        .init(elapsed: elapsed, remainder: remainder, emittedInstantaneous: emittedInstantaneous,
+            initialDelayElapsed: initialDelayElapsed, emittedRateThisFrame: emittedRateThisFrame,
+            periodicIsEmitting: periodicIsEmitting, periodicRemaining: periodicRemaining,
+            periodicRandomState: String(periodicRandom.state), periodicUsedCount: periodicUsedCount)
+    }
+#endif
+
     nonisolated init(seed: UInt64, emitterIndex: Int) {
         periodicRandom = SceneParticleRandomGenerator(
             state: seed &+ UInt64(emitterIndex) &* 0x9E3779B97F4A7C15

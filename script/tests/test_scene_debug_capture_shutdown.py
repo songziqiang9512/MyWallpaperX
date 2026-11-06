@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the production shutdown owners with real Metal and capture exports."""
+"""Exercise production Session reconciliation and shutdown owners."""
 import subprocess
 import tempfile
 import unittest
@@ -105,7 +105,7 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
     var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
-    var screenTopology:[Int]=[],rebuiltTopology:[Int]=[]
+    var screenTopology:[Int]=[]
     var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
     var debugSurfaceReferenceFrames:[Int:Int]=[:]
     var pendingDeferredLayerVisibilityUpdate:TestDeferredUpdate?
@@ -457,7 +457,7 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
     var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
-    var screenTopology:[Int]=[],rebuiltTopology:[Int]=[]
+    var screenTopology:[Int]=[]
     var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
     var debugSurfaceReferenceFrames:[Int:Int]=[:]
     var pendingDeferredLayerVisibilityUpdate:TestDeferredUpdate?
@@ -517,7 +517,7 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
     // PRODUCTION_RUNNER_TERMINATION
     // PRODUCTION_PERFORMANCE_PROFILE
 }
-@MainActor enum DebugSceneDaemonClientRunner {static let isRequested=false}
+@MainActor enum DebugSceneDaemonClientRunner {static let isRequested=false;static let requiresProductCoordinator=false}
 @MainActor enum DebugWebPlaybackRunner {static let runsIsolatedWebWorkshopSample=false}
 @MainActor final class SceneDaemonClient {
     static let shared=SceneDaemonClient()
@@ -672,9 +672,131 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 }
 '''
 
+DISPLAY_RECONCILIATION_TEMPLATE = r'''
+import AppKit
+
+final class TestScreen {let frame:CGRect;init(_ frame:CGRect) {self.frame=frame}}
+final class TestWindow {
+    var frame:CGRect
+    var frameUpdates=0
+    init(_ frame:CGRect) {self.frame=frame}
+    func setFrame(_ frame:CGRect,display:Bool,animate:Bool) {self.frame=frame;frameUpdates += 1}
+}
+final class TestView {
+    var drawableUpdates=0,outputUpdates=0
+    func updateDrawableSize() {drawableUpdates += 1}
+    func refreshDisplayOutput() {outputUpdates += 1}
+}
+struct SceneDesktopWallpaperLaunchContext {}
+struct TestLogger {func info(_ message:String) {}}
+@MainActor final class SceneDesktopWallpaperSession {
+    final class Surface {
+        let window:TestWindow
+        let metalView=TestView()
+        init(_ frame:CGRect) {window=TestWindow(frame)}
+    }
+    static let performanceLogger=TestLogger()
+    static var resolved:[(TestScreen,CGDirectDisplayID)]=[]
+    static var resolutions=0
+    var launchContext:SceneDesktopWallpaperLaunchContext? = .init()
+    var screenTopology:[SceneScreenTopology]=[]
+    var surfaces:[CGDirectDisplayID:Surface]=[:]
+    var screenReconciliationWorkItem:DispatchWorkItem?
+    var rebuilds=0,audioUpdates=0,visibilityUpdates=0,stops=0
+    var rebuildSucceeds=true
+    var rebuiltScreens:[(TestScreen,CGDirectDisplayID)] = []
+    static func surfaceScreens(topology:[SceneScreenTopology])->[(TestScreen,CGDirectDisplayID)] {
+        resolutions += 1
+        return resolved
+    }
+    func updateAudioSpectrumDemand(_ context:SceneDesktopWallpaperLaunchContext,hasParticleAudioConsumer:Bool?) {
+        precondition(hasParticleAudioConsumer == nil)
+        audioUpdates += 1
+    }
+    func rebuildSurfaces(screens:[(TestScreen,CGDirectDisplayID)]?=nil)->Bool {
+        guard let screens else {fatalError("reconciliation discarded its resolved input")}
+        rebuilds += 1;rebuiltScreens=screens
+        return rebuildSucceeds
+    }
+    func reassertSurfaceVisibility() {visibilityUpdates += 1}
+    func stop() {stops += 1;launchContext=nil;surfaces.removeAll()}
+    // PRODUCTION_DISPLAY_METHODS
+}
+@main enum Harness {
+    static func check(_ condition:@autoclosure()->Bool,_ message:String) {
+        guard condition() else {fatalError(message)}
+    }
+    static func settle() async throws {try await Task.sleep(nanoseconds:300_000_000)}
+    @MainActor static func main() async throws {
+        let live=CGRect(x:80,y:40,width:640,height:360)
+        let typed=SceneScreenTopology(displayID:1,frame:CGRect(x:0,y:0,width:123,height:45),backingScaleFactor:3)
+        let other=SceneScreenTopology(displayID:2,frame:CGRect(x:720,y:40,width:400,height:300),backingScaleFactor:1)
+        let screen=TestScreen(live),secondScreen=TestScreen(other.frame)
+        let original=SceneDesktopWallpaperSession.Surface(CGRect(x:0,y:0,width:320,height:180))
+        let session=SceneDesktopWallpaperSession()
+        session.surfaces[1]=original
+        SceneDesktopWallpaperSession.resolved=[(screen,1)]
+        session.applyDisplayConfiguration([typed])
+        check(session.screenTopology == [typed],"target did not publish before debounce")
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1,"geometry resolved more than once")
+        check(session.surfaces[1] === original && original.window.frame == live,
+              "geometry replaced the surface or used IPC frame instead of live frame")
+        check(original.window.frameUpdates == 1 && original.metalView.drawableUpdates == 1
+              && original.metalView.outputUpdates == 1 && session.visibilityUpdates == 1,
+              "retained geometry did not reach its existing window/view leaves")
+        check(session.rebuilds == 0 && session.audioUpdates == 0,"retained geometry rebuilt resources")
+        SceneDesktopWallpaperSession.resolutions=0
+        session.applyDisplayConfiguration([typed])
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && original.window.frameUpdates == 1
+              && session.rebuilds == 0,"same frame was set again or rebuilt")
+        SceneDesktopWallpaperSession.resolutions=0
+        session.applyDisplayConfiguration([typed,other])
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && session.surfaces[1] === original
+              && session.rebuilds == 0 && session.audioUpdates == 0,
+              "unresolved requested display dismantled an unchanged actual surface set")
+        SceneDesktopWallpaperSession.resolutions=0
+        SceneDesktopWallpaperSession.resolved=[(screen,1),(secondScreen,2)]
+        session.applyDisplayConfiguration([typed,other])
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && session.rebuilds == 1
+              && session.audioUpdates == 1 && session.stops == 0,
+              "resolved membership change did not use one fallback/audio transaction")
+        check(session.rebuiltScreens.count == 2 && session.rebuiltScreens[0].0 === screen
+              && session.rebuiltScreens[1].0 === secondScreen
+              && session.rebuiltScreens.map(\.1) == [1,2],"fallback did not reuse the resolved screens")
+        let empty=SceneDesktopWallpaperSession()
+        empty.rebuildSucceeds=false
+        SceneDesktopWallpaperSession.resolutions=0
+        SceneDesktopWallpaperSession.resolved=[]
+        empty.applyDisplayConfiguration([typed])
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 1 && empty.rebuilds == 1
+              && empty.audioUpdates == 1 && empty.stops == 1 && empty.launchContext == nil,
+              "empty resolution bypassed the original rebuild failure/revoke")
+        let departed=SceneDesktopWallpaperSession()
+        let untouched=SceneDesktopWallpaperSession.Surface(.zero)
+        departed.surfaces[1]=untouched
+        SceneDesktopWallpaperSession.resolutions=0
+        SceneDesktopWallpaperSession.resolved=[(screen,1)]
+        departed.applyDisplayConfiguration([typed])
+        departed.launchContext=nil
+        try await settle()
+        check(SceneDesktopWallpaperSession.resolutions == 0 && untouched.window.frameUpdates == 0
+              && untouched.metalView.drawableUpdates == 0 && untouched.metalView.outputUpdates == 0
+              && departed.rebuilds == 0 && departed.audioUpdates == 0 && departed.visibilityUpdates == 0,
+              "queued reconciliation touched a departed context")
+        print("PASS: actual Session display reconciliation, live geometry, unresolved/stable/resolved/empty and departed context")
+    }
+}
+'''
+
+
 def production_method(source, signature):
-    # Compile the actual owner method without the AppDelegate's unrelated UI
-    # services. Assertions below observe AppKit events, never source spelling.
+    # Compile the actual owner method without unrelated host services.
+    # Assertions observe effects and events, never source spelling.
     start = source.index(signature)
     end = source.index('{', start) + 1
     depth = 1
@@ -684,6 +806,25 @@ def production_method(source, signature):
     return source[start:end]
 
 class SceneDebugCaptureShutdownTests(unittest.TestCase):
+    def test_display_reconciliation_preserves_actual_members_and_reuses_resolution(self):
+        session = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift").read_text()
+        audio = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift").read_text()
+        methods = [production_method(session, "    func applyDisplayConfiguration("),
+                   production_method(session, "    private func scheduleScreenConfigurationReconciliation("),
+                   production_method(audio, "    func rebuildSurfacesReconcilingAudioDemand(")]
+        with tempfile.TemporaryDirectory(prefix="mwx-display-reconciliation-") as raw:
+            directory = Path(raw)
+            harness = directory / "Harness.swift"
+            harness.write_text(DISPLAY_RECONCILIATION_TEMPLATE.replace("// PRODUCTION_DISPLAY_METHODS", "\n".join(methods)))
+            binary = directory / "harness"
+            topology = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift"
+            compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", str(topology), str(harness), "-o", str(binary)],
+                                         capture_output=True, text=True)
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("PASS:", result.stdout)
+
     def test_retirement_and_runner_finish_wait_for_real_export(self):
         with tempfile.TemporaryDirectory(prefix="mwx-capture-shutdown-") as raw:
             directory = Path(raw)

@@ -166,6 +166,19 @@ Remap 的 input、range、transform、operation、output 和原 lifecycle blend 
 
 完成条件是新值经实际 Simulator alpha、Rope/Sprite batch 与生产 Metal 消费，并在相同作者输入下核活动 Remap 与最终捕获；未取得同步像素或完整子束资格时保持对应边界。证据和当前能力仍由原组件与运行证据卡维护。
 
+<a id="display-reconciliation"></a>
+## 显示配置和屏实例
+
+目标是显示配置变化时保留仍在目标集的 Surface/View/PlaybackState、VM/cadence、粒子/RNG/拖尾和媒体播放；新增屏才准备独占实例，移除屏才退休对应资源。Session 原 reconciliation/debounce、Host preparation queue 和 retiringSurfaceDrain 继续各自所有权，不增加 controller、Clock、常驻缓存或迁移快照。旧的“任意 topology 变化即全量 teardown/rebuild”应退出已接通的场景，不用窗口更换或构建次数代表收益。
+
+- **几何权威与本批数据流**：主 App 的 `screenTopology` 裁决目标 display ID，实际窗口 frame 与 backing/显示输出继续消费该 ID 当前 live NSScreen/window；IPC frame/scale 只检测配置变化，不在保留分支另立几何来源。原主线程 work item 在 audio-demand wrapper 之前仅解析一次 surfaceScreens，以解析所得实际 ID 集与当前 surfaces keys 对齐，包含 DEBUG 合成屏；screenTopology 是唯一目标，surfaces 是唯一实际成员，退役 rebuiltTopology 重复快照及其额外 raw 集合许可。实际成员相同时仅在真实frame不同才设窗口frame，沿 SceneMetalView+Geometry 更新 drawable/backing/output，重申可见性与指针后返回。请求新增但尚未解析的ID不拆健康旧实例；Host/client 原同值过滤保持，不能由本片承诺无新配置事件时晚到屏自动恢复。不进入 withdraw/begin/complete video rebuild、资源重绑、粒子构造或全量音频需求重算。成员变更或无法解析仍沿尚未替换的原准备/退役路径，不扩大已有播放权限。
+- **原实例与冻结帧**：保留 Surface/View/Renderer/graph、root/active child simulator、sprite/puppet实例和输入队列。playing 沿原 cadence 继续；paused resize 只按新画布重绘原 SimulationFrame，已 commit但未被 simulation 采用的 destroy 不因 geometry 提前执行。extent 变化仅沿现有 allocationReprepare 和 GPU terminal 失效 target/history，不能复用旧尺寸资源，也不更换 graph owner、清播放状态或另加 drain/fence。原 initial cohort 对实际尺寸失效的撤证仍保留，不给过时首呈现 token 续证。
+- **回调事实**：client prepared callback rows 归原 transport/request/record/source/script generation，是启动期 UI 投影，不是每屏播放许可。退役 displayConfiguration.didSet 对它的无消费者清零；几何和成员变化都不产生新的 launched，不能靠等待新 launch恢复同一事实。原 switch/stop/transport 的撤销及 Host 每次 update 对当前 context、实际 prepared/unavailable/retired consumer 的检查仍是 authority，不新增 display 认证、版本或许可表。无屏解析失败的 Session 终态回流另需其原请求链取证，不借任意显示事件猜终态。
+- **新增屏准备目标**：主线程冻结 evaluationTransaction.committedSnapshot 与 committed topology，仅传消费者需要的不可变资源和 typed 值到原 worker，VM 留主线程。新增屏按 job-start 值完整预热独占实例，采用时一次对齐当前 playback intent/revision 与已销毁层，不回放出生前 emit。完整 Runtime checkpoint 含 Simulator 引用，不能跨屏 clone；不按每帧 generation 变化重做长预热。全部 root 构造离开主线程后，才退役当前加权工作与3,600步关卡；普通帧 child 的240步另取证。
+- **成员变更与尾任务目标**：added-only 装配不能清 retained 视频 bindings，沿原 source key/owner/device 供货；移除屏只撤该屏输入和呈现 scope。复用请求 token、队列及 retiringSurfaceDrain，before-start取消也在实际采用/丢弃后结束 CPU资源工作；stop 等待 CPU 尾和原 GPU排空。Surface装配和同 loader eviction 在 worker退出后进行，不为未见并发路径预加锁或另拆冷热API。
+
+本批验收先复用按需 DEBUG快照和原三门，按 displayID核 Surface/View、renderer持有的真实纹理registry、graph及粒子实例，真实 window/View/drawable/backing 与 live frame，playing继续和paused VM/frame/sprite/root/active-child冻结。现有 DEBUG inset仅改请求但未改变实际窗口的假前提应退役：先沿既有 debugResize 真缩窗，再发同 ID配置，使协调在原实例上恢复 live几何；固定像素、allocation/提交/GPU和capture退出继续各归原门，不每帧序列化状态或解析Swift描述。DEBUG截图请求被接受且Session已暂停时，由原Session仅标目标Surface需要提交并唤醒原frozen-frame driver；不借内容失效撤首呈现cohort、不重跑VM、不清graph/history，也不为拒绝/playing请求重启cadence。视频若授连续性须核 source incarnation、媒体时钟与后续 decoded/GPU输入，不能只核 UUID。新增/移除、长 starttime、准备期间 size/rate/CP edit、stop/emit/destroy、晚取消及 stop-before-drain仍是完整增量目标的独立验收；单物理屏的两个 DEBUG View不授真实多屏、物理缩放/EDR或性能。
+
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。

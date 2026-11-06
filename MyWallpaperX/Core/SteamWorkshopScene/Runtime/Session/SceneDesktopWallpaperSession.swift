@@ -83,9 +83,6 @@ final class SceneDesktopWallpaperSession {
     var pausedFrameRetryDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
-    /// 最近一次实际建成表面的拓扑快照；与权威目标集 screenTopology
-    /// 分离，供屏拓扑协调判断"是否真的需要重建"。
-    var rebuiltTopology: [SceneScreenTopology] = []
     var evaluationTransaction = SceneEvaluationTransaction()
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
@@ -302,17 +299,57 @@ final class SceneDesktopWallpaperSession {
         teardownSurfaces(clearContext: true, reason: .surfaceStop)
     }
 #if DEBUG
-    func debugSnapshot() -> SceneDesktopWallpaperHost.DebugSnapshot {
-        SceneDesktopWallpaperHost.DebugSnapshot(
+    func debugSnapshot(captureSurfaceState: Bool = false) -> SceneDesktopWallpaperHost.DebugSnapshot {
+        let committed = evaluationTransaction.committedSnapshot
+        let committedTopology = captureSurfaceState
+            ? launchContext?.sceneScriptDynamicLayerRuntime.snapshot() : nil
+        return SceneDesktopWallpaperHost.DebugSnapshot(
             surfaceCount: surfaces.count,
             windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted(),
             sessionID: lifecycleID,
             requestID: launchRequestID,
             sceneTime: sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()),
+            committedFrameIndex: committed?.frameIndex,
+            committedGeneration: committed?.generation,
+            committedTopologyRevision: committedTopology?.topologyRevision,
+            committedDestroyedLayerIDs: committedTopology?.destroyedAuthoredLayerIDs.sorted() ?? [],
+            surfacesByDisplay: captureSurfaceState ? debugSurfaceSnapshots() : [:],
             spriteAnimationLayerIDsByDisplay: surfaces.mapValues { $0.metalView.spriteAnimationLayerIDs.sorted() },
             isPlaybackPaused: sceneClock.isPaused,
             isFrameDriverActive: frameTimer?.isValid == true
         )
+    }
+
+    private func debugSurfaceSnapshots() -> [CGDirectDisplayID: SceneDesktopWallpaperHost.DebugSurfaceSnapshot] {
+        typealias Snapshot = SceneDesktopWallpaperHost.DebugSurfaceSnapshot
+        let targetFrames = Dictionary(uniqueKeysWithValues: Self.surfaceScreens(topology: screenTopology).map {
+            ($0.1, $0.0.frame)
+        })
+        return Dictionary(uniqueKeysWithValues: surfaces.map { displayID, surface in
+            let view = surface.metalView
+            let frame = surface.simulationFrame
+            let graph = view.renderer.imageCompositor.resolvedMaterialRuntime?.submissions
+            return (displayID, Snapshot(
+                surfaceIdentity: String(UInt(bitPattern: ObjectIdentifier(surface))),
+                viewIdentity: String(UInt(bitPattern: ObjectIdentifier(view))),
+                rendererTextureRegistryIdentity: String(UInt(bitPattern: ObjectIdentifier(view.renderer.textureRegistry))),
+                graphRuntimeIdentity: graph?.runtimeInstanceIdentity,
+                windowNumber: surface.window.windowNumber,
+                windowFrame: Snapshot.rectangle(surface.window.frame),
+                viewBounds: Snapshot.rectangle(view.bounds),
+                drawableSize: [Double(view.metalLayer.drawableSize.width), Double(view.metalLayer.drawableSize.height)],
+                contentsScale: Double(view.metalLayer.contentsScale),
+                targetFrame: targetFrames[displayID].map(Snapshot.rectangle),
+                simulationFrameIndex: frame?.timing.frameIndex,
+                dynamicGeneration: frame?.context.dynamicValues.generation,
+                sceneTime: frame?.timing.sceneTime,
+                topologyRevision: frame?.topology.topologyRevision,
+                destroyedLayerIDs: frame?.topology.destroyedAuthoredLayerIDs.sorted() ?? [],
+                spriteTimes: frame?.spriteTimes ?? [:],
+                particleStateIdentity: surface.particlePlayback?.lifecycleIdentity.uuidString,
+                particleLayers: surface.particlePlayback?.debugLayerSnapshots() ?? []
+            ))
+        })
     }
 
     @discardableResult
@@ -328,10 +365,15 @@ final class SceneDesktopWallpaperSession {
             SceneDebugFrameCapture.reportRejected(reason: reason, stage: "surface-lookup")
             return .rejected("surface-lookup")
         }
-        return surface.metalView.requestDebugSnapshot(
+        let admission = surface.metalView.requestDebugSnapshot(
             reason: reason,
             outputDirectory: outputDirectory, kind: kind
         )
+        if case .accepted = admission, sceneClock.isPaused {
+            surface.didSubmitSimulationFrame = false
+            startFrameDriver()
+        }
+        return admission
     }
 
     /// DEBUG evidence: the current particle load report lines, captured at
@@ -419,25 +461,33 @@ final class SceneDesktopWallpaperSession {
         guard launchContext != nil else { return }
         screenReconciliationWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self, self.launchContext != nil else { return }
-            guard topology != self.rebuiltTopology else {
+            guard let self, let launchContext = self.launchContext else { return }
+            let surfaceScreens = Self.surfaceScreens(topology: topology)
+            if !surfaceScreens.isEmpty, Set(surfaceScreens.map(\.1)) == Set(self.surfaces.keys) {
+                for (screen, displayID) in surfaceScreens {
+                    let surface = self.surfaces[displayID]!
+                    if surface.window.frame != screen.frame {
+                        surface.window.setFrame(screen.frame, display: true, animate: false)
+                    }
+                    surface.metalView.updateDrawableSize()
+                    surface.metalView.refreshDisplayOutput()
+                }
+                self.reassertSurfaceVisibility()
 #if DEBUG
-                Self.performanceLogger.debug(
-                    "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
+                Self.performanceLogger.info(
+                    "Retained Scene surfaces after screen geometry change; surfaces=\(self.surfaces.count)"
                 )
 #endif
-                self.reassertSurfaceVisibility()
                 return
             }
 #if DEBUG
             Self.performanceLogger.info(
-                "Rebuilding Scene surfaces after screen topology change; old=\(self.rebuiltTopology.count) new=\(topology.count)"
+                    "Rebuilding Scene surfaces after screen topology change; old=\(self.surfaces.count) new=\(surfaceScreens.count)"
             )
 #endif
-            guard let launchContext = self.launchContext else { return }
             _ = self.rebuildSurfacesReconcilingAudioDemand(
                 launchContext,
-                rebuild: { self.rebuildSurfaces() },
+                rebuild: { self.rebuildSurfaces(screens: surfaceScreens) },
                 revokeLaunch: { self.stop() }
             )
         }
@@ -460,7 +510,8 @@ final class SceneDesktopWallpaperSession {
     @discardableResult
     private func rebuildSurfaces(
         teardownReason: SceneGraphExecutionResetReason = .surfaceStop,
-        preparedParticles: [PreparedParticleSurface]? = nil
+        preparedParticles: [PreparedParticleSurface]? = nil,
+        screens: [(NSScreen, CGDirectDisplayID)]? = nil
     ) -> Bool {
         guard let launchContext, let videoTextureSourceRegistry else { return false }
         let domain = launchContext.propertyVectorScriptProgram.domain
@@ -478,7 +529,7 @@ final class SceneDesktopWallpaperSession {
         let preparedByDisplay = preparedParticles.map {
             Dictionary(uniqueKeysWithValues: $0.map { ($0.displayID, $0.playback) })
         }
-        let surfaceScreens = Self.surfaceScreens(topology: targetTopology).filter {
+        let surfaceScreens = (screens ?? Self.surfaceScreens(topology: targetTopology)).filter {
             preparedByDisplay == nil || preparedByDisplay?[$0.1] != nil
         }
         guard !surfaceScreens.isEmpty else {
@@ -736,7 +787,6 @@ final class SceneDesktopWallpaperSession {
 
         preparedSurfaceIDs = Set(surfaceScreens.map(\.1))
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.particlePlayback?.hasAudioConsumer == true })
-        rebuiltTopology = targetTopology.filter { surfaces[$0.displayID] != nil }
         let storageScreenIdentity = surfaces.count == 1
             ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
             : nil

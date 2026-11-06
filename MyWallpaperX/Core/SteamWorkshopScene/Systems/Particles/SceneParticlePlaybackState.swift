@@ -155,6 +155,121 @@ final class SceneParticlePlaybackState {
     }
 
 #if DEBUG
+    nonisolated struct DebugParticleSnapshot: Encodable {
+        let id: String
+        let position: [Double]
+        let velocity: [Double]
+        let color: [Double]
+        let alpha: Double
+        let size: Double
+        let rotation: [Double]
+        let angularVelocity: [Double]
+        let age: Double
+        let lifetime: Double
+        let initialColor: [Double]
+        let initialAlpha: Double
+        let initialSize: Double
+        let vortexRadius: Double?
+
+        init(_ particle: SceneParticleState) {
+            id = String(particle.id)
+            position = Self.vector(particle.position)
+            velocity = Self.vector(particle.velocity)
+            color = Self.vector(particle.color)
+            alpha = particle.alpha
+            size = particle.size
+            rotation = Self.vector(particle.rotation)
+            angularVelocity = Self.vector(particle.angularVelocity)
+            age = particle.age
+            lifetime = particle.lifetime
+            initialColor = Self.vector(particle.initialColor)
+            initialAlpha = particle.initialAlpha
+            initialSize = particle.initialSize
+            vortexRadius = particle.vortexRadius
+        }
+
+        static func vector(_ value: SIMD3<Double>) -> [Double] { [value.x, value.y, value.z] }
+    }
+
+    nonisolated struct DebugSimulatorSnapshot: Encodable {
+        let simulatorIdentity: String
+        let simulationTime: Double
+        let playbackIntent: Int32
+        let playbackRevision: UInt64
+        let randomState: String
+        let accumulator: Double
+        let nextParticleID: String
+        let emitters: [SceneParticleEmitterState.DebugSnapshot]
+        let particles: [DebugParticleSnapshot]
+        let normalizedLives: [Double]
+        let dynamicControlPoints: [String: [Double]]
+        let dynamicControlPointAngles: [String: [Double]]
+
+        init(_ simulator: SceneParticleSimulator, frame: SceneParticleSimulator.FrameSnapshot) {
+            simulatorIdentity = String(UInt(bitPattern: ObjectIdentifier(simulator)))
+            simulationTime = frame.simulationTime
+            playbackIntent = frame.playback.intent.rawValue
+            playbackRevision = frame.playback.revision
+            randomState = String(frame.random.state)
+            accumulator = frame.accumulator
+            nextParticleID = String(frame.nextParticleID)
+            emitters = frame.emitters.map(\.debugSnapshot)
+            particles = frame.particles.map(DebugParticleSnapshot.init)
+            normalizedLives = frame.normalizedLives
+            dynamicControlPoints = Dictionary(uniqueKeysWithValues: frame.dynamicControlPoints.map {
+                (String($0.key), DebugParticleSnapshot.vector($0.value))
+            })
+            dynamicControlPointAngles = Dictionary(uniqueKeysWithValues: frame.dynamicControlPointAngles.map {
+                (String($0.key), DebugParticleSnapshot.vector($0.value))
+            })
+        }
+    }
+
+    nonisolated struct DebugChildSnapshot: Encodable {
+        let systemID: String
+        let templateIndex: Int
+        let depth: Int
+        let spawnScopeID: String?
+        let parentParticleID: String?
+        let isWorldSpace: Bool
+        let origin: [Double]
+        let particleOrigins: [String: [Double]]
+        let frame: DebugSimulatorSnapshot
+
+        init(_ system: SceneParticleChildRuntime.FrameSnapshot.SystemSnapshot) {
+            systemID = String(system.id)
+            templateIndex = system.templateIndex
+            depth = system.depth
+            spawnScopeID = system.spawnScopeID.map(String.init)
+            parentParticleID = system.parentParticleID.map(String.init)
+            isWorldSpace = system.isWorldSpace
+            origin = DebugParticleSnapshot.vector(system.origin)
+            particleOrigins = Dictionary(uniqueKeysWithValues: system.particleOrigins.map {
+                (String($0.key), DebugParticleSnapshot.vector($0.value))
+            })
+            frame = DebugSimulatorSnapshot(system.simulator, frame: system.simulatorFrame)
+        }
+    }
+
+    nonisolated struct DebugLayerSnapshot: Encodable {
+        let layerID: Int
+        let root: DebugSimulatorSnapshot?
+        let children: [DebugChildSnapshot]
+        let childNextSeed: String?
+        let childNextSystemID: String?
+    }
+
+    func debugLayerSnapshots() -> [DebugLayerSnapshot] {
+        runtime.layers.map { layer in
+            let child = layer.childRuntime?.frameSnapshot()
+            return DebugLayerSnapshot(layerID: layer.layerID,
+                root: layer.rootRender.map { DebugSimulatorSnapshot($0.simulator, frame: $0.simulator.frameSnapshot()) },
+                children: child?.systems.map(DebugChildSnapshot.init) ?? [],
+                childNextSeed: child.map { String($0.nextSeed) },
+                childNextSystemID: child.map { String($0.nextSystemID) })
+        }
+    }
+
     private func publishCommittedComponentObservations() {
         guard reportedComponentObservationIdentities != nil else { return }
         for observation in runtime.consumeComponentObservations() {

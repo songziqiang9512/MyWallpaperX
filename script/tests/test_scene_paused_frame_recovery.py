@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 from script.tests.test_steam_library_interactions import method
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -76,7 +77,10 @@ def production_harness(sources=None):
     return harness.replace("// PRODUCTION_FRAME_TYPES", "\n".join([
         method(context, "nonisolated struct SceneFrameTiming:"),
         method(context, "nonisolated struct SceneClock {"),
-        outcome.replace("import Metal\n", ""),
+        "extension SceneMetalRenderer {\n" + "\n".join(swift_declaration(outcome, signature) for signature in (
+            "enum FrameOutcome:", "struct InitialVideoPresentation", "final class PreparedFrame:",
+            "static func submitPreparedFrame(",
+        )) + "\n}",
     ]))
 
 

@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 184,
-      "bytes": 25987
+      "lines": 197,
+      "bytes": 31096
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -129,8 +129,8 @@
       "bytes": 42588
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 169,
-      "bytes": 93999
+      "lines": 180,
+      "bytes": 96565
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 182,
-      "bytes": 36771
+      "lines": 177,
+      "bytes": 34992
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -484,15 +484,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ef4119361f89923eff29c61bca49b1e263c1daa045f3d54ad27996ea478ac458",
-      "after": "3dae57fe23995055a2970ab9ef62341a0daafe62bbbeb6003e30c8efd740df33",
-      "owner": "scene-complete-initial-prewarm",
-      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "fee258d9336b6145edcefee4131ebcf4c0c37f9635a5e29a7099375c370e0fb4",
       "after": "7906071613b7b6e88eba75176cc5ef4d7b77aa8591407d0b18c9cb8b81d4ba1c",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "03d6880cfb648145702b0f246841065faadc0f68ae933c947a84b22b617617cb",
-      "after": "6a61b1e8080a738015e1e59834a23f73c7a48002095e4f71858b5c1d6f2e07b0",
-      "owner": "scene-visible-progress",
-      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "3dae57fe23995055a2970ab9ef62341a0daafe62bbbeb6003e30c8efd740df33",
+      "after": "8531f905faa2c9a1dd22595210a99d9c545bda6f72a1b1dee2e7e65158864e26",
+      "owner": "scene-display-retention",
+      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ab7e55511004f10b16d9199e848f36de7c5c7b95dd1232193f3c04ff70a8e8ab",
-      "after": "0fd9deef77753d39fa68394be73a3a09568c8515f52834b194b3af47fef1df2c",
-      "owner": "scene-visible-progress",
-      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
+      "before": "0fd9deef77753d39fa68394be73a3a09568c8515f52834b194b3af47fef1df2c",
+      "after": "7e99b1b639ba5137673c3d41f7fa83dc13851d6f9eb19c8388e5915174ed9f89",
+      "owner": "scene-display-retention",
+      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6a61b1e8080a738015e1e59834a23f73c7a48002095e4f71858b5c1d6f2e07b0",
+      "after": "219652b0c31bacdf8fb799787528d93edd09fc35581fd8ac8a7781c31a8f8583",
+      "owner": "scene-display-retention",
+      "reason": "Move the single display-reconciliation design from the open queue into the existing runtime authority; retain actual resolved members, live geometry and launch callback facts in their original owners. Record bounded real App/frozen-state/native-RGB and lifecycle evidence with explicit remaining added/removed/worker boundaries; no new authority or persistent state.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
     }
   ]
 }

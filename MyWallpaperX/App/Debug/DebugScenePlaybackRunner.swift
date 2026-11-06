@@ -22,6 +22,59 @@ enum DebugScenePlaybackRunner {
         }
     }
 
+    private nonisolated struct SurfaceReconciliationEvidence: Encodable {
+        nonisolated struct Topology: Encodable {
+            let displayID: UInt32
+            let scale: Double
+            let frame: [Double]
+
+            init(_ topology: SceneScreenTopology) {
+                displayID = topology.displayID
+                scale = Double(topology.backingScaleFactor)
+                frame = SceneDesktopWallpaperHost.DebugSurfaceSnapshot.rectangle(topology.frame)
+            }
+        }
+
+        let stage: String
+        let sessionID: String
+        let requestID: String
+        let sceneTime: TimeInterval
+        let committedFrameIndex: UInt64?
+        let committedGeneration: UInt64?
+        let committedTopologyRevision: UInt64?
+        let committedDestroyedLayerIDs: [Int]
+        let surfaceCount: Int
+        let windowNumbers: [Int]
+        let isPlaybackPaused: Bool
+        let isFrameDriverActive: Bool
+        let spriteAnimationLayerIDsByDisplay: [String: [Int]]
+        let surfacesByDisplay: [String: SceneDesktopWallpaperHost.DebugSurfaceSnapshot]
+        let capturedTopology: [Topology]
+        let requestedTopology: [Topology]
+
+        init(_ snapshot: SceneDesktopWallpaperHost.DebugSnapshot, stage: String,
+             captured: [SceneScreenTopology], requested: [SceneScreenTopology]) {
+            self.stage = stage
+            sessionID = snapshot.sessionID?.uuidString ?? ""
+            requestID = snapshot.requestID?.uuidString ?? ""
+            sceneTime = snapshot.sceneTime
+            committedFrameIndex = snapshot.committedFrameIndex
+            committedGeneration = snapshot.committedGeneration
+            committedTopologyRevision = snapshot.committedTopologyRevision
+            committedDestroyedLayerIDs = snapshot.committedDestroyedLayerIDs
+            surfaceCount = snapshot.surfaceCount
+            windowNumbers = snapshot.windowNumbers
+            isPlaybackPaused = snapshot.isPlaybackPaused
+            isFrameDriverActive = snapshot.isFrameDriverActive
+            spriteAnimationLayerIDsByDisplay = Dictionary(uniqueKeysWithValues:
+                snapshot.spriteAnimationLayerIDsByDisplay.map { (String($0.key), $0.value) })
+            surfacesByDisplay = Dictionary(uniqueKeysWithValues:
+                snapshot.surfacesByDisplay.map { (String($0.key), $0.value) })
+            capturedTopology = captured.map(Topology.init)
+            requestedTopology = requested.map(Topology.init)
+        }
+    }
+
     static var runsIsolatedSceneSample: Bool {
         argumentValue(after: "--mwx-debug-scene-root") != nil
     }
@@ -400,24 +453,34 @@ enum DebugScenePlaybackRunner {
             guard !isClosing else { return }
             let captured = SceneScreenTopology.capture()
             guard let first = captured.first else {
-                NSLog("MWX DEBUG SCENE: phase=surface-rebuild state=rejected reason=no-physical-display")
+                NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=rejected reason=no-physical-display")
                 return
             }
             var requested = captured
             requested[0] = .init(displayID: first.displayID, frame: first.frame.insetBy(dx: 0.5, dy: 0),
                 backingScaleFactor: first.backingScaleFactor)
-            let before = runtimeHost.debugSnapshot()
+            guard runtimeHost.debugResizeSurfaces(scale: 0.8) else { return }
+            let before = runtimeHost.debugSnapshot(captureSurfaceState: true)
             recordSurfaceRebuildSnapshot(before, stage: "before", captured: captured,
                 requested: requested, outputDirectory: outputDirectory)
+            NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=triggered surfaces=%d", before.surfaceCount)
             runtimeHost.applyDisplayConfiguration(requested)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
                 guard !isClosing else { return }
-                let after = runtimeHost.debugSnapshot()
+                let after = runtimeHost.debugSnapshot(captureSurfaceState: true)
                 let accepted = before.sessionID != nil && before.sessionID == after.sessionID
                     && before.requestID != nil && before.requestID == after.requestID
                     && before.surfaceCount > 0 && before.surfaceCount == after.surfaceCount
-                    && Set(before.windowNumbers).isDisjoint(with: after.windowNumbers)
-                NSLog("MWX DEBUG SCENE: phase=surface-rebuild state=rebuilt accepted=%@ surfacesBefore=%d surfacesAfter=%d",
+                    && Set(before.surfacesByDisplay.keys) == Set(after.surfacesByDisplay.keys)
+                    && before.surfacesByDisplay.allSatisfy { displayID, previous in
+                        guard let current = after.surfacesByDisplay[displayID] else { return false }
+                        return previous.surfaceIdentity == current.surfaceIdentity
+                            && previous.viewIdentity == current.viewIdentity
+                            && previous.rendererTextureRegistryIdentity == current.rendererTextureRegistryIdentity
+                            && previous.windowNumber == current.windowNumber
+                            && current.windowFrame == current.targetFrame
+                    }
+                NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=retained accepted=%@ surfacesBefore=%d surfacesAfter=%d",
                     accepted ? "true" : "false", before.surfaceCount, after.surfaceCount)
                 recordSurfaceRebuildSnapshot(after, stage: "after", captured: captured,
                     requested: requested, outputDirectory: outputDirectory)
@@ -426,7 +489,7 @@ enum DebugScenePlaybackRunner {
             let settledDelay = requestedDuration - delay - 0.75
             DispatchQueue.main.asyncAfter(deadline: .now() + settledDelay) {
                 guard !isClosing else { return }
-                recordSurfaceRebuildSnapshot(runtimeHost.debugSnapshot(), stage: "settled", captured: captured,
+                recordSurfaceRebuildSnapshot(runtimeHost.debugSnapshot(captureSurfaceState: true), stage: "settled", captured: captured,
                     requested: requested, outputDirectory: outputDirectory)
                 requestSnapshot(reason: "surface-rebuild-settled", outputDirectory: outputDirectory)
             }
@@ -437,22 +500,14 @@ enum DebugScenePlaybackRunner {
         _ snapshot: SceneDesktopWallpaperHost.DebugSnapshot, stage: String,
         captured: [SceneScreenTopology], requested: [SceneScreenTopology], outputDirectory: URL
     ) {
-        func rows(_ topology: [SceneScreenTopology]) -> [[String: Any]] {
-            topology.map { ["displayID": Int($0.displayID), "scale": Double($0.backingScaleFactor),
-                "frame": [Double($0.frame.origin.x), Double($0.frame.origin.y),
-                    Double($0.frame.width), Double($0.frame.height)]] }
-        }
-        let sprites = Dictionary(uniqueKeysWithValues: snapshot.spriteAnimationLayerIDsByDisplay.map {
-            (String($0.key), $0.value)
-        })
-        let report: [String: Any] = ["stage": stage, "sessionID": snapshot.sessionID?.uuidString ?? "",
-            "requestID": snapshot.requestID?.uuidString ?? "", "sceneTime": snapshot.sceneTime,
-            "surfaceCount": snapshot.surfaceCount, "windowNumbers": snapshot.windowNumbers,
-            "isPlaybackPaused": snapshot.isPlaybackPaused, "isFrameDriverActive": snapshot.isFrameDriverActive,
-            "spriteAnimationLayerIDsByDisplay": sprites,
-            "capturedTopology": rows(captured), "requestedTopology": rows(requested)]
-        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
-            try? data.write(to: outputDirectory.appendingPathComponent("surface-rebuild-\(stage).json"), options: .atomic)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        do {
+            let report = SurfaceReconciliationEvidence(snapshot, stage: stage, captured: captured, requested: requested)
+            try encoder.encode(report).write(
+                to: outputDirectory.appendingPathComponent("surface-rebuild-\(stage).json"), options: .atomic)
+        } catch {
+            NSLog("MWX DEBUG SCENE: phase=surface-reconciliation state=snapshot-failed stage=%@ error=%@", stage, error.localizedDescription)
         }
     }
 
