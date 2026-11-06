@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 182,
-      "bytes": 25498
+      "bytes": 25532
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 200,
-      "bytes": 34363
+      "lines": 209,
+      "bytes": 36365
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 215,
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 121,
-      "bytes": 71530
+      "lines": 122,
+      "bytes": 73051
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 34247
+      "bytes": 34288
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -439,15 +439,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "28fa787cd60560e7e32209701bb1d29f96c6bda8ed93956ab3358bb46d608caf",
-      "after": "96085bb8aab016a1c477fedd6cfba356c15e3193306494c68ccf4b0e6b396665",
-      "owner": "scene-cancellation-terminal",
-      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
       "after": "1fe25764911947a6767b14f887c115056baf31e7c34888c1122820beb1a7cbec",
@@ -511,30 +502,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "96085bb8aab016a1c477fedd6cfba356c15e3193306494c68ccf4b0e6b396665",
+      "after": "b0ac65613e40ca2d34d115c2aee52db5f289f42665eb7a3412558ab713961552",
+      "owner": "scene-child-declaration-options",
+      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "7a30a773356bb69ef3871124a8a50c6fc38dcf9b2183ac49a14152265c792871",
-      "after": "42ff7f6059876e738ab63ade71be185e75d3922b2844acb9a9ad3be8e7c1c9b4",
-      "owner": "scene-particle-sphere",
-      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
+      "before": "42ff7f6059876e738ab63ade71be185e75d3922b2844acb9a9ad3be8e7c1c9b4",
+      "after": "4c797b176f3463aef61205a24d8ca130aa49d06176de8f3caa6b6686ef1047d9",
+      "owner": "scene-child-declaration-options",
+      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "07ac2c5990ae25713bd0bede3eb63d4eb37e36bcd734cb3c01fb4d1c73349b56",
-      "after": "93b6e4a9d511db77b1111cbad6cbd9389c767ad13bfdfbae8750df4e5072cb00",
-      "owner": "scene-particle-sphere",
-      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
+      "before": "93b6e4a9d511db77b1111cbad6cbd9389c767ad13bfdfbae8750df4e5072cb00",
+      "after": "681ed533a50fc9ae10ae2cecb0215be8d5236f642f6fca08394ce7f7a9c7cc78",
+      "owner": "scene-child-declaration-options",
+      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b7838dd4c3be6d8e7f98a8bd583c6ce99da4ea59476dbab7a056ddfca5f70a33",
-      "after": "72557471469ae7013e2c6d21d05a0f9e0eeb74700774459231130fd71a56dc96",
-      "owner": "scene-particle-sphere",
-      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
+      "before": "72557471469ae7013e2c6d21d05a0f9e0eeb74700774459231130fd71a56dc96",
+      "after": "7c3a082122746f64b9e157b9fd1d76b6360982f444aed87d6e1f5c12805f3bb5",
+      "owner": "scene-child-declaration-options",
+      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
     }
   ]
 }

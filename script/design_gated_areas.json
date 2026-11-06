@@ -387,6 +387,21 @@
       ]
     },
     {
+      "id": "scene-particle-child-declaration-options",
+      "title": "Child声明选项与实际输入需求",
+      "owner": "Existing SceneParticleChildGraphExpansion / SceneParticleChildTemplateSupport",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options: retire blanket declaration admission. Only nonzero opaque flags require cold actual typed CP-reader/leaf demand after asset lookup; unqualified source stays local to that template. Flags0 leaves start index passive and preserves static CP/default/raw-parent paths, as qualified by control C. Leaf without CP reads keeps existing base events/constructor and one unconsumed diagnostic. No bit/index permission table, new state or dynamic CP implementation; mixed-site D remains unknown.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildTemplateSupport.swift"
+      ],
+      "contentPatterns": [
+        "consumesControlPointValues"
+      ]
+    },
+    {
       "id": "scene-particle-collision-sphere",
       "title": "粒子静态球体碰撞响应",
       "owner": "scene-particle",

@@ -911,6 +911,24 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
                 self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 9
                                  + [[0, 0, 0, 0]] * 2 + [[0, 255, 0, 255]])
 
+    def test_unused_child_options_preserve_death_glow_and_premultiplied_pixels(self):
+        for name, layer_id in [("child-options-zero", 120), ("child-options-one", 121),
+                               ("child-options-renamed", 921)]:
+            with self.subTest(name=name):
+                row = self.assert_draw(name, layer_id, 1, 3)
+                self.assertEqual(row["positions"], [])
+                self.assertEqual((row["childPopulation"], row["childSystemCount"]), (3, 1))
+                self.assertEqual(row["childPositions"], [[0, 0, 0], [16, 0, 0], [0, 24, 0]])
+                self.assertEqual(row["childSizes"], [8, 8, 8])
+                self.assertEqual(row["childAlphas"], [0.5, 0.5, 0.5])
+                for bounds, center in zip(row["vertexBounds"][0], [[64, 80.5], [80, 80.5], [64, 56.5]], strict=True):
+                    self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, center[0], delta=0.001)
+                    self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, center[1], delta=0.001)
+                    self.assertAlmostEqual(bounds[2] - bounds[0], 4, delta=0.001)
+                    self.assertAlmostEqual(bounds[3] - bounds[1], 4, delta=0.001)
+                self.assertEqual(row["rgba"], [[128, 128, 128, 128]] * 3
+                                 + [[0, 0, 0, 0]] * 2 + [[0, 255, 0, 255]])
+
     def test_death_event_values_and_unavailable_writer_reach_actual_rgba(self):
         for name in ["event-death-inherited-values", "event-unknown-keeps-random-suffix"]:
             with self.subTest(name=name):

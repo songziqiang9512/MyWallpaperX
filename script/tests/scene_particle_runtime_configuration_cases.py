@@ -83,6 +83,7 @@ class SceneParticleRuntimeConfigurationCases:
             "audioChildDetails", "childScaleDetails", "unsupportedForceReported",
             "rejectedChurnObservationCount", "churnObservationsAfterRestore",
             "retryChurnObservationCount", "retryChurnObservationPaths", "laterChurnObservationCount",
+            "each-real-reader-has-local-binding-rejection", "bindingRejections",
         }
 
         def functional(value, keys):

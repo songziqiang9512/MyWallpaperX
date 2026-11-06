@@ -62,6 +62,32 @@ struct SceneParticleChildTransform: Equatable {
 }
 
 enum SceneParticleChildTemplateSupport {
+    static func consumesControlPointValues(_ definition: SceneParticleDefinition) -> Bool {
+        if definition.emitters.contains(where: {
+            definition.emitterControlPointSource(for: $0) != nil
+        }) { return true }
+        if definition.initializers.contains(where: {
+            $0.positionBetweenControlPointsPlan != nil
+                || definition.supportsBoundedPositionAroundControlPoint($0)
+        }) { return true }
+        return definition.operators.contains { value in
+            guard !value.audioResponse.isEnabled || value.hasBoundedAudioResponse else {
+                return false
+            }
+            switch value.kind {
+            case let .controlPointRadius(plan): return plan != nil
+            case let .maintainControlPointDistance(plan): return plan != nil
+            case .controlPointAttract:
+                return definition.controlPointForcePlan(for: value) != nil
+            case .reduceMovement:
+                return definition.supportsBoundedReduceMovement(value)
+            case .vortex:
+                return definition.vortexPlan(for: value)?.usesControlPointOrigin == true
+            default: return false
+            }
+        }
+    }
+
     /// Existing per-template envelope for event/nested Rope systems.
     static let maximumRopeSegmentsPerTemplate = 8_192
     /// Static children can share one root Rope's additional segment envelope.

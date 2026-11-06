@@ -181,11 +181,8 @@ enum SceneParticleChildGraphExpansion {
         }
         guard let transform = SceneParticleChildTemplateSupport.transform(
             child, allowsOrigin: trigger == .staticChild
-        ),
-              child.controlPointStartIndex == nil,
-              child.rawFlags == 0
-        else {
-            return .rejected("\(label):unsupportedTransformOrControlPoint")
+        ) else {
+            return .rejected("\(label):unsupportedTransform")
         }
         let probability = child.probability ?? 1
         guard probability.isFinite, (0 ... 1).contains(probability) else {
@@ -202,6 +199,18 @@ enum SceneParticleChildGraphExpansion {
         guard let asset = graph.assetsByPath[path] else {
             return .rejected("\(path):missingAsset")
         }
+        if child.rawFlags != 0 {
+            guard asset.definition.children.isEmpty,
+                  !SceneParticleChildTemplateSupport.consumesControlPointValues(asset.definition)
+            else { return .rejected("\(path):childControlPointBindingUnavailable") }
+        }
+#if DEBUG
+        if child.rawFlags != 0 || child.controlPointStartIndex != nil {
+            result.performanceDetails.append(
+                "\(path):unconsumedChildOptions:flags=\(child.rawFlags):startIndex=\(child.controlPointStartIndex?.description ?? "-")"
+            )
+        }
+#endif
         guard asset.supportsBuiltInShaderExecution else {
             return .rejected("\(path):unsupportedShader")
         }

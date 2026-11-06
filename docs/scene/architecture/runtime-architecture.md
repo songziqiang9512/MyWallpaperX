@@ -151,7 +151,7 @@ Root 新生沿原 birthPositionOffset 进入 reference。Child 复用原系统 o
 
 缺失或不相容 current 只冻结受影响层的原 root/child 模拟，不补出生或推进历史；向 child 仍提供真实存活 parent population，不能用空数组触发假死亡。恢复、pause/stop、rollback 和已提交历史继续由现有 owner 处理。
 
-验收须区分旧存量/新出生、world/local、root/static/event/follow/depth-two、初始预热和晚建预热；配旋转/非均匀静态基、改名、无效 frame 冻结/恢复及健康 peer。先用真实 Runtime/Simulator 与生产 model matrix 核世界坐标，再核实际 Metal/PNG。作者 3448877775/15706 的 root RopeTrail 是目标复现；其 eventdeath child rawFlags1 保独立未知边界，不能把 root 恢复写成整条 child 已恢复。未取得的组合继续留开放队列，不为通过控制改作者输入。
+验收须区分旧存量/新出生、world/local、root/static/event/follow/depth-two、初始预热和晚建预热；配旋转/非均匀静态基、改名、无效 frame 冻结/恢复及健康 peer。先用真实 Runtime/Simulator 与生产 model matrix 核世界坐标，再核实际 Metal/PNG。实际child声明与绑定需求归[Child合同](../capabilities/particle-component-coverage.md#child-declaration-options)；本段空间验收不授未消费绑定、flags位义或整条作者效果。未取得的组合继续留开放队列，不为通过控制改作者输入。
 
 <a id="particle-scalar-remap"></a>
 ## 标量 Remap 合同

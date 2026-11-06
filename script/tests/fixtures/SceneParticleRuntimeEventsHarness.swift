@@ -192,6 +192,159 @@ extension Harness {
         ]
     }
 
+    static func childOptionBehavior(directory: URL, device: MTLDevice,
+                                    materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]) throws -> [String: Any] {
+        let zeroPoints: [[String: Any]] = (0..<8).map { ["id": $0, "flags": 0, "offset": "0 0 0"] }
+        func leaf(origin: String = "0 0 0") -> [String: Any] {
+            ["material": "materials/shared.json", "maxcount": 3, "flags": 0, "controlpoint": zeroPoints,
+             "emitter": [["name": "sphererandom", "instantaneous": 1, "rate": 0, "origin": origin,
+                "distancemin": 0, "distancemax": 0, "speedmin": 0, "speedmax": 0]],
+             "initializer": [["name": "lifetimerandom", "min": 2, "max": 2],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                ["name": "colorrandom", "min": "255 255 255", "max": "255 255 255"],
+                ["name": "alpharandom", "min": 0.5, "max": 0.5]],
+             "operator": [["name": "movement", "drag": 0, "gravity": "0 0 0"]],
+             "renderer": [["name": "sprite"]], "children": []]
+        }
+        func parent(_ children: [[String: Any]]) -> [String: Any] {
+            var value = leaf(origin: "16 0 0"); value["controlpoint"] = []; value["maxcount"] = 1
+            var writers = value["initializer"] as! [[String: Any]]
+            writers[0]["min"] = 2.0 / 60; writers[0]["max"] = 2.0 / 60
+            value["initializer"] = writers; value["children"] = children
+            return value
+        }
+        func runtime(_ path: String, id: Int = 701) -> SceneParticleRuntime {
+            let descriptor = SceneRenderDescriptor(layers: [layer(id, path), layer(702, "particles/options-peer.json")],
+                renderOrderLayerIDs: [id, 702], materialPasses: materialPasses)
+            return SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        }
+        var glow = leaf()
+        let emitter = (glow["emitter"] as! [[String: Any]])[0]
+        glow["emitter"] = ["0 0 0", "16 0 0", "0 24 0"].enumerated().map { index, origin in
+            var item = emitter; item["id"] = index + 1; item["origin"] = origin; return item
+        }
+        try writeJSON(glow, to: directory.appendingPathComponent("particles/options-glow.json"))
+        try writeJSON(glow, to: directory.appendingPathComponent("particles/options-renamed.json"))
+        try writeJSON(leaf(origin: "64 0 0"), to: directory.appendingPathComponent("particles/options-peer.json"))
+        var facts: [String: Bool] = [:], observed: [String: Any] = [:]
+        let variants: [(String, Int, Int?, String, Int)] = [
+            ("zero", 0, nil, "particles/options-glow.json", 701),
+            ("one", 1, nil, "particles/options-glow.json", 701),
+            ("start-only", 0, 99, "particles/options-glow.json", 701),
+            ("opaque-renamed", 1 << 24, 99, "particles/options-renamed.json", 901),
+        ]
+        for (name, flags, start, childPath, id) in variants {
+            var declaration: [String: Any] = ["name": childPath, "type": "eventdeath", "flags": flags]
+            if let start { declaration["controlpointstartindex"] = start }
+            let path = "particles/options-\(name)-parent.json"
+            try writeJSON(parent([declaration]), to: directory.appendingPathComponent(path))
+            let value = runtime(path, id: id); _ = value.advance(by: 1.0 / 60)
+            let checkpoint = value.frameSnapshot()
+            _ = value.advance(by: 0.1)
+            // Death creates the system; its natural emitter runs next cadence.
+            let batches = value.advance(by: 1.0 / 60)
+            let first = value.frameSnapshot().layers[0].child?.systems.first
+            let positions = batches.filter { $0.particlePath == childPath }.flatMap(\.instances).map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            }
+            facts[name + "/death-three-L-and-peer"] = positions == [[16, 0, 0], [32, 0, 0], [16, 24, 0]]
+                && value.lifecycleSnapshot.childParticleCount == 3 && value.lifecycleSnapshot.childSystemCount == 1
+                && value.frameSnapshot().layers[0].root?.simulatorFrame.particles.isEmpty == true
+                && batches.contains { $0.layerID == 702 && $0.instances.count == 1 }
+            observed[name] = positions
+            value.restoreFrame(checkpoint); _ = value.advance(by: 0.1)
+            _ = value.advance(by: 1.0 / 60)
+            let replay = value.frameSnapshot().layers[0].child?.systems.first
+            facts[name + "/retry"] = first != nil && replay?.id == first?.id
+                && replay?.simulatorFrame.particles == first?.simulatorFrame.particles
+                && replay?.simulatorFrame.random.state == first?.simulatorFrame.random.state
+                && replay?.simulatorFrame.nextParticleID == first?.simulatorFrame.nextParticleID
+        }
+        var readerPrepared: [String: Bool] = [:], declarations: [[String: Any]] = []
+        for name in ["emitter", "pointer0", "between", "around", "maintain", "radius", "force", "reduce", "v2"] {
+            var raw = leaf(), writers = raw["initializer"] as! [[String: Any]]
+            switch name {
+            case "emitter":
+                var emitters = raw["emitter"] as! [[String: Any]]; emitters[0]["controlpoint"] = 1; raw["emitter"] = emitters
+            case "pointer0":
+                var points = zeroPoints; points[0]["flags"] = 1; raw["controlpoint"] = points
+            case "between": writers.append(["name": "mapsequencebetweencontrolpoints", "count": 3])
+            case "around": writers.append(["name": "mapsequencearoundcontrolpoint", "count": 4])
+            case "maintain": raw["operator"] = [["name": "maintaindistancebetweencontrolpoints"]]
+            case "radius": raw["operator"] = [["name": "maintaindistancetocontrolpoint", "distance": 16, "variablestrength": 0]]
+            case "force": raw["operator"] = [["name": "controlpointattract", "controlpoint": 1, "scale": 4, "threshold": 64]]
+            case "reduce": raw["operator"] = [["name": "reducemovementnearcontrolpoint", "distanceinner": 0, "distanceouter": 64, "reductioninner": 1]]
+            default: raw["operator"] = [["name": "vortex_v2", "distanceinner": 0, "distanceouter": 64, "speedinner": 4, "speedouter": 4]]
+            }
+            raw["initializer"] = writers
+            let definition = SceneParticleDefinitionParser().parse(root: raw), op = definition.operators[0]
+            switch name {
+            case "emitter": readerPrepared[name] = definition.emitterControlPointSource(for: definition.emitters[0]) == 1
+            case "pointer0": readerPrepared[name] = definition.emitters[0].controlPoint == nil
+                && definition.emitterControlPointSource(for: definition.emitters[0]) == 0
+            case "between": readerPrepared[name] = definition.initializers.last?.positionBetweenControlPointsPlan != nil
+            case "around": readerPrepared[name] = definition.initializers.last.map { definition.supportsBoundedPositionAroundControlPoint($0) } == true
+            case "maintain": if case let .maintainControlPointDistance(plan) = op.kind { readerPrepared[name] = plan != nil }
+            case "radius": if case let .controlPointRadius(plan) = op.kind { readerPrepared[name] = plan != nil }
+            case "force": readerPrepared[name] = definition.controlPointForcePlan(for: op) != nil
+            case "reduce": readerPrepared[name] = definition.supportsBoundedReduceMovement(op)
+            default: readerPrepared[name] = definition.vortexPlan(for: op)?.usesControlPointOrigin == true
+            }
+            let path = "particles/options-reader-\(name).json"
+            try writeJSON(raw, to: directory.appendingPathComponent(path))
+            var declaration: [String: Any] = ["name": path, "type": "eventdeath", "flags": 1]
+            if name != "emitter" { declaration["controlpointstartindex"] = 1 }
+            declarations.append(declaration)
+        }
+        var sphere = leaf(origin: "3 0 0")
+        sphere["operator"] = [["name": "collisionsphere", "origin": "0 0 0", "radius": 4, "bouncefactor": 0.5, "controlpoint": 333]]
+        let sphereDefinition = SceneParticleDefinitionParser().parse(root: sphere)
+        if case let .collisionSphere(plan) = sphereDefinition.operators[0].kind { facts["sphere-real-plan"] = plan != nil }
+        try writeJSON(sphere, to: directory.appendingPathComponent("particles/options-sphere.json"))
+        var nested = leaf(); nested["children"] = [["name": "particles/options-peer.json", "type": "eventdeath"]]
+        try writeJSON(nested, to: directory.appendingPathComponent("particles/options-nested.json"))
+        declarations += [["name": "particles/options-nested.json", "type": "eventdeath", "flags": 1],
+            ["name": "particles/options-sphere.json", "type": "eventdeath", "flags": 1 << 24, "controlpointstartindex": 99],
+            ["name": "particles/options-peer.json", "type": "eventdeath"]]
+        try writeJSON(parent(declarations), to: directory.appendingPathComponent("particles/options-readers-parent.json"))
+        let value = runtime("particles/options-readers-parent.json"); _ = value.advance(by: 1.0 / 60)
+        _ = value.advance(by: 0.1)
+        let batches = value.advance(by: 1.0 / 60)
+        let children = batches.filter { $0.layerID == 701 && $0.childTemplateIndex != nil }
+        facts["readers-local-no-default-particles"] = Set(children.map(\.particlePath))
+            == Set(["particles/options-sphere.json", "particles/options-peer.json"])
+            && value.lifecycleSnapshot.childParticleCount == 2 && value.lifecycleSnapshot.childSystemCount == 2
+        facts["sphere333-no-CP-consumption"] = children.first { $0.particlePath == "particles/options-sphere.json" }?.instances.first?.positionAndSize.x == 20
+        facts["healthy-suffix-and-peer"] = children.contains { $0.particlePath == "particles/options-peer.json" && $0.instances.count == 1 }
+            && batches.contains { $0.layerID == 702 && $0.instances.count == 1 }
+#if DEBUG
+        let rejected = Set(value.diagnostics.filter { $0.kind == .childSystemsUnsupported }.compactMap(\.detail))
+        // The existing "children" entry summarizes the root, not another template.
+        let expected = Set(readerPrepared.keys.map {
+            "particles/options-reader-\($0).json:childControlPointBindingUnavailable"
+        } + ["particles/options-nested.json:childControlPointBindingUnavailable", "children"])
+        facts["each-real-reader-has-local-binding-rejection"] = rejected == expected
+        observed["bindingRejections"] = rejected.sorted()
+#endif
+        var staticCP = leaf(), points = zeroPoints; points[1]["offset"] = "64 0 0"
+        staticCP["controlpoint"] = points
+        staticCP["operator"] = [["name": "maintaindistancetocontrolpoint", "controlpoint": 1,
+                                  "distance": 16, "variablestrength": 0]]
+        try writeJSON(staticCP, to: directory.appendingPathComponent("particles/options-static-cp.json"))
+        try writeJSON(parent([["name": "particles/options-static-cp.json", "type": "eventdeath", "flags": 0],
+            ["name": "particles/options-static-cp.json", "type": "eventdeath", "flags": 0, "controlpointstartindex": 1]]),
+            to: directory.appendingPathComponent("particles/options-inactive-start-parent.json"))
+        let inactiveStart = runtime("particles/options-inactive-start-parent.json")
+        _ = inactiveStart.advance(by: 1.0 / 60)
+        _ = inactiveStart.advance(by: 0.1)
+        let staticBatches = inactiveStart.advance(by: 1.0 / 60).filter { $0.layerID == 701 }
+        let staticPositions = staticBatches.flatMap(\.instances).map { [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z] }
+        facts["flags0-start-index-does-not-activate-binding"] = staticPositions == [[64, 0, 0], [64, 0, 0]]
+            && inactiveStart.lifecycleSnapshot.childSystemCount == 2
+        observed["flags0-static-cp-positions"] = staticPositions
+        return ["facts": facts, "observed": observed, "readerPrepared": readerPrepared]
+    }
+
     static func eventValueBehavior(
         directory: URL, device: MTLDevice,
         materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor]
@@ -700,6 +853,8 @@ extension Harness {
             "eventValueLocalFallbackPaths": localFallbackPaths.sorted(),
             "eventValues": try eventValueBehavior(directory: directory, device: device,
                                                   materialPasses: descriptor.materialPasses),
+            "childOptions": try childOptionBehavior(directory: directory, device: device,
+                                                    materialPasses: descriptor.materialPasses),
             "hasAudioConsumer": runtime.hasAudioConsumer,
             "activeChildAudioInput": activeChildAudioInput,
         ]

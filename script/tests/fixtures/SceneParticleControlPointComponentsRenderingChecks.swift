@@ -314,6 +314,49 @@ enum SceneParticleControlPointComponentsRenderingChecks {
                     [cx - 1, 49], [cx, 49], [cx + 1, 49], [cx - 1, 50], [cx, 50], [cx + 1, 50],
                     [34, 49], [otherX, 49], [32, 130]]))
         }
+        for (name, id, flags, childPath) in [
+            ("child-options-zero", 120, 0, "particles/glow-options.json"),
+            ("child-options-one", 121, 1, "particles/glow-options.json"),
+            ("child-options-renamed", 921, 1 << 24, "particles/renamed-glow.json"),
+        ] {
+            let zeroPoints: [[String: Any]] = (0..<8).map { ["id": $0, "flags": 0, "offset": "0 0 0"] }
+            var child = definition(color: "255 255 255", points: zeroPoints,
+                                   operators: [["name": "movement", "drag": 0, "gravity": "0 0 0"]])
+            child["maxcount"] = 3
+            let emitter = (child["emitter"] as! [[String: Any]])[0]
+            child["emitter"] = ["0 0 0", "16 0 0", "0 24 0"].enumerated().map { index, origin in
+                var item = emitter; item["id"] = index + 1; item["origin"] = origin; return item
+            }
+            var writers = child["initializer"] as! [[String: Any]]
+            writers[3]["min"] = 0.5; writers[3]["max"] = 0.5; child["initializer"] = writers
+            try Harness.writeJSON(child, to: directory.appendingPathComponent(childPath))
+            var parent = definition(origin: "16 0 0")
+            var parentWriters = parent["initializer"] as! [[String: Any]]
+            parentWriters[0]["min"] = 2.0 / 60; parentWriters[0]["max"] = 2.0 / 60
+            parentWriters[3]["min"] = 0; parentWriters[3]["max"] = 0
+            parent["initializer"] = parentWriters
+            var declaration: [String: Any] = ["name": childPath, "type": "eventdeath", "flags": flags]
+            if flags > 1 { declaration["controlpointstartindex"] = 99 }
+            parent["children"] = [declaration]
+            let parentPath = "particles/\(name)-parent.json"
+            try Harness.writeJSON(parent, to: directory.appendingPathComponent(parentPath))
+            var layer = Harness.layer(id, parentPath); layer.originXYZ = [48, 79.5, 0]
+            let scene = descriptor(layer), sceneFrames = frames(scene)
+            let runtime = SceneParticleRuntime(descriptor: scene, cacheDirectory: directory,
+                device: device, stockTextureBundleURL: nil)
+            _ = runtime.advance(by: 1.0 / 60, layerWorldFrames: sceneFrames)
+            _ = runtime.advance(by: 1.0 / 60, layerWorldFrames: sceneFrames)
+            let batches = runtime.advance(by: 1.0 / 60, layerWorldFrames: sceneFrames)
+            var row = try draw(name, runtime: runtime, batches: batches, descriptor: scene,
+                worldFrames: sceneFrames, device: device, queue: queue, pipeline: pipeline, probe: probe,
+                pixels: [[64, 80], [80, 80], [64, 56], [64, 68], [96, 80], [32, 130]])
+            let states = runtime.frameSnapshot().layers[0].child?.systems.flatMap { $0.simulatorFrame.particles } ?? []
+            row["childPopulation"] = runtime.lifecycleSnapshot.childParticleCount
+            row["childSystemCount"] = runtime.lifecycleSnapshot.childSystemCount
+            row["childPositions"] = states.map { [$0.position.x, $0.position.y, $0.position.z] }
+            row["childSizes"] = states.map(\.size); row["childAlphas"] = states.map(\.alpha)
+            rows.append(row)
+        }
         return ["device": device.name, "sampleCount": 1, "rows": rows]
     }
 

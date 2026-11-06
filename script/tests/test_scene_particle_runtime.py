@@ -315,7 +315,7 @@ class SceneParticleRuntimeTests(
             "particles/nan-origin-child.json",
         ]:
             self.assertIn(
-                f"{path}:unsupportedTransformOrControlPoint",
+                f"{path}:unsupportedTransform",
                 result["staticChildUnsupportedDetails"],
             )
         self.assertIn(
@@ -736,7 +736,7 @@ class SceneParticleRuntimeTests(
             )
         for name in ["malformed-scale", "negative-scale", "nonuniform-scale"]:
             self.assertIn(
-                f"827:particles/{name}.json:unsupportedTransformOrControlPoint", diagnostics,
+                f"827:particles/{name}.json:unsupportedTransform", diagnostics,
             )
         for name in ["large-b", "nested-large"]:
             self.assertIn(f"827:particles/{name}.json:ropeAggregateSegmentBudget", diagnostics)
@@ -855,6 +855,12 @@ class SceneParticleRuntimeTests(
         for name, passed in result["eventValues"]["facts"].items():
             with self.subTest(event_value=name):
                 self.assertTrue(passed, result["eventValues"]["observed"])
+        options = result["childOptions"]
+        self.assertEqual(set(options["readerPrepared"]), {"emitter", "pointer0", "between", "around",
+                         "maintain", "radius", "force", "reduce", "v2"})
+        for name, passed in (options["readerPrepared"] | options["facts"]).items():
+            with self.subTest(child_options=name):
+                self.assertTrue(passed, options["observed"])
 
     def test_simulation_evidence_advances_without_drawables_and_survives_dormancy(self) -> None:
         result = self.run_harness("batch-evidence-synthetic")
