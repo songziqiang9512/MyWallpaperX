@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 209,
-      "bytes": 36365
+      "bytes": 36192
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 226,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 126,
-      "bytes": 78948
+      "bytes": 79273
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 33994
+      "bytes": 34362
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "00e4d11319d6c6887099e2a8dca1580d17e42c23e19f92f2e9d013a10951aeef",
-      "after": "cfb7995c3ae4b748e00936ba7585b9f0ce380f59d8c955ba17c43ce1d124d3fe",
-      "owner": "scene-linked-authored-constant",
-      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
+      "before": "cfb7995c3ae4b748e00936ba7585b9f0ce380f59d8c955ba17c43ce1d124d3fe",
+      "after": "0dfbb2dac00bb251cd3637cbb2aa718add3117f8bdac0b177d9dbb8c39430571",
+      "owner": "scene-remap-input-qualification",
+      "reason": "Record independent static-distance and EventDeath scene-aligned qualification without upgrading them to runtime support; preserve the failed sine model and original resolution/sampling limits. Keep actual author arc loss and next prewarm-completion measurement in the existing queue. No new product owner or document authority.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6e3b6d63e3d51fb9c17c05f383613cac1a47fed4d1c7c988ddf21303ab4d0bbd",
-      "after": "1a5619839048e3cbd67021a4afc98de7f4d61c2d8d847f8f2e4ff368a13e46c7",
-      "owner": "scene-linked-authored-constant",
-      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
+      "before": "1a5619839048e3cbd67021a4afc98de7f4d61c2d8d847f8f2e4ff368a13e46c7",
+      "after": "7b822beb000a03baa5c57933b0a503c21661697c01bcd9eb290c743e732de407",
+      "owner": "scene-remap-input-qualification",
+      "reason": "Record independent static-distance and EventDeath scene-aligned qualification without upgrading them to runtime support; preserve the failed sine model and original resolution/sampling limits. Keep actual author arc loss and next prewarm-completion measurement in the existing queue. No new product owner or document authority.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
     }
   ]
 }

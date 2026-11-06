@@ -113,7 +113,7 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 <a id="operators"></a>
 ## 需要保留的数值边界
 
-- Remap 复用原 `SceneParticleRemapValue`：有界 velocity/simplex 与 scalar-speed/fbm 路径分别准备；显式输入通道、其他操作和生命周期 blends 仍缺消费者。官方常量输出控制只支持省略 operation 与 Multiply、显式 `remap` 与 Assign 的定性相容。无 sine、显式范围的新控制中，N/W/D 同亮度而 W 的运动钟明显不同，含预热/rate 的本机模拟钟加缺省 identity/线性范围的联合候选不成立；严格 source 资格仍 unknown，不能直接选 global 或 instance-live 时基。sine、缺省范围与处理顺序也未资格。当前有界读数归[运行证据](runtime-evidence-current.md)，新消费者遵守[标量 Remap 合同](../architecture/runtime-architecture.md#particle-scalar-remap)，不以猜测公式替换字段白名单。
+- Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
 - Plane Collision消费原准备平面；静态Sphere的范围由[球体合同](#sphere-collision)维护。wallpaper Collision Bounds仍缺实际边界供货和缺省响应资格，不能拿emitter范围或自然affine反弹代替。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
