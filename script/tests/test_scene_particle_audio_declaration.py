@@ -26,6 +26,7 @@ VORTEX_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/
 REMAP_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift"
 REDUCE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift"
 COLLISION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift"
+COLLISION_SPHERE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift"
 POSITION_BETWEEN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift"
 POSITION_AROUND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift"
 AUDIO_PLAN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift"
@@ -210,6 +211,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             REMAP_SOURCE,
             REDUCE_SOURCE,
             COLLISION_SOURCE,
+            COLLISION_SPHERE_SOURCE,
             POSITION_AROUND_SOURCE,
             AUDIO_PLAN_SOURCE,
             PARSER_SOURCE,

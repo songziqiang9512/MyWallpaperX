@@ -266,11 +266,37 @@ class SceneParticleWorldSpaceCases:
             ("force", [40, 60, 0], [1, 0, 0]),
             ("vortex", [50, 60, 0], [0, -0.72, 0]),
             ("plane", [40, 60, 0], [0, 0, 0]),
+            ("sphere", [44, 60, 0], [0, 0, 0]),
         ]:
             row = result["spatialConsumers"][name]
             self.assertTrue(row["active"], row)
             points([row["position"]], [expected_position], name + " position")
             points([row["velocity"]], [expected_velocity], name + " velocity")
+        collision = result["sphereCollisions"]
+        expected = {
+            "factor0": ([4, 0.5, 0], [0, 2, 0]),
+            "factor-half": ([4.5, 0.5, 0], [2, 2, 0]),
+            "factor1": ([5, 0.5, 0], [4, 2, 0]),
+            "slide": ([4, 0.5, 0], [0, 2, 0]),
+            "finite-negative": ([3.5, 0.5, 0], [-2, 2, 0]),
+            "finite-over100": ([129, 0.5, 0], [500, 2, 0]),
+            "outside": ([7, 0.5, 0], [-4, 2, 0]),
+            "outgoing": ([5, 0.5, 0], [4, 2, 0]),
+            "center": ([-1, 0.5, 0], [-4, 2, 0]),
+            "movement-first": ([4, 0, 0], [2, 0, 0]),
+            "collision-first": ([4.5, 0, 0], [2, 0, 0]),
+        }
+        self.assertEqual({row["name"] for row in collision["rows"]}, set(expected))
+        for row in collision["rows"]:
+            position, velocity = expected[row["name"]]
+            points(row["positions"], [position], row["name"] + " position")
+            points(row["velocities"], [velocity], row["name"] + " velocity")
+        self.assertEqual(set(collision["localFailuresKeepMovementAndHealthyState"]),
+                         {"shape", "nonfinite", "audio", "final-float-overflow", "unknown-response"})
+        for name, passed in collision["localFailuresKeepMovementAndHealthyState"].items():
+            self.assertTrue(passed, name)
+        for name in ("renamedWrappersAndUnconsumedMetadata", "chunkingSameFixedSteps", "snapshotRetry"):
+            self.assertTrue(collision[name], name)
 
     def test_root_translation_freezes_locally_recovers_and_rejects_adjacent_profiles(self) -> None:
         result = self.run_harness("worldspace-translation-edges")

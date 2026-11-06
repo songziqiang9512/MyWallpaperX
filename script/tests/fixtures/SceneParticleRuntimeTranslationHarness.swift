@@ -151,7 +151,7 @@ extension Harness {
         return ["admitted": true, "rows": rows,
             "ancestry": try ancestryAnchoring(input), "families": try ancestryFamilies(input),
             "prewarm": try ancestryPrewarm(input), "ropeTrail": try ancestryRopeTrail(input),
-            "spatialConsumers": try ancestrySpatialConsumers(input)]
+            "spatialConsumers": try ancestrySpatialConsumers(input), "sphereCollisions": sphereCollisionCases()]
     }
 
     static func translationEdges() throws -> [String: Any] {
@@ -506,13 +506,83 @@ extension Harness {
             "historyRetained": runtime.frameSnapshot().layers.first?.root?.ropeTrailHistory != nil]
     }
 
+    static func sphereCollisionCases() -> [String: Any] {
+        func simulator(_ fields: [String: Any]? = [:], origin: String = "3 0 0",
+                       velocity: String = "-4 2 0", collisionFirst: Bool = true,
+                       renamed: Bool = false) -> SceneParticleSimulator {
+            let movement: [String: Any] = ["name": "movement", "drag": 0, "gravity": "0 0 0"]
+            var operators = [movement]
+            if let fields {
+                var sphere: [String: Any] = ["id": renamed ? 907 : 25, "name": "collisionsphere",
+                    "origin": "0 0 0", "radius": 4, "bouncefactor": 0.5]
+                sphere.merge(fields) { _, value in value }
+                operators = collisionFirst ? [sphere, movement] : [movement, sphere]
+            }
+            let root: [String: Any] = ["material": renamed ? "renamed/spark.json" : "p.json",
+                "maxcount": 1, "emitter": [["id": renamed ? 903 : 1, "name": "boxrandom",
+                    "instantaneous": 1, "rate": 0, "origin": origin, "distancemin": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "sizerandom", "min": 8, "max": 8],
+                    ["name": "velocityrandom", "min": velocity, "max": velocity]],
+                "operator": operators, "renderer": [["name": "sprite"]]]
+            return SceneParticleSimulator(definition: SceneParticleDefinitionParser().parse(root: root),
+                                          seed: 61, fixedTimeStep: 0.25)
+        }
+        let cases: [(String, [String: Any], String, String, Bool)] = [
+            ("factor0", ["bouncefactor": 0], "3 0 0", "-4 2 0", true),
+            ("factor-half", [:], "3 0 0", "-4 2 0", true),
+            ("factor1", ["bouncefactor": 1], "3 0 0", "-4 2 0", true),
+            ("slide", ["collisionbehavior": "slide", "bouncefactor": "unused"], "3 0 0", "-4 2 0", true),
+            ("finite-negative", ["bouncefactor": -0.5], "3 0 0", "-4 2 0", true),
+            ("finite-over100", ["bouncefactor": 125], "3 0 0", "-4 2 0", true),
+            ("outside", [:], "8 0 0", "-4 2 0", true),
+            ("outgoing", [:], "3 0 0", "4 2 0", true),
+            ("center", [:], "0 0 0", "-4 2 0", true),
+            ("movement-first", [:], "3 0 0", "-4 0 0", false),
+            ("collision-first", [:], "3 0 0", "-4 0 0", true),
+        ]
+        var rows: [[String: Any]] = []
+        for (name, fields, origin, velocity, first) in cases {
+            let value = simulator(fields, origin: origin, velocity: velocity, collisionFirst: first)
+            value.advance(by: 0.25)
+            rows.append(["name": name, "positions": value.particles.map { [$0.position.x, $0.position.y, $0.position.z] },
+                         "velocities": value.particles.map { [$0.velocity.x, $0.velocity.y, $0.velocity.z] }])
+        }
+        let healthy = simulator(nil); healthy.advance(by: 0.25)
+        var localFailures: [String: Bool] = [:]
+        let failureInputs: [(String, [String: Any])] = [
+            ("shape", ["radius": "bad"]), ("nonfinite", ["radius": Double.infinity]),
+            ("audio", ["audioprocessingmode": 1]), ("final-float-overflow", ["radius": 1e40]),
+            ("unknown-response", ["collisionbehavior": "unimplemented-response"]),
+        ]
+        for (name, fields) in failureInputs {
+            let value = simulator(fields); value.advance(by: 0.25)
+            localFailures[name] = sameTranslationSimulation(value.frameSnapshot(), healthy.frameSnapshot())
+        }
+        let plain = simulator(); plain.advance(by: 0.25)
+        let renamed = simulator(["origin": ["value": "0 0 0"], "radius": ["value": "4"],
+            "bouncefactor": ["value": "0.5"], "flags": 1048576, "controlpoint": 333,
+            "unusedEditorMetadata": ["label": "renamed-spark"]], renamed: true)
+        renamed.advance(by: 0.25)
+        let whole = simulator(), split = simulator()
+        whole.advance(by: 0.5); split.advance(by: 0.25); split.advance(by: 0.25)
+        let checkpoint = plain.frameSnapshot()
+        plain.advance(by: 0.25); let continued = plain.frameSnapshot()
+        plain.restoreFrame(checkpoint); plain.advance(by: 0.25)
+        return ["rows": rows, "localFailuresKeepMovementAndHealthyState": localFailures,
+            "renamedWrappersAndUnconsumedMetadata": sameTranslationSimulation(checkpoint, renamed.frameSnapshot()),
+            "chunkingSameFixedSteps": sameTranslationSimulation(whole.frameSnapshot(), split.frameSnapshot()),
+            "snapshotRetry": sameTranslationSimulation(continued, plain.frameSnapshot())]
+    }
+
     static func ancestrySpatialConsumers(_ input: TranslationInput) throws -> [String: Any] {
         let id = 8011
         let operators: [(String, [String: Any], String)] = [
             ("force", ["name": "controlpointattract", "controlpoint": 1, "scale": 60, "threshold": 512], "0 0 0"),
             ("vortex", ["name": "vortex_v2", "distanceinner": 0, "distanceouter": 100,
                 "speedinner": 60, "speedouter": 60], "10 0 0"),
-            ("plane", ["name": "collisionplane", "plane": "0 1 0", "distance": 0, "bouncefactor": 1], "0 -2 0")]
+            ("plane", ["name": "collisionplane", "plane": "0 1 0", "distance": 0, "bouncefactor": 1], "0 -2 0"),
+            ("sphere", ["name": "collisionsphere", "origin": "0 0 0", "radius": 4, "bouncefactor": 0.5], "2 0 0")]
         var rows: [String: Any] = [:]
         for (name, op, position) in operators {
             let path = "particles/ancestor-consumer-\(name).json"

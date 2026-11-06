@@ -43,6 +43,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
@@ -814,7 +815,6 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
         self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 3 + [[0, 0, 0, 0], [0, 255, 0, 255]])
 
     def test_static_child_world_endpoint_reaches_production_vertices_after_its_own_transform(self):
-        self.assertEqual(len(self.result["rows"]), 14)
         row = self.assert_draw("static-child-world-between", 104, 1, 3)
         self.assertEqual(row["rootTargetPopulation"], 0)
         self.assertEqual(row["childPopulation"], 3)
@@ -835,7 +835,6 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
             + [[0, 255, 0, 255], [0, 0, 0, 0], [0, 0, 0, 0]])
 
     def test_world_follow_child_keeps_its_birth_origin_when_parent_moves(self):
-        self.assertEqual(len(self.result["rows"]), 14)
         for stage, parent_x in [(2, 20), (3, 30)]:
             row = self.rows[f"follow-world-{stage}"]
             self.assertEqual(row["activeLayerIDs"], [105, 201])
@@ -891,6 +890,26 @@ class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
         self.assertEqual(warm["dynamicControlPoints"], {"0": [0, 0, 0], "1": [96, 79.5, 0]})
         self.assertEqual(self.rows["radius-dynamic-carry"]["dynamicControlPoints"],
                          {"0": [0, 0, 0], "1": [96, 0, 0]})
+
+    def test_sphere_contact_and_slide_reach_production_vertices_and_pixels(self):
+        for name, layer_id, position, velocity, cx in [
+            ("sphere-bounce", 110, [47, 15, 0], [30, 30, 0], 95),
+            ("sphere-slide-renamed", 911, [32, 15, 0], [0, 30, 0], 80),
+        ]:
+            with self.subTest(name=name):
+                row = self.assert_draw(name, layer_id, 2, 1)
+                self.assertEqual(len(row["positions"]), 1)
+                for actual, expected in zip(row["positions"][0], position, strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=0.0001)
+                self.assertEqual(row["velocities"], [velocity])
+                self.assertEqual(row["sizes"], [8])
+                bounds = row["vertexBounds"][0][0]
+                self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, cx, delta=0.001)
+                self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, 49.5, delta=0.001)
+                self.assertAlmostEqual(bounds[2] - bounds[0], 4, delta=0.001)
+                self.assertAlmostEqual(bounds[3] - bounds[1], 4, delta=0.001)
+                self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 9
+                                 + [[0, 0, 0, 0]] * 2 + [[0, 255, 0, 255]])
 
     def test_death_event_values_and_unavailable_writer_reach_actual_rgba(self):
         for name in ["event-death-inherited-values", "event-unknown-keeps-random-suffix"]:

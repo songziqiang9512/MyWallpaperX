@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 189,
-      "bytes": 31814
+      "lines": 200,
+      "bytes": 34363
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 215,
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 120,
-      "bytes": 69641
+      "lines": 121,
+      "bytes": 71530
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 34231
+      "bytes": 34247
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -512,29 +512,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "426e500bf9f5c8887402e57ef08e91cf801f30e9f328143f12a331b09f7c6425",
-      "after": "7a30a773356bb69ef3871124a8a50c6fc38dcf9b2183ac49a14152265c792871",
-      "owner": "scene-particle-remap-time-source",
-      "reason": "Reconcile the current three author first-breakpoints and one frozen official time-source joint falsification. Keep strict source qualification, omitted transform/range, sine and clock producer unknown; correct the original-clock implementation hint without adding a new authority, consumer, clock or experiment.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "7a30a773356bb69ef3871124a8a50c6fc38dcf9b2183ac49a14152265c792871",
+      "after": "42ff7f6059876e738ab63ade71be185e75d3922b2844acb9a9ad3be8e7c1c9b4",
+      "owner": "scene-particle-sphere",
+      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7eabbad6e5d00f2d5534a950b941050e09c00a96c287e11c991c98cde5c9e73f",
-      "after": "07ac2c5990ae25713bd0bede3eb63d4eb37e36bcd734cb3c01fb4d1c73349b56",
-      "owner": "scene-cancellation-terminal",
-      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
+      "before": "07ac2c5990ae25713bd0bede3eb63d4eb37e36bcd734cb3c01fb4d1c73349b56",
+      "after": "93b6e4a9d511db77b1111cbad6cbd9389c767ad13bfdfbae8750df4e5072cb00",
+      "owner": "scene-particle-sphere",
+      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d21b28fe43b5e4d4153d9d67446593a25bb976f18caa5cd9617a9ea07108f5cf",
-      "after": "b7838dd4c3be6d8e7f98a8bd583c6ce99da4ea59476dbab7a056ddfca5f70a33",
-      "owner": "scene-cancellation-terminal",
-      "reason": "Separate cancellation retirement from current-epoch publication in the original coordinator. Record signed App same-input normal-stop behavior and preserve collision first-breakpoints as unresolved; remove the contradicted stop-ledger queue conclusion. No diagnostic filtering, new authority, clock, cancellation owner or state.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#submission-cancellation"
+      "before": "b7838dd4c3be6d8e7f98a8bd583c6ce99da4ea59476dbab7a056ddfca5f70a33",
+      "after": "72557471469ae7013e2c6d21d05a0f9e0eeb74700774459231130fd71a56dc96",
+      "owner": "scene-particle-sphere",
+      "reason": "Add the designed static local Sphere primitive in existing Parser/Simulator ownership, actual collision contacts and production Metal qualification. Replace stale Sphere-unsupported assertions with the current bounded capability and unresolved first-contact, CP and numeric-parity limits; preserve Bounds and unrelated queue facts. No new documentation authority, clock or runtime state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision"
     }
   ]
 }

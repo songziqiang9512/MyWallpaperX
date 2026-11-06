@@ -296,6 +296,8 @@ extension SceneParticleSimulationMath {
                 add(value.collisionPlanePlan == nil
                     ? .collisionPlaneUnsupported : .collisionPlaneBounded,
                     "collisionplane")
+            case let .collisionSphere(plan):
+                if plan == nil { add(.unsupportedOperator, "collisionsphere") }
             case let .inheritEventValue(operation):
                 add(operation == .setColor
                     && eventValueContext.operatorValues.map(

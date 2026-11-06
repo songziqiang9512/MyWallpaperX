@@ -289,6 +289,31 @@ enum SceneParticleControlPointComponentsRenderingChecks {
             row["childInitialAlphas"] = systems.map { $0.simulatorFrame.particles.map(\.initialAlpha) }
             rows.append(row)
         }
+        for (name, id, slide, cx, otherX) in [
+            ("sphere-bounce", 110, false, 95, 80), ("sphere-slide-renamed", 911, true, 80, 95),
+        ] {
+            var sphere: [String: Any] = ["name": "collisionsphere", "origin": "0 0 0",
+                                         "radius": 32, "bouncefactor": 0.5]
+            if slide {
+                sphere["origin"] = ["value": "0 0 0"]; sphere["radius"] = ["value": "32"]
+                sphere["collisionbehavior"] = "slide"; sphere["bouncefactor"] = "unconsumed"
+            }
+            let path = "particles/\(name).json"
+            try Harness.writeJSON(definition(origin: "16 0 0", velocity: "-60 30 0",
+                operators: [sphere, ["name": "movement", "drag": 0, "gravity": "0 0 0"]]),
+                to: directory.appendingPathComponent(path))
+            var layer = Harness.layer(id, path); layer.originXYZ = [48, 95.5, 0]
+            let scene = descriptor(layer), sceneFrames = frames(scene)
+            let collision = SceneParticleRuntime(descriptor: scene, cacheDirectory: directory,
+                device: device, stockTextureBundleURL: nil)
+            var collisionBatches: [SceneParticleDrawBatch] = []
+            for _ in 0..<30 { collisionBatches = collision.advance(by: 1.0 / 60, layerWorldFrames: sceneFrames) }
+            rows.append(try draw(name, runtime: collision, batches: collisionBatches,
+                descriptor: scene, worldFrames: sceneFrames, device: device, queue: queue,
+                pipeline: pipeline, probe: probe, pixels: [[cx - 1, 48], [cx, 48], [cx + 1, 48],
+                    [cx - 1, 49], [cx, 49], [cx + 1, 49], [cx - 1, 50], [cx, 50], [cx + 1, 50],
+                    [34, 49], [otherX, 49], [32, 130]]))
+        }
         return ["device": device.name, "sampleCount": 1, "rows": rows]
     }
 

@@ -382,6 +382,12 @@ nonisolated extension SceneParticleSimulator {
                 plan: operatorExecutionPlans[operatorIndex].collisionPlane,
                 controlPointParticleSpace: controlPointParticleSpace
             )
+        case let .collisionSphere(plan):
+            applyCollisionSphere(
+                plan: plan,
+                blend: operatorExecutionPlans[operatorIndex].blend,
+                controlPointParticleSpace: controlPointParticleSpace
+            )
         case let .inheritEventValue(operation):
             guard operation == .setColor,
                   let values = eventValueContext.operatorValues,

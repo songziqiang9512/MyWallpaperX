@@ -387,6 +387,19 @@
       ]
     },
     {
+      "id": "scene-particle-collision-sphere",
+      "title": "粒子静态球体碰撞响应",
+      "owner": "scene-particle",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "docs/scene/capabilities/particle-component-coverage.md#sphere-collision: independently implemented local sphere projection and normal impulse in the existing ordered Simulator, explicit numeric fields, bounded default Bounce/stock Slide. Official relative categories do not qualify exact first-contact timing/formula/size margin or CP lock bits; do not add a birth-time zero step or a flags/metadata permission table. Reuse existing particle reference space, blend and final motion acceptance; preserve Plane.",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneParticleCollisionSpherePlan",
+        "case collisionSphere"
+      ]
+    },
+    {
       "id": "scene-particle-collision-bounds",
       "title": "粒子壁纸边界碰撞",
       "owner": "scene-particle",

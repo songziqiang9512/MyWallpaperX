@@ -2375,6 +2375,19 @@
       ]
     },
     {
+      "id": "particle-collision",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollision*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift"
+      ],
+      "modules": [
+        "test_scene_particle_definitions",
+        "test_scene_particle_simulator",
+        "test_scene_particle_runtime",
+        "test_scene_particle_rendering"
+      ]
+    },
+    {
       "id": "particles",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
@@ -2390,6 +2403,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntimeModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildTemplateSupport.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -2419,7 +2433,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+AudioResponse.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Boids.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CapVelocity.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CollisionPlane.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+InstanceOverride.swift",

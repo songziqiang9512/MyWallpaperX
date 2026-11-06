@@ -29,7 +29,7 @@ starttime请求的wall-step序列与实际simulationTime分开：实例rate仍�
 |---|---|---|
 | Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划、[速度数值](#emitter-speed)及 Sphere [方向选择](#emitter-sign) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
-| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane Collision、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
+| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane/[Sphere Collision](#sphere-collision)、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
 
@@ -99,16 +99,27 @@ Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合�
 
 状态随原 emitter 数组的值快照、候选回滚、prewarm→live 和 rearm 生命周期走；GPU重试不重发。验收使用真实 Parser/Simulator 的固定两周期、倍率小数与热更新、余量、改名/相邻无上限、独立 emitter、随机窗/跨窗步、快照/回滚及播放生命周期，并经原 Runtime→生产 Metal 核实际几何/像素和作者目标 batch→main/seal/GPU。官方手工图只证明已测输入的可见出生位置与控制时钟，不是内部人口、RGB或所有参数一致证明。
 
+<a id="sphere-collision"></a>
+### 静态球体碰撞的执行合同
+
+Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefactor，typed plan进入原有序Simulator，不新增时钟、出生阶段、CP状态或GPU补正。缺省behavior采用已观察到的Bounce类响应，显式stock `slide`保切向响应；缺省数值、Stop/Delete和CP锁定位未资格，不猜默认或复制位义。CP333和无关附加字段不作为整操作许可，未消费选项不授完整能力。
+
+独立实现采用当前粒子到球心的径向位置投影，以及现有Plane的法向冲量：只纠正球内非零径向位置，只改变入向法向速度；Slide的法向反弹为零。球外、出向速度及切向分量保留；零径向不猜方向。球心复用原positionReferenceOffset转换到粒子出生参考，原lifecycle blend按现有计划作用于结果，最终数值交原acceptsMotionResult接纳；坏输入或单粒子结果只影响本操作，健康后继保持。入口只校验所用数值和向量，不设幅度、flags组合或额外字段白名单；audio尚无Sphere响应消费者，保持局部不可用。
+
+公开[碰撞合同](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#collision-operators)规定球形障碍、Origin/Radius与Bounce/Slide。官方有界输入支持缺省反弹类、factor相对响应及切向位移保留；严格时钟误差跨门，不能唯一确定首次法线、位置修正顺序、粒子尺寸裕量或精确公式。因此当前径向投影/冲量属于项目离散算法，未授官方数值一致；保原正步emit→有序operators，不为拟合截图增加出生零步或重排Movement。CP1与省略同位不能证明锁定位或CP供给，具体资格见[运行证据](runtime-evidence-current.md)。
+
+验收核真实Parser/Simulator的几何、factor/slide、顺序、改名/无关metadata、球外/出向、坏数值/零径向及健康peer；再经原Runtime→生产Metal核可定位几何与像素，复测真实作者及独立邻例并保Plane回归。实际接触及最终贡献未到达时不得以识别/批次数宣称恢复；更复杂world/child、动态CP、连续碰撞和死亡事件仍需独立资格。
+
 <a id="operators"></a>
 ## 需要保留的数值边界
 
 - Remap 复用原 `SceneParticleRemapValue`：有界 velocity/simplex 与 scalar-speed/fbm 路径分别准备；显式输入通道、其他操作和生命周期 blends 仍缺消费者。官方常量输出控制只支持省略 operation 与 Multiply、显式 `remap` 与 Assign 的定性相容。无 sine、显式范围的新控制中，N/W/D 同亮度而 W 的运动钟明显不同，含预热/rate 的本机模拟钟加缺省 identity/线性范围的联合候选不成立；严格 source 资格仍 unknown，不能直接选 global 或 instance-live 时基。sine、缺省范围与处理顺序也未资格。当前有界读数归[运行证据](runtime-evidence-current.md)，新消费者遵守[标量 Remap 合同](../architecture/runtime-architecture.md#particle-scalar-remap)，不以猜测公式替换字段白名单。
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
-- Plane Collision 消费已准备平面及响应；wallpaper Collision Bounds 仍没有可接受的通用缩放/外生行为合同，不能拿 emitter 范围或自然 affine 反弹代替。
+- Plane Collision消费原准备平面；静态Sphere的范围由[球体合同](#sphere-collision)维护。wallpaper Collision Bounds仍缺实际边界供货和缺省响应资格，不能拿emitter范围或自然affine反弹代替。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
 - 小数 Position Around Count 保留作者数值，经实际数学消费，不能改全局 integer parser 或取整。未资格的轴、Mirror、periodic 与空间组合不顺带放行。
 
-源码：[Remap](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift)、[Vortex](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift)、[Plane Collision](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift)。
+源码：[Remap](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift)、[Vortex](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift)、[Plane Collision](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift)、[Sphere Plan](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift)、[碰撞消费](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift)。
 
 <a id="children"></a>
 ## Child 与事件

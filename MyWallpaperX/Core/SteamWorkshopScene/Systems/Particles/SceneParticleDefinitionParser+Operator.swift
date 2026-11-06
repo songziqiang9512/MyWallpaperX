@@ -7,6 +7,8 @@ extension SceneParticleDefinitionParser {
     ) -> SceneParticleOperator {
         let name = Self.componentName(root)
         let controlPoint = Self.integer(root["controlpoint"])
+        let origin = Self.numericValue(root["origin"])
+        let audioResponse = Self.audioResponse(root)
         let kind: SceneParticleOperatorKind
         switch name {
         case "movement": kind = .movement
@@ -32,6 +34,8 @@ extension SceneParticleDefinitionParser {
         case "reducemovementnearcontrolpoint":
             kind = .reduceMovement(.init(root: root))
         case "collisionplane": kind = .collisionPlane(.init(root: root))
+        case "collisionsphere":
+            kind = .collisionSphere(audioResponse.isEnabled ? nil : .init(root: root, origin: origin))
         case "inheritvaluefromevent":
             kind = .inheritEventValue(.init(root: root))
         default:
@@ -62,14 +66,14 @@ extension SceneParticleDefinitionParser {
             blendOutStart: Self.number(root["blendoutstart"]),
             blendOutEnd: Self.number(root["blendoutend"]),
             controlPoint: controlPoint,
-            origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
+            origin: origin, scale: Self.numericValue(root["scale"]),
             timeScale: Self.number(root["timescale"]),
             threshold: Self.number(root["threshold"]),
             hasMalformedThreshold: root["threshold"] != nil
                 && Self.number(root["threshold"]).map({ $0.isFinite }) != true,
             speedMinimum: Self.number(root["speedmin"]),
             speedMaximum: Self.number(root["speedmax"]),
-            audioResponse: Self.audioResponse(root)
+            audioResponse: audioResponse
         )
     }
 
