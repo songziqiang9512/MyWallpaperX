@@ -515,7 +515,7 @@ struct SceneImageLayerCompositor {
             }
             return compositeOffscreenOutput(
                 request, texture: finalTexture, ticket: graphExecutionTicket,
-                dependencyEffect: dependencyEffect, hasDependencyInput: hasDependencyInput,
+                hasDependencyInput: hasDependencyInput,
                 colorBlendPipeline: colorBlendPipeline, pipeline: pipeline, mainPass: mainPass,
                 executionTrace: executionTrace, executionOrigin: executionOrigin
             )
@@ -667,7 +667,6 @@ struct SceneImageLayerCompositor {
         _ request: SceneImageLayerDrawRequest,
         texture: MTLTexture,
         ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket?,
-        dependencyEffect: SceneDependencyEffectInput? = nil,
         hasDependencyInput: Bool,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
         pipeline: SceneImageLayerPipeline,
@@ -699,11 +698,11 @@ struct SceneImageLayerCompositor {
             tint: SIMD3(repeating: 1),
             dependencyBlendMode: dependencyConsumed
                 ? nil
-                : dependencyEffect?.blendMode,
+                : request.dependencyEffects.first?.blendMode,
             sourceRepresentation: finalRepresentation
         )
         let finalDependencyTexture = dependencyConsumed
-            ? nil : dependencyEffect?.texture
+            ? nil : request.dependencyEffects.first?.texture
         let composited = SceneImageLayerMainPassRenderer.draw(
             texture: texture,
             mvp: request.mvp,

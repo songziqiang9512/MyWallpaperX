@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 182,
-      "bytes": 25532
+      "lines": 184,
+      "bytes": 25798
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -129,8 +129,8 @@
       "bytes": 42590
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 123,
-      "bytes": 74760
+      "lines": 124,
+      "bytes": 75304
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 174,
-      "bytes": 34270
+      "lines": 173,
+      "bytes": 33860
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -493,15 +493,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "96085bb8aab016a1c477fedd6cfba356c15e3193306494c68ccf4b0e6b396665",
-      "after": "b0ac65613e40ca2d34d115c2aee52db5f289f42665eb7a3412558ab713961552",
-      "owner": "scene-child-declaration-options",
-      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "42ff7f6059876e738ab63ade71be185e75d3922b2844acb9a9ad3be8e7c1c9b4",
       "after": "4c797b176f3463aef61205a24d8ca130aa49d06176de8f3caa6b6686ef1047d9",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "b0ac65613e40ca2d34d115c2aee52db5f289f42665eb7a3412558ab713961552",
+      "after": "ef4119361f89923eff29c61bca49b1e263c1daa045f3d54ad27996ea478ac458",
+      "owner": "scene-compositor-dependency-borrow-retirement",
+      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "681ed533a50fc9ae10ae2cecb0215be8d5236f642f6fca08394ce7f7a9c7cc78",
-      "after": "6e2ea60f8fd8089cd73f4989ce5f84a21c17678fb2c5fd541f64ff134e883ba4",
-      "owner": "scene-uniform-derived-global-scope",
-      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
+      "before": "6e2ea60f8fd8089cd73f4989ce5f84a21c17678fb2c5fd541f64ff134e883ba4",
+      "after": "9a1518a29474a8f64c4da5ceb8c09652b1cf1cc1c7f877e13ad821875c56a99b",
+      "owner": "scene-compositor-dependency-borrow-retirement",
+      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7c3a082122746f64b9e157b9fd1d76b6360982f444aed87d6e1f5c12805f3bb5",
-      "after": "1c768d39082771b7fc942b07e5a73369a805ab6af06e50aed1ee63b8c82ee4f6",
-      "owner": "scene-uniform-derived-global-scope",
-      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
+      "before": "1c768d39082771b7fc942b07e5a73369a805ab6af06e50aed1ee63b8c82ee4f6",
+      "after": "94a134d8692134e22fcb00e3d771cca5765ff05ad74b6ae6a499b2bf806b5c7a",
+      "owner": "scene-compositor-dependency-borrow-retirement",
+      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]
 }
