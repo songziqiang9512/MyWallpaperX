@@ -19,6 +19,7 @@ final class SceneScriptLocalStorageSession {
     func activatePersistence(replacing: SceneScriptLocalStorageSession?) {}
 }
 final class SoundRegistry {func setMuted(_ muted:Bool) {}}
+final class SceneParticlePlaybackState {}
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptStorageSession: SceneScriptLocalStorageSession? = nil }
 final class SceneAudioSpectrumInbox {
     static let shared = SceneAudioSpectrumInbox()
@@ -30,11 +31,16 @@ final class SceneAudioSpectrumInbox {
     }
 }
 final class SceneDesktopWallpaperSession {
+    struct PreparedParticleSurface {
+        let displayID: CGDirectDisplayID
+        let playback: SceneParticlePlaybackState
+    }
     let lifecycleID=UUID()
     var surfaces: [CGDirectDisplayID: Int] = [1:1, 2:2]
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool)->Void)?
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult?
+    var particleSurfaces: [PreparedParticleSurface] = []
     var soundPlaybackRegistry:SoundRegistry?
     var launchRequestID:UUID?
     var activeRecordID:String? { nil }
@@ -47,8 +53,10 @@ final class SceneDesktopWallpaperSession {
     var drainResult:Bool?
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget) {}
     func activate(_ context: SceneDesktopWallpaperLaunchContext,
+                  particleSurfaces: [PreparedParticleSurface],
                   userPropertyTextureLoad: SceneUserPropertyTextureLoadResult) throws {
         launchContext=context; self.userPropertyTextureLoad=userPropertyTextureLoad
+        self.particleSurfaces=particleSurfaces
     }
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) { visible=true }
     func suspendPresentationForHandoff() { visible=false }
@@ -87,10 +95,13 @@ final class SceneDesktopWallpaperSession {
         let host=SceneDesktopWallpaperHost()
         var outcomes:[Bool]=[]
         let preparedTextures=SceneUserPropertyTextureLoadResult()
+        var preparedParticles:[SceneDesktopWallpaperSession.PreparedParticleSurface]=[]
         func begin() throws -> SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
+            preparedParticles = ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init()) }
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
+            try host.beginCandidate(.init(),particleSurfaces:preparedParticles,
+                userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
             return host.candidateSession!
@@ -99,6 +110,8 @@ final class SceneDesktopWallpaperSession {
         a.onFirstFrameCompletion?(1,true)
         var result:[String:Bool]=[:]
         result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
+        result["candidateReceivesPreparedParticleSurfaces"] = a.particleSurfaces.map(\.displayID) == [1,2]
+            && zip(a.particleSurfaces,preparedParticles).allSatisfy { pair in pair.0.playback === pair.1.playback }
         result["allRequiredScreensGatePromotion"] = host.activeSession == nil && !a.visible
         a.onFirstFrameCompletion?(2,true)
         result["firstCandidatePromoted"] = host.activeSession === a && a.visible && outcomes == [true]
@@ -214,7 +227,10 @@ final class SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
             let requestID=presentation.requestID
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
-            try delayedHost.beginCandidate(.init(),userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
+            let delayedParticles:[SceneDesktopWallpaperSession.PreparedParticleSurface] =
+                ([1,2] as [CGDirectDisplayID]).map { .init(displayID:$0,playback:.init()) }
+            try delayedHost.beginCandidate(.init(),particleSurfaces:delayedParticles,
+                userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
                 if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
             }
             let candidate=delayedHost.candidateSession!

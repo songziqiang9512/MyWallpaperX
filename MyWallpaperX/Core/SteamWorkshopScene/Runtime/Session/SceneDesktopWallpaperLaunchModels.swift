@@ -62,10 +62,13 @@ nonisolated final class SceneWallpaperLaunchCancellation: @unchecked Sendable {
         lock.unlock()
     }
 
-    func check() throws {
+    var isCancelled: Bool {
         lock.lock()
-        let isCancelled = cancelled
-        lock.unlock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func check() throws {
         if isCancelled {
             throw SceneDesktopWallpaperHostLaunchError.cancelled
         }

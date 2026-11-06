@@ -33,7 +33,7 @@ Framebuffer source声明复验基于`a2dab41d06d6bd3199b02963edd2d0ff1281c633`�
 
 祖先平移粒子复验基于`47d55bcb7f869aaa9ff4af79bd69637432954b08`及16个产品差异，产品净增38行；已退pointer reference DTO和translation组件许可名单。签名Debug exec SHA为`61aba741e626e3a7f7011ab48e12c2b74c4c318e8de692e10c8c8794c93b3b80`、dylib为`2f19bb07798ab13e9915d0dc745e56db9bf3f5319450bd5eabc7dfb70e690bb8`，metallib为`ec41d3fa8cf7d86faccc64399b30775674d8a58052db12ad026c5e92373a97c4`；1,259个源码/配置输入构建前后一致。原输入、前后PNG、typed消费及独审在`.artifacts/scene-goal-dynamic-particle-ancestry-20261105/`。同为`-Onone`/DEBUG，不授性能或当前App全库资格。
 
-预热工作计价复验基于`4ea7ecafd1ce36fa541c9faedc480ee929401ddb`及Simulator原warmUp差异，产品净增9行；其余产品源码逐字不变。签名Debug exec SHA为`6b7b403cb91519b1cd84a67644cfe102e0496bcb3f0111bc46c883606a8a9ad7`、dylib为`35f8a3ddfc1b33693101569ba9b6d2499078255225a91f1fa59139b213760f52`，metallib为`ec41d3fa8cf7d86faccc64399b30775674d8a58052db12ad026c5e92373a97c4`；1,259个源码/配置输入构建前后一致。证据在`.artifacts/scene-goal-particle-prewarm-work-20261105/`；344 before复用上一专项同输入/61aba App的final结果，不冒称新增运行。同为`-Onone`/DEBUG，不授普通帧或全库性能资格。
+初始粒子完整预热基于`3833f6895701c5fa13bedb2b2fdb43e79ce4e996`及10个Scene产品路径，6041个冻结输入构建前后一致。签名`-Onone` Debug exec `3959ec86ac072ea38ad19335f10ffbbc8d2f464f1467068f60700268198ee138`、dylib `62b9c0d75fb550c4dfb2ec0457684a2d75795612609c0f3dfb0cfbcb0bef59b9`、metallib `5b7030277fd61460218fd71cd6b73dba6520b684a6701c01964b5f21d6c4d019`。同输入before/after各四场的首initial：3009275235/35由2975→6999，3448877775/1775由190→320，3745828537/51、65各137→200；原预热预算诊断退出，其余root/hidden、1937925563邻例及其余诊断集合保持。八终帧的request/CB/Surface/GPU与排空闭合。另两独立DEBUG Surface各有独立粒子实例，首帧均GPU完成，stop后2→0并排空；1553008362→3745828537的直接Host切换中，5.041秒粒子准备期间旧Scene产151帧，候选GPU完成后才退旧。25秒冷准备短窗的取消/排空与互斥探针拒绝另保原始记录，不记成功切换；另经真实multiplexer/client→daemon入口完成1553008362→3009275235切换：两request/两present同PID、client failures为空，1.698秒粒子准备期间旧Scene产51帧；该case不额外证明daemon最终GPU drain、准备中的控制ACK时限或最大帧隙。成本/原步状态对照和独审在`.artifacts/scene-goal-particle-prewarm-completion-20261106/`；before本轮工具仅逐次核exec，原dylib与801Scene源由已冻结F2回执补证，非Scene export不同；截图时相/实时音频不齐，不授逐像素一致、精确密度、官方全语义或全库性能。
 
 独立 named 来源定向复验基于`6f9cb0d672c7f405de9c93e5ce5f3e4c0499bae3`及3个Swift产品路径。签名Debug的exec SHA为`bb2ee8f1c7de703c6e080f10b2ab52daf23467d97b6cb70713b78b569931f37a`、dylib为`94132f24066ab28f418b1be5631fd20adbc8bb27bdc30985ec62e986d1da683e`；metallib与上述named专项相同。构建前后源码一致，原字节、两次实际失败与修正及运行收据保在`.artifacts/scene-goal-source-schedule-20261104/`；`-Onone`/DEBUG，不授优化性能资格。
 
@@ -121,6 +121,6 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 <a id="limits"></a>
 ## 未取得的资格
 
-本批为direct-host诊断与有界静帧，不覆盖普通App选择、client/daemon IPC、物理多屏、macOS26最低版本、受控音频/媒体/全部pointer或属性分支、连续长稳、完整周期、优化性能/能耗、正式发行或官方同输入像素一致性。资源/组件未观察或无法精确归因的阶段保unknown；主画面成立不关闭局部能力缺口。
+上述为direct-host诊断、有界静帧及已明示的同daemon切换，不覆盖普通App选择、其余IPC故障/时限、物理多屏、macOS26最低版本、受控音频/媒体/全部pointer或属性分支、连续长稳、完整周期、优化性能/能耗、正式发行或官方同输入像素一致性。资源/组件未观察或无法精确归因的阶段保unknown；主画面成立不关闭局部能力缺口。
 
 能力见[索引](README.md#overview)，测量方法见[开发工作流](../development/development-workflow.md#corpus-runtime-measurement)，性能资格见[性能卡](../roadmap/performance-convergence-card.md)。

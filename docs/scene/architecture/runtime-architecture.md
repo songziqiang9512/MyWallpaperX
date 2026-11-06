@@ -169,7 +169,7 @@ Remap 的 input、range、transform、operation、output 和原 lifecycle blend 
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。
-- Host 的 preparation queue、资源/文字/媒体/storage worker 和编译工具子进程处理准备。首 Surface 建立仍有必要的实例加载，不是所有首帧工作都离开主线程。
+- Host 的 preparation queue、资源/文字/媒体/storage worker 和编译工具子进程处理准备。初始粒子实例按[预热准备合同](../capabilities/particle-component-coverage.md#prewarm-work)在原队列完整准备、每 Surface 独占移交；AppKit Surface 与 GPU pipeline 仍在主线程安装。后续同 Session display rebuild 的粒子准备尚保有界路径。
 - Surface rebuild 保会话共享 Store/VM；只退休该屏实例、GPU 与 capture。destroy commit 退休粒子/Timeline 等活动状态；文字沿已采用 topology 和成功提交退休。Surface 采用时退休本屏 GPU/history，冻结帧继续持原值。
 - 完整 stop 先撤新工作与订阅，清 pending 输入，关闭 producer 并登记原 retiringSurfaceDrain；等文字、媒体和 deferred CPU 尾任务后，再用原 command queue barrier 等 GPU terminal。Host 还等待已接纳 preparation 队列尾 fence。
 - GPU、AV borrower、文件租约及 PNG 导出有不同终态。不能用窗口关闭、cache.remove、GPU completed 或进程 RSS 代替所有资源释放。

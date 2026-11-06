@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 184,
-      "bytes": 25798
+      "bytes": 25987
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -121,8 +121,8 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 209,
-      "bytes": 36192
+      "lines": 211,
+      "bytes": 36565
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 226,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 126,
-      "bytes": 79273
+      "bytes": 80227
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 34362
+      "bytes": 34113
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -466,30 +466,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "42ff7f6059876e738ab63ade71be185e75d3922b2844acb9a9ad3be8e7c1c9b4",
-      "after": "4c797b176f3463aef61205a24d8ca130aa49d06176de8f3caa6b6686ef1047d9",
-      "owner": "scene-child-declaration-options",
-      "reason": "Replace declaration-wide zero-flags permission with cold actual-consumer qualification in the existing Child owner. Preserve passive start-index static-CP behavior, current author child births/draws, production Metal and real Debug/Release facts; retain unresolved CP source/bit semantics without restoring obsolete rejection conclusions. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-declaration-options"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
       "after": "8b1473ff883502c4b7a476c60aab62255bfee0512bb56ec55342a155b2fdd49c",
       "owner": "scene-uniform-derived-global-scope",
       "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "b0ac65613e40ca2d34d115c2aee52db5f289f42665eb7a3412558ab713961552",
-      "after": "ef4119361f89923eff29c61bca49b1e263c1daa045f3d54ad27996ea478ac458",
-      "owner": "scene-compositor-dependency-borrow-retirement",
-      "reason": "Keep terminal composition dependent on the original request vector and existing consumption ticket. Remove redundant singular helper borrowing without a new owner, branch, gate, state or permission; retain late output reuse accounting. Synchronize qualified runtime boundaries and remove closed structural debt without raising the singular baseline.",
-      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
@@ -520,21 +502,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "ef4119361f89923eff29c61bca49b1e263c1daa045f3d54ad27996ea478ac458",
+      "after": "3dae57fe23995055a2970ab9ef62341a0daafe62bbbeb6003e30c8efd740df33",
+      "owner": "scene-complete-initial-prewarm",
+      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "d4b710449764625114f855a70796280246db1ae578cef15445c7cce62a7a952c",
+      "after": "3807ae73269435e49e8805fc1b46f885a8944f450e884c59b9c25abdc4b21e36",
+      "owner": "scene-complete-initial-prewarm",
+      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cfb7995c3ae4b748e00936ba7585b9f0ce380f59d8c955ba17c43ce1d124d3fe",
-      "after": "0dfbb2dac00bb251cd3637cbb2aa718add3117f8bdac0b177d9dbb8c39430571",
-      "owner": "scene-remap-input-qualification",
-      "reason": "Record independent static-distance and EventDeath scene-aligned qualification without upgrading them to runtime support; preserve the failed sine model and original resolution/sampling limits. Keep actual author arc loss and next prewarm-completion measurement in the existing queue. No new product owner or document authority.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "0dfbb2dac00bb251cd3637cbb2aa718add3117f8bdac0b177d9dbb8c39430571",
+      "after": "3770c57736933729081b8a91972b889906df8248a45ce737d2cc29840f93f1ce",
+      "owner": "scene-complete-initial-prewarm",
+      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1a5619839048e3cbd67021a4afc98de7f4d61c2d8d847f8f2e4ff368a13e46c7",
-      "after": "7b822beb000a03baa5c57933b0a503c21661697c01bcd9eb290c743e732de407",
-      "owner": "scene-remap-input-qualification",
-      "reason": "Record independent static-distance and EventDeath scene-aligned qualification without upgrading them to runtime support; preserve the failed sine model and original resolution/sampling limits. Keep actual author arc loss and next prewarm-completion measurement in the existing queue. No new product owner or document authority.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "7b822beb000a03baa5c57933b0a503c21661697c01bcd9eb290c743e732de407",
+      "after": "82e1fcc9036b3f1a61e642bacff5ccef3ff5171d869c4086c00e08ad8fadbee3",
+      "owner": "scene-complete-initial-prewarm",
+      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     }
   ]
 }

@@ -25,6 +25,7 @@ BUILTIN = SCENE / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"
 RENDER_STATE = SCENE / "Runtime/Frame/SceneMaterialRenderState.swift"
 RENDER_STATE_COMPILATION = SCENE / "Compilation/Material/SceneMaterialRenderState+Compilation.swift"
 FIXTURE = Path(__file__).with_name("fixtures") / "ScenePreparedBaseImageResourcesHarness.swift"
+PARTICLE_INPUTS = FIXTURE.with_name("ScenePreparedBaseImageParticleInputsChecks.swift")
 
 
 @unittest.skipUnless(platform.system() == "Darwin", "requires native Metal textures")
@@ -47,7 +48,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
              str(SCENE / "Compilation/Material/ScenePreparedImageMaterialCatalog.swift"),
-             str(FIXTURE), "-framework", "Metal", "-module-cache-path",
+             str(FIXTURE), str(PARTICLE_INPUTS), "-framework", "Metal", "-module-cache-path",
              str(workspace / "modules"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
         )
@@ -68,6 +69,12 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(case["loads"], 4)
         for key in ("shared", "missingLocal", "readFailure", "healthy", "stable", "cancelled"):
             self.assertTrue(case[key], case)
+
+    def test_particle_image_providers_share_final_prepared_outcomes(self) -> None:
+        for name, facts in self.facts["particleImageInputs"].items():
+            with self.subTest(name=name):
+                for key, passed in facts.items():
+                    self.assertTrue(passed, (name, key, facts))
 
     def test_static_geometry_uses_natural_metadata_independent_of_dynamic_alias_admission(self) -> None:
         for name in ("staticAuto", "staticAutoMissing", "staticBroad", "staticDeclaredAuto", "staticDeclaredExplicitAuto"):

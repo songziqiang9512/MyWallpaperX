@@ -144,6 +144,54 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertFalse(row["partialLimited"])
         self.assertTrue(row["partialDrained"])
 
+    def test_complete_mode_runs_dense_boids_and_beyond_the_bounded_ceiling(self) -> None:
+        expected = {"dense": (1920, 60, 20_000, 0),
+                    "boids": (1920, 60, 64, 8), "beyond3600": (4096, 128, 2, 8)}
+        for name, (steps, duration, population, history) in expected.items():
+            row = self.result["complete"][name]
+            with self.subTest(name=name):
+                self.assertReplay(row)
+                self.assertEqual(row["completedSteps"], steps)
+                self.assertEqual(row["time"], duration)
+                self.assertEqual(row["population"], population)
+                self.assertEqual(row["historyCount"], history)
+                self.assertFalse(row["limited"])
+                self.assertEqual(row["handoffCadences"], 8)
+                if history:
+                    self.assertTrue(row["historyHasPopulation"])
+
+    def test_complete_mode_preserves_the_fractional_last_slice_and_history(self) -> None:
+        row = self.result["complete"]["partial"]
+        self.assertEqual(row["time"], 128 + 1 / 128)
+        self.assertEqual(row["age"], 128 + 1 / 128)
+        self.assertEqual(row["x"], 8192.5)
+        self.assertTrue(row["samePlainLinearState"])
+        self.assertTrue(row["samePlainHistory"])
+        self.assertEqual(row["historyCount"], 8)
+        self.assertFalse(row["limited"])
+        self.assertTrue(row["drained"])
+
+    def test_cancellation_stops_at_complete_steps_without_changing_live_handoff(self) -> None:
+        expected = {"beforeStart": 0, "threeSteps": 3, "step240": 240,
+                    "step241": 241, "bounded": 241}
+        for name, steps in expected.items():
+            row = self.result["cancellation"][name]
+            with self.subTest(name=name):
+                self.assertReplay(row)
+                self.assertEqual(row["time"], steps / 32)
+                self.assertEqual(row["cancellationChecks"], steps + 1)
+                self.assertTrue(row["checksOnlyDuringWarmup"])
+                self.assertTrue(row["cancelled"])
+                self.assertTrue(row["limited"])
+
+        row = self.result["cancellation"]["continues"]
+        self.assertReplay(row)
+        self.assertEqual(row["time"], 20)
+        self.assertEqual(row["cancellationChecks"], 640)
+        self.assertTrue(row["checksOnlyDuringWarmup"])
+        self.assertFalse(row["cancelled"])
+        self.assertFalse(row["limited"])
+
 
 if __name__ == "__main__":
     unittest.main()

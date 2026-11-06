@@ -164,6 +164,7 @@ final class SceneDesktopWallpaperSession {
 
     func activate(
         _ context: SceneDesktopWallpaperLaunchContext,
+        particleSurfaces: [PreparedParticleSurface],
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     ) throws {
         // Preparation has completed and relinquished the shared VM domain.
@@ -212,7 +213,7 @@ final class SceneDesktopWallpaperSession {
             context,
             rebuild: {
                 rebuildSurfaces(
-                    teardownReason: teardownReason
+                    teardownReason: teardownReason, preparedParticles: particleSurfaces
                 )
             },
             revokeLaunch: { stop() }
@@ -458,7 +459,8 @@ final class SceneDesktopWallpaperSession {
 
     @discardableResult
     private func rebuildSurfaces(
-        teardownReason: SceneGraphExecutionResetReason = .surfaceStop
+        teardownReason: SceneGraphExecutionResetReason = .surfaceStop,
+        preparedParticles: [PreparedParticleSurface]? = nil
     ) -> Bool {
         guard let launchContext, let videoTextureSourceRegistry else { return false }
         let domain = launchContext.propertyVectorScriptProgram.domain
@@ -471,21 +473,13 @@ final class SceneDesktopWallpaperSession {
         )
         defer { videoTextureSourceRegistry.completeSurfaceRebuild() }
 
-        // The pushed topology owns the visible display set (multi-display on
-        // = all screens; off = the first screen). Entries resolve back to
-        // their live NSScreen; screens that no longer exist are skipped.
-        // NSScreen capture stays as the pre-push fallback.
-        let allScreens = NSScreen.screens
         let targetTopology = screenTopology.isEmpty
-            ? SceneScreenTopology.capture(screens: allScreens)
-            : screenTopology
-        let liveScreensByID = Dictionary(
-            uniqueKeysWithValues: allScreens.compactMap { screen in
-                Self.screenID(for: screen).map { ($0, screen) }
-            }
-        )
-        var surfaceScreens = targetTopology.compactMap { entry -> (NSScreen, CGDirectDisplayID)? in
-            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
+            ? SceneScreenTopology.capture(screens: NSScreen.screens) : screenTopology
+        let preparedByDisplay = preparedParticles.map {
+            Dictionary(uniqueKeysWithValues: $0.map { ($0.displayID, $0.playback) })
+        }
+        let surfaceScreens = Self.surfaceScreens(topology: targetTopology).filter {
+            preparedByDisplay == nil || preparedByDisplay?[$0.1] != nil
         }
         guard !surfaceScreens.isEmpty else {
             teardownSurfaces(clearContext: false, reason: teardownReason)
@@ -505,21 +499,6 @@ final class SceneDesktopWallpaperSession {
 
         var created = false
         var wroteLog = false
-#if DEBUG
-        // Bounded evidence-only surfaces use actual independent views, drawables,
-        // graph runtimes and resource pools on the available physical screen.
-        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-           let requested = ProcessInfo.processInfo.environment[
-               "MWX_SCENE_DEBUG_SURFACE_COUNT"
-           ].flatMap(Int.init), (2...4).contains(requested),
-           let first = surfaceScreens.first {
-            while surfaceScreens.count < requested {
-                let identity = CGDirectDisplayID.max - UInt32(surfaceScreens.count)
-                guard !surfaceScreens.contains(where: { $0.1 == identity }) else { break }
-                surfaceScreens.append((first.0, identity))
-            }
-        }
-#endif
         var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
         let committedTopology = launchContext.sceneScriptDynamicLayerRuntime.snapshot()
         do {
@@ -666,7 +645,7 @@ final class SceneDesktopWallpaperSession {
             surface.installDirectModelAnimations(
                 playbackRuntime: launchContext.puppetAnimationPlaybackRuntime,
                 destroyedAuthoredLayerIDs: committedTopology.destroyedAuthoredLayerIDs)
-            let candidateParticles = SceneParticlePlaybackState(
+            let candidateParticles = preparedByDisplay?[screenID] ?? SceneParticlePlaybackState(
                 descriptor: metalView.renderer.renderDescriptor,
                 preparedAssets: launchContext.preparedParticleAssets,
                 device: metalView.metalDevice,
@@ -758,7 +737,7 @@ final class SceneDesktopWallpaperSession {
 
         preparedSurfaceIDs = Set(surfaceScreens.map(\.1))
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.particlePlayback?.hasAudioConsumer == true })
-        rebuiltTopology = targetTopology
+        rebuiltTopology = targetTopology.filter { surfaces[$0.displayID] != nil }
         let storageScreenIdentity = surfaces.count == 1
             ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
             : nil
@@ -792,7 +771,7 @@ final class SceneDesktopWallpaperSession {
         }
     }
 
-    private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {
+    static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {
         (screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 

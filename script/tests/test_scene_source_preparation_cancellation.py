@@ -33,7 +33,6 @@ def catalog_preparation_inputs():
     admission = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift").read_text()
     route_owner = (SCENE / "Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift").read_text()
     dependency = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift").read_text()
-    aggregate = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text()
     named_model = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift").read_text()
     transport = "\n".join([
         swift_declaration(admission, "nonisolated struct SceneResolvedMaterialAdmittedLayer {"),
@@ -44,8 +43,6 @@ def catalog_preparation_inputs():
         + swift_declaration(route_owner, "    enum SourceRoute: Equatable {") + "\n}",
         swift_declaration(dependency, "nonisolated enum SceneResolvedMaterialDependencyOwnership:"),
         swift_declaration(named_model, "nonisolated struct SceneStaticModelNamedTextureBinding:"),
-        "extension SceneDependencyRenderPlan {\n"
-        + swift_declaration(aggregate, "    nonisolated struct MultiProviderAggregate:") + "\n}",
     ])
     sources = [*cache.SWIFT_SOURCES, *[SCENE / name for name in (
         "Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",

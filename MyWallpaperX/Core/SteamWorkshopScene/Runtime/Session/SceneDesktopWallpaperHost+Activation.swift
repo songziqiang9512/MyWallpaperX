@@ -4,6 +4,7 @@ import Foundation
 extension SceneDesktopWallpaperHost {
     func beginCandidate(
         _ context: SceneDesktopWallpaperLaunchContext,
+        particleSurfaces: [SceneDesktopWallpaperSession.PreparedParticleSurface],
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -67,7 +68,8 @@ extension SceneDesktopWallpaperHost {
             } else { promote() }
         }
         do {
-            try session.activate(context, userPropertyTextureLoad: userPropertyTextureLoad)
+            try session.activate(context, particleSurfaces: particleSurfaces,
+                                 userPropertyTextureLoad: userPropertyTextureLoad)
         } catch {
             discardCandidate()
             throw error

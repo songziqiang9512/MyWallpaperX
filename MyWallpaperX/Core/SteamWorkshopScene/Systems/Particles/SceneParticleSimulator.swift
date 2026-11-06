@@ -112,7 +112,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
-        prewarmStepBudget: Int = 240,
+        prewarmStepBudget: Int? = 240,
+        shouldCancelPrewarm: (() -> Bool)? = nil,
         maximumEmissionDuration: Double? = nil,
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
@@ -223,7 +224,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
                historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0,
-               controlPointParticleSpace: initialControlPointParticleSpace)
+               controlPointParticleSpace: initialControlPointParticleSpace,
+               shouldCancel: shouldCancelPrewarm)
 #if DEBUG
         componentObservation?.origin = "live"
 #endif
@@ -443,8 +445,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(
-        duration: Double, stepBudget: Int, historyCapacity: Int,
-        controlPointParticleSpace: SceneParticleControlPointParticleSpace?
+        duration: Double, stepBudget: Int?, historyCapacity: Int,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
+        shouldCancel: (() -> Bool)?
     ) {
         guard duration != 0 else { return }
         let requestedSteps = (duration / fixedTimeStep).rounded(.up)
@@ -455,14 +458,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
-        // Frame-created children keep 240 steps. Root extensions charge actual
-        // births/live work after each whole step, so at most one step spills
-        // past the work budget; history remains conservatively weighted.
-        let count = min(Int(requestedSteps), min(max(stepBudget, 0), 3_600))
+        // Background preparation completes the request. Synchronous callers
+        // retain their existing bounded steps and work estimate.
+        let requestedCount = Int(requestedSteps)
+        let count = stepBudget.map { min(requestedCount, min(max($0, 0), 3_600)) }
+            ?? requestedCount
         var initializerCost = 0.0
         var operatorCost = 0.0
         var boidsCount = 0.0
-        if count > 240 {
+        if stepBudget != nil && count > 240 {
             for value in definition.initializers {
                 initializerCost += 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
             }
@@ -474,8 +478,17 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         var workRemaining = 4_000_000.0
         var completedSteps = 0
         var remaining = duration
+#if DEBUG
+        var cancelled = false
+#endif
         for _ in 0..<count {
-            if completedSteps >= 240 && workRemaining <= 0 { break }
+            if shouldCancel?() == true {
+#if DEBUG
+                cancelled = true
+#endif
+                break
+            }
+            if stepBudget != nil && completedSteps >= 240 && workRemaining <= 0 { break }
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
@@ -483,7 +496,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             let previousTime = simulationTime
             step(by: slice, controlPointParticleSpace: controlPointParticleSpace)
             completedSteps += 1
-            if completedSteps > 240 {
+            if stepBudget != nil && completedSteps > 240 {
                 // IDs include failed births that reached initialization; lives
                 // still contains the actual pre-death-compaction population.
                 let births = Double(nextParticleID - previousID)
@@ -502,10 +515,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             remaining -= slice
         }
 #if DEBUG
-        if completedSteps < Int(requestedSteps) {
+        if completedSteps < requestedCount {
             diagnostics.append(.init(
                 kind: .prewarmBudgetExceeded,
                 componentName: "requested=\(duration),simulated=\(simulationTime),steps=\(completedSteps)"
+                    + (cancelled ? ",cancelled=true" : "")
             ))
         }
 #endif

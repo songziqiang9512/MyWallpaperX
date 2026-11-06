@@ -69,6 +69,41 @@ struct SceneDesktopWallpaperLaunchContext {
             }
     }
 
+    func prepareParticleSurfaces(
+        displayIDs: [CGDirectDisplayID], cancellation: SceneWallpaperLaunchCancellation?
+    ) throws -> [SceneDesktopWallpaperSession.PreparedParticleSurface] {
+        let initialValues = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 0, generation: 0,
+            definitions: sceneScriptScalarProgram.definitions,
+            userValues: [:], timelineValues: [:], sceneScriptValues: [:]
+        ).snapshot
+        let topology = sceneScriptDynamicLayerRuntime.snapshot()
+        let layerImage = preparedDeviceResources.baseImages.particleLayerImageCompilation(
+            descriptor: runtimeInput.renderDescriptor,
+            destroyedIDs: topology.destroyedAuthoredLayerIDs
+        )
+        var prepared: [SceneDesktopWallpaperSession.PreparedParticleSurface] = []
+        for displayID in displayIDs {
+            try cancellation?.check()
+            let playback = SceneParticlePlaybackState(
+                descriptor: runtimeInput.renderDescriptor,
+                preparedAssets: preparedParticleAssets,
+                device: preparedDeviceResources.device,
+                textureLoader: preparedDeviceResources.baseImages.textureLoader,
+                layerImage: layerImage,
+                preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+                initialDynamicValues: initialValues,
+                initialPlayback: topology.particlePlayback,
+                destroyedAuthoredLayerIDs: topology.destroyedAuthoredLayerIDs,
+                rootPrewarmStepBudget: nil,
+                shouldCancelPrewarm: { cancellation?.isCancelled == true }
+            )
+            try cancellation?.check()
+            prepared.append(.init(displayID: displayID, playback: playback))
+        }
+        return prepared
+    }
+
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
         preparedFirstSurfaceRuntime.take() ?? ScenePreparedDeviceResources.makeMaterialRuntime(
             catalog: resolvedMaterialCatalog,
@@ -77,5 +112,26 @@ struct SceneDesktopWallpaperLaunchContext {
             device: preparedDeviceResources.device,
             capturesExecutionObservations: capturesExecutionObservations
         )
+    }
+}
+
+/// Prepares exactly one surface-scoped resolved-material runtime while the
+/// launch worker continues compiling SceneScript Programs. The prepared
+/// runtime is consumed by the first surface only; later displays still receive
+/// independent graph/history/epoch owners.
+final class ScenePreparedFirstSurfaceRuntime {
+    private let lock = NSLock()
+    private var runtime: SceneResolvedMaterialRuntimeBridge?
+
+    init(_ runtime: SceneResolvedMaterialRuntimeBridge) {
+        self.runtime = runtime
+    }
+
+    func take() -> SceneResolvedMaterialRuntimeBridge? {
+        lock.lock()
+        defer { lock.unlock() }
+        let value = runtime
+        runtime = nil
+        return value
     }
 }

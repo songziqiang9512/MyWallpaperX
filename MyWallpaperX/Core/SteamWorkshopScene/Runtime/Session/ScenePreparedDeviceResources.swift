@@ -312,15 +312,8 @@ final class ScenePreparedBaseImageResources {
                 }
             }
             try cancellationCheck()
-            // Cancellation aborts the pass with pending textures discarded; a
-            // successful pass flushes every deferred generation before any frame
-            // can sample the returned textures. A flush failure reclaims every
-            // entry whose GPU publication cannot be proven AND evicts those
-            // textures from the loader's GPU cache: the affected layers and
-            // dynamic images lose their prepared outcome, and their render-time
-            // inline loads miss the cache, re-decode and retry — the pre-batch
-            // single-texture fail-soft semantics. Every device is drained by
-            // the flush, so no deferred texture escapes accounting.
+            // Failed GPU publications lose their outcome and cache entry. Particle
+            // image providers take the existing inline retry here, before prewarm.
             let mipmapFlush = uploadCommandQueue.flushMipmapBatch()
             let conversionFlush = uploadCommandQueue.flushUncommittedCommandBuffers()
             let failedTextures = mipmapFlush.failedTextures + conversionFlush
@@ -331,7 +324,8 @@ final class ScenePreparedBaseImageResources {
                 }
                 var reclaimed = 0
                 for (layerID, entry) in entries where isFailed(entry.outcome) {
-                    entries.removeValue(forKey: layerID)
+                    entries[layerID] = .init(input: entry.input, source: entry.source,
+                        outcome: nil, naturalSizeWH: entry.naturalSizeWH)
                     reclaimed += 1
                 }
                 for (modelPath, resource) in dynamicImageResources {
@@ -340,16 +334,38 @@ final class ScenePreparedBaseImageResources {
                     dynamicImageResources.removeValue(forKey: modelPath)
                     reclaimed += 1
                 }
-                // Shared sources appear under multiple entries while the failed
-                // identity list holds each texture once; count reclaims so
-                // loaded+failed stays consistent with the entry accounting.
+                // One failed texture may back several layer/model publications.
                 loadedCount -= reclaimed
                 failedCount += reclaimed
                 textureLoader.evictTextures(containedIn: failedTextures)
             }
-            // An authored ordinary model can be requested through initial config
-            // without a literal script reference. Reuse only GPU-published entries
-            // whose source is the model default, never a layer-local override.
+            let particleImageProviders = Set(descriptor.layers.filter { $0.contentKind == "particle" }
+                .flatMap { $0.authoredDependencies.filter { $0.type == "emitterimage" }.map(\.layerID) })
+            for layer in descriptor.layers where layer.isImageRenderable
+                && particleImageProviders.contains(layer.id) && deferredRequests[layer.id] == nil {
+                if case .loaded? = entries[layer.id]?.outcome { continue }
+                try cancellationCheck()
+                guard let url = resolver.resolvePrimaryTexture(for: layer),
+                      let source = try entries[layer.id]?.source
+                        ?? textureLoader.sourceKey(for: url, checkCancellation: cancellationCheck) else { continue }
+                let preparedTex = try textureLoader.prepareTexSource(from: url, source: source,
+                    checkCancellation: cancellationCheck)
+                guard preparedTex?.container?.isVideoMp4 != true else { continue }
+                let outcome = SceneBaseImageTextureLoad.load(from: url, usesPuppet: layer.puppetMeshPath != nil,
+                    loader: textureLoader, spriteTextureLoader: spriteTextureLoader, device: device,
+                    source: source, preparedTexSource: preparedTex, checkCancellation: cancellationCheck)
+                try cancellationCheck()
+                let previous = entries[layer.id]
+                entries[layer.id] = .init(input: url, source: source, outcome: outcome,
+                    naturalSizeWH: previous?.naturalSizeWH ?? preparedTex?.container.map {
+                        [Float($0.imageWidth), Float($0.imageHeight)] })
+                if previous != nil { failedCount -= 1 }
+                switch outcome {
+                case .loaded: loadedCount += 1
+                case .failed: failedCount += 1
+                }
+            }
+            // Model-default aliases reuse published entries, never layer overrides.
             for layer in descriptor.layers where layer.contentKind == "image" {
                 try cancellationCheck()
                 guard let modelPath = layer.imagePath,
@@ -376,10 +392,7 @@ final class ScenePreparedBaseImageResources {
                 dynamicResources: dynamicImageResources, resolver: resolver,
                 textureLoader: textureLoader, device: device,
                 cancellationCheck: cancellationCheck)
-            // Every launch texture is GPU-published past this point: drop the
-            // loader's CPU-side decoded bytes so they do not sit next to their
-            // GPU copies for the whole session. Later loads hit the GPU cache;
-            // a miss re-decodes from the source file.
+            // GPU publications no longer need the loader's decoded CPU copies.
             textureLoader.evictDecodedCaches()
             return ScenePreparedBaseImageResources(
                 textureLoader: textureLoader,
@@ -395,6 +408,19 @@ final class ScenePreparedBaseImageResources {
                 failedCount: failedCount
             )
         }
+    }
+
+    func particleLayerImageCompilation(descriptor: SceneRenderDescriptor, destroyedIDs: Set<Int> = [])
+        -> SceneParticleLayerImageEmitterCompilation {
+        let loaded: [Int: SceneBaseImageTextureLoad.Loaded] = entries
+            .filter { !destroyedIDs.contains($0.key) }.compactMapValues {
+                guard case let .loaded(value)? = $0.outcome else { return nil }
+                return value
+            }
+        return SceneParticleLayerImageEmitterCompiler.compile(descriptor: descriptor,
+            texturesByLayerID: loaded.mapValues(\.texture),
+            animatedSourceLayerIDs: Set(loaded.compactMap { $0.value.animation == nil ? nil : $0.key }),
+            destroyedAuthoredLayerIDs: destroyedIDs)
     }
 
     func outcome(
@@ -880,27 +906,6 @@ final class ScenePreparedDeviceResourcesTask {
             throw CancellationError()
         }
         try externalCancellationCheck()
-    }
-}
-
-/// Prepares exactly one surface-scoped resolved-material runtime while the
-/// launch worker continues compiling SceneScript Programs. The prepared
-/// runtime is consumed by the first surface only; later displays still receive
-/// independent graph/history/epoch owners.
-final class ScenePreparedFirstSurfaceRuntime {
-    private let lock = NSLock()
-    private var runtime: SceneResolvedMaterialRuntimeBridge?
-
-    init(_ runtime: SceneResolvedMaterialRuntimeBridge) {
-        self.runtime = runtime
-    }
-
-    func take() -> SceneResolvedMaterialRuntimeBridge? {
-        lock.lock()
-        defer { lock.unlock() }
-        let value = runtime
-        runtime = nil
-        return value
     }
 }
 

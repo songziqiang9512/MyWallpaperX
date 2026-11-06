@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 extension SceneDesktopWallpaperSession.Surface {
@@ -131,3 +132,37 @@ extension SceneDesktopWallpaperSession.Surface {
     }
 }
 #endif
+
+
+extension SceneDesktopWallpaperSession {
+    struct PreparedParticleSurface {
+        let displayID: CGDirectDisplayID
+        let playback: SceneParticlePlaybackState
+    }
+
+    static func surfaceScreens(topology: [SceneScreenTopology])
+        -> [(NSScreen, CGDirectDisplayID)] {
+        let allScreens = NSScreen.screens
+        let target = topology.isEmpty ? SceneScreenTopology.capture(screens: allScreens) : topology
+        let liveScreensByID = Dictionary(uniqueKeysWithValues: allScreens.compactMap { screen in
+            screenID(for: screen).map { ($0, screen) }
+        })
+        var screens = target.compactMap { entry -> (NSScreen, CGDirectDisplayID)? in
+            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
+        }
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           let requested = ProcessInfo.processInfo.environment[
+               "MWX_SCENE_DEBUG_SURFACE_COUNT"
+           ].flatMap(Int.init), (2...4).contains(requested),
+           let first = screens.first {
+            while screens.count < requested {
+                let identity = CGDirectDisplayID.max - UInt32(screens.count)
+                guard !screens.contains(where: { $0.1 == identity }) else { break }
+                screens.append((first.0, identity))
+            }
+        }
+#endif
+        return screens
+    }
+}

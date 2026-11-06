@@ -93,7 +93,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.spot_light_runtime = SPOT_LIGHT_RUNTIME.read_text(encoding="utf-8")
         cls.prepared_device_resources = PREPARED_DEVICE_RESOURCES.read_text(
             encoding="utf-8"
-        )
+        ) + PREPARED_DEVICE_RESOURCES.with_name("SceneDesktopWallpaperLaunchContext.swift").read_text()
         cls.metal_view = METAL_VIEW.read_text(encoding="utf-8") + "\n" + METAL_VIEW.with_name("SceneMetalView+Debug.swift").read_text(encoding="utf-8")
         cls.metal_renderer = read_source_family(METAL_RENDERER)
         cls.renderer_diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
@@ -442,6 +442,8 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
 @MainActor final class SceneDesktopWallpaperSession {
     var values: [String: SceneUserPropertyValue]
     var calls = 0
+    struct PreparedParticleSurface {}
+    nonisolated static func surfaceScreens(topology: [Int]) -> [(Int, UInt32)] { [(0, 1)] }
     let acceptsJ: Bool
     let activeRecordID:String?
     func cancelPendingUserTextureUpdates() {}
@@ -465,10 +467,12 @@ struct SceneUserPropertyTextureLoadResult {}
         var context: SceneDesktopWallpaperLaunchContext
         let model: SceneRuntimeModel
         let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
+        let particleSurfaces: [SceneDesktopWallpaperSession.PreparedParticleSurface]
     }
     let launchPreparationQueue = DispatchQueue(label: "self-authored-launch-boundary")
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
+    var screenTopology: [Int] = []
     var pendingLaunchCompletion: (@MainActor (Result<SceneRuntimeModel, Error>) -> Void)?
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var launchState: SceneWallpaperLaunchState?
@@ -481,13 +485,14 @@ struct SceneUserPropertyTextureLoadResult {}
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
+        surfaceDisplayIDs: [UInt32],
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?) throws -> PreparedLaunch {
         textureDecodeCacheBudget.control.prepare()
         // A noncooperative leaf probes the production generation guards too.
         progress?(.preparingPrograms, "controlled late preparation")
         return .init(context: .init(values: propertyOverrides, generation: sceneScriptGeneration),
-                     model: .init(values: propertyOverrides), userPropertyTextureLoad: .init())
+                     model: .init(values: propertyOverrides), userPropertyTextureLoad: .init(), particleSurfaces: [])
     }
     func publishLaunchState(_ state: SceneWallpaperLaunchState) {
         launchState = state
@@ -502,6 +507,7 @@ struct SceneUserPropertyTextureLoadResult {}
         trace.append("rollback-unconfirmed")
     }
     func beginCandidate(_ context: SceneDesktopWallpaperLaunchContext,
+        particleSurfaces: [SceneDesktopWallpaperSession.PreparedParticleSurface],
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void) throws {

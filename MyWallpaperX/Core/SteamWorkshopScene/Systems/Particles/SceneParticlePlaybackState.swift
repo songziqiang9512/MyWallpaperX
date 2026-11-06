@@ -43,7 +43,9 @@ final class SceneParticlePlaybackState {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
-        destroyedAuthoredLayerIDs: Set<Int> = []
+        destroyedAuthoredLayerIDs: Set<Int> = [],
+        rootPrewarmStepBudget: Int? = 3_600,
+        shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
@@ -56,7 +58,9 @@ final class SceneParticlePlaybackState {
                 preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback,
-            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
+            rootPrewarmStepBudget: rootPrewarmStepBudget,
+            shouldCancelPrewarm: shouldCancelPrewarm
         )
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)

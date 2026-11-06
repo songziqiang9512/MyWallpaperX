@@ -12,7 +12,13 @@ HARNESS = r'''
 import simd
 struct SceneDesktopWallpaperLaunchContext {
     struct Input {let renderDescriptor:SceneRenderDescriptor}
-    struct Program {let generation:UInt64}
+    struct Program {
+        let generation:UInt64
+        let domain:SceneScriptQuickJSDomain?
+        init(generation:UInt64,domain:SceneScriptQuickJSDomain? = nil) {
+            self.generation=generation;self.domain=domain
+        }
+    }
     let runtimeInput:Input
     let propertyVectorScriptProgram:Program
     var mutationRuntime:SceneScriptDynamicLayerRuntime? = nil
@@ -81,7 +87,7 @@ final class SceneDesktopWallpaperSession {
             session.surfaces=[1:.init(particlePlayback:a,scriptGeneration:1),
                               2:.init(particlePlayback:b,scriptGeneration:1)]
             var context=SceneDesktopWallpaperLaunchContext(runtimeInput:.init(renderDescriptor:dual),
-                propertyVectorScriptProgram:.init(generation:1))
+                propertyVectorScriptProgram:.init(generation:1,domain:domain))
             context.mutationRuntime=runtime
             var committedBeforeRetirement=false
             a.onRetire={committedBeforeRetirement=runtime.snapshot().destroyedAuthoredLayerIDs == [42]

@@ -17,11 +17,12 @@ import simd
          "renderer": [["name": "sprite"]]]
     }
 
-    static func make(_ root: [String: Any], budget: Int = 3_600, step: Double = 1.0 / 32,
-                     rate: Double = 1, history: Int = 0) -> SceneParticleSimulator {
+    static func make(_ root: [String: Any], budget: Int? = 3_600, step: Double = 1.0 / 32,
+                     rate: Double = 1, history: Int = 0,
+                     shouldCancel: (() -> Bool)? = nil) -> SceneParticleSimulator {
         SceneParticleSimulator(definition: parser.parse(root: root),
             instanceOverride: parser.parseInstanceOverride(["rate": rate]), seed: 73,
-            fixedTimeStep: step, prewarmStepBudget: budget,
+            fixedTimeStep: step, prewarmStepBudget: budget, shouldCancelPrewarm: shouldCancel,
             stepSnapshotPolicy: history > 1 ? .init(interval: step * 4, maximumSnapshots: history) : nil)
     }
 
@@ -32,10 +33,15 @@ import simd
 
     static func sameObservableState(_ a: SceneParticleSimulator, _ b: SceneParticleSimulator) -> Bool {
         let x = a.frameSnapshot(), y = b.frameSnapshot()
+        let cachesMatch = x.positionOscillationCache.count == y.positionOscillationCache.count
+            && x.positionOscillationCache.allSatisfy { key, left in
+                guard let right = y.positionOscillationCache[key] else { return false }
+                return left.frequency == right.frequency && left.scale == right.scale && left.phase == right.phase
+            }
         guard x.particles == y.particles, x.random.state == y.random.state,
               x.nextParticleID == y.nextParticleID, x.simulationTime == y.simulationTime,
               x.accumulator == y.accumulator, x.normalizedLives == y.normalizedLives,
-              x.controlPointConstraintHistory == y.controlPointConstraintHistory,
+              x.controlPointConstraintHistory == y.controlPointConstraintHistory, cachesMatch,
               x.emitters.count == y.emitters.count else { return false }
         return zip(x.emitters, y.emitters).allSatisfy { left, right in
             left.elapsed == right.elapsed && left.remainder == right.remainder
@@ -173,7 +179,9 @@ import simd
     }
 
     static func boundaries() -> [String: Any] {
-        let child = make(source(start: 60), budget: 240)
+        let child = SceneParticleSimulator(definition: parser.parse(root: source(start: 60)),
+            instanceOverride: parser.parseInstanceOverride(["rate": 1]), seed: 73,
+            fixedTimeStep: step)
         var empty = source(capacity: 0, start: 112.5, rate: 0)
         let exact = make(empty, budget: Int.max)
         empty["starttime"] = 112.5 + step
@@ -195,9 +203,93 @@ import simd
             "partialDrained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty]
     }
 
+    static func complete() -> [String: Any] {
+        let movement: [String: Any] = ["name": "movement", "gravity": "0 0 0"]
+        let boids: [String: Any] = ["name": "boids", "neighborthreshold": 100,
+            "separationfactor": 0, "cohesionfactor": 1, "alignmentfactor": 1]
+        let inputs: [(String, [String: Any], Int, Int)] = [
+            ("dense", source(rate: 64_000), 1920, 0),
+            ("boids", source(capacity: 64, rate: 0, burst: 64, lifetime: 3600,
+                operators: [boids, movement]), 1920, 8),
+            ("beyond3600", source(capacity: 2, start: 128, rate: 0, burst: 2,
+                lifetime: 3600), 4096, 8)]
+        var rows: [String: Any] = [:]
+        for (name, input, steps, history) in inputs {
+            rows[name] = replay(make(input, budget: nil, history: history), source: input,
+                completedSteps: steps, history: history, handoffSteps: 8)
+        }
+        var partial = source(capacity: 1, start: 128 + 1.0 / 128, rate: 0, burst: 1,
+            lifetime: 3600)
+        partial["emitter"] = [["id": 11, "name": "boxrandom", "rate": 0, "instantaneous": 1,
+            "distancemin": "0 0 0", "distancemax": "0 0 0"]]
+        partial["initializer"] = [["name": "lifetimerandom", "min": 3600, "max": 3600],
+            ["name": "velocityrandom", "min": "64 0 0", "max": "64 0 0"]]
+        let tail = make(partial, budget: nil, history: 8)
+        var cold = partial; cold.removeValue(forKey: "starttime")
+        let plain = SceneParticleSimulator(definition: parser.parse(root: cold),
+            instanceOverride: parser.parseInstanceOverride(["rate": 1]), seed: 73,
+            fixedTimeStep: 1.0 / 128,
+            stepSnapshotPolicy: .init(interval: step * 4, maximumSnapshots: 8))
+        // The finer live step reaches the fractional endpoint while retaining
+        // the same history interval as this constant-velocity prewarm control.
+        for _ in 0..<16_385 {
+            plain.advance(by: 1.0 / 128)
+            _ = plain.consumeBirthEvents(); _ = plain.consumeDeathEvents()
+        }
+        plain.advance(by: 0)
+        let samePlainState = sameObservableState(tail, plain)
+        let retainedHistory = tail.consumeStepSnapshots()
+        rows["partial"] = ["time": tail.simulationTime,
+            "age": tail.particles.first?.age ?? -1, "x": tail.particles.first?.position.x ?? -1,
+            "samePlainLinearState": samePlainState,
+            "samePlainHistory": retainedHistory == plain.consumeStepSnapshots(),
+            "historyCount": retainedHistory.count,
+            "limited": tail.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "drained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty]
+        return rows
+    }
+
+    static func cancellation() -> [String: Any] {
+        let operators: [[String: Any]] = [
+            ["name": "oscillateposition", "frequencymin": 1, "frequencymax": 2,
+                "scalemin": "1 0 0", "scalemax": "3 1 0"],
+            ["name": "movement", "gravity": "0 0 0", "drag": 0]]
+        let input = source(capacity: 64, start: 20, rate: 32, lifetime: 0.125, operators: operators)
+        let cases: [(String, Int?, Int)] = [
+            ("beforeStart", nil, 0), ("threeSteps", nil, 3),
+            ("step240", nil, 240), ("step241", nil, 241), ("bounded", 3600, 241)]
+        var rows: [String: Any] = [:]
+        for (name, budget, stop) in cases {
+            var checks = 0
+            let warm = make(input, budget: budget, history: 8, shouldCancel: {
+                let cancelled = checks >= stop
+                checks += 1
+                return cancelled
+            })
+            let checksAtReturn = checks
+            var row = replay(warm, source: input, completedSteps: stop, history: 8, handoffSteps: 8)
+            row["cancellationChecks"] = checks
+            row["checksOnlyDuringWarmup"] = checks == checksAtReturn
+            row["cancelled"] = warm.diagnostics.contains {
+                $0.kind == .prewarmBudgetExceeded && $0.componentName?.contains(",cancelled=true") == true
+            }
+            rows[name] = row
+        }
+        var checks = 0
+        let warm = make(input, budget: nil, history: 8, shouldCancel: { checks += 1; return false })
+        let checksAtReturn = checks
+        var row = replay(warm, source: input, completedSteps: 640, history: 8, handoffSteps: 8)
+        row["cancellationChecks"] = checks
+        row["checksOnlyDuringWarmup"] = checks == checksAtReturn
+        row["cancelled"] = warm.diagnostics.contains { $0.componentName?.contains(",cancelled=true") == true }
+        rows["continues"] = row
+        return rows
+    }
+
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
-            "populationWork": boidsAndEmpty(), "bounds": boundaries()]
+            "populationWork": boidsAndEmpty(), "bounds": boundaries(),
+            "complete": complete(), "cancellation": cancellation()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

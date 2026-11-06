@@ -34,6 +34,7 @@ struct ScenePreparedPuppetResources {
     func defaultPose(for layer: SceneRenderDescriptor.Layer) -> ScenePuppetLayerLoad.PreparedPose? { nil }
 }
 struct SceneRenderDescriptor {
+    struct Dependency { let layerID: Int; let index: Int; let type: String }
     struct Layer {
         let id: Int
         var contentKind = "image"
@@ -44,6 +45,7 @@ struct SceneRenderDescriptor {
         var initialConfiguration: SceneJSONValue? = nil
         var size: String? = "3 4"
         var sizeWH: [Float]? = [3, 4]
+        var authoredDependencies: [Dependency] = []
         var isImageRenderable: Bool { ["image", "solid"].contains(contentKind) }
     }
     struct ModelMaterialLink { let modelPath: String; let materialPath: String? }
@@ -96,6 +98,17 @@ enum SceneMaterialPropertyBindingCompiler {
     }
 }
 struct TestColorFormat { let metalPixelFormat: MTLPixelFormat = .rgba16Float }
+struct SceneParticleLayerImageEmitterCompilation {
+    let textures: [Int: MTLTexture]
+    let animated: Set<Int>
+    let destroyed: Set<Int>
+}
+enum SceneParticleLayerImageEmitterCompiler {
+    static func compile(descriptor: SceneRenderDescriptor, texturesByLayerID: [Int: MTLTexture],
+        animatedSourceLayerIDs: Set<Int>, destroyedAuthoredLayerIDs: Set<Int>) -> SceneParticleLayerImageEmitterCompilation {
+        .init(textures: texturesByLayerID, animated: animatedSourceLayerIDs, destroyed: destroyedAuthoredLayerIDs)
+    }
+}
 struct SceneTextureDecodeCacheBudget { let maximumBytes: Int }
 final class SceneMultiImageSpriteTextureLoader {}
 
@@ -288,7 +301,7 @@ final class SceneTextureLoader {
         Self.totalLoadCount += 1
         Self.loadHook?()
         let name = url.lastPathComponent
-        if name == "decode-failure.png" { return .failed(.decodeFailed) }
+        if name == "decode-failure.png" || (name == "retry-decode.png" && loadCount == 1) { return .failed(.decodeFailed) }
         if name == "video.tex" { return .failed(.texContainsVideoPayload) }
         let texture: MTLTexture
         if let cached = textures[url.diagnosticPath] { texture = cached }
@@ -302,14 +315,14 @@ final class SceneTextureLoader {
             texture = allocated
             textures[url.diagnosticPath] = texture
         }
-        if name == "upload-failure.png" { uploadCommandQueue.failedTextures.append(texture) }
+        if name == "upload-failure.png" || (name == "retry-upload.png" && loadCount == 1) { uploadCommandQueue.failedTextures.append(texture) }
         let candidateTexture = name == "mismatched-candidate.png"
             ? device.makeTexture(descriptor: MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false))! : texture
         let candidate: SceneTextureCandidate? = name == "no-candidate.png" ? nil
             : .init(texture: candidateTexture, loadOrdinal: loadCount)
         return .loaded(.init(texture: texture, candidate: candidate,
-            animation: name == "loaded-animation.png" ? "animation" : nil, loadOrdinal: loadCount))
+            animation: ["loaded-animation.png", "animated.tex"].contains(name) ? "animation" : nil, loadOrdinal: loadCount))
     }
     func evictTextures(containedIn failed: [MTLTexture]) {
         evictionCount += failed.count
@@ -962,6 +975,7 @@ enum Checks {
             "stable": paintResources.textureLoader.dataLoads == loads,
             "cancelled": cancelled]
 
+        results["particleImageInputs"] = try particleImageInputChecks(root: root, device: device).mapValues { $0 as Any }
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

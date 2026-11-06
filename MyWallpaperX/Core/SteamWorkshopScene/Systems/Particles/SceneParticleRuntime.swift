@@ -184,7 +184,9 @@ final class SceneParticleRuntime {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
-        destroyedAuthoredLayerIDs: Set<Int> = []
+        destroyedAuthoredLayerIDs: Set<Int> = [],
+        rootPrewarmStepBudget: Int? = 3_600,
+        shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
         self.device = device
         self.descriptor = descriptor
@@ -381,6 +383,8 @@ final class SceneParticleRuntime {
                     controlPointFrame: initialControlPointFrame,
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
+                    prewarmStepBudget: rootPrewarmStepBudget,
+                    shouldCancelPrewarm: shouldCancelPrewarm,
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry
                   ) else { continue }
@@ -832,6 +836,8 @@ final class SceneParticleRuntime {
         controlPointFrame: SceneParticleControlPointFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
+        prewarmStepBudget: Int?,
+        shouldCancelPrewarm: (() -> Bool)?,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
@@ -915,7 +921,8 @@ final class SceneParticleRuntime {
             initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
             seed: UInt64(bitPattern: Int64(layer.id)),
-            prewarmStepBudget: 3_600,
+            prewarmStepBudget: prewarmStepBudget,
+            shouldCancelPrewarm: shouldCancelPrewarm,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
             rootWorldTranslation: rootWorldTranslation,

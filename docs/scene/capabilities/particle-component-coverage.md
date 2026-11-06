@@ -14,13 +14,15 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 源码：[Runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift)、[PlaybackState](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift)。
 
 <a id="prewarm-work"></a>
-### 预热工作预算
+### 预热准备与工作边界
 
-预热沿原 Simulator 固定步进、RNG、出生/死亡和 SnapshotRecorder 执行。首240步与frame-created child的既有步数范围保持；root扩展仍最多3,600步、四百万加权工作单位。扩展按每个实际完成步流式计价：进入初始化的出生次数承接原initializer权重，原normalizedLives的死亡压缩前数量承接常规/算子权重，Boids保实际数量平方的保守项；不把最大容量或每个存量粒子都当作每步重新初始化。
+初始 launch 在原 Host preparation queue 的资源/Program join 后，为主线程冻结的每个目标 Surface 构造独占 PlaybackState/Runtime，完整执行作者 starttime 的原步序列，再随 PreparedLaunch 一次移交。Session 只安装实例与 GPU pipeline，不共享 mutable Simulator、不重新冷构造或恢复种子。原请求 token 在完整步之间响应取消，未完成结果丢弃，原队列 fence 等待退出；不迁移 VM、Clock 或最终输出。
 
-本切片只调整原warmUp，Trail历史仍按实际处理数量乘原historyCapacity保守计价，不改Recorder、不跳历史或新增普通帧计数/持久预算。每步完整执行后计价，越预算便停止下一步；最多多一个完整步的估价，不为精确截断增加快照事务或回滚。原事件每步排空、部分末步、模拟rate与后续live随机序列均保留。缺省/无效时长、容量和资源的入口职责不扩张。
+LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outcome 时的既有 inline 重试前移，保存最终 loaded/failed outcome，Surface 与 compiler 采用同一 texture/animation。正常已加载输入不重复读取，最终失败不增加第三次重试；deferred、视频及动态 source 继续原 provider 边界。
 
-starttime请求的wall-step序列与实际simulationTime分开：实例rate仍在原step内应用一次，验收按相同请求步序列与rate的正常模拟对照，不能强制simulationTime等于starttime。对稀疏大容量、密集/短命/失败出生、Boids、无粒子和Trail历史分别核实际状态、预算退出、初始画面与准备成本；预算耗尽保真实部分结果和诊断，不承诺所有作者都完成长预热。官方starttime单位与本地成本估计不是同一资格。
+预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，逐步排空历史事件，保部分末步和后续 live 随机序列；实例 rate 在原 step 内应用一次，simulationTime 不必等于 starttime 请求。完整初始 root 不计算虚拟权重，也不受3,600步/四百万工作单位限制。frame-created child 保持240步；后续同 Session display rebuild 仍有上述 root 步数/实际出生与死亡压缩前人口的加权上限，预算耗尽保部分状态及诊断，完整后台化归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。入口无效时长、容量与资源边界不变。
+
+验收核完整真实状态/RNG/事件/历史与 live handoff、多 Surface 独占、取消释放、真实初始画面和候选准备期间旧 Scene 输出。[运行证据](runtime-evidence-current.md)拥有当前结果；standalone 成本、直接 DEBUG Host 与物理多屏、daemon IPC、官方 starttime 全语义和逐帧流畅度分别设证明上限。
 
 <a id="components"></a>
 ## 当前组件面
