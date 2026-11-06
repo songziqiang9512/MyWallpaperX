@@ -39,14 +39,26 @@ extension Harness {
             instantaneous: 1,
             under: directory
         )
-        try writeParticle(
-            "particles/rope-trail-missing-length.json",
-            material: "materials/shared.json",
-            renderer: "ropetrail",
-            velocityX: 100,
-            moves: true,
-            under: directory
-        )
+        try writePNG(directory.appendingPathComponent("materials/renamed.png"))
+        let historyVariants: [(name: String, id: Int, path: String, material: String, length: Any?)] = [
+            ("default", 32, "particles/rope-trail-missing-length.json", "materials/shared.json", nil),
+            ("explicit", 32, "particles/rope-trail-unit-length.json", "materials/shared.json", 1),
+            ("renamed", 132, "particles/renamed-trace.json", "materials/renamed.json", nil),
+        ]
+        // Fixed ranges and a zero-radius emitter make ID/seed renaming geometric equivalence.
+        for variant in historyVariants {
+            try writeParticle(variant.path, material: variant.material, renderer: "ropetrail",
+                rendererLength: variant.length, velocityX: 100, lifetime: 1.25,
+                moves: true, rate: 0, instantaneous: 1, under: directory)
+        }
+        let rejectedLengths: [(id: Int, name: String, value: Any)] = [
+            (39, "null", NSNull()), (40, "text", "bad"), (41, "zero", 0), (42, "negative", -1),
+        ]
+        for item in rejectedLengths {
+            try writeParticle("particles/rope-trail-length-\(item.name).json",
+                material: "materials/shared.json", renderer: "ropetrail",
+                rendererLength: item.value, velocityX: 100, moves: true, under: directory)
+        }
         try writeParticle(
             "particles/rope-trail-animated.json",
             material: "materials/animated.json",
@@ -98,8 +110,8 @@ extension Harness {
                 layer(36, "particles/rope-trail-object-renderer.json"),
                 layer(37, "particles/rope-trail-only-malformed-renderer.json"),
                 layer(38, "particles/rope-trail-empty-renderer.json"),
-            ],
-            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37, 38],
+            ] + rejectedLengths.map { layer($0.id, "particles/rope-trail-length-\($0.name).json") },
+            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37, 38] + rejectedLengths.map(\.id),
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -113,12 +125,14 @@ extension Harness {
                     texturePaths: ["animated.tex"],
                     blending: "additive"
                 ),
+                .init(materialPath: "materials/renamed.json", shaderPath: "genericparticle",
+                    texturePaths: ["renamed.png"], blending: "additive"),
             ]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
-        func makeRuntime() -> SceneParticleRuntime {
+        func makeRuntime(_ input: SceneRenderDescriptor? = nil) -> SceneParticleRuntime {
             SceneParticleRuntime(
-                descriptor: descriptor,
+                descriptor: input ?? descriptor,
                 cacheDirectory: directory,
                 device: device,
                 staticWorldSpaceFrames: [
@@ -143,6 +157,44 @@ extension Harness {
                 $0.layerID == 31
             }
         }
+        let healthyRuntime = makeRuntime(.init(
+            layers: [layer(31, "particles/rope-trail.json")], renderOrderLayerIDs: [31],
+            materialPasses: descriptor.materialPasses
+        ))
+        _ = healthyRuntime.advance(by: 0)
+        let healthyPeerMatches = ropeTrailSignature(healthyRuntime.advance(by: 0.5).first)
+            == ropeTrailSignature(coarseBatch)
+        healthyRuntime.teardown()
+        func historySequence(_ runtime: SceneParticleRuntime, layerID: Int, deltas: [TimeInterval])
+            -> (signatures: [[Float]], liveCounts: [Int]) {
+            var signatures: [[Float]] = []
+            var liveCounts: [Int] = []
+            for delta in deltas {
+                signatures.append(ropeTrailSignature(runtime.advance(by: delta).first { $0.layerID == layerID }))
+                liveCounts.append(runtime.lifecycleSnapshot.rootParticleCount)
+            }
+            return (signatures, liveCounts)
+        }
+        var histories: [String: [String: Any]] = [:]
+        for variant in historyVariants {
+            let runtime = makeRuntime(.init(
+                layers: [layer(variant.id, variant.path)], renderOrderLayerIDs: [variant.id],
+                materialPasses: descriptor.materialPasses
+            ))
+            let birth = historySequence(runtime, layerID: variant.id, deltas: [0.125, 0.5])
+            let checkpoint = runtime.frameSnapshot()
+            // At 1.125 the window has trimmed; at 1.375/1.875 only the retired ribbon remains.
+            let deltas: [TimeInterval] = [0.5, 0.25, 0.5, 0.5]
+            let history = historySequence(runtime, layerID: variant.id, deltas: deltas)
+            runtime.restoreFrame(checkpoint)
+            let replay = historySequence(runtime, layerID: variant.id, deltas: deltas)
+            histories[variant.name] = [
+                "signatures": birth.signatures + history.signatures,
+                "liveCounts": birth.liveCounts + history.liveCounts,
+                "replayMatches": history.signatures == replay.signatures && history.liveCounts == replay.liveCounts,
+            ]
+            runtime.teardown()
+        }
 #if DEBUG
         let diagnosticDetails = coarseRuntime.diagnostics.map {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
@@ -152,6 +204,8 @@ extension Harness {
         let uploadedCoarse = uploadPipeline.prepare(coarseBatch.map { [$0] } ?? []).first
         var facts1: [String: Any] = [
             "activeLayerIDs": coarseRuntime.activeLayerIDs,
+            "histories": histories,
+            "healthyPeerMatches": healthyPeerMatches,
             "prewarmedInstanceCount": prewarmedBatch?.instances.count ?? -1,
             "prewarmedAllSegmentsMoveForward": prewarmedBatch?.instances.allSatisfy {
                 $0.velocityAndTrail.x > 0

@@ -560,53 +560,42 @@ class SceneParticleRuntimeTests(
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
         result = self.run_harness("rope-trail-synthetic")
-        self.assertEqual(result["activeLayerIDs"], [31])
+        self.assertEqual(result["activeLayerIDs"], [31, 32])
         self.assertGreaterEqual(result["prewarmedInstanceCount"], 4)
         self.assertTrue(result["prewarmedAllSegmentsMoveForward"])
-        coarse = result["coarseSignature"]
-        fine = result["fineSignature"]
+        coarse, fine = result["coarseSignature"], result["fineSignature"]
         self.assertEqual(len(coarse), len(fine))
         self.assertGreaterEqual(len(coarse), 4 * 8)
         for coarse_value, fine_value in zip(coarse, fine):
             self.assertAlmostEqual(coarse_value, fine_value, places=5)
-        self.assertTrue(result["bufferMatches"])
-        self.assertTrue(result["usesPerspective"])
-        self.assertTrue(result["sizeIsWorldSpace"])
-        self.assertTrue(result["orientationScreen"])
-        self.assertFalse(result["mixedRendererLoaded"])
-        self.assertFalse(result["malformedRendererLoaded"])
-        self.assertFalse(result["objectRendererLoaded"])
-        self.assertFalse(result["onlyMalformedRendererLoaded"])
-        self.assertTrue(result["missingSpriteRenderer"])
-        self.assertIn(
-            "trailRendererUnsupported:32:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:33:ropetrail:animatedTexture",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:34:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:35:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "missingSpriteRenderer:36:",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "missingSpriteRenderer:37:",
-            result["diagnosticDetails"],
-        )
-        self.assertFalse(result["emptyRendererLoaded"])
-        self.assertIn(
-            "missingSpriteRenderer:38:",
-            result["diagnosticDetails"],
-        )
+        for field in ["bufferMatches", "usesPerspective", "sizeIsWorldSpace",
+                      "orientationScreen", "healthyPeerMatches", "missingSpriteRenderer"]:
+            self.assertTrue(result[field], field)
+        histories = result["histories"]
+        for name in ["default", "explicit", "renamed"]:
+            with self.subTest(history=name):
+                history = histories[name]
+                signatures = history["signatures"]
+                self.assertEqual(history["liveCounts"], [1, 1, 1, 0, 0, 0])
+                self.assertTrue(history["replayMatches"])
+                self.assertEqual(len(signatures), 6)
+                for signature in signatures[:-1]:
+                    self.assertGreaterEqual(len(signature), 8)
+                self.assertEqual(signatures[-1], [])
+                self.assertNotEqual(signatures[0], signatures[2])
+                self.assertNotEqual(signatures[3], signatures[4])
+                self.assertEqual(signatures, histories["explicit"]["signatures"])
+        for field in ["mixedRendererLoaded", "malformedRendererLoaded", "objectRendererLoaded",
+                      "onlyMalformedRendererLoaded", "emptyRendererLoaded"]:
+            self.assertFalse(result[field], field)
+        for layer_id, reason in [(33, "animatedTexture"), (34, "unsupportedProfile"),
+                                 (35, "unsupportedProfile"), (39, "unsupportedProfile"),
+                                 (40, "unsupportedProfile"), (41, "unsupportedProfile"),
+                                 (42, "unsupportedProfile")]:
+            self.assertIn(f"trailRendererUnsupported:{layer_id}:ropetrail:{reason}",
+                          result["diagnosticDetails"])
+        for layer_id in [36, 37, 38]:
+            self.assertIn(f"missingSpriteRenderer:{layer_id}:", result["diagnosticDetails"])
 
     def test_rope_runtime_connects_live_particles_and_fails_closed(self) -> None:
         result = self.run_harness("rope-synthetic")

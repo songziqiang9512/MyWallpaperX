@@ -290,11 +290,12 @@ nonisolated struct SceneParticleDefinitionParser {
                 kind: .malformedComponent, path: "renderer", componentName: name
             ))
         }
+        let length: Double? = root["length"] == nil && kind == .ropeTrail ? 1 : Self.number(root["length"])
         return SceneParticleRenderer(
             id: Self.integer(root["id"]), kind: kind,
             orientation: Self.trimmed(root["orientation"] as? String)?.lowercased(),
             axis: Self.numericValue(root["axis"]), rawFlags: Self.integer(root["flags"]) ?? 0,
-            length: Self.number(root["length"]), minimumLength: Self.number(root["minlength"]),
+            length: length, minimumLength: Self.number(root["minlength"]),
             maximumLength: Self.number(root["maxlength"]), segments: Self.integer(root["segments"]),
             subdivision: Self.number(root["subdivision"]),
             fadesAlpha: Self.boolean(root["fadealpha"]),

@@ -165,6 +165,15 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
 
+<a id="rope-trail-length"></a>
+### RopeTrail 的缺省 length
+
+省略 `length` 的合法轨迹与显式 `1` 使用同一准备计划。固定官方2.8.0.42的原生加载归一静态观察支持缺键填1.0；不据常量推时间单位、完整history公式或官方像素一致。
+
+原DefinitionParser入口仅为RopeTrail真正缺键补1，传原typed Double给RopeTrailPlan；null、坏类型与显式非正值保原边界，不把所有nil都变缺省。原step snapshot、history裁尾/退役、UV/joins、资源与GPU继续消费同一计划；不新增字段、状态、缓存或普通帧分支。此处替换缺键误拒，不扩renderer flags、负subdivision、动画或预算。
+
+回归沿真实Parser→Runtime比较省略/显式1及改名的出生、轨迹与快照重试，保null/坏值/零/负值及健康peer；App核同帧两轨平移后实际像素、原作者活动root的出生/材质/主合成/GPU，另核未参与修改的RopeTrail。无实际轨迹或首障碍转移时记录断点，不调长度救图。
+
 <a id="optional-refraction-normal"></a>
 ### REFRACT 的可选 normal
 
