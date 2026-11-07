@@ -245,7 +245,7 @@ func physicsSubsetChecks() throws -> Bool {
             && read(subject.state.renderFrame) == values
         let badCount = ScenePuppetPlaybackState.makeDirectModel(layerID: 1, vertices: [],
             evaluator: subject.evaluator, selection: subject.selection)
-        let attachment = SceneMdlPuppetAttachment(boneIndex: 0, name: "unqualified",
+        let attachment = SceneMdlPuppetAttachment(boneIndex: 0, name: "unqualified", isNamedBinding: true,
             modelLocalFrameColumnMajor: columns(matrix_identity_float4x4),
             modelBindFrameColumnMajor: columns(matrix_identity_float4x4))
         let badAttachment = ScenePuppetPlaybackState.makeDirectModel(layerID: 1,

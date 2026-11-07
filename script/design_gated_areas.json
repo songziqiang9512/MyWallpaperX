@@ -127,7 +127,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ImageLayerEncoding.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
@@ -146,6 +145,20 @@
         "SceneUtilityLayerRuntimePlanner",
         "SceneCaptureGeometryResolver"
       ]
+    },
+    {
+      "id": "scene-puppet-attachment-binding",
+      "title": "Puppet有序挂点与冷/热名称绑定",
+      "owner": "scene-puppet-reader/prepared-descriptor/pose-projection",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "Contract: designDoc#puppet-attachments. Preserve MDAT raw order and records; resolve first named binding once at the original Reader using its existing Set, then consume that immutable fact in cold Descriptor and live PoseProjection. Retire duplicate-name whole-table rejection and unfiltered unique-key construction. Keep structural/bone/finite affine boundaries, existing model-to-Scene Y conjugation, original parent×attachment×child world resolver and unique output. No new owner, cache, numeric Script API or per-frame name resolution. Official selection evidence is bounded to the fixed-client ordered/renamed controls; broader parity is not implied.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift"
+      ],
+      "contentPatterns": []
     },
     {
       "id": "web-mediaremote-nowplaying",

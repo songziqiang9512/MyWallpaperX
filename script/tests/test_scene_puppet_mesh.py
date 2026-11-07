@@ -158,6 +158,15 @@ def matrix(tx: float = 0, ty: float = 0) -> list[float]:
     return values
 
 
+def build_attachment_block(records: list[tuple[int, str, list[float]]], offset: int) -> bytes:
+    block = bytearray(b"MDAT0001\x00" + b"\x00" * 4 + struct.pack("<H", len(records)))
+    for bone, name, transform in records:
+        block += struct.pack("<H", bone) + name.encode() + b"\x00"
+        block += struct.pack("<16f", *transform)
+    struct.pack_into("<I", block, 9, offset + len(block))
+    return bytes(block)
+
+
 def build_attachment_mdl(
     attachment_bone: int = 1,
     duplicate_name: bool = False,
@@ -166,6 +175,7 @@ def build_attachment_mdl(
     bone_frames: list[tuple[int, list[float]]] | None = None,
     attachment_names: tuple[str, str] = ("hand", "orb"),
     attachment_local: list[float] | None = None,
+    attachment_records: list[tuple[int, str, list[float]]] | None = None,
 ) -> bytes:
     body = bytearray(build_mdl(magic=magic, include_mdls=False))
     if bone_frames is None:
@@ -182,16 +192,11 @@ def build_attachment_mdl(
     struct.pack_into("<I", mdls, 9, mdat_offset)
 
     names = [attachment_names[0], attachment_names[0] if duplicate_name else attachment_names[1]]
-    mdat = bytearray(b"MDAT0001\x00" + b"\x00" * 4 + struct.pack("<H", 2))
-    for bone, name, transform in [
+    records = attachment_records if attachment_records is not None else [
         (attachment_bone, names[0], attachment_local if attachment_local is not None else matrix(5, 7)),
         (0, names[1], matrix()),
-    ]:
-        mdat += struct.pack("<H", bone)
-        mdat += name.encode() + b"\x00"
-        mdat += struct.pack("<16f", *transform)
-    struct.pack_into("<I", mdat, 9, mdat_offset + len(mdat))
-    return bytes(body + mdls + mdat)
+    ]
+    return bytes(body + mdls) + build_attachment_block(records, mdat_offset)
 
 
 class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
@@ -278,6 +283,17 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             "bad-attachment-bone.mdl": build_attachment_mdl(attachment_bone=9),
             "duplicate-attachment.mdl": build_attachment_mdl(duplicate_name=True),
         }
+        records = [(1, "socket", matrix(5, 7)), (0, "peer", matrix(-2, 3)),
+                   (0, "anchor", matrix(9, 4)), (1, "socket", matrix(23, -11))]
+        for label, items in {
+            "ordered-duplicates": records,
+            "renamed-reordered": [(b, "jointA" if n == "socket" else n, m)
+                                  for b, n, m in [records[3], *records[1:3], records[0]]],
+            "renamed-first-only": [(1, "otherSocket", matrix(5, 7)), *records[1:]],
+            "shadowed-bad-bone": [*records[:3], (9, "socket", matrix())],
+            "shadowed-nonfinite": [*records[:3], (1, "socket", matrix(0, float("nan")))],
+        }.items():
+            cls.fixtures[label + ".mdl"] = build_attachment_mdl(attachment_records=items)
         legacy13 = dict(magic=b"MDLV0013", stride=52)
         cls.legacy13_vertices = [(-6.5, 13.25, 2, 0.125, 0.875),
                                  (18.75, -5.5, 2, 0.75, 0.125), (4.25, 31.5, 2, 0.375, 0.625)]
@@ -721,7 +737,6 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
                 self.assertIn("requires", row["attachmentError"])
         for name, message in (("v19-bad-bone.mdl", "references missing bone 9"),
                               ("v19-bad-parent.mdl", "invalid parent 1 for bone 1"),
-                              ("v19-duplicate.mdl", "duplicate MDAT0001 attachment name"),
                               ("v19-nonfinite.mdl", "invalid"),
                               ("v19-truncated.mdl", "invalid MDAT0001 bounds"),
                               ("v19-bad-bounds.mdl", "invalid MDAT0001 bounds")):
@@ -738,7 +753,6 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
 
     def test_legacy_attachment_integrity_rejections(self):
         self.assertIn("references missing bone 9", self.results["legacy-bad-bone.mdl"]["attachmentError"])
-        self.assertIn("duplicate", self.results["legacy-duplicate.mdl"]["attachmentError"])
 
     def test_legacy_invalid_bounds_and_nonfinite_matrix_fail_closed(self):
         for name in ("legacy-truncated.mdl", "legacy-nonfinite.mdl", "legacy-bad-bounds.mdl"):
@@ -750,9 +764,38 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         entry = self.results["bad-attachment-bone.mdl"]
         self.assertIn("references missing bone 9", entry["attachmentError"])
 
-    def test_duplicate_attachment_name_fails_closed(self):
-        entry = self.results["duplicate-attachment.mdl"]
-        self.assertIn("duplicate MDAT0001 attachment name", entry["attachmentError"])
+    def test_duplicate_names_preserve_raw_records_and_bind_the_first_in_existing_profiles(self):
+        for name in ("duplicate-attachment.mdl", "legacy-duplicate.mdl", "v19-duplicate.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertNotIn("attachmentError", entry)
+                self.assertEqual([a["name"] for a in entry["attachments"]], ["hand", "hand"])
+                self.assertEqual([a["boneIndex"] for a in entry["attachments"]], [1, 0])
+                self.assertEqual(entry["dynamicAttachments"], {"hand": [55, -87]})
+
+    def test_reordered_and_renamed_duplicates_keep_indices_and_select_the_new_first(self):
+        for label, name, first, last, position in (
+            ("ordered-duplicates", "socket", [5, 7, 0], [23, -11, 0], [55, -87]),
+            ("renamed-reordered", "jointA", [23, -11, 0], [5, 7, 0], [73, -69]),
+        ):
+            with self.subTest(label=label):
+                row = self.results[label + ".mdl"]
+                self.assertNotIn("attachmentError", row)
+                self.assertEqual([a["name"] for a in row["attachments"]], [name, "peer", "anchor", name])
+                self.assertEqual(row["attachments"][0]["modelLocalFrame"][12:15], first)
+                self.assertEqual(row["attachments"][3]["modelLocalFrame"][12:15], last)
+                self.assertEqual(row["dynamicAttachments"], {name: position, "peer": [-2, -3], "anchor": [9, -4]})
+        renamed = self.results["renamed-first-only.mdl"]
+        self.assertEqual(renamed["dynamicAttachments"]["otherSocket"], [55, -87])
+        self.assertEqual(renamed["dynamicAttachments"]["socket"], [73, -69])
+
+    def test_shadowed_records_still_require_valid_bones_and_finite_matrices(self):
+        for label, reason in (("shadowed-bad-bone", "references missing bone 9"),
+                              ("shadowed-nonfinite", "invalid affine matrix")):
+            with self.subTest(label=label):
+                row = self.results[label + ".mdl"]
+                self.assertNotIn("attachments", row)
+                self.assertIn(reason, row["attachmentError"])
 
     def test_real_ahri_asset_cross_checks_three_attachment_bind_frames(self):
         if self.real_result is None:

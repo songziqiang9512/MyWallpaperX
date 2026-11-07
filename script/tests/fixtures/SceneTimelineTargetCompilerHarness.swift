@@ -13,6 +13,7 @@ struct SceneProject {
 }
 struct SceneMdlPuppetAttachment {
     let name: String
+    let isNamedBinding = true
     let sceneBindFrameColumnMajor: [Float]
 }
 struct SceneShaderContract {

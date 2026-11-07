@@ -35,6 +35,7 @@ from pathlib import Path
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 from script.tests.test_scene_static_model_reader import build_model
+from script.tests.test_scene_puppet_mesh import build_attachment_mdl, matrix as attachment_matrix
 from script.tests.test_scene_effect_render_graph import (
     HARNESS as EFFECT_GRAPH_HARNESS,
     SWIFT_SOURCES as EFFECT_GRAPH_SOURCES,
@@ -543,6 +544,21 @@ enum Harness {
         return result
     }
 
+    static func attachmentPreparation(_ directory: URL) throws -> [String: Any] {
+        var result: [String: Any] = [:]
+        for mode in ["attachment-first", "attachment-renamed-reordered"] {
+            let model = try SceneRuntimeModelBuilder().build(rootURL: directory.appendingPathComponent(mode))
+            let layers = model.renderDescriptor.layers
+            let raw = model.assetCatalog.models.first { $0.relativePath == "models/\(mode).json" }?.puppetAttachments ?? []
+            result[mode] = ["rawNames": raw.map(\.name),
+                "bind": layers.first { $0.id == 2 }?.parentAttachmentBindFrame ?? [],
+                "unknownHasBind": layers.first { $0.id == 4 }?.parentAttachmentBindFrame != nil,
+                "healthyOrigin": layers.first { $0.id == 3 }?.originXYZ ?? [],
+                "layerIDs": layers.map(\.id).sorted()]
+        }
+        return result
+    }
+
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
             throw HarnessError.missingFixture
@@ -623,6 +639,7 @@ enum Harness {
             "creationGeometry": creationGeometry(),
             "compositionGeometry": compositionGeometry(),
             "modelVisibilityPreparation": try modelVisibilityPreparation(rootURL.deletingLastPathComponent()),
+            "attachmentPreparation": try attachmentPreparation(rootURL.deletingLastPathComponent()),
             "layers": layers,
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
                 in: model.renderDescriptor
@@ -687,6 +704,17 @@ HARNESS_SOURCE = swift_declaration(
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
+    def test_real_reader_catalog_and_descriptor_preserve_duplicates_and_bind_first(self) -> None:
+        for mode, socket, position in (("attachment-first", "socket", [-75, 13, 0]),
+                                        ("attachment-renamed-reordered", "jointA", [-57, 31, 0])):
+            with self.subTest(mode=mode):
+                row = self.result["attachmentPreparation"][mode]
+                self.assertEqual(row["rawNames"], [socket, "peer", socket])
+                self.assertEqual(row["bind"], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, *position, 1])
+                self.assertFalse(row["unknownHasBind"])
+                self.assertEqual(row["healthyOrigin"], [400, 200, 0])
+                self.assertEqual(row["layerIDs"], [1, 2, 3, 4])
+
     def test_prepared_geometry_is_shared_by_actual_descriptor_input_and_cursor_consumers(self) -> None:
         geometry = self.result["preparedGeometry"]
         self.assertEqual(geometry["naturalSize"], [200, 100])
@@ -785,6 +813,24 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
                              "invalid": {"width": "invalid", "height": 40},
                              "pair": {"width": 80, "height": 40}}.items():
             (scene_root / "models" / f"field-presence-{name}.json").write_text(json.dumps({"material": "materials/field-presence.json", **fields}))
+        for mode, socket, first, last in (("attachment-first", "socket", (5, 7), (23, -11)),
+                                         ("attachment-renamed-reordered", "jointA", (23, -11), (5, 7))):
+            root = directory / mode
+            (root / "models").mkdir(parents=True)
+            (root / "materials").mkdir()
+            model_path = f"models/{mode}.json"
+            objects = [{"id": 1, "image": model_path, "size": "100 100"},
+                       {"id": 2, "parent": 1, "attachment": socket, "image": model_path, "size": "20 20"},
+                       {"id": 3, "image": model_path, "origin": "400 200 0", "size": "20 20"},
+                       {"id": 4, "parent": 1, "attachment": "not-authored", "image": model_path, "size": "20 20"}]
+            (root / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+            (root / "scene.json").write_text(json.dumps({"version": 3,
+                "general": {"orthogonalprojection": {"width": 1000, "height": 1000}}, "objects": objects}))
+            (root / model_path).write_text(json.dumps({"puppet": f"models/{mode}.mdl", "material": "materials/m.json"}))
+            (root / "materials/m.json").write_text(json.dumps({"passes": [{"shader": "genericimage"}]}))
+            (root / f"models/{mode}.mdl").write_bytes(build_attachment_mdl(attachment_records=[
+                (1, socket, attachment_matrix(*first)), (0, "peer", attachment_matrix(-2, 3)),
+                (1, socket, attachment_matrix(*last))]))
         for mode in ("no-owner", "property", "property-child", "invalid-color", "script"):
             root = directory / mode
             (root / "models").mkdir(parents=True)

@@ -11,9 +11,8 @@ nonisolated enum ScenePuppetAttachmentPoseProjection {
     ) -> [String: simd_float4x4]? {
         var result: [String: simd_float4x4] = [:]
         result.reserveCapacity(attachments.count)
-        for attachment in attachments {
-            guard boneWorldMatrices.indices.contains(attachment.boneIndex),
-                  attachment.modelLocalFrameColumnMajor.count == 16 else {
+        for attachment in attachments where attachment.isNamedBinding {
+            guard boneWorldMatrices.indices.contains(attachment.boneIndex) else {
                 return nil
             }
             let local = matrix(
@@ -21,10 +20,10 @@ nonisolated enum ScenePuppetAttachmentPoseProjection {
             )
             let modelFrame = boneWorldMatrices[attachment.boneIndex] * local
             let sceneFrame = sceneFrame(fromModelFrame: modelFrame)
-            guard isFinite(sceneFrame),
-                  result.updateValue(sceneFrame, forKey: attachment.name) == nil else {
+            guard isFinite(sceneFrame) else {
                 return nil
             }
+            result[attachment.name] = sceneFrame
         }
         return result
     }

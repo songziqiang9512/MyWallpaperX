@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 100,
-      "bytes": 17499
+      "lines": 111,
+      "bytes": 19916
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 84,
@@ -129,8 +129,8 @@
       "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 217,
-      "bytes": 118256
+      "lines": 228,
+      "bytes": 121346
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 194,
-      "bytes": 44887
+      "lines": 192,
+      "bytes": 44350
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,30 +340,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2de917a974282a0dbbaaf96df2a81126b77962c252d8643f902383849a1b47c2",
-      "after": "5e6daf1d0df8d7be6b61547cc8d1824f0a9d7a5e6caf7883b12feb86b296ccd8",
-      "owner": "Scene particle preparation / official evidence",
-      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "82d4b049c6f7b528bd67e6b61e231bc3073a9581b9c6f255efb87b62ca1b599f",
+      "after": "bae04d34e7ebce84a43edb95e0053ebf7529ee1bf51abb4c1401c46f2554c2c9",
+      "owner": "Scene puppet attachment binding",
+      "reason": "Document ordered MDAT name binding before implementation, retire whole-table duplicate rejection, and bound official controls plus real author picture/phase results; remove the resolved head issue from the active queue.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachments"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4a3a77129025de512b81dcf9121948a327507c52f041cd9cef481357a6c2190f",
-      "after": "235d800c0ba4b3a6ecf37e0219c35ca4825563ac55edc15750bd96e9d4dae226",
-      "owner": "Scene particle preparation / official evidence",
-      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4f23289c61e0ab5af71b8c2ffff2af16453d6d72a92ceeffec9f17dc3410f0d8",
-      "after": "387c95052d62f535c0680b8835d605a40fa4e06c274eaa1236e6db5208187b88",
-      "owner": "Scene particle preparation / official evidence",
-      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "235d800c0ba4b3a6ecf37e0219c35ca4825563ac55edc15750bd96e9d4dae226",
+      "after": "c58c0159905ed0247d33d2fbcfff947902bdcb9671e0e5f612f5f4428f7452f4",
+      "owner": "Scene puppet attachment binding",
+      "reason": "Document ordered MDAT name binding before implementation, retire whole-table duplicate rejection, and bound official controls plus real author picture/phase results; remove the resolved head issue from the active queue.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachments"
     }
   ]
 }

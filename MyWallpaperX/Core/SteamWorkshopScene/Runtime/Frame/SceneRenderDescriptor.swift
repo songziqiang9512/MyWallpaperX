@@ -129,7 +129,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 (
                     model.relativePath,
                     Dictionary(
-                        uniqueKeysWithValues: model.puppetAttachments.map {
+                        uniqueKeysWithValues: model.puppetAttachments.lazy.filter(\.isNamedBinding).map {
                             ($0.name, $0.sceneBindFrameColumnMajor)
                         }
                     )

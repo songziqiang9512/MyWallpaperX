@@ -53,6 +53,17 @@ Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备
 
 源码：[Selection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)、[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)、[Surface 装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)。
 
+<a id="puppet-attachments"></a>
+### 有序挂点与名称绑定
+
+目标是让子层持续跟随父 Puppet 的实际挂点，保原图层层级、动画与唯一 world/output。MDAT 是有序记录，名称重复不使整表失效；名称绑定选该名称的首条记录，后续同名记录仍保原 ordinal、骨索引与矩阵，不能重排、覆盖首条或伪造名称。现有 Reader 在入口完成结构、骨索引和有限仿射矩阵检查，并用已有名称 Set 的插入结果保存每条记录不可变的 `isNamedBinding`；这是解析事实，不增加缓存、名称 owner 或逐帧去重。
+
+`MDAT → typed attachment records → 原 Catalog/Descriptor 的 bind frame 与 PreparedPuppet 的 live frame → Surface 当前 pose → 原 LayerWorldFrameResolver(parent × attachment × child) → geometry/compositor`。冷、热两个消费者都只采用选中记录；退出 Reader 的重名抛错、Descriptor 对未筛选重名的 unique-key 构造及 live 投影的重名整表拒绝。两张结果表分别属于准备期 bind 与当前 pose，不合并成第二状态源；普通帧不重读 MDL、不重新决定名称。保原 model→Scene 的 Y 共轭：骨姿态和 MDAT 保模型域，父/子 layer 与最终 geometry 的坐标边界共同完成投影，公开作者 API 的相对平移不能单独授权删除反射。
+
+坏结构/骨/矩阵仍沿原资源局部失败与 bind/parent fallback，不能因允许重名而吞掉坏记录。未找到名称继续使用原 fallback；独立健康模型和层不受影响。本批不新增数字挂点 Script API、不改 BoneCatalog 的名称规则、不解其他样本运动幅度，也不迁移矩阵 owner。首条规则的官方依据限定为固定客户端的同名记录、顺序互换及名称/资源改名对照，资格与未覆盖版本归[运行证据](runtime-evidence-current.md#puppet-attachments)。
+
+验收复用真实 Reader/Descriptor/PoseProjection/WorldResolver：唯一名不变、首尾重名保序、交换后跟新首条、改名及等价父子仿射表达式、缺名与坏记录反例；cold bind 和不同动画 phase 的 live 投影采用同一记录，父 TRS 与原 Y 基闭合。再核原作者头部的实际几何与最终画面，以及未参与修复的唯一名挂点作者。若必须改坐标或引入新准备状态，先修订本设计，不能按名字、资源、偏移或截图选择算法。
+
 <a id="clipping"></a>
 ## 部件裁剪
 
