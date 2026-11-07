@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 229,
-      "bytes": 39167
+      "lines": 231,
+      "bytes": 40127
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 237,
       "bytes": 46175
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 200,
-      "bytes": 109838
+      "lines": 212,
+      "bytes": 112859
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 178,
-      "bytes": 37513
+      "lines": 177,
+      "bytes": 37164
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -475,15 +475,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "7906071613b7b6e88eba75176cc5ef4d7b77aa8591407d0b18c9cb8b81d4ba1c",
-      "after": "5117bc658d901f6a4e898acf3a7b3dd3316c95058ccf23985b9d08e1e886f231",
-      "owner": "scene-display-addition",
-      "reason": "Replace nonempty whole-surface rebuild with one typed worker preparation and shared single-surface installation, current-state adoption and original drain handoff. Retire root budgets and media/VM rebuild-only APIs. Record bounded final App/native/author evidence and exact reuse/failure limits, and replace the closed queue item with actual empty-output update/terminal boundaries; no additional document authority, controller or cache.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-reconciliation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "2bdf96423bd3a12d5e9e57805999f58ee521f81dd39d1478964f2c7f4d8d100c",
       "after": "247eddfab58d173dc6f7203ed346cf46e450dd63b1213a2fbb4b836bcb1dba09",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "5117bc658d901f6a4e898acf3a7b3dd3316c95058ccf23985b9d08e1e886f231",
+      "after": "2de917a974282a0dbbaaf96df2a81126b77962c252d8643f902383849a1b47c2",
+      "owner": "Scene particle control-point parser and consumers",
+      "reason": "Clarify original selected-position ownership of malformed default offsets, replace the aggregated parse-failure contract with consumed-field facts, and preserve current metadata/consumer boundaries and real visible acceptance.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b8458a66ee5d2000992fe0528b147210202fe7d7a71d22da50c30742140bd9ea",
-      "after": "e00b1533846ba3ab557dd0ce39a2f886af2e0fe6e84e35d7d17eb2193954ea15",
-      "owner": "Scene Session / typed programs and component owners",
-      "reason": "Record actual disjoint-gap image completion and new-view pixels, bounded native PNG/video/reset facts and an independent author in the existing display evidence authority; preserve direct-Host and remaining lifecycle/media limits.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-user-texture-updates"
+      "before": "e00b1533846ba3ab557dd0ce39a2f886af2e0fe6e84e35d7d17eb2193954ea15",
+      "after": "441d196e82998d8f37e895046693d6431aa015911cb2d2c5a01687b01bfc4ba3",
+      "owner": "Scene particle control-point parser and consumers",
+      "reason": "Record selected-control-point offset visible recovery and preserved negatives with bounded native/author evidence; separately qualify raw daemon no-output control without claiming content or Client/UI success.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2bf96b8d42bd35e3a94d21ddad1bbe45d0c0e6e0e940aa51241196e1f12719bd",
-      "after": "4ac0e1a4218b7041b824cda11c0a908a7b32c061acc86558c29646e465c829bb",
-      "owner": "Scene Session / typed programs and component owners",
-      "reason": "Retire the verified actual-screen texture admission gap and keep only remaining mixed/paused updates and output-terminal evidence work in the existing queue.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-user-texture-updates"
+      "before": "4ac0e1a4218b7041b824cda11c0a908a7b32c061acc86558c29646e465c829bb",
+      "after": "07ad9a9a19e27217492e96aacfe83a6f71f30652d1eb539418cc7f71626723f4",
+      "owner": "Scene particle control-point parser and consumers",
+      "reason": "Retire the verified unused default-offset aggregation defect and replace generic no-output investigation with its actual raw-wire evidence and remaining content, natural-producer and UI qualification.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
     }
   ]
 }

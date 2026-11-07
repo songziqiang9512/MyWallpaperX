@@ -297,7 +297,8 @@ nonisolated struct SceneParticleControlPoint: Equatable, Sendable {
     let angles: SceneParticleNumericValue?
     let parentControlPoint: Int?
     let hasAuthoredAngles: Bool
-    let hasMalformedFields: Bool
+    let hasMalformedOffset: Bool
+    let hasMalformedMetadata: Bool
 
     nonisolated var hasBoundedPointerInput: Bool {
         guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,

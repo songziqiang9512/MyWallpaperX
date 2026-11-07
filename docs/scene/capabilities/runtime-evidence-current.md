@@ -155,6 +155,15 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 真实vertex V域[.24242425,1]：约631.34px主干仅消费V .30303031→.27272725，开头5.522px却跨V1→.32900429。原RopePlan在几何去重前按存活索引分q，距离去重保first sample/UV且未在可画域重归一，后续FrameTransform/vertex没有二次UV缩放；本次首次在958实际batch观察到该端域边界。原sickle同SHA的base非零mask止于y<18、A255核心止于y<15，支持主干落透明边缘/低alpha区的空间解释，不能代替实际过滤alpha或官方端域。下一资格由[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护；不从这些图选择重归一、弧长、半宽、alpha、mip或MSAA修复。单个simulationLimitation只保kind未含detail，本项也不授完整模拟、旧App整轨恢复、官方像素或性能。
 
+<a id="control-point-offset"></a>
+## 带角度 emitter 的默认位置错型
+
+按[原控制点位置合同](particle-component-coverage.md#control-point-position)，原Parser将 offset 与其余元数据的入口错误分成两个不可变事实，退役 CP 聚合；角度消费者不再拒绝已被有效位置覆盖的坏默认 offset，仍选默认位置时保原拒绝。World Force、ReduceMovement、Vortex 保原双项范围；原未读聚合的 static/pointer 不扩检查。四原产品文件净增4行，无新 owner、mutable状态、缓存或普通帧扫描。基于 `9bc4ec30fef1194fc89b1c2d99328edffd890291`，签名 Debug CDHash `96ffa9346548b43673206a4b97b0533d2208d4b8`、dylib SHA `c415d4ca729b20eaf4d164e30217ca9c23f39dc53c1331d39aa705d0484a8263`，4413构建输入稳定。
+
+原与CP/资源/对象改名、value wrapper等价输入各有旧/新 App 运行。旧四PNG只有被有效位置替代的目标缺红，其余白参考、绿peer及五负例黑区精确；候选四PNG的32固定ROI、68,448像素全部精确，目标实际Sprite draw由0→1，默认仍需消费、坏angles/flags/parent及被选坏位置始终无draw。先核健康参考/peer，再核目标；source4×4→main/seal/request/CB/Surface/GPU、零解析错误/截断与排空闭合。初读健康断言顺序已收紧，旧原件离线复核；输入、位置、阈值未改，不将reader重排算新GPU。
+
+17项最近原生方法通过；组件门Debug/Release各140事实一致，包含同sim健康emitter、静态/dynamic位置、错型object/bool/string、无value、metadata与被选位置、ID/lifetime/RNG，另保原World Force及角度行为。独立3742133044按预登记project/package摘要四秒通过，本次tree记在原报告；196雪花Sprite的258几何实例、746×731源实际到同main/seal/GPU，正常退出排空。它未消费CP位置/角度，只授健康作者邻例。原前后字节、输入、身份与独审保于 `.artifacts/scene-control-point-offset-20261107/`；未取得精确受影响作者恢复、App脚本dynamic CP、官方错型/角度位义、全部空间或性能资格。
+
 <a id="model-subtree-raster"></a>
 ## 模型的局部 source、深度与父组显隐
 
@@ -191,6 +200,9 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 同一原512预热 A→B 场景及属性/资源改名变体，旧实现均在 actual=0 回 superseded，新 B 保旧紫图；候选均在 `worker started < texture completion < worker returned`、submit/result actual=0且同 Session/request 时 applied。新 B 和 settled 的真实4×4新黄纹理经 source-selection→ordinary draw→main/seal、同 request/CB/Surface/GPU完成，零截断；固定区域25像素全部为预期值，原绿/红/蓝/cyan邻层保持。采用自然准备空窗，未加 queued/held gate。真实 Session/Loader/LiveState 原生门两方法、69事实通过：图片/视频prime空窗提交、reset退休、坏资源保旧、新模拟 View 同对象采用及真正失效反例；模拟资源/Source不授真实解码或GPU。
 
 独立3759799379同 project/package/tree 摘要四秒通过并排空，只授实际作者邻例，不称该作者缺图恢复。原始前后输入、PNG、回执、身份及独审保于 `.artifacts/scene-display-live-followup-20261107/`。本组实际图片出画限 direct Host、单物理屏的多个原生 View；Service/IPC同次交付、App空窗reset/视频decoded连续、全部暂停/混绑更新、无输出终态UI回流及真实多屏仍独立取证。
+
+<a id="display-no-output-control"></a>
+原协议有界空解析对照复用 CDHash `0f7f7e9679a454282603bfc042420d0b0c6c8921` 的签名App，未改产品或新建故障协议。合法但不可解析的目标ID使同request Session实际clearContext/surfaces=0及VM teardown；daemon同PID仍应答，先前accepted的opacity更新随后拒绝，约2.50秒的三条1Hz stats无新增帧或自发请求终态，显式retire才回resourcesReleased/requestRetired并正常shutdown排空。首PNG仅有clear/seal灰色，预期蓝图与可见opacity消费者未资格；这只授raw daemon控制边界，不授正常用户拓扑、Client/UI或自然发生率，也不把用户 `.stopped` 改为失联。原始资格失败和独审在 `.artifacts/scene-output-terminal-probe-20261107/`；下一步沿[队列](../roadmap/scene-open-breakpoint-queue.md#display-live-state)另资格，不惯性扩状态机。
 
 <a id="limits"></a>
 ## 未取得的资格

@@ -42,7 +42,9 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 鼠标绑定的 definition offset 是指针偏移，仍叠加当前有效指针；缺指针的真实消费者局部不可用，不回到系统原点。位置选择与空间转换分开：world 点经当前 `SceneParticleControlPointFrame` 的同一逆矩阵转到实际模拟空间，child 再复合原 origin/scale。冷计划和 typed 帧继续拥有字段、identity 与当前供货；没有位置 registry、缓存、第二时钟或每粒子的元数据校验。CP parent/angles 的未资格语义不能由位置覆盖实验外推。
 
-Emitter frame 与 Simulator 共享同一纯位置选择；被普通位置覆盖替代的数值 offset 不参与 emitter offset 幅度检查。组件的 RNG、出生顺序和显式发射事务仍由原 owner 执行。验收用真实 Parser/Simulator 的默认位置、静态与动态覆盖、组件额外 offset、Around 共用端点及缺指针反例，再核 Runtime/Metal 的实际位置。官方局部静态 CP 对照中，definition=(16,24)、instance=(48,0) 得到(48,0)，独立无 override 的正控仍为(16,24)；此证据不授全部空间或完整粒子效果一致。
+Emitter frame 与 Simulator 共享同一纯位置选择；被普通位置覆盖替代的 definition offset 不参与 emitter offset 幅度检查。带角度 emitter 也不能因未消费的默认 offset 错型而拒绝。原 DefinitionParser 入口分别保存 offset 与其余 id/flags/angles/parent 的不可变解析错误，替换旧聚合；角度消费者只取后者，带角度 emitter 的默认位置仍被选中时在原 offset 分支消费前者，不能让坏位置冒充省略。位置覆盖不放开坏角度、flags、parent 或被选中的坏位置。world Force、ReduceMovement 与 Vortex 保原两类字段的拒绝范围；未读聚合的 static/pointer 分支不借此新增检查或授予资格。不增加兼容聚合 wrapper、供值链或逐粒子检查，RNG、出生顺序和显式发射事务仍由原 owner 执行。
+
+验收用真实 Parser/Simulator 的默认位置、静态与动态覆盖、组件额外 offset、Around 共用端点及缺指针反例；带原角度的错型默认位置须与合法默认的同覆盖对照，保无覆盖、无 value、坏 metadata/被选位置及健康 emitter，再核实际 Runtime/Metal 与 App 固定位置、改名/等价输入。旧 App 若未命中首错或早于此处资源/producer失败，停止实施并回到资格，不追着结果调整 ROI。官方局部静态 CP 对照中，definition=(16,24)、instance=(48,0) 得到(48,0)，独立无 override 的正控仍为(16,24)；此证据不授错型 JSON、角度位义、全部空间或完整粒子效果一致。
 
 <a id="control-point-radius"></a>
 ### 单控制点半径约束合同

@@ -29,7 +29,6 @@
 | 满容量的自然调度 | 官方maxcount2、两个life4初始fillers、rate.4周期发射在T8.2只有约6.5出生；容量64对照约5/7.5。无上限本身也延后，原5/7.5判别前提失败，周期quota按请求或接纳计费尚未知。沿原Simulator核满槽期间fraction/窗口与死亡释放顺序；不以这个未知拒绝普通或capped发射，不增加调度owner。 |
 | 显式命令与自然相位 | 官方rate.4、on10/gap10、cap2，约t1 emit1后可见出生1/5/7.5；约t6 emit1后为2.5/5/6。显式在自然额度耗尽后仍贡献，但早期命令会改变后续自然出生相位，不能宣称与调度完全独立。沿原exact-n命令/EmitterState核交互，不挂共用appendBirth扣自然quota，不把未知变成整组play/pause/stop的禁令。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
-| 控制点无关默认位置的错型聚合 | 带角度 emitter 的 definition offset 错型时，即使 dynamic/instance 提供了有效替代位置，`parseControlPoint` 的聚合 `hasMalformedFields` 仍会经 `boundedEmitterAngle` 拒绝。按实际消费字段区分错误；保角度、flags、parent 的必要语义，不因默认位置已不用而整体撤元数据检查。需有效覆盖/无覆盖、坏 angles/flags 与健康 peer 反例。 |
 | Child parent 控制点映射的消费诊断 | `rawParentControlPointOverride` 的 hasKnownConsumer 只看单CP字段，未纳入 Between/Maintain 的 start/end；rawflags0、parent字段及零位置可能被记为 ignoredUnused。该形状的 parent 位置语义尚未资格，不能凭旧 guard 增加整 child 拒绝，也不能把该诊断当成新组件已正确消费父映射。定位 copy bit、原始/解析位置与实际消费者，补有位移父点及不复制邻例后决定最小修正。 |
 | 粒子 Remap、约束与子束链 | 三个作者root的operator10仍`prepared-plan-unavailable`，时间→sine→opacity缺真实消费者。独立静态范围与晚EventDeath输入已有有界资格，但sine首对落未预登记模型，依原停止条件收口；实际读数与旧N/W/D限制归[运行证据](../capabilities/runtime-evidence-current.md)，当前实现归[组件合同](../capabilities/particle-component-coverage.md#operators)。保留未知数学与作者缺省参数，后续用可区分证据沿原owner补消费者，不按效果/输入输出/flags组合追加许可。beam child另缺transform/CP及initial-value供货；3527426897的map-sequence另需flags/空间输出资格。 |
 | 粒子球体与画布碰撞 | 静态Sphere消费者见[组件合同](../capabilities/particle-component-coverage.md#sphere-collision)；首次接触顺序、精确轨迹/size裕量、CP锁定位及缺省数值仍未资格，不能由3773747576/183的CP333或CP1同位推断开关规则。Bounds的3780119725/891 operator2仍`unknown-operator-kind`，只有name/id；缺实际wallpaper边界经当前变换到粒子空间的供货和缺省响应，不能用drawable或发射盒代替。沿原碰撞/空间/Simulator补消费者，不把正常batch/GPU或退出授为完整碰撞能力。 |
@@ -40,7 +39,7 @@
 <a id="display-live-state"></a>
 ### 显示空窗状态
 
-新增/混合职责归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)，用户纹理请求归[原Session资源合同](../architecture/runtime-architecture.md#display-user-texture-updates)，已验证能力只由[运行证据](../capabilities/runtime-evidence-current.md#display-user-textures)维护。下一步核其余actual暂空的属性/暂停回执及无新输出后的Session终态沿原请求回流；不把尚未取证的UI回流写成已确认缺陷，不用合成消费者、保非目标窗或另造显示许可解决。Host/client同值过滤保持，未授无新事件时晚到ID自动恢复；真实多屏/物理backing/HDR、严格RNG、App媒体decoded连续与最大帧隙分别设运行证明上限，不重开已退役的全量rebuild。
+新增/混合职责归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)，用户纹理请求归[原Session资源合同](../architecture/runtime-architecture.md#display-user-texture-updates)。已验证用户贴图与[raw空解析控制边界](../capabilities/runtime-evidence-current.md#display-no-output-control)由运行证据维护；后者未取得有效图片、自然拓扑或Client/UI资格，不据此新增故障协议。下一步须先取得这些实际消费/原请求回流证据，再决定修法；其余actual暂空的属性/暂停回执仍待核。不用合成消费者、保非目标窗、重发launched或另造显示许可解决，保 `.stopped` 用户command合同。Host/client同值过滤保持，无新事件时晚到ID自动恢复、真实多屏/物理backing/HDR、严格RNG、App媒体decoded连续与最大帧隙仍各有证明上限。
 
 ## 内容与观测资格
 

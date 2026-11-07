@@ -344,9 +344,9 @@ nonisolated struct SceneParticleDefinitionParser {
             id: id, rawFlags: flags ?? 0, offset: offset, angles: angles,
             parentControlPoint: parent,
             hasAuthoredAngles: root["angles"] != nil && !(root["angles"] is NSNull),
-            hasMalformedFields: malformed("id", parsed: id)
+            hasMalformedOffset: malformed("offset", parsed: offset),
+            hasMalformedMetadata: malformed("id", parsed: id)
                 || malformed("flags", parsed: flags)
-                || malformed("offset", parsed: offset)
                 || malformed("angles", parsed: angles)
                 || malformed("parentcontrolpoint", parsed: parent)
         )
