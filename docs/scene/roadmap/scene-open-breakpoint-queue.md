@@ -54,7 +54,7 @@
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
-| 粒子预热CP · 3799613625/321 | 既有失败精确属于321的static child0/system1 `red_fire.json` emitter0预热，非starttime0的321 root。作者cursortrail默认false，四份记录均关闭；尚无同消费者live出生或开启后的可见失败。冷pointer缺供的局部拒绝不能删除，也不能借452/同族行授恢复。下一步开启拖尾并供inside pointer，沿同child/emitter核真实出生、绘制与终端结果，再判断是否存在播放缺口。 |
+| 粒子预热CP · 3799613625/321 | 失败归static child0/system1 red_fire emitter0预热，非root。当前开启cursortrail并供inside pointer后，同consumer live出生及所选child Sprite/main/GPU已成立，见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；冷缺历史pointer不授持续播放失败，不删除CP有效性边界。只有outside后PNG，逐像素轨迹与完整交互仍未资格；不据旧预热诊断继续扩修。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。本轮3788897599的291/259 composition行`rendererKind=unknown`，定位`SceneParticleMetalPipeline+Frame`的可选debug字段及原component observation供货；复测先核现有按需观测输入，不由路径猜种类，也不将此元数据缺口判为绘制失败。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
 | 着色器类型回归预期 | `test_scene_shader_global_scope.test_float2_arithmetic_does_not_cross_unproven_expression_boundaries` 的 user-call/normalize 仍期待不补`.xy`，与现有typed复合求值后窄化合同冲突；同输入旧/新产品都补`.xy`。其余9方法通过、GPU独立项1skip；按真实类型与编译/像素修订这两条旧预期，不能撤回合法转换迎合测试。 |
@@ -97,7 +97,7 @@
 | 2999907577 /3003318777 | 前者除上方白弧外大片平灰背景，后者整幅明显虚焦；对照作者默认属性与原source/特效输入，尚未资格归因。 |
 | 3382111183 /3436945972 /3463406101 /3443450456 | 分别整幅失焦、明显偏暗、暗绿配色及灰白底黑字；同焦距、亮度、遮罩、配色/时段与音频输入后再定位writer，不从preview直接归tone-map/blend。 |
 | 3498814983 /3605722997 /3827673174 | 头脸超画面或仅见脚裙；固定横屏camera/cover/平移与作者画布，portrait preview的取景差不能证明投影错误。 |
-| 3504669359 /3767460992 | 前者器具前强白圆片仍需同媒体/光效相位及可归属source/target。后者中央白X的当前作者fallback供货见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；真实媒体事件、封面替换及显隐仍需资格，不能从预览差异判纹理漏载。 |
+| 3504669359 /3767460992 | 350默认四秒旧强白圆未重现，固定圆核及当前材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；不据此修产品，媒体/光效全相位、发布copy物理边及selected pose仍未知。376中央白X已有当前作者fallback供货；真实媒体事件、封面替换及显隐仍需资格，不能从预览差异判纹理漏载。 |
 | 2982559622 | 默认短窗主画面成立；103.alpha返回Vec3、effect.visible组合wrapper分别核作者字段与准入；同输入完整视觉仍待资格。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
 | 3141464346 | Puppet 同 phase 位置、右下音频环与 shader 链；188/332蒸汽不能代音频环。 |

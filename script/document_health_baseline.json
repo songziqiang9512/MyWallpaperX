@@ -129,8 +129,8 @@
       "bytes": 43890
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 186,
-      "bytes": 101146
+      "lines": 187,
+      "bytes": 102488
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 36875
+      "bytes": 36950
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cadf8009daf7a72dfb48c00ebb33b8ebfb317861f2ec14c1d5571d2ecc78a0bf",
-      "after": "c3617e25c4d9069fe407837429bb4fd93736e6179243713282a569ea170253b8",
-      "owner": "scene-initial-visibility-read-handoff",
-      "reason": "Specify initialized own-visibility reads and transient same-owner cursor prefix without new persistent authority; qualify repaired authored white quad and retained fallback, preserve bounded arc capture stop and unchanged HEAD cohort failure instead of broadening permissions or test expectations.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-current-value"
+      "before": "c3617e25c4d9069fe407837429bb4fd93736e6179243713282a569ea170253b8",
+      "after": "b71e5950c8028cf9d4155f64cccf158443ffb932197041c72069c261366951f9",
+      "owner": "scene-current-symptom-qualification",
+      "reason": "Replace stale strong-white-circle and hidden prewarm assumptions with one current same-input terminal each; retain named publication-copy/pose, missing hover captures and per-pixel limits without product permission changes or another authority.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1a32c0c6f312642cc9bf9d9b09134c016789fdeed8c36d2a390954b0a44b394e",
-      "after": "a71d31c1a7a86f340b6d08ae6ea4a80124b991b440de8c7012492fde52cae3df",
-      "owner": "scene-initial-visibility-read-handoff",
-      "reason": "Specify initialized own-visibility reads and transient same-owner cursor prefix without new persistent authority; qualify repaired authored white quad and retained fallback, preserve bounded arc capture stop and unchanged HEAD cohort failure instead of broadening permissions or test expectations.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-current-value"
+      "before": "a71d31c1a7a86f340b6d08ae6ea4a80124b991b440de8c7012492fde52cae3df",
+      "after": "0777369b07df8d3098a5e68fc9f36b91d30888606edec12bff8d45b20051b0e6",
+      "owner": "scene-current-symptom-qualification",
+      "reason": "Replace stale strong-white-circle and hidden prewarm assumptions with one current same-input terminal each; retain named publication-copy/pose, missing hover captures and per-pixel limits without product permission changes or another authority.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     }
   ]
 }
