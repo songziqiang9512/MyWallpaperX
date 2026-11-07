@@ -93,6 +93,7 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 | 可见父层的graph-final named来源 | 已准备的可见普通image graph不再因transform children失去来源；raw入口不为它顶替，原ledger最终输出发布后完成作者位main。真实Plan门同输入旧源40方法/1个预期失败，修正后40/40通过；hidden/forward/utility/Puppet、secondary和真实shader循环反例保原范围。新增parent gbr、改名同源双slot不同UV、只缺父TEX共3控制，旧App两正例C/D保(24,20,56)，missing健康；修正后新增3与原raw3共6控制/12PNG/120ROI通过既有字面标准，输入/构建身份稳定。独审对新3控制的前后12张RGBA PNG/120ROI重算，after60ROI误差0、真实alpha255；raw3本轮消费原oracle及新结果，不冒称重复PIL。parent右为(160,64,16)，C与单槽D左为(32,8,192)，D右为(160,32,16)；改名D双槽为(64,14,148)，区别raw替身(148,32,28)及任一单槽结果。健康magenta子层不进入父图，真实缺源仍局部回退并保后继。核单个P graph及作者位main、publication消费与C/D实际槽位；named发布保既有复制合同，P主合成后的工作target可合法被后继复用，不以纹理全异或强alias造权限。最新635目录/633合法样本元数据中定向筛223个parent工程，未找到该精确静态形状命中；不宣称现有作者缺图因此恢复，动态默认以外引用仍未知。独立3759799379同三输入摘要的4秒复验PASS。官方静态scope沿上一专项，不重复授精确像素、hidden/forward graph、Puppet/utility、视频/TRS/alpha或性能。 |
 | 前向供货与作者位消费 | 最终App的3个visible控制/6张RGBA8 PNG中，U一次graph执行，named与作者位main各消费一次；U末端与晚main读取同一texture，P/C仍共享另一工作pair。U主输出在cyan下层之后、yellow遮挡之前，C双UV贡献、输入关闭和改名均成立：C依次为(64,14,148)/(40,8,4)/(128,26,60)，C与U左右及遮挡合计24个ROI精确匹配RGBA，最大RGB误差0、alpha255；全部60个ROI达到预登记容差。每张request/CB/Surface/seal/GPU匹配，无截断。4个原hidden/缺上游控制及8张PNG通过，独立作者3759799379四秒复验通过且三输入摘要不变。原Coordinator门103个bool事实覆盖晚消费/history/pin及失败回执，literal Executor只授协议；Pool33项通过，新增同CB真实写入/blit读回证明shared覆盖反例和owned保色正例。原模型准入消费门通过。逐槽typed providerID、late geometry/depth/fog的完整视觉组合、背景prefix时序、官方parity和性能仍未资格。 |
 | 视觉粗筛 | 新增115逐项归账：实际看过113对终端PNG/作者预览首帧；102粗看未见明显破损、2视觉疑点、6需条件、4参考不足/范围未审、1无终端图。粗筛时疑点为3294151411头部与躯干分离、3557068717主景近黑；329后续定向结果见[挂点](#puppet-attachments)。粗筛不授完整视觉PASS或官方parity，其余反馈保当前条件限制。 |
+| 355晚相位 | 复用361b App、原三摘要默认输入，仅补24秒/after18秒一场；作者269等有10–12秒入场。F1070/req1的156取真实6k albedo→main/seal→GPU/PNG，Ready/stop/Surface/排空与零截断成立；终帧已见完整暗地球、时钟和星空，亮度仍UNKNOWN。实际06:56与R0太阳/预览时相不同，不能仅由入场关闭亮度或归因光照；初帧灯encode不授F1070完整sun world/normal/material。raw CHECK仅为既知无活动需求的named capture计数，不作黑因。资料与独审在`.artifacts/scene-basic-dark-355-20261108/`，不再延时/调参或重跑全库。 |
 | 长窗与过场 | 原10片头按16秒/after15、6稀疏/周期按22秒/after21复验，16项raw通过；3749463715仅tree与旧记录不同，project/pkg同。16个audio输入各补PCM/静音共32attempt；另保hover、metadata、live属性及Night4/day/night/click独立条件。实际消费及未触发目标逐case记录，不将长窗授第二burst、默认通过授音频/交互。 |
 | 条件与派生输入边界 | 所有19份报告共349记录：347实际App尝试及2源无效。2902406982是目标外live工具控制；3042492564受控媒体另加隔离PNG、project/pkg不改但tree改变，单独census/archive，不混入原作者tree投影。早图请求after=.25被原App钳到至少1.1，实际编码约Ready+1.2秒；与约3秒两相位均见329头部分离，不授0.25秒或完整周期。 |
 | 受控音频的当前消费 | 32个PCM/静音run都有capture-service实际正/零读回；14场景正/零各39个唯一layer/effect/node的typed音频目标，在各自capture有同三元组material draw，首次非零与capture非同帧，不授uniform同帧快照或ROI。3789316755另有Script/particle消费，2957870426目标consumer仍未资格。3039882306/772两侧皆有真实左右32数组及material/group/tail，旧无consumer限界退出；隐藏1084的route CHECK不移作772错误。 |
@@ -275,6 +276,15 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 独立3448877775同一最终App八秒通过：frame64/154的15706根RopeTrail为574/551实例，child-template0 Sprite为8/9，1775单Sprite为337/344；三者保各自camera输入并进入同main/GPU，终端PNG与正常排空成立。原286前后及独立邻例PNG已查看，主体、背景和既有流星/子粒子保留；不同运行未锁相位，不能分离每个renderer的最终像素贡献。286原背景曲线条纹仍可见，反馈保持开放；不授官方parity、全相位或可比性能结论。
 
 原始失败、冻结身份、窄运行收据及独审归`.artifacts/scene-multiple-renderers-20261108/`，三场Scene载荷晋升`scene-multiple-renderers-20261108`，不重跑全库或倒改R0分母。
+
+<a id="material-graph-view"></a>
+## 材质资源视图与有界帧成本
+
+原GraphExecutor的material分支沿[资源合同](../architecture/scene-resource-admission.md#material-graph-view)只投影完整node bindings及隐式input，退出对全部已发布graph原子的重复覆盖；完整publications仍供原事务使用。产品净增5行，为当前material的小字典，不新增持久owner或cache。原atomic graph门一次通过，补真实蓝/绿FBO与红implicit input的加权首尾像素及节点/资源/变量改名变体；既有named、候选readiness、history/copy/swap与局部失败反例沿原门执行。
+
+原App361b与候选5169均为签名Debug-Onone、ENABLE_DEBUG_DYLIB=NO，4396构建输入稳定、metallib相同。288原三摘要、matrix、静音与角点后outside指针一致，关闭执行观测，按旧→新→新→旧各45秒、预热30秒比较；实际测量13.475–13.513秒，均非AS1长稳态。CPU帧p50旧20.079–20.485ms、新19.468–19.555ms，两窗p50均值下降3.80%；p95均值21.401→20.5305ms。每帧累计executor prepare p50均值8.5615→7.9865ms（下降6.72%），不是单次调用区间。提交吞吐均值33.6075→34.528FPS；process CPU/墙钟约1.151基本相同，不能写CPU占用或能耗下降。GPU帧p50约16.91ms，未取GPU收益；每帧20 main/62 offscreen/43 material/19 source capture/11 copy及112483776 copy bytes四场相同，不以少效果换成本。
+
+同一候选另以原288及独立3834591400各一次8秒终帧资格：F158/F230均GPU完成、零截断、Ready/停止/Surface释放及排空成立，PNG已查看，主景及原组合特效保持可见；383的572/601仍有当前graph事务与tail消费。不同运行未锁相位，不授全部像素贡献、288运镜/菜单恢复、Release或长稳态性能。代码/输入冻结、原门、四场结果和两次独审归`.artifacts/scene-graph-consumer-overlay-20261108/`。先前颜色合同相关子树合计占该Debug sample主线程0.7%、其中仅部分重复，未实施去重；再次投入须有新的函数级成本证据，不重复原采样。
 
 <a id="basic-interaction-288"></a>
 ## 288菜单的当前资格边界

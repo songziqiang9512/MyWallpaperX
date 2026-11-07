@@ -782,13 +782,13 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 资源计费与使用期",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "716ded3757cf3a2fd840fda6571371e1fd4ec565ba45ac6d30396decaff4c739",
+        "sourceSHA256": "135452be677fb784da4b197f59e3799ecbc68a623b21e9bb0b73388ee80a66da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前源码职责、工具入口与文档引用核对。",
-        "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
+        "scope": "核对资源合同的现役owner、材质graph视图范围、原工具入口与文档引用；新增小节沿既有Scene导航入口。",
+        "limitations": "本条为导航与职责核对；App、GPU和性能结果由运行证据正文及本批收据另行限定。"
       }
     },
     {

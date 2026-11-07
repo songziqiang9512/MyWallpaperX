@@ -212,8 +212,13 @@ extension SceneResolvedMaterialGraphExecutor {
                       ), let material = capability.material(for: node) else {
                     return .failure(.graphStructureRejected)
                 }
+                var materialPublications: [Graph.TextureIdentity: SceneFrameTextureResource] = [:]
+                for binding in node.bindings {
+                    materialPublications[binding.texture] = publications[binding.texture]
+                }
+                materialPublications[pairStep.inputIdentity] = publications[pairStep.inputIdentity]
                 guard let overlaid = dependencyFrame.overlayingGraphResources(
-                    publications
+                    materialPublications
                 ) else {
                     return .failure(.graphPublicationRejected)
                 }

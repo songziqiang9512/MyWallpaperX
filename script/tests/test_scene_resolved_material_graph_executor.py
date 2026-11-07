@@ -448,6 +448,9 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
         self.assertEqual(sorted(key for key in payload["results"] if key.startswith("missingOptionalResolution-")),
                          ["missingOptionalResolution-multiple", "missingOptionalResolution-renamedEquivalent",
                           "missingOptionalResolution-single"])
+        self.assertEqual(sorted(key for key in payload["results"]
+                                if key.startswith("materialGraphView-") and key.endswith("Pixels")),
+                         ["materialGraphView-directPixels", "materialGraphView-renamedPixels"])
         self.assertEqual(
             [
                 name
