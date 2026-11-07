@@ -39,7 +39,13 @@ Bool 的分离事件前缀与值求值按真实调用顺序消费：属性/媒�
 
 原 VectorProgram 在进入 ValueOwner 前归一已分离的事件 layer journal 一次，原 ValueOwner 用同一读值基线供输入与 getter，并只归一其本次 C entry 导出的 journal。成功后只合并已归一副作用和原 coalescing/commit，不再重做全批 Bool 归一；真实 destroy 由合并后的命令保终值及原资源退休。其他目标/字段、跨 owner 顺序、event-only setter、异常与 commit/discard 沿原事务，不增 owner、持久可见性副本、phase flag 或每帧全局扫描。
 
-验收以真实媒体 callback 的相反返回、同字段新 setter、undefined/no-update、destroy、失败 owner 与健康 peer 核值和副作用；App 用公开属性回调与实际热更新显示可区分色卡，保改名变体、同 update 新 setter 及终端/typed 输出一致。这里只闭 Swift 已分离的属性/媒体前缀到值求值；同 C entry 内隐式 init、timer/Puppet callback 的 journal 阶段仍由队列保未闭，不将此切片授完整回调次序或精确作者缺图恢复。
+验收以真实媒体 callback 的相反返回、同字段新 setter、undefined/no-update、destroy、失败 owner 与健康 peer 核值和副作用；App 用公开属性回调与实际热更新显示可区分色卡，保改名变体、同 update 新 setter 及终端/typed 输出一致。Swift 已分离的属性/媒体前缀到值求值沿上述链交接；C entry 内的后继值回调也必须在真正 JS_Call 前消费已有自身显隐，不能因共用 journal 重放先前 setter。同一次值回调新写的 setter 保原发布位；没有 update 的事件 owner 保真实 setter，不凭返回类型改变事件寿命。
+
+C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发成功后、实际值回调前，将真实自身 VIS 转为本次输入及既有 authored baseline；只清这个已消费的发布位，保其它字段、真实 destroy 与独立 topology/sort journal。仅因消费 VIS 变为空壳的记录随原计数退出，不能导出成伪 sort。隐式 init 的真实返回及本次 setter 在同一作用域交给后继 update；App 保既有 split init，不改调度入口或重复调用 init。
+
+作用域只在 C 调用栈保存原 baseline 的 slot/count/fields/visible，按实际 target index 复用原数组，不改 domain catalog、pending 初始化值或公开 ABI，不增持久副本、字段 epoch 或通用事务层。正常、无 update 和失败出口均恢复 caller 的原 baseline；先保证读值交接成功再退发布位。原公开 primitive 入口统一负责失败的 discard/disable，私有回调只恢复本地 host/handles、释放 JSValue 并返回原错误，不再重复清 journal；timer snapshot/admission 保持，JS heap仍不回滚。无真实前缀或初始化值交接的普通暖帧不创建 baseline；专有 effect/Puppet visibility 保原消费者。
+
+验收固定 App one-shot timer 的原图/改名色卡及独立 peer，用实际 timer 后的晚返回和同次新 setter 区分；native 补镜像、输入/getter、undefined/no-update、同值写入、destroy/其它字段/sort、caller baseline 恢复、异常/重试，并保 Swift 已分离前缀门。直接 ValueOwner 的隐式 init 不能冒称普通 App 复现；Puppet/video-ended 混合返回、嵌套回调完整次序和事件自身先读 pending getter仍由队列保未闭，不授精确作者 positive、完整动画或官方 parity。
 
 <a id="prepared-group-visibility"></a>
 层级显隐以原 `SourceRoute` 已接通的组来源和合法成员闭包决定准备范围，composition 与 project 共用这一事实；fullscreen 保留独立的 viewport 消费入口。作者 Bool 与脚本 visibility 目标经同一 `SceneDynamicLayerVisibilityRouteAdmission` 形成 targets、preparationLayerIDs、particleRequirements 和 liveConsumers。初值 false 保留实际可显示成员的 Program、几何和粒子资源准备，不发布子层可见值，也不覆盖 child 自己的 false；普通帧沿原 typed snapshot 更新，资源与 topology owner 分别保持其原失效边界。

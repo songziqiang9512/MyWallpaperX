@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 190,
-      "bytes": 105196
+      "bytes": 105350
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 111,
-      "bytes": 15595
+      "lines": 117,
+      "bytes": 17488
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 37544
+      "bytes": 37587
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -502,15 +502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "b3096d903b44e5cd377f8c45a2769e7c71388ec78b45399402a5223938197d23",
-      "after": "2bdf96423bd3a12d5e9e57805999f58ee521f81dd39d1478964f2c7f4d8d100c",
-      "owner": "scene-boolean-separated-callback-order",
-      "reason": "Specify separated property/media prefix consumption in the original ValueOwner/VectorProgram, with one input/getter baseline and retirement of late full-batch Boolean replay. Consolidate older initialization evidence into current frozen-source native, visible App and independent-author qualification, and retain same-C-entry/getter boundaries instead of claiming all callback stages.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "41a0f8000ad047caa10fecbc3974fa1aa048857199692c6c6ee2c7ce0454015a",
       "after": "3b5f9a2b5812b632e98d2761c58f8489ea75642315cf31015c943f7c82f504c3",
@@ -520,20 +511,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "2bdf96423bd3a12d5e9e57805999f58ee521f81dd39d1478964f2c7f4d8d100c",
+      "after": "247eddfab58d173dc6f7203ed346cf46e450dd63b1213a2fbb4b836bcb1dba09",
+      "owner": "scene-boolean-primitive-entry-order",
+      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f322ec142cd1b0d05a88eea7d7b96ce22ac7a5743ecd2a1b5935d58c4262bd4b",
-      "after": "945b34d93a2f2830459c3645c11521662984b359806238ffd1ccbfacc432d6f7",
-      "owner": "scene-boolean-separated-callback-order",
-      "reason": "Specify separated property/media prefix consumption in the original ValueOwner/VectorProgram, with one input/getter baseline and retirement of late full-batch Boolean replay. Consolidate older initialization evidence into current frozen-source native, visible App and independent-author qualification, and retain same-C-entry/getter boundaries instead of claiming all callback stages.",
+      "before": "945b34d93a2f2830459c3645c11521662984b359806238ffd1ccbfacc432d6f7",
+      "after": "9a6678c6ed77ada6816cb4e4c0df59daa61161e7a107247632a023f37bc5f935",
+      "owner": "scene-boolean-primitive-entry-order",
+      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4b9dea7794d91c564226c6e271629585aad4ccea35d99d52c8584a084583f51b",
-      "after": "e07467ab72112b930ae13308e3fda696bc776f8e6d9895ba5d72e1480cb1cdf5",
-      "owner": "scene-boolean-separated-callback-order",
-      "reason": "Specify separated property/media prefix consumption in the original ValueOwner/VectorProgram, with one input/getter baseline and retirement of late full-batch Boolean replay. Consolidate older initialization evidence into current frozen-source native, visible App and independent-author qualification, and retain same-C-entry/getter boundaries instead of claiming all callback stages.",
+      "before": "e07467ab72112b930ae13308e3fda696bc776f8e6d9895ba5d72e1480cb1cdf5",
+      "after": "2375a49f8a7579b554809816dc56369c8fabe92284f45cf91dbc39e0bc30823b",
+      "owner": "scene-boolean-primitive-entry-order",
+      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
     }
   ]

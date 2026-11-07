@@ -13,20 +13,28 @@ enum SceneScriptBooleanReturnChecks {
         return .init(layers: [layer])
     }
 
-    static func program(_ source: String, name: String = "own-return-probe") throws
+    static func program(_ source: String, name: String = "own-return-probe", peer: String? = nil,
+                        seed: Bool = false) throws
         -> SceneScriptVectorProgram {
         let domain = try SceneScriptQuickJSDomain()
-        let scene = descriptor(name)
+        var scene = descriptor(name)
+        scene.layers[0].visible = seed
+        if peer != nil {
+            scene.layers.append(.init(id: 74, layerIndex: 1, name: "return-peer", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [], sizeWH: [80, 80]))
+        }
         try domain.configureLayerCatalog(scene)
         try domain.configureLayerRuntimeFields(scene)
-        return .compile(domain: domain, descriptor: scene, scriptBindings: [
-            .init(source: source,
-                owner: .init(kind: .object, objectIndex: 0, objectID: 73,
+        let bindings = ([source] + (peer.map { [$0] } ?? [])).enumerated().map { index, source in
+            SceneScriptBindingIR(source: source,
+                owner: .init(kind: .object, objectIndex: index, objectID: 73 + index,
                     effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
-                targetPath: [.key("objects"), .index(0), .key("visible")],
-                properties: [:], authoredValue: .bool(false), valueType: .boolean,
+                targetPath: [.key("objects"), .index(index), .key("visible")],
+                properties: [:], authoredValue: .bool(index == 0 ? seed : true), valueType: .boolean,
                 wrapperKeys: ["script", "value"])
-        ], userPropertyDefinitions: [], generation: 61)
+        }
+        return .compile(domain: domain, descriptor: scene, scriptBindings: bindings,
+            userPropertyDefinitions: [], generation: 61)
     }
 
     static func frame(_ time: Double) -> SceneScriptFrameInput {
@@ -35,8 +43,10 @@ enum SceneScriptBooleanReturnChecks {
     }
 
     static func evaluate(_ program: SceneScriptVectorProgram, input: Bool,
-                         time: Double = 1, budget: UInt64? = nil) -> SceneScriptVectorFrameResult {
-        program.evaluate(inputs: [target: .bool(input)], effectivePropertyValues: [:],
+                         time: Double = 1, budget: UInt64? = nil, peer: Bool? = nil) -> SceneScriptVectorFrameResult {
+        var inputs: [SceneDynamicTarget: SceneDynamicValue] = [target: .bool(input)]
+        if let peer { inputs[.layer(layerID: 74, field: .visibility)] = .bool(peer) }
+        return program.evaluate(inputs: inputs, effectivePropertyValues: [:],
             frame: frame(time), interruptBudget: budget)
     }
 
@@ -701,6 +711,189 @@ enum SceneScriptBooleanReturnChecks {
         return facts
     }
 
+    static func entryOrderChecks() throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        let peerTarget = SceneDynamicTarget.layer(layerID: 74, field: .visibility)
+        let cases: [(String, Bool, String, Bool)] = [
+            ("later-false", true, "return false;", false),
+            ("later-true", false, "return true;", true),
+            ("undefined-true", true, "return;", true),
+            ("new-true", false, "thisLayer.visible = true; return false;", true),
+            ("new-false", true, "thisLayer.visible = false; return true;", false),
+            ("same-true", true, "thisLayer.visible = true; return false;", true),
+            ("same-false", false, "thisLayer.visible = false; return true;", false),
+            ("fields-sort", true, "return false;", false),
+            ("sort-only", true, "return false;", false),
+            ("destroy", true, "return true;", false),
+            ("throw", true, "throw Error('after due timer');", false),
+        ]
+        for (label, prefix, body, expected) in cases {
+            let sort = label == "fields-sort" || label == "sort-only"
+            let effects = label == "fields-sort" ? """
+                thisLayer.origin = new Vec3(7, 8, 9);
+                const peer = thisScene.getLayer('return-peer');
+                peer.origin = new Vec3(2, 3, 4); peer.visible = false;
+                """ : ""
+            let fixture = try program("""
+                let scheduled = false, fired = false;
+                export function update(current) {
+                    if (!scheduled) {
+                        scheduled = true;
+                        engine.setTimeout(() => {
+                            fired = true; thisLayer.visible = \(prefix); \(effects)
+                            \(sort ? "thisScene.sortLayer(thisScene.getLayer('return-peer'), 0);" : "")
+                            \(label == "destroy" ? "thisScene.destroyLayer(thisLayer);" : "")
+                        }, 0);
+                        return current;
+                    }
+                    if (!fired) throw Error('timer did not execute');
+                    \(label == "destroy" ? "" : "if (current !== \(prefix) || thisLayer.visible !== \(prefix)) throw Error('timer input/getter mismatch');")
+                    \(sort ? "if (thisScene.getLayerIndex(thisScene.getLayer('return-peer')) !== 0) throw Error('lost timer sort');" : "")
+                    \(body)
+                }
+                """, name: "entry-\(label)", peer: "export function update(v) { return true; }")
+            let first = evaluate(fixture, input: !prefix, peer: true)
+            fixture.finalizeLayerMutations(committing: true)
+            let result = evaluate(fixture, input: !prefix, time: 2, peer: true)
+            facts["entry-timer-\(label)-healthy-peer"] = first.failures.isEmpty
+                && result.failures[peerTarget] == nil && result.values[peerTarget] == .bool(true)
+            if label == "throw" {
+                if case let .exception(message)? = result.failures[target] {
+                    facts["entry-timer-throw-atomic"] = message.contains("after due timer")
+                        && result.values[target] == nil && result.layerMutations.isEmpty
+                        && result.ownerEffects.allSatisfy { $0.ownerTarget != target }
+                } else { facts["entry-timer-throw-atomic"] = false }
+            } else {
+                facts["entry-timer-\(label)-value"] = result.failures.isEmpty && value(result) == expected
+                if label == "destroy" {
+                    facts["entry-timer-destroy-command"] = result.layerMutations.contains { $0.layerID == 73 && $0.kind == .destroy }
+                } else if label == "fields-sort" {
+                    facts["entry-timer-fields-survive"] = result.layerMutations.count == 2
+                        && result.layerMutations.contains { $0.layerID == 73 && $0.fields == .origin && $0.origin == .init(7, 8, 9) }
+                        && result.layerMutations.contains { $0.layerID == 74 && $0.fields == [.origin, .visibility] && !$0.visible && $0.origin == .init(2, 3, 4) }
+                } else {
+                    facts["entry-timer-\(label)-no-empty-publication"] = result.layerMutations.isEmpty
+                }
+                facts["entry-timer-\(label)-real-topology"] = result.ownerEffects.contains {
+                    $0.ownerTarget == target && $0.layerTopologyOwnerIdentity != nil
+                } == sort
+            }
+            fixture.finalizeLayerMutations(committing: true)
+        }
+        for (label, initialization, expected) in [
+            ("return-only", "return false;", false), ("old-setter", "thisLayer.visible = false;", true),
+        ] {
+            let fixture = try program("""
+                export function init(v) { \(initialization) }
+                export function update(v) {
+                    if (v !== false || thisLayer.visible !== false) throw Error('implicit init current mismatch');
+                    return \(expected);
+                }
+                """, seed: true)
+            let result = evaluate(fixture, input: true)
+            facts["entry-implicit-init-\(label)"] = result.failures.isEmpty && value(result) == expected
+                && result.layerMutations.isEmpty
+            fixture.finalizeLayerMutations(committing: true)
+        }
+        let timerInit = try program("""
+            export function cursorClick(e) { engine.setTimeout(() => { thisLayer.visible = false; }, 0); }
+            export function init(v) {
+                if (v !== false || thisLayer.visible !== false) throw Error('timer did not seed init');
+                return true;
+            }
+            export function update(v) {
+                if (v !== true || thisLayer.visible !== true) throw Error('init return lost to timer setter');
+                return v;
+            }
+            """, seed: true)
+        if let registration = timerInit.cursorOwnerRegistrations.first {
+            let registered = try registration.owner.dispatchCursor(
+                .init(kind: .click, layerID: 73, worldPosition: .zero, localPosition: .zero),
+                frame: frame(0), scriptPropertiesJSON: "", userPropertiesJSON: "{}").get()
+            let result = evaluate(timerInit, input: true)
+            facts["entry-timer-before-implicit-init-return"] = registered.layers.isEmpty && result.failures.isEmpty && value(result) == true
+            timerInit.finalizeLayerMutations(committing: true)
+        } else { facts["entry-timer-before-implicit-init-return"] = false }
+        let initOnly = try program("export function init(v) { thisLayer.visible = false; }", seed: true)
+        let initialized = evaluate(initOnly, input: true)
+        facts["entry-init-only-keeps-setter"] = initialized.failures.isEmpty && value(initialized) == false
+            && initialized.layerMutations.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && !$0.visible }
+        initOnly.finalizeLayerMutations(committing: true)
+        let eventOnly = try program("""
+            export function init(v) { engine.setTimeout(() => { thisLayer.visible = false; }, 0); }
+            """)
+        _ = evaluate(eventOnly, input: true)
+        eventOnly.finalizeLayerMutations(committing: true)
+        let event = evaluate(eventOnly, input: true, time: 2)
+        facts["entry-timer-event-only-keeps-setter"] = event.failures.isEmpty && value(event) == false
+            && event.layerMutations.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && !$0.visible }
+        eventOnly.finalizeLayerMutations(committing: true)
+        for mode in 0...2 {
+            let fixture = try program("""
+                let scheduled = false;
+                export function update(v) {
+                    if (!scheduled) { scheduled = true; engine.setTimeout(() => { thisLayer.visible = \(mode != 0); }, 0); }
+                    return false;
+                }
+                export function cursorClick(e) {
+                    if (thisLayer.visible !== \(mode == 0) || thisLayer.origin.x !== \(mode < 2 ? 4 : 0) ||
+                        thisScene.getLayer('return-peer').origin.x !== 7) throw Error('caller baseline not restored');
+                }
+                """, peer: "export function update(v) { return true; }")
+            _ = evaluate(fixture, input: false, peer: true)
+            fixture.finalizeLayerMutations(committing: true)
+            guard let owner = fixture.cursorOwnerRegistrations.first?.owner else {
+                facts["entry-baseline-\(mode)-owner"] = false; continue
+            }
+            var baselines: [SceneScriptLayerMutation] = []
+            for id in (mode < 2 ? [74, 73] : [74]) {
+                baselines.append(.init(kind: .upsert, isDynamic: false,
+                    fields: id == 73 && mode == 0 ? [.origin, .visibility] : .origin,
+                    layerID: id, orderIndex: id - 73, visible: id == 73 && mode == 0, alpha: 1,
+                    origin: .init(id == 73 ? 4 : 7, 5, 6), scale: .init(repeating: 1), angles: .zero,
+                    color: .init(repeating: 1), pointSize: 0, text: "", font: "", assetPath: nil))
+            }
+            let configured = owner.configureAuthoredLayerReadBaselines(baselines)
+            let result = evaluate(fixture, input: false, time: 2, peer: true)
+            // The normal cursor wrapper clears caller baselines; use its real bridge to observe this scope first.
+            let witness = SceneScriptMediaEventBridge.dispatchCursor(owner: owner.handle, target: target,
+                ownerGeneration: 61, event: .init(kind: .click, layerID: 73, worldPosition: .zero, localPosition: .zero),
+                frame: frame(2), scriptPropertiesJSON: "", userPropertiesJSON: "{}")
+            facts["entry-baseline-\(mode)-restored-through-getter"] = configured == nil && result.failures.isEmpty
+                && value(result) == false && (try? witness.get().layers.isEmpty) == true
+            owner.clearAuthoredLayerReadBaselines()
+            fixture.finalizeLayerMutations(committing: true)
+        }
+        let retry = try program("""
+            let scheduled = false, ticks = 0;
+            export function update(v) {
+                if (!scheduled) {
+                    scheduled = true;
+                    engine.setTimeout(() => { thisLayer.visible = true; thisLayer.origin = new Vec3(0, 0, ++ticks); }, 0);
+                }
+                return false;
+            }
+            """)
+        _ = evaluate(retry, input: false)
+        retry.finalizeLayerMutations(committing: true)
+        let timers = retry.timerFrameStateSnapshot(), state = retry.frameStateSnapshot()
+        let rejected = evaluate(retry, input: false, time: 2)
+        retry.restoreFrameState(state, rejectedOwnerTargets: [target])
+        retry.restoreTimerFrameState(timers)
+        retry.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        retry.discardTimerFrameState(timers)
+        let accepted = evaluate(retry, input: false, time: 2)
+        facts["entry-timer-admission-retry"] = rejected.failures.isEmpty && accepted.failures.isEmpty
+            && value(rejected) == false && value(accepted) == false
+            && rejected.layerMutations.contains { $0.origin == .init(0, 0, 1) }
+            && accepted.layerMutations.contains { $0.origin == .init(0, 0, 2) }
+        retry.finalizeLayerMutations(committing: true)
+        let settled = evaluate(retry, input: false, time: 3)
+        facts["entry-timer-accepted-not-replayed"] = settled.failures.isEmpty && value(settled) == false && settled.layerMutations.isEmpty
+        retry.finalizeLayerMutations(committing: true)
+        return facts
+    }
+
     static func run() throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
         // Opposite input makes accidental truthiness observable. These are
@@ -801,6 +994,7 @@ enum SceneScriptBooleanReturnChecks {
             facts["\(label)-healthy-peer"] = healthy.failures.isEmpty && value(healthy) == false
             peer.finalizeLayerMutations(committing: true)
         }
+        facts.merge(try entryOrderChecks()) { _, new in new }
         return facts
     }
 }
