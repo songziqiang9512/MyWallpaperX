@@ -301,7 +301,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         defer {
             if readBaseline != nil { clearAuthoredLayerReadBaselines() }
         }
-        let scriptInput = sceneScriptInput(pendingValue ?? input)
+        let scriptInput = sceneScriptInput(readBaseline.map { .bool($0.visible) } ?? pendingValue ?? input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)

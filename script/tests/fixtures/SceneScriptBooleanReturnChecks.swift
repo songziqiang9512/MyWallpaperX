@@ -52,7 +52,8 @@ enum SceneScriptBooleanReturnChecks {
              .layer(layerID: layerID + 1, field: .visibility): .bool(true)]
         }
         func pipeline(_ source: String, seed: Bool = true, layerID: Int = 73,
-                      name: String = "initial-current") throws -> (
+                      name: String = "initial-current",
+                      playbackSource: String? = nil) throws -> (
             domain: SceneScriptQuickJSDomain, scene: SceneRenderDescriptor,
             vector: SceneScriptVectorProgram, coordinator: SceneScriptMediaFrameCoordinator
         ) {
@@ -67,7 +68,7 @@ enum SceneScriptBooleanReturnChecks {
             ])
             try domain.configureLayerCatalog(scene)
             try domain.configureLayerRuntimeFields(scene)
-            let playback = """
+            let playback = playbackSource ?? """
                 let playbackMadeVisible = false;
                 export function mediaPlaybackChanged(event) {
                     thisLayer.visible = event.state !== MediaPlaybackEvent.PLAYBACK_STOPPED;
@@ -336,6 +337,162 @@ enum SceneScriptBooleanReturnChecks {
             lateMedia.vector.finalizeLayerMutations(committing: true)
             lateMedia.coordinator.finalizeInitializations()
         } else { facts["later-media-setter-overrides-cursor-and-init"] = false }
+
+        let callbackCases: [(String, Bool, String, Int, Bool)] = [
+            ("later-return-false", false, "export function update(current) { return false; }", 1, false),
+            ("later-return-true", true, "export function update(current) { return true; }", 0, true),
+            ("media-current-input-and-getter", true, """
+                export function update(current) {
+                    if (current !== false || thisLayer.visible !== false) throw Error('lost current media value');
+                    return current;
+                }
+                """, 0, false),
+            ("undefined-keeps-media-input", false, """
+                export function update(current) {
+                    if (current !== true || thisLayer.visible !== true) throw Error('lost undefined input');
+                    return;
+                }
+                """, 1, true),
+            ("non-boolean-keeps-media-input", true, "export function update(current) { return 9; }", 0, false),
+            ("new-setter-true", true, """
+                export function update(current) { thisLayer.visible = true; return false; }
+                """, 0, true),
+            ("new-setter-false", false, """
+                export function update(current) { thisLayer.visible = false; return true; }
+                """, 1, false),
+            ("same-value-new-setter", false, """
+                export function update(current) { thisLayer.visible = true; return false; }
+                """, 1, true),
+            ("media-input-later-than-pending-init", true, """
+                export function init(current) { thisLayer.visible = false; }
+                export function update(current) {
+                    if (current !== true || thisLayer.visible !== true) throw Error('pending init hid media input');
+                    return current;
+                }
+                """, 1, true),
+        ]
+        for (label, seed, source, state, expected) in callbackCases {
+            let fixture = try pipeline(source, seed: seed)
+            let result = coordinated(fixture.coordinator, inputs: inputs(seed),
+                events: .init(playback: .init(state: state, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+            facts["callback-order-\(label)"] = result.vector.failures.isEmpty
+                && result.vector.values[target] == .bool(expected)
+                && result.vector.values[peerTarget] == .bool(true)
+                && result.layerMutations.allSatisfy { $0.layerID != 73 || !$0.fields.contains(.visibility) }
+            fixture.vector.finalizeLayerMutations(committing: true)
+            fixture.coordinator.finalizeInitializations()
+        }
+
+        let renamedCallback = try pipeline("""
+            export function update(previous) {
+                const receiver = thisScene.getLayer('renamed-callback');
+                if (receiver['visi' + 'ble'] !== true) throw Error('renamed getter lost prefix');
+                return 1 === 2;
+            }
+            """, seed: false, layerID: 941, name: "renamed-callback", playbackSource: """
+            export function mediaPlaybackChanged(packet) {
+                const receiver = thisScene.getLayer('renamed-callback');
+                receiver['visi' + 'ble'] = !(packet.state === MediaPlaybackEvent.PLAYBACK_STOPPED);
+            }
+            """)
+        let renamedResult = coordinated(renamedCallback.coordinator, inputs: inputs(false, layerID: 941),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-renamed-alias-and-equivalent-expression"] = renamedResult.vector.failures.isEmpty
+            && renamedResult.vector.values[.layer(layerID: 941, field: .visibility)] == .bool(false)
+            && renamedResult.vector.values[.layer(layerID: 942, field: .visibility)] == .bool(true)
+        renamedCallback.vector.finalizeLayerMutations(committing: true)
+
+        let eventOnly = try pipeline("", seed: false)
+        let eventShown = coordinated(eventOnly.coordinator, inputs: inputs(false),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-event-only-retains-real-setter"] = eventShown.vector.failures.isEmpty
+            && eventShown.vector.values[target] == .bool(true) && eventShown.vector.values[peerTarget] == .bool(true)
+            && eventShown.layerMutations.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && $0.visible }
+        eventOnly.vector.finalizeLayerMutations(committing: true)
+        let eventIdle = coordinated(eventOnly.coordinator, inputs: inputs(true), time: 2,
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-event-only-no-repeat-or-warm-evaluation"] = eventIdle.vector.failures.isEmpty
+            && eventIdle.vector.values[target] == nil && eventIdle.vector.values[peerTarget] == .bool(true)
+            && eventIdle.ownerEffects.allSatisfy { $0.ownerTarget != target }
+        eventOnly.vector.finalizeLayerMutations(committing: true)
+        let eventHidden = coordinated(eventOnly.coordinator, inputs: inputs(true), time: 3,
+            events: .init(playback: .init(state: 0, generation: 2), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-event-only-later-stop"] = eventHidden.vector.failures.isEmpty
+            && eventHidden.vector.values[target] == .bool(false) && eventHidden.vector.values[peerTarget] == .bool(true)
+            && eventHidden.layerMutations.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && !$0.visible }
+        eventOnly.vector.finalizeLayerMutations(committing: true)
+
+        let destroyedCallback = try pipeline("export function update(current) { return true; }", playbackSource: """
+            export function mediaPlaybackChanged(event) { thisScene.destroyLayer(thisLayer); }
+            """)
+        let destroyedResult = coordinated(destroyedCallback.coordinator, inputs: inputs(true),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-self-destroy-survives-later-true"] = destroyedResult.vector.failures.isEmpty
+            && destroyedResult.vector.values[target] == .bool(false) && destroyedResult.vector.values[peerTarget] == .bool(true)
+            && destroyedResult.layerMutations.filter { $0.layerID == 73 }.count == 1
+            && destroyedResult.layerMutations.contains { $0.layerID == 73 && $0.kind == .destroy }
+        destroyedCallback.vector.finalizeLayerMutations(committing: true)
+
+        let callbackFields = try pipeline("""
+            export function update(current) { thisLayer.origin = new Vec3(17, 18, 19); return false; }
+            """, playbackSource: """
+            export function mediaPlaybackChanged(event) {
+                thisLayer.visible = true;
+                thisLayer.origin = new Vec3(7, 8, 9);
+                thisScene.getLayer('initialization-peer').origin = new Vec3(2, 3, 4);
+                thisScene.getLayer('initialization-peer').visible = true;
+            }
+            """)
+        let fieldResult = coordinated(callbackFields.coordinator, inputs: inputs(true),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-other-fields-and-peer-survive-once"] = fieldResult.vector.failures.isEmpty
+            && fieldResult.vector.values[target] == .bool(false) && fieldResult.vector.values[peerTarget] == .bool(true)
+            && fieldResult.layerMutations.filter { $0.layerID == 73 }.count == 1
+            && fieldResult.layerMutations.contains { $0.layerID == 73 && $0.fields == .origin && $0.origin == .init(17, 18, 19) }
+            && fieldResult.layerMutations.filter { $0.layerID == 74 }.count == 1
+            && fieldResult.layerMutations.contains { $0.layerID == 74 && $0.fields == [.origin, .visibility] && $0.visible && $0.origin == .init(2, 3, 4) }
+        callbackFields.vector.finalizeLayerMutations(committing: true)
+
+        let failedCallback = try pipeline("""
+            export function update(current) { thisLayer.origin = new Vec3(91, 92, 93); throw Error('callback order failure'); }
+            """, playbackSource: """
+            export function mediaPlaybackChanged(event) { thisLayer.visible = true; thisLayer.origin = new Vec3(81, 82, 83); }
+            """)
+        let failedResult = coordinated(failedCallback.coordinator, inputs: inputs(false),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-throw-discards-owner-keeps-shared-peer"] = failedResult.vector.failures[target]?.code == "exception"
+            && failedResult.vector.values[target] == nil && failedResult.vector.failures[peerTarget] == nil
+            && failedResult.vector.values[peerTarget] == .bool(true)
+            && failedResult.ownerEffects.allSatisfy { $0.ownerTarget != target }
+            && failedResult.layerMutations.allSatisfy { $0.layerID != 73 }
+        failedCallback.vector.finalizeLayerMutations(committing: true)
+
+        let retriedCallback = try pipeline("export function update(current) { return current; }", seed: false, playbackSource: """
+            let deliveries = 0;
+            export function mediaPlaybackChanged(event) {
+                thisLayer.visible = true;
+                thisLayer.origin = new Vec3(0, 0, ++deliveries);
+            }
+            """)
+        let previousCallbacks = retriedCallback.vector.frameStateSnapshot()
+        let provisionalCallback = coordinated(retriedCallback.coordinator, inputs: inputs(false),
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        retriedCallback.vector.restoreFrameState(previousCallbacks, rejectedOwnerTargets: [target])
+        retriedCallback.vector.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        let retriedResult = coordinated(retriedCallback.coordinator, inputs: inputs(false), time: 2,
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-rejected-result-retries-same-event"] = provisionalCallback.vector.failures.isEmpty
+            && provisionalCallback.layerMutations.contains { $0.layerID == 73 && $0.origin == .init(0, 0, 1) }
+            && retriedResult.vector.failures.isEmpty && retriedResult.vector.values[target] == .bool(true)
+            && retriedResult.vector.values[peerTarget] == .bool(true)
+            && retriedResult.layerMutations.contains { $0.layerID == 73 && $0.origin == .init(0, 0, 2) }
+        retriedCallback.vector.finalizeLayerMutations(committing: true)
+        let settledCallback = coordinated(retriedCallback.coordinator, inputs: inputs(true), time: 3,
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["callback-order-accepted-event-is-not-replayed"] = settledCallback.vector.failures.isEmpty
+            && settledCallback.vector.values[target] == .bool(true)
+            && settledCallback.layerMutations.allSatisfy { $0.layerID != 73 || !$0.fields.contains(.origin) }
+        retriedCallback.vector.finalizeLayerMutations(committing: true)
         return facts
     }
 

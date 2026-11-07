@@ -30,9 +30,16 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 <a id="initialization-current-value"></a>
 初始化与当前值交接：分离调用的 `init` 对本属性的合法 setter 已归一为 typed 值时，下一次值求值/update 中的 `thisLayer.visible` 必须能读到它，不能只有 `update(value)` 的入参保留该值、getter 却退回作者初值。复用原 ValueOwner、pending 初始化值和 owner 读值入口；初始化结果只是读值基线，不再次作为本次 setter 发布。后来的合法 setter 或 update 返回仍可改变初始可见性，不把初始化隐藏钉住，也不补造媒体 STOPPED 事件。
 
-原 cursor 结果中的同 owner 显隐写入晚于初始化、早于媒体/属性回调；由现有 owner effects 在本帧投影为最小 typed 前缀，update getter 按当前 journal、较晚 callback、cursor 前缀、初始化值、当前 snapshot 的次序读取。不改写 pending 初始化值来保存未提交的 cursor 结果，也不提前改共享 Layer catalog；此前缀只参与读取，不重放成新的 setter 或新增持久显隐副本。
+原 cursor 结果中的同 owner 显隐写入晚于初始化、早于媒体/属性回调；由现有 owner effects 在本帧投影为最小 typed 前缀，update getter 按当前 journal、较晚 callback、cursor 前缀、初始化值、当前 snapshot 的次序读取。不改写 pending 初始化值来保存未提交的 cursor 结果，也不提前改共享 Layer catalog；此前缀供本次输入与 getter，不重放成新的 setter 或新增持久显隐副本。
 
 该交接随原 owner 的 commit/discard 退出，失败重试沿原初始化事务；普通暖帧无初始化或真实前缀写入时不配置基线。验收用真实 VM 的分离 init/update、相反初值、直接返回、别名/改名、指针/媒体写入及已提交初始化值的消费拒绝重试；真实作者的当前显隐、实际 draw 和终端区域必须一致。其余 callback/返回值次序的未闭边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
+<a id="boolean-callback-order"></a>
+Bool 的分离事件前缀与值求值按真实调用顺序消费：属性/媒体回调对本属性的合法 setter 是后继值求值的输入及 getter 基线；后继显式返回可以改变它，同一次值求值中新写的 setter 仍按原规则优先于返回。先前 setter 不在值求值结束后再次折入。没有新值、无 update 的事件 owner 保留该前缀；本 owner 的真实 destroy 始终为不可见，不能被晚返回复活。
+
+原 VectorProgram 在进入 ValueOwner 前归一已分离的事件 layer journal 一次，原 ValueOwner 用同一读值基线供输入与 getter，并只归一其本次 C entry 导出的 journal。成功后只合并已归一副作用和原 coalescing/commit，不再重做全批 Bool 归一；真实 destroy 由合并后的命令保终值及原资源退休。其他目标/字段、跨 owner 顺序、event-only setter、异常与 commit/discard 沿原事务，不增 owner、持久可见性副本、phase flag 或每帧全局扫描。
+
+验收以真实媒体 callback 的相反返回、同字段新 setter、undefined/no-update、destroy、失败 owner 与健康 peer 核值和副作用；App 用公开属性回调与实际热更新显示可区分色卡，保改名变体、同 update 新 setter 及终端/typed 输出一致。这里只闭 Swift 已分离的属性/媒体前缀到值求值；同 C entry 内隐式 init、timer/Puppet callback 的 journal 阶段仍由队列保未闭，不将此切片授完整回调次序或精确作者缺图恢复。
 
 <a id="prepared-group-visibility"></a>
 层级显隐以原 `SourceRoute` 已接通的组来源和合法成员闭包决定准备范围，composition 与 project 共用这一事实；fullscreen 保留独立的 viewport 消费入口。作者 Bool 与脚本 visibility 目标经同一 `SceneDynamicLayerVisibilityRouteAdmission` 形成 targets、preparationLayerIDs、particleRequirements 和 liveConsumers。初值 false 保留实际可显示成员的 Program、几何和粒子资源准备，不发布子层可见值，也不覆盖 child 自己的 false；普通帧沿原 typed snapshot 更新，资源与 topology owner 分别保持其原失效边界。
