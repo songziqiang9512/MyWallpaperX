@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 190,
-      "bytes": 104658
+      "bytes": 104959
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 37413
+      "bytes": 37499
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,19 +521,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f2bc5edaabb3de5656513aeb3953db58acbd407238f0ad6484f0b808ab1243b5",
-      "after": "1e9afd2f71aa836fcd72714dc8294d67e94b93253275355b47b97e9bbb5f06bf",
-      "owner": "scene-framing-focus-qualification",
-      "reason": "Replace the old persistent-focus assumption with one same-frame post-intro Timeline/material/terminal result. Record the bounded current framing/alpha/typed-sample stop without inventing selected geometry, and keep default grey and fluid contribution separate; no product permission or new authority.",
+      "before": "1e9afd2f71aa836fcd72714dc8294d67e94b93253275355b47b97e9bbb5f06bf",
+      "after": "f322ec142cd1b0d05a88eea7d7b96ce22ac7a5743ecd2a1b5935d58c4262bd4b",
+      "owner": "scene-framing-matrix-qualification",
+      "reason": "Record one failed user-entry matrix qualification, with the original child exit distinct from adapter rejection and the original composition receipt truncation. Preserve zero armed breakpoints/zero matrices and the existing unresolved geometry boundary; stop this method without a product change or new document authority.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9232d8fe44aea53b59a970dd692e37f6763f24f1fd9309f3b3fb2177d1902ad9",
-      "after": "93f08247ef90c91534936524e4ba739ee343660eab2b21b275d56d52d7caa4e3",
-      "owner": "scene-framing-focus-qualification",
-      "reason": "Replace the old persistent-focus assumption with one same-frame post-intro Timeline/material/terminal result. Record the bounded current framing/alpha/typed-sample stop without inventing selected geometry, and keep default grey and fluid contribution separate; no product permission or new authority.",
+      "before": "93f08247ef90c91534936524e4ba739ee343660eab2b21b275d56d52d7caa4e3",
+      "after": "4b9dea7794d91c564226c6e271629585aad4ccea35d99d52c8584a084583f51b",
+      "owner": "scene-framing-matrix-qualification",
+      "reason": "Record one failed user-entry matrix qualification, with the original child exit distinct from adapter rejection and the original composition receipt truncation. Preserve zero armed breakpoints/zero matrices and the existing unresolved geometry boundary; stop this method without a product change or new document authority.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     }
   ]

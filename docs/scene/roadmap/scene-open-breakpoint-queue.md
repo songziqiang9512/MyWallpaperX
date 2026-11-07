@@ -93,7 +93,7 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 2887099508 | 当前原输入仍有矩形取景/人物越右现象，资源与局部图消费已核；source alpha及一次既有typed采样未给出首个错误几何，selected camera/world/MVP仍未知，见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。依停止线不再调短窗/采样间隔；取得可关联的实际矩阵或可区分对照后再定位，不猜UV、padding或general.zoom语义。 |
+| 2887099508 | 当前原输入仍有矩形取景/人物越右现象，资源与局部图消费已核；source alpha及一次既有typed采样未给出首个错误几何，selected camera/world/MVP仍未知，见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。唯一LLDB入口未停、采集未arm且原composition receipt截断，未取得矩阵；不重跑本次方法或调短窗/间隔。取得可关联实际矩阵或可区分对照后再定位，不猜UV、padding或general.zoom语义。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理；3003318777的后启动阶段已由[运行证据](../capabilities/runtime-evidence-current.md#coverage)资格，不再沿旧四秒失焦实施修复。 |
 | 3382111183 /3436945972 /3463406101 /3443450456 | 分别整幅失焦、明显偏暗、暗绿配色及灰白底黑字；同焦距、亮度、遮罩、配色/时段与音频输入后再定位writer，不从preview直接归tone-map/blend。 |
 | 3498814983 /3605722997 /3827673174 | 头脸超画面或仅见脚裙；固定横屏camera/cover/平移与作者画布，portrait preview的取景差不能证明投影错误。 |
