@@ -896,8 +896,14 @@ extension SceneDependencyRenderPlan {
                     layersByID: layersByID, cyclicLayerIDs: cyclicLayerIDs,
                     legacyBindings: legacyBindings, admittedAggregates: admittedAggregates)
             else { return nil }
-            return programInputBinding(for: reference, layer: layer, layersByID: layersByID,
-                                       order: order, visibleLayerIDs: visibleLayerIDs)
+            guard let binding = potentialProgramInputBinding(
+                for: reference, layer: layer, layersByID: layersByID,
+                order: order, visibleLayerIDs: visibleLayerIDs),
+                !binding.requiresForwardCapture
+                    || !provider.effects.contains(where: { $0.visible != false })
+                    || providerGraphIsAuthoredOrderIndependent(provider)
+            else { return nil }
+            return binding
         }
         guard bindings.count == ordered.count else { return nil }
         return .init(consumerLayerID: layer.id, bindings: bindings)

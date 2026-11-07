@@ -44,7 +44,6 @@ extension SceneDependencyRenderPlan {
         let graphs = Dictionary(grouping: authoredPlans, by: \.layerID)
         let materials = Dictionary(grouping: descriptor.materialPasses, by: \.id)
         var orderedByConsumer: [Int: [Reference]] = [:]
-        var activeTexturePathsByLayerID: [Int: [String]] = [:]
         for layer in descriptor.layers {
             guard let matches = graphs[layer.id], matches.count == 1, let graph = matches.first else {
                 orderedByConsumer[layer.id] = authoredReferenceOrder(
@@ -73,30 +72,14 @@ extension SceneDependencyRenderPlan {
                         ordered.append(reference)
                     }
                 }
-                if let effect = layer.effects.first(where: { $0.id == node.effect.descriptorID }),
-                   effect.visible != false {
-                    activeTexturePathsByLayerID[layer.id, default: []]
-                        .append(contentsOf: material?.textureSlots.compactMap { $0 } ?? [])
-                    if let instancePassIndex = node.instancePassIndex,
-                       let pass = effect.passes.first(where: { $0.passIndex == instancePassIndex }) {
-                        activeTexturePathsByLayerID[layer.id, default: []]
-                            .append(contentsOf: pass.texturePaths + pass.textureSlots.compactMap { $0 })
-                    }
-                }
             }
             orderedByConsumer[layer.id] = ordered
         }
         var result: [Int: [Binding]] = [:]
         for layer in descriptor.layers {
             let bindings = (orderedByConsumer[layer.id] ?? []).compactMap { reference in
-                let provider = layersByID[reference.providerLayerID]
-                let providerReferences = orderedByConsumer[reference.providerLayerID]?.filter { item in
-                    provider?.effects.first(where: { $0.id == item.slot.effectID })?.visible != false
-                }
-                return programInputBinding(for: reference, layer: layer, layersByID: layersByID,
-                    order: order, visibleLayerIDs: visibleLayerIDs,
-                    providerReferences: providerReferences,
-                    providerTexturePaths: activeTexturePathsByLayerID[reference.providerLayerID])
+                return potentialProgramInputBinding(for: reference, layer: layer, layersByID: layersByID,
+                    order: order, visibleLayerIDs: visibleLayerIDs)
             }
             if !bindings.isEmpty { result[layer.id] = bindings }
         }

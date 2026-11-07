@@ -32,6 +32,7 @@ struct SceneRenderDescriptor {
     struct MaterialPassDescriptor {
         var id = ""
         var materialPath = ""
+        var shaderPath: String? = nil
         var passIndex = 0
         var texturePaths: [String] = []
         var textureSlots: [String?] = []

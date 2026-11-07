@@ -426,6 +426,7 @@ extension Harness {
             "selectedMultiReferences": selectedMultiReferences,
             "preparedForwardCycle": preparedForwardCycle,
             "definitionMaterialProviders": definitionMaterialProviderResults(),
+            "deadLowerBackground": deadLowerBackgroundResults(),
             "forwardRepeatedProvider": forwardRepeatedProviderResults(),
             "sourceTiming": sourceTimingResults(),
         ]
@@ -482,6 +483,7 @@ extension Harness {
                 "middleProviders": bindings.map(\.providerLayerID),
                 "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
                 "rawMiddleClosed": rawPlan.multiProviderAggregatesByConsumerLayerID[middleID] != nil,
+                "rawConsumerProvider": rawPlan.bindingsByConsumerLayerID[consumerID]?.providerLayerID ?? -1,
                 "rawIssues": rawPlan.issues.map { $0.kind.rawValue },
                 "cyclicMiddle": rawPlan.cyclicLayerIDs.contains(middleID),
                 "forwardOrder": plan.sourcePreparationPlan(authoredLayerIDs: order,
@@ -490,10 +492,6 @@ extension Harness {
                     sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
             ]
         }
-        let foreign = SceneDependencyRenderPlan.Reference(consumerLayerID: 77, providerLayerID: 1901,
-            slot: .init(effectID: "foreign", passIndex: 0, slotIndex: 2), variant: .primary)
-        rows["foreignConsumerAccepted"] = SceneDependencyRenderPlan.providerGraphIsAuthoredOrderIndependent(
-            layer(1903, dependencies: [1901], visible: false), references: [foreign], texturePaths: [])
         return rows
     }
 
@@ -626,5 +624,44 @@ extension Harness {
                 "hiddenKinds": (candidates[1710] ?? []).map { String(describing: $0.kind) }])
         }
         return ["passes": rows, "forward": forward]
+    }
+
+    static func deadLowerBackgroundResults() -> [String: Any] {
+        var rows: [String: Any] = [:]
+        for mode in ["independent", "deadLower", "renamed", "activeBackground"] {
+            let renamed = mode == "renamed"
+            let frontID = renamed ? 2800 : 1800, providerID = frontID + 1
+            let effectID = renamed ? "different-provider" : "provider"
+            let materialID = renamed ? "retitled#2" : "provider#0"
+            let asset = renamed ? "textures/alternate.png" : "textures/owned.png"
+            let background = renamed ? "_RT_FULLFRAMEBUFFER" : "_rt_FullFrameBuffer"
+            let lower = mode == "independent" ? asset : background
+            let upper = mode == "activeBackground" ? background : asset
+            let path = "_rt_imageLayerComposite_\(providerID)_a"
+            let front = SceneRenderDescriptor.Layer(id: frontID, contentKind: "image", utilityLayer: nil,
+                dependencyLayerIDs: [providerID], childLayerIDs: [], visible: true,
+                effects: [.init(id: "front-\(effectID)", file: "effects/\(effectID)-read.json", visible: true,
+                    passes: [.init(passIndex: 0, texturePaths: [path, path], textureSlots: [nil, path, path],
+                        combos: [:], constantShaderValues: [:])])])
+            let provider = SceneRenderDescriptor.Layer(id: providerID, contentKind: "image", utilityLayer: nil,
+                dependencyLayerIDs: [], childLayerIDs: [], visible: false,
+                effects: [.init(id: effectID, file: "effects/\(effectID).json", visible: true,
+                    passes: [.init(passIndex: 0, texturePaths: [upper], textureSlots: [upper],
+                        combos: [:], constantShaderValues: [:])])])
+            let graph = SceneAuthoredEffectRenderPlan(layerID: providerID, nodes: [.init(
+                effect: .init(layerID: providerID, effectIndex: 0, descriptorID: effectID),
+                definitionPassIndex: 0, instancePassIndex: 0, materialPassID: materialID)])
+            var descriptor = SceneRenderDescriptor(layers: [front, provider], renderOrderLayerIDs: [frontID, providerID])
+            descriptor.materialPasses = [.init(id: materialID, materialPath: "materials/\(effectID).json",
+                passIndex: 0, texturePaths: [lower], textureSlots: [lower], userTextureInputs: [])]
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, authoredPlans: [graph], visibleLayerIDs: [frontID])[frontID] ?? []
+            let raw = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: [frontID])
+            rows[mode] = ["providers": candidates.map(\.providerLayerID),
+                "slots": candidates.map(\.slot.slotIndex), "forward": candidates.map(\.requiresForwardCapture),
+                "requiresProgram": candidates.map(\.requiresResolvedMaterialProgram),
+                "rawClosed": raw.multiProviderAggregatesByConsumerLayerID[frontID] != nil]
+        }
+        return rows
     }
 }

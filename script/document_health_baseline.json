@@ -125,12 +125,12 @@
       "bytes": 39167
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 230,
-      "bytes": 43890
+      "lines": 232,
+      "bytes": 44537
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 187,
-      "bytes": 102488
+      "lines": 188,
+      "bytes": 102953
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 36950
+      "bytes": 36945
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -502,15 +502,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "2ffb8a9450966dff8141d51fb8cb22dc8c1f95b1c9216f48bd6e70e721b68377",
-      "after": "41a0f8000ad047caa10fecbc3974fa1aa048857199692c6c6ee2c7ce0454015a",
-      "owner": "scene-named-primary-input-set",
-      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
       "after": "b3096d903b44e5cd377f8c45a2769e7c71388ec78b45399402a5223938197d23",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "41a0f8000ad047caa10fecbc3974fa1aa048857199692c6c6ee2c7ce0454015a",
+      "after": "3b5f9a2b5812b632e98d2761c58f8489ea75642315cf31015c943f7c82f504c3",
+      "owner": "scene-cold-selected-input",
+      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c3617e25c4d9069fe407837429bb4fd93736e6179243713282a569ea170253b8",
-      "after": "b71e5950c8028cf9d4155f64cccf158443ffb932197041c72069c261366951f9",
-      "owner": "scene-current-symptom-qualification",
-      "reason": "Replace stale strong-white-circle and hidden prewarm assumptions with one current same-input terminal each; retain named publication-copy/pose, missing hover captures and per-pixel limits without product permission changes or another authority.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "b71e5950c8028cf9d4155f64cccf158443ffb932197041c72069c261366951f9",
+      "after": "f2bc5edaabb3de5656513aeb3953db58acbd407238f0ad6484f0b808ab1243b5",
+      "owner": "scene-cold-selected-input",
+      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a71d31c1a7a86f340b6d08ae6ea4a80124b991b440de8c7012492fde52cae3df",
-      "after": "0777369b07df8d3098a5e68fc9f36b91d30888606edec12bff8d45b20051b0e6",
-      "owner": "scene-current-symptom-qualification",
-      "reason": "Replace stale strong-white-circle and hidden prewarm assumptions with one current same-input terminal each; retain named publication-copy/pose, missing hover captures and per-pixel limits without product permission changes or another authority.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "0777369b07df8d3098a5e68fc9f36b91d30888606edec12bff8d45b20051b0e6",
+      "after": "9232d8fe44aea53b59a970dd692e37f6763f24f1fd9309f3b3fb2177d1902ad9",
+      "owner": "scene-cold-selected-input",
+      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     }
   ]
 }

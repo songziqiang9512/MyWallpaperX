@@ -163,7 +163,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 })
         self.assertEqual(rows["negativeCandidates"], {
             "copyBackgroundPrefix": {"before": [410], "forward": []},
-            "effectfulMainBackground": {"before": [410], "forward": []},
+            "effectfulMainBackground": {"before": [410], "forward": [410]},
         })
 
     def test_utility_selection_preserves_single_and_multiple_dependencies(self) -> None:
@@ -448,9 +448,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 self.assertEqual({key: row[key] for key in expected}, expected)
         for name in ["secondary", "self", "background", "visible"]:
             with self.subTest(rejected=name):
-                self.assertEqual(rows[name]["candidateCount"], 0)
-                self.assertEqual(rows[name]["consumerProvider"], -1)
-        self.assertFalse(rows["foreignConsumerAccepted"])
+                self.assertEqual(rows[name]["candidateCount"], 0 if name == "visible" else 1)
+                self.assertEqual(rows[name]["rawConsumerProvider"], -1)
         self.assertTrue(rows["twoProviders"]["rawMiddleClosed"])
         self.assertTrue(all(not rows[name]["rawMiddleClosed"] for name in ("unknown", "incomplete", "cycle")))
         self.assertIn("missingProvider", rows["unknown"]["rawIssues"])
@@ -468,21 +467,20 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
              "requiresProgram": [True] * 4},
         ])
 
-    def test_definition_forward_provider_keeps_background_phase_boundary(self) -> None:
-        self.assertEqual(self.result["definitionMaterialProviders"]["forward"], [
-            {"readsBackground": False, "declaresDependency": True,
-             "frontProviders": [1710], "frontForward": [True], "frontKinds": ["imageLayerBlend"],
-             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
-            {"readsBackground": False, "declaresDependency": False,
-             "frontProviders": [1710], "frontForward": [True], "frontKinds": ["imageLayerBlend"],
-             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
-            {"readsBackground": True, "declaresDependency": True,
-             "frontProviders": [], "frontForward": [], "frontKinds": [],
-             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
-            {"readsBackground": True, "declaresDependency": False,
-             "frontProviders": [], "frontForward": [], "frontKinds": [],
-             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
-        ])
+    def test_definition_forward_candidates_defer_background_reads_to_program(self) -> None:
+        for row in self.result["definitionMaterialProviders"]["forward"]:
+            with self.subTest(background=row["readsBackground"], dependency=row["declaresDependency"]):
+                self.assertEqual({key: row[key] for key in (
+                    "frontProviders", "frontForward", "frontKinds", "hiddenProviders", "hiddenKinds")},
+                    {"frontProviders": [1710], "frontForward": [True], "frontKinds": ["imageLayerBlend"],
+                     "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]})
+        # Potential carriers do not prove the selected Program or pixel output.
+        for name, provider in [("independent", 1801), ("deadLower", 1801),
+                               ("renamed", 2801), ("activeBackground", 1801)]:
+            with self.subTest(mode=name):
+                self.assertEqual(self.result["deadLowerBackground"][name], {
+                    "providers": [provider, provider], "slots": [1, 2], "forward": [True, True],
+                    "requiresProgram": [True, True], "rawClosed": name != "activeBackground"})
 
     def test_multi_provider_cold_plan_preserves_authored_binding_order(self) -> None:
         self.assertEqual(self.result["multiProviderCandidate"], {
