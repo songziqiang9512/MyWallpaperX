@@ -220,6 +220,11 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 去掉探针文字的C714派生App输入保原camera、动画、ID与project，改名重排后29确用新首条bind(-17.374374,-154.31277,0)，实际头部随新目标移动，证明不固定原名称、路径或某组矩阵数值；这是刻意改变挂点目标的反例，不要求与原画面相同。独立3769688830同三摘要、同App，21父的44/`aaaaaaaaa`与47/`orb`仍有bind；selected64实际几何/terminal replay到main/seal/GPU，原PNG可见手臂和球体正常衔接。其八条合同计数/摘要CHECK与R0逐项相同，保原CHECK，不升级整样本PASS。真实Reader/Builder/PreparedAsset/Evaluator/PoseProjection/WorldResolver回归覆盖唯一、重名、顺序互换/改名、冷/活动两phase、坏shadowed记录及原边界；测试和独审收据随输入、App身份及必要PNG保于`.artifacts/scene-puppet-attachment-20261107/`。无性能、官方像素一致、3306942838或正常多屏桌面资格。
 
+<a id="text-screen-anchor-viewport"></a>
+## 文字屏幕锚点与画幅
+
+3351163962的时段文字217左锚点、圈219无锚点；R0的“傍晚”和用户图4的“晚上”均在圈右外。2026-11-08固定官方2.8.0.42（SHA `daac1ea7…b6bda07`）原project/pkg及46个运输文件逐项一致，独占窗口960×540实际显示“午夜”在圈内，960×624则在圈右外；两幅原生CUA图在会话中，只有手工观察收据，无本地官方PNG或精确像素资格。后者接近R0的3024×1964比例，绝对尺寸、时间及字体像素不作等同。该越环症状可在官方由原作者锚点/裁幅组合复现，退出引擎偏移修复优先项；保原锚点与作者参数，不加样本offset。输入、静态链和官方收据归`.artifacts/scene-clock-layout-20261108/`；未授全部画幅、父变换、字体分支或完整布局一致。
+
 <a id="limits"></a>
 ## 未取得的资格
 

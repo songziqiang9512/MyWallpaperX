@@ -129,8 +129,8 @@
       "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 228,
-      "bytes": 121346
+      "lines": 233,
+      "bytes": 122225
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 192,
-      "bytes": 44350
+      "lines": 191,
+      "bytes": 44298
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,21 +340,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "82d4b049c6f7b528bd67e6b61e231bc3073a9581b9c6f255efb87b62ca1b599f",
-      "after": "bae04d34e7ebce84a43edb95e0053ebf7529ee1bf51abb4c1401c46f2554c2c9",
-      "owner": "Scene puppet attachment binding",
-      "reason": "Document ordered MDAT name binding before implementation, retire whole-table duplicate rejection, and bound official controls plus real author picture/phase results; remove the resolved head issue from the active queue.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachments"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "235d800c0ba4b3a6ecf37e0219c35ca4825563ac55edc15750bd96e9d4dae226",
-      "after": "c58c0159905ed0247d33d2fbcfff947902bdcb9671e0e5f612f5f4428f7452f4",
-      "owner": "Scene puppet attachment binding",
-      "reason": "Document ordered MDAT name binding before implementation, retire whole-table duplicate rejection, and bound official controls plus real author picture/phase results; remove the resolved head issue from the active queue.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-attachments"
+      "before": "c58c0159905ed0247d33d2fbcfff947902bdcb9671e0e5f612f5f4428f7452f4",
+      "after": "0a3835d5b90ae65278446e6ed1beb9690062d9393227c8f5e59069233c9d8367",
+      "owner": "Scene base-picture triage",
+      "reason": "Preserve the bounded failed circular-text readback and qualify original clock daypart layout at two actual official-client viewports; retain unknown geometry and move to base interactions without a speculative rendering patch.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
