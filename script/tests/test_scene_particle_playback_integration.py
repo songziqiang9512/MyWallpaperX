@@ -33,7 +33,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
 
     def run_particle(self, init, update="", screens=1, fault=None, continuous=False,
                      script_field="alpha", return_expression="value",
-                     directional_births=False, initial_value=1, retirement=None, removal=None, transition=None):
+                     directional_births=False, initial_value=1, retirement=None, removal=None, transition=None,
+                     texture_update=None):
         def chunk(kind, payload):
             return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
         png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
@@ -99,15 +100,35 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             extra_definitions = [("particles/child.json", json.dumps(child).encode()),
                                  ("particles/peer.json", json.dumps(peer).encode())]
         material = {"passes": [{"shader": "genericparticle", "textures": ["controlled.png"], "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}
+        project = {"type": "scene", "file": "scene.json"}
+        texture_files = {}
+        if texture_update:
+            key = texture_update
+            project["general"] = {"properties": {key: {"type": "scenetexture", "value": ""}}}
+            scene["objects"].insert(0, {"id": 52, "name": "Selected image", "image": f"models/{key}.json",
+                "origin": "24 64 0", "size": "32 24", "color": "1 1 1", "alpha": 1})
+            for name, color in ((f"{key}-old.png", b"\xff\0\xff\xff"),
+                                (f"{key}-new.png", b"\xff\xff\0\xff"),
+                                (f"{key}-fallback.png", b"\0\0\xff\xff")):
+                texture_files[name] = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress((b"\0" + color * 4) * 4)) + chunk(b"IEND", b""))
+            extra_definitions += [
+                (f"models/{key}.json", json.dumps({"material": f"materials/{key}.json"}).encode()),
+                (f"materials/{key}.json", json.dumps({"passes": [{"shader": "genericimage2",
+                    "textures": [f"{key}-fallback.png"], "usertextures": [key], "blending": "translucent",
+                    "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}).encode()),
+                (f"materials/{key}-fallback.png", texture_files[f"{key}-fallback.png"])]
         with tempfile.TemporaryDirectory(prefix="mwx-particle-playback-app-") as temp:
             root = Path(temp)
             content = root / "content"
             content.mkdir()
-            (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+            (content / "project.json").write_text(json.dumps(project))
             (content / "scene.pkg").write_bytes(make_package([
                 ("scene.json", json.dumps(scene).encode()), ("particles/controlled.json", json.dumps(definition).encode()),
                 ("materials/controlled.json", json.dumps(material).encode()), ("materials/controlled.png", png),
                 *extra_definitions]))
+            for name, payload in texture_files.items():
+                (content / name).write_bytes(payload)
             home = root / "home"
             home.mkdir()
             env = os.environ.copy()
@@ -143,6 +164,13 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                 command += ["--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "0.5:0.8"]
             if removal or transition:
                 command += ["--mwx-debug-scene-after-snapshot-delay", "2.5" if removal == "paused" or transition else "1.5"]
+            if texture_update:
+                old_path, new_path = (str(content / f"{texture_update}-{phase}.png") for phase in ("old", "new"))
+                command += ["--mwx-debug-scene-textures-json", json.dumps({texture_update: old_path}),
+                    "--mwx-debug-scene-properties-json", json.dumps({texture_update: old_path}),
+                    "--mwx-debug-scene-disjoint-texture-update-json", json.dumps({"v": 2, "cmd": "setUserTextures",
+                        "references": {texture_update: {"path": new_path}}, "resetKeys": [],
+                        "values": {texture_update: new_path}, "revision": 1, "recordID": "debug-scene-playback"})]
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
             retirement_qualification = None
@@ -174,6 +202,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                 saved = Path(destination) / self._testMethodName
                 if retirement:
                     saved /= retirement
+                if texture_update:
+                    saved /= texture_update
                 saved.mkdir(parents=True, exist_ok=True)
                 (saved / "app.log").write_text(log)
                 if retirement_qualification:
@@ -184,7 +214,7 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                         target = saved / source.relative_to(evidence)
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, target)
-                for name in ("project.json", "scene.pkg"):
+                for name in ("project.json", "scene.pkg", *texture_files):
                     shutil.copy2(content / name, saved / name)
                 identity_files = [self.app, self.app.with_name("MyWallpaperX.debug.dylib")]
                 (saved / "run-identity.json").write_text(json.dumps({
@@ -490,6 +520,45 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                 self.assertNotIn((0, absent), completed)
                 self.assertTrue(any(frame == 0 and surface != absent for frame, surface in completed), completed)
                 self.assertRegex(log, rf"phase=session-first-frame[^\n]*surface={absent} gpu=completed")
+            if texture_update:
+                gap = {stage: json.loads((evidence / f"surface-rebuild-texture-{stage}.json").read_text())
+                       for stage in ("submit", "result")}
+                outcome = re.findall(r"phase=surface-texture-update state=completed revision=1 outcome=(\S+) surfaces=(\d+)", log)
+                completion_line = next(index for index, line in enumerate(lines)
+                                       if "phase=surface-texture-update state=completed " in line)
+                rois = {}
+                for reason in ("after", *(f"surface-added-{display}" for display in added), "surface-rebuild-settled"):
+                    width, height, rows = png_rgb_pixels(evidence / f"scene-{reason}-window.png")
+                    scale = max(width, height) / 128
+                    x, y = int(width / 2 - 40 * scale), int(height / 2)
+                    rois[reason] = [list(rows[py][px * 3:px * 3 + 3])
+                                   for py in range(y - 2, y + 3) for px in range(x - 2, x + 3)]
+                qualification = {"key": texture_update, "outcome": outcome, "gapSnapshots": gap, "roiRGB": rois,
+                    "completionLine": completion_line + 1, "preparationEvents": events,
+                    "roiWorld": [24, 64], "sourceSHA256": {name: hashlib.sha256(payload).hexdigest()
+                                                            for name, payload in texture_files.items()}}
+                if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                    (saved / "texture-update-qualification.json").write_text(json.dumps(qualification, indent=2) + "\n")
+                for snapshot in gap.values():
+                    self.assertEqual(snapshot["surfaceCount"], 0, qualification)
+                    for field in ("sessionID", "requestID"):
+                        self.assertEqual(snapshot[field], before[field], qualification)
+                self.assertLess(events[1][0], completion_line, qualification)
+                self.assertLess(completion_line, events[2][0], qualification)
+                self.assertEqual(outcome, [("applied", "0")], qualification)
+                for reason, pixels in rois.items():
+                    self.assertEqual(pixels, [[255, 0, 255] if reason == "after" else [255, 255, 0]] * 25, qualification)
+                for reason, (_, receipt) in receipts.items():
+                    self.assertEqual(receipt["truncatedRows"], 0, receipt)
+                    source = next(row["source"] for row in receipt["rows"]
+                                  if row["kind"] == "source-selection" and row.get("layerID") == 52)
+                    draw = next(row for row in receipt["rows"] if row["kind"] == "ordinary" and row.get("layerID") == 52)
+                    self.assertEqual(draw["outcome"], "draw-encoded", (reason, draw))
+                    self.assertEqual(source["textureToken"], draw["source"]["textureToken"], (reason, receipt))
+                    self.assertIn(f"{texture_update}-{'old' if reason == 'after' else 'new'}.png", source["candidateIdentity"])
+                    self.assertEqual((source["purpose"], source["width"], source["height"]), ("premultipliedColor", 4, 4))
+                    self.assertTrue(any(row["kind"] == "frame-seal"
+                        and row["target"]["textureToken"] == draw["target"]["textureToken"] for row in receipt["rows"]), (reason, receipt))
             return log, preview, colors, consumed, completed
 
     def test_authored_root_retirement_preserves_held_output_and_retains_live_instances(self):
@@ -517,6 +586,11 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
 
     def test_disjoint_display_change_recovers_with_new_worker_owned_output(self):
         self.run_particle("", screens=1, transition="disjoint-playing")
+
+    def test_disjoint_display_preparation_adopts_current_user_texture(self):
+        for key in ("cover", "renamedSelection"):
+            with self.subTest(key=key):
+                self.run_particle("", screens=1, transition="disjoint-playing", texture_update=key)
 
     def test_init_pause_preserves_warmup_without_new_births(self):
         _, preview, colors, consumed, _ = self.run_particle("thisLayer.pause(); if (!thisLayer.isPlaying()) throw new Error('lost prepared live');")

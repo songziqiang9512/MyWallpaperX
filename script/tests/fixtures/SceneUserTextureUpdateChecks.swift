@@ -344,23 +344,78 @@ final class SceneDesktopWallpaperSession {
             } && session.launchContext!.liveState.effectiveValues["photo"] == .string("")
         results["requiredLaunchAcceptsExplicitReset"] = session.userPropertyTextureLoad.satisfiesRequiredProperties(
             ["photo"], selectedKeys: [], demands: photoDemands)
-        select("second", "photo", "second.png", 7); wait("second")
+        select("second", "photo", "red.png", 7); wait("second")
         let second = texture("photo")!
         let publication = session.userPropertyTextureLoad.publications[.init(propertyKey: "photo", purpose: .normal)!]!
         results["monotonicContentGeneration"] = publication.contentGeneration > 2
         results["existingSurfacesAdoptReplacement"] = session.surfaces.values.allSatisfy {
             $0.metalView.snapshot.textures["photo"] === second
         }
-        results["newSurfaceConsumesCurrent"] = {
-            let surface = SceneDesktopWallpaperSession.Surface(); surface.metalView.adoptUserPropertyTextures(session.userPropertyTextureLoad)
-            return surface.metalView.snapshot.textures["photo"] === second
-        }()
+        let imageRegistry = session.videoTextureSourceRegistry!
+        let imageDevice = session.launchContext!.preparedDeviceResources.device
+        let imageProgram = session.launchContext!.propertyVectorScriptProgram.generation
+        let redRevision = session.launchContext!.liveState.revision
+        let otherBeforeGap = texture("other")
+        let imageEntered = DispatchSemaphore(value: 0), imageRelease = DispatchSemaphore(value: 0)
+        session.userTexturePreparationQueue.async { imageEntered.signal(); imageRelease.wait() }
+        precondition(imageEntered.wait(timeout: .now() + 2) == .success)
+        select("green", "photo", "green.png", 8)
+        let imageGeneration = session.nextUserTextureGeneration
+        let imagePending = session.pendingUserTextureUpdates[imageGeneration]
+        session.surfaces.removeAll()
+        imageRelease.signal(); wait("green")
+        let green = texture("photo")
+        let greenPublications = session.userPropertyTextureLoad.publications.filter { $0.key.propertyKey == "photo" }
+        let committedImageRevision = session.launchContext!.liveState.revision
+        results["imageCurrentContextCommitsWithoutSurfaces"] = events["green"] == .applied
+            && session.surfaces.isEmpty && green != nil && green !== second
+            && green?.name == "green.png:premultipliedColor" && texture("other") === otherBeforeGap
+            && committedImageRevision == redRevision + 1
+            && session.launchContext!.liveState.effectiveValues["photo"] == .string("/fixture/green.png")
+            && session.launchContext!.recordID == "record"
+            && session.launchContext!.propertyVectorScriptProgram.generation == imageProgram
+            && session.launchContext!.preparedDeviceResources.device === imageDevice
+            && session.videoTextureSourceRegistry === imageRegistry
+            && session.latestUserTextureRevisions["photo"] == 8
+            && imagePending.map { (try? $0.cancellation.check()) != nil } == true
+            && session.pendingUserTextureUpdates.isEmpty
+            && session.retiringSurfaceDrain.wait(timeout: .now()) == .success
+            && greenPublications.count == 4 && greenPublications.allSatisfy { identity, publication in
+                publication.contentGeneration == imageGeneration
+                    && publication.requestIdentity == .materialUserProperty(identity)
+                    && publication.texture.name == "green.png:" + identity.purpose.rawValue
+            }
+        select("gap-broken", "photo", "broken.png", 9); wait("gap-broken")
+        results["surfacelessDecodeFailurePreservesCommittedAtom"] =
+            events["gap-broken"] == .failed("texture-update-resource-unavailable")
+            && session.surfaces.isEmpty && green != nil && texture("photo") === green
+            && session.launchContext!.liveState.revision == committedImageRevision
+            && session.launchContext!.liveState.effectiveValues["photo"] == .string("/fixture/green.png")
+            && greenPublications.count == 4 && greenPublications.allSatisfy { identity, publication in
+                let current = session.userPropertyTextureLoad.publications[identity]
+                return current?.texture === publication.texture
+                    && current?.contentGeneration == publication.contentGeneration
+            }
+        session.surfaces = [91: .init(), 92: .init()]
+        session.publishUserPropertyTextureBindings(registry: imageRegistry, device: imageDevice)
+        results["newStubViewsAdoptCommittedImageSnapshot"] = session.surfaces.count == 2
+            && green?.name == "green.png:premultipliedColor" && session.surfaces.values.allSatisfy {
+                $0.metalView.snapshot.textures["photo"] === green && !$0.didSubmitSimulationFrame
+                    && $0.metalView.snapshot.textures["other"] === otherBeforeGap
+                    && $0.metalView.snapshot.publications.count == session.userPropertyTextureLoad.publications.count
+                    && $0.metalView.snapshot.publications.allSatisfy { identity, publication in
+                        publication.texture === session.userPropertyTextureLoad.publications[identity]?.texture
+                    }
+            }
+        let currentAfterGap = texture("photo")
         select("stale", "photo", "late.png", 6); wait("stale")
-        results["staleRevisionRejected"] = events["stale"] == .superseded && texture("photo") === second
-        select("device", "photo", "slow-device.png", 8)
+        results["staleRevisionRejected"] = events["stale"] == .superseded
+            && currentAfterGap != nil && texture("photo") === currentAfterGap
+        select("device", "photo", "slow-device.png", 10)
         session.launchContext!.preparedDeviceResources.device = MTLDevice(2); wait("device")
-        results["deviceChangeRejectsReady"] = events["device"] == .superseded && texture("photo") === second
-        select("stop", "photo", "slow-stop.png", 9)
+        results["deviceChangeRejectsReady"] = events["device"] == .superseded
+            && currentAfterGap != nil && texture("photo") === currentAfterGap
+        select("stop", "photo", "slow-stop.png", 11)
         session.cancelPendingUserTextureUpdates(); session.launchContext = nil; wait("stop")
         results["stopEndsCompletion"] = events["stop"] == .superseded && session.pendingUserTextureUpdates.isEmpty
         let counts = SceneTextureLoader.counts()
@@ -377,10 +432,13 @@ final class SceneDesktopWallpaperSession {
             releaseSession.surfaces.values.forEach { $0.metalView.adoptUserPropertyTextures(snapshot) }
         }
         var releaseOutcome: ScenePlaybackTextureUpdateOutcome?
+        releaseSession.surfaces.removeAll()
         releaseSession.applyUserTextureUpdate(.init(references: [:], resetKeys: ["photo"],
             values: ["photo": .string("")], revision: 1, recordID: "record"), resolvedURLs: [:]) { releaseOutcome = $0 }
-        while releaseOutcome == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
-        results["initialSnapshotRetiredAfterReplacement"] = releaseOutcome == .applied && retired == nil
+        let releaseDeadline = Date().addingTimeInterval(2)
+        while releaseOutcome == nil && Date() < releaseDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        results["surfacelessResetRetiresInitialSnapshot"] = releaseOutcome == .applied && retired == nil
+            && releaseSession.surfaces.isEmpty
         results.merge(videoChecks()) { _, new in new }
         results.merge(initialPreparationChecks()) { _, new in new }
         let blocked = SceneDesktopWallpaperSession()
@@ -414,7 +472,7 @@ final class SceneDesktopWallpaperSession {
             && closed.pendingUserTextureUpdates.isEmpty
             && closed.retiringSurfaceDrain.wait(timeout: .now()) == .success
         let encoded = try! JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
-        print(String(data: encoded, encoding: .utf8)!)
+        FileHandle.standardOutput.write(encoded + Data([10]))
         precondition(results.values.allSatisfy { $0 }, "failed checks")
     }
 
@@ -565,11 +623,11 @@ final class SceneDesktopWallpaperSession {
             return registry.issuedSources.last!
         }
         select("peer", "photo", "peer.png", 1); wait("peer")
-        select("old", "other", "old-other.png", 1); wait("old")
+        select("old", "other", "red-other.png", 1); wait("old")
         let peer = session.userPropertyTextureLoad.textures["photo"]!
         let old = session.userPropertyTextureLoad.textures["other"]!
         let oldRevision = session.launchContext!.liveState.revision
-        select("video", "other", "manual-prime-first.mp4", 2)
+        select("video", "other", "manual-prime-green.mp4", 2)
         let first = nextPrime(0)
         results["pendingVideoPrimeKeepsOriginalRetirementGroupEntered"] =
             session.retiringSurfaceDrain.wait(timeout: .now()) == .timedOut
@@ -577,19 +635,36 @@ final class SceneDesktopWallpaperSession {
             && registry.active.isEmpty
             && session.userPropertyTextureLoad.textures["other"] === old
             && session.launchContext!.liveState.revision == oldRevision
-            && session.launchContext!.liveState.effectiveValues["other"] == .string("/fixture/old-other.png")
-        results["videoPendingPrimeIsNotSurfaceBinding"] = session.surfaces.values.allSatisfy {
+            && session.launchContext!.liveState.effectiveValues["other"] == .string("/fixture/red-other.png")
+        results["videoPendingPrimeIsNotSurfaceBinding"] = session.surfaces.count == 2 && session.surfaces.values.allSatisfy {
             $0.metalView.videoSources.isEmpty && $0.metalView.snapshot.textures["other"] === old
         }
+        let videoDevice = session.launchContext!.preparedDeviceResources.device
+        let videoProgram = session.launchContext!.propertyVectorScriptProgram.generation
+        let videoPending = session.pendingUserTextureUpdates[session.nextUserTextureGeneration]
+        session.surfaces.removeAll()
         first.releasePrime = true
         wait("video")
         let adoptedRevision = session.launchContext!.liveState.revision
-        results["videoValueAndBindingAdoptTogetherAcrossSurfaces"] = events["video"] == .applied
+        results["videoCurrentContextAdoptsPrimedSourceWithoutSurfaces"] = events["video"] == .applied
+            && session.surfaces.isEmpty && first.activated && first.stopCount == 0
             && adoptedRevision == oldRevision + 1 && registry.active[identity] === first
-            && session.launchContext!.liveState.effectiveValues["other"] == .string("/fixture/manual-prime-first.mp4")
-            && session.surfaces.values.allSatisfy {
+            && session.launchContext!.liveState.effectiveValues["other"] == .string("/fixture/manual-prime-green.mp4")
+            && session.launchContext!.recordID == "record"
+            && session.launchContext!.preparedDeviceResources.device === videoDevice
+            && session.launchContext!.propertyVectorScriptProgram.generation == videoProgram
+            && session.videoTextureSourceRegistry === registry && session.latestUserTextureRevisions["other"] == 2
+            && videoPending.map { (try? $0.cancellation.check()) != nil } == true
+            && session.pendingUserTextureUpdates.isEmpty
+            && session.retiringSurfaceDrain.wait(timeout: .now()) == .success
+        session.surfaces = [93: .init(), 94: .init()]
+        session.publishUserPropertyTextureBindings(registry: registry, device: videoDevice)
+        results["newStubViewsAdoptCommittedVideoSource"] = session.surfaces.count == 2
+            && registry.active[identity] === first && session.surfaces.values.allSatisfy {
                 $0.metalView.videoSources[identity] === first && !$0.didSubmitSimulationFrame
                     && $0.metalView.snapshot.textures["other"] == nil
+                    && $0.metalView.snapshot.textures["photo"] === peer
+                    && session.userPropertyTextureLoad.videoDeclarations["other"] != nil
                     && $0.metalView.snapshot.videoDeclarations["other"]?.file
                         === session.userPropertyTextureLoad.videoDeclarations["other"]?.file
             }
@@ -656,7 +731,7 @@ final class SceneDesktopWallpaperSession {
         results["videoExtensionOwnerAcceptsBoundedFormats"] = ["clip.mp4", "clip.MOV", "clip.m4v"].allSatisfy {
             SceneUserPropertyTextureLoader.isVideo(url: URL(fileURLWithPath: $0))
         } && !SceneUserPropertyTextureLoader.supports(url: URL(fileURLWithPath: "clip.webm"))
-        func staleBoundary(_ label: String, mutate: (SceneDesktopWallpaperSession) -> Void,
+        func staleBoundary(_ label: String, retainsContext: Bool = true, mutate: (SceneDesktopWallpaperSession) -> Void,
                            expected: ScenePlaybackTextureUpdateOutcome = .superseded) -> Bool {
             let isolated = SceneDesktopWallpaperSession()
             let initialRegistry = isolated.videoTextureSourceRegistry!
@@ -670,9 +745,11 @@ final class SceneDesktopWallpaperSession {
             mutate(isolated)
             source.releasePrime = true
             until(label + " completes") { outcome != nil }
-            return outcome == expected && source.stopCount == 1 && initialRegistry.active.isEmpty
-                && isolated.launchContext?.liveState.revision == 0
-                && isolated.launchContext?.liveState.effectiveValues["other"] == .string("")
+            let contextMatches = retainsContext
+                ? isolated.launchContext?.liveState.revision == 0
+                    && isolated.launchContext?.liveState.effectiveValues["other"] == .string("")
+                : isolated.launchContext == nil
+            return outcome == expected && source.stopCount == 1 && initialRegistry.active.isEmpty && contextMatches
         }
         results["videoRegistryReplacementRejectsLatePrime"] = staleBoundary("registry") {
             $0.videoTextureSourceRegistry = SceneVideoTextureSourceRegistry()
@@ -683,7 +760,12 @@ final class SceneDesktopWallpaperSession {
         results["videoProgramGenerationChangeRejectsLatePrime"] = staleBoundary("program") {
             $0.launchContext!.propertyVectorScriptProgram.generation += 1
         }
-        results["videoSurfaceRemovalRejectsLatePrime"] = staleBoundary("surfaces") { $0.surfaces.removeAll() }
+        results["videoRevisionChangeRejectsLatePrime"] = staleBoundary("revision") {
+            $0.latestUserTextureRevisions["other"] = 2
+        }
+        results["videoContextRemovalRejectsLatePrime"] = staleBoundary("context", retainsContext: false) {
+            $0.launchContext = nil
+        }
         results["videoAdoptionDenialPreservesLiveState"] = staleBoundary("admission", mutate: {
             $0.videoTextureSourceRegistry!.allowAdoption = false
         }, expected: .failed("texture-update-consumer-unavailable"))

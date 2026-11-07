@@ -119,7 +119,6 @@ extension SceneDesktopWallpaperSession {
                             && current.propertyVectorScriptProgram.generation == scriptGeneration
                             && current.preparedDeviceResources.device.registryID == deviceID
                             && self.videoTextureSourceRegistry === registry
-                            && !self.surfaces.isEmpty
                             && keys.allSatisfy { self.latestUserTextureRevisions[$0] == update.revision }
                             && (try? token.check()) != nil && !Task.isCancelled
                     }

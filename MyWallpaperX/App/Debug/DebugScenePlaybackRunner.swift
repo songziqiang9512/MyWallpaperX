@@ -208,6 +208,19 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        let textureUpdateFlag = "--mwx-debug-scene-disjoint-texture-update-json"
+        var surfaceTextureUpdate: ScenePlaybackTextureUpdate?
+        if ProcessInfo.processInfo.arguments.contains(textureUpdateFlag) {
+            guard let payload = argumentValue(after: textureUpdateFlag),
+                  let data = payload.data(using: .utf8),
+                  case let .success(.setUserTextures(update)) = SceneDaemonProtocol.decodeCommand(data),
+                  surfaceTargetIndices != nil else {
+                NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=invalid-surface-texture-update")
+                terminate(after: 0.1)
+                return
+            }
+            surfaceTextureUpdate = update
+        }
         let runtimeLifecycleProbeCount = [
             requestedExecutorInvalidationDelay != nil,
             sceneSwitchRequest != nil,
@@ -421,7 +434,8 @@ enum DebugScenePlaybackRunner {
                     outputDirectory: evidenceDirectory
                 )
                 scheduleSurfaceRebuild(delay: surfaceRebuildDelay, retaining: surfaceRetainCount,
-                    targetIndices: surfaceTargetIndices, outputDirectory: evidenceDirectory)
+                    targetIndices: surfaceTargetIndices, textureUpdate: surfaceTextureUpdate,
+                    outputDirectory: evidenceDirectory)
             }
             if let sequence = requestedLivePropertySequence {
                 if !sequence.isEmpty {
@@ -469,7 +483,8 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func scheduleSurfaceRebuild(
-        delay: TimeInterval?, retaining retainedCount: Int?, targetIndices: [Int]?, outputDirectory: URL
+        delay: TimeInterval?, retaining retainedCount: Int?, targetIndices: [Int]?,
+        textureUpdate: ScenePlaybackTextureUpdate?, outputDirectory: URL
     ) {
         guard !isClosing, let delay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
@@ -500,6 +515,21 @@ enum DebugScenePlaybackRunner {
                 requested = runtimeHost.screenTopology
                 recordSurfaceRebuildSnapshot(before, stage: "before", captured: captured,
                     requested: requested, outputDirectory: outputDirectory)
+                if let textureUpdate {
+                    let submitted = runtimeHost.debugSnapshot(captureSurfaceState: true)
+                    recordSurfaceRebuildSnapshot(submitted, stage: "texture-submit", captured: captured,
+                        requested: requested, outputDirectory: outputDirectory)
+                    NSLog("MWX DEBUG SCENE: phase=surface-texture-update state=submitted revision=%llu surfaces=%d",
+                        textureUpdate.revision, submitted.surfaceCount)
+                    runtimeHost.applyUserTextureUpdate(textureUpdate,
+                        resolvedURLs: textureUpdate.references.mapValues(\.url)) { outcome in
+                        let completed = runtimeHost.debugSnapshot(captureSurfaceState: true)
+                        recordSurfaceRebuildSnapshot(completed, stage: "texture-result", captured: captured,
+                            requested: requested, outputDirectory: outputDirectory)
+                        NSLog("MWX DEBUG SCENE: phase=surface-texture-update state=completed revision=%llu outcome=%@ surfaces=%d",
+                            textureUpdate.revision, String(describing: outcome), completed.surfaceCount)
+                    }
+                }
                 let targetIDs = Set(requested.map(\.displayID))
                 if !before.isPlaybackPaused, let keeper = before.surfacesByDisplay
                     .filter({ targetIDs.contains($0.key) }).values.min(by: { $0.windowNumber < $1.windowNumber }) {

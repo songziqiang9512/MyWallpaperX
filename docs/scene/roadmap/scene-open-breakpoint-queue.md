@@ -35,12 +35,12 @@
 | 粒子球体与画布碰撞 | 静态Sphere消费者见[组件合同](../capabilities/particle-component-coverage.md#sphere-collision)；首次接触顺序、精确轨迹/size裕量、CP锁定位及缺省数值仍未资格，不能由3773747576/183的CP333或CP1同位推断开关规则。Bounds的3780119725/891 operator2仍`unknown-operator-kind`，只有name/id；缺实际wallpaper边界经当前变换到粒子空间的供货和缺省响应，不能用drawable或发射盒代替。沿原碰撞/空间/Simulator补消费者，不把正常batch/GPU或退出授为完整碰撞能力。 |
 | 双控制点的弧向与周期序列 | Between仍未消费arc参数；三个闪电root为arcamount.1/flags23，未请求0x20，现partial也不包含这些arc字段。官方默认/存储已取证，本次有界静态仍无Position消费者；原报告尺寸缺省更正为.9，截断伪码不作全函数排除。新零噪声Q仅到资格场：PNG有预览而原生观察不一致，按首错停止，未授40中心/运动、未生成A或推弧启用/关闭。输入、原PNG、完整guest新文件及独审保于`.artifacts/scene-arc-qualification-20261107/evidence.zip`；采集先合格才重启语义研究，否则换项，不续旧两粒/弱端点矩阵。mask32旧周期输入显示新窗回首端，落实仍须原emitter状态/跨窗出生定义；不用particleID猜多emitter/显式交错。自然新生与存量边界已测，CP同cadence显式新生/后续Maintain顺序仍待有界对照，不加整链许可。 |
 | 发射器Directions数值域 | `SceneParticleEmitter.hasBoundedDirectionsAndSign`仍把有限Directions限制在abs≤1e6；原Sphere/Box消费及最终新生Float检查没有同名语义上限。应分别核零半径、有效大值、实际乘积溢出和健康peer后，清理无用的幅度许可。当前全量样本未见该幅度门独立活动拒绝，不以它解释其他birth失败。准备期另有静态反例：Directions=(1e200,1e200,0)、固定radius=1e-200时，二维`pow(radius,2)`下溢0；若直接放域会出生在origin，最终Float有限检查抓不到错误零。先沿原径向准备/抽样明确数值语义，不再堆幅度名单或为极罕见输入新增运行防线。 |
-| 无实际屏准备间的更新与终态回流 | 新增/混合独占准备、单屏安装及采用取消尾已闭合，见[当前运行证据](../capabilities/runtime-evidence-current.md#display-reconciliation)。disjoint准备时actual可暂空，UserTextures/visibility/direct-model仍依真实消费者，不能把最后已接纳publication当成该段全部更新成功。沿原请求与消费链核标量/贴图/暂停更新及失败stop终态回流，不造幽灵屏或重发launched，范围见[显示空窗状态](#display-live-state)。 |
+| 无实际屏准备间的更新与终态回流 | 用户贴图已退出actual非空误拒绝，同Session保存结果并由新View采用，实际PNG空窗与原生prime/reset边界见[当前证据](../capabilities/runtime-evidence-current.md#display-user-textures)。其余visibility/direct-model混绑仍依真实消费者；沿原请求核其余标量/暂停更新与无新输出后的stop终态回流，不造幽灵屏或重发launched，范围见[显示空窗状态](#display-live-state)。 |
 
 <a id="display-live-state"></a>
 ### 显示空窗状态
 
-新增/混合完整职责归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)，已验证能力只由[运行证据](../capabilities/runtime-evidence-current.md#display-reconciliation)维护。下一步核actual暂空但Session/VM仍活时，当前接纳边界与属性/资源/暂停更新的实际回执，以及无新输出后的Session终态如何沿原请求回流；不把尚未取证的UI回流写成已确认缺陷，不用合成消费者、保非目标窗或另造显示许可解决。Host/client同值过滤保持，未授无新事件时晚到ID自动恢复；真实多屏/物理backing/HDR、严格RNG、App媒体decoded连续与最大帧隙分别设运行证明上限，不重开已退役的全量rebuild。
+新增/混合职责归[显示配置和屏实例](../architecture/runtime-architecture.md#display-reconciliation)，用户纹理请求归[原Session资源合同](../architecture/runtime-architecture.md#display-user-texture-updates)，已验证能力只由[运行证据](../capabilities/runtime-evidence-current.md#display-user-textures)维护。下一步核其余actual暂空的属性/暂停回执及无新输出后的Session终态沿原请求回流；不把尚未取证的UI回流写成已确认缺陷，不用合成消费者、保非目标窗或另造显示许可解决。Host/client同值过滤保持，未授无新事件时晚到ID自动恢复；真实多屏/物理backing/HDR、严格RNG、App媒体decoded连续与最大帧隙分别设运行证明上限，不重开已退役的全量rebuild。
 
 ## 内容与观测资格
 

@@ -181,7 +181,16 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 独立作者3437487219的22文件/68,987,759字节原源与副本、最终 App 运行前后稳定，1→2→2屏：两root分别5000/75粒子，模型112/114在六次独立捕获均到main/seal/GPU；新增B的3024×1964、16-bit RGBA原PNG保留。作者starttime0，额外during图实际晚于worker返回，不借它授长预热期间输出；该资格只来自上面的合成两例。正常stop2→0并排空，未改作者内容。
 
-证据、失败原件身份与独审保于 `.artifacts/scene-display-addition-20261107/`，单包有界保留；首音频子夹具越过现有child能力、首transition发射已结束、浮点边界、终止夹具二次wait与作者reader旧5图计数均有明确失败/修正范围，未据此改播放准入、减像素断言或重做已有效分支。未授真实多屏/物理DPI/EDR、严格RNG轨迹同态、App多屏媒体时钟/decoded连续、最大帧隙/能耗或官方parity。Host/client同值过滤未改，无新事件时晚到resolved ID自动恢复、实际空窗的所有live更新与Session终态回流另沿[开放队列](../roadmap/scene-open-breakpoint-queue.md)取证。
+证据、失败原件身份与独审保于 `.artifacts/scene-display-addition-20261107/`，单包有界保留；首音频子夹具越过现有child能力、首transition发射已结束、浮点边界、终止夹具二次wait与作者reader旧5图计数均有明确失败/修正范围，未据此改播放准入、减像素断言或重做已有效分支。未授真实多屏/物理DPI/EDR、严格RNG轨迹同态、App多屏媒体时钟/decoded连续、最大帧隙/能耗或官方parity。Host/client同值过滤未改，无新事件时晚到resolved ID自动恢复及其余空窗更新/终态回流另沿[开放队列](../roadmap/scene-open-breakpoint-queue.md)取证。
+
+<a id="display-user-textures"></a>
+### 准备空窗的用户贴图
+
+基于 `ae93416e38f7c9cfbcee05bf50300bd7b53c24dd`，Session 仅退出 actual 非空的请求当前性条件，保原 context/program/device/registry/revision/cancellation 与 typed consumer/adoption。原 Session 保存准备结果，新 View 安装时读取当前 publication；无新增资源 owner、缓存或普通帧工作。[职责与验收](../architecture/runtime-architecture.md#display-user-texture-updates)保持独立。签名 Debug CDHash `0f7f7e9679a454282603bfc042420d0b0c6c8921`、dylib SHA `25f1044bd84cb7b5945485ca77a2e0b392679bd5beb73e8577f14a8eda8ad49f`，4413构建输入前后稳定；复现 App 只比候选多原单行条件，两者共用同一 DEBUG 协议→Host 入口。
+
+同一原512预热 A→B 场景及属性/资源改名变体，旧实现均在 actual=0 回 superseded，新 B 保旧紫图；候选均在 `worker started < texture completion < worker returned`、submit/result actual=0且同 Session/request 时 applied。新 B 和 settled 的真实4×4新黄纹理经 source-selection→ordinary draw→main/seal、同 request/CB/Surface/GPU完成，零截断；固定区域25像素全部为预期值，原绿/红/蓝/cyan邻层保持。采用自然准备空窗，未加 queued/held gate。真实 Session/Loader/LiveState 原生门两方法、69事实通过：图片/视频prime空窗提交、reset退休、坏资源保旧、新模拟 View 同对象采用及真正失效反例；模拟资源/Source不授真实解码或GPU。
+
+独立3759799379同 project/package/tree 摘要四秒通过并排空，只授实际作者邻例，不称该作者缺图恢复。原始前后输入、PNG、回执、身份及独审保于 `.artifacts/scene-display-live-followup-20261107/`。本组实际图片出画限 direct Host、单物理屏的多个原生 View；Service/IPC同次交付、App空窗reset/视频decoded连续、全部暂停/混绑更新、无输出终态UI回流及真实多屏仍独立取证。
 
 <a id="limits"></a>
 ## 未取得的资格
