@@ -276,6 +276,13 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 原始失败、冻结身份、窄运行收据及独审归`.artifacts/scene-multiple-renderers-20261108/`，三场Scene载荷晋升`scene-multiple-renderers-20261108`，不重跑全库或倒改R0分母。
 
+<a id="basic-interaction-288"></a>
+## 288菜单的当前资格边界
+
+复用`e0584c9a4`对应的361b签名App，2887099508原project/pkg/tree与R0三摘要一致，65秒运行Ready、终端双捕获、停止、Surface释放及GPU排空均成立，两捕获零截断。作者菜单需先由500的cursorEnter写共享状态，再将文字移入；413及其他主要文字不直接依赖button字段。原general.zoom有450frame/30fps单次动画，当前前后构图变化不能裁决该动画与黑纹的正确性。
+
+本次OS注入点击使用了旧屏图右下TIM文字位置，实际仅见490的cursorLeave及整画布project541的cursorClick，没有500/413/492等目标回调。500虽名为tim logo，其真实纹理和当帧投影尚未资格；不能从rawPASS、图层已绘制或一次坐标输入宣布菜单已通或引擎拒绝。本轮不改产品、不续原坐标/LLDB矩阵，重启条件归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。原失败输入、实际运行与独审在`.artifacts/scene-next-basic-interaction-20261108/`，Scene载荷晋升`scene-basic-interaction-288-20261108`；不授全部菜单、人工物理点击、官方parity或性能。
+
 <a id="limits"></a>
 ## 未取得的资格
 

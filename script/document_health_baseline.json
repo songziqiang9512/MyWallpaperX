@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 284,
-      "bytes": 133911
+      "lines": 291,
+      "bytes": 135107
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 131,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 42842
+      "bytes": 43703
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,21 +340,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5e6daf1d0df8d7be6b61547cc8d1824f0a9d7a5e6caf7883b12feb86b296ccd8",
-      "after": "dd288ac60a6e8353d5cd2a701a1355828df9396bfd9cfc78281b8f76cea218a2",
-      "owner": "Scene multiple renderer outputs",
-      "reason": "Replace scalar renderer selection with shared simulation and independent bounded outputs, qualify author/GPU and neighbor behavior, retire closed queue entry and preserve unresolved visual and capability limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#multiple-renderer-outputs"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a761d0ce4e2a5d1b0f2cbf779cccca1954b6ef731bfc35a20499c98b37f29194",
+      "after": "b04cb423d963e130efa444c1a12884caa54a56fb6f29de3be036c5552a368e5a",
+      "owner": "Scene bounded visual qualification",
+      "reason": "Record actual288 target miss and bounded material/audio producer findings, retain unresolved feedback and explicit restart conditions, avoid repeated unqualified runs.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d61b435e6afa596c69badbe4a32712a00491deb4d36c6cb39b1900ddc96bd4bf",
-      "after": "a761d0ce4e2a5d1b0f2cbf779cccca1954b6ef731bfc35a20499c98b37f29194",
-      "owner": "Scene multiple renderer outputs",
-      "reason": "Replace scalar renderer selection with shared simulation and independent bounded outputs, qualify author/GPU and neighbor behavior, retire closed queue entry and preserve unresolved visual and capability limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#multiple-renderer-outputs"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "7c06a99fb0f96d343f355dd75b1a2a261823c3b39b43fa7c84a6d178f803f76a",
+      "after": "1e70c531df235fdce54df196269340215841505b8ee0dd12154ac4408d96f1a2",
+      "owner": "Scene bounded visual qualification",
+      "reason": "Record actual288 target miss and bounded material/audio producer findings, retain unresolved feedback and explicit restart conditions, avoid repeated unqualified runs.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
