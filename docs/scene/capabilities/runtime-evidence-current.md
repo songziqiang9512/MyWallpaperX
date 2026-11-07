@@ -279,9 +279,20 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 <a id="basic-interaction-288"></a>
 ## 288菜单的当前资格边界
 
-复用`e0584c9a4`对应的361b签名App，2887099508原project/pkg/tree与R0三摘要一致，65秒运行Ready、终端双捕获、停止、Surface释放及GPU排空均成立，两捕获零截断。作者菜单需先由500的cursorEnter写共享状态，再将文字移入；413及其他主要文字不直接依赖button字段。原general.zoom有450frame/30fps单次动画，当前前后构图变化不能裁决该动画与黑纹的正确性。
+复用`e0584c9a4`对应的361b签名App，2887099508两场原project/pkg/tree与R0三摘要一致。500真实默认TEX已核为蓝色微笑电视图标，非右下TIM文字；alpha与visible有两份合法Enter handler，后者写shared[15]=2，作者413.origin脚本消费该共享状态以控制菜单移入。490的Leave写15=3；固定作者几何下490包含500。原general.zoom有450frame/30fps单次动画，不能由取景变化裁决运镜与黑纹正确性。
 
-本次OS注入点击使用了旧屏图右下TIM文字位置，实际仅见490的cursorLeave及整画布project541的cursorClick，没有500/413/492等目标回调。500虽名为tim logo，其真实纹理和当帧投影尚未资格；不能从rawPASS、图层已绘制或一次坐标输入宣布菜单已通或引擎拒绝。本轮不改产品、不续原坐标/LLDB矩阵，重启条件归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。原失败输入、实际运行与独审在`.artifacts/scene-next-basic-interaction-20261108/`，Scene载荷晋升`scene-basic-interaction-288-20261108`；不授全部菜单、人工物理点击、官方parity或性能。
+当前90秒OS注入场已在实际电视图标交付500的两份Enter，随后有490/500 Leave，菜单未持续展开；之前开场取景中的第一次点击仅触及859/541。日志无raw sample身份，Leave沿原previousHit保旧local，不能从同local/同批输出认定指针未动、同sample调度或作者修改几何。原65秒旧TIM坐标场未命中目标，不能继续用它归因。未改phase顺序、hit或pointer ingress。
+
+另一85秒场沿仓库原Debug pointer/current owner显式提供同电视区域的六点短轨迹：500两份Enter后持续约3.5秒，直到工具setOutside才有490/500 Leave。前/末轨迹PNG已独立查看，蓝色侧栏、文字和`>|`明显进入画面，资格限定为稳定合成指针下的入口悬停与菜单展开；未独立读取shared[15]或413当帧origin数值，未交付目标文字click。两场停止/Surface释放/GPU排空及捕获零截断归原report，不授普通desktop/global物理输入、全部菜单、官方parity或性能。资料与独审在`.artifacts/scene-288-menu-target-20261108/`，Scene载荷分别晋升`scene-tv-native-288-20261108`、`scene-tv-stable-288-20261108`；重启须有真实目标click或可区分raw/current入口的证据，不重试旧坐标/LLDB矩阵。
+
+<a id="particle-lighting-control"></a>
+## REFRACT光照的有界控制
+
+固定官方wallpaper32 2.8.0.42（SHA `daac1ea7…6bda07`、Session1/receiver8752）完成一场自有四区输入：同white×RGB64、alpha1、normal资源、REFRACT1/amount0，A为LIGHTING0，B/C/D为1；分别有无局部灯、红lpoint和绿point，ambient偏红、sky偏蓝。请求960×540，原生完整client可见，DPI/像素编码未单独量测。初次文字注记过大、tick被裁切，未取资格；保原9f553e输入，只将六个text.pointsize按960/3840缩为四分之一，其他15载荷、全部研究变量及阈值保持，新manifest `4fdf642f…fec024`经独立增量审查。更早padding类型错误在运输前已修，仅是静态拒绝收据。
+
+最终同窗标题、内嵌label、绿色peer和RGBM四角完整可见；Root两次原生观察tick754→941，独立观察另见6876。A中性灰，B/C/D近同深红/红褐；这是有资格的载体/持续播放及粗色观察，只有CUA内联图，没有本地PNG/JPEG原件、数值RGB/alpha或颜色域转换资格。不能把无明显粗色差判为灯类不消费，也不能据此迁入image的ambient+sky、point筛选或默认roughness。normal实际variant/方向、view/world基、点灯、sky、固定BRDF参数及shadow仍待可区分证据，本轮不实施LIGHTING放行或继续调灯/法线矩阵。
+
+两次独占预览均已关闭，原桌面经原生观察恢复；两个guest stage已删除，VM回原suspended。输入、客户端/运输、首错/修正及独审在`.artifacts/scene-refraction-profile-20261108/`；后继资格归[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。三作者九层仍只是无已知额外双面/CUTOUT组合的候选，不由此授作者恢复、完整光照或官方像素一致性。
 
 <a id="limits"></a>
 ## 未取得的资格

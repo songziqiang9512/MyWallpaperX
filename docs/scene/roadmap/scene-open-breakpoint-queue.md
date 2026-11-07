@@ -6,7 +6,7 @@
 
 2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现，后续单项修复不倒改此分母。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
 
-后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线。288一次当前App资格未命中目标，按该行停止线保留；当前先用一场官方四区判别限定REFRACT光照的原消费者承接；361音频环保输入定位停止线。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线。288真实电视入口已在稳定合成指针下展开菜单，文字click与普通desktop入口仍按该行待核；当前沿一次现App采样筛实际帧成本。REFRACT四区只取粗色资格、361保输入定位停止线。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -15,7 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| REFRACT材质准备拒绝 · 新增四作者 | 3580724885、3590684440、3602874264、3663269553共14个启动有效可见层在原combo条件拒绝，六份材质小条目与R0摘要相同。共同请求LIGHTING1；358的722另需双面光照、366四层另需CUTOUT。native粒子尚无这些真实消费者，不能只删profile画成unlit；359的hidden534不计活动分母。先评估同帧LightSnapshot、粒子world基与现native光照算子的直接承接，最多先核无已知额外双面/CUTOUT组合的九层候选；不复制PBR、另建light状态或绕normal边界。静态输入与停止/重启条件在`.artifacts/scene-refraction-profile-20261108/`。 |
+| REFRACT材质准备拒绝 · 新增四作者 | 3580724885、3590684440、3602874264、3663269553共14个启动有效可见层在原combo条件拒绝，六份材质小条目与R0摘要相同。共同请求LIGHTING1；358的722另需双面光照、366四层另需CUTOUT。native粒子尚无这些真实消费者，不能只删profile画成unlit；359的hidden534不计活动分母。先评估同帧LightSnapshot、粒子world基与现native光照算子的直接承接，最多先核无已知额外双面/CUTOUT组合的九层候选；不复制PBR、另建light状态或绕normal边界。[一次官方控制](../capabilities/runtime-evidence-current.md#particle-lighting-control)仅取载体/播放及粗色，未分离点灯/normal/sky/固定参数；重启先取得这些实际variant/基与可区分点灯供货，不重复同四区调强度/normal或盲迁image公式。输入与停止线在`.artifacts/scene-refraction-profile-20261108/`。 |
 | 超长预热 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度仍超时；短栈处于粒子预热，同App关闭首事实观测仍超时。原隐藏星场1333 starttime=100000按当前固定步请求约600万更新，是源码工作量而非完成计数。固定官方默认控制最终出图、精确完成及90秒资格未定，见[有界研究](../capabilities/runtime-evidence-current.md#coverage)。预算与隐藏状态沿[原预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不能直接跳过。先保完整状态，待原创建需求/单位/等价优化的可判证据；当前转先修基础画面，不原样延时、加预算或凭cache末日志改代码。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | `SceneAuthoredXRayPlanner+StockIdentity`仍以固定路径、UI字段及两个摘要profile授source-passthrough豁免；`SceneImageLayerDrawRequest`仍以Pulse/Blur/Waterwaves路径、pass/slot/combo形状判source coverage。两者影响源图降级，不是通用Program执行许可，尚无当前作者被误挡的画面归因。沿原prepared Program的coverage、颜色边界及发布依赖事实替换并退役旧许可；核等价资源改名、真实alpha改变、PMA、mask与named发布反例，不能直接通放base source冒充效果结果。 |
@@ -101,7 +101,7 @@
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 随音频眼睛闪动不明显，两项本轮仅census。先分别核眼部目标与实际band读值、回调和像素响应，再判作者频段/门槛；“链路正常可能是频率”保用户假设，不预设为已连通或引擎错误。 |
 | 新增粗筛 · 3557068717及条件项 | 355默认主景近黑仅见小亮点，原named CHECK没有活动需求，不能用它解释像素；3455121165/3453730450的时钟、3618302662构图、3657295614人物、3360178853牙口与2868108515条纹均待viewport/时相/显隐/source资格。新增113对图像粗筛不授完整视觉通过；329挂点已闭，结果归运行证据，不从其他rawPASS关闭反馈。 |
-| 2887099508 · 图5 | 开场整画布移动、下半区黑纹横扫、右侧文字点击三个subject分别保留。当前一次65秒[交互资格](../capabilities/runtime-evidence-current.md#basic-interaction-288)只触及fullscreen541，未获500菜单入口或目标文字回调，不能关闭或归为引擎拒绝。重启先核500实际纹理、当帧投影及hover开菜单，再取主要控件hit→click→writer；不重用旧TIM文字坐标、LLDB未arm方法或扩点击矩阵。camera/source同帧变换与黑纹另核，不猜UV、padding或general.zoom。 |
+| 2887099508 · 图5 | 运镜、下半区黑纹与文字click三个subject分别保留。[当前资格](../capabilities/runtime-evidence-current.md#basic-interaction-288)已核500为蓝电视、两合法Enter handler；稳定合成指针下菜单与`>|`展开。OS注入场Enter后另有Leave，raw/current样本归属未分，不能据日志交错改phase或hit。下一关为当前可见文字hit→click→writer，或普通desktop实际入口；无可区分输入证据先停，不重用旧TIM坐标/LLDB或扩矩阵。camera/source同帧变换与黑纹另核，不猜UV、padding或general.zoom。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理；3003318777的后启动阶段已由[运行证据](../capabilities/runtime-evidence-current.md#coverage)资格，不再沿旧四秒失焦实施修复。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
 | 3498814983 /3605722997 /3827673174 | 前后两项当前目录已移除，保原反馈为输入不可用；360572当前可运行。头脸取景仍须固定横屏camera/cover/平移与作者画布，portrait preview不能证明投影错误。 |
