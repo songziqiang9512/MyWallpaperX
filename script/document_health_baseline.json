@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 184,
-      "bytes": 40959
+      "lines": 194,
+      "bytes": 44073
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -520,21 +520,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "07ad9a9a19e27217492e96aacfe83a6f71f30652d1eb539418cc7f71626723f4",
-      "after": "2ab7bf1170ab8bbe13c665e63a57d1c427c79eb31ae6600ae6dc5b7cc7a76cdc",
-      "owner": "Scene current authored-sample runtime and problem queue",
-      "reason": "Replace the prior 635-run summary with the independently audited 748-corpus known/new retest; record two reproduced startup blockers, active renderer/material/attachment refusals and actual conditional consumers without claiming full visual or performance acceptance.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "441d196e82998d8f37e895046693d6431aa015911cb2d2c5a01687b01bfc4ba3",
       "after": "ac4f4775ec36e6eb90c1f2e0a8160cc1d74331ffb28e46a1342c167caf369e77",
       "owner": "Scene current authored-sample runtime and problem queue",
       "reason": "Replace the prior 635-run summary with the independently audited 748-corpus known/new retest; record two reproduced startup blockers, active renderer/material/attachment refusals and actual conditional consumers without claiming full visual or performance acceptance.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "2ab7bf1170ab8bbe13c665e63a57d1c427c79eb31ae6600ae6dc5b7cc7a76cdc",
+      "after": "2555e12c8656e2183dc51b557b7db674843d5b2df37d30ee53a91930036c7ec8",
+      "owner": "Scene authored base image and interaction priorities",
+      "reason": "Record the user 13-sample base-image and interaction feedback after the completed retest; distinguish existing symptoms, missed dynamic symptoms and unrun inputs, merge less specific duplicate rows and preserve frozen runtime denominators.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
