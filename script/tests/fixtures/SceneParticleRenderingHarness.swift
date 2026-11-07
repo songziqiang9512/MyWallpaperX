@@ -198,6 +198,7 @@ enum Harness {
             "instanceBufferSlots": instanceBufferSlotTest(),
             "instanceBufferPendingCancellation": instanceBufferPendingCancellationTest(),
             "topologyRetirement": topologyRetirementTest(),
+            "rendererOrdinalUpload": rendererOrdinalUploadTest(),
             "colorContract": colorContractTest(),
             "straightInterpolation": straightInterpolationTest(),
             "sequenceEndPixels": sequenceEndPixels(),

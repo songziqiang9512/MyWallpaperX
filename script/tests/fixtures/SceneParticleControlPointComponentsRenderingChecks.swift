@@ -434,7 +434,7 @@ enum SceneParticleControlPointComponentsRenderingChecks {
             var uniforms = camera.particleUniforms(layerModel: SceneParticleCameraFrame.particleLayerModel(
                 worldFrame: world, parallaxOffset: .zero), orientation: batch.draw.orientation,
                 orientationAxis: batch.draw.orientationAxis, usesPerspective: batch.draw.usesPerspective,
-                usesSceneCamera: batch.draw.renderState.usesSceneCamera,
+                usesSceneCamera: batch.draw.usesSceneCamera,
                 inheritsNativeSceneCamera: batch.draw.inheritsNativeSceneCamera,
                 viewportSize: SIMD2(Float(width), Float(height)), sizeIsWorldSpace: batch.draw.sizeIsWorldSpace)
             let pass = MTLRenderPassDescriptor()

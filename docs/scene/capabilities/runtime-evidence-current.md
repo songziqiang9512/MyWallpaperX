@@ -261,6 +261,21 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 必要输入、原始报告、色卡、日志、构建/独审归`.artifacts/scene-named-stage-20261108/`；Scene证据晋升`scene-forward-visible-source-20261108`及`scene-forward-visible-variants-20261108`，不倒改R0分母。named局部raster与作者位geometry是不同空间的必要消费；当前未取得named raster独立逐draw计数、全动画相位、全部属性/交互、官方像素或可比性能资格。新增owned寿命用于保正确主输出，不能称成本优化。
 
+<a id="multiple-renderer-outputs"></a>
+## 同一粒子模拟的多个输出
+
+[多输出合同](particle-component-coverage.md#multiple-renderer-outputs)以作者ordinal准备每个可执行renderer，退出集合数量整拒绝、first-supported与root/template单instances链；模拟、RNG、clock和事件仍各一份。资源按实际Sprite帧/Rope整图用途共享，RopeTrail各保有界采样策略和死亡排空；原Metal上传key加入ordinal，避免同层多个输出覆盖buffer。未实现的child RopeTrail仍局部不可用，不由本批授予。19个产品路径净删73行；新增状态只承接实际输出、原上传slot与各history消费者，没有第二模拟器、资源owner或最终输出。
+
+基于`a06dd8903`的签名Debug单executable SHA `361b9176…7c63ba5`、CDHash `fd21202403a7f171d89c4db96b4aa210097a98ed`，4396构建输入前后一致，metallib `c83cb6aa…bdca45`未变。2868108515原project/pkg/tree保持：活动粒子由44/46恢复46/46，无不可用层。544470/591910的Sprite、RopeTrail、SpriteTrail按0/1/2全部实际编码；frame33分别为4/18/4及3/10/3，frame86为11/147/11及8/84/8，消费同身份color/normal与逐draw背景快照并进入同main。37489/28322另保Sprite及SpriteTrail输出，Sprite相机输入为true、Trail为false；REFRACT三输出仍沿原ordinary输入边界为false。两个捕获帧均有request/Surface/CB、sealed main及GPU完成，零截断且正常排空。
+
+真实Runtime完整数组对照每个独立renderer，Debug/Release结果一致：实例全40个float字段、模拟/RNG/事件、改名与等价输入、重复kind、坏组件/健康peer、长短尾迹排空、rollback/stop和static/event child均成立；合法无root-renderer容器仍保健康child输出。新增用例最初把合法subdivision99误判为不可用，原失败收据保留；修正oracle并增加独立单组件对照后，只补该方法。其余七个Runtime方法已通过，未重跑整个集合。不同snapshot policy的共享、容量、部分步、恢复与清空由真实Simulator的Debug/Release门覆盖；playback、prewarm与Rope/RopeTrail最近11方法通过。
+
+生产Metal对同root及child-template各两个重复Sprite ordinal读回红/绿/蓝/黄，四个实际buffer owner和completion成立；原retirement释放门保持。材质八方法覆盖资源与独立相机选择。最初GPU夹具编译边界及小于像素覆盖的采集错误保原收据，只修夹具依赖/采集高度，不调整产品几何或颜色阈值。首事实观测改为一次接收全部prepared ordinal，消除健康peer被同时记作未选的旧诊断；原开关正反例通过。普通作者benchmark会剥除继承的`MWX_*`环境，因此本次App不授组件首事实metadata资格，实际ordinal来自typed composition行。
+
+独立3448877775同一最终App八秒通过：frame64/154的15706根RopeTrail为574/551实例，child-template0 Sprite为8/9，1775单Sprite为337/344；三者保各自camera输入并进入同main/GPU，终端PNG与正常排空成立。原286前后及独立邻例PNG已查看，主体、背景和既有流星/子粒子保留；不同运行未锁相位，不能分离每个renderer的最终像素贡献。286原背景曲线条纹仍可见，反馈保持开放；不授官方parity、全相位或可比性能结论。
+
+原始失败、冻结身份、窄运行收据及独审归`.artifacts/scene-multiple-renderers-20261108/`，三场Scene载荷晋升`scene-multiple-renderers-20261108`，不重跑全库或倒改R0分母。
+
 <a id="limits"></a>
 ## 未取得的资格
 

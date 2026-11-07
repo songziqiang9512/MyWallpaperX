@@ -147,8 +147,7 @@ extension SceneParticleRuntime {
             struct RootSnapshot {
                 let simulator: SceneParticleSimulator
                 let simulatorFrame: SceneParticleSimulator.FrameSnapshot
-                let instances: [SceneParticleGPUInstance]
-                let ropeTrailHistory: SceneParticleRopeTrailHistory?
+                let outputs: [SceneParticleRootRendererOutput]
             }
 
             let root: RootSnapshot?

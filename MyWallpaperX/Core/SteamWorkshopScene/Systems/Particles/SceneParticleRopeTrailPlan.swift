@@ -42,11 +42,9 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
 
     nonisolated init?(
         renderer: SceneParticleRenderer,
-        rendererCount: Int,
         maximumParticleCount: Int
     ) {
-        guard rendererCount == 1,
-              renderer.kind == .ropeTrail,
+        guard renderer.kind == .ropeTrail,
               renderer.orientation == nil || renderer.orientation == "screen",
               renderer.axis == nil,
               renderer.rawFlags & ~1 == 0,

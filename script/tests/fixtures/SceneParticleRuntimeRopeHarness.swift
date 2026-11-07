@@ -161,7 +161,8 @@ extension Harness {
             $0.layerID == 31
         }
         _ = fineRuntime.advance(by: 0)
-        let coarseBatch = coarseRuntime.advance(by: 0.5).first {
+        let coarseBatches = coarseRuntime.advance(by: 0.5)
+        let coarseBatch = coarseBatches.first {
             $0.layerID == 31
         }
         var fineBatch: SceneParticleDrawBatch?
@@ -240,6 +241,8 @@ extension Harness {
             "sizeIsWorldSpace": coarseBatch?.sizeIsWorldSpace ?? false,
             "orientationScreen": coarseBatch?.orientation == .screen,
             "mixedRendererLoaded": coarseRuntime.activeLayerIDs.contains(34),
+            "mixedRendererOrdinals": coarseBatches.filter { $0.layerID == 34 }.map(\.rendererIndex),
+            "malformedPeerOrdinals": coarseBatches.filter { $0.layerID == 35 }.map(\.rendererIndex),
             "malformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(35),
             "objectRendererLoaded": coarseRuntime.activeLayerIDs.contains(36),
             "onlyMalformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(37),

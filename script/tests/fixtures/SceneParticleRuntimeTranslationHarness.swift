@@ -503,7 +503,7 @@ extension Harness {
             "reference": first.first?.referenceWorldFrame == ref && held.first?.referenceWorldFrame == ref,
             "zeroStepPreservesHistory": input.points(first, descriptor: d, frames: f0, path: path)
                 == input.points(held, descriptor: d, frames: f1, path: path),
-            "historyRetained": runtime.frameSnapshot().layers.first?.root?.ropeTrailHistory != nil]
+            "historyRetained": runtime.frameSnapshot().layers.first?.root?.outputs.contains { $0.ropeTrailHistory != nil } ?? false]
     }
 
     static func sphereCollisionCases() -> [String: Any] {

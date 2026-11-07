@@ -343,6 +343,9 @@ enum Harness {
         )
         let diagnostics = Dictionary(grouping: graph.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
+        let depthFixedCamera = depthFixed?.definition.renderers.first.map {
+            SceneParticlePipelineRenderStateCompiler.usesSceneCamera(renderer: $0, materialPass: depthFixed?.materialPass)
+        } ?? false
         return [
             "assetCount": graph.assetsByPath.count,
             "rootPaths": graph.rootPaths,
@@ -373,7 +376,7 @@ enum Harness {
             "depthWriteEnabled": depth?.pipelineState?.depthWriteEnabled ?? false,
             "depthOverbright": depth?.pipelineState?.overbright ?? -1,
             "depthFixedState": depthFixed?.pipelineState.map {
-                [$0.depthTestEnabled, $0.depthWriteEnabled, $0.usesSceneCamera]
+                [$0.depthTestEnabled, $0.depthWriteEnabled, depthFixedCamera]
             } ?? [],
             "rootCull": root?.pipelineState?.cullMode.rawValue ?? "",
             "normalCull": normalCull?.pipelineState?.cullMode.rawValue ?? "",
@@ -518,7 +521,7 @@ enum Harness {
         for name in ["spritetrail", "rope", "ropetrail"] {
             try add(name, renderers: [["name": name, "flags": 1]], allowed: true, cameraProfile: false)
         }
-        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]], allowed: true, cameraProfile: false)
+        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]], allowed: true, cameraProfile: true)
         try add("axis", renderers: [["name": "sprite", "flags": 1, "axis": "0 0 1"]], allowed: true, cameraProfile: false)
         try add("unknown-flags", renderers: [["name": "sprite", "flags": 3]], allowed: true, cameraProfile: false)
         try add("malformed-flags", renderers: [["name": "sprite", "flags": "invalid"]], allowed: true, cameraProfile: false)
@@ -563,14 +566,17 @@ enum Harness {
                 "expectedTest": expectation.1, "expectedWrite": expectation.2,
                 "expectedCull": expectation.3 == "normal" ? "back" : "none",
                 "expectedSystemFlags": expectation.4, "expectedRendererFlags": expectation.5,
-                "expectedSceneCamera": expectation.6,
+                "expectedSceneCameras": Array(repeating: expectation.6, count: asset?.definition.renderers.count ?? 0),
                 "expectedRefraction": expectation.7, "hasRefraction": asset?.refraction != nil,
                 "systemFlags": asset?.definition.flags.rawValue ?? -1,
                 "rendererFlags": asset?.definition.renderers.first?.rawFlags ?? -1,
                 "textureAvailable": asset?.textureSource != nil,
                 "builtInShader": asset?.supportsBuiltInShaderExecution ?? false,
                 "hasPipelineState": state != nil, "hasRenderState": asset?.renderState != nil,
-                "usesSceneCamera": state?.usesSceneCamera ?? false,
+                "usesSceneCameras": asset?.definition.renderers.map {
+                    state != nil && SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
+                        renderer: $0, materialPass: asset?.materialPass)
+                } ?? [],
                 "test": state?.depthTestEnabled ?? false, "write": state?.depthWriteEnabled ?? false,
                 "cull": state?.cullMode.rawValue ?? "unavailable", "overbright": state?.overbright ?? -1,
                 "unsupportedRenderState": graph.diagnostics.contains {
@@ -906,7 +912,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 self.assertEqual(row["rendererFlags"], row["expectedRendererFlags"])
                 self.assertEqual(row["hasPipelineState"], row["expectedAllowed"])
                 self.assertEqual(row["hasRenderState"], row["expectedAllowed"])
-                self.assertEqual(row["usesSceneCamera"], row["expectedSceneCamera"])
+                self.assertEqual(row["usesSceneCameras"], row["expectedSceneCameras"])
                 self.assertEqual(row["unsupportedRenderState"], not row["expectedAllowed"])
                 if row["expectedAllowed"]:
                     self.assertEqual(row["hasRefraction"], row["expectedRefraction"])

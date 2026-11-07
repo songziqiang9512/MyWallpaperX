@@ -99,7 +99,7 @@ final class SceneParticleChildRuntime {
     private let templatesBySelection: [TemplateSelectionKey: [SceneParticleChildTemplate]]
     private let nestedParentPaths: Set<String>
     private var systems: [SceneParticleChildSystem] = []
-    private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
+    private var instanceScratch: [SceneParticleChildRendererKey: [SceneParticleGPUInstance]] = [:]
     private var nextSeed: UInt64 = 0
     private var nextSystemID: UInt64 = 1
 #if DEBUG
@@ -137,57 +137,21 @@ final class SceneParticleChildRuntime {
             worldSpaceFrame: worldSpaceFrame,
             rootInstanceOverride: rootInstanceOverride
         )
-        templates = expansion.templates
-        requiredPipelineVariants = Set(expansion.templates.map {
-            .init(isRefraction: $0.refraction != nil, blendMode: $0.renderState.blendMode,
-                  usesDepthAttachment: $0.renderState.depthWriteEnabled)
-        })
-        templatesByIndex = Dictionary(
-            expansion.templates.map { ($0.index, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        templatesBySelection = Dictionary(
-            grouping: expansion.templates,
-            by: {
-                TemplateSelectionKey(
-                    trigger: $0.trigger,
-                    depth: $0.depth,
-                    parentAssetPath: $0.parentAssetPath
-                )
-            }
-        )
-        // Allocate the reusable per-template output map once. The map itself
-        // is topology, while each value is only cleared/refilled per frame.
-        for template in expansion.templates {
-            instanceScratch[template.index] = []
-#if DEBUG
-            if let parentPath = template.debugParentParticlePath,
-               let componentIndex = template.debugParentComponentIndex {
-                pendingComponentObservations?.append(.init(layerID: layerID,
-                    particlePath: parentPath,
-                    evaluation: .init(category: "children", componentIndex: componentIndex,
-                        kind: "child-template", stage: "prepared-executable", reason: "accepted-child-template",
-                        origin: "prepared", simulationTime: 0, particleID: nil),
-                    childTemplateIndex: template.index, childParticlePath: template.path))
-            }
-#endif
-        }
-        unsupportedDetails = expansion.unsupportedDetails
-        handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
-        hasPointerControlPointConsumer = expansion.templates.contains {
-            !$0.pointerControlPointIdentities.isEmpty
-        }
-        needsWorldControlPointFrame = expansion.templates.contains(where: \.needsWorldControlPointFrame)
-        nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
+        var preparedTemplates = expansion.templates
+        var initialSystems: [SceneParticleChildSystem] = []
+        var initialNextSystemID: UInt64 = 1
 #if DEBUG
         var performance = expansion.performanceDetails
 #endif
-        let staticTemplates = templates.filter { $0.trigger == .staticChild }
+        let staticTemplateIndices = preparedTemplates.indices.filter {
+            preparedTemplates[$0].trigger == .staticChild
+        }
         var staticCapacity = Self.maximumParticlesPerDepth
         var staticRopeExpansionCapacity =
             SceneParticleChildTemplateSupport.maximumStaticRopeExpansionSegments
-        for (offset, template) in staticTemplates.enumerated() {
-            guard systems.count < Self.maximumSystemsPerDepth,
+        for (offset, index) in staticTemplateIndices.enumerated() {
+            var template = preparedTemplates[index]
+            guard initialSystems.count < Self.maximumSystemsPerDepth,
                   template.particleBudget <= staticCapacity else {
 #if DEBUG
                 let detail = Self.budgetDetail(depth: template.depth)
@@ -195,20 +159,31 @@ final class SceneParticleChildRuntime {
 #endif
                 continue
             }
-            let ropeExpansion = template.rope.map {
-                max($0.maximumGeneratedSegments
-                    - SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate, 0)
-            } ?? 0
-            guard ropeExpansion <= staticRopeExpansionCapacity else {
 #if DEBUG
+            let rendererCount = template.renderers.count
+#endif
+            var remainingSegments = SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate
+                + staticRopeExpansionCapacity
+            var ropeSegments = 0
+            template.renderers.removeAll { renderer in
+                guard let rope = renderer.rope else { return false }
+                guard rope.maximumGeneratedSegments <= remainingSegments else { return true }
+                remainingSegments -= rope.maximumGeneratedSegments
+                ropeSegments += rope.maximumGeneratedSegments
+                return false
+            }
+            preparedTemplates[index] = template
+#if DEBUG
+            if template.renderers.count != rendererCount {
                 let detail = "staticRopeExpansionBudget:segments="
                     + "\(SceneParticleChildTemplateSupport.maximumStaticRopeExpansionSegments)"
                 if !performance.contains(detail) { performance.append(detail) }
-#endif
-                continue
             }
+#endif
+            guard !template.renderers.isEmpty else { continue }
             staticCapacity -= template.particleBudget
-            staticRopeExpansionCapacity -= ropeExpansion
+            staticRopeExpansionCapacity -= max(ropeSegments
+                - SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate, 0)
             let origin = template.transform.origin
                 + (template.definition.flags.isWorldSpace ? rootTranslationOffset : .zero)
             let simulator = template.simulator(
@@ -228,8 +203,8 @@ final class SceneParticleChildRuntime {
                 initialDynamicControlPointAngles: initialDynamicControlPointAngles,
                 initialAudioInput: initialAudioInput
             )
-            systems.append(SceneParticleChildSystem(
-                id: nextSystemID,
+            initialSystems.append(SceneParticleChildSystem(
+                id: initialNextSystemID,
                 templateIndex: template.index,
                 depth: template.depth,
                 spawnScopeID: nil,
@@ -240,8 +215,53 @@ final class SceneParticleChildRuntime {
                     ? Dictionary(uniqueKeysWithValues: simulator.particles.map { ($0.id, origin) }) : [:],
                 simulator: simulator
             ))
-            nextSystemID &+= 1
+            initialNextSystemID &+= 1
         }
+        templates = preparedTemplates
+        requiredPipelineVariants = Set(preparedTemplates.flatMap { $0.renderers }.map {
+            .init(isRefraction: $0.refraction != nil, blendMode: $0.renderState.blendMode,
+                  usesDepthAttachment: $0.renderState.depthWriteEnabled)
+        })
+        templatesByIndex = Dictionary(
+            preparedTemplates.map { ($0.index, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        templatesBySelection = Dictionary(
+            grouping: preparedTemplates,
+            by: {
+                TemplateSelectionKey(
+                    trigger: $0.trigger,
+                    depth: $0.depth,
+                    parentAssetPath: $0.parentAssetPath
+                )
+            }
+        )
+        // Output keys are launch topology; only their instance arrays change per frame.
+        for template in preparedTemplates {
+            for renderer in template.renderers {
+                instanceScratch[.init(templateIndex: template.index, rendererIndex: renderer.index)] = []
+            }
+#if DEBUG
+            if let parentPath = template.debugParentParticlePath,
+               let componentIndex = template.debugParentComponentIndex {
+                pendingComponentObservations?.append(.init(layerID: layerID,
+                    particlePath: parentPath,
+                    evaluation: .init(category: "children", componentIndex: componentIndex,
+                        kind: "child-template", stage: "prepared-executable", reason: "accepted-child-template",
+                        origin: "prepared", simulationTime: 0, particleID: nil),
+                    childTemplateIndex: template.index, childParticlePath: template.path))
+            }
+#endif
+        }
+        unsupportedDetails = expansion.unsupportedDetails
+        handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
+        hasPointerControlPointConsumer = preparedTemplates.contains {
+            !$0.pointerControlPointIdentities.isEmpty
+        }
+        needsWorldControlPointFrame = preparedTemplates.contains(where: \.needsWorldControlPointFrame)
+        nestedParentPaths = Set(preparedTemplates.compactMap(\.parentAssetPath))
+        systems = initialSystems
+        nextSystemID = initialNextSystemID
 #if DEBUG
         performanceDetails = performance
 #endif
@@ -352,32 +372,9 @@ final class SceneParticleChildRuntime {
             rootTranslationOffset: rootTranslationOffset,
             into: &instanceScratch
         )
-        var batches: [SceneParticleDrawBatch] = []
-        batches.reserveCapacity(templates.count)
-        for template in templates {
-            guard let instances = instanceScratch[template.index], !instances.isEmpty else {
-                continue
-            }
-            batches.append(SceneParticleDrawBatch(
-                layerID: layerID,
-                particlePath: template.path,
-                texture: template.texture,
-                colorUVScale: template.colorUVScale,
-                colorSampling: template.colorSampling,
-                refraction: template.refraction,
-                renderState: template.renderState,
-                childTemplateIndex: template.index,
-                instances: instances,
-                orientation: template.orientation,
-                orientationAxis: template.orientationAxis,
-                usesPerspective: template.usesPerspective,
-                sizeIsWorldSpace: template.definition.flags.isWorldSpace
-            ))
-#if DEBUG
-            batches[batches.count - 1].debugRendererComponentIndex = template.debugRendererComponentIndex
-            batches[batches.count - 1].debugRendererKind = template.debugRendererKind
-#endif
-        }
+        let batches = SceneParticleChildInstanceBuilder.batches(
+            templates: templates, layerID: layerID, scratch: instanceScratch
+        )
 #if DEBUG
         // Throttled spawn/instance census (~1s of sim time) distinguishes
         // bursty lifecycle windows from batch-creation gaps at snapshot time.
@@ -386,7 +383,12 @@ final class SceneParticleChildRuntime {
         if censusDue {
             didLogInstanceCensus = true
             censusTimeAccumulator = 0
-            let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
+            let spawned = templates.map { template in
+                template.renderers.reduce(0) { count, renderer in
+                    count + (instanceScratch[.init(templateIndex: template.index,
+                        rendererIndex: renderer.index)]?.count ?? 0)
+                }
+            }
             let systemParticleCounts = systems.map { $0.simulator.particles.count }
             let systemParticleTotal = systemParticleCounts.reduce(0, +)
             NSLog(

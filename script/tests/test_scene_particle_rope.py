@@ -120,13 +120,12 @@ enum Harness {
             "emitter": [["name": "sphererandom"]],
             "renderer": [["name": "rope"], ["name": "sprite"]],
         ])
-        let multipleRejected: Bool = {
+        let peerRendererPreservesPlan: Bool = {
             guard let renderer = multiple.renderers.first else { return false }
             return SceneParticleRopePlan(
                 renderer: renderer,
-                rendererCount: multiple.renderers.count,
                 maximumParticleCount: multiple.maximumCount ?? 1
-            ) == nil
+            ) != nil
         }()
         return [
             "basicAccepted": basic != nil,
@@ -145,7 +144,7 @@ enum Harness {
             "allUnsupportedRejected": rejected.allSatisfy { $0 == nil },
             "malformedFlagged": malformed.renderers.first?.hasMalformedFields == true,
             "malformedRejected": planFromDefinition(malformed) == nil,
-            "multipleRejected": multipleRejected,
+            "peerRendererPreservesPlan": peerRendererPreservesPlan,
         ]
     }
 
@@ -354,7 +353,6 @@ enum Harness {
         guard let renderer = definition.renderers.first else { return nil }
         return SceneParticleRopePlan(
             renderer: renderer,
-            rendererCount: definition.renderers.count,
             maximumParticleCount: definition.maximumCount ?? 1
         )
     }
@@ -435,7 +433,7 @@ class SceneParticleRopeTests(unittest.TestCase):
         self.assertTrue(profiles["allUnsupportedRejected"])
         self.assertTrue(profiles["malformedFlagged"])
         self.assertTrue(profiles["malformedRejected"])
-        self.assertTrue(profiles["multipleRejected"])
+        self.assertTrue(profiles["peerRendererPreservesPlan"])
 
     def test_spawn_order_builds_adjacent_segments_with_continuous_uv(self) -> None:
         topology = self.result["topology"]

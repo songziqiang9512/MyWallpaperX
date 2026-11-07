@@ -252,7 +252,6 @@ nonisolated struct SceneParticleAssetGraphLoader {
             let pipelineState = compiledRenderState.flatMap {
                 SceneParticlePipelineRenderStateCompiler.compile(
                     $0,
-                    definition: definition,
                     materialPass: materialPass,
                     isRefraction: refraction != nil
                 )

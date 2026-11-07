@@ -23,12 +23,13 @@ import simd
         SceneParticleSimulator(definition: parser.parse(root: root),
             instanceOverride: parser.parseInstanceOverride(["rate": rate]), seed: 73,
             fixedTimeStep: step, prewarmStepBudget: budget, shouldCancelPrewarm: shouldCancel,
-            stepSnapshotPolicy: history > 1 ? .init(interval: step * 4, maximumSnapshots: history) : nil)
+            stepSnapshotPolicies: history > 1
+                ? [SceneParticleStepSnapshotPolicy(interval: step * 4, maximumSnapshots: history)!] : [])
     }
 
     static func history(_ frame: SceneParticleSimulator.FrameSnapshot) -> [SceneParticleStepSnapshot] {
         var recorder = frame.stepSnapshotRecorder
-        return recorder?.consume(particles: frame.particles) ?? []
+        return (recorder?.consume(particles: frame.particles) ?? [:]).values.flatMap { $0 }
     }
 
     static func sameObservableState(_ a: SceneParticleSimulator, _ b: SceneParticleSimulator) -> Bool {
@@ -185,7 +186,7 @@ import simd
             "exactTime": exact.simulationTime, "exactLimited": exact.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
             "overTime": over.simulationTime, "overLimited": over.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
             "partialTime": tail.simulationTime, "partialX": particle?.position.x ?? -1,
-            "partialAge": particle?.age ?? -1, "partialHistoryCount": tail.consumeStepSnapshots().count,
+            "partialAge": particle?.age ?? -1, "partialHistoryCount": tail.consumeStepSnapshots().values.flatMap { $0 }.count,
             "partialLimited": tail.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
             "partialDrained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty]
     }
@@ -216,7 +217,7 @@ import simd
         let plain = SceneParticleSimulator(definition: parser.parse(root: cold),
             instanceOverride: parser.parseInstanceOverride(["rate": 1]), seed: 73,
             fixedTimeStep: 1.0 / 128,
-            stepSnapshotPolicy: .init(interval: step * 4, maximumSnapshots: 8))
+            stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: step * 4, maximumSnapshots: 8)!])
         // The finer live step reaches the fractional endpoint while retaining
         // the same history interval as this constant-velocity prewarm control.
         for _ in 0..<16_385 {
@@ -225,11 +226,11 @@ import simd
         }
         plain.advance(by: 0)
         let samePlainState = sameObservableState(tail, plain)
-        let retainedHistory = tail.consumeStepSnapshots()
+        let retainedHistory = tail.consumeStepSnapshots().values.flatMap { $0 }
         rows["partial"] = ["time": tail.simulationTime,
             "age": tail.particles.first?.age ?? -1, "x": tail.particles.first?.position.x ?? -1,
             "samePlainLinearState": samePlainState,
-            "samePlainHistory": retainedHistory == plain.consumeStepSnapshots(),
+            "samePlainHistory": retainedHistory == plain.consumeStepSnapshots().values.flatMap { $0 },
             "historyCount": retainedHistory.count,
             "limited": tail.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
             "drained": tail.birthEvents.isEmpty && tail.deathEvents.isEmpty]

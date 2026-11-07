@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from script.tests.test_scene_particle_simulator import SWIFT_SOURCES
 
+POLICY_HARNESS = Path(__file__).resolve().parent / "fixtures" / "SceneParticleStepSnapshotPolicyHarness.swift"
+
 HARNESS = r'''
 import Foundation
 @main enum Harness {
@@ -27,7 +29,7 @@ import Foundation
                 "children": children, "renderer": [["name": "sprite"]]]
             return SceneParticleSimulator(definition: try SceneParticleDefinitionParser().parse(root: root),
                 instanceOverride: instance, initialPlayback: initial, seed: 81, fixedTimeStep: step,
-                stepSnapshotPolicy: .init(interval: 0.25, maximumSnapshots: 8))
+                stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: 0.25, maximumSnapshots: 8)!])
         }
         func command(_ sim: SceneParticleSimulator, _ action: SceneParticlePlaybackAction, _ revision: UInt64) {
             sim.applyPlaybackTransition(.init(layerID: 42, action: action, revision: revision))
@@ -947,6 +949,7 @@ import Foundation
                 && manualCP.particles.isEmpty && manualCP.frameSnapshot().nextParticleID == manualBefore.nextParticleID
                 && manualCP.frameSnapshot().random.state == manualBefore.random.state
         }
+        result.merge(SceneParticleStepSnapshotPolicyHarness.facts()) { _, value in value }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -962,7 +965,7 @@ class SceneParticlePlaybackSimulatorTests(unittest.TestCase):
             for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
                 binary = directory / ("fixture-" + mode)
                 compile_result = subprocess.run([shutil.which("swiftc"), "-O", *flags,
-                    *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
+                    *map(str, SWIFT_SOURCES), str(POLICY_HARNESS), str(harness), "-o", str(binary)], capture_output=True, text=True)
                 self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
                 run = subprocess.run([str(binary)], capture_output=True, text=True)
                 self.assertEqual(run.returncode, 0, run.stderr)

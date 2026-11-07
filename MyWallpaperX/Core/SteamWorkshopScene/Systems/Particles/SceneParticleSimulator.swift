@@ -122,7 +122,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
-        stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
+        stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) {
         self.playback = initialPlayback
@@ -200,9 +200,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             definition.operators[$0].kind == .oscillatePosition
         }
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
-        self.stepSnapshotRecorder = stepSnapshotPolicy.map(
-            SceneParticleStepSnapshotRecorder.init(policy:)
-        )
+        self.stepSnapshotRecorder = stepSnapshotPolicies.isEmpty ? nil
+            : SceneParticleStepSnapshotRecorder(policies: stepSnapshotPolicies)
         self.simulationSeed = seed
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
@@ -336,8 +335,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         return deathEvents
     }
 
-    nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
-        stepSnapshotRecorder?.consume(particles: particles) ?? []
+    nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshotPolicy: [SceneParticleStepSnapshot]] {
+        stepSnapshotRecorder?.consume(particles: particles) ?? [:]
     }
 
     /// Captures mutable simulation state before a frame is admitted. The

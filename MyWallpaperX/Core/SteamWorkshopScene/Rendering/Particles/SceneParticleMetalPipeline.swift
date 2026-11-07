@@ -14,6 +14,8 @@ struct SceneParticleDrawBatch {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    var rendererIndex: Int = 0
+    var usesSceneCamera: Bool = false
     /// Existing root RopeTrail admission, independent of Sprite material state.
     var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil
@@ -38,6 +40,7 @@ final class SceneParticleMetalPipeline {
     private struct InstanceBufferKey: Hashable {
         let layerID: Int
         let childTemplateIndex: Int?
+        let rendererIndex: Int
     }
 
     struct BlendConfiguration {
@@ -131,7 +134,9 @@ final class SceneParticleMetalPipeline {
 
     func prepare(_ batches: [SceneParticleDrawBatch]) -> [PreparedBatch] {
         batches.compactMap { batch in
-            let key = InstanceBufferKey(layerID: batch.layerID, childTemplateIndex: batch.childTemplateIndex)
+            let key = InstanceBufferKey(layerID: batch.layerID,
+                                        childTemplateIndex: batch.childTemplateIndex,
+                                        rendererIndex: batch.rendererIndex)
             let buffer: SceneParticleMetalInstanceBuffer
             if let existing = instanceBuffers[key] {
                 buffer = existing

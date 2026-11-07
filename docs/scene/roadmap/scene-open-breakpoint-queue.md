@@ -6,7 +6,7 @@
 
 2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现，后续单项修复不倒改此分母。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
 
-后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线；下一项先核286多renderer整体误拒绝的真实输出职责。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线。下一项先核288右侧文字在现有左键/初始化修复后是否仍有独立交互首错，并与REFRACT活动准备拒绝比较行动性。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -15,7 +15,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 多renderer整体拒绝 · 2868108515 | 46个活动粒子层中544470/591910共用sprite+ropetrail+spritetrail定义，在单项renderer选择前因集合count=3整体nil，实际只加载44层。缺省length=1不是首错；后续资源及各renderer像素贡献未知。沿原prepared模拟状态与renderer消费者明确多输出职责，不重复模拟、仅选一种冒充完整结果或扩大名称许可。 |
 | REFRACT材质准备拒绝 · 新增四作者 | 3580724885、3590684440、3602874264、3663269553共14个启动有效可见粒子层实际`refractionUnsupported:unsupportedMaterialProfile`，主景及终端仍成立。先在原材质准备核具体未消费输入与最小失败范围；这是共同拒绝边界，尚非同一根因或14个独立缺陷，不借下方官方normal单位未知归因，也不忽略材质输入换取加载数字。 |
 | 超长预热 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度仍超时；短栈处于粒子预热，同App关闭首事实观测仍超时。原隐藏星场1333 starttime=100000按当前固定步请求约600万更新，是源码工作量而非完成计数。固定官方默认控制最终出图、精确完成及90秒资格未定，见[有界研究](../capabilities/runtime-evidence-current.md#coverage)。预算与隐藏状态沿[原预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不能直接跳过。先保完整状态，待原创建需求/单位/等价优化的可判证据；当前转先修基础画面，不原样延时、加预算或凭cache末日志改代码。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
@@ -32,7 +31,7 @@
 | Rope A2C可见轨迹 · 3807668787/958 | 原作者实际A2C/GPU与弱端点信号保持，完整轨迹未资格。新的[同批生产诊断](../capabilities/runtime-evidence-current.md#rope-958-sampling)已区分几何转发、横向UV、少量lower-mip与原mask/alpha；该受控batch首次实证纵向域压缩及末端截短，符合原Plan先index-q、后位置去重保first的链。有序重复出生producer尚未资格；只有输入可核时才用显式uvsmoothing=false和opaque纵向色带区分UV归属，省略默认独立保unknown；否则重排其他可行动项。不预选last-q、去重后全域归一或弧长。官方正确端域/重复点曲线及precoverage仍未知；不重跑旧相位alpha/LOD矩阵或按名称增MSAA/resolve，不授作者轨迹恢复。 |
 | 满容量的自然调度 | 官方maxcount2、两个life4初始fillers、rate.4周期发射在T8.2只有约6.5出生；容量64对照约5/7.5。无上限本身也延后，原5/7.5判别前提失败，周期quota按请求或接纳计费尚未知。沿原Simulator核满槽期间fraction/窗口与死亡释放顺序；不以这个未知拒绝普通或capped发射，不增加调度owner。 |
 | 显式命令与自然相位 | 官方rate.4、on10/gap10、cap2，约t1 emit1后可见出生1/5/7.5；约t6 emit1后为2.5/5/6。显式在自然额度耗尽后仍贡献，但早期命令会改变后续自然出生相位，不能宣称与调度完全独立。沿原exact-n命令/EmitterState核交互，不挂共用appendBirth扣自然quota，不把未知变成整组play/pause/stop的禁令。 |
-| 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
+| 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。材质状态与逐renderer相机约定已分离，实际ordinary输入仍决定相机及当前depth/A2C限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
 | Child parent 控制点映射的消费诊断 | `rawParentControlPointOverride` 的 hasKnownConsumer 只看单CP字段，未纳入 Between/Maintain 的 start/end；rawflags0、parent字段及零位置可能被记为 ignoredUnused。该形状的 parent 位置语义尚未资格，不能凭旧 guard 增加整 child 拒绝，也不能把该诊断当成新组件已正确消费父映射。定位 copy bit、原始/解析位置与实际消费者，补有位移父点及不复制邻例后决定最小修正。 |
 | 粒子 Remap、约束与子束链 | 三个作者root的operator10仍`prepared-plan-unavailable`，时间→sine→opacity缺真实消费者。独立静态范围与晚EventDeath输入已有有界资格，但sine首对落未预登记模型，依原停止条件收口；实际读数与旧N/W/D限制归[运行证据](../capabilities/runtime-evidence-current.md)，当前实现归[组件合同](../capabilities/particle-component-coverage.md#operators)。保留未知数学与作者缺省参数，后续用可区分证据沿原owner补消费者，不按效果/输入输出/flags组合追加许可。beam child另缺transform/CP及initial-value供货；3527426897的map-sequence另需flags/空间输出资格。 |
 | 粒子球体与画布碰撞 | 静态Sphere消费者见[组件合同](../capabilities/particle-component-coverage.md#sphere-collision)；首次接触顺序、精确轨迹/size裕量、CP锁定位及缺省数值仍未资格，不能由3773747576/183的CP333或CP1同位推断开关规则。Bounds的3780119725/891 operator2仍`unknown-operator-kind`，只有name/id；缺实际wallpaper边界经当前变换到粒子空间的供货和缺省响应，不能用drawable或发射盒代替。沿原碰撞/空间/Simulator补消费者，不把正常batch/GPU或退出授为完整碰撞能力。 |
@@ -83,7 +82,7 @@
 | Script粒子instance数值字段 | `SceneQuickJSParticleInstanceHost`仅注册`instance.alpha`并封闭对象；公开的`rate`/`count`尚无native getter/setter，严格module中的赋值会失败。粒子自身`instanceoverride.rate`脚本已有ScalarProgram→typed snapshot→模拟时钟消费者，不能据此授跨层host API。沿原typed target、journal与事务接入实际读写，不能开放成不生效的普通JS属性；当前是代码边界，未授逐作者画面影响。 |
 | sampler宏声明接口 | canonical g_TextureN声明配宏采样read已准备通过；自有slot0将声明改为宏别名时，raw SchemaSeed未展开，unconditionalSamplers报authoredSamplerSchemaInvalid。当前没有作者缺图资格。沿原冷预处理/接口事实统一Schema，保真实slot/metadata，不新增别名许可表或忽略用途；后续资源目的仍需独立资格。 |
 | effect显隐错型 | Color key同时绑定effect.visible会保原重建要求；layer visibility已有的忽略规则不能代此入口。尚无作者运行资格。需按真实Bool fallback、启动投影、准备状态与合法Color热更核对，不能直接扩大ignored集合或绕开原事务；数值effectConstant的固定fallback职责不代显隐资格。 |
-| RopeTrail其余renderer字段 | 公共Worldspace与整数subdivision已沿原消费者接通，资格见[组件合同](../capabilities/particle-component-coverage.md#rope-trail-world-subdivision)。显式非正length仍拒绝；固定客户端静态最小值钳制尚无作者/运行资格，不能据此授完整history单位。非screen朝向、动画、size fading及UV字段各需实际消费证据，不以原flags误拒保留它们的整renderer许可。 |
+| RopeTrail其余renderer字段 | 公共Worldspace与整数subdivision已沿原消费者接通，资格见[组件合同](../capabilities/particle-component-coverage.md#rope-trail-world-subdivision)。child尚无RopeTrail历史消费者，仅局部拒该输出，root多输出不授此能力。显式非正length仍拒绝；固定客户端静态最小值钳制尚无作者/运行资格，不能据此授完整history单位。非screen朝向、动画、size fading及UV字段各需实际消费证据，不以原flags误拒保留它们的整renderer许可。 |
 | 粒子其他资格 | CP/child空间、Mirror、nested/event、HSV缺省（3585542943/253/257、3761159935/453/457）、Vortex flags2及absolute color字段各用出生/轨迹输入；normalizedColor不是absolute color。 |
 | dormant视频与输出扩域 | hidden仍被named采样与实际source停止分开；物理HDR/EDR、lighting/receiver、文字backgroundbrightness和HDR8bit裁剪分别资格。 |
 

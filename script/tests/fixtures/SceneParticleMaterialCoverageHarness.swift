@@ -51,7 +51,10 @@ enum SceneParticleMaterialCoverageHarness {
                 "textureAvailable": asset.textureSource != nil,
                 "hasPipelineState": state != nil,
                 "refractionPrepared": asset.refraction != nil,
-                "sceneCamera": state?.usesSceneCamera ?? false,
+                "sceneCameras": asset.definition.renderers.map {
+                    state != nil && SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
+                        renderer: $0, materialPass: asset.materialPass)
+                },
                 "depthAttachment": asset.renderState?.requiresDepthAttachment ?? false,
                 "depthTest": state?.depthTestEnabled ?? false,
                 "depthWrite": state?.depthWriteEnabled ?? false,
@@ -91,6 +94,14 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("malformedRenderer", renderers: [["name": "sprite", "flags": "invalid"]])
         try inspect("unknownRendererField", renderers: [["name": "sprite", "future": 1]])
         try inspect("twoRenderers", renderers: [["name": "sprite"], ["name": "sprite"]])
+        try inspect("mixedRenderers", renderers: [
+            ["name": "sprite"], ["name": "spritetrail"], ["name": "rope"]])
+        try inspect("repeatedRenderers", renderers: [
+            ["name": "sprite", "id": 7, "flags": 1],
+            ["name": "sprite", "id": 7, "axis": [0, 1, 0]],
+            ["name": "sprite", "orientation": "fixed"]])
+        try inspect("malformedPeerRenderers", renderers: [
+            ["name": "sprite"], ["name": "rope", "flags": "invalid"]])
         try inspect("passOne", passIndex: 1)
         try inspect("passNegative", passIndex: -1)
         try inspect("normalCull", cull: "normal")
@@ -136,6 +147,9 @@ enum SceneParticleMaterialCoverageHarness {
                     blend: "additive", test: "enabled")
         try inspect("refractionTrailReadOnlyDepth", renderers: [["name": "spritetrail"]],
                     blend: "translucent", combos: ["REFRACT": 1], test: "enabled")
+        try inspect("refractionRenderers", renderers: [
+            ["name": "sprite"], ["name": "ropetrail"], ["name": "spritetrail"]],
+                    blend: "translucent", combos: ["REFRACT": 1])
         try inspect("refractionDepthWrite", blend: "translucent", combos: ["REFRACT": 1],
                     test: "enabled", write: "enabled")
         try inspect("depthUnknownCombo", renderers: [["name": "rope"]],

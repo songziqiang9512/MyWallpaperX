@@ -146,6 +146,7 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCES = [
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeHarness.swift",
+    Path(__file__).resolve().parent / "fixtures/SceneParticleMultipleRendererHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeLifecycleHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeChildrenHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeEventsHarness.swift",
@@ -568,7 +569,7 @@ class SceneParticleRuntimeTests(
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
         result = self.run_harness("rope-trail-synthetic")
-        self.assertEqual(result["activeLayerIDs"], [31, 32])
+        self.assertEqual(result["activeLayerIDs"], [31, 32, 34, 35])
         self.assertGreaterEqual(result["prewarmedInstanceCount"], 4)
         self.assertTrue(result["prewarmedAllSegmentsMoveForward"])
         coarse, fine = result["coarseSignature"], result["fineSignature"]
@@ -605,11 +606,14 @@ class SceneParticleRuntimeTests(
             self.assertEqual(histories[left], histories[right], (left, right))
         self.assertGreater(len(histories["subdivision-upper"]["signatures"][1]),
                            len(histories["subdivision-zero"]["signatures"][1]))
-        for field in ["mixedRendererLoaded", "malformedRendererLoaded", "objectRendererLoaded",
+        self.assertEqual(result["mixedRendererOrdinals"], [0, 1])
+        self.assertEqual(result["malformedPeerOrdinals"], [0])
+        for field in ["mixedRendererLoaded", "malformedRendererLoaded"]:
+            self.assertTrue(result[field], field)
+        for field in ["objectRendererLoaded",
                       "onlyMalformedRendererLoaded", "emptyRendererLoaded"]:
             self.assertFalse(result[field], field)
-        for layer_id, reason in [(33, "animatedTexture"), (34, "unsupportedProfile"),
-                                 (35, "unsupportedProfile"), (39, "unsupportedProfile"),
+        for layer_id, reason in [(33, "animatedTexture"), (39, "unsupportedProfile"),
                                  (40, "unsupportedProfile"), (41, "unsupportedProfile"),
                                  (42, "unsupportedProfile"), (43, "unsupportedProfile"),
                                  (44, "unsupportedProfile")]:

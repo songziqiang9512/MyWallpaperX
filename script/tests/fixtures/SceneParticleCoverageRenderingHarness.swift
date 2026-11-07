@@ -395,11 +395,13 @@ enum SceneParticleCoverageRenderingHarness {
             "actualRenderer": batch.debugRendererKind ?? "unknown", "shape": input.shape,
             "liveParticles": runtime.lifecycleSnapshot.rootParticleCount,
             "instances": batch.instances.count,
-            "history": runtime.frameSnapshot().layers.first?.root?.ropeTrailHistory != nil,
+            "history": runtime.frameSnapshot().layers.first?.root?.outputs.contains {
+                $0.renderer.index == batch.rendererIndex && $0.ropeTrailHistory != nil
+            } ?? false,
             "requiredCoverage": runtime.requiredPipelineVariants.contains { $0.blendMode == .alphaToCoverage },
             "blend": batch.renderState.blendMode.rawValue, "cull": batch.renderState.cullMode.rawValue,
             "depthTest": batch.renderState.depthTestEnabled, "depthWrite": batch.renderState.depthWriteEnabled,
-            "usesSceneCamera": batch.renderState.usesSceneCamera,
+            "usesSceneCamera": batch.usesSceneCamera,
             "inheritsNativeSceneCamera": batch.inheritsNativeSceneCamera,
             "overbright": batch.renderState.overbright, "particleAlpha": input.particleAlpha,
             "textureRGBA": input.rgba.map(Int.init), "textureExtent": [batch.texture.width, batch.texture.height],
@@ -419,7 +421,7 @@ enum SceneParticleCoverageRenderingHarness {
             worldFrame: SceneMatrix.translation(origin) * affine, parallaxOffset: .zero)
         return RuntimeDraw(product: product, uniforms: camera.particleUniforms(
             layerModel: model, orientation: batch.orientation, orientationAxis: batch.orientationAxis,
-            usesPerspective: batch.usesPerspective, usesSceneCamera: batch.renderState.usesSceneCamera,
+            usesPerspective: batch.usesPerspective, usesSceneCamera: batch.usesSceneCamera,
             inheritsNativeSceneCamera: batch.inheritsNativeSceneCamera,
             viewportSize: SIMD2(Float(runtimeWidth), Float(runtimeHeight)),
             sizeIsWorldSpace: batch.sizeIsWorldSpace), omitsReference: omitsReference)

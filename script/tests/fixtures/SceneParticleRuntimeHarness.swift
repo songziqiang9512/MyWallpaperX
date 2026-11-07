@@ -347,6 +347,8 @@ enum Harness {
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
         case "rope-trail-synthetic":
             try printJSON(syntheticRopeTrail())
+        case "multiple-renderers-synthetic":
+            try printJSON(syntheticMultipleRenderers())
         case "rope-synthetic":
             try printJSON(syntheticRope())
         case "static-scaled-rope-synthetic":

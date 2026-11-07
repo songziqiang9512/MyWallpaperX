@@ -161,9 +161,22 @@ CP需求不能用CP数组或共同controlpoint字段猜：Emitter的实际source
 
 Sprite、SpriteTrail、RopeTrail、screen-displacement ribbon、refraction 与 depth 各复用原几何/材质/target owner。尺寸、atlas、TEX sprite frame、非方纹理比例与采样用途保来源；Rope 单图 atlas 的整张 source 与 Sprite 帧不是同一语义。
 
+<a id="multiple-renderer-outputs"></a>
+### 同一模拟的多个 renderer 输出
+
+一个root或child system仍只有原Simulator、RNG、clock、出生/死亡事件和活粒子群。Definition中的renderer按作者ordinal准备有真实消费者的输出，保顺序及重复kind；退出集合count整拒绝、first-supported选择和root/template单instances职责。坏组件只失去自身输出，健康输出与peer保持；没有renderer的合法child容器不制造默认Sprite。child尚无RopeTrail历史消费者，该组件仍明确局部不可用，不能由root多输出宣称child新增此能力。
+
+原root/template拥有共享材质与source资源；输出只持实际几何Plan、orientation/camera及必要instances/history。Sprite帧、Rope整图和REFRACT的color/normal是原资源的不同consumer view，按实际需求各准备一次并共享同身份texture，不能为Rope全局抹掉animation或重建材质/源图。材质状态沿原compiler冷编一次；退出whole-definition的camera选择及其混入material state的字段，实际prepared renderer/DrawBatch向原CameraFrame供相机约定，REFRACT和ordinary输入边界保持。
+
+一次advance后只消费一次step snapshots，Sprite/SpriteTrail读取同次current/transient population，Rope读当前粒子，RopeTrail保各自有界历史与死亡排空。不同RopeTrail采样策略由原StepSnapshotRecorder按冷准备的唯一policy分别保必要间隔/容量；同一步需要的particle snapshot只转换一次并共享，不增加模拟推进、全局clock或每帧建图。相同policy不重复录制，不用最细间隔配某个单策略容量截短另一条尾迹。snapshot/restore、pause/stop、显隐与退休覆盖全部输出，population、事件与生命周期计数不按renderer倍增。
+
+原Metal上传key扩展为layer、child-template与renderer ordinal，避免prepare多batch时覆写同一可变buffer/count；不按kind合并重复组件，不新增GPU owner、缓存或compositor。原command completion、cancel、在途slot和按layer退休释放承接所有ordinal。root与child已有Sprite/SpriteTrail/Rope消费者一并退出scalar选择；未实现的几何/纹理/child组合仍只在其真实消费处失败，不新增组件数量或名称许可。
+
+验收比较真实Runtime中完整renderer数组与各单组件对照的模拟状态/RNG及每输出instances，含改名、重复kind、坏组件/健康peer、不同历史策略、死亡排空、rollback/stop与child事件。生产Metal核同root/template多个ordinal的可区分像素和原completion释放；原作者核每个活动输出的材质/normal/背景、main/GPU及实际画面，另保单renderer独立邻例。加载层数、batch数或非黑不能代替像素贡献；若组合视觉仍不可分，记录边界，不改作者rate/alpha、叠加顺序或几何参数拟合。
+
 composition 成员使用 nearest group 的原 MainPass；canonical camera/viewport 保留几何和 Trail 度量，最终 XY 与 REFRACT 位移才转换到目标。两行 raster uniform 位于原字段之后（CPU/MSL stride304），Z/W 保原相机深度；depth 与背景快照消费真实 attachment。没有逐粒子 CPU 转换、第二相机或按效果名准入。完整职责和仿射输入合同见[组合层栅格](effect-execution-coverage.md#particle-subtree-raster)。
 
-CPU batch 不持可写 instance buffer。原 ParticleMetalPipeline 按 root/child-template key 拥有上传 slot，形成 frame-local PreparedBatch；prepare/upload/draw/arm/cancel 由同一 GPU owner 管理。在途 buffer 与 depth/refraction pin 随真实 command 终态释放。
+CPU batch 不持可写 instance buffer。原 ParticleMetalPipeline 按 root/child-template/renderer-ordinal key 拥有上传 slot，形成 frame-local PreparedBatch；prepare/upload/draw/arm/cancel 由同一 GPU owner 管理。在途 buffer 与 depth/refraction pin 随真实 command 终态释放。
 
 Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过滤 committed 死 root。未提交取消释放其 slot，已提交不能用 CPU 回滚撤销。hidden 不等于退休，peer key 可复用。
 

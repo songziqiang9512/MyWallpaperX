@@ -35,7 +35,7 @@ extension Harness {
                 "emitter": [["name": "sphererandom"]],
                 "renderer": [["name": "ropetrail", "length": Double(points.count - 1) * 0.5, "segments": points.count - 1, "subdivision": 0]]])
             let plan = SceneParticleRopeTrailPlan(renderer: definition.renderers[0],
-                rendererCount: 1, maximumParticleCount: 1)!
+                maximumParticleCount: 1)!
             var history = SceneParticleRopeTrailHistory(plan: plan)
             var values: [SceneParticleGPUInstance] = []
             for (i, point) in points.enumerated() {
@@ -48,7 +48,7 @@ extension Harness {
                     "maxcount": points.count, "material": "materials/particle.json",
                     "renderer": [["name": "rope", "subdivision": transformIndex == 6 ? 3 : 0]]])
                 let rope = SceneParticleRopePlan(renderer: ropeDefinition.renderers[0],
-                    rendererCount: 1, maximumParticleCount: points.count)!
+                    maximumParticleCount: points.count)!
                 let particles = points.enumerated().map { i, point in
                     let size: Double = tapered ? [0.2, 0.6, 0][i] : (repeated && i == 2 ? 0.8 : 0.3)
                     return SceneParticleState(id: UInt64(i),
@@ -118,7 +118,6 @@ extension Harness {
         guard let renderer = definition.renderers.first,
               let plan = SceneParticleRopeTrailPlan(
                 renderer: renderer,
-                rendererCount: definition.renderers.count,
                 maximumParticleCount: 1
               ) else {
             return ["available": false]

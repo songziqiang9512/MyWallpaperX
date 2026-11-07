@@ -132,13 +132,12 @@ enum Harness {
                 ["name": "sprite"],
             ],
         ])
-        let multipleRendererRejected: Bool = {
+        let peerRendererPreservesPlan: Bool = {
             guard let renderer = multipleRenderers.renderers.first else { return false }
             return SceneParticleRopeTrailPlan(
                 renderer: renderer,
-                rendererCount: multipleRenderers.renderers.count,
                 maximumParticleCount: 1
-            ) == nil
+            ) != nil
         }()
         let explicitObjectRenderer = SceneParticleDefinitionParser().parse(root: [
             "material": "materials/particle.json",
@@ -181,11 +180,10 @@ enum Harness {
                 guard let renderer = $0.renderers.first else { return false }
                 return SceneParticleRopeTrailPlan(
                     renderer: renderer,
-                    rendererCount: $0.renderers.count,
                     maximumParticleCount: $0.maximumCount ?? 1
                 ) == nil
             },
-            "multipleRendererRejected": multipleRendererRejected,
+            "peerRendererPreservesPlan": peerRendererPreservesPlan,
             "explicitObjectRendererRejected": !explicitObjectRenderer.rendererWasImplicit
                 && explicitObjectRenderer.renderers.isEmpty
                 && explicitObjectRenderer.diagnostics.contains {
@@ -764,7 +762,6 @@ enum Harness {
         guard let renderer = value.renderers.first else { return nil }
         return SceneParticleRopeTrailPlan(
             renderer: renderer,
-            rendererCount: value.renderers.count,
             maximumParticleCount: value.maximumCount ?? 1
         )
     }
@@ -843,7 +840,7 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertTrue(profiles["malformedFlagged"])
         self.assertTrue(profiles["malformedDiagnosed"])
         self.assertTrue(profiles["malformedRejected"])
-        self.assertTrue(profiles["multipleRendererRejected"])
+        self.assertTrue(profiles["peerRendererPreservesPlan"])
         self.assertTrue(profiles["explicitObjectRendererRejected"])
         self.assertTrue(profiles["onlyMalformedRendererRejected"])
         self.assertTrue(profiles["explicitEmptyRendererRejected"])

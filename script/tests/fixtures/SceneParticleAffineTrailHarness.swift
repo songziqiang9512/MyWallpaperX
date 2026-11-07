@@ -287,8 +287,7 @@ enum SceneParticleAffineTrailHarness {
                 "renderer": [["name": "rope", "subdivision": 0]]
             ])
             guard let plan = SceneParticleRopePlan(
-                renderer: definition.renderers[0], rendererCount: 1,
-                maximumParticleCount: 2
+                renderer: definition.renderers[0], maximumParticleCount: 2
             ) else { throw Failure.malformedCase(value.name) }
             let halfLength = Double(value.size * 0.5 * value.stretch * 0.5)
             let delta = SIMD3<Double>(

@@ -916,7 +916,7 @@ enum Harness {
             SceneParticleSimulator(
                 definition: SceneParticleDefinitionParser().parse(root: root), seed: 52,
                 fixedTimeStep: step, prewarmStepBudget: budget,
-                stepSnapshotPolicy: .init(interval: 0.1, maximumSnapshots: 5)
+                stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: 0.1, maximumSnapshots: 5)!]
             )
         }
         let warm = make(source)
@@ -924,7 +924,7 @@ enum Harness {
         let initialCount = warm.particles.count
         let warmTime = warm.simulationTime
         let drained = warm.birthEvents.isEmpty && warm.deathEvents.isEmpty
-        let history = warm.consumeStepSnapshots()
+        let history = warm.consumeStepSnapshots().values.flatMap { $0 }
         source.removeValue(forKey: "starttime")
         let played = make(source)
         for _ in 0..<900 { played.advance(by: 1.0 / 60.0) }

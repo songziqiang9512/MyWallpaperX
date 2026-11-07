@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct SceneParticleStepSnapshotPolicy: Equatable, Sendable {
+nonisolated struct SceneParticleStepSnapshotPolicy: Hashable, Sendable {
     let interval: TimeInterval
     let maximumSnapshots: Int
 
@@ -43,22 +43,34 @@ nonisolated struct SceneParticleStepSnapshot: Equatable, Sendable {
 }
 
 nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
-    private let policy: SceneParticleStepSnapshotPolicy
-    private var snapshots: [SceneParticleStepSnapshot] = []
-    private var pendingDuration: TimeInterval = 0
+    private struct Stream: Sendable {
+        let policy: SceneParticleStepSnapshotPolicy
+        var snapshots: [SceneParticleStepSnapshot] = []
+        var pendingDuration: TimeInterval = 0
+    }
 
-    nonisolated init(policy: SceneParticleStepSnapshotPolicy) {
-        self.policy = policy
+    private var streams: [Stream]
+
+    nonisolated init(policies: [SceneParticleStepSnapshotPolicy]) {
+        var seen: Set<SceneParticleStepSnapshotPolicy> = []
+        streams = policies.filter { seen.insert($0).inserted }.map { Stream(policy: $0) }
     }
 
     var emissionStorageBytes: Int {
-        128 + snapshots.capacity * MemoryLayout<SceneParticleStepSnapshot>.stride
-            + snapshots.reduce(0) { $0 + $1.particles.capacity * MemoryLayout<SceneParticleStepParticle>.stride }
+        128 + streams.capacity * MemoryLayout<Stream>.stride
+            + streams.reduce(0) { result, stream in
+                result + stream.snapshots.capacity * MemoryLayout<SceneParticleStepSnapshot>.stride
+                    + stream.snapshots.reduce(0) {
+                        $0 + $1.particles.capacity * MemoryLayout<SceneParticleStepParticle>.stride
+                    }
+            }
     }
 
     nonisolated mutating func clear() {
-        snapshots.removeAll(keepingCapacity: true)
-        pendingDuration = 0
+        for index in streams.indices {
+            streams[index].snapshots.removeAll(keepingCapacity: true)
+            streams[index].pendingDuration = 0
+        }
     }
 
     nonisolated mutating func record(
@@ -66,32 +78,45 @@ nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
         particles: [SceneParticleState]
     ) {
         guard duration.isFinite, duration > 0 else { return }
-        pendingDuration += duration
-        if pendingDuration + 1e-12 >= policy.interval {
-            commitPending(particles: particles)
-        }
+        recordSamples(duration: duration, particles: particles, includesPartial: false)
     }
 
     nonisolated mutating func consume(
         particles: [SceneParticleState]
-    ) -> [SceneParticleStepSnapshot] {
-        // Only materialize samples retained by the history, or the final
+    ) -> [SceneParticleStepSnapshotPolicy: [SceneParticleStepSnapshot]] {
+        // Only materialize samples retained by a history, or the final
         // partial interval requested by the consumer. Intermediate simulation
         // steps have no snapshot consumer and need no particle conversion.
-        commitPending(particles: particles)
-        defer { snapshots.removeAll(keepingCapacity: true) }
-        return snapshots
+        recordSamples(duration: 0, particles: particles, includesPartial: true)
+        var result: [SceneParticleStepSnapshotPolicy: [SceneParticleStepSnapshot]] = [:]
+        for index in streams.indices where !streams[index].snapshots.isEmpty {
+            result[streams[index].policy] = streams[index].snapshots
+            streams[index].snapshots.removeAll(keepingCapacity: true)
+        }
+        return result
     }
 
-    private nonisolated mutating func commitPending(particles: [SceneParticleState]) {
-        guard pendingDuration > 0 else { return }
-        snapshots.append(.init(
-            duration: pendingDuration,
-            particles: particles.map(SceneParticleStepParticle.init)
-        ))
-        pendingDuration = 0
-        if snapshots.count > policy.maximumSnapshots {
-            snapshots.removeFirst(snapshots.count - policy.maximumSnapshots)
+    private nonisolated mutating func recordSamples(
+        duration: TimeInterval,
+        particles: [SceneParticleState],
+        includesPartial: Bool
+    ) {
+        var convertedParticles: [SceneParticleStepParticle]?
+        for index in streams.indices {
+            streams[index].pendingDuration += duration
+            let pendingDuration = streams[index].pendingDuration
+            let policy = streams[index].policy
+            guard pendingDuration > 0,
+                  includesPartial || pendingDuration + 1e-12 >= policy.interval else { continue }
+            // Due policies retain the same immutable particle array.
+            let sample = convertedParticles ?? particles.map(SceneParticleStepParticle.init)
+            convertedParticles = sample
+            streams[index].snapshots.append(.init(duration: pendingDuration, particles: sample))
+            streams[index].pendingDuration = 0
+            let overflow = streams[index].snapshots.count - policy.maximumSnapshots
+            if overflow > 0 {
+                streams[index].snapshots.removeFirst(overflow)
+            }
         }
     }
 }

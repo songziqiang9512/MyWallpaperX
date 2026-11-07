@@ -61,6 +61,7 @@ extension SceneParticleMetalPipeline {
                 let sampling = String(describing: batch.colorSampling)
                 var batchDetails = ["batchOrdinal": String(ordinal),
                         "particlePath": batch.particlePath,
+                        "rendererOrdinal": String(batch.rendererIndex),
                         "childTemplateIndex": batch.childTemplateIndex.map(String.init) ?? "root",
                         "rendererComponentIndex": batch.debugRendererComponentIndex.map(String.init) ?? "implicit",
                         "rendererKind": batch.debugRendererKind ?? "unknown",
@@ -68,7 +69,7 @@ extension SceneParticleMetalPipeline {
                         "cullMode": batch.renderState.cullMode.rawValue,
                         "depthTestEnabled": String(batch.renderState.depthTestEnabled),
                         "depthWriteEnabled": String(batch.renderState.depthWriteEnabled),
-                        "usesSceneCamera": String(batch.renderState.usesSceneCamera),
+                        "usesSceneCamera": String(batch.usesSceneCamera),
                         "usesDepthAttachment": String(usesDepth)]
                 if let depth { batchDetails["depthTextureToken"] = depth.textureToken }
                 observeBindings = { color, normal, background, count in
@@ -104,7 +105,7 @@ extension SceneParticleMetalPipeline {
                 orientation: batch.orientation,
                 orientationAxis: batch.orientationAxis,
                 usesPerspective: batch.usesPerspective,
-                usesSceneCamera: batch.renderState.usesSceneCamera,
+                usesSceneCamera: batch.usesSceneCamera,
                 inheritsNativeSceneCamera: batch.inheritsNativeSceneCamera,
                 layerUsesPerspective: layerUsesPerspective,
                 viewportSize: viewportSize,

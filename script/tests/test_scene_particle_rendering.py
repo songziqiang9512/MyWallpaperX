@@ -551,6 +551,14 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(slots["cancelAfterCompletionRejected"])
         self.assertTrue(slots["reusedAfterCompletion"])
 
+    def test_renderer_ordinals_preserve_root_and_child_upload_pixels(self) -> None:
+        facts = self.result["rendererOrdinalUpload"]
+        self.assertEqual((facts["preparedCount"], facts["uniqueOwners"]), (4, 4))
+        for field in ("available", "draws", "submitted", "completed"):
+            self.assertTrue(facts[field], field)
+        self.assertEqual(facts["pixels"], [[0, 0, 255, 255], [0, 255, 0, 255],
+                                          [255, 0, 0, 255], [0, 255, 255, 255]])
+
     def test_retired_root_and_child_buffers_live_only_until_original_command_finishes(self) -> None:
         facts = self.result["topologyRetirement"]
         for name in (

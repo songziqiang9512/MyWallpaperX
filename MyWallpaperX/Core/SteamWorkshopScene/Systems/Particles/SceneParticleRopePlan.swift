@@ -23,7 +23,6 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
 
     nonisolated init?(
         renderer: SceneParticleRenderer,
-        rendererCount: Int,
         maximumParticleCount: Int
     ) {
         // WE rope default: subdivision 3 when authored absent (MirageWallpaper
@@ -34,8 +33,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         let rawUVScale = renderer.uvScale ?? 1
         // Renderer Worldspace is consumed by the shared orientation path;
         // General Worldspace separately controls simulated positions and size.
-        guard rendererCount == 1,
-              renderer.kind == .rope,
+        guard renderer.kind == .rope,
               renderer.orientation == nil || renderer.orientation == "screen",
               renderer.axis == nil,
               renderer.rawFlags & ~1 == 0,
