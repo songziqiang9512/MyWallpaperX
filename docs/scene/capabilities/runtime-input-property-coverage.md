@@ -19,11 +19,16 @@ property key、原始 value、Combo value 和 condition 始终使用作者数据
 | Effect visibility | 准备好的安全 activation 可热更；未准备/无消费者/不支持结构不因 Bool 字段存在而强行接纳 |
 | User Shortcut | 原配置和真实输入 scope；不从合成 cursor 或脚本普通更新推定 OS 授权 |
 
+<a id="startup-inactive-effect"></a>
 ### 冷启动关闭的 Effect 准备计划
 
 原 Effect visibility 准备入口统一普通层的 DirectBool 与 SceneScript 候选：合法 Bool 初值为 false 时，普通层存在 named 读取或依赖声明不再整层取消其 effect 准备。原 Planner 仍证明实际 graph 与停用时的 previous-current 拓扑，Catalog 仍编译真实 Program、匹配 activation owner 和有序 named Binding；保留候选不等于创建当前帧需求，也不以 Bool 字段代替可执行 consumer。
 
-热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。standalone utility、provider、真实缺 producer/错误 carrier 及 graph/资源身份边界仍由原 owner 承接。验收核真实 DirectBool 入口的冷 false→热 true→false、具名采样、健康后继和 literal 像素，不能以脚本旁路或仅 inactive 帧替代；当前结果见[运行证据](runtime-evidence-current.md)。
+Utility 冷准备的完整 effect target 先取得原层级准备与 SourceRoute 的实际输入，再交原 Planner/Capability 准备 Program；root 的 viewport/group 与成员闭包仍归现有消费者。Effect 入口只消费已有层级准备结果，不保留 fullscreen/composition/project 的独立提名或重复 source resolve。普通非 utility、依赖 consumer/provider 和实际 Program/资源边界保持，不新增 stage owner、持久显隐、资源表或帧内补准备。未覆盖的来源与拓扑边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
+热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。坏层级、缺 source/Program、错误 carrier 或真实依赖冲突只使原消费者不可用；热开启仍由原整键事务拒绝并保 current，不能用源图复制冒充效果输出。
+
+验收固定 Project 层恒 visible，只切 effect 的 DirectBool false→true→false，以同 window/Surface 的 white→gray→white、后置绿色 peer、实际 Program draw→main/seal/request/CB/GPU核资格，保资源/变量/等价表达式改名、缺 fragment 拒绝开启与活动启动邻例。原 fullscreen/composition 和成员资源门继续作为相邻边界；childless passthrough 沿原 source/Program 承接，不另按名称拒绝，空透明来源不能以主目标未变冒充效果执行。若旧 App 不能分、首错另属未实现 source/Program或需要新资源 owner，则停止此切片并重排。独立作者只授实际默认输入与已观测消费者，不将健康邻例称精确缺图恢复；当前结果见[运行证据](runtime-evidence-current.md)。
 
 <a id="property-target-fallback"></a>
 ### 材质属性的目标局部 fallback 合同

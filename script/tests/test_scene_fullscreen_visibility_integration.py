@@ -138,7 +138,8 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def run_case(self, *, mixed_particle=False, no_capture=False, inactive_effect=False,
                  missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False, launch=None, sequence=None,
-                 expected_dims=None, expected_accepted=None):
+                 expected_dims=None, expected_accepted=None, effect_layer_id=20,
+                 initially_dimmed=False):
         unavailable = mixed_particle or missing_shader
         launch = launch or {"mode": "off", **({"fx": False} if inactive_effect else {})}
         sequence = sequence or [{"mode": "on"}, {"mode": "unsupported" if mixed_particle else "off"}]
@@ -153,7 +154,7 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                           else RED if key == "child" and particle
                           else GRAY if dim else WHITE} for key in RECTS}
         after_delay = 2 * len(sequence) + 3
-        snapshots = {"scene-ready-window.png": oracle(False)}
+        snapshots = {"scene-ready-window.png": oracle(initially_dimmed)}
         times = {"scene-ready-window.png": 1}
         for index, dim in enumerate(expected_dims):
             # Each intermediate capture is 1.5s after its property request and
@@ -162,12 +163,13 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     else f"scene-series-{2 + index * 2:04d}-window.png")
             snapshots[name] = oracle(dim, legal_particle and index == 0)
             times[name] = after_delay if index == len(sequence) - 1 else 3.5 + index * 2
-        protocol = {"canvas": 256, "channelTolerance": 4, "minimumCorrectFraction": .99,
+        protocol = {"canvas": [256, 256], "channelTolerance": 4, "minimumCorrectFraction": .99,
                     "launch": launch, "sequenceEvery2Seconds": sequence,
                     "expectedStepAccepted": accepted, "mixedParticleMissingTexture": mixed_particle,
                     "noEffectNoOp": no_capture, "initiallyInactiveEffect": inactive_effect,
                     "missingEffectFragment": missing_shader, "legalParticleCohort": legal_particle,
                     "projectVisibilityScript": project_script, "fullscreenVisibilityScript": fullscreen_script,
+                    "effectLayerID": effect_layer_id, "initiallyDimmed": initially_dimmed,
                     "snapshotTimesSeconds": times, "snapshotOracles": snapshots,
                     "captureMapping": "centered orthographic cover, 256 square canvas"}
         project, entries = fixture_entries(mixed_particle=mixed_particle, no_capture=no_capture,
@@ -204,7 +206,8 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                 preview = "\n".join(path.read_text() for path in evidence.glob("*preview*.log"))
                 for name, expected in protocol["snapshotOracles"].items():
                     self.assertTrue((evidence / name).is_file(), (name, log[-5000:]))
-                    pixels[name] = measure_capture(evidence / name, {"oracle": expected, "channelTolerance": 4})
+                    pixels[name] = measure_capture(evidence / name, {
+                        "canvas": protocol["canvas"], "oracle": expected, "channelTolerance": 4})
                 self.assertEqual(result.returncode, 0, log[-5000:])
                 steps = re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log)
                 self.assertEqual(steps, [(str(i), value) for i, value in enumerate(accepted)], log[-5000:])
@@ -220,9 +223,9 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
                     self.assertRegex(log, rf"phase=snapshot reason={reason} request=\d+ source=metal ")
                 self.assertNotRegex(log, r"phase=snapshot-(?:failed|rejected)")
                 if not unavailable and not no_capture:
-                    self.assertRegex(log + preview, r"generic shader execution [^\n]*layer=20 effect=0 ")
+                    self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={effect_layer_id} effect=0 ")
                 elif no_capture or missing_shader:
-                    self.assertNotRegex(log + preview, r"generic shader execution [^\n]*layer=20 effect=0 ")
+                    self.assertNotRegex(log + preview, rf"generic shader execution [^\n]*layer={effect_layer_id} effect=0 ")
                 for name, measured in pixels.items():
                     for roi, value in measured["rois"].items():
                         with self.subTest(capture=name, roi=roi):

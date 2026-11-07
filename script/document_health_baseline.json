@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 190,
-      "bytes": 105350
+      "bytes": 105755
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 117,
-      "bytes": 17485
+      "lines": 122,
+      "bytes": 18786
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 37587
+      "bytes": 37506
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -457,15 +457,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
-      "after": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
-      "owner": "scene-linked-authored-constant",
-      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
       "after": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
@@ -520,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
+      "after": "786c386bc69ec633c5267f6c45041956c815484c169ae71f2e20b14b86be6d98",
+      "owner": "scene-utility-inactive-effect-preparation",
+      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "945b34d93a2f2830459c3645c11521662984b359806238ffd1ccbfacc432d6f7",
-      "after": "9a6678c6ed77ada6816cb4e4c0df59daa61161e7a107247632a023f37bc5f935",
-      "owner": "scene-boolean-primitive-entry-order",
-      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
+      "before": "9a6678c6ed77ada6816cb4e4c0df59daa61161e7a107247632a023f37bc5f935",
+      "after": "d8103aa51baaae3654016ef77ff1fe9b56c1db1fe1a4288e9b44028b50ccdd0e",
+      "owner": "scene-utility-inactive-effect-preparation",
+      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e07467ab72112b930ae13308e3fda696bc776f8e6d9895ba5d72e1480cb1cdf5",
-      "after": "2375a49f8a7579b554809816dc56369c8fabe92284f45cf91dbc39e0bc30823b",
-      "owner": "scene-boolean-primitive-entry-order",
-      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
+      "before": "2375a49f8a7579b554809816dc56369c8fabe92284f45cf91dbc39e0bc30823b",
+      "after": "d4cb2a197e3f080b8e8af6d4ce70906894d2623e42d6fbd9a02349e1d06c33a3",
+      "owner": "scene-utility-inactive-effect-preparation",
+      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
     }
   ]
 }
