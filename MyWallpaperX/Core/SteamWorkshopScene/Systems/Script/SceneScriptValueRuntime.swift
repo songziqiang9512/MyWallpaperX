@@ -867,6 +867,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return switch raw {
         case MWX_SCENE_QUICKJS_COMPILE_ERROR: .compile(diagnostic)
         case MWX_SCENE_QUICKJS_EXCEPTION: .exception(diagnostic)
+        case MWX_SCENE_QUICKJS_INIT_EXCEPTION: .initializationException(diagnostic)
         case MWX_SCENE_QUICKJS_BUDGET_EXCEEDED: .budgetExceeded(diagnostic)
         case MWX_SCENE_QUICKJS_MEMORY_EXCEEDED: .memoryExceeded(diagnostic)
         case MWX_SCENE_QUICKJS_BAD_RETURN: .badReturn(diagnostic)

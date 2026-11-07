@@ -16,7 +16,7 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 当前 Session/Surface 只接入 primary 左键及其移动、按下、释放和 click。原 C cursor 参数在同一 frozen 对象内提供数值 `button=0`；它表示按钮编号，up/click 后仍是0，按下状态继续归 `input.cursorLeftDown`。沿实际 primary 来源补齐元数据，不新增 ABI、状态、按钮推断或 secondary 事件，不按作者 guard 的源码形状选择供值。world/local、命中、capture、回调生成及 journal/commit 维持原职责，退出缺字段导致合法左键 guard 恒返的行为。
 
-原官方move的[有界观察](runtime-evidence-current.md#fullscreen-cursor)不授官方click、右键/中键或完整parity。本项目以已有primary事件合同供货，验收用真实C/VM的严格数值与等价guard、down/up/click状态、outside/release-outside反例和健康peer；真实作者须闭合文字命中→click→已有图片显隐→最终画面，并保改名及另一事件能力的回归。不把普通text的动画init异常并入按钮字段修复。
+原官方move的[有界观察](runtime-evidence-current.md#fullscreen-cursor)不授官方click、右键/中键或完整parity。本项目以已有primary事件合同供货，验收用真实C/VM的严格数值与等价guard、down/up/click状态、outside/release-outside反例和健康peer；真实作者须闭合文字命中→click→已有图片显隐→最终画面，并保改名及另一事件能力的回归。
 
 <a id="layers"></a>
 ## Layer、Scene 与当前值
@@ -39,7 +39,16 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 原 cursor 结果中的同 owner 显隐写入晚于初始化、早于媒体/属性回调；由现有 owner effects 在本帧投影为最小 typed 前缀，update getter 按当前 journal、较晚 callback、cursor 前缀、初始化值、当前 snapshot 的次序读取。不改写 pending 初始化值来保存未提交的 cursor 结果，也不提前改共享 Layer catalog；此前缀供本次输入与 getter，不重放成新的 setter 或新增持久显隐副本。
 
-该交接随原 owner 的 commit/discard 退出，失败重试沿原初始化事务；普通暖帧无初始化或真实前缀写入时不配置基线。验收用真实 VM 的分离 init/update、相反初值、直接返回、别名/改名、指针/媒体写入及已提交初始化值的消费拒绝重试；真实作者的当前显隐、实际 draw 和终端区域必须一致。其余 callback/返回值次序的未闭边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+该交接随原 owner 的 commit/discard 退出，值或提交失败的重试沿原初始化事务；普通暖帧无初始化或真实前缀写入时不配置基线。验收用真实 VM 的分离 init/update、相反初值、直接返回、别名/改名、指针/媒体写入及已提交初始化值的消费拒绝重试；真实作者的当前显隐、实际 draw 和终端区域必须一致。其余 callback/返回值次序的未闭边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
+<a id="initialization-exception"></a>
+### 初始化异常的失败范围
+
+普通作者 `init` 同步调用抛错，只终结该次初始化；原 C owner 沿原失败出口清理未提交 journal/timer，并以既有 initialized 状态表明无需再执行 init，JS 局部状态仍保留，后继 update/事件继续沿原 owner 调度。沿原 C result 与 Swift failure 传递明确的 init-exception，保原初始化诊断和当帧局部拒绝，不新增 owner、持久 phase、重试链或空动画资源。它替换普通 init 异常导致整个 target 永久停用的旧行为；scalar/Bool、vector 与 string 的显式/隐式初始化使用同一阶段合同。
+
+恢复只在真正作者 init 的 JS_Call 普通异常、host 恢复及 job 检查成功后成立。编译/模块求值、host 安装/恢复、job、预算/中断、内存和 mutation overflow 维持原拒绝；后继 update/事件自身异常仍熔断。正常 init 的 pending→commit/discard、bad-return 重试及 generation/退出保持原职责，失败初始化不提交 typed 写入，也不因后续帧回滚重跑。固定官方2.8.0.42自动探针已见 init 抛错一次后 update 继续，而抛错 update 只执行一次；不授同帧顺序、异常前副作用的官方提交规则或原生点击。
+
+普通 text 的动画方法缺失不由本项补造控制器。验收复用原真实 C/VM 初始化事务和 cursor 门，覆盖一次失败后的局部状态、后继值/显隐写入、改名等价表达、健康 peer、outside/release-outside、正常 init 回滚及后继异常仍停用；真实作者须命中→click→已有图片显隐→最终帧，并保独立既有交互回归。证明范围及未闭项分别归运行证据和开放队列。
 
 <a id="boolean-callback-order"></a>
 Bool 的分离事件前缀与值求值按真实调用顺序消费：属性/媒体回调对本属性的合法 setter 是后继值求值的输入及 getter 基线；后继显式返回可以改变它，同一次值求值中新写的 setter 仍按原规则优先于返回。先前 setter 不在值求值结束后再次折入。没有新值、无 update 的事件 owner 保留该前缀；本 owner 的真实 destroy 始终为不可见，不能被晚返回复活。

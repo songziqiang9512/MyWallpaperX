@@ -129,8 +129,8 @@
       "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 249,
-      "bytes": 125503
+      "lines": 258,
+      "bytes": 127457
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 131,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 124,
-      "bytes": 18578
+      "lines": 133,
+      "bytes": 20278
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 190,
-      "bytes": 44397
+      "lines": 189,
+      "bytes": 43698
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -341,29 +341,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6ee3fa1bbc21d620287b5b3c580f4f08bcb21f887ff1a0eb939ddd6c41d106f4",
-      "after": "fcdf44a42ab3758b0558d4bbf567d0f6001c3ec5b6d85ab18f272789448ac9d0",
-      "owner": "Scene primary cursor metadata",
-      "reason": "Define numeric primary-button metadata in the existing cursor argument, record actual background selection and controlled renamed reverse selection, preserve fullscreen neighbor behavior, and separate the remaining text-animation init boundary.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#cursor-primary-button"
+      "before": "fcdf44a42ab3758b0558d4bbf567d0f6001c3ec5b6d85ab18f272789448ac9d0",
+      "after": "dec476103f085d8758e8b6098e04ca1423fa1f00e517fa49defdf0f80d63a705",
+      "owner": "Scene initialization failure scope",
+      "reason": "Replace the broad init-error owner retirement with an explicit phase result in the existing runtime, qualify the official failure scope and real background selection, remove solved feedback from the queue, and preserve later callback fuses and the existing later-writer contract.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-exception"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "247eddfab58d173dc6f7203ed346cf46e450dd63b1213a2fbb4b836bcb1dba09",
-      "after": "4a7eca47aca589c986811dc1a50d132b2878dcaf2cd99a8f57de85de4986293b",
-      "owner": "Scene primary cursor metadata",
-      "reason": "Define numeric primary-button metadata in the existing cursor argument, record actual background selection and controlled renamed reverse selection, preserve fullscreen neighbor behavior, and separate the remaining text-animation init boundary.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#cursor-primary-button"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a810e3eba67755e68b204906dca8b6f7717b91ba20afa062d31a0372e01d6ea4",
-      "after": "7748e7ff7945b1ef4dc7846d5835d22a36a646351cc1c47edfba3a83b0999c6f",
-      "owner": "Scene primary cursor metadata",
-      "reason": "Define numeric primary-button metadata in the existing cursor argument, record actual background selection and controlled renamed reverse selection, preserve fullscreen neighbor behavior, and separate the remaining text-animation init boundary.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#cursor-primary-button"
+      "before": "4a7eca47aca589c986811dc1a50d132b2878dcaf2cd99a8f57de85de4986293b",
+      "after": "0e12e035fa6b8d8c80b2f75464a80f505b3506f554c0936b882587d4b471f644",
+      "owner": "Scene initialization failure scope",
+      "reason": "Replace the broad init-error owner retirement with an explicit phase result in the existing runtime, qualify the official failure scope and real background selection, remove solved feedback from the queue, and preserve later callback fuses and the existing later-writer contract.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-exception"
     }
   ]
 }

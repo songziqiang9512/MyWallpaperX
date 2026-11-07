@@ -239,7 +239,16 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 原C cursor参数按现有primary输入补数值button0，未扩ABI、事件生成或资源链；[合同](scenescript-api-coverage.md#cursor-primary-button)先落库。签名Debug exec SHA `a3572d77…bf4266e7`，4396构建输入稳定，单C产品净增4行、metallib未变。最近真实C/QuickJS门一次17方法通过，覆盖严格数值/改名等价guard、move/down/up/click、按压状态、outside/release-outside、peer与原事务；不重复全Scene门。
 
-3792745102原project/pkg/tree、同(.96,.6666667)指针：前后都实际命中62并触发click，原图停17；当前同回调后frame123将36置true/17置false，后续真实source/材质→main/seal/GPU与PNG切到36。名字、变量、等价guard及两背景模型/材质/纹理路径改名的受控输入，从显式36开始点59后切17；这是另一初始输入的反向验证，非同Session往返。独立真实3087231311保斜带A→B→A、302/288原位置值与named材质消费，未回退刚恢复的能力。各次Ready/停止/Surface释放/排空成立。原输入、失败、PNG与独审归`.artifacts/scene-click-background-20261108/`。合成点击不授桌面物理输入、官方click/全部菜单或性能；377的动画init异常保持独立待核。
+3792745102原project/pkg/tree、同(.96,.6666667)指针：前后都实际命中62并触发click，原图停17；当前同回调后frame123将36置true/17置false，后续真实source/材质→main/seal/GPU与PNG切到36。名字、变量、等价guard及两背景模型/材质/纹理路径改名的受控输入，从显式36开始点59后切17；这是另一初始输入的反向验证，非同Session往返。独立真实3087231311保斜带A→B→A、302/288原位置值与named材质消费，未回退刚恢复的能力。各次Ready/停止/Surface释放/排空成立。原输入、失败、PNG与独审归`.artifacts/scene-click-background-20261108/`。合成点击不授桌面物理输入、官方click/全部菜单或性能。
+
+<a id="initialization-exception"></a>
+## 初始化异常与后继切图
+
+原C owner只将实际init的普通JS_Call异常分为init-exception，保原失败journal/timer清理并用既有initialized终结该次初始化；Swift原failure据阶段保留后继callback。正常pending/回滚、bad-return重试、host/预算/内存/overflow拒绝及后继异常熔断保持，旧的init异常永久停用职责退出；[设计](scenescript-api-coverage.md#initialization-exception)先于代码，无新owner、状态、空动画或资源链。
+
+固定官方2.8.0.42自有自动探针实际普通text无动画方法；未捕获init错误后仍有95次update、init调用1次，健康读数同95；抛错update只调用1次。真实36帧TEX控制器pause后isPlaying=false、setFrame1读回1。标准project入口的原生图像取得读数后关闭独占窗口、清stage并恢复VM挂起；自有初版读数裁切及非标准入口黑窗不作API反例。此观察只资格已述阶段，不授异常前副作用的官方提交、同帧顺序或原生click。
+
+签名Debug exec SHA `da076e9e…1e7aa851`，4396输入无漂移、metallib未变。真实C/VM的cursor19方法一次通过；初始化14方法在修正旧跨owner“必须冲突”断言后通过，窄读数证该用例无init/update错误、按既有后写者合同发布.6/foreign/99，不为过门改产品准入。原3776193909同project/pkg/tree及(.55,.2673)：前版a357实际两控件down/up而angles停用；当前54/98均实际click，frame122/gen68将31置false、38置true，38真实source/材质/tail→sealed main、GPU与PNG切图。lookup键、局部变量、等价guard和两模型/材质/TEX路径改名的同初值变体也切到38；独立原379保text62→图36。四场Ready/停止/Surface释放/排空成立。原输入、失败、PNG及独审归`.artifacts/scene-text-animation-20261108/`。实际App仍是合成pointer，不授物理输入、同Session往返、全部菜单、全API官方一致性或性能。
 
 <a id="limits"></a>
 ## 未取得的资格

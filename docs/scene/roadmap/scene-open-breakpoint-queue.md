@@ -6,7 +6,7 @@
 
 2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
 
-后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。383已解除首帧拒绝；380保状态等价与官方创建语义未知的启动优化项，不为取得Ready截历史。329头部挂点、308的[全屏斜带跟随](../capabilities/runtime-evidence-current.md#fullscreen-cursor)与379的[文字切图](../capabilities/runtime-evidence-current.md#cursor-primary-button)已恢复；335时钟越环已由[原作者官方画幅对照](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)复现，退出修复优先项。330628读回未资格，330头部动画待有界语义；下一项先核377动画API可用性与init错误范围。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；下一项先处理338211有实测首拒的beam音频接线。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -100,8 +100,7 @@
 |---|---|
 | 3306942838 · 图2 | 头部运动时偏移过大，原静态粗筛未识别。head24/body28为独立root，只有particle642引用body attachment；body clip1606实际未准备、bone52物理降级是有界线索，非根因结论。先核同相位头/体pose与最终geometry，不降低运动幅度拟合截图或套329的重复名修法。 |
 | 3306282639 · 图3 | 人物周身文字外圈出现多余放射线，R0原图亦可见。compose3192/2921的circular_text slot1实际消费hidden text2917的named供货；同尺寸graph→named走原CB全域blit，不能凭纹理token或代次差判转色/陈旧。两次有界调试均未取得作者当帧像素，后次在Swift表达式读取失败，未进入GPU读回；独立RGBA/BGRA读回正控通过不代作者资格。保`.artifacts/scene-circular-text-20261107/`，暂转其他基础画面项；重启须能取得同帧实际边缘RGBA、slot/variant/uniform与采样结果，再区分边缘延伸/上游生成，当前不改clamp、padding、PMA或作者参数。 |
-| 3776193909 | 54/98的angles init在既有R0实际对undefined调用getTextureAnimation().pause()，随后该owner停用；当前供货仍要求实际animation snapshot。379的button补齐不关闭本项。先用有界官方自动API正控核普通text/静态image的默认动画接口，再决定可用性或init错误半径；原生点击尚未资格，不盲重跑已失败的CUA方法、不造空动画或全局放开异常重试。 |
-| 3382111183 /3383210272 | 本次补报部分主要特效、粒子或光照未执行。338211旧失焦记录与此相关但不等同；338321虽有四组typed音频material消费，目标birth/color/光照贡献仍未知。先按当前实际source、活动目标、拒绝与draw定位缺失，不以终端存在授所有效果正常，再追颜色/幅度等细节。 |
+| 3382111183 /3383210272 | 主要特效、粒子或光照待逐目标资格。338211的6个活动beam emitter（115/178/335/173/167/170）实际exponent100被AudioResponsePlan的≤16上限拒绝，出生前plan不可用；先沿原音频响应→birth→beam draw修这个首错，不以解除门代完整FX。338321的323/124/369/391四emitter已有非零16-band实际消费，零出生不能再叫音频断线；门槛、birth/color及光照贡献仍待可区分输入。 |
 | 3617449489 | 音频环缺失，本轮仅census。先定位环的真实layer/Program/Script与音频供值、活动状态和绘制，不因声明音频能力就转为频率调参。 |
 | 2814167871 /2835398595 | 随音频眼睛闪动不明显，两项本轮仅census。先分别核眼部目标与实际band读值、回调和像素响应，再判作者频段/门槛；“链路正常可能是频率”保用户假设，不预设为已连通或引擎错误。 |
 | 新增粗筛 · 3557068717及条件项 | 355默认主景近黑仅见小亮点，原named CHECK没有活动需求，不能用它解释像素；3455121165/3453730450的时钟、3618302662构图、3657295614人物、3360178853牙口与2868108515条纹均待viewport/时相/显隐/source资格。新增113对图像粗筛不授完整视觉通过；329的挂点拒绝单列上表，不从其他rawPASS关闭反馈。 |
@@ -183,7 +182,7 @@
 | 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 失败收据的可选路径 | 3808922316等未Ready时，collector仍写未创建的preview_log及runtime_evidence占位`-`，使现有promoter拒整份报告。本轮原报告原字节保留，保留投影显式记缺失项后只复制实际文件；Debug独立dylib也未被benchmark staging复制，原stub会在dyld退出；本批用明确单executable的Debug候选运行，非同身份旧Debug重试。后续在原collector/staging入口准确承接真实载荷与可选路径，不造空日志、改原失败或删除真正captured文件的完整性检查。 |
-| 编译与仿真验证载体 | `test_scene_generic_shader_program_artifact.py`有9343行；`test_scene_dependency_graph_output_runtime.py`仍超1000行，混有内嵌Swift共用壳、legacy与真实native probe。`test_scene_particle_simulator.py`仍4438行（本批4增4删），含3320行内嵌Swift和跨主题大返回字典。沿compiler/ABI、发射/时间、CP/输入、运动/碰撞、颜色/继承等真实结果生产职责收敛，先退重复和失效部分，保调用API、原字节及像素oracle，不能只搬文件或压缩行数过门。现CodeHealth只覆盖Swift，不能据此称Python已达1000行上限。局部门及时输出编译失败，不等待长suite结束。 |
+| 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 

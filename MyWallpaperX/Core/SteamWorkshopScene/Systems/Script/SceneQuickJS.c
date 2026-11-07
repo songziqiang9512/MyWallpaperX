@@ -17,13 +17,10 @@ enum SceneInputProperty {
 };
 
 static bool failure_permanently_disables(MWXSceneQuickJSResult result) {
-    // A returned value that failed validation is data-shaped: the same script
-    // can produce a valid value on a later frame once upstream producers
-    // publish (corpus: shared-state ordering). Those failures keep
-    // previous-current for the frame and retry. Code-shaped failures
-    // (exceptions), runaway cost (budget/interrupt) and pathological mutation
-    // volume keep the permanent fuse.
-    return result != MWX_SCENE_QUICKJS_BAD_RETURN;
+    // Invalid return data can recover. A failed init is terminal, while its
+    // later callbacks remain independently usable.
+    return result != MWX_SCENE_QUICKJS_BAD_RETURN &&
+        result != MWX_SCENE_QUICKJS_INIT_EXCEPTION;
 }
 
 static JSValue freeze_snapshot_value(
@@ -685,6 +682,7 @@ static void restore_layer_boolean_read_scope(
 static MWXSceneQuickJSResult call_primitive(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
+    bool initializing,
     double input,
     bool boolean_value,
     bool property_refresh,
@@ -828,6 +826,11 @@ static MWXSceneQuickJSResult call_primitive(
             );
             return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
         }
+        if (initializing && failure == MWX_SCENE_QUICKJS_EXCEPTION &&
+            !owner->layer_mutation_overflow && !owner->puppet_animation_command_overflow &&
+            !owner->camera_command_overflow) {
+            return MWX_SCENE_QUICKJS_INIT_EXCEPTION;
+        }
         return failure;
     }
     if (JS_IsUndefined(result) || (boolean_value && !JS_IsBool(result))) {
@@ -874,6 +877,7 @@ static bool string_value_fits_owner(
 static MWXSceneQuickJSResult call_string(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
+    bool initializing,
     const char *input,
     size_t input_length,
     const MWXSceneQuickJSFrameInput *frame,
@@ -937,6 +941,7 @@ static MWXSceneQuickJSResult call_string(
     }
     mwx_scene_quickjs_begin_callback(owner);
     JSValue argument = JS_NewStringLen(domain->context, input, input_length);
+    initializing = initializing && !JS_IsException(argument);
     JSValue result = JS_IsException(argument)
         ? JS_EXCEPTION
         : (JS_IsFunction(domain->context, function)
@@ -977,6 +982,11 @@ static MWXSceneQuickJSResult call_string(
                 owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
+        if (initializing && result_code == MWX_SCENE_QUICKJS_EXCEPTION &&
+            !owner->layer_mutation_overflow && !owner->puppet_animation_command_overflow &&
+            !owner->camera_command_overflow) {
+            return MWX_SCENE_QUICKJS_INIT_EXCEPTION;
+        }
         return discard_layer_mutations_after_failure(owner, result_code);
     }
     if (JS_IsUndefined(result)) {
@@ -1148,6 +1158,7 @@ static const char *vector_return_shape(
 static MWXSceneQuickJSResult call_vector(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
+    bool initializing,
     const double *input,
     uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
@@ -1228,6 +1239,7 @@ static MWXSceneQuickJSResult call_vector(
         JS_FreeValue(domain->context, vector_arguments[index]);
     }
     JSValue callback_argument = JS_DupValue(domain->context, argument);
+    initializing = initializing && !JS_IsException(argument);
     JSValue result = JS_Call(domain->context, function, owner->module, 1, &callback_argument);
     JS_FreeValue(domain->context, callback_argument);
     MWXSceneQuickJSResult job_result = drain_jobs_after_call(
@@ -1265,6 +1277,11 @@ static MWXSceneQuickJSResult call_vector(
                 owner->media_playback_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
+        if (initializing && result_code == MWX_SCENE_QUICKJS_EXCEPTION &&
+            !owner->layer_mutation_overflow && !owner->puppet_animation_command_overflow &&
+            !owner->camera_command_overflow) {
+            return MWX_SCENE_QUICKJS_INIT_EXCEPTION;
+        }
         return discard_layer_mutations_after_failure(owner, result_code);
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
@@ -2012,7 +2029,7 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
             return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         }
         result = call_primitive(
-            owner, init, input, boolean_value, property_refresh, frame,
+            owner, init, true, input, boolean_value, property_refresh, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             read_scope, output, diagnostic, diagnostic_capacity
@@ -2023,6 +2040,7 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
     }
     JS_FreeValue(owner->domain->context, init);
     if (result == MWX_SCENE_QUICKJS_OK) owner->initialization_pending = true;
+    if (result == MWX_SCENE_QUICKJS_INIT_EXCEPTION) owner->initialized = true;
     return result;
 }
 
@@ -2056,7 +2074,7 @@ static MWXSceneQuickJSResult initialize_vector_callback(
             return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         }
         result = call_vector(
-            owner, init, input, dimensions, frame,
+            owner, init, true, input, dimensions, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             output, diagnostic, diagnostic_capacity
@@ -2064,6 +2082,7 @@ static MWXSceneQuickJSResult initialize_vector_callback(
     }
     JS_FreeValue(owner->domain->context, init);
     if (result == MWX_SCENE_QUICKJS_OK) owner->initialization_pending = true;
+    if (result == MWX_SCENE_QUICKJS_INIT_EXCEPTION) owner->initialized = true;
     return result;
 }
 
@@ -2348,7 +2367,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
         goto restore_read_scope;
     }
     result = call_primitive(
-        owner, update, input, boolean_value != 0, property_refresh != 0, frame,
+        owner, update, false, input, boolean_value != 0, property_refresh != 0, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         read_scope, output, diagnostic, diagnostic_capacity
@@ -2404,7 +2423,7 @@ static MWXSceneQuickJSResult initialize_string_callback(
             return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         }
         result = call_string(
-            owner, init, output, *output_length, frame,
+            owner, init, true, output, *output_length, frame,
             user_properties_json, user_properties_length,
             output, output_capacity, output_length,
             diagnostic, diagnostic_capacity
@@ -2412,6 +2431,7 @@ static MWXSceneQuickJSResult initialize_string_callback(
     }
     JS_FreeValue(owner->domain->context, init);
     if (result == MWX_SCENE_QUICKJS_OK) owner->initialization_pending = true;
+    if (result == MWX_SCENE_QUICKJS_INIT_EXCEPTION) owner->initialized = true;
     return result;
 }
 
@@ -2622,7 +2642,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_string(
-        owner, update, current, current_length, frame,
+        owner, update, false, current, current_length, frame,
         user_properties_json, user_properties_length,
         output, output_capacity, output_length,
         diagnostic, diagnostic_capacity
@@ -2713,7 +2733,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_vector(
-        owner, update, current, dimensions, frame,
+        owner, update, false, current, dimensions, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity
