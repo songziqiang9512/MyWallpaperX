@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 189,
-      "bytes": 43698
+      "bytes": 44170
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,21 +340,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fcdf44a42ab3758b0558d4bbf567d0f6001c3ec5b6d85ab18f272789448ac9d0",
-      "after": "dec476103f085d8758e8b6098e04ca1423fa1f00e517fa49defdf0f80d63a705",
-      "owner": "Scene initialization failure scope",
-      "reason": "Replace the broad init-error owner retirement with an explicit phase result in the existing runtime, qualify the official failure scope and real background selection, remove solved feedback from the queue, and preserve later callback fuses and the existing later-writer contract.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-exception"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "4a7eca47aca589c986811dc1a50d132b2878dcaf2cd99a8f57de85de4986293b",
-      "after": "0e12e035fa6b8d8c80b2f75464a80f505b3506f554c0936b882587d4b471f644",
-      "owner": "Scene initialization failure scope",
-      "reason": "Replace the broad init-error owner retirement with an explicit phase result in the existing runtime, qualify the official failure scope and real background selection, remove solved feedback from the queue, and preserve later callback fuses and the existing later-writer contract.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-exception"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "efbf3e7c3dd895f81fc7c5ef7bc73a41ec603b7205dbe3fbe4d79212cb019c1f",
+      "after": "cf588805f4d0bf5e4e487130224e586b65e0927a02b6129d3636fa43b05a89f7",
+      "owner": "Scene bounded audio investigation",
+      "reason": "Record the actual producer ceiling and the high-exponent response bound before discarding an unqualified visual-fix candidate; keep explicit restart evidence and select the remaining active named-stage problem. No product or test changes.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
