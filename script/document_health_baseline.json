@@ -129,8 +129,8 @@
       "bytes": 44537
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 188,
-      "bytes": 102953
+      "lines": 190,
+      "bytes": 104658
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 36945
+      "bytes": 37413
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b71e5950c8028cf9d4155f64cccf158443ffb932197041c72069c261366951f9",
-      "after": "f2bc5edaabb3de5656513aeb3953db58acbd407238f0ad6484f0b808ab1243b5",
-      "owner": "scene-cold-selected-input",
-      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "f2bc5edaabb3de5656513aeb3953db58acbd407238f0ad6484f0b808ab1243b5",
+      "after": "1e9afd2f71aa836fcd72714dc8294d67e94b93253275355b47b97e9bbb5f06bf",
+      "owner": "scene-framing-focus-qualification",
+      "reason": "Replace the old persistent-focus assumption with one same-frame post-intro Timeline/material/terminal result. Record the bounded current framing/alpha/typed-sample stop without inventing selected geometry, and keep default grey and fluid contribution separate; no product permission or new authority.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0777369b07df8d3098a5e68fc9f36b91d30888606edec12bff8d45b20051b0e6",
-      "after": "9232d8fe44aea53b59a970dd692e37f6763f24f1fd9309f3b3fb2177d1902ad9",
-      "owner": "scene-cold-selected-input",
-      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "9232d8fe44aea53b59a970dd692e37f6763f24f1fd9309f3b3fb2177d1902ad9",
+      "after": "93f08247ef90c91534936524e4ba739ee343660eab2b21b275d56d52d7caa4e3",
+      "owner": "scene-framing-focus-qualification",
+      "reason": "Replace the old persistent-focus assumption with one same-frame post-intro Timeline/material/terminal result. Record the bounded current framing/alpha/typed-sample stop without inventing selected geometry, and keep default grey and fluid contribution separate; no product permission or new authority.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     }
   ]
 }
