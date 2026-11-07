@@ -46,7 +46,6 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         var remainingNodes = 64
         var activeAssignments: Set<Int> = []
         var permitsRGBScalarMutation = false
-        var rgbScalarMutations: Set<Int> = []
         var sampleReferences: [Int: Set<Int>] = [:]
         var carrierReferences: [String: Set<Int>] = [:]
         var graphColors: [String: GraphColor] = [:]
@@ -396,7 +395,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
     }
 
     /// A purpose fact, independent of output color transfer: a complete-vector
-    /// sample graph may receive one unconditional RGB scalar multiplication.
+    /// sample graph may preserve its colors or apply RGB scalar multiplications.
     /// Every sampled leaf and carrier use must belong to this graph; alpha,
     /// data extraction, alias escapes and helper mutation remain unproven.
     static func straightColorInputSlots(
@@ -424,7 +423,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
               ) else { return [] }
         var state = State(fragment: fragment, main: main, permitsRGBScalarMutation: true)
         guard let slots = colorSlots(expression, before: output, state: &state),
-              !slots.isEmpty, state.rgbScalarMutations.count == 1 else { return [] }
+              !slots.isEmpty else { return [] }
         for slot in slots {
             let name = "g_Texture\(slot)"
             guard fragment.declarations.contains(where: {
@@ -488,6 +487,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
             return [slot]
         }
         if let arguments = callArguments(named: "mix", expression: expression),
+           !state.fragment.functions.contains(where: { $0.name == "mix" }),
            arguments.count == 3,
            isScalar(arguments[2], before: boundary, state: state),
            let first = colorSlots(arguments[0], before: boundary, state: &state),
@@ -609,7 +609,6 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
                   ),
                   let end = (index + 4..<boundary).first(where: { tokens[$0].text == ";" }),
                   isScalar(tokens[index + 4..<end], before: index, state: state) else { return true }
-            state.rgbScalarMutations.insert(index)
             state.carrierReferences[name, default: []].insert(index)
         }
 

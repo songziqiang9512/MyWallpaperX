@@ -1255,7 +1255,7 @@
       "owner": "Scene project/material preparation and shared shader facts",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "render-graph-shader-coverage.md#whole-vector-color-input: reuse the existing root-local graph and exact candidate/Program facts; retire RGB mutation-count permission and its unused Set. Resolve authored mix identity before builtin interpretation at the shared graph source. Keep output transfer, data/signal, PMA and existing candidate conflict ownership; verify equivalent copy forms, actual pixels/atomic visibility and independent author boundaries without new owners or frame work.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",

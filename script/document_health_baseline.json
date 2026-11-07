@@ -125,12 +125,12 @@
       "bytes": 39167
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 232,
-      "bytes": 44537
+      "lines": 237,
+      "bytes": 46175
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 190,
-      "bytes": 106288
+      "lines": 191,
+      "bytes": 107865
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 37609
+      "bytes": 37525
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -493,15 +493,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "41a0f8000ad047caa10fecbc3974fa1aa048857199692c6c6ee2c7ce0454015a",
-      "after": "3b5f9a2b5812b632e98d2761c58f8489ea75642315cf31015c943f7c82f504c3",
-      "owner": "scene-cold-selected-input",
-      "reason": "Separate cold structural candidates from selected Program background execution, retire the potential path union and unused projection API, and retain real raw-aggregate limits. Consolidate older named-input evidence and record fixed same-input pixels, untyped first failure, rejection controls and independent-author boundary in the existing authorities.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "2bdf96423bd3a12d5e9e57805999f58ee521f81dd39d1478964f2c7f4d8d100c",
       "after": "247eddfab58d173dc6f7203ed346cf46e450dd63b1213a2fbb4b836bcb1dba09",
@@ -520,12 +511,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "3b5f9a2b5812b632e98d2761c58f8489ea75642315cf31015c943f7c82f504c3",
+      "after": "0bedb29e6e0ec0a6fe35b23dc26d9348c2c389dff8523ab4207c564e29997f74",
+      "owner": "scene-material-color-boundary",
+      "reason": "Specify whole-vector input-role derivation in the existing cold graph, retire mutation-count permission/state, distinguish authored functions from builtin mix, and freeze actual App/data/PMA acceptance without adding an owner or frame work.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#whole-vector-color-input"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d8103aa51baaae3654016ef77ff1fe9b56c1db1fe1a4288e9b44028b50ccdd0e",
-      "after": "dbdbebaa34990d3fee2846b19c8df891f3deec9cea9ac3c1ed391acbabdbabbf",
-      "owner": "scene-model-parent-visibility",
-      "reason": "Consolidate the original-owner model parent visibility and typed producer preparation contract, bounded same-input App and independent author evidence, and remaining source boundaries. Retire the prepared-leaf exception and stale qualification statements without adding a document authority or runtime state.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
+      "before": "98490918de795fd081aa6e5ef21307fd49fbfcbe221a598031528462a04b96b9",
+      "after": "b8458a66ee5d2000992fe0528b147210202fe7d7a71d22da50c30742140bd9ea",
+      "owner": "scene-material-color-boundary",
+      "reason": "Replace obsolete whole-vector rejection with bounded real sampling and atomic visibility evidence; preserve original failures, selected content/data/PMA boundaries and independent-author limits in their existing authorities.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#whole-vector-color-input"
     },
     {
       "section": "bodies",

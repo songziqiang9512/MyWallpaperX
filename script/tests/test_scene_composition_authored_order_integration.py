@@ -262,10 +262,15 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
             "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
         uv = "v_MovedUV" if renamed else "v_TexCoord"
         entries[f"shaders/{prefix}.vert"] = VERTEX.replace(b"v_TexCoord", uv.encode())
+        material = quad_input.get("samplerMaterial", "albedo")
+        annotation = "" if material is None else f' // {{"material":"{material}"}}'
+        sample = f"texSample2D(g_Texture{slot},{uv})"
+        body = (f"gl_FragColor={sample};" if quad_input.get("directSample") else
+                f"vec4 sampled={sample};gl_FragColor=sampled;")
         entries[f"shaders/{prefix}.frag"] = (
-            f'uniform sampler2D g_Texture{slot}; // {{"material":"albedo"}}\nvarying vec2 {uv};\n'
-            f"void main(){{vec4 sampled=texSample2D(g_Texture{slot},{uv});"
-            "gl_FragColor=sampled;}\n").encode()
+            f"uniform sampler2D g_Texture{slot};{annotation}\nvarying vec2 {uv};\n"
+            f"void main(){{{body}}}\n").encode()
+        scene["general"].update(quad_input.get("general", {}))
         for path in ("effects/own_yellow/effect.json", "materials/own_yellow.json",
                      "shaders/own_yellow.vert", "shaders/own_yellow.frag"):
             del entries[path]
@@ -361,7 +366,8 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             return values
         initial = quad_input["initialVisible"]
         protocol["quadInput"] = {**quad_input, "key": key,
-            "samplerMaterial": "albedo", "loadPurpose": "straightAlbedo",
+            "samplerMaterial": quad_input.get("samplerMaterial", "albedo"),
+            "loadPurpose": "straightAlbedo",
             "texturePath": f"materials/{prefix}/tiles.tex", "rgbaExtent": [16, 16],
             "rgbaQuadrants": [[255, 0, 0, 255], [0, 255, 0, 255], [255, 0, 255, 0], [255, 255, 0, 255]],
             "sequence": [{key: not initial}], "afterDelay": 3,
@@ -381,7 +387,7 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             "each readback joins its exact request/CB/seal/completed event and bounded snapshot clock")
         protocol["evidenceBoundary"] = (
             "owned typed straight-albedo asset sampling and atomic live visibility through nearest group raster; "
-            "sampler purpose is explicitly authored as material=albedo, not inferred from whole-vector color flow; "
+            "sampler purpose comes from its authored annotation or the prepared color-input graph; "
             "no TEXS/atlas, implicit graph source, arbitrary parent alpha, or official parity claim")
     return protocol
 
@@ -555,6 +561,7 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                 sample = sampled[0]
                 self.assertEqual(sample["slot"], settings["slot"])
                 self.assertIn(settings["texturePath"], sample["source"]["logical"])
+                self.assertEqual(sample["source"]["purpose"], settings.get("loadPurpose", "straightAlbedo"))
                 self.assertEqual([sample["source"]["width"], sample["source"]["height"]], settings["rgbaExtent"])
                 draw = next(r for r in child_rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
                 child_tail = next(r for r in child_rows if r["kind"] == "tail-consume"
@@ -816,6 +823,17 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
     def test_renamed_nested_quad_samples_slot3_and_clears_after_cohort_hides(self):
         self.run_case(copy_background=True, container=True, quad=True, renamed=True,
                       order="child-before-root", quad_input={"slot": 3, "initialVisible": True})
+
+    def test_whole_vector_quad_infers_color_for_an_arbitrary_editor_key(self):
+        self.run_case(copy_background=True, container=True, quad=True,
+                      quad_input={"slot": 0, "initialVisible": False, "samplerMaterial": "otherPigment",
+                                  "general": {"bloom": False, "cameraparallax": False}})
+
+    def test_renamed_direct_quad_infers_color_without_an_annotation(self):
+        self.run_case(copy_background=True, container=True, quad=True, renamed=True,
+                      order="child-before-root", quad_input={"slot": 3, "initialVisible": True,
+                          "samplerMaterial": None, "directSample": True,
+                          "general": {"bloom": False, "cameraparallax": False}})
 
     def test_project_omitted_background_inverts_prior_scene_and_child(self):
         self.run_case(project_layer=True)

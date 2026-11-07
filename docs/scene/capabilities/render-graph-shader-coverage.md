@@ -215,6 +215,11 @@ Prepared target/transition 保有序读写；pool 租约、publication 与 compl
 
 回归沿真实builder→Program→Metal门核helper/条件/多sample、改名、动态uniform及PMA/straight/alpha/HDR，另核合法data/signal与错误供货/表示/身份。源码模式命中不作验收；未支持的MSL操作和未表达角色按具体失败入队，不以效果模式绕过。
 
+<a id="whole-vector-color-input"></a>
+完整向量的颜色输入由原 `ColorMixGraphAnalyzer` 冷准备图追踪实际采样、局部别名、builtin mix 与 RGB 标量写，再由 ShaderSchema/TextureSlotPurpose 交原 Program。已闭合的颜色传递不要求恰有一次 RGB 写：直接复制、乘一和多次合法标量写不因次数或编辑器材质 key 改变输入用途；退出旧次数许可及其无消费者 Set，不新增识别器、owner、缓存或帧内工作。原图仍须闭合每个返回槽的全部 sampler 引用、carrier 读写并排除 vertex 采样；额外活动槽各自取得实际用途。将 mix 解释为 builtin 时必须消费原 syntax 的函数身份，同名 authored helper 不因拼写获得颜色数学证明；证明不足只撤该图事实，不拒整份 shader。
+
+本项只补输入角色，保原 mode、default、注册资产与 candidate 链的冲突边界。Passthrough 继续从选中 publication 取得实际表示；whole-mix、PMA/straight、data FBO、alpha-only/packed signal 与终端 owner 各沿原合同，不能因 vec4 到达输出就把数据改成颜色。验收先在旧 App 核中性乘一正控，再以同字节输入核任意 key 的 alias copy、无注解改名 slot3 的直接复制、原子显隐与健康 peer，经真实资产→子 Program→父 source/Program→main/seal/GPU和原像素门；原生门核多次合法写、同名 helper 把 R 用作 alpha、额外读和实际 data/PMA 供货反例。正控或表示门不成立即停在首错，不换标签、输入或阈值求通过；无精确作者正例不称作者恢复或官方像素等价。
+
 Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 及 pending final tails，保已编码 ledger/pins 到原终态。活 named consumer 的独立 copy、hidden provider、consumer 自身 tail 与 scene color 按真实引用保留。
 
 <a id="terminal"></a>

@@ -304,13 +304,15 @@ private enum ScenePreparedUniformQueryChecks {
             maximumVariantCount: 1).get()
         facts["source-free-unprepared-cache-is-not-executable"] = !unprepared.supportsTransparentDirectDraw
         for slot in [0, 3] {
-            for (renamed, materialKey) in [(false, "albedo"), (true, "albedo"), (true, "otherPigment")] {
+            for (renamed, materialKey) in [(false, "albedo"), (true, "otherPigment"), (true, nil)] as [(Bool, String?)] {
+                let role = materialKey ?? "unannotated"
+                let annotation = materialKey.map { "// {\"material\":\"\($0)\"}" } ?? ""
                 let sampler = "g_Texture\(slot)"
                 let authoredSampler = renamed ? "u_MovedSource" : sampler
                 let path = SceneVFSAssetPath(renamed ? "textures/other/source.tex" : "textures/owned/source.tex")!
                 let reference = Template.TextureReference.asset(path)
                 let identity = SceneAssetTextureIdentity(path: path, purpose: .straightAlbedo)
-                let shader = contract(revision: "source-free-asset-\(slot)-\(renamed)", semanticProbes: false,
+                let shader = contract(revision: "source-free-asset-\(slot)-\(role)", semanticProbes: false,
                     vertexSourceOverride: """
                         attribute vec3 a_Position;
                         attribute vec2 a_TexCoord;
@@ -322,7 +324,7 @@ private enum ScenePreparedUniformQueryChecks {
                         """,
                     fragmentSourceOverride: """
                         \(renamed ? "#define \(authoredSampler) \(sampler)" : "")
-                        uniform sampler2D \(sampler); // {"material":"\(materialKey)"}
+                        uniform sampler2D \(sampler); \(annotation)
                         varying vec2 \(renamed ? "otherUV" : "v_TexCoord");
                         void main() {
                             gl_FragColor = texSample2D(\(authoredSampler), \(renamed ? "otherUV" : "v_TexCoord"));
@@ -346,28 +348,16 @@ private enum ScenePreparedUniformQueryChecks {
                     allowPresenceIndependentDefaults: true, restrictToSamplerSlots: true,
                     textureSelectionFacts: variant.textureSelectionFacts,
                     graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts)
-                if materialKey == "otherPigment" {
-                    let prefix = "untyped-whole-vector-slot\(slot)"
-                    if case let .reference(actual, purpose, provenance, graphFact) = selection[slot] {
-                        facts[prefix + "-retains-asset-without-inventing-color-role"] = actual == reference
-                            && purpose == nil && provenance == .authored(.explicitBinding) && graphFact == nil
-                            && variant.activeSamplers[slot]?.materialKey == materialKey
-                            && variant.activeSamplers[slot]?.channelUse == .wholeVector
-                            && variant.activeSamplers[slot]?.sourceProvenPurpose == nil
-                    } else { facts[prefix + "-retains-asset-without-inventing-color-role"] = false }
-                    if case let .failure(failure) = SceneResolvedMaterialProgramFinalizer.finalize(frame, variantCache: cache) {
-                        facts[prefix + "-purpose-unproven-is-not-transparent-default"] =
-                            failure.phase == .texture && failure.code == .texturePurposeUnproven
-                            && failure.slot == slot && failure.effectLocalVisualFallback == nil
-                    } else { facts[prefix + "-purpose-unproven-is-not-transparent-default"] = false }
-                    continue
-                }
-                let prefix = "source-free-asset-slot\(slot)-\(renamed)"
+                let prefix = "source-free-asset-slot\(slot)-\(role)"
                 facts[prefix + "-prepared-active-binding"] = cache.supportsTransparentDirectDraw
                     && variant.frontendProgram.textureBindings.map(\.slot) == [slot]
                     && variant.frontendProgram.textureBindings.map(\.name) == [sampler]
                     && variant.activeSamplers[slot]?.materialKey == materialKey
                     && variant.graphInputSourceSlotFacts.isEmpty
+                facts[prefix + "-source-role-keeps-passthrough-output"] =
+                    variant.activeSamplers[slot]?.channelUse == .wholeVector
+                    && variant.activeSamplers[slot]?.sourceProvenPurpose == (materialKey == "albedo" ? nil : .straightAlbedo)
+                    && variant.frontendProgram.colorTransfer == .passthrough(textureSlot: slot)
                 if case let .reference(actual, purpose, provenance, graphFact) = selection[slot] {
                     facts[prefix + "-actual-selection-keeps-authored-asset"] = actual == reference
                         && purpose == .straightAlbedo && provenance == .authored(.explicitBinding)
