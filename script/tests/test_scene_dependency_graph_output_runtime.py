@@ -416,21 +416,6 @@ struct SceneGeometryProduct {
             && authoredSize.x >= 1
             && authoredSize.y >= 1
     }
-
-    func supportsNamedProviderPlacement(
-        providerOutputMVP: simd_float4x4,
-        consumerOutputMVP: simd_float4x4
-    ) -> Bool {
-        for column in 0 ..< 4 {
-            for row in 0 ..< 4 {
-                guard providerOutputMVP[column][row]
-                        == consumerOutputMVP[column][row] else {
-                    return false
-                }
-            }
-        }
-        return true
-    }
 }
 
 extension SIMD3 where Scalar == Float {
@@ -1115,8 +1100,6 @@ enum Harness {
             viewportSize: CGSize(width: 16, height: 9),
             preparedOutputExtent: (width: 3, height: 2),
             geometryProduct: geometryProduct,
-            providerOutputMVP: matrix_identity_float4x4,
-            consumerOutputMVP: matrix_identity_float4x4,
             frameEpoch: 19,
             failureReason: &geometryReservationFailure
         )
@@ -1163,8 +1146,6 @@ enum Harness {
             viewportSize: CGSize(width: 16, height: 9),
             preparedOutputExtent: (width: 3, height: 2),
             geometryProduct: oversizedGeometryProduct,
-            providerOutputMVP: matrix_identity_float4x4,
-            consumerOutputMVP: matrix_identity_float4x4,
             frameEpoch: 20,
             failureReason: &oversizedGeometryFailure
         )
@@ -1180,8 +1161,6 @@ enum Harness {
         func geometryReservationRejected(
             product: SceneGeometryProduct,
             providerTexture: MTLTexture,
-            providerMVP: simd_float4x4 = matrix_identity_float4x4,
-            consumerMVP: simd_float4x4 = matrix_identity_float4x4,
             expectedReason: String
         ) -> Bool {
             let runtime = geometryRuntime()
@@ -1195,8 +1174,6 @@ enum Harness {
                 viewportSize: CGSize(width: 16, height: 9),
                 preparedOutputExtent: (width: 3, height: 2),
                 geometryProduct: product,
-                providerOutputMVP: providerMVP,
-                consumerOutputMVP: consumerMVP,
                 frameEpoch: 20,
                 failureReason: &reason
             ) == nil && reason == expectedReason
@@ -1219,8 +1196,6 @@ enum Harness {
             authoredSize: SIMD2(4, 3),
             effectSourceExtentContract: .exactSamplingTexture
         )
-        var mismatchedPlacement = matrix_identity_float4x4
-        mismatchedPlacement.columns.3.x = 1
         let geometryWrongLayerRejected = geometryReservationRejected(
             product: wrongLayerGeometryProduct,
             providerTexture: geometryAtlas,
@@ -1236,11 +1211,29 @@ enum Harness {
             providerTexture: geometryAtlas,
             expectedReason: "geometry-provider-source-identity-invalid"
         )
-        let geometryPlacementMismatchRejected = geometryReservationRejected(
-            product: geometryProduct,
+        let geometryInvalidAuthoredExtentRejected = [
+            SIMD2<Float>(.nan, 3), SIMD2<Float>(4, .infinity),
+            SIMD2<Float>(-.infinity, 3), SIMD2<Float>(0, 3),
+            SIMD2<Float>(4, -1)
+        ].allSatisfy { extent in
+            geometryReservationRejected(
+                product: SceneGeometryProduct(
+                    ownerLayerID: 800, samplingTexture: geometryAtlas,
+                    resourceGeneration: 7, isPreparedForPublication: { _ in true },
+                    encode: { _, _, _, _, _, _ in true }, authoredSize: extent,
+                    effectSourceExtentContract: .exactSamplingTexture),
+                providerTexture: geometryAtlas,
+                expectedReason: "geometry-provider-source-identity-invalid"
+            )
+        }
+        let geometryFractionalAuthoredExtentRejected = geometryReservationRejected(
+            product: SceneGeometryProduct(
+                ownerLayerID: 800, samplingTexture: geometryAtlas,
+                resourceGeneration: 7, isPreparedForPublication: { _ in true },
+                encode: { _, _, _, _, _, _ in true }, authoredSize: SIMD2(4.25, 3),
+                effectSourceExtentContract: .exactSamplingTexture),
             providerTexture: geometryAtlas,
-            consumerMVP: mismatchedPlacement,
-            expectedReason: "geometry-provider-placement-mismatch"
+            expectedReason: "geometry-provider-publication-extent-invalid"
         )
 
         let staleGeometryRuntime = geometryRuntime()
@@ -1254,8 +1247,6 @@ enum Harness {
             viewportSize: CGSize(width: 16, height: 9),
             preparedOutputExtent: (width: 3, height: 2),
             geometryProduct: geometryProduct,
-            providerOutputMVP: matrix_identity_float4x4,
-            consumerOutputMVP: matrix_identity_float4x4,
             frameEpoch: 21,
             failureReason: &staleGeometryFailure
         )
@@ -1297,8 +1288,6 @@ enum Harness {
                 viewportSize: CGSize(width: 16, height: 9),
                 preparedOutputExtent: (width: 3, height: 2),
                 geometryProduct: product,
-                providerOutputMVP: matrix_identity_float4x4,
-                consumerOutputMVP: matrix_identity_float4x4,
                 frameEpoch: frameEpoch,
                 failureReason: &reason
             ) != nil, reason == nil else { return false }
@@ -1352,7 +1341,6 @@ enum Harness {
             providerTexture: geometryAtlas, providerCandidate: nil,
             layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 16, height: 9),
             preparedOutputExtent: (width: 3, height: 2), geometryProduct: auxiliaryProduct,
-            providerOutputMVP: matrix_identity_float4x4, consumerOutputMVP: matrix_identity_float4x4,
             frameEpoch: 25, failureReason: &auxiliaryFailure
         )
         let auxiliaryRegistry = SceneFrameTextureRegistry(frameEpoch: 25)
@@ -1772,8 +1760,8 @@ enum Harness {
             "geometryWrongLayerRejected": geometryWrongLayerRejected,
             "geometryWrongSourceRejected": geometryWrongSourceRejected,
             "geometryWrongGenerationRejected": geometryWrongGenerationRejected,
-            "geometryPlacementMismatchRejected":
-                geometryPlacementMismatchRejected,
+            "geometryInvalidAuthoredExtentRejected": geometryInvalidAuthoredExtentRejected,
+            "geometryFractionalAuthoredExtentRejected": geometryFractionalAuthoredExtentRejected,
             "staleGeometryRejected": staleGeometryRejected,
             "geometryPoseNotReadyRejected": geometryPoseNotReadyRejected,
             "geometryEncodeFailureRejected": geometryEncodeFailureRejected,
@@ -1937,7 +1925,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "geometryWrongLayerRejected": True,
                     "geometryWrongSourceRejected": True,
                     "geometryWrongGenerationRejected": True,
-                    "geometryPlacementMismatchRejected": True,
+                    "geometryInvalidAuthoredExtentRejected": True,
+                    "geometryFractionalAuthoredExtentRejected": True,
                     "staleGeometryRejected": True,
                     "geometryPoseNotReadyRejected": True,
                     "geometryEncodeFailureRejected": True,
@@ -2034,48 +2023,116 @@ extension AtlasNamedProbe {
         let q = d.makeCommandQueue()!, image = SceneImageLayerPipeline(device: d)!
         let provider = SceneRenderDescriptor.Layer(id: 800, contentKind: "image",
             utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1])
-        let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: 801,
-            providerLayerID: 800, slot: .init(effectID: "owned-geometry", passIndex: 0, slotIndex: 1),
-            blendMode: 0, kind: .geometryLayer, requiresResolvedMaterialProgram: true)
+        let bindings = [801, 802].map { consumer in
+            SceneDependencyRenderPlan.Binding(consumerLayerID: consumer, providerLayerID: 800,
+                slot: .init(effectID: "owned-geometry-\(consumer)", passIndex: 0, slotIndex: 1),
+                blendMode: 0, kind: .geometryLayer, requiresResolvedMaterialProgram: true)
+        }
+        var left = matrix_identity_float4x4, right = matrix_identity_float4x4
+        left.columns.3 = SIMD4(-0.5, 0.5, 0, 1)
+        right.columns.0.x = -1; right.columns.3 = SIMD4(0.5, -0.5, 0, 1)
+        let placements = [left, right]
+        let colors: [[UInt8]] = [[64, 128, 200], [192, 80, 24], [16, 224, 96], [240, 48, 176]]
         var rows: [[String: Any]] = []
-        for straight in [false, true] {
-            for alpha: UInt8 in [0, 128, 255] {
-                let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
-                    bindings: [801: binding], graphOutputProviderLayerIDs: [800]),
-                    visibleLayerIDs: [800, 801], executableUtilityConsumerLayerIDs: [], device: d)
-                let registry = SceneFrameTextureRegistry(), source = texture(d, 1, 1)
-                let associated = [64, 128, 200].map { UInt8((Float($0) * Float(alpha) / 255).rounded()) }
-                let input = (straight ? [UInt8(64), 128, 200] : associated) + [alpha]
-                input.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 1, 1),
-                    mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
-                let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:]), cb = q.makeCommandBuffer()!
-                var association: UInt32 = 99, encodes = 0
-                let product = SceneGeometryProduct(ownerLayerID: 800, samplingTexture: source,
-                    resourceGeneration: 1, isPreparedForPublication: { $0 === cb },
-                    encode: { encoder, texture, _, mvp, uniforms, _ in
-                        association = uniforms.sourceSampling.y; encodes += 1
-                        image.bind(encoder: encoder)
-                        image.drawLayer(texture: texture, mvp: mvp, uniforms: uniforms, encoder: encoder)
-                        return true
-                    }, authoredSize: SIMD2(1, 1), effectSourceExtentContract: .exactSamplingTexture)
-                var reason: String?
-                let reserved = runtime.reserveEffectInput(for: binding, providerLayer: provider,
-                    providerTexture: source, providerCandidate: nil, layerMVP: matrix_identity_float4x4,
-                    viewportSize: CGSize(width: 1, height: 1), preparedOutputExtent: (1, 1),
-                    geometryProduct: product, providerOutputMVP: matrix_identity_float4x4,
-                    consumerOutputMVP: matrix_identity_float4x4, frameEpoch: epoch, failureReason: &reason)
-                let published = runtime.publishGraphOutputIfRequired(layerID: 800, texture: source,
-                    publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb,
-                    geometryProduct: product, content: .color(.resolved(straight ? .straightAlpha : .premultipliedAlpha)))
-                let atom = registry.completeNamedLayerTargetResource(
-                    reference: .init(providerLayerID: 800, variant: .primary), frameEpoch: epoch)
-                let copied = reserved.map { readback(d, $0.texture, cb) }
-                cb.commit(); cb.waitUntilCompleted()
-                rows.append(["straight": straight, "alpha": alpha, "reserved": reserved != nil && reason == nil,
-                    "published": status(published), "association": association, "encodes": encodes,
-                    "actualPMA": atom?.publication.candidate.content == .color(.resolved(.premultipliedAlpha)),
-                    "sourceUnchanged": read(source) == input, "pixel": copied.map(read) ?? [],
-                    "expected": associated + [alpha], "completed": cb.status == .completed && cb.error == nil])
+        for authoredSize in [SIMD2<Float>(8, 4), SIMD2<Float>(4_096, 2_048)] {
+            for straight in [false, true] {
+                for alpha: UInt8 in [0, 128, 255] {
+                    let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+                        bindings: Dictionary(uniqueKeysWithValues: bindings.map { ($0.consumerLayerID, $0) }),
+                        graphOutputProviderLayerIDs: [800]), visibleLayerIDs: [800, 801, 802],
+                        executableUtilityConsumerLayerIDs: [], device: d)
+                    let registry = SceneFrameTextureRegistry(), atlas = texture(d, 2, 2), source = texture(d, 2, 2)
+                    let associated = colors.map { $0.map { UInt8((Float($0) * Float(alpha) / 255).rounded()) } }
+                    let input = (straight ? colors : associated).flatMap { $0 + [alpha] }
+                    let atlasBytes = [[UInt8]](repeating: [7, 9, 11, 255], count: 4).flatMap { $0 }
+                    for (target, data) in [(atlas, atlasBytes), (source, input)] {
+                        data.withUnsafeBytes { target.replace(region: MTLRegionMake2D(0, 0, 2, 2),
+                            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 8) }
+                    }
+                    let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:]), cb = q.makeCommandBuffer()!
+                    var association: UInt32 = 99, encodes = 0, graphWasRasterInput = false
+                    let product = SceneGeometryProduct(ownerLayerID: 800, samplingTexture: atlas,
+                        resourceGeneration: 1, isPreparedForPublication: { $0 === cb },
+                        encode: { encoder, texture, _, mvp, uniforms, _ in
+                            association = uniforms.sourceSampling.y; encodes += 1
+                            graphWasRasterInput = texture === source && texture !== atlas
+                            image.bind(encoder: encoder)
+                            // The unit quad represents authored-pixel geometry here.
+                            image.drawLayer(texture: texture,
+                                mvp: mvp * SceneMatrix.scale(SIMD3(authoredSize.x, authoredSize.y, 1)),
+                                uniforms: uniforms, encoder: encoder)
+                            return true
+                        }, authoredSize: authoredSize, effectSourceExtentContract: .exactSamplingTexture)
+                    var prepared: [SceneDependencyEffectInput?] = [], reasons: [String?] = []
+                    for index in bindings.indices {
+                        var reason: String?
+                        prepared.append(runtime.reserveEffectInput(for: bindings[index], providerLayer: provider,
+                            providerTexture: atlas, providerCandidate: nil, layerMVP: placements[index],
+                            viewportSize: CGSize(width: 8, height: 8), preparedOutputExtent: (2, 2),
+                            geometryProduct: product, frameEpoch: epoch, failureReason: &reason))
+                        reasons.append(reason)
+                    }
+                    let installed = runtime.installPreparedGraphOutputs([800: source], frameEpoch: epoch)
+                    let published = runtime.publishGraphOutputIfRequired(layerID: 800, texture: source,
+                        publicationRole: .visibleMainLoop, textureRegistry: registry, commandBuffer: cb,
+                        geometryProduct: product, content: .color(.resolved(straight ? .straightAlpha : .premultipliedAlpha)))
+                    let atom = registry.completeNamedLayerTargetResource(
+                        reference: .init(providerLayerID: 800, variant: .primary), frameEpoch: epoch)
+                    let inputs = bindings.compactMap { runtime.effectInput(for: $0.consumerLayerID, textureRegistry: registry) }
+                    let first = prepared.first.flatMap { $0 }
+                    let copied = first.map { readback(d, $0.texture, cb) }
+                    let preparedCandidates: [SceneTextureCandidate] = prepared.compactMap {
+                        $0?.reservedMaterialResource?.publication.candidate
+                    }
+                    let ready = atom?.publication.candidate
+                    let metadataMatches = preparedCandidates.count == 2 && preparedCandidates.allSatisfy { candidate in
+                        guard let ready else { return false }
+                        let identityMatches = candidate.identity == ready.identity && candidate.generation == ready.generation
+                        let contentMatches = candidate.content == ready.content && candidate.purpose == ready.purpose
+                        let sizeMatches = candidate.physicalSize == ready.physicalSize && candidate.mappedSize == ready.mappedSize
+                        let uvMatches = candidate.uvTransform == .identity && ready.uvTransform == .identity
+                        let samplingMatches = candidate.sampling == .linearClamp && ready.sampling == .linearClamp
+                        return identityMatches && contentMatches && sizeMatches && uvMatches && samplingMatches
+                    }
+                    var draws: [MTLTexture] = []
+                    for (index, input) in inputs.enumerated() {
+                        let target = texture(d, 8, 8), pass = SceneMainPassEncoder(commandBuffer: cb,
+                            target: target, clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+                        let encoder = pass.encoder()!; image.bind(encoder: encoder)
+                        image.drawLayer(texture: input.texture, mvp: placements[index], uniforms: .neutral(), encoder: encoder)
+                        precondition(pass.finishEnsuringClear()); draws.append(target)
+                    }
+                    cb.commit(); cb.waitUntilCompleted()
+                    func pixels(_ target: MTLTexture, _ points: [(Int, Int)]) -> [[UInt8]] {
+                        let data = read(target)
+                        return points.map { x, y in Array(data[(y * target.width + x) * 4 ..< (y * target.width + x) * 4 + 4]) }
+                    }
+                    let rasterPixels = copied.map { pixels($0, [($0.width / 8, $0.height / 8),
+                        ($0.width * 7 / 8, $0.height / 8), ($0.width / 8, $0.height * 7 / 8),
+                        ($0.width * 7 / 8, $0.height * 7 / 8)]) } ?? []
+                    let consumerPixels = draws.enumerated().map { index, target in
+                        pixels(target, index == 0 ? [(0, 0), (3, 0), (0, 3), (3, 3), (6, 6)]
+                            : [(4, 4), (7, 4), (4, 7), (7, 7), (1, 1)])
+                    }
+                    rows.append(["authoredExtent": [Int(authoredSize.x), Int(authoredSize.y)],
+                        "targetExtent": [first?.texture.width ?? 0, first?.texture.height ?? 0],
+                        "straight": straight, "alpha": alpha,
+                        "reserved": prepared.count == 2 && prepared.allSatisfy { $0 != nil } && reasons.allSatisfy { $0 == nil },
+                        "installed": installed, "published": status(published), "association": association, "encodes": encodes,
+                        "shared": first != nil && first?.texture !== source && first?.texture !== atlas
+                            && prepared.allSatisfy { $0?.texture === first?.texture }
+                            && inputs.count == 2 && inputs.allSatisfy { $0.texture === first?.texture }
+                            && atom?.publication.texture === first?.texture,
+                        "preparedMetadataMatchesPublished": metadataMatches,
+                        "physicalExtent": [ready?.physicalSize.width ?? 0, ready?.physicalSize.height ?? 0],
+                        "mappedExtent": [ready?.mappedSize.width ?? 0, ready?.mappedSize.height ?? 0],
+                        "actualPMA": ready?.content == .color(.resolved(.premultipliedAlpha)),
+                        "graphWasRasterInput": graphWasRasterInput,
+                        "sourceUnchanged": read(source) == input, "atlasUnchanged": read(atlas) == atlasBytes,
+                        "rasterPixels": rasterPixels, "consumerPixels": consumerPixels,
+                        "expected": associated.map { $0 + [alpha] },
+                        "completed": cb.status == .completed && cb.error == nil])
+                }
             }
         }
         return rows
@@ -2376,6 +2433,7 @@ def run_native_atlas_probe():
     snapshot = work / "production"
     sources = list(dict.fromkeys([
         *native.DEPENDENCY_SOURCES,
+        GEOMETRY_PRODUCT_SOURCE,
         native.SCENE / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
         native.SCENE / "Diagnostics/SceneEffectExecutionTelemetry.swift",
         native.SCENE / "Diagnostics/SceneFramePerformanceTelemetry.swift",
@@ -2386,7 +2444,8 @@ def run_native_atlas_probe():
     ref = os.environ.get("MWX_ATLAS_NAMED_PRODUCT_REF")
     metal_data = (subprocess.check_output(["git", "show", f"{ref}:{metal.relative_to(REPOSITORY_ROOT)}"],
                                           cwd=REPOSITORY_ROOT) if ref else metal.read_bytes())
-    snapshot_sources = [*sources, metal, uniforms]
+    draw_request = metal.with_name("SceneImageLayerDrawRequest.swift")
+    snapshot_sources = [*sources, metal, uniforms, draw_request]
     # Freeze actual compile dependencies and their SHA alongside the shader.
     # Historical shaders without this include do not require the later header.
     if b'#include "SceneDistanceFog.metalh"' in metal_data:
@@ -2416,7 +2475,22 @@ def run_native_atlas_probe():
     # methods need App scaffolding and are outside this dependency probe.
     uniform_source = (snapshot / uniforms.relative_to(REPOSITORY_ROOT)).read_text()
     uniform_extension = uniform_source[:uniform_source.index("\nextension SceneImageLayerCompositor {")]
-    support = native.dependency_support() + uniform_extension + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA + fixture_data.decode()
+    support = native.dependency_support()
+    # Retain the shared legacy scaffold markers, but compile this gate's real
+    # GeometryProduct alongside the real FrameRuntime and registry.
+    start = support.index("struct SceneGeometryProduct {")
+    end = support.index("extension SIMD3 where Scalar == Float {", start)
+    support = support[:start] + support[end:]
+    # The prepared-input shell omits the real Program-facing resource getter.
+    # Extract its production declaration, as with the uniform extension above.
+    draw_source = (snapshot / draw_request.relative_to(REPOSITORY_ROOT)).read_text()
+    input_start = draw_source.index("struct SceneDependencyEffectInput {")
+    input_end = draw_source.index("\n/// A frame-local capability", input_start)
+    real_input = draw_source[input_start:input_end]
+    start = support.index("struct SceneDependencyEffectInput {")
+    end = support.index("\n}", start) + len("\n}")
+    support = support[:start] + real_input + support[end:]
+    support += uniform_extension + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA + fixture_data.decode()
     identity = {"inputs": inputs, "harnessSHA256": hashlib.sha256(support.encode()).hexdigest(),
                 "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "swiftFlags": ["-DDEBUG"],
@@ -2455,16 +2529,28 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
 
     def test_geometry_raster_associates_actual_straight_once_and_publishes_pma(self):
         rows = self.report["geometryRepresentation"]
-        self.assertEqual(len(rows), 6)
+        self.assertEqual(len(rows), 12)
+        self.assertEqual({tuple(row["authoredExtent"]) for row in rows}, {(8, 4), (4096, 2048)})
         for row in rows:
-            with self.subTest(straight=row["straight"], alpha=row["alpha"]):
-                for key in ("reserved", "actualPMA", "sourceUnchanged", "completed"):
+            with self.subTest(extent=row["authoredExtent"], straight=row["straight"], alpha=row["alpha"]):
+                for key in ("reserved", "installed", "shared", "actualPMA", "graphWasRasterInput",
+                            "preparedMetadataMatchesPublished", "sourceUnchanged", "atlasUnchanged", "completed"):
                     self.assertTrue(row[key], (key, row))
+                extent = [8, 4] if row["authoredExtent"] == [8, 4] else [2048, 1024]
+                for key in ("targetExtent", "physicalExtent", "mappedExtent"):
+                    self.assertEqual(row[key], extent, (key, row))
                 self.assertEqual(row["published"], "published")
                 self.assertEqual(row["association"], int(row["straight"]))
                 self.assertEqual(row["encodes"], 1)
-                for actual, expected in zip(row["pixel"], row["expected"], strict=True):
-                    self.assertAlmostEqual(actual, expected, delta=1, msg=row)
+                expected = row["expected"]
+                samples = [row["rasterPixels"], *row["consumerPixels"]]
+                self.assertEqual([len(values) for values in samples], [4, 5, 5], row)
+                mirrored = [expected[1], expected[0], expected[3], expected[2]]
+                for actual, wanted in zip(samples, [expected, expected + [[0] * 4], mirrored + [[0] * 4]], strict=True):
+                    for pixel, color in zip(actual, wanted, strict=True):
+                        self.assertEqual(len(pixel), 4, row)
+                        for value, reference in zip(pixel, color, strict=True):
+                            self.assertAlmostEqual(value, reference, delta=1, msg=row)
 
     def test_two_consumers_share_once_per_epoch_and_observe_changed_pixels(self):
         rows = self.report["publication"]

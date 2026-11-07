@@ -11,9 +11,7 @@ extension SceneMetalRenderer {
         layersByID: [Int: SceneRenderDescriptor.Layer],
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot, frameContext: SceneFrameContext,
-        imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4,
         providerPlacement: (SceneRenderDescriptor.Layer) -> (mvp: simd_float4x4, viewport: CGSize),
-        geometryMVP: (SceneRenderDescriptor.Layer, SceneGeometryProduct) -> simd_float4x4,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
         failureReason: inout String?
     ) -> (effects: [SceneDependencyEffectInput],
@@ -46,8 +44,6 @@ extension SceneMetalRenderer {
                 _ source: SceneBaseMaterialTextureSource?
             ) -> SceneDependencyEffectInput? {
                 let geometryProduct: SceneGeometryProduct?
-                let providerOutputMVP: simd_float4x4?
-                let consumerOutputMVP: simd_float4x4?
                 if binding.kind == .geometryLayer,
                    let source,
                    let product = imageTextures.geometryProduct(
@@ -55,35 +51,8 @@ extension SceneMetalRenderer {
                        matching: source.texture
                    ) {
                     geometryProduct = product
-                    providerOutputMVP = geometryMVP(providerLayer, product)
-                        * SceneMatrix.scale(SIMD3(
-                            product.authoredSize.x,
-                            product.authoredSize.y,
-                            1
-                        ))
-                    if let consumerProduct = imageTextures.geometryProducts[
-                        layer.id
-                    ] {
-                        consumerOutputMVP = geometryMVP(
-                            layer,
-                            consumerProduct
-                        ) * SceneMatrix.scale(SIMD3(
-                            consumerProduct.authoredSize.x,
-                            consumerProduct.authoredSize.y,
-                            1
-                        ))
-                    } else {
-                        consumerOutputMVP = imageMVP(
-                            layer,
-                            imageTextures.layerSourceRenderSize(
-                                for: layer.id
-                            )
-                        )
-                    }
                 } else {
                     geometryProduct = nil
-                    providerOutputMVP = nil
-                    consumerOutputMVP = nil
                 }
                 return dependencyRuntime.reserveEffectInput(
                     for: binding,
@@ -94,8 +63,6 @@ extension SceneMetalRenderer {
                     viewportSize: placement.viewport,
                     preparedOutputExtent: preparedOutputExtent,
                     geometryProduct: geometryProduct,
-                    providerOutputMVP: providerOutputMVP,
-                    consumerOutputMVP: consumerOutputMVP,
                     frameEpoch: textureRegistry.frameEpoch,
                     failureReason: &dependencyFailureReason
                 )
@@ -169,9 +136,7 @@ extension SceneMetalRenderer {
                     plans: plans,
                     imageTextures: imageTextures,
                     frameContext: frameContext,
-                    imageMVP: imageMVP,
                     providerPlacement: providerPlacement,
-                    geometryMVP: geometryMVP,
                     baseMaterialSelections: &baseMaterialSelections,
                     failureReason: &aggregateFailureReason
                 ) else {
@@ -195,22 +160,10 @@ extension SceneMetalRenderer {
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext,
-        imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4,
         providerPlacement: (SceneRenderDescriptor.Layer) -> (mvp: simd_float4x4, viewport: CGSize),
-        geometryMVP: (
-            SceneRenderDescriptor.Layer, SceneGeometryProduct
-        ) -> simd_float4x4,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
         failureReason: inout String?
     ) -> [SceneDependencyEffectInput]? {
-        guard let consumerLayer = layersByID[aggregate.consumerLayerID] else {
-            failureReason = "multi-provider-consumer-missing"
-            return nil
-        }
-        let consumerOutputMVP = imageMVP(
-            consumerLayer,
-            imageTextures.layerSourceRenderSize(for: consumerLayer.id)
-        )
         var dependencyEffects: [SceneDependencyEffectInput] = []
         for binding in aggregate.bindings {
             if binding.referenceSlots.allSatisfy(excludingSlots.contains) { continue }
@@ -240,20 +193,12 @@ extension SceneMetalRenderer {
                 }
             }
             let geometryProduct: SceneGeometryProduct?
-            let providerOutputMVP: simd_float4x4?
             if binding.kind == .geometryLayer {
                 guard let product = imageTextures.geometryProducts[providerLayer.id]
                 else { continue }
                 geometryProduct = product
-                providerOutputMVP = geometryMVP(providerLayer, product)
-                    * SceneMatrix.scale(SIMD3(
-                        product.authoredSize.x,
-                        product.authoredSize.y,
-                        1
-                    ))
             } else {
                 geometryProduct = nil
-                providerOutputMVP = nil
             }
             var reason: String?
             let placement = providerPlacement(providerLayer)
@@ -269,9 +214,6 @@ extension SceneMetalRenderer {
                     plans: plans
                 ),
                 geometryProduct: geometryProduct,
-                providerOutputMVP: providerOutputMVP,
-                consumerOutputMVP: binding.kind == .geometryLayer
-                    ? consumerOutputMVP : nil,
                 frameEpoch: textureRegistry.frameEpoch,
                 failureReason: &reason
             ) else {

@@ -125,12 +125,12 @@
       "bytes": 40127
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 237,
-      "bytes": 46175
+      "lines": 248,
+      "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 215,
-      "bytes": 115472
+      "lines": 216,
+      "bytes": 117069
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 194,
-      "bytes": 44073
+      "bytes": 44606
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,201 +340,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "c042c47f01928a700441b2054af6cbd452fe5d368b666b39bb4d48419ab70f72",
-      "after": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
-      "owner": "scene-video-assets",
-      "reason": "Specify opaque straight asset preparation/publication and terminal local-failure behavior in the existing video contract, with strict pending and identity boundaries.",
-      "decision": "docs/scene/capabilities/material-video-assets.md#视频资产的颜色用途"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "1fc894d7f9152714cd29d4e596ed00325765dc8a232f996f4f012c06edfcfacc",
-      "after": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
-      "owner": "scene-snapshot-capacity",
-      "reason": "Replace the redundant fixed framebuffer snapshot ceiling with shared actual-allocation admission; preserve explicit limits, cached capacity, continuation rollback and real lease lifetime.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#framebuffer-snapshot"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "cb15af3de90aaaf56327e7fcbfe9e80598b731588438471656d6aef11f5e5deb",
-      "after": "96336635bdea8a2a76cbaf27eabc97f9a35a2656df6ac0ddaaaa6200c022313d",
-      "owner": "scene-generic-execution",
-      "reason": "Define all-effect admission by actual compiler, typed interfaces, resources and execution; source-shape compensation remains generic compiler debt.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/local-library-loading-design.md",
-      "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
-      "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
-      "owner": "repository-maintainer",
-      "reason": "Keep one current thumbnail migration authority, R113-R115 verified scope and unresolved presentation boundaries. R115 retires online image ownership and duplicate preview while documenting actual reuse, source publication and test/build evidence; compact prior quick summaries.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/thumbnail-delivery-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "af6609f3e0b876bbde5fb2fbe918d8af146627c2339575c4080580e0bb2f3edf",
-      "owner": "repository-maintainer",
-      "reason": "Complete Ready-before-optional-persistence delivery in the original bounded worker, source/hook ordering, invalidation and transient ready reuse; record exact synthetic before/after evidence, cross-target tail-window tradeoff, real AV and consumer gates. Synchronize the user-authorized workspace closeout; no new product cache/queue or whole-App FPS claim.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
-      "after": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
-      "owner": "repository-maintainer",
-      "reason": "Keep current non-displaying Steam prefetch ownership and measured 96-image retirement; preserve fallback/retry/display state and prior target-size scope. Reject the ambiguous static-animation terminal candidate using actual ImageIO counterexamples; retain native timeout evidence and explicit FPS/RSS limits.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
-      "after": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
-      "owner": "repository-maintainer",
-      "reason": "Keep five requested audio, native modal, session removal, provider index migration and join-time sorting contracts and bounded verification current; replace obsolete historical process prose. No new product owner or Scene change.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallhaven-online-browser-design.md",
-      "before": "2690d9776ded0dc0220a0e3860595bdbccc850cb500190dfe3caa6ca9b831070",
-      "after": "bd9be1c312fa4322cf4f2fead58c436b666b9f256b0848596c76398e3aa2cf41",
-      "owner": "repository-maintainer",
-      "reason": "Apply user decision to retire old online index/path migration and obsolete UI-cache conversion. Record bounded non-Scene legacy consumer audit, actual costs, current-function exclusions and removal consequences; preserve previous five requested fixes and concurrent Scene work.",
-      "decision": "docs/development/code-slimming-program.md#legacy-app-data-audit"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "8d783765e1b2faa6a41c25617a84fe82d81119c9c9a45bb331d893cc14f5795f",
-      "after": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
-      "owner": "app-current-strategy",
-      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
-      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/lock-screen-screensaver-design.md",
-      "before": "f521826674cfca7a3f1509b4a92681788f54cfbfa57a30c460e23ffed0270b6c",
-      "after": "35afd09387393a02cfefd7dad02a2dc54f1f94ac28fdd814e5e9f44de124ebf9",
-      "owner": "app-current-strategy",
-      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
-      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/code-slimming-program.md",
-      "before": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
-      "after": "1fe25764911947a6767b14f887c115056baf31e7c34888c1122820beb1a7cbec",
-      "owner": "app-unused-entry-cleanup",
-      "reason": "Record confirmed unused-code retirements, independent review findings and narrowed scroll proof; preserve parallel Scene records and all current behavior boundaries.",
-      "decision": "docs/development/code-slimming-program.md#overload-writeonly-cleanup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "61081b07fdb5780ade398937f3a203a11627fb7cab8924333662a22d910fe939",
-      "after": "73b8d381e45bb0417fa58ab7d1e248d3ce8dd0f777f15546cc6850529b31ec14",
-      "owner": "app-unused-entry-cleanup",
-      "reason": "Document the eight explicitly authorized zero-consumer cleanup groups and preserved active owners, remove obsolete navigation/Web-path claims, and bind nearest validation without changing Scene or current data formats.",
-      "decision": "docs/development/code-slimming-program.md#dead-entry-cleanup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
-      "after": "aab7cee49e905774c6811507867e3cf7ea39ae8d1ed54107ec4827c2e2d29530",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
-      "after": "82d4b049c6f7b528bd67e6b61e231bc3073a9581b9c6f255efb87b62ca1b599f",
-      "owner": "scene-model-parent-visibility",
-      "reason": "Consolidate the original-owner model parent visibility and typed producer preparation contract, bounded same-input App and independent author evidence, and remaining source boundaries. Retire the prepared-leaf exception and stale qualification statements without adding a document authority or runtime state.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "61b859fd9958a9be715fcce1e17b173faf6831c4fed6d53193640a9e68f8764b",
-      "after": "ef736a7d1294e73888fab6c648588dd7f8e1f6d5e5a035b24fe6662561c31d4d",
-      "owner": "scene-visible-progress",
-      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2bdf96423bd3a12d5e9e57805999f58ee521f81dd39d1478964f2c7f4d8d100c",
-      "after": "247eddfab58d173dc6f7203ed346cf46e450dd63b1213a2fbb4b836bcb1dba09",
-      "owner": "scene-boolean-primitive-entry-order",
-      "reason": "Advance real timer/init Boolean prefixes at the existing primitive callback boundary using an automatic read scope; retire duplicate private failure discards. Consolidate frozen native and original/renamed App pixel qualification, preserve event-first getter and mixed Puppet/video unknowns, and retain the independent original-author regression without claiming an exact author positive.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#boolean-callback-order"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
-      "after": "786c386bc69ec633c5267f6c45041956c815484c169ae71f2e20b14b86be6d98",
-      "owner": "scene-utility-inactive-effect-preparation",
-      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "3b5f9a2b5812b632e98d2761c58f8489ea75642315cf31015c943f7c82f504c3",
-      "after": "0bedb29e6e0ec0a6fe35b23dc26d9348c2c389dff8523ab4207c564e29997f74",
-      "owner": "scene-material-color-boundary",
-      "reason": "Specify whole-vector input-role derivation in the existing cold graph, retire mutation-count permission/state, distinguish authored functions from builtin mix, and freeze actual App/data/PMA acceptance without adding an owner or frame work.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#whole-vector-color-input"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "bd81263fee07f68eb87ffe8ba00a66378047d80183ab4b3be2d40281347735be",
-      "after": "0c38eb99838de2b6e6b8331d9d81b43d63176d54bd868ba49bb68872cac49bec",
-      "owner": "Scene Session / typed programs and component owners",
-      "reason": "Clarify user-texture completion during disjoint display preparation in the existing Session resource and display contract, retiring actual-screen currentness while preserving true cancellation/adoption and bounded native/App acceptance.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#display-user-texture-updates"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5117bc658d901f6a4e898acf3a7b3dd3316c95058ccf23985b9d08e1e886f231",
-      "after": "2de917a974282a0dbbaaf96df2a81126b77962c252d8643f902383849a1b47c2",
-      "owner": "Scene particle control-point parser and consumers",
-      "reason": "Clarify original selected-position ownership of malformed default offsets, replace the aggregated parse-failure contract with consumed-field facts, and preserve current metadata/consumer boundaries and real visible acceptance.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
+      "before": "0bedb29e6e0ec0a6fe35b23dc26d9348c2c389dff8523ab4207c564e29997f74",
+      "after": "afc89280d6c93fb0f3123f3462a6e790d69b0665798d9f0b3806eb5b69acc797",
+      "owner": "Scene prepared material / graph",
+      "reason": "新增geometry局部色图的坐标/尺寸/失败合同，退役没有实际消费者的world-MVP许可，限定原owner与验收范围。",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-geometry-local-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "441d196e82998d8f37e895046693d6431aa015911cb2d2c5a01687b01bfc4ba3",
-      "after": "ac4f4775ec36e6eb90c1f2e0a8160cc1d74331ffb28e46a1342c167caf369e77",
-      "owner": "Scene current authored-sample runtime and problem queue",
-      "reason": "Replace the prior 635-run summary with the independently audited 748-corpus known/new retest; record two reproduced startup blockers, active renderer/material/attachment refusals and actual conditional consumers without claiming full visual or performance acceptance.",
+      "before": "ac4f4775ec36e6eb90c1f2e0a8160cc1d74331ffb28e46a1342c167caf369e77",
+      "after": "4a3a77129025de512b81dcf9121948a327507c52f041cd9cef481357a6c2190f",
+      "owner": "Scene prepared material / graph",
+      "reason": "登记383原作者真实geometry→601→main/GPU启动恢复及剩余局部CHECK、独立样本与有界native像素资格，不覆盖冻结R0。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2ab7bf1170ab8bbe13c665e63a57d1c427c79eb31ae6600ae6dc5b7cc7a76cdc",
-      "after": "2555e12c8656e2183dc51b557b7db674843d5b2df37d30ee53a91930036c7ec8",
-      "owner": "Scene authored base image and interaction priorities",
-      "reason": "Record the user 13-sample base-image and interaction feedback after the completed retest; distinguish existing symptoms, missed dynamic symptoms and unrun inputs, merge less specific duplicate rows and preserve frozen runtime denominators.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "2555e12c8656e2183dc51b557b7db674843d5b2df37d30ee53a91930036c7ec8",
+      "after": "4f23289c61e0ab5af71b8c2ffff2af16453d6d72a92ceeffec9f17dc3410f0d8",
+      "owner": "Scene prepared material / graph",
+      "reason": "用当前启动修复与380短栈/OFF控制和参数工作量替换旧首断点，保用户基础画面优先及未解决局部/工具问题。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }
