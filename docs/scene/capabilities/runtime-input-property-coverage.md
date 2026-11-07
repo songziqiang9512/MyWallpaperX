@@ -82,6 +82,15 @@ Default2D origin/zoom 的真实作者来源可能不同，不能用同一个 lay
 
 原 pointer owner 保存实际本屏坐标、按钮和边沿；命中使用最终输出 geometry/提交结果，不能用 source atlas 框代替。local/global monitor 按活动 owner 安装/移除，状态未变不反复重建或重置手势。
 
+<a id="fullscreen-cursor"></a>
+### Fullscreen 的鼠标事件
+
+Fullscreen utility 的交互面是本屏 viewport，不要求作者 `size`，也不把普通图层的 origin/scale 套到全屏 raster 上。原 CursorHitAdmission 按实际 utility kind 接纳，原 Surface 的 cursor sample 为它提供命中与离屏 capture 投影；其他无尺寸图层保持原拒绝。standalone 与借用的 typed owner 使用同一几何职责，不另建全局监听或状态。
+
+同一 sample 只生成一次原 `sceneScriptSurfaceInput`，world/input cursor 仍由当前 camera 反投影到作者世界；fullscreen event.localPosition 直接消费该 surface 的 top-left screen pixels，不能套普通图片 lower-left local pixels 或从 canonical raster 逆推世界。原 inside、solid、capture、leave/up、owner identity 与失败事务保持，缺 surface 只使该 fullscreen 投影不可用；普通卡片继续原 MVP 与本屏已提交文字几何。替换原“所有 cursor 层必须有 size”的关卡及其零尺寸 quad 路径，不给 descriptor 伪造尺寸。
+
+验收核真实候选构造的 standalone/borrowed、改名、普通无尺寸/坏尺寸和健康 peer；原 Surface→事件→作者位移→named mask→最终输出须在原样本三点往返成立，另核独立真实邻例。官方单次 fullscreen move 只支持 top-left screen-local 与 camera world 的分工，点击、连续离屏与多屏仍独立取证，不借该观察改普通图片事件或 button。
+
 <a id="text"></a>
 ## 文字
 

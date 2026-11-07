@@ -225,6 +225,15 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 3351163962的时段文字217左锚点、圈219无锚点；R0的“傍晚”和用户图4的“晚上”均在圈右外。2026-11-08固定官方2.8.0.42（SHA `daac1ea7…b6bda07`）原project/pkg及46个运输文件逐项一致，独占窗口960×540实际显示“午夜”在圈内，960×624则在圈右外；两幅原生CUA图在会话中，只有手工观察收据，无本地官方PNG或精确像素资格。后者接近R0的3024×1964比例，绝对尺寸、时间及字体像素不作等同。该越环症状可在官方由原作者锚点/裁幅组合复现，退出引擎偏移修复优先项；保原锚点与作者参数，不加样本offset。输入、静态链和官方收据归`.artifacts/scene-clock-layout-20261108/`；未授全部画幅、父变换、字体分支或完整布局一致。
 
+<a id="fullscreen-cursor"></a>
+## Fullscreen 事件与斜向遮罩
+
+原 Cursor owner 按已解析的 fullscreen utility 采用 Surface 命中和同次 camera world/screen-local，退出作者 size 必填和零尺寸图片投影；普通 card 的相机/parallax 仅在本 sample 有实际消费者时准备一次，无新持久状态或资源 owner。[职责](runtime-input-property-coverage.md#fullscreen-cursor)先于实施落库。签名 `-Onone` Debug exec SHA `333cb2b0…da9643fe`、CDHash `07c1138790e41c49671f3c9b84ef5d7eab11a39c`，4396构建输入稳定、metallib未变。
+
+3087231311同project/pkg/tree的8秒三点 A(-.4,0)→B(.4,0)→A，原斜带静止且973因缺几何被拒；当前owner由2→3，302/288真实origin同步1254.84314→2585.156738→1254.84314（y1080/z0），973的local为本屏907.199991→2116.800009→907.199991（y982）。原生导出的三张PNG已实际看过斜带横移并返回；request2/3/4、frame72/97/122中288实际采302 named/slot1、terminal replay/tail→sealed main，Surface/CB/GPU闭合且零截断。局部XRay是独立subject，不代斜带验收。变量、名字、等价表达式及clipping资源改名的受控App三点同样成立；独立2134765860默认主景、GPU与退出成立，11个无事件fullscreen未凭空注册owner。三项原生门及帧路由检查通过；旧peer异常后活动数断言经旧产品/旧夹具复现，拆成异常前3/后2，未改产品fuse。各次Ready/停止/Surface释放/排空成立。
+
+固定官方2.8.0.42自有FSC1仅观察到一次 fullscreen move：local等于top-left screen pixels、world等于input cursor world；实际点在viewport外，连续离屏、点击及普通图片button未取得资格，CUA输入未交付即停止。当前真实App采用合成pointer，不授桌面物理输入、任意父变换/多屏、官方完整像素或性能。原输入、失败、三点PNG、构建及独审归`.artifacts/scene-pointer-mask-20261108/`。
+
 <a id="limits"></a>
 ## 未取得的资格
 

@@ -129,12 +129,12 @@
       "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 233,
-      "bytes": 122225
+      "lines": 242,
+      "bytes": 124189
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 122,
-      "bytes": 18786
+      "lines": 131,
+      "bytes": 20283
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 191,
-      "bytes": 44298
+      "lines": 190,
+      "bytes": 44158
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -341,11 +341,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c58c0159905ed0247d33d2fbcfff947902bdcb9671e0e5f612f5f4428f7452f4",
-      "after": "0a3835d5b90ae65278446e6ed1beb9690062d9393227c8f5e59069233c9d8367",
-      "owner": "Scene base-picture triage",
-      "reason": "Preserve the bounded failed circular-text readback and qualify original clock daypart layout at two actual official-client viewports; retain unknown geometry and move to base interactions without a speculative rendering patch.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "0a3835d5b90ae65278446e6ed1beb9690062d9393227c8f5e59069233c9d8367",
+      "after": "6ee3fa1bbc21d620287b5b3c580f4f08bcb21f887ff1a0eb939ddd6c41d106f4",
+      "owner": "Scene fullscreen cursor consumers",
+      "reason": "Define viewport cursor ownership before implementation, retire sizeless fullscreen rejection and unused card-camera preparation, record the real diagonal-band A-B-A and renamed input while preserving native/official limits.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#fullscreen-cursor"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "786c386bc69ec633c5267f6c45041956c815484c169ae71f2e20b14b86be6d98",
+      "after": "f2042da1d2a43b23b5507f48d113663496192ae6526140e335cfc526d63a032f",
+      "owner": "Scene fullscreen cursor consumers",
+      "reason": "Define viewport cursor ownership before implementation, retire sizeless fullscreen rejection and unused card-camera preparation, record the real diagonal-band A-B-A and renamed input while preserving native/official limits.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#fullscreen-cursor"
     }
   ]
 }
