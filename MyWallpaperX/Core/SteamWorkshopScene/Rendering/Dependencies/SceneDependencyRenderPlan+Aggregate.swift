@@ -111,10 +111,7 @@ extension SceneDependencyRenderPlan {
                 && provider.dependencyLayerIDs.isEmpty
                 && provider.utilityLayer?.copyBackground != true
             let graphCandidate = hasEffects && provider.utilityLayer == nil
-            // A visible graph's frame ticket still owns its main output.
-            guard !(hasEffects && provider.visible != false
-                    && visibleLayerIDs.contains(provider.id)),
-                  independentRawSource || graphCandidate
+            guard independentRawSource || graphCandidate
             else { return nil }
         }
         return Binding(consumerLayerID: layer.id, providerLayerID: provider.id,

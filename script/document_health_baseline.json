@@ -125,12 +125,12 @@
       "bytes": 40796
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 248,
-      "bytes": 48316
+      "lines": 250,
+      "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 258,
-      "bytes": 127457
+      "lines": 269,
+      "bytes": 130372
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 131,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 189,
-      "bytes": 44170
+      "lines": 187,
+      "bytes": 43112
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,12 +340,21 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "efbf3e7c3dd895f81fc7c5ef7bc73a41ec603b7205dbe3fbe4d79212cb019c1f",
-      "after": "cf588805f4d0bf5e4e487130224e586b65e0927a02b6129d3636fa43b05a89f7",
-      "owner": "Scene bounded audio investigation",
-      "reason": "Record the actual producer ceiling and the high-exponent response bound before discarding an unqualified visual-fix candidate; keep explicit restart evidence and select the remaining active named-stage problem. No product or test changes.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "afc89280d6c93fb0f3123f3462a6e790d69b0665798d9f0b3806eb5b69acc797",
+      "after": "481a94df60edb1ae49bbb884fae7df1b54d99282a6fa97d16144b37a8c60a98b",
+      "owner": "Scene forward visible Program input",
+      "reason": "Retire the obsolete cold visible-provider rejection, qualify selected Program/GPU and retained author output with renamed/negative/independent coverage, remove closed queue entries and preserve proof ceilings.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "dec476103f085d8758e8b6098e04ca1423fa1f00e517fa49defdf0f80d63a705",
+      "after": "d61b435e6afa596c69badbe4a32712a00491deb4d36c6cb39b1900ddc96bd4bf",
+      "owner": "Scene forward visible Program input",
+      "reason": "Retire the obsolete cold visible-provider rejection, qualify selected Program/GPU and retained author output with renamed/negative/independent coverage, remove closed queue entries and preserve proof ceilings.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
     }
   ]
 }

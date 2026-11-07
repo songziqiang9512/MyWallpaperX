@@ -166,7 +166,7 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 冷准备的前向独立性按完整 primary 输入集合判定，不按上游数量授许可。较早 C 读取普通 hidden image graph P，P 的每条已选 reference 仍须属于实际 effect/pass/slot、指向原 active dependency 集合中的 primary provider，所有来源由原完整 ownership 闭包接纳。多边拓扑、来源最早位置和同截点排序复用原 Plan，缺一来源仍沿原局部 previous-current 处理；真实 self/cycle、未知 provider、secondary及可见 graph 作者位期限保持。
 
-潜在 Binding 只表达现有来源可准备，不能把 material default 与 instance override 的候选并集当作实际背景读取。原冷候选入口只保来源种类、primary结构和前向期限；最终 ProgramFirstStagesBackground 消费原 Loader/Finalizer 选中的 launch-active slot/candidate，决定 graph provider 是否真读背景。被更高优先实例资产替换的 `_rt_FullFrameBuffer` 不产生实际顺序依赖；真正选中它的 graph provider 继续局部拒绝。原 raw aggregate仍在相同结构 Binding 之后核完整 authored-order 独立性，legacy/staticModel、raw renderOrder、utility和background graph执行范围保持。不加阶段开关、第二套候选选择、持久状态或普通帧计算；原 activeTexturePaths并集及其重复准入退出。
+潜在 Binding 只表达现有来源可准备，不能把 material default 与 instance override 的候选并集当作实际背景读取。原冷候选入口只保已有来源种类、primary结构和前向期限；已支持的可见 graph 不因有活动效果而失去 carrier，退出把可见性作为前向整项禁令的旧关卡。最终 ProgramFirstStagesBackground 消费原 Loader/Finalizer 选中的 launch-active slot/candidate，决定 graph provider 是否真读背景；原完整依赖闭包、来源独立性及实际截点继续约束main/prefix时序，保secondary、自引用及cycle的拒绝。被更高优先实例资产替换的 `_rt_FullFrameBuffer` 不产生实际顺序依赖；真正选中它的 graph provider 继续局部拒绝。原 raw aggregate仍在相同结构 Binding 之后核完整 authored-order 独立性，legacy/staticModel、raw renderOrder、utility和background graph执行范围保持。不加阶段开关、第二套候选选择、持久状态或普通帧计算；原 activeTexturePaths并集及其重复准入退出。
 
 验收沿原 Plan、真实 Loader/Finalizer、Metal 与签名 App：两源各自清零和交换、三项 primary 闭包、ID/资源/变量/槽位改名与上游顺序互换，核 A/B→P→C 单次执行及可区分像素。死 lower background另核显式albedo实例资产胜出与等价改名；真正选中背景、缺源、循环、跨层secondary及raw aggregate反例保持。健康suffix/peer与独立真实样本保回归，只得到potential/ready不算恢复。未找到精确作者命中时，仅授自有作者图实际合成，不宣称作者缺图恢复、官方像素或性能。
 
@@ -180,6 +180,8 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 <a id="forward-graph-output-consumption"></a>
 ### 图输出的供货与作者位合成
+
+前向可见来源复用本节原 ticket、cut schedule 与 owned pair，在真实消费者前只执行一次graph/named供货，仍在自己的作者位主合成；Geometry沿[局部色图](#named-geometry-local-raster)取同CB预先供好的pose，不另推进动画或用raw atlas顶替。早消费者、晚同来源消费者和provider主画必须核同epoch/texture及一次执行，保后继图对shared scratch的覆盖、选中main背景、真正缺源与cycle反例；已有不同空间的clipping准备继续由原submission释放，不为减少计数错误复用。
 
 同帧 graph 结果完成 named 供货，不代表可见层已经完成作者位的主合成。原 Coordinator ledger 保留唯一 texture、content、ticket、history 与 pin；提前供货后的可见层在自己的作者位置借用该结果，沿原 final-composite 消费当前 placement、alpha、depth 和 fog。晚消费不重新 claim、解析依赖、取 layer source、执行 graph、分配或发布，不增加结果缓存、持久标志或第二输出 owner。原 `compositorConsumed` 区分主合成是否完成；晚到的主合成回执只接纳这一消费，不能用上游旧 candidate tails 覆盖已包含后继的 scheduled tails。
 

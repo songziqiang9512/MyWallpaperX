@@ -4,9 +4,9 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
+2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现，后续单项修复不倒改此分母。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
 
-后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线，下一项回到383仍活动的named输入572。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。330628当帧读回、330头部reference-track及380创建/预热单位仍保具体停止线，不重复原失败方法；338211已有有界供值停止线；下一项先核286多renderer整体误拒绝的真实输出职责。已闭项退出本表，结果只归[运行证据](../capabilities/runtime-evidence-current.md)。没有可行动首错就重排，不继续堆测量。2026-11-07补报13个作者定位与图1–5；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -17,7 +17,6 @@
 |---|---|
 | 多renderer整体拒绝 · 2868108515 | 46个活动粒子层中544470/591910共用sprite+ropetrail+spritetrail定义，在单项renderer选择前因集合count=3整体nil，实际只加载44层。缺省length=1不是首错；后续资源及各renderer像素贡献未知。沿原prepared模拟状态与renderer消费者明确多输出职责，不重复模拟、仅选一种冒充完整结果或扩大名称许可。 |
 | REFRACT材质准备拒绝 · 新增四作者 | 3580724885、3590684440、3602874264、3663269553共14个启动有效可见粒子层实际`refractionUnsupported:unsupportedMaterialProfile`，主景及终端仍成立。先在原材质准备核具体未消费输入与最小失败范围；这是共同拒绝边界，尚非同一根因或14个独立缺陷，不借下方官方normal单位未知归因，也不忽略材质输入换取加载数字。 |
-| 活动局部named输入 · 3834591400 | 首帧阻断已沿[geometry局部色图](../capabilities/render-graph-shader-coverage.md#named-geometry-local-raster)退出：原作者17实际geometry/graph色图供601，后续87输入、mask、main/GPU/PNG与排空成立。剩余572/e2/#499有效可见，仍`dependency-stage-reference-unavailable`并局部保previous-current；不是601失败，不能宣全作者效果正确。另572/e1/#407为property-inactive、无该段draw，reader仍期待exact subject属于工具口径，不作活动缺图。 |
 | 超长预热 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度仍超时；短栈处于粒子预热，同App关闭首事实观测仍超时。原隐藏星场1333 starttime=100000按当前固定步请求约600万更新，是源码工作量而非完成计数。固定官方默认控制最终出图、精确完成及90秒资格未定，见[有界研究](../capabilities/runtime-evidence-current.md#coverage)。预算与隐藏状态沿[原预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不能直接跳过。先保完整状态，待原创建需求/单位/等价优化的可判证据；当前转先修基础画面，不原样延时、加预算或凭cache末日志改代码。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | `SceneAuthoredXRayPlanner+StockIdentity`仍以固定路径、UI字段及两个摘要profile授source-passthrough豁免；`SceneImageLayerDrawRequest`仍以Pulse/Blur/Waterwaves路径、pass/slot/combo形状判source coverage。两者影响源图降级，不是通用Program执行许可，尚无当前作者被误挡的画面归因。沿原prepared Program的coverage、颜色边界及发布依赖事实替换并退役旧许可；核等价资源改名、真实alpha改变、PMA、mask与named发布反例，不能直接通放base source冒充效果结果。 |
@@ -63,7 +62,6 @@
 | 来源阶段读口 | 本轮source-not-ready首断点均在Ready前，后继同layer恢复或1045转hidden的实际资格归[当前复测](../capabilities/runtime-evidence-current.md#coverage)。沿原reader保时间/需求边界与原失败，不把不同阶段聚为持续错误；同layer成功仍不证明同slot或逐像素恢复。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。本轮3788897599的291/259 composition行`rendererKind=unknown`，定位`SceneParticleMetalPipeline+Frame`的可选debug字段及原component observation供货；复测先核现有按需观测输入，不由路径猜种类，也不将此元数据缺口判为绘制失败。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
 | 着色器类型回归预期 | `test_scene_shader_global_scope.test_float2_arithmetic_does_not_cross_unproven_expression_boundaries` 的 user-call/normalize 仍期待不补`.xy`，与现有typed复合求值后窄化合同冲突；同输入旧/新产品都补`.xy`。其余9方法通过、GPU独立项1skip；按真实类型与编译/像素修订这两条旧预期，不能撤回合法转换迎合测试。 |
-| 初始化cohort近门的旧冲突预期 | `test_scene_script_initialization_transaction`当前12/13通过，`test_cohort_init_and_later_property_update_share_ordered_owner_admission`仍要求不同owner冲突拒绝；sameOwner状态与冲突两fact未满足。隔离替换回f18a213d8的六份产品源码后，同一未改测试仍以相同fact失败，原始payload/日志保于`.artifacts/scene-album-cover-20261107/`。沿现有owner bundle与实际callback/字段顺序重建明确oracle；不能恢复冲突仲裁来迎合旧预期，也不能只改期望为当前输出。 |
 | 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍超过1000行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码行数与职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
 | 全仓链接门 · 非Scene文档 | `docs/architecture/steam-workshop-acquisition-contract.md`与`docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md`指向`SteamWorkshopLegacyAcquisitionRetirement.swift`的源码链接解析失败；`docs/history/cross-topic/code-slimming-r1-r26-2026-11-01.md`指向`main-window-playlists-redesign.md#93-正式个人设置导入导出兼容`的锚点解析失败。相关正文均与HEAD一致；沿各自文档owner修正真实链接。该全仓门当前失败，本批Scene文档的局部链接及角色/导航另核。 |
 | 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
@@ -103,7 +101,7 @@
 | 3382111183 /3383210272 | 338211六个活动beam emitter（115/178/335/173/167/170）的exponent100被≤16计划门拒绝；但现有真实频谱供货最高.96，即使删门，按当前bounds.5…1/公式响应也≤.92^100≈.0002392，从空累计首粒约千秒，短窗不可见。仅删门的候选设计/测试未运行、未入产品，保`.artifacts/scene-particle-audio-exponent-20261108/`。先停在实际particle聚合/单位及供值域，重启须有可区分的官方数值/同声源consumer或用户目标ROI证据；不重跑同PCM，不改gain/bounds/pow或强注入1凑图。[官方AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html)的可超1属Script域，不直接授particle公式。338321的323/124/369/391四emitter已消费非零16-band，零出生仍须核实际门槛/birth/color，不重判音频断线或以此关闭完整FX/光照反馈。 |
 | 3617449489 | 音频环缺失，本轮仅census。先定位环的真实layer/Program/Script与音频供值、活动状态和绘制，不因声明音频能力就转为频率调参。 |
 | 2814167871 /2835398595 | 随音频眼睛闪动不明显，两项本轮仅census。先分别核眼部目标与实际band读值、回调和像素响应，再判作者频段/门槛；“链路正常可能是频率”保用户假设，不预设为已连通或引擎错误。 |
-| 新增粗筛 · 3557068717及条件项 | 355默认主景近黑仅见小亮点，原named CHECK没有活动需求，不能用它解释像素；3455121165/3453730450的时钟、3618302662构图、3657295614人物、3360178853牙口与2868108515条纹均待viewport/时相/显隐/source资格。新增113对图像粗筛不授完整视觉通过；329的挂点拒绝单列上表，不从其他rawPASS关闭反馈。 |
+| 新增粗筛 · 3557068717及条件项 | 355默认主景近黑仅见小亮点，原named CHECK没有活动需求，不能用它解释像素；3455121165/3453730450的时钟、3618302662构图、3657295614人物、3360178853牙口与2868108515条纹均待viewport/时相/显隐/source资格。新增113对图像粗筛不授完整视觉通过；329挂点已闭，结果归运行证据，不从其他rawPASS关闭反馈。 |
 | 2887099508 · 图5 | 旧矩形取景/人物越右与本次线索相关，新增开场运镜使整个画布背景移动、最初数秒下半区黑纹从左往右横扫、右侧文字点击均无响应，按三个subject分别定位。先核camera/画布/source的同帧变换及真实点击命中/回调；旧LLDB未arm的失败方法不原样重跑，不猜UV、padding或general.zoom，不因主图供货正常关闭。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理；3003318777的后启动阶段已由[运行证据](../capabilities/runtime-evidence-current.md#coverage)资格，不再沿旧四秒失焦实施修复。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
