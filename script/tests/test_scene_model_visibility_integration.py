@@ -108,6 +108,8 @@ def measure(path):
 
 def model_subtree_fixture(preset="composition-depth"):
     """Owned model geometry, constant-color oracles and original group Program."""
+    if preset.startswith("model-parent-"):
+        return model_parent_visibility_fixture(preset)
     if preset not in ("composition-depth", "project-trs-renamed", "model-leaf-cycle"):
         raise ValueError(preset)
     renamed, live = preset == "project-trs-renamed", preset == "model-leaf-cycle"
@@ -258,7 +260,7 @@ def model_subtree_fixture(preset="composition-depth"):
         "captureShown": captures, "afterDelay": 6 if live else 3, "sequence": sequence,
         "groups": groups, "referenceModelIDs": [obj["id"] for obj in reference_models],
         "peerID": ids[60], "badModelID": ids[26] if not live else None,
-        "leafID": ids[21] if live else None,
+        "visibilityTargetID": ids[21] if live else None, "ownFalseModelIDs": [],
         "parentTransform": {"angle": math.pi/2 if renamed else 0, "scale": [-1.5,.75,1] if renamed else [1,1,1]},
         "mirrorOracle": {"cullMode": "normal", "positive": "parent X negative and child X negative: visible",
             "negative": "parent X negative only: culled", "negativeLayerIDs": [ids[27],ids[47]],
@@ -271,6 +273,94 @@ def model_subtree_fixture(preset="composition-depth"):
         "observation": {"clockModelLayerID": group_models[0], "timelineFields": ["origin", "angles", "scale"],
             "tintBackWitness": "material script input, sole prepared vector binding, no script failure and exact owned pixels; color is not a Timeline observation field"},
         "scope": "Parent group and Program always visible/active; only prepared model leaf changes visibility. Model/model depth only; no image-terminal Z ordering or cold-parent qualification. Internal owned behavior, no official parity."}
+    return project, entries, protocol
+
+
+def model_parent_visibility_fixture(preset):
+    """The existing model/Program is controlled through its parent visibility."""
+    if preset not in ("model-parent-cycle", "model-parent-cycle-renamed",
+                      "model-parent-cold-property", "model-parent-cold-script",
+                      "model-parent-cold-script-mutation"):
+        raise ValueError(preset)
+    project, entries, protocol = model_subtree_fixture("model-leaf-cycle")
+    scene = json.loads(entries["scene.json"])
+    parent, leaf = [next(x for x in scene["objects"] if x["id"] == i) for i in (20, 21)]
+    parent["visible"], leaf["visible"] = leaf["visible"], True
+    parent["name"] = "Owned live model-parent visibility group"
+    scene["objects"].insert(scene["objects"].index(leaf) + 1, dict(leaf, id=22,
+        name="Owned model child stays individually false", origin="64 0 0", visible=False))
+    key, ids = "prepared_model_leaf", {i: i for i in (20, 21, 22, 40, 41, 60)}
+    if preset == "model-parent-cycle-renamed":
+        key, ids = "unseen_parent_group_enabled", {20: 731, 21: 732, 22: 733, 40: 947, 41: 948, 60: 864}
+        names = {20: "Renamed live parent capture", 21: "Renamed shaded model card",
+            22: "Renamed false model card", 40: "Renamed literal reference parent",
+            41: "Renamed literal reference model", 60: "Renamed independent green peer"}
+        for layer in scene["objects"]:
+            old = layer["id"]
+            layer["id"], layer["name"] = ids[old], names[old]
+            if "parent" in layer:
+                layer["parent"] = ids[layer["parent"]]
+            for effect in layer.get("effects", []):
+                effect["id"] = layer["id"] * 10
+        parent["visible"] = {"user": key, "value": True}
+        project["general"]["properties"] = {key: {"type": "bool", "value": True}}
+        replacements = {
+            "models/own_model_cycle/21.mdl": "models/alternate_model_cycle/unseen_card.mdl",
+            "models/own_model_cycle/41.mdl": "models/alternate_model_cycle/literal_card.mdl",
+            "materials/own_model_cycle/script_back_tint": "materials/alternate_model_cycle/unseen_back_tone",
+            "materials/own_model_cycle/literal_post_cycle": "materials/alternate_model_cycle/literal_post_tone",
+            "materials/own_model_cycle/cycle.json": "materials/alternate_model_cycle/color_roll.json",
+            "own_model_cycle": "alternate_model_cycle"}
+        def renamed(value):
+            for before, after in replacements.items():
+                value = value.replace(before.encode(), after.encode())
+            return value
+        scene = json.loads(renamed(encoded(scene)))
+        entries = {renamed(name.encode()).decode(): renamed(data) for name, data in entries.items()
+                   if name != "scene.json"}
+        entries["shaders/alternate_model_cycle.vert"] = entries["shaders/alternate_model_cycle.vert"].replace(
+            b"v_TexCoord", b"v_AlternateUV")
+        entries["shaders/alternate_model_cycle.frag"] = (
+            b"uniform sampler2D g_Texture0;varying vec2 v_AlternateUV;"
+            b"void main(){vec4 sampledPixel=texSample2D(g_Texture0,v_AlternateUV);"
+            b"gl_FragColor=vec4(sampledPixel.g,sampledPixel.b,sampledPixel.r,sampledPixel.a);}")
+        material_path = "materials/alternate_model_cycle/unseen_back_tone.json"
+        material = json.loads(entries[material_path])
+        material["passes"][0]["constantshadervalues"]["tintback"]["script"] = (
+            "export function update(previousTint){let unit=1/5;return new Vec3(unit,unit*2,unit*3);}")
+        entries[material_path] = encoded(material)
+        protocol["typedTintBack"]["material"] = material_path
+    parent = next(x for x in scene["objects"] if x["id"] == ids[20])
+    cold = "-cold-" in preset
+    sequence = [{key: cold}, {key: not cold}]
+    if cold:
+        parent["visible"]["value"] = False
+        project["general"]["properties"][key]["value"] = False
+    if preset in ("model-parent-cold-script", "model-parent-cold-script-mutation"):
+        sequence = []
+        parent["visible"] = {"value": False, "scriptproperties": {}, "script":
+            "export function update(previous){return engine.runtime>=2 && engine.runtime<4;}"}
+        project.pop("general")
+        if preset == "model-parent-cold-script-mutation":
+            parent["visible"] = False
+            peer = next(x for x in scene["objects"] if x["id"] == ids[60])
+            peer["origin"] = {"value": peer["origin"], "scriptproperties": {}, "script":
+                'export function update(value){thisScene.getLayer("Owned live model-parent visibility group")'
+                '.visible=engine.runtime>=2 && engine.runtime<4;return value;}'}
+    entries["scene.json"] = encoded(scene)
+    captures = {"scene-ready-window.png": not cold, "scene-series-0000-window.png": cold,
+                "scene-after-window.png": not cold}
+    shown_oracle = protocol["oracle"]
+    hidden_oracle = {name: dict(value, expectedRGB=[0, 0, 0]) if name.startswith("group-") else value
+                     for name, value in shown_oracle.items()}
+    protocol.update(preset=preset, sequence=sequence, visibilityTargetID=ids[20],
+        groups=[{"root": ids[20], "modelIDs": [ids[21]]}], referenceModelIDs=[ids[41]],
+        ownFalseModelIDs=[ids[22]], peerID=ids[60], captureShown=captures,
+        snapshotOracles={name: shown_oracle if shown else hidden_oracle for name, shown in captures.items()},
+        periodicSnapshotInterval=3.5,
+        scope="Parent visibility controls the prepared local model, tintback and original group Program; child false and literal reference/peer remain independent. No official parity.")
+    protocol["observation"]["clockModelLayerID"] = ids[21]
+    protocol["observation"]["tintBackWitness"] = "actual model color callback and exact literal-reference pixels"
     return project, entries, protocol
 
 
@@ -296,7 +386,8 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
                     else f"scene-series-{2 + index * 2:04d}-window.png")
             snapshots[name] = not bad_model and sequence[index]["mode"] == "shown"
         snapshots.setdefault("scene-after-window.png", bool(control))
-        accepted = ["false" if bad_model else "true"] * len(sequence)
+        # A rejected show leaves the retained hidden value unchanged; its repeat is a host no-op.
+        accepted = ["false", "true"] if bad_model else ["true"] * len(sequence)
         protocol = {"canvas": CANVAS, "rectangles": RECTS, "tolerance": TOLERANCE,
             "initialMode": "shown" if control else "hidden", "staticControl": control,
             "sequenceEvery2Seconds": sequence, "acceptedSteps": accepted,
@@ -447,21 +538,25 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
         self.assertEqual(len(windows), len(protocol["sequence"]))
         prepared = re.search(r"prepared static model layers: \[([^\]]*)\]", preview)
         self.assertIsNotNone(prepared, preview[-3000:])
-        expected_prepared = set(protocol["referenceModelIDs"]).union(
+        expected_drawable = set(protocol["referenceModelIDs"]).union(
             *(set(group["modelIDs"]) for group in protocol["groups"]))
+        expected_prepared = expected_drawable.union(protocol["ownFalseModelIDs"])
         self.assertEqual({int(x.strip()) for x in prepared[1].split(",") if x.strip()}, expected_prepared)
         tint_observation = None
         if tint := protocol["typedTintBack"]:
-            self.assertRegex(log + preview, r"(?i)scene\s*script VM: schema=quickjs-ng-typed-v2 bindings=\d+ vectorBindings=1 ")
+            self.assertRegex(log + preview, r"(?i)scene\s*script VM: schema=quickjs-ng-typed-v2 bindings=\d+ vectorBindings=[1-9]\d* ")
             callbacks = [line for line in log.splitlines() if "MWX SceneScript VM: target=" in line
                          and "callback=completed type=vector3 " in line]
-            # The fixture has exactly one vector owner, authored only by the
-            # material tintback wrapper. Do not infer target identities from
-            # Swift descriptions or request color from the TRS-only observer.
+            model_id = protocol["groups"][0]["modelIDs"][0]
+            completed = re.findall(rf"target=layer\(layerID: {model_id}, field: \S+\.color\) "
+                r"callback=completed type=vector3 .* output=vector3\(([^)]+)\)", log)
+            self.assertTrue(completed, callbacks)
+            for actual, expected in zip(completed[0].split(","), tint["resolved"], strict=True):
+                self.assertAlmostEqual(float(actual), expected, places=12)
             self.assertNotRegex(log + preview, r"scene-script-(?:exception|timeout)|scriptValueInvalid|callback=failed")
             tint_observation = {"material": tint["material"], "completedVectorObservations": callbacks,
                 "authored": tint["authored"], "resolved": tint["resolved"],
-                "scope": "one prepared vector binding; per-capture color consumption is tested by literal PNG/reference pixels, not Timeline color"}
+                "scope": "actual model color callback; per-capture consumption is tested by literal PNG/reference pixels, not Timeline color"}
         for filename, shown in protocol["captureShown"].items():
             path = evidence / filename
             self.assertTrue(path.is_file(), (filename, log[-6000:]))
@@ -506,6 +601,11 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
                 self.assertEqual(model["target"]["textureToken"], seal["target"]["textureToken"])
             for group in protocol["groups"]:
                 root = [r for r in rows if r.get("layerID") == group["root"]]
+                if not shown and protocol["visibilityTargetID"] == group["root"]:
+                    self.assertFalse(any(r["kind"] in ("sourceCapture", "material", "group", "ordinary", "tail-consume")
+                                         for r in root), root)
+                    self.assertFalse(any(r.get("layerID") in group["modelIDs"] for r in model_rows), model_rows)
+                    continue
                 source = next(r for r in root if r["kind"] == "sourceCapture" and r["outcome"] == "encoded")
                 material = next(r for r in root if r["kind"] == "material" and r["outcome"] == "draw-encoded")
                 composite = next(r for r in root if r["kind"] in ("group", "ordinary") and r["outcome"] == "draw-encoded")
@@ -517,7 +617,7 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
                 self.assertEqual([source["source"]["width"], source["source"]["height"]], [200, 120])
                 for identifier in group["modelIDs"]:
                     actual = [r for r in model_rows if r.get("layerID") == identifier]
-                    self.assertEqual(len(actual), int(shown or identifier != protocol["leafID"]))
+                    self.assertEqual(len(actual), int(shown or identifier != protocol["visibilityTargetID"]))
                     if actual:
                         self.assertEqual(actual[0]["target"]["textureToken"], source["source"]["textureToken"])
                         self.assertLess(rows.index(actual[0]), rows.index(source))
@@ -528,6 +628,7 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
                                 and r["outcome"] == "draw-encoded" for r in rows))
             if bad := protocol["badModelID"]:
                 self.assertFalse(any(r.get("layerID") == bad for r in model_rows))
+            self.assertFalse(any(r.get("layerID") in protocol["ownFalseModelIDs"] for r in model_rows))
             readout.append({"capture": filename, "shown": shown, "request": request[0],
                 "capturedPath": captured_path, "evidenceCopyPath": str(path),
                 "commandBuffer": receipt[1], "surface": event["surfaceIdentity"], "frame": event["frameIndex"],
@@ -541,8 +642,9 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
         by_frame = {}
         for frame, layer, material, domain, command, world in depth:
             by_frame.setdefault((frame, command), {})[int(layer)] = domain
-        complete = [frame for frame in by_frame.values() if expected_prepared.issubset(frame)]
-        self.assertTrue(complete, {"depthRows": depth, "expectedIDs": sorted(expected_prepared)})
+        complete = [frame for frame in by_frame.values() if expected_drawable.issubset(frame)]
+        if protocol["captureShown"]["scene-ready-window.png"]:
+            self.assertTrue(complete, {"depthRows": depth, "expectedIDs": sorted(expected_drawable)})
         for frame in complete:
             domains = []
             for group in protocol["groups"]:
@@ -552,7 +654,8 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
             main = {frame[layer] for layer in protocol["referenceModelIDs"]}
             self.assertEqual(len(main), 1, frame)
             self.assertEqual(len(set(domains + list(main))), len(domains) + 1, frame)
-        return {"captures": readout, "depthDomains": complete, "tintBackExecution": tint_observation,
+        return {"captures": readout, "depthDomains": complete, "depthQualified": bool(complete),
+                "tintBackExecution": tint_observation,
                 "boundary": "model rows observe actual albedo texture binding and target; internal material slots are not separately observed"}
 
     def run_model_subtree(self, preset):
@@ -571,8 +674,10 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
                 "--mwx-debug-scene-duration", str(after + 1), "--mwx-debug-scene-evidence-dir", str(evidence),
                 "--mwx-debug-scene-after-snapshot-delay", str(after)]
             if protocol["sequence"]:
-                command += ["--mwx-debug-scene-live-property-sequence-json", json.dumps(protocol["sequence"]),
-                            "--mwx-debug-scene-periodic-snapshot-interval", "3.5"]
+                command += ["--mwx-debug-scene-live-property-sequence-json", json.dumps(protocol["sequence"])]
+            if "scene-series-0000-window.png" in protocol["captureShown"]:
+                command += ["--mwx-debug-scene-periodic-snapshot-interval",
+                            str(protocol.get("periodicSnapshotInterval", 3.5))]
             env = {k: v for k, v in os.environ.items()
                    if not k.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_"))}
             sampled_ids = [protocol["observation"]["clockModelLayerID"]]
@@ -640,3 +745,18 @@ class SceneModelVisibilityIntegrationTests(unittest.TestCase):
 
     def test_prepared_model_leaf_visibility_keeps_tintback_script_and_group_program(self):
         self.run_model_subtree("model-leaf-cycle")
+
+    def test_model_parent_visibility_keeps_tintback_program_and_child_false(self):
+        self.run_model_subtree("model-parent-cycle")
+
+    def test_renamed_model_parent_visibility_keeps_tintback_program_and_child_false(self):
+        self.run_model_subtree("model-parent-cycle-renamed")
+
+    def test_cold_model_parent_property_prepares_tintback_and_preserves_child_false(self):
+        self.run_model_subtree("model-parent-cold-property")
+
+    def test_cold_model_parent_script_prepares_tintback_and_preserves_child_false(self):
+        self.run_model_subtree("model-parent-cold-script")
+
+    def test_cold_model_parent_script_mutation_prepares_tintback_and_preserves_child_false(self):
+        self.run_model_subtree("model-parent-cold-script-mutation")

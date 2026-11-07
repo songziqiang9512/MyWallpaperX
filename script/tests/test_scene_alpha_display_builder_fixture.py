@@ -34,6 +34,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.test_scene_static_model_reader import build_model
 from script.tests.test_scene_effect_render_graph import (
     HARNESS as EFFECT_GRAPH_HARNESS,
     SWIFT_SOURCES as EFFECT_GRAPH_SOURCES,
@@ -78,6 +79,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Compilation/Material/SceneEffectDefinition.swift",
     SOURCE_ROOT / "Compilation/Material/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
     SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
@@ -507,6 +509,40 @@ enum Harness {
                 && SceneRenderDescriptor.Layer.preparedResourceLayer(mutation(-1,true),template:mesh) == nil]
     }
 
+    static func modelVisibilityPreparation(_ directory: URL) throws -> [String: Any] {
+        var result: [String: Any] = [:]
+        for mode in ["no-owner", "property", "property-child", "invalid-color", "script"] {
+            let model = try SceneRuntimeModelBuilder().build(rootURL: directory.appendingPathComponent(mode))
+            let descriptor = model.renderDescriptor
+            let colors = model.propertyVectorProjection.uniqueCandidates.filter {
+                if case .layer(_, .color) = $0.definition.target { return true }; return false
+            }
+            let root = SceneDynamicTarget.layer(layerID: 100, field: .visibility)
+            func visible(_ shown: Bool) -> [Int] {
+                let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                    definitions: [.init(target: root, valueType: .bool, authoredValue: .bool(false))],
+                    sceneScriptValues: [root: .bool(shown)]).snapshot
+                return SceneLayerVisibility.visibleLayerIDs(in: descriptor, snapshot: snapshot).sorted()
+            }
+            result[mode] = [
+                "colorTargets": colors.compactMap { candidate -> Int? in
+                    if case let .layer(id, .color) = candidate.definition.target { return id }; return nil
+                }.sorted(),
+                "executableCandidates": colors.allSatisfy {
+                    !$0.source.isEmpty && $0.definition.valueType == .vector3
+                        && $0.definition.authoredValue == .vector3(0.8, 0.1, 0.2)
+                },
+                "propertyVisibilityTargets": model.runtimeInput.propertyBindingProgram.liveLayerVisibilityTargets.compactMap {
+                    if case let .layer(id, .visibility) = $0 { return id }; return nil
+                }.sorted(),
+                "actualModelMaterialLinks": descriptor.modelMaterialLinks.count,
+                "initiallyVisible": SceneLayerVisibility.visibleLayerIDs(in: descriptor,
+                    snapshot: .empty(frameIndex: 0)).sorted(),
+                "shown": visible(true), "hidden": visible(false), "shownAgain": visible(true)]
+        }
+        return result
+    }
+
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
             throw HarnessError.missingFixture
@@ -586,6 +622,7 @@ enum Harness {
             "preparedGeometry": preparedGeometry,
             "creationGeometry": creationGeometry(),
             "compositionGeometry": compositionGeometry(),
+            "modelVisibilityPreparation": try modelVisibilityPreparation(rootURL.deletingLastPathComponent()),
             "layers": layers,
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
                 in: model.renderDescriptor
@@ -643,6 +680,10 @@ _animation_bridge = (SOURCE_ROOT / "Systems/Script/SceneScriptPuppetAnimationBri
 HARNESS_SOURCE = _animation_bridge[:_animation_bridge.index("    static func configure(")] + "}\n" + HARNESS_SOURCE
 HARNESS_SOURCE = HARNESS_SOURCE.replace("__GRAPH_CONDITION_SCHEMA_TRANSPORT__", swift_declaration(
     EFFECT_GRAPH_HARNESS, "enum SceneGraphConditionSchemaEvidenceCompiler {"))
+HARNESS_SOURCE = swift_declaration(
+    (SOURCE_ROOT / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift").read_text(),
+    "nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {",
+) + "\n" + HARNESS_SOURCE
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
@@ -680,6 +721,22 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
         self.assertEqual(geometry["preparedFallbackSize"], [1, 1])
         for key in ("usesPerspective", "anglesRemainRadians", "invalidSizeRejected", "unmatchedResourceRejected"):
             self.assertIs(geometry[key], True, key)
+
+    def test_hidden_model_parent_prepares_actual_color_candidates_for_property_and_script(self) -> None:
+        expected = {"no-owner": ([300], []), "property": ([201, 300], [100]),
+                    "property-child": ([201, 202, 300], [100, 202]),
+                    "invalid-color": ([300], []), "script": ([201, 202, 211, 300], [])}
+        for mode, (colors, properties) in expected.items():
+            with self.subTest(mode=mode):
+                facts = self.result["modelVisibilityPreparation"][mode]
+                self.assertEqual(facts["colorTargets"], colors)
+                self.assertEqual(facts["propertyVisibilityTargets"], properties)
+                self.assertTrue(facts["executableCandidates"])
+                self.assertEqual(facts["actualModelMaterialLinks"], 1)
+                self.assertEqual(facts["initiallyVisible"], [300])
+                self.assertEqual(facts["shown"], [100, 201, 300])
+                self.assertEqual(facts["hidden"], [300])
+                self.assertEqual(facts["shownAgain"], [100, 201, 300])
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -728,6 +785,31 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
                              "invalid": {"width": "invalid", "height": 40},
                              "pair": {"width": 80, "height": 40}}.items():
             (scene_root / "models" / f"field-presence-{name}.json").write_text(json.dumps({"material": "materials/field-presence.json", **fields}))
+        for mode in ("no-owner", "property", "property-child", "invalid-color", "script"):
+            root = directory / mode
+            (root / "models").mkdir(parents=True)
+            (root / "materials").mkdir()
+            model_path, material_path = f"models/{mode}.mdl", f"materials/{mode}.json"
+            visibility = {"user": "show", "value": False} if mode in ("property", "property-child", "invalid-color") else False
+            objects = [{"id": 100, "name": "Future model parent", "visible": visibility},
+                       {"id": 201, "parent": 100, "model": model_path, "visible": True},
+                       {"id": 202, "parent": 100, "model": model_path, "visible":
+                           {"user": "child", "value": False} if mode == "property-child" else False},
+                       {"id": 210, "parent": 100, "visible": False},
+                       {"id": 211, "parent": 210, "model": model_path, "visible": True},
+                       {"id": 300, "model": model_path, "visible": True}]
+            if mode == "script":
+                objects[-1]["origin"] = {"value": "0 0 0", "script":
+                    'export function update(v){thisScene.getLayer("Future model parent").visible=true;return v;}'}
+            properties = {"show": {"type": "color", "value": "1 0 0"} if mode == "invalid-color"
+                          else {"type": "bool", "value": False}, "child": {"type": "bool", "value": False}}
+            (root / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json",
+                                                           "general": {"properties": properties}}))
+            (root / "scene.json").write_text(json.dumps({"version": 3, "objects": objects}))
+            (root / model_path).write_bytes(build_model(material=material_path.encode()))
+            (root / material_path).write_text(json.dumps({"passes": [{"shader": "genericimage",
+                "constantshadervalues": {"tintback": {"value": "0.8 0.1 0.2", "scriptproperties": {},
+                    "script": "export function update(value){return new Vec3(.2,.4,.6);}"}}}]}))
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-alpha-display-builder"

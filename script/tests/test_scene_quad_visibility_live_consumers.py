@@ -1,4 +1,4 @@
-"""Quad visibility uses prepared claims, hierarchy admission and atomic cohorts.
+"""Visibility uses prepared claims, model hierarchy and atomic cohorts.
 
 Host, structural admission, token identity and LiveState code are production
 implementations. Descriptor and prepared-material dictionaries are input
@@ -257,6 +257,81 @@ HARNESS = r'''
             capabilityID: claim.token.capabilityID, layerID: 101)) == nil
         return facts
     }
+    static func modelCohort(key: String, root: Int, model: Int, image: Int,
+                            kind: String, seed: Bool) -> [String: Bool] {
+        let ownFalse = model + 1, inner = model + 2, innerChild = model + 3, bad = model + 5
+        let utility: SceneUtilityLayer? = kind == "container" ? nil : .init(
+            kind: kind == "project" ? .project : .composition, copyBackground: false, passthrough: false)
+        var descriptor = SceneRenderDescriptor(layers: [
+            .init(id: root, contentKind: kind, visible: seed, childLayerIDs: [model, ownFalse, inner, bad],
+                utilityLayer: utility, effects: utility == nil ? [] : [1]),
+            .init(id: model, contentKind: "model", parentID: root, staticModelPath: "models/\(key).mdl"),
+            .init(id: ownFalse, contentKind: "model", visible: false, parentID: root, staticModelPath: "models/\(key).mdl"),
+            .init(id: inner, contentKind: "container", visible: false, parentID: root, childLayerIDs: [innerChild]),
+            .init(id: innerChild, contentKind: "model", parentID: inner, staticModelPath: "models/\(key).mdl"),
+            // The real draw skips this missing GPU Entry without cancelling its parent.
+            .init(id: bad, contentKind: "model", parentID: root, staticModelPath: "models/missing.mdl"),
+            .init(id: image, contentKind: "image", visible: seed)])
+        let catalog = Catalog(utility == nil ? [:] : [root: .init(sourceRoute: .capturedLayerTexture)])
+        if utility != nil { descriptor.preparedUtilityPlans = [root: .init()] }
+        let prepared: Set<Int> = [model, ownFalse, innerChild]
+        var current = state(descriptor, catalog, key: key, ids: [root, image], seed: seed, models: prepared)
+        let definitions = program(key, [root, image], seed).definitions
+        func visible(_ value: ScenePropertyLiveUpdateState) -> Set<Int> {
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: definitions, userValues: value.userValues).snapshot
+            return SceneLayerVisibility.visibleLayerIDs(in: descriptor, snapshot: snapshot)
+        }
+        var facts: [String: Bool] = [:]
+        facts["structuralParentAndBadChild"] = SceneDynamicLayerVisibilityRouteAdmission.preparationLayerIDs(
+            in: descriptor, candidates: [target(root)]) == Set([root, model, ownFalse, inner, innerChild, bad])
+        facts["parentDoesNotRequireEveryGPUEntry"] = current.activeConsumerTargets.isSuperset(of: [target(root), target(image)])
+            && !prepared.contains(bad)
+        for (index, shown) in [!seed, seed, true, false, true].enumerated() {
+            let changed = bool(current, root) != shown
+            let before = current.revision
+            facts["toggle\(index)"] = current.apply(.bool(shown), forPropertyKey: key)
+                && bool(current, root) == shown && bool(current, image) == shown
+                && current.revision == before + (changed ? 1 : 0)
+            let visibleIDs = visible(current)
+            facts["ownFalse\(index)"] = visibleIDs.contains(model) == shown
+                && !visibleIDs.contains(ownFalse) && !visibleIDs.contains(inner) && !visibleIDs.contains(innerChild)
+        }
+        var independentBad = state(descriptor, catalog, key: key, ids: [root, bad, image], seed: seed, models: prepared)
+        let held = independentBad
+        facts["missingLeafKeepsWholeImageTransaction"] = independentBad.activeConsumerTargets.contains(target(root))
+            && independentBad.activeConsumerTargets.contains(target(image))
+            && !independentBad.activeConsumerTargets.contains(target(bad))
+            && !independentBad.apply(.bool(!seed), forPropertyKey: key) && same(independentBad, held)
+        if utility != nil {
+            var cold = descriptor
+            // Explicit source/Program preparation result; the real planner/GPU
+            // relation is exercised by the App integration gate.
+            cold.preparedUtilityPlans = [root: .init(shouldCapture: false)]
+            var unavailable = state(cold, Catalog(), key: key, ids: [root, image], seed: seed, models: prepared)
+            let before = unavailable
+            facts["sourceWithoutProgramKeepsWholeTransaction"] = !unavailable.activeConsumerTargets.contains(target(root))
+                && unavailable.activeConsumerTargets.contains(target(image))
+                && !unavailable.apply(.bool(!seed), forPropertyKey: key) && same(unavailable, before)
+            cold.layers[0].effects = []
+            var localRaster = state(cold, Catalog(), key: key, ids: [root, image], seed: seed, models: prepared)
+            facts["localRasterNeedsNoFabricatedProgram"] = localRaster.apply(.bool(!seed), forPropertyKey: key)
+        }
+        for mutation in ["effect", "dependency", "authored-dependency"] {
+            var unsupported = descriptor
+            switch mutation {
+            case "effect": unsupported.layers[1].effects = [1]
+            case "dependency": unsupported.layers[1].dependencyLayerIDs = [image]
+            default: unsupported.layers[1].authoredDependencies = [image]
+            }
+            var rejected = state(unsupported, catalog, key: key, ids: [root, image], seed: seed, models: prepared)
+            let before = rejected
+            facts[mutation] = !rejected.activeConsumerTargets.contains(target(root))
+                && rejected.activeConsumerTargets.contains(target(image))
+                && !rejected.apply(.bool(!seed), forPropertyKey: key) && same(rejected, before)
+        }
+        return facts
+    }
     static func existingBoundaries() -> [String: Bool] {
         var facts: [String: Bool] = [:]
         let model = SceneRenderDescriptor(layers: [.init(id: 71, contentKind: "model", staticModelPath: "own.mdl")])
@@ -273,6 +348,7 @@ HARNESS = r'''
             facts[captures ? "fullscreenCapture" : "fullscreenNoCapture"] =
                 current.apply(.bool(false), forPropertyKey: "show") == captures
             if captures {
+                fullscreen.preparedUtilityPlans = [80: .init(shouldCapture: false)]
                 var cold = state(fullscreen, Catalog(), key: "show", ids: [80])
                 facts["fullscreenNoProgram"] = !cold.apply(.bool(false), forPropertyKey: "show")
             }
@@ -285,6 +361,9 @@ HARNESS = r'''
             "renamedOff": cohort(key: "renamedBeam", quad: 407, particle: 819, seed: false),
             "parentedOn": parentedCohort(key: "ownNestedBeam", quad: 910, particle: 34, seed: true),
             "parentedRenamedOff": parentedCohort(key: "differentNestedLight", quad: 2701, particle: 619, seed: false),
+            "modelContainer": modelCohort(key: "ownModel", root: 20, model: 21, image: 30, kind: "container", seed: true),
+            "modelColdComposition": modelCohort(key: "coldModel", root: 200, model: 211, image: 300, kind: "composition", seed: false),
+            "modelRenamedProject": modelCohort(key: "differentGeometry", root: 720, model: 813, image: 960, kind: "project", seed: true),
             "preparedRejections": rejectedPreparedFacts(), "existingBoundaries": existingBoundaries()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: report), as: UTF8.self))
     }
@@ -330,6 +409,7 @@ class QuadVisibilityLiveConsumerTests(unittest.TestCase):
         built = subprocess.run(["swiftc", *map(str, SWIFT_SOURCES),
             str(SCENE / "Rendering/Composition/SceneUtilityLayer.swift"),
             str(SCENE / "Rendering/Composition/SceneUtilityLayerSourceRoute.swift"),
+            str(SCENE / "Rendering/Geometry/SceneLayerVisibility.swift"),
             str(admission), str(harness), "-module-cache-path", str(work / "cache"),
             "-o", str(binary)], capture_output=True, text=True, timeout=120)
         if built.returncode:
@@ -349,6 +429,12 @@ class QuadVisibilityLiveConsumerTests(unittest.TestCase):
         for name in ["parentedOn", "parentedRenamedOff"]:
             for fact, passed in self.result[name].items():
                 self.assertTrue(passed, (name, fact))
+
+    def test_model_parent_uses_prepared_source_and_keeps_bad_leaf_failure_local(self) -> None:
+        for name in ["modelContainer", "modelColdComposition", "modelRenamedProject"]:
+            for fact, passed in self.result[name].items():
+                with self.subTest(case=name, fact=fact):
+                    self.assertTrue(passed)
 
     def test_existing_model_and_fullscreen_readiness_guards_remain(self) -> None:
         for name, passed in self.result["existingBoundaries"].items():

@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 96,
-      "bytes": 15012
+      "lines": 100,
+      "bytes": 17499
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 84,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 190,
-      "bytes": 105755
+      "bytes": 106293
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 178,
-      "bytes": 37506
+      "bytes": 37609
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,10 +458,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "409470ab121d7e502831fda3a52bff7f48409e2689669d7630758e45cea8a1f2",
-      "after": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
-      "owner": "scene-visible-progress",
-      "reason": "Document the original-owner model local raster/winding and pass-depth behavior, actual discriminating App evidence and remaining parent preparation boundary; replace retired model/SpotLight type-rejection statements.",
+      "before": "0605add3581997335c1612a9718e2fe8b90f8b98f279208839ec3bce4d1d84cb",
+      "after": "82d4b049c6f7b528bd67e6b61e231bc3073a9581b9c6f255efb87b62ca1b599f",
+      "owner": "scene-model-parent-visibility",
+      "reason": "Consolidate the original-owner model parent visibility and typed producer preparation contract, bounded same-input App and independent author evidence, and remaining source boundaries. Retire the prepared-leaf exception and stale qualification statements without adding a document authority or runtime state.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     },
     {
@@ -521,20 +521,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9a6678c6ed77ada6816cb4e4c0df59daa61161e7a107247632a023f37bc5f935",
-      "after": "d8103aa51baaae3654016ef77ff1fe9b56c1db1fe1a4288e9b44028b50ccdd0e",
-      "owner": "scene-utility-inactive-effect-preparation",
-      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
+      "before": "d8103aa51baaae3654016ef77ff1fe9b56c1db1fe1a4288e9b44028b50ccdd0e",
+      "after": "dbdbebaa34990d3fee2846b19c8df891f3deec9cea9ac3c1ed391acbabdbabbf",
+      "owner": "scene-model-parent-visibility",
+      "reason": "Consolidate the original-owner model parent visibility and typed producer preparation contract, bounded same-input App and independent author evidence, and remaining source boundaries. Retire the prepared-leaf exception and stale qualification statements without adding a document authority or runtime state.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2375a49f8a7579b554809816dc56369c8fabe92284f45cf91dbc39e0bc30823b",
-      "after": "d4cb2a197e3f080b8e8af6d4ce70906894d2623e42d6fbd9a02349e1d06c33a3",
-      "owner": "scene-utility-inactive-effect-preparation",
-      "reason": "Reuse the original hierarchy/source admission for utility inactive effects and retire duplicate kind/resolve gates. Consolidate named and utility qualification in the existing current evidence row; record frozen actual Project hot-toggle pixels, genuine failure controls, independent original authors and remaining explicit-background source uncertainty. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect"
+      "before": "d4cb2a197e3f080b8e8af6d4ce70906894d2623e42d6fbd9a02349e1d06c33a3",
+      "after": "13fc9706a69d0f2c8c01eac6a6456b833a81b8d94687bc940ffe2c9d329b6057",
+      "owner": "scene-model-parent-visibility",
+      "reason": "Consolidate the original-owner model parent visibility and typed producer preparation contract, bounded same-input App and independent author evidence, and remaining source boundaries. Retire the prepared-leaf exception and stale qualification statements without adding a document authority or runtime state.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster"
     }
   ]
 }

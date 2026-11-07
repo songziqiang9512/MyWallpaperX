@@ -156,8 +156,41 @@ struct SceneRuntimeModelBuilder {
                 return layerID
             }
         )
-        let hasVisibleStaticModelConsumer = runtimeDescriptor.layers.contains {
-            $0.staticModelPath != nil && visibleLayerIDs.contains($0.id)
+        let propertyDefinitionsByKey = Dictionary(
+            grouping: project.userProperties.definitions, by: \.key
+        )
+        let propertyVisibilityTargets = Set(
+            sceneDocument.userPropertyResolution.bindingReport.bindings.compactMap {
+                binding -> SceneDynamicTarget? in
+                guard case .layerVisibility = binding.target else { return nil }
+                let definitions = propertyDefinitionsByKey[binding.reference.key] ?? []
+                let kind = definitions.count == 1 ? definitions[0].kind : nil
+                guard let mapped = ScenePropertyBindingCompiler.map(binding, propertyKind: kind),
+                      mapped.propertyKind == kind else { return nil }
+                return mapped.target
+            }
+        )
+        let visibilityPreparationTargets = SceneDynamicLayerVisibilityRouteAdmission.targets(
+            in: runtimeDescriptor,
+            candidates: propertyVisibilityTargets.union(structuralPropertyVectorProjection.targets),
+            hasScriptLayerAccess: !sceneDocument.scriptBindings.isEmpty
+        )
+        var colorConsumerLayerIDs = visibleLayerIDs.union(typedVisibilityOwnerLayerIDs)
+        if !visibilityPreparationTargets.isEmpty {
+            // Preparation demand is not a current publication. Child false and
+            // alpha display authority still resolve through the shared snapshot.
+            let visibilityPreparationSnapshot = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 0, generation: 0,
+                definitions: visibilityPreparationTargets.map {
+                    .init(target: $0, valueType: .bool, authoredValue: .bool(true))
+                }
+            ).snapshot
+            colorConsumerLayerIDs.formUnion(SceneLayerVisibility.visibleLayerIDs(
+                in: runtimeDescriptor, snapshot: visibilityPreparationSnapshot
+            ))
+        }
+        let hasStaticModelColorConsumer = runtimeDescriptor.layers.contains {
+            $0.staticModelPath != nil && colorConsumerLayerIDs.contains($0.id)
         }
         let sceneScriptColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
@@ -169,12 +202,11 @@ struct SceneRuntimeModelBuilder {
                     || (layer.contentKind == "text"
                         && layer.text != nil
                         && layer.textStyle != nil)
-                    || (hasVisibleStaticModelConsumer
+                    || (hasStaticModelColorConsumer
                         && (layer.spotLight != nil
                             || layer.directionalLight != nil))
                 guard hasConsumer,
-                      visibleLayerIDs.contains(layer.id)
-                        || typedVisibilityOwnerLayerIDs.contains(layer.id)
+                      colorConsumerLayerIDs.contains(layer.id)
                         || hasVolumetricConeConsumer
                 else { return nil }
                 return layer.id

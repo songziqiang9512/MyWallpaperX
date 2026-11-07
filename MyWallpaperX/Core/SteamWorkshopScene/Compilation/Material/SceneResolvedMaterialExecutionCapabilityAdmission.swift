@@ -71,8 +71,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
-        hasScriptLayerAccess: Bool = false,
-        preparedStaticModelLayerIDs: Set<Int> = []
+        hasScriptLayerAccess: Bool = false
     ) -> Set<SceneDynamicTarget> {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let children = childrenByParent(in: descriptor)
@@ -93,18 +92,6 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                   layers.count == 1,
                   let layer = layers.first else { continue }
             if visibilitySubtree(layerID: layerID, descriptor: descriptor, groups: descriptorGroups, children: children) != nil {
-                admitted.insert(target)
-                continue
-            }
-            // Static meshes are already shared launch resources. Admit only
-            // the actual prepared leaf; this does not prepare model subtrees
-            // or advertise a model's unsupported layer effects.
-            if preparedStaticModelLayerIDs.contains(layerID),
-               layer.contentKind == "model", layer.staticModelPath != nil,
-               layer.utilityLayer == nil, layer.effects.isEmpty,
-               layer.childLayerIDs.isEmpty, children[layerID, default: []].isEmpty,
-               visibilitySubtree(layerID: layerID, descriptor: descriptor, groups: descriptorGroups,
-                               children: children, preparedModelLeafID: layerID) != nil {
                 admitted.insert(target)
                 continue
             }
@@ -185,8 +172,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
         layerID: Int,
         descriptor: SceneRenderDescriptor,
         groups: [Int: [SceneRenderDescriptor.Layer]],
-        children: [Int: [Int]],
-        preparedModelLeafID: Int? = nil
+        children: [Int: [Int]]
     ) -> Set<Int>? {
         func supportedLayer(_ id: Int) -> SceneRenderDescriptor.Layer? {
             guard let group = groups[id], group.count == 1,
@@ -220,16 +206,21 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 let quadLeaf = layer.contentKind == "quad"
                     && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
                     && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                // A model is a structural preparation demand here. Actual
+                // resource availability remains with the consuming host/draw.
+                let modelLeaf = layer.staticModelPath != nil
+                    && layer.effects.isEmpty
+                    && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                    && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
                 guard ["container", "image", "solid", "text"].contains(layer.contentKind)
-                    || particleLeaf || lightLeaf || quadLeaf || id == preparedModelLeafID else { return nil }
+                    || particleLeaf || lightLeaf || quadLeaf || modelLeaf else { return nil }
             }
             let childIDs = children[id, default: []]
             guard Set(layer.childLayerIDs) == Set(childIDs),
                   layer.childLayerIDs.count == childIDs.count else { return nil }
             return layer
         }
-        // Validate ancestry even for a leaf edit. Only the explicitly prepared
-        // model leaf can join this route; specialized members still require
+        // Validate ancestry even for a leaf edit; specialized members retain
         // the composition source resolver's supported subtree contract.
         var ancestors: Set<Int> = []
         var current: Int? = layerID
