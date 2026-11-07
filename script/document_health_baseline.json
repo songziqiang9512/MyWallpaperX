@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 231,
-      "bytes": 40127
+      "lines": 233,
+      "bytes": 40796
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 248,
       "bytes": 48316
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 216,
-      "bytes": 117069
+      "lines": 217,
+      "bytes": 118256
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 122,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 194,
-      "bytes": 44606
+      "bytes": 44887
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,30 +340,30 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "0bedb29e6e0ec0a6fe35b23dc26d9348c2c389dff8523ab4207c564e29997f74",
-      "after": "afc89280d6c93fb0f3123f3462a6e790d69b0665798d9f0b3806eb5b69acc797",
-      "owner": "Scene prepared material / graph",
-      "reason": "新增geometry局部色图的坐标/尺寸/失败合同，退役没有实际消费者的world-MVP许可，限定原owner与验收范围。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-geometry-local-raster"
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "2de917a974282a0dbbaaf96df2a81126b77962c252d8643f902383849a1b47c2",
+      "after": "5e6daf1d0df8d7be6b61547cc8d1824f0a9d7a5e6caf7883b12feb86b296ccd8",
+      "owner": "Scene particle preparation / official evidence",
+      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ac4f4775ec36e6eb90c1f2e0a8160cc1d74331ffb28e46a1342c167caf369e77",
-      "after": "4a3a77129025de512b81dcf9121948a327507c52f041cd9cef481357a6c2190f",
-      "owner": "Scene prepared material / graph",
-      "reason": "登记383原作者真实geometry→601→main/GPU启动恢复及剩余局部CHECK、独立样本与有界native像素资格，不覆盖冻结R0。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "4a3a77129025de512b81dcf9121948a327507c52f041cd9cef481357a6c2190f",
+      "after": "235d800c0ba4b3a6ecf37e0219c35ca4825563ac55edc15750bd96e9d4dae226",
+      "owner": "Scene particle preparation / official evidence",
+      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2555e12c8656e2183dc51b557b7db674843d5b2df37d30ee53a91930036c7ec8",
-      "after": "4f23289c61e0ab5af71b8c2ffff2af16453d6d72a92ceeffec9f17dc3410f0d8",
-      "owner": "Scene prepared material / graph",
-      "reason": "用当前启动修复与380短栈/OFF控制和参数工作量替换旧首断点，保用户基础画面优先及未解决局部/工具问题。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "4f23289c61e0ab5af71b8c2ffff2af16453d6d72a92ceeffec9f17dc3410f0d8",
+      "after": "387c95052d62f535c0680b8835d605a40fa4e06c274eaa1236e6db5208187b88",
+      "owner": "Scene particle preparation / official evidence",
+      "reason": "Document bounded prewarm observations and unchanged state/history constraints; prioritize actionable base-picture repairs without treating late observation or UI units as a full runtime contract.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     }
   ]
 }

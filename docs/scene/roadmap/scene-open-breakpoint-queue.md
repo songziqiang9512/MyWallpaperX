@@ -6,7 +6,7 @@
 
 2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。285项取得Ready、终端PNG与GPU排空；3808922316准备超时、3834591400首帧失败均同输入串行复现。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)，原始CHECK不作缺陷数。先处理本表前列的实际播放阻断与活动局部拒绝；结构健康不关闭原视觉反馈。
 
-后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。380的准备阻断仍优先；383已解除首帧拒绝，其独立局部effect缺口保下表，再从本次基础画面/交互优先组与已证活动局部拒绝选题；其余静态语义边界不越过这些实证问题。2026-11-07补报13个作者定位与图1–5作为下方基础画面优先组；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+后续先保证每个样本主画面、主要图层和基本交互正常，再追细节、算法参数及尚无画面归因的边界。383已解除首帧拒绝；380已定位超大预热工作量，但状态等价与官方创建语义未定，保启动优化项，不为取得Ready截历史。下一项先处理329已复现头部错位，再从本次基础画面/交互优先组与已证活动局部拒绝选题；其余静态语义边界不越过这些实证问题。2026-11-07补报13个作者定位与图1–5作为下方基础画面优先组；8项曾进入本轮默认App运行、5项仅有本轮census，均不由rawPASS或静态粗筛否定动态、点击、音频反馈。新增反馈不倒改上段冻结复测分母。原图完整3024×1964及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -15,11 +15,11 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 准备不收敛 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度串行仍超时无Ready。一次有界短栈处于粒子预热，诊断首事实Set/字符串参与其中；同App关闭该观测后仍超时，不能以关闭观测或末条cache日志解释根因。原星场1333的starttime=100000，固定步链请求约600万更新；这是参数推导工作量，非全程实测计数/热点。先核官方字段/加载行为与原预热消费者，保出生/RNG/运动历史，不直接截短作者值或提高时限。 |
 | Puppet挂点整表拒绝 · 3294151411 | 新增作者头29绑定父37的`шея`；MDAT同名两条且矩阵不同，当前Reader以duplicateAttachmentName拒整表，descriptor无bind，实际走parent-only。约Ready+1.2秒及3秒原PNG均见头/马尾与躯干分离，独立mesh仍绘制。先取得重复名解析及实际挂点消费者资格，不凭预览或画面反选首/末条，也不把整表清空当合法默认。 |
 | 多renderer整体拒绝 · 2868108515 | 46个活动粒子层中544470/591910共用sprite+ropetrail+spritetrail定义，在单项renderer选择前因集合count=3整体nil，实际只加载44层。缺省length=1不是首错；后续资源及各renderer像素贡献未知。沿原prepared模拟状态与renderer消费者明确多输出职责，不重复模拟、仅选一种冒充完整结果或扩大名称许可。 |
 | REFRACT材质准备拒绝 · 新增四作者 | 3580724885、3590684440、3602874264、3663269553共14个启动有效可见粒子层实际`refractionUnsupported:unsupportedMaterialProfile`，主景及终端仍成立。先在原材质准备核具体未消费输入与最小失败范围；这是共同拒绝边界，尚非同一根因或14个独立缺陷，不借下方官方normal单位未知归因，也不忽略材质输入换取加载数字。 |
 | 活动局部named输入 · 3834591400 | 首帧阻断已沿[geometry局部色图](../capabilities/render-graph-shader-coverage.md#named-geometry-local-raster)退出：原作者17实际geometry/graph色图供601，后续87输入、mask、main/GPU/PNG与排空成立。剩余572/e2/#499有效可见，仍`dependency-stage-reference-unavailable`并局部保previous-current；不是601失败，不能宣全作者效果正确。另572/e1/#407为property-inactive、无该段draw，reader仍期待exact subject属于工具口径，不作活动缺图。 |
+| 超长预热 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度仍超时；短栈处于粒子预热，同App关闭首事实观测仍超时。原隐藏星场1333 starttime=100000按当前固定步请求约600万更新，是源码工作量而非完成计数。固定官方默认控制最终出图、精确完成及90秒资格未定，见[有界研究](../capabilities/runtime-evidence-current.md#coverage)。预算与隐藏状态沿[原预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不能直接跳过。先保完整状态，待原创建需求/单位/等价优化的可判证据；当前转先修基础画面，不原样延时、加预算或凭cache末日志改代码。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | `SceneAuthoredXRayPlanner+StockIdentity`仍以固定路径、UI字段及两个摘要profile授source-passthrough豁免；`SceneImageLayerDrawRequest`仍以Pulse/Blur/Waterwaves路径、pass/slot/combo形状判source coverage。两者影响源图降级，不是通用Program执行许可，尚无当前作者被误挡的画面归因。沿原prepared Program的coverage、颜色边界及发布依赖事实替换并退役旧许可；核等价资源改名、真实alpha改变、PMA、mask与named发布反例，不能直接通放base source冒充效果结果。 |
 | material default动画入口 | 该存储位执行语义尚无作者/官方正例，不能仅凭AssetCatalog未parse认定冻结缺陷。先取合法default动画行为正控，再由原descriptor冷准备汇合material/instance有效值与definition-only pass identity，不让TargetCompiler重解资源或另建owner。 |

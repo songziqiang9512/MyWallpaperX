@@ -22,7 +22,9 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，逐步排空历史事件，保部分末步和后续 live 随机序列；实例 rate 在原 step 内应用一次，simulationTime 不必等于 starttime 请求。所有 root 沿 worker 完整准备，退役3,600步、四百万加权关卡及专属工作计数；static/frame-created child 仍保240步及截断诊断。入口无效时长、容量与资源边界不变。
 
-验收核完整真实状态/RNG/事件/历史与 live handoff、多 Surface 独占、取消释放、真实初始画面和候选准备期间旧 Scene 输出。[运行证据](runtime-evidence-current.md)拥有当前结果；standalone 成本、直接 DEBUG Host 与物理多屏、daemon IPC、官方 starttime 全语义和逐帧流畅度分别设证明上限。
+现有 `prewarmStepBudget` 只截断本次同步模拟，Snapshot 没有续热游标；不能先限步再用普通 live advance 冒充补齐历史。默认隐藏的 root 在零步初始 advance 中清人口/轨迹，但保 RNG、ID、模拟时间和已完成 emitter 状态；未完成者沿原 rearm。跳过其预热也不是既有状态的等价变换。资源可准备、完整实例创建与可见绘制分别是需求，隐藏本身不取消脚本或后续显现的消费者。
+
+验收核完整真实状态/RNG/事件/历史与 live handoff、多 Surface 独占、取消释放、真实初始画面和候选准备期间旧 Scene 输出。[运行证据](runtime-evidence-current.md)拥有当前结果；[官方 General 资料](../development/source-index.md#官方作者资料)按秒描述编辑器系统 Start Time，未直接定义 raw JSON 换算、内部步长/上限或隐藏创建策略。standalone 成本、直接 DEBUG Host 与物理多屏、daemon IPC、官方完整语义和逐帧流畅度分别设证明上限。
 
 <a id="components"></a>
 ## 当前组件面

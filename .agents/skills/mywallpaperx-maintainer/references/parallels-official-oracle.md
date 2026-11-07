@@ -38,11 +38,13 @@ prlctl list --info "$ORACLE_VM"
 
 已经 running 时不要再 start 来“显示窗口”；running 不等于 guest 已解锁、桌面可交互或控制台已置前。stopped 与 paused/suspended 分别按本机帮助选择 start / resume，属于实际运行步骤；失败不升级成 reset / stop --kill / --drop-state。
 
-短通道探针：
+本轮帮助提供 `--use-advanced-terminal` 时，优先沿已验证的高级通道与完整程序路径做短探针；后续命令复用同一通道。已有默认短探针返回 `PrlJob_GetResult: Invalid argument`、高级通道/完整路径组合成功的实际记录；这不唯一定位内部故障，不据此猜通用命令长度或重装 Tools。保留原失败，仍先核本轮 Tools、会话和帮助；组合也失败时停在执行层，不重叠业务调用。
+
+短通道探针（程序路径以本轮 guest 为准）：
 
 ```sh
-prlctl exec "$ORACLE_VM" --current-user whoami.exe
-prlctl exec "$ORACLE_VM" --current-user powershell.exe -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+prlctl exec "$ORACLE_VM" --current-user --use-advanced-terminal 'C:\Windows\System32\whoami.exe'
+prlctl exec "$ORACLE_VM" --current-user --use-advanced-terminal powershell.exe -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
 ```
 
 `--current-user` 选择 guest 当前登录用户的凭据；它不保证 GUI 在可见桌面上，也不是授权替代。需要识别 receiver 时，用短只读 PowerShell 查询进程的 `Id / ProcessName / SessionId / Path`，确认实际32/64位入口、版本、哈希与用户会话。CLI 转发进程与长期播放进程分开识别。若 guest 未登录/被锁定，先处理登录现场，不绕过锁屏或切换到另一账号来掩盖问题。

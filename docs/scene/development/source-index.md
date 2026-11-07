@@ -25,7 +25,7 @@
 | SceneScript API | [在线 API](https://docs.wallpaperengine.io/en/scene/scenescript/reference.html)、[在线类型声明](https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts) |
 | Shader | [Shader Overview](https://docs.wallpaperengine.io/en/scene/shader/overview.html)、[Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html)、[Headers](https://docs.wallpaperengine.io/en/scene/shader/headers.html) |
 | Effect | [Effects Overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html) |
-| Particle | [Particles](https://docs.wallpaperengine.io/en/scene/particles/introduction.html) |
+| Particle | [Particles](https://docs.wallpaperengine.io/en/scene/particles/introduction.html)、[General / 系统 Start Time](https://docs.wallpaperengine.io/en/scene/particles/component/general.html) |
 | Timeline | [Animation](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html) |
 | 属性与外部输入 | [User Properties](https://docs.wallpaperengine.io/en/scene/userproperties/overview.html)、[Audio](https://docs.wallpaperengine.io/en/scene/audiovisualizer/overview.html)、[Media](https://docs.wallpaperengine.io/en/scene/audiovisualizer/mediainformation.html) |
 | 文档源码与页面发现 | [官方文档仓库](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs)、[Sitemap](https://docs.wallpaperengine.io/sitemap.xml) |
