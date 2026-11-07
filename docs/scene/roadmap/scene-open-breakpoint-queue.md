@@ -53,7 +53,7 @@
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
-| 粒子预热CP · 3799613625/321 | 旧/新均有emitter的prewarm `control-point-frame-unavailable`；首断点在`SceneParticleSimulator` emitter frame消费。核准备期CP source与首帧writer顺序，并按同emitter/CP身份补live恢复资格，不以其他root452/child的健康draw代该层，也不凭预热诊断断言全程缺图。 |
+| 粒子预热CP · 3799613625/321 | 既有失败精确属于321的static child0/system1 `red_fire.json` emitter0预热，非starttime0的321 root。作者cursortrail默认false，四份记录均关闭；尚无同消费者live出生或开启后的可见失败。冷pointer缺供的局部拒绝不能删除，也不能借452/同族行授恢复。下一步开启拖尾并供inside pointer，沿同child/emitter核真实出生、绘制与终端结果，再判断是否存在播放缺口。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。本轮3788897599的291/259 composition行`rendererKind=unknown`，定位`SceneParticleMetalPipeline+Frame`的可选debug字段及原component observation供货；复测先核现有按需观测输入，不由路径猜种类，也不将此元数据缺口判为绘制失败。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
 | 着色器类型回归预期 | `test_scene_shader_global_scope.test_float2_arithmetic_does_not_cross_unproven_expression_boundaries` 的 user-call/normalize 仍期待不补`.xy`，与现有typed复合求值后窄化合同冲突；同输入旧/新产品都补`.xy`。其余9方法通过、GPU独立项1skip；按真实类型与编译/像素修订这两条旧预期，不能撤回合法转换迎合测试。 |
@@ -91,7 +91,6 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 1695673397 | 原1280截图顶部约32px整幅浅灰带且下缘硬，粒子覆盖其上；先核source边界/画布与实际合成，preview不是同相位金标。 |
 | 2887099508 | 原图清晰主画面约偏至(250,197)，人物大部超右界，后方为浅色模糊背景；需固定viewport、作者画布与source/output变换。 |
 | 2999907577 /3003318777 | 前者除上方白弧外大片平灰背景，后者整幅明显虚焦；对照作者默认属性与原source/特效输入，尚未资格归因。 |
 | 3382111183 /3436945972 /3463406101 /3443450456 | 分别整幅失焦、明显偏暗、暗绿配色及灰白底黑字；同焦距、亮度、遮罩、配色/时段与音频输入后再定位writer，不从preview直接归tone-map/blend。 |

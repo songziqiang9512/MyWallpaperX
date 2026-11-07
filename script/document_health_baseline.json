@@ -129,8 +129,8 @@
       "bytes": 43890
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 184,
-      "bytes": 98918
+      "lines": 185,
+      "bytes": 99779
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 177,
-      "bytes": 35632
+      "lines": 176,
+      "bytes": 35602
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -521,20 +521,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f46947e72b17f7a3637c9649fa053a6143465ebfb90020407a3ae6b97d6e1cc1",
-      "after": "0bedb88662a5c1f171451d0f6c485a12c3e4bb1fbdd42603fc4f2bef925918e3",
-      "owner": "scene-named-primary-input-set",
-      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a4ba40b89cadc14ab4f66bb74d5fb7c2e05198dfe5b697cf97bf8f45156a7c40",
-      "after": "366b24ba70572de2b5698cc8412e49f55b6b12c927529e6e3d6c00ec25ebb319",
-      "owner": "scene-named-primary-input-set",
-      "reason": "Replace singleton forward-provider permission with the complete primary set, retaining original ownership/source-cut consumers and local fallback. Record same-input and variant pixels, preserve the independent-author boundary, and retain sampler research stop/capture/archival limits in the original open queue. No new document authority or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "0bedb88662a5c1f171451d0f6c485a12c3e4bb1fbdd42603fc4f2bef925918e3",
+      "after": "cadf8009daf7a72dfb48c00ebb33b8ebfb317861f2ec14c1d5571d2ecc78a0bf",
+      "owner": "scene-author-source-qualification",
+      "reason": "Qualify a reproduced top band through authored geometry, actual source texture and clearcolor-only App control; retire the resolved source-padding suspicion and correct hidden child-prewarm ownership without changing product rendering or fabricating activity.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
     }
   ]
 }
