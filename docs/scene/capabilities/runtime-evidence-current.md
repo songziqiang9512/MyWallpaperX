@@ -234,6 +234,13 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 固定官方2.8.0.42自有FSC1仅观察到一次 fullscreen move：local等于top-left screen pixels、world等于input cursor world；实际点在viewport外，连续离屏、点击及普通图片button未取得资格，CUA输入未交付即停止。当前真实App采用合成pointer，不授桌面物理输入、任意父变换/多屏、官方完整像素或性能。原输入、失败、三点PNG、构建及独审归`.artifacts/scene-pointer-mask-20261108/`。
 
+<a id="cursor-primary-button"></a>
+## 左键编号与文字切图
+
+原C cursor参数按现有primary输入补数值button0，未扩ABI、事件生成或资源链；[合同](scenescript-api-coverage.md#cursor-primary-button)先落库。签名Debug exec SHA `a3572d77…bf4266e7`，4396构建输入稳定，单C产品净增4行、metallib未变。最近真实C/QuickJS门一次17方法通过，覆盖严格数值/改名等价guard、move/down/up/click、按压状态、outside/release-outside、peer与原事务；不重复全Scene门。
+
+3792745102原project/pkg/tree、同(.96,.6666667)指针：前后都实际命中62并触发click，原图停17；当前同回调后frame123将36置true/17置false，后续真实source/材质→main/seal/GPU与PNG切到36。名字、变量、等价guard及两背景模型/材质/纹理路径改名的受控输入，从显式36开始点59后切17；这是另一初始输入的反向验证，非同Session往返。独立真实3087231311保斜带A→B→A、302/288原位置值与named材质消费，未回退刚恢复的能力。各次Ready/停止/Surface释放/排空成立。原输入、失败、PNG与独审归`.artifacts/scene-click-background-20261108/`。合成点击不授桌面物理输入、官方click/全部菜单或性能；377的动画init异常保持独立待核。
+
 <a id="limits"></a>
 ## 未取得的资格
 

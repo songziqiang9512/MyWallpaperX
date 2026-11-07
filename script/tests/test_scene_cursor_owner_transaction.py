@@ -43,6 +43,54 @@ HARNESS = r'''
       let xs=[];
       export function cursorClick(e) { xs.push(e.localPosition.x); thisLayer.origin=new Vec3(xs.length,xs.length>1?xs[xs.length-2]:0,input.cursorWorldPosition.x); }
       """
+    static func primaryButtonCases() throws -> [[String:Any]] {
+        try (0..<2).map { variant in
+            let argument = variant == 0 ? "event" : "pointerEvent"
+            let guardBody = variant == 0
+                ? "if (event.button !== 0) return;"
+                : "if (!(pointerEvent['button'] === (1 - 1))) return;"
+            let source = """
+                let trace=0, pressed=0, clicks=0, held=false;
+                function record(\(argument), kind, expectedDown) {
+                    \(guardBody)
+                    if (typeof \(argument).button !== 'number') throw Error('button type');
+                    if (input.cursorLeftDown !== expectedDown) throw Error('pressed input changed');
+                    trace=trace*10+kind;
+                    pressed=pressed*10+(input.cursorLeftDown ? 1 : 2);
+                    if (kind===4) clicks++;
+                    thisLayer.origin=new Vec3(trace,pressed,clicks);
+                }
+                export function cursorMove(e){record(e,1,held);}
+                export function cursorDown(e){held=true;record(e,2,true);}
+                export function cursorUp(e){held=false;record(e,3,false);}
+                export function cursorClick(e){record(e,4,false);}
+                """
+            let peer = """
+                let moves=0, clicks=0;
+                export function cursorMove(e){thisLayer.origin=new Vec3(++moves,e.localPosition.x,input.cursorLeftDown?1:0);}
+                export function cursorClick(e){thisLayer.origin=new Vec3(moves,++clicks,input.cursorLeftDown?1:0);}
+                """
+            let scenarios: [(String,[SceneScriptCursorFrameSample])] = [
+                ("inside", [sample(1,false),sample(2,false),sample(2,true),sample(3,true),sample(3,false)]),
+                ("outsidePress", [sample(10,false,hit:false),sample(10,true,hit:false),sample(10,false,hit:false)]),
+                ("releaseOutside", [sample(10,false),sample(10,true),sample(11,true,hit:false),sample(11,false,hit:false)]),
+            ]
+            var facts: [String:Any] = ["variant":variant]
+            for (name,samples) in scenarios {
+                let (program,_) = try make([(.origin,source),(.scale,peer)])
+                let result = dispatch(program,samples)
+                program.finalizeLayerMutations(committing:true)
+                let idle = dispatch(program,[samples.last!])
+                facts[name] = [
+                    "failures":result.failures.values.map(\.code).sorted(),
+                    "value":values(result), "peer":values(result,.scale),
+                    "quietAfter":idle.ownerEffects.isEmpty && idle.failures.isEmpty,
+                ]
+                program.finalizeLayerMutations(committing:true)
+            }
+            return facts
+        }
+    }
     static func boneOrder(burst: Bool = false, failPeer: Bool = false, mixed: Bool = false) throws -> [String:Any] {
         let second = burst
             ? "thisLayer.setBoneTransform(0,Mat4.fromTranslation(new Vec3(11,0,0)));" : ""
@@ -108,6 +156,7 @@ HARNESS = r'''
     }
     static func main() throws {
         var out:[String:Any] = [:]
+        out["primaryButton"] = try primaryButtonCases()
         out["boneOrder"] = try boneOrder()
         out["boneBurst"] = try boneOrder(burst:true)
         out["boneThrow"] = try boneOrder(failPeer:true)
@@ -257,6 +306,30 @@ class CursorOwnerTransactionTests(unittest.TestCase):
     def test_saved_event_and_surface_inputs_use_current_frame_clock(self):
         self.assertEqual(self.result["savedSurfaceFailures"],0)
         self.assertEqual(self.result["savedSurfaceRetry"],[4,3,0])
+
+    def test_primary_button_is_numeric_zero_for_move_down_up_and_click(self):
+        self.assertEqual(len(self.result["primaryButton"]), 2)
+        for case in self.result["primaryButton"]:
+            with self.subTest(variant=case["variant"]):
+                inside = case["inside"]
+                self.assertEqual(inside["failures"], [])
+                self.assertEqual(inside["value"], [12134, 21122, 1])
+                self.assertEqual(inside["peer"], [2, 1, 0])
+                self.assertTrue(inside["quietAfter"])
+
+    def test_primary_button_guards_keep_outside_click_boundaries_and_peer(self):
+        for case in self.result["primaryButton"]:
+            with self.subTest(variant=case["variant"]):
+                outside = case["outsidePress"]
+                self.assertEqual(outside["failures"], [])
+                self.assertEqual(outside["value"], [])
+                self.assertEqual(outside["peer"], [])
+                self.assertTrue(outside["quietAfter"])
+                released = case["releaseOutside"]
+                self.assertEqual(released["failures"], [])
+                self.assertEqual(released["value"], [213, 112, 0])
+                self.assertEqual(released["peer"], [1, 11, 1])
+                self.assertTrue(released["quietAfter"])
 
     def test_whole_frame_restore_does_not_duplicate_prior_or_new_events(self):
         self.assertEqual(self.result["droppedCandidate"],[3,10,200])
