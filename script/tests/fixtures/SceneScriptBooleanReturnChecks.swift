@@ -45,6 +45,300 @@ enum SceneScriptBooleanReturnChecks {
         return value
     }
 
+    static func initializationChecks() throws -> [String: Bool] {
+        func inputs(_ seed: Bool, layerID: Int = 73) -> [SceneDynamicTarget: SceneDynamicValue] {
+            [.layer(layerID: layerID, field: .visibility): .bool(seed),
+             .layer(layerID: layerID, field: .origin): .vector3(0, 0, 0),
+             .layer(layerID: layerID + 1, field: .visibility): .bool(true)]
+        }
+        func pipeline(_ source: String, seed: Bool = true, layerID: Int = 73,
+                      name: String = "initial-current") throws -> (
+            domain: SceneScriptQuickJSDomain, scene: SceneRenderDescriptor,
+            vector: SceneScriptVectorProgram, coordinator: SceneScriptMediaFrameCoordinator
+        ) {
+            let domain = try SceneScriptQuickJSDomain()
+            let scene = SceneRenderDescriptor(layers: [
+                .init(id: layerID, layerIndex: 0, name: name, visible: seed,
+                    originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1,
+                    effects: [], sizeWH: [80, 80]),
+                .init(id: layerID + 1, layerIndex: 1, name: "initialization-peer", visible: true,
+                    originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1,
+                    effects: [], sizeWH: [80, 80]),
+            ])
+            try domain.configureLayerCatalog(scene)
+            try domain.configureLayerRuntimeFields(scene)
+            let playback = """
+                let playbackMadeVisible = false;
+                export function mediaPlaybackChanged(event) {
+                    thisLayer.visible = event.state !== MediaPlaybackEvent.PLAYBACK_STOPPED;
+                    playbackMadeVisible = thisLayer.visible;
+                }
+                """
+            let entries: [(index: Int, id: Int, key: String, source: String,
+                           authored: SceneJSONValue, type: SceneScriptBindingValueType)] = [
+                (0, layerID, "visible", source + "\n" + playback, .bool(seed), .boolean),
+                (0, layerID, "origin", """
+                    export function mediaThumbnailChanged(event) {
+                        if (!event.hasThumbnail) thisLayer.visible = false;
+                    }
+                    """, .string("0 0 0"), .string),
+                (1, layerID + 1, "visible", """
+                    export function update(value) {
+                        if (thisLayer.visible !== true) throw Error('initialization affected peer');
+                        return value;
+                    }
+                    """, .bool(true), .boolean),
+            ]
+            let bindings = entries.map { entry in
+                SceneScriptBindingIR(source: entry.source,
+                    owner: .init(kind: .object, objectIndex: entry.index, objectID: entry.id,
+                        effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                    targetPath: [.key("objects"), .index(entry.index), .key(entry.key)],
+                    properties: [:], authoredValue: entry.authored, valueType: entry.type,
+                    wrapperKeys: ["script", "value"])
+            }
+            let vector = SceneScriptVectorProgram.compile(domain: domain, descriptor: scene,
+                scriptBindings: bindings, userPropertyDefinitions: [], generation: 61)
+            let string = SceneScriptStringProgram.compile(domain: domain, descriptor: scene,
+                scriptBindings: [], generation: 61)
+            let scalar = SceneScriptScalarProgram.compile(domain: domain, descriptor: scene,
+                scriptBindings: [], generation: 61)
+            return (domain, scene, vector, .init(vectorProgram: vector,
+                stringProgram: string, scalarProgram: scalar))
+        }
+        func coordinated(_ coordinator: SceneScriptMediaFrameCoordinator,
+                         inputs: [SceneDynamicTarget: SceneDynamicValue], time: Double = 1,
+                         events: SceneScriptMediaFrameEvents = .empty,
+                         priorOwnerEffects: [SceneScriptOwnerEffects] = []) -> SceneScriptMediaFrameCoordinatorResult {
+            let initialized = coordinator.initialize(vectorInputs: inputs, stringInputs: [:], scalarInputs: [:],
+                effectivePropertyValues: [:], frame: frame(time), userPropertiesJSON: "{}", audioSpectrum: .silent)
+            return coordinator.evaluate(vectorInputs: inputs, stringInputs: [:], scalarInputs: [:],
+                effectivePropertyValues: [:], frame: frame(time), userPropertiesJSON: "{}",
+                events: events, audioSpectrum: .silent, initializationFailures: initialized.failures,
+                priorOwnerEffects: priorOwnerEffects)
+        }
+
+        var facts: [String: Bool] = [:]
+        let peerTarget = SceneDynamicTarget.layer(layerID: 74, field: .visibility)
+        for seed in [true, false] {
+            let initializedValue = !seed
+            let fixture = try pipeline("""
+                export function init(incoming) { thisLayer.visible = \(initializedValue); }
+                export function update(current) { return thisLayer.visible; }
+                """, seed: seed)
+            guard let owner = fixture.vector.initializationOwners.first(where: {
+                $0.registration.target == target
+            })?.owner else {
+                facts["split-\(seed)-initialization-owner"] = false
+                continue
+            }
+            let initialized = try owner.initializeIfNeeded(input: .bool(seed), frame: frame(0),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 61,
+                interruptBudget: nil, retainsValueForNextUpdate: true).get()
+            facts["split-\(seed)-actual-init-value"] = initialized?.value == .bool(initializedValue)
+                && initialized?.layerMutations.contains {
+                    $0.layerID == 73 && $0.fields.contains(.visibility)
+                } == false
+                && fixture.vector.definitions.first { $0.target == target }?.authoredValue == .bool(seed)
+            let first = fixture.vector.evaluate(inputs: inputs(seed), effectivePropertyValues: [:], frame: frame(1))
+            facts["split-\(seed)-getter-consumes-initialized-value"] = first.failures.isEmpty
+                && first.values[target] == .bool(initializedValue)
+                && first.layerMutations.allSatisfy { !$0.fields.contains(.visibility) }
+                && first.values[peerTarget] == .bool(true)
+            fixture.vector.finalizeLayerMutations(committing: false)
+            fixture.coordinator.finalizeInitializations()
+            let retry = coordinated(fixture.coordinator, inputs: inputs(seed), time: 2)
+            facts["split-\(seed)-discard-retries-real-initialization"] = retry.vector.failures.isEmpty
+                && retry.vector.values[target] == .bool(initializedValue)
+                && retry.vector.values[peerTarget] == .bool(true)
+            fixture.vector.finalizeLayerMutations(committing: true)
+            fixture.coordinator.finalizeInitializations()
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 61,
+                definitions: fixture.vector.definitions, sceneScriptValues: retry.vector.values).snapshot
+            try fixture.domain.publishLayerSnapshot(snapshot, descriptor: fixture.scene)
+            let warm = coordinated(fixture.coordinator, inputs: inputs(initializedValue), time: 3)
+            facts["split-\(seed)-committed-current-snapshot"] = warm.vector.failures.isEmpty
+                && warm.vector.values[target] == .bool(initializedValue)
+                && warm.vector.values[peerTarget] == .bool(true)
+                && fixture.vector.initializationOwners.isEmpty
+            fixture.vector.finalizeLayerMutations(committing: true)
+        }
+
+        for (label, layerID, name, update, expected) in [
+            ("getter", 73, "initial-current", "return thisLayer.visible;", false),
+            ("value", 73, "initial-current", "return incoming;", false),
+            ("explicit-return", 73, "initial-current", "return true;", true),
+            ("scene-alias-renamed", 961, "renamed-current", """
+                const catalog = thisScene;
+                const renamed = catalog.getLayer('renamed-current');
+                return renamed.visible;
+                """, false),
+        ] {
+            let fixture = try pipeline("""
+                export function init(original) { thisLayer.visible = false; }
+                export function update(incoming) { \(update) }
+                """, layerID: layerID, name: name)
+            let result = coordinated(fixture.coordinator, inputs: inputs(true, layerID: layerID))
+            let ownTarget = SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
+            let healthyTarget = SceneDynamicTarget.layer(layerID: layerID + 1, field: .visibility)
+            facts["coordinator-\(label)-uses-current-value"] = result.vector.failures.isEmpty
+                && result.vector.values[ownTarget] == .bool(expected)
+                && result.vector.values[healthyTarget] == .bool(true)
+                && result.layerMutations.allSatisfy { !$0.fields.contains(.visibility) }
+                && fixture.vector.mediaOwnerRegistrations.contains {
+                    $0.target == .layer(layerID: layerID, field: .origin)
+                }
+            fixture.vector.finalizeLayerMutations(committing: true)
+            fixture.coordinator.finalizeInitializations()
+        }
+
+        let media = try pipeline("""
+            export function init(value) { thisLayer.visible = false; }
+            export function update(value) {
+                if (playbackMadeVisible && thisLayer.visible !== true) throw Error('lost media setter');
+                return thisLayer.visible;
+            }
+            """)
+        let hidden = coordinated(media.coordinator, inputs: inputs(true))
+        facts["media-empty-input-does-not-invent-playback"] = hidden.vector.failures.isEmpty
+            && hidden.vector.values[target] == .bool(false) && hidden.vector.values[peerTarget] == .bool(true)
+        media.vector.finalizeLayerMutations(committing: true)
+        media.coordinator.finalizeInitializations()
+        let hiddenSnapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 61,
+            definitions: media.vector.definitions, sceneScriptValues: hidden.vector.values).snapshot
+        try media.domain.publishLayerSnapshot(hiddenSnapshot, descriptor: media.scene)
+        let playing = coordinated(media.coordinator, inputs: inputs(false), time: 2,
+            events: .init(playback: .init(state: 1, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["media-later-legitimate-setter-can-show"] = playing.vector.failures.isEmpty
+            && playing.vector.values[target] == .bool(true) && playing.vector.values[peerTarget] == .bool(true)
+        media.vector.finalizeLayerMutations(committing: true)
+        let shownSnapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 61,
+            definitions: media.vector.definitions, sceneScriptValues: playing.vector.values).snapshot
+        try media.domain.publishLayerSnapshot(shownSnapshot, descriptor: media.scene)
+        let stopped = coordinated(media.coordinator, inputs: inputs(true), time: 3,
+            events: .init(playback: .init(state: 0, generation: 2), properties: nil, thumbnail: nil, timeline: nil))
+        facts["media-explicit-stopped-can-hide"] = stopped.vector.failures.isEmpty
+            && stopped.vector.values[target] == .bool(false) && stopped.vector.values[peerTarget] == .bool(true)
+        media.vector.finalizeLayerMutations(committing: true)
+
+        let simultaneous = try pipeline("""
+            export function init(value) { thisLayer.visible = false; }
+            export function update(value) {
+                if (playbackMadeVisible && thisLayer.visible !== true) throw Error('init masked media setter');
+                return thisLayer.visible;
+            }
+            """)
+        let eventAfterInit = coordinated(simultaneous.coordinator, inputs: inputs(true),
+            events: .init(playback: .init(state: 2, generation: 1), properties: nil, thumbnail: nil, timeline: nil))
+        facts["media-setter-after-split-init-wins"] = eventAfterInit.vector.failures.isEmpty
+            && eventAfterInit.vector.values[target] == .bool(true)
+            && eventAfterInit.vector.values[peerTarget] == .bool(true)
+        simultaneous.vector.finalizeLayerMutations(committing: true)
+        simultaneous.coordinator.finalizeInitializations()
+
+        let cursor = try pipeline("""
+            export function init(value) { thisLayer.visible = false; }
+            export function cursorClick(event) { thisLayer.visible = true; }
+            export function update(value) {
+                if (thisLayer.visible !== true) throw Error('initial value masked newer cursor setter');
+                return thisLayer.visible;
+            }
+            """)
+        if let owner = cursor.vector.initializationOwners.first(where: {
+            $0.registration.target == target
+        })?.owner, let registration = cursor.vector.cursorOwnerRegistrations.first(where: {
+            $0.target == target
+        }) {
+            let initialized = try owner.initializeIfNeeded(input: .bool(true), frame: frame(0),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 61,
+                interruptBudget: nil, retainsValueForNextUpdate: true).get()
+            let clicked = try registration.owner.dispatchCursor(
+                .init(kind: .click, layerID: 73, worldPosition: .zero, localPosition: .zero),
+                frame: frame(1), scriptPropertiesJSON: "", userPropertiesJSON: "{}").get()
+            let updated = coordinated(cursor.coordinator, inputs: inputs(true), time: 1,
+                priorOwnerEffects: [.init(ownerTarget: target, materialFunctionMutations: [],
+                    animationMutations: [], layerMutations: clicked.layers, mediaPlaybackCommands: [])])
+            facts["cursor-setter-after-split-init-wins"] = initialized?.value == .bool(false)
+                && clicked.layers.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && $0.visible }
+                && updated.vector.failures.isEmpty && updated.vector.values[target] == .bool(true)
+                && updated.vector.values[peerTarget] == .bool(true)
+            cursor.vector.finalizeLayerMutations(committing: true)
+            cursor.coordinator.finalizeInitializations()
+        } else { facts["cursor-setter-after-split-init-wins"] = false }
+
+        let committedCursor = try pipeline("""
+            export function init(value) { thisLayer.visible = false; }
+            export function cursorClick(event) { thisLayer.visible = true; }
+            export function update(value) { return thisLayer.visible; }
+            """)
+        if let owner = committedCursor.vector.initializationOwners.first(where: {
+            $0.registration.target == target
+        })?.owner, let registration = committedCursor.vector.cursorOwnerRegistrations.first(where: {
+            $0.target == target
+        }) {
+            let initialized = try owner.initializeIfNeeded(input: .bool(true), frame: frame(0),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 61,
+                interruptBudget: nil, retainsValueForNextUpdate: true).get()
+            owner.commitLayerMutations()
+            let clicked = try registration.owner.dispatchCursor(
+                .init(kind: .click, layerID: 73, worldPosition: .zero, localPosition: .zero),
+                frame: frame(1), scriptPropertiesJSON: "", userPropertiesJSON: "{}").get()
+            let updated = coordinated(committedCursor.coordinator, inputs: inputs(true), time: 1,
+                priorOwnerEffects: [.init(ownerTarget: target, materialFunctionMutations: [],
+                    animationMutations: [], layerMutations: clicked.layers, mediaPlaybackCommands: [])])
+            facts["cursor-overrides-committed-unconsumed-init"] = initialized?.value == .bool(false)
+                && !owner.needsInitialization
+                && clicked.layers.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && $0.visible }
+                && updated.vector.failures.isEmpty && updated.vector.values[target] == .bool(true)
+                && updated.vector.values[peerTarget] == .bool(true)
+            committedCursor.vector.finalizeLayerMutations(committing: false)
+            committedCursor.coordinator.finalizeInitializations()
+            let retry = coordinated(committedCursor.coordinator, inputs: inputs(true), time: 2)
+            facts["discarded-cursor-prefix-keeps-unconsumed-init"] = retry.vector.failures.isEmpty
+                && retry.vector.values[target] == .bool(false) && retry.vector.values[peerTarget] == .bool(true)
+                && !owner.needsInitialization
+            committedCursor.vector.finalizeLayerMutations(committing: true)
+            committedCursor.coordinator.finalizeInitializations()
+        } else {
+            facts["cursor-overrides-committed-unconsumed-init"] = false
+            facts["discarded-cursor-prefix-keeps-unconsumed-init"] = false
+        }
+
+        let lateMedia = try pipeline("""
+            export function init(value) { thisLayer.visible = false; }
+            export function cursorClick(event) { thisLayer.visible = true; }
+            export function update(value) {
+                if (thisLayer.visible !== false) throw Error('cursor masked later stopped media setter');
+                return thisLayer.visible;
+            }
+            """)
+        if let owner = lateMedia.vector.initializationOwners.first(where: {
+            $0.registration.target == target
+        })?.owner, let registration = lateMedia.vector.cursorOwnerRegistrations.first(where: {
+            $0.target == target
+        }) {
+            let initialized = try owner.initializeIfNeeded(input: .bool(true), frame: frame(0),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 61,
+                interruptBudget: nil, retainsValueForNextUpdate: true).get()
+            owner.commitLayerMutations()
+            let clicked = try registration.owner.dispatchCursor(
+                .init(kind: .click, layerID: 73, worldPosition: .zero, localPosition: .zero),
+                frame: frame(1), scriptPropertiesJSON: "", userPropertiesJSON: "{}").get()
+            let stoppedAfterCursor = coordinated(lateMedia.coordinator, inputs: inputs(true), time: 1,
+                events: .init(playback: .init(state: 0, generation: 1), properties: nil, thumbnail: nil, timeline: nil),
+                priorOwnerEffects: [.init(ownerTarget: target, materialFunctionMutations: [],
+                    animationMutations: [], layerMutations: clicked.layers, mediaPlaybackCommands: [])])
+            facts["later-media-setter-overrides-cursor-and-init"] = initialized?.value == .bool(false)
+                && clicked.layers.contains { $0.layerID == 73 && $0.fields.contains(.visibility) && $0.visible }
+                && stoppedAfterCursor.vector.failures.isEmpty
+                && stoppedAfterCursor.vector.values[target] == .bool(false)
+                && stoppedAfterCursor.vector.values[peerTarget] == .bool(true)
+            lateMedia.vector.finalizeLayerMutations(committing: true)
+            lateMedia.coordinator.finalizeInitializations()
+        } else { facts["later-media-setter-overrides-cursor-and-init"] = false }
+        return facts
+    }
+
     static func preparedVideoChecks() throws -> [String: Bool] {
         let paths = ["models/prepared-selection.json", "models/renamed-selection.json"]
         let still = "models/neighbor-still.json", unbound = "models/unbound-selection.json"

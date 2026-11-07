@@ -520,7 +520,8 @@ extension SceneDesktopWallpaperSession {
                 userPropertiesJSON: userPropertiesJSON, propertyRevision: launchContext.liveState.revision,
                 events: sceneScriptMediaEvents,
                 audioSpectrum: audioSpectrum,
-                initializationFailures: initialization.failures
+                initializationFailures: initialization.failures,
+                priorOwnerEffects: cursorResult.ownerEffects
             )
         }
         let sceneScriptVectorResult = coordinatedSceneScript.vector

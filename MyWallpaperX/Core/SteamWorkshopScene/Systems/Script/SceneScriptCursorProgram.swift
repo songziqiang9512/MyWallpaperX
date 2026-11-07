@@ -119,7 +119,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         candidateEvents = pendingEvents.filter { !disabledTargets.contains($0.ownerTarget) }
         defer {
             bindings.forEach {
-                $0.owner.clearCursorAuthoredLayerBaselines()
+                $0.owner.clearAuthoredLayerReadBaselines()
             }
         }
         if batch.overflowed {

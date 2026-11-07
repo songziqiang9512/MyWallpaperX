@@ -156,7 +156,8 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
         propertyRevision: UInt64? = nil,
         events: SceneScriptMediaFrameEvents,
         audioSpectrum: SceneAudioSpectrumSnapshot,
-        initializationFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        initializationFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:],
+        priorOwnerEffects: [SceneScriptOwnerEffects] = []
     ) -> SceneScriptMediaFrameCoordinatorResult {
         var vector = VectorAccumulator()
         var string = StringAccumulator()
@@ -166,6 +167,15 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
         var layerMutations: [SceneScriptLayerMutation] = []
         var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
+        var priorVisibilityValues: [SceneDynamicTarget: Bool] = [:]
+        for effect in priorOwnerEffects {
+            guard case let .layer(layerID, .visibility) = effect.ownerTarget else { continue }
+            for mutation in effect.layerMutations where mutation.kind == .upsert
+                && !mutation.isDynamic && mutation.layerID == layerID
+                && mutation.fields.contains(.visibility) {
+                priorVisibilityValues[effect.ownerTarget] = mutation.visible
+            }
+        }
         let failedInitializations = Set(initializationFailures.keys)
         for (target, failure) in initializationFailures {
             if vectorProgram.inputTargets.contains(target) { vector.failures[target] = failure }
@@ -201,7 +211,8 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                     mediaTimelineEvent: events.timeline,
                     observedMediaEvents: observedVectorEvents,
                     audioSpectrum: audioSpectrum,
-                    userPropertiesJSON: userPropertiesJSON
+                    userPropertiesJSON: userPropertiesJSON,
+                    priorVisibilityValues: priorVisibilityValues
                 )
                 appendSideEffects(
                     materialFunctions: frameResult.materialFunctionMutations,
@@ -268,7 +279,8 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
             excludedTargets: failedInitializations.isEmpty ? vectorMediaTargets : vectorMediaTargets.union(failedInitializations),
             observedMediaEvents: observedVectorEvents,
             audioSpectrum: audioSpectrum,
-            userPropertiesJSON: userPropertiesJSON
+            userPropertiesJSON: userPropertiesJSON,
+            priorVisibilityValues: priorVisibilityValues
         )
         appendSideEffects(
             materialFunctions: remainingVector.materialFunctionMutations,

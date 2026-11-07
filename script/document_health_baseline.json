@@ -129,8 +129,8 @@
       "bytes": 43890
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 185,
-      "bytes": 99779
+      "lines": 186,
+      "bytes": 101146
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 117,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 97,
-      "bytes": 12465
+      "lines": 104,
+      "bytes": 14035
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 176,
-      "bytes": 35602
+      "lines": 178,
+      "bytes": 36875
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -457,15 +457,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
-      "after": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
-      "owner": "scene-prepared-group-visibility",
-      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
       "after": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
@@ -520,12 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
+      "after": "b3096d903b44e5cd377f8c45a2769e7c71388ec78b45399402a5223938197d23",
+      "owner": "scene-initial-visibility-read-handoff",
+      "reason": "Specify initialized own-visibility reads and transient same-owner cursor prefix without new persistent authority; qualify repaired authored white quad and retained fallback, preserve bounded arc capture stop and unchanged HEAD cohort failure instead of broadening permissions or test expectations.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-current-value"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0bedb88662a5c1f171451d0f6c485a12c3e4bb1fbdd42603fc4f2bef925918e3",
-      "after": "cadf8009daf7a72dfb48c00ebb33b8ebfb317861f2ec14c1d5571d2ecc78a0bf",
-      "owner": "scene-author-source-qualification",
-      "reason": "Qualify a reproduced top band through authored geometry, actual source texture and clearcolor-only App control; retire the resolved source-padding suspicion and correct hidden child-prewarm ownership without changing product rendering or fabricating activity.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+      "before": "cadf8009daf7a72dfb48c00ebb33b8ebfb317861f2ec14c1d5571d2ecc78a0bf",
+      "after": "c3617e25c4d9069fe407837429bb4fd93736e6179243713282a569ea170253b8",
+      "owner": "scene-initial-visibility-read-handoff",
+      "reason": "Specify initialized own-visibility reads and transient same-owner cursor prefix without new persistent authority; qualify repaired authored white quad and retained fallback, preserve bounded arc capture stop and unchanged HEAD cohort failure instead of broadening permissions or test expectations.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-current-value"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1a32c0c6f312642cc9bf9d9b09134c016789fdeed8c36d2a390954b0a44b394e",
+      "after": "a71d31c1a7a86f340b6d08ae6ea4a80124b991b440de8c7012492fde52cae3df",
+      "owner": "scene-initial-visibility-read-handoff",
+      "reason": "Specify initialized own-visibility reads and transient same-owner cursor prefix without new persistent authority; qualify repaired authored white quad and retained fallback, preserve bounded arc capture stop and unchanged HEAD cohort failure instead of broadening permissions or test expectations.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#initialization-current-value"
     }
   ]
 }

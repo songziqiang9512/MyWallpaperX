@@ -27,6 +27,13 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
 
+<a id="initialization-current-value"></a>
+初始化与当前值交接：分离调用的 `init` 对本属性的合法 setter 已归一为 typed 值时，下一次值求值/update 中的 `thisLayer.visible` 必须能读到它，不能只有 `update(value)` 的入参保留该值、getter 却退回作者初值。复用原 ValueOwner、pending 初始化值和 owner 读值入口；初始化结果只是读值基线，不再次作为本次 setter 发布。后来的合法 setter 或 update 返回仍可改变初始可见性，不把初始化隐藏钉住，也不补造媒体 STOPPED 事件。
+
+原 cursor 结果中的同 owner 显隐写入晚于初始化、早于媒体/属性回调；由现有 owner effects 在本帧投影为最小 typed 前缀，update getter 按当前 journal、较晚 callback、cursor 前缀、初始化值、当前 snapshot 的次序读取。不改写 pending 初始化值来保存未提交的 cursor 结果，也不提前改共享 Layer catalog；此前缀只参与读取，不重放成新的 setter 或新增持久显隐副本。
+
+该交接随原 owner 的 commit/discard 退出，失败重试沿原初始化事务；普通暖帧无初始化或真实前缀写入时不配置基线。验收用真实 VM 的分离 init/update、相反初值、直接返回、别名/改名、指针/媒体写入及已提交初始化值的消费拒绝重试；真实作者的当前显隐、实际 draw 和终端区域必须一致。其余 callback/返回值次序的未闭边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
 <a id="prepared-group-visibility"></a>
 层级显隐以原 `SourceRoute` 已接通的组来源和合法成员闭包决定准备范围，composition 与 project 共用这一事实；fullscreen 保留独立的 viewport 消费入口。作者 Bool 与脚本 visibility 目标经同一 `SceneDynamicLayerVisibilityRouteAdmission` 形成 targets、preparationLayerIDs、particleRequirements 和 liveConsumers。初值 false 保留实际可显示成员的 Program、几何和粒子资源准备，不发布子层可见值，也不覆盖 child 自己的 false；普通帧沿原 typed snapshot 更新，资源与 topology owner 分别保持其原失效边界。
 

@@ -275,7 +275,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?,
-        propertyRefresh: Bool = false
+        propertyRefresh: Bool = false,
+        priorCallbackAuthoredMutations: [SceneScriptLayerMutation] = [],
+        priorVisibilityValue: Bool? = nil
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         guard input.valueType == valueType, input.isFinite,
               Self.acceptsScalarValue(input, for: target),
@@ -287,6 +289,18 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         let initializesValue = needsInitialization
         let pendingValue = consumePendingInitializationValue()
+        let readBaseline = visibilityReadBaseline(
+            initializationValue: pendingValue,
+            priorCallbackAuthoredMutations: priorCallbackAuthoredMutations,
+            priorVisibilityValue: priorVisibilityValue
+        )
+        if let readBaseline,
+           let failure = configureAuthoredLayerReadBaselines([readBaseline]) {
+            return .failure(failure)
+        }
+        defer {
+            if readBaseline != nil { clearAuthoredLayerReadBaselines() }
+        }
         let scriptInput = sceneScriptInput(pendingValue ?? input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
@@ -401,6 +415,26 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             mutations: callbackMutations,
             scalarValueFollowsInput: scalarValueFollowsInput
         )
+    }
+
+    private func visibilityReadBaseline(
+        initializationValue: SceneDynamicValue?,
+        priorCallbackAuthoredMutations: [SceneScriptLayerMutation],
+        priorVisibilityValue: Bool?
+    ) -> SceneScriptLayerMutation? {
+        guard case let .layer(layerID, .visibility) = target else { return nil }
+        if let latest = priorCallbackAuthoredMutations.last(where: {
+            $0.kind == .upsert && !$0.isDynamic && $0.layerID == layerID
+                && $0.fields.contains(.visibility)
+        }) {
+            return latest.selectingAuthoredFields(.visibility)
+        }
+        guard let visible = priorVisibilityValue ?? initializationValue?.boolValue else { return nil }
+        return .init(kind: .upsert, isDynamic: false, fields: .visibility,
+            layerID: layerID, orderIndex: 0, visible: visible, alpha: 1,
+            origin: .zero, scale: .init(repeating: 1), angles: .zero,
+            color: .init(repeating: 1), pointSize: 0,
+            text: "", font: "", assetPath: nil)
     }
 
     private func validatedEvaluation(
@@ -656,12 +690,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard layerID == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
         }
-        if let failure = configureCursorAuthoredLayerBaselines(
+        if let failure = configureAuthoredLayerReadBaselines(
             authoredLayerBaselines
         ) {
             return .failure(failure)
         }
-        defer { clearCursorAuthoredLayerBaselines() }
+        defer { clearAuthoredLayerReadBaselines() }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptUserShortcutBridge.withScope(
             owner: handle, gesture: nativeShortcutGesture, dispatch: userShortcutDispatch

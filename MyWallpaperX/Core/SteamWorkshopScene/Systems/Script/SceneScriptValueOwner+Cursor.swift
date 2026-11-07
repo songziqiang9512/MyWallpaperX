@@ -1,16 +1,16 @@
 import Foundation
 
 nonisolated extension SceneScriptValueOwner {
-    func clearCursorAuthoredLayerBaselines() {
+    func clearAuthoredLayerReadBaselines() {
         mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(handle)
     }
 
-    func configureCursorAuthoredLayerBaselines(
+    func configureAuthoredLayerReadBaselines(
         _ baselines: [SceneScriptLayerMutation]
     ) -> SceneScriptScalarRuntimeFailure? {
-        clearCursorAuthoredLayerBaselines()
+        clearAuthoredLayerReadBaselines()
         guard baselines.count <= 64 else {
-            return .mutationOverflow("cursor authored baseline budget exceeded")
+            return .mutationOverflow("authored read baseline budget exceeded")
         }
         for baseline in baselines {
             guard baseline.kind == .upsert,
@@ -32,8 +32,8 @@ nonisolated extension SceneScriptValueOwner {
                   !baseline.text.contains("\0"),
                   baseline.font.utf8.count <= 1_024,
                   !baseline.font.contains("\0") else {
-                clearCursorAuthoredLayerBaselines()
-                return .invalidArgument("invalid cursor authored layer baseline")
+                clearAuthoredLayerReadBaselines()
+                return .invalidArgument("invalid authored layer read baseline")
             }
             var origin = [
                 baseline.origin.x, baseline.origin.y, baseline.origin.z,
@@ -45,7 +45,7 @@ nonisolated extension SceneScriptValueOwner {
                 baseline.angles.x, baseline.angles.y, baseline.angles.z,
             ]
             guard baseline.effectVisibilities.keys.allSatisfy({ (0..<1024).contains($0) }) else {
-                clearCursorAuthoredLayerBaselines()
+                clearAuthoredLayerReadBaselines()
                 return .invalidArgument("invalid effect visibility baseline")
             }
             var effectValues = [UInt8](repeating: 2, count: (baseline.effectVisibilities.keys.max() ?? -1) + 1)
@@ -85,7 +85,7 @@ nonisolated extension SceneScriptValueOwner {
                 }
             }
             guard raw == MWX_SCENE_QUICKJS_OK else {
-                clearCursorAuthoredLayerBaselines()
+                clearAuthoredLayerReadBaselines()
                 return Self.failure(raw, diagnostic)
             }
         }
