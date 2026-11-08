@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 415,
-      "bytes": 164536
+      "lines": 416,
+      "bytes": 165604
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 46775
+      "bytes": 46852
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -395,10 +395,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "67530d854314fec77fa912d0d3aa65614ceda53be38fea06209a0bae3890ce30",
-      "after": "b54028ded5ed1319b77dd51615b78f6fcbe129396c2adec0323033e02ea09f79",
-      "owner": "Scene bounded basic-picture qualification",
-      "reason": "Record the one current frozen-core capture with connected characters and exact composition identities; remove the superseded whole-character absence from the queue while preserving unknown Scene time and parity. Exact body budget.",
+      "before": "b54028ded5ed1319b77dd51615b78f6fcbe129396c2adec0323033e02ea09f79",
+      "after": "03e17438140708b4f38900c197d17c7852c3c0e8a67d5d1ca4ad361eb1336e1e",
+      "owner": "Scene particle movement data boundary",
+      "reason": "Replace the full particle-state helper input with only its actual position/radius consumers; record exact frozen state comparison and bounded ordinary-Release single-root ABBA timing without attributing it to App or GPU performance. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "1b518ced80bac71894c119c1a1b38ff58862de3577580e5cf20b9b39603d13ea",
+      "after": "3cb00e10438e3da70f7290512830d16ffdfbaaea9f562eac18ca6e2d197fb55b",
+      "owner": "Scene particle movement data boundary",
+      "reason": "Replace the full particle-state helper input with only its actual position/radius consumers; record exact frozen state comparison and bounded ordinary-Release single-root ABBA timing without attributing it to App or GPU performance. Exact body budget.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     }
   ]

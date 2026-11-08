@@ -39,7 +39,9 @@ nonisolated extension SceneParticleSimulator {
                 let acceleration = gravity - particles[index].velocity * plan.drag
                 let integrated = particles[index].velocity + acceleration * duration
                 let (position, velocity) = vortexMovement(
-                    particle: particles[index], velocity: integrated, duration: duration
+                    particlePosition: particles[index].position,
+                    vortexRadius: particles[index].vortexRadius,
+                    velocity: integrated, duration: duration
                 )
                 guard acceptsMotionResult(velocity, position, component: "movement") else {
                     continue
