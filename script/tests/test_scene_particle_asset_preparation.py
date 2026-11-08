@@ -60,6 +60,8 @@ MAIN = r'''
         }
         try writeJSON(definition("materials/ambient.json"),
             to: primary.appendingPathComponent("particles/ambient.json"))
+        try writeJSON(definition("materials/renamed-ambient.json"),
+            to: primary.appendingPathComponent("particles/renamed-ambient.json"))
         let view = SceneResourceView(projectRootURL: lower, packageRootURL: primary,
                                      stockAssetsRootURL: stock)
         let pass = SceneRenderDescriptor.MaterialPassDescriptor(
@@ -102,14 +104,16 @@ MAIN = r'''
                           classes: SceneRenderDescriptor.Lighting.Classes = .init(),
                           combos: [String: Int] = ["REFRACT": 1, "LIGHTING": 1],
                           textures: [String] = ["probe"], layerID: Int = 70,
-                          height: Float? = 1080, sourceOrtho: Bool? = true) throws -> SceneParticleAssetGraph {
+                          height: Float? = 1080, sourceOrtho: Bool? = true,
+                          path: String = "particles/ambient.json", material: String = "materials/ambient.json",
+                          cullMode: String = "nocull") throws -> SceneParticleAssetGraph {
             let litPass = SceneRenderDescriptor.MaterialPassDescriptor(
-                materialPath: "materials/ambient.json", shaderPath: "genericparticle",
-                texturePaths: textures, blending: "translucent", combos: combos)
+                materialPath: material, shaderPath: "genericparticle",
+                texturePaths: textures, blending: "translucent", combos: combos, cullMode: cullMode)
             let unlitPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: pass.materialPath,
                 shaderPath: "genericparticle", texturePaths: ["probe"], blending: "translucent",
                 combos: ["REFRACT": 1, "LIGHTING": 0])
-            var input = SceneRenderDescriptor(layers: [layer(layerID, "particles/ambient.json"),
+            var input = SceneRenderDescriptor(layers: [layer(layerID, path),
                 layer(71, "Particles/Renamed.JSON")] + lamps,
                 renderOrderLayerIDs: [layerID, 71] + lamps.map(\.id), materialPasses: [litPass, unlitPass])
             input.lighting = .init(lightClasses: classes)
@@ -118,12 +122,13 @@ MAIN = r'''
             return try SceneParticleRuntime.prepareAssets(descriptor: input, resourceView: view,
                 stockTextureBundleURL: nil)
         }
-        func lightingCheck(_ name: String, _ value: SceneParticleAssetGraph, accepted: Bool) {
-            let asset = value.assetsByPath["particles/ambient.json"]
+        func lightingCheck(_ name: String, _ value: SceneParticleAssetGraph, accepted: Bool,
+                           path: String = "particles/ambient.json", expectedLighting: Bool = true) {
+            let asset = value.assetsByPath[path]
             checks[name] = (accepted
-                ? asset?.textureSource != nil && asset?.refraction?.usesAmbientLighting == true
+                ? asset?.textureSource != nil && asset?.refraction?.usesAmbientLighting == expectedLighting
                 : asset?.textureSource == nil && value.diagnostics.contains {
-                    $0.assetPath == "particles/ambient.json" && $0.kind == .refractionUnsupported })
+                    $0.assetPath == path && $0.kind == .refractionUnsupported })
                 && value.assetsByPath["particles/renamed.json"]?.textureSource != nil
                 && value.assetsByPath["particles/renamed.json"]?.refraction?.usesAmbientLighting == false
         }
@@ -152,9 +157,48 @@ MAIN = r'''
             classes: .init(directional: true)), accepted: false)
         lightingCheck("hiddenZeroSpotRemainsPotential", try ambientGraph(lamps: [spot],
             classes: .init(spot: true)), accepted: false)
-        for name in ["UNKNOWN", "DOUBLESIDEDLIGHTING", "CUTOUT"] {
+        for double in [0, 1] {
+            let combos = ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": double]
+            let value = try ambientGraph(combos: combos)
+            lightingCheck("ambientAcceptsDouble-\(double)", value, accepted: true)
+            checks["doubleKeepsNoCull-\(double)"] = value.assetsByPath["particles/ambient.json"]?.renderState?.cullMode == .noCull
+                && value.assetsByPath["particles/ambient.json"]?.pipelineState?.cullMode == SceneParticlePipelineCullMode.none
+            lightingCheck("unlitAcceptsDouble-\(double)", try ambientGraph(
+                combos: ["REFRACT": 1, "LIGHTING": 0, "DOUBLESIDEDLIGHTING": double]),
+                accepted: true, expectedLighting: false)
+            lightingCheck("missingLightingAcceptsDouble-\(double)", try ambientGraph(
+                combos: ["REFRACT": 1, "DOUBLESIDEDLIGHTING": double]),
+                accepted: true, expectedLighting: false)
+        }
+        let doubleOne = ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1]
+        let unlitDouble = ["REFRACT": 1, "LIGHTING": 0, "DOUBLESIDEDLIGHTING": 1]
+        lightingCheck("unlitDoubleWithoutAmbientEnvironment", try ambientGraph(combos: unlitDouble, height: nil),
+            accepted: true, expectedLighting: false)
+        lightingCheck("unlitDoubleWithPotentialLamp", try ambientGraph(lamps: [modern],
+            classes: .init(point: true), combos: unlitDouble), accepted: true, expectedLighting: false)
+        let renamedDouble = try ambientGraph(combos: doubleOne, layerID: 971,
+            path: "particles/renamed-ambient.json", material: "materials/renamed-ambient.json")
+        lightingCheck("doubleRenamedMaterialAndID", renamedDouble, accepted: true,
+            path: "particles/renamed-ambient.json")
+        checks["doubleRenamedConsumerEquivalent"] = renamedDouble.assetsByPath["particles/renamed-ambient.json"]?.refraction
+            == (try ambientGraph(combos: doubleOne)).assetsByPath["particles/ambient.json"]?.refraction
+        let backCull = try ambientGraph(combos: doubleOne, cullMode: "normal")
+        lightingCheck("doubleWithBackCull", backCull, accepted: true)
+        checks["doubleDoesNotDisableRasterCull"] = backCull.assetsByPath["particles/ambient.json"]?.renderState?.cullMode == .normal
+            && backCull.assetsByPath["particles/ambient.json"]?.pipelineState?.cullMode == .back
+        lightingCheck("doubleMissingAmbientEnvironment", try ambientGraph(combos: doubleOne, height: nil), accepted: false)
+        lightingCheck("doubleHiddenZeroLampStillPotential", try ambientGraph(lamps: [modern],
+            classes: .init(point: true), combos: doubleOne), accepted: false)
+        lightingCheck("doubleLegacyLampStillPotential", try ambientGraph(lamps: [legacy], combos: doubleOne), accepted: false)
+        lightingCheck("doubleOutOfDomain", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 2]), accepted: false)
+        lightingCheck("doubleUnsupportedLighting", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 2, "DOUBLESIDEDLIGHTING": 1]), accepted: false)
+        for name in ["UNKNOWN", "CUTOUT"] {
             lightingCheck("ambientRejects-\(name)", try ambientGraph(
                 combos: ["REFRACT": 1, "LIGHTING": 1, name: 1]), accepted: false)
+            lightingCheck("doubleRejects-\(name)", try ambientGraph(
+                combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1, name: 1]), accepted: false)
         }
         lightingCheck("ambientBadNormalKeepsPeer", try ambientGraph(textures: ["probe", "absent-normal"]), accepted: false)
         let missingColor = try ambientGraph(textures: ["absent-color"])
@@ -164,7 +208,8 @@ MAIN = r'''
             && missingColor.assetsByPath["particles/renamed.json"]?.textureSource != nil
             && missingColor.assetsByPath["particles/renamed.json"]?.refraction?.usesAmbientLighting == false
         let rawLit = SceneParticleMaterialPass(materialPath: "materials/ambient.json", shaderPath: "genericparticle",
-            texturePaths: ["probe"], blending: "translucent", combos: ["REFRACT": 1, "LIGHTING": 1])
+            texturePaths: ["probe"], blending: "translucent",
+            combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1])
         let state = SceneMaterialRenderState.compile(blending: "translucent", depthTest: "disabled",
             depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!
         checks["planRequiresExplicitAmbientSupport"] = SceneParticleRefractionPlanner.plan(

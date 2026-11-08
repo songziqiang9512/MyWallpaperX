@@ -216,9 +216,10 @@ RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io
 
 - **准备与唯一来源**：原 ParticleRuntime/AssetGraph 在冷准备确认原 ortho ambient 供货可用，并按既有 typed light 声明及 General 类别判断是否存在可能的直接灯消费者，给原 RefractionPlanner 传最小能力事实。显隐、位置与强度的当前零值不能当成永远无灯；已有动态直接灯需求仍局部不支持，不先模拟再逐帧拒绘。Plan/Declaration/Binding 保留真实 lighting operation，替换本范围的整项 LIGHTING 拒绝，不改变其他材质输入的消费资格。
 - **帧链与数学**：原 OrderedLayerEncoding 从同帧 LightSnapshot 只交付 authoredShaderLighting 的 ambient 和原 scene HDR 状态，沿原 particle uniform/fragment 消费；不使用 ortho native receiver 的 ambient/sky 换位或 image 的 ambient+sky 公式。RGB 调制与 HDR 饱和发生在原背景相乘、overbright 和最终 coverage/PMA 合成之前；alpha、几何、normal 解码、REFRACT 位移与背景快照继续原 consumer。未启用 lighting 的路径保原运算，不新增灯表、状态/时钟、资源/输出 owner、PSO cache 或普通帧场景扫描。
-- **失败与退出**：已识别的直接灯需求、shadow/cookie、双面/CUTOUT及既有无效资源保持原最小资产失败；未typed的tube仍沿原light降级，本批不新解析或以typed空数组授全部raw灯覆盖。不将未解释的材质输入当零灯，不用 unlit 替代未消费 operation。冷环境事实随原 descriptor/准备重建，帧输入只读已确定类型。将来接入完整直接光照时，由原材质/LightSnapshot 消费者替换该能力限制，不保并行 ambient owner 或额外回退链。
+- **无贡献输入**：`DOUBLESIDEDLIGHTING=0/1` 只改变直接光 PBR 的正反面响应。未启 `LIGHTING` 时该分支不存在；上述 ambient-only L1 的零计数模块也不调用该 PBR。原 Planner 对这些既有可消费材质承接双面无操作输入，退出整项拒绝；L1 的直接灯/ambient 资格仍由原 lighting 条件独立决定。复用现 Plan/Binding，不另存双面位或增加 fragment 分支；normal 解码与 raster cull 分属原消费者，不能借该 combo 修改几何剔除或 REFRACT 位移。
+- **失败与退出**：已识别的直接灯需求、shadow/cookie、CUTOUT及既有无效资源保持原最小资产失败；双面位不为未支持的 lighting 组合授能力。未typed的tube仍沿原light降级，本批不新解析或以typed空数组授全部raw灯覆盖。不将未解释的材质输入当零灯，不用 unlit 替代未消费 operation。冷环境事实随原 descriptor/准备重建，帧输入只读已确定类型。将来接入完整直接光照时，由原材质/LightSnapshot 消费者替换该能力限制，不保并行 ambient owner 或额外回退链。
 
-验收先扩原 Plan/AssetGraph 与生产 Metal 门：零灯的 L1 与 L0、非白 ambient、RGB/alpha、HDR/overbright次序、normal与背景、资源/ID改名、合法数值变体，以及可热显隐直接灯、未知combo/坏资源和健康peer反例。先用未改参数的真实作者核自然 accepted-birth、非零 batch、实际 normal/background→main/seal/GPU与可见贡献，再用独立作者及既有L0内容防回退。最小交付以真实可见粒子恢复为准；只有准备放行、无出生、错误normal/颜色或无最终贡献时回到首错，不扩大光照、提高音频或调作者参数补图。
+验收先扩原 Plan/AssetGraph 与生产 Metal 门：零灯的 L1 与 L0、非白 ambient、RGB/alpha、HDR/overbright次序、normal与背景、资源/ID改名、合法数值变体，以及可热显隐直接灯、未知combo/坏资源和健康peer反例。双面输入在 L1 保缺 ambient/潜在直接灯拒绝，在 L0 保真实 unlit 输出，raster cull 始终独立；无 frame/shader 变更时复用同身份像素门，仅补冷准备与真实输出。先用未改参数的真实作者核自然 accepted-birth、非零 batch、实际 normal/background→main/seal/GPU与可见贡献，再用独立作者及既有L0内容防回退。最小交付以真实可见粒子恢复为准；只有准备放行、无出生、错误normal/颜色或无最终贡献时回到首错，不扩大光照、提高音频或调作者参数补图。
 
 <a id="rope-source"></a>
 ### 单图 Rope 纹理

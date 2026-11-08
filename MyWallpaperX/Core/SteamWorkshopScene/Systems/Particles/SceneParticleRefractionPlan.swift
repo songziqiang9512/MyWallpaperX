@@ -26,13 +26,15 @@ nonisolated enum SceneParticleRefractionPlanner {
         renderState: SceneMaterialRenderState,
         supportsAmbientLighting: Bool = false
     ) -> Plan? {
+        let usesAmbientLighting = supportsAmbientLighting && pass.combos["LIGHTING"] == 1
+        // Both unlit and ambient-only plans have no direct-light sidedness term.
         guard pass.passIndex == 0,
               pass.combos["REFRACT"] == 1,
               pass.combos.allSatisfy({
                   $0.key == "REFRACT"
                       || ($0.key == "CUTOUT" && $0.value == 0)
-                      || ($0.key == "LIGHTING" && ($0.value == 0
-                          || ($0.value == 1 && supportsAmbientLighting)))
+                      || ($0.key == "LIGHTING" && ($0.value == 0 || usesAmbientLighting))
+                      || ($0.key == "DOUBLESIDEDLIGHTING" && ($0.value == 0 || $0.value == 1))
               }),
               (1 ... 2).contains(pass.textureSlots.count),
               let color = pass.textureSlots[0],
@@ -83,7 +85,7 @@ nonisolated enum SceneParticleRefractionPlanner {
             normalReference: normal,
             amount: amount,
             overbright: overbright,
-            usesAmbientLighting: pass.combos["LIGHTING"] == 1
+            usesAmbientLighting: usesAmbientLighting
         )
     }
 

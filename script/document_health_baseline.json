@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 257,
-      "bytes": 46593
+      "lines": 258,
+      "bytes": 47386
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 250,
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 357,
-      "bytes": 149887
+      "lines": 359,
+      "bytes": 151028
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 135,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 46130
+      "bytes": 46189
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -377,28 +377,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "dd288ac60a6e8353d5cd2a701a1355828df9396bfd9cfc78281b8f76cea218a2",
-      "after": "2e50b4de41c0a855ab798d818f8bf1bec5ece27260c44c0743dcfe263c84ac02",
-      "owner": "Scene particle ambient material consumer",
-      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "before": "2e50b4de41c0a855ab798d818f8bf1bec5ece27260c44c0743dcfe263c84ac02",
+      "after": "d6012a50477a73424abf5ebafcd797be348efbbd01f7111d93e7102cc3ce1347",
+      "owner": "Scene particle inert lighting inputs",
+      "reason": "原 Planner 消费已证无贡献的双面位并保 L1 光照资格；登记根 RopeTrail 与健康 peer 的实际输出和时基上限，移除已闭材质拒绝，继续保 CUTOUT/直接灯未实现范围。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eb662ef01b1e1065254c2210133136e8bf09610895425e1d1b340fc5d307ac26",
-      "after": "71c3f8ee34ec34c6f9a6e2f663b3de4df83e0e68a16131154447aeac58835fc0",
-      "owner": "Scene particle ambient material consumer",
-      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "before": "71c3f8ee34ec34c6f9a6e2f663b3de4df83e0e68a16131154447aeac58835fc0",
+      "after": "7407f23af774ad439ba94f9e56ea1d1f34cd6b9a9173107edbad0cf2c355cbdb",
+      "owner": "Scene particle inert lighting inputs",
+      "reason": "原 Planner 消费已证无贡献的双面位并保 L1 光照资格；登记根 RopeTrail 与健康 peer 的实际输出和时基上限，移除已闭材质拒绝，继续保 CUTOUT/直接灯未实现范围。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9dc7d5877bc38b88189255a61e75031829d2238876e4ceae08f88594528b0f21",
-      "after": "e63538e92ede8f0a68fc9462b76d4541b69c84e0099fe407759268fa40175eb5",
-      "owner": "Scene particle ambient material consumer",
-      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "before": "e63538e92ede8f0a68fc9462b76d4541b69c84e0099fe407759268fa40175eb5",
+      "after": "c92401022df6aad0a003a2b6ec53daca7619ca268b94aef21e1fe393ad172d2e",
+      "owner": "Scene particle inert lighting inputs",
+      "reason": "原 Planner 消费已证无贡献的双面位并保 L1 光照资格；登记根 RopeTrail 与健康 peer 的实际输出和时基上限，移除已闭材质拒绝，继续保 CUTOUT/直接灯未实现范围。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
     }
   ]
