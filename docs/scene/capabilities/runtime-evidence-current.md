@@ -331,13 +331,23 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 独占窗口已关闭并原生确认原桌面，原receiver保留，guest stage已删、VM回suspended。输入、运输/关闭收据及独审保于`.artifacts/scene-unbound-input-control-20261108/`；无本地PNG、数值RGBA、精确像素或作者恢复资格。stage运输19文件、删除前26文件，新增7文件未先列名/保存，内容不可复核；本包不声称完整guest输出归档，后续方法已改为清理前对比manifest并保新增输出。重启及当前优先级归[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
 
 <a id="particle-lighting-control"></a>
-## REFRACT光照的有界控制
+## REFRACT ambient 与光照边界
 
-固定官方wallpaper32 2.8.0.42（SHA `daac1ea7…6bda07`、Session1/receiver8752）完成一场自有四区输入：同white×RGB64、alpha1、normal资源、REFRACT1/amount0，A为LIGHTING0，B/C/D为1；分别有无局部灯、红lpoint和绿point，ambient偏红、sky偏蓝。请求960×540，原生完整client可见，DPI/像素编码未单独量测。初次文字注记过大、tick被裁切，未取资格；保原9f553e输入，只将六个text.pointsize按960/3840缩为四分之一，其他15载荷、全部研究变量及阈值保持，新manifest `4fdf642f…fec024`经独立增量审查。更早padding类型错误在运输前已修，仅是静态拒绝收据。
+原 native REFRACT 已沿[粒子材质合同](particle-component-coverage.md#ambient-particle-lighting)消费无潜在 typed 直接灯、且有 ortho authored ambient 供货的 `LIGHTING=1`。同帧仅传 ambient/HDR，HDR 饱和在背景与 overbright 之前；未启 lighting 的原 RGB 运算、normal 位移与最终 coverage/PMA 保持。没有新 PSO、灯表、clock 或输出 owner；隐藏/零强度但可热变化的直接灯、无 ambient、双面/CUTOUT/未知 combo 和坏资源仍局部拒绝。未 typed 的 tube 不由此取得完整支持。
 
-最终同窗标题、内嵌label、绿色peer和RGBM四角完整可见；Root两次原生观察tick754→941，独立观察另见6876。A中性灰，B/C/D近同深红/红褐；这是有资格的载体/持续播放及粗色观察，只有CUA内联图，没有本地PNG/JPEG原件、数值RGB/alpha或颜色域转换资格。不能把无明显粗色差判为灯类不消费，也不能据此迁入image的ambient+sky、point筛选或默认roughness。normal实际variant/方向、view/world基、点灯、sky、固定BRDF参数及shadow仍待可区分证据，本轮不实施LIGHTING放行或继续调灯/法线矩阵。
+2026-11-08 同 project/pkg/tree 的原内容前后对照及独立内容，均核终端 PNG、自然 accepted-birth、实际槽位和同一 main→seal→GPU：
 
-两次独占预览均已关闭，原桌面经原生观察恢复；两个guest stage已删除，VM回原suspended。输入、客户端/运输、首错/修正及独审在`.artifacts/scene-refraction-profile-20261108/`；后继资格归[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。三作者九层仍只是无已知额外双面/CUTOUT组合的候选，不由此授作者恢复、完整光照或官方像素一致性。
+| 原作者 | 当前实际结果 |
+|---|---|
+| 3602874264 | 原 293/754/768 拒绝已退出，当前 PASS、无 unavailable；捕获帧三层各 6/62/6 实例，color、normal、当前背景与 main 完整绑定。主景完整，可见细微水/前景粒子。 |
+| 3580724885 | 720/1287 恢复；各自 Sprite 与 SpriteTrail 两 renderer 在同一捕获帧分别各 86/105 实例，主体和右下喷溅可见。722 仍因双面光照拒绝，整样本仍 CHECK。 |
+| 3042623710 | 原 L0 折射回归 PASS、无 unavailable；330/280/350 各 1/1515/254 实例，normal/背景与 main 正常，主景及雨滴保持。 |
+
+签名 Debug App executable `82d701ba…191a154`，4396 构建输入前后无漂移。原 Plan/AssetGraph、生产 Metal 字面像素、HDR 次序、RGB/alpha、缺 ambient 后健康 L0 peer、潜在直接灯、改名/等价数值和坏资源反例通过；多 renderer Rope/Sprite 的原输入与非法 uvscale 反例同时保留。已通过且未变范围复用，仅补失败或受影响方法；条件缺输入的 10 项未授资格。独立审查未发现本范围阻断。运行包 `scene-particle-ambient-current-20261108`、`scene-particle-ambient-neighbor-20261108` 与 `.artifacts/scene-particle-ambient-20261108/` 保存前后身份、完整收据、测试及审查；不授精确相位像素差、逐输入像素隔离、官方 parity 或性能收益。
+
+实现依据为本机官方64-bit 2.8.42（SHA `40e2ce02…cd993b0`）的 LightingV1 明文片段、真实 xref 和完整定向 ASM：零 LIGHTS 及 shadow/cookie 子计数路径只拼接 light 零值初始化及 return，无额外 sky/全局 ambient 生产；stock fragment 在该增量之外单独做 ambient 调制及 HDR CombineLighting。该条件 source 语义不证明作者官方 macro/count；本引擎 358/360 无 raw/typed light 的事实也不代官方计数。原生 ortho ambient/sky 换位与 authored 输入分开，不迁 image 的 ambient+sky。源身份、完整 Evidence/ASM 与独审在 `.artifacts/scene-particle-lighting-source-20261108/`；第三方 Mirage 候选不作官方数学证明。
+
+既有官方 wallpaper32 2.8.0.42 四区控制只取得载体、持续播放和粗色资格：同 white×RGB64、alpha1、normal、REFRACT1/amount0，L0 区中性灰，三个 L1 区近同深红；无数值 RGB/alpha、normal 位移或点灯/sky 分离资格。该控制本身不构成 LIGHTING 放行依据，不原样重调灯/法线。预览与 stage 已关闭清理、VM suspended；输入及限定收据在 `.artifacts/scene-refraction-profile-20261108/`。点灯、normal/view/world 基、固定 BRDF、shadow 和完整光照仍按[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)取得可区分供货后再实施。
 
 <a id="limits"></a>
 ## 未取得的资格

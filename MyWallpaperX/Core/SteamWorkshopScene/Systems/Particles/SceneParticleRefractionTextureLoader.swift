@@ -112,7 +112,8 @@ enum SceneParticleRefractionTextureLoader {
                 normalCandidate: normalCandidate,
                 amount: declaration.amount,
                 overbright: declaration.overbright,
-                colorEncoding: colorEncoding
+                colorEncoding: colorEncoding,
+                usesAmbientLighting: declaration.usesAmbientLighting
             ) else { return nil }
             binding = candidateBinding
         } else {
@@ -124,7 +125,8 @@ enum SceneParticleRefractionTextureLoader {
                 normalUsesParticleFrames: normalUsesParticleFrames,
                 normalUVScale: normalUVScale,
                 normalSampling: normalSampling,
-                normalFormat: normalFormat
+                normalFormat: normalFormat,
+                usesAmbientLighting: declaration.usesAmbientLighting
             )
         }
         return Loaded(

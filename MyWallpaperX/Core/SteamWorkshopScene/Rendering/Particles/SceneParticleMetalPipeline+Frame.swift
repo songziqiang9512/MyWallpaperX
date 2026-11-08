@@ -8,6 +8,8 @@ extension SceneParticleMetalPipeline {
         cameraFrame: SceneParticleCameraFrame,
         layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
+        ambient: SIMD3<Float>? = nil,
+        hdrEnabled: Bool = false,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         preparedDepth: SceneParticleDepthTargetPool.Acquisition? = nil,
@@ -140,6 +142,8 @@ extension SceneParticleMetalPipeline {
                         renderState: batch.renderState,
                         colorUVScale: batch.colorUVScale,
                         colorSampling: batch.colorSampling,
+                        ambient: ambient,
+                        hdrEnabled: hdrEnabled,
                         usesDepthAttachment: usesDepth,
                         encoder: encoder, observeBindings: observeBindings
                     )

@@ -127,6 +127,20 @@ final class SceneParticleRuntime {
             (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
                 && $0.contentKind == "particle" && $0.particlePath != nil
         }
+        let lightClasses = descriptor.lighting?.lightClasses ?? .init()
+        // Hidden lamps retain their prepared dynamic inputs and may become live.
+        let hasPotentialDirectLights = descriptor.layers.contains { layer in
+            if let point = layer.pointLight {
+                return point.kind == "point" || lightClasses.point
+            }
+            return (layer.directionalLight != nil && lightClasses.directional)
+                || (layer.spotLight != nil && lightClasses.spot)
+        }
+        let supportsAmbientLighting = !hasPotentialDirectLights
+            && SceneAuthoredShaderLightingInputs.Builder(
+                orthographicHeight: descriptor.camera.orthoHeight,
+                ambient: descriptor.lighting?.ambientColorRGB
+            ).finish().ambient != nil
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
                 materialPath: $0.materialPath,
@@ -165,6 +179,7 @@ final class SceneParticleRuntime {
         ).load(
             rootPaths: particleLayers.compactMap(\.particlePath),
             materialPasses: materialPasses,
+            supportsAmbientLighting: supportsAmbientLighting,
             preparedDefinitions: preparedDefinitions,
             checkCancellation: checkCancellation
         )

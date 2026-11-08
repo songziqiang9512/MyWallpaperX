@@ -28,6 +28,7 @@ else:
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
@@ -627,7 +628,7 @@ class SceneParticleRuntimeTests(
         # Layer 44 carries the renderer world flag (bit0): admitted since the
         # pointer-trail family batch — the spline is affine-invariant, so the
         # local construction renders identically through the layer matrix.
-        self.assertEqual(result["activeLayerIDs"], [41, 42, 44, 45, 46, 48])
+        self.assertEqual(result["activeLayerIDs"], [41, 42, 43, 44, 45, 46, 48])
         self.assertTrue(result["twoFrameWholeSource"])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
@@ -647,10 +648,13 @@ class SceneParticleRuntimeTests(
         self.assertTrue(result["childRopeUVStartsWithPhase"])
         self.assertFalse(any("ropeRendererUnsupported:42:" in detail
                              for detail in result["diagnosticDetails"]))
-        self.assertIn(
-            "ropeRendererUnsupported:43:rope:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
+        self.assertEqual(result["mixedRendererOrdinals"], [0, 1])
+        self.assertTrue(all(count > 0 for count in result["mixedRendererInstanceCounts"]))
+        self.assertTrue(all(value == 1 for value in result["mixedRendererDisplacement"][0]))
+        self.assertTrue(all(value == 0 for value in result["mixedRendererDisplacement"][1]))
+        self.assertEqual(result["mixedRendererRefraction"], [False, False])
+        self.assertFalse(any("ropeRendererUnsupported:43:" in detail
+                             for detail in result["diagnosticDetails"]))
         # Layer 44 (renderer world flag) no longer reports unsupported; its
         # admission is covered by the activeLayerIDs assertion above.
         self.assertIn(

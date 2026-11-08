@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 246,
-      "bytes": 43692
+      "lines": 257,
+      "bytes": 46593
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 250,
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 347,
-      "bytes": 148151
+      "lines": 357,
+      "bytes": 149887
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 135,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 45938
+      "lines": 186,
+      "bytes": 46130
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -376,21 +376,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "dd288ac60a6e8353d5cd2a701a1355828df9396bfd9cfc78281b8f76cea218a2",
+      "after": "2e50b4de41c0a855ab798d818f8bf1bec5ece27260c44c0743dcfe263c84ac02",
+      "owner": "Scene particle ambient material consumer",
+      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "91131bb51dc207166c183de6a6943a1c5cdff6a3c0c302da4f36fc2dc5bb5862",
-      "after": "eb662ef01b1e1065254c2210133136e8bf09610895425e1d1b340fc5d307ac26",
-      "owner": "Scene intro black Solid qualification",
-      "reason": "单场原内容的29条TRS读数与13阶段PNG未重现黑纹；保留alpha/MVP和作者copy声明上限并收紧重启条件，防止重复无首错试验。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
+      "before": "eb662ef01b1e1065254c2210133136e8bf09610895425e1d1b340fc5d307ac26",
+      "after": "71c3f8ee34ec34c6f9a6e2f663b3de4df83e0e68a16131154447aeac58835fc0",
+      "owner": "Scene particle ambient material consumer",
+      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fdd0ede80ffbc3567d95d6eeeadcde97637c4309efd9b247200470029ea02dbe",
-      "after": "9dc7d5877bc38b88189255a61e75031829d2238876e4ceae08f88594528b0f21",
-      "owner": "Scene intro black Solid qualification",
-      "reason": "单场原内容的29条TRS读数与13阶段PNG未重现黑纹；保留alpha/MVP和作者copy声明上限并收紧重启条件，防止重复无首错试验。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
+      "before": "9dc7d5877bc38b88189255a61e75031829d2238876e4ceae08f88594528b0f21",
+      "after": "e63538e92ede8f0a68fc9462b76d4541b69c84e0099fe407759268fa40175eb5",
+      "owner": "Scene particle ambient material consumer",
+      "reason": "在原粒子材质 owner 接通 authored ambient 与 HDR 次序，登记五层真实供货及 L0/多 renderer 回归；移除已闭队列与过时研究过程，保留直接灯、双面和 CUTOUT 边界。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#ambient-particle-lighting"
     }
   ]
 }

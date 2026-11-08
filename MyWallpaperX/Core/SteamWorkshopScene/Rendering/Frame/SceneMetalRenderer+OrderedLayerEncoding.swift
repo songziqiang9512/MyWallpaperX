@@ -438,6 +438,8 @@ extension SceneMetalRenderer {
                         Float(viewportSize.width),
                         Float(viewportSize.height)
                     ),
+                    ambient: frameLightSnapshot.authoredShaderLighting.ambient,
+                    hdrEnabled: frameProjection.descriptor.hdrEnabled,
                     mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
                     preparedDepth: modelFrame.particleDepth[layer.id]?.acquisition,

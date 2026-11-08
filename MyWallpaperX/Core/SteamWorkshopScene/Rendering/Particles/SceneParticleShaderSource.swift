@@ -274,7 +274,8 @@ fragment float4 sceneParticleRefractFrag(
     sampler colorSampler [[sampler(0)]],
     sampler normalSampler [[sampler(1)]],
     constant float4 &parameters [[buffer(0)]],
-    constant float4 &uvScales [[buffer(1)]]) {
+    constant float4 &uvScales [[buffer(1)]],
+    constant float4 &ambientLighting [[buffer(2)]]) {
     constexpr sampler backgroundSampler(filter::linear, address::clamp_to_edge);
     float4 albedo = particleColorSample(in, colorTexture, colorSampler, uvScales.xy);
     if (parameters.z > 0.5) {
@@ -303,7 +304,14 @@ fragment float4 sceneParticleRefractFrag(
 
     float coverage = saturate(albedo.a * in.tint.a);
     float3 straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
-    float3 source = background * albedo.rgb * straightTint * parameters.y;
+    float3 source;
+    if (ambientLighting.w > 0.5) {
+        float3 lit = albedo.rgb * straightTint * ambientLighting.rgb;
+        if (ambientLighting.w > 1.5) { lit = saturate(lit); }
+        source = background * lit * parameters.y;
+    } else {
+        source = background * albedo.rgb * straightTint * parameters.y;
+    }
     return float4(source * coverage, coverage);
 }
 """

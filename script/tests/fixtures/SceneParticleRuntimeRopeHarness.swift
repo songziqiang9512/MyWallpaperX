@@ -407,6 +407,7 @@ extension Harness {
             batches = runtime.advance(by: 1.0 / 60.0)
         }
         let batch = batches.first { $0.layerID == 41 }
+        let mixedBatches = batches.filter { $0.layerID == 43 }
         let twoFrameBatch = batches.first { $0.layerID == 42 }
         let subdivisionBatch = batches.first { $0.layerID == 45 }
         let scrollingBatch = batches.first { $0.layerID == 46 }
@@ -421,6 +422,10 @@ extension Harness {
         let uploaded = uploadPipeline.prepare(batch.map { [$0] } ?? []).first
         var facts2: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
+            "mixedRendererOrdinals": mixedBatches.map(\.rendererIndex),
+            "mixedRendererInstanceCounts": mixedBatches.map { $0.instances.count },
+            "mixedRendererDisplacement": mixedBatches.map { $0.instances.map { $0.frame1B.z } },
+            "mixedRendererRefraction": mixedBatches.map { $0.refraction != nil },
             "instanceCount": instances.count,
             "twoFrameWholeSource": twoFrameBatch.map {
                 $0.colorUVScale == SIMD2(repeating: 1) && !$0.instances.isEmpty

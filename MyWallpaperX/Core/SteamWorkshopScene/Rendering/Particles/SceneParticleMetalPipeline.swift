@@ -265,6 +265,8 @@ final class SceneParticleMetalPipeline {
         renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
+        ambient: SIMD3<Float>? = nil,
+        hdrEnabled: Bool = false,
         usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder,
         observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
@@ -276,6 +278,11 @@ final class SceneParticleMetalPipeline {
         guard let state = pipelineStates[variant],
               let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return false }
+        var ambientLighting = SIMD4<Float>.zero
+        if binding.usesAmbientLighting {
+            guard let ambient else { return false }
+            ambientLighting = SIMD4(ambient, hdrEnabled ? 2 : 1)
+        }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
@@ -324,6 +331,11 @@ final class SceneParticleMetalPipeline {
             &scales,
             length: MemoryLayout<SIMD4<Float>>.stride,
             index: 1
+        )
+        encoder.setFragmentBytes(
+            &ambientLighting,
+            length: MemoryLayout<SIMD4<Float>>.stride,
+            index: 2
         )
         encoder.drawPrimitives(
             type: .triangleStrip,

@@ -209,6 +209,17 @@ RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io
 
 验收在真实 Catalog→Planner/AssetGraph 检查省略、null、空值和资源改名的等价，以及显式正常/缺失 normal 与健康后继；复用原无 normal/有效 normal 的生产 Metal 像素门，再核原作者两个活动资产的实际纹理、实例、目标、command buffer 与最终捕获。不能以准备放行或全景非黑代替实际编码，不以本修复授全部材质输入、Rope/动画组合或逐输入像素贡献。
 
+<a id="ambient-particle-lighting"></a>
+### 无直接灯的粒子 ambient 消费
+
+原 native REFRACT 材质在零直接灯场景消费 `LIGHTING=1` 的真实 authored ambient，实际接通范围归[运行证据](runtime-evidence-current.md#particle-lighting-control)。官方模块的零计数组装分支初始化并返回零光照增量；stock fragment 在此之外将 albedo/tint 的 RGB 乘 `g_LightAmbientColor`，经原 HDR CombineLighting 后再消费背景与 overbright。这是有条件的 source 语义，不授作者实际宏计数或完整官方像素一致性。
+
+- **准备与唯一来源**：原 ParticleRuntime/AssetGraph 在冷准备确认原 ortho ambient 供货可用，并按既有 typed light 声明及 General 类别判断是否存在可能的直接灯消费者，给原 RefractionPlanner 传最小能力事实。显隐、位置与强度的当前零值不能当成永远无灯；已有动态直接灯需求仍局部不支持，不先模拟再逐帧拒绘。Plan/Declaration/Binding 保留真实 lighting operation，替换本范围的整项 LIGHTING 拒绝，不改变其他材质输入的消费资格。
+- **帧链与数学**：原 OrderedLayerEncoding 从同帧 LightSnapshot 只交付 authoredShaderLighting 的 ambient 和原 scene HDR 状态，沿原 particle uniform/fragment 消费；不使用 ortho native receiver 的 ambient/sky 换位或 image 的 ambient+sky 公式。RGB 调制与 HDR 饱和发生在原背景相乘、overbright 和最终 coverage/PMA 合成之前；alpha、几何、normal 解码、REFRACT 位移与背景快照继续原 consumer。未启用 lighting 的路径保原运算，不新增灯表、状态/时钟、资源/输出 owner、PSO cache 或普通帧场景扫描。
+- **失败与退出**：已识别的直接灯需求、shadow/cookie、双面/CUTOUT及既有无效资源保持原最小资产失败；未typed的tube仍沿原light降级，本批不新解析或以typed空数组授全部raw灯覆盖。不将未解释的材质输入当零灯，不用 unlit 替代未消费 operation。冷环境事实随原 descriptor/准备重建，帧输入只读已确定类型。将来接入完整直接光照时，由原材质/LightSnapshot 消费者替换该能力限制，不保并行 ambient owner 或额外回退链。
+
+验收先扩原 Plan/AssetGraph 与生产 Metal 门：零灯的 L1 与 L0、非白 ambient、RGB/alpha、HDR/overbright次序、normal与背景、资源/ID改名、合法数值变体，以及可热显隐直接灯、未知combo/坏资源和健康peer反例。先用未改参数的真实作者核自然 accepted-birth、非零 batch、实际 normal/background→main/seal/GPU与可见贡献，再用独立作者及既有L0内容防回退。最小交付以真实可见粒子恢复为准；只有准备放行、无出生、错误normal/颜色或无最终贡献时回到首错，不扩大光照、提高音频或调作者参数补图。
+
 <a id="rope-source"></a>
 ### 单图 Rope 纹理
 

@@ -49,6 +49,11 @@ struct SceneRenderDescriptor: Codable {
         var hasFramebufferMaterialSource: Bool { false }
         var cameraPath: CameraPath? = nil
         struct CameraPath: Codable { let camera: String; let fov: Double? }
+        struct PointLight: Codable { let kind: String; var intensity: Float? = nil }
+        struct DirectLight: Codable { var intensity: Float? = nil }
+        var pointLight: PointLight? = nil
+        var directionalLight: DirectLight? = nil
+        var spotLight: DirectLight? = nil
     }
 
     struct MaterialPassDescriptor: Codable {
@@ -117,6 +122,16 @@ struct SceneRenderDescriptor: Codable {
         var default2DOriginInputLayerID: Int? = nil
     }
     var camera = CameraDescriptor()
+    struct Lighting: Codable {
+        struct Classes: Codable {
+            var directional = false
+            var point = false
+            var spot = false
+        }
+        var lightClasses = Classes()
+        var ambientColorRGB: [Float]? = nil
+    }
+    var lighting: Lighting? = nil
     var layers: [Layer]
     let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
@@ -151,6 +166,9 @@ extension SceneRenderDescriptor.Layer {
         usesPerspective = try c.decodeIfPresent(Bool.self, forKey: .usesPerspective)
         parallaxDepthXY = try c.decodeIfPresent([Float].self, forKey: .parallaxDepthXY)
         disablesParallaxPropagation = try c.decodeIfPresent(Bool.self, forKey: .disablesParallaxPropagation) ?? false
+        pointLight = try c.decodeIfPresent(PointLight.self, forKey: .pointLight)
+        directionalLight = try c.decodeIfPresent(DirectLight.self, forKey: .directionalLight)
+        spotLight = try c.decodeIfPresent(DirectLight.self, forKey: .spotLight)
     }
 }
 

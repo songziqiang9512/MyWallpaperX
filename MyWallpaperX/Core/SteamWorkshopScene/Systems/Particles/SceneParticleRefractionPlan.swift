@@ -9,6 +9,7 @@ nonisolated struct SceneParticleRefractionDeclaration: Equatable, Sendable {
     let normalTextureSource: SceneParticleTextureSource?
     let amount: Float
     let overbright: Float
+    var usesAmbientLighting: Bool = false
 }
 
 nonisolated enum SceneParticleRefractionPlanner {
@@ -17,17 +18,21 @@ nonisolated enum SceneParticleRefractionPlanner {
         let normalReference: String?
         let amount: Float
         let overbright: Float
+        let usesAmbientLighting: Bool
     }
 
     static func plan(
         for pass: SceneParticleMaterialPass,
-        renderState: SceneMaterialRenderState
+        renderState: SceneMaterialRenderState,
+        supportsAmbientLighting: Bool = false
     ) -> Plan? {
         guard pass.passIndex == 0,
               pass.combos["REFRACT"] == 1,
               pass.combos.allSatisfy({
                   $0.key == "REFRACT"
-                      || (($0.key == "CUTOUT" || $0.key == "LIGHTING") && $0.value == 0)
+                      || ($0.key == "CUTOUT" && $0.value == 0)
+                      || ($0.key == "LIGHTING" && ($0.value == 0
+                          || ($0.value == 1 && supportsAmbientLighting)))
               }),
               (1 ... 2).contains(pass.textureSlots.count),
               let color = pass.textureSlots[0],
@@ -77,7 +82,8 @@ nonisolated enum SceneParticleRefractionPlanner {
             colorReference: color,
             normalReference: normal,
             amount: amount,
-            overbright: overbright
+            overbright: overbright,
+            usesAmbientLighting: pass.combos["LIGHTING"] == 1
         )
     }
 

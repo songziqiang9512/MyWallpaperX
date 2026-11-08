@@ -23,6 +23,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/ScenePkgReader.swift",
     SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
     SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
+    SCENE_ROOT / "Resources/Assets/SceneStockTextureResolver.swift",
+    SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SCENE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SCENE_ROOT / "Systems/Particles/SceneParticleRefractionPlan.swift",
+    SCENE_ROOT / "Systems/Particles/SceneParticleAssetGraph.swift",
+    SCENE_ROOT / "Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
+    Path(__file__).parent / "fixtures/SceneParticleAmbientLightingChecks.swift",
     Path(__file__).parent / "fixtures/SceneTextureSamplingReadback.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
@@ -230,6 +237,36 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )), 2)
             self.assertLess(expected_error, double_error)
 
+    def test_ambient_lighting_uses_real_plan_loader_and_preserves_unlit_normal_peers(self) -> None:
+        self.require_metal()
+        rows = self.result["ambientLighting"]
+        self.assertTrue(rows["productionLightingFlag"])
+        self.assertEqual(rows["unlitIgnoresAmbientHDR"], [200, 100, 50, 255])
+        self.assertEqual(rows["missingAmbientKeepsPeer"], [200, 100, 50, 255])
+        self.assertEqual(rows["blackAmbientKeepsAlpha"], [0, 0, 0, 255])
+        for name, expected in (("ambient", [150, 50, 13, 255]),
+                               ("channelTint", [75, 50, 25, 255])):
+            for actual, target in zip(rows[name], expected):
+                self.assertAlmostEqual(actual, target, delta=1, msg=name)
+        self.assertEqual(rows["renamed"], rows["ambient"])
+        self.assertEqual(rows["equivalent"], rows["ambient"])
+        self.assertEqual(rows["normalLit"], rows["normalUnlit"])
+        self.assertEqual(rows["normalLit"], self.result["normalPixels"]["dxt5n"])
+        self.assertNotEqual(rows["normalLit"], self.result["absentStrong"])
+
+    def test_hdr_saturates_lighting_before_background_overbright_and_single_coverage(self) -> None:
+        self.require_metal()
+        rows = self.result["ambientLighting"]
+        # Quarter overbright and fractional coverage keep over-range lighting
+        # observable on the existing UNORM target; these are literal BGRA results.
+        expected = {"highSDR": [150, 50, 25, 255], "highHDR": [50, 25, 13, 255],
+                    "translucentSDR": [38, 13, 6, 64], "additiveSDR": [38, 13, 6, 64],
+                    "translucentHDR": [13, 6, 3, 64], "additiveHDR": [13, 6, 3, 64]}
+        for name, pixel in expected.items():
+            with self.subTest(profile=name):
+                for actual, target in zip(rows[name], pixel):
+                    self.assertAlmostEqual(actual, target, delta=1)
+
     def test_r8_color_reuses_straight_coverage_without_reinterpreting_normal_or_rg88(self) -> None:
         self.require_metal()
         values = self.result["r8Color"]
@@ -342,6 +379,7 @@ struct SceneParticleRefractionDeclaration {
     let normalTextureSource: SceneParticleTextureSource?
     let amount: Float = 1
     let overbright: Float = 1
+    let usesAmbientLighting = false
 }
 struct SceneTexContainer {
     struct SpriteFrame {
