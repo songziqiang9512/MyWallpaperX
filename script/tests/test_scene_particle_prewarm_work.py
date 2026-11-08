@@ -62,7 +62,7 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
 
     def assertReplay(self, row: dict) -> None:
         for fact in ("sameObservableState", "sameHistory", "nextStepObservableState", "nextStepEvents",
-                     "nextStepHistory", "continuedHandoff", "drained"):
+                     "nextStepHistory", "continuedHandoff", "retainedSnapshotUnchanged", "drained"):
             self.assertTrue(row[fact], (fact, row))
 
     def test_sparse_capacity_and_renaming_complete_with_exact_live_handoff(self) -> None:
@@ -179,6 +179,40 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertTrue(row["checksOnlyDuringWarmup"])
         self.assertFalse(row["cancelled"])
         self.assertFalse(row["limited"])
+
+    def test_field_writer_baselines_preserve_birth_values_and_do_not_accumulate(self) -> None:
+        expected = {"none": (7, [1, 0, 1]), "size": (14, [1, 0, 1]),
+                    "oscillate": (21, [1, 0, 1]), "twoSizeWriters": (42, [1, 0, 1]),
+                    "color": (7, [0.5, 0, 0.75]), "combined": (42, [0.5, 0, 0.75]),
+                    "renamed": (42, [0.5, 0, 0.75])}
+        rows = self.result["fieldWriters"]["rows"]
+        self.assertEqual(set(rows), set(expected))
+        for name, (size, color) in expected.items():
+            row = rows[name]
+            with self.subTest(name=name):
+                self.assertReplay(row)
+                self.assertEqual(row["prewarm"]["age"], 1)
+                self.assertEqual(row["live"]["age"], 1.25)
+                for phase in ("prewarm", "live"):
+                    state = row[phase]
+                    self.assertEqual((state["size"], state["color"]), (size, color))
+                    self.assertEqual((state["initialSize"], state["initialColor"]), (7, [1, 0, 1]))
+                    self.assertEqual((state["alpha"], state["initialAlpha"]), (0.1875, 0.375))
+
+    def test_event_color_writer_resets_when_follow_payload_becomes_unusable(self) -> None:
+        row = self.result["fieldWriters"]["event"]
+        self.assertReplay(row)
+        self.assertTrue(row["sameParticle"])
+        self.assertEqual(row["prewarm"]["color"], [0.25, 0.5, 0.75])
+        self.assertEqual(row["validLive"]["color"], [0.25, 0.5, 0.75])
+        self.assertEqual(len(row["unavailableLive"]), 3)
+        for state in row["unavailableLive"]:
+            self.assertEqual(state["color"], [1, 0, 1])
+        self.assertEqual(row["recoveredLive"]["color"], [0, 0.25, 1])
+        for state in (row["prewarm"], row["validLive"], *row["unavailableLive"], row["recoveredLive"]):
+            self.assertEqual((state["size"], state["initialSize"]), (7, 7))
+            self.assertEqual(state["initialColor"], [1, 0, 1])
+            self.assertEqual((state["alpha"], state["initialAlpha"]), (0.1875, 0.375))
 
 
 if __name__ == "__main__":

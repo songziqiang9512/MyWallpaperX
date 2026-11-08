@@ -529,14 +529,16 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
-        for index in particles.indices {
-            particles[index].alpha = particles[index].initialAlpha
-            particles[index].size = particles[index].initialSize
-            particles[index].color = particles[index].initialColor
-            particles[index].age += duration
-            normalizedLives.append(min(max(
-                particles[index].age / max(particles[index].lifetime, 1e-12), 0
-            ), 1))
+        particles.withUnsafeMutableBufferPointer { buffer in
+            for index in buffer.indices {
+                buffer[index].alpha = buffer[index].initialAlpha
+                buffer[index].size = buffer[index].initialSize
+                buffer[index].color = buffer[index].initialColor
+                buffer[index].age += duration
+                normalizedLives.append(min(max(
+                    buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
+                ), 1))
+            }
         }
         for (operatorIndex, value) in definition.operators.enumerated() {
             apply(value, operatorIndex: operatorIndex, duration: duration,

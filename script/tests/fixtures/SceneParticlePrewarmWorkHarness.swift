@@ -19,12 +19,14 @@ import simd
 
     static func make(_ root: [String: Any], budget: Int? = nil, step: Double = 1.0 / 32,
                      rate: Double = 1, history: Int = 0,
-                     shouldCancel: (() -> Bool)? = nil) -> SceneParticleSimulator {
+                     shouldCancel: (() -> Bool)? = nil,
+                     eventValueContext: SceneParticleEventValueContext = .unavailable) -> SceneParticleSimulator {
         SceneParticleSimulator(definition: parser.parse(root: root),
             instanceOverride: parser.parseInstanceOverride(["rate": rate]), seed: 73,
             fixedTimeStep: step, prewarmStepBudget: budget, shouldCancelPrewarm: shouldCancel,
             stepSnapshotPolicies: history > 1
-                ? [SceneParticleStepSnapshotPolicy(interval: step * 4, maximumSnapshots: history)!] : [])
+                ? [SceneParticleStepSnapshotPolicy(interval: step * 4, maximumSnapshots: history)!] : [],
+            eventValueContext: eventValueContext)
     }
 
     static func history(_ frame: SceneParticleSimulator.FrameSnapshot) -> [SceneParticleStepSnapshot] {
@@ -53,9 +55,10 @@ import simd
     /// Replay witnessed completed wall steps, not a duplicate budget estimator.
     static func replay(_ warm: SceneParticleSimulator, source: [String: Any],
                        completedSteps: Int, rate: Double = 1, history: Int = 0,
-                       handoffSteps: Int = 1) -> [String: Any] {
+                       handoffSteps: Int = 1,
+                       eventValueContext: SceneParticleEventValueContext = .unavailable) -> [String: Any] {
         var cold = source; cold.removeValue(forKey: "starttime")
-        let plain = make(cold, rate: rate, history: history)
+        let plain = make(cold, rate: rate, history: history, eventValueContext: eventValueContext)
         var births = 0, deaths = 0
         for _ in 0..<completedSteps {
             plain.advance(by: step)
@@ -72,7 +75,10 @@ import simd
         let drained = warm.birthEvents.isEmpty && warm.deathEvents.isEmpty
         let nextID = prepared.nextParticleID, time = prepared.simulationTime
         let liveCount = prepared.particles.count, processedCount = prepared.normalizedLives.count
+        let preparedFirst = prepared.particles.first
         warm.advance(by: step); plain.advance(by: step)
+        let nextStepRetainedSnapshot = prepared.particles.count == liveCount
+            && prepared.particles.first == preparedFirst
         let nextState = sameObservableState(warm, plain)
         let nextEvents = warm.birthEvents == plain.birthEvents && warm.deathEvents == plain.deathEvents
         let nextHistory = self.history(warm.frameSnapshot()) == self.history(plain.frameSnapshot())
@@ -88,6 +94,8 @@ import simd
         return ["sameObservableState": equal, "sameHistory": historiesEqual,
             "nextStepObservableState": nextState, "nextStepEvents": nextEvents,
             "nextStepHistory": nextHistory, "continuedHandoff": handoffEqual,
+            "retainedSnapshotUnchanged": nextStepRetainedSnapshot && prepared.particles.count == liveCount
+                && prepared.particles.first == preparedFirst,
             "handoffCadences": handoffSteps,
             "drained": drained, "historyCount": retainedHistory.count,
             "historyHasPopulation": retainedHistory.contains { !$0.particles.isEmpty },
@@ -274,10 +282,77 @@ import simd
         return rows
     }
 
+    static func appearance(_ particle: SceneParticleState) -> [String: Any] {
+        ["size": particle.size, "initialSize": particle.initialSize,
+         "color": [particle.color.x, particle.color.y, particle.color.z],
+         "initialColor": [particle.initialColor.x, particle.initialColor.y, particle.initialColor.z],
+         "alpha": particle.alpha, "initialAlpha": particle.initialAlpha, "age": particle.age]
+    }
+
+    static func fieldWriterBaselines() -> [String: Any] {
+        let size: [String: Any] = ["name": "sizechange", "starttime": 0, "endtime": 1,
+            "startvalue": 2, "endvalue": 2]
+        let oscillate: [String: Any] = ["name": "oscillatesize", "frequencymin": 0,
+            "frequencymax": 0, "scalemin": 3, "scalemax": 3, "phasemin": 0, "phasemax": 0]
+        let color: [String: Any] = ["name": "colorchange", "starttime": 0, "endtime": 1,
+            "startvalue": "0.5 0.25 0.75", "endvalue": "0.5 0.25 0.75"]
+        let alpha: [String: Any] = ["name": "alphachange", "starttime": 0, "endtime": 1,
+            "startvalue": 0.5, "endvalue": 0.5]
+        var root = source(capacity: 1, start: 1, rate: 0, burst: 1, lifetime: 64)
+        root["initializer"] = [["id": 21, "name": "lifetimerandom", "min": 64, "max": 64],
+            ["id": 22, "name": "sizerandom", "min": 7, "max": 7],
+            ["id": 23, "name": "colorrandom", "min": "255 0 255", "max": "255 0 255"],
+            ["id": 24, "name": "alpharandom", "min": 0.375, "max": 0.375]]
+        let cases: [(String, [[String: Any]])] = [("none", []), ("size", [size]),
+            ("oscillate", [oscillate]), ("twoSizeWriters", [size, oscillate]),
+            ("color", [color]), ("combined", [size, oscillate, color]),
+            ("renamed", [size, oscillate, color])]
+        var rows: [String: Any] = [:]
+        for (name, operators) in cases {
+            var input = root
+            input["operator"] = operators + [alpha]
+            if name == "renamed" {
+                input["material"] = "materials/another-birth-spectrum.json"
+                input["operator"] = (operators + [alpha]).enumerated().map { index, value in
+                    var renamed = value; renamed["id"] = 700 + index; return renamed
+                }
+            }
+            let warm = make(input, history: 4)
+            let prepared = appearance(warm.particles[0])
+            var row = replay(warm, source: input, completedSteps: 32, history: 4, handoffSteps: 8)
+            row["prewarm"] = prepared
+            row["live"] = appearance(warm.particles[0])
+            rows[name] = row
+        }
+        var eventInput = root
+        eventInput["operator"] = [["name": "inheritvaluefromevent", "input": "setcolor"], alpha]
+        let context = SceneParticleEventValueContext.follow(.init(color: SIMD3(0.25, 0.5, 0.75),
+            size: 19, alpha: 0.9))
+        let warm = make(eventInput, history: 4, eventValueContext: context)
+        let prepared = appearance(warm.particles[0])
+        let identity = warm.particles[0].id
+        var event = replay(warm, source: eventInput, completedSteps: 32, history: 4,
+            eventValueContext: context)
+        event["prewarm"] = prepared
+        event["validLive"] = appearance(warm.particles[0])
+        warm.updateFollowEventValues(.init(color: SIMD3(.infinity, 0.5, 0.75), size: 19, alpha: 0.9))
+        var unavailable: [[String: Any]] = []
+        for _ in 0..<3 {
+            warm.advance(by: step)
+            unavailable.append(appearance(warm.particles[0]))
+        }
+        event["unavailableLive"] = unavailable
+        warm.updateFollowEventValues(.init(color: SIMD3(0, 0.25, 1), size: 19, alpha: 0.9))
+        warm.advance(by: step)
+        event["recoveredLive"] = appearance(warm.particles[0])
+        event["sameParticle"] = warm.particles.count == 1 && warm.particles[0].id == identity
+        return ["rows": rows, "event": event]
+    }
+
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
             "emptySystems": emptySystems(), "bounds": boundaries(),
-            "complete": complete(), "cancellation": cancellation()]
+            "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
