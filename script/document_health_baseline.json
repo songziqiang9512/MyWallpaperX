@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 429,
-      "bytes": 178772
+      "lines": 432,
+      "bytes": 179856
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 47956
+      "bytes": 48102
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,19 +422,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1402330d7ca8af6f5bb74c2115e422446250d147e50896de3a8bac11063bea83",
-      "after": "67893f08d6dc4eafcd883f33e6653f72b882db1f5a3723b764f542e73ea281c7",
-      "owner": "Scene official beam layer attribution",
-      "reason": "Replace the unqualified producer-identity stop with bounded official same-window group attribution, retain geometry/audio and image limitations, and select the smallest asymmetric Trail/Sprite control. No product changes or fresh Mac validation. Exact body budget.",
+      "before": "67893f08d6dc4eafcd883f33e6653f72b882db1f5a3723b764f542e73ea281c7",
+      "after": "15ce071a223caa80da8b4f6f738c732e5ab28ef6e39ed112655c0c70f014febe",
+      "owner": "Scene official UV control qualification",
+      "reason": "Record bounded Mac readability and official carrier failure; preserve the failed inputs and clear stop, without product changes or geometry/audio qualification. Replace the next-step wording rather than leaving an executable failed protocol. Exact body budget.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "838ed8e425c8d60dbfd50eedaf6a35e9d39868d78ad22e74fcca206c9e14ee7e",
-      "after": "5b3f10a7051ae64c25356d04c1c72725425f6e11eab2880b1ab4778f5f56c3e2",
-      "owner": "Scene official beam layer attribution",
-      "reason": "Replace the unqualified producer-identity stop with bounded official same-window group attribution, retain geometry/audio and image limitations, and select the smallest asymmetric Trail/Sprite control. No product changes or fresh Mac validation. Exact body budget.",
+      "before": "5b3f10a7051ae64c25356d04c1c72725425f6e11eab2880b1ab4778f5f56c3e2",
+      "after": "e6f90894622fd0fc65c0cb4e73c96a10a9b8c165adafca54214d6bc9833e6dfe",
+      "owner": "Scene official UV control qualification",
+      "reason": "Record bounded Mac readability and official carrier failure; preserve the failed inputs and clear stop, without product changes or geometry/audio qualification. Replace the next-step wording rather than leaving an executable failed protocol. Exact body budget.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     }
   ]
