@@ -145,10 +145,10 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
         return min(minimum, maximum) ... max(minimum, maximum)
     }
 
-    nonisolated var hasBoundedDirectionsAndSign: Bool {
+    nonisolated var hasValidDirectionsAndSign: Bool {
         guard !hasMalformedDirectionsOrSign,
               let directionValues = Self.vectorComponents(directions),
-              directionValues.allSatisfy({ $0.isFinite && abs($0) <= 1_000_000 }) else {
+              directionValues.allSatisfy(\.isFinite) else {
             return false
         }
         guard sign != nil else { return true }

@@ -222,7 +222,7 @@ extension SceneParticleSimulationMath {
             $0.directions != nil || $0.sign != nil || $0.hasMalformedDirectionsOrSign
         }
         if !shapeEmitters.isEmpty {
-            if shapeEmitters.allSatisfy(\.hasBoundedDirectionsAndSign) {
+            if shapeEmitters.allSatisfy(\.hasValidDirectionsAndSign) {
                 add(.emitterShapeBounded, "sources=\(shapeEmitters.count)")
             } else {
                 add(.emitterShapeUnsupported, "directionsOrSign")

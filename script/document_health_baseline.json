@@ -121,8 +121,8 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 276,
-      "bytes": 51306
+      "lines": 280,
+      "bytes": 52302
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 250,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 422,
-      "bytes": 172309
+      "bytes": 172345
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 47686
+      "lines": 186,
+      "bytes": 46974
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -368,11 +368,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5b276324c042b41ae0ce34b6392526622f59c513dad28ffc6adb83f7b3c7876b",
-      "after": "1b2fab39746fe5092767aca18f608b10993dc0abc90b0c52785bae368dcc1ff3",
-      "owner": "Scene particle instance birth color",
-      "reason": "以原owner的两处赋值替换修正出生RGB覆盖，补受控实际像素与未闭真实作者边界；撤回无画面收益的音频候选，更新闪烁与具体停止线。正文按本次精确大小登记，无预算余量。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color"
+      "before": "1b2fab39746fe5092767aca18f608b10993dc0abc90b0c52785bae368dcc1ff3",
+      "after": "de0c67f8cf4ca10aa1e88a8e70d1cafe8d40b787b9649b58fa3d23b77b87c213",
+      "owner": "Scene emitter Directions and radial sampling",
+      "reason": "Remove the arbitrary finite Directions magnitude cap and replace absolute radial powers in the original spawn owner; retire the copied numerical oracle and superseded evidence row. Keep actual constructor/GPU/author qualification and the invalid-range RNG boundary explicit. Exact body budgets without spare allowance.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
     },
     {
       "section": "bodies",
@@ -404,20 +404,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3d3d84a3d7be5e69c0d34fea03ca36410cec592f4da138638165e95cc2a7fb43",
-      "after": "808466f72bf37415af9927e919324e9fbc5564e9c6d8551a23f24fb7cd4c208a",
-      "owner": "Scene text viewport qualification",
-      "reason": "Record two current same-input runs distinguishing complete text sources from viewport cropping, preserve the different clock strings and unmeasured later/official scope, and prevent repeated default or anchor work. No product change; exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#text-screen-anchor-viewport"
+      "before": "808466f72bf37415af9927e919324e9fbc5564e9c6d8551a23f24fb7cd4c208a",
+      "after": "59d8cc2145f4ba8b8ee9b9815250b1f73bb611b74d74f724ca5c11bff80c114e",
+      "owner": "Scene emitter Directions and radial sampling",
+      "reason": "Remove the arbitrary finite Directions magnitude cap and replace absolute radial powers in the original spawn owner; retire the copied numerical oracle and superseded evidence row. Keep actual constructor/GPU/author qualification and the invalid-range RNG boundary explicit. Exact body budgets without spare allowance.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a52070ae0d962a47ab00425b7acfe4e77f993f9cf68b646120db878574c3c344",
-      "after": "b39a8cf298034ebba74462bbebbe1127bee974fc52ca4fd966be41a045ac897e",
-      "owner": "Scene bounded followup qualification",
-      "reason": "Preserve one current instrumented function sample and two bounded R0 input investigations as concrete stop conditions. No product fix or performance gain is claimed; keep unlocalized visual feedback and actual source-material capability open. Exact body budget.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "b39a8cf298034ebba74462bbebbe1127bee974fc52ca4fd966be41a045ac897e",
+      "after": "9302605dd6f03f380aede01e1f7a2d7eee1e2d4e567b8fce8c4c9caa40262fde",
+      "owner": "Scene emitter Directions and radial sampling",
+      "reason": "Remove the arbitrary finite Directions magnitude cap and replace absolute radial powers in the original spawn owner; retire the copied numerical oracle and superseded evidence row. Keep actual constructor/GPU/author qualification and the invalid-range RNG boundary explicit. Exact body budgets without spare allowance.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
     },
     {
       "section": "bodies",

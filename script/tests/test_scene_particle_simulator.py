@@ -1272,7 +1272,6 @@ enum Harness {
         boxDirections.advance(by: 1)
         let invalidEmitterShapes = [
             #""name":"sphererandom","directions":"nan 1 0""#,
-            #""name":"sphererandom","directions":"1000001 1 0""#,
             #""name":"sphererandom","directions":"1 1""#,
             #""name":"sphererandom","directions":"bad""#,
         ].map { fields -> SceneParticleSimulator in
@@ -2193,7 +2192,7 @@ enum Harness {
         let layerImageExplicitSignRejected: Bool =
             signedLayerImageDefinition.emitters[0].sign == .vector([1, 0, 0])
             && !signedLayerImageDefinition.emitters[0].hasMalformedDirectionsOrSign
-            && !signedLayerImageDefinition.emitters[0].hasBoundedDirectionsAndSign
+            && !signedLayerImageDefinition.emitters[0].hasValidDirectionsAndSign
             && signedLayerImage.particles.isEmpty && signedLayerImage.playbackHasWork == nil
         let delayedLayerImageDefinition = SceneParticleDefinitionParser().parse(
             root: try object(delayedLayerImageJSON)
@@ -3590,42 +3589,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
-        expected_names = {f"mask-{mask}" for mask in range(8)} | {
-            "defaults", "below-threshold", "at-threshold", "above-threshold",
-            "negative-below-threshold", "negative-at-threshold", "negative-above-threshold",
-            "signed-zero", "negative-direction-sign", "reverse-range", "negative-distance-clamp",
-            "equal-shell", "subnormal-shell", "power-overflow", "infinite-maximum",
-            "nan-minimum", "nan-maximum",
-        }
-        oracle_rows = {row["name"]: row for row in result["oracleRows"]}
-        self.assertEqual(set(oracle_rows), expected_names)
-        for name, row in oracle_rows.items():
-            with self.subTest(oracle=name):
-                self.assertEqual(row["samples"], 64)
-                for field in ("bitsOrNaNClassMatch", "rngAfterEachSampleMatches", "drawCountMatches",
-                              "nextRandomMatches", "nextIDUnchanged"):
-                    self.assertTrue(row[field], (field, row))
-                self.assertEqual(row["firstMismatch"], {})
-        for mask in range(8):
-            self.assertEqual(oracle_rows[f"mask-{mask}"]["mask"], mask)
-        for name in ("below-threshold", "at-threshold", "negative-below-threshold",
-                     "negative-at-threshold"):
-            self.assertIn(oracle_rows[name]["mask"], (2, 4))
-        self.assertEqual(oracle_rows["above-threshold"]["mask"], 3)
-        self.assertEqual(oracle_rows["negative-above-threshold"]["mask"], 5)
-        self.assertEqual(oracle_rows["signed-zero"]["mask"], 0)
-        birth_rows = {row["name"]: row for row in result["birthRows"]}
-        self.assertEqual(set(birth_rows), expected_names)
-        for name, row in birth_rows.items():
-            with self.subTest(birth=name):
-                for field in ("positionsMatch", "identitiesMatch", "birthEventsMatch", "nextIDMatches",
-                              "rngMatches", "nextRandomMatches", "rollbackMatches"):
-                    self.assertTrue(row[field], (field, row))
-                self.assertEqual(row["accepted"] + row["rejected"], 8)
-        for name in ("power-overflow", "infinite-maximum"):
-            self.assertGreater(oracle_rows[name]["nonfiniteValues"], 0)
-            self.assertEqual(birth_rows[name]["accepted"], 0)
-            self.assertEqual(birth_rows[name]["rejected"], 8)
 
     def test_periodic_emission_consumes_rate_and_count_with_bounded_work(self) -> None:
         result = self.run_harness("periodic-overrides")
@@ -4006,7 +3969,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["nonfiniteEmitterSpeedDiagnostics"], ["emitterSpeedUnsupported"]
         )
 
-    def test_emitter_directions_and_sign_are_bounded_and_fail_closed(self) -> None:
+    def test_emitter_directions_and_sign_are_valid_and_fail_closed(self) -> None:
         self.assertTrue(self.results["sphereDirectionSignBounded"])
         self.assertEqual(
             self.results["sphereDirectionSignDiagnostics"], ["emitterShapeBounded"]
@@ -4019,10 +3982,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
         )
-        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0])
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0])
         self.assertEqual(
             self.results["invalidEmitterShapeDiagnostics"],
-            [["emitterShapeUnsupported"]] * 4,
+            [["emitterShapeUnsupported"]] * 3,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:

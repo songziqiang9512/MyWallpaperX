@@ -716,7 +716,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         spawnPlan: SceneParticleEmitterSpawnPlan,
         frame: SceneParticleEmitterControlPointFrame, strict: Bool = false
     ) -> SceneParticleState? {
-        guard spawnPlan.hasBoundedDirectionsAndSign,
+        guard spawnPlan.hasValidShapeInputs,
               let speedMinimum = spawnPlan.speedMinimum,
               let speedMaximum = spawnPlan.speedMaximum else { return nil }
         var velocity = SIMD3<Double>.zero

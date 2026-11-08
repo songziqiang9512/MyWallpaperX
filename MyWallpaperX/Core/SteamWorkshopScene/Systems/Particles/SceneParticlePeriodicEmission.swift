@@ -28,14 +28,13 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let directions: SIMD3<Double>
     let sign: SIMD3<Double>
     let sphereAxisMask: UInt8
-    let sphereRadiusPowerMinimum: Double
-    let sphereRadiusPowerMaximum: Double
+    let sphereRadiusMinimumPower: Double
     let sphereRadiusInverseDimension: Double
-    let boxDistanceMinimum: SIMD3<Double>
-    let boxDistanceMaximum: SIMD3<Double>
+    let distanceMinimum: SIMD3<Double>
+    let distanceMaximum: SIMD3<Double>
     let speedMinimum: Double?
     let speedMaximum: Double?
-    let hasBoundedDirectionsAndSign: Bool
+    let hasValidShapeInputs: Bool
     let initialDelayAdmission: SceneParticleInitialDelayAdmission
     let periodicEmissionAdmission: SceneParticlePeriodicEmissionAdmission
     let rate: Double?
@@ -74,23 +73,26 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             let maximum = max(
                 minimum, SceneParticleSimulationMath.scalar(value.distanceMaximum, fallback: 256)
             )
-            sphereRadiusPowerMinimum = pow(minimum, dimensions)
-            sphereRadiusPowerMaximum = pow(maximum, dimensions)
+            distanceMinimum = SIMD3(repeating: minimum)
+            distanceMaximum = SIMD3(repeating: maximum)
+            hasValidShapeInputs = value.hasValidDirectionsAndSign
+                && minimum.isFinite && maximum.isFinite
+            sphereRadiusMinimumPower = hasValidShapeInputs && maximum > 0
+                ? pow(minimum / maximum, dimensions) : 0
             sphereRadiusInverseDimension = 1 / dimensions
         } else {
-            // Other shapes never consume radial sampling or prepare its powers.
             sign = .zero
             sphereAxisMask = 0
-            sphereRadiusPowerMinimum = 0
-            sphereRadiusPowerMaximum = 0
+            sphereRadiusMinimumPower = 0
             sphereRadiusInverseDimension = 1
+            distanceMinimum = SceneParticleSimulationMath.vector(
+                value.distanceMinimum, fallback: .zero
+            )
+            distanceMaximum = SceneParticleSimulationMath.vector(
+                value.distanceMaximum, fallback: SIMD3(repeating: 256)
+            )
+            hasValidShapeInputs = value.hasValidDirectionsAndSign
         }
-        boxDistanceMinimum = SceneParticleSimulationMath.vector(
-            value.distanceMinimum, fallback: .zero
-        )
-        boxDistanceMaximum = SceneParticleSimulationMath.vector(
-            value.distanceMaximum, fallback: SIMD3(repeating: 256)
-        )
         if let range = value.boundedSpeedRange {
             speedMinimum = range.lowerBound
             speedMaximum = range.upperBound
@@ -98,7 +100,6 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             speedMinimum = nil
             speedMaximum = nil
         }
-        hasBoundedDirectionsAndSign = value.hasBoundedDirectionsAndSign
         initialDelayAdmission = value.initialDelayAdmission
         periodicEmissionAdmission = value.periodicEmissionAdmission
         rate = value.rate
@@ -389,7 +390,7 @@ nonisolated extension SceneParticleDefinition {
         instanceOverride: SceneParticleInstanceOverride?, hasLayerImageMap: Bool
     ) -> Bool? {
         guard children.isEmpty, emitters.count == 1, let emitter = emitters.first,
-              emitter.hasBoundedDirectionsAndSign, emitter.boundedSpeedRange != nil,
+              emitter.hasValidDirectionsAndSign, emitter.boundedSpeedRange != nil,
               emitterControlPointFrame(for: emitter, instanceOverride: instanceOverride,
                   dynamicControlPoints: [:], requiresLiveInput: false) != nil
         else { return nil }

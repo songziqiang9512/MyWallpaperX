@@ -2341,9 +2341,12 @@
         "script/tests/test_scene_particle_simulator.py",
         "script/tests/fixtures/SceneParticleSphereSamplingChecks.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+        "script/tests/test_scene_particle_emitter_directions.py",
+        "script/tests/fixtures/SceneParticleEmitterDirectionsHarness.swift"
       ],
       "modules": [
+        "test_scene_particle_emitter_directions",
         "test_scene_particle_simulator",
         "test_scene_particle_playback_simulator",
         "test_scene_particle_playback_transaction",

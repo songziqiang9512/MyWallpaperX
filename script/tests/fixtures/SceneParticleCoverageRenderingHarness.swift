@@ -265,6 +265,7 @@ enum SceneParticleCoverageRenderingHarness {
         var birthSpeed: Double? = nil
         var birthSign: String? = nil
         var birthDirections = "1 0 0"
+        var birthRadius: Double? = nil
         var birthEmitterKind: String? = nil
         var naturalEmitter: [String: Any]? = nil
         var observationSteps: Int? = nil
@@ -352,6 +353,10 @@ enum SceneParticleCoverageRenderingHarness {
                 }
                 emitter["instantaneous"] = 16
                 if let sign = input.birthSign { emitter["sign"] = sign }
+            }
+            if let radius = input.birthRadius {
+                emitter["distancemin"] = radius
+                emitter["distancemax"] = radius
             }
             if let natural = input.naturalEmitter { emitter.merge(natural) { _, value in value } }
             return emitter
@@ -569,20 +574,25 @@ enum SceneParticleCoverageRenderingHarness {
         let signPoints = [SIMD2(40, 48), SIMD2(88, 48), SIMD2(64, 24), SIMD2(64, 72),
                           SIMD2(64, 48), SIMD2(116, 14), SIMD2(4, 4)]
         var signBirth: [[String: Any]] = []
-        for (name, sign, directions) in [
-            ("positiveTenSign", "10 0 0", "1 0 0"),
-            ("negativeTenSign", "-10 0 0", "1 0 0"),
-            ("positiveFractionSign", "0.75 0 0", "1 0 0"),
-            ("negativeFractionSign", "-0.5 0 0", "1 0 0"),
-            ("positiveYAxisSign", "0 1 0", "0 1 0"),
-            ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0"),
-        ] {
+        let signInputs: [(String, String, String, Double?)] = [
+            ("positiveTenSign", "10 0 0", "1 0 0", nil),
+            ("negativeTenSign", "-10 0 0", "1 0 0", nil),
+            ("positiveFractionSign", "0.75 0 0", "1 0 0", nil),
+            ("negativeFractionSign", "-0.5 0 0", "1 0 0", nil),
+            ("positiveYAxisSign", "0 1 0", "0 1 0", nil),
+            ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0", nil),
+            ("largeDirectionsSphere", "1 0 0", "1099511627776 0 0", 24.0 / 1_099_511_627_776.0),
+            ("tinyRadiusDirections", "1 0 0", "1e200 0 0", 24e-200),
+            ("renamedLargeYDirections", "0 1 0", "0 1099511627776 0", 24.0 / 1_099_511_627_776.0),
+        ]
+        for (name, sign, directions, radius) in signInputs {
             let product = try make(.init(name: name, renderer: "sprite", shape: "signedBirth",
-                blend: .translucent, birthSign: sign, birthDirections: directions))
+                blend: .translucent, birthSign: sign, birthDirections: directions, birthRadius: radius))
             var row = try render(name, [runtimeDraw(product, camera: camera),
                 runtimeDraw(peer, camera: camera, origin: SIMD3(116, 14, 0))], frozenPoints: signPoints)
             row["authoredSign"] = sign
             row["authoredDirections"] = directions
+            row["authoredRadius"] = radius ?? 24
             signBirth.append(row)
         }
         // A fixed negative Box coordinate must stay left even with sign+10.

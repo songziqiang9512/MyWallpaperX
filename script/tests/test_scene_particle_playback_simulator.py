@@ -604,7 +604,7 @@ import Foundation
             _ = sim.consumeBirthEvents()
             sim.advance(by: 0.25)
             result["sign-\(label)-rejects-only-birth-keeps-peer-and-survivor"] =
-                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                !sim.definition.emitters[0].hasValidDirectionsAndSign
                 && first.particles.count == 1 && sim.particles.count == 2
                 && sim.particles[0].id == first.particles[0].id
                 && sim.particles[0].age == first.particles[0].age + 0.25
@@ -659,8 +659,7 @@ import Foundation
                 && actual.frameSnapshot().random.state == before.random.state
                 && actual.frameSnapshot().nextParticleID == before.nextParticleID
         }
-        for (label, rawDirections) in [("shape", "1 0"), ("nonfinite", "nan 1 0"),
-                                       ("retained-cap", "1000001 1 0")] {
+        for (label, rawDirections) in [("shape", "1 0"), ("nonfinite", "nan 1 0")] {
             let sim = try radial(["name": "boxrandom", "directions": rawDirections,
                                   "sign": "unusedAxis"], peer: true, streaming: true)
             sim.advance(by: 0.25)
@@ -668,7 +667,7 @@ import Foundation
             _ = sim.consumeBirthEvents()
             sim.advance(by: 0.25)
             result["box-directions-\(label)-still-rejects-locally-with-peer-and-survivor"] =
-                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                !sim.definition.emitters[0].hasValidDirectionsAndSign
                 && first.particles.count == 1 && sim.particles.count == 2
                 && sim.particles[0].id == first.particles[0].id
                 && sim.particles[0].age == first.particles[0].age + 0.25

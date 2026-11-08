@@ -93,7 +93,11 @@ speedmin/speedmax 是原发射方向上的有符号数值；缺少的每个端�
 <a id="emitter-sign"></a>
 ### 发射方向字段
 
-Sphere 的 sign 在原冷 SpawnPlan 逐分量向零取整，零保持双侧，非零的符号选择该轴正/负侧；其幅度不乘入距离或速度。Definition 保作者有限数值及原有形状诊断，去除只准-1/0/1的数值枚举许可；不改变 Directions、半径分布、RNG、CP、instance override、world 转换或最终新生数值检查，不新增 owner、状态、缓存或普通帧工作。两个同源雨粒子的整数10因此可进入既有constructor；小数0.5不被误作强制正侧。
+Directions 是各轴距离倍率；原形状及有限值检查在冷准备消费，不再限制其绝对幅度。Sphere/Box 共用原 SpawnPlan 的距离字段，分别准备规范化的标量区间与原向量区间。Sphere 将径向幂写成最大半径归一化的下端幂，保原轴 mask/维数和每次出生的随机抽样顺序；先将单位方向乘 Directions，再乘最大半径，最后乘归一化因子，避免小半径先求幂或先缩小导致错误零。径向随机值恰为0时直接取原下端；零半径仍为零。旧绝对半径幂字段退出，准备标量净减一个，不增加缓存、owner或逐粒子校验。
+
+规范化后仍非有限的Sphere半径在原cached shape入口局部拒绝，不继续消耗该无效新生的RNG/ID；其他shape的距离语义保持。正常有限输入保原抽样次数/顺序，归一化运算不承诺旧公式逐bit舍入相同。有限输入产生的实际乘积溢出仍由原最终Float/GPU检查拒绝，保健康peer与显式exact-n候选事务回滚；不以Double有限替代最终可表示性。该数值修正不宣称恢复尚无幅度门独立拒绝证据的作者内容。
+
+Sphere 的 sign 在冷 SpawnPlan 逐分量向零取整，零保持双侧，非零只选择该轴正/负侧；幅度不乘入距离或速度。Definition保作者有限值与原形状诊断，不用只准−1/0/1的数值枚举许可；0.5取整为0仍双侧，10仅选正侧。符号选择保原CP、instance override、world转换及最终新生检查。
 
 Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合法、错型或非有限内容拒绝有效 Box；原 root 字典及既有组件来源记录不改。Directions、sign 与 duration 在原 parseEmitter 各解析一次，复用已解析结果判 malformed；仅 Box 忽略 sign，Sphere、LayerImage 及未知 kind 的字段和资格保持。原 SpawnPlan 的 Sphere 分支才准备 sign 与轴 mask，其他 shape 写中性值；不增加字段、owner、fallback 或普通帧工作。验收核 Box 缺省/零/非单位/小数/垃圾 sign 的相同实际出生、事件、RNG 和 Metal 输出，并用带有效 emission map 的 LayerImage、Sphere 坏输入和无关健康 peer 保反例。当前没有该门独立活动拒绝的作者资格，不宣称恢复某个 Workshop 作者。
 
