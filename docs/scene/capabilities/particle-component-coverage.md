@@ -37,6 +37,13 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 | Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
 
+<a id="instance-color"></a>
+### 实例颜色覆盖
+
+General `instanceoverride.color`（0…255）与 `colorn`（0…1）是初始化后的颜色替换，不与 initializer 颜色相乘。原 Simulator 在新生粒子完成作者初始化后，按原优先级取一个覆盖值、沿原平方转换写入 RGB，再应用 brightness；禁用颜色覆盖的原 flags 仍保 initializer。没有覆盖时不改色，动态属性与 Timeline 只改变后续出生，既有粒子保出生颜色及后续 operator。不增加颜色状态、shader 分支或逐帧重着色，退役原错误乘色。
+
+该替换及出生时机由 Mirage 的真实 initializer→override→birth/reset 链提供行为线索；不照搬其实现，也不由该参考授予官方全部语义或其尚未接通的颜色 Timeline。验收在原 Parser/Simulator 门核零通道被有效覆盖、legacy/normalized 等价、brightness、无覆盖、禁用 flag、动态新旧 cohort、改名与健康 peer；原作者同输入前后画面、独立作者及独审另核，不能从蓝分量恢复外推两道光的方向或无闪烁。
+
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责
 

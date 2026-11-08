@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 269,
-      "bytes": 50203
+      "lines": 276,
+      "bytes": 51306
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 250,
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 381,
-      "bytes": 156159
+      "lines": 396,
+      "bytes": 159365
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 46399
+      "bytes": 46359
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -358,24 +358,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d6012a50477a73424abf5ebafcd797be348efbbd01f7111d93e7102cc3ce1347",
-      "after": "5b276324c042b41ae0ce34b6392526622f59c513dad28ffc6adb83f7b3c7876b",
-      "owner": "Scene particle static CUTOUT coverage",
-      "reason": "补原材质链的真实 soft coverage、raw alpha 和统一 fragment ABI 合同与当前作者结果，保已测 L0/ambient/双面/A2C；退出旧拒绝及重复扫描，移除已闭队列并纠正338321留存供货分流。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#cutout-particle-coverage"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cdacf6281a8bcdf4d500197263fc728d1f724555ef1e71f5c8837a7f83cc25eb",
-      "after": "91f24286e7b4ddc237dcbdf4c4d3c0d441f26eb1c13e58a2c9ac1f3420ffd591",
-      "owner": "Scene layer color Timeline",
-      "reason": "现有typed颜色链补真实作者Timeline接线与已验证边界；同步原观察口、338两类反馈及MDLA尚缺消费者，已闭颜色项退出队列，历史夹具过程留本机包。按当前唯一正文的实测大小限定，不增加余量。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "09eeec0ddfd004bc8df5983aed4391f15729c790f0302994e74195080a8541dd",
       "after": "43e9a08b8fd1d13095fba66d17fb5a0940f062acdd09d23a54dde0953793c995",
@@ -400,6 +382,24 @@
       "owner": "Scene layer color Timeline",
       "reason": "现有typed颜色链补真实作者Timeline接线与已验证边界；同步原观察口、338两类反馈及MDLA尚缺消费者，已闭颜色项退出队列，历史夹具过程留本机包。按当前唯一正文的实测大小限定，不增加余量。",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "5b276324c042b41ae0ce34b6392526622f59c513dad28ffc6adb83f7b3c7876b",
+      "after": "1b2fab39746fe5092767aca18f608b10993dc0abc90b0c52785bae368dcc1ff3",
+      "owner": "Scene particle instance birth color",
+      "reason": "以原owner的两处赋值替换修正出生RGB覆盖，补受控实际像素与未闭真实作者边界；撤回无画面收益的音频候选，更新闪烁与具体停止线。正文按本次精确大小登记，无预算余量。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "91f24286e7b4ddc237dcbdf4c4d3c0d441f26eb1c13e58a2c9ac1f3420ffd591",
+      "after": "bc0b62f8f400005add9de4d74c9ba507639ad111b459cad84852773b9cb1c16d",
+      "owner": "Scene particle instance birth color",
+      "reason": "以原owner的两处赋值替换修正出生RGB覆盖，补受控实际像素与未闭真实作者边界；撤回无画面收益的音频候选，更新闪烁与具体停止线。正文按本次精确大小登记，无预算余量。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#instance-color"
     }
   ]
 }

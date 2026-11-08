@@ -98,10 +98,10 @@
 |---|---|
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
 | 3306282639 · 图3 | 人物周身文字外圈出现多余放射线，R0原图亦可见。compose3192/2921的circular_text slot1实际消费hidden text2917的named供货；同尺寸graph→named走原CB全域blit，不能凭纹理token或代次差判转色/陈旧。两次有界调试均未取得作者当帧像素，后次在Swift表达式读取失败，未进入GPU读回；独立RGBA/BGRA读回正控通过不代作者资格。保`.artifacts/scene-circular-text-20261107/`，暂转其他基础画面项；重启须能取得同帧实际边缘RGBA、slot/variant/uniform与采样结果，再区分边缘延伸/上游生成，当前不改clamp、padding、PMA或作者参数。 |
-| 3382111183 | 338211六个活动beam emitter（115/178/335/173/167/170）的exponent100被≤16计划门拒绝；但现有真实频谱供货最高.96，即使删门，按当前bounds.5…1/公式响应也≤.92^100≈.0002392，从空累计首粒约千秒，短窗不可见。仅删门的候选设计/测试未运行、未入产品，保`.artifacts/scene-particle-audio-exponent-20261108/`。先停在实际particle聚合/单位及供值域，重启须有可区分的官方数值/同声源consumer或用户目标ROI证据；不重跑同PCM，不改gain/bounds/pow或强注入1凑图。[官方AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html)的可超1属Script域，不直接授particle公式。 |
-| 3383210272 | 用户已明确：人物背后两道彩光应从中间向左右扩散，当前顶部从右向左扫光仍未修；脚底密集彩色短线是另一视频层。颜色动画与所选光束几何事实归[运行证据](../capabilities/runtime-evidence-current.md#layer-color-timeline)，不能互相代验。宽束323/124的晚帧有实例但全在眼后，早窗未出生；369/391仍无供货。重启须自然眼前实例/实际驱动值或可区分的同声源消费者，不再重复早晚窗、拟合方向、改gain/bounds/pow或强注入1；未授完整光照/短线曝光与密度。 |
+| 3382111183 | 六个活动 beam emitter（115/178/335/173/167/170）的 exponent100 仍被现计划≤16拒绝。官方 reader/evaluator 与相对64→16投影已取得静态边界；共同音频候选未恢复338321目标且用户报闪烁，已撤回，不再重复消费端/指数研究。下一事实须是实际 provider 的绝对域/状态或合格同声源数值与 ROI；不由 Script AudioBuffers 可超1外推particle，不调gain/bounds或强注入1。原供值与候选停止线归[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
+| 3383210272 | 两道彩光应从中间向左右扩散；顶部从右向左扫光与新增闪烁仍未修。脚底视频颜色另归原已闭证据。自然眼前323/124已有，但主束仍缺；369/391仍无draw。相对音频候选已撤回，RG8重复解码与局部宽度扩修已排除。下一步须定位同身份 draw 前后实际attachment贡献及后继存活，或取得绝对供值的可区分新证据；不再重复早晚窗、公式/增益拟合或强制出生。当前颜色替换只授受控零通道恢复，不授本作者主束。详见[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
-| 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，左右16档band0/1均值超过.5才响应、指数1；281强度newproperty15默认1、283常量.51。静态数组ABI与普通采集需求链未见断口，但未授实际App消费。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)未取得跨阈值正输入，故不启动283画面矩阵；该结果不外推全周期或归因频率。重启须可裁决的真实供值或活动首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，也不由bus非零关闭反馈。 |
+| 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/3453730450的时钟、3618302662构图、3657295614人物、3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，329挂点已闭，不从其他rawPASS关闭反馈。 |
 | 2887099508 · 图5 | 黑纹在当前App一次开场分阶段捕获中未重现，265实体/动画与读口边界归[288证据](../capabilities/runtime-evidence-current.md#basic-interaction-288)；保反馈待新同相位ROI/版本证据，不重复同场或按camera writer新增屏蔽。缩放已归[General证据](../capabilities/runtime-evidence-current.md#general-zoom)，文字click仍独立。[菜单资格](../capabilities/runtime-evidence-current.md#basic-interaction-288)已核500为蓝电视、两合法Enter handler；稳定合成指针下菜单与`>|`展开。OS注入场Enter后另有Leave，raw/current样本归属未分，不能据日志交错改phase或hit。重启须当前可见文字hit→click→writer或普通desktop实际入口；不重用旧TIM坐标/LLDB或扩矩阵，不猜UV、padding或修改作者参数。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理；3003318777的后启动阶段已由[运行证据](../capabilities/runtime-evidence-current.md#coverage)资格，不再沿旧四秒失焦实施修复。 |
@@ -119,7 +119,7 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 3022080536 | 移动烟雾偏红、颜色继承/ColorChange 与显式 audio child；先确定颜色单位。 |
+| 3022080536 | 移动烟雾仍偏红，原输入固定pointer的前后图未证改善；下一步沿实际texture/后继颜色writer定位，不能由实例颜色赋值语义关闭。颜色继承/ColorChange 与显式 audio child 继续独立核对；原生RGB单位门不代真实ROI。 |
 | 2919854127 /2927205881 | 蓝环可见性与曲线右短段，同声源 band 与实际触发条件。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |

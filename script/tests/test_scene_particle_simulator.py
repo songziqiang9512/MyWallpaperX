@@ -1467,13 +1467,88 @@ enum Harness {
         var colors = simulator(colorJSON, seed: 1, step: 0.1)
         colors.advance(by: 0.1)
         let randomColor = colors.particles[0].color
-        let colorFactorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+        let colorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"colorn":"0.5 1 0.25"}"#)
         )
         var colorsWithOverride = simulator(
-            colorJSON, override: colorFactorOverride, seed: 1, step: 0.1
+            colorJSON, override: colorOverride, seed: 1, step: 0.1
         )
         colorsWithOverride.advance(by: 0.1)
+        let colorParser = SceneParticleDefinitionParser()
+        var colorBirthRoot = try object(colorJSON)
+        colorBirthRoot["initializer"] = [
+            ["name": "lifetimerandom", "min": 10, "max": 10],
+            ["name": "colorrandom", "min": "128 64 0", "max": "128 64 0"],
+        ]
+        let colorBirthCases: [(String, String?, Int)] = [
+            ("normalized", #"{"colorn":"0.5 0.25 1"}"#, 0),
+            ("legacy", #"{"color":"127.5 63.75 255"}"#, 0),
+            ("legacyPrecedence", #"{"color":"127.5 63.75 255","colorn":"1 0 0"}"#, 0),
+            ("brightness", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 0),
+            ("brightnessOnly", #"{"brightness":2}"#, 0),
+            ("noOverride", nil, 0),
+            ("disabled", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 8),
+            ("black", #"{"colorn":"0 0 0"}"#, 0),
+            ("operator", #"{"colorn":"0.5 0.25 1"}"#, 0),
+        ]
+        var colorBirthResults: [String: Any] = [:]
+        for (name, rawOverride, flags) in colorBirthCases {
+            var root = colorBirthRoot
+            root["flags"] = flags
+            if name == "operator" {
+                root["operator"] = [["name": "colorchange", "starttime": 0, "endtime": 1,
+                    "startvalue": "0.5 1 0.25", "endvalue": "0.5 1 0.25"]]
+            }
+            let value = colorParser.parseInstanceOverride(try rawOverride.map { try object($0) })
+            var candidate = SceneParticleSimulator(definition: colorParser.parse(root: root),
+                instanceOverride: value, seed: 52, fixedTimeStep: 0.1)
+            candidate.advance(by: 0.1)
+            colorBirthResults[name] = [
+                "colors": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue),
+            ]
+        }
+        var colorCohortResults: [[String: Any]] = []
+        for variant in 0..<2 {
+            var root = try object(liveOverrideDefinitionJSON)
+            root["material"] = variant == 0 ? "palette/base.json" : "renamed/independent.json"
+            var emitters = root["emitter"] as! [[String: Any]]
+            emitters[0]["id"] = variant == 0 ? 71 : 902
+            root["emitter"] = emitters
+            root["initializer"] = colorBirthRoot["initializer"]
+            let property = variant == 0 ? "beam_color" : "renamed_tint"
+            let defaultValue: Any = variant == 0 ? "0.5 0.25 1" as Any : [0.5, 0.25, 1] as Any
+            let authored = colorParser.parseInstanceOverride([
+                "id": variant == 0 ? 73 : 904,
+                "colorn": ["user": property, "value": defaultValue],
+            ])!
+            let current = colorParser.parseInstanceOverride([
+                "colorn": ["user": ["name": property + "_next"], "value": [1, 0.5, 0.25]],
+            ])!
+            let definition = colorParser.parse(root: root)
+            var candidate = SceneParticleSimulator(definition: definition,
+                instanceOverride: authored, seed: 53, fixedTimeStep: 0.25)
+            var peer = SceneParticleSimulator(definition: definition, seed: 54, fixedTimeStep: 0.25)
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            let first = candidate.particles.map { vector($0.color) }
+            let firstID = candidate.particles[0].id
+            candidate.advance(by: 0.25, dynamicInstanceOverride: current)
+            peer.advance(by: 0.25)
+            let second = candidate.particles.map { vector($0.color) }
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            colorCohortResults.append([
+                "first": first, "second": second,
+                "fallback": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "firstIDRetained": candidate.particles[0].id == firstID,
+                "peer": peer.particles.map { vector($0.color) },
+                "propertyKeys": [authored.normalizedColor!.userPropertyKey!, current.normalizedColor!.userPropertyKey!],
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue) + peer.diagnostics.map(\.kind.rawValue),
+            ])
+        }
         let colorAmount = (randomColor.x * 255 - 10) / 230
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
@@ -2329,8 +2404,9 @@ enum Harness {
                 vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
-            "colorOverrideFactor": vector(colorsWithOverride.particles[0].color),
-            "colorBeforeOverrideFactor": vector(randomColor),
+            "colorOverrideValue": vector(colorsWithOverride.particles[0].color),
+            "colorBirthResults": colorBirthResults,
+            "colorCohortResults": colorCohortResults,
             "colorListColors": colorList.particles.map { vector($0.color) },
             "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
             "colorListThenColor": vector(colorListThenColor.particles[0].color),
@@ -4000,13 +4076,40 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
-    def test_color_instance_override_multiplies_initializer_result(self) -> None:
-        for actual, base, factor in zip(
-            self.results["colorOverrideFactor"],
-            self.results["colorBeforeOverrideFactor"],
-            [0.25, 1, 0.0625],
-        ):
-            self.assertAlmostEqual(actual, base * factor, places=12)
+    def test_color_instance_override_replaces_initializer_result(self) -> None:
+        self.assertEqual(self.results["colorOverrideValue"], [0.25, 1, 0.0625])
+        results = self.results["colorBirthResults"]
+        for name in ("normalized", "legacy", "legacyPrecedence"):
+            with self.subTest(profile=name):
+                self.assertEqual(results[name]["colors"], [[0.25, 0.0625, 1]])
+                self.assertEqual(results[name]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["noOverride"]["colors"], [[128 / 255, 64 / 255, 0]])
+        self.assertEqual(results["brightness"]["colors"], [[0.5, 0.125, 2]])
+        self.assertEqual(results["black"]["colors"], [[0, 0, 0]])
+        for name in ("brightnessOnly", "disabled"):
+            self.assertEqual(results[name]["colors"], [[256 / 255, 128 / 255, 0]])
+        self.assertEqual(results["operator"]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["operator"]["colors"], [[0.125, 0.0625, 0.25]])
+        for name, result in results.items():
+            with self.subTest(profile=name):
+                self.assertEqual(result["diagnostics"], [])
+
+    def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
+        initial = [0.25, 0.0625, 1]
+        updated = [1, 0.25, 0.0625]
+        results = self.results["colorCohortResults"]
+        for index, result in enumerate(results):
+            with self.subTest(variant=index):
+                self.assertEqual(result["first"], [initial])
+                self.assertEqual(result["second"], [initial, updated])
+                self.assertEqual(result["fallback"], [initial, updated, initial])
+                self.assertEqual(result["birthColors"], [initial, updated, initial])
+                self.assertTrue(result["firstIDRetained"])
+                self.assertEqual(result["peer"], [[128 / 255, 64 / 255, 0]] * 3)
+                self.assertEqual(result["diagnostics"], [])
+        self.assertEqual(results[0]["propertyKeys"], ["beam_color", "beam_color_next"])
+        self.assertEqual(results[1]["propertyKeys"], ["renamed_tint", "renamed_tint_next"])
+        self.assertEqual(results[0]["fallback"], results[1]["fallback"])
 
     def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
         colors = {tuple(value) for value in self.results["colorListColors"]}
@@ -4052,7 +4155,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["invalidHSVColorDiagnostics"],
             [["hsvColorUnsupported"]] * 19,
         )
-        self.assertEqual(self.results["hsvColorWithOverride"], [0.125, 0.5, 0.5])
+        self.assertEqual(self.results["hsvColorWithOverride"], [0.25, 1, 1])
         self.assertEqual(
             self.results["hsvColorWithOverrideDiagnostics"], ["hsvColorBounded"]
         )

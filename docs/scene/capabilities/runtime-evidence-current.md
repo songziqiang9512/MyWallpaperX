@@ -371,7 +371,22 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 真实 Loader→Compiler→Runtime→Snapshot→既有颜色消费门覆盖三通道、白缺省、资源/ID/名字及合法表示变体、来源优先级与错型回落、错 lane、relative、text/联动拒绝和健康 alpha；原粒子新出生颜色、transform/effect 与有界观察门保持。27方法及新增颜色16子例通过；首轮夹具失败与定向补验收据保包，不扩大格式准入。独立未参与修复的3042623710同 App 回归 PASS，捕获213的330/280/350为1/1515/254实例，normal/当前背景与主景雨滴保持。独立真实作者的同 host 正例尚未取得；不把改名夹具或此邻例升级为第二作者颜色动画资格。测试、独审、必要源帧与运行身份归 `.artifacts/scene-starfield-active-20261108/` 及同名运行包；共享 shader/metallib 未变，既有 CUTOUT/A2C 像素资格复用，不重复全集。
 
-用户另明确背后两道彩光应从中间向左右扩散，当前顶部从右向左扫光仍算未修。宽束候选323/124在一次5.6秒选帧各有1实例，但真实四角 clip W 全负；局部宽度叉积退化保留非零 fallback，改局部 eye-ray 候选仍全在眼后，未形成修复因果。唯一早窗两层未出生；369/391仍无供货。该结果不授完整方向归因、官方同声源消费或光束恢复，亦不能由非零频谱断言响应。临时读取首实例/矩阵的 selected-capture 扩展随研究结束退役，原补丁和同帧数据保包；正式颜色观察只扩原 Timeline 读口的一个字段，预算不增。后续输入及停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+背后两道彩光的方向及用户新增闪烁反馈仍未关闭，与脚底视频颜色动画分别验收。后续自然出生、颜色覆盖与已撤回音频候选的当前边界见[粒子实例颜色](#instance-color)，不再由旧晚帧眼后结果约束全部后续时相。
+
+<a id="instance-color"></a>
+## 粒子实例的出生颜色替换
+
+按[颜色覆盖合同](particle-component-coverage.md#instance-color)，原 Simulator 两处乘色改为赋色，保原转换、flags、brightness、出生顺序和 initialColor/operator 消费。产品行数、owner、状态及普通帧成本不增长。Mirage 固定源码 `d091611d11ed385967acebf89bc7388a32d25e85` 的 initializer→override→birth/reset 链提供替换与出生时机线索；其 colorn Timeline 未接通，不能作为该动画的运行 oracle。普通 RG8 粒子已沿原 texture view 作 R,R,R,G swizzle，排除重复解码改动；eye-ray、近面及预热差异不并入本修复。
+
+签名 `-Onone` Debug baseline exec `c2fea04e…de86c3`、候选 `ee27529d…5e7b30`，metallib 保 `c83cb6aa…dca45`；两次4396个构建输入各无漂移，前后仅该产品文件不同。原 Parser/Simulator 的71方法通过，补零蓝通道被覆盖、legacy/normalized 等价与优先级、黑色、brightness/flags、后继 colorchange、改名/表示变体、新旧出生 cohort 与健康 peer。cohort 传入已解析的当前 override，不冒充 VM/Timeline 端到端。
+
+同候选 App 的自有静态完整场景中，7个真实 Sprite 分别消费 normalized、legacy、缺省、禁用、黑色、brightness 及改名 value-array。9个预声明 ROI 共576像素逐通道误差0：红 initializer 的三种有效蓝覆盖确为(0,0,255)，与独立蓝参考一致；缺省/禁用仍红，黑色保1个真实 draw，brightness 蓝128，绿 peer 保持。capture71/request1/CB `514032926720`/Surface `514027867648`、同main/seal/GPU完成、零截断并排空。首次 paused/starttime0 没有出生，只通过蓝参考与绿 peer，故先拒绝粒子颜色比较；保持同 package、RGB 和 ROI，去掉 pause 后取得上述真实出生。该受控画面只授通用覆盖色能恢复 initializer 的零通道，不授官方或原作者反馈恢复。
+
+3022080536 原 project/pkg/tree、固定 pointer(-.4,.1) from-launch 前后不变；两 capture154 的52层分别26/31实例，GPU完成且排空，红 blob 前后仍红，颜色问题未结案。独立1937925563 同三摘要前后 capture79，461/478各有1 Sprite与19 SpriteTrail进各自main/GPU；两图主体仍出图，但青紫斜区的宽度与发光有明显差异，未锁作者/粒子相位，既不称视觉等价、也不猜为纯时相变化。该作者只保有界观察，不授全场无回归。
+
+3383210272 的原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。已撤回的粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124自然实例由各1增至6/16，但主要彩光仍缺；369/391仍无 draw。一次早帧首末实际实例 W 全正、面积非零，宽度变体不能解释整束缺失。静态官方相对64→16 max不能把项目 display-height64 的绝对域直接资格化；候选12路径均已精确恢复，未提交。281 的同 WAV 两张静帧只证明16档实际供值与 pulse 执行，不能判断眼部闪动或新闪烁。后续只沿[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)的新首错推进，不重跑同早晚窗或调gain、bounds、pow凑图。
+
+源码、首轮独审限制、当前受控资格与实际作者原字节归 `.artifacts/scene-instance-color-20261108/`；被撤回候选、Mirage只读研究、原生/绘制输入和未闭绝对单位证据归 `.artifacts/scene-particle-audio-consumer-20261108/` 与 `.artifacts/scene-audio16-producer-20261108/`，保具体停止线。338两束方向/闪烁、302红色来源、官方颜色全语义、动态属性/Timeline端到端及性能仍未授资格。
 
 <a id="limits"></a>
 ## 未取得的资格
