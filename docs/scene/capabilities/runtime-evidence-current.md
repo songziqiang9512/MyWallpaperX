@@ -393,7 +393,7 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 3383210272 同原三输入摘要、同 WAV `0f4d56db…cb9e`，只读回首个323/124均有自然实例的捕获：frame165/request1/CB `521164589696`/Surface `521104363008`，GPU完成、零截断并排空。同一 main 的 before323、after124、terminal 为3024×1964 BGRA8原始附件；前二区间只有两层各1个实际上传 SpriteTrail，合计5812个RGB像素变化、最大2色阶、bbox[1717,783,1817,915]。两颗alpha约.01556；实际MSL投影的八角均眼前且clip内，quad约126×123与164×153像素，全部变化位于其并集。此帧后继绘制前已有局部弱贡献，尚无展开宽主束；369/391只授该帧无draw，不能据此认定哪对producer构成官方主束。
 
-临时观察App `23f68792…59776` 的静态完整控制与原core，594万RGB像素逐通道一致；三raw/PNG及独立复算一致，不外推作者或性能无扰动。after124到terminal的全景变化不能隔离后继对粒子差量的传递，不授“宽束被擦除”。七产品观察钩子及专用测试已全部退役，复用已验core `ee27529d…5e7b30`/原metallib；只保原Capture夹具的未使用类型闭包修正，原生命周期门通过。raw、精确退役补丁、首次编译/runner前置失败、冻结输入及两份独审保于 `.artifacts/scene-beam-contribution-next-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-beam-contribution-20261108/`。主束方向与闪烁仍开放；后续身份、自然population/phase及实际输入资格由[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)维护，不再重测本次clip或预选后继遮挡。
+临时观察App `23f68792…59776` 的静态完整控制与原core，594万RGB像素逐通道一致；三raw/PNG及独立复算一致，不外推作者或性能无扰动。after124到terminal的全景变化不能隔离后继对粒子差量的传递，不授“宽束被擦除”。七产品观察钩子及专用测试已全部退役，复用已验core `ee27529d…5e7b30`/原metallib；只保原Capture夹具的未使用类型闭包修正，原生命周期门通过。raw、精确退役补丁、首次编译/runner前置失败、冻结输入及两份独审保于 `.artifacts/scene-beam-contribution-next-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-beam-contribution-20261108/`。作者参数与Mirage静态连线只能把323/124列为结构候选，两张官方静图无layer/相位归因；369/391的无draw不反证身份，556/543为扁环shader。该只读边界与source SHA保于 `.artifacts/scene-beam-producer-identity-20261108/`。主束/闪烁仍开放，新增资格和停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="limits"></a>
 ## 未取得的资格
