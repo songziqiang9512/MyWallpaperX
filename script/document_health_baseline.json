@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 185,
-      "bytes": 47042
+      "lines": 186,
+      "bytes": 47935
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -413,11 +413,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cb2764fb64b12015253c141fab23a152f3b9f46ce1c38221d5d432e71b133b7a",
-      "after": "f9604d90005feb81773ea0675ad38571f24fe64157519474ce5391d949a3f3d8",
-      "owner": "Scene typed visibility fallback",
-      "reason": "Unify typed visibility fallbacks and actual writer ownership; retire Color-only skip and closed queue rows. Record bounded native/author/script regression evidence and preserve official/full-motion limits. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#visibility-typed-fallback"
+      "before": "f9604d90005feb81773ea0675ad38571f24fe64157519474ce5391d949a3f3d8",
+      "after": "0e3b12a91d2d96bff60d47616df674453b1aec3d0f4954f2546095f51d895733",
+      "owner": "Scene bounded next-action qualification",
+      "reason": "Replace unqualified retry prompts with existing R0 producer/consumer facts and precise reopen conditions; preserve all visual feedback and static capability gaps. No new runtime or product change. Exact body budget.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",

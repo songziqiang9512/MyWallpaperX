@@ -22,7 +22,7 @@
 | material default动画入口 | 该存储位执行语义尚无作者/官方正例，不能仅凭AssetCatalog未parse认定冻结缺陷。先取合法default动画行为正控，再由原descriptor冷准备汇合material/instance有效值与definition-only pass identity，不让TargetCompiler重解资源或另建owner。 |
 | Bool回调的剩余阶段边界 | 分离属性/媒体前缀、同C entry中due timer到真实值回调，以及直接值入口的隐式init到update已沿[原owner](../capabilities/scenescript-api-coverage.md#boolean-callback-order)交接；无update保真实事件setter。实际App与native范围归运行证据，不外推为所有阶段已隔离。cursor/media等事件自身先读getter仍未取得pending-init供货；Puppet/video-ended混合返回、嵌套回调完整次序及真实video EOF身份仍未闭。沿实际调用与typed消费者核首错，不重放旧setter或添加持久显隐副本；尚无这些剩余边界的精确作者活动资格。 |
 | named供货 · 2972071249/313e9→234 | 234 hidden/childless，两effect visible=true且有真实两节点authored图；inactive来自layer-hidden route，313前九段健康、e9=`dependency-stage-reference-unavailable`。常量effect载体的普通蓝/红/绿颜色正控已成立；随后一场省略/true/false配置的三个消费者都绿，控未分，见[官方prefix资格](../capabilities/runtime-evidence-current.md#prefix-source-qualification)。不解默认、背景截点、epoch或实际sampler/provider身份，不能raw source冒充效果结果；本次按停止线收口，不原样延时或续跑矩阵。 |
-| named 冷准入与来源边界 | 潜在lower背景已退出冷候选的执行准入，typed实例资产覆盖的实际合成与拒绝边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；未授无注解资产用途或精确作者缺图。剩余cold candidate仍用原始renderOrder，实际执行已消费utility展开顺序与trigger；background consumer仍排graph provider，同trigger后普通provider→utility组合未接入。沿已选Program、真实来源位置与原资源消费者补齐，不追加member、效果或路径许可；任意utility/模型/局部画布组合仍需资格。 |
+| named 冷准入与来源边界 | cold candidate仍用原始renderOrder，实际执行用utility展开顺序/trigger，background consumer仍排graph provider，同trigger普通provider→utility组合未接。限定R0分组活动边均已有真实named消费，尚无可判误拒绝/非等价fallback；重启须具体活动slot/order/trigger→source/ROI首错，不造夹具补丁或无差别重跑，297与childless原STOP不变。薄范围与缺项在`.artifacts/scene-named-candidate-next-20261109/`；沿原冷准备与资源消费者接入，不加member/路径许可。 |
 | Childless utility 的显式背景来源 | 当前Project false取main、Composition false取isolated空源，仅为SourceRoute/原生结构事实。[正控](../capabilities/runtime-evidence-current.md#childless-source-qualification)停在PNG与native采集不一致，三场及Mac未跑，stock清alpha也未证copyflag映射。先恢复同窗采集，再核真实source/最终取样，不由旧路由或单路图预选修复。 |
 | 父组透视 · 3828725306/109 | init的perspective=true使同owner整笔journal被拒，连带pointer angles与阴影写入；主体110及子组745已到main，不判缺主体。109无FX且nested745复制背景并有child，当前109不是local-source root；不能裸放字段或把output VP当source逆映射。先取得官方父组扁平回绘/子层投影继承的可区分行为，再沿原world/camera与局部source/output消费者设计；不套新profile。精确输入与停止线在`.artifacts/scene-group-perspective-next-20261108/`。 |
 | 模型动态准备的剩余组合 | 父组热显隐、冷 Bool 与外部 Script setter 的原 source/Program/tintback 已沿[原模型消费者](../capabilities/advanced-object-coverage.md#model-subtree-raster)取得有界实际资格；初始关闭 effect、任意 utility/材质组合仍未由此覆盖。外部非 Bool 材质 writer 的 layer-access 需求仍未汇合到原 Document/RuntimeInput/Launch 的全场景准备判定，这只是静态来源边界，尚无作者首错资格。沿实际需求补原 owner，保 child false、局部坏模型、source/Program 与同 key 事务；不重开已退单 leaf 例外、另建 ready 状态或把冷颜色链授为深度/官方像素。 |
@@ -73,7 +73,7 @@
 |---|---|
 | hidden/forward父graph named输出 | 可见、已可满足的普通image graph-final已有transform children时可复用原graph发布；hidden FX父仍在image来源谓词保leaf范围，forward可见来源仍受原执行期限准入。hidden claim/execute/named-only消费者已存在，需独立父子/多reader及生命周期对照；forward沿实际source独立性与作者位main期限核，不能由新visible正例裸开utility/Puppet或用raw替身。当前最新静态parent筛选无精确作者命中，保能力边界，不造默认缺图归因。 |
 | composition · 2731896598 | childless透视与三维angles组合需真实几何/Camera/回绘资格，不以false-only代作者输入。 |
-| source material · 3616476797/113、3679907516/71/74/83、3141464346 | 367原R0三层确有state冷拒绝，但TEX fallback已到ordinary/effect→main；原声明/preview静态推算在cover左侧外，未读当帧MVP，没有可判的非等价ROI。停止本项state放行与新运行，重启须实际可见71/74/83及对应拖动/media相位的source/ROI错配，不从VERSION2或translucent推语义；薄事实在`.artifacts/scene-source-material-367-next-20261109/`。361/314仍逐pass核source-only state/lookup/活动purpose；314重点232/277/321/386/416/420/481/719。 |
+| source material · 3616476797/113、3679907516/71/74/83、3141464346 | 367原R0三层冷拒但TEX已到ordinary/effect→main，静态cover推算在左侧外、无当帧MVP/非等价ROI；重启须可见source及拖动/media相位错配，不由VERSION2/translucent推语义，原STOP在`.artifacts/scene-source-material-367-next-20261109/`。361/113为静态Media Area，不能混作130 thumbnail；314的277/719已有TEX→main、416/420已有source/effect→tail，232/321/386/481 authored隐藏。九层source state拒绝不授缺图；重启须对应活动pass/source与可见ROI非等价，不先放state或新跑，薄事实在`.artifacts/scene-source-material-next-20261109/`。 |
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。 |
 | Puppet · 3577990983、3822822401、3779107475 | auxiliary/reference、非中性通道、dense state1及多contributor姿态按真实reference/attachment坐标基资格，Reader识别不等于evaluator执行。 |
 | point volume · 3047405322、3437487219、3477054430 | 需实际volume consumer；现有spot plan和point表面光照不能代验。 |
@@ -121,7 +121,7 @@
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |
-| 3768903841 | 横向云片/烟花色彩；238.angles 的 screen localStorage 身份异常另查 Script 入口，不推断为粒子根因。 |
+| 3768903841 | 横向云片/烟花色彩仍待具体ROI/producer。原R0的238.angles completed、frame0 vectorFailures=0，232已消费其共享时段；238是Day/Night按钮而非烟花writer，未找到旧screen localStorage异常原收据。重启须精确新失败/屏身份/调用回执，不删screen guard或归因烟花；未点击，不授持久化，薄事实在`.artifacts/scene-cloud-238-next-20261109/`。 |
 | 3226487183 | 1028手部同 phase 形变与 source/reference/effect 链。 |
 | 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321另保图片切换、首焦点、持续按住与多步跟随。 |
@@ -133,10 +133,11 @@
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |
 | 3768724269 /3287715210 | 光束范围/根部/右上渐变；眼周亮度/渐变与横移细竖纹分别定位。 |
 | 3750813609 /3363252053 | 相机过强/纵向反转的同输入体验；375另核时钟颜色、雨量与雷电。 |
-| 3662790108 | 球体/曲率、点击；effect517/pass0 `[P1] Data`读取p1_longNode须先区分作者数据和实际消费。 |
+| 3662790108 | 球体/曲率与点击仍需具体ROI。[P1] Data未被真实shader声明/消费，R0的OrbitA/B供值及517→tail/main已成立；不补shared别名或以未用脚本解释画面，待对应活动producer首错，薄事实在`.artifacts/scene-script-next-action-20261109/`。 |
 | 3589454154 /3747492842 | Bloom/细线微颗粒/轮廓；闪烁/光束位置/crop/文字构图。 |
 | 3248220186 /3337494481 | 前者运动/密度/亮度；后者跨面文字、扁盒/粉顶、遮挡与solid亮度。 |
-| 2938612768 /2775915974 /3712499998 | 293默认裁屏已沿[原文字与画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)定位，重启须点击/更晚相位的具体新差异，不重复默认移位对照或改anchor；277顶部灰边、371重复文字/样式仍各核真实图层与布局。 |
+| 2938612768 /2775915974 | 293默认裁屏已沿[原文字与画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)定位，重启须点击/更晚相位的具体新差异，不重复默认移位对照或改anchor；277顶部灰边仍须实际画幅/图层与相位资格。 |
+| 3712499998 | 作者明确声明21→22、28→29、33→34三对文字，子层有独立近邻位置及压缩Y scale；原R0六层均有效visible，不能将副本文字直接判引擎重复draw或删child。样式反馈仍开，重启须具体glyph/geometry/样式差异及同viewport/phase消费者或官方参考，不重跑原默认短窗；薄事实在`.artifacts/scene-text-pairs-371-next-20261109/`。 |
 | 3477054430 | 显示完整性、月亮/球体/文字、低频与猫受光，逐ROI定位。 |
 | 3764725758 /3549827466 /3581882134 | 左斜光/眼睛漂动、缺光ROI与暖亮/冷暗来源。 |
 | 3723344874 /3793998447 /3792249095 | 人物后烟雾涡动、音频属性差异、外圈样式及内外位置。 |
