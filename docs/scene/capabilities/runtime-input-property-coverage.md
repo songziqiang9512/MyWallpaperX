@@ -80,6 +80,10 @@ effect instance 的数值常量在同一 layer/effect 内一次收集，再按�
 
 Default2D origin/zoom 的真实作者来源可能不同，不能用同一个 layer ID 代替两条输入。native perspective 与普通2D、camera parallax、depth parallax 各有自己的空间语义，不统一改成屏幕像素偏移。
 
+普通二维画布的 `general.zoom` 沿[原相机输入合同](../architecture/runtime-architecture.md#default-2d-general-zoom)发布 `.camera(.generalZoom)`；静态值与 wrapper fallback、独立数值 Timeline、直接 user property、scene return-only Scalar Script 共用原 prepared definition。CameraTransforms及原path继续发布原 `.camera(.zoom)` 相对倍率，getter缺省1；完整记录改eye/center再回写只影响这个原通道。原CameraFrame factory一次组合General基准与相对倍率，再除cover世界范围，不另建时钟或setter状态。General缺省1、沿原相机0.01…100数值域；热更由原live consumer消费，Script失败保合法fallback/current及健康peer，HDR仅约束bloom。
+
+存在作者camera声明时保原路径，不由General新增writer或替健康path制造冲突；General与path叠加、native perspective及未实现组合不列支持。linked、相对动画和动画混合Script/user保声明与局部诊断，不拆关系后发布独立轨；合法作者fallback仍可消费。General由原CameraInputProfile准备并按实际ortho消费者热更，原static CameraTransforms fallback1保留。实际画面及官方控制的证明范围归[运行证据](runtime-evidence-current.md#general-zoom)；官方显式相对倍率与General的组合公式、roundtrip晚段仍未获资格。
+
 原 pointer owner 保存实际本屏坐标、按钮和边沿；命中使用最终输出 geometry/提交结果，不能用 source atlas 框代替。local/global monitor 按活动 owner 安装/移除，状态未变不反复重建或重置手势。
 
 <a id="fullscreen-cursor"></a>

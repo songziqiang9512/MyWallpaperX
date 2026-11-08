@@ -3,14 +3,16 @@ import simd
 nonisolated struct SceneDynamicCameraTransform: Equatable, Sendable {
     let origin: SIMD3<Float>
     let zoom: Float
+    let generalZoom: Float
     let eye: SIMD3<Float>?
     let center: SIMD3<Float>?
     let up: SIMD3<Float>?
 
-    init(origin: SIMD3<Float>, zoom: Float, eye: SIMD3<Float>? = nil,
+    init(origin: SIMD3<Float>, zoom: Float, generalZoom: Float = 1, eye: SIMD3<Float>? = nil,
          center: SIMD3<Float>? = nil, up: SIMD3<Float>? = nil) {
         self.origin = origin
         self.zoom = zoom
+        self.generalZoom = generalZoom
         self.eye = eye
         self.center = center
         self.up = up
@@ -50,6 +52,7 @@ extension SceneDynamicSnapshot {
             return result.isFinite && result > 0 ? result : 1
         }()
         return SceneDynamicCameraTransform(origin: origin, zoom: zoom,
+            generalZoom: cameraScalar(.generalZoom) ?? 1,
             eye: cameraVector(.eye), center: cameraVector(.center), up: cameraVector(.up))
     }
 

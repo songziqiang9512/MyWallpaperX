@@ -275,6 +275,21 @@ nonisolated struct SceneUserPropertyBindingParser {
     ) -> SceneUserPropertyBindingTarget {
         if components.count == 2,
            Self.key(components[0]) == "general",
+           Self.key(components[1]) == "zoom" {
+            guard let general = root["general"] as? [String: Any],
+                  let wrapper = general["zoom"] as? [String: Any],
+                  Set(wrapper.keys) == ["user", "value"],
+                  let projection = general["orthogonalprojection"] as? [String: Any],
+                  let width = SceneUserPropertyValue.parse(projection["width"])?.numberValue,
+                  let height = SceneUserPropertyValue.parse(projection["height"])?.numberValue,
+                  width.isFinite, height.isFinite, width > 0, height > 0,
+                  !(root["objects"] as? [[String: Any]] ?? []).contains(where: { $0["camera"] != nil }) else {
+                return .unsupported(reason: "场景缩放没有独立的二维相机输入或存在冲突动态来源")
+            }
+            return .scene(field: "zoom")
+        }
+        if components.count == 2,
+           Self.key(components[0]) == "general",
            Self.key(components[1]) == "clearcolor" {
             guard let general = root["general"] as? [String: Any],
                   let wrapper = general["clearcolor"] as? [String: Any],

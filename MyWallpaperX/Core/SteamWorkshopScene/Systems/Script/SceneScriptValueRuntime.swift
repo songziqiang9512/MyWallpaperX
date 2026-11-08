@@ -790,6 +790,9 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
 
     static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
         guard value.isFinite else { return false }
+        if target == .camera(.generalZoom) {
+            return SceneDynamicCameraField.generalZoom.userPropertyScalarRange?.contains(value) == true
+        }
         if ScenePuppetAnimationPropertyTarget.field(for: target) == .rate {
             return ScenePuppetAnimationCommand.acceptsScalarControl(value)
         }

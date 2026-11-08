@@ -781,7 +781,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         // A scene return-only owner cannot publish any borrowed-handle or
         // topology side effect, including effects staged by init/event lanes.
         if layerID == nil {
-            guard target == .scene(.bloomStrength),
+            guard target == .scene(.bloomStrength) || target == .camera(.generalZoom),
                   materialFunctions.isEmpty, animations.isEmpty, cameraCommands.isEmpty, layers.isEmpty,
                   mediaPlaybackCommands.isEmpty, textureAnimationCommands.isEmpty,
                   puppetBones.isEmpty, particlePlaybackCommands.isEmpty,

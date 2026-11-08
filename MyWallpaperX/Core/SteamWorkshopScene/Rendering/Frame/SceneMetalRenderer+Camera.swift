@@ -37,8 +37,8 @@ extension SceneMetalRenderer {
                 orthographicShake.y,
                 0
             ),
-            cameraZoom: consumesPath && (camera.orthoWidth != nil || camera.orthoHeight != nil)
-                ? dynamic.zoom : 1,
+            cameraZoom: camera.orthoWidth != nil || camera.orthoHeight != nil
+                ? dynamic.generalZoom * (consumesPath ? dynamic.zoom : 1) : 1,
             staticEye: dynamic.eye,
             staticCenter: dynamic.center,
             staticUp: dynamic.up,

@@ -1717,11 +1717,11 @@
     },
     {
       "id": "scene-static-camera-transforms",
-      "title": "Static camera DTO to shared camera frame",
-      "owner": "Scene script and camera frame owners",
+      "title": "Default2D camera inputs and shared camera frame",
+      "owner": "Existing General / Timeline / Binding / Scalar / CameraFrame owners",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "DesignDoc#default-2d-general-zoom separates authored General static/Timeline/property/return-only Script as camera.generalZoom from CameraTransforms/path camera.zoom. Official ordinary-2D General3 with getter zoom1 proves distinct identity; CameraFrame alone combines the General base with the existing relative multiplier, whose explicit2 composition and late official behavior remain unqualified. Preserve getter/setter/play/rollback and original path route; General never enters staticTransformFields or the setter map. Retire the erroneous shared camera.zoom producer, descriptor.zoom and internal camera binding mapping; reuse scene field classification, original profile/schema, SceneClock and generated semantic cache identity. No new store, clock, C ABI, source algorithm or mixed path support; retain source-to-output and real Host consumer validation.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
@@ -1747,7 +1747,16 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwnerConstruction.swift"
       ],
       "contentPatterns": []
     },

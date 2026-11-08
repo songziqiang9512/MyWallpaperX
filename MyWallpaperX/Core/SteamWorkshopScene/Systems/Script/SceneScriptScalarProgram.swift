@@ -307,7 +307,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         for (binding, target, authored, properties) in candidates {
             let effectNames: [String?]
             switch target {
-            case .scene(.bloomStrength):
+            case .scene(.bloomStrength), .camera(.generalZoom):
                 effectNames = []
             case let .effectConstant(value, _, _, _), let .layer(value, _),
                  let .text(value, .pointSize), let .particle(value, _),

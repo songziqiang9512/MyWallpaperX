@@ -289,11 +289,26 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 <a id="basic-interaction-288"></a>
 ## 288菜单的当前资格边界
 
-复用`e0584c9a4`对应的361b签名App，2887099508两场原project/pkg/tree与R0三摘要一致。500真实默认TEX已核为蓝色微笑电视图标，非右下TIM文字；alpha与visible有两份合法Enter handler，后者写shared[15]=2，作者413.origin脚本消费该共享状态以控制菜单移入。490的Leave写15=3；固定作者几何下490包含500。原general.zoom有450frame/30fps单次动画，不能由取景变化裁决运镜与黑纹正确性。
+复用`e0584c9a4`对应的361b签名App，2887099508两场原project/pkg/tree与R0三摘要一致。500真实默认TEX已核为蓝色微笑电视图标，非右下TIM文字；alpha与visible有两份合法Enter handler，后者写shared[15]=2，作者413.origin脚本消费该共享状态以控制菜单移入。490的Leave写15=3；固定作者几何下490包含500。General缩放的当前资格另归[输入与回写证据](#general-zoom)，该结果不关闭黑纹或菜单click。
 
 当前90秒OS注入场已在实际电视图标交付500的两份Enter，随后有490/500 Leave，菜单未持续展开；之前开场取景中的第一次点击仅触及859/541。日志无raw sample身份，Leave沿原previousHit保旧local，不能从同local/同批输出认定指针未动、同sample调度或作者修改几何。原65秒旧TIM坐标场未命中目标，不能继续用它归因。未改phase顺序、hit或pointer ingress。
 
 另一85秒场沿仓库原Debug pointer/current owner显式提供同电视区域的六点短轨迹：500两份Enter后持续约3.5秒，直到工具setOutside才有490/500 Leave。前/末轨迹PNG已独立查看，蓝色侧栏、文字和`>|`明显进入画面，资格限定为稳定合成指针下的入口悬停与菜单展开；未独立读取shared[15]或413当帧origin数值，未交付目标文字click。两场停止/Surface释放/GPU排空及捕获零截断归原report，不授普通desktop/global物理输入、全部菜单、官方parity或性能。资料与独审在`.artifacts/scene-288-menu-target-20261108/`，Scene载荷分别晋升`scene-tv-native-288-20261108`、`scene-tv-stable-288-20261108`；重启须有真实目标click或可区分raw/current入口的证据，不重试旧坐标/LLDB矩阵。
+
+<a id="general-zoom"></a>
+## General zoom 的运行输入资格
+
+固定官方2.8.0.42（receiver8752/Session1、exec `daac1ea7…6bda07`），同一6080×3420普通2D控制只改变general.zoom：缺省、裸静态3、288原完整single动画wrapper（450帧/30fps，0/300帧为3、450帧为1）。共同stock Solid五色标、两文字、字体、原preview/fade及保存camera不变，无path、pointer、audio、自写shader或effect。
+
+三场原生内联观察均保完整载体。A缺省在runtime10.35/26.91秒为基线小尺度；B静态3在5.14/14.61秒明显约三倍；C动画在5.08秒同B大尺度，独立观察58.83秒及Root197.57秒回基线。此正控支持裸静态值与原wrapper的运行作用、方向符合cover范围除zoom；没有本地PNG量测、精确倍率、混合CameraPath/General或作者完整运镜、黑纹、点击恢复资格。
+
+三独占窗已关闭、原桌面已原生确认、receiver保留，guest stage删除且VM suspended。运输13项，运行后31文件中的18份新增SM40 shader blob共47523字节均先复制并校验；host运输目录随后删除。精确输入、原始失败/成功收据、输出增量和独审保于`.artifacts/scene-general-zoom-control-20261108/`，归档SHA `5e807761…13464a`。后续回写与真实样本范围如下，不能由该官方控制代验。
+
+实际作者265.visible的完整纯数据解码确认：每帧getCameraTransforms，只改eye/center再回写完整记录，无zoom赋值。一次原生View读口在完整450/30未暂停轨道同时见7.010…16.778秒的20行zoom恒3/source=sceneScript，定位两来源合并形成的回写反馈。固定官方追加A控制在t2.80/tick70及6.45/161的大尺度画面中getter.zoom均为1，证明General基准与API相对倍率的身份不同；随后原生图停在6.45/161，独审12秒宿主等待仍同帧，Raise未恢复、click报noWindowsAvailable、重绑后getState超时。A晚段与B显式2均未资格，不重试同采集后端；没有官方组合公式或精确像素结论。该控制的6份新增SM40输出共15841字节已先校验归档；独占窗CLI关闭、15文件guest stage删除、receiver8752保留、VM suspended，原桌面终态未由失效CUA确认。原字节与停止线保于`.artifacts/scene-general-zoom-roundtrip-20261108/`（归档SHA `7554e5f2…c40a7`）。
+
+当前签名`-Onone` Debug exec `5849f91a…6615ac5`、metallib不变、4396构建输入无漂移。原General四来源独立为generalZoom，CameraTransforms/path的zoom1与原事务保持；原factory组合一次，无新clock/store/C ABI。真实parser/VM/admission、原camera overlay、snapshot/CameraFrame及有界读口共20方法通过，原path显隐/时钟、setter/归还、异常回滚及健康peer均保留；完整DTO回写与显式倍率2的CPU结果是项目相对倍率合同，不授官方公式。
+
+288同原project/pkg/tree、无指针覆盖运行24秒，Program唯一General clock完整；最终View20个同stream样本7.014…16.958秒：General分别在7.014为3、12.258约2.191807、15.402及16.958为1，source一直timeline；相对zoom一直1/source=sceneScript。Ready近景与22秒后完整主体PNG均已查看，原source/Program→main/seal/GPU及退出成立。独立3834591400另跑8秒保graph画面；按影响面再复用308原三点A→B→A，斜带横移返回、独立329原输入头/体衔接均实际查看并保GPU排空，四作者均同最终App。该范围支持缩放输入与可见尺度恢复，不授最终相机矩阵读回、官方像素、黑纹/文字click、任意相机混合、全相位或性能。构建、原始失败与独审收据归`.artifacts/scene-general-zoom-implementation-20261108/`；前后Scene载荷按原规则提取到`.artifacts/scene-evidence/runs/scene-general-zoom-current-20261108/`、`scene-general-zoom-regression-20261108/`及`scene-general-zoom-diagnosis-20261108/`，原运行副本退役。
 
 <a id="eye-audio-input"></a>
 ## 眼部pulse的输入资格

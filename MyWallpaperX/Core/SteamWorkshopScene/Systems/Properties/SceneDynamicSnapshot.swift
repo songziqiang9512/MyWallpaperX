@@ -69,6 +69,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
     case center
     case up
     case zoom
+    case generalZoom
     case parallaxEnabled
     case parallaxAmount
     case parallaxDelay
@@ -97,7 +98,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
             0 ... 2
         case .shakeSpeed:
             0 ... 5
-        case .zoom:
+        case .zoom, .generalZoom:
             0.01 ... 100
         case .origin, .eye, .center, .up, .parallaxEnabled, .shakeEnabled:
             nil

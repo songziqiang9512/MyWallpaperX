@@ -83,10 +83,6 @@ nonisolated enum SceneTimelineTargetCompiler {
         })
         for timeline in descriptor.generalTimelines ?? [] {
             let label = "general \(timeline.host.rawValue)"
-            guard descriptor.camera.bloom.hdr == nil else {
-                diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
-                continue
-            }
             guard !timeline.hasScript else {
                 diagnostics.append("\(label): \(Diagnostic.unsupportedScriptSource.rawValue)")
                 continue
@@ -97,10 +93,35 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
             switch timeline.host {
             case .bloomStrength:
+                guard descriptor.camera.bloom.hdr == nil else {
+                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                    continue
+                }
                 append(
                     animation: timeline.animation,
                     target: .scene(.bloomStrength), valueType: .scalar,
                     authoredValue: .scalar(Double(timeline.authoredValue)),
+                    label: label, into: &candidates, diagnostics: &diagnostics
+                )
+            case .zoom:
+                guard let zoom = descriptor.camera.generalZoom,
+                      timeline.hasUserProperty != true else {
+                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                    continue
+                }
+                guard timeline.hasDeclaredIncomingPeer != true else {
+                    diagnostics.append("\(label): \(Diagnostic.combinedAnimationUnsupported.rawValue)")
+                    continue
+                }
+                guard SceneDefault2DCameraInputProfile.acceptsZoom(
+                    Double(zoom), animation: timeline.animation) else {
+                    diagnostics.append("\(label): \(Diagnostic.valueOutOfRange.rawValue)")
+                    continue
+                }
+                append(
+                    animation: timeline.animation,
+                    target: .camera(.generalZoom), valueType: .scalar,
+                    authoredValue: .scalar(Double(zoom)),
                     label: label, into: &candidates, diagnostics: &diagnostics
                 )
             }

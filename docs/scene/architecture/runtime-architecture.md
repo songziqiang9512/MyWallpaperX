@@ -65,6 +65,29 @@ Session cadence
 
 BindingProgram 在构造/解码入口验证并建立索引；普通属性求值只处理当前输入。自然尺寸回填只改 descriptor 几何，不重算既有准备计划。动态 topology 与 frame schema 分别按实际 revision 更新，同 revision 不回填完整活动树。parent、update 顺序和 render 依赖是三种关系，不能互相替代。
 
+<a id="default-2d-general-zoom"></a>
+### Default2D 的 general.zoom 输入合同
+
+本节约定普通二维画布的 `general.zoom` 输入合同；产品支持和固定官方控制的观察范围由[运行证据](../capabilities/runtime-evidence-current.md#general-zoom)维护。官方普通2D控制在 General=3 的有效大尺度画面同时读到 `getCameraTransforms().zoom=1`，因此 General 基准与 CameraTransforms 相对倍率必须保留独立身份；不能因二者均影响 cover 而合并 target。保存的 editor eye/center 不因此成为普通画布的运行变换。不扩大到 native perspective、source/UV 算法或未获资格的混合相机语义。
+
+`authored general.zoom → 原 GeneralDescriptor / Timeline IR → CameraDescriptor.generalZoom / 原 prepared definition、BindingProgram、ScalarProgram → .camera(.generalZoom) → typed snapshot → 原 CameraFrame factory`。`.camera(.zoom)` 保留 CameraTransforms / 原 path 的相对倍率、fallback1和原命令事务；General 不进入 `staticTransformFields`、C getter/setter 或持久 setter map。解析和来源选择只在冷准备做一次，不新增 zoom store、clock、缓存、来源仲裁表、C ABI 或样本派发。
+
+| 输入 | 原 owner 与准备结果 |
+|---|---|
+| 静态数值与 wrapper fallback | GeneralDescriptor 保原作者数值；原 CameraInputProfile / launch definition merger 形成 generalZoom 的唯一 fallback，缺省保1 |
+| Animation | 原 general Timeline 解析与 TargetCompiler 保作者 lanes/options/身份，交唯一 PlaybackRuntime / SceneClock；linked 与 Script 组合仍须原 owner 的真实消费，不能剥关系后静默改成静态或独立轨 |
+| 直接 user property | 外部 general.zoom 归原 `.scene(field: "zoom")` 路径分类，再映射 typed General target；原 BindingProgram、liveState 和 prepared live consumer 负责热更，不暴露内部 generalZoom 为顶层 camera 字段 |
+| return-only Scalar Script | 原 ScalarProgram / ValueOwner 读取真实 exports并发布 General target；不新增 side-effect 权限 |
+| CameraTransforms setter | 只写原 eye/center/up/zoom；完整 getter record 改 eye/center 后回写不再夺取 General target。原 command/admission/回滚、当帧覆盖及 play 归还原 Timeline 的事务保持 |
+
+已选择的 default2D camera path 保原 zoom 来源、缺省、显隐、命名和播放时钟；General 不作为新增 writer 加入该分支，也不能反过来使健康 path 被拒。有作者camera声明的输入（含原拒绝路径）继续原route；仅无该声明的普通default2D分支接General。原 CameraFrame factory 在普通2D将 General 基准乘既有相对倍率一次，再按原数学将 cover 世界范围除以该倍率；source/main 不另乘相机。此组合来自相对倍率/default1语义与既有数学，官方显式相对倍率2的组合公式及晚段尚未获资格，不能记为官方精确公式已证。General/path混合、native场景仍未支持。HDR条件只约束bloom消费者。
+
+输入沿原 typed 数值与 target 局部失败合同处理；坏属性热更、Script 异常及拒绝的组合保合法 fallback/current 和健康 peer。General只映射独立generalZoom，不暴露内部字段为顶层camera输入；原ortho live consumer接纳General热更，CameraTransforms fallback1与path边界保持。来源已拒绝时不得拿1伪装作者 zoom 已消费，也不在普通帧补解析、补 VM 或重复验证。
+
+当前 SourceFacts 每次 launch 重新解析，property inspection 只保进程内准备快照，没有独立解析磁盘 schema 可升级；launch definitions/index 继续按原 authoredDefinitionRevision 失效。持久编译缓存由构建生成的 SceneShaderCacheIdentity 语义指纹区分，Format 已属于其输入；本次解析变更必须随构建生成新指纹，不手改生成资源、不为未改的 shader wire 格式加版本。若实际改到持久 envelope，才在其原 owner 升级对应 schema；暖帧不扫描源码或重算指纹。
+
+验收先沿真实 parser → 原 producers → typed generalZoom/zoom 各自 source → CameraFrame 验静态、缺省、原 single 曲线、合法属性/Script 与失败/回滚；必须覆盖同帧 General3与getter1，以及普通作者完整record只改eye/center的往返回写不锁住General轨。保旧 path 的显隐、命名、暂停与 setter/play/rollback 反例，以及 HDR 开启仍消费 General。真实 LaunchFrameSchema/FrameDriver 消费不能仅由手工 Fixture merge替代。再核宽窄viewport、非零origin、parallax与同帧cursor/particle，普通image/effect、local composition和fullscreen仍只消费原camera结果。Swift变更须Debug build与隔离首段/终段画面；接线或粗尺度控制不关闭黑纹问题。需要新camera owner、未定混合规则或第二输出时停止扩张。
+
 <a id="dynamic-layers"></a>
 动态层沿 `SceneScriptDynamicLayerRuntime`、原 C handle/journal、typed mutation 和原 compositor 接入。Layer 保存出生资源、尺寸、根关系和 seed；完整 upsert 更新当前值。资源在出生准备，值变化不伪造 topology revision。C authored/dynamic 共享总 layer slots，Swift owner 工作界限是另一种输入预算；具体常量以 [C 头](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h)与[Runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift)为准。槽位只在原事务/快照寿命结束后回收，旧 handle 不能提前复用；journal 按需增长，不给所有 owner 预分配最大 payload。
 
@@ -80,6 +103,8 @@ BindingProgram 在构造/解码入口验证并建立索引；普通属性求值�
 7. 原 commit/finalize 接纳 typed mutation、动画/媒体命令、storage 与 topology；下一 cadence 不重放已消费的 VM 或事件。
 
 前置与最终 snapshot 有不同消费者，不能合成一个阶段来省调用。camera、visibility、particle、texture command 的当帧/next-frame 边界由各自实际语义决定，不能统一改为立即或下一帧。
+
+General基准与CameraTransforms相对倍率共用此值求解顺序但保独立target；最终准入后的generalZoom与zoom只由原CameraFrame factory组合一次并转成本Surface的camera/cover，world、cursor、particle及source/回绘消费同阶段结果。普通帧不读取general，setCameraTransforms的当帧命令和失败回滚仍归原事务，不能通过重跑Timeline或另乘source/main矩阵补相位。
 
 暂停重绘只消费冻结帧。媒体只在 generation、terminal publication 和完整同帧 cohort 匹配时刷新；不采新 Inbox 或重跑 VM。候选首呈现有独立 cohort，稳态不等待所有屏幕。原暂停重试窗口、异步失败恢复与 stale completion 都归 [FrameDriver](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)、[pre-script骨骼](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[SurfaceSimulation](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift)、[SurfaceSubmission](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)。
 

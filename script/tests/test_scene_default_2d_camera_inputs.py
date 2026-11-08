@@ -19,6 +19,7 @@ ROOT = vm.ROOT
 SCENE = vm.SCENE
 FIXTURE = ROOT / "script/tests/fixtures/SceneDefault2DCameraInputChecks.swift"
 SETTER_FIXTURE = ROOT / "script/tests/fixtures/SceneDefault2DCameraSetterChecks.swift"
+GENERAL_ZOOM_FIXTURE = ROOT / "script/tests/fixtures/SceneGeneralCameraZoomChecks.swift"
 
 # Reuse the full descriptor/parser gate, replacing its deliberately unavailable
 # property resolver with the real property family used by the VM gate.
@@ -68,7 +69,7 @@ def run_probe(directory: Path) -> dict:
     headers = list((source_root / vm.VM.relative_to(ROOT)).rglob("*.h"))
     product_inputs = [source_root / p.relative_to(ROOT)
                       for p in [*sources, *vm.C_SOURCES]] + headers
-    inputs = [*product_inputs, FIXTURE, SETTER_FIXTURE, Path(__file__),
+    inputs = [*product_inputs, FIXTURE, SETTER_FIXTURE, GENERAL_ZOOM_FIXTURE, Path(__file__),
               Path(vm.__file__), Path(timeline.__file__)]
     before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in dict.fromkeys(inputs)}
@@ -89,7 +90,7 @@ def run_probe(directory: Path) -> dict:
             vm.SWIFT_SOURCES = [mapped(p) for p in original[4]]
             vm.C_SOURCES = [mapped(p) for p in original[5]]
             binary = vm.compile_vector_harness(build,
-                FIXTURE.read_text() + "\n" + SETTER_FIXTURE.read_text(),
+                FIXTURE.read_text() + "\n" + SETTER_FIXTURE.read_text() + "\n" + GENERAL_ZOOM_FIXTURE.read_text(),
                 "default-2d-camera-inputs", extra_swift_sources=tuple(map(mapped, EXTRA_SOURCES)),
                 preamble=preamble())
             run = subprocess.run([str(binary), str(binary.parent)], capture_output=True,
@@ -208,6 +209,31 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
     def test_launch_canonical_noninteger_seed_wins_over_dynamic_alias_definition(self) -> None:
         facts = self.result["setterCanonicalSeed"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_general_zoom_sources_reach_the_real_camera_and_preserve_neighbor_owners(self) -> None:
+        result = self.result["generalZoom"]
+        expected = {"statics": [1, 3, 1, 1], "timelines": [3, 3, 1, 1],
+                    "users": [2, 4, 4], "initializers": [3, 3], "updates": [2, 3],
+                    "roundTrips": [3, 3, 1, 1]}
+        for group, zooms in expected.items():
+            rows = [result[group]] if group == "statics" else result[group]
+            self.assertEqual(len(rows), 1 if group == "statics" else 2, group)
+            for index, row in enumerate(rows):
+                with self.subTest(group=group, variant=index):
+                    self.assertEqual(row["zooms"], zooms)
+                    self.assertTrue(row["facts"])
+                    self.assertEqual([key for key, passed in row["facts"].items()
+                                      if passed is not True], [], row)
+                    if group == "roundTrips":
+                        self.assertEqual(row["manualZooms"], [1 if index == 0 else 2] * 4)
+        for group in ("failures", "rejections", "paths"):
+            rows = result[group] if group == "paths" else [result[group]]
+            self.assertEqual(len(rows), 2 if group == "paths" else 1, group)
+            for index, facts in enumerate(rows):
+                with self.subTest(group=group, variant=index):
+                    self.assertTrue(facts)
+                    self.assertEqual([key for key, passed in facts.items()
+                                      if passed is not True], [], facts)
 
 
 if __name__ == "__main__":

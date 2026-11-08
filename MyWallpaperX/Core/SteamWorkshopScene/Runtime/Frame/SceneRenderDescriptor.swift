@@ -30,6 +30,7 @@ struct SceneRenderDescriptor: Codable {
         var bloom: SceneBloomConfiguration = .disabled
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
+        var generalZoom: Float? = nil
         /// Prepared source identity for the bounded default 2D camera inputs.
         var default2DInputLayerID: Int? = nil
         /// Only an admitted origin field transfers the source layer's origin lane.
@@ -634,6 +635,20 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 object in object.authoredValue.map { (object.id, $0) }
             })
         )
+        // General/path composition is unqualified; keep every authored camera
+        // declaration on the existing path route, including rejected paths.
+        let hasAuthoredCamera = document.objects.contains { object in
+            guard case let .object(configuration)? = object.authoredValue else {
+                return object.cameraPath != nil
+            }
+            return configuration["camera"] != nil
+        }
+        if !hasAuthoredCamera,
+           let width = gen.orthoWidth, let height = gen.orthoHeight,
+           width.isFinite, height.isFinite, width > 0, height > 0,
+           let zoom = gen.zoom, SceneDefault2DCameraInputProfile.acceptsZoom(Double(zoom)) {
+            camera.generalZoom = zoom
+        }
         if let source = document.objects.first(where: { $0.id == camera.default2DInputLayerID }) {
             camera.default2DOriginInputLayerID = SceneDefault2DCameraInputProfile.originSourceLayerID(
                 sourceLayerID: camera.default2DInputLayerID,
