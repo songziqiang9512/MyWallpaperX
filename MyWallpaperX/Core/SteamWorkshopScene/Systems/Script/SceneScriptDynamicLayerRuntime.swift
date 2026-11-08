@@ -277,7 +277,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 if mutation.fields.contains(.color),
                    ![mutation.color.x, mutation.color.y, mutation.color.z]
-                    .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
+                    .allSatisfy({ $0.isFinite }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
                 let consumesPerspective = authoredLayer.hasPerspectiveGeometryConsumer

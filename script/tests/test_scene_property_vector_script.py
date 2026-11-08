@@ -270,6 +270,11 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             (self.proof / "runtime.stderr").write_text(completed.stderr)
         return json.loads(completed.stdout)
 
+    def test_layer_raw_color_uses_the_real_dynamic_bridge_and_preserves_rollback(self) -> None:
+        for fact, passed in self.result()["rawLayerColors"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(passed)
+
     def test_layer_perspective_init_cross_lookup_reaches_typed_snapshot(self) -> None:
         for key, accepted in self.result()["layerPerspective"].items():
             self.assertTrue(accepted, key)

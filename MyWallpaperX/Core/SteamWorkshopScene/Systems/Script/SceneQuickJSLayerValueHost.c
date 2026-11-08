@@ -399,11 +399,9 @@ static JSValue layer_set(
     }
     case LAYER_COLOR: {
         double value[3];
-        if (!mwx_scene_quickjs_layer_read_vec3(context, argv[0], value, NULL) ||
-            value[0] < 0 || value[0] > 1 || value[1] < 0 || value[1] > 1 ||
-            value[2] < 0 || value[2] > 1)
+        if (!mwx_scene_quickjs_layer_read_vec3(context, argv[0], value, NULL))
             return JS_ThrowRangeError(
-                context, "dynamic layer color expects a normalized finite Vec3"
+                context, "layer color expects a finite Vec3"
             );
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =

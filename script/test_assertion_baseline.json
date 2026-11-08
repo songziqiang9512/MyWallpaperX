@@ -247,13 +247,6 @@
     },
     {
       "path": "script/tests/test_scene_frame_vm_routing.py",
-      "scope": "SceneFrameVMRoutingTests.test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan",
-      "method": "assertIn",
-      "literal": "if raw.dynamic == 1",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_vm_routing.py",
       "scope": "SceneFrameVMRoutingTests.test_media_coordinator_observes_each_program_event_once_per_frame",
       "method": "assertIn",
       "literal": "func observeMediaEvents(_ events: SceneScriptMediaFrameEvents)",

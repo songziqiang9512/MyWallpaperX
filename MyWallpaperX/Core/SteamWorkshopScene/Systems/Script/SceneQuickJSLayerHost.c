@@ -536,7 +536,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     }
     for (size_t index = 0; index < 3; ++index) {
         if (!isfinite(origin[index]) || !isfinite(scale[index]) ||
-            !isfinite(angles[index]) || !isfinite(color[index]) || color[index] < 0 || color[index] > 1) {
+            !isfinite(angles[index]) || !isfinite(color[index])) {
             mwx_scene_quickjs_write_diagnostic(
                 diagnostic, diagnostic_capacity,
                 "non-finite authored layer mutation baseline"

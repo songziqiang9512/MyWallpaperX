@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 418,
-      "bytes": 168080
+      "lines": 419,
+      "bytes": 169487
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 135,
-      "bytes": 20885
+      "lines": 140,
+      "bytes": 22042
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47013
+      "bytes": 46868
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -395,29 +395,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "0e12e035fa6b8d8c80b2f75464a80f505b3506f554c0936b882587d4b471f644",
-      "after": "5b773579219d960d56e17b451cb90283866bf7f0f2138b3847d21f56f01d79a5",
-      "owner": "SceneScript Vec3 value operations",
-      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
+      "before": "5b773579219d960d56e17b451cb90283866bf7f0f2138b3847d21f56f01d79a5",
+      "after": "7c40c01d8403f1602f2337c771dc30653ff88f21f5209445fbe36dbb8d6f86a7",
+      "owner": "SceneScript layer color input values",
+      "reason": "Retire four duplicate normalized-range restrictions and preserve raw finite color through existing owners. Record real FPS text recovery, independent output, and the separate String-seed and early-return proof ceilings. Exact current body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layer-color-values"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1b34c98ec080737bef98215547ff62ae133d18dbd5557f29fa897ad6f1d643a4",
-      "after": "bc7c8d29dd5bf498a29b389c8a569cd7ddd0b4c52202a3ab4afcc645fda9aebf",
-      "owner": "SceneScript Vec3 value operations",
-      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
+      "before": "bc7c8d29dd5bf498a29b389c8a569cd7ddd0b4c52202a3ab4afcc645fda9aebf",
+      "after": "bf382afc3ba5ced212f1bf4a7f8911864b825519c742f674e87aed93e85c70bb",
+      "owner": "SceneScript layer color input values",
+      "reason": "Retire four duplicate normalized-range restrictions and preserve raw finite color through existing owners. Record real FPS text recovery, independent output, and the separate String-seed and early-return proof ceilings. Exact current body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layer-color-values"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8dec38f937d4e54ea38d4fe28b1ea14f8fbb6d84b735c630c5cee297781a6a73",
-      "after": "1a441de6e764f847308fcc1893797edd76cf158515033a108eddeda85d3e78e0",
-      "owner": "SceneScript Vec3 value operations",
-      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
+      "before": "1a441de6e764f847308fcc1893797edd76cf158515033a108eddeda85d3e78e0",
+      "after": "75e4e0688a711c7e104aae49516beab70a132c3448bb73ff92624bbc780a7958",
+      "owner": "SceneScript layer color input values",
+      "reason": "Retire four duplicate normalized-range restrictions and preserve raw finite color through existing owners. Record real FPS text recovery, independent output, and the separate String-seed and early-return proof ceilings. Exact current body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layer-color-values"
     }
   ]
 }

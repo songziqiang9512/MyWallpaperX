@@ -32,6 +32,11 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 动态 Layer 仅保存出生资源、创建尺寸、根关系及作者 seed；完整 upsert 的当前变换/可见性/颜色/文字走原 typed 值通道。结构 revision 不因普通值 setter 推进，也不在稳定帧回填整份作者 Layer。
 
+<a id="layer-color-values"></a>
+Layer `color` setter接受有限三分量原值；[公开颜色教程](https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/colors.html)中的RGB255不能被内部0…1范围门拒绝。原getter、journal、authored read baseline与typed snapshot保同一Double值，text/image显示端继续原clamp后转Float，不按幅度猜÷255、改变单位或写回归一值。原C入口、baseline、Swift bridge与Runtime的重复范围许可退出；finite/shape、owner原子提交、回滚及健康peer边界保持，不新增状态或转换owner。createLayer初始seed与addColor的String类型不由setter资格扩张。
+
+验收核红/白255赋值后的真实文本返回、普通归一值与改名等价表达、authored/dynamic text/image的立即getter及次帧原值、同帧baseline与后续写入、非有限/缺分量/String拒绝和失败owner回滚；极大有限值在现text/image显示消费者中仍须有限；灯的独立raw/非负能量ABI保原局部不可用边界。真实作者按各自显隐和实际raster/末合成验收，不以少一条异常授全部画面、HDR或官方单位parity。
+
 普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
 
 <a id="initialization-current-value"></a>

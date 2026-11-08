@@ -530,15 +530,6 @@ nonisolated enum SceneScriptLayerMutationBridge {
                   raw.dynamic != 0 || !fields.contains(.created) else {
                 return .failure(.invalidArgument("unknown layer mutation fields"))
             }
-            if raw.dynamic == 1 {
-                guard (0...1).contains(raw.color.0),
-                      (0...1).contains(raw.color.1),
-                      (0...1).contains(raw.color.2) else {
-                    return .failure(.invalidArgument(
-                        "invalid dynamic layer mutation range"
-                    ))
-                }
-            }
             let writtenFields = fields.subtracting(.created)
             switch (kind, raw.dynamic, writtenFields.rawValue) {
             case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):

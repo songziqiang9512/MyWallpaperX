@@ -41,9 +41,72 @@ HARNESS = HARNESS.replace('let payload: [String: Any] = [', 'var payload: [Strin
     '        payload["ownerCallbacks"] = callbackCoalescing()\n'
     '        payload["ownerCapacity"] = ownerCapacity()\n'
     '        payload["dynamicPreparedValues"] = dynamicPreparedValues()\n'
+    '        payload["rawLayerColors"] = rawLayerColors()\n'
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])')
 HARNESS += r'''
 extension Harness {
+    static func rawLayerColors() -> [String: Bool] {
+        let resource = "models/raw-color.json"
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 10, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil, contentKind: "image"),
+            .init(id: 20, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil,
+                  contentKind: "text", text: "baseline", textStyle: .init(fontPath: nil))
+        ], renderOrderLayerIDs: [10,20])
+        let a = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+        let peer = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [10,20],
+            preparedResourceLayerTemplates: [resource: .init(modelPath: resource, renderSizeWH: [4,4])])
+        let birth = runtime.apply([mutation(-1, fields: [.created], ownerTarget: a),
+                                   mutation(-2, fields: [.created], assetPath: resource, ownerTarget: a)])
+        let targets: [SceneDynamicTarget] = [.layer(layerID: 10, field: .color), .text(layerID: 20, field: .color),
+            .layer(layerID: -1, field: .color), .text(layerID: -1, field: .color), .layer(layerID: -2, field: .color)]
+        let colors: [SIMD3<Double>] = [.init(255,0,0), .init(255,255,255), .init(-3,0.5,.greatestFiniteMagnitude),
+                                      .init(0.25,0.5,0.75), .init(255,-2,.greatestFiniteMagnitude)]
+        var raw = succeeded(birth), readOnly = true, stable = true
+        for color in colors {
+            let previous = runtime.snapshot()
+            let previousValues = previous.authoredLayerValues
+            let plan = runtime.preflightOwnerEffects([.init(ownerTarget: a, layerMutations: [
+                mutation(10, dynamic: false, fields: [.color], color: color, ownerTarget: a),
+                mutation(20, dynamic: false, fields: [.color], color: color, ownerTarget: a),
+                mutation(-1, color: color, ownerTarget: a),
+                mutation(-2, assetPath: resource, color: color, ownerTarget: a)])])
+            readOnly = readOnly && runtime.snapshot().authoredLayerValues == previous.authoredLayerValues
+            runtime.commit(plan.layerPlan)
+            let current = runtime.snapshot()
+            raw = raw && plan.rejectedOwners.isEmpty && targets.allSatisfy {
+                current.authoredLayerValues[$0] == .vector3(color.x,color.y,color.z)
+            }
+            stable = stable && previous.authoredLayerValues == previousValues
+        }
+        let last = runtime.preflightOwnerEffects(colors.suffix(2).map { color in
+            .init(ownerTarget: a, layerMutations: [mutation(10, dynamic: false, fields: [.color], color: color, ownerTarget: a)])
+        })
+        runtime.commit(last.layerPlan)
+        let lastWrite = last.rejectedOwners.isEmpty
+            && runtime.snapshot().authoredLayerValues[.layer(layerID: 10, field: .color)] == .vector3(255,-2,.greatestFiniteMagnitude)
+        var rollback = true
+        for (id, dynamic, asset) in [(10,false,nil as String?), (20,false,nil), (-1,true,nil), (-2,true,resource)] {
+            for bad in [Double.nan, .infinity, -.infinity] {
+                let previous = runtime.snapshot()
+                let plan = runtime.preflightOwnerEffects([
+                    .init(ownerTarget: a, layerMutations: [
+                        mutation(20, dynamic: false, text: "must-not-publish", fields: [.text], ownerTarget: a),
+                        mutation(id, dynamic: dynamic, fields: dynamic ? [] : [.color], assetPath: asset, color: .init(bad,0,0), ownerTarget: a)]),
+                    .init(ownerTarget: peer, layerMutations: [mutation(10, dynamic: false, fields: [.alpha], ownerTarget: peer)])])
+                readOnly = readOnly && runtime.snapshot().authoredLayerValues == previous.authoredLayerValues
+                runtime.commit(plan.layerPlan)
+                var expected = previous.authoredLayerValues
+                expected[.layer(layerID: 10, field: .alpha)] = .scalar(1)
+                rollback = rollback && plan.rejectedOwners.map(\.ownerTarget) == [a]
+                    && plan.admittedEffects.map(\.ownerTarget) == [peer]
+                    && runtime.snapshot().authoredLayerValues == expected
+            }
+        }
+        return ["finiteRawColors": raw, "preflightReadOnly": readOnly, "olderSnapshotsStable": stable,
+                "lastAcceptedWrite": lastWrite, "nonfiniteOwnerRollsBackAndPeerCommits": rollback]
+    }
+
     static func callbackCoalescing() -> [String: Bool] {
         let descriptor = SceneRenderDescriptor(layers: [
             .init(id: 10, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], anglesXYZ: [0,0,0]),
@@ -566,6 +629,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicImageColor"])
         self.assertTrue(self.result["dynamicImageUpdateSucceeded"])
         self.assertTrue(self.result["dynamicImageUpdatedColor"])
+
+    def test_finite_raw_colors_commit_without_normalizing_and_failures_are_atomic(self) -> None:
+        for fact, passed in self.result["rawLayerColors"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(passed)
 
     def test_dynamic_birth_facts_and_typed_current_values_have_separate_lifetimes(self) -> None:
         self.assertEqual(len(self.result["dynamicPreparedValues"]), 2)

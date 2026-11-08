@@ -1,6 +1,83 @@
 import Foundation
 
 extension Harness {
+    static func rawLayerColorCases(_ fixture: PropertyVectorFixture) -> [String: Bool] {
+        let domain = try! SceneScriptQuickJSDomain()
+        let resource = "models/raw-color.json"
+        try! domain.configurePreparedResourceLayerCatalog([
+            resource: .init(modelPath: resource, renderSizeWH: [4,4])
+        ])
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 10, layerIndex: 0, name: "RawImage", visible: true,
+                  originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1, effects: [], contentKind: "image"),
+            .init(id: 20, layerIndex: 1, name: "RawText", visible: true,
+                  originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false, alpha: 1, effects: [],
+                  contentKind: "text", text: "baseline", textStyle: .init(fontPath: nil, colorRGB: [1,1,1], pointSize: 32))
+        ])
+        let source = """
+        let text,image;function check(layer){const c=layer.color;
+          if(c.x!==255||c.y!==-2||c.z!==Number.MAX_VALUE)throw Error('raw color lost');}
+        export function update(v){
+          if(v.x===1){text=thisScene.createLayer({name:'bridge-text',text:'seed'});
+            image=thisScene.createLayer({name:'bridge-image',image:'models/raw-color.json'});
+            for(const layer of [thisLayer,thisScene.getLayerByID(20),text,image])
+              for(const rgb of [[255,0,0],[255,255,255],[-3,.5,Number.MAX_VALUE],[.25,.5,.75],[255,-2,Number.MAX_VALUE]]){
+                layer.color=new Vec3(...rgb);const got=layer.color;
+                if(got.x!==rgb[0]||got.y!==rgb[1]||got.z!==rgb[2])throw Error('immediate raw getter');}
+            return new Vec3(7,8,9);}
+          if(v.x===3){for(const layer of [thisLayer,thisScene.getLayerByID(20),text,image])layer.color=new Vec3(.1,.2,.3);
+            throw Error('deliberate color rollback');}
+          for(const layer of [thisLayer,thisScene.getLayerByID(20),text,image])check(layer);
+          return new Vec3(8,9,10);
+        }
+        """
+        let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [binding(key: "origin", source: source, value: "0 0 0", properties: [:])],
+            userPropertyDefinitions: [], generation: 950)
+        let target = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+        let first = program.evaluate(inputs: [target: .vector3(1,0,0)], effectivePropertyValues: [:], frame: fixture.frame)
+        let expected = SIMD3<Double>(255,-2,.greatestFiniteMagnitude)
+        let dynamic = first.layerMutations.filter(\.isDynamic)
+        let authored = first.layerMutations.filter { !$0.isDynamic }
+        let rawValues = Dictionary(uniqueKeysWithValues: authored.map { mutation in
+            (mutation.layerID == 20 ? SceneDynamicTarget.text(layerID: 20, field: .color)
+                : .layer(layerID: 10, field: .color),
+             SceneDynamicValue.vector3(mutation.color.x, mutation.color.y, mutation.color.z))
+        })
+        program.finalizeLayerMutations(committing: true)
+        let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 2,
+            definitions: [.init(target: .layer(layerID: 10, field: .color), valueType: .vector3, authoredValue: .vector3(1,1,1)),
+                          .init(target: .text(layerID: 20, field: .color), valueType: .vector3, authoredValue: .vector3(1,1,1))],
+            sceneScriptValues: rawValues).snapshot
+        try! domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+        let next = program.evaluate(inputs: [target: .vector3(2,0,0)], effectivePropertyValues: [:], frame: fixture.frame)
+        program.finalizeLayerMutations(committing: true)
+        let failed = program.evaluate(inputs: [target: .vector3(3,0,0)], effectivePropertyValues: [:], frame: fixture.frame)
+        program.finalizeLayerMutations(committing: false)
+        let peerSource = """
+        export function update(v){for(const layer of [thisLayer,thisScene.getLayerByID(10),
+          thisScene.getLayer('bridge-text'),thisScene.getLayer('bridge-image')]){const c=layer.color;
+          if(c.x!==255||c.y!==-2||c.z!==Number.MAX_VALUE)throw Error('rollback color lost');}
+          thisLayer.color=new Vec3(1,.5,0);return v;}
+        """
+        let peer = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: [binding(key: "origin", source: peerSource, value: "0 0 0", properties: [:], objectIndex: 1, objectID: 20)],
+            userPropertyDefinitions: [], generation: 951)
+        let peerTarget = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let healthy = peer.evaluate(inputs: [peerTarget: .vector3(4,5,6)], effectivePropertyValues: [:], frame: fixture.frame)
+        peer.finalizeLayerMutations(committing: true)
+        defer { fixture.retained += [program, peer] }
+        return [
+            "callbackContinues": first.failures.isEmpty && first.values[target] == .vector3(7,8,9),
+            "realBridgePreservesAuthoredAndDynamicTextImage": authored.count == 2 && dynamic.count == 2
+                && first.layerMutations.allSatisfy { $0.color == expected },
+            "nextSnapshotGetterKeepsRaw": next.failures.isEmpty && next.values[target] == .vector3(8,9,10) && next.layerMutations.isEmpty,
+            "failedOwnerHasNoPartialBundle": failed.failures[target] != nil && failed.values[target] == nil && failed.layerMutations.isEmpty,
+            "healthyPeerSeesRollbackAndCanWrite": healthy.failures.isEmpty && healthy.values[peerTarget] == .vector3(4,5,6)
+                && healthy.layerMutations.count == 1 && healthy.layerMutations[0].color == .init(1,0.5,0),
+        ]
+    }
+
     static func layerCases(_ fixture: PropertyVectorFixture) -> PropertyVectorObservations {
         let descriptor = fixture.descriptor
         let domain = fixture.domain
@@ -353,6 +430,7 @@ extension Harness {
         ).snapshot
         defer { fixture.retained += [perspectiveProgram, layerProgram, colorProgram, spotColorProgram, currentColorProgram, undefinedColorProgram, failingColorProgram, colorFailurePeer, textColorProgram, bad, duplicate, wrongOwner, animatedOrigin, rejectedWithoutTimeline, animatedAlpha, genericAlpha, genericPropertyAlpha, rejectedAlphaWrapper] }
         return [
+            "rawLayerColors": { rawLayerColorCases(fixture) },
             "layerPerspective": { [
                 "bindingAdmitted": perspectiveProgram.bindings.count == 1,
                 "callbackSucceeded": perspectiveResult.failures.isEmpty,
