@@ -121,6 +121,92 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "Vec3 mix with number and vector amounts"
     );
 
+    static const struct {
+        const char *label, *left, *right, *expression;
+        double expected[3];
+    } cross_cases[] = {
+        {"X by Y", "new Vec3(1,0,0)", "new Vec3(0,1,0)", NULL, {0,0,1}},
+        {"Y by X", "new Vec3(0,1,0)", "new Vec3(1,0,0)", NULL, {0,0,-1}},
+        {"Y by Z", "new Vec3(0,1,0)", "new Vec3(0,0,1)", NULL, {1,0,0}},
+        {"Z by X", "new Vec3(0,0,1)", "new Vec3(1,0,0)", NULL, {0,1,0}},
+        {"general", "new Vec3(2,-3,4)", "new Vec3(-5,6,7)", NULL, {-45,-34,-3}},
+        {"reversed general", "new Vec3(-5,6,7)", "new Vec3(2,-3,4)", NULL, {45,34,3}},
+        {"zero", "new Vec3()", "new Vec3(7,-8,9)", NULL, {0,0,0}},
+        {"parallel", "new Vec3(2,4,6)", "new Vec3(1,2,3)", NULL, {0,0,0}},
+        {"object operand", "new Vec3(1,2,3)", "({x:4,y:5,z:6})", NULL, {-3,6,-3}},
+        {"renamed equivalent call", "new VectorType(4/2,-6/2,2+2)",
+            "new VectorType({x:-5,y:6,z:7})", "crossLeft['cr'+'oss'](crossRight)", {-45,-34,-3}},
+        {"cyclic axis rotation", "new Vec3(0.5,0.5,0.5)", "new Vec3(1,0,0)",
+            "(()=>{const first=crossLeft.cross(crossRight);"
+            "return crossRight.add(first.multiply(2*0.5))"
+            ".add(crossLeft.cross(first).multiply(2));})()", {0,1,0}},
+    };
+    size_t cross_callbacks_passed = 0, cross_negative_passed = 0;
+    const size_t cross_case_count = sizeof(cross_cases) / sizeof(cross_cases[0]);
+    for (size_t index = 0; index < cross_case_count; ++index) {
+        char source[1536], label[160];
+        const int written = snprintf(source, sizeof(source),
+            "export function update(value){const VectorType=Vec3;"
+            "const crossLeft=%s,crossRight=%s;"
+            "const before=[crossLeft.x,crossLeft.y,crossLeft.z,crossRight.x,crossRight.y,crossRight.z];"
+            "const result=%s;"
+            "if(!(result instanceof Vec3)||result===crossLeft||result===crossRight)"
+            "throw Error('cross must return a new Vec3');"
+            "if(crossLeft.x!==before[0]||crossLeft.y!==before[1]||crossLeft.z!==before[2]||"
+            "crossRight.x!==before[3]||crossRight.y!==before[4]||crossRight.z!==before[5])"
+            "throw Error('cross mutated an operand');return result;}",
+            cross_cases[index].left, cross_cases[index].right,
+            cross_cases[index].expression != NULL
+                ? cross_cases[index].expression : "crossLeft.cross(crossRight)");
+        snprintf(label, sizeof(label), "Vec3 cross %s compile", cross_cases[index].label);
+        if (written < 0 || (size_t)written >= sizeof(source)) {
+            fixture->failures += mwx_fixture_check(false, label, "fixture source truncated");
+            continue;
+        }
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 147,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        for (size_t callback = 1; callback <= 2; ++callback) {
+            snprintf(label, sizeof(label), "Vec3 cross %s callback %zu", cross_cases[index].label, callback);
+            const int failure = mwx_fixture_update_vec3(owner, 147, vec3_input, "", "{}",
+                MWX_SCENE_QUICKJS_OK, cross_cases[index].expected, label);
+            fixture->failures += failure;
+            cross_callbacks_passed += failure == 0;
+        }
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+    static const struct {
+        const char *label, *expression;
+        MWXSceneQuickJSResult result;
+    } cross_negative_cases[] = {
+        {"unknown method", "value.crossTypo(new Vec3(0,1,0))", MWX_SCENE_QUICKJS_EXCEPTION},
+        {"numeric target has no vector add", "(0).add(value)", MWX_SCENE_QUICKJS_EXCEPTION},
+        {"nonfinite typed result", "new Vec3(Number.MAX_VALUE,0,0).cross(new Vec3(0,Number.MAX_VALUE,0))",
+            MWX_SCENE_QUICKJS_BAD_RETURN},
+    };
+    for (size_t index = 0; index < sizeof(cross_negative_cases) / sizeof(cross_negative_cases[0]); ++index) {
+        char source[512];
+        snprintf(source, sizeof(source),
+            "export function update(value){return %s;}",
+            cross_negative_cases[index].expression);
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 148,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, cross_negative_cases[index].label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        const int failure = mwx_fixture_update_vec3(owner, 148, vec3_input, "", "{}",
+            cross_negative_cases[index].result, NULL, cross_negative_cases[index].label);
+        fixture->failures += failure;
+        cross_negative_passed += failure == 0;
+        fixture->failures += mwx_fixture_update_vec3(fixture->vec3_mix, 135, vec3_input, "", "{}",
+            MWX_SCENE_QUICKJS_OK, vec3_mix_expected, "Vec3 cross local failure preserves the existing mix peer");
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+    printf("MWX_VEC3_CROSS_CONTRACT cases=%zu callbacks=%zu negative=%zu\n",
+        cross_case_count, cross_callbacks_passed, cross_negative_passed);
+
     const char *vec2_mix_source =
         "let saved;"
         "export function init(){saved=new Vec2(0,0).mix(new Vec2(4,8),0.25);}"

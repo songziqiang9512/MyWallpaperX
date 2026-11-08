@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 417,
-      "bytes": 167028
+      "lines": 418,
+      "bytes": 168080
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 133,
-      "bytes": 20278
+      "lines": 135,
+      "bytes": 20885
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 46034
+      "lines": 187,
+      "bytes": 47013
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -394,21 +394,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "0e12e035fa6b8d8c80b2f75464a80f505b3506f554c0936b882587d4b471f644",
+      "after": "5b773579219d960d56e17b451cb90283866bf7f0f2138b3847d21f56f01d79a5",
+      "owner": "SceneScript Vec3 value operations",
+      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "03e17438140708b4f38900c197d17c7852c3c0e8a67d5d1ca4ad361eb1336e1e",
-      "after": "1b34c98ec080737bef98215547ff62ae133d18dbd5557f29fa897ad6f1d643a4",
-      "owner": "Scene execution observation history",
-      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+      "before": "1b34c98ec080737bef98215547ff62ae133d18dbd5557f29fa897ad6f1d643a4",
+      "after": "bc7c8d29dd5bf498a29b389c8a569cd7ddd0b4c52202a3ab4afcc645fda9aebf",
+      "owner": "SceneScript Vec3 value operations",
+      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3cb00e10438e3da70f7290512830d16ffdfbaaea9f562eac18ca6e2d197fb55b",
-      "after": "8dec38f937d4e54ea38d4fe28b1ea14f8fbb6d84b735c630c5cee297781a6a73",
-      "owner": "Scene execution observation history",
-      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+      "before": "8dec38f937d4e54ea38d4fe28b1ea14f8fbb6d84b735c630c5cee297781a6a73",
+      "after": "1a441de6e764f847308fcc1893797edd76cf158515033a108eddeda85d3e78e0",
+      "owner": "SceneScript Vec3 value operations",
+      "reason": "Complete the documented cross primitive in the original value class and record the actual author ring recovery. Preserve bounded failure and untouched audio semantics; narrow two newly traced Script leads for the next queue action. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#values"
     }
   ]
 }
