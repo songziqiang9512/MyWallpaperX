@@ -27,6 +27,8 @@
 
 这些是调查入口，不是已经测定的瓶颈或性能回退。新的改造应有当前证据；没有可避免工作时停止，不为统一架构机械增加共享 cache、registry 或 wrapper。
 
+2026-11-09，2887099508同原三输入摘要复用当前Debug `8ffdd251…ec787`，45秒/warmup30、静音、角点后outside、关闭execution observations；一次5秒OS采样的主线程1913点中，SubmissionCoordinator.prepareFrame为692点，内含Finalizer296点。variant selection仅4点，uncached/mismatch诊断未命中；terminal replay37点及texture投影25点都包含必要工作，未找到值得迁移失败/准备语义的可省份额。本次停止这些性能候选，不补采来命中假设、不增cache或改代码。当前值求解与资源装配的占比不等于可删除工作；采样与benchmark重叠，不作无采样成本基线、Release或能耗结论。原始profile、互斥分区和停止线归`.artifacts/scene-frame-cost-next-20261109/`，不重开已完成overlay或旧颜色/DEBUG方向。
+
 源码：[Host 准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)、[GraphExecutor 准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift)、[资源预算](../architecture/scene-resource-admission.md)、[视频 source](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift)。
 
 <a id="memory"></a>
