@@ -333,7 +333,7 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 <a id="particle-lighting-control"></a>
 ## REFRACT ambient 与光照边界
 
-原 native REFRACT 已沿[粒子材质合同](particle-component-coverage.md#ambient-particle-lighting)消费无潜在 typed 直接灯、且有 ortho authored ambient 供货的 `LIGHTING=1`。同帧仅传 ambient/HDR，HDR 饱和在背景与 overbright 之前；未启 lighting 的原 RGB 运算、normal 位移与最终 coverage/PMA 保持。没有新 PSO、灯表、clock 或输出 owner；L1 的潜在直接灯（含 hidden/零强度）、无 ambient，以及 CUTOUT/未知 combo 和坏资源仍局部拒绝。双面 0/1 在原 L0/ambient-only L1 中没有直接光贡献，由原 Planner 承接，不增加 GPU 状态或改变 raster cull。未 typed 的 tube 不由此取得完整支持。
+原 native REFRACT 已沿[粒子材质合同](particle-component-coverage.md#ambient-particle-lighting)消费无潜在 typed 直接灯、且有 ortho authored ambient 供货的 `LIGHTING=1`。同帧仅传 ambient/HDR，HDR 饱和在背景与 overbright 之前；未启 lighting 的原 RGB 运算、normal 位移与最终 coverage/PMA 保持。没有新 PSO、灯表、clock 或输出 owner；L1 的潜在直接灯（含 hidden/零强度）、无 ambient，以及未知 combo 和坏资源仍局部拒绝，CUTOUT 归[覆盖资格](#particle-cutout-coverage)。双面 0/1 在原 L0/ambient-only L1 中没有直接光贡献，由原 Planner 承接，不增加 GPU 状态或改变 raster cull。未 typed 的 tube 不由此取得完整支持。
 
 2026-11-08 同 project/pkg/tree 的原内容前后对照及独立内容，均核终端 PNG、自然 accepted-birth、实际槽位和同一 main→seal→GPU：
 
@@ -345,11 +345,20 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建输入无漂移。原 Plan/AssetGraph、生产 Metal 字面像素、HDR 次序、RGB/alpha、缺 ambient 后健康 L0 peer、潜在直接灯、改名/等价数值和坏资源反例通过；多 renderer Rope/Sprite 原输入与非法 uvscale 反例保留。未变范围复用，仅补失败或受影响方法；条件缺输入的 10 项未授资格。运行包 `scene-particle-ambient-current-20261108`、`scene-particle-ambient-neighbor-20261108` 与 `.artifacts/scene-particle-ambient-20261108/` 保存该范围身份、完整收据、测试及独审。
 
-双面无贡献输入的后继资格仅改原 Planner（净增 2 行），签名 Debug `e99ab5ab…374c64e`、4396 构建输入无漂移。真实冷准备门核 Double0/1、L0/省略 LIGHTING 正例、L1 缺 ambient/潜在灯拒绝、改名等价、cull 独立、未知值/CUTOUT 及健康 peer；原 shader/frame、像素和 L0 结果按模块身份复用。358 后出生窗口 frame158 的 722 根 RopeTrail 有 16 个 GPU 绘制实例（不是粒子数），child 为 1，normal/color 32×128 与当前背景→main/seal/GPU 完整；同场 720/1287 两 renderer 分别各 139/152，独立 360 的 293/768/754 各 4/4/52，均 PASS、排空及 PNG 已核。较早一次捕获紧邻首出生，仅见 child；实际 advance 有每帧上限，不能用 Ready 延迟或 SceneClock 直接代模拟累计时间，未据此改历史/调度。三场收据、一次独审与相位限定保于 `scene-particle-double-sided-20261108` 运行包及同名 `.artifacts/` 归档；不授逐输入像素隔离、动态骨附着、官方矛盾 combo/宏计数或像素一致性、完整光照及性能收益。
+双面 0/1 已沿原 Planner 退出整项拒绝，真实冷准备覆盖 L0/省略 LIGHTING、L1 缺源/潜在灯、资源/ID 变体及 cull 独立性。358 的根 RopeTrail 与 child 实际输出、独立 360 回归及旧 App `e99ab5ab…374c64e` 收据保于 `scene-particle-double-sided-20261108` 运行包及同名 `.artifacts/`；当前共享 shader 资格以[后继回归](#particle-cutout-coverage)为准。首出生附近空捕获未证历史故障，每帧 advance 上限使 Ready 延迟或 SceneClock 不能直接代模拟累计时间；不授单输入像素、动态骨附着、官方矛盾 combo/宏计数或性能。
 
 实现依据为本机官方64-bit 2.8.42（SHA `40e2ce02…cd993b0`）的 LightingV1 明文片段、真实 xref 和完整定向 ASM：零 LIGHTS 及 shadow/cookie 子计数路径只拼接 light 零值初始化及 return，无额外 sky/全局 ambient 生产；stock fragment 在该增量之外单独做 ambient 调制及 HDR CombineLighting。该条件 source 语义不证明作者官方 macro/count；本引擎 358/360 无 raw/typed light 的事实也不代官方计数。原生 ortho ambient/sky 换位与 authored 输入分开，不迁 image 的 ambient+sky。源身份、完整 Evidence/ASM 与独审在 `.artifacts/scene-particle-lighting-source-20261108/`；第三方 Mirage 候选不作官方数学证明。
 
 既有官方 wallpaper32 2.8.0.42 四区控制只取得载体、持续播放和粗色资格：同 white×RGB64、alpha1、normal、REFRACT1/amount0，L0 区中性灰，三个 L1 区近同深红；无数值 RGB/alpha、normal 位移或点灯/sky 分离资格。该控制本身不构成 LIGHTING 放行依据，不原样重调灯/法线。预览与 stage 已关闭清理、VM suspended；输入及限定收据在 `.artifacts/scene-refraction-profile-20261108/`。点灯、normal/view/world 基、固定 BRDF、shadow 和完整光照仍按[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)取得可区分供货后再实施。
+
+<a id="particle-cutout-coverage"></a>
+## REFRACT CUTOUT 的实际覆盖
+
+原 Planner→Declaration→Binding→fragment 已消费[静态 CUTOUT 运算](particle-component-coverage.md#cutout-particle-coverage)，不再整项拒绝合法 combo/常量。旧三轮常量检查合为一次，inactive 已知参数不解析；旧分散 fragment 参数绑定退出为一次 64B uniform。新 varying 保原色/raw alpha 供 CUTOUT，原 tint、normal、L0/A2C 运算保持。当前有序阈值与 canonical opacity 范围归合同，不宣完整动态材质或普通粒子 CUTOUT。
+
+2026-11-08 原 3663269553 同 project/pkg/tree，旧 App `e99ab5ab…374c64e` 拒 736/739/693/733；签名 Debug `b456fb84…84acda` 的 4396 构建输入无漂移，原内容不改参数，四层均自然供货。较晚捕获 frame189 的四层分别 3/1/3/4 实例，真实 format8 albedo 256×512、format0 normal 64×64、当前背景→main/seal/GPU 完整，整样本 PASS、无 unavailable，终端 PNG 主景正常。739 有较慢出生/淡入，未用早段空窗否定其输出；未据最终截图授四层逐输入像素隔离或官方位移/光照一致。
+
+共享 shader/ABI 的受影响实际回归同 App 补跑：3580724885 PASS，722 根 RopeTrail 18 个 GPU 绘制实例与 child1 分开，同场 720/1287 各两 renderer 为 138/150；3042623710 的 L0 PASS，330/280/350 为 1/1515/254。三场 normal/背景→main、最终捕获和排空均核对，PNG 已查看。真实冷准备及生产 Metal 字面像素覆盖默认/显式、改名、阈值中点/两侧、raw alpha>1、零 alpha/负阈值颜色、LA8、pre-CUTOUT normal、HDR/overbright 与单次 PMA；原硬件 A2C、depth/cull、普通 blend 与 Rope 回归通过。已替换的合法 REFRACT 子例旧拒绝预期退役，普通 CUTOUT/depth-write、LIGHTING 和坏资源反例保留。一次独审及范围收据保于 `scene-particle-cutout-20261108` 运行包和同名 `.artifacts/` 归档；未测 varying 的性能成本，不将统一绑定次数视为性能收益。
 
 <a id="limits"></a>
 ## 未取得的资格

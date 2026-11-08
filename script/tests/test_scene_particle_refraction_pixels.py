@@ -267,6 +267,38 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
                 for actual, target in zip(rows[name], pixel):
                     self.assertAlmostEqual(actual, target, delta=1)
 
+    def test_cutout_uses_raw_alpha_real_plan_binding_and_ordered_soft_coverage(self) -> None:
+        self.require_metal()
+        rows = self.result["cutout"]
+        self.assertTrue(rows["productionCutout"])
+        expected = {
+            "default-below": [0, 0, 0, 0], "default-mid": [100, 50, 25, 128],
+            "default-above": [200, 100, 50, 255], "renamedExplicit": [100, 50, 25, 128],
+            "ordered-below": [0, 0, 0, 0], "ordered-mid": [50, 25, 13, 64],
+            "ordered-above": [100, 50, 25, 128], "rawTwo": [50, 25, 13, 64],
+            "la8": [50, 25, 13, 64], "inactive": [30, 15, 8, 38], "zeroOpacity": [0, 0, 0, 0],
+        }
+        for name, pixel in expected.items():
+            with self.subTest(profile=name):
+                for actual, target in zip(rows[name], pixel):
+                    self.assertAlmostEqual(actual, target, delta=1)
+        self.assertEqual(rows["renamedExplicit"], rows["default-mid"])
+
+    def test_cutout_preserves_precoverage_normal_and_hdr_background_pma_order(self) -> None:
+        self.require_metal()
+        rows = self.result["cutout"]
+        expected = {
+            "zeroAlphaNegativeEdges": [100, 78, 40, 255],
+            "normalHalfAlpha": [55, 39, 20, 128], "normalFullAlpha": [60, 39, 20, 128],
+            "translucentSDR": [75, 25, 13, 128], "additiveSDR": [75, 25, 13, 128],
+            "translucentHDR": [25, 13, 6, 128], "additiveHDR": [25, 13, 6, 128],
+        }
+        for name, pixel in expected.items():
+            with self.subTest(profile=name):
+                for actual, target in zip(rows[name], pixel):
+                    self.assertAlmostEqual(actual, target, delta=1)
+        self.assertGreater(rows["normalFullAlpha"][0], rows["normalHalfAlpha"][0] + 3)
+
     def test_r8_color_reuses_straight_coverage_without_reinterpreting_normal_or_rg88(self) -> None:
         self.require_metal()
         values = self.result["r8Color"]
@@ -380,6 +412,7 @@ struct SceneParticleRefractionDeclaration {
     let amount: Float = 1
     let overbright: Float = 1
     let usesAmbientLighting = false
+    let cutout: SIMD3<Float>? = nil
 }
 struct SceneTexContainer {
     struct SpriteFrame {

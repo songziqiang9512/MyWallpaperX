@@ -39,6 +39,7 @@ struct Varyings {
     float2 screenTangentX;
     float2 screenTangentY;
     float4 tint;
+    float4 cutoutTint;
     float frameBlend;
 };
 
@@ -199,6 +200,7 @@ Varyings particleVertex(
     float alpha = saturate(particle.rotationAndAlpha.w);
     float3 color = max(particle.colorAndFrameMix.xyz, 0.0);
     out.tint = float4(straightTint ? color : color * alpha, alpha);
+    out.cutoutTint = float4(color, particle.rotationAndAlpha.w);
     out.frameBlend = saturate(particle.colorAndFrameMix.w);
     float3 tangentWorldX;
     float3 tangentWorldY;
@@ -266,6 +268,13 @@ fragment float4 sceneParticleFrag(
     return result;
 }
 
+struct RefractionFragmentUniforms {
+    float4 material;
+    float4 uvScales;
+    float4 ambientLighting;
+    float4 cutout;
+};
+
 fragment float4 sceneParticleRefractFrag(
     Varyings in [[stage_in]],
     texture2d<float> colorTexture [[texture(0)]],
@@ -273,21 +282,19 @@ fragment float4 sceneParticleRefractFrag(
     texture2d<float> backgroundTexture [[texture(2)]],
     sampler colorSampler [[sampler(0)]],
     sampler normalSampler [[sampler(1)]],
-    constant float4 &parameters [[buffer(0)]],
-    constant float4 &uvScales [[buffer(1)]],
-    constant float4 &ambientLighting [[buffer(2)]]) {
+    constant RefractionFragmentUniforms &settings [[buffer(0)]]) {
     constexpr sampler backgroundSampler(filter::linear, address::clamp_to_edge);
-    float4 albedo = particleColorSample(in, colorTexture, colorSampler, uvScales.xy);
-    if (parameters.z > 0.5) {
+    float4 albedo = particleColorSample(in, colorTexture, colorSampler, settings.uvScales.xy);
+    if (settings.material.z > 0.5) {
         albedo = float4(albedo.r, albedo.r, albedo.r, albedo.g);
     }
 
     float2 backgroundUV = in.position.xy
         / float2(backgroundTexture.get_width(), backgroundTexture.get_height());
-    uint normalFlags = uint(parameters.w);
+    uint normalFlags = uint(settings.material.w);
     if ((normalFlags & 4u) == 0u) {
         bool normalUsesFrames = (normalFlags & 1u) != 0u;
-        float2 normalUV0 = normalUsesFrames ? in.uv0 : in.baseUV * uvScales.zw;
+        float2 normalUV0 = normalUsesFrames ? in.uv0 : in.baseUV * settings.uvScales.zw;
         float2 normalUV1 = normalUsesFrames ? in.uv1 : normalUV0;
         float4 normalFirst = normalTexture.sample(normalSampler, normalUV0);
         float4 normalSecond = normalTexture.sample(normalSampler, normalUV1);
@@ -298,19 +305,27 @@ fragment float4 sceneParticleRefractFrag(
             - float2((normalFlags & 2u) != 0u ? 0.965 : 1.0, 1.0);
         float refractionWeight = packedNormal.r * in.tint.a;
         backgroundUV += (in.screenTangentX * normalXY.x
-            + in.screenTangentY * normalXY.y) * parameters.x * refractionWeight;
+            + in.screenTangentY * normalXY.y) * settings.material.x * refractionWeight;
     }
     float3 background = backgroundTexture.sample(backgroundSampler, backgroundUV).rgb;
 
-    float coverage = saturate(albedo.a * in.tint.a);
-    float3 straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
-    float3 source;
-    if (ambientLighting.w > 0.5) {
-        float3 lit = albedo.rgb * straightTint * ambientLighting.rgb;
-        if (ambientLighting.w > 1.5) { lit = saturate(lit); }
-        source = background * lit * parameters.y;
+    float coverage;
+    float3 straightTint;
+    if (settings.cutout.w > 0.5) {
+        coverage = smoothstep(settings.cutout.x, settings.cutout.y, albedo.a * in.cutoutTint.a)
+            * settings.cutout.z;
+        straightTint = in.cutoutTint.rgb;
     } else {
-        source = background * albedo.rgb * straightTint * parameters.y;
+        coverage = saturate(albedo.a * in.tint.a);
+        straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
+    }
+    float3 source;
+    if (settings.ambientLighting.w > 0.5) {
+        float3 lit = albedo.rgb * straightTint * settings.ambientLighting.rgb;
+        if (settings.ambientLighting.w > 1.5) { lit = saturate(lit); }
+        source = background * lit * settings.material.y;
+    } else {
+        source = background * albedo.rgb * straightTint * settings.material.y;
     }
     return float4(source * coverage, coverage);
 }

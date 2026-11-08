@@ -217,9 +217,20 @@ RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io
 - **准备与唯一来源**：原 ParticleRuntime/AssetGraph 在冷准备确认原 ortho ambient 供货可用，并按既有 typed light 声明及 General 类别判断是否存在可能的直接灯消费者，给原 RefractionPlanner 传最小能力事实。显隐、位置与强度的当前零值不能当成永远无灯；已有动态直接灯需求仍局部不支持，不先模拟再逐帧拒绘。Plan/Declaration/Binding 保留真实 lighting operation，替换本范围的整项 LIGHTING 拒绝，不改变其他材质输入的消费资格。
 - **帧链与数学**：原 OrderedLayerEncoding 从同帧 LightSnapshot 只交付 authoredShaderLighting 的 ambient 和原 scene HDR 状态，沿原 particle uniform/fragment 消费；不使用 ortho native receiver 的 ambient/sky 换位或 image 的 ambient+sky 公式。RGB 调制与 HDR 饱和发生在原背景相乘、overbright 和最终 coverage/PMA 合成之前；alpha、几何、normal 解码、REFRACT 位移与背景快照继续原 consumer。未启用 lighting 的路径保原运算，不新增灯表、状态/时钟、资源/输出 owner、PSO cache 或普通帧场景扫描。
 - **无贡献输入**：`DOUBLESIDEDLIGHTING=0/1` 只改变直接光 PBR 的正反面响应。未启 `LIGHTING` 时该分支不存在；上述 ambient-only L1 的零计数模块也不调用该 PBR。原 Planner 对这些既有可消费材质承接双面无操作输入，退出整项拒绝；L1 的直接灯/ambient 资格仍由原 lighting 条件独立决定。复用现 Plan/Binding，不另存双面位或增加 fragment 分支；normal 解码与 raster cull 分属原消费者，不能借该 combo 修改几何剔除或 REFRACT 位移。
-- **失败与退出**：已识别的直接灯需求、shadow/cookie、CUTOUT及既有无效资源保持原最小资产失败；双面位不为未支持的 lighting 组合授能力。未typed的tube仍沿原light降级，本批不新解析或以typed空数组授全部raw灯覆盖。不将未解释的材质输入当零灯，不用 unlit 替代未消费 operation。冷环境事实随原 descriptor/准备重建，帧输入只读已确定类型。将来接入完整直接光照时，由原材质/LightSnapshot 消费者替换该能力限制，不保并行 ambient owner 或额外回退链。
+- **失败与退出**：已识别的直接灯需求、shadow/cookie和既有无效资源保持原最小资产失败；CUTOUT 另由[原覆盖运算](#cutout-particle-coverage)消费，双面位不为未支持的 lighting 组合授能力。未typed的tube仍沿原light降级，本批不新解析或以typed空数组授全部raw灯覆盖。不将未解释的材质输入当零灯，不用 unlit 替代未消费 operation。冷环境事实随原 descriptor/准备重建，帧输入只读已确定类型。将来接入完整直接光照时，由原材质/LightSnapshot 消费者替换该能力限制，不保并行 ambient owner 或额外回退链。
 
 验收先扩原 Plan/AssetGraph 与生产 Metal 门：零灯的 L1 与 L0、非白 ambient、RGB/alpha、HDR/overbright次序、normal与背景、资源/ID改名、合法数值变体，以及可热显隐直接灯、未知combo/坏资源和健康peer反例。双面输入在 L1 保缺 ambient/潜在直接灯拒绝，在 L0 保真实 unlit 输出，raster cull 始终独立；无 frame/shader 变更时复用同身份像素门，仅补冷准备与真实输出。先用未改参数的真实作者核自然 accepted-birth、非零 batch、实际 normal/background→main/seal/GPU与可见贡献，再用独立作者及既有L0内容防回退。最小交付以真实可见粒子恢复为准；只有准备放行、无出生、错误normal/颜色或无最终贡献时回到首错，不扩大光照、提高音频或调作者参数补图。
+
+<a id="cutout-particle-coverage"></a>
+### REFRACT 的 CUTOUT 覆盖
+
+原 native REFRACT 的 CUTOUT 是 soft alpha 运算，不是几何 discard、raster cull 或 A2C。stock fragment 在 lighting、背景采样及 overbright 之后，用原 texture-format 转换后的 albedo alpha × particle alpha 计算 smoothstep(start,end,alpha) × opacity，再按原 blend 输出。normal 位移仍使用 CUTOUT 前的 particle alpha，不能让覆盖阈值改变位移或先饱和输入。
+
+- 原 Planner 只在 `CUTOUT=1` 准备默认 `.1/.2/1` 或显式静态 start/end/opacity，沿 Declaration→AssetGraph→TextureLoader→Binding 传一个可选 Float 三元值；缺省/0 沿原 coverage 表达式，不解析或验证已识别 inactive cutout 常量的值。已知 key、active static/scalar/finite 在原入口单次遍历，退出旧三轮重复验证及 CUTOUT combo/静态常量整项拒绝；不另建材质状态、动态 store、资源或输出 owner。
+- 当前消费范围为有限、严格有序的 Float 阈值及 0…1 opacity，使结果属于原 coverage/PMA 域。阈值不受编辑器 0…1 范围限制；等宽、逆序及域外 alpha 行为尚未资格，在冷准备只拒该资产，不加 epsilon、硬 step、范围钳制或 shader 内重验。active 动态参数、pass 级 user 输入、普通非 REFRACT CUTOUT、未知 combo、直接光和坏资源仍分别保原边界；不能把聚合的 user 需求假定为 inactive 参数。
+- 原 drawRefraction 将现有材质参数、UV scales、ambient 与 cutout 合为一个栈上 fragment uniform 包，一次绑定；旧分散 fragment buffer 参数同批退出，既有几何/纹理路径不变。共享 vertex 的旧 tint 提前饱和 alpha，另传原颜色/raw alpha 给 active CUTOUT，避免丢失超过 1 的输入或零 alpha 下负阈值所需的颜色；旧 tint、normal、L0/A2C 运算保持，插值成本不预称为零。只有启 CUTOUT 的 fragment 消费新 smoothstep coverage，RGB 最后乘一次 coverage 并输出一次 PMA；不增加 PSO、逐粒 CPU 运算、热解析或临时数组分配。
+
+验证扩真实冷准备与原生产 Metal 像素门：省略/显式默认、资源/ID改名、另一组有序阈值与 opacity、阈值上下/中点、raw alpha 超过 1、LA8/normal/背景、HDR/overbright/PMA 次序及 inactive 常量。保坏类型/动态值、未资格阈值、潜在灯和健康 peer。因 fragment ABI 改变，本批补原 L0、ambient 与双面实际作者；主作者按实际获准推进、自然出生和非零 batch 选窗，核真实 color/normal/background→main/seal/GPU及画面。供货、覆盖或位置先失败时回到首错，不调作者参数补图；不由此授四层逐输入像素、完整光照或官方一致性。
 
 <a id="rope-source"></a>
 ### 单图 Rope 纹理

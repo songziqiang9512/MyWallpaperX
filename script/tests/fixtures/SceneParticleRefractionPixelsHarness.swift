@@ -331,6 +331,7 @@ enum Harness {
         let result: [String: Any] = [
             "available": true,
             "ambientLighting": try ambientLightingProfiles(device: device, loader: loader, directory: directory),
+            "cutout": try cutoutProfiles(device: device, loader: loader, directory: directory),
             "r8Color": try r8ColorProfiles(device: device, loader: loader, directory: directory),
             "staticPrimaryNormal": try staticPrimaryNormalProfiles(device: device,
                 loader: loader, directory: directory),
@@ -886,7 +887,7 @@ enum Harness {
         return data as Data
     }
 
-    private static func makeTex(
+    static func makeTex(
         format: UInt32,
         flags: UInt32 = 0,
         textureWidth: UInt32 = 4,

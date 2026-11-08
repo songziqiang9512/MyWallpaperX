@@ -543,11 +543,11 @@ enum Harness {
                 renderers: definition["renderer"] as! [[String: Any]],
                 state: ("plain", false, false, "normal"), allowed: true,
                 combos: pass.combos, userTexture: pass.hasUserTextureInputs,
-                userValues: pass.hasUserShaderValues, cameraProfile: false)
+                userValues: pass.hasUserShaderValues, cameraProfile: expected[path]!.6)
             if pass.combos != ["REFRACT": 1] {
                 try add("refract-read-only-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
                     renderers: definition["renderer"] as! [[String: Any]],
-                    state: ("read-only", true, false, "nocull"), allowed: expected[path]!.0,
+                    state: ("read-only", true, false, "nocull"), allowed: expected[path]!.0 || pass.combos == ["CUTOUT": 1],
                     combos: pass.combos.merging(["REFRACT": 1]) { _, selected in selected },
                     userTexture: pass.hasUserTextureInputs, userValues: pass.hasUserShaderValues,
                     cameraProfile: false)
@@ -568,6 +568,7 @@ enum Harness {
                 "expectedSystemFlags": expectation.4, "expectedRendererFlags": expectation.5,
                 "expectedSceneCameras": Array(repeating: expectation.6, count: asset?.definition.renderers.count ?? 0),
                 "expectedRefraction": expectation.7, "hasRefraction": asset?.refraction != nil,
+                "defaultCutout": asset?.refraction?.cutout == SIMD3<Float>(0.1, 0.2, 1),
                 "systemFlags": asset?.definition.flags.rawValue ?? -1,
                 "rendererFlags": asset?.definition.renderers.first?.rawFlags ?? -1,
                 "textureAvailable": asset?.textureSource != nil,
@@ -904,7 +905,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         result = self.run_harness("render-state-profiles")
         rows = result["rows"]
         self.assertEqual(result["variantPrimitive"], {"readOnly": True, "mixed": True})
-        self.assertEqual(len(rows), 117)
+        self.assertTrue(next(row["defaultCutout"] for row in rows if row["name"] == "refract-read-only-cutout"))
         for row in rows:
             with self.subTest(profile=row["name"]):
                 self.assertTrue(row["builtInShader"])

@@ -30,6 +30,7 @@ struct SceneParticleRefractionBinding {
     let overbright: Float
     let colorEncoding: ColorEncoding
     let usesAmbientLighting: Bool
+    let cutout: SIMD3<Float>?
 
     init(
         normalTexture: MTLTexture,
@@ -40,7 +41,8 @@ struct SceneParticleRefractionBinding {
         normalUVScale: SIMD2<Float>,
         normalSampling: SceneParticleTextureSampling,
         normalFormat: SceneShaderTextureFormat?,
-        usesAmbientLighting: Bool = false
+        usesAmbientLighting: Bool = false,
+        cutout: SIMD3<Float>? = nil
     ) {
         normalSource = .baseV1(
             texture: normalTexture,
@@ -53,6 +55,7 @@ struct SceneParticleRefractionBinding {
         self.overbright = overbright
         self.colorEncoding = colorEncoding
         self.usesAmbientLighting = usesAmbientLighting
+        self.cutout = cutout
     }
 
     init?(
@@ -60,7 +63,8 @@ struct SceneParticleRefractionBinding {
         amount: Float,
         overbright: Float,
         colorEncoding: ColorEncoding,
-        usesAmbientLighting: Bool = false
+        usesAmbientLighting: Bool = false,
+        cutout: SIMD3<Float>? = nil
     ) {
         guard Self.resolve(normalCandidate) != nil else {
             return nil
@@ -70,6 +74,7 @@ struct SceneParticleRefractionBinding {
         self.overbright = overbright
         self.colorEncoding = colorEncoding
         self.usesAmbientLighting = usesAmbientLighting
+        self.cutout = cutout
     }
 
     func resolvedNormalArguments() -> NormalArguments? {

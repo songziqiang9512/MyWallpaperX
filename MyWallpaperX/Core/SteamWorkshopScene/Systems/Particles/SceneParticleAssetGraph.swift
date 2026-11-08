@@ -225,7 +225,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
                         normalTextureSource: nil,
                         amount: refractionPlan.amount,
                         overbright: refractionPlan.overbright,
-                        usesAmbientLighting: refractionPlan.usesAmbientLighting
+                        usesAmbientLighting: refractionPlan.usesAmbientLighting,
+                        cutout: refractionPlan.cutout
                     )
                 } else if let refractionPlan,
                           let normalReference = refractionPlan.normalReference,
@@ -236,7 +237,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
                         normalTextureSource: normal,
                         amount: refractionPlan.amount,
                         overbright: refractionPlan.overbright,
-                        usesAmbientLighting: refractionPlan.usesAmbientLighting
+                        usesAmbientLighting: refractionPlan.usesAmbientLighting,
+                        cutout: refractionPlan.cutout
                     )
                 } else if refractionPlan == nil {
                     diagnose(.refractionUnsupported, path, "unsupportedMaterialProfile")
