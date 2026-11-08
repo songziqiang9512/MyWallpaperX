@@ -97,7 +97,7 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
-| 3306282639 · 图3 | 人物周身文字外圈出现多余放射线，R0原图亦可见。compose3192/2921的circular_text slot1实际消费hidden text2917的named供货；同尺寸graph→named走原CB全域blit，不能凭纹理token或代次差判转色/陈旧。两次有界调试均未取得作者当帧像素，后次在Swift表达式读取失败，未进入GPU读回；独立RGBA/BGRA读回正控通过不代作者资格。保`.artifacts/scene-circular-text-20261107/`，暂转其他基础画面项；重启须能取得同帧实际边缘RGBA、slot/variant/uniform与采样结果，再区分边缘延伸/上游生成，当前不改clamp、padding、PMA或作者参数。 |
+| 3306282639 · 图3 | 人物周身文字环多余放射线仍未修。[真实N/E同帧读回](../capabilities/runtime-evidence-current.md#circular-text-edges)已闭合本机文字末边行→e0的圈外延伸，退出“先取得作者边缘/variant”步骤；并不授上游首错或官方named采样默认。有界官方静态仍未到同资源的sampler/slot1绑定；取得该新消费者或合格源/画布边界证据才重启，否则转其他基础画面项。不重复旧LLDB、本packet、公共默认/同字符串旁支或按图改clamp/padding/PMA；2921及中心滤波仍未知。 |
 | 3382111183 | 六个活动 beam emitter（115/178/335/173/167/170）的 exponent100 仍被现计划≤16拒绝。官方 reader/evaluator 与相对64→16投影已取得静态边界；共同音频候选未恢复338321目标且用户报闪烁，已撤回，不再重复消费端/指数研究。下一事实须是实际 provider 的绝对域/状态或合格同声源数值与 ROI；不由 Script AudioBuffers 可超1外推particle，不调gain/bounds或强注入1。原供值与候选停止线归[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
 | 3383210272 | 两道彩光应从中间向左右扩散；顶部扫光/闪烁仍未修。[同帧raw与静态候选](../capabilities/runtime-evidence-current.md#beam-contribution)不授官方主束producer，现有两静图不足归因，暂转其他基础画面项。重启须新增producer归因或合格同声源绝对供值，再核自然population/phase；[音频域设计](../../architecture/system-audio-spectrum-design.md)仅纠正职责，未知标定不实施。相对音频候选已撤，颜色替换不授主束恢复；不重跑旧早晚/clip/宽度矩阵、调公式/增益或强制出生。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
@@ -119,7 +119,7 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 3022080536 | 移动烟雾仍偏红，原输入固定pointer的前后图未证改善；下一步沿实际texture/后继颜色writer定位，不能由实例颜色赋值语义关闭。颜色继承/ColorChange 与显式 audio child 继续独立核对；原生RGB单位门不代真实ROI。 |
+| 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
 | 2919854127 /2927205881 | 蓝环可见性与曲线右短段，同声源 band 与实际触发条件。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |

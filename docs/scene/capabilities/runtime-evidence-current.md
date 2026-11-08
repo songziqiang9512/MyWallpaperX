@@ -228,6 +228,15 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 3351163962的时段文字217左锚点、圈219无锚点；R0的“傍晚”和用户图4的“晚上”均在圈右外。2026-11-08固定官方2.8.0.42（SHA `daac1ea7…b6bda07`）原project/pkg及46个运输文件逐项一致，独占窗口960×540实际显示“午夜”在圈内，960×624则在圈右外；两幅原生CUA图在会话中，只有手工观察收据，无本地官方PNG或精确像素资格。后者接近R0的3024×1964比例，绝对尺寸、时间及字体像素不作等同。该越环症状可在官方由原作者锚点/裁幅组合复现，退出引擎偏移修复优先项；保原锚点与作者参数，不加样本offset。输入、静态链和官方收据归`.artifacts/scene-clock-layout-20261108/`；未授全部画幅、父变换、字体分支或完整布局一致。
 
+<a id="circular-text-edges"></a>
+## 文字环的真实边行与外向延伸
+
+3306282639 原三输入摘要不变，单场4秒/after2秒，签名Debug临时观察App `ff2e55bb…27e805`、原metallib，4396构建输入稳定；原Capture真实private RGBA/BGRA复制、terminal PNG、取消/supersede/drain单方法通过。req1/frame64/CB `519171968512`/Surface `519153409024` 的166行composition零截断、GPU完成并排空。3192/e0/n0/m0实际slot1为named2917 primary/content65，N `519241626112` 为2048×31 BGRA8，输出E `519212734720` 为1000² BGRA8，均mip1；同CB在e0结束后、e1及后续target复用前复制原字节。真实Program、stage-qualified ABI、sampler和后继e1→main/seal/原PNG闭合，22项独审一致；不从两个不同token推出本次G/N字节等价。
+
+N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四UV无拟合确定E径向坐标，Y>1域355968像素中308359个alpha非零；按实际N末行与linear/clampToEdge重放，该域alpha最大差.766626个8bit档、BGRA最大差1.017068档。沿同角度的三个远外点均保实际A68，已在e0原输出形成径向条纹。中心333784个缩小采样像素不获简单bilinear资格，不推定各向异性算法。此结果定位本机N→e0外向延伸机制，尚未授N边行的上游首错、官方named采样目标、2921或终端每条线的归因，不能直接选padding/clamp/PMA修法。
+
+固定官方2.8.0.42的单轮有界静态只授composite资源创建分支，未到sampler descriptor/slot1绑定；原报告跨旁支的误连已按完整返回更正，不从常量或模板未命中推格式/边界。原字节、修正及停止线保于 `.artifacts/scene-named-sampler-official-20261108/`。六产品钩子及临时测试已全部精确退役，4396个core输入零漂移，复用原签名core `ee27529d…5e7b30` 和同身份原Capture门，未重复App/构建验收。源码/精确补丁、N/E raw、有效shader/ABI、数值脚本与独审归 `.artifacts/scene-circular-text-readback-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-circular-text-readback-20261108/`；旧两轮LLDB失败仍保原包。反馈未关闭，下一证据与停止线归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
 
@@ -382,7 +391,9 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 同候选 App 的自有静态完整场景中，7个真实 Sprite 分别消费 normalized、legacy、缺省、禁用、黑色、brightness 及改名 value-array。9个预声明 ROI 共576像素逐通道误差0：红 initializer 的三种有效蓝覆盖确为(0,0,255)，与独立蓝参考一致；缺省/禁用仍红，黑色保1个真实 draw，brightness 蓝128，绿 peer 保持。capture71/request1/CB `514032926720`/Surface `514027867648`、同main/seal/GPU完成、零截断并排空。首次 paused/starttime0 没有出生，只通过蓝参考与绿 peer，故先拒绝粒子颜色比较；保持同 package、RGB 和 ROI，去掉 pause 后取得上述真实出生。该受控画面只授通用覆盖色能恢复 initializer 的零通道，不授官方或原作者反馈恢复。
 
-3022080536 原 project/pkg/tree、固定 pointer(-.4,.1) from-launch 前后不变；两 capture154 的52层分别26/31实例，GPU完成且排空，红 blob 前后仍红，颜色问题未结案。独立1937925563 同三摘要前后 capture79，461/478各有1 Sprite与19 SpriteTrail进各自main/GPU；两图主体仍出图，但青紫斜区的宽度与发光有明显差异，未锁作者/粒子相位，既不称视觉等价、也不猜为纯时相变化。该作者只保有界观察，不授全场无回归。
+3022080536 原 project/pkg/tree、固定 pointer(-.4,.1) from-launch 前后不变；两 capture154 的52层分别26/31实例，GPU完成且排空，红 blob 前后仍红，颜色问题未结案。新静态复核该唯一draw均为child0 red_fire Sprite，root/child1 Rope没有draw，固定pointer不能代移动拖尾。灰褐colorn已传child，后继作者ColorChange明写红→暗红；实际R8颜色view中性，未发现纹理解码自造红的首错。声明/旧输入与Mirage线索保于 `.artifacts/scene-smoke-color-next-20261108/`，目标ROI、运动phase/producer及当帧age/tint/真实texture path仍缺，不由红色外观改operator。
+
+独立1937925563 同三摘要前后 capture79，461/478各有1 Sprite与19 SpriteTrail进各自main/GPU；两图主体仍出图，但青紫斜区的宽度与发光有明显差异，未锁作者/粒子相位，既不称视觉等价、也不猜为纯时相变化。该作者只保有界观察，不授全场无回归。
 
 3383210272 原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124实例增多，但主要彩光仍缺；候选12路径已精确恢复、未提交。官方相对64→16 max不资格项目 display-height64 的绝对域。281 同 WAV 两静帧仅授16档消费与 pulse 执行，不判断眼部闪动或新增闪烁；不重跑旧早晚窗、调gain/bounds/pow或强制出生。
 
