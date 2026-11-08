@@ -179,7 +179,6 @@
 | 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 3292370168普通Debug准备与505资格 | 读口跨帧误判和无需求记失败的生产逻辑已沿[观测证据](../capabilities/runtime-evidence-current.md#execution-observation-history)修正；原日志不改。当前`-Onone`/exe886b在4秒观察＋60秒准备监督期限未Ready，末记录first-surface-join4159ms，不能授505实际记账或归为11个播放故障。旧R0为`-O`诊断，不能跨配置判回退。先凭真实准备工作/栈或同配置证据定位，不原样重跑或加预算；`.artifacts/scene-startup-329-next-20261108/`保后继只读入口。 |
-| 失败收据的可选路径 | 3808922316等未Ready时，collector仍写未创建的preview_log及runtime_evidence占位`-`，使现有promoter拒整份报告。本轮原报告原字节保留，保留投影显式记缺失项后只复制实际文件；Debug独立dylib也未被benchmark staging复制，原stub会在dyld退出；本批用明确单executable的Debug候选运行，非同身份旧Debug重试。后续在原collector/staging入口准确承接真实载荷与可选路径，不造空日志、改原失败或删除真正captured文件的完整性检查。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 官方原生采集 | 当前 `cua.getState` 仍15秒超时并重置kernel；本次未恢复VM或执行新官方实验。待采集条件改变后先核正控，不重复旧采集或换输入/截图后端。相机getter不等于shader eye，console文档也未授可读取的数值出口；停止线同上光照研究包。 |

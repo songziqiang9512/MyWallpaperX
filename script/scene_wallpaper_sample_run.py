@@ -380,9 +380,12 @@ def run_sample(
 
     log_text = app_log.read_text(encoding="utf-8", errors="replace")
     preview_log = result_dir / "scene-preview.log"
-    preview_text = preview_log.read_text(encoding="utf-8", errors="replace") if preview_log.is_file() else ""
+    has_preview_log = preview_log.is_file()
+    preview_text = preview_log.read_text(encoding="utf-8", errors="replace") if has_preview_log else ""
     ready_match = READY_RE.search(log_text)
     runtime_evidence_match = RUNTIME_EVIDENCE_RE.search(log_text)
+    if runtime_evidence_match and runtime_evidence_match.group("path").strip() in ("", "-"):
+        runtime_evidence_match = None
     stopped_match = STOPPED_RE.search(log_text)
     surface_count = int(ready_match.group("surfaces")) if ready_match else None
     startup_ready_ms = (
@@ -582,7 +585,7 @@ def run_sample(
     runtime_evidence_path = (
         Path(runtime_evidence_match.group("path").strip())
         if runtime_evidence_match is not None
-        else Path("-")
+        else result_dir / "scene-runtime-evidence.json"
     )
     runtime_evidence = runtime_evidence_metrics(runtime_evidence_path)
     sample_root_residue = [
@@ -632,8 +635,11 @@ def run_sample(
         "runtime_retained": True,
         "evidence": {
             "app_log": str(app_log),
-            "preview_log": str(preview_log),
-            "runtime_evidence": str(runtime_evidence_path),
+            "preview_log": str(preview_log) if has_preview_log else None,
+            "runtime_evidence": (
+                str(runtime_evidence_path)
+                if runtime_evidence_match is not None or runtime_evidence_path.is_file() else None
+            ),
             "audio_scaled_value_evidence": (
                 str(audio_scaled_value_evidence_path)
                 if audio_scaled_value["has_evidence"] else None

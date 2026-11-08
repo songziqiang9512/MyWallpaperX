@@ -36,7 +36,11 @@ DEBUG direct-host、产品 client→daemon 和正常桌面有不同覆盖范围�
 | 关联样本与多次运行 | `scene_sample_debug_archive.py`；保留各行的原报告身份，不把多次观察称同次全量运行 |
 | 人工视觉裁决 | `scene_sample_acceptance_ledger.py` 读取现有 verdict 数据；不得由声明、日志健康或生成器补成视觉通过 |
 
-报告写入忽略的任务输出目录，不作为长期能力文档。显式输出示例：
+报告写入忽略的任务输出目录，不作为长期能力文档。
+
+collector 对未生成的可选 preview/runtime 文件输出 `null`，不制造路径占位或空文件。runtime 未宣告时仍收集本次目录中已生成的 `scene-runtime-evidence.json`，但保留缺宣告的失败；明确宣告的真实路径即使文件缺失也保留，由归档入口继续检查。新失败报告保原 timeout、exit 和真实失败，归档不需要另做路径投影；已宣告文件和 captured 截图的完整性要求不变，历史报告不倒改。
+
+显式输出示例：
 
 ```sh
 python3.12 -B script/scene_capability_census.py generate \

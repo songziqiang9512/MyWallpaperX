@@ -95,7 +95,7 @@ def run_sample_fixture(
     if owner is None:
         raise AssertionError("sample runner owner is unavailable")
     with tempfile.TemporaryDirectory(prefix="mwx-scene-tool-self-fixture-") as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         source = root / "samples/Scene/123"
         source.mkdir(parents=True)
         (source / "project.json").write_text(json.dumps({
@@ -149,13 +149,15 @@ def run_sample_fixture(
                 }
                 if control.get("malformed_runtime"):
                     payload["runtimeInput"]["shaderContracts"] = "bad"
-                evidence_path.write_text(json.dumps(payload))
+                if not control.get("missing_runtime"):
+                    evidence_path.write_text(json.dumps(payload))
                 recorded_path = (
                     root / "foreign-runtime-evidence.json"
                     if control.get("foreign_runtime_path") else evidence_path
                 )
                 if control.get("foreign_runtime_path"):
                     recorded_path.write_text(json.dumps(payload))
+                recorded_path = control.get("runtime_path", recorded_path)
                 preview = [
                     "loaded: 1 / 3", "text loaded: 0 / 0", "particle loaded: 0 / 0",
                     "solidLayerCount: 0", "utilityLayerCount: 0",
@@ -164,7 +166,8 @@ def run_sample_fixture(
                     "camera: projection=cover parallax=false amount=0 mouseInfluence=0",
                 ]
                 preview.extend(control.get("preview_lines", []))
-                (result_dir / "scene-preview.log").write_text("\n".join(preview) + "\n")
+                if not control.get("missing_preview"):
+                    (result_dir / "scene-preview.log").write_text("\n".join(preview) + "\n")
                 messages = []
                 if not control.get("missing_ready"):
                     messages.append(
@@ -230,4 +233,6 @@ def run_sample_fixture(
                 terminal_snapshot=terminal_snapshot,
                 snapshot_max_edge=snapshot_max_edge,
             )
+        if "result_observer" in control:
+            control["result_observer"](result, root)
         return normalize_fixture_paths(result, root), normalize_fixture_paths(observed_command, root)

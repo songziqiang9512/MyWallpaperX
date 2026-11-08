@@ -149,8 +149,8 @@
       "bytes": 25007
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 106,
-      "bytes": 14285
+      "lines": 110,
+      "bytes": 14777
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 47386
+      "lines": 187,
+      "bytes": 46816
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -386,11 +386,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
-      "before": "cfc64632e44cf48f77012ca20a742b4fdc17b8ef0011069c51a04a2af795b689",
-      "after": "8f02c5147ab8b2e794ccc25be30cb6a68edaf483146df75e72b81690897a354f",
-      "owner": "Scene execution observation history",
-      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+      "before": "8f02c5147ab8b2e794ccc25be30cb6a68edaf483146df75e72b81690897a354f",
+      "after": "8e4f919014d94636708503fb2cc307ae5f60c2f34d3cc55d373c9c977b0a6b45",
+      "owner": "Scene benchmark optional evidence collector",
+      "reason": "Record only actual optional files or explicit runtime declarations; keep failure and promised-file integrity. Remove the resolved queue entry and unsupported staging attribution. Exact body budget without spare allowance.",
+      "decision": "docs/scene/development/development-workflow.md#声明扫描与运行诊断"
     },
     {
       "section": "bodies",
@@ -413,11 +413,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b75b7989cb1be46706da062da8aca3c62fbd417deceab1c11490b650f7757fc5",
-      "after": "ffc36fda6353eebfe5010695737d8c5680c75c2070dc63385027086af59f268d",
-      "owner": "SceneScript authored Sound volume",
-      "reason": "Existing journal and frozen value lanes carry Sound handle volume to the one Registry. Preserve real committed-writer provenance, direct-property and paused ownership; record current author/native/control evidence and the remaining group-perspective official-behavior stop without another authority. Exact current body budget.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "ffc36fda6353eebfe5010695737d8c5680c75c2070dc63385027086af59f268d",
+      "after": "9709c96b59e7b48be058b4429c2decbb8604d35d10d27ab7eec60b4021215c04",
+      "owner": "Scene benchmark optional evidence collector",
+      "reason": "Record only actual optional files or explicit runtime declarations; keep failure and promised-file integrity. Remove the resolved queue entry and unsupported staging attribution. Exact body budget without spare allowance.",
+      "decision": "docs/scene/development/development-workflow.md#声明扫描与运行诊断"
     }
   ]
 }

@@ -887,12 +887,12 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-08",
+      "lastReviewed": "2026-11-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3d68657d5d40767dc3e6bdd4636362504f7ecd5b902852638d6bc22d1be26b31",
+        "sourceSHA256": "c03050c0f3ab27daa9d7df69532723ce7be31303b062badf30b3baf3db1f0623",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对跨帧CPU恢复、同runtime Graph/GPU后继、两类passthrough入口与未请求capture记账的原工具职责；原失败保留，入口及其余导航未变。",
+        "scope": "核对原collector、验收与归档入口：未生成可选文件为null、实际canonical载荷仍收集、真实宣告及captured完整性仍检查；历史报告不倒改，其余导航未变。",
         "limitations": "此导航收据仅核文档与工具入口；实际 App、GPU 和官方证明范围另归运行证据。"
       }
     },
