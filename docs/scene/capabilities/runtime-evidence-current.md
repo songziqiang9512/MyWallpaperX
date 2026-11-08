@@ -295,6 +295,8 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 另一85秒场沿仓库原Debug pointer/current owner显式提供同电视区域的六点短轨迹：500两份Enter后持续约3.5秒，直到工具setOutside才有490/500 Leave。前/末轨迹PNG已独立查看，蓝色侧栏、文字和`>|`明显进入画面，资格限定为稳定合成指针下的入口悬停与菜单展开；未独立读取shared[15]或413当帧origin数值，未交付目标文字click。两场停止/Surface释放/GPU排空及捕获零截断归原report，不授普通desktop/global物理输入、全部菜单、官方parity或性能。资料与独审在`.artifacts/scene-288-menu-target-20261108/`，Scene载荷分别晋升`scene-tv-native-288-20261108`、`scene-tv-stable-288-20261108`；重启须有真实目标click或可区分raw/current入口的证据，不重试旧坐标/LLDB矩阵。
 
+288开场黑纹另复用同5849 App与原三摘要单跑7.5秒：29条最终View读数覆盖sceneTime0.006…7.314；13次捕获都有265普通Solid→main/seal及GPU完成，逐张查看未重现下半区黑纹。265有作者origin/alpha共享390/30 single组，alpha在约3.9…5.467秒有脉冲声明；本读口不含alpha/tint/MVP，不能由两条所选绑定判断alpha组丢失或数值正确。其copybackground声明未在普通Solid消费，也没有“写相机即隐藏”的合同；不据此增copy或屏蔽规则。此次只记观察相位未重现，保反馈待新同相位ROI/版本证据，不重复本场。原报告/日志归`.artifacts/scene-evidence/runs/scene-intro-black-solid-20261108/`，完整阶段PNG与薄核查归`.artifacts/scene-intro-black-solid-20261108/`；stop、Surface释放与GPU排空成立。
+
 <a id="general-zoom"></a>
 ## General zoom 的运行输入资格
 

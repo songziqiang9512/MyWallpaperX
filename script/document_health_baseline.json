@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 345,
-      "bytes": 147313
+      "lines": 347,
+      "bytes": 148151
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 135,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 45743
+      "bytes": 45938
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -377,11 +377,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "07dce68b494e7c71e67ad1483adcd05b3e0dd6666245a6b50ed464616c017f2b",
-      "after": "91131bb51dc207166c183de6a6943a1c5cdff6a3c0c302da4f36fc2dc5bb5862",
-      "owner": "Scene General zoom input",
-      "reason": "保留独立 General/API 身份、四作者实际回归、官方证明上限和有界证据位置；已解决曲线退出队列。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#general-zoom"
+      "before": "91131bb51dc207166c183de6a6943a1c5cdff6a3c0c302da4f36fc2dc5bb5862",
+      "after": "eb662ef01b1e1065254c2210133136e8bf09610895425e1d1b340fc5d307ac26",
+      "owner": "Scene intro black Solid qualification",
+      "reason": "单场原内容的29条TRS读数与13阶段PNG未重现黑纹；保留alpha/MVP和作者copy声明上限并收紧重启条件，防止重复无首错试验。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "fdd0ede80ffbc3567d95d6eeeadcde97637c4309efd9b247200470029ea02dbe",
+      "after": "9dc7d5877bc38b88189255a61e75031829d2238876e4ceae08f88594528b0f21",
+      "owner": "Scene intro black Solid qualification",
+      "reason": "单场原内容的29条TRS读数与13阶段PNG未重现黑纹；保留alpha/MVP和作者copy声明上限并收紧重启条件，防止重复无首错试验。",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
     }
   ]
 }
