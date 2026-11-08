@@ -12,7 +12,8 @@ from urllib.parse import unquote
 
 def structured_runtime_observations(log_text: str, prefix: str) -> dict[str, Any]:
     events, errors = [], 0
-    for line in log_text.splitlines():
+    source_line_numbers = []
+    for line_number, line in enumerate(log_text.splitlines(), 1):
         if prefix not in line:
             continue
         try:
@@ -24,26 +25,43 @@ def structured_runtime_observations(log_text: str, prefix: str) -> dict[str, Any
             errors += 1
             continue
         events.append(event)
-    return {"events": events, "observed_count": len(events), "parse_errors": errors,
+        source_line_numbers.append(line_number)
+    return {"events": events, "source_line_numbers": source_line_numbers,
+            "observed_count": len(events), "parse_errors": errors,
             "claim_boundary": "observed-runtime-stages-not-per-input-visible-contribution"}
 
 
-def terminal_snapshot_metrics(result_dir: Path, log_text: str) -> dict[str, Any]:
+def terminal_snapshot_metrics(result_dir: Path, log_text: str, *,
+                              snapshot_path: Path | None = None) -> dict[str, Any]:
     from web_benchmark_capture import png_rgb_pixels
-    path = result_dir / "scene-after-window.png"
+    path = snapshot_path if snapshot_path is not None else result_dir / "scene-after-window.png"
     image = png_rgb_pixels(path)
-    receipts = re.findall(r"phase=snapshot reason=after request=(\d+) source=metal path=([^\r\n]+)", log_text)
-    request = next((value for value, location in receipts if Path(location.strip()).resolve() == path.resolve()), None)
     result: dict[str, Any] = {"status": "missing-or-invalid", "path": str(path),
                               "claim_boundary": "terminal-png-not-presented-or-per-input-visibility"}
-    encoded = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log_text) if request else None
-    if image is None or encoded is None or int(encoded[3]) < 1 or int(encoded[4]) < 1:
+    lines = log_text.splitlines()
+    resolved_path = path.resolve()
+    receipts = [(number, match) for number, line in enumerate(lines, 1)
+        for match in re.finditer(r"phase=snapshot reason=(\S+) request=(\d+) source=metal path=([^\r\n]+)", line)
+        if Path(match[3].strip()).resolve() == resolved_path]
+    if image is None or len(receipts) != 1:
+        return result
+    receipt_line_number, receipt = receipts[0]
+    if snapshot_path is None and receipt[1] != "after":
+        return result
+    request = receipt[2]
+    encodings = [(number, match) for number, line in enumerate(lines, 1)
+        for match in re.finditer(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", line)]
+    if len(encodings) != 1:
+        return result
+    encoded_line_number, encoded = encodings[0]
+    if encoded_line_number >= receipt_line_number or int(encoded[3]) < 1 or int(encoded[4]) < 1:
         return result
     width, height, rows = image
     result.update(status="captured", request_id=int(request), output_width=width, output_height=height,
                   non_black=any(value > 2 for row in rows for value in row))
     result.update(command_buffer_token=encoded[1], texture_token=encoded[2],
-                  source_width=int(encoded[3]), source_height=int(encoded[4]))
+                  source_width=int(encoded[3]), source_height=int(encoded[4]),
+                  encoded_line_number=encoded_line_number)
     return result
 
 
@@ -53,7 +71,7 @@ def terminal_composition_snapshot(capture: Mapping[str, Any], observations: Mapp
     result = {key: capture[key] for key in (
         "status", "path", "request_id", "command_buffer_token", "texture_token",
         "source_width", "source_height", "output_width", "output_height",
-        "non_black", "claim_boundary") if key in capture}
+        "non_black", "claim_boundary", "encoded_line_number") if key in capture}
     result["composition_receipt_matched"] = False
     if capture.get("status") != "captured" or not all(
         isinstance(capture.get(key), int) and not isinstance(capture[key], bool) and capture[key] > 0
@@ -64,7 +82,14 @@ def terminal_composition_snapshot(capture: Mapping[str, Any], observations: Mapp
     events = observations.get("events", [])
     if not isinstance(events, list):
         return result
-    matches = [event for event in events if isinstance(event, Mapping)
+    line_numbers = observations.get("source_line_numbers", [])
+    encoded_line_number = capture.get("encoded_line_number")
+    use_line_order = (type(encoded_line_number) is int and encoded_line_number > 0
+        and isinstance(line_numbers, list) and len(line_numbers) == len(events)
+        and all(type(number) is int and number > 0 for number in line_numbers)
+        and all(earlier < later for earlier, later in zip(line_numbers, line_numbers[1:])))
+    matches = [event for index, event in enumerate(events)
+        if (not use_line_order or line_numbers[index] > encoded_line_number) and isinstance(event, Mapping)
         and event.get("schemaVersion") == 1
         and event.get("captureRequestID") == capture["request_id"]
         and event.get("commandBufferToken") == capture["command_buffer_token"]]

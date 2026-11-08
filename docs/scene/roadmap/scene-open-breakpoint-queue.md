@@ -62,7 +62,6 @@
 | 着色器类型回归预期 | `test_scene_shader_global_scope.test_float2_arithmetic_does_not_cross_unproven_expression_boundaries` 的 user-call/normalize 仍期待不补`.xy`，与现有typed复合求值后窄化合同冲突；同输入旧/新产品都补`.xy`。其余9方法通过、GPU独立项1skip；按真实类型与编译/像素修订这两条旧预期，不能撤回合法转换迎合测试。 |
 | 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍超过1000行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码行数与职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
 | 全仓链接门 · 非Scene文档 | `docs/architecture/steam-workshop-acquisition-contract.md`与`docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md`指向`SteamWorkshopLegacyAcquisitionRetirement.swift`的源码链接解析失败；`docs/history/cross-topic/code-slimming-r1-r26-2026-11-01.md`指向`main-window-playlists-redesign.md#93-正式个人设置导入导出兼容`的锚点解析失败。相关正文均与HEAD一致；沿各自文档owner修正真实链接。该全仓门当前失败，本批Scene文档的局部链接及角色/导航另核。 |
-| 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
 | 条件/周期分支 | 3768303048本轮manual day/night的122/109及夜雪59有效显隐已成立，day sticky unavailable59对应隐藏，不能判活动粒子失败；真实时钟与pointer未资格。3042492564原树click父链隐藏，派生media条件已供货且有click后738绘制，仍缺首次出生回执/无click对照，不授点击因果。3764725758/3830665420第二轮仍未知，长窗不代完整事件。 |
 
 ## 需定向扩域的能力入口
@@ -127,7 +126,7 @@
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321另保图片切换、首焦点、持续按住与多步跟随。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
-| 3113287126 | 小提琴粒子方向与密度，固定发射/运动相位。 |
+| 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
 | 3437487219 | Earth亮侧/云层光色；Cloud Chroma MR/specular/pigment及coverage，另分闪烁与collision。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |

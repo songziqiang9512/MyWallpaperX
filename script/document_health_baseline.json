@@ -81,8 +81,8 @@
       "bytes": 13288
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
-      "lines": 51,
-      "bytes": 4068
+      "lines": 58,
+      "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 233,
@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 423,
-      "bytes": 174040
+      "lines": 424,
+      "bytes": 175659
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 47935
+      "lines": 185,
+      "bytes": 47771
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,20 +404,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "59d8cc2145f4ba8b8ee9b9815250b1f73bb611b74d74f724ca5c11bff80c114e",
-      "after": "6d8959c10503d555bf6ffb9f6c603570723ad7fd87dbc8fc77ce717fc15fa853",
-      "owner": "Scene typed visibility fallback",
-      "reason": "Unify typed visibility fallbacks and actual writer ownership; retire Color-only skip and closed queue rows. Record bounded native/author/script regression evidence and preserve official/full-motion limits. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#visibility-typed-fallback"
+      "before": "6d8959c10503d555bf6ffb9f6c603570723ad7fd87dbc8fc77ce717fc15fa853",
+      "after": "c4b6345f3f3f64fe4b0d540ddbb1f8cbe1360df8ff20e4a273db67106f4d0d5a",
+      "owner": "Scene ordered capture receipts",
+      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f9604d90005feb81773ea0675ad38571f24fe64157519474ce5391d949a3f3d8",
-      "after": "0e3b12a91d2d96bff60d47616df674453b1aec3d0f4954f2546095f51d895733",
-      "owner": "Scene bounded next-action qualification",
-      "reason": "Replace unqualified retry prompts with existing R0 producer/consumer facts and precise reopen conditions; preserve all visual feedback and static capability gaps. No new runtime or product change. Exact body budget.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "0e3b12a91d2d96bff60d47616df674453b1aec3d0f4954f2546095f51d895733",
+      "after": "94fb7ac785d4277429da9828669d9644b55195e0710afe27b58b91b619bc4229",
+      "owner": "Scene ordered capture receipts",
+      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
     },
     {
       "section": "bodies",
@@ -427,6 +427,15 @@
       "owner": "Scene bounded followup qualification",
       "reason": "Preserve one current instrumented function sample and two bounded R0 input investigations as concrete stop conditions. No product fix or performance gain is claimed; keep unlocalized visual feedback and actual source-material capability open. Exact body budget.",
       "decision": "docs/scene/roadmap/performance-convergence-card.md#costs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "before": "e4686c656bc41c7edfbe764c6a5fdd13688681ef9c140821d3d457d474888955",
+      "after": "6101c81d5a0bb091996a7b50a4c5156eafc1349024b78174f347df44bca9ce43",
+      "owner": "Scene ordered capture receipts",
+      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
     }
   ]
 }
