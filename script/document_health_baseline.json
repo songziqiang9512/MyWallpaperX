@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 46392
+      "lines": 188,
+      "bytes": 46812
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,11 +404,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "15fa2d9ea4d15f300ba314416d44136e5c0bf55d9ea3ad9990b9d2e094a7d2d6",
-      "after": "1f06a195bf95802419b379df5c732d73d066998966e0ac8d2cf51b280a99e04a",
-      "owner": "Scene circular text actual sampling observation",
-      "reason": "Replace completed author raw acquisition with same-CB N/E and bounded radial-domain evidence; retire all temporary hooks and preserve unqualified official sampler/upstream boundary. Correct smoke fixed-pointer scope and explicit author writer without inventing a fix. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
+      "before": "1f06a195bf95802419b379df5c732d73d066998966e0ac8d2cf51b280a99e04a",
+      "after": "0e37f878715676bebd5593242e53607338acb9474ae873397d7a6d729bec9586",
+      "owner": "Scene particle lighting reconnaissance",
+      "reason": "Replace speculative direct-light admission with qualified light supply and unresolved orthographic shader eye/right; record the current native capture blocker so the same unsuccessful experiment is not repeated. No product or support claim. Exact body budget.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }

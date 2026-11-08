@@ -15,7 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| REFRACT直接光照 · 3590684440四层 | 392/526/809/830 有潜在直接灯/阴影，hidden534 不计活动分母。无直接灯及静态 CUTOUT 已沿[现有消费者](../capabilities/particle-component-coverage.md#ambient-particle-lighting)接通，闭合结果归[运行证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)。剩余须先取得可区分的直接光、normal/world 基与 shadow 供货，再沿原 LightSnapshot/材质 owner 实现；不复制 PBR、另建 light 状态或画成 unlit，不重复旧四区调灯/法线。输入与停止线在 `.artifacts/scene-refraction-profile-20261108/`。 |
+| REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
 | 超长预热 · 3808922316 | 原project/pkg/tree不变，同4秒观察/90秒准备额度仍超时；短栈处于粒子预热，同App关闭首事实观测仍超时。原隐藏星场1333 starttime=100000按当前固定步请求约600万更新，是源码工作量而非完成计数。固定官方默认控制最终出图、精确完成及90秒资格未定，见[有界研究](../capabilities/runtime-evidence-current.md#coverage)。预算与隐藏状态沿[原预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不能直接跳过。先保完整状态，待原创建需求/单位/等价优化的可判证据；当前转先修基础画面，不原样延时、加预算或凭cache末日志改代码。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | XRay固定路径/UI/摘要与Masks的Pulse/Blur/Waterwaves路径门仍有真实降级消费者；尚无当前作者被误挡的画面归因。现分支只接unclaimed且无frame target，不能借已认领Program许可；颜色来源/PMA不证明alpha与空间覆盖，归一blur即反例。本次停止实施；若续查只先资格Masks真实unclaimed的等价改名画面及source-coverage阻断，再决定原冷owner能否供完整事实并退旧门，XRay不并批。不造新coverage系统、通放base或补路径名单。正反例与停止线在`.artifacts/scene-source-coverage-20261108/`。 |
@@ -182,6 +182,7 @@
 | 失败收据的可选路径 | 3808922316等未Ready时，collector仍写未创建的preview_log及runtime_evidence占位`-`，使现有promoter拒整份报告。本轮原报告原字节保留，保留投影显式记缺失项后只复制实际文件；Debug独立dylib也未被benchmark staging复制，原stub会在dyld退出；本批用明确单executable的Debug候选运行，非同身份旧Debug重试。后续在原collector/staging入口准确承接真实载荷与可选路径，不造空日志、改原失败或删除真正captured文件的完整性检查。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
+| 官方原生采集 | 当前 `cua.getState` 仍15秒超时并重置kernel；本次未恢复VM或执行新官方实验。待采集条件改变后先核正控，不重复旧采集或换输入/截图后端。相机getter不等于shader eye，console文档也未授可读取的数值出口；停止线同上光照研究包。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 
 属性接口归[输入与属性](../capabilities/runtime-input-property-coverage.md)，工具按当前实现与输入资格复现。更新队列时只删已解决的具体子问题；没有当前复现则标待核，不复述旧实验流水或维持旧 verdict。
