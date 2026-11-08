@@ -73,6 +73,7 @@ nonisolated extension SceneScriptValueOwner {
                                     baseline.font.utf8.count,
                                     baseline.alpha,
                                     baseline.particleAlpha,
+                                    baseline.volume,
                                     baseline.pointSize,
                                     [baseline.color.x, baseline.color.y, baseline.color.z],
                                     UInt32(effectValues.count), effectValues,

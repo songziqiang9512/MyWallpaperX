@@ -727,15 +727,19 @@
     },
     {
       "id": "scene-sound-volume-script",
-      "title": "Sound volume scalar script through existing registry",
-      "owner": "Scene scalar Program / existing Sound Playback Registry",
+      "title": "Sound handle and scalar volume through one registry",
+      "owner": "SceneScript layer mutation / existing Sound Playback Registry",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "design_notes": "Current contract: designDoc#sound-handle-volume. Prepared Sound bindings provide minimal scalar target/seed definitions to the existing map; frozen C snapshot and authored journal publish handle getter/setter values through the original typed mutation and resolved snapshot. Preserve authored/user/timeline/script ordering and current attached scalar output precedence. Registry retains one baseVolume/player and applies master/mute afterwards. A sceneScript source label alone cannot claim a property-backed Sound: the new handle lane also requires target membership from the existing Runtime committed authoredLayerValues volume keys, passed as a temporary layer-ID set after layerPlan commit. The immediate property lane skips the same intersection; no persistent mask or full Runtime crossing. Paused refresh retains its existing owner set/clock and admits volume-only authored upserts through fixedPoint and scoped snapshot. No dynamic Sound, AV calls from JS, new state/cache/commands, or callback scheduling.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayer*Host.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerMutation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime*.swift"
       ],
       "contentPatterns": []
     },

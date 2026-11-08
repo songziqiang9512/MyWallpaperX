@@ -42,9 +42,75 @@ HARNESS = HARNESS.replace('let payload: [String: Any] = [', 'var payload: [Strin
     '        payload["ownerCapacity"] = ownerCapacity()\n'
     '        payload["dynamicPreparedValues"] = dynamicPreparedValues()\n'
     '        payload["rawLayerColors"] = rawLayerColors()\n'
+    '        payload["soundHandleVolume"] = soundHandleVolume()\n'
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])')
 HARNESS += r'''
 extension Harness {
+    static func soundHandleVolume() -> [String: Bool] {
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 10, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil, contentKind: "sound"),
+            .init(id: 20, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil, contentKind: "image"),
+            .init(id: 30, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil, contentKind: "sound")
+        ], renderOrderLayerIDs: [10,20,30])
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [],
+            preparedSoundDefinitions: [.init(target: .layer(layerID: 10, field: .volume),
+                valueType: .scalar, authoredValue: .scalar(0.25))])
+        let schema = runtime.authoredDefinitionRevision
+        let preparedGrantsNoHandle = runtime.committedHandleVolumeLayerIDs.isEmpty
+        let target = SceneDynamicTarget.layer(layerID: 10, field: .volume)
+        let owner = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let peer = SceneDynamicTarget.layer(layerID: 20, field: .scale)
+        let seed = runtime.authoredLayerDefinitions.first { $0.target == target }?.authoredValue
+        var facts = ["prepared_sound_seed_exists_without_an_attached_script": seed == .scalar(0.25)]
+        var raw = true, preflightOnly = true
+        for volume in [0.0, 0.5, 1.0] {
+            let before = runtime.snapshot()
+            let beforeIDs = runtime.committedHandleVolumeLayerIDs
+            let plan = runtime.preflightOwnerEffects([.init(ownerTarget: owner, layerMutations: [
+                mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: volume)])])
+            preflightOnly = preflightOnly && runtime.snapshot().authoredLayerValues == before.authoredLayerValues
+                && runtime.committedHandleVolumeLayerIDs == beforeIDs
+            runtime.commit(plan.layerPlan)
+            raw = raw && plan.rejectedOwners.isEmpty && runtime.snapshot().authoredLayerValues[target] == .scalar(volume)
+        }
+        facts["authored_volume_commits_raw_typed_values"] = raw
+        facts["volume_preflight_does_not_publish"] = preflightOnly
+        facts["only_committed_volume_targets_grant_handle_provenance"] = preparedGrantsNoHandle
+            && runtime.committedHandleVolumeLayerIDs.count == 1 && runtime.committedHandleVolumeLayerIDs.contains(10)
+        let coalesced = SceneScriptLayerMutation.coalescing([
+            mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: 0.5),
+            mutation(10, dynamic: false, fields: [.visibility], ownerTarget: owner),
+            mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: 0)])
+        let merged = runtime.preflightOwnerEffects([.init(ownerTarget: owner, layerMutations: coalesced)])
+        runtime.commit(merged.layerPlan)
+        facts["volume_coalescing_keeps_last_write_and_other_fields"] = merged.rejectedOwners.isEmpty
+            && coalesced.count == 1 && coalesced[0].fields == [.volume,.visibility]
+            && runtime.snapshot().authoredLayerValues[target] == .scalar(0)
+            && runtime.snapshot().authoredLayerValues[.layer(layerID: 10, field: .visibility)] == .bool(true)
+        facts["volume_changes_do_not_rebuild_topology_or_schema"] = runtime.topologyRevision == 0
+            && runtime.authoredDefinitionRevision == schema
+        var rejects = true
+        for bad in [
+            mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: .nan),
+            mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: .infinity),
+            mutation(20, dynamic: false, fields: [.volume], ownerTarget: owner, volume: 0.5),
+            mutation(30, dynamic: false, fields: [.volume], ownerTarget: owner, volume: 0.5)
+        ] {
+            let before = runtime.snapshot()
+            let plan = runtime.preflightOwnerEffects([
+                .init(ownerTarget: owner, layerMutations: [
+                    mutation(10, dynamic: false, fields: [.volume], ownerTarget: owner, volume: 1), bad]),
+                .init(ownerTarget: peer, layerMutations: [
+                    mutation(20, dynamic: false, fields: [.scale], scale: .init(2,3,4), ownerTarget: peer)])])
+            runtime.commit(plan.layerPlan)
+            rejects = rejects && plan.rejectedOwners.map(\.ownerTarget) == [owner]
+                && plan.admittedEffects.map(\.ownerTarget) == [peer]
+                && runtime.snapshot().authoredLayerValues[target] == before.authoredLayerValues[target]
+                && runtime.snapshot().authoredLayerValues[peer] == .vector3(2,3,4)
+        }
+        facts["invalid_volume_rejects_whole_owner_and_keeps_peer"] = rejects
+        return facts
+    }
     static func rawLayerColors() -> [String: Bool] {
         let resource = "models/raw-color.json"
         let descriptor = SceneRenderDescriptor(layers: [
@@ -629,6 +695,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicImageColor"])
         self.assertTrue(self.result["dynamicImageUpdateSucceeded"])
         self.assertTrue(self.result["dynamicImageUpdatedColor"])
+
+    def test_sound_handle_volume_uses_prepared_seed_and_original_owner_transaction(self) -> None:
+        for fact, passed in self.result["soundHandleVolume"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(passed)
 
     def test_finite_raw_colors_commit_without_normalizing_and_failures_are_atomic(self) -> None:
         for fact, passed in self.result["rawLayerColors"].items():

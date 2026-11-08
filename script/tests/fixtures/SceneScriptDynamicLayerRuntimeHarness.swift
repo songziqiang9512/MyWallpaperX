@@ -20,7 +20,7 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case vector3(Double, Double, Double)
 }
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case visibility, solid, perspective, origin, scale, angles, color, alpha
+    case visibility, solid, perspective, origin, scale, angles, color, alpha, volume
 }
 nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color, pointSize }
@@ -266,7 +266,8 @@ func mutation(
     perspective: Bool? = nil,
     textTemplateIdentity: UInt64 = 0,
     solid: Bool = true,
-    pointSize: Double = 32
+    pointSize: Double = 32,
+    volume: Double = 0
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
@@ -274,7 +275,7 @@ func mutation(
         visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
         color: color, pointSize: pointSize, text: text, font: font,
-        assetPath: assetPath, ownerTarget: ownerTarget, solid: solid,
+        assetPath: assetPath, ownerTarget: ownerTarget, solid: solid, volume: volume,
         perspective: perspective, textTemplateIdentity: textTemplateIdentity
     )
 }

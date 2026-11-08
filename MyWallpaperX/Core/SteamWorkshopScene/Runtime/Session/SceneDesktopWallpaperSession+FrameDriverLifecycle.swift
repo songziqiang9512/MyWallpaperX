@@ -318,7 +318,8 @@ extension SceneDesktopWallpaperSession {
         excludingLayerIDs: Set<Int> = []
     ) {
         evaluationTransaction.commit(pending)
-        soundPlaybackRegistry?.apply(snapshot: pending.snapshot, excludingLayerIDs: excludingLayerIDs)
+        soundPlaybackRegistry?.apply(snapshot: pending.snapshot, excludingLayerIDs: excludingLayerIDs,
+            committedHandleVolumeLayerIDs: launchContext?.sceneScriptDynamicLayerRuntime.committedHandleVolumeLayerIDs ?? [])
     }
 
     private func retireDestroyedSceneScriptOwners(

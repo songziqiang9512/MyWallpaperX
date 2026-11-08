@@ -80,6 +80,7 @@ enum LayerProperty {
     LAYER_SOLID,
     LAYER_PERSPECTIVE,
     LAYER_ALPHA,
+    LAYER_VOLUME,
     LAYER_COLOR,
     LAYER_TEXT,
     LAYER_POINT_SIZE,
@@ -147,6 +148,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double alpha;
     bool particle_instance_available;
     double particle_alpha;
+    double volume;
     double point_size;
     int32_t order_index;
     uint64_t owner_identity;
@@ -166,6 +168,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool world_transform_available;
     uint32_t video_source_index;
     bool sound_available;
+    bool sound_volume_available;
     bool sound_is_playing;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
@@ -210,6 +213,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double alpha;
     bool particle_instance_available;
     double particle_alpha;
+    double volume;
     double point_size;
     bool visible;
     bool solid;
@@ -219,6 +223,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     bool runtime_fields_staged;
     uint32_t video_source_index;
     bool sound_available;
+    bool sound_volume_available;
     bool sound_is_playing;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
@@ -242,6 +247,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double angles[3];
     double alpha;
     double particle_alpha;
+    double volume;
     double point_size;
     double color[3];
     bool visible;

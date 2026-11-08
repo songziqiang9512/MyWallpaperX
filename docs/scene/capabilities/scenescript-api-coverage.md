@@ -110,6 +110,19 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 | Sound | 原声音定义与 voice registry，volume/播放命令消费既有 typed 值 |
 | Cursor/媒体/用户属性事件 | 原入口快照与 owner 回调；一次性事件不能因 GPU 重试重复派发 |
 
+<a id="sound-handle-volume"></a>
+### Sound 句柄音量
+
+`ISoundLayer.volume`沿[公开属性](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html#volume-float)接入普通authored Sound的真实音量消费者；缓存引用与shared函数继续由当前执行owner写入原journal。getter按当前写入、owner baseline、已冻结snapshot读值，setter只发布scalar，不直接操作AV。原C入口核数值/finite，原Sound计划与gain消费者保既有数值域；不追加幅度许可或猜官方异常域，不扩动态Sound创建。
+
+prepared Sound binding只提供`.layer(id,.volume)`及其真实seed，在原authored definition map补缺，保已有property、timeline与Script定义，不从render alpha或常量1造基线。C staging、ABI与Swift mutation复用原snapshot/commit/discard，不新增音量表、命令或缓存作为第二权威。音量供值缺失只使该getter/目标不可用；原playback-only snapshot仍可供play/pause/isPlaying，不因新字段拒整份发布。普通帧按原authored→user→timeline→script优先级合并：已提交句柄值进入preliminary，当次接纳的附着scalar返回仍覆盖同target，不把历史setter永久钉在其上。
+
+同一Registry继续持有baseVolume和真实player，并在其后应用master/mute。原无property与已构造附着Script的消费资格不变；新增句柄来源必须同时满足原Runtime已提交authoredLayerValues确有该volume target、且本snapshot entry为`.sceneScript`。source标签自身不能让未构造Script抢占direct property。Session在提交layerPlan后从原值map提取临时layer ID集合，向两条Registry lane只传这一来源事实，不增持久mask/缓存或传完整Runtime。即时property lane跳过同一交集及原静态附着Script目标；没有snapshot值不重置声音。原限量DEBUG回执记录base/master/mute的实际变更，即使effective未变；AV属性仍仅在Float位改变时写入。play/pause/stop、clock、资源和退休仍归原owner。
+
+暂停属性刷新保持原mixed owner集合与冻结clock；已进入该入口的回调可提交仅含volume字段的authored upsert。沿原fixedPoint承接这些prepared Sound target，最终scoped snapshot先取接纳的layerPlan音量，再叠当前合法scalar返回；不启动外部origin writer或新增回调cadence。错型、缺消费者、无效混合写入或失败bundle沿原owner原子拒绝，健康peer保持。
+
+验收复用真实QuickJS→journal→Runtime→snapshot→AVQueuePlayer，核即时/后继getter、0/.5/1、改名、缓存引用/shared执行owner、失败回滚与缺源/退休，保直接property、附着Script、暂停、master/mute和同player/clock。真实3603711180按anyPlaying实际前缀核base与master后effective gain，3555523865保通用C ABI与向量环；不以R0无异常、单一effective数值或PNG证明听感、物理声卡/音频标定或官方像素。
+
 已接入的外部用户快捷动作需要当前真实输入和现有授权 scope；init/update/伪造指针不取得用户手势。OS 动作与 JS heap 副作用不能随 typed admission 失败假装撤回。不同事件/API 的签名和返回值仍以实际 host 与声明对照，不以“返回 true”代替系统动作成功。
 
 <a id="values"></a>

@@ -163,6 +163,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
         preparedResourceLayerTemplates: [String: SceneScriptPreparedResourceLayerTemplate],
+        preparedSoundVolumes: [Int: Double] = [:],
         timelineProgram: SceneTimelineProgram
     ) {
         mediaFrameCoordinator = .init(
@@ -192,18 +193,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                   String(describing: target), String(describing: failure), failure.code)
 #endif
         }
-        let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
-            descriptor: runtimeInput.renderDescriptor,
-            authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
-            preparedResourceLayerTemplates: preparedResourceLayerTemplates,
-            textTemplates: sceneScriptStringProgram.preparedTextTemplates,
-            layerOrderProjection: { [domain = propertyVectorScriptProgram.domain] identities in
-                guard let domain else { return identities.isEmpty ? .success(nil) : .failure(.staleOwner) }
-                return domain.projectPendingLayerOrder(accepting: identities)
-            }
-        )
-        self.dynamicLayerRuntime = dynamicLayerRuntime
-        self.launchDefinitions = SceneDynamicDefinitionMerger.merge(
+        let launchDefinitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: timelineProgram,
             additionalDefinitions: propertyVectorScriptProgram.definitions
@@ -214,6 +204,29 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                 + runtimeInput.default2DCameraDefinitions(
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)))
         )
+        var soundDefinitions: [Int: SceneDynamicTargetDefinition] = [:]
+        for definition in launchDefinitions {
+            guard case let .layer(layerID, .volume) = definition.target,
+                  preparedSoundVolumes[layerID] != nil else { continue }
+            soundDefinitions[layerID] = definition
+        }
+        for (layerID, volume) in preparedSoundVolumes where soundDefinitions[layerID] == nil {
+            soundDefinitions[layerID] = .init(target: .layer(layerID: layerID, field: .volume),
+                valueType: .scalar, authoredValue: .scalar(volume))
+        }
+        let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: runtimeInput.renderDescriptor,
+            authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
+            preparedResourceLayerTemplates: preparedResourceLayerTemplates,
+            textTemplates: sceneScriptStringProgram.preparedTextTemplates,
+            preparedSoundDefinitions: runtimeInput.renderDescriptor.layers.compactMap { soundDefinitions[$0.id] },
+            layerOrderProjection: { [domain = propertyVectorScriptProgram.domain] identities in
+                guard let domain else { return identities.isEmpty ? .success(nil) : .failure(.staleOwner) }
+                return domain.projectPendingLayerOrder(accepting: identities)
+            }
+        )
+        self.dynamicLayerRuntime = dynamicLayerRuntime
+        self.launchDefinitions = launchDefinitions
         self.sceneScriptStatefulTargets = Set(
             propertyVectorScriptProgram.bindings.map(\.definition.target)
                 + sceneScriptScalarProgram.bindings.map(\.target)

@@ -250,9 +250,14 @@ nonisolated extension SceneScriptQuickJSDomain {
                 throw layerSnapshotFailure(instanceResult, diagnostic: diagnostic)
             }
             if layer.contentKind == "sound" {
+                let volume: Double?
+                if case let .scalar(value)? = snapshot[.layer(layerID: layer.id, field: .volume)]?.value {
+                    volume = value
+                } else { volume = nil }
                 let soundResult = mwx_scene_quickjs_domain_update_layer_sound_fields(
                     handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
-                    soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count
+                    soundPlaybackSnapshots[layer.id] == true ? 1 : 0, volume == nil ? 0 : 1,
+                    volume ?? 0, &diagnostic, diagnostic.count
                 )
                 guard soundResult == MWX_SCENE_QUICKJS_OK else {
                     throw layerSnapshotFailure(soundResult, diagnostic: diagnostic)
@@ -511,9 +516,14 @@ nonisolated extension SceneScriptQuickJSDomain {
                     throw layerSnapshotFailure(reused, diagnostic: diagnostic)
                 }
                 if layer.contentKind == "sound" {
+                    let volume: Double?
+                    if case let .scalar(value)? = snapshot[.layer(layerID: layer.id, field: .volume)]?.value {
+                        volume = value
+                    } else { volume = nil }
                     let result = mwx_scene_quickjs_domain_update_layer_sound_fields(
                         handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
-                        soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count)
+                        soundPlaybackSnapshots[layer.id] == true ? 1 : 0, volume == nil ? 0 : 1,
+                        volume ?? 0, &diagnostic, diagnostic.count)
                     guard result == MWX_SCENE_QUICKJS_OK else {
                         throw layerSnapshotFailure(result, diagnostic: diagnostic)
                     }

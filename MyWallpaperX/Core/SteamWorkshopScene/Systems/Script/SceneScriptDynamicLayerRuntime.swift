@@ -9,6 +9,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     var authoredLayerDefinitions: [SceneDynamicTargetDefinition] {
         authoredDefinitionOrder.compactMap { authoredDefinitionsByTarget[$0] }
     }
+    /// Prepared definitions grant no handle writes; only committed setters do.
+    var committedHandleVolumeLayerIDs: Set<Int> {
+        Set(authoredLayerValues.keys.compactMap {
+            guard case let .layer(layerID, .volume) = $0 else { return nil }
+            return layerID
+        })
+    }
     /// Bumps only when the set or order of authored dynamic definitions is
     /// published. Frame-varying values do not invalidate the launch schema.
     private(set) var authoredDefinitionRevision: UInt64 = 0
@@ -45,6 +52,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         preparedResourceLayerTemplates:
             [String: SceneScriptPreparedResourceLayerTemplate] = [:],
         textTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:],
+        preparedSoundDefinitions: [SceneDynamicTargetDefinition] = [],
         layerOrderProjection: (@Sendable (Set<UInt64>)
             -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)? = nil
     ) {
@@ -72,7 +80,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             guard let cameraLayerID = descriptor.camera.default2DOriginInputLayerID else { return definitions }
             return definitions.filter { $0.target != .layer(layerID: cameraLayerID, field: .origin) }
         }
-        let definitions = initialDefinitions + Self.staticCameraDefinitions(for: descriptor.camera)
+        let definitions = initialDefinitions + Self.staticCameraDefinitions(for: descriptor.camera) + preparedSoundDefinitions
         authoredDefinitionOrder = definitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
             uniqueKeysWithValues: definitions.map { ($0.target, $0) }
@@ -274,6 +282,17 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     candidateAuthoredValues[target] = .scalar(mutation.particleAlpha)
                     Self.ensureDefinition(for: target, layer: authoredLayer,
                         order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
+                if mutation.fields.contains(.volume) {
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .volume)
+                    guard authoredLayer.contentKind == "sound", mutation.volume.isFinite,
+                          candidateDefinitions[target] != nil else {
+                        return .failure(.invalidArgument("invalid authored Sound volume"))
+                    }
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument("conflicting authored layer mutation target"))
+                    }
+                    candidateAuthoredValues[target] = .scalar(mutation.volume)
                 }
                 if mutation.fields.contains(.color),
                    ![mutation.color.x, mutation.color.y, mutation.color.z]

@@ -797,6 +797,8 @@ extension SceneDesktopWallpaperHost {
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
             preparedResourceLayerTemplates: preparedResourceLayerTemplates,
+            preparedSoundVolumes: Dictionary(uniqueKeysWithValues:
+                soundPlaybackProgram.bindings.map { ($0.layerID, $0.authoredVolume) }),
             timelineProgram: timelineProgram
         )
         try cancellation?.check()

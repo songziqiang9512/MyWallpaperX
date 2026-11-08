@@ -66,6 +66,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
         .perspective = record->perspective,
         .alpha = record->alpha,
         .particle_alpha = record->particle_alpha,
+        .volume = record->volume,
         .point_size = record->point_size,
     };
     memcpy(mutation->color, record->color, sizeof(mutation->color));
@@ -93,6 +94,8 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
             mutation->perspective = baseline->perspective;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0)
             mutation->particle_alpha = baseline->particle_alpha;
+        if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME) != 0)
+            mutation->volume = baseline->volume;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0)
             mutation->point_size = baseline->point_size;
     }
@@ -147,6 +150,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .perspective = staged->perspective,
             .alpha = staged->alpha,
             .particle_alpha = staged->particle_alpha,
+            .volume = staged->volume,
             .point_size = staged->point_size,
             .text = (staged->fields &
                      MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
@@ -492,6 +496,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t font_length,
     double alpha,
     double particle_alpha,
+    double volume,
     double point_size,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,
@@ -511,14 +516,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME;
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
         fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 || perspective > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
         font == NULL || color == NULL || !isfinite(alpha) ||
-        !isfinite(particle_alpha) ||
+        !isfinite(particle_alpha) || !isfinite(volume) ||
         ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0 && !isfinite(point_size)) ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
@@ -554,6 +560,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         }
     }
     if (layer_index == UINT32_MAX ||
+        ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME) != 0 &&
+         (!owner->domain->layers[layer_index].sound_available ||
+          !owner->domain->layers[layer_index].sound_volume_available)) ||
         ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA) != 0 &&
          !owner->domain->layers[layer_index].particle_instance_available) ||
         ((fields & (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
@@ -625,6 +634,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         .visible = visible != 0, .solid = solid != 0, .perspective = perspective,
         .alpha = alpha,
         .particle_alpha = particle_alpha,
+        .volume = volume,
         .point_size = point_size,
         .effect_visible = effect_copy,
         .text = text_copy,

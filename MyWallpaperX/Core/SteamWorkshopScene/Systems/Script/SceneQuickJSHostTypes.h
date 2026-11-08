@@ -141,6 +141,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE = 1u << 11,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE = 1u << 12,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED = 1u << 13, /* read-only, this callback */
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME = 1u << 14,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -158,6 +159,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     double size[2];
     double alpha;
     double particle_alpha;
+    double volume;
     double origin[3];
     double scale[3];
     double angles[3];

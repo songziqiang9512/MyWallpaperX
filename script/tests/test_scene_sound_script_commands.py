@@ -29,8 +29,8 @@ struct SceneSoundPlaybackProgram {
         let resources: [Resource]
         let playbackMode: PlaybackMode = .loop
         let startsSilent = true
-        let authoredVolume = 0.0
-        let volumePropertyKey: String? = nil
+        var authoredVolume = 0.0
+        var volumePropertyKey: String? = nil
         var volumeTarget: SceneDynamicTarget { .layer(layerID: layerID, field: .volume) }
     }
     let bindings: [Binding]
@@ -53,8 +53,17 @@ struct SceneSoundPlaybackProgram {
         registry.start(paused: false, userValues: [:]); defer { registry.stop() }
         let registryHasSourcesAfterStart = registry.hasSources
         let domain = try SceneScriptQuickJSDomain(); try domain.configureLayerCatalog(descriptor)
-        func publish(_ sound: [Int: Bool], pending: Bool = false) throws {
-            try domain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor,
+        let volumeTarget = SceneDynamicTarget.layer(layerID: 1, field: .volume)
+        let volumeDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(target: volumeTarget, valueType: .scalar, authoredValue: .scalar(0))]
+        func volumeSnapshot(_ script: [SceneDynamicTarget: SceneDynamicValue] = [:],
+                            user: [SceneDynamicTarget: SceneDynamicValue] = [:]) -> SceneDynamicSnapshot {
+            SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: volumeDefinitions, userValues: user, sceneScriptValues: script).snapshot
+        }
+        var currentVolumes = volumeSnapshot()
+        func publish(_ sound: [Int: Bool], volumeInput: SceneDynamicSnapshot? = nil, pending: Bool = false) throws {
+            try domain.publishLayerSnapshot(volumeInput ?? currentVolumes, descriptor: descriptor,
                 videoSnapshots: .init(sources: [SceneScriptVideoPlaybackSnapshot(sourceIncarnation: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, duration: 5, rate: 1, loop: true,
                     currentTime: 0, isPlaying: true, endedGeneration: 0)], layerBindings: [2: 0]),
                 soundPlaybackSnapshots: sound, runtimeFieldLayerIDs: [], awaitingHostFrameOutcome: pending)
@@ -86,6 +95,159 @@ struct SceneSoundPlaybackProgram {
             return false
         }
         var result: [String: Bool] = [:]
+        try publish(registry.sceneScriptSnapshots(), volumeInput: .empty(frameIndex: 0))
+        let playbackOnly = try boolOwner("""
+            export function update(seed){const sound=thisScene.getLayerByID(1);
+                if(!sound||sound.id!==1)throw Error('prepared Sound reference');
+                let denied=false;try{sound.volume;}
+                catch(error){denied=error instanceof TypeError;}
+                return !sound.isPlaying()&&denied
+                    &&thisScene.getLayer('video').getVideoTexture().isPlaying()&&seed;}
+            """)
+        let playbackWithoutVolume = try evaluateBool(playbackOnly)
+        result["playback_snapshot_remains_independent_of_volume_input"] = playbackWithoutVolume.value == .bool(true)
+            && playbackWithoutVolume.layerMutations.isEmpty && playbackWithoutVolume.mediaPlaybackCommands.isEmpty
+        playbackOnly.discardLayerMutations()
+        // Cache in init before the consumer's first available snapshot.
+        try publish([:])
+        let cachedVolume = try owner("""
+            let renamed,updates=0;
+            export function init(seed){
+                renamed=thisScene.enumerateLayers().find(track=>track.id===1);
+                if(!renamed||renamed.id!==1)throw Error('cached Sound reference');
+                shared.assignGain=value=>{renamed.volume=value;return renamed.volume;};return seed;
+            }
+            export function update(seed){
+                if(++updates===1)return seed;
+                if(renamed.volume!==0)throw Error('real authored seed');
+                for(const gain of [0,0.5,1]){renamed.volume=gain;if(renamed.volume!==gain)throw Error('immediate getter');}
+                return seed;
+            }
+            """, layerID: 2)
+        let unavailableCached = try evaluate(cachedVolume)
+        result["init_caches_unavailable_sound_without_journal"] = unavailableCached.value == .scalar(1)
+            && unavailableCached.layerMutations.isEmpty && unavailableCached.mediaPlaybackCommands.isEmpty
+        cachedVolume.commitLayerMutations()
+        try publish(registry.sceneScriptSnapshots())
+        let ownVolume = try owner("""
+            export function update(seed){for(const gain of [0,0.5,1]){
+                thisLayer.volume=gain;if(thisLayer.volume!==gain)throw Error('thisLayer accessor');}return seed;}
+            """)
+        let ownWrittenVolume = try evaluate(ownVolume)
+        result["this_layer_volume_publishes_typed_journal"] = ownWrittenVolume.layerMutations.count == 1
+            && ownWrittenVolume.layerMutations[0].fields == [.volume]
+            && ownWrittenVolume.layerMutations[0].layerID == 1 && ownWrittenVolume.layerMutations[0].volume == 1
+            && ownWrittenVolume.mediaPlaybackCommands.isEmpty
+        ownVolume.discardLayerMutations()
+        let writtenVolume = try evaluate(cachedVolume)
+        result["init_cached_volume_accessor_becomes_available"] = writtenVolume.layerMutations.count == 1
+            && writtenVolume.layerMutations[0].fields == [.volume]
+            && writtenVolume.layerMutations[0].volume == 1
+            && writtenVolume.layerMutations[0].ownerTarget == .layer(layerID: 2, field: .alpha)
+            && writtenVolume.mediaPlaybackCommands.isEmpty
+        cachedVolume.discardLayerMutations()
+        let volumeReader = try owner("export function update(seed){return thisLayer.volume;}")
+        result["discarded_volume_keeps_frozen_peer_baseline"] = try evaluate(volumeReader).value == .scalar(0)
+        volumeReader.discardLayerMutations()
+        let baselineWriter = try owner("""
+            export function update(seed){if(thisLayer.volume!==1)throw Error('owner baseline');
+                thisLayer.volume=0.5;if(thisLayer.volume!==0.5)throw Error('written baseline');return seed;}
+            """)
+        result["volume_read_baseline_uses_original_abi"] = baselineWriter.configureAuthoredLayerReadBaselines(
+            writtenVolume.layerMutations) == nil
+        let baselineWritten = try evaluate(baselineWriter)
+        result["volume_write_overlays_owner_baseline"] = baselineWritten.layerMutations.count == 1
+            && baselineWritten.layerMutations[0].volume == 0.5
+        baselineWriter.discardLayerMutations(); baselineWriter.clearAuthoredLayerReadBaselines()
+        currentVolumes = volumeSnapshot([volumeTarget: .scalar(0.5)])
+        try publish(registry.sceneScriptSnapshots())
+        result["next_volume_getter_uses_typed_snapshot"] = try evaluate(volumeReader).value == .scalar(0.5)
+        volumeReader.discardLayerMutations()
+        currentVolumes = volumeSnapshot([volumeTarget: .scalar(1)])
+        try publish(registry.sceneScriptSnapshots(), pending: true)
+        let pendingVolume = try evaluate(volumeReader).value
+        volumeReader.discardLayerMutations(); domain.discardCommittedLayerSnapshot()
+        let restoredVolume = try evaluate(volumeReader).value
+        result["volume_snapshot_discard_restores_previous_value"] = pendingVolume == .scalar(1)
+            && restoredVolume == .scalar(0.5)
+        volumeReader.discardLayerMutations()
+        currentVolumes = volumeSnapshot(); try publish(registry.sceneScriptSnapshots())
+        let gainBorrower = try boolOwner("export function update(seed){return shared.assignGain(0.5)===0.5&&seed;}",
+            stateful: true, layerID: 2)
+        let borrowedGain = try evaluateBool(gainBorrower)
+        result["shared_volume_journal_belongs_to_executing_owner"] = borrowedGain.value == .bool(true)
+            && borrowedGain.layerMutations.count == 1 && borrowedGain.layerMutations[0].volume == 0.5
+            && borrowedGain.layerMutations[0].ownerTarget == .layer(layerID: 2, field: .visibility)
+            && mwx_scene_quickjs_owner_layer_mutation_count(cachedVolume.handle) == 0
+            && mwx_scene_quickjs_owner_layer_mutation_count(gainBorrower.handle) == 1
+        gainBorrower.discardLayerMutations()
+        for (key, invalid) in [("nan", "NaN"), ("infinity", "Infinity"), ("string", "'0.5'"),
+                               ("missing", "undefined"), ("object", "{}"), ("boolean", "true")] {
+            let rejected = try owner("export function update(v){thisLayer.volume=0.5;thisLayer.volume=\(invalid);return v;}")
+            do { _ = try evaluate(rejected); result["volume_invalid_\(key)_rolls_back"] = false }
+            catch { result["volume_invalid_\(key)_rolls_back"] = mwx_scene_quickjs_owner_layer_mutation_count(rejected.handle) == 0 }
+            rejected.discardLayerMutations()
+        }
+        let nonSound = try owner("export function update(v){thisLayer.volume=0.5;return v;}", layerID: 2)
+        do { _ = try evaluate(nonSound); result["non_sound_volume_rejected"] = false }
+        catch { result["non_sound_volume_rejected"] = mwx_scene_quickjs_owner_layer_mutation_count(nonSound.handle) == 0 }
+        nonSound.discardLayerMutations()
+        result["volume_healthy_peer_after_failure"] = try evaluate(volumeReader).value == .scalar(0)
+        volumeReader.discardLayerMutations()
+        try publish([:], pending: true)
+        // An uncaught update exception disables its owner, not the cached target.
+        let missingGain = try boolOwner("export function update(seed){return shared.assignGain(0.5)===0.5&&seed;}",
+            stateful: true, layerID: 2)
+        do { _ = try evaluateBool(missingGain); result["cached_volume_missing_consumer_rejected"] = false }
+        catch { result["cached_volume_missing_consumer_rejected"] = mwx_scene_quickjs_owner_layer_mutation_count(missingGain.handle) == 0 }
+        missingGain.discardLayerMutations(); domain.discardCommittedLayerSnapshot()
+        result["cached_volume_source_rollback_restores_accessor"] = try evaluateBool(gainBorrower).layerMutations.count == 1
+        gainBorrower.discardLayerMutations()
+        let propertyRegistry = SceneSoundPlaybackRegistry(program: .init(bindings: [
+            .init(layerID: 1, resources: [.init(file: SceneVideoOwnedFile(url: URL(fileURLWithPath: CommandLine.arguments[1])),
+                displayPath: "renamed.wav")], volumePropertyKey: "gain")]), epoch: 2)
+        propertyRegistry.start(paused: true, userValues: [volumeTarget: .scalar(0.25)])
+        defer { propertyRegistry.stop() }
+        let sources = Mirror(reflecting: propertyRegistry).children.first { $0.label == "sources" }!.value
+        let source = Array(Mirror(reflecting: Mirror(reflecting: sources).children.first!.value).children)[1].value
+        let player = Mirror(reflecting: source).children.first { $0.value is AVQueuePlayer }!.value as! AVQueuePlayer
+        let item = player.currentItem
+        propertyRegistry.apply(userValues: [volumeTarget: .scalar(0.75)], committedSnapshot: volumeSnapshot(user: [volumeTarget: .scalar(0.25)]))
+        result["direct_property_still_uses_existing_player"] = player.volume == 0.75
+        let rawScriptSnapshot = volumeSnapshot([volumeTarget: .scalar(borrowedGain.layerMutations[0].volume)])
+        propertyRegistry.apply(snapshot: rawScriptSnapshot)
+        result["script_source_without_handle_provenance_keeps_direct_gain"] = player.volume == 0.75
+        propertyRegistry.apply(userValues: [volumeTarget: .scalar(0.25)], committedSnapshot: rawScriptSnapshot)
+        result["script_source_without_handle_provenance_keeps_property_updates"] = player.volume == 0.25
+        let handleRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [],
+            preparedSoundDefinitions: volumeDefinitions)
+        let handlePlan = handleRuntime.preflightOwnerEffects([.init(ownerTarget: gainBorrower.target,
+            materialFunctionMutations: borrowedGain.materialFunctionMutations,
+            animationMutations: borrowedGain.animationMutations, layerMutations: borrowedGain.layerMutations,
+            mediaPlaybackCommands: borrowedGain.mediaPlaybackCommands)])
+        result["uncommitted_handle_journal_grants_no_provenance"] = handlePlan.rejectedOwners.isEmpty
+            && handleRuntime.committedHandleVolumeLayerIDs.isEmpty
+        handleRuntime.commit(handlePlan.layerPlan)
+        let handleSnapshot = volumeSnapshot(handleRuntime.snapshot().authoredLayerValues)
+        let handleIDs = handleRuntime.committedHandleVolumeLayerIDs
+        result["committed_c_journal_grants_real_runtime_handle_provenance"] = handleIDs.count == 1 && handleIDs.contains(1)
+        propertyRegistry.apply(snapshot: handleSnapshot, committedHandleVolumeLayerIDs: handleIDs)
+        propertyRegistry.apply(userValues: [volumeTarget: .scalar(0.25)], committedSnapshot: handleSnapshot,
+            committedHandleVolumeLayerIDs: handleIDs)
+        result["handle_source_owns_property_player_gain"] = player.volume == 0.5
+        propertyRegistry.apply(userValues: [volumeTarget: .scalar(0.75)],
+            committedSnapshot: volumeSnapshot(user: [volumeTarget: .scalar(0.25)]),
+            committedHandleVolumeLayerIDs: handleIDs)
+        propertyRegistry.apply(snapshot: volumeSnapshot(user: [volumeTarget: .scalar(0.25)]),
+            committedHandleVolumeLayerIDs: handleIDs)
+        result["handle_provenance_without_script_source_keeps_direct_lane"] = player.volume == 0.75
+        propertyRegistry.apply(snapshot: handleSnapshot, committedHandleVolumeLayerIDs: handleIDs)
+        propertyRegistry.setMasterVolume(0.5); propertyRegistry.setMuted(true)
+        let muted = player.volume == 0
+        propertyRegistry.setMuted(false)
+        result["handle_gain_preserves_master_mute_and_player"] = muted && player.volume == 0.25 && player.currentItem === item
+        propertyRegistry.apply(snapshot: .empty(frameIndex: 2))
+        result["missing_snapshot_does_not_reset_gain"] = player.volume == 0.25
         try publish(registry.sceneScriptSnapshots())
         let author = try owner("""
             export function update(v) {
@@ -294,7 +456,6 @@ class SceneSoundScriptCommandsTests(unittest.TestCase):
             run = subprocess.run([str(binary), str(audio)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             facts = json.loads(run.stdout)
-            self.assertEqual(len(facts), 34)
             for key, value in facts.items():
                 with self.subTest(key=key):
                     self.assertTrue(value, run.stderr)

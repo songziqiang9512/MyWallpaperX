@@ -258,6 +258,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_sound_fields(
     uint32_t layer_index,
     uint32_t available,
     uint32_t is_playing,
+    uint32_t has_volume,
+    double volume,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -547,6 +549,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t font_length,
     double alpha,
     double particle_alpha,
+    double volume,
     double point_size,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,

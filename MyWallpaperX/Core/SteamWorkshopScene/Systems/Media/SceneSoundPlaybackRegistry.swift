@@ -271,14 +271,13 @@ final class SceneSoundPlaybackRegistry {
             let effective = isMuted ? 0 : baseVolume * masterVolume
             let previous = player.volume
             let next = Float(effective)
-            guard previous.bitPattern != next.bitPattern else { return }
-            player.volume = next
+            if previous.bitPattern != next.bitPattern { player.volume = next }
 #if DEBUG
             guard Self.capturesEvidence, volumeEvidenceCount < 16 else { return }
             volumeEvidenceCount += 1
             NSLog(
-                "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f muted=%@",
-                binding.layerID, currentResource.displayPath, previous, effective,
+                "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f baseVolume=%.6f masterVolume=%.6f muted=%@",
+                binding.layerID, currentResource.displayPath, previous, effective, baseVolume, masterVolume,
                 isMuted ? "true" : "false"
             )
 #endif
@@ -421,20 +420,27 @@ final class SceneSoundPlaybackRegistry {
         }
     }
 
-    func apply(userValues: [SceneDynamicTarget: SceneDynamicValue]) {
+    func apply(userValues: [SceneDynamicTarget: SceneDynamicValue],
+               committedSnapshot: SceneDynamicSnapshot? = nil,
+               committedHandleVolumeLayerIDs: Set<Int> = []) {
         for binding in program.bindings where binding.volumePropertyKey != nil
-            && !program.scriptVolumeTargets.contains(binding.volumeTarget) {
+            && !program.scriptVolumeTargets.contains(binding.volumeTarget)
+            && !(committedHandleVolumeLayerIDs.contains(binding.layerID)
+                 && committedSnapshot?[binding.volumeTarget]?.source == .sceneScript) {
             guard let source = sources[binding.layerID],
                   let volume = volume(for: binding, userValues: userValues) else { continue }
             source.apply(volume: volume)
         }
     }
 
-    /// Scalar-script outputs have a disjoint target set from the immediate
-    /// property lane above. A missing snapshot entry never resets a source.
-    func apply(snapshot: SceneDynamicSnapshot, excludingLayerIDs: Set<Int> = []) {
+    /// Committed handle targets and the snapshot source jointly grant their lane.
+    /// A missing snapshot entry never resets a source.
+    func apply(snapshot: SceneDynamicSnapshot, excludingLayerIDs: Set<Int> = [],
+               committedHandleVolumeLayerIDs: Set<Int> = []) {
         for binding in program.bindings where binding.volumePropertyKey == nil
-            || program.scriptVolumeTargets.contains(binding.volumeTarget) {
+            || program.scriptVolumeTargets.contains(binding.volumeTarget)
+            || (committedHandleVolumeLayerIDs.contains(binding.layerID)
+                && snapshot[binding.volumeTarget]?.source == .sceneScript) {
             guard !excludingLayerIDs.contains(binding.layerID),
                   let source = sources[binding.layerID],
                   case let .scalar(volume)? = snapshot[binding.volumeTarget]?.value

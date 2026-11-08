@@ -383,7 +383,7 @@ static void attached_capabilities_remain_owner_bound(void) {
         check(mwx_scene_quickjs_domain_update_layer_texture_animation_fields(d, 0, 1,
             4, 4, 1, 0, 0, 1, 0, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "texture fixture publishes");
-        check(mwx_scene_quickjs_domain_update_layer_sound_fields(d, 0, 1, 0,
+        check(mwx_scene_quickjs_domain_update_layer_sound_fields(d, 0, 1, 0, 1, .5,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "sound fixture publishes");
         MWXSceneQuickJSParticlePlaybackState playback = {.available = 1};

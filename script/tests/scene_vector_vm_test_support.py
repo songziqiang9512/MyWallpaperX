@@ -289,6 +289,7 @@ struct SceneRenderDescriptor {
         var parallaxEnabled = false
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var generalZoom: Float? = nil
         var default2DInputLayerID: Int? = nil
         var default2DOriginInputLayerID: Int? = nil
         var nearZ: Float = 0.01
