@@ -598,7 +598,7 @@ extension SceneDesktopWallpaperSession {
             .union(sceneScriptStringResult.failures.keys)
             .union(sceneScriptResult.failures.keys)
             .union(unpreparedParticleVisibilityOwners)
-        // Visibility, instance alpha and explicit emission consume one admitted frame value.
+        // Visibility, instance scalars and explicit emission consume the admitted frame values.
         // Other authored setters retain their existing next-cadence contract.
         func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
                                layerPlan: SceneScriptLayerMutationPlan,
@@ -612,9 +612,14 @@ extension SceneDesktopWallpaperSession {
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .visibility)
                     values[target] = layerPlan.authoredLayerValues[target]
                 }
-                if mutation.fields.contains(.particleAlpha) {
-                    let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: .alpha)
-                    values[target] = layerPlan.authoredLayerValues[target]
+                if !mutation.fields.intersection(.particleInstance).isEmpty {
+                    let fields: [(SceneScriptLayerMutation.Fields, SceneDynamicParticleField)] = [
+                        (.particleAlpha, .alpha), (.particleRate, .rate), (.particleCount, .count),
+                    ]
+                    for (field, targetField) in fields where mutation.fields.contains(field) {
+                        let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)
+                        values[target] = layerPlan.authoredLayerValues[target]
+                    }
                 }
             }
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
@@ -708,11 +713,9 @@ extension SceneDesktopWallpaperSession {
                     owner -> SceneDynamicTarget? in
                     guard owner.layerMutations.contains(where: { mutation in
                         guard !mutation.isDynamic, mutation.kind == .upsert else { return false }
-                        if mutation.fields.contains(.particleAlpha),
+                        if !mutation.fields.intersection(.particleInstance).isEmpty,
                            launchContext.particleLayerIDs.contains(mutation.layerID),
-                           !self.particleVisibilityResourcesPrepared(
-                                layerID: mutation.layerID, context: launchContext
-                           ) { return true }
+                           !particleInstanceLayerIDs.contains(mutation.layerID) { return true }
                         return mutation.fields.contains(.visibility) && mutation.visible
                             && !self.layerVisibilityResourcesPrepared(
                                 layerID: mutation.layerID, context: launchContext

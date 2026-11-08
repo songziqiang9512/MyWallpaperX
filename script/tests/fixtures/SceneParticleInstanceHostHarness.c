@@ -16,15 +16,15 @@ static void check(int condition, const char *label) {
 }
 
 static void publish(MWXSceneQuickJSDomain *domain, uint64_t generation,
-                    int unavailable, int destroyed, double alpha, int finalize) {
+                    int unavailable, int destroyed, double alpha, double rate, double count, int finalize) {
     check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, generation, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin snapshot");
     for (uint32_t i = 0; i < layer_count; ++i) {
         check(mwx_scene_quickjs_domain_update_layer_runtime_fields(domain, i,
             one, zero, i == destroyed, 1, 1, 0, .6, "", 0, "", 0, 32, one,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "runtime fields");
-        check(mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(domain, i,
-            i != unavailable, alpha, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        check(mwx_scene_quickjs_domain_update_layer_particle_instance(domain, i,
+            i != unavailable, alpha, rate, count, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "instance projection");
         // The second layer deliberately lacks playback admission but has an instance.
         MWXSceneQuickJSParticlePlaybackState playback = {.available = i == 0};
@@ -51,7 +51,7 @@ static MWXSceneQuickJSDomain *make_domain(uint32_t count) {
             "", 0, "", 0, 32, one, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "descriptor");
     }
-    publish(domain, 1, -1, -1, 1, 1);
+    publish(domain, 1, -1, -1, 1, 1, 1, 1);
     return domain;
 }
 
@@ -75,12 +75,15 @@ static MWXSceneQuickJSResult update(MWXSceneQuickJSOwner *owner, uint64_t genera
 static void test_access(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
         "export function update(v){"
-        "if(thisLayer.instance.alpha!==1||thisLayer.alpha!==.6)throw Error('defaults');"
-        "thisLayer.instance.alpha=.25;"
+        "const instance=thisLayer.instance;"
+        "if(instance.alpha!==1||instance.rate!==1||instance.count!==1||thisLayer.alpha!==.6)throw Error('defaults');"
+        "instance.alpha=.25;instance.rate=1/2;instance.count=1+1;"
         "if(thisScene.getLayer('particle0').instance.alpha!==.25)throw Error('name');"
         "thisScene.getLayer(0).instance.alpha=.75;"
-        "thisScene.getLayer('particle1').instance.alpha=.4;"
-        "if(thisScene.getLayer(1).instance.alpha!==.4)throw Error('second');"
+        "const peer=thisScene.getLayer('particle1').instance;"
+        "peer.alpha=.4;peer.rate=2;peer.count=.5;"
+        "if(thisScene.getLayer(1).instance.alpha!==.4||peer.rate!==2||peer.count!==.5)throw Error('second');"
+        "if(instance.rate!==.5||instance.count!==2)throw Error('independent fields');"
         "return thisLayer.instance.alpha;}" );
     if (owner == NULL) return;
     double output;
@@ -90,8 +93,11 @@ static void test_access(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSLayerMutation mutation;
     check(mwx_scene_quickjs_owner_layer_mutation_at(owner, 0, &mutation,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
-        mutation.fields == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA &&
-        mutation.particle_alpha == .75 && mutation.alpha == .6, "independent alpha ABI");
+        mutation.fields == (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA |
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE |
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT) &&
+        mutation.particle_alpha == .75 && mutation.particle_rate == .5 && mutation.particle_count == 2 &&
+        mutation.alpha == .6, "independent instance scalar ABI");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_destroy(owner);
 }
@@ -99,19 +105,30 @@ static void test_access(MWXSceneQuickJSDomain *domain) {
 static void test_invalid(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
         "export function update(v){let caught=0;"
-        "for(const x of [true,'0.25',null,{},NaN,Infinity,-Infinity]){"
-        "try{thisLayer.instance.alpha=x;}catch(e){++caught;}}"
+        "for(const field of ['alpha','rate','count'])for(const x of [true,'0.25',null,{},NaN,Infinity,-Infinity]){"
+        "try{thisLayer.instance[field]=x;}catch(e){++caught;}}"
         "try{thisLayer.instance={alpha:.5};}catch(e){++caught;}"
-        "try{thisLayer.instance.rate=2;}catch(e){++caught;}"
-        "if(caught!==9||thisLayer.instance.alpha!==1)throw Error('invalid accepted');"
-        "thisLayer.instance.alpha=-2;thisLayer.instance.alpha=3;return thisLayer.instance.alpha;}" );
+        "try{thisLayer.instance.unknownScalar=2;}catch(e){++caught;}"
+        "if(caught!==23||thisLayer.instance.alpha!==1||thisLayer.instance.rate!==1||thisLayer.instance.count!==1)throw Error('invalid accepted');"
+        "for(const field of ['alpha','rate','count']){thisLayer.instance[field]=-2;thisLayer.instance[field]=3;}"
+        "if(thisLayer.instance.rate!==3||thisLayer.instance.count!==3)throw Error('finite range');"
+        "return thisLayer.instance.alpha;}" );
     if (owner == NULL) return;
     double output;
     check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == 3,
         "finite Number contract, immutable accessor and unsupported fields");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_destroy(owner);
-    publish(domain, 2, 1, -1, 1, 1);
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 2, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin invalid projection");
+    for (size_t field = 0; field < 3; ++field) {
+        double values[3] = {1, 1, 1}; values[field] = NAN;
+        check(mwx_scene_quickjs_domain_update_layer_particle_instance(domain, 0, 1,
+            values[0], values[1], values[2], diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+            "publication rejects nonfinite instance input");
+    }
+    mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
+    publish(domain, 2, 1, -1, 1, 1, 1, 1);
     owner = make_owner(domain, "export function update(v){thisScene.getLayer(1).instance.alpha=.2;return v;}");
     if (owner != NULL) {
         check(update(owner, 7, 0, &output) != MWX_SCENE_QUICKJS_OK &&
@@ -122,7 +139,8 @@ static void test_invalid(MWXSceneQuickJSDomain *domain) {
 
 static void test_rollback(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
-        "export function update(v){if(v===0){thisLayer.instance.alpha=.25;throw Error('rollback');}"
+        "export function update(v){if(v===0){thisLayer.instance.alpha=.25;thisLayer.instance.rate=2;"
+        "thisLayer.instance.count=.5;throw Error('rollback');}"
         "return thisLayer.instance.alpha;}" );
     if (owner == NULL) return;
     double output;
@@ -131,16 +149,33 @@ static void test_rollback(MWXSceneQuickJSDomain *domain) {
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_DISABLED,
         "throw owner remains disabled");
     mwx_scene_quickjs_owner_destroy(owner);
-    owner = make_owner(domain, "export function update(v){return thisLayer.instance.alpha;}");
+    owner = make_owner(domain, "export function update(v){return v===10?thisLayer.instance.rate:"
+        "v===11?thisLayer.instance.count:thisLayer.instance.alpha;}");
     if (owner == NULL) return;
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == 1,
         "healthy peer sees unchanged committed projection");
+    check(update(owner, 7, 10, &output) == MWX_SCENE_QUICKJS_OK && output == 1,
+        "failed owner keeps peer rate");
+    check(update(owner, 7, 11, &output) == MWX_SCENE_QUICKJS_OK && output == 1,
+        "failed owner keeps peer count");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+    const uint32_t fields = MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT;
+    for (size_t field = 0; field < 3; ++field) {
+        double values[3] = {1, 1, 1}; values[field] = NAN;
+        check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(owner, 7, 42,
+            fields, zero, one, zero, 1, 1, 0, "", 0, "", 0, .6,
+            values[0], values[1], values[2], 0, 32, one, 0, NULL, diagnostic, sizeof(diagnostic))
+            == MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "baseline rejects nonfinite instance input");
+    }
     check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(owner, 7, 42,
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA, zero, one, zero, 1, 1, 0,
-        "", 0, "", 0, .6, .33, 0, 32, one, 0, NULL, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        fields, zero, one, zero, 1, 1, 0,
+        "", 0, "", 0, .6, .33, .5, 2, 0, 32, one, 0, NULL, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "cursor baseline accepted");
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == .33, "baseline projection");
+    check(update(owner, 7, 10, &output) == MWX_SCENE_QUICKJS_OK && output == .5, "baseline rate projection");
+    check(update(owner, 7, 11, &output) == MWX_SCENE_QUICKJS_OK && output == 2, "baseline count projection");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
     check(update(owner, 6, 1, &output) == MWX_SCENE_QUICKJS_STALE_OWNER, "old owner generation");
@@ -149,24 +184,32 @@ static void test_rollback(MWXSceneQuickJSDomain *domain) {
 
 static void test_snapshot(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
-        "let saved;export function update(v){if(!saved)saved=thisLayer.instance;return saved.alpha;}" );
+        "let saved;export function update(v){if(!saved)saved=thisLayer.instance;"
+        "return v===1?saved.rate:v===2?saved.count:saved.alpha;}" );
     if (owner == NULL) return;
     double output;
-    publish(domain, 2, -1, -1, .4, 0);
+    publish(domain, 2, -1, -1, .4, .5, 2, 0);
     check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == .4, "committed projection");
+    check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == .5, "committed rate projection");
+    check(update(owner, 7, 2, &output) == MWX_SCENE_QUICKJS_OK && output == 2, "committed count projection");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     check(mwx_scene_quickjs_domain_rollback_layer_snapshot(domain), "snapshot rollback");
     check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == 1, "rollback restores instance");
+    check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == 1, "rollback restores rate");
+    check(update(owner, 7, 2, &output) == MWX_SCENE_QUICKJS_OK && output == 1, "rollback restores count");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 2, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin reuse");
+    publish(domain, 3, -1, -1, .4, .5, 2, 1);
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 4, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "begin reuse");
     for (uint32_t i = 0; i < layer_count; ++i)
         check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(domain, i,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "reuse");
     check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "commit reuse");
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
-    check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == 1, "reuse preserves projection");
+    check(update(owner, 7, 0, &output) == MWX_SCENE_QUICKJS_OK && output == .4, "reuse preserves projection");
+    check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK && output == .5, "reuse preserves rate");
+    check(update(owner, 7, 2, &output) == MWX_SCENE_QUICKJS_OK && output == 2, "reuse preserves count");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-    publish(domain, 3, -1, 0, 1, 1);
+    publish(domain, 5, -1, 0, 1, 1, 1, 1);
     check(update(owner, 7, 0, &output) != MWX_SCENE_QUICKJS_OK, "cached destroyed instance rejects");
     mwx_scene_quickjs_owner_destroy(owner);
 }
@@ -174,8 +217,9 @@ static void test_snapshot(MWXSceneQuickJSDomain *domain) {
 static void test_budget(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
         "export function update(v){let caught=0;for(let i=0;i<v;++i){"
-        "try{thisScene.getLayer(i).instance.alpha=.25;}catch(e){++caught;}}"
-        "thisScene.getLayer(0).instance.alpha=.5;thisScene.getLayer(0).alpha=.75;"
+        "try{const instance=thisScene.getLayer(i).instance;"
+        "instance.alpha=.25;instance.rate=.5;instance.count=2;}catch(e){++caught;}}"
+        "const first=thisScene.getLayer(0).instance;first.alpha=.5;first.count*=2;thisScene.getLayer(0).alpha=.75;"
         "return caught;}" );
     if (owner == NULL) return;
     double output;
@@ -185,12 +229,15 @@ static void test_budget(MWXSceneQuickJSDomain *domain) {
             "full catalog and caught missing layer retain a complete journal");
         for (uint32_t index = 0; index < MWX_SCENE_QUICKJS_MAX_LAYERS; ++index) {
             MWXSceneQuickJSLayerMutation mutation;
-            uint32_t fields = MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
+            uint32_t fields = MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA |
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE |
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT;
             if (index == 0) fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA;
             check(mwx_scene_quickjs_owner_layer_mutation_at(owner, index, &mutation,
                 diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
                 mutation.layer_id == 42 + index && mutation.fields == fields &&
                 mutation.particle_alpha == (index == 0 ? .5 : .25) &&
+                mutation.particle_rate == .5 && mutation.particle_count == (index == 0 ? 4 : 2) &&
                 mutation.alpha == (index == 0 ? .75 : .6), "every valid target exports its final values");
         }
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);

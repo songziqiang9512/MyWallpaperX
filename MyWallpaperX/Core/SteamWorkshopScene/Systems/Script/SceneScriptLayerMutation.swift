@@ -41,11 +41,14 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let perspective = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE.rawValue))
 
         static let particleAlpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA.rawValue))
+        static let particleRate = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE.rawValue))
+        static let particleCount = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT.rawValue))
+        static let particleInstance: Self = [.particleAlpha, .particleRate, .particleCount]
 
         static let volume = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME.rawValue))
 
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .solid, .text, .font, .pointSize, .alpha, .color, .effectVisibility, .particleAlpha, .perspective, .volume,
+            .origin, .scale, .angles, .visibility, .solid, .text, .font, .pointSize, .alpha, .color, .effectVisibility, .particleInstance, .perspective, .volume,
         ]
         static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
         static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
@@ -63,6 +66,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let size: SIMD2<Double>?
     let alpha: Double
     let particleAlpha: Double
+    let particleRate: Double
+    let particleCount: Double
     let volume: Double
     let origin: SIMD3<Double>
     let scale: SIMD3<Double>
@@ -98,6 +103,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         effectVisibilities: [Int: Bool] = [:],
         solid: Bool = true,
         particleAlpha: Double = 1,
+        particleRate: Double = 1,
+        particleCount: Double = 1,
         volume: Double = 0,
         perspective: Bool? = nil,
         size: SIMD2<Double>? = nil,
@@ -114,6 +121,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.visible = visible
         self.alpha = alpha
         self.particleAlpha = particleAlpha
+        self.particleRate = particleRate
+        self.particleCount = particleCount
         self.volume = volume
         self.origin = origin
         self.scale = scale
@@ -134,7 +143,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid,
+            particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -144,7 +155,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid, particleAlpha: particleAlpha, volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid,
+            particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -155,7 +168,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: ownerTarget,
-            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid, particleAlpha: particleAlpha, volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid,
+            particleAlpha: particleAlpha, particleRate: particleRate, particleCount: particleCount,
+            volume: volume, perspective: perspective, size: size, textTemplateIdentity: textTemplateIdentity
         )
     }
 
@@ -206,6 +221,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new },
             solid: newer.fields.contains(.solid) ? newer.solid : solid,
             particleAlpha: newer.fields.contains(.particleAlpha) ? newer.particleAlpha : particleAlpha,
+            particleRate: newer.fields.contains(.particleRate) ? newer.particleRate : particleRate,
+            particleCount: newer.fields.contains(.particleCount) ? newer.particleCount : particleCount,
             volume: newer.fields.contains(.volume) ? newer.volume : volume,
             perspective: newer.fields.contains(.perspective) ? newer.perspective : perspective,
             textTemplateIdentity: newer.textTemplateIdentity != 0 ? newer.textTemplateIdentity : textTemplateIdentity

@@ -497,7 +497,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                   raw.layer_id >= -maximumLayerIdentity,
                   raw.layer_id <= maximumLayerIdentity,
                   raw.order_index >= 0,
-                  raw.alpha.isFinite, raw.particle_alpha.isFinite, raw.volume.isFinite, raw.point_size.isFinite,
+                  raw.alpha.isFinite, raw.volume.isFinite, raw.point_size.isFinite,
                   raw.origin.0.isFinite, raw.origin.1.isFinite, raw.origin.2.isFinite,
                   raw.scale.0.isFinite, raw.scale.1.isFinite, raw.scale.2.isFinite,
                   raw.angles.0.isFinite, raw.angles.1.isFinite, raw.angles.2.isFinite,
@@ -587,7 +587,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 text: text, font: font,
                 assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
-                particleAlpha: raw.particle_alpha, volume: raw.volume,
+                particleAlpha: raw.particle_alpha, particleRate: raw.particle_rate, particleCount: raw.particle_count,
+                volume: raw.volume,
                 perspective: raw.perspective == 2 ? nil : raw.perspective != 0,
                 size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1),
                 textTemplateIdentity: raw.text_template_identity

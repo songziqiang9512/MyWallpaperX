@@ -3,6 +3,13 @@
 #include <math.h>
 #include <stdlib.h>
 
+// QuickJS stores closure magic in 16 bits, so carry a table index rather than the field mask.
+static const struct { const char *name; uint32_t field; } instance_scalars[] = {
+    { "alpha", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA },
+    { "rate", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE },
+    { "count", MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT },
+};
+
 // The instance object borrows the ordinary layer identity. Its scalar writes
 // stay in the same owner journal as transform, visibility and text writes.
 static MWXSceneQuickJSLayerAccessHandle *copy_instance_handle(
@@ -21,40 +28,43 @@ static MWXSceneQuickJSLayerRecord *instance_record_for_handle(MWXSceneQuickJSLay
     return mutation != NULL && mutation->destroyed ? NULL : record;
 }
 
-static double particle_alpha_projection(
+static double particle_scalar_projection(
     MWXSceneQuickJSOwner *owner, uint32_t index,
-    const MWXSceneQuickJSLayerRecord *record
+    const MWXSceneQuickJSLayerRecord *record, uint32_t field
 ) {
-    const uint32_t field = MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
         mwx_scene_quickjs_authored_mutation_for_layer(owner, index);
-    if (mutation != NULL && (mutation->fields & field) != 0)
-        return mutation->particle_alpha;
-    MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-        mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, index);
-    if (baseline != NULL && (baseline->fields & field) != 0)
-        return baseline->particle_alpha;
-    return record->particle_alpha;
+    if (mutation == NULL || (mutation->fields & field) == 0)
+        mutation = mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, index);
+    const bool staged = mutation != NULL && (mutation->fields & field) != 0;
+    switch (field) {
+    case MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA:
+        return staged ? mutation->particle_alpha : record->particle_alpha;
+    case MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE:
+        return staged ? mutation->particle_rate : record->particle_rate;
+    default:
+        return staged ? mutation->particle_count : record->particle_count;
+    }
 }
 
-static JSValue instance_alpha_get(
+static JSValue instance_scalar_get(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
 ) {
-    (void)this_value; (void)argc; (void)argv; (void)magic;
+    (void)this_value; (void)argc; (void)argv;
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = instance_record_for_handle(handle);
     if (record == NULL)
         return JS_ThrowTypeError(context, "particle instance handle is stale or unavailable");
-    return JS_NewFloat64(context, particle_alpha_projection(
-        handle->domain->active_owner, (uint32_t)(record - handle->domain->layers), record));
+    return JS_NewFloat64(context, particle_scalar_projection(handle->domain->active_owner,
+        (uint32_t)(record - handle->domain->layers), record, instance_scalars[magic].field));
 }
 
-static JSValue instance_alpha_set(
+static JSValue instance_scalar_set(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
 ) {
-    (void)this_value; (void)magic;
+    (void)this_value;
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = instance_record_for_handle(handle);
     if (record == NULL || argc != 1)
@@ -64,13 +74,19 @@ static JSValue instance_alpha_set(
         return JS_ThrowTypeError(context, "Boolean value owner cannot write particle instance fields");
     double value;
     if (!JS_IsNumber(argv[0]) || JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value))
-        return JS_ThrowTypeError(context, "particle instance alpha requires a finite Number");
+        return JS_ThrowTypeError(context, "particle instance scalar requires a finite Number");
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_stage_authored_mutation(
         owner, (uint32_t)(record - handle->domain->layers));
     if (mutation == NULL)
         return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-    mutation->particle_alpha = value;
-    mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
+    const uint32_t field = instance_scalars[magic].field;
+    if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA)
+        mutation->particle_alpha = value;
+    else if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE)
+        mutation->particle_rate = value;
+    else
+        mutation->particle_count = value;
+    mutation->fields |= field;
     return JS_UNDEFINED;
 }
 
@@ -85,33 +101,36 @@ static JSValue instance_get(
         return JS_ThrowTypeError(context, "particle instance is unavailable for this layer");
     JSValue instance = JS_NewObject(context);
     if (JS_IsException(instance)) return instance;
-    MWXSceneQuickJSLayerAccessHandle *getter_handle = copy_instance_handle(handle);
-    MWXSceneQuickJSLayerAccessHandle *setter_handle = copy_instance_handle(handle);
-    if (getter_handle == NULL || setter_handle == NULL) {
-        free(getter_handle); free(setter_handle); JS_FreeValue(context, instance);
-        return JS_ThrowOutOfMemory(context);
+    for (size_t index = 0; index < sizeof(instance_scalars) / sizeof(instance_scalars[0]); ++index) {
+        MWXSceneQuickJSLayerAccessHandle *getter_handle = copy_instance_handle(handle);
+        MWXSceneQuickJSLayerAccessHandle *setter_handle = copy_instance_handle(handle);
+        if (getter_handle == NULL || setter_handle == NULL) {
+            free(getter_handle); free(setter_handle); JS_FreeValue(context, instance);
+            return JS_ThrowOutOfMemory(context);
+        }
+        JSValue getter = mwx_scene_quickjs_layer_access_closure(context, instance_scalar_get,
+            instance_scalars[index].name, 0, (int)index, getter_handle);
+        if (JS_IsException(getter)) {
+            free(setter_handle); JS_FreeValue(context, instance); return JS_EXCEPTION;
+        }
+        JSValue setter = mwx_scene_quickjs_layer_access_closure(context, instance_scalar_set,
+            instance_scalars[index].name, 1, (int)index, setter_handle);
+        if (JS_IsException(setter)) {
+            JS_FreeValue(context, getter);
+            JS_FreeValue(context, instance); return JS_EXCEPTION;
+        }
+        JSAtom atom = JS_NewAtom(context, instance_scalars[index].name);
+        if (atom == JS_ATOM_NULL) {
+            JS_FreeValue(context, getter); JS_FreeValue(context, setter);
+            JS_FreeValue(context, instance); return JS_EXCEPTION;
+        }
+        int result = JS_DefinePropertyGetSet(context, instance, atom, getter, setter, JS_PROP_ENUMERABLE);
+        JS_FreeAtom(context, atom);
+        if (result < 0) { JS_FreeValue(context, instance); return JS_EXCEPTION; }
     }
-    JSValue getter = mwx_scene_quickjs_layer_access_closure(context, instance_alpha_get,
-        "alpha", 0, 0, getter_handle);
-    if (JS_IsException(getter)) {
-        free(setter_handle); JS_FreeValue(context, instance); return JS_EXCEPTION;
-    }
-    JSValue setter = mwx_scene_quickjs_layer_access_closure(context, instance_alpha_set,
-        "alpha", 1, 0, setter_handle);
-    if (JS_IsException(setter)) {
-        JS_FreeValue(context, getter);
-        JS_FreeValue(context, instance); return JS_EXCEPTION;
-    }
-    JSAtom atom = JS_NewAtom(context, "alpha");
-    if (atom == JS_ATOM_NULL) {
-        JS_FreeValue(context, getter); JS_FreeValue(context, setter);
-        JS_FreeValue(context, instance); return JS_EXCEPTION;
-    }
-    int result = JS_DefinePropertyGetSet(context, instance, atom, getter, setter, JS_PROP_ENUMERABLE);
-    JS_FreeAtom(context, atom);
     // SceneScript modules are strict. Sealing prevents unsupported fields from
     // becoming inert JS properties that appear to accept native writes.
-    if (result < 0 || JS_PreventExtensions(context, instance) < 0) {
+    if (JS_PreventExtensions(context, instance) < 0) {
         JS_FreeValue(context, instance); return JS_EXCEPTION;
     }
     return instance;
@@ -153,7 +172,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_instance_alpha(
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_authored_mutation_for_layer(owner, index);
         if (mutation != NULL && mutation->destroyed) return MWX_SCENE_QUICKJS_STALE_OWNER;
         if (!record->particle_instance_available) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-        *alpha = particle_alpha_projection(owner, index, record);
+        *alpha = particle_scalar_projection(owner, index, record,
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA);
         return MWX_SCENE_QUICKJS_OK;
     }
     return MWX_SCENE_QUICKJS_STALE_OWNER;

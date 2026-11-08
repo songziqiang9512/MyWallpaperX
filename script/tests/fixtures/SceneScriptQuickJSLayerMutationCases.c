@@ -250,7 +250,7 @@ static void layer_color_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
     const double baseline[3] = {-4, 255, DBL_MAX}, final[3] = {255, -2, DBL_MAX};
     fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
         owner, 940, 17, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR,
-        zero, one, zero, 1, 1, 0, "", 0, "", 0, 1, 1, 0, 32, baseline, 0, NULL,
+        zero, one, zero, 1, 1, 0, "", 0, "", 0, 1, 1, 1, 1, 0, 32, baseline, 0, NULL,
         fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "finite raw authored read baseline accepted", fixture->diagnostic);
     fixture->failures += mwx_fixture_update_string(owner, 940, "write", MWX_SCENE_QUICKJS_OK,

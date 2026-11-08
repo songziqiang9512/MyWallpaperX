@@ -74,8 +74,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             // A prepared authored handle may receive its first visibility write
             // this cadence. Register the typed lane before callbacks, including
             // ancestor containers, so the shared snapshot can consume it now.
-            if let alpha = Self.definition(for: .particle(layerID: layer.id, field: .alpha), layer: layer) {
-                definitions.append(alpha)
+            for field: SceneDynamicParticleField in [.alpha, .rate, .count] {
+                if let definition = Self.definition(for: .particle(layerID: layer.id, field: field), layer: layer) {
+                    definitions.append(definition)
+                }
             }
             guard let cameraLayerID = descriptor.camera.default2DOriginInputLayerID else { return definitions }
             return definitions.filter { $0.target != .layer(layerID: cameraLayerID, field: .origin) }
@@ -271,17 +273,24 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     Self.ensureDefinition(for: target, layer: authoredLayer,
                         order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
-                if mutation.fields.contains(.particleAlpha) {
-                    guard authoredLayer.contentKind == "particle", mutation.particleAlpha.isFinite else {
-                        return .failure(.invalidArgument("invalid authored particle instance alpha"))
+                if !mutation.fields.intersection(.particleInstance).isEmpty {
+                    guard authoredLayer.contentKind == "particle" else {
+                        return .failure(.invalidArgument("invalid authored particle instance target"))
                     }
-                    let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: .alpha)
-                    guard authoredTargets.insert(target).inserted else {
-                        return .failure(.invalidArgument("conflicting authored particle instance alpha"))
+                    let values: [(SceneScriptLayerMutation.Fields, SceneDynamicParticleField, Double)] = [
+                        (.particleAlpha, .alpha, mutation.particleAlpha),
+                        (.particleRate, .rate, mutation.particleRate),
+                        (.particleCount, .count, mutation.particleCount),
+                    ]
+                    for (field, targetField, value) in values where mutation.fields.contains(field) {
+                        let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)
+                        guard authoredTargets.insert(target).inserted else {
+                            return .failure(.invalidArgument("conflicting authored particle instance target"))
+                        }
+                        candidateAuthoredValues[target] = .scalar(value)
+                        Self.ensureDefinition(for: target, layer: authoredLayer,
+                            order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                     }
-                    candidateAuthoredValues[target] = .scalar(mutation.particleAlpha)
-                    Self.ensureDefinition(for: target, layer: authoredLayer,
-                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
                 if mutation.fields.contains(.volume) {
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .volume)

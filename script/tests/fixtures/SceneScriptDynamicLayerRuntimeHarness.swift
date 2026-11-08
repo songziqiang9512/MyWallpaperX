@@ -22,7 +22,7 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, solid, perspective, origin, scale, angles, color, alpha, volume
 }
-nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
+nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha, rate, count }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color, pointSize }
 nonisolated enum SceneDynamicCameraField: Hashable, Sendable {
     case origin, eye, center, up, zoom
@@ -103,6 +103,8 @@ nonisolated struct SceneParticleInstanceOverride: Sendable {
         let value: NumericValue?
     }
     let alpha: BoundValue?
+    var rate: BoundValue? = nil
+    var count: BoundValue? = nil
 }
 
 // Observe which preparation leaves the real Runtime calls. These DTO factories

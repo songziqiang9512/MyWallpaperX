@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 424,
-      "bytes": 175659
+      "lines": 425,
+      "bytes": 177300
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 153,
-      "bytes": 25007
+      "lines": 164,
+      "bytes": 27342
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 47771
+      "bytes": 47774
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -394,33 +394,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7c40c01d8403f1602f2337c771dc30653ff88f21f5209445fbe36dbb8d6f86a7",
-      "after": "30c1683420f33cf2938dac47a51d97d3f1bb64fda4f39cad2d032deb94d045a2",
-      "owner": "SceneScript authored Sound volume",
-      "reason": "Existing journal and frozen value lanes carry Sound handle volume to the one Registry. Preserve real committed-writer provenance, direct-property and paused ownership; record current author/native/control evidence and the remaining group-perspective official-behavior stop without another authority. Exact current body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#sound-handle-volume"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6d8959c10503d555bf6ffb9f6c603570723ad7fd87dbc8fc77ce717fc15fa853",
-      "after": "c4b6345f3f3f64fe4b0d540ddbb1f8cbe1360df8ff20e4a273db67106f4d0d5a",
-      "owner": "Scene ordered capture receipts",
-      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0e3b12a91d2d96bff60d47616df674453b1aec3d0f4954f2546095f51d895733",
-      "after": "94fb7ac785d4277429da9828669d9644b55195e0710afe27b58b91b619bc4229",
-      "owner": "Scene ordered capture receipts",
-      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
-      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "053827ea44996f95e60b80b7d39d33822ee36474fcd65b634c7f0dcfe0df9280",
       "after": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
@@ -436,6 +409,33 @@
       "owner": "Scene ordered capture receipts",
       "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
       "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "30c1683420f33cf2938dac47a51d97d3f1bb64fda4f39cad2d032deb94d045a2",
+      "after": "f9b420533d1e5fae28f602742aaf964c0a37a7e0f9b315abab8a7a43c40dc1e5",
+      "owner": "Scene public particle instance scalars",
+      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "c4b6345f3f3f64fe4b0d540ddbb1f8cbe1360df8ff20e4a273db67106f4d0d5a",
+      "after": "1402330d7ca8af6f5bb74c2115e422446250d147e50896de3a8bac11063bea83",
+      "owner": "Scene public particle instance scalars",
+      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "94fb7ac785d4277429da9828669d9644b55195e0710afe27b58b91b619bc4229",
+      "after": "838ed8e425c8d60dbfd50eedaf6a35e9d39868d78ad22e74fcca206c9e14ee7e",
+      "owner": "Scene public particle instance scalars",
+      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
     }
   ]
 }
