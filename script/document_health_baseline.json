@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 46974
+      "bytes": 47351
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -413,11 +413,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b39a8cf298034ebba74462bbebbe1127bee974fc52ca4fd966be41a045ac897e",
-      "after": "9302605dd6f03f380aede01e1f7a2d7eee1e2d4e567b8fce8c4c9caa40262fde",
-      "owner": "Scene emitter Directions and radial sampling",
-      "reason": "Remove the arbitrary finite Directions magnitude cap and replace absolute radial powers in the original spawn owner; retire the copied numerical oracle and superseded evidence row. Keep actual constructor/GPU/author qualification and the invalid-range RNG boundary explicit. Exact body budgets without spare allowance.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
+      "before": "9302605dd6f03f380aede01e1f7a2d7eee1e2d4e567b8fce8c4c9caa40262fde",
+      "after": "cb2764fb64b12015253c141fab23a152f3b9f46ce1c38221d5d432e71b133b7a",
+      "owner": "Scene cross-particle size qualification",
+      "reason": "Record the existing R0 active child and distinct current scale consumers; preserve missing per-frame size/MVP and official child inheritance evidence as a concrete reopen condition. No particle size patch or feedback closure. Exact body budget.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
