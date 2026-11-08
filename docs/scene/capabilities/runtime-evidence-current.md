@@ -295,6 +295,15 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 另一85秒场沿仓库原Debug pointer/current owner显式提供同电视区域的六点短轨迹：500两份Enter后持续约3.5秒，直到工具setOutside才有490/500 Leave。前/末轨迹PNG已独立查看，蓝色侧栏、文字和`>|`明显进入画面，资格限定为稳定合成指针下的入口悬停与菜单展开；未独立读取shared[15]或413当帧origin数值，未交付目标文字click。两场停止/Surface释放/GPU排空及捕获零截断归原report，不授普通desktop/global物理输入、全部菜单、官方parity或性能。资料与独审在`.artifacts/scene-288-menu-target-20261108/`，Scene载荷分别晋升`scene-tv-native-288-20261108`、`scene-tv-stable-288-20261108`；重启须有真实目标click或可区分raw/current入口的证据，不重试旧坐标/LLDB矩阵。
 
+<a id="eye-audio-input"></a>
+## 眼部pulse的输入资格
+
+2814167871的132/e1与2835398595的98/e0读取`g_AudioSpectrum16Left/Right`各band0/1的均值，经bounds .5…1、exponent1后增亮RGB；不是眨眼pose。静态ABI沿原prepared layout/MSL连续float数组、UniformEncoder及vertex/fragment绑定闭合，普通需求链沿accepted consumer→Session/Host→daemon/client→Service，未发现断口；这些不证明两作者实际准入、普通采集或眼部像素。
+
+一次原生读数直接运行production PCM fixture、Service、CaptureBuffer与Analyzer，使用现有Recovery seam抑制硬件创建；默认参数、不改声源/gain/FFT或bin。150帧共240000样本、5秒PCM，实际输入5.010023708秒；有效同callback左右16档148行，均值r最大约.41451886、跨.5为0。初末清零不入分母。独立Float32重算及作者原累加顺序均未跨线；最大在最后一帧，不能外推后续包络周期、全部声源或归因为频率。
+
+因此本窗没有283眼部正控，不启动App或追加频率/时长矩阵，不修改pulse。native一次exit0且stop后无synthetic capture资源；它手动启consumer并绕硬件，不授普通App需求/权限/采集、Scene同generation供值、mask/tail/眼部RGB、官方parity或性能。原字节、9源freeze及独审在`.artifacts/scene-eye-audio-20261108/`，result SHA `59a444ba…3ec2`；重启条件由[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)维护。
+
 <a id="particle-lighting-control"></a>
 ## REFRACT光照的有界控制
 

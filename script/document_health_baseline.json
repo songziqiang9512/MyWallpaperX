@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 312,
-      "bytes": 140277
+      "lines": 321,
+      "bytes": 141760
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 131,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 44653
+      "bytes": 45028
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -350,20 +350,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e25802d600ae6f2375af2a096176a6c5e3191bdbc1f07a083d9ef43d1e8371d4",
-      "after": "90668b4f653f3cbe7a24fac2ffa03ccd5ac5e76a451c3394fae4ca3d6a4cfee7",
-      "owner": "Scene material graph resource view",
-      "reason": "Define consumer-scoped graph projection, record bounded identical-workload Debug CPU-frame evidence, and replace eye/late355 qualification with concrete producer and restart limits.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
+      "before": "90668b4f653f3cbe7a24fac2ffa03ccd5ac5e76a451c3394fae4ca3d6a4cfee7",
+      "after": "99fead7524f51aaea907cf76957db95b2616f35a8db88b6871d05690d34f384d",
+      "owner": "Scene input qualification",
+      "reason": "Record one bounded production PCM producer readout and replace ambiguous fallback/Point1 directions with concrete stop and restart facts; no new product or App claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#eye-audio-input"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "975a2fa771462244690421ddaf824da4e06ce8bf58f06dc90beb85e461e7c322",
-      "after": "93efe2c0710fe7b9c7b2939f742301805284c51ae6afc52447ec7237004146a0",
-      "owner": "Scene material graph resource view",
-      "reason": "Define consumer-scoped graph projection, record bounded identical-workload Debug CPU-frame evidence, and replace eye/late355 qualification with concrete producer and restart limits.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
+      "before": "93efe2c0710fe7b9c7b2939f742301805284c51ae6afc52447ec7237004146a0",
+      "after": "7f2a78239eca9eaa71dd762586ad7c24e022eadbc7b042c2da96c97329b6a0b3",
+      "owner": "Scene input qualification",
+      "reason": "Record one bounded production PCM producer readout and replace ambiguous fallback/Point1 directions with concrete stop and restart facts; no new product or App claim.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#eye-audio-input"
     }
   ]
 }
