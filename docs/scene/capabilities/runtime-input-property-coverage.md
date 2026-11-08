@@ -51,6 +51,7 @@ BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时
 Program 保轨道、作者 key、FPS/length、曲线、relative/Combined 关系和事件。普通帧由唯一 PlaybackRuntime 采样已准备数据；play/pause/stop/setFrame 以及 API 快照共用该 state，不能另建第二 clock。
 
 - 数值插值、Bézier 求根、wrap 与 relative 单位由现 evaluator 消费，不能用线性 key 索引替代作者时间。
+- 非文字对象的绝对 `color` 三通道动画发布原 `.layer(.color)`/vector3，由既有 source tint/模型/灯消费者读取。冷准备复用 `colorRGB` 白缺省及原类型、来源优先级和关系检查，无新颜色状态；粒子 `instanceoverride.colorn` 保出生语义，文字 `.text(.color)` 保字形资源 owner。relative、错 lane 与未支持 host 继续局部拒绝。
 - target 与 playback owner 不同。Combined/peer 可共享时间 anchor；销毁一个 target 只撤该活动轨道，幸存成员仍保 clock/命令/事件。
 - 稳定 Program/C/named 索引不因压缩活动数组而改义；隐藏与暂停不退休轨道。
 - 事件按实际时间区间与原确认边界派发，同 cadence 重读或无 drawable 不重复消费。

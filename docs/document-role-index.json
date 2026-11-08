@@ -890,9 +890,9 @@
       "lastReviewed": "2026-11-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9b77d602e6f5f44cae6b5ee74e119f332122956bdf53fa94c6ba55e88452c28c",
+        "sourceSHA256": "2cd8e9acf61cd6b8534a14bcb06826cca90fa6e4941c92df0b4562b4a3c3e890",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原 SceneTimelineFrameEvidence 的 opt-in cameraZoom 配置、两种 zoom target 与既有预算；其余工具导航未变。",
+        "scope": "核对原 SceneTimelineFrameEvidence 的 layer TRS/颜色、opt-in cameraZoom 配置与既有时间/输出预算；其余工具导航未变。",
         "limitations": "此导航收据仅核文档与工具入口；实际 App、GPU 和官方证明范围另归运行证据。"
       }
     },

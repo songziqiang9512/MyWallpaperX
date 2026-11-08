@@ -51,7 +51,7 @@ nonisolated final class SceneTimelineFrameEvidence {
 
         var targets: [SceneDynamicTarget] {
             layerIDs.flatMap { id in
-                [SceneDynamicLayerField.origin, .angles, .scale].map {
+                [SceneDynamicLayerField.origin, .angles, .scale, .color].map {
                     .layer(layerID: id, field: $0)
                 }
             } + (cameraZoom ? [.camera(.zoom), .camera(.generalZoom)] : [])

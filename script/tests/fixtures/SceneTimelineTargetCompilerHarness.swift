@@ -197,6 +197,8 @@ enum Harness {
             "diagnostics": program.diagnostics,
             "cameraPathFOV": cameraPathFOV,
             "vectorRuntime": vectorRuntime,
+            "layerColorRuntime": layerColorRuntime(descriptor: descriptor, program: program,
+                snapshots: [first.snapshot, second.snapshot]),
             "bindings": program.bindings.enumerated().map { index, binding -> [String: Any] in
                 [
                     "target": describe(binding.definition.target),
@@ -218,6 +220,51 @@ enum Harness {
         print(String(decoding: try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
         ), as: UTF8.self))
+    }
+
+    static func layerColorRuntime(descriptor: SceneRenderDescriptor, program: SceneTimelineProgram,
+                                  snapshots: [SceneDynamicSnapshot]) -> [String: Any] {
+        let definitions = SceneTimelineRuntime.mergedDefinitions(propertyDefinitions: [], timelineProgram: program)
+        let timelineValues = SceneTimelineRuntime.values(program: program, sceneTime: 1)
+        var layers: [String: Any] = [:]
+        for layer in descriptor.layers {
+            let target = SceneDynamicTarget.layer(layerID: layer.id, field: .color)
+            func observation(_ snapshot: SceneDynamicSnapshot) -> [String: Any] {
+                let color = SceneDynamicLayerValues.color(layerID: layer.id,
+                    authoredValue: layer.colorRGB, snapshot: snapshot)
+                return ["value": snapshot[target].map { describe($0.value) } ?? "missing",
+                        "source": snapshot[target]?.source.rawValue ?? "missing",
+                        "consumed": [color.x, color.y, color.z],
+                        "alpha": SceneDynamicLayerValues.alpha(layerID: layer.id,
+                            authoredValue: layer.alpha, snapshot: snapshot),
+                        "alphaSource": snapshot[.layer(layerID: layer.id, field: .alpha)]?.source.rawValue ?? "missing"]
+            }
+            var result: [String: Any] = ["phases": snapshots.map(observation)]
+            if program.bindings.contains(where: { $0.target == target }) {
+                let user = SceneDynamicValue.vector3(0.25, 0.75, 0.125)
+                let script = SceneDynamicValue.vector3(0.5, 0.125, 0.75)
+                let stages: [(String, SceneDynamicValue?, Bool, SceneDynamicValue?)] = [
+                    ("authored", nil, false, nil), ("user", user, false, nil),
+                    ("timeline", user, true, nil), ("script", user, true, script),
+                    ("invalid-script", user, true, .scalar(1)),
+                    ("invalid-user", .scalar(1), false, nil),
+                ]
+                var transaction = SceneEvaluationTransaction()
+                var sources: [String: Any] = [:]
+                for (index, stage) in stages.enumerated() {
+                    let resolution = transaction.evaluate(frameIndex: UInt64(index + 1),
+                        definitions: definitions, userValues: stage.1.map { [target: $0] } ?? [:],
+                        timelineValues: stage.2 ? timelineValues : [:],
+                        sceneScriptValues: stage.3.map { [target: $0] } ?? [:])
+                    var value = observation(resolution.snapshot)
+                    value["diagnostics"] = resolution.diagnostics.filter { $0.target == target }.map(\.code.rawValue)
+                    sources[stage.0] = value
+                }
+                result["sources"] = sources
+            }
+            layers[String(layer.id)] = result
+        }
+        return layers
     }
 
     static func makeDescriptor(document: SceneDocument, sceneURL: URL) throws -> SceneRenderDescriptor {

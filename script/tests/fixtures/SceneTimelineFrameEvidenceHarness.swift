@@ -69,8 +69,10 @@ enum SceneTimelineFrameEvidenceChecks {
         let retired = output.last!
         let metadata = output[0]
         let bindings = metadata["bindings"] as! [[String: Any]]
+        let color = selected.first { ($0["target"] as? [String: Any])?["field"] as? String == "color" }
         var facts = [
-            "selection": firstRows.count == 6 && selected.count == 3 && missing.count == 3,
+            "selection": firstRows.count == 8 && selected.count == 4 && missing.count == 4,
+            "actualColor": (color?["resolved"] as? [String: Any])?["value"] as? [Double] == [1, 2, 3],
             "actualTimelineSource": selected.allSatisfy { $0["source"] as? String == "timeline" },
             "authoredFallbackSource": secondRows.filter {
                 ($0["target"] as! [String: Any])["layerID"] as? Int == layerID
@@ -82,7 +84,7 @@ enum SceneTimelineFrameEvidenceChecks {
             },
             "frameIdentity": first["frame"] as? Int == 42 && first["snapshotFrame"] as? Int == 42
                 && first["generation"] as? Int == 7 && first["sceneTime"] as? Double == 1,
-            "programProjection": bindings.count == 3 && bindings.allSatisfy {
+            "programProjection": bindings.count == 4 && bindings.allSatisfy {
                 ($0["target"] as! [String: Any])["layerID"] as? Int == layerID
                     && $0["owner"] != nil && $0["keyframeCounts"] != nil && $0["animation"] == nil
             } && metadata["cameraZoom"] == nil,
@@ -147,7 +149,7 @@ enum SceneTimelineFrameEvidenceChecks {
             budget: cameraBudget) { mixedLines.append($0) }
         mixed.record(streamID: 11, frameIndex: 42, sceneTime: 1, snapshot: originalSnapshot)
         mixed.finish()
-        facts["cameraMixedAddsTwoInputRows"] = (try records(mixedLines)[0]["values"] as? [[String: Any]])?.count == 8
+        facts["cameraMixedAddsTwoInputRows"] = (try records(mixedLines)[0]["values"] as? [[String: Any]])?.count == 10
         var invalidCount = 0
         for bad in [["layerIDs": [Int]()], ["layerIDs": [layerID, layerID]],
                     ["layerIDs": Array(0..<9)],
@@ -250,6 +252,10 @@ enum TimelineFrameEvidenceHarness {
                     valueType: .vector3, authoredValue: .vector3(10, 20, 30)),
                     animation: vector, composition: .additive, playbackOwner: root)
             }
+            bindings.append(SceneTimelineBinding(definition: .init(
+                target: .layer(layerID: layerID, field: .color), valueType: .vector3,
+                authoredValue: .vector3(0.25, 0.5, 0.75)),
+                animation: vector, composition: .absolute))
             bindings.append(SceneTimelineBinding(definition: .init(
                 target: .layer(layerID: layerID + 1, field: .alpha), valueType: .scalar,
                 authoredValue: .scalar(1)), animation: try animation(vector: false), composition: .absolute))

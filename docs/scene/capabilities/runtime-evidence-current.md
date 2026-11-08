@@ -219,7 +219,9 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 签名Debug单executable `03d4f5215716b7d499dc3b26732fa152515de629a06239b1593ac84955995673`、CDHash `c92430f9a56cd63e01046ca8903ad9c998c3cd35`，4396构建输入稳定。原329同R0三输入摘要，29首次具父37/`шея` bind平移(-288.38666,-470.44717,0)；selected99/request1/CB519941294720/Surface519974984704中37与29的source/material/geometry/tail到同main519997823232、seal与GPU完成闭合，实际PNG头颈连接恢复。另八秒片段的四个capture（frame34/95/188/191）均GPU完成、零截断，已观察头颈在所取画面保持连接；没有逐相位live attachment完整矩阵packet，不授全动画周期或物理/所有特效正确。
 
-去掉探针文字的C714派生App输入保原camera、动画、ID与project，改名重排后29确用新首条bind(-17.374374,-154.31277,0)，实际头部随新目标移动，证明不固定原名称、路径或某组矩阵数值；这是刻意改变挂点目标的反例，不要求与原画面相同。独立3769688830同三摘要、同App，21父的44/`aaaaaaaaa`与47/`orb`仍有bind；selected64实际几何/terminal replay到main/seal/GPU，原PNG可见手臂和球体正常衔接。其八条合同计数/摘要CHECK与R0逐项相同，保原CHECK，不升级整样本PASS。真实Reader/Builder/PreparedAsset/Evaluator/PoseProjection/WorldResolver回归覆盖唯一、重名、顺序互换/改名、冷/活动两phase、坏shadowed记录及原边界；测试和独审收据随输入、App身份及必要PNG保于`.artifacts/scene-puppet-attachment-20261107/`。无性能、官方像素一致、3306942838或正常多屏桌面资格。
+去掉探针文字的C714派生App输入保原camera、动画、ID与project，改名重排后29确用新首条bind(-17.374374,-154.31277,0)，实际头部随新目标移动，证明不固定原名称、路径或某组矩阵数值；这是刻意改变挂点目标的反例，不要求与原画面相同。独立3769688830同三摘要、同App，21父的44/`aaaaaaaaa`与47/`orb`仍有bind；selected64实际几何/terminal replay到main/seal/GPU，原PNG可见手臂和球体正常衔接。其八条合同计数/摘要CHECK与R0逐项相同，保原CHECK，不升级整样本PASS。真实Reader/Builder/PreparedAsset/Evaluator/PoseProjection/WorldResolver回归覆盖唯一、重名、顺序互换/改名、冷/活动两phase、坏shadowed记录及原边界；测试和独审收据随输入、App身份及必要PNG保于`.artifacts/scene-puppet-attachment-20261107/`。无性能、官方像素一致或正常多屏桌面资格。
+
+固定官方2.8.0.42（SHA `40e2ce02…cd993b0`）静态证：MDLA0006的rawFlags0分支保存state1、按bit0准备零mask，完整TRS与同clip state0继续准备；矩阵helper不读该mask，唯一caller候选窄读仍未闭合mask→pose。屏蔽/参考基语义UNKNOWN，3306942838未获实际pose→geometry资格，STOP不解除；复用已证reader，重启只补真正消费者。身份、完整Evidence及停止线保于`.artifacts/scene-mdla-state1-consumer-20261108/`。
 
 <a id="text-screen-anchor-viewport"></a>
 ## 文字屏幕锚点与画幅
@@ -359,6 +361,17 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 2026-11-08 原 3663269553 同 project/pkg/tree，旧 App `e99ab5ab…374c64e` 拒 736/739/693/733；签名 Debug `b456fb84…84acda` 的 4396 构建输入无漂移，原内容不改参数，四层均自然供货。较晚捕获 frame189 的四层分别 3/1/3/4 实例，真实 format8 albedo 256×512、format0 normal 64×64、当前背景→main/seal/GPU 完整，整样本 PASS、无 unavailable，终端 PNG 主景正常。739 有较慢出生/淡入，未用早段空窗否定其输出；未据最终截图授四层逐输入像素隔离或官方位移/光照一致。
 
 共享 shader/ABI 的受影响实际回归同 App 补跑：3580724885 PASS，722 根 RopeTrail 18 个 GPU 绘制实例与 child1 分开，同场 720/1287 各两 renderer 为 138/150；3042623710 的 L0 PASS，330/280/350 为 1/1515/254。三场 normal/背景→main、最终捕获和排空均核对，PNG 已查看。真实冷准备及生产 Metal 字面像素覆盖默认/显式、改名、阈值中点/两侧、raw alpha>1、零 alpha/负阈值颜色、LA8、pre-CUTOUT normal、HDR/overbright 与单次 PMA；原硬件 A2C、depth/cull、普通 blend 与 Rope 回归通过。已替换的合法 REFRACT 子例旧拒绝预期退役，普通 CUTOUT/depth-write、LIGHTING 和坏资源反例保留。一次独审及范围收据保于 `scene-particle-cutout-20261108` 运行包和同名 `.artifacts/` 归档；未测 varying 的性能成本，不将统一绑定次数视为性能收益。
+
+<a id="layer-color-timeline"></a>
+## 图层颜色 Timeline 与 338 的两类光效
+
+非文字对象的绝对三通道 `color` 已沿[原输入合同](runtime-input-property-coverage.md#timeline)接入现有 `.layer(.color)`，退出“无样本”整项拒绝。只补冷期 target 映射，原 PlaybackRuntime、来源优先级、DynamicSnapshot 与 source tint 消费者保持；无新时钟、状态、逐帧转换或 renderer。文字字形颜色、relative/未支持联动、粒子 instance 颜色各保自身边界。
+
+3383210272 原 project/pkg/tree 不变。用户所指脚底短线确认来自 120 的嵌入视频网格；原 TEX 的生产解析器与 0.5/3/9 秒源帧可复核，非粒子密度推测。该层原 540@30、wrap-loop 三通道颜色被实际 Program 记 `unsupportedHost`，始终只剩红色 fallback。当前签名 Debug `5c9d4611…958074` 的 4396 构建输入无漂移，Program 从13到14、诊断从1到0；原 SceneClock 的0…5秒输入记录确由 Timeline 从红色递变至紫色，capture155 的紫色网格与原视频→七段景深→main/seal/GPU 完整，零截断。输入记录的相邻 frame149/157不冒充捕获155的精确 uniform/RGB 读回。前一同颜色算法、临时诊断 App `789f2cec…684330` 的7秒图为蓝色网格；两场只授颜色动画已执行，不授同视频相位/裁切的官方亮度、线密度或逐像素一致。
+
+真实 Loader→Compiler→Runtime→Snapshot→既有颜色消费门覆盖三通道、白缺省、资源/ID/名字及合法表示变体、来源优先级与错型回落、错 lane、relative、text/联动拒绝和健康 alpha；原粒子新出生颜色、transform/effect 与有界观察门保持。27方法及新增颜色16子例通过；首轮夹具失败与定向补验收据保包，不扩大格式准入。独立未参与修复的3042623710同 App 回归 PASS，捕获213的330/280/350为1/1515/254实例，normal/当前背景与主景雨滴保持。独立真实作者的同 host 正例尚未取得；不把改名夹具或此邻例升级为第二作者颜色动画资格。测试、独审、必要源帧与运行身份归 `.artifacts/scene-starfield-active-20261108/` 及同名运行包；共享 shader/metallib 未变，既有 CUTOUT/A2C 像素资格复用，不重复全集。
+
+用户另明确背后两道彩光应从中间向左右扩散，当前顶部从右向左扫光仍算未修。宽束候选323/124在一次5.6秒选帧各有1实例，但真实四角 clip W 全负；局部宽度叉积退化保留非零 fallback，改局部 eye-ray 候选仍全在眼后，未形成修复因果。唯一早窗两层未出生；369/391仍无供货。该结果不授完整方向归因、官方同声源消费或光束恢复，亦不能由非零频谱断言响应。临时读取首实例/矩阵的 selected-capture 扩展随研究结束退役，原补丁和同帧数据保包；正式颜色观察只扩原 Timeline 读口的一个字段，预算不增。后续输入及停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="limits"></a>
 ## 未取得的资格

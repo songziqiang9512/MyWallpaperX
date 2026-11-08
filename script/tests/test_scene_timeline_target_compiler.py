@@ -20,6 +20,7 @@ from pathlib import Path
 from . import test_scene_particle_simulator as particle_simulator
 from .test_scene_initial_video_resource_readiness import declaration
 from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, combined_scene, rejected_combined_scenes
+from .fixtures.scene_timeline_layer_color_cases import assert_layer_color_result, layer_color_cases
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -72,6 +73,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
     *particle_simulator.SWIFT_SOURCES,
     SOURCE_ROOT / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
 ]
 
 
@@ -586,6 +588,12 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["valueType"], "scalar")
         self.assertEqual(binding["authored"], "scalar(0.25)")
         self.assertEqual(binding["mode"], "loop")
+
+    def test_layer_color_reaches_existing_tint_consumer_with_source_priority(self) -> None:
+        for name, fixture, expected in layer_color_cases():
+            with self.subTest(case=name):
+                result = self.compile_fixture(fixture, "layer-color-" + name)
+                assert_layer_color_result(self, result, expected)
 
     def test_vector_host_compiles_to_vector3_with_authored_base(self) -> None:
         binding = self.binding("layer:20:angles")
