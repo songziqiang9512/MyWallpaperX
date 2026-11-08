@@ -415,7 +415,11 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 3383210272 同原三输入摘要、同 WAV `0f4d56db…cb9e`，只读回首个323/124均有自然实例的捕获：frame165/request1/CB `521164589696`/Surface `521104363008`，GPU完成、零截断并排空。同一 main 的 before323、after124、terminal 为3024×1964 BGRA8原始附件；前二区间只有两层各1个实际上传 SpriteTrail，合计5812个RGB像素变化、最大2色阶、bbox[1717,783,1817,915]。两颗alpha约.01556；实际MSL投影的八角均眼前且clip内，quad约126×123与164×153像素，全部变化位于其并集。此帧后继绘制前已有局部弱贡献，尚无展开宽主束；369/391只授该帧无draw，不能据此认定哪对producer构成官方主束。
 
-临时观察App `23f68792…59776` 的静态完整控制与原core，594万RGB像素逐通道一致；三raw/PNG及独立复算一致，不外推作者或性能无扰动。after124到terminal的全景变化不能隔离后继对粒子差量的传递，不授“宽束被擦除”。七产品观察钩子及专用测试已全部退役，复用已验core `ee27529d…5e7b30`/原metallib；只保原Capture夹具的未使用类型闭包修正，原生命周期门通过。raw、精确退役补丁、首次编译/runner前置失败、冻结输入及两份独审保于 `.artifacts/scene-beam-contribution-next-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-beam-contribution-20261108/`。作者参数与Mirage静态连线只能把323/124列为结构候选，两张官方静图无layer/相位归因；369/391的无draw不反证身份，556/543为扁环shader。该只读边界与source SHA保于 `.artifacts/scene-beam-producer-identity-20261108/`。主束/闪烁仍开放，新增资格和停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+临时观察App `23f68792…59776` 的静态完整控制与原core，594万RGB像素逐通道一致；三raw/PNG及独立复算一致，不外推作者或性能无扰动。after124到terminal的全景变化不能隔离后继对粒子差量的传递，不授“宽束被擦除”。七产品观察钩子及专用测试已全部退役，复用已验core `ee27529d…5e7b30`/原metallib；只保原Capture夹具的未使用类型闭包修正，原生命周期门通过。raw、精确退役补丁、首次编译/runner前置失败、冻结输入及两份独审保于 `.artifacts/scene-beam-contribution-next-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-beam-contribution-20261108/`。
+
+2026-11-09已恢复官方2.8.0.42（PE SHA `daac1ea7…b6bda07`）的guest与原生CUA。原project `52cd4761…520c`/PKG `79375bd7…463f`的960×624独占窗实际显示宽彩束、窄斜带及V形细线/地面细节，未注入外部声音。控制clone只给323/124与369/391各加默认true的独立Bool显隐：88成员中仅scene增加236B，其他87原字节同，project只加两descriptor；保原camera、曲目和参数。打开clone默认正控后，同PID8752/handle6685720连续A关→开、B关→开，实际CUA见323/124组的宽彩束消失后再现、369/391组的窄紫/青斜带消失后再现；主体、条状背景与另一类光保持。V形细线在两个单组关闭态均仍在，未跑both-off，不排他其全来源。仅授组级贡献，不分每根或每个像素。
+
+图像仅保本chat原生CUA会话，无本地原PNG/JPEG、数值RGB、精确scene time/tick或同PCM相位；原包曲目声明与可见响应不授粒子audio producer绝对单位。原版关闭后的首次图仍留旧预览，核receiver空title/handle0并一次已暴露Raise后取得新桌面；该旧图未当退役资格，控制观察均先Raise再取新状态。四次限窗属性/恢复实际CLI exit0、两窗实际关闭并原生确认；两份34个SM40产出各137210B逐字节同，已保存一次唯一载荷。guest76文件stage及公共运输副本已清理，原receiver保留、VM恢复原suspended。输入/运输、原始路径失败、人工读值、关闭与输出归 `.artifacts/scene-official-oracle-readiness-20261109/` 和 `.artifacts/scene-official-beam-attribution-20261109/`；独审实际核输入/raw与证明上限，没有独立看会话原图。不授几何公式、音频标定、作者修复或性能；下一可判几何控制与停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="limits"></a>
 ## 未取得的资格

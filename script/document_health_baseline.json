@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 425,
-      "bytes": 177300
+      "lines": 429,
+      "bytes": 178772
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 47774
+      "bytes": 47956
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,20 +422,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c4b6345f3f3f64fe4b0d540ddbb1f8cbe1360df8ff20e4a273db67106f4d0d5a",
-      "after": "1402330d7ca8af6f5bb74c2115e422446250d147e50896de3a8bac11063bea83",
-      "owner": "Scene public particle instance scalars",
-      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "1402330d7ca8af6f5bb74c2115e422446250d147e50896de3a8bac11063bea83",
+      "after": "67893f08d6dc4eafcd883f33e6653f72b882db1f5a3723b764f542e73ea281c7",
+      "owner": "Scene official beam layer attribution",
+      "reason": "Replace the unqualified producer-identity stop with bounded official same-window group attribution, retain geometry/audio and image limitations, and select the smallest asymmetric Trail/Sprite control. No product changes or fresh Mac validation. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "94fb7ac785d4277429da9828669d9644b55195e0710afe27b58b91b619bc4229",
-      "after": "838ed8e425c8d60dbfd50eedaf6a35e9d39868d78ad22e74fcca206c9e14ee7e",
-      "owner": "Scene public particle instance scalars",
-      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
+      "before": "838ed8e425c8d60dbfd50eedaf6a35e9d39868d78ad22e74fcca206c9e14ee7e",
+      "after": "5b3f10a7051ae64c25356d04c1c72725425f6e11eab2880b1ab4778f5f56c3e2",
+      "owner": "Scene official beam layer attribution",
+      "reason": "Replace the unqualified producer-identity stop with bounded official same-window group attribution, retain geometry/audio and image limitations, and select the smallest asymmetric Trail/Sprite control. No product changes or fresh Mac validation. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     }
   ]
 }
