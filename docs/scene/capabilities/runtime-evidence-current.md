@@ -384,9 +384,16 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 3022080536 原 project/pkg/tree、固定 pointer(-.4,.1) from-launch 前后不变；两 capture154 的52层分别26/31实例，GPU完成且排空，红 blob 前后仍红，颜色问题未结案。独立1937925563 同三摘要前后 capture79，461/478各有1 Sprite与19 SpriteTrail进各自main/GPU；两图主体仍出图，但青紫斜区的宽度与发光有明显差异，未锁作者/粒子相位，既不称视觉等价、也不猜为纯时相变化。该作者只保有界观察，不授全场无回归。
 
-3383210272 的原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。已撤回的粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124自然实例由各1增至6/16，但主要彩光仍缺；369/391仍无 draw。一次早帧首末实际实例 W 全正、面积非零，宽度变体不能解释整束缺失。静态官方相对64→16 max不能把项目 display-height64 的绝对域直接资格化；候选12路径均已精确恢复，未提交。281 的同 WAV 两张静帧只证明16档实际供值与 pulse 执行，不能判断眼部闪动或新闪烁。后续只沿[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)的新首错推进，不重跑同早晚窗或调gain、bounds、pow凑图。
+3383210272 原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124实例增多，但主要彩光仍缺；候选12路径已精确恢复、未提交。官方相对64→16 max不资格项目 display-height64 的绝对域。281 同 WAV 两静帧仅授16档消费与 pulse 执行，不判断眼部闪动或新增闪烁；不重跑旧早晚窗、调gain/bounds/pow或强制出生。
 
 源码、首轮独审限制、当前受控资格与实际作者原字节归 `.artifacts/scene-instance-color-20261108/`；被撤回候选、Mirage只读研究、原生/绘制输入和未闭绝对单位证据归 `.artifacts/scene-particle-audio-consumer-20261108/` 与 `.artifacts/scene-audio16-producer-20261108/`，保具体停止线。338两束方向/闪烁、302红色来源、官方颜色全语义、动态属性/Timeline端到端及性能仍未授资格。
+
+<a id="beam-contribution"></a>
+## 彩光自然出生的同帧贡献
+
+3383210272 同原三输入摘要、同 WAV `0f4d56db…cb9e`，只读回首个323/124均有自然实例的捕获：frame165/request1/CB `521164589696`/Surface `521104363008`，GPU完成、零截断并排空。同一 main 的 before323、after124、terminal 为3024×1964 BGRA8原始附件；前二区间只有两层各1个实际上传 SpriteTrail，合计5812个RGB像素变化、最大2色阶、bbox[1717,783,1817,915]。两颗alpha约.01556；实际MSL投影的八角均眼前且clip内，quad约126×123与164×153像素，全部变化位于其并集。此帧后继绘制前已有局部弱贡献，尚无展开宽主束；369/391只授该帧无draw，不能据此认定哪对producer构成官方主束。
+
+临时观察App `23f68792…59776` 的静态完整控制与原core，594万RGB像素逐通道一致；三raw/PNG及独立复算一致，不外推作者或性能无扰动。after124到terminal的全景变化不能隔离后继对粒子差量的传递，不授“宽束被擦除”。七产品观察钩子及专用测试已全部退役，复用已验core `ee27529d…5e7b30`/原metallib；只保原Capture夹具的未使用类型闭包修正，原生命周期门通过。raw、精确退役补丁、首次编译/runner前置失败、冻结输入及两份独审保于 `.artifacts/scene-beam-contribution-next-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-beam-contribution-20261108/`。主束方向与闪烁仍开放；后续身份、自然population/phase及实际输入资格由[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)维护，不再重测本次clip或预选后继遮挡。
 
 <a id="limits"></a>
 ## 未取得的资格
