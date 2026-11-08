@@ -304,6 +304,15 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 因此本窗没有283眼部正控，不启动App或追加频率/时长矩阵，不修改pulse。native一次exit0且stop后无synthetic capture资源；它手动启consumer并绕硬件，不授普通App需求/权限/采集、Scene同generation供值、mask/tail/眼部RGB、官方parity或性能。原字节、9源freeze及独审在`.artifacts/scene-eye-audio-20261108/`，result SHA `59a444ba…3ec2`；重启条件由[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)维护。
 
+<a id="unbound-sampler-control"></a>
+## 未绑定sampler的官方控制边界
+
+3042492564既有受控media、mclick_interaction=true运行的363/e0首pass同时读hidden sampler0颜色与sampler1.alpha，两者无binding/default；node1才显式绑定FBO0与previous1。当前implicit source规则因slot1无来源，先在slot0拒绝。这解释旧运行的局部旁路，不证明应把任意空sampler绑定源图、白图或零图。
+
+固定官方2.8.0.42、receiver8752/Session1，用一套自有四区分别观察slot0、unbound1、explicit previous1、explicit white1，保共同slot0活读及RGB/alpha分区和cyan执行标记。18个loose载荷经完整运输校验，只开一场；原生内联图的唯一label、四标签、绿色peer和RGBM角标完整，Root/独立Xhigh观察tick309→1547。但四格均为深红实心，无cyan框/分隔、顶部空间标记和RGB/alpha分区，A/C/D不合格。因此未进入B的缺省来源裁决，source材质/采样或执行首错仍未知，不开第二版或据红色猜编译原因。
+
+独占窗口已关闭并原生确认原桌面，原receiver保留，guest stage已删、VM回suspended。输入、运输/关闭收据及独审保于`.artifacts/scene-unbound-input-control-20261108/`；无本地PNG、数值RGBA、精确像素或作者恢复资格。stage运输19文件、删除前26文件，新增7文件未先列名/保存，内容不可复核；本包不声称完整guest输出归档，后续方法已改为清理前对比manifest并保新增输出。重启及当前优先级归[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
+
 <a id="particle-lighting-control"></a>
 ## REFRACT光照的有界控制
 

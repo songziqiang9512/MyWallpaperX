@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 321,
-      "bytes": 141760
+      "lines": 330,
+      "bytes": 143378
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 131,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 45028
+      "lines": 188,
+      "bytes": 46609
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -350,20 +350,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "90668b4f653f3cbe7a24fac2ffa03ccd5ac5e76a451c3394fae4ca3d6a4cfee7",
-      "after": "99fead7524f51aaea907cf76957db95b2616f35a8db88b6871d05690d34f384d",
-      "owner": "Scene input qualification",
-      "reason": "Record one bounded production PCM producer readout and replace ambiguous fallback/Point1 directions with concrete stop and restart facts; no new product or App claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#eye-audio-input"
+      "before": "99fead7524f51aaea907cf76957db95b2616f35a8db88b6871d05690d34f384d",
+      "after": "07dce68b494e7c71e67ad1483adcd05b3e0dd6666245a6b50ed464616c017f2b",
+      "owner": "Scene shader input qualification",
+      "reason": "Record the single failed unbound-sampler positive qualification, separate precise active/inactive shader leads, and require camera field behavior before enabling saved general.zoom; disclose guest-output retention limit.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#unbound-sampler-control"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "93efe2c0710fe7b9c7b2939f742301805284c51ae6afc52447ec7237004146a0",
-      "after": "7f2a78239eca9eaa71dd762586ad7c24e022eadbc7b042c2da96c97329b6a0b3",
-      "owner": "Scene input qualification",
-      "reason": "Record one bounded production PCM producer readout and replace ambiguous fallback/Point1 directions with concrete stop and restart facts; no new product or App claim.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#eye-audio-input"
+      "before": "7f2a78239eca9eaa71dd762586ad7c24e022eadbc7b042c2da96c97329b6a0b3",
+      "after": "51182fd31c3851ad2c5e8faffd38c0dbd00cbef3233e82c8f86009a9577a1677",
+      "owner": "Scene shader input qualification",
+      "reason": "Record the single failed unbound-sampler positive qualification, separate precise active/inactive shader leads, and require camera field behavior before enabling saved general.zoom; disclose guest-output retention limit.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#unbound-sampler-control"
     }
   ]
 }
