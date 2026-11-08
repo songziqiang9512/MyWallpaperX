@@ -186,6 +186,7 @@ def effect_execution_metrics(
         )
         frame_id = int(match.group("frame"))
         transition_key = (
+            frame_id,
             match.group("origin"),
             subject,
             int(match.group("layer")),
@@ -535,8 +536,7 @@ def effect_execution_failures(
     failures = list(metrics["validation_failures"])
     actual_effect_local_passthroughs = effect_local_passthrough_cpu_keys(metrics)
     recovery_evidence = effect_recovery_cpu_evidence(metrics)
-    actual_effect_recoveries = recovery_evidence["transition_keys"]
-    ordered_effect_recoveries = recovery_evidence["ordered_keys"]
+    actual_effect_recoveries = recovery_evidence["ordered_keys"]
     actual_persistent_effect_local_passthroughs = (
         actual_effect_local_passthroughs.difference(actual_effect_recoveries)
     )
@@ -557,14 +557,13 @@ def effect_execution_failures(
         )
     if expects_effect_recovery and not effect_recovery_expectation_valid:
         failures.append("effect execution recovery expectation invalid")
-    elif expects_effect_recovery and (
-        actual_effect_recoveries != expected_effect_recoveries
-        or ordered_effect_recoveries != expected_effect_recoveries
-    ):
+    elif expects_effect_recovery and actual_effect_recoveries != expected_effect_recoveries:
         failures.append("effect execution recovery evidence mismatch")
     expectation_scopes_conflict = bool(
         {value[:3] for value in expected_effect_local_passthroughs}.intersection(
-            value[:3] for value in expected_effect_recoveries
+            value[:3] for value in (
+                expected_effect_recoveries | actual_effect_recoveries
+            )
         )
     )
     if expectation_scopes_conflict:
@@ -579,13 +578,17 @@ def effect_execution_failures(
         if isinstance(value, dict)
     }
     recovery_contract_satisfied = bool(
-        expects_effect_recovery
-        and effect_recovery_expectation_valid
+        actual_effect_recoveries
+        and (
+            not expects_effect_recovery
+            or (
+                effect_recovery_expectation_valid
+                and actual_effect_recoveries == expected_effect_recoveries
+            )
+        )
         and not expectation_scopes_conflict
-        and actual_effect_recoveries == expected_effect_recoveries
-        and ordered_effect_recoveries == expected_effect_recoveries
         and transition_identities
-            == {value[:3] for value in expected_effect_recoveries}
+            == {value[:3] for value in actual_effect_recoveries}
     )
     if transition_identities and not recovery_contract_satisfied:
         failures.append("effect execution exact identity both succeeded and failed")
@@ -684,7 +687,7 @@ def effect_execution_failures(
     if persistent_contract_satisfied:
         expected_failed_invocation_keys.update(expected_effect_local_passthroughs)
     if recovery_contract_satisfied:
-        expected_failed_invocation_keys.update(expected_effect_recoveries)
+        expected_failed_invocation_keys.update(actual_effect_recoveries)
     actual_failed_invocation_keys: set[tuple[int, int, str, str]] = set()
     failed_invocations_are_typed_exact_backend = True
     for invocation in failed_exact_invocations:

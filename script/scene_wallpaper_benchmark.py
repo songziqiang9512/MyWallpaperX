@@ -92,7 +92,6 @@ from scene_wallpaper_effect_execution import (
     effect_execution_failures, effect_execution_metrics,
 )
 from scene_wallpaper_effect_expectations import (
-    ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES, ACTIVATION_PASSTHROUGH_PROGRAM_REASONS,
     EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX, EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY,
     EFFECT_RECOVERY_EXPECTATION_KEY, TYPED_EFFECT_ACTIVATION_DECISION_RE,
     authored_deactivated_activation_identities, effect_local_passthrough_cpu_keys,

@@ -890,9 +890,9 @@
       "lastReviewed": "2026-11-08",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2cd8e9acf61cd6b8534a14bcb06826cca90fa6e4941c92df0b4562b4a3c3e890",
+        "sourceSHA256": "3d68657d5d40767dc3e6bdd4636362504f7ecd5b902852638d6bc22d1be26b31",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原 SceneTimelineFrameEvidence 的 layer TRS/颜色、opt-in cameraZoom 配置与既有时间/输出预算；其余工具导航未变。",
+        "scope": "核对跨帧CPU恢复、同runtime Graph/GPU后继、两类passthrough入口与未请求capture记账的原工具职责；原失败保留，入口及其余导航未变。",
         "limitations": "此导航收据仅核文档与工具入口；实际 App、GPU 和官方证明范围另归运行证据。"
       }
     },

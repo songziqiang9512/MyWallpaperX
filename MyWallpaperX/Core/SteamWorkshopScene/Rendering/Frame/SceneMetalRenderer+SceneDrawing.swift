@@ -188,8 +188,9 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer, leases: &frameDepthLeases)
         modelFrame.unavailableImageMaterialLayerIDs.formUnion(
             unavailableDepthConsumers.intersection(ordinaryDepthLayerIDs))
+        let rejectedFramebufferSources = unavailableDepthConsumers.intersection(requestedFramebufferSources)
         let unavailableFramebufferSources = framebufferSourceLayerIDs.subtracting(requestedFramebufferSources)
-            .union(unavailableDepthConsumers.intersection(requestedFramebufferSources))
+            .union(rejectedFramebufferSources)
         let unavailableTerminalLayers = unavailableFramebufferSources
             .union(modelFrame.unavailableImageMaterialLayerIDs)
         if let reason = modelFrame.sceneDepthFailureReason {
@@ -202,7 +203,7 @@ extension SceneMetalRenderer {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
         }
-        for layerID in unavailableFramebufferSources {
+        for layerID in rejectedFramebufferSources {
             utilityCaptureTelemetry.record(layerID: layerID, encoded: false, on: commandBuffer)
         }
 #if DEBUG

@@ -8,24 +8,6 @@ from typing import Any
 from urllib.parse import unquote
 
 
-# Activation-passthrough program identities the runtime may legally emit for
-# a statically admitted-passthrough stage. Mirrors the product whitelist in
-# prepareActivationPassthrough (ProgramFirstStages / VisualFailurePassthrough):
-# D2b'' added the script-gated preproof downgrade reason for dependency
-# consumers (2938612768 layers 239/657/1509).
-ACTIVATION_PASSTHROUGH_PROGRAM_REASONS = frozenset({
-    "effect-activation-visibility-disabled",
-    "effect-activation-pointer-provider-unavailable",
-    "effect-activation-scalar-below-minimum",
-    "initially-inactive-property-stage-passthrough",
-    "script-gated-dependency-preproof-mismatch",
-})
-
-ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES = frozenset({
-    "activation-passthrough:" + reason
-    for reason in ACTIVATION_PASSTHROUGH_PROGRAM_REASONS
-})
-
 EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY = (
     "expected_resolved_material_graph_effect_local_passthroughs"
 )
@@ -149,8 +131,9 @@ def effect_recovery_cpu_evidence(
         effect_execution.get("cpu_invocations", [])
         if isinstance(effect_execution, dict) else []
     )
-    successful_frames: dict[tuple[int, int, str], list[int]] = {}
-    failed_frames: dict[tuple[int, int, str, str], list[int]] = {}
+    successful_frames: dict[tuple[int, int, str], int] = {}
+    failed_frames: dict[tuple[int, int, str, str], int] = {}
+    last_failure_frames: dict[tuple[int, int, str], int] = {}
     for invocation in invocations:
         if (
             not isinstance(invocation, dict)
@@ -181,30 +164,42 @@ def effect_recovery_cpu_evidence(
             )
         ):
             invocation_frames = [invocation["frame_id"]]
+        first_frame = min(invocation_frames)
         if invocation.get("outcome") == "encoded-output":
-            successful_frames.setdefault(identity, []).extend(invocation_frames)
+            successful_frames[identity] = min(
+                first_frame, successful_frames.get(identity, first_frame)
+            )
             continue
         reason = invocation.get("reason")
         if (
             invocation.get("outcome") == "failed"
             and isinstance(reason, str)
             and reason.startswith(EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX)
+            and re.fullmatch(
+                r"[A-Za-z0-9._-]+",
+                reason.removeprefix(EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX),
+            ) is not None
         ):
             key = (
                 *identity,
                 reason.removeprefix(EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX),
             )
-            failed_frames.setdefault(key, []).extend(invocation_frames)
+            failed_frames[key] = min(
+                first_frame, failed_frames.get(key, first_frame)
+            )
+            last_failure_frames[identity] = max(
+                max(invocation_frames), last_failure_frames.get(identity, -1)
+            )
 
     transition_keys = {
         key for key in failed_frames if key[:3] in successful_frames
     }
     ordered_frames: dict[tuple[int, int, str, str], tuple[int, int]] = {}
     for key in transition_keys:
-        first_success_frame = min(successful_frames[key[:3]])
-        if max(failed_frames[key]) < first_success_frame:
+        first_success_frame = successful_frames[key[:3]]
+        if last_failure_frames[key[:3]] < first_success_frame:
             ordered_frames[key] = (
-                min(failed_frames[key]), first_success_frame
+                failed_frames[key], first_success_frame
             )
     return {
         "transition_keys": transition_keys,

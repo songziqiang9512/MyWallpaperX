@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 416,
-      "bytes": 165604
+      "lines": 417,
+      "bytes": 167028
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 136,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
-      "bytes": 13409
+      "bytes": 14285
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 46852
+      "lines": 186,
+      "bytes": 46034
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -367,15 +367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "ba2a317843b6d19df07747e9bb54cd854419217f87785038815c3e8fcf5f502d",
-      "after": "cfc64632e44cf48f77012ca20a742b4fdc17b8ef0011069c51a04a2af795b689",
-      "owner": "Scene layer color Timeline",
-      "reason": "现有typed颜色链补真实作者Timeline接线与已验证边界；同步原观察口、338两类反馈及MDLA尚缺消费者，已闭颜色项退出队列，历史夹具过程留本机包。按当前唯一正文的实测大小限定，不增加余量。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "5b276324c042b41ae0ce34b6392526622f59c513dad28ffc6adb83f7b3c7876b",
       "after": "1b2fab39746fe5092767aca18f608b10993dc0abc90b0c52785bae368dcc1ff3",
@@ -394,21 +385,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "cfc64632e44cf48f77012ca20a742b4fdc17b8ef0011069c51a04a2af795b689",
+      "after": "8f02c5147ab8b2e794ccc25be30cb6a68edaf483146df75e72b81690897a354f",
+      "owner": "Scene execution observation history",
+      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b54028ded5ed1319b77dd51615b78f6fcbe129396c2adec0323033e02ea09f79",
-      "after": "03e17438140708b4f38900c197d17c7852c3c0e8a67d5d1ca4ad361eb1336e1e",
-      "owner": "Scene particle movement data boundary",
-      "reason": "Replace the full particle-state helper input with only its actual position/radius consumers; record exact frozen state comparison and bounded ordinary-Release single-root ABBA timing without attributing it to App or GPU performance. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "03e17438140708b4f38900c197d17c7852c3c0e8a67d5d1ca4ad361eb1336e1e",
+      "after": "1b34c98ec080737bef98215547ff62ae133d18dbd5557f29fa897ad6f1d643a4",
+      "owner": "Scene execution observation history",
+      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1b518ced80bac71894c119c1a1b38ff58862de3577580e5cf20b9b39603d13ea",
-      "after": "3cb00e10438e3da70f7290512830d16ffdfbaaea9f562eac18ca6e2d197fb55b",
-      "owner": "Scene particle movement data boundary",
-      "reason": "Replace the full particle-state helper input with only its actual position/radius consumers; record exact frozen state comparison and bounded ordinary-Release single-root ABBA timing without attributing it to App or GPU performance. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "3cb00e10438e3da70f7290512830d16ffdfbaaea9f562eac18ca6e2d197fb55b",
+      "after": "8dec38f937d4e54ea38d4fe28b1ea14f8fbb6d84b735c630c5cee297781a6a73",
+      "owner": "Scene execution observation history",
+      "reason": "Retire cross-frame recovery and no-demand capture misclassification without changing draw filtering or claiming new pixels. Preserve original failures and the new pre-Ready timeout; distinguish stage recovery from layer output. Exact current body budget.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
     }
   ]
 }

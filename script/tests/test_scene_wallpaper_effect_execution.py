@@ -139,7 +139,7 @@ class SceneWallpaperEffectExecutionTests(unittest.TestCase):
             extra_failure_failures,
         )
 
-    def test_effect_recovery_requires_explicit_exact_ordered_expectation(
+    def test_effect_recovery_uses_ordered_history_and_exact_expectations(
         self,
     ) -> None:
         _, execution, expectation = resolved_graph_effect_recovery_evidence()
@@ -151,12 +151,9 @@ class SceneWallpaperEffectExecutionTests(unittest.TestCase):
             benchmark.effect_execution_failures(execution, sample=sample),
             [],
         )
-        default_failures = benchmark.effect_execution_failures(execution)
-        self.assertIn(
-            "effect execution exact identity both succeeded and failed",
-            default_failures,
-        )
-        self.assertIn("effect execution CPU invocation failed", default_failures)
+        self.assertEqual(benchmark.effect_execution_failures(execution), [])
+        self.assertEqual(len(execution["failed_exact_effects"]), 1)
+        self.assertEqual(execution["cpu_invocations"][0]["frame_ids"], [10])
         _, repeated_pending, _ = resolved_graph_effect_recovery_evidence(
             failure_frames=(10, 11, 12),
         )
@@ -165,13 +162,13 @@ class SceneWallpaperEffectExecutionTests(unittest.TestCase):
             if value["outcome"] == "failed"
         )
         self.assertEqual(failed_invocation["frame_ids"], [10, 11, 12])
-        self.assertEqual(
-            benchmark.effect_execution_failures(
-                repeated_pending,
-                sample=sample,
-            ),
-            [],
-        )
+        for recovery_sample in ({}, sample):
+            self.assertEqual(
+                benchmark.effect_execution_failures(
+                    repeated_pending, sample=recovery_sample,
+                ),
+                [],
+            )
         _, fallback_after_success, _ = resolved_graph_effect_recovery_evidence(
             failure_frames=(10, 21),
         )
@@ -196,9 +193,14 @@ class SceneWallpaperEffectExecutionTests(unittest.TestCase):
             "effect execution effect-local passthrough expectation mismatch",
             static_passthrough_failures,
         )
+        self.assertIn(
+            "effect execution recovery expectation scope conflicts",
+            static_passthrough_failures,
+        )
 
         for kwargs in (
             {"failure_frame": 21, "success_frame": 20},
+            {"failure_frame": 20, "success_frame": 20},
             {"reason": "material-finalizer-system-provider-purpose-mismatch"},
             {"failure_backend": "fixture-backend"},
             {"failure_descriptor_id": "68%23effect%239"},
@@ -221,6 +223,58 @@ class SceneWallpaperEffectExecutionTests(unittest.TestCase):
                 sample={benchmark.EFFECT_RECOVERY_EXPECTATION_KEY: []},
             ),
         )
+
+    def test_effect_recovery_orders_all_reasons_for_the_subject(self) -> None:
+        disposition, _, expectation = resolved_graph_effect_recovery_evidence()
+        other_reason = "material-finalizer-named-provider-unavailable"
+        for other_frame in (10, 11, 20, 21):
+            with self.subTest(other_frame=other_frame):
+                events = defaultdict(list)
+                for frame, outcome, reason in (
+                    (10, "failed", expectation["reason"]),
+                    (other_frame, "failed", other_reason),
+                    (20, "encoded-output", None),
+                ):
+                    events[frame].append(effect_cpu_event(
+                        frame=frame, origin="resolved-material-graph",
+                        subject="effect", layer=68, effect=0,
+                        descriptor="68%23effect%230",
+                        family="visual-failure-passthrough",
+                        backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+                        outcome=outcome,
+                        reason=("effect-local-passthrough-" + reason)
+                            if reason else "-",
+                    ))
+                execution = benchmark.effect_execution_metrics(
+                    "\n".join(effect_execution_log(frame, values, [])
+                              for frame, values in sorted(events.items())),
+                    disposition,
+                )
+                failures = benchmark.effect_execution_failures(execution)
+                self.assertEqual(len(execution["cpu_invocations"]), 3)
+                self.assertEqual(len(execution["failed_exact_effects"]), 1)
+                if other_frame == 11:
+                    self.assertEqual(execution["validation_failures"], [])
+                    self.assertEqual(failures, [])
+                elif other_frame == 10:
+                    self.assertIn(
+                        "effect execution CPU transition identity duplicated",
+                        failures,
+                    )
+                else:
+                    self.assertIn(
+                        "effect execution exact identity both succeeded and failed",
+                        failures,
+                    )
+                    self.assertIn(
+                        "effect execution exact identity both succeeded and failed",
+                        benchmark.effect_execution_failures(
+                            execution,
+                            sample={benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [
+                                {**expectation, "reason": other_reason}
+                            ]},
+                        ),
+                    )
 
     def test_startup_inactive_passthrough_has_no_exact_cpu_demand(self) -> None:
         preview = "\n".join([

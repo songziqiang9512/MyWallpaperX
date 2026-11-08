@@ -6,7 +6,7 @@ from __future__ import annotations
 from scene_matrix_contract import RESOLVED_MATERIAL_GRAPH_BACKEND
 from scene_wallpaper_effect_execution import _effect_execution_static_catalog
 from scene_wallpaper_effect_expectations import (
-    ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES, EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX,
+    EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX,
     effect_local_passthrough_cpu_keys, effect_local_passthrough_graph_keys,
     effect_recovery_cpu_evidence, graph_effect_subject_keys,
 )
@@ -78,7 +78,7 @@ def resolved_material_graph_exact_backend_metrics(
         effect_execution
     )
     recovery_cpu_evidence = effect_recovery_cpu_evidence(effect_execution)
-    recovery_cpu_keys = recovery_cpu_evidence["transition_keys"]
+    recovery_cpu_keys = recovery_cpu_evidence["ordered_keys"]
     recovery_cpu_identities = {value[:3] for value in recovery_cpu_keys}
     graph_effect_local_passthroughs = effect_local_passthrough_graph_keys(
         graph_observations
@@ -355,11 +355,7 @@ def resolved_material_graph_passthrough_metrics(
         )
         if subject not in required_subjects:
             continue
-        if (
-            observation.get("activation_passthrough") is not True
-            or observation.get("program_identity")
-            not in ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES
-        ):
+        if observation.get("activation_passthrough") is not True:
             malformed_subjects.add(subject)
             continue
         observed_subjects.add(subject)

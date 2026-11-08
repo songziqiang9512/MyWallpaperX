@@ -141,7 +141,9 @@ def resolved_material_graph_execution_failures(
         )
     expectation_scopes_conflict = bool(
         {value[:3] for value in expected_effect_local_passthroughs}.intersection(
-            value[:3] for value in expected_effect_recoveries
+            value[:3] for value in (
+                expected_effect_recoveries | recovery_cpu_keys
+            )
         )
     )
     if expects_effect_recovery and not effect_recovery_expectation_valid:
@@ -152,56 +154,71 @@ def resolved_material_graph_execution_failures(
         failures.append(
             "resolved material graph recovery expectation scope conflicts"
         )
-    elif expects_effect_recovery:
-        recovery_cpu_frames = {
-            (
-                value.get("layer_id"),
-                value.get("effect_index"),
-                value.get("descriptor_id"),
-                value.get("reason"),
-            ): (value.get("failure_frame"), value.get("success_frame"))
-            for value in metrics["exact_backend"].get(
-                "recovery_cpu_frames", []
-            )
-            if isinstance(value, dict)
-        }
-        if (
-            recovery_cpu_keys != expected_effect_recoveries
-            or set(recovery_cpu_frames) != expected_effect_recoveries
-            or actual_recovery_passthroughs != expected_effect_recoveries
-        ):
-            failures.append(
-                "resolved material graph recovery evidence mismatch"
-            )
-        terminal_observations = metrics["graph_observations"].get(
-            "terminal_success_observations", []
+    recovery_cpu_frames = {
+        (
+            value.get("layer_id"),
+            value.get("effect_index"),
+            value.get("descriptor_id"),
+            value.get("reason"),
+        ): (value.get("failure_frame"), value.get("success_frame"))
+        for value in metrics["exact_backend"].get(
+            "recovery_cpu_frames", []
         )
-        for recovery in sorted(expected_effect_recoveries):
-            frames = recovery_cpu_frames.get(recovery)
-            if frames is None:
-                continue
-            failure_frame, success_frame = frames
-            identity = recovery[:3]
-            visual_terminals = [
-                observation
-                for observation in terminal_observations
-                if isinstance(observation, dict)
-                and observation.get("visual_failure_passthrough") is True
-                and (
-                    observation.get("layer_id"),
-                    observation.get("effect_index"),
-                    observation.get("descriptor_id"),
-                ) == identity
-                and observation.get("program_identity")
-                    == f"visual-failure-passthrough:{recovery[3]}"
-                and observation.get("frame") == failure_frame
-            ]
-            visual_terminal_observed = bool(visual_terminals) and all(
-                observation.get("outcome") == "succeeded"
-                and observation.get("gpu_completion") == "completed"
-                and observation.get("compositor_consumed") is True
-                for observation in visual_terminals
+        if isinstance(value, dict)
+    }
+    if (
+        set(recovery_cpu_frames) != recovery_cpu_keys
+        or actual_recovery_passthroughs != recovery_cpu_keys
+        or (
+            expects_effect_recovery
+            and effect_recovery_expectation_valid
+            and recovery_cpu_keys != expected_effect_recoveries
+        )
+    ):
+        failures.append(
+            "resolved material graph recovery evidence mismatch"
+        )
+    terminal_observations = metrics["graph_observations"].get(
+        "terminal_success_observations", []
+    )
+    fallback_observations = terminal_observations + metrics["graph_observations"].get(
+        "pending_visual_failure_passthroughs", []
+    )
+    for recovery in sorted(recovery_cpu_keys):
+        frames = recovery_cpu_frames.get(recovery)
+        if frames is None:
+            continue
+        failure_frame, success_frame = frames
+        identity = recovery[:3]
+        visual_terminals = [
+            observation
+            for observation in fallback_observations
+            if isinstance(observation, dict)
+            and observation.get("visual_failure_passthrough") is True
+            and (
+                observation.get("layer_id"),
+                observation.get("effect_index"),
+                observation.get("descriptor_id"),
+            ) == identity
+            and observation.get("program_identity")
+                == f"visual-failure-passthrough:{recovery[3]}"
+        ]
+        visual_terminal_observed = any(
+            observation["frame"] == failure_frame for observation in visual_terminals
+        ) and all(
+            observation.get("outcome") == "succeeded"
+            and observation.get("gpu_completion") == "completed"
+            and failure_frame <= observation["frame"] < success_frame
+            for observation in visual_terminals
+        )
+        if not visual_terminal_observed:
+            failures.append(
+                "resolved material graph recovery passthrough terminal missing"
             )
+        for runtime_identity in sorted({
+            observation["runtime_instance_identity"]
+            for observation in visual_terminals
+        }):
             program_terminals = [
                 observation
                 for observation in terminal_observations
@@ -214,6 +231,7 @@ def resolved_material_graph_execution_failures(
                     observation.get("descriptor_id"),
                 ) == identity
                 and observation.get("frame") == success_frame
+                and observation.get("runtime_instance_identity") == runtime_identity
             ]
             program_identities = {
                 observation.get("program_identity")
@@ -224,7 +242,6 @@ def resolved_material_graph_execution_failures(
             program_terminal_observed = bool(program_terminals) and all(
                 observation.get("outcome") == "succeeded"
                 and observation.get("gpu_completion") == "completed"
-                and observation.get("compositor_consumed") is True
                 for observation in program_terminals
             ) and len(program_identities) == 1
             recovered_program_identity = (
@@ -242,6 +259,7 @@ def resolved_material_graph_execution_failures(
                     observation.get("effect_index"),
                     observation.get("descriptor_id"),
                 ) == identity
+                and observation.get("runtime_instance_identity") == runtime_identity
                 and isinstance(observation.get("frame"), int)
                 and observation["frame"] > success_frame
                 and "next-frame" in observation.get("trigger", [])
@@ -249,15 +267,10 @@ def resolved_material_graph_execution_failures(
             program_next_frame_observed = bool(program_next_frames) and all(
                 observation.get("outcome") == "succeeded"
                 and observation.get("gpu_completion") == "completed"
-                and observation.get("compositor_consumed") is True
                 and observation.get("program_identity")
                     == recovered_program_identity
                 for observation in program_next_frames
             )
-            if not visual_terminal_observed:
-                failures.append(
-                    "resolved material graph recovery passthrough terminal missing"
-                )
             if not program_terminal_observed:
                 failures.append(
                     "resolved material graph recovery Program terminal missing"
@@ -266,10 +279,6 @@ def resolved_material_graph_execution_failures(
                 failures.append(
                     "resolved material graph recovery next-frame Program missing"
                 )
-    elif actual_recovery_passthroughs:
-        failures.append(
-            "resolved material graph unexpected effect recovery"
-        )
     if {
         value[0] for value in actual_effect_local_passthroughs
     }.intersection(

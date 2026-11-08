@@ -65,7 +65,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 具体参数以脚本 `--help` 为准。单独 `--log-only` 保留执行观察与停止；加 `--terminal-snapshot` 在 after 点取一张 Metal PNG，缺省最长1280。活动 pointer 轨迹需要普通模式的各相位捕获；普通模式缺省保全分辨率，也可显式 `--snapshot-max-edge` 缩导出。细线或弱信号须回看原尺寸，缩图消失不能判原始像素缺失。执行观测开启的轨迹请求复用组件事实接口；粒子 bind 行同时记录传给 draw 的 blend/cull/depth、相机选择与实际 depth attachment。导出缩放不改变渲染或完整读回尺寸，编码事实不增加逐输入可见贡献或性能资格。筛查模式允许 `--jobs > 1`；增加并发前核资源/进程隔离、每图 request 与 Surface/GPU 回执及排空。正式性能和真实系统输入仍串行。`--startup-timeout-allowance` 是 supervisor 总期限中额外的准备余量，不改变 Ready 后观察时长。短窗未触发的定时、随机、条件或输入分支只对对应子集延长。
 
-分别判断 `declared / prepared / executed / failed / not-triggered / unknown`。图层隐藏、alpha 为零、离屏、延迟或缺输入不能直接判缺图；先确认目标 consumer、作者过渡和实际 scene time。并发超时、OOM、缺 drawable 等现象先用同输入串行复核。原始失败与后续恢复保留在同次报告，不用重试覆盖失败。
+分别判断 `declared / prepared / executed / failed / not-triggered / unknown`。图层隐藏、alpha 为零、离屏、延迟或缺输入不能直接判缺图；先确认目标 consumer、作者过渡和实际 scene time。并发超时、OOM、缺 drawable 等现象先用同输入串行复核。首事实跨帧采样，GPU回执可异步到达；同一日志/runtime及完整subject按实际frame归并，不按日志行序或整个窗口的成功/失败交集判同帧冲突。原失败保留；局部回退全部早于首次成功时，CPU可记已观测恢复，Graph仍须同subject/reason的回退GPU、恢复Program GPU及同Program后继。中间effect只拥有阶段输出，最终层的compositor消费仍由原整体门验证，不要求每个effect成为最终owner。同帧冲突、成功后再次失败、错身份或缺证保持失败/未知，不用重试覆盖。
 
 <a id="corpus-runtime-measurement"></a>
 ### 全量运行测量
@@ -74,7 +74,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 - **输入与分母**：census 保发现集合、非法 project 和合法 loose；注释不作 shader 声明，条件分支保声明 ordinal。树清单共用口径、复用已读摘要，benchmark 记录隔离副本实际身份。archive 按内容关联显式 attempt，保原失败，末次传入作为当前投影；库存及其派生声明与真实 scene consumer 分开。聚合加载比例只作cohort线索，不顶替精确consumer失败。身份缺失或内容漂移只影响测量资格，不升级为播放许可。
 - **实际消费**：Program 既有选中 slot/资源归因随真实 encode 保留；replay 取替换后的物理 binding，attachment-read 独立标记。普通 source、geometry、particle、group 与颜色导出记录实际 input→target，沿原 command-buffer completion 和 sealed tail 接终端；保 Surface/提交身份及 presentRequested。图输出纹理合成与 terminal material replay 分开。
-- **逐组件**：准备期保作者原 ordinal、definition/child 身份与选中 renderer；模拟观察区分尝试、实际求值、接纳出生及真实拒绝。batch/draw/GPU 与 CPU 观察分别记录；effect旁路保copy/GPU事实与原失败，不算作者operation执行。无法将某组件结果精确接到实例或最终像素时保 unknown，不能用下游非空代替因果证明。
+- **逐组件**：准备期保作者原 ordinal、definition/child 身份与选中 renderer；模拟观察区分尝试、实际求值、接纳出生及真实拒绝。batch/draw/GPU 与 CPU 观察分别记录；未请求的framebuffer来源只从执行集合排除，不记成功或捕获失败；真实requested preflight/encode/GPU失败仍保留。effect旁路保copy/GPU事实与原失败，不算作者operation执行。activation与visual-failure的保留passthrough前缀在原graph入口核身份格式与节点形状，reason作为诊断值保留，后继subject消费者不再维护第二份原因许可表；显式reason期待仍精确核对。无法将某组件结果精确接到实例或最终像素时保 unknown，不能用下游非空代替因果证明。
 - **成本与边界**：新载荷只在显式 DEBUG 测量启用，沿原捕获请求选少量帧，在分配和格式化前取样；只传小值，不持有纹理，不新增全图 hash、逐粒子历史或 completion owner。Release在调用处退出；关闭时没有新增观测表/循环，避免逐粒子进入空helper或构造payload，普通成功算子在实际循环后记首witness。达到诊断容量明确报告截断。bound、draw-encoded、GPU-completed、terminal-consumed/exported、present-requested 和 PNG-observed 分开，均不自动授予逐纹理可见贡献或官方 parity。
 - **运行与画面**：普通样本 Ready 后观察3–4秒，慢准备使用现有 supervisor allowance，过场/延迟只延长对应子集。日志模式可显式请求一张指定 Surface 的 terminal PNG 并保原渲染尺寸；预览缩放只影响导出，记录源/导出尺寸。同request/CB/Surface/GPU与drawable token/extent唯一匹配可证明普通/粒子场景终端，不制造不存在的graph分母或覆盖真实错误。此筛查允许隔离并发，真实系统输入和正式性能仍串行；先小批核每进程路径、实际读回、GPU与停止排空，再按宿主余量增并发。
 
