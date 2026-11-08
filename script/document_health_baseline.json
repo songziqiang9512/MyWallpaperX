@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 46868
+      "bytes": 46863
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -406,15 +406,6 @@
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "bc7c8d29dd5bf498a29b389c8a569cd7ddd0b4c52202a3ab4afcc645fda9aebf",
       "after": "bf382afc3ba5ced212f1bf4a7f8911864b825519c742f674e87aed93e85c70bb",
-      "owner": "SceneScript layer color input values",
-      "reason": "Retire four duplicate normalized-range restrictions and preserve raw finite color through existing owners. Record real FPS text recovery, independent output, and the separate String-seed and early-return proof ceilings. Exact current body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layer-color-values"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1a441de6e764f847308fcc1893797edd76cf158515033a108eddeda85d3e78e0",
-      "after": "75e4e0688a711c7e104aae49516beab70a132c3448bb73ff92624bbc780a7958",
       "owner": "SceneScript layer color input values",
       "reason": "Retire four duplicate normalized-range restrictions and preserve raw finite color through existing owners. Record real FPS text recovery, independent output, and the separate String-seed and early-return proof ceilings. Exact current body budget.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layer-color-values"
