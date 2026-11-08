@@ -301,7 +301,6 @@ extension SceneDesktopWallpaperHost {
         let timelineDefinitions = Set(timelineProgram.bindings.map(\.definition))
         let timelineTargets = Set(timelineDefinitions.map(\.target))
         let propertyBindingDefinitions = runtimeInput.propertyBindingProgram.definitions
-        let propertyBindingTargets = Set(propertyBindingDefinitions.map(\.target))
         let userPropertyProducers = Set(
             runtimeInput.propertyBindingProgram.instructions.map {
                 SceneDynamicUserPropertyProducer(
@@ -311,6 +310,7 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         )
+        let propertyBindingTargets = Set(userPropertyProducers.map(\.target))
         typealias VisibilityOwner = SceneResolvedMaterialExecutionCapabilityAdmission.DynamicEffectVisibilityOwner
         // Script/Timeline owners only register candidates; effects keep authored value.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()

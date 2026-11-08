@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Color providers preserve authored visibility without blocking legal peers."""
+"""Typed visibility fallbacks preserve legal same-key property consumers."""
 
 from __future__ import annotations
 
@@ -87,13 +87,14 @@ import Foundation
             alpha: .layer(layerID: id, field: .alpha))
     }
 
-    static func visibilityValue(_ resolution: SceneUserPropertyResolution) -> SceneUserPropertyValue? {
+    static func visibilityValue(_ resolution: SceneUserPropertyResolution, effect: Bool = false) -> SceneUserPropertyValue? {
         let object = (resolution.root["objects"] as! [[String: Any]])[0]
-        return SceneUserPropertyValue.parse((object["visible"] as? [String: Any])?["value"])
+        let owner = effect ? (object["effects"] as! [[String: Any]])[0] : object
+        return SceneUserPropertyValue.parse((owner["visible"] as? [String: Any])?["value"])
     }
 
-    static func ignored(_ fixture: Fixture) -> [ScenePropertyBindingDiagnostic] {
-        fixture.compilation.diagnostics.filter { $0.code == .ignoredIncompatibleVisibility }
+    static func kindMismatches(_ fixture: Fixture) -> [ScenePropertyBindingDiagnostic] {
+        fixture.compilation.diagnostics.filter { $0.code == .propertyKindMismatch }
     }
 
     static func startupChecks() -> [String: Bool] {
@@ -133,45 +134,85 @@ import Foundation
             for script in [false, true] {
                 let f = fixture(seed: seed, script: script), p = f.compilation.program
                 let label = "\(seed)_\(script)"
-                let diagnostics = ignored(f)
-                checks["ignoreHasExplicitBindingDiagnostic_\(label)"] = diagnostics.count == 1
+                let diagnostics = kindMismatches(f)
+                checks["mismatchHasExplicitBindingDiagnostic_\(label)"] = diagnostics.count == 1
                     && diagnostics.first?.stage == .compile && diagnostics.first?.propertyKey == "palette"
                     && diagnostics.first?.path?.components == [.key("objects"), .index(0), .key("visible")]
                     && f.compilation.diagnostics.count == 1
                 checks["onlyLegalPeersOwnValues_\(label)"] = Set(p.instructions.map(\.target)) == [f.color, f.material, f.alpha]
                     && p.instructions.filter { $0.propertyKey == "palette" }.allSatisfy { $0.valueType == .vector3 }
-                    && !p.definitions.contains { $0.target == f.visible }
+                    && p.definitions.first { $0.target == f.visible }?.authoredValue == .bool(seed)
                     && p.rebuildRequiredPropertyKeys.isEmpty
                 let data = try JSONEncoder().encode(p)
-                checks["programRoundTripKeepsLocalIgnore_\(label)"] = try JSONDecoder().decode(ScenePropertyBindingProgram.self, from: data) == p
+                checks["programRoundTripKeepsFallback_\(label)"] = try JSONDecoder().decode(ScenePropertyBindingProgram.self, from: data) == p
             }
         }
         let boundary: [(String, Fixture)] = [
             ("stringFallback", fixture(seed: "false")), ("numberFallback", fixture(seed: 0)),
             ("nullFallback", fixture(seed: NSNull())), ("negativeID", fixture(id: -1)),
-            ("slider", fixture(kind: .slider, defaultValue: .number(0.5))),
             ("missingDefinition", fixture(definitionCount: 0)),
             ("duplicateDefinition", fixture(definitionCount: 2)),
-            ("conditionalColor", fixture(conditional: true)), ("effectVisibility", fixture(effect: true)),
+            ("conditionalColor", fixture(conditional: true)),
         ]
         for (name, f) in boundary {
-            checks["boundaryDoesNotGainIgnore_\(name)"] = ignored(f).isEmpty
-                && f.compilation.program.rebuildRequiredPropertyKeys.contains("palette")
+            checks["boundaryStillRequiresRebuild_\(name)"] = f.compilation.program.rebuildRequiredPropertyKeys.contains("palette")
         }
         for (name, value) in [("missingDefault", Optional<SceneUserPropertyValue>.none),
                               ("malformedDefault", .some(.string("bad color")))] {
             let f = fixture(defaultValue: value)
-            checks["ignoreCannotHideBadPeer_\(name)"] = ignored(f).count == 1
+            checks["fallbackCannotHideBadPeer_\(name)"] = kindMismatches(f).count == 1
                 && f.compilation.program.rebuildRequiredPropertyKeys.contains("palette")
                 && !f.compilation.program.instructions.contains { $0.propertyKey == "palette" }
         }
         let zero = fixture(id: 0)
-        checks["zeroLayerIDIsLegal"] = ignored(zero).count == 1 && zero.compilation.program.rebuildRequiredPropertyKeys.isEmpty
+        checks["zeroLayerIDIsLegal"] = kindMismatches(zero).count == 1 && zero.compilation.program.rebuildRequiredPropertyKeys.isEmpty
         let bool = fixture(seed: false, kind: .bool, defaultValue: .bool(true))
-        checks["realBoolWriterNotRetired"] = ignored(bool).isEmpty
-            && bool.compilation.program.instructions.contains { $0.target == bool.visible && $0.valueType == .bool }
+        checks["realBoolWriterNotRetired"] = bool.compilation.program.instructions.contains {
+            $0.target == bool.visible && $0.valueType == .bool }
         let conditional = fixture(seed: false, conditional: true)
         checks["conditionalStartupRetainsExistingMatchSemantics"] = visibilityValue(conditional.resolution) == .bool(false)
+        return checks
+    }
+
+    static func typedFallbackChecks() -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        let producers: [(String, SceneUserPropertyKind, SceneUserPropertyValue)] = [
+            ("sliderZero", .slider, .number(0)), ("sliderOne", .slider, .number(1)),
+            ("color", .color, .string("0.4 0.8 0.2")),
+            ("text", .textInput, .string("true")), ("combo", .combo, .string("1")),
+        ]
+        for seed in [false, true] {
+            for effect in [false, true] {
+                for (name, kind, value) in producers {
+                    let f = fixture(seed: seed, id: effect ? 37 : 19,
+                        kind: kind, effect: effect, defaultValue: value)
+                    let selected = f.resolution.bindingReport.bindings.filter {
+                        effect ? $0.target == .effectVisibility(layerID: 37, effectIndex: 0,
+                            effectPath: "effects/unseen.json") : $0.target == .layerVisibility(layerID: 19)
+                    }
+                    let compilation = ScenePropertyBindingCompiler().compile(report: .init(
+                        bindings: selected, diagnostics: []), catalog: f.catalog)
+                    let program = compilation.program
+                    let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 0, generation: 0,
+                        definitions: program.definitions,
+                        userValues: program.evaluate(effectiveValues: f.catalog.effectiveValues(overrides: [:])).userValues).snapshot
+                    let label = "\(name)_\(seed)_\(effect)"
+                    checks["typedFallback_\(label)"] = selected.count == 1
+                        && visibilityValue(f.resolution, effect: effect) == .bool(seed)
+                        && program.definitions.count == 1 && program.instructions.isEmpty
+                        && program.rebuildRequiredPropertyKeys.isEmpty
+                        && snapshot[f.visible]?.value == .bool(seed)
+                        && snapshot[f.visible]?.source == .authored
+                        && compilation.diagnostics.count == 1
+                        && compilation.diagnostics.first?.code == .propertyKindMismatch
+                    let duplicate = ScenePropertyBindingCompiler().compile(report: .init(
+                        bindings: selected + selected, diagnostics: []), catalog: f.catalog)
+                    checks["duplicateWriterNotAdmitted_\(label)"] = duplicate.program.instructions.isEmpty
+                        && !duplicate.program.definitions.contains { $0.target == f.visible }
+                        && duplicate.program.rebuildRequiredPropertyKeys.contains("palette")
+                }
+            }
+        }
         return checks
     }
 
@@ -233,22 +274,24 @@ import Foundation
         let onlyVisibility = ScenePropertyBindingCompiler().compile(report: .init(
             bindings: f.resolution.bindingReport.bindings.filter { $0.target == .layerVisibility(layerID: 10) },
             diagnostics: []), catalog: f.catalog)
-        checks["onlyIgnoredVisibilityHasNoPublisher"] = onlyVisibility.diagnostics.count == 1
-            && onlyVisibility.diagnostics.first?.code == .ignoredIncompatibleVisibility
-            && onlyVisibility.program.instructions.isEmpty && onlyVisibility.program.definitions.isEmpty
+        checks["onlyFallbackVisibilityHasNoPublisher"] = onlyVisibility.diagnostics.count == 1
+            && onlyVisibility.diagnostics.first?.code == .propertyKindMismatch
+            && onlyVisibility.program.instructions.isEmpty
+            && onlyVisibility.program.definitions.first?.authoredValue == .bool(false)
             && onlyVisibility.program.rebuildRequiredPropertyKeys.isEmpty
         var withoutConsumer = ScenePropertyLiveUpdateState(program: onlyVisibility.program,
             effectiveValues: f.catalog.effectiveValues(overrides: [:]), activeConsumerTargets: [])
         let beforeNoConsumer = withoutConsumer
-        checks["onlyIgnoredVisibilityRejectsChangedColor"] = !withoutConsumer.apply(.string("1 0 0"), forPropertyKey: "palette")
+        checks["onlyFallbackVisibilityRejectsChangedColor"] = !withoutConsumer.apply(.string("1 0 0"), forPropertyKey: "palette")
             && sameState(withoutConsumer, beforeNoConsumer)
-        checks["onlyIgnoredVisibilityRejectsEvenSameColor"] = !withoutConsumer.apply(.string("0.4 0.8 0.2"), forPropertyKey: "palette")
+        checks["onlyFallbackVisibilityRejectsEvenSameColor"] = !withoutConsumer.apply(.string("0.4 0.8 0.2"), forPropertyKey: "palette")
             && sameState(withoutConsumer, beforeNoConsumer)
         return checks
     }
 
     static func main() throws {
-        let payload = ["startup": startupChecks(), "compiler": try compilerChecks(), "live": liveChecks()]
+        let payload = ["startup": startupChecks(), "compiler": try compilerChecks(),
+            "fallback": typedFallbackChecks(), "live": liveChecks()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -285,13 +328,16 @@ class SceneColorVisibilityBindingTests(unittest.TestCase):
     def test_startup_preserves_both_boolean_seeds_and_script_metadata(self) -> None:
         self.assert_checks("startup")
 
-    def test_compiler_diagnoses_local_ignore_and_preserves_real_material_peers(self) -> None:
-        for prefix in ("ignoreHasExplicit", "onlyLegalPeers", "programRoundTrip", "zeroLayerID"):
+    def test_compiler_retains_typed_fallback_and_real_material_peers(self) -> None:
+        for prefix in ("mismatchHasExplicit", "onlyLegalPeers", "programRoundTrip", "zeroLayerID"):
             self.assert_checks("compiler", prefix)
 
     def test_unsupported_pairings_and_definition_errors_remain_bounded(self) -> None:
-        for prefix in ("boundaryDoesNot", "ignoreCannot", "realBoolWriter", "conditionalStartup"):
+        for prefix in ("boundaryStill", "fallbackCannot", "realBoolWriter", "conditionalStartup"):
             self.assert_checks("compiler", prefix)
+
+    def test_layer_and_effect_fallbacks_reject_wrong_producer_and_duplicate_writer(self) -> None:
+        self.assert_checks("fallback")
 
     def test_live_colors_update_only_actual_publishers_without_a_boolean_writer(self) -> None:
         for prefix in ("legalColor", "sameColor", "healthyBulk"):
@@ -305,8 +351,8 @@ class SceneColorVisibilityBindingTests(unittest.TestCase):
         for prefix in ("inactiveLegal", "unavailableLegal", "unapprovedConditional"):
             self.assert_checks("live", prefix)
 
-    def test_ignored_visibility_alone_does_not_authorize_a_live_update(self) -> None:
-        self.assert_checks("live", "onlyIgnoredVisibility")
+    def test_fallback_visibility_alone_does_not_authorize_a_live_update(self) -> None:
+        self.assert_checks("live", "onlyFallbackVisibility")
 
 
 if __name__ == "__main__":

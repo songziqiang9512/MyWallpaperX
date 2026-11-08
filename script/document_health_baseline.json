@@ -129,12 +129,12 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 422,
-      "bytes": 172345
+      "lines": 423,
+      "bytes": 174040
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 136,
-      "bytes": 22044
+      "lines": 139,
+      "bytes": 23037
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 47351
+      "lines": 185,
+      "bytes": 47042
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -359,11 +359,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "09eeec0ddfd004bc8df5983aed4391f15729c790f0302994e74195080a8541dd",
-      "after": "43e9a08b8fd1d13095fba66d17fb5a0940f062acdd09d23a54dde0953793c995",
-      "owner": "Scene layer color Timeline",
-      "reason": "现有typed颜色链补真实作者Timeline接线与已验证边界；同步原观察口、338两类反馈及MDLA尚缺消费者，已闭颜色项退出队列，历史夹具过程留本机包。按当前唯一正文的实测大小限定，不增加余量。",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline"
+      "before": "43e9a08b8fd1d13095fba66d17fb5a0940f062acdd09d23a54dde0953793c995",
+      "after": "ebc9d152c58d91be82af652504e81acd58ae9c07b8981e61af27782694b1734e",
+      "owner": "Scene typed visibility fallback",
+      "reason": "Unify typed visibility fallbacks and actual writer ownership; retire Color-only skip and closed queue rows. Record bounded native/author/script regression evidence and preserve official/full-motion limits. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#visibility-typed-fallback"
     },
     {
       "section": "bodies",
@@ -404,20 +404,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "808466f72bf37415af9927e919324e9fbc5564e9c6d8551a23f24fb7cd4c208a",
-      "after": "59d8cc2145f4ba8b8ee9b9815250b1f73bb611b74d74f724ca5c11bff80c114e",
-      "owner": "Scene emitter Directions and radial sampling",
-      "reason": "Remove the arbitrary finite Directions magnitude cap and replace absolute radial powers in the original spawn owner; retire the copied numerical oracle and superseded evidence row. Keep actual constructor/GPU/author qualification and the invalid-range RNG boundary explicit. Exact body budgets without spare allowance.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
+      "before": "59d8cc2145f4ba8b8ee9b9815250b1f73bb611b74d74f724ca5c11bff80c114e",
+      "after": "6d8959c10503d555bf6ffb9f6c603570723ad7fd87dbc8fc77ce717fc15fa853",
+      "owner": "Scene typed visibility fallback",
+      "reason": "Unify typed visibility fallbacks and actual writer ownership; retire Color-only skip and closed queue rows. Record bounded native/author/script regression evidence and preserve official/full-motion limits. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#visibility-typed-fallback"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9302605dd6f03f380aede01e1f7a2d7eee1e2d4e567b8fce8c4c9caa40262fde",
-      "after": "cb2764fb64b12015253c141fab23a152f3b9f46ce1c38221d5d432e71b133b7a",
-      "owner": "Scene cross-particle size qualification",
-      "reason": "Record the existing R0 active child and distinct current scale consumers; preserve missing per-frame size/MVP and official child inheritance evidence as a concrete reopen condition. No particle size patch or feedback closure. Exact body budget.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "cb2764fb64b12015253c141fab23a152f3b9f46ce1c38221d5d432e71b133b7a",
+      "after": "f9604d90005feb81773ea0675ad38571f24fe64157519474ce5391d949a3f3d8",
+      "owner": "Scene typed visibility fallback",
+      "reason": "Unify typed visibility fallbacks and actual writer ownership; retire Color-only skip and closed queue rows. Record bounded native/author/script regression evidence and preserve official/full-motion limits. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#visibility-typed-fallback"
     },
     {
       "section": "bodies",

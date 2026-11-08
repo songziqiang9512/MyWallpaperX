@@ -7,6 +7,9 @@
 
 基本优先级为作者 fallback → 有效 user property → Timeline → SceneScript；实际目标 compiler 决定允许的来源组合，不把同名值合成无类型字典。缺值、错型或被拒 producer 保原已定义 fallback/current，不能用 resolver 的回退值覆盖一个健康播放状态。
 
+<a id="visibility-typed-fallback"></a>
+直接绑定的 layer、Puppet animation 与 effect 显隐沿相同 Bool 目标合同：已知非 Bool 属性不覆盖合法 authored Bool，冷 Document 与 BindingProgram 保同一 fallback；错型 writer 局部拒绝，不把 Slider 的0/1强转显隐，不伪造动态 producer 或 Puppet 准备标志。启动期 producer 冲突只核实际 instruction writers；fallback definition 继续提供原值，不冒充独立 Script 的竞争 writer。条件 Combo 仍走原比较域，Script/Timeline 与非法、缺失或冲突 fallback 的边界不变。退役原 Color→普通层显隐专门忽略路径，统一由真实目标类型拒绝 writer、保定义；该固定 fallback 不依赖启动 effective 值，因此不独立增加重建要求。同 key 其他真实消费者已有的重建标记和热更原子性继续保留，不能删除整个 key 或拆开通过。该合同兑现本引擎类型边界，不推断官方错型隐式转换。
+
 BindingProgram 在构造/解码时形成验证结果与索引；LaunchContext.liveState 保存当前有效输入和 revision。value-only 更新只写对应状态；资源、combo 或 topology 变化触发原准备/重建边界。混合键按原事务接纳，不能拆开通过其中几项。
 
 property key、原始 value、Combo value 和 condition 始终使用作者数据；本地化只作用于显示标题与选项 label，不回写运行输入。作者 text/group 是只读说明，unsupported 类型不生成可写运行能力。面板以已接纳的 effective value 显示当前值，fallback、用户 override 与资源替换状态分别保留；条件隐藏控件不删除其输入。资源更新沿原选择/准备/发布事务处理，失败保原选择，不把 UI 临时编辑值冒充热更新已生效。

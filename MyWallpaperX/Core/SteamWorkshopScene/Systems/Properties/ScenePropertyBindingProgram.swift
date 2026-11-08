@@ -432,15 +432,6 @@ nonisolated struct ScenePropertyBindingCompiler {
             let propertyKind = propertyDefinitions.count == 1
                 ? propertyDefinitions[0].kind
                 : nil
-            if binding.preservesAuthoredVisibility(propertyKind: propertyKind) {
-                diagnostics.append(Self.compileDiagnostic(
-                    code: .ignoredIncompatibleVisibility,
-                    binding: binding,
-                    target: nil,
-                    message: "颜色属性不覆盖显隐 Bool；保留作者值及独立脚本，其他同 key 绑定继续执行。"
-                ))
-                continue
-            }
             guard let mapped = Self.map(
                 binding,
                 propertyKind: propertyKind
@@ -496,8 +487,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                         target: mapped.target,
                         message: "属性 kind 与绑定目标不匹配。"
                     ))
-                }
-                if let defaultValue = property.defaultValue {
+                } else if let defaultValue = property.defaultValue {
                     let defaultValidation = binding.reference.isConditional
                         && admitsConditionalBoolean
                         ? Self.validateConditionalValue(
@@ -620,7 +610,9 @@ nonisolated struct ScenePropertyBindingCompiler {
                     // This defined fallback no longer consumes startup effective values.
                     break
                 default:
-                    rebuildRequiredKeys.insert(binding.reference.key)
+                    if !binding.preservesAuthoredVisibility(propertyKind: propertyKind) {
+                        rebuildRequiredKeys.insert(binding.reference.key)
+                    }
                 }
                 continue
             }

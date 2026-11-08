@@ -95,15 +95,15 @@ nonisolated struct SceneUserPropertyBinding: Codable, Equatable, Hashable {
     let path: SceneUserPropertyPath
     let target: SceneUserPropertyBindingTarget
 
-    /// A direct color provider does not replace an authored visibility Bool.
-    /// Share this preparation rule between startup resolution and live compilation.
     nonisolated func preservesAuthoredVisibility(
         propertyKind: SceneUserPropertyKind?
     ) -> Bool {
-        guard propertyKind == .color, !reference.isConditional,
-              case let .layerVisibility(layerID) = target, layerID >= 0,
+        guard let propertyKind, propertyKind != .bool, !reference.isConditional,
               case .bool? = fallbackValue else { return false }
-        return true
+        switch target {
+        case .layerVisibility, .puppetAnimationVisibility, .effectVisibility: return true
+        default: return false
+        }
     }
 }
 
