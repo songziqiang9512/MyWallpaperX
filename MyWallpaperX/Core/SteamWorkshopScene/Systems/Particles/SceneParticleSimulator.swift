@@ -545,12 +545,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                   existingParticleIDUpperBound: existingParticleIDUpperBound,
                   controlPointParticleSpace: controlPointParticleSpace)
         }
-        // Collect deaths and compact the live prefix in one pass. The previous
-        // two-pass sequence walked every particle once for events and again for
-        // removal, which is a measurable cost for authored systems with tens of
-        // thousands of particles. Preserve authored order while keeping the
-        // event payload and oscillation-cache cleanup identical.
-        var liveCount = 0
+        // A leading range of deaths can be removed in bulk. If a later
+        // death splits the survivors, move the visited range only once.
+        var leadingDeaths = 0
+        var writeIndex: Int?
         for readIndex in particles.indices {
             let particle = particles[readIndex]
             if particle.age + 1e-12 >= particle.lifetime {
@@ -560,15 +558,26 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                         particleID: particle.id, operatorIndex: operatorIndex
                     ))
                 }
-                continue
+                if readIndex == leadingDeaths {
+                    leadingDeaths += 1
+                } else if writeIndex == nil {
+                    let visitedSurvivors = readIndex - leadingDeaths
+                    if leadingDeaths > 0 {
+                        for index in 0..<visitedSurvivors {
+                            particles[index] = particles[index + leadingDeaths]
+                        }
+                    }
+                    writeIndex = visitedSurvivors
+                }
+            } else if let destination = writeIndex {
+                particles[destination] = particle
+                writeIndex = destination + 1
             }
-            if liveCount != readIndex {
-                particles[liveCount] = particle
-            }
-            liveCount += 1
         }
-        if liveCount < particles.count {
-            particles.removeLast(particles.count - liveCount)
+        if let survivorCount = writeIndex {
+            particles.removeLast(particles.count - survivorCount)
+        } else if leadingDeaths > 0 {
+            particles.removeSubrange(..<leadingDeaths)
         }
         simulationTime += duration
         stepSnapshotRecorder?.record(duration: duration, particles: particles)

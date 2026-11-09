@@ -180,6 +180,26 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertFalse(row["cancelled"])
         self.assertFalse(row["limited"])
 
+    def test_death_compaction_preserves_order_payload_and_retained_history(self) -> None:
+        expected = {
+            "none": ([], [0, 1, 2, 3, 4, 5, 6, 7]),
+            "prefix": ([0, 1], [2, 3, 4, 5, 6, 7]),
+            "interior": ([2, 5], [0, 1, 3, 4, 6, 7]),
+            "mixed": ([0, 1, 4, 6], [2, 3, 5, 7]),
+            "all": ([0, 1, 2, 3, 4, 5, 6, 7], []),
+        }
+        for name, (deaths, survivors) in expected.items():
+            with self.subTest(name=name):
+                row = self.result["orderedDeaths"][name]
+                self.assertEqual(row["retainedIDs"], list(range(8)))
+                self.assertEqual(row["retainedAges"], [3 / 32] * 8)
+                self.assertEqual(row["deaths"], deaths)
+                self.assertEqual(row["deathSizes"], [identity + 1 for identity in deaths])
+                self.assertEqual(row["deathAges"], [4 / 32] * len(deaths))
+                self.assertEqual(row["survivors"], survivors)
+                self.assertEqual(row["cachedIDs"], survivors)
+                self.assertEqual(row["historyIDs"], [survivors])
+
     def test_field_writer_baselines_preserve_birth_values_and_do_not_accumulate(self) -> None:
         expected = {"none": (7, [1, 0, 1]), "size": (14, [1, 0, 1]),
                     "oscillate": (21, [1, 0, 1]), "twoSizeWriters": (42, [1, 0, 1]),

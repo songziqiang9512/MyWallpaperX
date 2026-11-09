@@ -349,10 +349,47 @@ import simd
         return ["rows": rows, "event": event]
     }
 
+    static func orderedDeaths() -> [String: Any] {
+        let operatorValue: [String: Any] = ["name": "oscillateposition", "frequencymin": 1,
+            "frequencymax": 2, "scalemin": "1 0 0", "scalemax": "3 1 0"]
+        let input = source(capacity: 8, start: 0, rate: 0, burst: 8,
+                           lifetime: step * 8, operators: [operatorValue])
+        let patterns: [(String, [Int])] = [("none", []), ("prefix", [0, 1]),
+            ("interior", [2, 5]), ("mixed", [0, 1, 4, 6]), ("all", Array(0..<8))]
+        var rows: [String: Any] = [:]
+        for (name, expired) in patterns {
+            let simulator = make(input, history: 4)
+            simulator.advance(by: step * 3)
+            _ = simulator.consumeBirthEvents()
+            for index in simulator.particles.indices {
+                simulator.particles[index].initialSize = Double(index + 1)
+            }
+            for index in expired {
+                simulator.particles[index].lifetime = step * 4
+            }
+
+            let retained = simulator.frameSnapshot()
+            simulator.advance(by: step, allowsEmission: false)
+            let current = simulator.frameSnapshot()
+            rows[name] = [
+                "retainedIDs": retained.particles.map(\.id),
+                "retainedAges": retained.particles.map(\.age),
+                "survivors": current.particles.map(\.id),
+                "deaths": current.deathEvents.map(\.id),
+                "deathSizes": current.deathEvents.map(\.size),
+                "deathAges": current.deathEvents.map(\.age),
+                "cachedIDs": current.positionOscillationCache.keys.map(\.particleID).sorted(),
+                "historyIDs": history(current).map { $0.particles.map(\.id) }
+            ]
+        }
+        return rows
+    }
+
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
             "emptySystems": emptySystems(), "bounds": boundaries(),
-            "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines()]
+            "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines(),
+            "orderedDeaths": orderedDeaths()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
