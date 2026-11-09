@@ -252,7 +252,9 @@ Prepared target/transition 保有序读写；pool 租约、publication 与 compl
 
 不新增 pin、owner 或第二套映射；`historyRehydrateCopyCount` 语义保持为 copy 数。
 
-第二次尝试（2026-11-10，已回退）：补上 lifecycle 门（从 `transaction.intents` 证明闭包由作者 copy 恢复且无 initialize）、状态首读与 prior publication 覆盖后，511/473 仍各只有 1 个 copy（split 生效），其余四条 2 个，但运动模糊拖尾依旧缺失；全部 graph-execution 遥测为 `history=none`，未反映读路径，不能证明 pass0 实际绑定上一代 F1。重开前先在 pass0 绑定处记录 reads 是否非空、透明初始化是否被跳过、prior publication 是否命中（DEBUG 诊断），确认后再提交；未验证不提交。
+第二次尝试（2026-11-10，已回退）后补做 Debug HEAD 对照（无 split）：同一 8 秒窗口同样是 511/473 各 1 个 copy、其余四条各 2 个、总 copy ≈12/帧，且同样没有运动模糊拖尾；split 版本的 copy 行与总数与该对照相同，说明 split 在 Debug 下从未生效。此前的“拖尾消失”因此不是 split 引起，而是 Debug 与 Release 的构建/相位差异（Release 8 秒有拖尾、14 copy/帧；342MB 与 278MB/帧的基线差也未解释）。“读取 token 被回收”的推断随之撤回。
+
+下一步：先让 6/6 链在 Debug 真正进入 split（记录 reads 非空、透明初始化跳过、prior publication 命中与逐 effect copy 差），再用同一 Debug 对照做 copy/像素 A/B；Release 基线差单独记录，不归因给 split。split 未生效并通过 A/B 前不提交代码。
 
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
