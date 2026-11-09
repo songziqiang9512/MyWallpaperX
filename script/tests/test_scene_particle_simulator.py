@@ -878,7 +878,7 @@ enum Harness {
     private static func positionAroundJSON(
         _ fields: String,
         point: String = #"{"id":0,"flags":0,"offset":"10 20 0"}"#,
-        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2}"#
+        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","sign":"1 0 0","distancemin":2,"distancemax":2}"#
     ) -> String {
         let initializer = fields.isEmpty
             ? #"{"name":"unsupported-position-around-baseline"}"#
@@ -4267,7 +4267,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_position_around_control_point_maps_repeat_sequence_and_pointer(self) -> None:
         result = self.run_harness("position-around-control-point")
-        expected_positions = [[12, 20, 0], [10, 22, 0], [8, 20, 0], [10, 18, 0]]
+        radius = math.hypot(8, 20)
+        expected_positions = [[10 + radius, 20, 0], [10, 20 + radius, 0],
+                              [10 - radius, 20, 0], [10, 20 - radius, 0]]
         expected_velocities = [[0, 2, 0], [-2, 0, 0], [0, -2, 0], [2, 0, 0]]
         for actual, expected in zip(result["positions"], expected_positions):
             for value, wanted in zip(actual, expected):
@@ -4281,7 +4283,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertTrue(result["partitioned"])
         self.assertEqual(result["pointerValues"], [1])
-        for actual, expected in zip(result["pointerFirstPosition"], [7, 6, 0]):
+        for actual, expected in zip(result["pointerFirstPosition"], [5 + math.hypot(3, 6), 6, 0]):
             self.assertAlmostEqual(actual, expected)
         self.assertEqual(
             result["pointerDiagnostics"],

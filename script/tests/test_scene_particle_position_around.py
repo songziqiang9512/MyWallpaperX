@@ -179,12 +179,13 @@ import simd
                 let u = simd_normalize(simd_cross(reference, axis)), v = simd_cross(axis, u)
                 for target in [SIMD3<Double>(1, 2, 3), SIMD3<Double>(20, -7, 5)] {
                     sim.advance(by: 0, dynamicControlPoints: [0: target])
-                    var particle = SceneParticleState(id: 1, position: SIMD3(50, 7, 3), velocity: .zero,
+                    let local = SIMD3<Double>(50, 7, 3)
+                    var particle = SceneParticleState(id: 1, position: target + local, velocity: .zero,
                         color: .init(repeating: 1), alpha: 1, size: 8, rotation: .zero,
                         angularVelocity: .zero, age: 0, lifetime: 120,
                         initialColor: .init(repeating: 1), initialAlpha: 1, initialSize: 8)
-                    let axial = simd_dot(particle.position, axis)
-                    let radius = simd_length(particle.position - axis * axial)
+                    let axial = simd_dot(local, axis)
+                    let radius = simd_length(local - axis * axial)
                     let angle = 2 * Double.pi / 5
                     let expectedPosition = target + axis * axial + (u * cos(angle) + v * sin(angle)) * radius
                     var random = sim.frameSnapshot().random
@@ -203,6 +204,21 @@ import simd
             }
         }
         return rows
+    }
+
+    static func unboundBirthResults() -> [String: [[Double]]] {
+        let cases: [(String, String, SIMD3<Double>)] = [
+            ("perpendicular", "0 0 1", .init(40, 0, 0)),
+            ("opposite", "0 0 1", .init(-40, 0, 0)),
+            ("coincident", "0 0 1", .init(50, 0, 0)),
+            ("axial", "1 0 0", .init(40, 0, 0)),
+            ("mixed", "1 0 0", .init(40, 36, 0)),
+        ]
+        return Dictionary(uniqueKeysWithValues: cases.map { name, axis, target in
+            let sim = simulator(definition(4, renamed: name == "opposite", extra: ["axis": axis]))
+            sim.advance(by: 0.125, dynamicControlPoints: [0: target])
+            return (name, sim.particles.map { [$0.position.x, $0.position.y, $0.position.z] })
+        })
     }
 
     static func main() throws {
@@ -264,7 +280,8 @@ import simd
         }
         let result: [String: Any] = ["rows": rows, "invalid": invalid,
                                     "adjacentRejected": adjacentRejected, "wide": wide,
-                                    "defaults": omissionResults(), "basis": basisResults()]
+                                    "defaults": omissionResults(), "basis": basisResults(),
+                                    "unboundBirths": unboundBirthResults()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
     }
 }
@@ -349,6 +366,25 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
         self.assertTrue(all(3 <= size <= 9 for size in row["followingSizes"]))
         self.assertIn("positionAroundControlPointBounded", row["diagnostics"])
         self.assertNotIn("positionAroundControlPointUnsupported", row["diagnostics"])
+
+    def test_unbound_births_preserve_source_plane_and_use_target_relative_radius(self):
+        cases = {
+            "perpendicular": ([40, 0, 0], 10, 2),
+            "opposite": ([-40, 0, 0], 90, 2),
+            "coincident": ([50, 0, 0], 0, 2),
+            "axial": ([50, 0, 0], 0, 0),
+            "mixed": ([50, 36, 0], 36, 0),
+        }
+        self.assertEqual(set(self.result["unboundBirths"]), set(cases))
+        for name, (center, radius, axial_index) in cases.items():
+            with self.subTest(case=name):
+                positions = self.result["unboundBirths"][name]
+                self.assertEqual(len(positions), 5)
+                for position in positions:
+                    self.assertAlmostEqual(position[axial_index], center[axial_index], places=10)
+                    self.assertAlmostEqual(math.dist(position, center), radius, places=10)
+                distinct = {tuple(round(value, 8) for value in p) for p in positions}
+                self.assertEqual(len(distinct), 4 if radius else 1)
 
     def test_four_field_omissions_preserve_raw_plan_births_and_shared_rng(self):
         defaults = self.result["defaults"]

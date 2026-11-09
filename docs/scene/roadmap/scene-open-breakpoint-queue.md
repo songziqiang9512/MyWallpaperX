@@ -115,7 +115,7 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
-| 2927205881 | [序列与实画](../capabilities/runtime-evidence-current.md#particle-position-sequence-count)已恢复699的Count=1500出生定位；官方短段会随播放向左展开，本机后段1,499实例仍较直且偏短。未绑定发射器的当前零半径与[官方控制点距离约束](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html#position-around-control-point)有可判差异。先用同CP1偏移的绑定/未绑定及零偏移正反例隔离出生半径，再核原轨迹运动；不调音频增益或复跑既有早晚窗。 |
+| 2927205881 | [序列与出生半径](../capabilities/runtime-evidence-current.md#particle-position-source-radius)已恢复后段弯曲，左端仍短于官版晚窗。先在官方正交板隔离同龄静止粒子与同方向近/远CP的初段位移，关重力与阻尼并留零力参照。若两组相同，再隔离原Movement重力与阻尼。保留原斜轴投影与未锁定相位边界，避免复跑既有早晚窗或以增益拟合。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |

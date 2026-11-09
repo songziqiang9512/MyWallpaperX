@@ -10,9 +10,7 @@ extension SceneParticleSimulator {
         guard let target = controlPointPosition(plan.controlPoint, offset: .zero)
         else { return false }
 
-        let emitter = definition.emitters[0]
-        let relative = definition.emitterControlPointSource(for: emitter) == plan.controlPoint
-            ? particle.position - target : particle.position
+        let relative = particle.position - target
         let axialDistance = dot(relative, plan.axis)
         let radial = relative - plan.axis * axialDistance
         let radius = SceneParticleSimulationMath.length(radial)
