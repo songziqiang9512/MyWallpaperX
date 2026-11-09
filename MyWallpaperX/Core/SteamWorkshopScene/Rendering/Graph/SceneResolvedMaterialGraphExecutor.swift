@@ -367,6 +367,9 @@ final class SceneResolvedMaterialGraphExecutor {
             let materialFunctionTargets = Set(
                 (resolvedInvocations[effect] ?? []).flatMap(\.targets)
             )
+            let allowsHistorySplit = historySplitAllowed(
+                capability: capability, frameInputs: frameInputs
+            )
             guard let history = prepareHistoryContext(
                 historyRehydrateCopiesByEffect[effect] ?? [],
                 previous: previous,
@@ -374,6 +377,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 lease: lease,
                 graph: graph,
                 materialFunctionTargets: materialFunctionTargets,
+                allowsHistorySplit: allowsHistorySplit,
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             ) else { return .failure(.historyRejected) }

@@ -173,7 +173,7 @@
 | 定位 | 下一步 |
 |---|---|
 | 属性面板 | 总打开/编辑延迟、长Combo完整显示、系统键盘路径与更多locale需实际可达控件。保原始key/value/条件，翻译只改展示；完整段落、只读说明和reset入口不能因优化丢失。 |
-| effect 显隐 / history | 关闭后保history再重新启用的首帧与实际输入待核；沿原activation/previous-current，不增另一history owner。 |
+| effect 显隐 / history | 本帧任一 stage 非 active 即整层不 split；inactive/rejected 或 capability-level visual-failure/initially-inactive passthrough 帧走 seed copy，已提交 history 由 seed 的 rehydrated mapping 承接（设计路径，实际切换待验证）；运行时 material 失败仍按现有丢弃路径。本窗口 4/6 条 motionblur 链活跃且各 1 copy（257/369 被 sceneScript 隐藏，活跃相位待测）；reflection-history 集成 4/4（不覆盖本 gate）。不增另一 history owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
 | 3028048463/531.alpha、3280903509/225.alpha | 531.alpha 为 Number 直通（初值 1.0，脚本无数组返回），空数组来源待核（脚本路径已排除），候选在 prepared catalog/producer 路径，需实际 producer 证据；225.alpha 脚本按 Vec3 返回 color 而属性为 Number，作者配置与字段不符，不静默强转，待官方行为/字段归属证据。 |

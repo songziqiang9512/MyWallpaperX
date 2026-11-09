@@ -167,6 +167,31 @@ extension SceneResolvedMaterialGraphExecutor {
         return resource
     }
 
+    /// A stage that may bypass this frame (inactive/rejected activation or a
+    /// visual-failure plan) can discard the split's frame state; keep the
+    /// seed copy on that frame so the committed history survives.
+    func historySplitAllowed(
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) -> Bool {
+        capability.stages.allSatisfy { stage in
+            switch stage.execution {
+            case let .resolved(_, activation):
+                guard let activation else { return true }
+                let effectKey = stage.product.graph.effects[0].key
+                let decision = frameInputs.stageActivationDecisions[effectKey]
+                    ?? activation.evaluate(
+                        dynamicValues: frameInputs.dynamicValues,
+                        pointerIsInside: frameInputs.pointerIsInside
+                    )
+                if case .active = decision { return true }
+                return false
+            case .visualFailurePassthrough, .initiallyInactivePassthrough:
+                return false
+            }
+        }
+    }
+
     func prepareHistoryContext(
         _ copies: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy],
         previous: State,
@@ -174,6 +199,7 @@ extension SceneResolvedMaterialGraphExecutor {
         lease: SceneGraphRenderTargetLease,
         graph: Graph,
         materialFunctionTargets: Set<Graph.TextureIdentity>,
+        allowsHistorySplit: Bool,
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> HistoryContext? {
@@ -262,7 +288,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 === sourceTextures[resource.token]
         }) else { return nil }
 
-        if preservesPriorState,
+        if allowsHistorySplit, preservesPriorState,
            materialFunctionTargets.isDisjoint(with: readable.keys),
            readable.keys.allSatisfy({
                previous.authoredResources[$0]?.descriptor.initialClear == nil

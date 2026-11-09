@@ -126,7 +126,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
-      "bytes": 55440
+      "bytes": 55691
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 48316
+      "bytes": 48688
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,10 +404,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "82f3952ebae2be5ebffaf09558ab7a15b1c27f0ce8858d9de25795dd23e14acc",
-      "after": "a89823170b67f1358a538090698930f8c94f2abbc862727e340bfaf457b4837f",
+      "before": "a89823170b67f1358a538090698930f8c94f2abbc862727e340bfaf457b4837f",
+      "after": "bfc94d923aa6099008907b4e48760cd5a0ef052c220bd337ec59209b1338aea2",
       "owner": "Scene graph history",
-      "reason": "Record the history split GPU A/B and the state read-binding and copy-source tests.",
+      "reason": "Gate the history split on the per-frame activation decision and document the seed fallback on bypass frames.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
     },
     {
@@ -476,10 +476,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9abfd9a7a73c640df57de913285e1f04a491756f621510370a4649f8f549fb86",
-      "after": "86f6a33ab8eb89d7029a19c857559ab3f1089ef728217a4c61d569dbd7ab4703",
+      "before": "86f6a33ab8eb89d7029a19c857559ab3f1089ef728217a4c61d569dbd7ab4703",
+      "after": "7518a9a640f4220c23f4f117476513e55239722dff6c2503474971c1674d64d9",
       "owner": "Scene open queue",
-      "reason": "Record the split GPU numbers, the alpha author-config facts and the remaining acceptance checks.",
+      "reason": "Record the per-frame split activation gate and the remaining bypass-history checks.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
