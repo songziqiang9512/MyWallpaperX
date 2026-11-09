@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 438,
-      "bytes": 184665
+      "lines": 442,
+      "bytes": 185636
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49027
+      "bytes": 48926
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,11 +422,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "84dac36a5f90670131e93f9ace5c038d4bfd2c7193b52b411984dd8dc9e067a8",
-      "after": "455de335ef938f899ccb0ae0dd564d1f87dc1d902b36635817c439874829f80d",
-      "owner": "Scene material video acquisition and playback",
-      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
-      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+      "before": "455de335ef938f899ccb0ae0dd564d1f87dc1d902b36635817c439874829f80d",
+      "after": "19cab505801e3021cf051024a2b29f01ab8541270809b2d0531b8755e1f3edfe",
+      "owner": "Scene circular text boundary evidence",
+      "reason": "Record the qualified official probe and matched Mac terminal evidence; replace the open case stop with a bounded upstream discriminator. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
     },
     {
       "section": "bodies",

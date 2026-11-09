@@ -250,7 +250,11 @@ StaticModel 继续消费 nearest MainPass 的保 Z/W 局部 VP、XY 绕序及原
 
 N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四UV无拟合确定E径向坐标，Y>1域355968像素中308359个alpha非零；按实际N末行与linear/clampToEdge重放，该域alpha最大差.766626个8bit档、BGRA最大差1.017068档。沿同角度的三个远外点均保实际A68，已在e0原输出形成径向条纹。中心333784个缩小采样像素不获简单bilinear资格，不推定各向异性算法。此结果定位本机N→e0外向延伸机制，尚未授N边行的上游首错、官方named采样目标、2921或终端每条线的归因，不能直接选padding/clamp/PMA修法。
 
-固定官方2.8.0.42的单轮有界静态只授composite资源创建分支，未到sampler descriptor/slot1绑定；原报告跨旁支的误连已按完整返回更正，不从常量或模板未命中推格式/边界。原字节、修正及停止线保于 `.artifacts/scene-named-sampler-official-20261108/`。六产品钩子及临时测试已全部精确退役，4396个core输入零漂移，复用原签名core `ee27529d…5e7b30` 和同身份原Capture门，未重复App/构建验收。源码/精确补丁、N/E raw、有效shader/ABI、数值脚本与独审归 `.artifacts/scene-circular-text-readback-20261108/`，作者标准载荷归 `.artifacts/scene-evidence/runs/scene-circular-text-readback-20261108/`；旧两轮LLDB失败仍保原包。反馈未关闭，下一证据与停止线归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+固定官方2.8.0.42的有界静态只授composite资源创建，未到sampler descriptor/slot1绑定，跨旁支误连已更正，见`.artifacts/scene-named-sampler-official-20261108/`。本机原读回的六个临时产品钩子及测试已退役，4396个core输入零漂移，复用原签名core `ee27529d…5e7b30` 和同身份Capture门。精确补丁、N/E raw、ABI、数值脚本与独审归`.artifacts/scene-circular-text-readback-20261108/`，标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-readback-20261108/`。
+
+同一官方客户端原生预览的探针只替换116个成员中两个半环共用的fragment，原project、2917文字来源和两遮罩逐字节保持。首版出现红块，日志为该fragment的X3014；只展开两处向量构造后，V2 `e20a415d…9223d`实际显示紫/青两面板和其余原环，两次可见观察均未见本机那样的大面积放射条。Parallels的PNG只有窗口顶部或全黑，无合格环区，官方定量取样、边行字节和sampler仍未知。收据、原语法错误及修正版归`.artifacts/scene-circular-text-uv-oracle-next-20261109/`。
+
+同一V2包复用签名本机App `ce563653…7292e`，req1/F57两环实际slot1同named2917，原e1遮罩→tail→main及GPU完成闭合。3024×1964原PNG里两面板和原放射条共存。LOD0在3192/2921分别21/18个屏幕列通过3×3中值规则，分布于各至少三个分离区间：Y近1与1.625的alpha编码同值，高于包回内域对照及零基线至少24档。Y近0侧未达到同一判别条件。此结果限定本机高端延伸，原隐式LOD的整体行为及跨端差异归因仍未定；标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-uv-oracle-20261109/`。反馈与首错判别归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
