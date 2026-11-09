@@ -125,8 +125,8 @@
       "bytes": 57663
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 286,
-      "bytes": 54787
+      "lines": 288,
+      "bytes": 55513
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47780
+      "bytes": 47940
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,8 +404,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "20bb8421cba0c553b5a3d662d4a1f210f5017c2125c9ad987942840b5fad599a",
-      "after": "69ff9955ae4ba43380ead9f9f839fcea30f23ed1793ae2cca6709c7188b15718",
+      "before": "69ff9955ae4ba43380ead9f9f839fcea30f23ed1793ae2cca6709c7188b15718",
+      "after": "c234d4265fdc4e68e6460254982b3f4a15f70554256aef3c30e61eceb2127d61",
       "owner": "Scene graph history",
       "reason": "Define the read/write split experiment for authored unique history targets and its seed-copy fallback.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
@@ -476,8 +476,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7007984811fad1ff77b0460eccbb86923291da7b639f980c8874a41799997f1f",
-      "after": "df0cc6ae2d8c92e8655470274f545f3d203f61fa13809b88f5791e6c55fa5307",
+      "before": "df0cc6ae2d8c92e8655470274f545f3d203f61fa13809b88f5791e6c55fa5307",
+      "after": "896cb72fc6437a15fe14e30b64ba68efe3a41f1ab82493bdcd40d0093b219ef4",
       "owner": "Scene open queue",
       "reason": "Record the restored authored clock/weekday under natural wall time and retain the official clock boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
