@@ -381,6 +381,28 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 && previous.historyClosureIdentities == next.historyClosureIdentities
                 && historyRehydrateCopyCount == readableHistoryCount
         }
+        // A history identity restored by an author copy and read from the
+        // still-pinned previous generation needs no rehydrate copy.
+        if !historyContentDiscarded,
+           !previous.historyClosureIdentities.isEmpty,
+           previous.historyClosureIdentities == next.historyClosureIdentities {
+            var restored: Set<State.Identity> = []
+            var initialized: Set<State.Identity> = []
+            for intent in transaction.intents {
+                switch intent {
+                case let .copy(_, _, _, _, target, _):
+                    restored.insert(target)
+                case let .initialize(identity, _, _):
+                    initialized.insert(identity)
+                default:
+                    break
+                }
+            }
+            if restored.isSuperset(of: next.historyClosureIdentities),
+               initialized.isDisjoint(with: next.historyClosureIdentities) {
+                return true
+            }
+        }
         return !historyContentDiscarded
             && previous.historyClosureIdentities.isEmpty
             && next.historyClosureIdentities.isEmpty

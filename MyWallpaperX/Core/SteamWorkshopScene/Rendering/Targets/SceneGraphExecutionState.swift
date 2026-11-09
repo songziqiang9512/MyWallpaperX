@@ -285,12 +285,14 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         resetGeneration: UInt64,
         previous: Self = .empty,
         historyRehydration: [PhysicalToken: PhysicalToken] = [:],
+        historyReads: [Identity: VersionedResource] = [:],
         materialFunctionInvocations:
             [MaterialFunctionInvocation] = []
     ) -> Result<Transition, Failure> {
         reduce(graph: graph, targetPlan: targetPlan, pairStep: pairStep,
             allocation: allocation, effectGeneration: effectGeneration, resetGeneration: resetGeneration,
             previous: previous, historyRehydration: historyRehydration,
+            historyReads: historyReads,
             materialFunctionInvocations: materialFunctionInvocations, preparedExecution: nil)
     }
 
@@ -298,11 +300,13 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         preparedExecution: PreparedExecution, allocation: Allocation,
         effectGeneration: UInt64, resetGeneration: UInt64, previous: Self = .empty,
         historyRehydration: [PhysicalToken: PhysicalToken] = [:],
+        historyReads: [Identity: VersionedResource] = [:],
         materialFunctionInvocations: [MaterialFunctionInvocation] = []
     ) -> Result<Transition, Failure> {
         reduce(graph: preparedExecution.graph, targetPlan: preparedExecution.plan, pairStep: preparedExecution.pairStep,
             allocation: allocation, effectGeneration: effectGeneration, resetGeneration: resetGeneration,
             previous: previous, historyRehydration: historyRehydration,
+            historyReads: historyReads,
             materialFunctionInvocations: materialFunctionInvocations, preparedExecution: preparedExecution)
     }
 
@@ -310,6 +314,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         graph: Graph, targetPlan: Plan, pairStep: PairStep, allocation: Allocation,
         effectGeneration: UInt64, resetGeneration: UInt64, previous: Self,
         historyRehydration: [PhysicalToken: PhysicalToken],
+        historyReads: [Identity: VersionedResource],
         materialFunctionInvocations: [MaterialFunctionInvocation], preparedExecution: PreparedExecution?
     ) -> Result<Transition, Failure> {
         let materialFunctionTargets = Set(materialFunctionInvocations.flatMap(\.targets))
@@ -484,6 +489,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             guard let current = currentMapping[target.identity] else {
                 return .failure(.missingIdentity)
             }
+            if historyReads[target.identity] != nil { continue }
             let reason = target.initialClear.map(InitializationReason.authoredClear)
                 ?? (target.lifetime.requiresHistorySeed
                     ? .transparentHistorySeed : nil)
@@ -544,11 +550,18 @@ nonisolated struct SceneGraphExecutionState: Equatable {
                         .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) }
                 for binding in framebufferBindings {
                     guard let slot = binding.slot,
-                          let resource = currentMapping[binding.texture] else {
+                          currentMapping[binding.texture] != nil else {
                         return .failure(.missingIdentity)
                     }
-                    guard resource.contentGeneration > 0,
-                          readableTokens.contains(resource.token) else {
+                    let resource: VersionedResource
+                    if let current = currentMapping[binding.texture],
+                       current.contentGeneration > 0,
+                       readableTokens.contains(current.token) {
+                        resource = current
+                    } else if let prior = historyReads[binding.texture],
+                              prior.contentGeneration > 0 {
+                        resource = prior
+                    } else {
                         return .failure(.readBeforeWrite)
                     }
                     bindings.append(.init(

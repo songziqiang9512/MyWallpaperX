@@ -103,6 +103,7 @@ extension SceneResolvedMaterialGraphExecutor {
         visualFailureSnapshot: VisualFailureSnapshot,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        historyReadPublications: [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command]
     ) -> StagePreparationResult {
         if let activation = stageCapability.execution.activationPolicy {
@@ -203,7 +204,8 @@ extension SceneResolvedMaterialGraphExecutor {
                           node: node,
                           preparedBindings: preparedExecution?.framebufferBindingsByNode[nodeIndex],
                           pair: pair,
-                          publications: publications
+                          publications: publications,
+                          historyReadPublications: historyReadPublications
                       ), let target = materialTarget(
                           pairNode: pairNode,
                           fboTarget: fboTarget,
@@ -214,7 +216,13 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
                 var materialPublications: [Graph.TextureIdentity: SceneFrameTextureResource] = [:]
                 for binding in node.bindings {
-                    materialPublications[binding.texture] = publications[binding.texture]
+                    if let reduced = bindings.first(where: { $0.identity == binding.texture }),
+                       let prior = historyReadPublications[binding.texture],
+                       publication(prior, matches: reduced.resource, identity: binding.texture) {
+                        materialPublications[binding.texture] = prior
+                    } else {
+                        materialPublications[binding.texture] = publications[binding.texture]
+                    }
                 }
                 materialPublications[pairStep.inputIdentity] = publications[pairStep.inputIdentity]
                 guard let overlaid = dependencyFrame.overlayingGraphResources(
@@ -592,7 +600,8 @@ extension SceneResolvedMaterialGraphExecutor {
         node: Graph.Node,
         preparedBindings: [Graph.Binding]?,
         pair: PairAtom,
-        publications: [Graph.TextureIdentity: SceneFrameTextureResource]
+        publications: [Graph.TextureIdentity: SceneFrameTextureResource],
+        historyReadPublications: [Graph.TextureIdentity: SceneFrameTextureResource]
     ) -> Bool {
         let expected = preparedBindings ?? node.bindings.filter { $0.texture.kind == .framebuffer }
             .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) }
@@ -600,11 +609,11 @@ extension SceneResolvedMaterialGraphExecutor {
         for (authored, reduced) in zip(expected, bindings) {
             guard authored.slot == reduced.slot,
                   authored.texture == reduced.identity,
-                  publication(
-                      publications[reduced.identity],
-                      matches: reduced.resource,
-                      identity: reduced.identity
-                  ) else { return false }
+                  bindingPublication(
+                      for: reduced,
+                      publications: publications,
+                      historyReadPublications: historyReadPublications
+                  ) != nil else { return false }
         }
         return node.bindings.allSatisfy { binding in
             switch binding.texture.kind {
@@ -715,6 +724,22 @@ extension SceneResolvedMaterialGraphExecutor {
                         ?? representation
                 ))
         }
+    }
+
+    private func bindingPublication(
+        for binding: State.MaterialBinding,
+        publications: [Graph.TextureIdentity: SceneFrameTextureResource],
+        historyReadPublications: [Graph.TextureIdentity: SceneFrameTextureResource]
+    ) -> SceneFrameTextureResource? {
+        if let current = publications[binding.identity],
+           publication(current, matches: binding.resource, identity: binding.identity) {
+            return current
+        }
+        if let prior = historyReadPublications[binding.identity],
+           publication(prior, matches: binding.resource, identity: binding.identity) {
+            return prior
+        }
+        return nil
     }
 
     private func publication(

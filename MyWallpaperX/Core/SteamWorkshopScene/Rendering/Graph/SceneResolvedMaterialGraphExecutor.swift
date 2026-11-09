@@ -113,14 +113,6 @@ final class SceneResolvedMaterialGraphExecutor {
         let representation: SceneShaderColorRepresentation
     }
 
-    struct HistoryContext {
-        let rehydration: [State.PhysicalToken: State.PhysicalToken]
-        let commands: [SceneGraphResourcePassEncoder.PreparedCommand]
-        /// A descriptor-changing reprepare preserves the logical swap
-        /// permutation but intentionally starts the new storage transparent.
-        let discardsPreviousContent: Bool
-    }
-
     enum Command {
         case resource(SceneGraphResourcePassEncoder.PreparedCommand)
         case functionClear(
@@ -372,14 +364,23 @@ final class SceneResolvedMaterialGraphExecutor {
 
             let previous = previousStates[effect] ?? .empty
             let previousResources = previousGraphResources[effect] ?? [:]
+            let materialFunctionTargets = Set(
+                (resolvedInvocations[effect] ?? []).flatMap(\.targets)
+            )
             guard let history = prepareHistoryContext(
                 historyRehydrateCopiesByEffect[effect] ?? [],
                 previous: previous,
                 previousResources: previousResources,
                 lease: lease,
+                graph: graph,
+                materialFunctionTargets: materialFunctionTargets,
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             ) else { return .failure(.historyRejected) }
+            let historyReadVersions: [Graph.TextureIdentity: State.VersionedResource] =
+                Dictionary(uniqueKeysWithValues: history.reads.compactMap { identity, _ in
+                    previous.logicalMapping[identity].map { (identity, $0) }
+                })
             let invocations = (resolvedInvocations[effect] ?? []).map {
                 State.MaterialFunctionInvocation(name: $0.name, targets: $0.targets)
             }
@@ -390,6 +391,7 @@ final class SceneResolvedMaterialGraphExecutor {
                     preparedExecution: prepared, allocation: lease.framebufferAllocation,
                     effectGeneration: effectGeneration, resetGeneration: resetGeneration,
                     previous: previous, historyRehydration: history.rehydration,
+                    historyReads: historyReadVersions,
                     materialFunctionInvocations: invocations
                 )
             } else {
@@ -398,6 +400,7 @@ final class SceneResolvedMaterialGraphExecutor {
                     allocation: lease.framebufferAllocation,
                     effectGeneration: effectGeneration, resetGeneration: resetGeneration,
                     previous: previous, historyRehydration: history.rehydration,
+                    historyReads: historyReadVersions,
                     materialFunctionInvocations: invocations
                 )
             }
@@ -437,6 +440,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 visualFailureSnapshot: stageEntry,
                 pair: &pair,
                 publications: &publications,
+                historyReadPublications: history.reads,
                 commands: &stageCommands
             )
             switch preparation {

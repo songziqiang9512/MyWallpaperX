@@ -233,28 +233,13 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 Prepared target/transition 保有序读写；pool 租约、publication 与 completion 绑定实际 command buffer。unique history 的 seed、reused、失败与取消由原 Coordinator 管理，不靠普通帧重建或全图哈希恢复。
 
 <a id="history-read-write-split"></a>
-### 历史目标读写分离（实验已回退）
+### 历史目标读写分离（未完成）
 
-当前事实：motionblur 类作者图在 pass0 读 unique `_rt_FullCompoBuffer1`、在作者 copy 写回同一逻辑目标；稳定帧仍由 `ScenePersistentGraphTargetAllocator.rehydrateCopies` 把上一帧 F1 整纹理复制到当前 F1。3420215721 实测 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 `graph-resource-copy` 合计 6.295/19.594ms GPU；该复制是实现 seed，不是作者图节点。
+motionblur 类作者图在 unique `_rt_FullCompoBuffer1` 上 pass0 读、作者 copy 写回；稳定帧仍由 `ScenePersistentGraphTargetAllocator.rehydrateCopies` 把上一帧 F1 整纹理复制到当前 F1。3420215721 实测 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 `graph-resource-copy` 合计 6.295/19.594ms GPU。读取 token 由上一帧 commit 的 history pin 覆盖到本帧 command buffer 完成，`.history` entry 不驱逐/复用，seed copy 源与分离读取同源（split 分支复用 seed 源纹理校验），不需要新增 pin 或 allocator/target owner。
 
-目标：沿用同一 `SceneGraphExecutionState`、history/submission pin 与作者图，做读写分离——首读绑定上一帧已 pin 的 F1 资源，作者 copy 写当前分配，下一帧交换。不新增 allocator、target/history owner、缓存或第二套映射。
+启用条件：沿用 `SceneGraphExecutionState` 与作者图做读写分离——首访必须是材质读、作者 copy 写回同一闭包 identity、copy 源只能在作者 copy 恢复之后读取；`lifecycleIsValidLocked` 接受 `historyRehydrateCopyCount==0`（由 `transaction.intents` 证明闭包由作者 copy 恢复、无 `.initialize`）；`State.reduce` 首读、`publishRehydratedHistory` 与 `materialPublications` 使用 prior publication；有 authored clear 或 material-function clear 的历史不进入 split，保留 seed copy 语义。准入不成立时保留 seed copy/透明初始化；准入后的 State/publish 校验失败走整帧 `framePreparationFailureLocked`（frameRequiresDrop），effect-local 视觉失败/激活绕过丢弃该 effect 历史并在下一帧透明重建（与 seed 路径保留 rehydrated tail 不同，反例待补）。不得放宽 read-before-write。
 
-准入与回退：仅当 previous state 保留、上一资源描述符/发布身份/内容代次完整且仍被 history pin 持有、作者图模式与 seed copy 覆盖的 target 完全一致时启用；首帧、reset、descriptor/尺寸变化、pin 缺失或任一身份校验失败由现有 seed copy/透明初始化承接，只影响该 effect。不得放宽 read-before-write 或让读取越过写入。
-
-验收与退役：实施后先保留 seed copy 路径。3420215721 稳定帧 `graph-resource-copy` 至少减少六个 seed（目标 ≤8/帧），GPU p50/p95 改善，稳定帧像素与现役相同；首帧/reset/描述符变化、作者 copy-back 顺序、回滚与在途 pin 反例通过。只有同条件证据成立才退役该 copy 与基线。
-
-首次尝试（2026-11-10，已回退）：按上述准入在 Debug 构建实现后，3420215721 为 12 copy/帧（六条链只有两条被接纳），且出现视觉回归——运动模糊拖尾曲线与环状残影消失，同 8 秒 Release 对照仍在。根因归读取 token 未进入 history pin 生命周期：去掉 seed copy 后上一帧 F1 未被提交 pin 保活，累积材质读到被回收或陈旧的纹理；copy 目标 publication 合成不能替代 pin。产品改动已回退，seed copy 保留。
-
-复核更正（2026-11-10，源码核实）：读取 token 不需要新 pin——上一帧提交的 history pin 覆盖到本帧 GPU 完成，`.history` entry 不参与驱逐或复用；seed copy 的源纹理就是分离要读的同一纹理（`SceneResolvedMaterialGraphExecutor+Validation.swift` 的 previousResources 断言），copy 能工作即证明源有效。首次实现失败的入口在准入与读表示：
-
-- `SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift` 的 `lifecycleIsValidLocked`：`historyRehydrateCopyCount == 0` 且闭包非空时落到“闭包必须为空”分支，整帧 `persistent-allocation-commit-rejected`。需从 `transaction.intents` 证明本帧由作者 copy 恢复了闭包，且闭包 identity 没有 `.initialize`（含 material-function clear）。
-- `SceneGraphExecutionState.reduce` 的首读与 `publishRehydratedHistory`/`materialPublications` 必须接 reads，否则 `.readBeforeWrite` 或发布校验失败；`Preparation` 必须用 prior publication 覆盖 F1，否则 pass0 绑到当前透明 F1（零累积、零重影，与截图一致）。
-
-不新增 pin、owner 或第二套映射；`historyRehydrateCopyCount` 语义保持为 copy 数。
-
-第二次尝试（2026-11-10，已回退）后补做 Debug HEAD 对照（无 split）：同一 8 秒窗口同样是 511/473 各 1 个 copy、其余四条各 2 个、总 copy ≈12/帧，且同样没有运动模糊拖尾；split 版本的 copy 行与总数与该对照相同，说明 split 在 Debug 下从未生效。此前的“拖尾消失”因此不是 split 引起，而是 Debug 与 Release 的构建/相位差异（Release 8 秒有拖尾、14 copy/帧；342MB 与 278MB/帧的基线差也未解释）。“读取 token 被回收”的推断随之撤回。
-
-下一步：先让 6/6 链在 Debug 真正进入 split（记录 reads 非空、透明初始化跳过、prior publication 命中与逐 effect copy 差），再用同一 Debug 对照做 copy/像素 A/B；Release 基线差单独记录，不归因给 split。split 未生效并通过 A/B 前不提交代码。
+验收：Release+DEBUG 诊断构建同条件 A/B 使 3420215721 稳定帧 copy 由 14 降到 8、六个 seed 约 143.3MB/帧消失（约 342.0→198.8MB/帧）；1540 条 copy-back 图执行中 1534 条为 copyCount=0/history=reused，两张不同相位终帧均见拖尾，同 scene-time 像素对比未证；签名 Debug 的 reflection-history 集成门 4/4 通过。正式 WMO Release、首帧/reset/描述符变化与视觉失败反例仍需补测，未通过不退役 seed copy。
 
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
