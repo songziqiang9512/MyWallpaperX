@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 284,
-      "bytes": 53428
+      "bytes": 53632
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 259,
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 470,
-      "bytes": 195872
+      "lines": 472,
+      "bytes": 196955
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48012
+      "bytes": 48750
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -394,15 +394,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e2ed38ceb8724877940b3cd3dc6382e513b59207b70829f7998fa3f8521e29eb",
-      "after": "c9f8d418426a2601174e2e022bea595d06519f1bc1572ac74529f57bbeb61711",
-      "owner": "Scene circular text raster evidence",
-      "reason": "Record original official render and the byte-matched dynamic text raster clipping, and route the remaining repair to its layout owner. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
       "after": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
@@ -421,15 +412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "3b83ab6dbcf7b5241c20a7d7a94f8161ce1780a2e73441ef8d3b4efa1ca4c175",
-      "after": "9b7576461d73d4a4db517f4b22cbf1039d1323e925e6225473c4b87f234c2481",
-      "owner": "Scene particle geometry",
-      "reason": "Record stable perspective velocity trail width and the actual original and controlled capture limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
       "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
@@ -439,21 +421,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e6dec66fed91b50458598b80ba0413c2ead6501a3a3b397c5efd3b9823a96693",
-      "after": "8accd456c410da1d005cdaf96839b19d61f0df7975a878137aaadd43f9123b8a",
-      "owner": "Scene dynamic image preparation",
-      "reason": "Record official qualitative reference, shared texture draws and independent stock-image author control.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-stock-image-version"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "f9b420533d1e5fae28f602742aaf964c0a37a7e0f9b315abab8a7a43c40dc1e5",
       "after": "2ede81ed8485368964412cc1679424232b1bd665e2756c9daf0ba468db1de4f4",
       "owner": "Scene dynamic image preparation",
       "reason": "Document native stock image version spellings at the shared cold constructor boundary.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layers"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "9b7576461d73d4a4db517f4b22cbf1039d1323e925e6225473c4b87f234c2481",
+      "after": "9ae4e5a48d0b30dfec3f7a47a6db5496de3b824fd45245031c93ed440a08f6f2",
+      "owner": "Scene particle runtime",
+      "reason": "Document the actual phase divisor and single Position Around plan.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#operators"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "8accd456c410da1d005cdaf96839b19d61f0df7975a878137aaadd43f9123b8a",
+      "after": "5c9c27cfe893416a01832f7d4dad4060bc6d084571a8a4bf877c98fe7ce7f7c8",
+      "owner": "Scene particle runtime",
+      "reason": "Record author birth placement and exact visual/official proof limits, and retire the qualified blue-ring visibility item.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-position-sequence-count"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "55c719330d917441db9eccc32aae3bc42160bf83de502e0e03538d8f01224ba4",
+      "after": "f10f86c4a6129bf35dc4605a63c826065acfea8e50176cfca410afe557e17b3f",
+      "owner": "Scene particle runtime",
+      "reason": "Replace generic visual holds with exact curve and viewport distinctions after author verification.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }

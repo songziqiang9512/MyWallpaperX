@@ -243,7 +243,7 @@ extension SceneParticleSimulationMath {
                     ? .positionOffsetUnsupported : .positionOffsetBounded,
                     "positionoffsetrandom")
             case .positionAroundControlPoint:
-                add(definition.supportsBoundedPositionAroundControlPoint(initializer)
+                add(definition.positionAroundControlPointPlan(for: initializer) != nil
                     ? .positionAroundControlPointBounded
                     : .positionAroundControlPointUnsupported,
                     "mapsequencearoundcontrolpoint")

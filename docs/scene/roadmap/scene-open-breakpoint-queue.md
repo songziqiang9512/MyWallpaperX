@@ -105,7 +105,7 @@
 | 3504669359 /3767460992 | 350默认四秒旧强白圆未重现，固定圆核及当前材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；不据此修产品，媒体/光效全相位、发布copy物理边及selected pose仍未知。376中央白X已有当前作者fallback供货；真实媒体事件、封面替换及显隐仍需资格，不能从预览差异判纹理漏载。 |
 | 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
-| 3141464346 | Puppet 同 phase 位置、右下音频环与 shader 链；188/332蒸汽不能代音频环。 |
+| 3141464346 | Puppet 同 phase 位置仍开。13/351的环形shader四段及合成已有实绘，归档PCM F183右下见部分彩弧、静音同编号帧无相应轮廓（`scene-problem-retest-20261107-08-01`、`09-01`）。两个作者中心超出当前cover右边界；完整形状待同viewport官方对照，优先区分取景与轨迹，不重跑默认/静音对。 |
 | 2957870426 | PCM/静音已供，目标audio消费者仍未资格。中央竖光、birth Color Random/colorn与ROI须真实出生及颜色单位，不凭bus非零关闭；3383210272并入本次主要效果可见性优先项。 |
 | 3586308277 | SDR原色已恢复，扫描方向/可见度仍未知。[原作者两阶段](../capabilities/runtime-evidence-current.md#shimmer-phase)的Day430主字形均浅绿，未见可归属扫描变化；不能由所选4814近稳像素判冻结。冷常量/时钟链未见首错，g_Time实际上传未读回；现有两图不覆盖完整周期。此项收口，转其他基础播放；重启须可归属扫描ROI/实际phase或明确首错，不第三场延时、调方向/速度/颜色、重跑SDR或新增钩子。 |
 | 3351179520 | 文字环位置/尺度/旋转；需同帧 slot1、MVP、g_Time 与可归属 glyph，而非强制各TRS同心同速。 |
@@ -115,7 +115,7 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
-| 2919854127 /2927205881 | 蓝环可见性与曲线右短段，同声源 band 与实际触发条件。 |
+| 2927205881 | [序列与实画](../capabilities/runtime-evidence-current.md#particle-position-sequence-count)已恢复699的Count=1500出生定位；官方短段会随播放向左展开，本机后段1,499实例仍较直且偏短。未绑定发射器的当前零半径与[官方控制点距离约束](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html#position-around-control-point)有可判差异。先用同CP1偏移的绑定/未绑定及零偏移正反例隔离出生半径，再核原轨迹运动；不调音频增益或复跑既有早晚窗。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |

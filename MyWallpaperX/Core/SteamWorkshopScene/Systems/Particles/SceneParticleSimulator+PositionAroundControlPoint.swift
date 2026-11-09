@@ -1,15 +1,6 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated func applyPositionAroundControlPoint(
-        _ initializer: SceneParticleInitializer,
-        to particle: inout SceneParticleState
-    ) {
-        guard definition.supportsBoundedPositionAroundControlPoint(initializer),
-              let plan = initializer.positionAroundControlPointPlan else { return }
-        _ = applyPositionAroundControlPoint(plan, to: &particle)
-    }
-
     /// Executes an already admitted authored plan. The dynamic control-point
     /// value is still resolved for this frame by the single simulator owner.
     nonisolated func applyPositionAroundControlPoint(

@@ -283,7 +283,9 @@ extension Harness {
             case "pointer0": readerPrepared[name] = definition.emitters[0].controlPoint == nil
                 && definition.emitterControlPointSource(for: definition.emitters[0]) == 0
             case "between": readerPrepared[name] = definition.initializers.last?.positionBetweenControlPointsPlan != nil
-            case "around": readerPrepared[name] = definition.initializers.last.map { definition.supportsBoundedPositionAroundControlPoint($0) } == true
+            case "around": readerPrepared[name] = definition.initializers.last.flatMap {
+                definition.positionAroundControlPointPlan(for: $0)
+            } != nil
             case "maintain": if case let .maintainControlPointDistance(plan) = op.kind { readerPrepared[name] = plan != nil }
             case "radius": if case let .controlPointRadius(plan) = op.kind { readerPrepared[name] = plan != nil }
             case "force": readerPrepared[name] = definition.controlPointForcePlan(for: op) != nil

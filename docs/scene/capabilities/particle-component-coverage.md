@@ -136,7 +136,7 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
 - Plane Collision消费原准备平面；静态Sphere的范围由[球体合同](#sphere-collision)维护。wallpaper Collision Bounds仍缺实际边界供货和缺省响应资格，不能拿emitter范围或自然affine反弹代替。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
-- 小数 Position Around Count 保留作者数值，经实际数学消费，不能改全局 integer parser 或取整。未资格的轴、Mirror、periodic 与空间组合不顺带放行。
+- Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。
 
 源码：[Remap](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift)、[Vortex](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift)、[Plane Collision](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift)、[Sphere Plan](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift)、[碰撞消费](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift)。
 

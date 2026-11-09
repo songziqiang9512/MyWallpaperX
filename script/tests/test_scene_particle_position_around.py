@@ -210,7 +210,8 @@ import simd
         for (label, count, renamed) in [
             ("integer2", 2 as Any, false), ("integer3", 3 as Any, false),
             ("fractional", 2.5 as Any, false), ("renamed", "2.5e0" as Any, true),
-            ("trinity-value", 3.02 as Any, false), ("independent-value", 2.2 as Any, true)] {
+            ("trinity-value", 3.02 as Any, false), ("independent-value", 2.2 as Any, true),
+            ("long-sequence", 1_500 as Any, false), ("renamed-long", "1.5e3" as Any, true)] {
             let def = definition(count, renamed: renamed)
             let sim = simulator(def)
             sim.advance(by: 0.125)
@@ -224,7 +225,7 @@ import simd
                 "partitioned": sim.particles == partitioned.particles])
         }
         var invalid: [[String: Any]] = []
-        for raw: Any in [0, -1, 0.999, 1024.001, "nan", "inf", "bad", true, [2, 3]] {
+        for raw: Any in [0, -1, 0.999, "-inf", "nan", "inf", "bad", true, [2, 3]] {
             let def = definition(raw)
             let sim = simulator(def)
             sim.advance(by: 0.125)
@@ -240,12 +241,13 @@ import simd
         let adjacentRejected = adjacent.allSatisfy {
             definition(2.5, extra: $0).initializers[1].positionAroundControlPointPlan == nil
         }
-        let ids: [UInt64] = [0, 1, 4, 4_294_967_295, 4_294_967_296,
+        let ids: [UInt64] = [0, 1, 4, 1_499, 1_500, 1_501, 4_294_967_295, 4_294_967_296,
             9_007_199_254_740_991, 9_007_199_254_740_992, 9_007_199_254_740_993,
             UInt64.max - 1, UInt64.max]
         var wide: [[String: Any]] = []
-        for count in [1.0, 2.5, 3.02, 2.2, 1024.0, 1.0.nextUp, 1024.0.nextDown] {
-            let def = definition(count)
+        for count in [1.0, 2.5, 3.02, 2.2, 1024.0, 1.0.nextUp, 1024.0.nextDown,
+                      1_024.001, 1_500.0, 1_500.5, 0x1p64] {
+            let def = definition(count, extra: ["bounds": "0.125 0.375"])
             let sim = simulator(def)
             sim.advance(by: 0.125)
             guard let plan = def.initializers[1].positionAroundControlPointPlan else { continue }
@@ -298,10 +300,11 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
                 self.assertIn("positionAroundControlPointBounded", row["diagnostics"])
                 self.assertNotIn("positionAroundControlPointUnsupported", row["diagnostics"])
         rows = {row["label"]: row for row in self.result["rows"]}
-        for label, distinct in [("integer2", 2), ("integer3", 3), ("fractional", 5)]:
+        for label, distinct in [("integer2", 2), ("integer3", 3), ("fractional", 5), ("long-sequence", 5)]:
             points = rows[label]["positions"]
             self.assertEqual(len({tuple(round(v, 6) for v in point) for point in points}), distinct)
         self.assertEqual(rows["fractional"]["positions"], rows["renamed"]["positions"])
+        self.assertEqual(rows["long-sequence"]["positions"], rows["renamed-long"]["positions"])
         # Rotation-independent oracle from the preregistered official N3 board.
         points = rows["fractional"]["positions"][:3]
         chords = sorted(math.dist(a, b) / 50 for i, a in enumerate(points) for b in points[i + 1:])
@@ -309,13 +312,13 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected, places=8)
 
     def test_large_identity_positions_match_exact_rational_remainder(self):
-        self.assertEqual(len(self.result["wide"]), 70)
+        self.assertEqual(len(self.result["wide"]), 143)
         for row in self.result["wide"]:
             with self.subTest(count=row["count"], identity=row["id"]):
                 self.assertTrue(row["applied"])
                 count = Fraction.from_float(row["count"])
                 cycles = Fraction(int(row["id"])) / count
-                phase = float(cycles - cycles.numerator // cycles.denominator)
+                phase = 0.125 + 0.25 * float(cycles - cycles.numerator // cycles.denominator)
                 expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
                 for actual, value in zip(row["position"], expected):
                     self.assertAlmostEqual(actual, value, delta=1e-10)

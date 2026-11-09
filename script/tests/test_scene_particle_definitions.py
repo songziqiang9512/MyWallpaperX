@@ -487,9 +487,7 @@ enum Harness {
             "stockCount": stockPlan.count,
             "stockAxis": [stockPlan.axis.x, stockPlan.axis.y, stockPlan.axis.z],
             "stockControlPoint": stockPlan.controlPoint,
-            "stockSupported": stock.supportsBoundedPositionAroundControlPoint(
-                stock.initializers[0]
-            ),
+            "stockSupported": stock.positionAroundControlPointPlan(for: stock.initializers[0]) == stockPlan,
             "pointerIdentities": stock.positionAroundPointerControlPointIdentities.sorted(),
             "explicitBounds": [
                 explicitPlan.bounds.lowerBound, explicitPlan.bounds.upperBound,
@@ -498,9 +496,7 @@ enum Harness {
                 explicitPlan.axis.x, explicitPlan.axis.y, explicitPlan.axis.z,
             ],
             "explicitControlPoint": explicitPlan.controlPoint,
-            "explicitSupported": explicit.supportsBoundedPositionAroundControlPoint(
-                explicit.initializers[0]
-            ),
+            "explicitSupported": explicit.positionAroundControlPointPlan(for: explicit.initializers[0]) == explicitPlan,
             "malformedRejected": malformed.initializers[0]
                 .positionAroundControlPointPlan == nil,
             "unknownRejected": unknown.initializers[0]

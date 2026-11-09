@@ -99,9 +99,7 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         case .positionOffset:
             positionOffset = value.boundedPositionOffset
         case .positionAroundControlPoint:
-            if definition.supportsBoundedPositionAroundControlPoint(value) {
-                positionAroundControlPoint = value.positionAroundControlPointPlan
-            }
+            positionAroundControlPoint = definition.positionAroundControlPointPlan(for: value)
         case .positionBetweenControlPoints:
             positionBetweenControlPoints = value.positionBetweenControlPointsPlan
         default:

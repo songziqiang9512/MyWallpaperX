@@ -68,7 +68,7 @@ enum SceneParticleChildTemplateSupport {
         }) { return true }
         if definition.initializers.contains(where: {
             $0.positionBetweenControlPointsPlan != nil
-                || definition.supportsBoundedPositionAroundControlPoint($0)
+                || definition.positionAroundControlPointPlan(for: $0) != nil
         }) { return true }
         return definition.operators.contains { value in
             guard !value.audioResponse.isEnabled || value.hasBoundedAudioResponse else {
