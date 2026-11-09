@@ -92,9 +92,8 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)已出太阳和多颗行星，八条共享环纹理的轨道存在锐利截断，时钟和星期仍缺。先用隔离包关轨道写深度，核轨道连续和实体遮挡，再决定贴图深度语义。 |
 | 3453730450 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)可见月球、时钟和背面文字，盘外右上缺官方截图的光。下一步隔离作者点灯39的体积开关，保月面直接受光和背景效果。低观测灰图保为独立导出差异。 |
-| 3662790108 | [自然时钟仍缺星轨标签](../capabilities/runtime-evidence-current.md#world-orbit-labels)。优先用隔离包关前方光晕1349的写深度，保深度测试和原透明度，再按需要区分标尺1011。原 TEX 和 OrbitA/B 与517→tail/main 供货无需重查。点选问题等具体目标后再开。 |
+| 3455121165 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)晚帧缺时钟和星期。同淡入脚本在音频条已进到满值，先核文字107/199自身的透明度及晚帧投影，再按结果查文字供货或覆盖。 |
 
 ### 基础画面与基本交互优先
 

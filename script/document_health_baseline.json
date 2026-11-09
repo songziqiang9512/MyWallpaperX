@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 135,
-      "bytes": 24512
+      "lines": 137,
+      "bytes": 25042
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 569,
-      "bytes": 244183
+      "bytes": 244720
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 47483
+      "lines": 187,
+      "bytes": 47112
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,29 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2ad5c5b82d2e1e75f22c9e36613c23fdc3459ec0d47f34e66acf6d931c936d1d",
-      "after": "b345e9601f96b08c1d45178e835a53ed57178834b8c4d53e100739dda1424200",
-      "owner": "Scene model material and ReflectionFrame",
-      "reason": "Specify the model surface reader and the shared optional history.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-screen-reflection"
+      "before": "b345e9601f96b08c1d45178e835a53ed57178834b8c4d53e100739dda1424200",
+      "after": "2ddee491a3c908c221cdca25921895c71ecd40ce7a1b7bb939be30e6961f5c2c",
+      "owner": "Scene capability contract",
+      "reason": "Define exact fragment coverage for authored image depth writes.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4855d9f3f388e76e0bb9fcaad2214364174468df351b7b3bc2b3e0bfa7bba624",
-      "after": "cf075204ca12f904cd1fe03743ad67b540809e79005cd806c23c434fce1de6df",
+      "before": "cf075204ca12f904cd1fe03743ad67b540809e79005cd806c23c434fce1de6df",
+      "after": "58cfe544ca07fde59ee8f384274ffb55954fe473be2381b085b3296e2d55da63",
       "owner": "Scene runtime evidence",
-      "reason": "Record the original author scenes, official switch and controlled GPU observations.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-screen-reflection"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cf28eeba693fe74626f87f16051855a61ca4db514674a016a874cf0250a4b9d0",
-      "after": "dc36b519f42d1f4202ede558815011d6809c2cbd3b96e87c390e301ffb3d919b",
-      "owner": "Scene open queue",
-      "reason": "Replace broad world model reports with actual reproducers and the next single-variable controls.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "reason": "Replace orbit and label reproducers with controlled original-package and independent world output.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#world-orbit-labels"
     }
   ]
 }

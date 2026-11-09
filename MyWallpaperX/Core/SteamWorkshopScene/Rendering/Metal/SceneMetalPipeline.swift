@@ -49,14 +49,12 @@ struct SceneImageLayerPipeline {
     private enum DepthMode: Hashable {
         case readOnly, readWrite, writeOnly
     }
-    private let depthState: MTLRenderPipelineState?
+    private let depthBindings: [DepthMode: (pipeline: MTLRenderPipelineState, stencil: MTLDepthStencilState)]
     private let additiveMaterialState: MTLRenderPipelineState?
-    private let depthStencilStates: [DepthMode: MTLDepthStencilState]
     private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
     var supportsReadOnlyDepth: Bool {
-        supportsTranslucentMaterialState && depthState != nil
-            && depthStencilStates[.readOnly] != nil
+        depthBindings[.readOnly] != nil
     }
 
     // Unit quad centered at origin, +Y up. The vertex MVP scales/translates it
@@ -124,20 +122,33 @@ struct SceneImageLayerPipeline {
         } else {
             additiveMaterialState = nil
         }
-        if preparesDepth {
+        if preparesDepth && blendMode == .sourceOver {
             descriptor.depthAttachmentPixelFormat = .depth32Float
-            depthState = try? device.makeRenderPipelineState(descriptor: descriptor)
-            var states: [DepthMode: MTLDepthStencilState] = [:]
+            let readOnlyPipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+            var discardsEmptyDepthWrites = true
+            constants.setConstantValue(&discardsEmptyDepthWrites, type: .bool, index: 1)
+            let writingPipeline: MTLRenderPipelineState?
+            if let writer = try? library.makeFunction(
+                name: "sceneImageLayerFrag", constantValues: constants
+            ) {
+                descriptor.fragmentFunction = writer
+                writingPipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+            } else {
+                writingPipeline = nil
+            }
+            var bindings: [DepthMode: (MTLRenderPipelineState, MTLDepthStencilState)] = [:]
             for mode in [DepthMode.readOnly, .readWrite, .writeOnly] {
+                guard let pipeline = mode == .readOnly ? readOnlyPipeline : writingPipeline else { continue }
                 let depthDescriptor = MTLDepthStencilDescriptor()
                 depthDescriptor.depthCompareFunction = mode == .writeOnly ? .always : .greaterEqual
                 depthDescriptor.isDepthWriteEnabled = mode != .readOnly
-                states[mode] = device.makeDepthStencilState(descriptor: depthDescriptor)
+                if let stencil = device.makeDepthStencilState(descriptor: depthDescriptor) {
+                    bindings[mode] = (pipeline, stencil)
+                }
             }
-            depthStencilStates = states
+            depthBindings = bindings
         } else {
-            depthState = nil
-            depthStencilStates = [:]
+            depthBindings = [:]
         }
     }
 
@@ -146,7 +157,7 @@ struct SceneImageLayerPipeline {
         guard supportsTranslucentMaterialState, renderState.blending == .translucent,
               renderState.alphaWriting == .unspecified else { return false }
         guard let mode = Self.depthMode(for: renderState) else { return true }
-        return depthState != nil && depthStencilStates[mode] != nil
+        return depthBindings[mode] != nil
     }
 
     private static func depthMode(for state: SceneMaterialRenderState) -> DepthMode? {
@@ -200,12 +211,12 @@ struct SceneImageLayerPipeline {
     private func bindDepth(
         encoder: MTLRenderCommandEncoder, mode: DepthMode, cullMode: MTLCullMode
     ) -> Bool {
-        guard let depthState, let depthStencilState = depthStencilStates[mode] else { return false }
+        guard let binding = depthBindings[mode] else { return false }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(depthState)
-        encoder.setDepthStencilState(depthStencilState)
+        encoder.setRenderPipelineState(binding.pipeline)
+        encoder.setDepthStencilState(binding.stencil)
         encoder.setFrontFacing(.counterClockwise)
         encoder.setCullMode(cullMode)
         Self.bindQuad(encoder: encoder)

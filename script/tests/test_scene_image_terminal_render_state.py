@@ -1,6 +1,6 @@
 """Finite ordinary-plane terminal state through production draw owners.
 
-Depth/cull and additive RGB use the real image PSO and MainPass renderer.
+Depth/cull, sampled depth coverage and additive RGB use the real image PSO and MainPass renderer.
 This does not execute the full effect graph, advanced-blend matrix or App.
 Compile-only never invokes Metal.
 """
@@ -206,7 +206,7 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
     def test_finite_terminal_state_pixels_and_failure_boundaries(self):
         if self.compile_only:
             self.skipTest("compile-only: finite GPU semantics not executed")
-        rows = self.result["finiteStates"]
+        rows = [row for row in self.result["finiteStates"] if "coveragePixels" not in row]
         self.assertEqual(len(rows), 11)
         amber, blue, green, black = [0, 128, 255, 255], [255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 0, 255]
         for row in rows:
@@ -221,7 +221,7 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
                 self.assertEqual(row["missingRejected"], needs_depth, row)
                 self.assertEqual(row["left"], blue if name in ("write-only", "neither", "normal-front-no-depth") else amber, row)
                 self.assertEqual(row["right"], black if name in ("normal-back", "transparent-write", "transparent-no-write") else blue, row)
-                expected_far = blue if name in ("read-write", "write-only") else black if name == "transparent-write" else green
+                expected_far = blue if name in ("read-write", "write-only") else green
                 self.assertEqual(row["farPeer"], expected_far, row)
         # The existing captured-main role retains read-only behavior, even when
         # a preceding color-only encoder detached the scene depth attachment.
@@ -230,6 +230,24 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
             self.assertEqual(row["left"], amber if row["writer"] else blue, row)
             self.assertEqual(row["right"], blue, row)
             self.assertEqual(row["farPeer"], green, row)
+
+    def test_sampled_terminal_depth_writes_only_where_the_fragment_contributes(self):
+        if self.compile_only:
+            self.skipTest("compile-only: sampled depth coverage not executed")
+        rows = [row for row in self.result["finiteStates"] if "coveragePixels" in row]
+        self.assertCountEqual([row["name"] for row in rows], ["sampled-read-write", "sampled-write-only",
+            "sampled-read-only", "sampled-associated-read-write"])
+        amber, blue, green = [0, 128, 255, 255], [255, 0, 0, 255], [0, 255, 0, 255]
+        for row in rows:
+            name = row["name"]
+            with self.subTest(name=name):
+                self.assertTrue(row["completed"] and row["drawn"] and row["supports"], row)
+                self.assertEqual(row["left"], blue if name == "sampled-write-only" else amber, row)
+                emissive_blue = 64 if name == "sampled-associated-read-write" else 0
+                top = [[blue_value, 0, 0, 255] for blue_value in (0, emissive_blue, 128, 255)]
+                self.assertEqual(row["coveragePixels"], top, row)
+                far = [green] * 4 if name == "sampled-read-only" else [green, *top[1:]]
+                self.assertEqual(row["coverageFarPeerPixels"], far, row)
 
     def test_additive_rgb_uses_single_coverage_and_preserves_ordinary_alpha(self):
         if self.compile_only:

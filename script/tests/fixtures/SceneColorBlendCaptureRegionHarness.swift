@@ -259,36 +259,50 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             SceneMaterialRenderState.compile(blending: "translucent", depthTest: read ? "enabled" : "disabled",
                 depthWrite: write ? "enabled" : "disabled", cullMode: cull, alphaWriting: nil)!
         }
-        func solid(_ rgba: [UInt8]) -> MTLTexture {
+        func sourceTexture(_ rgba: [UInt8]) -> MTLTexture {
+            let width = rgba.count / 4
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
-                width: 1, height: 1, mipmapped: false)
+                width: width, height: 1, mipmapped: false)
             descriptor.storageMode = .shared; descriptor.usage = .shaderRead
             let result = device.makeTexture(descriptor: descriptor)!
-            rgba.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, 1, 1),
-                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
+            rgba.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, width, 1),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: rgba.count) }
             return result
         }
-        let amber = solid([255, 128, 0, 255]), blue = solid([0, 0, 255, 255])
-        let green = solid([0, 255, 0, 255])
-        let purple = solid([192, 32, 192, 255])
+        let amber = sourceTexture([255, 128, 0, 255]), blue = sourceTexture([0, 0, 255, 255])
+        let green = sourceTexture([0, 255, 0, 255])
+        let purple = sourceTexture([192, 32, 192, 255])
+        // The right half isolates exact zero, tiny/partial coverage and opaque
+        // coverage, or an associated RGB contribution with zero alpha.
+        let opaqueBlue: [UInt8] = [0, 0, 255, 255]
+        let opaqueHalf = Array(repeating: opaqueBlue, count: 4).flatMap { $0 }
+        let straight = sourceTexture(opaqueHalf + [0, 0, 255, 0, 0, 0, 0, 1,
+            0, 0, 255, 128, 0, 0, 255, 255])
+        let associated = sourceTexture(opaqueHalf + [0, 0, 0, 0, 0, 0, 64, 0,
+            0, 0, 128, 128, 0, 0, 255, 255])
         let uniforms = SceneLayerFragmentUniforms(time: 0, alpha: 1,
             dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
             sourceSampling: .zero, tint: SIMD4(repeating: 1),
             textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
         var rows: [[String: Any]] = []
-        let variants: [(String, Bool, Bool, String, Float, Float)] = [
-            ("read-only", true, false, "nocull", 2, 1),
-            ("renamed-equivalent-read-only", true, false, "nocull", 2, 1),
-            ("read-write", true, true, "nocull", 2, 1),
-            ("write-only", false, true, "nocull", 2, 1),
-            ("neither", false, false, "nocull", 2, 1),
-            ("normal-front", true, false, "normal", 2, 1),
-            ("normal-front-no-depth", false, false, "normal", 2, 1),
-            ("normal-back", true, false, "normal", -2, 1),
-            ("nocull-back", true, false, "nocull", -2, 1),
-            ("transparent-write", false, true, "nocull", 2, 0),
-            ("transparent-no-write", false, false, "nocull", 2, 0)]
-        for (name, read, write, cull, scaleX, alpha) in variants {
+        enum Coverage { case opaque, zeroOpacity, straight, associated }
+        let variants: [(String, Bool, Bool, String, Float, Coverage)] = [
+            ("read-only", true, false, "nocull", 2, .opaque),
+            ("renamed-equivalent-read-only", true, false, "nocull", 2, .opaque),
+            ("read-write", true, true, "nocull", 2, .opaque),
+            ("write-only", false, true, "nocull", 2, .opaque),
+            ("neither", false, false, "nocull", 2, .opaque),
+            ("normal-front", true, false, "normal", 2, .opaque),
+            ("normal-front-no-depth", false, false, "normal", 2, .opaque),
+            ("normal-back", true, false, "normal", -2, .opaque),
+            ("nocull-back", true, false, "nocull", -2, .opaque),
+            ("transparent-write", false, true, "nocull", 2, .zeroOpacity),
+            ("transparent-no-write", false, false, "nocull", 2, .zeroOpacity),
+            ("sampled-read-write", true, true, "nocull", 2, .straight),
+            ("sampled-write-only", false, true, "nocull", 2, .straight),
+            ("sampled-read-only", true, false, "nocull", 2, .straight),
+            ("sampled-associated-read-write", true, true, "nocull", 2, .associated)]
+        for (name, read, write, cull, scaleX, coverage) in variants {
             let state = name == "renamed-equivalent-read-only"
                 ? SceneMaterialRenderState.compile(blending: " Translucent ", depthTest: " ENABLED ",
                     depthWrite: " Disabled ", cullMode: " NoCull ", alphaWriting: nil)!
@@ -325,7 +339,16 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             let layer = SceneRenderDescriptor.Layer(id: 812, colorBlendMode: 0,
                 imageMaterialRenderState: state)
             let needsDepth = read || write
-            var finalUniforms = uniforms; finalUniforms.alpha = alpha
+            let sampledCoverage = coverage == .straight || coverage == .associated
+            let source: MTLTexture
+            switch coverage {
+            case .opaque, .zeroOpacity: source = blue
+            case .straight: source = straight
+            case .associated: source = associated
+            }
+            var finalUniforms = uniforms
+            finalUniforms.alpha = coverage == .zeroOpacity ? 0 : 1
+            if sampledCoverage { finalUniforms.sourceSampling = SIMD2(2, coverage == .straight ? 1 : 0) }
             let missingRejected = !SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
                 uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
                 colorBlendPipeline: nil, terminalMaterialState: state,
@@ -341,7 +364,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
                 colorBlendPipeline: nil, terminalDepth: binding, terminalMaterialState: state,
                 terminalMVP: needsDepth ? terminal : nil, mainPass: wrongPass)
-            let drawn = SceneImageLayerMainPassRenderer.draw(texture: blue, mvp: authored,
+            let drawn = SceneImageLayerMainPassRenderer.draw(texture: source, mvp: authored,
                 uniforms: finalUniforms, dependencyTexture: nil, layer: layer, pipeline: pipeline,
                 colorBlendPipeline: nil, terminalDepth: needsDepth ? binding : nil,
                 terminalMaterialState: state, terminalMVP: needsDepth ? terminal : nil, mainPass: pass)
@@ -351,14 +374,14 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             let overlayDrawn = SceneImageLayerMainPassRenderer.draw(texture: purple, mvp: overlay,
                 uniforms: uniforms, dependencyTexture: nil, layer: .init(id: 814, colorBlendMode: 0),
                 pipeline: pipeline, colorBlendPipeline: nil, mainPass: pass)
-            var corner = transformed(0.5, 0.5, 0.5, -0.5); corner.columns.3.z = 0.3
+            var corner = transformed(sampledCoverage ? 1 : 0.5, 0.5, 0.5, -0.5); corner.columns.3.z = 0.3
             precondition(draw(green, corner, policy(true, false)))
             precondition(pass.finishEnsuringClear()); command.commit(); command.waitUntilCompleted()
             let bytes = pixels(output)
             func bgra(_ x: Int, _ y: Int) -> [UInt8] {
                 Array(bytes[((y * 32 + x) * 4)..<((y * 32 + x) * 4 + 4)])
             }
-            rows.append(["name": name, "drawn": drawn, "missingRejected": missingRejected,
+            var row: [String: Any] = ["name": name, "drawn": drawn, "missingRejected": missingRejected,
                 "stateMismatchRejected": stateMismatchRejected, "wrongPassRejected": wrongPassRejected,
                 "overlayDrawn": overlayDrawn, "overlay": bgra(16, 16),
                 "supports": pipeline.supports(state), "baseSupports": base.supports(state),
@@ -370,7 +393,13 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                         depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull", alphaWriting: $0)!)
                 },
                 "left": bgra(6, 8), "right": bgra(24, 8), "farPeer": bgra(24, 24),
-                "completed": command.status == .completed && command.error == nil])
+                "completed": command.status == .completed && command.error == nil]
+            if sampledCoverage {
+                let bandCenters = [18, 22, 26, 30]
+                row["coveragePixels"] = bandCenters.map { bgra($0, 8) }
+                row["coverageFarPeerPixels"] = bandCenters.map { bgra($0, 24) }
+            }
+            rows.append(row)
         }
         return rows
     }
