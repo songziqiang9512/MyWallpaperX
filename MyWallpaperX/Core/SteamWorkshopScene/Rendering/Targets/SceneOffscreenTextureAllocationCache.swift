@@ -316,11 +316,13 @@ extension SceneOffscreenTextureAllocationCache {
         case terminalInput(layerID: Int, slot: Int, width: Int, height: Int)
         case environment(width: Int, height: Int)
         case modelShadow(slot: Int, width: Int, height: Int)
+        case modelCameraDepth(width: Int, height: Int)
         case puppetClipping(layerID: Int, clipID: Int, domain: UUID, width: Int, height: Int)
 
         var retainsReplacedSubmission: Bool {
             switch self {
-            case .composition, .compositionGroup, .environment, .modelShadow, .puppetClipping, .sourceMaterial, .terminalInput: true
+            case .composition, .compositionGroup, .environment, .modelShadow, .modelCameraDepth,
+                 .puppetClipping, .sourceMaterial, .terminalInput: true
             default: false
             }
         }

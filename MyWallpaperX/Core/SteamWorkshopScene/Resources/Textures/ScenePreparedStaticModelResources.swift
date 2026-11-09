@@ -273,7 +273,10 @@ struct ScenePreparedStaticModelResources {
             })
             guard let pipeline = SceneStaticModelPipeline(
                 device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-                preparesReflection: !reflectiveLayerIDs.isEmpty) else { return .empty }
+                preparesReflection: !reflectiveLayerIDs.isEmpty,
+                preparesCameraDepth: descriptor.camera.clearEnabled && descriptor.layers.contains {
+                    $0.pointLight?.unshadowedVolume != nil
+                }) else { return .empty }
             return ScenePreparedStaticModelResources(
                 pipeline: pipeline,
                 entriesByLayerID: entries,

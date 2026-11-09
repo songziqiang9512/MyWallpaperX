@@ -19,6 +19,12 @@ extension SceneMetalRenderer {
     /// Pass-scoped scene depth in one command buffer. Models and qualified
     /// terminals share first-clear/resource decisions, including failed leases.
     final class StaticModelFrame {
+        struct VolumeOccluder {
+            let mesh: SceneStaticModelMesh
+            let modelToClip: simd_float4x4
+            let cullMode: MTLCullMode
+        }
+
         struct Depth {
             let acquisition: SceneParticleDepthTargetPool.Acquisition
             /// Particle depth retains its original independent clear policy.
@@ -44,6 +50,8 @@ extension SceneMetalRenderer {
             }
         }
         private let commandBuffer: MTLCommandBuffer
+        let collectsVolumeOccluders: Bool
+        var volumeOccluders: [VolumeOccluder] = []
         // A present nil rejects this frame's direct draw; absence preserves the
         // immutable static resource. All passes consume this one publication.
         private var directMeshes: [Int: SceneStaticModelMesh?] = [:]
@@ -61,8 +69,9 @@ extension SceneMetalRenderer {
         var shadows: [SceneStaticModelShadow] = []
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
-        init(commandBuffer: MTLCommandBuffer) {
+        init(commandBuffer: MTLCommandBuffer, collectsVolumeOccluders: Bool = false) {
             self.commandBuffer = commandBuffer
+            self.collectsVolumeOccluders = collectsVolumeOccluders
         }
 
         func publishDirectModelMesh(_ mesh: SceneStaticModelMesh?, for layerID: Int,
@@ -261,6 +270,11 @@ extension SceneMetalRenderer {
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
+            if encoded && state.collectsVolumeOccluders && usesPerspective && pass.isSceneRoot
+                && draw.entry.writesDepth && draw.entry.materialBlending == .normal && draw.alpha == 1 {
+                state.volumeOccluders.append(.init(mesh: draw.mesh,
+                    modelToClip: viewProjection * draw.world, cullMode: draw.material.cullMode))
+            }
 #if DEBUG
             if let trace = pass.compositionTrace, trace.isCompositionSelected {
                 var source = SceneCompositionTextureObservation(draw.texture, role: "model-color")
@@ -301,6 +315,50 @@ extension SceneMetalRenderer {
                 for: layer.id, encoded: encoded, on: commandBuffer)
         }
         return encodedLit
+    }
+
+    func encodeVolumeOccluderDepth(
+        state: StaticModelFrame, pass: SceneMainPassEncoder, pool: SceneOffscreenTexturePool?,
+        groups: SceneCompositionGroupFrameRuntime?, needsTerminalScratch: Bool
+    ) -> MTLTexture? {
+        guard !state.volumeOccluders.isEmpty, let pipeline = staticModelResources.pipeline,
+              let pool else { return nil }
+        let extent = pass.targetExtent
+        return pass.withReadableTarget { color, commandBuffer -> MTLTexture? in
+            if needsTerminalScratch, groups?.terminalScratch(matching: color, on: commandBuffer) == nil {
+                guard let scratch = pool.reserveDisplayScratch(width: extent.width,
+                    height: extent.height, commandBuffer: commandBuffer) else { return nil }
+                pass.retainCompositionPin(scratch.pin)
+            }
+            guard let target = pool.reserveModelCameraDepth(width: extent.width,
+                height: extent.height, commandBuffer: commandBuffer) else { return nil }
+            state.pins.append(target.pin)
+            let descriptor = MTLRenderPassDescriptor()
+            descriptor.depthAttachment.texture = target.texture
+            descriptor.depthAttachment.loadAction = .clear
+            descriptor.depthAttachment.storeAction = .store
+            descriptor.depthAttachment.clearDepth = 0
+#if DEBUG
+            let encoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "volume-occluder-depth")
+#else
+            let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+#endif
+            guard let encoder else { return nil }
+            let winding = pass.rasterFrontFacing
+            for occluder in state.volumeOccluders {
+                pipeline.drawCameraDepth(mesh: occluder.mesh, modelToClip: occluder.modelToClip,
+                    frontFacing: winding, cullMode: occluder.cullMode, encoder: encoder)
+            }
+            encoder.endEncoding()
+#if DEBUG
+            if let trace = pass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "volume-occluder-depth",
+                    target: .init(target.texture, role: "model-camera-depth"), outcome: "encoded",
+                    details: ["partCount": String(state.volumeOccluders.count)]))
+            }
+#endif
+            return target.texture
+        } ?? nil
     }
 
     /// Returns a complete draw set only when its original late bindings are already

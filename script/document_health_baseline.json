@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 137,
-      "bytes": 25042
+      "lines": 148,
+      "bytes": 27380
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 569,
-      "bytes": 244720
+      "lines": 570,
+      "bytes": 245693
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47112
+      "bytes": 47202
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,20 +458,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b345e9601f96b08c1d45178e835a53ed57178834b8c4d53e100739dda1424200",
-      "after": "2ddee491a3c908c221cdca25921895c71ecd40ce7a1b7bb939be30e6961f5c2c",
+      "before": "2ddee491a3c908c221cdca25921895c71ecd40ce7a1b7bb939be30e6961f5c2c",
+      "after": "76330f6cf47d854d6c6fc515f4bc22a14a8759e2e54f2e7b8cb4f28dbf26ec95",
       "owner": "Scene capability contract",
-      "reason": "Define exact fragment coverage for authored image depth writes.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+      "reason": "Define authored point-volume integration and opaque model depth ownership.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#point-light-volume"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cf075204ca12f904cd1fe03743ad67b540809e79005cd806c23c434fce1de6df",
-      "after": "58cfe544ca07fde59ee8f384274ffb55954fe473be2381b085b3296e2d55da63",
+      "before": "58cfe544ca07fde59ee8f384274ffb55954fe473be2381b085b3296e2d55da63",
+      "after": "3fa80052779d43a01b0ea28fc8fa5bb7886b941667a1683bdf802323a150b13b",
       "owner": "Scene runtime evidence",
-      "reason": "Replace orbit and label reproducers with controlled original-package and independent world output.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#world-orbit-labels"
+      "reason": "Record official flag isolation, opaque depth correction, and independent author playback.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-light-volume"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "df0b3f225aa365709d6ee09c4d0790c3d65b7774dae549a9aba77e38052771bd",
+      "after": "d36248145c41fcc0e7ae24bf676e84de7dbfa3209afca9a596f0f2723055562f",
+      "owner": "Scene open queue",
+      "reason": "Remove the restored lunar volume gap and retain the proven diagnostic export and shadowed scope.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }

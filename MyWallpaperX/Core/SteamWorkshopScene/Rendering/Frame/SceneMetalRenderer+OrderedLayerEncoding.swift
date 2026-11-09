@@ -60,6 +60,7 @@ extension SceneMetalRenderer {
     func encodeOrderedLayers(
         orderedLayers: [SceneRenderDescriptor.Layer],
         initiallyStopped: Bool,
+        needsTerminalScratch: Bool,
         forwardGraphProviderLayerIDs: Set<Int>,
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
@@ -522,6 +523,35 @@ extension SceneMetalRenderer {
         if let reason = modelFrame.depthDeferralReason {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
+        }
+
+        if !stopsAfterClaimedFailure, let pointVolumePipeline,
+           let farPlane = cameraFrame.nativeFarPlane,
+           let depth = encodeVolumeOccluderDepth(state: modelFrame, pass: mainPass,
+                pool: offscreenTexturePool, groups: compositionGroupRuntime,
+                needsTerminalScratch: needsTerminalScratch),
+           let encoder = mainPass.encoder(required: false) {
+            let encoded = pointVolumePipeline.draw(
+                lights: frameLightSnapshot.point,
+                camera: .init(
+                    origin: cameraFrame.perspectiveEyePosition,
+                    near: frameProjection.descriptor.camera.nearZ,
+                    forward: cameraFrame.cameraForward, far: farPlane.z,
+                    horizontal: cameraFrame.cameraRight * (farPlane.x / farPlane.z),
+                    vertical: cameraFrame.cameraUp * (farPlane.y / farPlane.z)
+                ),
+                depth: depth, encoder: encoder
+            )
+#if DEBUG
+            if encoded, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "point-volume",
+                    source: .init(depth, role: "model-camera-depth"),
+                    target: mainPass.compositionTarget, access: "texture-bind", outcome: "draw-encoded",
+                    details: ["layerIDs": frameLightSnapshot.point.compactMap {
+                        $0.volume == nil ? nil : $0.layerID.map(String.init)
+                    }.joined(separator: ",")]))
+            }
+#endif
         }
 
         let mainEncoded = mainPass.finishEnsuringClear()

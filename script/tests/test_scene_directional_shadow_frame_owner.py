@@ -132,6 +132,7 @@ struct TextureRegistry { let frameEpoch:UInt64 = 1 }
 struct SceneCompositionGroupFrameRuntime {
  func renderPass(forLayerID:Int)->SceneMainPassEncoder? { nil }
  func closeAllGroupEncoders() {}
+ func terminalScratch(matching:MTLTexture,on:MTLCommandBuffer)->MTLTexture? {nil}
  func sourceIsAvailable(forLayerID:Int)->Bool {false}
  func compositeTargetPass(forRootID:Int)->SceneMainPassEncoder? {nil}
 }

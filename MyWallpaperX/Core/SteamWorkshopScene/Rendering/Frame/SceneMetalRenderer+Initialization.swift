@@ -71,6 +71,8 @@ extension SceneMetalRenderer {
             scriptSourceEvidence: scriptSourceEvidence,
             pipeline: pipelineRepository.spotLight()
         )
+        self.pointVolumePipeline = staticModelResources.pipeline?.supportsCameraDepth == true
+            ? pipelineRepository.pointVolume() : nil
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
         let resolvedMaterialVisibleRootLayerIDs =
             resolvedMaterialRuntime?.visibleExecutionRootLayerIDs ?? []

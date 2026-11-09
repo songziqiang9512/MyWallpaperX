@@ -117,6 +117,17 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
 
+<a id="point-light-volume"></a>
+### 透视世界的无阴影点光体积
+
+作者 `lpoint` 开启 `castvolumetrics` 时，显式体积密度与体积指数独立于表面光的径向指数。沿同一 light snapshot 消费已解析的世界位置、颜色、强度、半径及当前显隐。显式未开启、零密度或零强度无体积贡献，普通受光继续走原消费者。首批接入逐帧清屏、具有根域实体模型的透视场景和无投影阴影的点光。累积画布的体积色须在历史原色之外发布。
+
+透明轨道可在普通合成中按作者策略写深度，弱覆盖在该域仍有意义。体积积分只由实际绘制的实体表面截止。共享深度只保最近写者，无法恢复透轨后方的实体深度。活跃体积光的帧收集已编码的根域透视模型部件，条件为写深度、普通不透明混合与层 alpha 为 1。该类颜色 draw 的覆盖来自几何，体积深度直接复用同一 mesh、投影和剔除做 depth-only draw，无材质采样。该目标由现有有界 offscreen pool 及同一 command buffer 持有。普通共享深度和投影阴影各自保持，终端显示映射的必需 scratch 先保容量。无活动光、无实体或可选目标失败均无此绘制。
+
+根层完成后，主画布在 Bloom 和显示映射之前加上体积色。复用透视相机的解析视锥和这张同帧实体深度，得到每个像素从近裁面到首个实体深度面的视线段。视线与作者半径球相交后积分径向衰减，再用半径、密度、颜色与强度定标。深度清零像素使用解析远裁面，相机在球内取近裁面起点。求积在最接近光源的位置分开两个单调段，避免窄峰由单个样点过度放大。所有点光复用每像素的深度与视线并合在一次 draw，无额外颜色目标、背面深度、模糊或纹理缓存。
+
+官方原包开关对照确立盘外体积色与直接受光的区别。stock 资料用于确定可读深度、有限半径和径向积分的合同；求积、资源及合成落点由本引擎实现。验收包含实体遮挡与透轨、半径边缘、相机内外、开关与非体积点光、动态显隐、作者原包与独立体积点光。投影阴影、组域、无可用世界深度、雾与体积混用及官方精确质量/色值分别取证。
+
 <a id="limits"></a>
 ## 当前缺口与最近门
 

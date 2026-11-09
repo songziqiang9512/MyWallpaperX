@@ -25,6 +25,7 @@ struct SceneLightSnapshot {
         let intensity: Float
         let radius: Float
         var falloffExponent: Float = 2
+        var volume: ScenePointLightDefinition.Volume? = nil
     }
 
     struct Spot {
@@ -376,7 +377,8 @@ struct SceneLightSnapshot {
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),
             intensity: intensity,
             radius: radius,
-            falloffExponent: definition.exponent ?? 2
+            falloffExponent: definition.exponent ?? 2,
+            volume: intensity > 0 ? definition.unshadowedVolume : nil
         )
     }
 

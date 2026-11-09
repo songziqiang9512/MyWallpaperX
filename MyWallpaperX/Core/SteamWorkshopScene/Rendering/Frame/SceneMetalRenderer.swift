@@ -31,6 +31,7 @@ struct SceneMetalRenderer {
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
     let spotLightRuntime: SceneSpotLightRuntime
+    let pointVolumePipeline: ScenePointVolumePipeline?
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
@@ -115,8 +116,6 @@ struct SceneMetalRenderer {
         // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
         defer { if !didTransferFrameOwnership { frameDepthLeases.forEach { $0.cancel() } } }
-        let modelFrame = StaticModelFrame(commandBuffer: commandBuffer)
-        defer { if !didTransferFrameOwnership { modelFrame.cancel() } }
         // M2 Patch A：effect 执行证据链（每帧 trace + SHA256 cohort）只属于
         // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，
         // 全部 record 调用点为 optional 旁路。
@@ -162,6 +161,13 @@ struct SceneMetalRenderer {
             layersByID: frameProjection.layersByID,
             visibleLayerIDs: frameVisibleLayerIDs
         )
+        let modelFrame = StaticModelFrame(
+            commandBuffer: commandBuffer,
+            collectsVolumeOccluders: pointVolumePipeline != nil
+                && frameProjection.descriptor.camera.clearEnabled && cameraFrame.nativeFarPlane != nil
+                && frameLightSnapshot.point.contains { $0.volume != nil }
+        )
+        defer { if !didTransferFrameOwnership { modelFrame.cancel() } }
         beginTextureFrame(imageTextures, userPropertyTextures, userPropertyTextureStates,
                           mediaThumbnail, frameContext,
                           lighting: frameLightSnapshot.authoredShaderLighting)

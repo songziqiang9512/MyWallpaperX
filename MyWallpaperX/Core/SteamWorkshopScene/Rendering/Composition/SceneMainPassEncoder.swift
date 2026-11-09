@@ -19,6 +19,7 @@ final class SceneMainPassEncoder {
     }
 
     var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
+    var isSceneRoot: Bool { submissionOwner == nil }
 #if DEBUG
     var compositionTrace: SceneEffectExecutionFrameTrace?
     var compositionTarget: SceneCompositionTextureObservation {
@@ -122,14 +123,15 @@ final class SceneMainPassEncoder {
 
     deinit { cancelCompositionPins() }
 
-    func encoder() -> MTLRenderCommandEncoder? {
-        encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1)
+    func encoder(required: Bool = true) -> MTLRenderCommandEncoder? {
+        encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1, required: required)
     }
 
     func encoder(
         depthTexture: MTLTexture?,
         clearsDepth: Bool,
-        clearDepth: Double = 1
+        clearDepth: Double = 1,
+        required: Bool = true
     ) -> MTLRenderCommandEncoder? {
         guard !isFinished else { return nil }
         if let activeEncoder,
@@ -156,7 +158,7 @@ final class SceneMainPassEncoder {
         let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         #endif
         guard let encoder = timestampEncoder else {
-            encodingFailed = true
+            if required { encodingFailed = true }
             return nil
         }
         encoder.label = "Scene main layer composite"

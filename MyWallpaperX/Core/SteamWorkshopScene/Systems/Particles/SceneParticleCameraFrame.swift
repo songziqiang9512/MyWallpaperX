@@ -68,7 +68,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     private let perspectiveReplayRootIDs: Set<Int>
     /// Native SceneScript polling uses the far-plane point, not a layer hit.
     /// Keep its extent with the camera that owns the render projection.
-    private let nativeFarPlane: SIMD3<Float>?
+    let nativeFarPlane: SIMD3<Float>?
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,

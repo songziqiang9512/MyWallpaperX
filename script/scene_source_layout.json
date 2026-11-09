@@ -442,6 +442,7 @@
         "file_globs": [
           "SceneAuthoredShaderLightingInputs.swift",
           "SceneLightSnapshot.swift",
+          "ScenePointVolumePipeline.swift",
           "SceneSpotLightPipeline.swift",
           "SceneSpotLightPlan.swift",
           "SceneSpotLightRuntime.swift"

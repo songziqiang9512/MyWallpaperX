@@ -1054,6 +1054,22 @@
       ]
     },
     {
+      "id": "point-light-volume",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePointLightDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolume.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/ScenePointVolumePipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "script/tests/fixtures/ScenePointVolumeChecks.swift",
+        "script/tests/test_scene_point_volume.py"
+      ],
+      "modules": [
+        "test_scene_point_volume"
+      ]
+    },
+    {
       "id": "rendering",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/**",

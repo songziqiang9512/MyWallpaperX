@@ -574,6 +574,12 @@ struct SceneStaticModelShadowVertexOut {
     float2 uv;
     float3 lightPosition; // orthographic clip.xyz or perspective light coordinates
 };
+vertex float4 sceneStaticModelCameraDepthVertex(
+    uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
+    constant float4x4 &modelToClip [[buffer(1)]]) {
+    return modelToClip * float4(vertices[vertexID].position, 1.0);
+}
+
 vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {

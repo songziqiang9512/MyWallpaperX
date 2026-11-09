@@ -123,7 +123,9 @@ private struct SceneStaticModelUniforms {
 struct SceneStaticModelPipeline {
     let state: MTLRenderPipelineState
     private let reflectionState: MTLRenderPipelineState?
+    private let cameraDepthState: MTLRenderPipelineState?
     var supportsReflection: Bool { reflectionState != nil }
+    var supportsCameraDepth: Bool { cameraDepthState != nil }
 
     private let device: MTLDevice
     private let writingDepthState: MTLDepthStencilState
@@ -139,7 +141,8 @@ struct SceneStaticModelPipeline {
         device: MTLDevice,
         colorPixelFormat: MTLPixelFormat = .bgra8Unorm,
         depthPixelFormat: MTLPixelFormat = .depth32Float,
-        preparesReflection: Bool = false
+        preparesReflection: Bool = false,
+        preparesCameraDepth: Bool = false
     ) {
         guard Self.hasExpectedUniformABI,
               let library = device.makeDefaultLibrary(),
@@ -210,6 +213,14 @@ struct SceneStaticModelPipeline {
         self.nonwritingDepthState = nonwritingDepthState
         self.disabledDepthState = disabledDepthState
         self.samplerStates = samplerStates
+        if preparesCameraDepth,
+           let vertex = library.makeFunction(name: "sceneStaticModelCameraDepthVertex") {
+            let depthDescriptor = MTLRenderPipelineDescriptor()
+            depthDescriptor.label = "Scene opaque model camera depth"
+            depthDescriptor.vertexFunction = vertex
+            depthDescriptor.depthAttachmentPixelFormat = depthPixelFormat
+            cameraDepthState = try? device.makeRenderPipelineState(descriptor: depthDescriptor)
+        } else { cameraDepthState = nil }
         let shadowDescriptor = MTLRenderPipelineDescriptor()
         shadowDescriptor.label = "Scene directional model shadow"
         shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
@@ -573,6 +584,29 @@ struct SceneStaticModelPipeline {
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
+        return true
+    }
+
+    @discardableResult
+    func drawCameraDepth(
+        mesh: SceneStaticModelMesh, modelToClip: simd_float4x4,
+        frontFacing: MTLWinding, cullMode: MTLCullMode, encoder: MTLRenderCommandEncoder
+    ) -> Bool {
+        guard let cameraDepthState else { return false }
+        var transform = modelToClip
+        encoder.setRenderPipelineState(cameraDepthState)
+        encoder.setDepthStencilState(writingDepthState)
+        encoder.setFrontFacing(frontFacing)
+        encoder.setCullMode(cullMode)
+        encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float4x4>.stride, index: 1)
+        encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indexCount,
+            indexType: mesh.indexType, indexBuffer: mesh.indexBuffer, indexBufferOffset: 0)
+#if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
 #endif
         return true
     }

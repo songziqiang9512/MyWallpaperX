@@ -613,6 +613,8 @@ extension SceneMetalRenderer {
         return encodeOrderedLayers(
             orderedLayers: orderedLayers,
             initiallyStopped: stopsAfterClaimedFailure,
+            needsTerminalScratch: sceneColor == nil && displayMappingPostProcess != nil
+                && displayMappingInput == .textureSource,
             forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
             preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
