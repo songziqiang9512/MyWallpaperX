@@ -33,6 +33,8 @@ App 保产品意图和读取租约；Host 持 request identity、取消 token、
 
 一个已准入 stage product 的 graph/effect/node/binding 范围由原 Catalog 准备一次，Template 只消费对应节点；不在每 material 重建整图 universe。取消 callback 在批开始和每项入场前检查，抛出原取消错误，不翻译成资源缺失或缓存失败。已进入且仍有消费者的共享 flight 不因单个请求撤销。
 
+同一次 RenderDescriptor 准备中，静态模型材质编译器按唯一解析的 shader contract 和完整 authored combos 共用 uniform 接口证明，包含确定无法证明的结果。每个材质继续独立读取自身常量、属性、缺省值和 slot 0；每项取消边界照常执行。证明表只在本次描述符构造期间存活，无跨请求状态或额外资源读取。验收比较真实场景的材质绑定、首个 GPU 完成和 Ready 时间，覆盖同接口不同作者值、不同合同、冲突和失败回退。
+
 设备资源任务、上传队列和 GPU warmup 是原准备链的一部分；首 Surface 仍有必要的实例装配。准备线程转交前不得继续访问已接管 VM。实际首帧/候选协议归[daemon 合同](scene-runtime-daemon-contract.md#candidate)。
 
 视频声明、AV readyToPlay 或 metadata 就绪不等于首帧。每 Surface 的选中视频须取得完整 publication；当前缺失可 deferred，不能借旧源或占位帧宣布候选 ready。可见视频切换保原有界呈现等待，隐藏消费者仍需要真实资源。细节归[视频合同](../capabilities/material-video-assets.md)。

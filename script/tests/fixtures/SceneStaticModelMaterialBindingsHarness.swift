@@ -116,7 +116,8 @@ private func pass(
 }
 
 private func compile(_ pass: Pass, _ shader: SceneShaderContract = shader()) -> Bindings {
-    SceneStaticModelMaterialBindingCompiler.compile(pass: pass, shaderContracts: [shader])
+    var compiler = SceneStaticModelMaterialBindingCompiler(shaderContracts: [shader])
+    return compiler.compile(pass: pass)
 }
 
 private func summary(_ bindings: Bindings) -> [String: Any] {
@@ -466,11 +467,31 @@ private func sources() -> [String: Any] {
         identity: "fixture/static-material-keys", sourceKind: .hostBuiltin,
         stages: [], diagnostics: [], canonicalSHA256: "builtin"
     )
+    let primary = shader()
+    var missing = SceneStaticModelMaterialBindingCompiler(shaderContracts: [])
+    var ambiguous = SceneStaticModelMaterialBindingCompiler(shaderContracts: [primary, primary])
+    let other = shader(alphaDefault: "0.625", identity: "fixture/other-shader")
+    var shared = SceneStaticModelMaterialBindingCompiler(shaderContracts: [primary, other])
+    let first = shared.compile(pass: pass())
+    let independentValues = shared.compile(pass: pass(
+        constants: ["Alpha": wrapper("opacity", [0.4]), "Color": constant([0.3, 0.6, 0.9])],
+        materialPath: "materials/alternate.json", shaderPath: "shaders/FIXTURE/static-material-keys.frag"
+    ))
+    let badProducer = shared.compile(pass: pass(constants: ["Alpha": constant([0.4], raw: "0.4 bad")]))
+    let protectedCombo = pass(combos: ["g_TintAlpha": 1])
+    let unavailable = shared.compile(pass: protectedCombo)
+    let secondContract = shared.compile(pass: pass(shaderPath: other.identity))
+    let updatedContract = compile(pass(), shader(alphaDefault: "0.875"))
     return [
-        "hostBuiltin": summary(SceneStaticModelMaterialBindingCompiler.compile(pass: pass(), shaderContracts: [host])),
-        "missing": summary(SceneStaticModelMaterialBindingCompiler.compile(pass: pass(), shaderContracts: [])),
-        "ambiguous": summary(SceneStaticModelMaterialBindingCompiler.compile(pass: pass(), shaderContracts: [shader(), shader()])),
+        "hostBuiltin": summary(compile(pass(), host)),
+        "missing": summary(missing.compile(pass: pass())),
+        "ambiguous": summary(ambiguous.compile(pass: pass())),
         "noPassZero": summary(compile(pass(passIndex: 1))),
+        "sharedFirst": summary(first), "sharedOtherMaterial": summary(independentValues),
+        "sharedBadProducer": summary(badProducer), "sharedBadCombo": summary(unavailable),
+        "sharedBadComboAgain": summary(shared.compile(pass: protectedCombo)),
+        "sharedOtherContract": summary(secondContract), "newPreparation": summary(updatedContract),
+        "sharedRecovered": summary(shared.compile(pass: pass())),
     ]
 }
 
@@ -479,8 +500,8 @@ private func albedoDefaults() -> [String: Any] {
     let white = shader(fragmentExtra: ordinary)
     func path(_ pass: Pass = pass(), _ contract: SceneShaderContract = white,
               contracts: [SceneShaderContract]? = nil) -> Any {
-        SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
-            pass: pass, shaderContracts: contracts ?? [contract]) as Any? ?? NSNull()
+        SceneStaticModelMaterialBindingCompiler(shaderContracts: contracts ?? [contract])
+            .defaultAlbedoAssetPath(pass: pass) as Any? ?? NSNull()
     }
     var null = pass(); null.textureSlots = [nil]
     var normalOnly = pass(); normalOnly.textureSlots = [nil, "fixtures/normal"]

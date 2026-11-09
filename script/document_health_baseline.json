@@ -93,8 +93,8 @@
       "bytes": 2303
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 76,
-      "bytes": 8545
+      "lines": 78,
+      "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 68,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 558,
-      "bytes": 232788
+      "bytes": 233390
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 48804
+      "lines": 186,
+      "bytes": 48442
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,11 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4ccce0c85c272462f350e4fd1fdc37f0fd9649ddff27e1641732807f079d276c",
-      "after": "eb2035360a590bc48e0068e9513726a9dd6a2bc752dead5d0f756916e683a303",
-      "owner": "Scene cold material preparation",
-      "reason": "Separate the measured static model shader interface hotspot from the vertex parser hypothesis.",
+      "before": "eb2035360a590bc48e0068e9513726a9dd6a2bc752dead5d0f756916e683a303",
+      "after": "2cb13aa3cec801f4a760976875d71d1b1eb1840e923acf8597422eaba3db7f67",
+      "owner": "Scene static model material preparation",
+      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-startup-366"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
+      "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
+      "owner": "Scene static model material preparation",
+      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#preparation"
     }
   ]
 }

@@ -154,7 +154,6 @@
 |---|---|
 | 密集预热 · 3337494481 | 剩余是正常配置的完整场景准备成本；[单root隔离收益](../capabilities/runtime-evidence-current.md#coverage)不授整场启动或Rope历史收益。旧普通Debug/可选观测90秒未首帧与优化诊断完成不同配置，不能作性能前后值。后续先核同配置普通播放/预热热点，分离Turbulence数学与可选观测，不重做已退出的大State参数、不删内容、提预算或原样长窗等待。 |
 | 整体CPU高温 / GPU满载 | 先固定设备、构建、输出与真实workload，联合归因，不以历史温度或局部代码变化代替当前测量。 |
-| 3662790108 | [冷准备线程采样](../capabilities/runtime-evidence-current.md#model-startup-366)定位静态模型材质的接口证明，顶点读取退出当前候选。优先核相同shader contract与combo环境的重复接口工作，在原冷owner内合并，保逐材质值、失败回退及不同环境；用无采样原包窗比Ready和首GPU。 |
 | 3476868923 /3507496797 | 重型内容冷准备与首帧成本；同输入区分model、shader、资源及首Surface装配，不延时限或减少内容冒充优化。 |
 | 3805547608 | [380跨回绕](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)未见逐圈恶化；93复现的四次少供位于AV未给新缓冲，下一帧恢复，暂无同帧可见异常。暂收口，重启须可定位的播放停顿或可判别同帧差异；不重跑同窗、改时钟或增加轮询。 |
 | 3372715909 | [同PID跨场实测](../capabilities/runtime-evidence-current.md#video-residency-337)已判清高Metal分配随旧场退役清除；场内闲置AV对象仍待定位。仅在可重复的物理占用/呈现代价出现时，取该source的实际持有与退出证据；不重跑同一热切窗或再试解绑重建。 |

@@ -433,6 +433,9 @@ nonisolated struct SceneRenderDescriptorBuilder {
         let directMaterials = Set(directStaticModelMaterialLinks.compactMap {
             $0.materialPath.map { $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase }
         })
+        var modelMaterialCompiler = SceneStaticModelMaterialBindingCompiler(
+            shaderContracts: directMaterials.isEmpty ? [] : catalog.shaderContracts
+        )
         return try catalog.materials.flatMap { material in
             try checkCancellation?()
             return try material.passes.enumerated().map { index, pass in
@@ -462,15 +465,10 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     material.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
                 ) {
                     descriptor.staticModelDefaultAlbedoAssetPath =
-                        SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
-                            pass: descriptor, shaderContracts: catalog.shaderContracts
-                        )
+                        modelMaterialCompiler.defaultAlbedoAssetPath(pass: descriptor)
                     try checkCancellation?()
                     descriptor.staticModelMaterialBindings =
-                        SceneStaticModelMaterialBindingCompiler.compile(
-                            pass: descriptor,
-                            shaderContracts: catalog.shaderContracts
-                        )
+                        modelMaterialCompiler.compile(pass: descriptor)
                 }
                 try checkCancellation?()
                 return descriptor
