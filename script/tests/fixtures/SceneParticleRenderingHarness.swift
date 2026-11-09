@@ -262,7 +262,7 @@ enum Harness {
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewUp),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteRight),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteUp),
-            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward), MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.trailLocalNormal),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward), MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.trailWidthReference),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.rasterClipX),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.rasterClipY),
         ].compactMap { $0 }

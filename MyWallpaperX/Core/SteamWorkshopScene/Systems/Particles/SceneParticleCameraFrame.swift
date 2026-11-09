@@ -332,7 +332,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         inheritsNativeSceneCamera: Bool = false,
         layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
-        sizeIsWorldSpace: Bool
+        sizeIsWorldSpace: Bool,
+        usesPerspectiveTrailEye: Bool = false
     ) -> SceneParticleLayerUniforms {
         let nativeSprite = defaultsToPerspective && usesSceneCamera
             && (orientation == .screen || orientation == .worldScreen)
@@ -353,7 +354,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         let viewBasis = selectedPerspective
             ? basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
             : orthographicViewBasis
-        return SceneParticleLayerUniforms(
+        var uniforms = SceneParticleLayerUniforms(
             viewProjection: viewProjection(usesPerspective: selectedPerspective),
             layerModel: model,
             basis: basis(for: orientation, layerModel: model,
@@ -363,6 +364,15 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             sizeIsWorldSpace: sizeIsWorldSpace,
             viewBasis: viewBasis
         )
+        if usesPerspectiveTrailEye {
+            let eye = simd_inverse(model) * SIMD4(perspectiveEyePosition, 1)
+            if eye.x.isFinite, eye.y.isFinite, eye.z.isFinite {
+                // Preserve front winding under a reflected layer or the canvas Y flip.
+                let facing: Float = (simd_determinant(model) < 0) != defaultsToPerspective ? 1 : -1
+                uniforms.trailWidthReference = SIMD4(eye.x, eye.y, eye.z, 1) * facing
+            }
+        }
+        return uniforms
     }
 
     func basis(

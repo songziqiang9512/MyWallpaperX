@@ -111,7 +111,8 @@ extension SceneParticleMetalPipeline {
                 inheritsNativeSceneCamera: batch.inheritsNativeSceneCamera,
                 layerUsesPerspective: layerUsesPerspective,
                 viewportSize: viewportSize,
-                sizeIsWorldSpace: batch.sizeIsWorldSpace
+                sizeIsWorldSpace: batch.sizeIsWorldSpace,
+                usesPerspectiveTrailEye: batch.usesPerspectiveTrailEye
             )
             uniforms.rasterClipX = raster.x
             uniforms.rasterClipY = raster.y

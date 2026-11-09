@@ -174,6 +174,8 @@ CP需求不能用CP数组或共同controlpoint字段猜：Emitter的实际source
 
 Sprite、SpriteTrail、RopeTrail、screen-displacement ribbon、refraction 与 depth 各复用原几何/材质/target owner。尺寸、atlas、TEX sprite frame、非方纹理比例与采样用途保来源；Rope 单图 atlas 的整张 source 与 Sprite 帧不是同一语义。
 
+根系统本地尺寸、Screen 朝向的透视 SpriteTrail 由原 CameraFrame 把选中相机的眼点一次转入该 draw 的粒子局部空间。宽轴取局部眼线与速度的垂向并随原模型变换；绕序随相机与模型手性确定，U 方向连续通过眼平面。原沿向、UV 帧、裁剪及合成继续各自消费。该分支退出投影平面的宽度反解，避免中心跨眼平面时仍可见的尾部骤然放大。眼线与速度共线时沿相机横轴保有限宽度；模型不可逆时沿原局部朝向退化。正交、显式固定/竖立、world 尺寸、child 和 displacement 路径沿各自原合同。
+
 <a id="multiple-renderer-outputs"></a>
 ### 同一模拟的多个 renderer 输出
 

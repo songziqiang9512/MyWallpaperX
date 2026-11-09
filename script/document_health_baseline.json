@@ -121,16 +121,16 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 282,
-      "bytes": 52785
+      "lines": 284,
+      "bytes": 53428
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 259,
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 462,
-      "bytes": 191808
+      "lines": 468,
+      "bytes": 193576
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 148,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48146
+      "bytes": 48079
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -367,15 +367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "de0c67f8cf4ca10aa1e88a8e70d1cafe8d40b787b9649b58fa3d23b77b87c213",
-      "after": "3b83ab6dbcf7b5241c20a7d7a94f8161ce1780a2e73441ef8d3b4efa1ca4c175",
-      "owner": "Scene particle baseline borrow and shimmer qualification",
-      "reason": "Record single-owner synchronous baseline storage, equivalence and bounded real rain cost, retire failed field-writer and event-journal approaches, and stop repeated unqualified shimmer phases. Exact body budget; keep 380 startup and shimmer parity open.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-baseline-borrow"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
       "before": "1cdaf2f3cbf8a565186ff3ba4ec30507501cd741f02e68738b8d74d3a327b4da",
       "after": "33b7e3ec21a66b7ddcc57bfd4e799f6b1b73b9f360d420e40c91e756bcd4a405",
@@ -448,12 +439,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "3b83ab6dbcf7b5241c20a7d7a94f8161ce1780a2e73441ef8d3b4efa1ca4c175",
+      "after": "9b7576461d73d4a4db517f4b22cbf1039d1323e925e6225473c4b87f234c2481",
+      "owner": "Scene particle geometry",
+      "reason": "Record stable perspective velocity trail width and the actual original and controlled capture limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a920ab08bb3a3eccd26a89762cc2dde19680f9c08707774febccb85e88ebf1c6",
-      "after": "bd98d45a3be678ee9ff6b4c968a9a0ed4dcb42702358bd1676f042411ec6c4b8",
-      "owner": "Scene runtime evidence",
-      "reason": "Record the demonstrated Debug reopen failure and recovery, and the official and native input qualification boundary.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
+      "before": "bd98d45a3be678ee9ff6b4c968a9a0ed4dcb42702358bd1676f042411ec6c4b8",
+      "after": "a7969048136e546aebb51b5ff98de65e871ea982fc801224a7a40fd92d3a1a97",
+      "owner": "Scene particle geometry",
+      "reason": "Record stable perspective velocity trail width and the actual original and controlled capture limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     }
   ]
 }

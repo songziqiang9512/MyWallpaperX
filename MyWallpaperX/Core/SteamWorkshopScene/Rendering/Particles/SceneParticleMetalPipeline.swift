@@ -16,6 +16,7 @@ struct SceneParticleDrawBatch {
     let usesPerspective: Bool
     var rendererIndex: Int = 0
     var usesSceneCamera: Bool = false
+    var usesPerspectiveTrailEye: Bool = false
     /// Existing root RopeTrail admission, independent of Sprite material state.
     var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil

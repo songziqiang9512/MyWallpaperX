@@ -27,7 +27,7 @@ struct LayerUniforms {
     float4 spriteRight;
     float4 spriteUp;
     float4 spriteForward;
-    float4 trailLocalNormal;
+    float4 trailWidthReference;
     float4 rasterClipX;
     float4 rasterClipY;
 };
@@ -66,6 +66,98 @@ float2 particlePixelDirection(float4 clipPosition, float3 worldDirection,
         * max(uniforms.viewportSize, float2(1.0));
 }
 
+float3 particleTrailAcross(
+    ParticleInstance particle, float4 center, float longitudinalPosition,
+    float3 localDirection, float3 trailWorld, bool usesDisplacement,
+    constant LayerUniforms &uniforms
+) {
+    float widthScale = uniforms.particleSizeScale.x;
+    float4 widthReference = uniforms.trailWidthReference;
+    if (!usesDisplacement && widthReference.w != 0.0) {
+        // Quad Y increases toward U=0. Keep that side fixed as the
+        // trail center crosses the eye plane while its tail stays visible.
+        float3 localAcross = cross(widthReference.xyz
+            - particle.positionAndSize.xyz * widthReference.w, localDirection);
+        float acrossLengthSquared = dot(localAcross, localAcross);
+        float3 across = acrossLengthSquared > 1e-10 && isfinite(acrossLengthSquared)
+            ? (uniforms.layerModel * float4(localAcross * rsqrt(acrossLengthSquared), 0.0)).xyz
+            : uniforms.viewRight.xyz * widthScale;
+        return across * particle.positionAndSize.w;
+    }
+    bool joined = particle.frame1B.w > 0.5;
+    float4 endpointJoin = longitudinalPosition > 0.0
+        ? particle.trailHeadJoin : particle.trailTailJoin;
+    float4 anchor = joined
+        ? float4(center.xyz + trailWorld * longitudinalPosition, 1.0) : center;
+    float4 projectedStart = uniforms.viewProjection * anchor;
+    float2 pixelVelocity = particlePixelDirection(projectedStart, trailWorld, uniforms);
+    float speed = length(pixelVelocity);
+    float2 trailDirection = speed > 0.00001
+        ? pixelVelocity / speed : float2(1.0, 0.0);
+    float2 perpendicular = float2(-trailDirection.y, trailDirection.x);
+    if (joined) {
+        float3 adjacentWorld = (uniforms.layerModel
+            * float4(endpointJoin.xyz, 0.0)).xyz;
+        float2 adjacentPixels = particlePixelDirection(projectedStart, adjacentWorld, uniforms);
+        float adjacentSpeed = length(adjacentPixels);
+        float2 adjacentDirection = adjacentSpeed > 0.00001
+            ? adjacentPixels / adjacentSpeed : trailDirection;
+        float2 adjacentNormal = float2(-adjacentDirection.y, adjacentDirection.x);
+        float2 bisector = perpendicular + adjacentNormal;
+        float bisectorLength = length(bisector);
+        // Both segments compute the same bounded miter at their shared
+        // endpoint. A reversal pinches to zero instead of emitting spikes.
+        if (bisectorLength > 0.00001) {
+            float2 miter = bisector / bisectorLength;
+            perpendicular = miter / max(abs(dot(miter, perpendicular)), 0.25);
+        } else {
+            perpendicular = float2(0.0);
+        }
+    }
+    if (!usesDisplacement) {
+        // Orient the width before the layer transform. Reconstructing a
+        // perpendicular after projection erases nonuniform scale/shear.
+        float3x3 linearLayer = float3x3(uniforms.layerModel[0].xyz,
+            uniforms.layerModel[1].xyz, uniforms.layerModel[2].xyz);
+        // The existing orientation owner supplies the pre-transform
+        // plane, including when a layer axis has collapsed to zero.
+        float3 localAcross = cross(widthReference.xyz, localDirection);
+        float acrossLength = length(localAcross);
+        if (acrossLength > 0.00001) {
+            float3 affineAcross = linearLayer * (localAcross / acrossLength)
+                * particle.positionAndSize.w;
+            float2 affinePixels = particlePixelDirection(projectedStart, affineAcross, uniforms);
+            // Retain the established texture-facing sign, without
+            // straightening the two independently transformed axes.
+            return dot(affinePixels, perpendicular) < 0.0
+                ? -affineAcross : affineAcross;
+        }
+    }
+    float2 rightPixel = particlePixelDirection(projectedStart, uniforms.basisRight.xyz, uniforms);
+    // Displacement ribbons define a screen-space perpendicular. Solve in
+    // the selected camera plane: a tilted layer plane can become edge-on,
+    // amplifying a finite width until its corners cross the eye plane.
+    float3 widthRight = usesDisplacement ? uniforms.viewRight.xyz : uniforms.basisRight.xyz;
+    float3 widthUp = usesDisplacement ? uniforms.viewUp.xyz : uniforms.basisUp.xyz;
+    float2 widthRightPixel = usesDisplacement
+        ? particlePixelDirection(projectedStart, widthRight, uniforms) : rightPixel;
+    float2 upPixel = particlePixelDirection(projectedStart, widthUp, uniforms);
+    float determinant = widthRightPixel.x * upPixel.y - widthRightPixel.y * upPixel.x;
+    float2 acrossCoefficients = perpendicular;
+    if (abs(determinant) > 0.00001) {
+        float2 targetPixel = perpendicular * max(length(rightPixel), 0.00001);
+        acrossCoefficients = float2(
+            (targetPixel.x * upPixel.y - targetPixel.y * upPixel.x)
+                / determinant,
+            (widthRightPixel.x * targetPixel.y - widthRightPixel.y * targetPixel.x)
+                / determinant
+        );
+    }
+    return (
+        widthRight * acrossCoefficients.x + widthUp * acrossCoefficients.y
+    ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * widthScale;
+}
+
 Varyings particleVertex(
     uint vertexID, uint instanceID,
     constant QuadVertex *quad,
@@ -95,78 +187,9 @@ Varyings particleVertex(
             ? particle.velocityAndTrail.xyz
             : localDirection * particle.positionAndSize.w * particle.velocityAndTrail.w;
         trailWorld = (uniforms.layerModel * float4(localTrail, 0.0)).xyz;
-        bool joined = particle.frame1B.w > 0.5;
-        float4 endpointJoin = quadVertex.position.x > 0.0
-            ? particle.trailHeadJoin : particle.trailTailJoin;
-        float4 anchor = joined
-            ? float4(center.xyz + trailWorld * quadVertex.position.x, 1.0) : center;
-        float4 projectedStart = uniforms.viewProjection * anchor;
-        float2 pixelVelocity = particlePixelDirection(projectedStart, trailWorld, uniforms);
-        float speed = length(pixelVelocity);
-        float2 trailDirection = speed > 0.00001
-            ? pixelVelocity / speed : float2(1.0, 0.0);
-        float2 perpendicular = float2(-trailDirection.y, trailDirection.x);
-        if (joined) {
-            float3 adjacentWorld = (uniforms.layerModel
-                * float4(endpointJoin.xyz, 0.0)).xyz;
-            float2 adjacentPixels = particlePixelDirection(projectedStart, adjacentWorld, uniforms);
-            float adjacentSpeed = length(adjacentPixels);
-            float2 adjacentDirection = adjacentSpeed > 0.00001
-                ? adjacentPixels / adjacentSpeed : trailDirection;
-            float2 adjacentNormal = float2(-adjacentDirection.y, adjacentDirection.x);
-            float2 bisector = perpendicular + adjacentNormal;
-            float bisectorLength = length(bisector);
-            // Both segments compute the same bounded miter at their shared
-            // endpoint. A reversal pinches to zero instead of emitting spikes.
-            if (bisectorLength > 0.00001) {
-                float2 miter = bisector / bisectorLength;
-                perpendicular = miter / max(abs(dot(miter, perpendicular)), 0.25);
-            } else {
-                perpendicular = float2(0.0);
-            }
-        }
-        float2 rightPixel = particlePixelDirection(projectedStart, uniforms.basisRight.xyz, uniforms);
-        // Displacement ribbons define a screen-space perpendicular. Solve in
-        // the selected camera plane: a tilted layer plane can become edge-on,
-        // amplifying a finite width until its corners cross the eye plane.
-        float3 widthRight = usesDisplacement ? uniforms.viewRight.xyz : uniforms.basisRight.xyz;
-        float3 widthUp = usesDisplacement ? uniforms.viewUp.xyz : uniforms.basisUp.xyz;
-        float2 widthRightPixel = usesDisplacement
-            ? particlePixelDirection(projectedStart, widthRight, uniforms) : rightPixel;
-        float2 upPixel = particlePixelDirection(projectedStart, widthUp, uniforms);
-        float determinant = widthRightPixel.x * upPixel.y - widthRightPixel.y * upPixel.x;
-        float2 acrossCoefficients = perpendicular;
-        if (abs(determinant) > 0.00001) {
-            float2 targetPixel = perpendicular * max(length(rightPixel), 0.00001);
-            acrossCoefficients = float2(
-                (targetPixel.x * upPixel.y - targetPixel.y * upPixel.x)
-                    / determinant,
-                (widthRightPixel.x * targetPixel.y - widthRightPixel.y * targetPixel.x)
-                    / determinant
-            );
-        }
-        trailAcrossWorld = (
-            widthRight * acrossCoefficients.x + widthUp * acrossCoefficients.y
-        ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * layerScale.x;
-        if (!usesDisplacement && uniforms.trailLocalNormal.w > 0.5) {
-            // Orient the width before the layer transform. Reconstructing a
-            // perpendicular after projection erases nonuniform scale/shear.
-            float3x3 linearLayer = float3x3(uniforms.layerModel[0].xyz,
-                uniforms.layerModel[1].xyz, uniforms.layerModel[2].xyz);
-            // The existing orientation owner supplies the pre-transform
-            // plane, including when a layer axis has collapsed to zero.
-            float3 localAcross = cross(uniforms.trailLocalNormal.xyz, localDirection);
-            float acrossLength = length(localAcross);
-            if (acrossLength > 0.00001) {
-                float3 affineAcross = linearLayer * (localAcross / acrossLength)
-                    * particle.positionAndSize.w;
-                float2 affinePixels = particlePixelDirection(projectedStart, affineAcross, uniforms);
-                // Retain the established texture-facing sign, without
-                // straightening the two independently transformed axes.
-                trailAcrossWorld = dot(affinePixels, perpendicular) < 0.0
-                    ? -affineAcross : affineAcross;
-            }
-        }
+        trailAcrossWorld = particleTrailAcross(
+            particle, center, quadVertex.position.x, localDirection,
+            trailWorld, usesDisplacement, uniforms);
     } else {
         local = rotateParticle(
             float3(

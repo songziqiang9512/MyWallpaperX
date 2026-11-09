@@ -72,6 +72,22 @@ CASES = [
          orientation="fixed", orientationAxis=[0, 1, 0]),
 ]
 
+PERSPECTIVE_CASES = [
+    case(f"perspective-{name}", (6, 5, 1), (0, 0, 1000), size=40, stretch=80,
+         perspective={"yaw": yaw, "offsetX": offset, "depth": depth})
+    for name, yaw, offset, depth in (
+        ("front", -.087, 256, 3891),
+        ("crossing", -.087, 256, 3967),
+        ("behind", -.087, 256, 4043),
+        ("mirror", .087, -256, 3967),
+        ("no-yaw", 0, 120, 3952),
+    )
+]
+PERSPECTIVE_CASES.append(case(
+    "perspective-reflected-cull", (-6, 5, 1), (0, 0, 1000), size=40, stretch=80,
+    perspective=PERSPECTIVE_CASES[0]["perspective"], backCull=True,
+))
+
 HARNESS_SOURCE = r'''
 import Foundation
 import Metal
@@ -220,7 +236,7 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cases_path = directory / "cases.json"
-        cases_path.write_text(json.dumps(CASES), encoding="utf-8")
+        cases_path.write_text(json.dumps(CASES + PERSPECTIVE_CASES), encoding="utf-8")
         binary = directory / "scene-particle-affine"
         sources = swift_sources()
         run_checked(
@@ -239,7 +255,7 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         if report_path:
             Path(report_path).write_text(
                 json.dumps({
-                    "inputs": CASES, "gpu": cls.result,
+                    "inputs": CASES + PERSPECTIVE_CASES, "gpu": cls.result,
                     "swiftSources": [{"path": str(path),
                                       "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                                      for path in sources + [FIXTURE, harness]],
@@ -373,6 +389,42 @@ class SceneParticleAffineTrailTests(unittest.TestCase):
         # not make a residual-normal fallback silently substitute an XY card.
         self.assertEqual(self.rows["project-fixed-xz-tilted"]["coveredRuns"],
                          self.rows["project-fixed-xz-unused-y-zero"]["coveredRuns"])
+
+    def test_perspective_trail_keeps_visible_tail_without_flashing_across_the_eye(self):
+        extent = self.result["extent"]
+        visible = {}
+        center_w = {}
+        tail_u_order = {}
+        for value in PERSPECTIVE_CASES:
+            name = value["name"]
+            with self.subTest(case=name):
+                row = self.rows[name]
+                self.assertTrue(row["encoded"] and row["gpuCompleted"], name)
+                self.assertEqual(row["instanceCount"], 1, name)
+                corners = row["probePositions"]
+                self.assertEqual(len(corners), 4, name)
+                self.assertTrue(all(math.isfinite(c) for p in corners for c in p), name)
+                self.assertEqual([p[3] > 0 for p in corners], [True, False, True, False], name)
+                center_w[name] = sum(p[3] for p in corners) / 4
+                # The two tail vertices have opposite U and remain in front of the eye.
+                tail_u1, tail_u0 = corners[0], corners[2]
+                tail_u_order[name] = tail_u0[1] / tail_u0[3] - tail_u1[1] / tail_u1[3]
+                visible[name] = row["visiblePixels"]
+                self.assertGreater(visible[name], extent * extent // 20, name)
+                self.assertLess(row["bounds"][1], extent // 4, name)
+                self.assertGreaterEqual(row["bounds"][3], extent // 4, name)
+                self.assertLess(row["bounds"][3], extent // 2,
+                                f"{name}: visible trail reached the lower half {row['bounds']}")
+        self.assertGreater(center_w["perspective-front"], 0)
+        self.assertGreater(center_w["perspective-crossing"], -5)
+        self.assertLess(center_w["perspective-crossing"], 0)
+        self.assertLess(center_w["perspective-behind"], -50)
+        adjacent_max = max(visible["perspective-front"], visible["perspective-behind"])
+        self.assertLess(visible["perspective-crossing"], adjacent_max * 1.15)
+        for name in ("perspective-crossing", "perspective-behind"):
+            self.assertGreater(tail_u_order["perspective-front"] * tail_u_order[name], 0, name)
+        self.assertEqual(self.rows["perspective-reflected-cull"]["coveredRuns"],
+                         self.rows["perspective-front"]["coveredRuns"])
 
 
 if __name__ == "__main__":

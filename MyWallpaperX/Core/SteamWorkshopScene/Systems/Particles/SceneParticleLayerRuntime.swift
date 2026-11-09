@@ -148,6 +148,8 @@ struct SceneParticlePreparedRenderer {
             orientation: orientation, orientationAxis: orientationAxis,
             usesPerspective: usesPerspective, rendererIndex: index,
             usesSceneCamera: usesSceneCamera,
+            usesPerspectiveTrailEye: trail != nil && usesPerspective
+                && orientation == .screen && !sizeIsWorldSpace && childTemplateIndex == nil,
             inheritsNativeSceneCamera: ropeTrail != nil,
             referenceWorldFrame: referenceWorldFrame, sizeIsWorldSpace: sizeIsWorldSpace
         )
