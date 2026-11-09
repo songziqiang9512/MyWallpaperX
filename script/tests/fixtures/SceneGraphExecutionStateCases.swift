@@ -724,6 +724,26 @@ extension Harness {
             previous: splitFirst.nextState,
             historyReads: [q1: splitPrevious]
         ))
+        // A bypassing frame keeps history only when the frame used the seed
+        // rehydration: the split's mappingBefore has no readable history.
+        let splitAllocationToken = splitAllocation.resources[q1]!.token
+        let splitDiscarded = State.discardingUncommittedVisualFailure(
+            split, previous: splitFirst.nextState
+        )
+        let seedRehydrated = require(State.reduce(
+            graph: splitGraph,
+            targetPlan: splitPlan,
+            pairStep: splitPair,
+            allocation: splitAllocation,
+            effectGeneration: 1,
+            resetGeneration: 1,
+            previous: splitFirst.nextState,
+            historyRehydration: [splitPrevious.token: splitAllocationToken]
+        ))
+        let seedDiscarded = State.discardingUncommittedVisualFailure(
+            seedRehydrated, previous: splitFirst.nextState
+        )
+
         // A copy source that precedes the author copy restore cannot read
         // the previous generation; admission must keep the seed copy.
         let splitCopyFirstGraph = graph(
@@ -909,6 +929,13 @@ extension Harness {
             ),
             "hazardFailure": hazardFailure,
             "readBeforeWriteFailure": readBeforeWriteFailure,
+            "splitDiscardClosureCount": splitDiscarded?.nextState
+                .historyClosureIdentities.count ?? -1,
+            "seedDiscardClosureCount": seedDiscarded?.nextState
+                .historyClosureIdentities.count ?? -1,
+            "seedDiscardMappingGeneration": seedDiscarded.map {
+                generation($0.transaction.mappingAfter, q1)
+            } ?? -1,
             "splitReadPriorToken": splitPrevious.token.rawValue,
             "splitReadAllocationToken": splitAllocation.resources[q1]!.token.rawValue,
             "splitReadAfterToken": token(split.transaction.mappingAfter, q1),

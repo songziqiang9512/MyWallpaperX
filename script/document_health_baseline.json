@@ -126,7 +126,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
-      "bytes": 55691
+      "bytes": 55770
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 48688
+      "bytes": 48940
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,8 +404,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "a89823170b67f1358a538090698930f8c94f2abbc862727e340bfaf457b4837f",
-      "after": "bfc94d923aa6099008907b4e48760cd5a0ef052c220bd337ec59209b1338aea2",
+      "before": "bfc94d923aa6099008907b4e48760cd5a0ef052c220bd337ec59209b1338aea2",
+      "after": "ceb5cc93a57a1b844b0507f826a72ee5c5eef8c791b5af2df514d1cd801339e4",
       "owner": "Scene graph history",
       "reason": "Gate the history split on the per-frame activation decision and document the seed fallback on bypass frames.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
@@ -476,8 +476,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "86f6a33ab8eb89d7029a19c857559ab3f1089ef728217a4c61d569dbd7ab4703",
-      "after": "7518a9a640f4220c23f4f117476513e55239722dff6c2503474971c1674d64d9",
+      "before": "7518a9a640f4220c23f4f117476513e55239722dff6c2503474971c1674d64d9",
+      "after": "838d8c6d6627c0ab2d7f3a29fb69271b17af4d4719d9a4885868f99ec359e867",
       "owner": "Scene open queue",
       "reason": "Record the per-frame split activation gate and the remaining bypass-history checks.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"

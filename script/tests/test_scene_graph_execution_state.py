@@ -115,6 +115,11 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
             "freshAllocationTokenReuse",
         )
 
+    def test_bypassing_frames_keep_history_only_on_the_seed_path(self) -> None:
+        self.assertEqual(self.result["splitDiscardClosureCount"], 0)
+        self.assertEqual(self.result["seedDiscardClosureCount"], 1)
+        self.assertGreater(self.result["seedDiscardMappingGeneration"], 0)
+
     def test_copy_back_history_reads_the_previous_generation(self) -> None:
         self.assertNotIn(
             self.result["splitReadAfterToken"],

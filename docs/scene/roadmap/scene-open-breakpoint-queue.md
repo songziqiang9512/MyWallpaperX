@@ -161,7 +161,7 @@
 |---|---|
 | 密集预热 · 3337494481 | [同作者包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认首屏缩短，余下仍以完整粒子预热为主。只在有新证据指出可避免的工作时重启，保作者步进、随机、历史和首帧；不重复本次采样或以删粒子、缩时长、扩大预算求速度。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
-| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算：现役 Release 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 graph-resource-copy 合计 6.295/19.594ms，六个首拷贝是 motionblur 唯一历史目标的每帧 seed。读 token 已由上一帧 commit 的 history pin 覆盖到本帧完成，`.history` 不驱逐/复用，无需新增 pin；门槛在 `lifecycleIsValidLocked`（copyCount==0 时证明闭包由作者 copy 恢复且无 initialize）与首读/prior publication。诊断 Release+DEBUG A/B 已验证 copy 14→8、约 143.3MB/帧消失、1534/1540 条 copy-back 为 copyCount=0/reused、终帧有拖尾；GPU P50/P95 20.889→19.358/23.397→20.693ms；签名 Debug 的 reflection-history 集成门 4/4 通过；状态读绑定与 copy-source 反例已入 `test_scene_graph_execution_state`。同 scene-time 像素、正式 WMO Release、首帧/reset/描述符/视觉失败反例待补，未通过保留拷贝并转项。 |
+| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算：现役 Release 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 graph-resource-copy 合计 6.295/19.594ms，六个首拷贝是 motionblur 唯一历史目标的每帧 seed。读 token 已由上一帧 commit 的 history pin 覆盖到本帧完成，`.history` 不驱逐/复用，无需新增 pin；门槛在 `lifecycleIsValidLocked`（copyCount==0 时证明闭包由作者 copy 恢复且无 initialize）与首读/prior publication。诊断 Release+DEBUG A/B 已验证 copy 14→8、约 143.3MB/帧消失、1534/1540 条 copy-back 为 copyCount=0/reused、终帧有拖尾；GPU P50/P95 20.889→19.358/23.397→20.693ms；签名 Debug 的 reflection-history 集成门 4/4 通过；状态读绑定、copy-source 与 activation/passthrough 的 State discard 用例（split 丢弃 history vs seed rehydrated 保留）已入 `test_scene_graph_execution_state`。同 scene-time 像素、正式 WMO Release、首帧/reset/描述符、executor 门控端到端视觉失败反例与运行时 material 失败反例待补，未通过保留拷贝并转项。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
@@ -173,7 +173,7 @@
 | 定位 | 下一步 |
 |---|---|
 | 属性面板 | 总打开/编辑延迟、长Combo完整显示、系统键盘路径与更多locale需实际可达控件。保原始key/value/条件，翻译只改展示；完整段落、只读说明和reset入口不能因优化丢失。 |
-| effect 显隐 / history | 本帧任一 stage 非 active 即整层不 split；inactive/rejected 或 capability-level visual-failure/initially-inactive passthrough 帧走 seed copy，已提交 history 由 seed 的 rehydrated mapping 承接（设计路径，实际切换待验证）；运行时 material 失败仍按现有丢弃路径。本窗口 4/6 条 motionblur 链活跃且各 1 copy（257/369 被 sceneScript 隐藏，活跃相位待测）；reflection-history 集成 4/4（不覆盖本 gate）。不增另一 history owner。 |
+| effect 显隐 / history | 本帧任一 stage 非 active 即整层不 split；inactive/rejected 或 capability-level visual-failure/initially-inactive passthrough 帧走 seed copy，已提交 history 由 seed 的 rehydrated mapping 承接（设计路径，实际切换待验证）；运行时 material 失败仍按现有丢弃路径。本窗口 4/6 条 motionblur 链活跃；744/719/511/473 各 1212 行 copyCount=0、failed=0（首帧各 1 seeded，不是 copy），perf 6.0 copy/帧；257/369 被 sceneScript 隐藏，活跃相位待测；reflection-history 集成 4/4（不覆盖本 gate）。不增另一 history owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
 | 3028048463/531.alpha、3280903509/225.alpha | 531.alpha 为 Number 直通（初值 1.0，脚本无数组返回），空数组来源待核（脚本路径已排除），候选在 prepared catalog/producer 路径，需实际 producer 证据；225.alpha 脚本按 Vec3 返回 color 而属性为 Number，作者配置与字段不符，不静默强转，待官方行为/字段归属证据。 |
