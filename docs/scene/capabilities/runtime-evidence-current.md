@@ -185,6 +185,9 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 真实vertex V域[.24242425,1]：约631.34px主干仅消费V .30303031→.27272725，开头5.522px却跨V1→.32900429。原RopePlan在几何去重前按存活索引分q，距离去重保first sample/UV且未在可画域重归一，后续FrameTransform/vertex没有二次UV缩放；本次首次在958实际batch观察到该端域边界。原sickle同SHA的base非零mask止于y<18、A255核心止于y<15，支持主干落透明边缘/低alpha区的空间解释，不能代替实际过滤alpha或官方端域。下一资格由[队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护；不从这些图选择重归一、弧长、半宽、alpha、mip或MSAA修复。单个simulationLimitation只保kind未含detail，本项也不授完整模拟、旧App整轨恢复、官方像素或性能。
 
+<a id="cursor-ripple-active-329"></a>
+3299228616原输入同摘要、同签名Debug `5172b33c…93c2`，246/e2的遮罩在所选金色水边通行。相同无按键轨迹的开/关两场，开启见三段材质与持续history，并在已成图的局部可见水波，关闭无该effect draw。两场快照请求均触及容量，晚图错过标记轨迹点，不能比较幅值。当前没有可归因的引擎问题，旧强度反馈退出开放队列，产品保持原链。收据归`scene-cursor-ripple-3299228616-20261109`。
+
 <a id="control-point-offset"></a>
 ## 带角度 emitter 的默认位置错型
 

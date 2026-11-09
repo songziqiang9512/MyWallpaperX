@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 500,
-      "bytes": 206749
+      "lines": 503,
+      "bytes": 207281
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49839
+      "bytes": 49255
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,11 +440,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "50636b0bbbad36b4e0f924901d845f6454d100e2dd7adfde05060fcbbc036922",
-      "after": "f481ecc5c984593aadf495b84caf3529c682972552033a464dd7603dd7230b46",
-      "owner": "Scene shared image source preparation",
-      "reason": "Record same-surface property updates and independent authored clones against official runtime.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-shared-source-hot"
+      "before": "f481ecc5c984593aadf495b84caf3529c682972552033a464dd7603dd7230b46",
+      "after": "b7828c42985e0ece5830cfd9b05009ce00d9dbf63987d44a12f693bf13956ab5",
+      "owner": "Scene runtime evidence and triage",
+      "reason": "Record observed ripple output and bounded capture failure.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#cursor-ripple-active-329"
     },
     {
       "section": "bodies",
