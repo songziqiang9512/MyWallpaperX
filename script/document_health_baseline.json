@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 154,
-      "bytes": 28830
+      "bytes": 28891
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
-      "bytes": 246708
+      "bytes": 246778
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -458,8 +458,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "76330f6cf47d854d6c6fc515f4bc22a14a8759e2e54f2e7b8cb4f28dbf26ec95",
-      "after": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
+      "before": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
+      "after": "a6e594b09e30cc9e604beee9de632483db333c37204b3e07947fdf42d14a0b69",
       "owner": "Scene capability contract",
       "reason": "Define authored text depth through the ordinary world terminal and record the real-sample enabled/disabled boundary.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
@@ -467,8 +467,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3fa80052779d43a01b0ea28fc8fa5bb7886b941667a1683bdf802323a150b13b",
-      "after": "229f0a5cd76af779c4ba0b45197717b53cee3f2c894fb2be93259130fae0018d",
+      "before": "229f0a5cd76af779c4ba0b45197717b53cee3f2c894fb2be93259130fae0018d",
+      "after": "eba9d3206a0a30d3f3798c7a4f251b8b826a92a0349902256d1466dbccfc6386",
       "owner": "Scene runtime evidence",
       "reason": "Record the authored text depth A/B, real-sample text terminals, and the remaining official clock boundary.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-text-depth"
