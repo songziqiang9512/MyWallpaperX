@@ -296,7 +296,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
                     self.assertTrue(passed)
             # Append-only Swift/Metal payload contract. GPU sampling below
             # independently checks that these bytes reach the matching MSL ABI.
-            self.assertEqual(report['layout'], [352, 640, 704, 720, 784, 848])
+            self.assertEqual(report['layout'], [352, 640, 704, 720, 784, 848, 864])
             print(json.dumps(report, sort_keys=True))
 
     def test_independent_reflection_numbers_and_scene_projection(self):
@@ -389,7 +389,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
             self.assertTrue(report['pointsOverflowKeepsAuthoredOrder'])
             self.assertTrue(report['mixedFamilySingleCommandCompleted'])
             family = {row['name']: row['rgba'] for row in report['lightingFamilyPixels']}
-            self.assertEqual(len(family), 9)
+            self.assertEqual(len(family), 13)
             half = lambda value: struct.unpack('e', struct.pack('e', value))[0]
             # At N=L=V, dielectric F=.04 and roughness1 gives specular
             # weight .01. These closed-form head-on constants avoid another
@@ -397,6 +397,8 @@ class SceneLitImageLayerTests(unittest.TestCase):
             covered = [half(value) * .96 + .5 * .01 for value in [.2, .15, .1]]
             scales = {'legacy-near': 1.85, 'legacy-far': 1.85, 'legacy-repeat': 1.85,
                 'modern-near': .75 ** 2 / math.pi, 'modern-far': .5 ** 2 / math.pi,
+                'modern-gentle': .9330329915 / math.pi, 'modern-steep': .03125 / math.pi,
+                'modern-zero': 1 / math.pi, 'modern-zero-outside': 0,
                 'direction-forward': 1 / math.pi, 'direction-flat-normal': 1 / math.pi,
                 'direction-backward': 0, 'direction-tilted-normal': 0}
             for name, scale in scales.items():

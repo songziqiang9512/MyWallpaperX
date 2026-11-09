@@ -46,6 +46,7 @@ struct SceneStaticModelUniforms {
     float4 spotOuterCosines;
     SceneModelShadowUniforms shadows[4];
     float4 surfaceMaterial;
+    float4 pointFalloffExponents;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -442,12 +443,12 @@ fragment half4 sceneStaticModelFragment(
         }
         float distanceToLight = sqrt(distanceSquared);
         float3 directionTowardLight = toLight / distanceToLight;
-        float radial = clamp(
+        float remaining = clamp(
             1.0 - distanceToLight / max(positionRadius.w, 1e-4),
             0.0,
             1.0
         );
-        radial *= radial;
+        float radial = sceneRadialFalloff(remaining, uniforms.pointFalloffExponents[lightIndex]);
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {

@@ -568,11 +568,16 @@ POINT_AUTHORED_MAIN=r'''
   checks["strict-authored-cast"] = values == ["nil","true","false","nil","nil","nil","nil","true","false","nil"]
   let alias=parser.renderDescriptor.layers.first{$0.id==109}!.pointLight!
   checks["point-alias"] = alias.kind == "point"
+  let exponents=(0..<10).map { index in
+   parser.renderDescriptor.layers.first{$0.id==100+index}!.pointLight!.exponent
+  }
+  checks["explicit-exponents"] = exponents == [nil,0,0.1,5,nil,nil,nil,0.1,nil,nil]
   let old=try JSONDecoder().decode(ScenePointLightDefinition.self,from:Data("{\"kind\":\"lpoint\",\"radius\":100,\"intensity\":1}".utf8))
-  checks["old-codable-omission"] = old.castsShadow == nil
+  checks["old-codable-omission"] = old.castsShadow == nil && old.exponent == nil
   let mixed=try build("mixed").renderDescriptor
   let admitted=SceneLightSnapshot.make(descriptor:mixed,worldFramesByLayerID:frames(mixed))
   checks["author-order-shared-four"] = admitted.point.compactMap(\.layerID)==[10,12] && admitted.spot.compactMap(\.layerID)==[11] && admitted.directional.compactMap(\.layerID)==[13] && admitted.overflowCount==1
+  checks["point-falloff-keeps-zero-and-default"] = admitted.point.map(\.falloffExponent)==[2,0]
   checks["original-dir-spot-before-point-priority"] = admitted.shadowLights.compactMap(\.layerID)==[13,11,10,12]
   let descriptor=try build("current").renderDescriptor
   let byID=Dictionary(uniqueKeysWithValues:descriptor.layers.map{($0.id,$0)})
@@ -588,6 +593,7 @@ POINT_AUTHORED_MAIN=r'''
   let second=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:currentFrames,dynamicLayerColors:[20:SIMD3(0.2,0.4,0.6)],dynamicSnapshot:current)
   checks["current-parent-world"] = second.point.first!.position == SIMD3<Float>(21,64,43)
   checks["current-light-values"] = second.point.first!.intensity==3.5 && second.point.first!.radius==73 && second.point.first!.color==SIMD3<Float>(0.2,0.4,0.6)
+  checks["authored-exponent-survives-dynamic-light-frame"] = second.point.first!.falloffExponent==0.1
   checks["cast-current-identity"] = second.point.compactMap(\.layerID)==[20,21] && second.point.map(\.castsShadow)==[true,false] && second.shadowLights.compactMap(\.layerID)==[20]
   checks["previous-immutable"] = first.point.first!.position==SIMD3<Float>(11,74,33) && first.point.first!.intensity==2
   let restored=SceneLightSnapshot.make(descriptor:descriptor,worldFramesByLayerID:staticFrames)
@@ -607,13 +613,15 @@ def prepare_point_authored_inputs(root):
     def light(id,kind='lpoint',**kwargs):return {'id':id,'light':kind,'color':'1 1 1','intensity':2,'radius':73,'origin':'0 0 0','castshadow':True,**kwargs}
     sentinel=object();values=[sentinel,True,False,1,0,'true',None,{'value':True},{'value':False},{'value':1}]
     parser=[]
-    for index,value in enumerate(values):
+    exponents=[sentinel,0,0.1,5,-1,True,"0.1",{'value':0.1},None,sentinel]
+    for index,(value,exponent) in enumerate(zip(values,exponents)):
         entry=light(100+index,'point' if index==9 else 'lpoint');entry.pop('castshadow')
         if value is not sentinel:entry['castshadow']=value
+        if exponent is not sentinel:entry['exponent']=exponent
         parser.append(entry)
     scenes={'parser':parser,
-        'mixed':[light(10),light(11,'lspot',innercone=30,outercone=60),light(12),light(13,'ldirectional'),light(14)],
-        'current':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},light(20,parent=90,origin='1 2 3'),light(21,castshadow=False)],
+        'mixed':[light(10),light(11,'lspot',innercone=30,outercone=60),light(12,exponent=0),light(13,'ldirectional'),light(14)],
+        'current':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},light(20,parent=90,origin='1 2 3',exponent={'value':0.1}),light(21,castshadow=False)],
         'hidden-author':[{'id':90,'image':'models/util/solidlayer.json','size':'1 1','origin':'10 20 30'},dict(light(20,parent=90,origin='1 2 3'),visible=False),light(21,castshadow=False)]}
     for name,objects in scenes.items():
         target=root/name;target.mkdir(parents=True,exist_ok=True)

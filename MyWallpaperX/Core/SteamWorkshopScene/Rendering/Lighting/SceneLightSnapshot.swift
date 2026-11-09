@@ -24,6 +24,7 @@ struct SceneLightSnapshot {
         let color: SIMD3<Float>
         let intensity: Float
         let radius: Float
+        var falloffExponent: Float = 2
     }
 
     struct Spot {
@@ -374,7 +375,8 @@ struct SceneLightSnapshot {
             color: dynamicColor
                 ?? color(definition.colorRGB, fallback: SIMD3(1, 1, 1)),
             intensity: intensity,
-            radius: radius
+            radius: radius,
+            falloffExponent: definition.exponent ?? 2
         )
     }
 

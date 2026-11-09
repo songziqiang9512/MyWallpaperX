@@ -44,10 +44,11 @@ struct PackedLights {
     var ambient=SIMD3<Float>.zero
     var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero
     var pointIntensities:[Float]=[]; var directionalIntensities:[Float]=[]
+    var pointFalloffExponents:[Float]=[]
     var usesLightingV1=false
 }
 struct SceneLightSnapshot {
-    struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true }
+    struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true;var falloffExponent:Float = 2 }
     struct Directional { let directionTowardLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float }
     var point:[Light]=[];var spot:[Light]=[];var directional:[Directional]=[]
     let ambient=SIMD3<Float>(0.25,0.5,0.75);let skylight=SIMD3<Float>(0.75,0.5,0.25)
@@ -63,12 +64,13 @@ struct SceneBaseMaterialLitCapturePayload {
         enum Kind { case materialMap }
         static func resolve(_ lookup:Bool,kind:Kind?=nil)->Self { .ready }
     }
-    struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float }
+    struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;var falloffExponent:Float = 2 }
     struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
     struct DirectionalLight { let directionTowardLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float }
     static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4,directionalLights:[DirectionalLight]=[],usesLightingV1:Bool=false)->PackedLights? {
         var result=PackedLights();result.ambient=ambient
         result.pointIntensities=pointLights.map(\.intensity)
+        result.pointFalloffExponents=pointLights.map(\.falloffExponent)
         result.directionalIntensities=directionalLights.map(\.intensity)
         result.usesLightingV1=usesLightingV1
         return result
@@ -123,7 +125,8 @@ struct SceneMetalRenderer {
         func point(_ intensity:Float,_ model:Bool)->SceneLightSnapshot.Light {
             .init(position:SIMD3(0,0,20),directionFromLight:SIMD3(0,0,-1),
                 color:SIMD3(repeating:1),intensity:intensity,radius:100,
-                innerConeCosine:1,outerConeCosine:0,illuminatesStaticModels:model)
+                innerConeCosine:1,outerConeCosine:0,illuminatesStaticModels:model,
+                falloffExponent:model ? 0.5 : 2)
         }
         let frame=SceneLightSnapshot(point:[point(7,false),point(11,true)],
             directional:[.init(directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:13)])
@@ -135,6 +138,7 @@ struct SceneMetalRenderer {
                 usesPerspective:false,cameraFrame:.init(),sceneViewProjection:matrix_identity_float4x4,
                 environmentSource:nil) {
             case let .payload(payload): return ["points":payload.packed.pointIntensities,
+                "pointExponents":payload.packed.pointFalloffExponents,
                 "directions":payload.packed.directionalIntensities,"modern":payload.packed.usesLightingV1]
             case .miss: return ["miss":true]
             }
@@ -179,9 +183,9 @@ class SceneMaterialUserEmissionTests(unittest.TestCase):
     def test_builder_snapshot_actual_capture_and_atomic_cycle(self):
         result=self.probe(alpha=True)
         self.assertEqual(result['familySelection'], [
-            {'points': [7], 'directions': [], 'modern': False},
-            {'points': [11], 'directions': [13], 'modern': True},
-            {'points': [7], 'directions': [], 'modern': False},
+            {'points': [7], 'pointExponents': [2], 'directions': [], 'modern': False},
+            {'points': [11], 'pointExponents': [0.5], 'directions': [13], 'modern': True},
+            {'points': [7], 'pointExponents': [2], 'directions': [], 'modern': False},
         ])
         self.assertEqual(result['instructions'],6,result)
         for row in result['rows']:

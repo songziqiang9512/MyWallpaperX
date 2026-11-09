@@ -59,6 +59,7 @@ struct SceneLitImageLayerLightPayload {
     var directionalColor1 = SIMD4<Float>.zero
     var directionalColor2 = SIMD4<Float>.zero
     var directionalColor3 = SIMD4<Float>.zero
+    var pointFalloffExponents = SIMD4<Float>(repeating: 2)
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -77,6 +78,7 @@ struct SceneBaseMaterialLitCapturePayload {
         let color: SIMD3<Float>
         let intensity: Float
         let radius: Float
+        var falloffExponent: Float = 2
     }
 
     struct SpotLight {
@@ -287,6 +289,7 @@ struct SceneBaseMaterialLitCapturePayload {
             guard light.intensity >= 0, light.radius > 0 else { return nil }
             positions[index] = SIMD4(light.position, light.radius)
             colors[index] = SIMD4(simd_max(light.color, .zero), light.intensity)
+            payload.pointFalloffExponents[index] = light.falloffExponent
         }
         (payload.pointPositionRadius0, payload.pointPositionRadius1,
          payload.pointPositionRadius2, payload.pointPositionRadius3) =

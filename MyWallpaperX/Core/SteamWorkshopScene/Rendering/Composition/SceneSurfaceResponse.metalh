@@ -3,6 +3,11 @@
 #include <metal_stdlib>
 using namespace metal;
 
+static float sceneRadialFalloff(float remaining, float exponent) {
+    if (exponent == 2.0) return remaining * remaining;
+    return remaining > 0.0 ? pow(remaining, exponent) : 0.0;
+}
+
 // One project-owned surface composition; callers own lamp units, color
 // coverage and geometry. Weights include NoL once and omit the common 1/pi.
 // Legacy image visibility is retained migration debt, not an official split.

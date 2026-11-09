@@ -89,6 +89,7 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 - base material 光照在 layer effects 之前完成，graph 捕获该真实 source。albedo/emissive 与 normal/PBR data 分用途读取；normal、radius、锥角与世界距离使用 canonical 坐标，不随 card 非均匀 scale 错变。
 - 2D image 与变形后 mesh 的 receiver mapping 不同；不能从 source atlas unit quad 推出 Puppet/模型的世界位置。未支持 receiver 局部保 unlit，并保原 alpha/geometry。
 - 模型 directional/spot/point 阴影沿现 typed light、真实 geometry、target 与 submission；可见光束、受光和投影是三种消费者，不能互作证明。
+- 现代点光 `lpoint` 的径向项由作者 `exponent` 决定。Format 保留有限非负的显式值，共享 light snapshot 将缺省解析为 2，StaticModel 和 LightingV1 图像消费同一世界距离衰减。平方保乘法，0 在半径内无衰减，半径外沿现有截止。各自现有 GPU 参数末尾追加一个四灯指数向量，保持颜色和强度分立以保浮点动态范围。退出两条现代点光的固定平方，保 legacy `point` 平面距离、spot 与阴影投影。固定官版字段与 stock shader 支持正指数和缺省值，零指数的官版半径外像素仍待核。
 - reflection 只在已有 profile 中取得合适的 scene/environment 输入；模型镜面、所有光源/遮挡与图依赖组合仍不完整。
 - HDR scene color/Bloom 与终端 SDR/EDR 映射分开；像素 PNG 不能证明显示器实际 EDR 高光。
 

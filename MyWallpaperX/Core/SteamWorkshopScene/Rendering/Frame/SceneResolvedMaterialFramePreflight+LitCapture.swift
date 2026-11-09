@@ -116,7 +116,8 @@ SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
                     position: light.position,
                     color: light.color,
                     intensity: light.intensity,
-                    radius: light.radius
+                    radius: light.radius,
+                    falloffExponent: light.falloffExponent
                 )
             },
             spotLights: (profile.lightingEnabled ? snapshot.spot : []).map { light in

@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 114,
-      "bytes": 20517
+      "lines": 115,
+      "bytes": 21131
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 564,
-      "bytes": 239961
+      "lines": 565,
+      "bytes": 240857
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 189,
-      "bytes": 47672
+      "bytes": 47521
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,29 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "bae04d34e7ebce84a43edb95e0053ebf7529ee1bf51abb4c1401c46f2554c2c9",
-      "after": "2ef05080bd448d2a919160865269c6fa340aeb19e433b227d90406a95d518929",
-      "owner": "Scene model color and world evidence",
-      "reason": "Document shared preparation and immediate publication loss for nested model albedo.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-named-albedo"
+      "before": "2ef05080bd448d2a919160865269c6fa340aeb19e433b227d90406a95d518929",
+      "after": "03988477c02ac393db157429327767d6cb462d0ea41edb352ce1fbf3c185322e",
+      "owner": "Scene light snapshot and direct receivers",
+      "reason": "Record the modern point light exponent contract and the retained radius boundary.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "741b8bbbfbdf9bb27dfb961a1d1717700fa831a7da57a51208ccf339e1948ab6",
-      "after": "fe747d3b2a800ec710e943d99cd788d3f67b196f7f51a14078306e9337036922",
-      "owner": "Scene model color and world evidence",
-      "reason": "Record the verified author city lights and the independent model regression.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#nested-model-albedo"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "20bf9be9f7e648e65ab5075019c22fc3d906a92e98a63a2c169f11c9fc8db5e8",
-      "after": "7c9c62c03d0854bed900de686cf9992cb7987a6273870576b1b0a0eb7dc89bc9",
-      "owner": "Scene model color and world evidence",
-      "reason": "Remove the restored city-light row and identify the separate reproducible world failures.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "fe747d3b2a800ec710e943d99cd788d3f67b196f7f51a14078306e9337036922",
+      "after": "16053a4788e79e7f66e207a717e99b71ea471b65a1829eaf351d528836537adb",
+      "owner": "Scene light snapshot and direct receivers",
+      "reason": "Record real Earth and Moon output and scope of the point light verification.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-falloff"
     }
   ]
 }

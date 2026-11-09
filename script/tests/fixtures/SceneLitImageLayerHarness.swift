@@ -211,7 +211,8 @@ enum Harness {
             MemoryLayout<Payload>.offset(of: \.sceneViewProjection)!,
             MemoryLayout<Payload>.offset(of: \.reflection)!,
             MemoryLayout<Payload>.offset(of: \.directionalDirectionIntensity0)!,
-            MemoryLayout<Payload>.offset(of: \.directionalColor0)!, MemoryLayout<Payload>.stride]]
+            MemoryLayout<Payload>.offset(of: \.directionalColor0)!,
+            MemoryLayout<Payload>.offset(of: \.pointFalloffExponents)!, MemoryLayout<Payload>.stride]]
     }
 
     static func main() throws {
@@ -321,9 +322,10 @@ enum Harness {
         // far below half-storage tolerance without copying a general BRDF.
         let tinyCard = simd_float4x4(diagonal: SIMD4<Float>(0.001, 0.001, 1, 1))
         func familyPayload(z: Float? = nil, direction: SIMD3<Float>? = nil,
-                           modern: Bool = true) -> SceneLitImageLayerLightPayload {
+                           modern: Bool = true, falloffExponent: Float = 2) -> SceneLitImageLayerLightPayload {
             Capture.packLights(pointLights: z.map { [Capture.PointLight(
-                position: SIMD3(0, 0, $0), color: SIMD3(repeating: 1), intensity: 1, radius: 100)] } ?? [],
+                position: SIMD3(0, 0, $0), color: SIMD3(repeating: 1), intensity: 1, radius: 100,
+                falloffExponent: falloffExponent)] } ?? [],
                 spotLights: [], ambient: .zero, material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0),
                 layerModelMatrix: tinyCard, normalModelMatrix: matrix_identity_float4x4,
                 directionalLights: direction.map { [Capture.DirectionalLight(
@@ -339,7 +341,11 @@ enum Harness {
             ("direction-backward", familyPayload(direction: SIMD3(0, 0, -1)), nil),
             ("direction-flat-normal", familyPayload(direction: SIMD3(0, 0, 1)), flat),
             ("direction-tilted-normal", familyPayload(direction: SIMD3(0, 0, 1)), tilted),
-            ("legacy-repeat", familyPayload(z: 25, modern: false), nil),
+            ("legacy-repeat", familyPayload(z: 25, modern: false, falloffExponent: 0.1), nil),
+            ("modern-gentle", familyPayload(z: 50, falloffExponent: 0.1), nil),
+            ("modern-steep", familyPayload(z: 50, falloffExponent: 5), nil),
+            ("modern-zero", familyPayload(z: 50, falloffExponent: 0), nil),
+            ("modern-zero-outside", familyPayload(z: 101, falloffExponent: 0), nil),
         ]
         let familyCommand = queue.makeCommandBuffer()!
         let familyTargets = familyCases.map { row in

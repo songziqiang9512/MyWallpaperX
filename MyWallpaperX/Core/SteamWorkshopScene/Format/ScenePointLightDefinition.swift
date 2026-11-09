@@ -13,6 +13,7 @@ struct ScenePointLightDefinition: Codable, Equatable {
     let castsVolumetrics: Bool?
     let castsShadow: Bool?
     let isSolid: Bool?
+    var exponent: Float? = nil
 
     nonisolated static func parse(
         _ root: [String: Any]
@@ -28,7 +29,8 @@ struct ScenePointLightDefinition: Codable, Equatable {
             radius: number(resolvedValue(root["radius"])),
             castsVolumetrics: resolvedValue(root["castvolumetrics"]) as? Bool,
             castsShadow: shadow == .enabled ? true : shadow == .disabled ? false : nil,
-            isSolid: resolvedValue(root["solid"]) as? Bool
+            isSolid: resolvedValue(root["solid"]) as? Bool,
+            exponent: number(resolvedValue(root["exponent"])).flatMap { $0 >= 0 ? $0 : nil }
         )
     }
 
