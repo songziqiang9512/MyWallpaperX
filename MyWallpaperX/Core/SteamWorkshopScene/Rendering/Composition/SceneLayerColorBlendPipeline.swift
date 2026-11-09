@@ -230,7 +230,6 @@ enum SceneLayerColorBlendRenderer {
         } else if let terminalMaterialState {
             let needsDepth = terminalMaterialState.requiresDepthAttachment
             guard layer.utilityLayer == nil,
-                  layer.contentKind == "image" || layer.contentKind == "solid",
                   let authored = layer.imageMaterialRenderState,
                   terminalMaterialState == authored
                     || terminalMaterialState == authored.withoutDepthWrite,

@@ -167,7 +167,9 @@ extension SceneMetalRenderer {
                 } else {
                     guard cameraFrame.defaultsToPerspective,
                           cameraFrame.resolvesPerspective(for: layer) else { continue }
-                    let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
+                    // Native text composites its captured color through the world quad.
+                    let claim = layer.contentKind == "text" ? nil
+                        : imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
                     if frameDescriptor.transparentSorting == true, groups == nil,
                        layer.contentKind == "image", state.blending == .translucent,
                        state.depthTest == .enabled, (layer.colorBlendMode ?? 0) == 0,

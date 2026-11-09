@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 148,
-      "bytes": 27380
+      "lines": 154,
+      "bytes": 28830
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 570,
-      "bytes": 245693
+      "lines": 571,
+      "bytes": 246708
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47202
+      "bytes": 47335
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,28 +458,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2ddee491a3c908c221cdca25921895c71ecd40ce7a1b7bb939be30e6961f5c2c",
-      "after": "76330f6cf47d854d6c6fc515f4bc22a14a8759e2e54f2e7b8cb4f28dbf26ec95",
+      "before": "76330f6cf47d854d6c6fc515f4bc22a14a8759e2e54f2e7b8cb4f28dbf26ec95",
+      "after": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
       "owner": "Scene capability contract",
-      "reason": "Define authored point-volume integration and opaque model depth ownership.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#point-light-volume"
+      "reason": "Define authored text depth through the ordinary world terminal and record the real-sample enabled/disabled boundary.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "58cfe544ca07fde59ee8f384274ffb55954fe473be2381b085b3296e2d55da63",
-      "after": "3fa80052779d43a01b0ea28fc8fa5bb7886b941667a1683bdf802323a150b13b",
+      "before": "3fa80052779d43a01b0ea28fc8fa5bb7886b941667a1683bdf802323a150b13b",
+      "after": "229f0a5cd76af779c4ba0b45197717b53cee3f2c894fb2be93259130fae0018d",
       "owner": "Scene runtime evidence",
-      "reason": "Record official flag isolation, opaque depth correction, and independent author playback.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-light-volume"
+      "reason": "Record the authored text depth A/B, real-sample text terminals, and the remaining official clock boundary.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-text-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "df0b3f225aa365709d6ee09c4d0790c3d65b7774dae549a9aba77e38052771bd",
-      "after": "d36248145c41fcc0e7ae24bf676e84de7dbfa3209afca9a596f0f2723055562f",
+      "before": "d36248145c41fcc0e7ae24bf676e84de7dbfa3209afca9a596f0f2723055562f",
+      "after": "7e2aab2fda40ed05c2f665f80814eeb035c979c574fa78e4de12ed059929bb44",
       "owner": "Scene open queue",
-      "reason": "Remove the restored lunar volume gap and retain the proven diagnostic export and shadowed scope.",
+      "reason": "Record the restored authored clock/weekday under natural wall time and retain the official clock boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]

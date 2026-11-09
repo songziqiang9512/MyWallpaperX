@@ -295,6 +295,11 @@ nonisolated struct SceneRenderDescriptorBuilder {
                    object.materialInstance?.unknownKeys.isEmpty != false {
                     layer.imageMaterialRenderState = facts?.state
                 }
+                if preparesNativeImageState, contentKind == "text",
+                   (layer.colorBlendMode ?? 0) == 0,
+                   case let .object(fields)? = object.authoredValue {
+                    layer.imageMaterialRenderState = .compileTextDepth(fields["depthtest"]?.stringValue)
+                }
                 return layer
             },
             rootLayerIDs: sceneDocument.objects.filter { $0.parentID == nil }.map(\.id),

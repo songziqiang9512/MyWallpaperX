@@ -320,6 +320,80 @@ def perspective_image_depth_regions(sorting):
     )}
 
 
+TEXT_DEPTH_CASES = (
+    (71, "direct-far", -1.8, -.8, "enabled", None),
+    (72, "effect-far", -.6, -.8, "enabled", "owned_ink"),
+    (73, "renamed-effect-far", .6, -.8, "enabled", "retitled_coverage"),
+    (74, "disabled-far", 1.8, -.8, "disabled", None),
+    (81, "direct-near", -1.8, .8, "enabled", None),
+    (82, "effect-near", -.6, .8, "enabled", "owned_ink"),
+)
+
+
+def perspective_text_depth_entries():
+    objects = [{"id": 2, "model": "models/near.mdl", "castshadow": False}]
+    entries = {
+        "models/near.mdl": mdl_quad(-5, 5, .38, 1.18, 1, "materials/orange.json"),
+        "models/far.mdl": mdl_quad(-6, 6, -3, 3, -1.2, "materials/green.json"),
+        "materials/orange.json": model_material("materials/orange.png"),
+        "materials/green.json": model_material("materials/green.png"),
+        "materials/orange.png": png(4, 4, lambda _x, _y: ORANGE),
+        "materials/green.png": png(4, 4, lambda _x, _y: GREEN),
+    }
+    vertex = EFFECT_VERTEX.replace(
+        b"varying vec2 v_TexCoord;",
+        b"uniform mat4 g_ModelViewProjectionMatrix;\nvarying vec2 v_TexCoord;",
+    ).replace(b"gl_Position = vec4", b"gl_Position = g_ModelViewProjectionMatrix * vec4")
+    for name, varying, output in (
+        ("owned_ink", "v_TexCoord", "vec4(ink.rgb, ink.a * g_GlyphOpacity)"),
+        ("retitled_coverage", "v_InkUV", "vec4(ink.r, ink.g, ink.b, g_GlyphOpacity * ink.a)"),
+    ):
+        material = f"materials/{name}.json"
+        entries[f"effects/{name}/effect.json"] = encoded({"passes": [{"material": material}]})
+        entries[material] = encoded({"passes": [{"shader": name, "textures": [None],
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled",
+            "cullmode": "nocull"}]})
+        entries[f"shaders/{name}.vert"] = vertex.replace(b"v_TexCoord", varying.encode())
+        entries[f"shaders/{name}.frag"] = f'''uniform sampler2D g_Texture0;
+uniform float g_GlyphOpacity; // {{"material":"alpha","default":1.0}}
+varying vec2 {varying};
+void main() {{
+    vec4 ink = texSample2D(g_Texture0, {varying});
+    gl_FragColor = {output};
+}}
+'''.encode()
+    for layer, name, x, y, depth_test, effect in TEXT_DEPTH_CASES:
+        obj = {"id": layer, "name": name, "text": "HH", "font": "systemfont_arial",
+               "pointsize": 24, "padding": 40, "color": "1 1 1", "origin": f"{x} {y} 0",
+               "scale": "0.0055 0.0055 1", "horizontalalign": "center",
+               "verticalalign": "center", "depthtest": depth_test, "perspective": True}
+        if effect:
+            obj["effects"] = [{"id": layer + 200, "file": f"effects/{effect}/effect.json", "visible": True,
+                               "passes": [{"id": 0, "constantshadervalues": {"alpha": .5}}]}]
+        objects.append(obj)
+    objects.append({"id": 30, "model": "models/far.mdl", "castshadow": False})
+    scene = native_world_scene(objects)
+    scene["general"]["transparentsorting"] = True
+    entries["scene.json"] = encoded(scene)
+    return entries
+
+
+def measure_perspective_text_depth(path):
+    width, height, rows = png_rgb_pixels(path)
+    result = {}
+    for _, name, x, y, _, _ in TEXT_DEPTH_CASES:
+        x0, y0 = screen((x - .49, y + .27, 0), width, height)
+        x1, y1 = screen((x + .49, y - .27, 0), width, height)
+        pixels = [tuple(rows[row][column * 3:column * 3 + 3])
+                  for row in range(math.ceil(y0), math.floor(y1))
+                  for column in range(math.ceil(x0), math.floor(x1))]
+        result[name] = {"count": len(pixels), "green": pixels.count(GREEN), "orange": pixels.count(ORANGE),
+                        "white": sum(min(pixel) >= 230 for pixel in pixels),
+                        "halfGray": sum(104 <= min(pixel) <= max(pixel) <= 152
+                                        and max(pixel) - min(pixel) <= 3 for pixel in pixels)}
+    return result
+
+
 def plane_world(local):
     """Independent double Rz*Ry*Rx, scale then translation, before any App run."""
     x = local[0] * PLANE_SIZE[0] * PARENT_SCALE[0]
@@ -459,6 +533,48 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
 
     def test_perspective_image_effect_preserves_legacy_order_without_sorting(self):
         self.run_perspective_image_depth_case(sorting=False)
+
+    def test_perspective_text_preserves_covered_depth_through_direct_and_effect_draws(self):
+        entries = perspective_text_depth_entries()
+        with patch.object(app_runner, "measure_capture", measure_perspective_text_depth):
+            result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(
+                self, 8, capture=True, entries=entries, material_input_path="materials/owned_ink.json")
+        work = self.evidence_root / "Ref8-capture-on"
+        identity = json.loads((work / "identity.json").read_text())
+        self.assertEqual(app_runner.sha256(work / "content/scene.pkg"), identity["package"])
+        self.assertEqual(app_runner.sha256(work / "content/project.json"), identity["project"])
+        for path, event in self.composition_captures(work, (work / "app.log").read_text()):
+            with self.subTest(capture=path.name):
+                rows = event["rows"]
+                terminals = [row for row in rows if row["kind"] in ("ordinary", "model")
+                             and row.get("outcome") == "draw-encoded"]
+                self.assertEqual([row["layerID"] for row in terminals],
+                                 [2, *(case[0] for case in TEXT_DEPTH_CASES), 30])
+                self.assertEqual(len({row["target"]["textureToken"] for row in terminals}), 1)
+                for terminal, (layer, _, _, _, _, effect) in zip(terminals[1:-1], TEXT_DEPTH_CASES, strict=True):
+                    self.assertEqual(terminal["kind"], "ordinary")
+                    self.assertEqual(terminal["details"]["contentKind"], "text")
+                    layer_rows = [row for row in rows if row.get("layerID") == layer]
+                    source, = (row for row in layer_rows if row["kind"] == "source-selection")
+                    self.assertIn(f"dynamicText(layerID: {layer})", source["source"]["candidateIdentity"])
+                    source_token = source["source"]["textureToken"]
+                    if effect:
+                        capture, = (row for row in layer_rows if row["kind"] == "sourceCapture")
+                        material, = (row for row in layer_rows if row["kind"] == "material")
+                        self.assertEqual(capture["source"]["textureToken"], source_token)
+                        self.assertEqual(capture["target"]["textureToken"], material["source"]["textureToken"])
+                        source_token = material["target"]["textureToken"]
+                        self.assertLess(layer_rows.index(capture), layer_rows.index(material))
+                        self.assertLess(layer_rows.index(material), layer_rows.index(terminal))
+                    self.assertEqual(terminal["source"]["textureToken"], source_token)
+                pixels = result["pixels"][path.name]
+                for name, color in (("direct-far", "white"), ("effect-far", "halfGray"),
+                                    ("renamed-effect-far", "halfGray")):
+                    self.assertGreater(pixels[name][color], 30, (name, pixels))
+                    self.assertGreater(pixels[name]["green"], pixels[name]["count"] / 2, (name, pixels))
+                for name, color in (("disabled-far", "green"), ("direct-near", "orange"), ("effect-near", "orange")):
+                    self.assertGreater(pixels[name]["count"], 100, (name, pixels))
+                    self.assertEqual(pixels[name][color], pixels[name]["count"], (name, pixels))
 
     def run_perspective_image_depth_case(self, *, sorting):
         label = 6 if sorting else 7

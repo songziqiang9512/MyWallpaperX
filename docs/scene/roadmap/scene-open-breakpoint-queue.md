@@ -93,7 +93,7 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)晚帧缺时钟和星期。同淡入脚本在音频条已进到满值，先核文字107/199自身的透明度及晚帧投影，再按结果查文字供货或覆盖。 |
+| 3455121165 | [作者文字世界深度](../capabilities/runtime-evidence-current.md#authored-text-depth)已恢复自然墙钟下晚帧时钟与星期；固定 MYWALLPAPERX_SCENE_DEBUG_WALL_DATE 冻结 Date.now()，复核用自然墙钟。官版同时关闭 107/199 深度时星期不可读而时钟仍在，本地同输入两者都不可见，时钟差异归后续绘制层，仍需单独取证。 |
 
 ### 基础画面与基本交互优先
 
