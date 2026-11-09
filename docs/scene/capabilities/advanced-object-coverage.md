@@ -32,6 +32,17 @@ SourceRoute 不再整类拒绝 model，不追加材质/效果/几何名单。typ
 
 验收用现有原生 App 门的自有 MDL：普通 transform parent 与局部 composition/project 的对应像素，父颜色 Program 和 source→父输入→main/seal/GPU，同组 near/far opaque 与 nonwriting translucent 交叠、独立组 depth、非均匀父 TRS、镜像画布与双负模型的单面正反例及改名，已准备 model 自身和父组 `true → false → true` 不残留、真实 tintback、child false、坏模型/健康 peer。保祖先 hidden 的 Script/UI producer 供货、source 有效但活动 Program 未准备及同 key 独立坏 leaf 的反例，并回归已有 hidden image/particle 准备；准备事实不代替实际 cold 画面资格。沿现有行为门核 pass depth/失败与 root nil-map，不复制渲染算法进测试；独立作者模型核普通路径回归，不称作者 composition 恢复或官方像素一致。若需新状态、重设深度、另一投影/owner 或未知材质语义，回到本设计，不以新白名单掩盖。
 
+<a id="perspective-image-terminal-depth"></a>
+### 普通透视贴图的终端深度
+
+原生透视场景明确启用 `general.transparentsorting` 时，先在同一主画布绘制不透明模型，再合成可重排的局部透明图像效果。效果仍使用原 source、graph 与世界投影，终端读共享深度并停写深度，防止空白纹理矩形把后绘的星空挡掉。先接入无外部供货、环境或画布输入的普通透视 image。它不进入 placement 重放，退出用重放能力位跳过该终端状态的分支。关闭排序和其他终端沿各自原路径。
+
+在既有帧顺序内，只重排由合格效果、不透明写深度模型和无绘制项组成的区间。效果按相机深度远到近，同深保作者顺序。实绘但未接入的层、组、供货及画布观察都截断区间。资源准备和实际编码消费同一顺序，命名供货及观察点的位置保持原相对顺序。该范围不接入跨组、透明模型、粒子或依赖当前画布的效果重排。
+
+原 MainPass 的 reverse-depth 域由模型和贴图绘制共享。命名模型颜色尚未发布时，按作者顺序准备已确定的必需深度，推进至第一个主域模型，普通终端可借其中已取得的主域。未准备的模型继续在原作者位置解析颜色，前缀不发布为完整 draw set。Framebuffer source 继续要求完整准备。组、粒子及其他域保原资源优先级，首个实际 encoder 清零，后继读取同一 lease。
+
+验收覆盖透视效果的遮挡区和露出区、明确关闭深度、后绘模型和透明空白区、排序关闭对照、重放邻例、待供货模型、首次清零和容量失败。用同机位的作者地球与关闭 Bloom 的可区分对照，再核独立世界样本的星空背景和恒星光晕。
+
 <a id="legacy-bind-mesh"></a>
 ### 旧版 Puppet 的网格与动画
 

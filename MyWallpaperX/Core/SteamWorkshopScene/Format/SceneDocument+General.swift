@@ -58,6 +58,7 @@ extension SceneDocument {
         var lightClasses: LightClassesDescriptor = .init()
         var distanceFog: DistanceFog? = nil
         var hdrEnabled: Bool = false
+        var transparentSorting: Bool? = nil
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
         let clearEnabled: Bool
         let nearZ: Float?
@@ -151,6 +152,7 @@ extension SceneDocumentLoader {
             lightClasses: lightClasses(root?["lightconfig"]),
             distanceFog: distanceFog(root),
             hdrEnabled: visibleValue(root?["hdr"]) ?? false,
+            transparentSorting: (authoredRoot ?? root)?["transparentsorting"] as? Bool,
             clearColor: floatVector(root?["clearcolor"]),
             clearEnabled: (root?["clearenabled"] as? Bool) ?? true,
             nearZ: root?["nearz"].flatMap(Self.floatValue),

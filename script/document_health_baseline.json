@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 115,
-      "bytes": 21131
+      "lines": 126,
+      "bytes": 22946
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 565,
-      "bytes": 240857
+      "lines": 567,
+      "bytes": 242425
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 189,
-      "bytes": 47521
+      "lines": 188,
+      "bytes": 47338
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,20 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2ef05080bd448d2a919160865269c6fa340aeb19e433b227d90406a95d518929",
-      "after": "03988477c02ac393db157429327767d6cb462d0ea41edb352ce1fbf3c185322e",
-      "owner": "Scene light snapshot and direct receivers",
-      "reason": "Record the modern point light exponent contract and the retained radius boundary.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#lighting"
+      "before": "03988477c02ac393db157429327767d6cb462d0ea41edb352ce1fbf3c185322e",
+      "after": "2ad5c5b82d2e1e75f22c9e36613c23fdc3459ec0d47f34e66acf6d931c936d1d",
+      "owner": "Scene world composition",
+      "reason": "Record bounded transparency order and the single depth domain.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fe747d3b2a800ec710e943d99cd788d3f67b196f7f51a14078306e9337036922",
-      "after": "16053a4788e79e7f66e207a717e99b71ea471b65a1829eaf351d528836537adb",
-      "owner": "Scene light snapshot and direct receivers",
-      "reason": "Record real Earth and Moon output and scope of the point light verification.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-falloff"
+      "before": "16053a4788e79e7f66e207a717e99b71ea471b65a1829eaf351d528836537adb",
+      "after": "4855d9f3f388e76e0bb9fcaad2214364174468df351b7b3bc2b3e0bfa7bba624",
+      "owner": "Scene runtime evidence",
+      "reason": "Retain signed output, independent sky control and the open orbit-label frame.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#world-terminal-depth"
     }
   ]
 }

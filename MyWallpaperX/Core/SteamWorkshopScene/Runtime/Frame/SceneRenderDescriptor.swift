@@ -50,6 +50,7 @@ struct SceneRenderDescriptor: Codable {
     let camera: CameraDescriptor
     var lighting: LightingDescriptor? = nil
     var hdrEnabled: Bool = false
+    var transparentSorting: Bool? = nil
     var generalTimelines: [SceneDocument.SceneGeneralTimeline]? = nil
     var generalTimelineDiagnostics: [String]? = nil
 
@@ -181,6 +182,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 distanceFog: sceneDocument.general.distanceFog
             ),
             hdrEnabled: sceneDocument.general.hdrEnabled,
+            transparentSorting: sceneDocument.general.transparentSorting,
             generalTimelines: sceneDocument.general.timelines,
             generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
             layers: sceneDocument.objects.enumerated().map { index, object in

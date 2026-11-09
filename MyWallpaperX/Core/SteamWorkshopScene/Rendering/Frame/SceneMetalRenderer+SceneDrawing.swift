@@ -91,7 +91,6 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        let orderedLayers = frameProjection.orderedLayers
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
 #if DEBUG
@@ -152,22 +151,39 @@ extension SceneMetalRenderer {
         // Only prepared policy IDs are inspected. Source/effect programs retain
         // their coordinate ABI; this policy belongs to the ordinary terminal.
         var ordinaryDepthLayerIDs: Set<Int> = []
+        var sortableImageDepths: [Int: Float] = [:]
         if let imagePipeline {
             for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
                 guard let layer = frameLayersByID[id],
-                      let state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
+                      var state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
                       imageTextures.geometryProducts[id] == nil,
                       (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
                         || compositionGroupRuntime == nil) else { continue }
                 let additiveImage = state.supportsImageAdditiveRGB
+                var sortDepth: Float?
                 if additiveImage {
                     guard !dependencyRuntime.requiresGraphOutputCapture(for: id),
                           !dependencyRuntime.requiresEffect(for: id) else { continue }
                 } else {
                     guard cameraFrame.defaultsToPerspective,
-                          cameraFrame.resolvesPerspective(for: layer),
-                          imageCompositor.preflightResolvedMaterialClaim(layerID: id)
-                            .execution?.supportsTerminalMaterialReplay != true else { continue }
+                          cameraFrame.resolvesPerspective(for: layer) else { continue }
+                    let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
+                    if frameDescriptor.transparentSorting == true, groups == nil,
+                       layer.contentKind == "image", state.blending == .translucent,
+                       state.depthTest == .enabled, (layer.colorBlendMode ?? 0) == 0,
+                       let claim, claim.sourceRoute == .capturedLayerTexture,
+                       claim.dependencyOwnership == .none, claim.sceneBackgroundRequirement == nil,
+                       imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: id) != true,
+                       !hasWorldOrderDependency(id, utility: frameProjection.utilityExecution),
+                       let world = frameWorldFrames[id] {
+                        let origin = world.columns.3
+                        let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
+                        guard depth.isFinite else { continue }
+                        state = state.withoutDepthWrite
+                        sortDepth = depth
+                    } else if claim?.supportsTerminalMaterialReplay == true {
+                        continue
+                    }
                 }
                 guard imagePipeline.supports(state) else {
                     // Optional RGB policy failure keeps the prior safe image
@@ -176,9 +192,15 @@ extension SceneMetalRenderer {
                     continue
                 }
                 modelFrame.imageMaterialStates[id] = state
+                if let sortDepth { sortableImageDepths[id] = sortDepth }
                 if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
             }
         }
+        let authoredLayers = frameProjection.orderedLayers
+        let orderedLayers = sortableImageDepths.isEmpty ? authoredLayers
+            : sortedWorldImageOrder(authoredLayers, depths: sortableImageDepths,
+                visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
+                utility: frameProjection.utilityExecution)
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
             ordinaryLayerIDs: ordinaryDepthLayerIDs,
@@ -217,7 +239,7 @@ extension SceneMetalRenderer {
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
-            authoredLayerIDs: frameProjection.orderedLayerIDs,
+            authoredLayerIDs: sortableImageDepths.isEmpty ? frameProjection.orderedLayerIDs : orderedLayers.map(\.id),
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             visibleRootLayerIDs: frameVisibleLayerIDs,
             activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs,

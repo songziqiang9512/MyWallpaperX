@@ -42,6 +42,9 @@ GRID_SIZE = (256, 192)
 ORANGE = (232, 95, 20)
 GREEN = (20, 220, 60)
 TOLERANCE = 4
+DEPTH_CARD_IDS = (20, 21, 22)
+DEPTH_CARD_COLORS = ((40, 80, 225), (45, 190, 75), (70, 95, 210))
+DEPTH_CARD_MATERIAL = "materials/depth_card_20.json"
 
 
 def encoded(value) -> bytes:
@@ -87,6 +90,19 @@ def model_material(texture: str) -> bytes:
         "constantshadervalues": {"alpha": 1, "brightness": 1, "color": [1, 1, 1]},
         "blending": "normal", "depthtest": "enabled", "depthwrite": "enabled",
         "cullmode": "nocull"}]})
+
+
+def native_world_scene(objects):
+    return {
+        "version": 3,
+        "camera": {"eye": "0 0 6", "center": "0 0 0", "up": "0 1 0"},
+        "general": {"orthogonalprojection": None, "fov": 60, "nearz": .1,
+                    "farz": 100, "zoom": 1, "clearcolor": "0 0 0",
+                    "clearenabled": True, "hdr": False, "bloom": False,
+                    "ambientcolor": "0 0 0", "skylightcolor": "0 0 0",
+                    "cameraparallax": False, "camerashake": False},
+        "objects": objects,
+    }
 
 
 SOURCE_VERTEX = b"""
@@ -137,15 +153,7 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
     effect_path = "effects/retitled/output/effect.json" if renamed else "effects/invert/effect.json"
     effect_material = "materials/retitled/output.json" if renamed else "materials/inverse.json"
     effect_shader = "retitled/output" if renamed else "owned_inverse"
-    scene = {
-        "version": 3,
-        "camera": {"eye": "0 0 6", "center": "0 0 0", "up": "0 1 0"},
-        "general": {"orthogonalprojection": None, "fov": 60, "nearz": .1,
-                    "farz": 100, "zoom": 1, "clearcolor": "0 0 0",
-                    "clearenabled": True, "hdr": False, "bloom": False,
-                    "ambientcolor": "0 0 0", "skylightcolor": "0 0 0",
-                    "cameraparallax": False, "camerashake": False},
-        "objects": [
+    scene = native_world_scene([
             {"id": 1, "model": "models/main_prefix.mdl", "origin": "0 0 0",
              "perspective": True, "castshadow": False},
             {"id": 2, "model": "models/orange_writer.mdl", "origin": "0 0 0",
@@ -164,8 +172,7 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
             # after it: green survives only if the utility did not write depth.
             {"id": 30, "model": "models/later_peer.mdl", "origin": "0 0 0",
              "perspective": True, "castshadow": False},
-        ],
-    }
+    ])
     if _label in (1, 2):
         scene["objects"][3]["dependencies"] = [1 if _label == 1 else 30]
     source = {"passes": [{
@@ -235,6 +242,84 @@ void main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord);}
     return entries
 
 
+def perspective_image_depth_entries(label):
+    objects = [{"id": 2, "model": "models/orange_writer.mdl", "perspective": True, "castshadow": False}]
+    entries = {
+        "models/orange_writer.mdl": mdl_quad(-1.4, 1.4, -.06, .30, 1, "materials/orange.json"),
+        "models/later_peer.mdl": mdl_quad(-1.4, 1.4, -.56, -.25, -1.2, "materials/green.json"),
+        "materials/orange.json": model_material("materials/orange.png"),
+        "materials/green.json": model_material("materials/green.png"),
+        "materials/orange.png": png(4, 4, lambda _x, _y: ORANGE),
+        "materials/green.png": png(4, 4, lambda _x, _y: GREEN),
+    }
+    vertex = EFFECT_VERTEX.replace(
+        b"varying vec2 v_TexCoord;",
+        b"uniform mat4 g_ModelViewProjectionMatrix;\nvarying vec2 v_TexCoord;",
+    ).replace(b"gl_Position = vec4", b"gl_Position = g_ModelViewProjectionMatrix * vec4")
+    for layer, x, z, depth_test, depth_write in (
+        (22, 1.05, 0, "disabled", "disabled"),
+        (20, -1.05, .2, "enabled", "disabled"),
+        (21, 0, 0, "enabled", "enabled"),
+    ):
+        rgb = DEPTH_CARD_COLORS[DEPTH_CARD_IDS.index(layer)]
+        model, base, texture = (f"{folder}/depth_card_{layer}.{suffix}" for folder, suffix in
+                                (("models", "json"), ("materials", "json"), ("materials", "png")))
+        shader = "retitled_depth_paint" if layer == 21 else "owned_depth_paint"
+        effect = f"effects/{shader}/effect.json"
+        material = f"materials/{shader}.json"
+        objects.append({"id": layer, "image": model, "origin": f"{x} 0 {z}", "size": "128 96",
+                        "scale": f"{.92 / 128} {1.4 / 96} 1", "perspective": True,
+                        "effects": [{"id": 200 + layer, "file": effect, "visible": True}]})
+        fragment = b"""uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    gl_FragColor = vec4(source.bgr, source.a);
+}
+"""
+        paint_vertex = vertex
+        if layer == 21:
+            paint_vertex = vertex.replace(b"v_TexCoord", b"v_PaintUV")
+            fragment = fragment.replace(b"v_TexCoord", b"v_PaintUV").replace(
+                b"    gl_FragColor = vec4(source.bgr, source.a);",
+                b"    float coverage = step(0.20, abs(v_PaintUV.x - 0.5));\n"
+                b"    gl_FragColor = vec4(source.b, source.g, source.r, source.a) * coverage;",
+            ).replace(b"source", b"priorColor")
+        entries.update({
+            model: encoded({"material": base}),
+            base: encoded({"passes": [{"shader": "genericimage4", "textures": [texture],
+                "blending": "translucent", "depthtest": depth_test, "depthwrite": depth_write,
+                "cullmode": "nocull"}]}),
+            texture: png(4, 4, lambda _x, _y: rgb),
+            effect: encoded({"passes": [{"material": material}]}),
+            material: encoded({"passes": [{"shader": shader, "textures": [None],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled",
+                "cullmode": "nocull"}]}),
+            f"shaders/{shader}.vert": paint_vertex,
+            f"shaders/{shader}.frag": fragment,
+        })
+    objects.append({"id": 30, "model": "models/later_peer.mdl", "perspective": True, "castshadow": False})
+    scene = native_world_scene(objects)
+    scene["general"]["transparentsorting"] = label == 6
+    entries["scene.json"] = encoded(scene)
+    return entries
+
+
+def perspective_image_depth_regions(sorting):
+    left, center, right = [rgb[::-1] for rgb in DEPTH_CARD_COLORS]
+    return {label: {"world": [x, y, 0], "expectedRGB": color} for label, x, y, color in (
+        ("read-only-overlap", -1.05, .16, ORANGE if sorting else left),
+        ("read-only-exposed", -1.05, -.58, left),
+        ("read-only-later-opaque", -1.05, -.35, left if sorting else GREEN),
+        ("renamed-overlap", .30, .16, ORANGE if sorting else center),
+        ("renamed-exposed", .30, -.58, center),
+        ("renamed-over-later-opaque", .30, -.35, center if sorting else GREEN),
+        ("renamed-transparent-hole", 0, -.35, GREEN),
+        ("disabled-over-earlier-opaque", 1.05, .16, right),
+        ("disabled-later-opaque", 1.05, -.35, GREEN),
+    )}
+
+
 def plane_world(local):
     """Independent double Rz*Ry*Rx, scale then translation, before any App run."""
     x = local[0] * PLANE_SIZE[0] * PARENT_SCALE[0]
@@ -292,13 +377,13 @@ def roi_protocol():
             "boundary": "Own geometry and piecewise grid values; no corpus/official screen ROI inferred."}
 
 
-def measure_capture(path: Path) -> dict:
+def measure_capture(path: Path, regions=None) -> dict:
     decoded = png_rgb_pixels(path)
     if decoded is None:
         raise AssertionError(f"undecodable capture: {path}")
     width, height, rows = decoded
     measurements = {"size": [width, height]}
-    for label, region in roi_protocol()["regions"].items():
+    for label, region in (regions or roi_protocol()["regions"]).items():
         px, py = screen(region["world"], width, height)
         x0, y0, x1, y1 = math.ceil(px - 2), math.ceil(py - 2), math.floor(px + 2), math.floor(py + 2)
         if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
@@ -369,6 +454,50 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
     def test_live_unbound_sampler_falls_back_locally_before_healthy_suffix(self):
         self.run_source_case(5)
 
+    def test_perspective_image_effect_uses_authored_terminal_depth(self):
+        self.run_perspective_image_depth_case(sorting=True)
+
+    def test_perspective_image_effect_preserves_legacy_order_without_sorting(self):
+        self.run_perspective_image_depth_case(sorting=False)
+
+    def run_perspective_image_depth_case(self, *, sorting):
+        label = 6 if sorting else 7
+        regions = perspective_image_depth_regions(sorting)
+        entries = perspective_image_depth_entries(label)
+        order = (2, 22, 30, 21, 20) if sorting else (2, 22, 20, 21, 30)
+        (self.evidence_root / f"perspective-image-depth-{label}-protocol.json").write_bytes(encoded({
+            "sorting": sorting, "terminalOrder": order, "regions": regions, "tolerance": TOLERANCE,
+            "entries": {path: hashlib.sha256(data).hexdigest() for path, data in entries.items()},
+        }))
+        with patch.object(app_runner, "fixture_entries", perspective_image_depth_entries), patch.object(
+                app_runner, "measure_capture", lambda path: measure_capture(path, regions)):
+            result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, label, capture=True,
+                material_input_path=DEPTH_CARD_MATERIAL)
+        work = self.evidence_root / f"Ref{label}-capture-on"
+        identity = json.loads((work / "identity.json").read_text())
+        self.assertEqual(app_runner.sha256(work / "content/scene.pkg"), identity["package"])
+        self.assertEqual(app_runner.sha256(work / "content/project.json"), identity["project"])
+        log = (work / "app.log").read_text()
+        for path, event in self.composition_captures(work, log):
+            draws = [row for row in event["rows"] if row.get("outcome") == "draw-encoded"]
+            terminals = [row for row in draws if row["kind"] in ("ordinary", "model", "terminal-material-replay")
+                         and row.get("layerID") in (2, *DEPTH_CARD_IDS, 30)]
+            self.assertEqual([(row["kind"], row["layerID"]) for row in terminals],
+                [("ordinary" if layer in DEPTH_CARD_IDS else "model", layer) for layer in order])
+            self.assertEqual(len({row["target"]["textureToken"] for row in terminals}), 1)
+            for terminal in (row for row in terminals if row["kind"] == "ordinary"):
+                material = [row for row in draws if row["kind"] == "material"
+                            and row.get("layerID") == terminal["layerID"] and row.get("effectIndex") == 0]
+                self.assertEqual(len(material), 1, material)
+                self.assertEqual(material[0]["target"]["textureToken"], terminal["source"]["textureToken"])
+                self.assertLess(draws.index(material[0]), draws.index(terminal))
+            for name, region in regions.items():
+                measured = result["pixels"][path.name][name]
+                self.assertGreater(measured["count"], 0)
+                for actual, expected in zip(measured["mean"], region["expectedRGB"], strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
+                        msg=str((path.name, name, measured, region)))
+
     def run_source_case(self, label):
         # The existing runner dispatches one real App and asserts immutable
         # inputs, actual Metal completion, no GPU error, normal stop and drain.
@@ -403,15 +532,9 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
             "oracle": roi_protocol(), "pixels": result["pixels"],
             "scope": "One full product-chain scene; two settled captures and completed graph frames, not adjacent-frame pixel pairing or official parity."}))
 
-    def check_material_binding_captures(self, work, log, label):
+    def composition_captures(self, work, log):
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observations["parse_errors"], 0)
-        if label == 5:
-            self.assertRegex(log, r"MWX resolved material envelope rejection: [^\n]* node=1 "
-                r"kind=texture-binding reason=texture/textureBindingInvalid slot=3(?: |$)")
-            self.assertRegex(log, r"axis=effect-cpu-invocation [^\n]*layer=20 effect=1 "
-                r"[^\n]*backend=resolved-material-graph outcome=failed ")
-        receipts = []
         for path in sorted((work / "evidence").glob("*-window.png")):
             reason = "ready" if "ready" in path.name else "after"
             request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
@@ -427,6 +550,16 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                 and e.get("commandBufferToken") == encoding[1])
             self.assertEqual(event["truncatedRows"], 0)
             self.assertEqual(event["gpuStatus"], "completed")
+            yield path, event
+
+    def check_material_binding_captures(self, work, log, label):
+        if label == 5:
+            self.assertRegex(log, r"MWX resolved material envelope rejection: [^\n]* node=1 "
+                r"kind=texture-binding reason=texture/textureBindingInvalid slot=3(?: |$)")
+            self.assertRegex(log, r"axis=effect-cpu-invocation [^\n]*layer=20 effect=1 "
+                r"[^\n]*backend=resolved-material-graph outcome=failed ")
+        receipts = []
+        for path, event in self.composition_captures(work, log):
             rows = event["rows"]
             material = [r for r in rows if r["kind"] == "material" and r.get("layerID") == TARGET_LAYER
                         and r.get("outcome") == "draw-encoded"]

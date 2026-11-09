@@ -297,14 +297,24 @@ extension SceneMetalRenderer {
     func shadowDrawCandidates(orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
                               worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
                               groups: SceneCompositionGroupFrameRuntime?, state: StaticModelFrame? = nil) -> [Int: [StaticModelDraw]]? {
+        let prefix = staticModelDrawPrefix(orderedLayers: orderedLayers, visible: visible,
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state)
+        return prefix.count == orderedLayers.count ? prefix.draws : nil
+    }
+
+    private func staticModelDrawPrefix(orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
+        groups: SceneCompositionGroupFrameRuntime?, state: StaticModelFrame?
+    ) -> (draws: [Int: [StaticModelDraw]], count: Int) {
         var result: [Int: [StaticModelDraw]] = [:]
-        for layer in orderedLayers where visible.contains(layer.id) && layer.contentKind == "model" {
+        for (index, layer) in orderedLayers.enumerated()
+        where visible.contains(layer.id) && layer.contentKind == "model" {
             if let groups, groups.renderPass(forLayerID: layer.id) == nil { continue }
             guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot, state: state,
-                requiresCompleteNamedInputs: true) else { return nil }
+                requiresCompleteNamedInputs: true) else { return (result, index) }
             result[layer.id] = draws
         }
-        return result
+        return (result, orderedLayers.count)
     }
 
     private func visitFramebufferSnapshotConsumers(
@@ -417,21 +427,26 @@ extension SceneMetalRenderer {
         batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
-        leases: inout [SceneParticleDepthTargetLease]
+        leases: inout [SceneParticleDepthTargetLease], prefixCount: Int? = nil
     ) -> Bool {
         let prepared = state.prepared ?? candidates
-        state.prepared = prepared
+        if prefixCount == nil { state.prepared = prepared }
         var complete = true
-        for layer in orderedLayers where visible.contains(layer.id) {
-            guard let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) else { continue }
-            if staticModelResources.pipeline != nil, let draws = prepared[layer.id], !draws.isEmpty {
+        for layer in orderedLayers.prefix(prefixCount ?? orderedLayers.count)
+        where visible.contains(layer.id) {
+            let modelNeedsDepth = staticModelResources.pipeline != nil && prepared[layer.id]?.isEmpty == false
+            let particleNeedsDepth = particlePipeline != nil
+                && batches[layer.id]?.contains(where: { $0.draw.renderState.depthWriteEnabled }) == true
+            guard modelNeedsDepth || particleNeedsDepth,
+                  let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
+            else { continue }
+            if modelNeedsDepth {
                 let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                     device: device, commandBuffer: commandBuffer, leases: &leases)
                 complete = complete && depth.lease != nil
                 if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return false }
             }
-            if let particlePipeline, let layerBatches = batches[layer.id],
-               layerBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }) {
+            if particleNeedsDepth, let particlePipeline {
                 let extent = pass.targetExtent
                 if let existing = state.particleDepth[layer.id] {
                     complete = complete && existing.lease != nil
@@ -444,13 +459,13 @@ extension SceneMetalRenderer {
                 }
             }
         }
-        state.prepared = prepared
         return complete
     }
 
     /// Qualify optional terminal consumers before they own graph candidates.
     /// Complete real draws keep their original mandatory allocation order. A
-    /// pending named model keeps its late path and excludes only this consumer.
+    /// pending named model keeps its late path. Only ordinary terminals may
+    /// borrow a domain established by the ready mandatory prefix.
     func unavailableSharedTerminalDepthLayers(
         _ layerIDs: Set<Int>, state: StaticModelFrame,
         orderedLayers: [SceneRenderDescriptor.Layer], ordinaryLayerIDs: Set<Int> = [],
@@ -470,26 +485,44 @@ extension SceneMetalRenderer {
         guard !mainConsumers.isEmpty else { return consumers }
         // A degraded/unreserved group may become drawable in admission. Its
         // mandatory depth cannot be promised by this earlier complete plan.
-        for layer in orderedLayers where visible.contains(layer.id) {
-            let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
-                || (particlePipeline != nil && batches[layer.id]?.contains(where: {
-                    $0.draw.renderState.depthWriteEnabled
-                }) == true)
-            if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
+        if let groups {
+            for layer in orderedLayers where visible.contains(layer.id) {
+                let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
+                    || (particlePipeline != nil && batches[layer.id]?.contains(where: {
+                        $0.draw.renderState.depthWriteEnabled
+                    }) == true)
+                if requiresDepth, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
+            }
         }
-        guard let candidates = shadowDrawCandidates(orderedLayers: orderedLayers, visible: visible,
-            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state) else { return consumers }
+        let prefix = staticModelDrawPrefix(orderedLayers: orderedLayers, visible: visible,
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state)
+        let complete = prefix.count == orderedLayers.count
+        let eligible = complete ? mainConsumers : mainConsumers.intersection(ordinaryLayerIDs)
+        let prefixCount: Int?
+        if complete {
+            prefixCount = nil
+        } else {
+            guard !eligible.isEmpty, staticModelResources.pipeline != nil,
+                  let firstMain = orderedLayers.prefix(prefix.count).firstIndex(where: { layer in
+                      prefix.draws[layer.id]?.isEmpty == false
+                          && (groups == nil || groups?.renderPass(forLayerID: layer.id) === mainPass)
+                  }) else { return consumers }
+            prefixCount = firstMain + 1
+        }
         // Ordinary failed model parts keep their existing local failure. Once
         // their allocation attempts have priority; a valid scene-domain lease
         // remains usable if another mandatory resource could not be acquired.
-        _ = prepareMandatoryDepth(state: state, candidates: candidates, orderedLayers: orderedLayers,
+        _ = prepareMandatoryDepth(state: state, candidates: prefix.draws, orderedLayers: orderedLayers,
             visible: visible, batches: batches, particlePipeline: particlePipeline,
-            mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases)
+            mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases,
+            prefixCount: prefixCount)
         if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return consumers }
-        _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
-            device: device, commandBuffer: commandBuffer, leases: &leases)
+        if complete {
+            _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &leases)
+        }
         return state.terminalDepthBinding(pass: mainPass, commandBuffer: commandBuffer) == nil
-            ? consumers : consumers.subtracting(mainConsumers)
+            ? consumers : consumers.subtracting(eligible)
     }
 
     /// Preserve the original mandatory allocation prefix before optional shadow.
