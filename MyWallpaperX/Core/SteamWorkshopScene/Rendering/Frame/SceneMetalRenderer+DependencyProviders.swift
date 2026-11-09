@@ -130,6 +130,20 @@ extension SceneMetalRenderer {
         case .failed:
             return false
         }
+        // A model cannot use the unmasked effect-entry color when an
+        // effect that reads a missing upstream has fallen back locally.
+        if !ticket.effectFailures.isEmpty,
+           dependencyRuntime.isStaticModelSourceProvider(layer.id),
+           let failure = missingModelProviderInputFailure(
+               ticket: ticket, ownership: claim.dependencyOwnership,
+               readyInputs: dependencyEffects
+           ) {
+            return imageCompositor.resolveResolvedMaterialPublicationMiss(
+                ticket, texture: texture, reasonCode: failure.reasonCode,
+                preservesVisibleComposite: preservesVisibleComposite,
+                layerID: layer.id, executionTrace: executionTrace, executionOrigin: .image
+            )
+        }
         let publicationResult = dependencyRuntime.publishGraphOutputIfRequired(
             layerID: layer.id,
             texture: texture,
@@ -186,6 +200,25 @@ extension SceneMetalRenderer {
                 executionOrigin: .image
             )
             return false
+        }
+    }
+
+    private func missingModelProviderInputFailure(
+        ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
+        ownership: SceneResolvedMaterialDependencyOwnership,
+        readyInputs: [SceneDependencyEffectInput]
+    ) -> SceneResolvedMaterialRuntimeBridge.ExecutionTicket.EffectFailure? {
+        let bindings: [SceneDependencyRenderPlan.Binding]
+        switch ownership {
+        case let .externalPrimary(binding): bindings = [binding]
+        case let .externalAggregate(aggregate): bindings = aggregate.bindings
+        case .none, .graphInternal: return nil
+        }
+        return ticket.effectFailures.first { failure in
+            bindings.contains { binding in
+                binding.referenceSlots.contains { $0.effectID == failure.descriptorID }
+                    && !readyInputs.contains { $0.slot == binding.slot }
+            }
         }
     }
 

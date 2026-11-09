@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 111,
-      "bytes": 19916
+      "lines": 114,
+      "bytes": 20517
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 563,
-      "bytes": 239066
+      "lines": 564,
+      "bytes": 239961
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 189,
-      "bytes": 47612
+      "bytes": 47672
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -457,20 +457,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "bae04d34e7ebce84a43edb95e0053ebf7529ee1bf51abb4c1401c46f2554c2c9",
+      "after": "2ef05080bd448d2a919160865269c6fa340aeb19e433b227d90406a95d518929",
+      "owner": "Scene model color and world evidence",
+      "reason": "Document shared preparation and immediate publication loss for nested model albedo.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-named-albedo"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "78bdf81d15a0cfd5b6593066965e6f17d04e66cf2a517e926ed2ab4420983510",
-      "after": "741b8bbbfbdf9bb27dfb961a1d1717700fa831a7da57a51208ccf339e1948ab6",
-      "owner": "Scene runtime evidence and open queue",
-      "reason": "Preserve comparable author playback and the current opening visual review.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-playback-triage-342"
+      "before": "741b8bbbfbdf9bb27dfb961a1d1717700fa831a7da57a51208ccf339e1948ab6",
+      "after": "fe747d3b2a800ec710e943d99cd788d3f67b196f7f51a14078306e9337036922",
+      "owner": "Scene model color and world evidence",
+      "reason": "Record the verified author city lights and the independent model regression.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#nested-model-albedo"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "146143ed61ca7eab44ae9a1a9b8bbc14fff4e0341c752a9a9c685c8e6717618e",
-      "after": "20bf9be9f7e648e65ab5075019c22fc3d906a92e98a63a2c169f11c9fc8db5e8",
-      "owner": "Scene runtime evidence and open queue",
-      "reason": "Prioritize the specified world-model visual defects and prune unqualified old performance reports.",
+      "before": "20bf9be9f7e648e65ab5075019c22fc3d906a92e98a63a2c169f11c9fc8db5e8",
+      "after": "7c9c62c03d0854bed900de686cf9992cb7987a6273870576b1b0a0eb7dc89bc9",
+      "owner": "Scene model color and world evidence",
+      "reason": "Remove the restored city-light row and identify the separate reproducible world failures.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]

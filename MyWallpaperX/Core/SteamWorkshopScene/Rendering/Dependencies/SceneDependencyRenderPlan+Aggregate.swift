@@ -126,25 +126,25 @@ extension SceneDependencyRenderPlan {
     /// active provider ID. Unknown IDs, self edges and cyclic nodes remain
     /// rejected before any target reservation or graph execution is created.
     nonisolated static func providerDependenciesAreAdmitted(
-        provider: SceneRenderDescriptor.Layer,
+        providerID: Int,
         activeDependencies: Set<Int>,
         layersByID: [Int: SceneRenderDescriptor.Layer],
         cyclicLayerIDs: Set<Int>,
         legacyBindings: [Int: Binding],
         admittedAggregates: [Int: MultiProviderAggregate]
     ) -> Bool {
-        guard !cyclicLayerIDs.contains(provider.id),
+        guard !cyclicLayerIDs.contains(providerID),
               activeDependencies.allSatisfy({ dependencyID in
-                  dependencyID != provider.id
+                  dependencyID != providerID
                       && layersByID[dependencyID] != nil
                       && !cyclicLayerIDs.contains(dependencyID)
               }) else { return false }
         guard !activeDependencies.isEmpty else { return true }
-        if let aggregate = admittedAggregates[provider.id] {
+        if let aggregate = admittedAggregates[providerID] {
             return aggregate.providerLayerIDs == activeDependencies
         }
-        guard let binding = legacyBindings[provider.id] else { return false }
-        return binding.providerLayerID != provider.id
+        guard let binding = legacyBindings[providerID] else { return false }
+        return binding.providerLayerID != providerID
             && activeDependencies == [binding.providerLayerID]
     }
 

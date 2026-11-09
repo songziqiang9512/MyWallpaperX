@@ -318,7 +318,9 @@ extension SceneDependencyRenderPlan {
 
         let staticModelResolution = Self.staticModelBindingsPreservingEffectProviders(
             staticModelCompilation,
-            effectBindings: bindings
+            effectBindings: bindings, layersByID: layersByID,
+            dependencies: dependencyEdges, cyclicLayerIDs: cyclicLayerIDs,
+            aggregates: multiProviderAggregates
         )
         issues.append(contentsOf: staticModelResolution.issues)
 
@@ -892,7 +894,7 @@ extension SceneDependencyRenderPlan {
                   let dependencies = activeDependencyProviderLayerIDs(
                     layer: provider, references: referencesByConsumer[provider.id] ?? []),
                   providerDependenciesAreAdmitted(
-                    provider: provider, activeDependencies: dependencies,
+                    providerID: provider.id, activeDependencies: dependencies,
                     layersByID: layersByID, cyclicLayerIDs: cyclicLayerIDs,
                     legacyBindings: legacyBindings, admittedAggregates: admittedAggregates)
             else { return nil }

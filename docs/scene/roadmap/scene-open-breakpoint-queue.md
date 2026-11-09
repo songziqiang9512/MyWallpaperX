@@ -54,7 +54,7 @@
 | addColor String seed · 3662390671/793 | `textColor`的builder与wrapper都是String，setter读取x/y/z失败；默认showfpscounter=false且R0没有该层末帧消费。RGB255的有限Vec3修复不改变此类型；待官方String-seed正例或合法Vec3输入后重启，不按addColor名称强转、补默认值或重复PCM/旧矩阵。输入与停止线保于`.artifacts/scene-script-color-next-20261108/`。 |
 | 作者脚本与VM边界 | 34个默认样本有typed Script事件；逐subject索引为归档的`task/r0-script-event-index.json`，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题。3504669359的166/720/718/716缺prepared Puppet metadata：clip700在bounds前的双曲线与后方MDMP字段关联，七骨TRS恒定，现无morph消费者；不能将扩Reader或补metadata称作眼睛动作恢复。372/373/336的init读取`thisLayer.position.y`，公开属性为origin，三层默认hidden；官方runtime别名未知，不造默认值。3605722997有效delay="5"，49/193/206完成无warn/TypeError，55默认hidden；warn仅非法delay/video时长、缺video或禁用click。log/error符合[官方IConsole](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IConsole.html)，不据此条件分支修主景。3610154602的435.alpha请求不存在的playeroutlineanim，origin另请求缺失的时长/背景进度层；423的祖父为空。它们待合法目标，不重查动画metadata或补空句柄。3779026256四个裸scriptProperties未供，export factory生命周期未资格；默认112/33已画、248/322未画与原fallback相符，不自动执行factory或补true，待合法producer/官方合同。其余核原target；34为事件索引分母，非当前故障数。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
-| named demand · 2069136288、3395777145、3829467967 | 默认未达静态planned的目标没有当前active consumer；本轮3557068717/420 authored=false、3476868923/533 effect inactive亦分开保留。先取得真实writer/活动需求，不要求默认帧执行所有潜在capture，也不以此解释主景像素。 |
+| named demand · 2069136288、3395777145、3829467967 | 默认未达静态planned的目标没有当前active consumer。3476868923/533 effect inactive。先取得真实writer/活动需求，不要求默认帧执行所有潜在capture，也不以此解释主景像素。 |
 | 粒子预热CP · 3799613625/321 | 失败归static child0/system1 red_fire emitter0预热，非root。当前开启cursortrail并供inside pointer后，同consumer live出生及所选child Sprite/main/GPU已成立，见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；冷缺历史pointer不授持续播放失败，不删除CP有效性边界。只有outside后PNG，逐像素轨迹与完整交互仍未资格；不据旧预热诊断继续扩修。 |
 | 来源阶段读口 | 本轮source-not-ready首断点均在Ready前，后继同layer恢复或1045转hidden的实际资格归[当前复测](../capabilities/runtime-evidence-current.md#coverage)。沿原reader保时间/需求边界与原失败，不把不同阶段聚为持续错误；同layer成功仍不证明同slot或逐像素恢复。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。本轮3788897599的291/259 composition行`rendererKind=unknown`，定位`SceneParticleMetalPipeline+Frame`的可选debug字段及原component observation供货；复测先核现有按需观测输入，不由路径猜种类，也不将此元数据缺口判为绘制失败。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
@@ -92,9 +92,9 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3557068717 | [晚窗](../capabilities/runtime-evidence-current.md#coverage)已有暗地球、时钟和星空，基础暗景仍需查。沿同帧太阳位置/法线/材质及最终曝光定位，保作者入场和实时太阳；420 无活动 named 需求，与亮度分开。 |
+| 3557068717 | 同为18:57的 Windows 参考与本机画面，日面方向一致、亮度明显不足。两盏作者点光源的衰减指数为0.1，模型当前固定平方，先接入该参数并核旧默认。固定作者经度已复现后方十字光晕185穿过地球；以同机位和移出地球的对照核终端深度。 |
 | 3455121165 /3470948192 | 244 的 origin/scale、115 的 scale 早期坏 return 后都有 finite 成功。当前用户反馈沿实际星球、发光体、深度、受光和星轨文字逐项定位。 |
-| 3453730450 /3509243656 | 345 的[作者时钟入场](../capabilities/runtime-evidence-current.md#authored-clock-intro-345)已有实跑。星轨文字是独立消费者；两份原包按当前反馈先核发光体与遮挡体的实际输出。 |
+| 3453730450 /3509243656 | 345 的[作者时钟入场](../capabilities/runtime-evidence-current.md#authored-clock-intro-345)经常规预览复核仍可见，连同月球、背面文字和轨道。单次低观测导出灰图仅保为导出差异。两份原包先核发光体与遮挡体的实际输出。 |
 | 3662790108 | 原 OrbitA/B 与517→tail/main 已供，未用的 Data 没有真实 shader 消费。按当前反馈追世界模型投影、光照与深度，点选问题等具体目标后再开。 |
 
 ### 基础画面与基本交互优先
