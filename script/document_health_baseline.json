@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 561,
-      "bytes": 237521
+      "lines": 563,
+      "bytes": 239066
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 48384
+      "lines": 189,
+      "bytes": 47612
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,20 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f895ee6b2899a477248756ef0167ea73900095826c24b79e887d519b11cb825b",
-      "after": "78bdf81d15a0cfd5b6593066965e6f17d04e66cf2a517e926ed2ab4420983510",
-      "owner": "Scene graph terminal output",
-      "reason": "Preserve the measured terminal rendering ablation and why its candidate was withdrawn.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#terminal-main-ablation"
+      "before": "78bdf81d15a0cfd5b6593066965e6f17d04e66cf2a517e926ed2ab4420983510",
+      "after": "741b8bbbfbdf9bb27dfb961a1d1717700fa831a7da57a51208ccf339e1948ab6",
+      "owner": "Scene runtime evidence and open queue",
+      "reason": "Preserve comparable author playback and the current opening visual review.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-playback-triage-342"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f79dec33b43b404be33f0fb8d54a45eda9402ed5bece8e50132d061b3e1aa7a2",
-      "after": "146143ed61ca7eab44ae9a1a9b8bbc14fff4e0341c752a9a9c685c8e6717618e",
-      "owner": "Scene graph terminal output",
-      "reason": "Remove the measured terminal-only ablation from actionable GPU candidates.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+      "before": "146143ed61ca7eab44ae9a1a9b8bbc14fff4e0341c752a9a9c685c8e6717618e",
+      "after": "20bf9be9f7e648e65ab5075019c22fc3d906a92e98a63a2c169f11c9fc8db5e8",
+      "owner": "Scene runtime evidence and open queue",
+      "reason": "Prioritize the specified world-model visual defects and prune unqualified old performance reports.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
