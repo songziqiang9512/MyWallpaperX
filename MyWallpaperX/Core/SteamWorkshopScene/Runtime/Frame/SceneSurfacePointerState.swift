@@ -49,7 +49,8 @@ nonisolated struct SceneSurfacePointerState: Equatable, Sendable {
 nonisolated struct SceneSurfacePointerEvent: Equatable, Sendable {
     let normalizedPosition: SIMD2<Float>
     let isInside: Bool
-    let primaryButtonIsDown: Bool
+    var primaryButtonIsDown: Bool
+    var hasPrimaryButtonEdge = false
     /// One ingress timestamp shared by every surface projection of an event.
     /// It orders physical input only; simulation time remains frame-owned.
     var timestamp: Double = 0

@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 510,
-      "bytes": 212833
+      "bytes": 212899
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 166,
-      "bytes": 27653
+      "lines": 168,
+      "bytes": 28178
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48727
+      "bytes": 48582
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -412,15 +412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "f9b420533d1e5fae28f602742aaf964c0a37a7e0f9b315abab8a7a43c40dc1e5",
-      "after": "2ede81ed8485368964412cc1679424232b1bd665e2756c9daf0ba468db1de4f4",
-      "owner": "Scene dynamic image preparation",
-      "reason": "Document native stock image version spellings at the shared cold constructor boundary.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layers"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "6f46432147b173c9e7272fe8debd60d293f41a091d9a137ec738e1c4ad8bd4e7",
       "after": "c5e858f2b4bfdc1b268d98aa97410f0cf6df54471fd2df5832e149447ea078fb",
@@ -448,21 +439,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e9ec6bcae2e38addb533a90f4e972843fa6bd9652cfa5d1eb71c3523bc35fd0e",
-      "after": "5df603e446b6eeb71f78302441f95032f165da1ba919519b25b7fc1a18f1b9a3",
-      "owner": "Scene pointer ingress",
-      "reason": "Retain the authored image-switch control and native early-release evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#side-image-switch-321"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "a527075f4d73e0cf25413a29daa9db2657749dbfeef6ae39691a5b3dde5692b4",
       "after": "a37a9c06eaf834c5b6587f1636c135e2d8eff998fad40fe1192c8df5e2bec576",
       "owner": "Scene pointer ingress",
       "reason": "Route native release discrepancies to one shared raw-versus-poll qualification.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5df603e446b6eeb71f78302441f95032f165da1ba919519b25b7fc1a18f1b9a3",
+      "after": "aeba174226917cb3b2b497baeed80e4a17b10bad716baa5d148f9ff285f25ae9",
+      "owner": "Scene pointer ingress",
+      "reason": "Retain the native event-versus-poll reproduction and both author fixes.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#side-image-switch-321"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "14a5f256ee01c372c043e499f8562b3a00a53f6f58fdd0cba97e47a74af62226",
+      "after": "078ef11d8d842e7d20c6b6bbead8d69f2ad361e722a1e86bc85dda5409174153",
+      "owner": "Scene pointer ingress",
+      "reason": "Define the monitored button stream and source transition contract.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#cursor-primary-button"
     }
   ]
 }

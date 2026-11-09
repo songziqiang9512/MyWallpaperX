@@ -87,6 +87,12 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         pendingEvents.removeAll { $0.surfaceID.map(surfaceIDs.contains) == true }
     }
 
+    func retirePrimaryButtonStream() {
+        previousPrimaryButtonIsDown = false
+        capturedHits = [:]
+        capturedSurfaceID = nil
+    }
+
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
     func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.ownerTarget) { $0.0.owner.restoreTimerFrame($0.1) } } }
     func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.discardTimerFrame($0.1) } }

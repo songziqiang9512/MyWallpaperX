@@ -97,7 +97,7 @@
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3453730450时钟、3618302662构图、3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
-| 2887099508 · 图5 | 缩放归[General证据](../capabilities/runtime-evidence-current.md#general-zoom)。黑纹分阶段捕获未重现，待同相位ROI/版本。右侧文字仍开，[菜单证据](../capabilities/runtime-evidence-current.md#basic-interaction-288)已定413下一曲的预期结果。重启须合格来宾输入，或本机同一按压的原生事件与轮询位置、按钮回执，闭合文字hit→click→曲名。旧坐标、回调重排或黑纹屏蔽缺依据。 |
+| 2887099508 · 图5 | 缩放归[General证据](../capabilities/runtime-evidence-current.md#general-zoom)。黑纹分阶段捕获未重现，待同相位ROI/版本。右侧文字仍开，[菜单证据](../capabilities/runtime-evidence-current.md#basic-interaction-288)已定413下一曲的预期结果。共用按钮边沿已修；先取持续悬停的合格输入和菜单展开，再验文字hit→click→曲名。旧坐标、回调重排或黑纹屏蔽缺依据。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
 | 3498814983 /3605722997 /3827673174 | 前后两项当前目录已移除，保原反馈为输入不可用；360572当前可运行。头脸取景仍须固定横屏camera/cover/平移与作者画布，portrait preview不能证明投影错误。 |
@@ -123,7 +123,7 @@
 | 3768903841 | 横向云片/烟花色彩仍待具体ROI/producer。原R0的238.angles completed、frame0 vectorFailures=0，232已消费其共享时段；238是Day/Night按钮而非烟花writer，未找到旧screen localStorage异常原收据。重启须精确新失败/屏身份/调用回执，不删screen guard或归因烟花；未点击，不授持久化，薄事实在`.artifacts/scene-cloud-238-next-20261109/`。 |
 | 3226487183 | 1028手部外观仍开。Windows参考与本机取景/画幅不同；现有捕获中实际纹理经mask/wave→mesh→main，未定位首错。重启须同取景与pose/phase的手部ROI或阶段差；不重复默认短窗，不凭轮廓调wave/骨骼。收据在`.artifacts/scene-hand-322-next-20261109/`。 |
 | 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
-| 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321原生证据窗出现[提前释放](../capabilities/runtime-evidence-current.md#side-image-switch-321)，与288共用事件/轮询判别。首焦点、持续按住与多步跟随分别待验证。 |
+| 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321首焦点、持续按住的作者行为与多步跟随分别待验证。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |

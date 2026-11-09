@@ -16,6 +16,8 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 Session 在原 AppKit 入口保留每条鼠标事件的位置。有窗口的事件转换到屏幕坐标，无窗口的事件已携带屏幕坐标。实时鼠标位置用于原 Surface 轮询。下游沿现有 world/local、命中和 capture 消费 primary 左键的移动、按下、释放和 click。C cursor 参数在同一 frozen 对象内提供数值 `button=0`，up/click 后仍是0，按下状态继续归 `input.cursorLeftDown`。当前入口覆盖 primary，secondary 未接入。
 
+有原生监视器时，原 FIFO 中的主键按下和释放决定 cursor 回调的按钮状态，移动和帧末样本沿已消费的状态投影。轮询仍供应当前位置、普通脚本输入和渲染。无监视器时保留原轮询入口，Debug 显式输入继续沿原 FIFO。切换监视器来源时取消旧 capture，退出时丢弃未分派输入。队列溢出沿原无回调同步；以上均保已识别待重试的回调。窗口和 Surface 路由、快捷方式凭据与事务继续由原 owner 持有。
+
 原官方move的[有界观察](runtime-evidence-current.md#fullscreen-cursor)不授官方click、右键/中键或完整parity。本项目以已有primary事件合同供货，验收用真实C/VM的严格数值与等价guard、down/up/click状态、outside/release-outside反例和健康peer；真实作者须闭合文字命中→click→已有图片显隐→最终画面，并保改名及另一事件能力的回归。
 
 <a id="layers"></a>

@@ -71,6 +71,7 @@ final class SceneDesktopWallpaperSession {
         }
         windowless(.mouseMoved, 25, 75)
         windowless(.leftMouseDown, 75, 50)
+        windowless(.leftMouseDragged, 60, 50)
         windowless(.leftMouseUp, 50, 75)
         windowless(.leftMouseDown, 25, 25)
         windowless(.leftMouseUp, 150, 50)
@@ -81,7 +82,8 @@ final class SceneDesktopWallpaperSession {
         session.capturePointerEvent(windowBound)
         return view.drainSceneScriptPointerEvents().events.map {
             ["position": [$0.normalizedPosition.x, $0.normalizedPosition.y],
-             "inside": $0.isInside, "down": $0.primaryButtonIsDown]
+             "inside": $0.isInside, "down": $0.primaryButtonIsDown,
+             "edge": $0.hasPrimaryButtonEdge]
         }
     }
 }
@@ -159,13 +161,16 @@ class ScenePointerParallaxExitTests(unittest.TestCase):
         self.assertEqual(payload["previous"], [0, 0])
 
     def test_native_events_preserve_event_position_in_the_surface_fifo(self) -> None:
-        move, down, up, second_down, outside_up, window_bound = self.payload["nativeSamples"]
-        self.assertEqual((move["position"], move["inside"]), ([-0.5, 0.5], True))
-        self.assertEqual(down, {"position": [0.5, 0], "inside": True, "down": True})
-        self.assertEqual(up, {"position": [0, 0.5], "inside": True, "down": False})
-        self.assertEqual(second_down, {"position": [-0.5, -0.5], "inside": True, "down": True})
-        self.assertEqual(outside_up, {"position": [2, 0], "inside": False, "down": False})
-        self.assertEqual(window_bound, {"position": [-0.5, 0], "inside": True, "down": False})
+        move, down, drag, up, second_down, outside_up, window_bound = self.payload["nativeSamples"]
+        self.assertEqual(move, {"position": [-0.5, 0.5], "inside": True, "down": False, "edge": False})
+        self.assertEqual(down, {"position": [0.5, 0], "inside": True, "down": True, "edge": True})
+        self.assertEqual((drag["inside"], drag["down"], drag["edge"]), (True, True, False))
+        self.assertAlmostEqual(drag["position"][0], 0.2)
+        self.assertEqual(drag["position"][1], 0)
+        self.assertEqual(up, {"position": [0, 0.5], "inside": True, "down": False, "edge": True})
+        self.assertEqual(second_down, {"position": [-0.5, -0.5], "inside": True, "down": True, "edge": True})
+        self.assertEqual(outside_up, {"position": [2, 0], "inside": False, "down": False, "edge": True})
+        self.assertEqual(window_bound, {"position": [-0.5, 0], "inside": True, "down": False, "edge": True})
 
 
 if __name__ == "__main__":

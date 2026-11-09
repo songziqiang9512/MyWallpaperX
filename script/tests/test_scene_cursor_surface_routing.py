@@ -69,12 +69,18 @@ final class SceneMetalView {
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptCursorProgram:SceneScriptCursorProgram }
 final class SceneDesktopWallpaperSession {
     struct Surface { let metalView:SceneMetalView }
+    enum PointerSource { case edge, movement, poll }
     var surfaces:[UInt32:Surface] = [20:.init(metalView:.init(20)),10:.init(metalView:.init())]
-    func feed(_ time:Double,_ down:Bool,inside:UInt32) {
+    var localPointerEventMonitor:Bool?
+    var globalPointerEventMonitor:Bool?
+    func feed(_ time:Double,_ down:Bool,inside:UInt32,position:Float=0.2,source:PointerSource = .edge) {
         for (id,surface) in surfaces {
-            let x:Float = id == inside ? 0.2 : 2
+            let x:Float = id == inside ? position : 2
             _ = surface.metalView.pointerState.apply(.init(current:.init(x,0),isInside:id == inside,isPrimaryButtonDown:down))
-            surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,primaryButtonIsDown:down,timestamp:time))
+            if source != .poll {
+                surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,
+                    primaryButtonIsDown:down,hasPrimaryButtonEdge:source == .edge,timestamp:time))
+            }
         }
     }
     func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false,
@@ -227,6 +233,66 @@ CHECKS = r'''
         out["crossDrag"] = values(dispatch(drag,cross.samples))
         drag.finalizeLayerMutations(committing:true)
         out["captureReleased"] = drag.edgeStateSnapshot().capturedSurfaceID == nil
+        let buttonScript = """
+          let trace=0, releaseX=0;
+          function report(e,kind,held) {
+              if (input.cursorLeftDown !== held) throw Error('wrong button level');
+              trace=trace*10+kind;
+              thisLayer.origin=new Vec3(trace,e.localPosition.x,input.cursorWorldPosition.x);
+          }
+          export function cursorDown(e){report(e,1,true);}
+          export function cursorUp(e){releaseX=e.localPosition.x;report(e,2,false);}
+          export function cursorClick(e){
+              if (e.localPosition.x !== releaseX) throw Error('click moved from release');
+              report(e,3,false);
+          }
+        """
+        func buttonFrame(_ host:SceneDesktopWallpaperSession,_ program:SceneScriptCursorProgram) -> [String:Any] {
+            let result = dispatch(program,host.prepare(program).samples)
+            program.finalizeLayerMutations(committing:true)
+            let edge = program.edgeStateSnapshot()
+            return ["callbacks":values(result),"failures":result.failures.values.map(\.code).sorted(),
+                "capture":edge.capturedSurfaceID ?? 0,"held":edge.previousPrimaryButtonIsDown]
+        }
+        for (monitor,releaseDisplay) in [("local",UInt32(10)),("global",UInt32(20))] {
+            let monitored = SceneDesktopWallpaperSession()
+            if monitor == "local" { monitored.localPointerEventMonitor = true }
+            else { monitored.globalPointerEventMonitor = true }
+            let (program,_) = try make([(.origin,buttonScript)])
+            monitored.feed(9.95,monitor == "global",inside:10,position:0.75,source:.poll)
+            let before = buttonFrame(monitored,program)
+            monitored.feed(10,true,inside:10,position:-0.5)
+            if monitor == "global" {
+                monitored.feed(10.01,false,inside:10,position:0.75,source:.movement)
+            }
+            monitored.feed(10.02,false,inside:10,position:0.75,source:.poll)
+            let pressed = buttonFrame(monitored,program)
+            monitored.feed(10.20,false,inside:10,position:0.75,source:.poll)
+            let held = buttonFrame(monitored,program)
+            monitored.feed(10.45,false,inside:releaseDisplay,position:-0.5)
+            monitored.feed(10.46,true,inside:10,position:0.75,source:.poll)
+            let released = buttonFrame(monitored,program)
+            out["monitoredButton-\(monitor)"] = ["before":before,"pressed":pressed,"held":held,
+                "released":released,"after":buttonFrame(monitored,program)]
+        }
+        let polling = SceneDesktopWallpaperSession()
+        let (pollingProgram,_) = try make([(.origin,buttonScript)])
+        polling.feed(10,true,inside:10,position:-0.5,source:.poll)
+        let polledPress = buttonFrame(polling,pollingProgram)
+        polling.feed(10.45,false,inside:10,position:-0.5,source:.poll)
+        out["polledButton"] = ["pressed":polledPress,"released":buttonFrame(polling,pollingProgram)]
+        let retired = SceneDesktopWallpaperSession()
+        let (retiredProgram,_) = try make([(.origin,buttonScript)])
+        retired.feed(10,true,inside:10,position:-0.5,source:.poll)
+        let retiredPress = buttonFrame(retired,retiredProgram)
+        retired.localPointerEventMonitor = true
+        retiredProgram.retirePrimaryButtonStream()
+        retired.feed(10.45,false,inside:10,position:-0.5)
+        let retiredRelease = buttonFrame(retired,retiredProgram)
+        retired.feed(11,true,inside:10,position:-0.5)
+        retired.feed(11.45,false,inside:10,position:-0.5)
+        out["retiredButton"] = ["pressed":retiredPress,"released":retiredRelease,
+            "nextClick":buttonFrame(retired,retiredProgram)]
         host.feed(8,true,inside:10);host.feed(9,false,inside:10)
         let consumed = host.prepare(multi)
         out["consumedClick"] = values(dispatch(multi,consumed.samples))
@@ -428,6 +494,31 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['crossPositions'][:2],[2,2])
         self.assertEqual(self.result['crossDrag'],[1,1,0])
         self.assertTrue(self.result['captureReleased'])
+
+    def test_monitored_button_edges_own_capture_until_actual_release(self):
+        for monitor, released in (('local',[123,-0.5,-0.5]),('global',[12,2,2])):
+            rows = self.result[f'monitoredButton-{monitor}']
+            for stage, callbacks, capture, held in (
+                ('before',[],0,False), ('pressed',[1,-0.5,-0.5],10,True),
+                ('held',[],10,True), ('released',released,0,False), ('after',[],0,False),
+            ):
+                with self.subTest(monitor=monitor, stage=stage):
+                    self.assertEqual(rows[stage], {
+                        'callbacks':callbacks,'capture':capture,'held':held,'failures':[],
+                    })
+
+    def test_poll_only_button_edges_remain_when_monitors_are_absent(self):
+        self.assertEqual(self.result['polledButton'], {
+            'pressed':{'callbacks':[1,-0.5,-0.5],'capture':10,'held':True,'failures':[]},
+            'released':{'callbacks':[123,-0.5,-0.5],'capture':0,'held':False,'failures':[]},
+        })
+
+    def test_new_monitor_does_not_inherit_poll_capture(self):
+        self.assertEqual(self.result['retiredButton'], {
+            'pressed':{'callbacks':[1,-0.5,-0.5],'capture':10,'held':True,'failures':[]},
+            'released':{'callbacks':[],'capture':0,'held':False,'failures':[]},
+            'nextClick':{'callbacks':[1123,-0.5,-0.5],'capture':0,'held':False,'failures':[]},
+        })
 
     def test_presentation_retry_cannot_replay_physical_edges(self):
         self.assertTrue(self.result['nextBatchHasNoHistoricalEdges'])
