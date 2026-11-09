@@ -115,6 +115,31 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
             "freshAllocationTokenReuse",
         )
 
+    def test_copy_back_history_reads_the_previous_generation(self) -> None:
+        self.assertNotIn(
+            self.result["splitReadAfterToken"],
+            self.result["splitReadInitializations"],
+        )
+        self.assertEqual(
+            self.result["splitReadMaterialBindings"][0][0],
+            self.result["splitReadPriorToken"],
+        )
+        self.assertEqual(
+            self.result["splitReadMaterialBindings"][1][0],
+            self.result["splitReadAfterToken"],
+        )
+        self.assertEqual(
+            self.result["splitReadAfterToken"],
+            self.result["splitReadAllocationToken"],
+        )
+        self.assertNotEqual(
+            self.result["splitReadAfterToken"],
+            self.result["splitReadPriorToken"],
+        )
+        self.assertEqual(
+            self.result["splitCopySourceFailure"], "readBeforeWrite"
+        )
+
     def test_tail_keeps_only_non_history_initialization_state(self) -> None:
         self.assertTrue(all(
             generation > 0

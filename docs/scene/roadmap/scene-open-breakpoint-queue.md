@@ -161,7 +161,7 @@
 |---|---|
 | 密集预热 · 3337494481 | [同作者包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认首屏缩短，余下仍以完整粒子预热为主。只在有新证据指出可避免的工作时重启，保作者步进、随机、历史和首帧；不重复本次采样或以删粒子、缩时长、扩大预算求速度。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
-| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算：现役 Release 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 graph-resource-copy 合计 6.295/19.594ms，六个首拷贝是 motionblur 唯一历史目标的每帧 seed。读 token 已由上一帧 commit 的 history pin 覆盖到本帧完成，`.history` 不驱逐/复用，无需新增 pin；门槛在 `lifecycleIsValidLocked`（copyCount==0 时证明闭包由作者 copy 恢复且无 initialize）与首读/prior publication。诊断 Release+DEBUG A/B 已验证 copy 14→8、约 143.3MB/帧消失、1534/1540 条 copy-back 为 copyCount=0/reused、终帧有拖尾；签名 Debug 的 reflection-history 集成门 4/4 通过。同 scene-time 像素、正式 WMO Release、首帧/reset/描述符/视觉失败反例待补，未通过保留拷贝并转项。 |
+| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算：现役 Release 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 graph-resource-copy 合计 6.295/19.594ms，六个首拷贝是 motionblur 唯一历史目标的每帧 seed。读 token 已由上一帧 commit 的 history pin 覆盖到本帧完成，`.history` 不驱逐/复用，无需新增 pin；门槛在 `lifecycleIsValidLocked`（copyCount==0 时证明闭包由作者 copy 恢复且无 initialize）与首读/prior publication。诊断 Release+DEBUG A/B 已验证 copy 14→8、约 143.3MB/帧消失、1534/1540 条 copy-back 为 copyCount=0/reused、终帧有拖尾；GPU P50/P95 20.889→19.358/23.397→20.693ms；签名 Debug 的 reflection-history 集成门 4/4 通过；状态读绑定与 copy-source 反例已入 `test_scene_graph_execution_state`。同 scene-time 像素、正式 WMO Release、首帧/reset/描述符/视觉失败反例待补，未通过保留拷贝并转项。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
@@ -176,7 +176,7 @@
 | effect 显隐 / history | 关闭后保history再重新启用的首帧与实际输入待核；沿原activation/previous-current，不增另一history owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
-| 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
+| 3028048463/531.alpha、3280903509/225.alpha | 531.alpha 为 Number 直通（初值 1.0，脚本无数组返回），空数组来源待核（脚本路径已排除），候选在 prepared catalog/producer 路径，需实际 producer 证据；225.alpha 脚本按 Vec3 返回 color 而属性为 Number，作者配置与字段不符，不静默强转，待官方行为/字段归属证据。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 3292370168普通Debug准备与505资格 | 读口跨帧误判和无需求记失败的生产逻辑已沿[观测证据](../capabilities/runtime-evidence-current.md#execution-observation-history)修正；原日志不改。当前`-Onone`/exe886b在4秒观察＋60秒准备监督期限未Ready，末记录first-surface-join4159ms，不能授505实际记账或归为11个播放故障。旧R0为`-O`诊断，不能跨配置判回退。先凭真实准备工作/栈或同配置证据定位，不原样重跑或加预算；`.artifacts/scene-startup-329-next-20261108/`保后继只读入口。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |

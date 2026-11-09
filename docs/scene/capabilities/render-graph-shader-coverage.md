@@ -239,7 +239,7 @@ motionblur 类作者图在 unique `_rt_FullCompoBuffer1` 上 pass0 读、作者 
 
 启用条件：沿用 `SceneGraphExecutionState` 与作者图做读写分离——首访必须是材质读、作者 copy 写回同一闭包 identity、copy 源只能在作者 copy 恢复之后读取；`lifecycleIsValidLocked` 接受 `historyRehydrateCopyCount==0`（由 `transaction.intents` 证明闭包由作者 copy 恢复、无 `.initialize`）；`State.reduce` 首读、`publishRehydratedHistory` 与 `materialPublications` 使用 prior publication；有 authored clear 或 material-function clear 的历史不进入 split，保留 seed copy 语义。准入不成立时保留 seed copy/透明初始化；准入后的 State/publish 校验失败走整帧 `framePreparationFailureLocked`（frameRequiresDrop），effect-local 视觉失败/激活绕过丢弃该 effect 历史并在下一帧透明重建（与 seed 路径保留 rehydrated tail 不同，反例待补）。不得放宽 read-before-write。
 
-验收：Release+DEBUG 诊断构建同条件 A/B 使 3420215721 稳定帧 copy 由 14 降到 8、六个 seed 约 143.3MB/帧消失（约 342.0→198.8MB/帧）；1540 条 copy-back 图执行中 1534 条为 copyCount=0/history=reused，两张不同相位终帧均见拖尾，同 scene-time 像素对比未证；签名 Debug 的 reflection-history 集成门 4/4 通过。正式 WMO Release、首帧/reset/描述符变化与视觉失败反例仍需补测，未通过不退役 seed copy。
+验收：Release+DEBUG 诊断构建同条件 A/B 使 3420215721 稳定帧 copy 由 14 降到 8、六个 seed 约 143.3MB/帧消失（约 342.0→198.8MB/帧）；1540 条 copy-back 图执行中 1534 条为 copyCount=0/history=reused，GPU p50/p95 20.889→19.358/23.397→20.693ms，两张不同相位终帧均见拖尾，同 scene-time 像素对比未证；签名 Debug 的 reflection-history 集成门 4/4 通过，状态读绑定与 copy-source 反例已入 `test_scene_graph_execution_state`。正式 WMO Release、首帧/reset/描述符变化与视觉失败反例仍需补测，未通过不退役 seed copy。
 
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。

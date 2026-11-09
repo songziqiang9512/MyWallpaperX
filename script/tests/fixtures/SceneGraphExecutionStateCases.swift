@@ -684,6 +684,84 @@ extension Harness {
                 historyRehydration: [oldSelected.token: wrongTarget])) == "historyRehydrationMismatch",
         ]
 
+        // Copy-back split: the first material reads the pinned previous
+        // generation, the author copy restores the current allocation, and a
+        // later read sees the copy output.
+        let splitGraph = graph(
+            targets: [
+                rawTarget(q1, unique: true),
+                rawTarget(q2, unique: true),
+            ],
+            nodes: [
+                material(0, ordinal: 0, target: q2, reads: [q1, input]),
+                command(1, kind: .copy, source: q2, target: q1),
+                material(2, ordinal: 1, target: output, reads: [q1]),
+            ]
+        )
+        let splitPlan = requirePlan(splitGraph)
+        let splitPair = requirePair(splitGraph)
+        let splitFirst = require(State.reduce(
+            graph: splitGraph,
+            targetPlan: splitPlan,
+            pairStep: splitPair,
+            allocation: allocation(
+                plan: splitPlan, generation: 1, prefix: "split-old"
+            ),
+            effectGeneration: 1,
+            resetGeneration: 1
+        ))
+        let splitPrevious = splitFirst.nextState.logicalMapping[q1]!
+        let splitAllocation = allocation(
+            plan: splitPlan, generation: 2, prefix: "split-read"
+        )
+        let split = require(State.reduce(
+            graph: splitGraph,
+            targetPlan: splitPlan,
+            pairStep: splitPair,
+            allocation: splitAllocation,
+            effectGeneration: 1,
+            resetGeneration: 1,
+            previous: splitFirst.nextState,
+            historyReads: [q1: splitPrevious]
+        ))
+        // A copy source that precedes the author copy restore cannot read
+        // the previous generation; admission must keep the seed copy.
+        let splitCopyFirstGraph = graph(
+            targets: [
+                rawTarget(q1, unique: true),
+                rawTarget(q2, unique: true),
+            ],
+            nodes: [
+                command(0, kind: .copy, source: q1, target: q2),
+                command(1, kind: .copy, source: q2, target: q1),
+                material(2, ordinal: 0, target: output, reads: [q1]),
+            ]
+        )
+        let splitCopyFirstPlan = requirePlan(splitCopyFirstGraph)
+        let splitCopyFirstPair = requirePair(splitCopyFirstGraph)
+        let splitCopyFirstOld = require(State.reduce(
+            graph: splitCopyFirstGraph,
+            targetPlan: splitCopyFirstPlan,
+            pairStep: splitCopyFirstPair,
+            allocation: allocation(
+                plan: splitCopyFirstPlan, generation: 1, prefix: "split-copy-old"
+            ),
+            effectGeneration: 1,
+            resetGeneration: 1
+        ))
+        let splitCopyFirstFailure = failureCode(State.reduce(
+            graph: splitCopyFirstGraph,
+            targetPlan: splitCopyFirstPlan,
+            pairStep: splitCopyFirstPair,
+            allocation: allocation(
+                plan: splitCopyFirstPlan, generation: 2, prefix: "split-copy"
+            ),
+            effectGeneration: 1,
+            resetGeneration: 1,
+            previous: splitCopyFirstOld.nextState,
+            historyReads: [q1: splitCopyFirstOld.nextState.logicalMapping[q1]!]
+        ))
+
         let result: [String: Any] = [
             "preparedChecks": preparedChecks,
             "ordinaryKinds": kinds(ordinary.transaction.intents),
@@ -831,6 +909,16 @@ extension Harness {
             ),
             "hazardFailure": hazardFailure,
             "readBeforeWriteFailure": readBeforeWriteFailure,
+            "splitReadPriorToken": splitPrevious.token.rawValue,
+            "splitReadAllocationToken": splitAllocation.resources[q1]!.token.rawValue,
+            "splitReadAfterToken": token(split.transaction.mappingAfter, q1),
+            "splitReadInitializations": initializationTokens(
+                split.transaction.intents
+            ),
+            "splitReadMaterialBindings": materialBindingTokens(
+                split.transaction.intents
+            ),
+            "splitCopySourceFailure": splitCopyFirstFailure,
             "largeNodeCount": largeNodes.transaction.intents.count,
             "largeNodeRawPreparedMatch": largeNodes == largeNodesPrepared,
             "largeTargetCount": largeTargetPlan.logicalTargets.count,
