@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 483,
-      "bytes": 201973
+      "lines": 488,
+      "bytes": 203038
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49801
+      "bytes": 49815
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,19 +440,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b044863670ddbe60fc1f7872d1d0c7a2db2a9b8d33ba81556850aaa84849deed",
-      "after": "ca29270db11a47d880440ac73f819153ec41493cf608f56a07c2a2ded8cdca60",
-      "owner": "Scene visual runtime",
-      "reason": "Record the registered ring comparison and actual Dock response with capture phase limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dock-hover-radius"
+      "before": "ca29270db11a47d880440ac73f819153ec41493cf608f56a07c2a2ded8cdca60",
+      "after": "3f11c8249349f404c05db6b0ad693cf8c25d4e481239ac301bf7948195535308",
+      "owner": "Scene particle runtime",
+      "reason": "Record the actual official and native two-beam control and the age-matched original receipt.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-emission-isolation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dc7ceb165450eb0f6a4325afc10830e5e6d621a161f972b3f68ccfa54babd883",
-      "after": "08589d2943456f93c7aabca5e13c2d38b95a30edae1935949c6c355722ee8f98",
-      "owner": "Scene visual runtime",
-      "reason": "Stop unqualified ring and Dock investigations and narrow the orthographic Sprite evidence.",
+      "before": "08589d2943456f93c7aabca5e13c2d38b95a30edae1935949c6c355722ee8f98",
+      "after": "8c7c1fd438c26e48a12884f097089b22d978539576873db3ff7be5fa4b96189f",
+      "owner": "Scene particle runtime",
+      "reason": "Prioritize measured audio supply and visible-age population after the beam isolation.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
