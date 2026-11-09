@@ -11,6 +11,13 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 初始化、属性事件、输入、媒体、动画和 destroy 由实际导出及当前 owner 调度。事件型/idle owner 不因缺 update 被当作不存在。数组、对象别名、RegExp 等语言行为归真实 VM；用户 API 和模块数学归项目 host/value 实现。
 
+<a id="script-instance-property-input"></a>
+### 脚本实例属性供货
+
+`scriptProperties` 由原模块或隐式实例对象持有。原 ValueHost 在首次收到宿主输入时供初值，后续只覆盖有效宿主值实际变化的键。相同输入保留作者赋值和对象别名。其他键的面板变化不重置这些值，真实变化仍在原属性事件或值回调之前生效。导出的对象若被脚本换掉，变化的宿主键写入新对象。
+
+原 owner 只保最近一次成功输入的编码字节，与可变 JS 值分开。相同字节直接退出。不同输入按键比较上一份宿主值，包含结构值，沿原 Vec2/Vec3 赋值和失败入口交接。替换每次回调重解析、全量回填的旧路径。对象、回调顺序、用户属性 revision 和 typed 输出仍由原职责持有。验收核未改宿主值的本地写入、相邻键实际热更、被更新的同键、嵌套对象与改名变体，并复验原作者持续切歌和独立真实热更。
+
 <a id="cursor-primary-button"></a>
 ### Cursor 的主键编号
 

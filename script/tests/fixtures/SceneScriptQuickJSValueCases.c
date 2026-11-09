@@ -4,7 +4,92 @@
 #include <stdio.h>
 #include <string.h>
 
+static void script_instance_property_cases(MWXSceneScriptQuickJSFixture *fixture, const char *gain_name) {
+    char source[2048];
+    snprintf(source, sizeof(source),
+        "const gain = '%s';"
+        "export var scriptProperties = createScriptProperties()"
+        ".addSlider({name:gain,value:1}).addSlider({name:'channel',value:1})"
+        ".addColor({name:'tint',value:new Vec3(1,2,3)})"
+        ".addText({name:'settings',value:null}).finish();"
+        "let tintAlias, settingsAlias;"
+        "export function init(value) {"
+        "  if (scriptProperties[gain] !== 4 || scriptProperties.channel !== 2 ||"
+        "      !(scriptProperties.tint instanceof Vec3) || scriptProperties.tint.x !== 5 ||"
+        "      scriptProperties.settings.display.offset !== 9)"
+        "    throw new Error('cold script properties');"
+        "  scriptProperties[gain] += 10;"
+        "  tintAlias = scriptProperties.tint; tintAlias.x += 10;"
+        "  settingsAlias = scriptProperties.settings.display; settingsAlias.offset += 10;"
+        "  return value;"
+        "}"
+        "export function update(value) {"
+        "  if (value.x) {"
+        "    scriptProperties[gain] += 20; scriptProperties.tint.x += 20;"
+        "    scriptProperties.settings.display.offset += 20;"
+        "  }"
+        "  const tint = scriptProperties.tint;"
+        "  const display = scriptProperties.settings.display;"
+        "  const channel = display === settingsAlias && display.offset === 39"
+        "    ? scriptProperties.channel : -scriptProperties.channel;"
+        "  return new Vec3(scriptProperties[gain], tint === tintAlias ? tint.x : -tint.x, channel);"
+        "}", gain_name);
+    const struct {
+        const char *properties;
+        double input[3];
+        double expected[3];
+        const char *label;
+    } cases[] = {
+        {"{\"%s\":4,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"channel\":2,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {1, 0, 0}, {34, 35, 2}, "cold input precedes init and preserves init writes in update"},
+        {"{\"%s\":4,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"channel\":2,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {34, 35, 2}, "unchanged host input preserves update writes and aliases"},
+        {"{\"channel\":3,\"tint\":{\"z\":3,\"y\":2,\"x\":5},\"%s\":4,"
+         "\"settings\":{\"display\":{\"style\":\"compact\",\"offset\":9}}}",
+         {0, 0, 0}, {34, 35, 3}, "hot channel preserves local gain and equivalent tint and settings aliases"},
+        {"{\"channel\":3,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"%s\":7,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {7, 35, 3}, "hot gain replaces the author's gain without replacing aliases"},
+        {"{\"channel\":3,\"tint\":{\"x\":6,\"y\":2,\"z\":3},\"%s\":7,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {7, -6, 3}, "changed tint replaces the old alias"},
+    };
+    const uint64_t generation = 13;
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        fixture->domain, source, strlen(source), generation,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(owner != NULL, "script instance properties compile", fixture->diagnostic);
+    if (owner == NULL) return;
+    char properties[256];
+    MWXSceneQuickJSOwner *peer = mwx_scene_quickjs_owner_create(
+        fixture->domain, source, strlen(source), generation,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(peer != NULL, "script instance property peer compiles", fixture->diagnostic);
+    if (peer != NULL) {
+        snprintf(properties, sizeof(properties), cases[0].properties, gain_name);
+        fixture->failures += mwx_fixture_update_vec3(
+            peer, generation, cases[0].input, properties, "{}", MWX_SCENE_QUICKJS_OK,
+            cases[0].expected, "peer receives cold script instance properties"
+        );
+    }
+    for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+        snprintf(properties, sizeof(properties), cases[index].properties, gain_name);
+        fixture->failures += mwx_fixture_update_vec3(
+            owner, generation, cases[index].input, properties, "{}",
+            MWX_SCENE_QUICKJS_OK, cases[index].expected, cases[index].label
+        );
+    }
+    mwx_scene_quickjs_owner_destroy(peer);
+    mwx_scene_quickjs_owner_destroy(owner);
+}
+
 void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    script_instance_property_cases(fixture, "gain");
+    script_instance_property_cases(fixture, "level");
     const char *scalar_user_source =
         "export function update(value) { return engine.userProperties.live; }";
     fixture->scalar_user = mwx_scene_quickjs_owner_create(

@@ -583,12 +583,6 @@ static MWXSceneQuickJSResult discard_layer_mutations_after_failure(
     return result;
 }
 
-bool mwx_scene_quickjs_assign_script_properties(
-    MWXSceneQuickJSOwner *owner,
-    const char *json,
-    size_t length
-);
-
 typedef struct LayerBooleanReadScope {
     size_t slot;
     size_t original_count;
@@ -1054,48 +1048,6 @@ static MWXSceneQuickJSResult call_string(
     JS_FreeCString(domain->context, string);
     JS_FreeValue(domain->context, result);
     return MWX_SCENE_QUICKJS_OK;
-}
-
-bool mwx_scene_quickjs_assign_script_properties(
-    MWXSceneQuickJSOwner *owner,
-    const char *json,
-    size_t length
-) {
-    if (json == NULL || length == 0) {
-        return true;
-    }
-    JSContext *context = owner->domain->context;
-    JSValue target = JS_GetPropertyStr(context, owner->module, "scriptProperties");
-    if (JS_IsUndefined(target)) {
-        if (JS_IsUndefined(owner->implicit_script_properties))
-            owner->implicit_script_properties = JS_NewObject(context);
-        target = JS_DupValue(context, owner->implicit_script_properties);
-    }
-    JSValue source = JS_ParseJSON(context, json, length, "scriptProperties");
-    if (JS_IsException(target) || JS_IsException(source) ||
-        !JS_IsObject(target) || !JS_IsObject(source)) {
-        JS_FreeValue(context, target);
-        JS_FreeValue(context, source);
-        return false;
-    }
-    JSValue arguments[2] = {
-        JS_DupValue(context, target),
-        JS_DupValue(context, source),
-    };
-    JSValue result = JS_Call(
-        context,
-        owner->domain->script_property_assigner,
-        JS_UNDEFINED,
-        2,
-        arguments
-    );
-    JS_FreeValue(context, arguments[0]);
-    JS_FreeValue(context, arguments[1]);
-    JS_FreeValue(context, target);
-    JS_FreeValue(context, source);
-    const bool success = !JS_IsException(result);
-    JS_FreeValue(context, result);
-    return success;
 }
 
 bool mwx_scene_quickjs_read_vector(JSContext *context, JSValueConst value, double *output,
@@ -1964,6 +1916,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
         JS_FreeValue(owner->domain->context, owner->implicit_script_properties);
+        js_free(owner->domain->context, owner->script_property_input_json);
     }
     mwx_scene_quickjs_destroy_audio_host(owner);
     mwx_scene_quickjs_destroy_storage_owner(owner);

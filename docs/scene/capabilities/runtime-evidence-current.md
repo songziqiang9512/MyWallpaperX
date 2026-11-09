@@ -373,7 +373,9 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 
 原AppKit入口把无窗口事件的位置换成实时鼠标位置。隔离AppKit窗口、真实CGEvent派生事件与原Surface FIFO复现错误：事件应落在窗口内NDC(-.5,.5)，旧入口却把它投到窗外。修正后移动、不同按下/释放点、窗外释放及有窗口事件均通过；原parallax退出也通过。后续在[321原包](#side-image-switch-321)定位并修复了轮询提前释放。288旧日志缺事件来源，原生持续悬停仍未资格。入口合同归[primary指针](scenescript-api-coverage.md#cursor-primary-button)。
 
-原三摘要不变的签名Debug `b70351fe…7a341` 用[轨迹末点点击](../development/development-workflow.md#截图与时序)从蓝电视移到413。电视Enter、菜单展开、413捕获命中及单次click均成立。F452媒体命令停476/播348，45ms后F453反向播476/停348；348后续读口未见时钟推进。点击前req7/F437与点击后req8/F459同Surface、各自终端/GPU完成且零截断；598绘制的纹理代次变化，但两张右侧裁切图均显示「枫桥」前缀，未捕获两次命令之间的字形。作者476的下一曲分支改本实例`scriptProperties.aaa/ddd`并写新曲名；下一帧的反向命令匹配初始属性，现有VM每次回调前按同一宿主输入覆盖这些键。此首错在命令生产之前，未直接读出两帧JS对象，也未验证实际声响或原生/官方持续悬停。独立3792745102同App末点点击62、17→36且画面切换，两次运行均正常排空。失败样本及邻例分别保于`scene-menu-trajectory-288-20261109`与`scene-menu-trajectory-neighbor-20261109`。
+原签名Debug `b70351fe…7a341` 经合成轨迹打开蓝栏并单击413。F452停476/播348，45ms后F453反向切回，348时钟未推进，前后终端图均见「枫桥」前缀。作者476修改本实例`scriptProperties.aaa/ddd`，旧VM在下次回调以同一输入回填了默认值。原失败保于`scene-menu-trajectory-288-20261109`。
+
+签名Debug `dbae7244…d4b1c` 采用[实例属性供货](scenescript-api-coverage.md#script-instance-property-input)，构建4390项输入稳定，metallib不变。288原三摘要和合成轨迹一致，F481单次413点击后停476/播348，348时钟推进到0.431429秒，至26秒后停止未见反向命令。点击前req7/F466与点击后req8/F489的同Surface终端图中，598从「枫桥」前缀换到「A Life S…」，完整曲名由348源身份及作者脚本确认。独立3538053643原三摘要一致，`newproperty26`热更为`--`后仍是原窗和Surface，420时钟在req1/F48与req2/F187间从冒号换为双横线。两场GPU完成、零截断并正常排空。真实QuickJS门在旧实现复现重置，现实现通过同键、结构别名、改名和独立owner用例，完成独立审查。原始报告和画面归`scene-script-instance-properties-20261109`。288范围为合成指针和静音播放时钟，原生及官方持续悬停另行资格。
 
 288开场黑纹另复用同5849 App与原三摘要单跑7.5秒：29条最终View读数覆盖sceneTime0.006…7.314；13次捕获都有265普通Solid→main/seal及GPU完成，逐张查看未重现下半区黑纹。265有作者origin/alpha共享390/30 single组，alpha在约3.9…5.467秒有脉冲声明；本读口不含alpha/tint/MVP，不能由两条所选绑定判断alpha组丢失或数值正确。其copybackground声明未在普通Solid消费，也没有“写相机即隐藏”的合同；不据此增copy或屏蔽规则。此次只记观察相位未重现，保反馈待新同相位ROI/版本证据，不重复本场。原报告/日志归`.artifacts/scene-evidence/runs/scene-intro-black-solid-20261108/`，完整阶段PNG与薄核查归`.artifacts/scene-intro-black-solid-20261108/`；stop、Surface释放与GPU排空成立。
 
