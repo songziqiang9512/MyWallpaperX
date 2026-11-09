@@ -252,6 +252,8 @@ Prepared target/transition 保有序读写；pool 租约、publication 与 compl
 
 不新增 pin、owner 或第二套映射；`historyRehydrateCopyCount` 语义保持为 copy 数。
 
+第二次尝试（2026-11-10，已回退）：补上 lifecycle 门（从 `transaction.intents` 证明闭包由作者 copy 恢复且无 initialize）、状态首读与 prior publication 覆盖后，511/473 仍各只有 1 个 copy（split 生效），其余四条 2 个，但运动模糊拖尾依旧缺失；全部 graph-execution 遥测为 `history=none`，未反映读路径，不能证明 pass0 实际绑定上一代 F1。重开前先在 pass0 绑定处记录 reads 是否非空、透明初始化是否被跳过、prior publication 是否命中（DEBUG 诊断），确认后再提交；未验证不提交。
+
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
 
