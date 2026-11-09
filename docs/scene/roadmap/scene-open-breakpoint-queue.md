@@ -157,7 +157,7 @@
 | 3476868923 /3507496797 | 重型内容冷准备与首帧成本；同输入区分model、shader、资源及首Surface装配，不延时限或减少内容冒充优化。 |
 | 3805547608 | [380跨回绕](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)未见逐圈恶化；93复现的四次少供位于AV未给新缓冲，下一帧恢复，暂无同帧可见异常。暂收口，重启须可定位的播放停顿或可判别同帧差异；不重跑同窗、改时钟或增加轮询。 |
 | 3372715909 | [同PID跨场实测](../capabilities/runtime-evidence-current.md#video-residency-337)已判清高Metal分配随旧场退役清除；场内闲置AV对象仍待定位。仅在可重复的物理占用/呈现代价出现时，取该source的实际持有与退出证据；不重跑同一热切窗或再试解绑重建。 |
-| 3749463715 | [同原包低观测](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已用现役历史结算唤醒避免跳过提交机会，实际约30→35fps。真实跨帧历史仍需串行，GPU每帧超预算，后续只追有可区分收益的图资源或执行成本，保历史输入与失败回滚。不重跑原等待窗、放宽容量或按重叠时戳删材质。 |
+| 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | 观感低帧率待同条件实际呈现和drop原因。 |
 | 3471294034 | 需同输入、同优化配置测实际呈现与瓶颈；本轮并行诊断短窗不作60 FPS或能耗资格。 |
 | 轻重切换 / 多Surface | 同PID资源驻留与第二屏准备成本；先找真实持有owner和重复工作，不预建共享cache。 |
