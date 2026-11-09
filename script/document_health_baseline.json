@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
-      "bytes": 246947
+      "bytes": 247014
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47651
+      "bytes": 47713
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -467,8 +467,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eba9d3206a0a30d3f3798c7a4f251b8b826a92a0349902256d1466dbccfc6386",
-      "after": "46da11dbf900f0d807c25fbea8b7c6d989f8240ded11e52aa0eba290cea24eb8",
+      "before": "46da11dbf900f0d807c25fbea8b7c6d989f8240ded11e52aa0eba290cea24eb8",
+      "after": "26033c5c888b9d16af8edff94ee4208759c5e6445aa6c855a99f6388101766de",
       "owner": "Scene runtime evidence",
       "reason": "Record the authored text depth A/B, real-sample text terminals, and the current 342 copy baseline.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-text-depth"
@@ -476,8 +476,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7e2aab2fda40ed05c2f665f80814eeb035c979c574fa78e4de12ed059929bb44",
-      "after": "0dd542a7c40dc887d02fd805124aaed70dc2b715c2edbd0ea6ed9093d71d6540",
+      "before": "0dd542a7c40dc887d02fd805124aaed70dc2b715c2edbd0ea6ed9093d71d6540",
+      "after": "7007984811fad1ff77b0460eccbb86923291da7b639f980c8874a41799997f1f",
       "owner": "Scene open queue",
       "reason": "Record the restored authored clock/weekday under natural wall time and retain the official clock boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
