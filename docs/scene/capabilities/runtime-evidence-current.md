@@ -268,6 +268,10 @@ N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四
 
 CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产生2048×45，与播放供货不等；作者默认`text3=20`选原包SourceHanSans-Heavy。同一探针只换该字体，得到8831×133逻辑、2048×31栅格，全部253952B与原F63的C逐字节一致。实际单行baseline y=4，9个字形轮廓越出底边，最低−3.37173。保持同一CTFrame，在诊断位图作整数平移后原区域BGRA全同，底边外有258个alpha非零像素，上边外为0。初始Jost在相同探针中两边均为0。这证实有效文字源已有裁墨，先于滚动和环形取样；终端残余每条线的归属仍待核。CPU和原包官方证据归`.artifacts/scene-circular-text-residual-20261109/`。
 
+[文字栅格范围](runtime-input-property-coverage.md#text-raster-ink-extent)已在原加载器按实际CoreText行修正。两字体的行轮廓和image bounds与独立字形轮廓相同；排印bounds漏SourceHan越底且把无裁切Jost判出界。新签名Debug `94bd5f56…e309`、原metallib、4396个构建输入稳定。真实加载器上传的SourceHan 2048×37在上、中、下三锚均与原guard的完整切片逐字节一致，保原31行并恢复258个alpha像素，上下边行透明。逻辑高133→158.74194，绘制修正分别为+1/−2/−5个原逻辑行距，原中心下降量保持。Jost 2048×45与旧字节相同；健康竖长对照保2048上限，越界且触顶后的重映射尚无独立运行样本。原排版、装饰、非对称锚点、发布与双Surface共享门通过。
+
+330原作者同project/pkg/tree、4秒/after2秒，req1/F61 166行零截断，2917实际2048×37 source→滚动→两环同一named→各自遮罩→group/tail→seal，GPU完成。原PNG可见上轮左/下/右长亮线和内侧细线退去，环字与主体保留，关闭该反馈。独立3351179520 F43同原图双源、spin/perspective与环字实际出图；3351163962 F96真实普通文字和圈继续成图，时段位置沿已确认的作者裁幅。三场GPU完成并排空。终端为代表相位，无官方逐像素/全部字体资格。原标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-raster-fix-20261109/`，度量、raw和独审归`.artifacts/scene-circular-text-raster-fix-20261109/`。
+
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
 

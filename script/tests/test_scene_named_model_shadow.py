@@ -465,7 +465,7 @@ def admission_support():
     s=s.replace('struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot }',
         'struct SceneFrameContext { let dynamicValues:SceneDynamicSnapshot;var cameraParallaxPosition=SIMD2<Float>.zero;var screenSize=CGSize(width:256,height:256) }')
     s=s.replace('struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource]}',
-        'struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource];var geometryProducts:[Int:SceneGeometryProduct]=[:]\n func layerSourceRenderSize(for id:Int)->[Float]? {nil};func layerSourceTextCenterOffsetY(for id:Int)->Float? {nil}}')
+        'struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource];var geometryProducts:[Int:SceneGeometryProduct]=[:]\n func layerSourceRenderSize(for id:Int)->[Float]? {nil};func layerSourceTextPlacement(for id:Int) -> (centerOffsetY: Float, rasterOffsetY: Float)? {nil}}')
     s=s.replace('let candidate:SceneTextureCandidate;','let candidate:SceneTextureCandidate?;')
     s=s.replace(' let imageCompositor=SceneImageLayerCompositor()',
         ' let imageCompositor=SceneImageLayerCompositor()\n var baseMaterialProviderBindings=FixtureProfiles()\n let pipelineRepository:FixturePipelines\n let renderDescriptor:SceneRenderDescriptor')

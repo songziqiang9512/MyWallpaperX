@@ -93,7 +93,6 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
-| 3306282639 · 图3 | 仍有少数长亮线和内侧细线。[官方原包与本机栅格对照](../capabilities/runtime-evidence-current.md#circular-text-edges)已确认官方两次可见相位无同类长亮线、本机有效字体栅格在滚动前裁掉真实笔画。下一步在共用文字布局中按实际字形和基线修正裁切，保作者字号、对齐及图供货，再核同原输入的文字环与独立文字。官方内部边界及逐线归因仍未定。 |
 | 3382111183 | 六个活动 beam emitter（115/178/335/173/167/170）的 exponent100 仍被现计划≤16拒绝。官方 reader/evaluator 与相对64→16投影已取得静态边界；共同音频候选未恢复338321目标且用户报闪烁，已撤回，不再重复消费端/指数研究。下一事实须是实际 provider 的绝对域/状态或合格同声源数值与 ROI；不由 Script AudioBuffers 可超1外推particle，不调gain/bounds或强注入1。原供值与候选停止线归[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
 | 3383210272 | 两道彩光应从中间向左右扩散；顶部扫光/闪烁仍未修。[官方对照](../capabilities/runtime-evidence-current.md#beam-contribution)已分出323/124宽彩束、369/391窄斜带；原样内置SpriteTrail出图并与宽束唯一声明候选同VS/GS。下一判别为同camera/FOV30、flags4/+Z/非均匀scale下的眼位/宽轴与可归属轮廓，仍缺实际draw参数；不得从内置方图或Mirage授作者几何。旧Sprite/Trail卡停止，32×128比例与齐次导数已供，不重乘、不重跑旧矩阵。音频绝对producer/status仍未知，不调gain或恢复已撤候选。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |

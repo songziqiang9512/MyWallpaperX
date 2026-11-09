@@ -22,13 +22,14 @@ nonisolated enum SceneTextLayerPivot {
         vertical: String?,
         renderSize: SIMD2<Float>,
         padding: Float,
-        centerOffsetY: Float = 0
+        centerOffsetY: Float = 0,
+        rasterOffsetY: Float = 0
     ) -> SIMD2<Float> {
         let inset = max(0, padding)
         return SIMD2(
             horizontalOffset(horizontal, inset: normalizedInset(inset, extent: renderSize.x)),
-            verticalOffset(vertical, inset: normalizedInset(inset, extent: renderSize.y),
-                center: renderSize.y > 0 ? -centerOffsetY / renderSize.y : 0)
+            verticalOffset(vertical, padding: inset, extent: renderSize.y,
+                           centerOffsetY: centerOffsetY, rasterOffsetY: rasterOffsetY)
         )
     }
 
@@ -44,13 +45,23 @@ nonisolated enum SceneTextLayerPivot {
     /// sizeScale 的 -size.y 会把单位 quad 的 +y 翻成画面上边，所以 `top` 与 `right`
     /// 同向补偿：内容上边落在 origin，外框再越过它保留 padding。
     private nonisolated static func verticalOffset(
-        _ value: String?, inset: Float, center: Float
+        _ value: String?, padding: Float, extent: Float,
+        centerOffsetY: Float, rasterOffsetY: Float
     ) -> Float {
+        let pivot: Float
+        let logicalOffset: Float
         switch value?.lowercased() {
-        case "top": return -0.5 + inset
-        case "bottom": return 0.5 - inset
-        default: return center
+        case "top":
+            pivot = -0.5 + normalizedInset(padding, extent: extent)
+            logicalOffset = rasterOffsetY
+        case "bottom":
+            pivot = 0.5 - normalizedInset(padding, extent: extent)
+            logicalOffset = rasterOffsetY
+        default:
+            pivot = 0
+            logicalOffset = rasterOffsetY - centerOffsetY
         }
+        return pivot + (extent > 0 ? logicalOffset / extent : 0)
     }
 
     private nonisolated static func normalizedInset(_ padding: Float, extent: Float) -> Float {

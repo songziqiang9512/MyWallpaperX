@@ -569,7 +569,7 @@ extension SceneMetalRenderer {
                         if let profile = baseMaterialProviderBindings.lightingProfile(for: layer), profile.surfaceEnabled {
                             let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
                                 renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                                textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
                                 parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
                                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                                 usesPerspective: cameraFrame.resolvesPerspective(for: layer))

@@ -110,6 +110,15 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 
 隐藏文字的效果后 named 供货沿[原输入与发布 owner](render-graph-shader-coverage.md#named-input-ownership)接入。Store 只提供冻结的 ready raster、原 extent/几何和内容 generation；原 Program 消费它并发布实际最终图结果，不重栅格、另建 clock 或混用 glyph generation 与 named frame epoch。无效果文字保持原来源路径；已有 FramePlan 时核实际 graph 输出，缺资源的局部旁路与无 Program 的精确 base-source fail-soft 分别保原责任，不将它们称为效果执行。未绑定可选纹理的 Resolution 由[原 shader 准备合同](render-graph-shader-coverage.md#unbound-texture-resolution)供已资格的数值，不新增文字资源角色。当前边界与真实 CoreText 供货结果归[运行证据](runtime-evidence-current.md)，任意文字图与完整动画仍需独立验收。
 
+<a id="text-raster-ink-extent"></a>
+### 文字栅格的垂直墨迹范围
+
+初始与更新文字沿原字号、换行、行数、对齐和装饰准备实际 CoreText frame。已定位的行基线与同一行的字形轮廓决定垂直墨迹范围。排印 ascent/descent 用于原行距和锚点，它会漏掉实际越界的墨迹。轮廓位于栅格内时沿原画布。实际越界时，按墨迹范围量化扩展画布，计入原生栅格边缘覆盖并留一行透明取样空间。背景及原装饰几何仍按名义框绘制。一次绘制复用原 frame，触及原纹理上限时缩放其位图映射，保留字号、布局和逻辑位置。
+
+扩展行沿原逻辑单位/栅格行比例换算。原 layer source 发布原中心下降量和绘制锚点修正，后者仅用于实际栅格 quad，保上、中、下对齐与屏幕锚点。SceneScript 命中继续用作者几何及原中心下降量。纹理、实际 extent、绘制修正与 generation 同批发布，Graph 和 Resolution 消费完整扩展面。退出将名义测量框当作实际栅格边界的旧行为，保原不可用布局和取消边界。普通帧只用已准备几何。
+
+验收核可重现的下越字形、合格在框字体、初始/更新同像素、资源改名、三种纵向锚点、原装饰及封顶情况，再核原作者的滚动和文字环、独立 named 文字及普通锚点文字。原作者和官方行为的已证范围归[运行证据](runtime-evidence-current.md#circular-text-edges)。
+
 ### 文字 HDR 亮度
 
 文字前景 `brightness` 是 HDR gain，[官方作者说明](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)也将文字列为此选项的消费者。Document 准备 TextStyle 时按已解析的 `hdrEnabled` 采用：非 HDR 为1、HDR保留声明值；原始对象和 Layer 继续保真。初始/动态栅格共用有效样式，替代无条件烘入亮度的采用方式，不向 Store/loader 传 general，也不加普通帧分支。

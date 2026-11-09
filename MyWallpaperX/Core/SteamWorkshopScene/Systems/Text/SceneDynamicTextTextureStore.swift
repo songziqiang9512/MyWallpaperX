@@ -197,7 +197,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 layerID: layerID,
                 publication: publication,
                 renderSizeWH: raster.renderSizeWH,
-                textCenterOffsetY: raster.centerOffsetY
+                textPlacement: (raster.centerOffsetY, raster.rasterOffsetY)
             ) else { return nil }
             return (layerID, layerSource)
         }

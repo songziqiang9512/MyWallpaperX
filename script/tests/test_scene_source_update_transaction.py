@@ -309,7 +309,7 @@ struct SceneLayerSourcePublication {
     let publication: SceneTextureProviderPublication
     let renderSizeWH: [Float]?
     let effectRenderSizeWH: [Float]? = nil
-    let textCenterOffsetY: Float? = nil
+    let textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)? = nil
     var texture: MTLTexture { publication.texture }
 
     static func supportsDirectTextureLane(

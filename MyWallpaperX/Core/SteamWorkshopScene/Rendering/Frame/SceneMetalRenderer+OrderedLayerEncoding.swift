@@ -277,7 +277,7 @@ extension SceneMetalRenderer {
                 } ?? imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
                     renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                    textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,

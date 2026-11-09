@@ -258,7 +258,7 @@ extension SceneMetalView {
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFrames,
-                textCenterOffsetY: submittedText?.layerSources[ownerLayerID]?.textCenterOffsetY ?? 0,
+                textPlacement: submittedText?.layerSources[ownerLayerID]?.textPlacement,
                 parallaxMouseNormalized: parallaxPosition,
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,

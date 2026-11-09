@@ -104,7 +104,7 @@ struct SceneBaseMaterialTextureSource {
 struct SceneBaseImageTextureSnapshot {
     let geometryProducts: [Int: SceneGeometryProduct] = [:]
     func layerSourceRenderSize(for id: Int) -> [Float]? { nil }
-    func layerSourceTextCenterOffsetY(for id: Int) -> Float? { nil }
+    func layerSourceTextPlacement(for id: Int) -> (centerOffsetY: Float, rasterOffsetY: Float)? { nil }
 }
 final class SceneMetalRenderer {
     let dependencyRuntime: SceneDependencyFrameRuntime; let textureRegistry: SceneFrameTextureRegistry
@@ -115,7 +115,7 @@ final class SceneMetalRenderer {
     // camera, parent or layer transformation behavior a second time.
     func imageModelMatrix(for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4], renderSizeOverride: [Float]?,
-        textCenterOffsetY: Float, parallaxMouseNormalized: SIMD2<Float>,
+        textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)?, parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration, visibleHalfExtents: SIMD2<Float>,
         usesPerspective: Bool) -> simd_float4x4 { worldFramesByLayerID[layer.id]! }
 }
