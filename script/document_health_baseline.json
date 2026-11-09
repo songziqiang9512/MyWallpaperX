@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 468,
-      "bytes": 193576
+      "bytes": 194002
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 148,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48079
+      "bytes": 48012
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -449,10 +449,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bd98d45a3be678ee9ff6b4c968a9a0ed4dcb42702358bd1676f042411ec6c4b8",
-      "after": "a7969048136e546aebb51b5ff98de65e871ea982fc801224a7a40fd92d3a1a97",
-      "owner": "Scene particle geometry",
-      "reason": "Record stable perspective velocity trail width and the actual original and controlled capture limits.",
+      "before": "a7969048136e546aebb51b5ff98de65e871ea982fc801224a7a40fd92d3a1a97",
+      "after": "0472f745846fdd7b2d164f8682fcfa72faadb31213a50ab4688970eb345df507",
+      "owner": "Scene",
+      "reason": "Replace stale official startup state with the verified original-author window, sampled beam shape and capture limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     }
   ]
