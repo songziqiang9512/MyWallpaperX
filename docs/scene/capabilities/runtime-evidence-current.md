@@ -258,7 +258,11 @@ N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四
 
 原作者包单场4秒/after2秒重定向原读回工具至2917/e0，签名观察App `09085158…c5835`、原metallib、4396构建输入稳定。req1/F63/CB `510975231744`/Surface `510925597184` 166行零截断。真实sourceCapture C `510900798080`→slot0→scroll G1 `510900799360` 两图均2048×31 BGRA8/mip1，draw结束后在同CB读取；原tail→两环named与遮罩→main/seal/GPU及原PNG均闭合。C末行alpha非零88、总量19746，G1为1667和106377；相邻行总量17621→17622。实际scroll Y速率0、scale(1,1)，X相位约.092834。按同相位线性逐行对照，前30行均在一个alpha档内，末行1587像素超一档。原PNG仍见环外放射条；异常宽边行首次出现在滚动输出。
 
-同机Metal对原MSL、144B uniform和C原字节重放，保同一pipeline、target、线性clamp、primitive与CB，唯一变量是 `maxAnisotropy`。16重现全部253952个G1字节，1使末行非零1667→97、alpha总量106377→19748，前30行逐字节相同，全部alpha回到同相位线性对照一档内。实际helper导数、官方sampler和产品改后全画面尚未取得。六临时观察钩子已退役且4396输入无漂移，原签名App复原。raw、重放、独审归`.artifacts/scene-circular-text-source-330-next-20261109/`，标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-source-330-20261109/`。修复范围归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+同机Metal对原MSL、144B uniform和C原字节重放，保同一pipeline、target、线性clamp、primitive与CB，唯一变量是 `maxAnisotropy`。16重现全部253952个G1字节，1使末行非零1667→97、alpha总量106377→19748，前30行逐字节相同，全部alpha回到同相位线性对照一档内。实际helper导数和官方sampler未知。六临时观察钩子已退役且4396输入无漂移。raw、重放、独审归`.artifacts/scene-circular-text-source-330-next-20261109/`，标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-source-330-20261109/`。
+
+[画布采样设计](render-graph-shader-coverage.md#graph-canvas-sampling)落实于原材质绑定，单 mip Graph 画布采用两种线性等向性状态，原资产状态集继续供货。签名Debug `60a9b663…048d1`、原metallib及4396个稳定构建输入。330原作者包同4秒/after2秒，req1/F64的166行闭合2917滚动→两半环named与各自遮罩→group→seal/终端，GPU完成、零截断。实看环字保留，密集放射条退去；1280×831原PNG的预选左侧区域中，蓝分量严格高于同图黄底加12档的像素1779→11（2640像素，两图对照色均为246/196/84）。少数较长亮线及内侧细线仍可见，原作者帧相位不完全等同，此项保留残余问题。
+
+独立3351179520同原输入改前/后，393实际双源→spin→perspective→group及字符环、主体均出图，另有当前附件和快照terminal replay实际编码。3589454154原输入F78的462土星环与479陨石按原模型路径采样，原9 mip/linear repeat资产参与实际模型绘制，终端可见土星环。各场GPU完成、零截断并排空。原生产Graph门的RGBA及R8 clamp/repeat、GraphView改名/等价变体和原共享采样的nearest/寻址/斜视单 mip 与9 mip 像素检查通过。标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-canvas-fix-20261109/`，区域和独审归`.artifacts/scene-circular-text-canvas-fix-20261109/`。残余验证归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩

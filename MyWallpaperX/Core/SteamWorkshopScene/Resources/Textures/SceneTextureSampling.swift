@@ -190,10 +190,11 @@ struct SceneTextureSamplerStateSet {
         }
     }
 
-    private static func makeState(
+    static func makeState(
         device: MTLDevice,
         filter: SceneTextureSampling.Filter,
-        addressMode: SceneTextureSampling.AddressMode
+        addressMode: SceneTextureSampling.AddressMode,
+        anisotropic: Bool = true
     ) -> MTLSamplerState? {
         let descriptor = MTLSamplerDescriptor()
         descriptor.normalizedCoordinates = true
@@ -201,9 +202,7 @@ struct SceneTextureSamplerStateSet {
         descriptor.minFilter = metalFilter
         descriptor.magFilter = metalFilter
         descriptor.mipFilter = filter == .nearest ? .nearest : .linear
-        // Bounded visual validation selects this shared hardware quality policy.
-        // This preserves elongated texture detail, not an inferred official default.
-        if filter == .linear { descriptor.maxAnisotropy = 16 }
+        if filter == .linear && anisotropic { descriptor.maxAnisotropy = 16 }
         let metalAddress: MTLSamplerAddressMode = addressMode == .repeatWrap
             ? .repeat
             : .clampToEdge

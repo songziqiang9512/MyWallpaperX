@@ -89,6 +89,15 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 - 真实空槽 Resolution 的名义 `[2,2,2,2]` 只用于已证明精确成对归一化、无 default 且 template/frame 都为空的路径；pending/nonempty 槽不能套用此值。
 - 纹理 reduction 改变工作采样域，不改变最终放置与原材质语义；source-sized raster、camera projection 与 terminal placement 分别消费各自准备事实。
 
+<a id="graph-canvas-sampling"></a>
+### 材质画布采样
+
+已发布的单 mip Graph 画布以线性等向性取样，沿现有 clamp 或 repeat 寻址。材质 PassEncoder 在准备绑定时使用实际候选的 `.provider(.graph)` 身份，原发布入口已证明画布格式、单 mip 与采样合同。资源身份比逻辑槽号、引用名或 mip 数量更准确。每个 PassEncoder 复用两种寻址状态，沿原 sampler 描述器构造；资产、独立 named 发布及其他来源沿原状态集保留 nearest 或线性各向异性。
+
+退出共享 16× 对真实 Graph 画布的绑定，保作者坐标、显式 LOD、地址模式、纹理与 shader ABI。带 `fract` 的有效材质在边界可把隐式 footprint 扩展到相邻行；修改作者导数或全局降低各向异性会扩大语义和影响面。普通绘制与 terminal replay 共用同一绑定决定，附件读取转换及精确快照继续保已选 sampler。初始化失败沿原 PassEncoder 准备失败处理，无帧内创建、重试或发布改动。
+
+验收用同输入的原文字环核圈外放射线与内环，实际 Graph 的 clamp/repeat 与非画布线性/nearest/mip 作为相邻输入和反例，再验独立作者画布与已验证的斜视多 mip 模型。具体画面和证据边界归[运行证据](runtime-evidence-current.md#circular-text-edges)。
+
 <a id="source-channel-layout"></a>
 ### 数据图片的源通道布局
 

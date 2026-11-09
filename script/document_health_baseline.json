@@ -125,12 +125,12 @@
       "bytes": 52785
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 250,
-      "bytes": 49153
+      "lines": 259,
+      "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 446,
-      "bytes": 186942
+      "lines": 450,
+      "bytes": 188304
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49013
+      "bytes": 48857
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,11 +422,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "19cab505801e3021cf051024a2b29f01ab8541270809b2d0531b8755e1f3edfe",
-      "after": "10e1d37bd0e4178fdfae43a4188ea6e7ce72efa97aa7bd804a8f0a573479e943",
-      "owner": "Scene graph sampling boundary evidence",
-      "reason": "Record the original scroll-stage byte readback and same-MSL Metal sampler control. Refine the open issue to the actual graph sampler boundary while preserving proven oblique texture behavior. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
+      "before": "10e1d37bd0e4178fdfae43a4188ea6e7ce72efa97aa7bd804a8f0a573479e943",
+      "after": "5d037c5bd64f67b9f286303d749d899ea6e49bc09ab3b2aa39e5b81e5da56904",
+      "owner": "Scene graph canvas sampler binding",
+      "reason": "Document the existing material encoder canvas sampler boundary, real scene improvement, focused regressions and remaining text ring lines. Exact body budget.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#graph-canvas-sampling"
     },
     {
       "section": "bodies",
@@ -445,6 +445,15 @@
       "owner": "Scene material video acquisition and playback",
       "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
       "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "481a94df60edb1ae49bbb884fae7df1b54d99282a6fa97d16144b37a8c60a98b",
+      "after": "c7d88609fb6094204fca5a7937467a45df807cde5d1dd989ce12a9b23662e723",
+      "owner": "Scene graph canvas sampler binding",
+      "reason": "Document the existing material encoder canvas sampler boundary, real scene improvement, focused regressions and remaining text ring lines. Exact body budget.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#graph-canvas-sampling"
     }
   ]
 }
