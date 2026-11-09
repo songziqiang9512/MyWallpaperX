@@ -121,6 +121,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan? = nil,
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
         eventValueContext: SceneParticleEventValueContext = .unavailable
@@ -225,6 +226,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
                controlPointParticleSpace: initialControlPointParticleSpace,
+               collisionBoundsFrame: collisionBoundsFrame,
                shouldCancel: shouldCancelPrewarm)
 #if DEBUG
         componentObservation?.origin = "live"
@@ -276,6 +278,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         audioInput: SceneParticleAudioInput = .silent,
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         allowsEmission: Bool = true
     ) {
@@ -296,7 +299,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: fixedTimeStep, controlPointParticleSpace: controlPointParticleSpace)
+            step(by: fixedTimeStep, controlPointParticleSpace: controlPointParticleSpace,
+                 collisionBoundsFrame: collisionBoundsFrame)
             accumulator -= fixedTimeStep
         }
         if accumulator < 0 { accumulator = 0 }
@@ -456,6 +460,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func warmUp(
         duration: Double, stepBudget: Int?,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         shouldCancel: (() -> Bool)?
     ) {
         guard duration != 0 else { return }
@@ -486,7 +491,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
-            step(by: slice, controlPointParticleSpace: controlPointParticleSpace)
+            step(by: slice, controlPointParticleSpace: controlPointParticleSpace,
+                 collisionBoundsFrame: collisionBoundsFrame)
             completedSteps += 1
             // These events have never been replayed to children after warmup.
             // Drain per step so a long, short-lived emitter cannot retain its
@@ -508,7 +514,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private nonisolated func step(
         by frameDuration: Double,
-        controlPointParticleSpace: SceneParticleControlPointParticleSpace?
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
     ) {
         // Rate scales the entire simulation step once. Keep the wall-time step
         // budget unchanged instead of multiplying integration work by the rate.
@@ -543,7 +550,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         for (operatorIndex, value) in definition.operators.enumerated() {
             apply(value, operatorIndex: operatorIndex, duration: duration,
                   existingParticleIDUpperBound: existingParticleIDUpperBound,
-                  controlPointParticleSpace: controlPointParticleSpace)
+                  controlPointParticleSpace: controlPointParticleSpace,
+                  collisionBoundsFrame: collisionBoundsFrame)
         }
         // A leading range of deaths can be removed in bulk. If a later
         // death splits the survivors, move the visited range only once.

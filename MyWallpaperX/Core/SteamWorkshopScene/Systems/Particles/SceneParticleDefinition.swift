@@ -202,8 +202,16 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case reduceMovement(SceneParticleReduceMovement)
     case collisionPlane(SceneParticleCollisionPlane)
     case collisionSphere(SceneParticleCollisionSpherePlan?)
+    case collisionBounds(defaultResponse: Bool)
     case inheritEventValue(SceneParticleEventValueOperation?)
     case unsupported(String)
+}
+
+extension SceneParticleDefinition {
+    nonisolated var hasCanvasCollision: Bool {
+        !flags.isWorldSpace && !flags.usesPerspective
+            && operators.contains { $0.kind == .collisionBounds(defaultResponse: true) }
+    }
 }
 
 nonisolated struct SceneParticleBoids: Equatable, Sendable {

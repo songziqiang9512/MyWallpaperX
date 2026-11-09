@@ -172,6 +172,7 @@ struct SceneParticleRootRendererOutput {
 /// Such a container must not manufacture a sprite draw or a root simulator.
 struct SceneParticleRootRenderRuntime {
     let definition: SceneParticleDefinition
+    let collisionBoundsExtent: SIMD2<Float>?
     /// Prepared once with the definition graph; coordinates remain frame-varying.
     let pointerControlPointIdentities: [Int]
     var simulator: SceneParticleSimulator

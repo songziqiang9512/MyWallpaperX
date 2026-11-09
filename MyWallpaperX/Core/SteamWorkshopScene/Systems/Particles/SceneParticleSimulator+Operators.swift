@@ -6,7 +6,8 @@ nonisolated extension SceneParticleSimulator {
         operatorIndex: Int,
         duration: Double,
         existingParticleIDUpperBound: UInt64 = .max,
-        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil
     ) {
 #if DEBUG
         let observesParticles = componentObservation != nil && !particles.isEmpty
@@ -398,6 +399,15 @@ nonisolated extension SceneParticleSimulator {
                 blend: operatorExecutionPlans[operatorIndex].blend,
                 controlPointParticleSpace: controlPointParticleSpace
             )
+        case let .collisionBounds(defaultResponse):
+            guard defaultResponse, let collisionBoundsFrame else {
+#if DEBUG
+                componentObservation?.record("operator", operatorIndex, "unavailable",
+                    reason: defaultResponse ? "canvas-bounds-unavailable" : "response-unavailable", time: simulationTime)
+#endif
+                break
+            }
+            applyCollisionBounds(collisionBoundsFrame)
         case let .inheritEventValue(operation):
             guard operation == .setColor,
                   let values = eventValueContext.operatorValues,

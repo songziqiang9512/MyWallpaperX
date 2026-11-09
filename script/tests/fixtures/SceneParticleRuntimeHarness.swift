@@ -295,6 +295,8 @@ enum Harness {
             try printJSON(translationAnchoring())
         case "worldspace-translation-edges":
             try printJSON(translationEdges())
+        case "collision-bounds-synthetic":
+            try printJSON(boundsCollisionCases())
         case "worldspace-freeze":
             try printJSON(syntheticWorldSpaceFreeze())
         case "worldspace-freeze-recovery":
@@ -580,7 +582,7 @@ enum Harness {
         try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]).write(to: url)
     }
 
-    static func writePNG(_ url: URL) throws {
+    static func writePNG(_ url: URL, opaque: Bool = false) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true
         )
@@ -588,7 +590,12 @@ enum Harness {
         guard let context = CGContext(
             data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8,
             space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ), let image = context.makeImage(),
+        ) else { throw HarnessError.imageWrite }
+        if opaque {
+            context.setFillColor(gray: 1, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        guard let image = context.makeImage(),
            let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil)
         else { throw HarnessError.imageWrite }
         CGImageDestinationAddImage(destination, image, nil)

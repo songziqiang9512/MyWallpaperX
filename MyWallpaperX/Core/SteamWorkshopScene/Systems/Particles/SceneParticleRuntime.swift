@@ -195,6 +195,7 @@ final class SceneParticleRuntime {
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialWorldFrames: [Int: simd_float4x4]? = nil,
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialAudioInput: SceneParticleAudioInput = .silent,
         destroyedAuthoredLayerIDs: Set<Int> = [],
@@ -219,14 +220,21 @@ final class SceneParticleRuntime {
                 && $0.contentKind == "particle"
                 && $0.particlePath != nil
         }
-        // Prewarm consumes the initial typed transform, before the first advance.
-        let initialPointFrames = graph.assetsByPath.values.contains(where: {
+        let needsInitialPointFrames = graph.assetsByPath.values.contains {
             $0.definition.controlPoints.contains { $0.rawFlags & 2 != 0 }
-        }) ? SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: descriptor, byID: visibilityLayersByID,
-            snapshot: initialDynamicValues,
-            staticFrames: SceneLayerWorldFrameResolver.compute(
-                descriptor: descriptor, byID: visibilityLayersByID)) : [:]
+        }
+        // Production supplies the pose already used for its initial batches.
+        var prewarmWorldFrames = initialWorldFrames
+        func prewarmWorldFrame(for layerID: Int) -> simd_float4x4? {
+            if prewarmWorldFrames == nil {
+                prewarmWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+                    descriptor: descriptor, byID: visibilityLayersByID,
+                    snapshot: initialDynamicValues,
+                    staticFrames: SceneLayerWorldFrameResolver.compute(
+                        descriptor: descriptor, byID: visibilityLayersByID))
+            }
+            return prewarmWorldFrames?[layerID]
+        }
 #if DEBUG
         let layersByPath = Dictionary(
             grouping: particleLayers,
@@ -313,8 +321,8 @@ final class SceneParticleRuntime {
 #endif
                 continue
             }
-            let initialControlPointFrame = SceneParticleControlPointFrame(worldFrame: initialPointFrames[layer.id],
-                                                                        sceneOrthoHeight: descriptor.camera.orthoHeight)
+            let initialControlPointFrame = needsInitialPointFrames ? SceneParticleControlPointFrame(
+                worldFrame: prewarmWorldFrame(for: layer.id), sceneOrthoHeight: descriptor.camera.orthoHeight) : nil
             let childRuntime = SceneParticleChildRuntime(
                 layerID: layer.id,
                 rootAsset: asset,
@@ -380,24 +388,34 @@ final class SceneParticleRuntime {
                   admitsLayerImageEmitters(
                     asset.definition, map: layerImageMap, layerID: layer.id, path: path
                   ),
-                  !renderers.isEmpty,
-                  let rootRender = makeRootRenderRuntime(
-                    asset: asset,
-                    plans: renderers,
-                    layer: layer,
-                    path: path,
-                    layerImageMap: layerImageMap,
-                    worldSpaceFrame: worldSpaceFrame,
-                    rootWorldTranslation: translation?.plan,
-                    forceEnvironment: forceEnvironment,
-                    controlPointFrame: initialControlPointFrame,
-                    initialDynamicValues: initialDynamicValues,
-                    initialPlayback: initialPlayback[layer.id] ?? .init(),
-                    initialAudioInput: initialAudioInput,
-                    shouldCancelPrewarm: shouldCancelPrewarm,
-                    textureLoader: textureLoader,
-                    builtInTextureRegistry: builtInTextureRegistry
-                  ) else { continue }
+                  !renderers.isEmpty else { continue }
+            let boundsExtent = asset.definition.hasCanvasCollision ? collisionBoundsExtent : nil
+            let initialBoundsFrame: SceneParticleCollisionBoundsFrame?
+            if (asset.definition.startTime ?? 0) > 0, let boundsExtent,
+               let worldFrame = prewarmWorldFrame(for: layer.id) {
+                initialBoundsFrame = .init(extent: boundsExtent, worldFrame: worldFrame)
+            } else {
+                initialBoundsFrame = nil
+            }
+            guard let rootRender = makeRootRenderRuntime(
+                asset: asset,
+                plans: renderers,
+                layer: layer,
+                path: path,
+                layerImageMap: layerImageMap,
+                worldSpaceFrame: worldSpaceFrame,
+                rootWorldTranslation: translation?.plan,
+                forceEnvironment: forceEnvironment,
+                controlPointFrame: initialControlPointFrame,
+                collisionBoundsExtent: boundsExtent,
+                collisionBoundsFrame: initialBoundsFrame,
+                initialDynamicValues: initialDynamicValues,
+                initialPlayback: initialPlayback[layer.id] ?? .init(),
+                initialAudioInput: initialAudioInput,
+                shouldCancelPrewarm: shouldCancelPrewarm,
+                textureLoader: textureLoader,
+                builtInTextureRegistry: builtInTextureRegistry
+            ) else { continue }
 #if DEBUG
             appendSimulationDiagnostics(
                 rootRender.simulator.diagnostics,
@@ -569,6 +587,13 @@ final class SceneParticleRuntime {
                 rootControlPoints.merge(pointerValues) { _, pointer in pointer }
                 let instanceOverride = SceneParticleInstanceOverride.resolving(
                     authored: root.simulator.instanceOverride, dynamic: dynamicOverride)
+                let collisionFrame: SceneParticleCollisionBoundsFrame?
+                if layerDelta > 0, let extent = root.collisionBoundsExtent,
+                   let worldFrame = layerWorldFrames[layerID] {
+                    collisionFrame = .init(extent: extent, worldFrame: worldFrame)
+                } else {
+                    collisionFrame = nil
+                }
                 root.simulator.advance(
                     by: layerDelta,
                     dynamicControlPoints: rootControlPoints,
@@ -576,7 +601,8 @@ final class SceneParticleRuntime {
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput,
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
-                    controlPointFrame: pointFrame
+                    controlPointFrame: pointFrame,
+                    collisionBoundsFrame: collisionFrame
                 )
 #if DEBUG
                 collectEvaluationObservations(layerID: layerID,
@@ -750,6 +776,8 @@ final class SceneParticleRuntime {
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
         forceEnvironment: SceneParticleControlPointForceEnvironment,
         controlPointFrame: SceneParticleControlPointFrame?,
+        collisionBoundsExtent: SIMD2<Float>?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
         initialAudioInput: SceneParticleAudioInput,
@@ -789,6 +817,7 @@ final class SceneParticleRuntime {
             rootWorldTranslation: rootWorldTranslation,
             controlPointForceEnvironment: forceEnvironment,
             controlPointFrame: controlPointFrame,
+            collisionBoundsFrame: collisionBoundsFrame,
             stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy }
         )
 #if DEBUG
@@ -796,6 +825,7 @@ final class SceneParticleRuntime {
 #endif
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,
+            collisionBoundsExtent: collisionBoundsExtent,
             pointerControlPointIdentities: asset.definition.pointerControlPointIdentities(environment: forceEnvironment),
             simulator: simulator,
             outputs: prepared.map {
@@ -805,5 +835,12 @@ final class SceneParticleRuntime {
                 )
             }
         )
+    }
+
+    private var collisionBoundsExtent: SIMD2<Float>? {
+        let camera = descriptor.camera
+        guard camera.authoredOrthographicProjectionActive != false,
+              let width = camera.orthoWidth, let height = camera.orthoHeight else { return nil }
+        return SIMD2(width, height)
     }
 }

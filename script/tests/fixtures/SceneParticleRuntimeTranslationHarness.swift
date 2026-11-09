@@ -8,12 +8,12 @@ import simd
 final class TranslationInput {
     let directory: URL
     let device: MTLDevice
-    init() throws {
+    init(opaqueTexture: Bool = false) throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-world-translation-\(UUID())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         guard let device = MTLCreateSystemDefaultDevice() else { throw Harness.HarnessError.noMetal }
         self.device = device
-        try Harness.writePNG(directory.appendingPathComponent("materials/owned.png"))
+        try Harness.writePNG(directory.appendingPathComponent("materials/owned.png"), opaque: opaqueTexture)
     }
     deinit { try? FileManager.default.removeItem(at: directory) }
     func particle(_ path: String, world: Bool = true, start: Double = 0,
@@ -573,6 +573,96 @@ extension Harness {
             "renamedWrappersAndUnconsumedMetadata": sameTranslationSimulation(checkpoint, renamed.frameSnapshot()),
             "chunkingSameFixedSteps": sameTranslationSimulation(whole.frameSnapshot(), split.frameSnapshot()),
             "snapshotRetry": sameTranslationSimulation(continued, plain.frameSnapshot())]
+    }
+
+    static func boundsCollisionCases() throws -> [String: Any] {
+        let input = try TranslationInput(opaqueTexture: true)
+        let dt = 1.0 / 60
+        let movement: [String: Any] = ["name": "movement", "gravity": "0 0 0", "drag": 0]
+        let collision: [String: Any] = ["name": "collisionbounds"]
+        let outward = [movement, collision]
+        func layer(_ id: Int, _ name: String, at origin: SIMD2<Float>, velocity: Any = "240 120 0",
+                   operators: [[String: Any]], start: Double = 0,
+                   writesOrigin: Bool = false) throws -> SceneRenderDescriptor.Layer {
+            let path = "particles/\(name).json"
+            try input.particle(path, world: false, start: start) { value in
+                value["maxcount"] = 1
+                value["emitter"] = [["name": "boxrandom", "rate": 0, "instantaneous": 1,
+                                     "distancemin": 0, "distancemax": 0]]
+                var initializers = value["initializer"] as! [[String: Any]]
+                initializers.append(["name": "velocityrandom", "min": velocity, "max": velocity])
+                value["initializer"] = initializers
+                value["operator"] = operators
+            }
+            var layer = input.layer(id, path, writer: writesOrigin)
+            layer.originXYZ = [origin.x, origin.y, 0]
+            return layer
+        }
+        let right = try layer(108, "sweep", at: SIMD2(998, 400), operators: outward)
+        let control = try layer(119, "peer", at: SIMD2(998, 400), operators: [movement])
+        let first = try layer(124, "reordered", at: SIMD2(998, 400), operators: [collision, movement])
+        let inward = try layer(132, "inward", at: SIMD2(1004, 400), velocity: "-120 120 60", operators: outward)
+        let inside = try layer(168, "inside", at: SIMD2(800, 400), operators: outward)
+        let lower = try layer(187, "lower", at: SIMD2(500, 798), velocity: "120 240 0", operators: outward)
+        let overshoot = try layer(283, "long-step", at: SIMD2(998, 400), velocity: "6e26 0 0", operators: outward)
+        var turned = try layer(428, "renamed-lumen", at: SIMD2(998, 400), velocity: ["value": [60, -80, 0]],
+            operators: [movement, ["name": "collisionbounds", "id": 976]])
+        turned.scaleXYZ = [2, 3, 1]
+        turned.anglesXYZ = [0, 0, .pi / 2]
+        let warm = try layer(534, "moving-source", at: SIMD2(600, 400), operators: outward,
+            start: dt, writesOrigin: true)
+        var singular = input.layer(793, "particles/sweep.json", writer: false)
+        singular.originXYZ = right.originXYZ
+        let subjects = [("right", right), ("control", control), ("collisionFirst", first),
+            ("inward", inward), ("inside", inside), ("lower", lower), ("turned", turned),
+            ("prewarm", warm), ("singular", singular), ("overshoot", overshoot)]
+        let descriptor = input.descriptor(subjects.map { $0.1 }, authoredProjection: true)
+        let initial = input.snapshot([warm.id: SIMD3(998, 400, 0)])
+        let current = input.snapshot([warm.id: SIMD3(1004, 400, 0)])
+        let initialFrames = input.frames(descriptor, initial)
+        let currentFrames = input.frames(descriptor, current)
+        var suppliedFrames = currentFrames
+        suppliedFrames[singular.id] = SceneMatrix.translation(SIMD3(998, 400, 0))
+            * SceneMatrix.scale(SIMD3(1, 0, 1))
+        let runtime = input.runtime(descriptor, initial: initial)
+        func row(_ runtime: SceneParticleRuntime, _ layer: SceneRenderDescriptor.Layer,
+                 _ batches: [SceneParticleDrawBatch], _ frames: [Int: simd_float4x4]) -> [String: Any] {
+            guard let simulator = runtime.playbackSimulators.first(where: { $0.0 == layer.id })?.1,
+                  simulator.particles.count == 1, let particle = simulator.particles.first,
+                  let batch = batches.first(where: { $0.layerID == layer.id }),
+                  batch.instances.count == 1, let instance = batch.instances.first else { return [:] }
+            let model = input.model(batch, descriptor: descriptor, frames: frames)
+            let p = model * SIMD4(instance.positionAndSize.x, instance.positionAndSize.y, instance.positionAndSize.z, 1)
+            let v = model * SIMD4(Float(particle.velocity.x), Float(particle.velocity.y), Float(particle.velocity.z), 0)
+            return ["id": particle.id, "position": [p.x, p.y, p.z], "velocity": [v.x, v.y, v.z]]
+        }
+        let prewarmed = runtime.advance(by: 0, dynamicValues: initial, layerWorldFrames: initialFrames)
+        let initialRow = row(runtime, warm, prewarmed, initialFrames)
+        let firstStep = runtime.advance(by: dt, dynamicValues: current, layerWorldFrames: suppliedFrames)
+        let firstRows = Dictionary(uniqueKeysWithValues: subjects.map {
+            // Use the same observation basis for the invalid-frame and omitted-operator controls.
+            ($0.0, row(runtime, $0.1, firstStep, currentFrames))
+        })
+        let secondStep = runtime.advance(by: dt, dynamicValues: current, layerWorldFrames: suppliedFrames)
+        let secondRows = Dictionary(uniqueKeysWithValues: subjects.map {
+            ($0.0, row(runtime, $0.1, secondStep, currentFrames))
+        })
+        var noCanvas = input.descriptor([right], authoredProjection: true)
+        noCanvas.camera.orthoWidth = nil
+        let noCanvasRuntime = input.runtime(noCanvas)
+        let noCanvasFrames = input.frames(noCanvas, .empty(frameIndex: 0))
+        let noCanvasStep = noCanvasRuntime.advance(by: dt, layerWorldFrames: noCanvasFrames)
+        let crop = SceneMatrix.scale(SIMD3<Float>(1.0 / 32, 1.0 / 32, 1))
+            * SceneMatrix.translation(SIMD3(-1000, -400, 0))
+        func pixels(_ layer: SceneRenderDescriptor.Layer) -> [Int] {
+            guard let batch = secondStep.first(where: { $0.layerID == layer.id }) else { return [] }
+            return spriteBatchBounds(batch, device: input.device, viewProjection: crop,
+                layerModel: input.model(batch, descriptor: descriptor, frames: currentFrames))
+        }
+        return ["active": runtime.activeLayerIDs, "first": firstRows, "second": secondRows,
+            "initial": initialRow,
+            "noCanvas": row(noCanvasRuntime, right, noCanvasStep, noCanvasFrames),
+            "pixels": ["right": pixels(right), "control": pixels(control)]]
     }
 
     static func ancestrySpatialConsumers(_ input: TranslationInput) throws -> [String: Any] {

@@ -118,12 +118,12 @@ final class SceneDesktopWallpaperLaunchContext {
         steps = []; baseImages = TestBaseImages(textureLoader: TestTextureLoader(TestTrace()))
     }
 #endif
-    func makeSurfacePreparationInput(dynamicValues: SceneDynamicSnapshot, particlePlayback: [Int: Int],
-        destroyedAuthoredLayerIDs: Set<Int>, audioInput: SceneParticleAudioInput) -> SceneSurfacePreparationInput {
+    func makeSurfacePreparationInput(dynamicValues: SceneDynamicSnapshot, topology: TestTopology,
+        audioInput: SceneParticleAudioInput) -> SceneSurfacePreparationInput {
         precondition(Thread.isMainThread && inputs.count < steps.count, "unexpected preparation/retry")
         let number = inputs.count + 1
         let input = SceneSurfacePreparationInput(baseImages: baseImages, dynamicValues: dynamicValues,
-            particlePlayback: particlePlayback, destroyedLayerIDs: destroyedAuthoredLayerIDs,
+            particlePlayback: topology.particlePlayback, destroyedLayerIDs: topology.destroyedAuthoredLayerIDs,
             audioInput: audioInput, step: steps[number - 1], number: number)
         inputs.append(input); baseImages.textureLoader.trace.record("input-\(number)")
         return input

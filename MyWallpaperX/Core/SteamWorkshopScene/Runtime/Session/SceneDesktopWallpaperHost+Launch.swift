@@ -889,8 +889,7 @@ extension SceneDesktopWallpaperHost {
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
         let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
         let preparedSurfaces = try context.makeSurfacePreparationInput(
-            dynamicValues: initialValues, particlePlayback: topology.particlePlayback,
-            destroyedAuthoredLayerIDs: topology.destroyedAuthoredLayerIDs,
+            dynamicValues: initialValues, topology: topology,
             audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation)
         ).prepare(displayIDs: surfaceDisplayIDs, cancellation: cancellation)
 #if DEBUG

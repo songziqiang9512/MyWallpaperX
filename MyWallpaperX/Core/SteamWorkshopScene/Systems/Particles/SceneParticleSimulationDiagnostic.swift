@@ -298,6 +298,10 @@ extension SceneParticleSimulationMath {
                     "collisionplane")
             case let .collisionSphere(plan):
                 if plan == nil { add(.unsupportedOperator, "collisionsphere") }
+            case let .collisionBounds(defaultResponse):
+                if !defaultResponse || definition.flags.isWorldSpace || definition.flags.usesPerspective {
+                    add(.unsupportedOperator, "collisionbounds")
+                }
             case let .inheritEventValue(operation):
                 add(operation == .setColor
                     && eventValueContext.operatorValues.map(

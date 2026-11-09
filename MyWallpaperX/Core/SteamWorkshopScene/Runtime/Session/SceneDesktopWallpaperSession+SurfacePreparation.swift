@@ -70,9 +70,7 @@ extension SceneDesktopWallpaperSession {
               let values = evaluationTransaction.committedSnapshot else { return }
         let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
         let audio = SceneAudioSpectrumInbox.shared.prepareFrame().snapshot
-        let input = context.makeSurfacePreparationInput(dynamicValues: values,
-            particlePlayback: topology.particlePlayback,
-            destroyedAuthoredLayerIDs: topology.destroyedAuthoredLayerIDs,
+        let input = context.makeSurfacePreparationInput(dynamicValues: values, topology: topology,
             audioInput: .init(left: audio.left, right: audio.right, generation: audio.generation))
         let work = PendingSurfacePreparation(displayIDs: Set(screens.map(\.1)))
         pendingSurfacePreparation = work

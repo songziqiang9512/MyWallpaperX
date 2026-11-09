@@ -16,7 +16,7 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 <a id="prewarm-work"></a>
 ### 预热准备与工作边界
 
-初始 launch 在原 Host preparation queue 的资源/Program join 后，为冻结目标构造独占 PlaybackState/Runtime 与 material runtime，再随 PreparedLaunch 移交。增量新增屏复用同一显式 worker：取 job-start committed typed 值、当前粒子意图/销毁集合和 audio，完整执行作者 starttime；audio 在 root/static-child warmup 前接入。Session 共用单屏安装与 GPU pipeline，不共享 mutable Simulator、不冷构造或恢复种子。采用时当前意图/revision、无历史 emit、零步首帧及取消/同 loader 接力归[显示协调](../architecture/runtime-architecture.md#display-reconciliation)；VM、Clock 与最终输出不迁移。
+初始 launch 在原 Host preparation queue 的资源/Program join 后，为冻结目标构造独占 PlaybackState/Runtime 与 material runtime，再随 PreparedLaunch 移交。增量新增屏复用同一显式 worker，取 job-start committed typed 值、拓扑与 audio，完整执行作者 starttime。已有销毁时沿原拓扑投影脱离已销毁父层，再解析预热及首批绘制共用的世界矩阵。audio 在 root/static-child warmup 前接入。Session 共用单屏安装与 GPU pipeline，不共享 mutable Simulator、不冷构造或恢复种子。采用时当前意图/revision、无历史 emit、零步首帧及取消/同 loader 接力归[显示协调](../architecture/runtime-architecture.md#display-reconciliation)；VM、Clock 与最终输出不迁移。
 
 LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outcome 时的既有 inline 重试前移，保存最终 loaded/failed outcome，Surface 与 compiler 采用同一 texture/animation。正常已加载输入不重复读取，最终失败不增加第三次重试；deferred、视频及动态 source 继续原 provider 边界。
 
@@ -35,7 +35,7 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 |---|---|---|
 | Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划、[速度数值](#emitter-speed)及 Sphere [方向选择](#emitter-sign) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
-| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane/[Sphere Collision](#sphere-collision)、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
+| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane/[Sphere](#sphere-collision)/[Bounds](#bounds-collision) Collision、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
 
@@ -132,9 +132,9 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 <a id="bounds-collision"></a>
 ### 壁纸边界碰撞的实现合同
 
-目标是使正交平面中带 `collisionbounds` 的局部坐标根粒子系统在作者画布边缘回弹。已实测原作者的粒子穿过画布边界，固定官方客户端的无参数对照在右边界出现保留切向的回弹，速度约为入向法向的一半。当前仍由原 Simulator 跳过未知算子，实际对照和范围见[运行证据](runtime-evidence-current.md#particle-bounds-oracle)。
+正交平面中带无参数 `collisionbounds` 的局部坐标根粒子系统在作者画布边缘回弹。固定官方客户端的右边界对照支持保留切向和约半速的法向回弹。原作者、独立邻例及受控终端画面范围见[运行证据](runtime-evidence-current.md#particle-bounds-oracle)。
 
-沿原 Parser 在冷准备识别该算子。Runtime 仅在实际需要边界的根实例上，把作者正交画布尺寸和原粒子中心使用的世界变换汇合一次。初始预热使用准备时的有效世界矩阵，运行使用当帧世界矩阵，含既有粒子局部 Y 换向。物理边界使用画布范围，窗口取景和鼠标视差继续由渲染处理。Simulation 在作者顺序的原位置消费，按画布坐标纠正越界中心，只反射出界方向的法向速度，保切向和已朝内的速度，再将结果映回同一模拟空间。缺省采用 0.5；用有界轨迹选择响应类和量级，接触步的具体位置仍由原固定步进决定。
+原 Parser 冷准备识别算子。Runtime 只在有需求的原根实例保留作者画布尺寸，在实际预热或推进时与对应世界矩阵汇合，含既有粒子局部 Y 换向。物理边界使用画布范围，窗口取景和鼠标视差继续由渲染处理。Simulator 在作者顺序的原位置消费。将越界中心夹到对应画布边，直接逆变换该点，只反射出界方向的法向速度，保切向和已朝内的速度。缺省采用 0.5，接触位置沿原固定步进决定。
 
 实现不增加状态时钟、第二份粒子空间、帧内图重建或全系统扫描。平面逆变换在供货处计算一次，单粒子在界内直接返回，原 Z 保留。不能取得合法画布或同空间变换时仅跳过该算子并保 Movement、Fade 与其他系统。优先接通作者缺省输入，显式 Bounce/Slide、控制点锁定、旋转停止、Stop/Delete、General 世界空间、子系统和非平面作用各随可区分证据扩展。
 
@@ -293,6 +293,6 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 <a id="limits"></a>
 ## 当前缺口与回归
 
-双端点的弧向/周期重启、更多 CP 约束、Position Around 的 Mirror、复杂 nested/event/非均匀 child 变换、Collision Bounds 与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
+双端点的弧向/周期重启、更多 CP 约束、Position Around 的 Mirror、复杂 nested/event/非均匀 child 变换与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
 
 最近行为入口：[真实 CPU runtime](../../../script/tests/test_scene_particle_runtime.py)、[事务](../../../script/tests/test_scene_particle_playback_transaction.py)、[Metal renderer](../../../script/tests/test_scene_particle_rendering.py)、[App 生命周期](../../../script/tests/test_scene_particle_playback_integration.py)。具体下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。

@@ -47,6 +47,11 @@ final class SceneParticlePlaybackState {
         destroyedAuthoredLayerIDs: Set<Int> = [],
         shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
+        let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: descriptor, byID: layersByID, snapshot: initialDynamicValues,
+            staticFrames: SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: layersByID)
+        )
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
             preparedAssets: preparedAssets,
@@ -57,6 +62,7 @@ final class SceneParticlePlaybackState {
             preparedParticleVisibilityLayerIDs:
                 preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
+            initialWorldFrames: initialWorldFrames,
             initialPlayback: initialPlayback,
             initialAudioInput: initialAudioInput,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
@@ -64,14 +70,6 @@ final class SceneParticlePlaybackState {
         )
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
-        let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: descriptor, byID: layersByID, snapshot: initialDynamicValues,
-            staticFrames: SceneLayerWorldFrameResolver.compute(
-                layers: descriptor.layers, byID: layersByID,
-                sceneOrthoHeight: descriptor.camera.orthoHeight
-            )
-        )
         self.batches = runtime.advance(
             by: 0, dynamicValues: initialDynamicValues,
             audioInput: initialAudioInput, layerWorldFrames: initialWorldFrames
