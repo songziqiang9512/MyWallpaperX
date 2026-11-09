@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 527,
-      "bytes": 218791
+      "lines": 529,
+      "bytes": 219998
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 47685
+      "bytes": 47580
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ddf49fc373a43cc2583a517efc3793688488ef4c34f86074c5b22754825d56d1",
-      "after": "6aacc8fc082cd33f448365e03e26d1aa76f83af4295e811fc16651c8a32d7e06",
-      "owner": "Scene particle simulator",
-      "reason": "Record the isolated Movement improvement and current real author startup and playback evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-movement-borrow"
+      "before": "6aacc8fc082cd33f448365e03e26d1aa76f83af4295e811fc16651c8a32d7e06",
+      "after": "22382bd1edd4009da0e2b230b3ca383c4596e6e7043ef747a120cdda6c174154",
+      "owner": "Scene runtime visual evidence",
+      "reason": "Record reproduced authored cover and first motion bounds so closed visual diagnoses do not recur.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-cover-314"
     }
   ]
 }

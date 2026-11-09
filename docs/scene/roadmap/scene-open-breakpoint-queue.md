@@ -95,7 +95,7 @@
 | 3383210272 | [同WAV对照](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束，本机原包成熟F186每层2颗。[分段PCM最小板](../capabilities/runtime-evidence-current.md#particle-audio-threshold-qualification)官版未取得正控，补音频声明后入场崩溃，停止该板。重启须官版已证音频正响应的作者载体或实际16档供值及发射响应，取得相当可见粒群后再核轮廓。完整展开与闪烁仍开；不重跑该WAV、无门槛或固定早晚窗，不调增益或强制出生。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
-| 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3453730450时钟、3618302662构图、3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
+| 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3453730450时钟、3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
@@ -103,7 +103,7 @@
 | 3504669359 /3767460992 | 350默认四秒旧强白圆未重现，固定圆核及当前材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)；不据此修产品，媒体/光效全相位、发布copy物理边及selected pose仍未知。376中央白X已有当前作者fallback供货；真实媒体事件、封面替换及显隐仍需资格，不能从预览差异判纹理漏载。 |
 | 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
-| 3141464346 | Puppet 同 phase 位置仍开。13/351的环形shader四段及合成已有实绘，归档PCM F183右下见部分彩弧、静音同编号帧无相应轮廓（`scene-problem-retest-20261107-08-01`、`09-01`）。两个作者中心超出当前cover右边界；完整形状待同viewport官方对照，优先区分取景与轨迹，不重跑默认/静音对。 |
+| 3141464346 | [裁切](../capabilities/runtime-evidence-current.md#ring-cover-314)已由原画幅及已有Windows图定位。保Puppet位置与共域彩弧细节，须有同viewport、同音源及相位的可区分差异，再核13/351的group尾与main，不重跑默认/静音对。 |
 | 2957870426 | PCM/静音已供，目标audio消费者仍未资格。中央竖光、birth Color Random/colorn与ROI须真实出生及颜色单位，不凭bus非零关闭；3383210272并入本次主要效果可见性优先项。 |
 | 3586308277 | SDR原色已恢复，扫描方向/可见度仍未知。[原作者两阶段](../capabilities/runtime-evidence-current.md#shimmer-phase)的Day430主字形均浅绿，未见可归属扫描变化；不能由所选4814近稳像素判冻结。冷常量/时钟链未见首错，g_Time实际上传未读回；现有两图不覆盖完整周期。此项收口，转其他基础播放；重启须可归属扫描ROI/实际phase或明确首错，不第三场延时、调方向/速度/颜色、重跑SDR或新增钩子。 |
 | 3351179520 | [归档画面按主体配准](../capabilities/runtime-evidence-current.md#circular-text-alignment)后环位、可见轮廓与遮挡对应，本轮无几何首错。保已知 Atami 替代和动态相位边界；重启须同视口/声源的同字串偏差，再以同帧 slot1→422→399→799/main 区分字形、MVP 和 g_Time。无需再跑默认整景。 |
