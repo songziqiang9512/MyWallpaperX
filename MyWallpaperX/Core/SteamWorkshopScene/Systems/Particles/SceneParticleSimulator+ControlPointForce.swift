@@ -20,15 +20,17 @@ nonisolated extension SceneParticleSimulator {
             else { return }
             target = local
         }
+        let impulse = plan.acceleration * duration
+        let range = plan.maximumDistance
         for index in particles.indices {
             let delta = target + positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
                 - particles[index].position
             let distance = SceneParticleSimulationMath.length(delta)
             guard distance.isFinite, distance > 1e-12,
-                  distance <= plan.maximumDistance else { continue }
+                  distance < range else { continue }
+            let radialScale = (range - distance) / (range * distance)
             SceneParticleSimulationMath.addFinite(
-                delta / distance * plan.acceleration * duration
-                    * operatorBlend(blend, normalizedLives[index]),
+                delta * (radialScale * impulse * operatorBlend(blend, normalizedLives[index])),
                 to: &particles[index].velocity
             )
         }

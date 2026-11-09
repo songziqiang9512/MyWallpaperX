@@ -5,9 +5,10 @@ import simd
     static let canvas: [String: Any] = ["orthogonalprojection": ["width": 1000, "height": 800]]
     static func vector(_ value: SIMD3<Double>) -> [Double] { [value.x, value.y, value.z] }
     static func root(threshold: Any? = nil, point: SIMD3<Double> = .init(10, 0, 0),
-                     pointFlags: Int = 0, systemFlags: Int = 0, material: String = "owned.json") -> [String: Any] {
+                     pointFlags: Int = 0, systemFlags: Int = 0, material: String = "owned.json",
+                     scale: Any = 2) -> [String: Any] {
         var force: [String: Any] = ["name": "controlpointattract", "controlpoint": 1,
-                                    "origin": "0 0 0", "scale": 2]
+                                    "origin": "0 0 0", "scale": scale]
         if let threshold { force["threshold"] = threshold }
         return ["material": material, "maxcount": 1, "flags": systemFlags,
                 "emitter": [["name": "boxrandom", "instantaneous": 1, "distancemax": 0]],
@@ -93,6 +94,16 @@ import simd
         let base = try descriptor(canvas)
         let ordinary = parse(root())
         let env = environment(base, ordinary)
+        let distanceCases: [(String, Double, Double, Any)] = [
+            ("near", 2, 8, 8), ("far", 6, 8, 8), ("wider-range", 6, 24, 8),
+            ("renamed", 2, 8, "8.0"), ("repel", 2, 8, -8),
+            ("center", 0, 8, 8), ("edge", 8, 8, 8), ("outside", 10, 8, 8),
+        ]
+        let distances = Dictionary(uniqueKeysWithValues: distanceCases.map { name, distance, threshold, scale in
+            let definition = parse(root(threshold: threshold, point: .init(distance, 0, 0),
+                                        material: "\(name)/white.json", scale: scale))
+            return (name, velocity(definition, env))
+        })
         var legacyJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(base)) as! [String: Any]
         var legacyCamera = legacyJSON["camera"] as! [String: Any]
         legacyCamera.removeValue(forKey: "authoredOrthographicProjectionActive")
@@ -129,7 +140,7 @@ import simd
             let change = sim.particles[0].velocity - before
             let newTarget = frame(shifted)!.localPosition(worldPoint: target)!
             let toward = newTarget - saved.particles[0].position
-            let turns = simd_dot(change, toward) > 0 && simd_length(change) > 1
+            let turns = simd_dot(change, toward) > 0 && simd_length(change) > 1e-6
             sim.restoreFrame(saved)
             world.append(["name": name, "allowed": e.allowsWorldSource,
                 "space": forcePlan(definition, e)?.sourceSpace == .world ? "world" : "local",
@@ -214,7 +225,8 @@ import simd
         let childBoundary = forcePlan(ordinary, unavailable) == nil
             && forcePlan(parse(root(threshold: 20)), unavailable) != nil
             && forcePlan(moving, unavailable) == nil
-        let output: [String: Any] = ["projection": projection, "legacyUnknownDefault": unknown.defaultMaximumDistance == nil,
+        let output: [String: Any] = ["projection": projection, "distances": distances,
+            "legacyUnknownDefault": unknown.defaultMaximumDistance == nil,
             "malformedThreshold": malformed, "world": world, "admission": admissions, "invalidFrames": invalidFrames,
             "fixedWorldAfterTranslation": vector(frame(shifted)!.localPosition(worldPoint: fixedTarget)!),
             "rollbackRestoresForceFrame": rollback, "prewarmUsesInitialFrame": prewarm,

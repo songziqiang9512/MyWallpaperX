@@ -3763,13 +3763,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["layerImageExplicitSignRetainedAndRejectedWithReadyMap"])
 
     def test_pointer_control_point_force_is_bounded_and_directional(self) -> None:
-        self.assertEqual(self.results["pointerPullVelocity"], [2, 0, 0])
-        self.assertEqual(self.results["pointerPushVelocity"], [-2, 0, 0])
+        for name, strength in [("Pull", .75), ("Push", -.75),
+                               ("InactiveTailBlend", .75), ("LifetimeBlend", .675)]:
+            velocity = self.results[f"pointer{name}Velocity"]
+            self.assertAlmostEqual(velocity[0], strength)
+            self.assertEqual(velocity[1:], [0, 0])
         self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerZeroVelocity"], [0, 0, 0])
-        self.assertEqual(self.results["pointerInactiveTailBlendVelocity"], [2, 0, 0])
-        self.assertAlmostEqual(self.results["pointerLifetimeBlendVelocity"][0], 1.8)
         self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
         self.assertEqual(self.results["pointerIdentityPlan"], [1])
         self.assertTrue(self.results["pointerCachedMatches"])
@@ -3802,7 +3803,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 self.assertTrue(row["forceSupported"])
                 self.assertEqual(row["pointerIdentities"], [1])
                 self.assertEqual(row["pointerMapped"], [10, 0, 0])
-                self.assertEqual(row["velocity"], [2, 0, 0])
+                self.assertAlmostEqual(row["velocity"][0], .75)
+                self.assertEqual(row["velocity"][1:], [0, 0])
                 self.assertEqual(
                     row["diagnostics"],
                     ["controlPointForceBounded", "pointerControlPointBounded"],

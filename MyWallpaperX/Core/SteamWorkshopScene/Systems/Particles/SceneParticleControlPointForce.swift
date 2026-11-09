@@ -250,7 +250,7 @@ nonisolated extension SceneParticleOperator {
         return .supported(.init(
             controlPoint: controlPoint ?? 0,
             origin: origin,
-            acceleration: acceleration,
+            acceleration: acceleration * 0.75,
             maximumDistance: maximumDistance
         ))
     }

@@ -469,7 +469,7 @@ class SceneParticleRuntimeTests(
     def test_child_pointer_control_point_uses_child_local_scale_and_fails_closed_outside(self) -> None:
         result = self.run_harness("child-pointer-control-point-synthetic")
         self.assertEqual(result["outside"], [0, 0, 0])
-        self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
+        self.assertAlmostEqual(result["insideScaled"][0], .375, places=5)
         self.assertEqual(result["insideScaled"][1:], [0, 0])
         self.assertEqual(result["dynamicInsideScaled"], [0, 0, 0])
         self.assertEqual(result["emitterMissing"], [])

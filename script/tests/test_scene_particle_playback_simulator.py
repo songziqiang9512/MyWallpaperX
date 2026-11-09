@@ -838,9 +838,11 @@ import Foundation
         }
         do {
             func one(_ sim: SceneParticleSimulator, _ position: SIMD3<Double>,
-                     velocity: SIMD3<Double> = .zero) -> Bool {
+                     velocity: SIMD3<Double> = .zero, velocityTolerance: Double = 0) -> Bool {
                 guard sim.particles.count == 1 else { return false }
-                return sim.particles[0].position == position && sim.particles[0].velocity == velocity
+                let difference = sim.particles[0].velocity - velocity
+                return sim.particles[0].position == position
+                    && max(abs(difference.x), abs(difference.y), abs(difference.z)) <= velocityTolerance
             }
             let parser = SceneParticleDefinitionParser()
             let sourceEmitter: [String: Any] = ["name": "sphererandom", "controlpoint": 1,
@@ -901,9 +903,9 @@ import Foundation
             defaultForce.advance(by: 0.25); instanceForce.advance(by: 0.25)
             dynamicForce.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(16, -24, 0)])
             result["cp-force-consumes-selected-target-and-component-origin"] =
-                one(defaultForce, .zero, velocity: SIMD3(0, 10, 0))
-                && one(instanceForce, .zero, velocity: SIMD3(10, 0, 0))
-                && one(dynamicForce, .zero, velocity: SIMD3(0, -10, 0))
+                one(defaultForce, .zero, velocity: SIMD3(0, 5.7, 0), velocityTolerance: 1e-9)
+                && one(instanceForce, .zero, velocity: SIMD3(5.1, 0, 0), velocityTolerance: 1e-9)
+                && one(dynamicForce, .zero, velocity: SIMD3(0, -5.7, 0), velocityTolerance: 1e-9)
             var aroundRoot = root
             var aroundEmitter = sourceEmitter
             aroundEmitter["origin"] = "0 0 0"

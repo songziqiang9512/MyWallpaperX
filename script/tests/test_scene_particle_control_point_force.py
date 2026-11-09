@@ -64,15 +64,23 @@ class SceneParticleControlPointForceTests(unittest.TestCase):
                 self.assertEqual(row["active"], active)
                 self.assertEqual(row["default"], 512 if active else 5)
                 self.assertEqual(row["maximum"], 512 if active else 5)
-                self.assertVector(row["velocity"], [2, 0, 0] if active else [0, 0, 0])
-                self.assertVector(row["nearVelocity"], [2, 0, 0])
+                self.assertVector(row["velocity"], [1.20703125, 0, 0] if active else [0, 0, 0])
+                self.assertVector(row["nearVelocity"], [1.494140625 if active else .9, 0, 0])
                 self.assertEqual(row["explicitZeroMaximum"], 0)
                 self.assertVector(row["explicitZeroVelocity"], [0, 0, 0])
-                self.assertVector(row["explicit20Velocity"], [2, 0, 0])
+                self.assertVector(row["explicit20Velocity"], [.75, 0, 0])
         self.assertTrue(self.results["legacyUnknownDefault"])
         for row in self.results["malformedThreshold"]:
             self.assertFalse(row["plan"], row)
             self.assertVector(row["velocity"], [0, 0, 0])
+
+    def test_force_tapers_through_the_authored_range_and_preserves_sign(self) -> None:
+        expected = {"near": 4.5, "far": 1.5, "wider-range": 4.5, "renamed": 4.5,
+                    "repel": -4.5, "center": 0, "edge": 0, "outside": 0}
+        self.assertEqual(self.results["distances"].keys(), expected.keys())
+        for name, strength in expected.items():
+            with self.subTest(name=name):
+                self.assertVector(self.results["distances"][name], [strength, 0, 0])
 
     def test_world_target_uses_canonical_transform_and_current_frame(self) -> None:
         for row in self.results["world"]:
@@ -80,8 +88,8 @@ class SceneParticleControlPointForceTests(unittest.TestCase):
                 self.assertTrue(row["allowed"])
                 self.assertEqual(row["space"], "world")
                 self.assertVector(row["localPoint"], [10, 20, 0], 2e-4)
-                self.assertVector(row["velocity"], [2 / (5 ** .5), 4 / (5 ** .5), 0], 2e-4)
-                self.assertVector(row["localVelocity"], [2, 0, 0])
+                self.assertVector(row["velocity"], [.641524, 1.283047, 0], 2e-4)
+                self.assertVector(row["localVelocity"], [1.470703125, 0, 0])
                 self.assertTrue(row["changedFrameTurnsForce"])
         self.assertVector(self.results["fixedWorldAfterTranslation"], [-30, -40, 0])
         self.assertTrue(self.results["rollbackRestoresForceFrame"])
@@ -98,7 +106,7 @@ class SceneParticleControlPointForceTests(unittest.TestCase):
             with self.subTest(name=row["name"]):
                 self.assertTrue(row["rejected"])
                 self.assertEqual(row["particleCount"], 1)
-                self.assertVector(row["velocity"], [0, 1, 0])
+                self.assertVector(row["velocity"], [0, .375, 0])
                 self.assertTrue(row["worldRecovers"])
         self.assertTrue(self.results["unpreparedChildKeepsExplicitLocalOnly"])
         self.assertTrue(self.results["worldZeroIsRejectedLocalZeroPreserved"])

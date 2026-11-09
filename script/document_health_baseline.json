@@ -121,16 +121,16 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 285,
-      "bytes": 53891
+      "lines": 286,
+      "bytes": 54401
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 259,
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 473,
-      "bytes": 197759
+      "lines": 474,
+      "bytes": 198491
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48618
+      "bytes": 48595
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,20 +431,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9ae4e5a48d0b30dfec3f7a47a6db5496de3b824fd45245031c93ed440a08f6f2",
-      "after": "437469c78ee32049273385d8e572fb6d52aaeafb0e9778a86d07d4aaf33e76c8",
+      "before": "437469c78ee32049273385d8e572fb6d52aaeafb0e9778a86d07d4aaf33e76c8",
+      "after": "5ccf483c8ee2978383adee39cf0db3829b8243f45c171c0ff0138914dd8f9cc8",
       "owner": "Scene particle runtime",
-      "reason": "Define the shared-space birth radius verified with paired official controls.",
+      "reason": "Record the measured force range response, units approximation and retained owners.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#operators"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5c9c27cfe893416a01832f7d4dad4060bc6d084571a8a4bf877c98fe7ce7f7c8",
-      "after": "ed52ebcf55b2b4bcd13723b0d85d88843bba76c6a52d305cc680da463826d9c4",
+      "before": "ed52ebcf55b2b4bcd13723b0d85d88843bba76c6a52d305cc680da463826d9c4",
+      "after": "0301e992038c0b179c82a790a33352a308de778b00cfb3e79675aae3f865c6b2",
       "owner": "Scene particle runtime",
-      "reason": "Keep the official controls and the measured native visual recovery with its remaining reach gap.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-position-source-radius"
+      "reason": "Record the bounded official calibration and changed terminal output with author regression.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-force-range-response"
     },
     {
       "section": "bodies",

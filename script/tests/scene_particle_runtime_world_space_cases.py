@@ -263,7 +263,7 @@ class SceneParticleWorldSpaceCases:
                             or (154 <= x <= 158 and abs(y - 513) < 0.003), rope)
             self.assertAlmostEqual(z, 0, delta=0.003)
         for name, expected_position, expected_velocity in [
-            ("force", [40, 60, 0], [1, 0, 0]),
+            ("force", [40, 60, 0], [.7353515625, 0, 0]),
             ("vortex", [50, 60, 0], [0, -0.72, 0]),
             ("plane", [40, 60, 0], [0, 0, 0]),
             ("sphere", [44, 60, 0], [0, 0, 0]),
