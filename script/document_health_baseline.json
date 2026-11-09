@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 436,
-      "bytes": 182736
+      "lines": 437,
+      "bytes": 183540
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48532
+      "bytes": 48775
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,20 +422,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c8572482e13e57bc5a8de1ffb961afce983512639eb8d4da8fab35ec8bded9eb",
-      "after": "0d3a5e93e5c823803e0483ccf91da49fd5f12b7abb879b7f8042a617d04f2160",
-      "owner": "Scene official velocity Trail geometry evidence",
-      "reason": "Replace the failed carrier guidance with verified stock output and shared stage identity. Bound unresolved per-draw geometry and the hand reference; retain exact current body budgets.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
+      "before": "0d3a5e93e5c823803e0483ccf91da49fd5f12b7abb879b7f8042a617d04f2160",
+      "after": "84dac36a5f90670131e93f9ace5c038d4bfd2c7193b52b411984dd8dc9e067a8",
+      "owner": "Scene authored conditional video selection",
+      "reason": "Qualify the live bamboo-to-pond visual path and retire that queue item. Keep startup texture readiness and effect Script attachment bounded. Exact current body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2d09610da76543e59a343cb6ba36ada904ac191704f93fab3b333763e1c0b9f3",
-      "after": "c69ad93647ada338ad23d6cae18b799ec9585693436031857126966867e53275",
-      "owner": "Scene official velocity Trail geometry evidence",
-      "reason": "Replace the failed carrier guidance with verified stock output and shared stage identity. Bound unresolved per-draw geometry and the hand reference; retain exact current body budgets.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
+      "before": "c69ad93647ada338ad23d6cae18b799ec9585693436031857126966867e53275",
+      "after": "3e5e36d3c8946f7d9d3d7437509e487c95bfadc0164181dd13da8aaa0d3024dd",
+      "owner": "Scene authored conditional video selection",
+      "reason": "Qualify the live bamboo-to-pond visual path and retire that queue item. Keep startup texture readiness and effect Script attachment bounded. Exact current body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     }
   ]
 }
