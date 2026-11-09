@@ -522,6 +522,9 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 官版2.8.0.42原板虽见时钟且同WAV实际播完，音频行无正控。只补 `general.supportsaudioprocessing=true` 后同包入场即报 `0xC0000005` 读取0，播放前身份检查已拒绝。此板未取得官版实际档位、阈值或发射响应，停止该夹具。可复验输入、原生结果及恢复收据归`.artifacts/scene-audio-response-board-20261109/`。
 
+<a id="particle-audio-shader-probe"></a>
+固定官方2.8.0.42的x64（PE SHA `40e2ce02…93b0`）沿Scene构造、共享provider及实写确认左右64的来源。默认播放端点成功时走Scene侧适应，明确选中的采集端点成功时跳过该处理。状态位与单声道复制各自独立。实际虚拟机仍是同版本x86（`daac1ea7…b6bda07`），本次只读核Session1及磁盘配置default/threshold0/volume50，未读实时状态。对同SHA的x86和匹配x64独立核对，两个 `g_AudioSpectrum16Left/Right` uniform 由准备后缓冲原样供货，粒子读同一地址和通道偏移。可用已出双束的原作者副本及自有校准shader读取真实16档，仍须验证实际编译、可解码画面、固定音源及出生响应。当前无绝对幅值或修复资格。窄静态与guest收据归`.artifacts/scene-official-audio-buffer-20261109/`。
+
 <a id="limits"></a>
 ## 未取得的资格
 

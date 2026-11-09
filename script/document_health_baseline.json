@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 530,
-      "bytes": 220901
+      "lines": 533,
+      "bytes": 221789
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48247
+      "bytes": 48243
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "22382bd1edd4009da0e2b230b3ca383c4596e6e7043ef747a120cdda6c174154",
-      "after": "2b7504105459a0b2c883144aa8edd352f5cbf7f1950b4e6dd3b3295c243c1508",
-      "owner": "Scene ordinary video playback",
-      "reason": "Record repeated video EOF recovery, periodic short-source publication gaps, and measured graph copy traffic.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ordinary-video-loop-380"
+      "before": "2b7504105459a0b2c883144aa8edd352f5cbf7f1950b4e6dd3b3295c243c1508",
+      "after": "386154598ccec644b46ba63d0766690bcbcb13a23fbd0effbbf355b6ea4b1d46",
+      "owner": "Scene author audio verification",
+      "reason": "Record receiver-matching shared particle and shader audio input and a non-invasive official comparison path.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-audio-shader-probe"
     }
   ]
 }
