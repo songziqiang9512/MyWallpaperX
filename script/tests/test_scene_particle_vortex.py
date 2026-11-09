@@ -246,7 +246,7 @@ def radius_fixtures(base: dict) -> list[dict]:
     add("ring-force-overflow", stages=[
         {"delta": 1 / 60, "instanceSpeed": 1e40}, {"delta": 1 / 60}])
     overflow = copy.deepcopy(ring)
-    overflow["operator"][0]["drag"] = 1e40
+    overflow["operator"][0]["drag"] = -10_000
     add("ring-movement-overflow", overflow,
         stages=[{"delta": 1 / 60}, {"delta": 1 / 60}])
     add("ring-snapshot", radial, stages=[
@@ -434,7 +434,7 @@ class SceneParticleVortexTests(unittest.TestCase):
         self.assertAlmostEqual(self.state_particle("radius-maintained")["anchor"], 12, delta=1e-10)
         for speed, drag in [(0, 0), (128, 0), (128, 0.5)]:
             name = f"ring-long-{speed}-{drag}"
-            expected = 120 + speed * (1 - drag / 60) / 60
+            expected = 120 + speed * 2 ** (-drag / 60) / 60
             with self.subTest(name=name):
                 value = self.result[name]
                 self.assertNotIn("vortexUnsupported", value["diagnostics"])
@@ -521,7 +521,7 @@ class SceneParticleVortexTests(unittest.TestCase):
         self.assertGreater(len(result["state"]["births"]), 500)
         self.assertGreater(len(result["state"]["deaths"]), 500)
         self.assertLess(result["radiusSummary"]["maximumAnchorError"], 1e-8)
-        expected = 120 + 128 * 0.23 * (1 - 0.5 / 60) / 60
+        expected = 120 + 128 * 0.23 * 2 ** (-0.5 / 60) / 60
         for value in result["state"]["particles"]:
             self.assertAlmostEqual(value["anchor"], expected, delta=1e-10)
             self.assertAlmostEqual(value["radius"], expected, delta=1e-8)

@@ -562,7 +562,7 @@ enum Harness {
         }
         var rows: [[String: Any]] = []
         for angular in [false, true] {
-            for drag in [-2.0, 0.0, 2.0] {
+            for drag in angular ? [-2.0, 0.0, 2.0] : [-2.0, 0.0, 2.0, 8.0] {
                 let p = try run(drag, angular: angular)
                 rows.append(["angular": angular, "drag": drag,
                     "velocity": angular ? p.angularVelocity.z : p.velocity.z,
@@ -3544,10 +3544,13 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_signed_drag_accelerates_or_slows_linear_and_angular_motion(self) -> None:
         result = self.run_harness("signed-drag")
-        expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
-        self.assertEqual(len(result["rows"]), 6)
+        angular_expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
+        linear_expected = {-2: (2, .8535533905932737), 0: (1, .5),
+                           2: (.5, .3017766952966369), 8: (.0625, .078125)}
+        self.assertEqual(len(result["rows"]), 7)
         for row in result["rows"]:
             with self.subTest(angular=row["angular"], drag=row["drag"]):
+                expected = angular_expected if row["angular"] else linear_expected
                 velocity, position = expected[row["drag"]]
                 self.assertAlmostEqual(row["velocity"], velocity, places=12)
                 self.assertAlmostEqual(row["position"], position, places=12)
@@ -3627,10 +3630,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             with self.subTest(flags=row["flags"], speed=row["speed"]):
                 self.assertEqual(row["velocity"], [2 * factor, -4 * factor, factor])
                 self.assertEqual(row["position"], [0.75 * factor, -1.5 * factor, 0.375 * factor])
-        self.assertEqual(result["stopped"], [0.875, -1.75, 0.4375])
         self.assertEqual(result["retry"], result["stopped"])
-        self.assertEqual(result["doubled"], [2.765625, -5.53125, 1.3828125])
-        self.assertEqual(result["fallback"], [3.419921875, -6.83984375, 1.7099609375])
+        for name, expected_x in [("stopped", .87840077934934), ("doubled", 2.721302750736767),
+                                 ("fallback", 3.453348467469253)]:
+            for actual, expected in zip(result[name], (expected_x, -2 * expected_x, expected_x / 2)):
+                self.assertAlmostEqual(actual, expected, places=12)
         self.assertTrue(result["preserved"])
         self.assertTrue(result["recovered"])
         self.assertEqual(result["invalidMotion"], 1)
@@ -3862,7 +3866,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["delayedLayerImageCount"], 1)
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
-        self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])
+        for actual, expected in zip(self.results["movementPosition"], [.774001598220131, -.326046773496649, 0]):
+            self.assertAlmostEqual(actual, expected, places=12)
         self.assertAlmostEqual(self.results["fadeAlpha"], 0.5)
         self.assertEqual(self.results["worldMovementPosition"], [2, 0, 0])
         self.assertEqual(self.results["worldMovementLocalVelocity"], [4, 0, 0])

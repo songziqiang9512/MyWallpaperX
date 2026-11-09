@@ -33,11 +33,19 @@ nonisolated extension SceneParticleSimulator {
             }
             let gravity = plan.gravity(through: activeWorldSpaceFrame)
                 * effectiveSpeedOverride
+            let exponent = -plan.dampingRate * duration
+            let retention = exp(exponent)
+            // Near zero, use the limit of the gravity integral to avoid cancellation.
+            let gravityTime = abs(exponent) < 1e-8 ? duration : (1 - retention) / plan.dampingRate
+            let gravityImpulse = gravity == .zero ? .zero : gravity * gravityTime
+            let retentionOverflowed = !retention.isFinite
             let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
             for index in particles.indices {
                 if !radiusIsActive { particles[index].vortexRadius = nil }
-                let acceleration = gravity - particles[index].velocity * plan.drag
-                let integrated = particles[index].velocity + acceleration * duration
+                let initialVelocity = particles[index].velocity
+                // An unforced stationary peer stays at rest even when growth overflows.
+                let integrated = retentionOverflowed && initialVelocity == .zero
+                    ? gravityImpulse : initialVelocity * retention + gravityImpulse
                 let (position, velocity) = vortexMovement(
                     particlePosition: particles[index].position,
                     vortexRadius: particles[index].vortexRadius,

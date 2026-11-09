@@ -121,16 +121,16 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 286,
-      "bytes": 54750
+      "lines": 287,
+      "bytes": 55283
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 259,
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 475,
-      "bytes": 199332
+      "lines": 476,
+      "bytes": 200034
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 185,
-      "bytes": 48973
+      "lines": 186,
+      "bytes": 49277
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,28 +431,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "5ccf483c8ee2978383adee39cf0db3829b8243f45c171c0ff0138914dd8f9cc8",
-      "after": "e2a7efd8689173af3a0df6c7ddfc6f54555620bb6282c099cdc125140efd12ef",
+      "before": "e2a7efd8689173af3a0df6c7ddfc6f54555620bb6282c099cdc125140efd12ef",
+      "after": "1015300dd366e6bc3f5de1de446e6c1d2c669a8f0a2d524bb867afac25d4c223",
       "owner": "Scene particle runtime",
-      "reason": "Record the shared ordered position and velocity frame confirmed by official signed-axis controls.",
+      "reason": "Define the linear Movement damping owner and measured signed half-life interpretation.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#operators"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0301e992038c0b179c82a790a33352a308de778b00cfb3e79675aae3f865c6b2",
-      "after": "da1865c7475c51e41ea77fb6958df74937c50afe0bea191b066f8d2043af1922",
+      "before": "da1865c7475c51e41ea77fb6958df74937c50afe0bea191b066f8d2043af1922",
+      "after": "dad9725ef28a5068884c401e968dcb41c9bae8926fa3050112bbfe8a28f69aa3",
       "owner": "Scene particle runtime",
-      "reason": "Record actual phase and speed pixels, original projection and neighbor scopes.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-around-phase-frame"
+      "reason": "Record calibrated movement geometry and the visible extension in the original sample.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-movement-half-life"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c742b4fbe5b7bec029903b8b55f4377c838c7cbf59044fdf62953d7b63f1df35",
-      "after": "296593b9b1d84217037c7daa6b00ddbee4c6d55fd8dbeb9bf9eb132bf57795ec",
+      "before": "296593b9b1d84217037c7daa6b00ddbee4c6d55fd8dbeb9bf9eb132bf57795ec",
+      "after": "75ed02f7e9d0f95f4059430187577b4e23d30b40298daee26bf2861db6a8f3a5",
       "owner": "Scene particle runtime",
-      "reason": "Advance the author to age-controlled motion and track the separately observed edge-on Sprite gap.",
+      "reason": "Move the author residual to rate/age evidence and retain the large-drag proof limit.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
