@@ -22,7 +22,7 @@
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
-      "bytes": 6527
+      "bytes": 6603
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 542,
-      "bytes": 223436
+      "lines": 549,
+      "bytes": 224946
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48258
+      "bytes": 48295
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -359,10 +359,10 @@
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
-      "before": "33b7e3ec21a66b7ddcc57bfd4e799f6b1b73b9f360d420e40c91e756bcd4a405",
-      "after": "e3b2771a33afa68dd0fc4d6843b5699c0374f2a964654b4037a61e8aa6bf1ee9",
+      "before": "e3b2771a33afa68dd0fc4d6843b5699c0374f2a964654b4037a61e8aa6bf1ee9",
+      "after": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
       "owner": "Scene audio input verification",
-      "reason": "Preserve the official quantized prepared bands, visible author threshold contrast and same-source production replay.",
+      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
       "decision": "docs/architecture/system-audio-spectrum-design.md#验收与边界"
     },
     {
@@ -431,10 +431,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c2076c5f6a8ff0469453aca47fb8c3aef78af20cdd36a4dbec4493d55206d4e7",
-      "after": "ef180195e0bc6d2596917f7753b4fafbb03f3b6761e1be31d3a71dfb10d9df90",
+      "before": "ef180195e0bc6d2596917f7753b4fafbb03f3b6761e1be31d3a71dfb10d9df90",
+      "after": "d9d8bba173a42dc5d1842b834ca911e64f8318891ea141264d9b5714884b1d9e",
       "owner": "Scene audio input verification",
-      "reason": "Preserve the official quantized prepared bands, visible author threshold contrast and same-source production replay.",
+      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "386154598ccec644b46ba63d0766690bcbcb13a23fbd0effbbf355b6ea4b1d46",
-      "after": "e13e6a00c8ddb085390ade8255890084d3c9a6cd434df39d9d62affd1a555361",
+      "before": "e13e6a00c8ddb085390ade8255890084d3c9a6cd434df39d9d62affd1a555361",
+      "after": "224315460225cb800a2f2cf884ba8425c190dcb8a8fabbad4e018d571d05b259",
       "owner": "Scene audio input verification",
-      "reason": "Preserve the official quantized prepared bands, visible author threshold contrast and same-source production replay.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-audio-calibrated-pcm"
+      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold"
     }
   ]
 }
