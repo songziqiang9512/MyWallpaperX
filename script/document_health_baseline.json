@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 504,
-      "bytes": 209158
+      "lines": 505,
+      "bytes": 210129
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49213
+      "bytes": 49289
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -430,15 +430,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "294e0ffdc230945443c90180ee26e072200caf5f01805b1b06483f9971e58858",
-      "after": "8545b34e48a8c997e9173c9184327bdd1e40f0c441fa1e73136f2d4910275f32",
-      "owner": "Scene particle prewarm preparation",
-      "reason": "Replace the repeated VM research route with a measured simulator candidate and stopping rule.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "1015300dd366e6bc3f5de1de446e6c1d2c669a8f0a2d524bb867afac25d4c223",
       "after": "2605200f396d754c6adafc17def177bf2769fce74c556a35ce30a9521b8e8507",
@@ -449,11 +440,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e72c40d231b99d4bfe9abd0d83fc8e3287873df3cf83e61f2df9732913e08139",
-      "after": "08de36891296e58b3a0c8b56958cfca9a6169cc5ff83262972a2bfc953eae22d",
-      "owner": "Scene particle simulation",
-      "reason": "Record the isolated prewarm cost reduction and unchanged whole-package startup outcome.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-death-compaction"
+      "before": "08de36891296e58b3a0c8b56958cfca9a6169cc5ff83262972a2bfc953eae22d",
+      "after": "82a58ada67d0fbedebdc218968c18a9f66f87e812ed6e94cf2cd87fb3e88adc2",
+      "owner": "Scene composition source and projection",
+      "reason": "Retain bounded official group perspective behavior and capture limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#group-perspective-official"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "9e1a0cf98ddb6c5abdfb39d73eca3213dea3ae91335e07303803a6acaf43a493",
+      "after": "01a377cb16f7e8a480e09efbaf6019397a2643837968779b96fd83ff9e6392a9",
+      "owner": "Scene composition source and projection",
+      "reason": "Retire the simple projection fork and narrow the next check to the nested background source.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }
