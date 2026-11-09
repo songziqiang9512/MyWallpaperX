@@ -245,7 +245,12 @@ Prepared target/transition 保有序读写；pool 租约、publication 与 compl
 
 首次尝试（2026-11-10，已回退）：按上述准入在 Debug 构建实现后，3420215721 为 12 copy/帧（六条链只有两条被接纳），且出现视觉回归——运动模糊拖尾曲线与环状残影消失，同 8 秒 Release 对照仍在。根因归读取 token 未进入 history pin 生命周期：去掉 seed copy 后上一帧 F1 未被提交 pin 保活，累积材质读到被回收或陈旧的纹理；copy 目标 publication 合成不能替代 pin。产品改动已回退，seed copy 保留。
 
-pin 复核（源码推断）：`historyOnlyEntry()` 保留原 entry 的 historyPins；上一提交完成后 pin 释放，种子 `.history` entry 仍驻留但已非 pinned，容量压力下可被驱逐或复用。当前提交只为当前代 history token 建 pin，读取的上一代 token 不在覆盖内。最小修复候选：由原 allocation cache 在种子 `.history` entry 上为读取 token 建新的 historyRead pin（purpose 与写 pin 区分，generation 取种子代），pin 对象随 PreparedGraph 保留到该帧提交完成（现有 pin deinit 释放）；种子 entry 缺失或 token 不完整时回退 seed copy。重开前先核对种子 entry 在准备期存在，再逐 effect 验 6/6 接纳与稳定帧像素等价。
+复核更正（2026-11-10，源码核实）：读取 token 不需要新 pin——上一帧提交的 history pin 覆盖到本帧 GPU 完成，`.history` entry 不参与驱逐或复用；seed copy 的源纹理就是分离要读的同一纹理（`SceneResolvedMaterialGraphExecutor+Validation.swift` 的 previousResources 断言），copy 能工作即证明源有效。首次实现失败的入口在准入与读表示：
+
+- `SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift` 的 `lifecycleIsValidLocked`：`historyRehydrateCopyCount == 0` 且闭包非空时落到“闭包必须为空”分支，整帧 `persistent-allocation-commit-rejected`。需从 `transaction.intents` 证明本帧由作者 copy 恢复了闭包，且闭包 identity 没有 `.initialize`（含 material-function clear）。
+- `SceneGraphExecutionState.reduce` 的首读与 `publishRehydratedHistory`/`materialPublications` 必须接 reads，否则 `.readBeforeWrite` 或发布校验失败；`Preparation` 必须用 prior publication 覆盖 F1，否则 pass0 绑到当前透明 F1（零累积、零重影，与截图一致）。
+
+不新增 pin、owner 或第二套映射；`historyRehydrateCopyCount` 语义保持为 copy 数。
 
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
