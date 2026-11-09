@@ -161,7 +161,7 @@
 |---|---|
 | 密集预热 · 3337494481 | [同作者包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认首屏缩短，余下仍以完整粒子预热为主。只在有新证据指出可避免的工作时重启，保作者步进、随机、历史和首帧；不重复本次采样或以删粒子、缩时长、扩大预算求速度。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
-| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算。六段先复制再读旧历史可作下一轮可比实验，前提是保真旧资源身份、保作者写回与回滚。排在世界模型画面之后。 |
+| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算。现役 App 同条件复跑为 14 次 copy/帧、342,028,288 字节/帧，与旧记录一致；六个首拷贝 6×23.9MB≈143MB，与 motionblur 唯一历史目标 `_rt_FullCompoBuffer1` 的每帧 rehydrate 尺寸相符，rehydrate 与 capture 的归属需在双缓冲设计里用计数器区分。下一实验沿现有 history owner 做双缓冲持久环，只在保真旧资源身份、作者写回、回滚与在途帧安全时实施，否则保留拷贝并转项。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
