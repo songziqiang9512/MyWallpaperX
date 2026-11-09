@@ -264,6 +264,10 @@ N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四
 
 独立3351179520同原输入改前/后，393实际双源→spin→perspective→group及字符环、主体均出图，另有当前附件和快照terminal replay实际编码。3589454154原输入F78的462土星环与479陨石按原模型路径采样，原9 mip/linear repeat资产参与实际模型绘制，终端可见土星环。各场GPU完成、零截断并排空。原生产Graph门的RGBA及R8 clamp/repeat、GraphView改名/等价变体和原共享采样的nearest/寻址/斜视单 mip 与9 mip 像素检查通过。标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-canvas-fix-20261109/`，区域和独审归`.artifacts/scene-circular-text-canvas-fix-20261109/`。残余验证归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
+固定官方2.8.0.42对原project和PKG逐项核摘要后，在1200×780独占预览看到两个文字位置不同的相位，环字与主景成立，露出的环区均未见当前本机那样的长白射线。原生CUA图归会话，Parallels导出的3024×1634 PNG全黑；这里仅授实际可见对照，未取得同相位像素、官方内部画布或sampler。定址关闭后原receiver归idle，guest stage及host副本清理，VM保持初始running。
+
+CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产生2048×45，与播放供货不等；作者默认`text3=20`选原包SourceHanSans-Heavy。同一探针只换该字体，得到8831×133逻辑、2048×31栅格，全部253952B与原F63的C逐字节一致。实际单行baseline y=4，9个字形轮廓越出底边，最低−3.37173。保持同一CTFrame，在诊断位图作整数平移后原区域BGRA全同，底边外有258个alpha非零像素，上边外为0。初始Jost在相同探针中两边均为0。这证实有效文字源已有裁墨，先于滚动和环形取样；终端残余每条线的归属仍待核。CPU和原包官方证据归`.artifacts/scene-circular-text-residual-20261109/`。
+
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
 

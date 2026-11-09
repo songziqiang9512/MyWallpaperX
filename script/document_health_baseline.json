@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 450,
-      "bytes": 188304
+      "lines": 454,
+      "bytes": 189496
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48857
+      "bytes": 48909
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,19 +422,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "10e1d37bd0e4178fdfae43a4188ea6e7ce72efa97aa7bd804a8f0a573479e943",
-      "after": "5d037c5bd64f67b9f286303d749d899ea6e49bc09ab3b2aa39e5b81e5da56904",
-      "owner": "Scene graph canvas sampler binding",
-      "reason": "Document the existing material encoder canvas sampler boundary, real scene improvement, focused regressions and remaining text ring lines. Exact body budget.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#graph-canvas-sampling"
+      "before": "5d037c5bd64f67b9f286303d749d899ea6e49bc09ab3b2aa39e5b81e5da56904",
+      "after": "a3b79d827f89a22aff17edd2abe4010969eaddb478747e2731d5532c0c6848c4",
+      "owner": "Scene circular text raster evidence",
+      "reason": "Record original official render and the byte-matched dynamic text raster clipping, and route the remaining repair to its layout owner. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3ea7f066153fd86eb4ec502ebd2181b8757534c4160b6ec6b5e956da31571e72",
-      "after": "cd7405f02b7139b9d2c7cf1b6dc2f4954d49ec411330518bbbefd289f6d1f18b",
-      "owner": "Scene graph sampling boundary evidence",
-      "reason": "Record the original scroll-stage byte readback and same-MSL Metal sampler control. Refine the open issue to the actual graph sampler boundary while preserving proven oblique texture behavior. Exact body budget.",
+      "before": "e2ed38ceb8724877940b3cd3dc6382e513b59207b70829f7998fa3f8521e29eb",
+      "after": "c9f8d418426a2601174e2e022bea595d06519f1bc1572ac74529f57bbeb61711",
+      "owner": "Scene circular text raster evidence",
+      "reason": "Record original official render and the byte-matched dynamic text raster clipping, and route the remaining repair to its layout owner. Exact body budget.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
     },
     {
