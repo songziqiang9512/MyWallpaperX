@@ -161,7 +161,7 @@
 |---|---|
 | 密集预热 · 3337494481 | [同作者包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认首屏缩短，余下仍以完整粒子预热为主。只在有新证据指出可避免的工作时重启，保作者步进、随机、历史和首帧；不重复本次采样或以删粒子、缩时长、扩大预算求速度。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
-| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算。现役 App 同条件复跑 14 次 copy/帧、342,028,288 字节/帧，与旧记录一致；诊断帧 13 个 graph-resource-copy 合计 6.295ms/19.594ms GPU，六个首拷贝来自 motionblur 唯一历史目标的每帧 seed（作者 copy-back 另计）。直接复用上一帧 F1 不够：同一逻辑 F1 在 pass0 读、作者 copy 写，需要 [read/write 分离的历史环](../capabilities/render-graph-shader-coverage.md#history-read-write-split)（读上一侧、写另一侧）。首次实施在 Debug 为 12 copy/帧（仅 2/6 链）且运动模糊拖尾消失，同 8 秒 Release 对照仍在，已回退；先决条件是把读取 token 纳入 commit history pin 生命周期，再逐 effect 验 6/6 与像素等价，否则保留拷贝并转项。 |
+| 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算。现役 App 同条件复跑 14 次 copy/帧、342,028,288 字节/帧，与旧记录一致；诊断帧 13 个 graph-resource-copy 合计 6.295ms/19.594ms GPU，六个首拷贝来自 motionblur 唯一历史目标的每帧 seed（作者 copy-back 另计）。直接复用上一帧 F1 不够：同一逻辑 F1 在 pass0 读、作者 copy 写，需要 [read/write 分离的历史环](../capabilities/render-graph-shader-coverage.md#history-read-write-split)（读上一侧、写另一侧）。首次实施在 Debug 为 12 copy/帧（仅 2/6 链）且运动模糊拖尾消失，同 8 秒 Release 对照仍在，已回退；源码复核指向种子 `.history` entry 在上一提交完成后失去 pin、当前提交未覆盖读取的上一代 token。先决条件是 cache 在种子 entry 上为读取 token 建 historyRead pin 并随 PreparedGraph 保活到该帧完成，再逐 effect 验 6/6 与像素等价，否则保留拷贝并转项。 |
 
 测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
