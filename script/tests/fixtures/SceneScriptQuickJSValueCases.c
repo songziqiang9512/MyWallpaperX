@@ -169,6 +169,40 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         mwx_scene_quickjs_owner_destroy(owner);
     }
 
+    const char *scalar_init_sources[] = {
+        "export function init(value) { return []; }",
+        "export function init(value) { return 9; }",
+    };
+    for (size_t index = 0; index < 2; ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_init_sources[index],
+            strlen(scalar_init_sources[index]), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, "scalar init owner", fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        uint32_t did_initialize = 0;
+        MWXSceneQuickJSResult result =
+            mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                owner, 15, 7, 0, &scalar_user_frame,
+                "{}", 2, "{}", 2, &output, &did_initialize,
+                fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+        fixture->failures += mwx_fixture_check(
+            (index == 0
+                ? result == MWX_SCENE_QUICKJS_BAD_RETURN && did_initialize == 0
+                    && output == 7
+                : result == MWX_SCENE_QUICKJS_OK && did_initialize == 1
+                    && output == 9),
+            "scalar init accepts Number and rejects arrays without initializing",
+            fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
     const char *vec3_source =
         "'use strict';\n"
         "export var scriptProperties = createScriptProperties()\n"
