@@ -63,6 +63,7 @@ class SceneMetalView: NSView {
     }
     init?(
         renderDescriptor: SceneRenderDescriptor,
+        utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
@@ -82,6 +83,7 @@ class SceneMetalView: NSView {
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
+            utilitySourceRoutes: utilitySourceRoutes,
             verifiedXRayStageKeys: verifiedXRayStageKeys,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             stockNoiseTextures: stockNoiseTextures,
@@ -572,7 +574,8 @@ class SceneMetalView: NSView {
         let cameraFrame = savedContext.screenSize == frameContext.screenSize
             ? simulationFrame.camera : renderer.makeCameraFrame(
                 frameContext: frameContext, descriptor: frameProjection.descriptor,
-                layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames)
+                layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames,
+                perspectiveReplayRootIDs: frameProjection.utilityExecution.perspectiveReplayRootIDs)
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology
         let mediaThumbnail = simulationFrame.mediaThumbnail

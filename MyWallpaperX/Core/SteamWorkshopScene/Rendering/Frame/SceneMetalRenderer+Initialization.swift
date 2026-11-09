@@ -18,6 +18,7 @@ extension SceneMetalRenderer {
 
     init?(
         renderDescriptor: SceneRenderDescriptor,
+        utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
@@ -91,7 +92,8 @@ extension SceneMetalRenderer {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             dependencyPlan: dependencyRuntime.plan,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
+            sourceRoutes: utilitySourceRoutes
         )
         let utilityExecution = SceneUtilityLayerRuntimePlanner.execution(
             in: renderDescriptor, plans: utilityPlans

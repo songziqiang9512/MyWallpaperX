@@ -65,6 +65,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
     private let dynamicValues: SceneDynamicSnapshot?
+    private let perspectiveReplayRootIDs: Set<Int>
     /// Native SceneScript polling uses the far-plane point, not a layer hit.
     /// Keep its extent with the camera that owns the render projection.
     private let nativeFarPlane: SIMD3<Float>?
@@ -78,9 +79,11 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         staticCenter: SIMD3<Float>? = nil,
         staticUp: SIMD3<Float>? = nil,
         nativePerspectiveOverride: NativePerspectiveOverride? = nil,
-        dynamicValues: SceneDynamicSnapshot? = nil
+        dynamicValues: SceneDynamicSnapshot? = nil,
+        perspectiveReplayRootIDs: Set<Int> = []
     ) {
         self.dynamicValues = dynamicValues
+        self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         let isCanvas = camera.orthoWidth != nil || camera.orthoHeight != nil
@@ -293,13 +296,12 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         layerOverride ?? defaultsToPerspective
     }
 
-    /// Local composition captures may replay through perspective. Group and
-    /// other utility targets retain the screen-space policy; native-camera
-    /// composition capture is not part of this profile.
+    /// A utility needs a prepared local replay or the childless geometry path.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
         if layer.hasFramebufferMaterialSource { return defaultsToPerspective }
         if layer.utilityLayer != nil,
-           defaultsToPerspective || !layer.hasPerspectiveGeometryConsumer { return false }
+           defaultsToPerspective || !(layer.hasPerspectiveGeometryConsumer
+            || perspectiveReplayRootIDs.contains(layer.id)) { return false }
         if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
            resolved.source != .authored, case let .bool(value) = resolved.value {
             return value
@@ -315,7 +317,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// through the output projection. Ordinary image/utility routes agree.
     func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
         if layer.hasFramebufferMaterialSource { return viewProjection(for: layer) }
-        if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer {
+        if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer
+            || perspectiveReplayRootIDs.contains(layer.id) {
             return orthographicViewProjection
         }
         return viewProjection(for: layer)

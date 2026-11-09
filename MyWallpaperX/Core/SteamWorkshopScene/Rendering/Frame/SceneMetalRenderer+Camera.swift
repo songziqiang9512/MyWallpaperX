@@ -6,7 +6,8 @@ extension SceneMetalRenderer {
         frameContext: SceneFrameContext,
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
-        worldFrames: [Int: simd_float4x4]
+        worldFrames: [Int: simd_float4x4],
+        perspectiveReplayRootIDs: Set<Int> = []
     ) -> SceneParticleCameraFrame {
         let camera = descriptor.camera
         // Visibility controls consumption, not Timeline playback. Hidden paths
@@ -46,7 +47,8 @@ extension SceneMetalRenderer {
                 descriptor: descriptor, layersByID: layersByID,
                 worldFrames: worldFrames, dynamicValues: frameContext.dynamicValues
             ),
-            dynamicValues: frameContext.dynamicValues
+            dynamicValues: frameContext.dynamicValues,
+            perspectiveReplayRootIDs: perspectiveReplayRootIDs
         )
     }
 

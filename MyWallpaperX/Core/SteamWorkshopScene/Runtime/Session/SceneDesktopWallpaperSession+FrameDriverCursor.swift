@@ -13,6 +13,7 @@ extension SceneDesktopWallpaperSession {
         layersByID: [Int: SceneRenderDescriptor.Layer],
         staticWorldFrames: [Int: simd_float4x4],
         dynamicLayerIDs: Set<Int>,
+        perspectiveReplayRootIDs: Set<Int>,
         puppetAttachmentFramesBySurface: [CGDirectDisplayID: ScenePuppetAttachmentFrameSnapshot],
         worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]],
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
@@ -99,6 +100,7 @@ extension SceneDesktopWallpaperSession {
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
                 descriptor: descriptor, layersByID: layersByID,
+                perspectiveReplayRootIDs: perspectiveReplayRootIDs,
                 worldFrames: worldFrames(
                     for: displayID, view: view,
                     requiresOwnerProjections:

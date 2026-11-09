@@ -511,7 +511,8 @@ enum CompositionSourceProbe {
                 commandBuffer: command, offscreenTexturePool: pool,
                 memberRootsByLayerID: [40: 4, 70: 7],
                 membersByRootID: members,
-                viewportSize: CGSize(width: 16, height: 8), copyBackgroundRootIDs: [3, 8])
+                viewportSize: CGSize(width: 16, height: 8),
+                backgroundSourcesByRootID: [3: .enclosing, 8: .enclosing])
             func hiddenRejectedWithoutAllocation(_ root: Int, demanded: Bool) -> Bool {
                 let before = pool.residentByteCost
                 runtime.reserveSources(orderedRootIDs: [root], visibleLayerIDs: [],

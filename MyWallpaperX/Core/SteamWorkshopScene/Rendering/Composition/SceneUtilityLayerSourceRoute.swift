@@ -16,6 +16,30 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         let orderedCompositionSubtreeLayerIDs: [Int]
         var usesIsolatedGroupTarget: Bool = false
         var usesAuthoredLocalSource: Bool = false
+        // nil keeps the legacy route. Each nested source needs its own Program.
+        var nestedReplayLayerIDs: Set<Int>? = nil
+
+        var allowsPerspectiveReplay: Bool { nestedReplayLayerIDs != nil }
+    }
+
+    static func preparedResolutions(
+        in descriptor: SceneRenderDescriptor,
+        resolvedMaterialLayerIDs: Set<Int>
+    ) -> [Int: Resolution] {
+        var routes: [Int: Resolution] = [:]
+        for layer in descriptor.layers where layer.utilityLayer != nil {
+            guard var route = try? resolve(layer: layer, descriptor: descriptor).get() else {
+                continue
+            }
+            if let nestedIDs = route.nestedReplayLayerIDs,
+               !resolvedMaterialLayerIDs.isSuperset(of: nestedIDs)
+                || (!resolvedMaterialLayerIDs.contains(layer.id)
+                    && layer.effects.contains { $0.visible != false }) {
+                route.nestedReplayLayerIDs = nil
+            }
+            routes[layer.id] = route
+        }
+        return routes
     }
 
     static func resolve(
@@ -79,15 +103,13 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         // independently of root effect declarations or visibility. Keep the
         // same source when an effect is inactive. Nested passthroughs retain
         // structural membership instead of adding source/output owners.
-        let localSource = descriptor.camera.authoredOrthographicProjectionActive == true
-            && !descendants.isEmpty
-            && layer.usesPerspective != true
-            && descendants.allSatisfy { childID in
-                guard let child = layersByID[childID], child.usesPerspective != true else {
-                    return false
-                }
-                // A nested background group still requires its original
-                // viewport copy. Do not change that input by partial migration.
+        let flatMembers = descriptor.camera.authoredOrthographicProjectionActive == true
+            && !descendants.isEmpty && descendants.allSatisfy {
+                layersByID[$0]?.usesPerspective != true
+            }
+        let localSource = flatMembers && layer.usesPerspective != true
+            && descendants.allSatisfy {
+                guard let child = layersByID[$0] else { return false }
                 return child.utilityLayer?.passthrough == true
                     || child.utilityLayer?.copyBackground != true
                     || child.childLayerIDs.isEmpty
@@ -96,6 +118,10 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 || (layer.parentID == nil && localSource) else {
             return .failure(.compositionSubtreeShape)
         }
+        var replayGroupIDs: Set<Int>? = flatMembers && layer.parentID == nil
+            && (descriptor.camera.orthoWidth ?? 0) > 0
+            && (descriptor.camera.orthoHeight ?? 0) > 0
+            && supportsLocalCompositionReplay(layer, utility: utility) ? [] : nil
         for childID in descendants {
             guard let child = layersByID[childID] else {
                 return .failure(.compositionSubtreeShape)
@@ -110,6 +136,13 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                         && (child.childLayerIDs.isEmpty || child.effects.isEmpty)) else {
                     return .failure(.compositionSubtreeShape)
                 }
+                if child.parentID == layer.id,
+                   !childUtility.copyBackground || utility.copyBackground,
+                   supportsLocalCompositionReplay(child, utility: childUtility) {
+                    replayGroupIDs?.insert(childID)
+                } else {
+                    replayGroupIDs = nil
+                }
             }
         }
         return .success(.init(
@@ -117,7 +150,19 @@ nonisolated enum SceneUtilityLayerSourceRoute {
             capturesCompositionSubtree: !descendants.isEmpty,
             orderedCompositionSubtreeLayerIDs: order.filter { descendants.contains($0) },
             usesIsolatedGroupTarget: true,
-            usesAuthoredLocalSource: localSource
+            usesAuthoredLocalSource: localSource,
+            nestedReplayLayerIDs: replayGroupIDs
         ))
+    }
+
+    private static func supportsLocalCompositionReplay(
+        _ layer: SceneRenderDescriptor.Layer,
+        utility: SceneUtilityLayer
+    ) -> Bool {
+        guard utility.kind == .composition && !utility.passthrough
+            && utility.framebufferSource == nil && !layer.childLayerIDs.isEmpty
+            && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty,
+              let size = layer.renderSizeWH, size.count == 2 else { return false }
+        return size.allSatisfy { $0.isFinite && $0 > 0 }
     }
 }

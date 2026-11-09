@@ -65,6 +65,12 @@ __DEFAULT_CAMERA_DEFINITIONS__
 struct SceneTimelineProgram {
     let bindings: [SceneTimelineBinding] = []
 }
+enum SceneUtilityLayerSourceRoute {
+    struct Resolution {
+        let allowsPerspectiveReplay: Bool
+        let triggerLayerID: Int
+    }
+}
 struct SceneScriptMediaFrameCoordinator {
     init(vectorProgram: SceneScriptVectorProgram, stringProgram: SceneScriptStringProgram,
          scalarProgram: SceneScriptScalarProgram) {}

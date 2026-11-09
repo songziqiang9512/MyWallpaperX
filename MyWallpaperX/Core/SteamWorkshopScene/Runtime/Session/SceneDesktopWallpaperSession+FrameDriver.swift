@@ -425,6 +425,7 @@ extension SceneDesktopWallpaperSession {
             descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
             staticWorldFrames: sceneScriptTopology.staticWorldFrames,
             dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
+            perspectiveReplayRootIDs: sceneScriptTopology.utilityExecution.perspectiveReplayRootIDs,
             puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
             worldFramesBySurface: &sceneScriptWorldFramesBySurface,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure

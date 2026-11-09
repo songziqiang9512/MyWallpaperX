@@ -45,13 +45,11 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 <a id="perspective-composition-prefix"></a>
 ### 父组透视与嵌套背景
 
-实施目标是让具有可用局部源的正交 composition 父组接收作者透视值，同时保持组内子图、内组 effect 与组外背景的作者顺序。已取得[官版简单组和嵌套复制对照](runtime-evidence-current.md#nested-copy-official)。当前有成员的父组因原几何谓词拒绝 Script 写入。有复制背景的内组还会挡住外组局部源。这两个限制只随实际消费者一起退役。
+具备实际正交画布和局部尺寸的顶层 composition 可接收作者透视值。首屏材质准备后的 SourceRoute 由 LaunchFrameSchema 共享给 Script 和 RuntimePlanner。子组范围限直接成员、各有已准备 Program 的 composition。含复制背景的内组要求外组复制开启。保留旧的 childless、native-camera、passthrough 和无内组 Program 路径。
 
-- 原 SourceRoute 在拓扑准备时决定局部 raster 和可回绘的根。现有 LaunchFrameSchema 在首屏材质准备汇合后共享这份 base route。Script journal 只取可回绘根，RuntimePlanner 取成员和背景截点。无 FX 的根走原局部回绘。保持普通图像、现役 childless、native-camera、passthrough 及其他尚未取得同等消费事实的路径。保作者显隐、依赖和 Program 准备，不按层号、路径或脚本字串识别透视。
-- 外组局部 raster 与嵌套源都用当前 CameraFrame 的平面 capture VP，保原 world TRS 和各自 extent。子图和内组 tail 写最近的组 attachment，内组保自己的作者 effect。外根用 output VP 回绘一次，平面 capture VP 继续提供源逆映射。
-- 对已准备且在同一连续作者区段内执行的顶层外组与内组，内组复制读外组开始前的场景前缀。原组顺序使前缀在外根最终回绘前仍由场景 main 持有，复用该读取与原局部背景采样，避免额外全屏副本。内组写最近的 attachment。显式 false 保透明初始化。普通背景路径与新截点沿一个准备结果选择，不能以实时 enclosing 写目标或帧终态替代。
-- 继续沿原组的局部失败和资源 pin。缺实际 source、目标预约、几何或 Program 时由原失败边界阻止未写完的组输出回放。仅在准备或拓扑 revision 改变时更新结构事实。原作者动态 shadow 的创建、排序和后续更新须继续走同一事务，其无 FX 的像素行为独立验证。
-- 验收沿现有源身份和背景范围门。固定内外色标、嵌套子图、组后遮挡、非单位父 TRS、透视开关和 inner false，核实际来源、父组局部写入、一次最终回绘及健康邻例。补资源或对象改名与原失败反例。原 3828725306 同输入须看见 109 的角度/透视写入与 745 两段 Shake 到最终画面，另取真实作者相邻组回归。平面 capture 坐标沿项目现有来源合同。完整官版倾斜矩阵、shadow 颜色和更深嵌套仍需各自验收。
+- 原 CameraFrame 以平面 VP 构建局部源逆映射，保各组 world TRS 与 extent。子图、内组 Program 和 tail 写最近的组 attachment。外组在作者位置用 output VP 回绘一次，无 FX 的根用既有局部回绘。
+- 内组复制读进入外组前的场景前缀。原组顺序使该前缀在外根回绘前仍由主目标持有，复用原局部采样。显式 false 保透明初始化。准备结果选择读附件，最近的组附件继续负责写入。
+- 原组资源 pin 与局部失败边界继续处理源、几何及 Program 失败。拓扑 revision 改变时重算实际 source，Script 沿启动资格接受作者根写入。现有证据覆盖[官版背景色标](runtime-evidence-current.md#nested-copy-official)和[原样本交互及本机回绘](runtime-evidence-current.md#group-perspective-author)。成员删除后再写透视、更深嵌套、动态子透视及完整官版倾斜矩阵待各自验证。
 
 <a id="project-subtree-source"></a>
 ### Project 子树来源

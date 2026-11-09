@@ -797,6 +797,10 @@ extension SceneDesktopWallpaperHost {
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
             preparedResourceLayerTemplates: preparedResourceLayerTemplates,
+            utilitySourceRoutes: SceneUtilityLayerSourceRoute.preparedResolutions(
+                in: runtimeInput.renderDescriptor,
+                resolvedMaterialLayerIDs: firstSurfaceRuntime.executionLayerIDs
+            ),
             preparedSoundVolumes: Dictionary(uniqueKeysWithValues:
                 soundPlaybackProgram.bindings.map { ($0.layerID, $0.authoredVolume) }),
             timelineProgram: timelineProgram

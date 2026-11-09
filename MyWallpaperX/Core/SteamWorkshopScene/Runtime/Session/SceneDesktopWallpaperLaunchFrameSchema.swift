@@ -43,6 +43,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
     }
 
     let dynamicLayerRuntime: SceneScriptDynamicLayerRuntime
+    let utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution]
     private(set) var sceneScriptStatefulTargets: Set<SceneDynamicTarget>
     let mediaFrameCoordinator: SceneScriptMediaFrameCoordinator
     /// Launch-frozen QuickJS layer catalog identity. The frame driver publishes
@@ -163,6 +164,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
         preparedResourceLayerTemplates: [String: SceneScriptPreparedResourceLayerTemplate],
+        utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution] = [:],
         preparedSoundVolumes: [Int: Double] = [:],
         timelineProgram: SceneTimelineProgram
     ) {
@@ -214,9 +216,12 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
             soundDefinitions[layerID] = .init(target: .layer(layerID: layerID, field: .volume),
                 valueType: .scalar, authoredValue: .scalar(volume))
         }
+        self.utilitySourceRoutes = utilitySourceRoutes
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
+            perspectiveReplayRootIDs: Set(utilitySourceRoutes.values.lazy
+                .filter(\.allowsPerspectiveReplay).map(\.triggerLayerID)),
             preparedResourceLayerTemplates: preparedResourceLayerTemplates,
             textTemplates: sceneScriptStringProgram.preparedTextTemplates,
             preparedSoundDefinitions: runtimeInput.renderDescriptor.layers.compactMap { soundDefinitions[$0.id] },

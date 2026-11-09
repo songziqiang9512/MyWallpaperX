@@ -29,6 +29,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private let cameraOriginInputLayerID: Int?
     private let cameraOriginClipSpan: (nearZ: Double, farZ: Double)
     private let supportsCompositionPerspective: Bool
+    private let perspectiveReplayRootIDs: Set<Int>
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
     private var authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
@@ -49,6 +50,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     init(
         descriptor: SceneRenderDescriptor,
         authoredMutationLayerIDs: Set<Int>,
+        perspectiveReplayRootIDs: Set<Int> = [],
         preparedResourceLayerTemplates:
             [String: SceneScriptPreparedResourceLayerTemplate] = [:],
         textTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:],
@@ -60,6 +62,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         cameraOriginInputLayerID = descriptor.camera.default2DOriginInputLayerID
         cameraOriginClipSpan = (Double(descriptor.camera.nearZ), Double(descriptor.camera.farZ))
         supportsCompositionPerspective = (descriptor.camera.orthoHeight ?? 0) > 0
+        self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
         authoredLayersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
@@ -308,8 +311,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     .allSatisfy({ $0.isFinite }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
-                let consumesPerspective = authoredLayer.hasPerspectiveGeometryConsumer
-                    && (authoredLayer.utilityLayer == nil || supportsCompositionPerspective)
+                let consumesPerspective = perspectiveReplayRootIDs.contains(authoredLayer.id)
+                    || (authoredLayer.hasPerspectiveGeometryConsumer
+                        && (authoredLayer.utilityLayer == nil || supportsCompositionPerspective))
                 if mutation.fields.contains(.perspective),
                    (mutation.perspective == nil || (!consumesPerspective
                     && mutation.perspective != authoredLayer.usesPerspective)) {

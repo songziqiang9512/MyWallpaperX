@@ -106,11 +106,11 @@ extension SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                    usesPerspective: false
                 )
                 return SceneCompositionSourceGeometry(
                     authoredRenderSizeWH: layer.renderSizeWH,
-                    worldMVP: cameraFrame.viewProjection(for: layer) * model
+                    worldMVP: cameraFrame.orthographicViewProjection * model
                 ).map { (rootID, $0) }
             })
         let (mainPass, groups) = makeScenePass(target: mainTarget,

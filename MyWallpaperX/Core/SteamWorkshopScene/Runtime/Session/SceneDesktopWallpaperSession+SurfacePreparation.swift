@@ -245,6 +245,7 @@ extension SceneDesktopWallpaperSession {
                 visibilityTargets: materialVideoVisibility)
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
+                utilitySourceRoutes: launchContext.frameSchema.utilitySourceRoutes,
                 verifiedXRayStageKeys: launchContext.effectAdmissionCatalog.verifiedXRayStageKeys,
                 baseMaterialProviderBindings:
                     launchContext.baseMaterialProviderBindings,

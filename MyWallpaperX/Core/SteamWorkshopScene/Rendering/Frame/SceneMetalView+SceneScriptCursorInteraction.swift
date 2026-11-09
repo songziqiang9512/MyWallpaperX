@@ -106,6 +106,7 @@ extension SceneMetalView {
         dynamicValues: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
+        perspectiveReplayRootIDs: Set<Int>,
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
         let surface = sceneScriptSurfaceInput(
@@ -120,6 +121,7 @@ extension SceneMetalView {
             dynamicValues: dynamicValues,
             descriptor: descriptor,
             layersByID: layersByID,
+            perspectiveReplayRootIDs: perspectiveReplayRootIDs,
             worldFrames: worldFrames
         )
         return .init(
@@ -200,6 +202,7 @@ extension SceneMetalView {
         dynamicValues: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
+        perspectiveReplayRootIDs: Set<Int>,
         worldFrames: [Int: simd_float4x4]
     ) -> (hits: [Int: SceneScriptCursorHit], ownerProjections: [Int: SceneScriptCursorHit]) {
         guard metalLayer.drawableSize.width > 0,
@@ -243,7 +246,8 @@ extension SceneMetalView {
                 )
                 let cameraFrame = renderer.makeCameraFrame(
                     frameContext: frameContext, descriptor: descriptor,
-                    layersByID: layersByID, worldFrames: worldFrames)
+                    layersByID: layersByID, worldFrames: worldFrames,
+                    perspectiveReplayRootIDs: perspectiveReplayRootIDs)
                 cardProjection = (
                     cameraFrame,
                     renderer.parallaxConfiguration(

@@ -70,7 +70,11 @@ struct SceneLayerDisplayScriptOwnership {
     var fields: [String] { [] }
 }
 struct SceneRenderDescriptor {
-    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
+    struct Camera {
+        var authoredOrthographicProjectionActive: Bool? = nil
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+    }
     struct EffectDescriptor {
         var id: Int = 0
         var file: String = "effects/original/effect.json"
@@ -88,6 +92,7 @@ struct SceneRenderDescriptor {
         var colorBlendMode: Int? = nil
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         var usesPerspective: Bool? = nil
+        var renderSizeWH: [Float]? = nil
         var effects: [EffectDescriptor] = []
     }
     struct MaterialPass { let combos: [String: Int] }
