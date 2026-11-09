@@ -8,11 +8,13 @@
             displayCondition: nil, defaultValue: value, options: [])
     }
 
-    static func inputs(name: String, key: String, pass: Int, live: Bool, startupCombo: Bool = false)
+    static func inputs(name: String, key: String, pass: Int, live: Bool,
+                       sliderKey: String? = nil, startupCombo: Bool = false)
         -> ScenePropertyBindingCompilation {
         var passes = Array(repeating: [String: Any](), count: pass + 1)
         passes[pass] = ["constantshadervalues": [name: [
-            "user": live ? "palette" : key, "value": "0.2 0.4 0.6"]]]
+            "user": sliderKey ?? (live ? "palette" : key),
+            "value": sliderKey == nil ? "0.2 0.4 0.6" : "0.2 0.2"]]]
         if startupCombo { passes[pass]["combos"] = ["USE_GATE": ["user": key, "value": 0]] }
         let root: [String: Any] = ["objects": [["id": layerID, "effects": [
             ["id": 501, "file": "effects/own/value.json", "passes": passes,
@@ -20,23 +22,42 @@
             ["id": 502, "file": "effects/own/peer.json",
              "visible": ["user": key, "value": true]],
         ]]]]
+        var properties = [property(key, kind: .bool, value: .bool(true)),
+                          property("palette", kind: .color, value: .string("0.8 0.2 0.4"))]
+        if let sliderKey { properties.append(property(sliderKey, kind: .slider, value: .number(0.4))) }
         return ScenePropertyBindingCompiler().compile(
             report: SceneUserPropertyBindingParser().parse(root: root),
-            catalog: .init(definitions: [property(key, kind: .bool, value: .bool(true)),
-                property("palette", kind: .color, value: .string("0.8 0.2 0.4"))]))
+            catalog: .init(definitions: properties))
     }
 
     static func valueTemplate(node: Graph.Node, graphInput: Graph.TextureIdentity,
                               key: String, name: String, uniform: String,
-                              target: SceneDynamicTarget, variant: String) -> Template {
-        let abi = variant == "abi" ? "vec4" : "vec3"
-        let contract = shaderContract(nodeIndex: node.nodeIndex, pass: false,
+                              target: SceneDynamicTarget, variant: String, slider: Bool) -> Template {
+        let abi: String
+        let shaderDefault: String
+        let rgb: String
+        if slider {
+            abi = variant == "sliderWrongABI" ? "vec3" : "vec2"
+            shaderDefault = switch variant {
+            case "sliderAnisotropic": "0.8 0.6"
+            case "sliderWrongABI": "0.8 0.8 0.8"
+            default: "0.8 0.8"
+            }
+            let green = variant == "liveSliderRenamed" ? "\(uniform).y / 2.0" : "\(uniform).y * 0.5"
+            rgb = "\(uniform).x, \(green), " + (variant == "sliderWrongABI" ? "\(uniform).z" : "0.6")
+        } else {
+            abi = variant == "abi" ? "vec4" : "vec3"
+            shaderDefault = variant == "abi" ? "0 0 1 1" : "0 0 1"
+            rgb = "\(uniform).rgb"
+        }
+        let contract = shaderContract(nodeIndex: variant == "liveSliderRenamed" ? 20 : node.nodeIndex, pass: false,
             fragmentOverride: """
             varying vec2 v_TexCoord;
-            uniform \(abi) \(uniform); // {"material":"\(name)","default":"0 0 1\(variant == "abi" ? " 1" : "")"}
-            void main() { gl_FragColor = vec4(\(uniform).rgb, 1.0); }
+            uniform \(abi) \(uniform); // {"material":"\(name)","default":"\(shaderDefault)"}
+            void main() { gl_FragColor = vec4(\(rgb), 1.0); }
             """)
-        let bits = (variant == "bits" ? [0.3, 0.4, 0.6] : [0.2, 0.4, 0.6]).map(\.bitPattern)
+        let components = slider ? [0.2, 0.2] : [variant == "bits" ? 0.3 : 0.2, 0.4, 0.6]
+        let bits = components.map(\.bitPattern)
         let keys = variant == "wrapper" ? ["script", "user", "value"] : ["user", "value"]
         let contributors: [Template.DynamicUniformSource] = variant == "multiContributor"
             ? [.userProperty(key), .timeline] : variant == "timelineMissing" ? [.timeline] : [.userProperty(key)]
@@ -61,10 +82,13 @@
 
     static func run(_ variant: String, device: MTLDevice, queue: MTLCommandQueue,
                     sourcePipeline: SceneImageLayerPipeline) throws -> [String: Any] {
-        let renamed = variant == "renamed", live = variant == "liveColor" || variant == "liveColorChanged"
+        let renamed = variant == "renamed" || variant == "liveSliderRenamed"
+        let live = variant == "liveColor" || variant == "liveColorChanged"
+        let slider = variant.hasPrefix("liveSlider") || variant.hasPrefix("slider")
+        let sliderKey = slider ? (renamed ? "moved-radius" : "radius") : nil
         let name = renamed ? "Moved pigment" : "Tint", uniform = renamed ? "u_Unseen" : "u_Tint"
         let key = renamed ? "moved-toggle" : "shared-toggle", pass = renamed ? 3 : 0
-        let propertyKey = live ? "palette" : key
+        let propertyKey = sliderKey ?? (live ? "palette" : key)
         let firstOwner = Graph.EffectKey(layerID: layerID, effectIndex: 0,
             descriptorID: renamed ? "moved-value" : "own-value")
         let peerOwner = Graph.EffectKey(layerID: layerID, effectIndex: 1,
@@ -87,7 +111,7 @@
                 input: firstOutput, output: peerOutput, nodeIndices: [1]),
         ], renderTargets: [], nodes: [node, peerNode], finalOutput: peerOutput, blockers: [])
         let admitted = orderedLayerGraph(graph)
-        let compilation = inputs(name: name, key: key, pass: pass, live: live)
+        let compilation = inputs(name: name, key: key, pass: pass, live: live, sliderKey: sliderKey)
         let colorDefinition = compilation.program.definitions.first { $0.target == target }!
         var definitions = compilation.program.definitions
         var producers = Set(compilation.program.instructions.map {
@@ -113,7 +137,7 @@
         let declaredTarget = variant == "declarationTarget"
             ? SceneDynamicTarget.effectConstant(layerID: layerID, effectIndex: 0, passIndex: pass + 1, name: name) : target
         let value = valueTemplate(node: node, graphInput: input, key: propertyKey, name: name,
-            uniform: uniform, target: declaredTarget, variant: variant)
+            uniform: uniform, target: declaredTarget, variant: variant, slider: slider)
         let peerContract = shaderContract(nodeIndex: 1, pass: false, constantColor: "0.0, 1.0, 0.0")
         var peerSlots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
         peerSlots[0] = .init(index: 0, candidates: [.init(reference: .graph(firstOutput), provenance: .explicitBinding)])
@@ -136,13 +160,14 @@
             timelineDefinitions: variant == "multiContributor" ? [colorDefinition] : [], sceneScriptTargets: [])
         let caps = capabilities(admitted, catalog: catalog, dynamicProducers: producerCatalog)
         var row: [String: Any] = ["case": variant,
-            "colorInstructions": compilation.program.instructions.filter { $0.target == target }.count,
+            "targetInstructions": compilation.program.instructions.filter { $0.target == target }.count,
+            "targetValueType": colorDefinition.valueType.rawValue,
             "sameKeyOtherProducers": producers.filter { $0.propertyKey == key && $0.target != target }.count,
             "rebuildKeys": compilation.program.rebuildRequiredPropertyKeys,
             "target": String(describing: target), "catalogReports": caps.reportLines]
         if variant == "multiContributor" || variant == "script" {
             row["directUniformReason"] = Capabilities.dynamicUniformExecutionRejection(
-                value, node: node, producers: producerCatalog)?.code ?? "accepted"
+                value, node: node, producers: producerCatalog, variants: nil)?.code ?? "accepted"
         }
         if variant == "fallback" {
             let withCombo = inputs(name: name, key: key, pass: pass, live: false, startupCombo: true).program
@@ -164,8 +189,10 @@
         }
         row["peerHasBoolPolicy"] = capability.stages[1].execution.activationPolicy?.effectVisibilityTarget == peerVisibility
         row["firstHasBoolPolicy"] = capability.stages[0].execution.activationPolicy?.effectVisibilityTarget == firstVisibility
-        let evaluation = compilation.program.evaluate(effectiveValues: [key: .bool(variant != "inactive"),
-            "palette": .string(variant == "liveColorChanged" ? "0.4 0.6 0.8" : "0.8 0.2 0.4")])
+        var effectiveValues: [String: SceneUserPropertyValue] = [key: .bool(variant != "inactive"),
+            "palette": .string(variant == "liveColorChanged" ? "0.4 0.6 0.8" : "0.8 0.2 0.4")]
+        if let sliderKey { effectiveValues[sliderKey] = .number(0.4) }
+        let evaluation = compilation.program.evaluate(effectiveValues: effectiveValues)
         let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
             definitions: definitions, userValues: evaluation.userValues,
             timelineValues: variant == "source" ? [target: .vector3(0.9, 0.8, 0.7)] : [:]).snapshot
@@ -227,6 +254,7 @@
         }
         let sourcePipeline = makeSourcePipeline(device)
         let cases = ["fallback", "renamed", "inactive", "liveColor", "liveColorChanged",
+            "liveSlider", "liveSliderRenamed", "sliderAnisotropic", "sliderWrongABI",
             "writerKey", "writerType", "writerMultiple", "noFallbackDefinition", "wrapper", "multiContributor",
             "script", "timelineMissing", "declarationTarget", "snapshotMissing", "source", "abi", "bits", "snapshotType"]
         let rows = try cases.map { try run($0, device: device, queue: queue, sourcePipeline: sourcePipeline) }

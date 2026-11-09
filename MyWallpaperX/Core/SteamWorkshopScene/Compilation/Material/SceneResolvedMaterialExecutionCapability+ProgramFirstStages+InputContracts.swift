@@ -44,7 +44,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// identity-only behavior; product launch always publishes the real type.
     static func userPropertyValueTypeMatches(
         _ producerType: SceneDynamicValueType?,
-        dynamic: Template.DynamicUniform
+        dynamic: Template.DynamicUniform,
+        variants: SceneResolvedMaterialVariantCache?
     ) -> Bool {
         guard let producerType else { return true }
         guard let fallback = dynamic.authoredFallback,
@@ -63,7 +64,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         case 4: expected = .vector4
         default: return true
         }
-        return producerType == expected
+        if producerType == expected { return true }
+        guard producerType == .scalar, expected == .vector2, let variants else {
+            return false
+        }
+        let envelope = variants.launchEnvelopeCapabilitySnapshot()
+        guard envelope.allEntriesReady else { return false }
+        var hasConsumer = false
+        for variant in envelope.variants {
+            for binding in variant.preparedUniformBindings {
+                guard case let .dynamic(prepared) = binding.source,
+                      prepared.declaration == dynamic else { continue }
+                guard prepared.splatsScalarToFloat2 else { return false }
+                hasConsumer = true
+            }
+        }
+        return hasConsumer
     }
 
 }

@@ -221,14 +221,17 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
         if not result["metalAvailable"]:
             self.skipTest("Metal is unavailable")
         rows = {row["case"]: row for row in result["rows"]}
-        self.assertEqual(len(rows), 19)
+        self.assertEqual(len(rows), 23)
         positive = {"fallback": ([51, 102, 153, 255], [.2, .4, .6, 0]),
                     "renamed": ([51, 102, 153, 255], [.2, .4, .6, 0]),
                     "inactive": ([24, 40, 56, 255], [.2, .4, .6, 0]),
                     "liveColor": ([204, 51, 102, 255], [.8, .2, .4, 0]),
-                    "liveColorChanged": ([102, 153, 204, 255], [.4, .6, .8, 0])}
+                    "liveColorChanged": ([102, 153, 204, 255], [.4, .6, .8, 0]),
+                    "liveSlider": ([102, 51, 153, 255], [.4, .4]),
+                    "liveSliderRenamed": ([102, 51, 153, 255], [.4, .4])}
         cold_reasons = {name: "material-dynamic-uniform-producer-unavailable" for name in (
-            "writerKey", "writerType", "writerMultiple", "noFallbackDefinition", "wrapper", "timelineMissing")}
+            "writerKey", "writerType", "writerMultiple", "noFallbackDefinition", "wrapper", "timelineMissing",
+            "sliderAnisotropic", "sliderWrongABI")}
         cold_reasons.update(multiContributor="material-generic-owner-revoked",
                             script="material-generic-owner-revoked")
         direct_uniform_reasons = {"multiContributor": "material-dynamic-uniform-contributor-policy",
@@ -239,6 +242,9 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertEqual(row["sameKeyOtherProducers"], 2, row)
                 self.assertEqual(row["rebuildKeys"], [], row)
+                if "slider" in name.lower():
+                    self.assertEqual(row["targetInstructions"], 1, row)
+                    self.assertEqual(row["targetValueType"], "scalar", row)
                 if name == "fallback":
                     self.assertEqual(row["comboRebuildKeys"], ["shared-toggle"], row)
                     self.assertEqual(row["comboBoolProducerCount"], 2, row)
@@ -272,11 +278,11 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
                     self.assertEqual(row["capability"], "resolved", row)
                     self.assertTrue(row["firstHasBoolPolicy"], row)
                     self.assertEqual(row["frameBinding"], "success", row)
-                    source = "userProperty" if name.startswith("liveColor") else "authored"
+                    source = "userProperty" if name.startswith("live") else "authored"
                     self.assertEqual(row["snapshotSource"], source, row)
                     self.assertEqual(row["uniformSource"], source, row)
-                    self.assertEqual(row["colorInstructions"], int(name.startswith("liveColor")), row)
-                    self.assertEqual(len(row["uniformValues"]), 4, row)
+                    self.assertEqual(row["targetInstructions"], int(name.startswith("live")), row)
+                    self.assertEqual(len(row["uniformValues"]), len(positive[name][1]), row)
                     for actual, expected in zip(row["uniformValues"], positive[name][1], strict=True):
                         self.assertAlmostEqual(actual, expected, places=6, msg=str(row))
                     self.assertEqual(row["stageFailures"], ["", ""], row)

@@ -5,6 +5,7 @@ import simd
 // prepared geometry, preserving source, range, fallback and ABI validation.
 nonisolated extension SceneResolvedMaterialProgram {
     private typealias Template = SceneResolvedMaterialTemplate
+    private typealias DynamicBinding = SceneResolvedMaterialPreparedUniformBinding.Dynamic
 
     static func resolvePreparedPoint(
         _ binding: SceneResolvedMaterialPreparedUniformBinding,
@@ -32,7 +33,6 @@ nonisolated extension SceneResolvedMaterialProgram {
             let dynamic = prepared.declaration
             let contributor = prepared.contributor
             let fallback = prepared.fallback
-            let schema = prepared.schema
             guard let resolved = snapshot[dynamic.target],
                   valid(
                       resolved.source,
@@ -47,9 +47,7 @@ nonisolated extension SceneResolvedMaterialProgram {
             }
             let liveEncoded = encodeDynamicUniform(
                 resolved.value,
-                contributor: contributor,
-                declaration: dynamic,
-                schema: schema,
+                splatsScalarToFloat2: prepared.splatsScalarToFloat2,
                 field: field
             )
             guard let encoded = directUserPropertyRangedValue(
@@ -62,11 +60,8 @@ nonisolated extension SceneResolvedMaterialProgram {
                     snapshot.userPropertyNumericRange(
                         for: dynamic.target
                     ),
-                fallback,
+                prepared: prepared,
                 source: resolved.source,
-                contributor: contributor,
-                declaration: dynamic,
-                schema: schema,
                 field: field
             ) else {
                 throw SceneResolvedMaterialFailure(
@@ -79,9 +74,7 @@ nonisolated extension SceneResolvedMaterialProgram {
                 guard let fallback,
                       encodeDynamicFallback(
                           fallback,
-                          contributor: contributor,
-                          declaration: dynamic,
-                          schema: schema,
+                          splatsScalarToFloat2: prepared.splatsScalarToFloat2,
                           field: field
                       ) == encoded else {
                     throw SceneResolvedMaterialFailure(
@@ -133,26 +126,13 @@ nonisolated extension SceneResolvedMaterialProgram {
         liveValue: SceneDynamicValue,
         authoredValue: SceneDynamicValue?,
         userPropertyNumericRange: ClosedRange<Double>?,
-        _ fallback: Template.StaticUniformValue?,
+        prepared: DynamicBinding,
         source: SceneDynamicSource,
-        contributor: Template.DynamicUniformSource,
-        declaration: Template.DynamicUniform,
-        schema: SceneResolvedMaterialPreparedUniformSchema,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Data? {
         guard let liveEncoded else { return nil }
         guard source == .userProperty,
-              case .userProperty = contributor,
-              [.float, .float2, .float3].contains(field.type),
-              field.arrayCount == nil,
-              declaration.scriptAttachments.isEmpty,
-              let fallback,
-              fallback.valueKind.localizedLowercase == "binding",
-              SceneResolvedMaterialDirectUserBindingContract.matches(
-                  dynamic: declaration,
-                  fallback: fallback
-              ),
-              let range = schema.authoredRange else {
+              let range = prepared.directUserPropertyRange else {
             return liveEncoded
         }
         if value(liveValue, isWithin: range) { return liveEncoded }
@@ -167,9 +147,7 @@ nonisolated extension SceneResolvedMaterialProgram {
         guard let authoredValue,
               let authoredEncoded = encodeDynamicUniform(
             authoredValue,
-            contributor: contributor,
-            declaration: declaration,
-            schema: schema,
+            splatsScalarToFloat2: prepared.splatsScalarToFloat2,
             field: field
         ) else { return nil }
         if value(authoredValue, isWithin: range) { return authoredEncoded }
@@ -178,26 +156,17 @@ nonisolated extension SceneResolvedMaterialProgram {
         // outside shader editor metadata (for example zero to disable blur).
         // Preserve only an exact fallback projection; arbitrary live values
         // and every other ABI/source shape stay range-gated.
-        guard scalarSplatEligible(
-                  contributor: contributor, declaration: declaration,
-                  schema: schema, field: field
-              ), let fallbackEncoded = encodeDynamicFallback(
-                  fallback, contributor: contributor,
-                  declaration: declaration, schema: schema, field: field
+        guard prepared.splatsScalarToFloat2,
+              let fallback = prepared.fallback,
+              let fallbackEncoded = encodeDynamicFallback(
+                  fallback, splatsScalarToFloat2: true, field: field
               ), authoredEncoded == fallbackEncoded else { return nil }
         return authoredEncoded
     }
 
-    /// Slider properties are scalar producers. A float2 shader consumer with
-    /// an equal-lane typed default may explicitly bind that scalar through the
-    /// direct user/value wrapper. Keep the producer scalar and perform only
-    /// that isotropic consumer projection; all other lane/type/source shapes
-    /// retain the existing exact encoder failure.
     private static func encodeDynamicUniform(
         _ value: SceneDynamicValue,
-        contributor: Template.DynamicUniformSource,
-        declaration: Template.DynamicUniform,
-        schema: SceneResolvedMaterialPreparedUniformSchema,
+        splatsScalarToFloat2: Bool,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Data? {
         if let exact = SceneResolvedMaterialUniformEncoder.encode(
@@ -208,12 +177,7 @@ nonisolated extension SceneResolvedMaterialProgram {
         }
         guard case let .scalar(component) = value,
               component.isFinite,
-              scalarSplatEligible(
-                  contributor: contributor,
-                  declaration: declaration,
-                  schema: schema,
-                  field: field
-              ) else {
+              splatsScalarToFloat2 else {
             return nil
         }
         return SceneResolvedMaterialUniformEncoder.encodeComponents(
@@ -224,9 +188,7 @@ nonisolated extension SceneResolvedMaterialProgram {
 
     private static func encodeDynamicFallback(
         _ fallback: Template.StaticUniformValue,
-        contributor: Template.DynamicUniformSource,
-        declaration: Template.DynamicUniform,
-        schema: SceneResolvedMaterialPreparedUniformSchema,
+        splatsScalarToFloat2: Bool,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Data? {
         if let exact = SceneResolvedMaterialUniformEncoder.encode(
@@ -235,54 +197,12 @@ nonisolated extension SceneResolvedMaterialProgram {
         ) {
             return exact
         }
-        let components = fallback.componentBitPatterns.map {
-            Double(bitPattern: $0)
-        }
-        guard components.count == 1,
-              let component = components.first,
-              component.isFinite,
-              scalarSplatEligible(
-                  contributor: contributor,
-                  declaration: declaration,
-                  schema: schema,
-                  field: field
-              ) else {
-            return nil
-        }
+        guard splatsScalarToFloat2, fallback.componentBitPatterns.count == 1 else { return nil }
+        let component = Double(bitPattern: fallback.componentBitPatterns[0])
         return SceneResolvedMaterialUniformEncoder.encodeComponents(
             [component, component],
             as: field.type
         )
-    }
-
-    private static func scalarSplatEligible(
-        contributor: Template.DynamicUniformSource,
-        declaration: Template.DynamicUniform,
-        schema: SceneResolvedMaterialPreparedUniformSchema,
-        field: SceneAuthoredShaderUniformLayout.Field
-    ) -> Bool {
-        guard case .userProperty = contributor,
-              declaration.scriptAttachments.isEmpty,
-              let fallback = declaration.authoredFallback,
-              fallback.valueKind.localizedLowercase == "binding",
-              SceneResolvedMaterialDirectUserBindingContract.matches(
-                  dynamic: declaration,
-                  fallback: fallback
-              ),
-              SceneResolvedMaterialUniformProjection.isIsotropicFloat2Consumer(
-                  schema: schema,
-                  field: field
-              ) else {
-            return false
-        }
-        let fallbackComponents = fallback.componentBitPatterns.map {
-            Double(bitPattern: $0)
-        }
-        let fallbackIsScalarOrEqualPair = fallbackComponents.count == 1
-            || (fallbackComponents.count == 2
-                && fallbackComponents[0] == fallbackComponents[1])
-        return fallbackIsScalarOrEqualPair
-            && fallbackComponents.allSatisfy(\.isFinite)
     }
 
 }

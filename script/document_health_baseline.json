@@ -129,12 +129,12 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 468,
-      "bytes": 194002
+      "lines": 469,
+      "bytes": 194956
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 148,
-      "bytes": 24537
+      "lines": 150,
+      "bytes": 25187
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -358,15 +358,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "ebc9d152c58d91be82af652504e81acd58ae9c07b8981e61af27782694b1734e",
-      "after": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
-      "owner": "Scene text raster layout",
-      "reason": "Record the actual positioned ink extent contract and real author recovery; remove the closed circular text visual issue. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-raster-ink-extent"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
       "before": "1cdaf2f3cbf8a565186ff3ba4ec30507501cd741f02e68738b8d74d3a327b4da",
       "after": "33b7e3ec21a66b7ddcc57bfd4e799f6b1b73b9f360d420e40c91e756bcd4a405",
@@ -449,11 +440,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a7969048136e546aebb51b5ff98de65e871ea982fc801224a7a40fd92d3a1a97",
-      "after": "0472f745846fdd7b2d164f8682fcfa72faadb31213a50ab4688970eb345df507",
-      "owner": "Scene",
-      "reason": "Replace stale official startup state with the verified original-author window, sampled beam shape and capture limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
+      "before": "0472f745846fdd7b2d164f8682fcfa72faadb31213a50ab4688970eb345df507",
+      "after": "e6dec66fed91b50458598b80ba0413c2ead6501a3a3b397c5efd3b9823a96693",
+      "owner": "Scene material uniform",
+      "reason": "Record same-input author rendering, two different material consumers and the bounded live update receipt.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#isotropic-slider-uniform"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
+      "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
+      "owner": "Scene material uniform",
+      "reason": "Document the single cold projection used by scalar Slider admission and active float2 uniform encoding.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
     }
   ]
 }

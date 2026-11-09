@@ -28,13 +28,13 @@ nonisolated struct SceneResolvedMaterialKey: Hashable {
 nonisolated struct SceneResolvedMaterialPreparedUniformBinding: Hashable {
     typealias Program = SceneResolvedMaterialProgram
     typealias Template = SceneResolvedMaterialTemplate
-    typealias Uniform = SceneResolvedMaterialPreparedUniformSchema
 
     struct Dynamic: Hashable {
         let declaration: Template.DynamicUniform
         let contributor: Template.DynamicUniformSource
         let fallback: Template.StaticUniformValue?
-        let schema: Uniform
+        let directUserPropertyRange: ClosedRange<Double>?
+        let splatsScalarToFloat2: Bool
     }
 
     enum Source: Hashable {

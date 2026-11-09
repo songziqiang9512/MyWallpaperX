@@ -42,6 +42,8 @@ BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时
 
 准备阶段按完整 layer/effect/pass/name 查真实 writer。同 key 的合法 visibility、其他 layer/pass 或其他数值 target 不阻止本 target 使用已有合法 fallback；也不能借其值、类型或存在性作为本 target 的 producer。保原 authoredFallbackTargets 索引及直接 wrapper 合同，不另发许可、建立 registry 或复制状态。该索引只说明现有 definition 的目标归属；实际 type/ABI、来源和编码值与 fallback 对应仍由原 Program/uniform 消费者负责，不能把 Set membership 说成完整字节验证。
 
+Slider 保留 scalar producer。直接 user/value wrapper 的有限等分量 fallback 可供反射出的非数组 float2，但须有有限等分量 shader 默认值。原 Program 在准备活动 uniform 时定下投影和直接属性范围，替换帧内对 wrapper、默认值及范围来源的重复判断；帧内仍校验实际来源、数值和范围。冷准入先走原精确类型合同，仅 scalar 对等分量双分量 fallback 的错配查询同一投影事实，须至少有一个活动消费者且所有可达变体中的该消费者均支持。未激活的字段不证明 ABI，冲突 writer、非等分量或其他来源不放行。
+
 缺少、错型或被拒的属性 writer 保本 target 的合法原值；本 target 有冲突 writer、缺真实 definition/fallback、非法 wrapper、非有限数、错误 ABI/来源或多 contributor 未获资格时，失败仍局部。移除跨 target 的同 key 冲突判定及其重复扫描，不把 Bool 强转颜色、不用 shader 默认白色补作者原色。合法属性初值与热更继续生效，错误热更保原已提交状态；不改变原混合键事务和 Script/Timeline 优先级。官方错误类型的隐式行为尚未资格，本合同只兑现本引擎现有 typed fallback 语义。
 
 验收须经过真实 Document/BindingProgram、producer catalog/capability、Program uniform 与最终 Metal 像素：同 key 的 Bool visibility 与 vec3 原色、改名/换资源/不同 pass、合法 Color 默认与热更、坏更新/冲突及健康 peer；冷索引与消费端的反例分别归实际阶段。不能以只执行 prepareUniformBindings 的门代替 capability 准入。原 DEBUG uniform 消费读口覆盖 authored fallback 和向量属性，复用现 frame/target/source/编码比对与身份集合；scalar/splat 保原 publication 读口，不重复记录或增加普通帧工作。原作者在默认与已接入的受控音频下核实际 material/输入/尾部消费，并用独立合法属性作者检查相邻链路；样本汇总 PASS 不替代目标层的准备、draw 或像素贡献。

@@ -441,7 +441,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if let failure = dynamicUniformExecutionRejection(
                 template,
                 node: node,
-                producers: dynamicProducers
+                producers: dynamicProducers,
+                variants: variants
             ) {
                 return .failure(failure)
             }

@@ -161,8 +161,9 @@ private typealias Descriptor = SceneRenderDescriptor
                             valueContributors: [.userProperty(property)], scriptAttachments: [],
                             authoredFallback: fallback, authoredBindingKeys: ["user", "value"])
                         let field = SceneAuthoredShaderUniformLayout.Field(name: schema.name, stage: .fragment, type: .float, offset: 0)
-                        let binding = SceneResolvedMaterialPreparedUniformBinding(field: field, source: .dynamic(.init(
-                            declaration: declaration, contributor: .userProperty(property), fallback: fallback, schema: schema)))
+                        let binding = SceneResolvedMaterialPreparedUniformBinding(field: field, source: .dynamic(
+                            SceneResolvedMaterialUniformProjection.prepareDynamic(
+                                declaration, contributor: .userProperty(property), schema: schema, field: field)))
                         var encoded: [Double] = []
                         for scalar in [0.5, 2.0, 8.0] {
                             let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
@@ -170,7 +171,7 @@ private typealias Descriptor = SceneRenderDescriptor
                                     authoredValue: .scalar(authored.components![0]), userPropertyNumericRange: 0 ... 10)],
                                 userValues: [target: .scalar(scalar)]).snapshot
                             if let resolved = try? SceneResolvedMaterialProgram.resolvedAuthoredUniform(binding, snapshot: snapshot),
-                               resolved.field.stage == .fragment, resolved.encodedValue.count == 4 {
+                               resolved.encodedValue.count == 4 {
                                 encoded.append(Double(resolved.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }))
                             }
                         }
