@@ -258,6 +258,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
     def test_plain_texture_success_cannot_admit_unknown_material_semantics(self) -> None:
         for name in ("customShader", "multiplePasses", "duplicateModelLinks", "secondSlot",
                      "provider", "constant", "userShaderValue", "unknownCombo", "wrongVersion",
+                     "wrongVersionLowercase", "duplicateVersionSpellings",
                      "additive", "depthEnabled", "alphaWriting"):
             with self.subTest(name=name):
                 self.assertEqual(self.facts[name]["loads"], 1)
@@ -272,6 +273,16 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertTrue(self.facts[name]["litRecipe"])
         self.assertTrue(self.facts["shared"]["hasMaterialRecipe"])
         self.assertFalse(self.facts["shared"]["litRecipe"])
+        for name in ("stockVersionLowercase", "stockVersionRenamedExplicit"):
+            with self.subTest(name=name):
+                case = self.facts[name]
+                self.assertEqual(case["dynamicCount"], 1)
+                self.assertTrue(case["hasMaterialRecipe"])
+                self.assertFalse(case["litRecipe"])
+        reused = self.facts["stockVersionLowercase"]
+        self.assertTrue(reused["sameTexture"])
+        self.assertTrue(reused["sameCandidate"])
+        self.assertEqual(self.facts["stockVersionRenamedExplicit"]["loads"], 1)
         self.assertEqual(self.facts["litPuppet"]["dynamicCount"], 0)
         self.assertEqual(self.facts["unknownBuiltinExplicit"]["dynamicCount"], 0)
         self.assertEqual(self.facts["unknownBuiltinExplicit"]["loads"], 1)

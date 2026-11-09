@@ -32,6 +32,8 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 动态 Layer 仅保存出生资源、创建尺寸、根关系及作者 seed；完整 upsert 的当前变换/可见性/颜色/文字走原 typed 值通道。结构 revision 不因普通值 setter 推进，也不在稳定帧回填整份作者 Layer。
 
+内置图片模型的直接请求与普通层资源复用共享冷准备目录。该目录识别内置版本字段的 `VERSION:2` 和 `version:2` 两种单独拼写，沿原材质配方和已准备纹理发布动态图层；同时声明两种拼写或未知字段仍局部拒绝。版本判定在冷准备完成，作者 shader 的 combo 名按原大小写解释。
+
 <a id="layer-color-values"></a>
 Layer `color` setter接受有限三分量原值；[公开颜色教程](https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/colors.html)中的RGB255不能被内部0…1范围门拒绝。原getter、journal、authored read baseline与typed snapshot保同一Double值，text/image显示端继续原clamp后转Float，不按幅度猜÷255、改变单位或写回归一值。原C入口、baseline、Swift bridge与Runtime的重复范围许可退出；finite/shape、owner原子提交、回滚及健康peer边界保持，不新增状态或转换owner。createLayer初始seed与addColor的String类型不由setter资格扩张。
 

@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 469,
-      "bytes": 194956
+      "lines": 470,
+      "bytes": 195872
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 164,
-      "bytes": 27342
+      "lines": 166,
+      "bytes": 27709
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 110,
@@ -394,15 +394,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "30c1683420f33cf2938dac47a51d97d3f1bb64fda4f39cad2d032deb94d045a2",
-      "after": "f9b420533d1e5fae28f602742aaf964c0a37a7e0f9b315abab8a7a43c40dc1e5",
-      "owner": "Scene public particle instance scalars",
-      "reason": "Generalize the existing alpha journal and typed consumers for rate/count; retire the alpha-only publication and repeated inner numeric checks. Record bounded actual control/GPU/author evidence and preserve only unresolved scalar callback sequencing. Exact body budget.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#particle-instance-scalars"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "e2ed38ceb8724877940b3cd3dc6382e513b59207b70829f7998fa3f8521e29eb",
       "after": "c9f8d418426a2601174e2e022bea595d06519f1bc1572ac74529f57bbeb61711",
@@ -439,21 +430,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0472f745846fdd7b2d164f8682fcfa72faadb31213a50ab4688970eb345df507",
-      "after": "e6dec66fed91b50458598b80ba0413c2ead6501a3a3b397c5efd3b9823a96693",
-      "owner": "Scene material uniform",
-      "reason": "Record same-input author rendering, two different material consumers and the bounded live update receipt.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#isotropic-slider-uniform"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
       "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
       "owner": "Scene material uniform",
       "reason": "Document the single cold projection used by scalar Slider admission and active float2 uniform encoding.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e6dec66fed91b50458598b80ba0413c2ead6501a3a3b397c5efd3b9823a96693",
+      "after": "8accd456c410da1d005cdaf96839b19d61f0df7975a878137aaadd43f9123b8a",
+      "owner": "Scene dynamic image preparation",
+      "reason": "Record official qualitative reference, shared texture draws and independent stock-image author control.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-stock-image-version"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "f9b420533d1e5fae28f602742aaf964c0a37a7e0f9b315abab8a7a43c40dc1e5",
+      "after": "2ede81ed8485368964412cc1679424232b1bd665e2756c9daf0ba468db1de4f4",
+      "owner": "Scene dynamic image preparation",
+      "reason": "Document native stock image version spellings at the shared cold constructor boundary.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#layers"
     }
   ]
 }

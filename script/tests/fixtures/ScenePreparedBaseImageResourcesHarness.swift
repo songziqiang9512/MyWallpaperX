@@ -711,6 +711,13 @@ enum Checks {
                 $0.materialPasses[0].constantShaderValues = ["metallic": 0, "roughness": 0.7]
             }
         }
+        try check("stockVersionLowercase", layers: [ordinary]) {
+            $0.materialPasses[0].combos = ["version": 2]
+        }
+        try check("stockVersionRenamedExplicit", layers: [], texture: "override.png",
+                  explicit: ["models/shared.json"]) {
+            $0.materialPasses[0].combos = ["version": 2]
+        }
         try check("litPuppet", layers: [.init(id: 1, puppetMeshPath: "models/puppet.mdl")]) {
             $0.materialPasses[0].combos["LIGHTING"] = 1
         }
@@ -827,6 +834,8 @@ enum Checks {
         try check("userShaderValue", layers: [ordinary]) { $0.materialPasses[0].userShaderValues = ["Alpha": "userAlpha"] }
         try check("unknownCombo", layers: [ordinary]) { $0.materialPasses[0].combos["UNKNOWN"] = 0 }
         try check("wrongVersion", layers: [ordinary]) { $0.materialPasses[0].combos["VERSION"] = 3 }
+        try check("wrongVersionLowercase", layers: [ordinary]) { $0.materialPasses[0].combos = ["version": 3] }
+        try check("duplicateVersionSpellings", layers: [ordinary]) { $0.materialPasses[0].combos["version"] = 2 }
         try check("additive", layers: [ordinary]) { $0.materialPasses[0].blending = "additive" }
         try check("depthEnabled", layers: [ordinary]) { $0.materialPasses[0].depthTest = "enabled" }
         try check("alphaWriting", layers: [ordinary]) { $0.materialPasses[0].alphaWriting = "enabled" }
