@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空。3808922316准备超时仍开；3834591400的同输入首帧失败[已恢复](../capabilities/runtime-evidence-current.md#forward-visible-program-input)。历史分母保持，原始CHECK不作当前缺陷数。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。
+2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空。3808922316后续见下表；3834591400的同输入首帧失败[已恢复](../capabilities/runtime-evidence-current.md#forward-visible-program-input)。历史分母保持，原始CHECK不作当前缺陷数。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
@@ -16,7 +16,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
-| 超长预热 · 3808922316 | 关执行观测的当前优化诊断App仍未在90秒准备额度就绪，原包阻断保留。队首/混合死亡[稳定移除](../capabilities/runtime-evidence-current.md#particle-death-compaction)已取得等价局部收益；冷writer、事件容量和旧压紧草案已收口。隐藏1333约600万步是请求量，[官版原包](../capabilities/runtime-evidence-current.md#particle-prewarm-official-380)只确认热显现。重启须另一个能明显减少完整工作且保状态的实测热点，或可区分活动创建/时长的新官版证据；沿[预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不原样重跑、加预算或跳隐藏。 |
+| 启动仍慢 · 3808922316 | 原90秒超时已退出，同诊断配置的[原包](../capabilities/runtime-evidence-current.md#particle-movement-borrow)已就绪并播放，剩余启动主要是预热。后续须有可明显减少完整工作且保状态的实测热点，或可区分活动创建/时长的新官版证据。沿[预热合同](../capabilities/particle-component-coverage.md#prewarm-work)，不原样重跑、加预算或跳隐藏。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | XRay固定路径/UI/摘要与Masks的Pulse/Blur/Waterwaves路径门仍有真实降级消费者；尚无当前作者被误挡的画面归因。现分支只接unclaimed且无frame target，不能借已认领Program许可；颜色来源/PMA不证明alpha与空间覆盖，归一blur即反例。本次停止实施；若续查只先资格Masks真实unclaimed的等价改名画面及source-coverage阻断，再决定原冷owner能否供完整事实并退旧门，XRay不并批。不造新coverage系统、通放base或补路径名单。正反例与停止线在`.artifacts/scene-source-coverage-20261108/`。 |
 | material default动画入口 | 该存储位执行语义尚无作者/官方正例，不能仅凭AssetCatalog未parse认定冻结缺陷。先取合法default动画行为正控，再由原descriptor冷准备汇合material/instance有效值与definition-only pass identity，不让TargetCompiler重解资源或另建owner。 |

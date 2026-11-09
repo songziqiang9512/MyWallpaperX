@@ -41,25 +41,29 @@ nonisolated extension SceneParticleSimulator {
             let gravityImpulse = gravity == .zero ? .zero : gravity * gravityTime
             let retentionOverflowed = !retention.isFinite
             let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
-            for index in particles.indices {
-                if !radiusIsActive { particles[index].vortexRadius = nil }
-                let initialVelocity = particles[index].velocity
-                // An unforced stationary peer stays at rest even when growth overflows.
-                let integrated = retentionOverflowed && initialVelocity == .zero
-                    ? gravityImpulse : initialVelocity * retention + gravityImpulse
-                let (position, velocity) = vortexMovement(
-                    particlePosition: particles[index].position,
-                    vortexRadius: particles[index].vortexRadius,
-                    velocity: integrated, duration: duration
-                )
-                guard acceptsMotionResult(velocity, position, component: "movement") else {
-                    continue
-                }
-                particles[index].velocity = velocity
-                particles[index].position = position
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    if !radiusIsActive { buffer[index].vortexRadius = nil }
+                    let initialVelocity = buffer[index].velocity
+                    // An unforced stationary peer stays at rest even when growth overflows.
+                    let integrated = retentionOverflowed && initialVelocity == .zero
+                        ? gravityImpulse : initialVelocity * retention + gravityImpulse
+                    let (position, velocity) = vortexMovement(
+                        particlePosition: buffer[index].position,
+                        vortexRadius: buffer[index].vortexRadius,
+                        velocity: integrated, duration: duration
+                    )
+                    guard acceptsMotionResult(velocity, position, component: "movement") else {
+                        continue
+                    }
+                    buffer[index].velocity = velocity
+                    buffer[index].position = position
 #if DEBUG
-                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "motion-result-accepted", time: simulationTime, particleID: particles[index].id)
+                    if observesParticles {
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "motion-result-accepted", time: simulationTime, particleID: buffer[index].id)
+                    }
 #endif
+                }
             }
         case .angularMovement:
             guard let plan = operatorExecutionPlans[operatorIndex].angularMovement else {

@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 57467
+      "bytes": 57378
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 268,
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 526,
-      "bytes": 217653
+      "lines": 527,
+      "bytes": 218791
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 47951
+      "bytes": 47685
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b3b615041dbac78cb9be3f35e95c4fc773e0d22358b5b6b18ae1c8a25ec759a5",
-      "after": "ddf49fc373a43cc2583a517efc3793688488ef4c34f86074c5b22754825d56d1",
-      "owner": "Scene particle collision bounds",
-      "reason": "Record original contact and GPU output plus independent author and controlled pixels.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-bounds-oracle"
+      "before": "ddf49fc373a43cc2583a517efc3793688488ef4c34f86074c5b22754825d56d1",
+      "after": "6aacc8fc082cd33f448365e03e26d1aa76f83af4295e811fc16651c8a32d7e06",
+      "owner": "Scene particle simulator",
+      "reason": "Record the isolated Movement improvement and current real author startup and playback evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-movement-borrow"
     }
   ]
 }
