@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 503,
-      "bytes": 207281
+      "bytes": 207984
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49255
+      "bytes": 49406
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,19 +440,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "f481ecc5c984593aadf495b84caf3529c682972552033a464dd7603dd7230b46",
-      "after": "b7828c42985e0ece5830cfd9b05009ce00d9dbf63987d44a12f693bf13956ab5",
-      "owner": "Scene runtime evidence and triage",
-      "reason": "Record observed ripple output and bounded capture failure.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#cursor-ripple-active-329"
+      "before": "b7828c42985e0ece5830cfd9b05009ce00d9dbf63987d44a12f693bf13956ab5",
+      "after": "e72c40d231b99d4bfe9abd0d83fc8e3287873df3cf83e61f2df9732913e08139",
+      "owner": "Scene particle prewarm preparation",
+      "reason": "Record original-package official theme activation and the limits of native observation.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-official-380"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2585a2bd0377b775a2cf38a5d0e8474c894fd77e8f8fbb9384342c3973ba0660",
-      "after": "00ca3f40aca815121398a7467ec9c35b827e0f2cf8f78f6e9d89b4ecaed8dff8",
-      "owner": "Scene shared image source preparation",
-      "reason": "Keep the independent hidden-layer material admission at its real activation boundary.",
+      "before": "294e0ffdc230945443c90180ee26e072200caf5f01805b1b06483f9971e58858",
+      "after": "8545b34e48a8c997e9173c9184327bdd1e40f0c441fa1e73136f2d4910275f32",
+      "owner": "Scene particle prewarm preparation",
+      "reason": "Replace the repeated VM research route with a measured simulator candidate and stopping rule.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
