@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 488,
-      "bytes": 203038
+      "lines": 493,
+      "bytes": 204182
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49815
+      "bytes": 49855
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,19 +440,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ca29270db11a47d880440ac73f819153ec41493cf608f56a07c2a2ded8cdca60",
-      "after": "3f11c8249349f404c05db6b0ad693cf8c25d4e481239ac301bf7948195535308",
+      "before": "3f11c8249349f404c05db6b0ad693cf8c25d4e481239ac301bf7948195535308",
+      "after": "00ef1e3db44b09911055fc3189bc9e03fd00a2d5544ae5bb06bc65cc9fc1ce50",
       "owner": "Scene particle runtime",
-      "reason": "Record the actual official and native two-beam control and the age-matched original receipt.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-emission-isolation"
+      "reason": "Record audible Windows control and actual native PCM-to-emission replay.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-shared-pcm"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "08589d2943456f93c7aabca5e13c2d38b95a30edae1935949c6c355722ee8f98",
-      "after": "8c7c1fd438c26e48a12884f097089b22d978539576873db3ff7be5fa4b96189f",
+      "before": "8c7c1fd438c26e48a12884f097089b22d978539576873db3ff7be5fa4b96189f",
+      "after": "c001be3295f173083fee94a812da0e1d110fc4540e7dcfe472c3c4e0fa9b2697",
       "owner": "Scene particle runtime",
-      "reason": "Prioritize measured audio supply and visible-age population after the beam isolation.",
+      "reason": "Prioritize a discriminating numeric audio control without repeating the shared song.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
