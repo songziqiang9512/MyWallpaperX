@@ -113,8 +113,8 @@
       "bytes": 19916
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 84,
-      "bytes": 12381
+      "lines": 95,
+      "bytes": 15051
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 505,
-      "bytes": 210129
+      "lines": 507,
+      "bytes": 211721
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49289
+      "bytes": 49347
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -439,20 +439,29 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "08de36891296e58b3a0c8b56958cfca9a6169cc5ff83262972a2bfc953eae22d",
-      "after": "82a58ada67d0fbedebdc218968c18a9f66f87e812ed6e94cf2cd87fb3e88adc2",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "ef736a7d1294e73888fab6c648588dd7f8e1f6d5e5a035b24fe6662561c31d4d",
+      "after": "3a5ee867f1c904f1966986474e8bfa43d82d917646ba6c6ed186b0996426a1b9",
       "owner": "Scene composition source and projection",
-      "reason": "Retain bounded official group perspective behavior and capture limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#group-perspective-official"
+      "reason": "Specify the composition replay, prefix and prepared geometry ownership before implementation.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "82a58ada67d0fbedebdc218968c18a9f66f87e812ed6e94cf2cd87fb3e88adc2",
+      "after": "d1699b7a1b15de74c2461c45ef9f426bb826bde60f01c9f27103e58ad1cc6c5d",
+      "owner": "Scene composition source and projection",
+      "reason": "Retain official nesting, copy false and the current author failure baseline.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#nested-copy-official"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9e1a0cf98ddb6c5abdfb39d73eca3213dea3ae91335e07303803a6acaf43a493",
-      "after": "01a377cb16f7e8a480e09efbaf6019397a2643837968779b96fd83ff9e6392a9",
+      "before": "01a377cb16f7e8a480e09efbaf6019397a2643837968779b96fd83ff9e6392a9",
+      "after": "6882a29ce0197966e7a066439984e638caf66619f4cec615f441e2e2ae944eec",
       "owner": "Scene composition source and projection",
-      "reason": "Retire the simple projection fork and narrow the next check to the nested background source.",
+      "reason": "Route the proven nesting issue to the existing composition design and its author acceptance gate.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

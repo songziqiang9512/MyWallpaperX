@@ -20,7 +20,7 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 <a id="composition"></a>
 ## Composition、背景与依赖
 
-固定 parent 分组在 topology 准备边界形成成员与执行顺序，当前 visibility 只门控真实消费。组根按作者位置合成，child 不在组外重复绘制。`copybackground` 缺省/true 使用当时 enclosing 背景，false 从透明源开始；不能改成全局最终画面或末后代 prefix。
+固定 parent 分组在 topology 准备边界形成成员与执行顺序，当前 visibility 只门控真实消费。组根按作者位置合成，child 不在组外重复绘制。`copybackground` 缺省/true 取准备好的作者背景截点，false 从透明源开始。现行常规路径取当时 enclosing 背景；下文的父组透视设计区分读取截点与组内写入。
 
 成员接纳以实际绘制所需的投影与输入为边界，不按类型许可名单。 模型局部接线与原深度域见[模型局部合成](advanced-object-coverage.md#model-subtree-raster)。无 draw 的变换、相机元数据、声音和全局灯光成员保留完整 parent 闭包、作者顺序与显隐，由原 owner 消费；不要求它们产生颜色源。image/solid/text、particle、direct-draw quad、可见 SpotLight 与模型沿各自原 world/frame 消费者进入组 raster 与唯一 compositor；不新增容器 renderer 或资源/状态 owner。
 
@@ -41,6 +41,17 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 无 child 的 captured-main source Program 只在作者顺序截点捕获并编码，不移到整个层循环前批处理，不拿历史 framebuffer 充当当前背景。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定，不强行改成普通 quad。声明依赖与实际来源的区分见[Framebuffer 来源合同](render-graph-shader-coverage.md#framebuffer-source-declarations)。
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
+
+<a id="perspective-composition-prefix"></a>
+### 父组透视与嵌套背景
+
+实施目标是让具有可用局部源的正交 composition 父组接收作者透视值，同时保持组内子图、内组 effect 与组外背景的作者顺序。已取得[官版简单组和嵌套复制对照](runtime-evidence-current.md#nested-copy-official)。当前有成员的父组因原几何谓词拒绝 Script 写入。有复制背景的内组还会挡住外组局部源。这两个限制只随实际消费者一起退役。
+
+- 原 SourceRoute 在拓扑准备时决定局部 raster 和可回绘的根。现有 LaunchFrameSchema 在首屏材质准备汇合后共享这份 base route。Script journal 只取可回绘根，RuntimePlanner 取成员和背景截点。无 FX 的根走原局部回绘。保持普通图像、现役 childless、native-camera、passthrough 及其他尚未取得同等消费事实的路径。保作者显隐、依赖和 Program 准备，不按层号、路径或脚本字串识别透视。
+- 外组局部 raster 与嵌套源都用当前 CameraFrame 的平面 capture VP，保原 world TRS 和各自 extent。子图和内组 tail 写最近的组 attachment，内组保自己的作者 effect。外根用 output VP 回绘一次，平面 capture VP 继续提供源逆映射。
+- 对已准备且在同一连续作者区段内执行的顶层外组与内组，内组复制读外组开始前的场景前缀。原组顺序使前缀在外根最终回绘前仍由场景 main 持有，复用该读取与原局部背景采样，避免额外全屏副本。内组写最近的 attachment。显式 false 保透明初始化。普通背景路径与新截点沿一个准备结果选择，不能以实时 enclosing 写目标或帧终态替代。
+- 继续沿原组的局部失败和资源 pin。缺实际 source、目标预约、几何或 Program 时由原失败边界阻止未写完的组输出回放。仅在准备或拓扑 revision 改变时更新结构事实。原作者动态 shadow 的创建、排序和后续更新须继续走同一事务，其无 FX 的像素行为独立验证。
+- 验收沿现有源身份和背景范围门。固定内外色标、嵌套子图、组后遮挡、非单位父 TRS、透视开关和 inner false，核实际来源、父组局部写入、一次最终回绘及健康邻例。补资源或对象改名与原失败反例。原 3828725306 同输入须看见 109 的角度/透视写入与 745 两段 Shake 到最终画面，另取真实作者相邻组回归。平面 capture 坐标沿项目现有来源合同。完整官版倾斜矩阵、shadow 颜色和更深嵌套仍需各自验收。
 
 <a id="project-subtree-source"></a>
 ### Project 子树来源
