@@ -125,12 +125,12 @@
       "bytes": 57378
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 268,
-      "bytes": 52254
+      "lines": 275,
+      "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 549,
-      "bytes": 224946
+      "lines": 550,
+      "bytes": 225894
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 185,
-      "bytes": 48295
+      "lines": 184,
+      "bytes": 47856
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,11 +404,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "6f46432147b173c9e7272fe8debd60d293f41a091d9a137ec738e1c4ad8bd4e7",
-      "after": "c5e858f2b4bfdc1b268d98aa97410f0cf6df54471fd2df5832e149447ea078fb",
-      "owner": "Scene shared image source preparation",
-      "reason": "Treat requested hidden full-source prototypes as prepared resources.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shared-source-image-scroll"
+      "before": "c5e858f2b4bfdc1b268d98aa97410f0cf6df54471fd2df5832e149447ea078fb",
+      "after": "20bb8421cba0c553b5a3d662d4a1f210f5017c2125c9ad987942840b5fad599a",
+      "owner": "Scene graph source capture",
+      "reason": "Keep the accepted bypass optimization contract and observed real copy-command removal.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#inactive-terminal-source-capture"
     },
     {
       "section": "bodies",
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e13e6a00c8ddb085390ade8255890084d3c9a6cd434df39d9d62affd1a555361",
-      "after": "224315460225cb800a2f2cf884ba8425c190dcb8a8fabbad4e018d571d05b259",
-      "owner": "Scene audio input verification",
-      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold"
+      "before": "224315460225cb800a2f2cf884ba8425c190dcb8a8fabbad4e018d571d05b259",
+      "after": "99e2cfdcd7936704342a11a04967f27673d03e903b95a26d4729205b67e9fbd8",
+      "owner": "Scene graph source capture",
+      "reason": "Keep the accepted bypass optimization contract and observed real copy-command removal.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#inactive-terminal-source-capture-evidence"
     }
   ]
 }

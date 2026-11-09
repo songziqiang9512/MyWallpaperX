@@ -37,7 +37,18 @@ final class SceneGraphResourcePassEncoder {
 
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
-        fileprivate let operation: Operation
+        fileprivate var operation: Operation
+
+        func retargetingPlainSourceCapture(toEquivalentTarget target: MTLTexture) -> Self? {
+            guard case let .sourceCapture(source, _, uniforms, pipeline, nil, nil) = operation,
+                  source !== target else { return nil }
+            var command = self
+            command.operation = .sourceCapture(
+                source: source, target: target, uniforms: uniforms, pipeline: pipeline,
+                sourceLighting: nil, prefixTexture: nil
+            )
+            return command
+        }
     }
 
     fileprivate enum Operation {

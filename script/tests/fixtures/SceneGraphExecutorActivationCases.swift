@@ -114,14 +114,22 @@ private func runActivationCases(
               let stage = preparedGraph.stages.first else {
             return (false, false, false, false, false)
         }
+        let captureWritesTerminal = preparedGraph.sourceCommand.writtenTexture
+            === preparedGraph.finalTexture
+        let bypassRoutePreserved = activationGraph.renderTargets.isEmpty
+            ? stage.commands.isEmpty && captureWritesTerminal
+            : !stage.commands.isEmpty && !captureWritesTerminal
         let prepared = visible
             ? stage.effectLocalActivationBypassReasonCode == nil
                 && stage.effectLocalFailureReasonCode == nil
+                && stage.commands.contains { if case .material = $0 { true } else { false } }
                 && stage.programCacheKeys.allSatisfy {
                     !$0.hasPrefix("activation-passthrough:")
                 }
             : stage.effectLocalActivationBypassReasonCode == reason
                 && stage.effectLocalFailureReasonCode == nil
+                && bypassRoutePreserved
+                && preparedGraph.finalTexture === leases[0].table.fullFramePair.first
                 && stage.programCacheKeys == [
                     "activation-passthrough:" + reason
                 ]
@@ -190,6 +198,10 @@ private func runActivationCases(
         guard case let .success(prepared) = preparation,
               prepared.stages.map(\.effect) == [chainedFirstEffect, chainedSecondEffect, chainedThirdEffect],
               prepared.stages[1].effectLocalActivationBypassReasonCode == reason,
+              prepared.stages[1].commands.contains(where: {
+                  if case let .resource(resource) = $0 { return resource.kind == .copy }
+                  return false
+              }),
               prepared.stages[1].programCacheKeys == ["activation-passthrough:" + reason],
               prepared.stages.allSatisfy({ $0.effectLocalFailureReasonCode == nil }),
               prepared.stages[0].effectLocalActivationBypassReasonCode == nil,

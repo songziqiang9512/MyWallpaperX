@@ -467,6 +467,9 @@ final class SceneResolvedMaterialGraphExecutor {
                     intent, stageCapability: stageCapability,
                     pairStep: pairStep, lease: lease,
                     snapshot: stageEntry, pair: &pair, publications: &publications, commands: &stageCommands,
+                    sourceCommand: &sourceCommand,
+                    captureCanWriteOutput: capability.stages.count == 1
+                        && capability.sourceRoute == .capturedLayerTexture && graph.renderTargets.isEmpty,
                     effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
                     effectLocalActivationBypassReasonCode: &effectLocalActivationBypassReasonCode
                 ) { return .failure(failure) }
