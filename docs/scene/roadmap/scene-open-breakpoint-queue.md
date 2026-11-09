@@ -118,7 +118,6 @@
 | 正交 Sprite 侧转 | [十五轴板](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确90°画面差已到Sprite局部quad/VP；3827949716/28与3173418061/131实际flags4走透视，3577990983/1370仅复合近侧转。重启须同路作者可见缺失或能区分Screen朝向的官方对照，保固定平面、镜像和原透视。 |
 | 3577990983 | [同原包六点](../capabilities/runtime-evidence-current.md#dock-hover-radius)的进/退尺度符合作者半径602.112，暂无越界首错。真实desktop或同条件官方边界仍待有具体反例再开；截图错相属有界采集，不加量重跑或调作者阈值。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
-| 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |
 | 3768903841 | 横向云片/烟花色彩仍待具体ROI/producer。原R0的238.angles completed、frame0 vectorFailures=0，232已消费其共享时段；238是Day/Night按钮而非烟花writer，未找到旧screen localStorage异常原收据。重启须精确新失败/屏身份/调用回执，不删screen guard或归因烟花；未点击，不授持久化，薄事实在`.artifacts/scene-cloud-238-next-20261109/`。 |
 | 3226487183 | 1028手部外观仍开。Windows参考与本机取景/画幅不同；现有捕获中实际纹理经mask/wave→mesh→main，未定位首错。重启须同取景与pose/phase的手部ROI或阶段差；不重复默认短窗，不凭轮廓调wave/骨骼。收据在`.artifacts/scene-hand-322-next-20261109/`。 |
 | 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
