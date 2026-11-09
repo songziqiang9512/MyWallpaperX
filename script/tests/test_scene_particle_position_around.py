@@ -160,23 +160,29 @@ import simd
     }
 
     static func basisResults() -> [[String: Any]] {
-        let axes = ["0 0 1", "0 0 -7", "1 0 0", "0 3 0", "1 2 3",
-                    "0.44 0 0.9", "0.43 0 0.9"]
+        let axes: [(String, SIMD3<Double>, SIMD3<Double>)] = [
+            ("0 0 1", .init(0, 1, 0), .init(1, 0, 0)),
+            ("0 0 -7", .init(0, 1, 0), .init(1, 0, 0)),
+            ("1 0 0", .init(0, 0, -1), .init(0, -1, 0)),
+            ("0 3 0", .init(0, 0, -1), .init(1, 0, 0)),
+            ("1 1 0", .init(0, 0, -1), .init(1, -1, 0) / sqrt(2)),
+            ("2 2 0", .init(0, 0, -1), .init(1, -1, 0) / sqrt(2)),
+            ("1 2 3", .init(3, 6, -5) / sqrt(70), .init(2, -1, 0) / sqrt(5)),
+            ("1 0 2", .init(2, 0, -1) / sqrt(5), .init(0, -1, 0)),
+            ("1 0 3", .init(3, 0, -1) / sqrt(10), .init(0, -1, 0)),
+        ]
         var rows: [[String: Any]] = []
-        for rawAxis in axes {
+        for (rawAxis, zeroPhase, quarterPhase) in axes {
             for renamed in [false, true] {
                 let def = definition(5, renamed: renamed, extra: ["axis": rawAxis,
-                    "speedmin": "1 2 3", "speedmax": "4 5 6"])
+                    "bounds": "0.25 0.25", "speedmin": "1 2 3", "speedmax": "4 5 6"])
                 let sim = simulator(def)
                 guard let plan = def.initializers[1].positionAroundControlPointPlan else {
                     preconditionFailure("owned basis fixture rejected")
                 }
-                // A separate SIMD oracle reconstructs the authored circle;
-                // dynamic CP translations remain current for each execution.
+                // The phase directions above come from the ordered color controls.
                 let axisValues = rawAxis.split(separator: " ").map { Double($0)! }
                 let axis = simd_normalize(SIMD3(axisValues[0], axisValues[1], axisValues[2]))
-                let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
-                let u = simd_normalize(simd_cross(reference, axis)), v = simd_cross(axis, u)
                 for target in [SIMD3<Double>(1, 2, 3), SIMD3<Double>(20, -7, 5)] {
                     sim.advance(by: 0, dynamicControlPoints: [0: target])
                     let local = SIMD3<Double>(50, 7, 3)
@@ -186,12 +192,10 @@ import simd
                         initialColor: .init(repeating: 1), initialAlpha: 1, initialSize: 8)
                     let axial = simd_dot(local, axis)
                     let radius = simd_length(local - axis * axial)
-                    let angle = 2 * Double.pi / 5
-                    let expectedPosition = target + axis * axial + (u * cos(angle) + v * sin(angle)) * radius
+                    let expectedPosition = target + axis * axial + quarterPhase * radius
                     var random = sim.frameSnapshot().random
                     let speed = SIMD3(random.value(1, 4), random.value(2, 5), random.value(3, 6))
-                    let expectedVelocity = speed * cos(angle) + simd_cross(axis, speed) * sin(angle)
-                        + axis * simd_dot(axis, speed) * (1 - cos(angle))
+                    let expectedVelocity = -zeroPhase * speed.x + quarterPhase * speed.y + axis * speed.z
                     let applied = sim.applyPositionAroundControlPoint(plan, to: &particle)
                     let state = sim.frameSnapshot()
                     rows.append(["axis": rawAxis, "renamed": renamed, "applied": applied,
@@ -336,13 +340,13 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
                 count = Fraction.from_float(row["count"])
                 cycles = Fraction(int(row["id"])) / count
                 phase = 0.125 + 0.25 * float(cycles - cycles.numerator // cycles.denominator)
-                expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
+                expected = [50 * math.sin(phase * math.tau), 50 * math.cos(phase * math.tau), 0]
                 for actual, value in zip(row["position"], expected):
                     self.assertAlmostEqual(actual, value, delta=1e-10)
 
     def test_prepared_circle_basis_preserves_axes_dynamic_control_points_and_random_sequence(self):
         rows = self.result["basis"]
-        self.assertEqual(len(rows), 28)
+        self.assertEqual(len(rows), 36)
         for row in rows:
             with self.subTest(axis=row["axis"], renamed=row["renamed"]):
                 self.assertTrue(row["applied"])
@@ -436,7 +440,7 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
         self.assertEqual(half["bounds"], [0.25, 0.75])
         for identity, (position, velocity) in enumerate(zip(half["positions"], half["velocities"])):
             phase = 0.25 + 0.5 * identity / 5
-            expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
+            expected = [50 * math.sin(phase * math.tau), 50 * math.cos(phase * math.tau), 0]
             for actual, value in zip(position, expected):
                 self.assertAlmostEqual(actual, value, delta=1e-10)
             self.assertAlmostEqual(math.dist(velocity, [0, 0, 0]), 2, places=12)

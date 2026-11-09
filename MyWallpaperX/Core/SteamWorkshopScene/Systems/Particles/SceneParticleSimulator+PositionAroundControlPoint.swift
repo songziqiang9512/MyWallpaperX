@@ -20,35 +20,22 @@ extension SceneParticleSimulator {
         let phase = plan.bounds.lowerBound
             + (plan.bounds.upperBound - plan.bounds.lowerBound) * sequence
         let angle = phase * 2 * Double.pi
-        let mappedPosition = target + plan.axis * axialDistance
-            + (plan.circleBasisU * cos(angle) + plan.circleBasisV * sin(angle)) * radius
+        let cosine = cos(angle)
+        let sine = sin(angle)
+        let radialDirection = plan.circleBasisU * cosine + plan.circleBasisV * sine
+        let tangentDirection = plan.circleBasisV * cosine - plan.circleBasisU * sine
+        let mappedPosition = target + plan.axis * axialDistance + radialDirection * radius
         let sampledSpeed = SIMD3(
             random.value(plan.speedMinimum.x, plan.speedMaximum.x),
             random.value(plan.speedMinimum.y, plan.speedMaximum.y),
             random.value(plan.speedMinimum.z, plan.speedMaximum.z)
         )
-        let rotatedSpeed = rotate(sampledSpeed, axis: plan.axis, angle: angle)
+        let rotatedSpeed = tangentDirection * sampledSpeed.x
+            + radialDirection * sampledSpeed.y + plan.axis * sampledSpeed.z
         guard isFinite(mappedPosition), isFinite(rotatedSpeed) else { return false }
         particle.position = mappedPosition
         particle.velocity += rotatedSpeed
         return true
-    }
-
-    private nonisolated func rotate(
-        _ value: SIMD3<Double>, axis: SIMD3<Double>, angle: Double
-    ) -> SIMD3<Double> {
-        value * cos(angle) + cross(axis, value) * sin(angle)
-            + axis * dot(axis, value) * (1 - cos(angle))
-    }
-
-    private nonisolated func cross(
-        _ lhs: SIMD3<Double>, _ rhs: SIMD3<Double>
-    ) -> SIMD3<Double> {
-        SIMD3(
-            lhs.y * rhs.z - lhs.z * rhs.y,
-            lhs.z * rhs.x - lhs.x * rhs.z,
-            lhs.x * rhs.y - lhs.y * rhs.x
-        )
     }
 
     private nonisolated func dot(

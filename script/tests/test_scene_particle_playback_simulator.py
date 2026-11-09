@@ -919,8 +919,8 @@ import Foundation
             let instanceAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
             let dynamicAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
             defaultAround.advance(by: 0.25); instanceAround.advance(by: 0.25); dynamicAround.advance(by: 0.25, dynamicControlPoints: dynamic)
-            result["cp-around-consumes-the-same-selected-source"] = one(defaultAround, SIMD3(18, 24, 0))
-                && one(instanceAround, SIMD3(50, 0, 0)) && one(dynamicAround, SIMD3(62, 8, 0))
+            result["cp-around-consumes-the-same-selected-source"] = one(defaultAround, SIMD3(16, 26, 0))
+                && one(instanceAround, SIMD3(48, 2, 0)) && one(dynamicAround, SIMD3(60, 10, 0))
             var pointerRoot = root
             pointerRoot["controlpoint"] = [["id": 1, "flags": 1, "offset": "0 0 0"]]
             let pointerDefinition = parser.parse(root: pointerRoot)

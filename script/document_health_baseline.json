@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 286,
-      "bytes": 54401
+      "bytes": 54750
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 259,
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 474,
-      "bytes": 198491
+      "lines": 475,
+      "bytes": 199332
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 184,
-      "bytes": 48595
+      "lines": 185,
+      "bytes": 48973
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,28 +431,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "437469c78ee32049273385d8e572fb6d52aaeafb0e9778a86d07d4aaf33e76c8",
-      "after": "5ccf483c8ee2978383adee39cf0db3829b8243f45c171c0ff0138914dd8f9cc8",
+      "before": "5ccf483c8ee2978383adee39cf0db3829b8243f45c171c0ff0138914dd8f9cc8",
+      "after": "e2a7efd8689173af3a0df6c7ddfc6f54555620bb6282c099cdc125140efd12ef",
       "owner": "Scene particle runtime",
-      "reason": "Record the measured force range response, units approximation and retained owners.",
+      "reason": "Record the shared ordered position and velocity frame confirmed by official signed-axis controls.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#operators"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ed52ebcf55b2b4bcd13723b0d85d88843bba76c6a52d305cc680da463826d9c4",
-      "after": "0301e992038c0b179c82a790a33352a308de778b00cfb3e79675aae3f865c6b2",
+      "before": "0301e992038c0b179c82a790a33352a308de778b00cfb3e79675aae3f865c6b2",
+      "after": "da1865c7475c51e41ea77fb6958df74937c50afe0bea191b066f8d2043af1922",
       "owner": "Scene particle runtime",
-      "reason": "Record the bounded official calibration and changed terminal output with author regression.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-force-range-response"
+      "reason": "Record actual phase and speed pixels, original projection and neighbor scopes.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-around-phase-frame"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "55c719330d917441db9eccc32aae3bc42160bf83de502e0e03538d8f01224ba4",
-      "after": "f10f86c4a6129bf35dc4605a63c826065acfea8e50176cfca410afe557e17b3f",
+      "before": "c742b4fbe5b7bec029903b8b55f4377c838c7cbf59044fdf62953d7b63f1df35",
+      "after": "296593b9b1d84217037c7daa6b00ddbee4c6d55fd8dbeb9bf9eb132bf57795ec",
       "owner": "Scene particle runtime",
-      "reason": "Replace generic visual holds with exact curve and viewport distinctions after author verification.",
+      "reason": "Advance the author to age-controlled motion and track the separately observed edge-on Sprite gap.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]

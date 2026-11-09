@@ -4270,9 +4270,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_position_around_control_point_maps_repeat_sequence_and_pointer(self) -> None:
         result = self.run_harness("position-around-control-point")
         radius = math.hypot(8, 20)
-        expected_positions = [[10 + radius, 20, 0], [10, 20 + radius, 0],
-                              [10 - radius, 20, 0], [10, 20 - radius, 0]]
-        expected_velocities = [[0, 2, 0], [-2, 0, 0], [0, -2, 0], [2, 0, 0]]
+        expected_positions = [[10, 20 + radius, 0], [10 + radius, 20, 0],
+                              [10, 20 - radius, 0], [10 - radius, 20, 0]]
+        expected_velocities = [[0, 2, 0], [2, 0, 0], [0, -2, 0], [-2, 0, 0]]
         for actual, expected in zip(result["positions"], expected_positions):
             for value, wanted in zip(actual, expected):
                 self.assertAlmostEqual(value, wanted)
@@ -4285,7 +4285,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertTrue(result["partitioned"])
         self.assertEqual(result["pointerValues"], [1])
-        for actual, expected in zip(result["pointerFirstPosition"], [5 + math.hypot(3, 6), 6, 0]):
+        for actual, expected in zip(result["pointerFirstPosition"], [5, 6 + math.hypot(3, 6), 0]):
             self.assertAlmostEqual(actual, expected)
         self.assertEqual(
             result["pointerDiagnostics"],

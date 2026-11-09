@@ -115,7 +115,8 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
-| 2927205881 | 后段弯曲已恢复，[同龄CP力](../capabilities/runtime-evidence-current.md#particle-force-range-response)已按范围衰减，左端仍短。官方静态板先锁定原699变换与95°相机，用正交尺和已知局部原点、±Z、CP1/3及晚段代表点分离投影与运动。投影相符再对比原斜轴出生与同龄发射序列。保未锁相边界，避免复跑早晚窗或调增益。 |
+| 2927205881 | [固定投影与斜轴相位](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)已用官版隔离，相位与速度已修，原左端仍短。下一步用原变换和同一固定出生点，量同龄约1秒和4.5秒的原Movement/CP3轨迹；并列无力/无运动、用恒速标记年龄、去掉AlphaFade。区分位置积分与出图年龄，避免复跑整景早晚窗或调增益。 |
+| 正交 Sprite 侧转 | [十五轴板](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)七个精确90°图层在官版可见，本机修复前后同draw/main/GPU均未出点。先沿现有Sprite quad/VP分辨局部几何投影为零与深度裁剪，再找有实际画面影响的作者邻例。保普通固定平面、镜像和原透视分支。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |
