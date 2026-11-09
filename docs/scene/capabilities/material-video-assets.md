@@ -31,6 +31,17 @@ opaque 视频资产可作为 `straightAlbedo` 进入已证明的 shader 颜色�
 
 源码：[VideoTextureSource](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift)。
 
+<a id="inactive-material-frame-acquisition"></a>
+### 未使用的材质视频取图
+
+确定无读者的 `.asset` 视频只维持原起播、对时、暂停/恢复及 EOF，不取图、导入 Metal 或发布新 generation。Scene 时间与提交屏障仍由原 Source/Registry 持有；重新消费按当前时间取图。
+
+冷准备沿原材质 demand 和可执行 stage 归属：只有一个逻辑视频绑定且所有用途属于同一个可旁路的 effect，才用其 typed 显隐目标与同帧共享快照，明确为 false 时省取图。普通/base/source材质、动态别名、共享用途及无法证明的读者保持原供货。hidden layer 本身不是停止条件，named、forward 等仍可执行有效 stage。只给符合条件的视频携带一个目标，不另算层树、重解材质或新建需求 owner。
+
+Bridge 对同源的各 Surface 采用同一绑定与共享帧快照，在取像素前结束确定无用的工作。原 Source 继续持有 last-ready 和刷新意图。暂停后若显隐目标恢复且正等目标帧，先返回 pending，沿原有界重试；同一帧的后续读口也不发布陈旧纹理，EOF 过零前保持原 hold。普通取图及提交/丢弃仍走同一链。
+
+取图和同窗切换、暂停刷新及独立邻例归[实际证据](runtime-evidence-current.md#coverage)。此范围不授后台 AV 解码停止、整体能耗下降、所有隐藏视频可暂停或多屏实景资格。
+
 <a id="switching"></a>
 ## 切换与呈现
 

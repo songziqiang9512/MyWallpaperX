@@ -62,7 +62,7 @@ nonisolated struct SceneVideoProviderLifecycleState {
     private var publishedFrameIndex: UInt64?
     private var isStopped = false
     private var isSuspended = false
-    private var needsFrameRefresh = false
+    private(set) var needsFrameRefresh = false
     private var lastObservedSceneTime: TimeInterval = 0
 
     /// User playback intent survives a global Scene pause. Backend playback
@@ -134,6 +134,10 @@ nonisolated struct SceneVideoProviderLifecycleState {
         publishedFrameIndex = frameIndex
         needsFrameRefresh = false
         return contentGeneration
+    }
+
+    nonisolated mutating func requireFrameRefresh() {
+        needsFrameRefresh = true
     }
 
     nonisolated mutating func discardPlannedFrame(frameIndex: UInt64) {

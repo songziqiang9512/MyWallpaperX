@@ -147,7 +147,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     let entries: [Key: Entry]
     let sourceMaterialEntries: [Int: SourceMaterialEntry]
     let sourceMaterialTargetFormat: SceneGraphRenderTargetPlan.TextureFormat
-    let assetDemands: Set<SceneAssetTextureIdentity>
+    enum AssetDemandOwner: Equatable {
+        case effect(Graph.EffectKey)
+        case independent
+    }
+
+    let assetDemandOwners: [SceneAssetTextureIdentity: AssetDemandOwner]
+    var assetDemands: Set<SceneAssetTextureIdentity> { Set(assetDemandOwners.keys) }
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
     let systemProviderDemands: Set<SystemProviderDemand>
     let systemProviderDemandsByMaterial: [Key: Set<SystemProviderDemand>]
@@ -205,7 +211,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         }
 
         var compiled: [Key: Entry] = [:]
-        var demands: Set<SceneAssetTextureIdentity> = []
+        var assetOwners: [SceneAssetTextureIdentity: AssetDemandOwner] = [:]
         var userDemands: Set<SceneUserPropertyTextureIdentity> = []
         var systemDemands: Set<SystemProviderDemand> = []
         var systemDemandsByMaterial: [Key: Set<SystemProviderDemand>] = [:]
@@ -351,7 +357,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         try cancellationCheck?()
         for outcome in outcomes.compactMap({ $0 }) {
             compiled[outcome.key] = outcome.entry
-            demands.formUnion(outcome.assetDemands)
+            let owner = AssetDemandOwner.effect(outcome.key.effect)
+            for identity in outcome.assetDemands {
+                let previous = assetOwners[identity] ?? owner
+                assetOwners[identity] = previous == owner ? owner : .independent
+            }
             userDemands.formUnion(outcome.userPropertyDemands)
             systemDemands.formUnion(outcome.systemProviderDemands)
             if !outcome.systemProviderDemands.isEmpty {
@@ -368,6 +378,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         )
 #endif
         sourceMaterialTargetFormat = descriptor.colorTargetFormat
+        var sourceAssetDemands: Set<SceneAssetTextureIdentity> = []
         sourceMaterialEntries = try Self.compileSourceMaterials(
             descriptor: descriptor, shaderContracts: shaderContracts,
             instances: materialInstancesByLayerID,
@@ -375,14 +386,15 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             provenBindings: provenSourceMaterialBindings,
             sceneScriptTargets: provenSceneScriptValueTargets,
             userPropertyProducers: userPropertyProducers,
-            demands: &demands, userDemands: &userDemands,
+            demands: &sourceAssetDemands, userDemands: &userDemands,
             systemDemands: &systemDemands, issues: &demandIssues,
             analyses: resourceDemandAnalyses,
             cancellationCheck: cancellationCheck
         )
         try cancellationCheck?()
         entries = compiled
-        assetDemands = demands
+        for identity in sourceAssetDemands { assetOwners[identity] = .independent }
+        assetDemandOwners = assetOwners
         userPropertyDemands = userDemands
         systemProviderDemands = systemDemands
         systemProviderDemandsByMaterial = systemDemandsByMaterial

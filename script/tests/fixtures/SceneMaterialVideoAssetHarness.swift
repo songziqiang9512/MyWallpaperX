@@ -294,9 +294,9 @@ final class ScenePerformanceCounterHub {
             checks["layerCommandsDoNotControlAsset"] = beforePause > 0
                 && player(source).rate > 0
                 && pausedVideoFrame.layerBindings[videoLayerID].flatMap { pausedVideoFrame.sources[$0] }?.isPlaying == false
-            registry.pause(sceneTime: 3.2, hostTime: CACurrentMediaTime())
-            checks["globalPauseControlsAsset"] = player(source).rate == 0
-            registry.resume(sceneTime: 3.2, hostTime: CACurrentMediaTime())
+            let pausedAsset = observeDormantAssetPause(source, peer: shared, registry: registry, timing: timing)
+            checks["globalPauseControlsAsset"] = pausedAsset.paused
+            checks["inactiveAssetDoesNotAcquireAndRefreshesHeldPosition"] = pausedAsset.refreshed
             let reacquired = try registry.source(declaration: declaration, owner: .asset, cacheDirectory: cache,
                 device: device, loader: loader)
             let addedLayer = try registry.source(from: declaration.input, layerID: videoLayerID,

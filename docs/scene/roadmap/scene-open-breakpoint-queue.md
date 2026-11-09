@@ -81,7 +81,7 @@
 | sampler宏声明接口 | canonical g_TextureN声明配宏采样read已准备通过；自有slot0将声明改为宏别名时，raw SchemaSeed未展开，unconditionalSamplers报authoredSamplerSchemaInvalid。当前没有作者缺图资格。沿原冷预处理/接口事实统一Schema，保真实slot/metadata，不新增别名许可表或忽略用途；后续资源目的仍需独立资格。 |
 | RopeTrail其余renderer字段 | 公共Worldspace与整数subdivision已沿原消费者接通，资格见[组件合同](../capabilities/particle-component-coverage.md#rope-trail-world-subdivision)。child尚无RopeTrail历史消费者，仅局部拒该输出，root多输出不授此能力。显式非正length仍拒绝；固定客户端静态最小值钳制尚无作者/运行资格，不能据此授完整history单位。非screen朝向、动画、size fading及UV字段各需实际消费证据，不以原flags误拒保留它们的整renderer许可。 |
 | 粒子其他资格 | CP/child空间、Mirror、nested/event、HSV缺省（3585542943/253/257、3761159935/453/457）、Vortex flags2及absolute color字段各用出生/轨迹输入；normalizedColor不是absolute color。 |
-| dormant视频与输出扩域 | hidden仍被named采样与实际source停止分开；物理HDR/EDR、lighting/receiver、文字backgroundbrightness和HDR8bit裁剪分别资格。 |
+| dormant视频与输出扩域 | 单可旁路effect的材质视频无用取图已归[现役合同](../capabilities/material-video-assets.md#inactive-material-frame-acquisition)，不重做。共享/named活跃需求与后台AV解码停用仍分别资格；重启须具体空需求开销及保持首个可见PTS/EOF的同链证据。物理HDR/EDR、lighting/receiver、文字backgroundbrightness与HDR8bit裁剪各保独立资格。 |
 
 <a id="user-feedback"></a>
 ## 用户反馈与定向视觉资格

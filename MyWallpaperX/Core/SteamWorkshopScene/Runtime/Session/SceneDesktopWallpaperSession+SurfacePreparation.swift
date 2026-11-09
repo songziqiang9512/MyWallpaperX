@@ -178,6 +178,31 @@ extension SceneDesktopWallpaperSession {
         return prepareInitialVideos()
     }
 
+    private func materialVideoVisibilityTargets(
+        for sources: [SceneAssetTextureIdentity: SceneVideoTextureSource],
+        context: SceneDesktopWallpaperLaunchContext
+    ) -> [SceneAssetTextureIdentity: SceneDynamicTarget] {
+        guard !sources.isEmpty else { return [:] }
+        let bindings = context.baseMaterialProviderBindings
+        var independent = bindings.assetDemands
+        for profile in Array(bindings.lightingProfileByLayerID.values)
+            + Array(bindings.dynamicLightingProfilesByModelPath.values) {
+            if let normal = profile.normalAsset { independent.insert(normal) }
+            if let map = profile.mapAsset { independent.insert(map) }
+        }
+        var result: [SceneAssetTextureIdentity: SceneDynamicTarget] = [:]
+        let groups = Dictionary(grouping: sources, by: { ObjectIdentifier($0.value) })
+        for aliases in groups.values where aliases.count == 1 {
+            let identity = aliases[0].key
+            guard !independent.contains(identity),
+                  case let .effect(effect)? = context.resolvedMaterialCatalog.assetDemandOwners[identity]
+            else { continue }
+            result[identity] = context.resolvedMaterialExecutionCapabilities
+                .materialVideoVisibilityTarget(for: effect)
+        }
+        return result
+    }
+
     private func installPreparedSurfaces(
         _ preparedSurfaces: [PreparedSurface],
         screens surfaceScreens: [(NSScreen, CGDirectDisplayID)],
@@ -203,6 +228,9 @@ extension SceneDesktopWallpaperSession {
                 assetVideoSources[identity] = source
             } } catch { continue }
         }
+        let materialVideoVisibility = materialVideoVisibilityTargets(
+            for: assetVideoSources, context: launchContext
+        )
         let screensByID = Dictionary(uniqueKeysWithValues: surfaceScreens.map { ($0.1, $0.0) })
         for prepared in preparedSurfaces {
             let screenID = prepared.displayID
@@ -213,7 +241,8 @@ extension SceneDesktopWallpaperSession {
             let frame = screen.frame
             let materialRuntime = prepared.materialRuntime
             materialRuntime.installAssetVideoSources(assetVideoSources,
-                declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys))
+                declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys),
+                visibilityTargets: materialVideoVisibility)
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 verifiedXRayStageKeys: launchContext.effectAdmissionCatalog.verifiedXRayStageKeys,

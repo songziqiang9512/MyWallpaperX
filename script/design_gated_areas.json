@@ -622,18 +622,21 @@
     },
     {
       "id": "scene-material-video-assets",
-      "title": "材质视频asset与fallback共用媒体owner",
+      "title": "材质视频准备、按需取图与fallback",
       "owner": "scene-video-assets",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/material-video-assets.md",
-      "design_notes": "",
+      "design_notes": "复用原材质资源归属与可旁路效果显隐，停取图不改播放器时钟或提交权威。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift"
       ],
-      "contentPatterns": []
+      "contentPatterns": [
+        "materialVideoVisibilityTarget",
+        "assetVideoVisibilityTargets"
+      ]
     },
     {
       "id": "scene-property-panel-conditions",

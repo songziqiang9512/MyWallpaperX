@@ -117,8 +117,8 @@
       "bytes": 12381
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 57,
-      "bytes": 5938
+      "lines": 68,
+      "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 282,
@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 437,
-      "bytes": 183540
+      "lines": 438,
+      "bytes": 184665
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48775
+      "bytes": 49027
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,20 +422,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0d3a5e93e5c823803e0483ccf91da49fd5f12b7abb879b7f8042a617d04f2160",
-      "after": "84dac36a5f90670131e93f9ace5c038d4bfd2c7193b52b411984dd8dc9e067a8",
-      "owner": "Scene authored conditional video selection",
-      "reason": "Qualify the live bamboo-to-pond visual path and retire that queue item. Keep startup texture readiness and effect Script attachment bounded. Exact current body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "84dac36a5f90670131e93f9ace5c038d4bfd2c7193b52b411984dd8dc9e067a8",
+      "after": "455de335ef938f899ccb0ae0dd564d1f87dc1d902b36635817c439874829f80d",
+      "owner": "Scene material video acquisition and playback",
+      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
+      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c69ad93647ada338ad23d6cae18b799ec9585693436031857126966867e53275",
-      "after": "3e5e36d3c8946f7d9d3d7437509e487c95bfadc0164181dd13da8aaa0d3024dd",
-      "owner": "Scene authored conditional video selection",
-      "reason": "Qualify the live bamboo-to-pond visual path and retire that queue item. Keep startup texture readiness and effect Script attachment bounded. Exact current body budget.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+      "before": "3e5e36d3c8946f7d9d3d7437509e487c95bfadc0164181dd13da8aaa0d3024dd",
+      "after": "4f3d2c45b5603bfec77fe5f59eb1dff32b8b09d202069b1569b98df780fb4a71",
+      "owner": "Scene material video acquisition and playback",
+      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
+      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
+      "after": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
+      "owner": "Scene material video acquisition and playback",
+      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
+      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
     }
   ]
 }
