@@ -117,7 +117,9 @@ import Darwin
                 for salt in 0...1 {
                     var oracle = SceneParticleRandomGenerator(state: sim.simulationSeed)
                     let expected = oracle.value(first, second)
-                    let actual = sim.turbulenceRandom(first, second, 0, 0, salt)
+                    let actual = SceneParticleSimulator.turbulenceRandom(
+                        first, second, particleID: sim.particles[0].id,
+                        seed: sim.simulationSeed, operatorIndex: 0, salt: salt)
                     samples.append(["mode": name, "case": label, "salt": salt,
                         "actual": actual.bitPattern, "expected": expected.bitPattern])
                 }

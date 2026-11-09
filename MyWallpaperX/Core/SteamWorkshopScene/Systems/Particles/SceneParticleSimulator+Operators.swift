@@ -253,25 +253,31 @@ nonisolated extension SceneParticleSimulator {
                     $0, componentKind: .operator, componentIndex: operatorIndex
                 )
             } ?? 1
-            for index in particles.indices {
-                let phase = turbulenceRandom(
-                    plan.phaseMinimum, plan.phaseMaximum,
-                    index, operatorIndex, 0
-                ) * phaseAudioFactor
-                let speed = turbulenceRandom(
-                    plan.minimumSpeed, plan.maximumSpeed, index, operatorIndex, 1
-                ) * speedOverride
-                let direction = SceneParticleSimulationMath.turbulenceDirection(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    phase: phase,
-                    scale: plan.scale,
-                    timeScale: plan.timeScale,
-                    mask: plan.mask
-                )
-                let delta = direction * speed * duration
-                    * plan.blendAmount(normalizedLives[index])
-                SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
+            let seed = simulationSeed
+            let time = simulationTime
+            let lives = normalizedLives
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    let particleID = buffer[index].id
+                    let phase = Self.turbulenceRandom(
+                        plan.phaseMinimum, plan.phaseMaximum,
+                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 0
+                    ) * phaseAudioFactor
+                    let speed = Self.turbulenceRandom(
+                        plan.minimumSpeed, plan.maximumSpeed,
+                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 1
+                    ) * speedOverride
+                    let direction = SceneParticleSimulationMath.turbulenceDirection(
+                        position: buffer[index].position,
+                        time: time,
+                        phase: phase,
+                        scale: plan.scale,
+                        timeScale: plan.timeScale,
+                        mask: plan.mask
+                    )
+                    let delta = direction * speed * duration * plan.blendAmount(lives[index])
+                    SceneParticleSimulationMath.addFinite(delta, to: &buffer[index].velocity)
+                }
             }
 #if DEBUG
             if observesParticles {

@@ -22,7 +22,7 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 预热沿原固定步进、RNG、出生/死亡和 SnapshotRecorder，逐步排空历史事件（保显式发射候选预算使用的数组容量），保部分末步和后续 live 随机序列；实例 rate 在原 step 内应用一次，simulationTime 不必等于 starttime 请求。所有 root 沿 worker 完整准备，退役3,600步、四百万加权关卡及专属工作计数；static/frame-created child 仍保240步及截断诊断。入口无效时长、容量与资源边界不变。
 
-存量基线、Movement 和 AlphaFade 各一次同步借用原粒子数组，保算子及逐粒顺序、半衰积分、Vortex 半径和局部失败。AlphaFade 复用当步归一寿命，保淡入后淡出两次乘法的原次序及边界。指针不逃逸，历史和回滚快照保持 COW 隔离，后继沿原数组。见[基线](runtime-evidence-current.md#particle-baseline-borrow)与[Movement](runtime-evidence-current.md#particle-movement-borrow)。同一 Simulator 按原序收集死亡事件并清振荡缓存。队首死亡整段移除，遇到首个非队首死亡才搬已读存活段并继续稳定压紧。事件、快照与时钟交接保持原序，见[死亡移除证据](runtime-evidence-current.md#particle-death-compaction)。
+存量基线、Movement、AlphaFade 和 Turbulence 各一次同步借用原粒子数组，保算子及逐粒顺序、半衰积分、Vortex 半径和局部失败。AlphaFade 复用当步归一寿命，保淡入后淡出两次乘法的原次序及边界。Turbulence 的 keyed 随机只取已借用的实例 ID、系统 seed 与算子键，复用当步时间和音频输入，保原噪声、速度范围与有限值写入。指针不逃逸，历史和回滚快照保持 COW 隔离，后继沿原数组。见[基线](runtime-evidence-current.md#particle-baseline-borrow)与[Movement](runtime-evidence-current.md#particle-movement-borrow)。同一 Simulator 按原序收集死亡事件并清振荡缓存。队首死亡整段移除，遇到首个非队首死亡才搬已读存活段并继续稳定压紧。事件、快照与时钟交接保持原序，见[死亡移除证据](runtime-evidence-current.md#particle-death-compaction)。
 
 现有 `prewarmStepBudget` 只截断本次同步模拟，Snapshot 没有续热游标；不能先限步再用普通 live advance 冒充补齐历史。默认隐藏的 root 在零步初始 advance 中清人口/轨迹，但保 RNG、ID、模拟时间和已完成 emitter 状态；未完成者沿原 rearm。跳过其预热也不是既有状态的等价变换。资源可准备、完整实例创建与可见绘制分别是需求，隐藏本身不取消脚本或后续显现的消费者。
 

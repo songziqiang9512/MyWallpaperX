@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 57482
+      "bytes": 57663
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 275,
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 559,
-      "bytes": 234760
+      "lines": 560,
+      "bytes": 236355
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 48467
+      "bytes": 48354
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -448,30 +448,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ceeb56abe11c2c9feb70419410a8b24389712def0a6cf2fdd2af8e956a0576a2",
-      "after": "1d8330842a7c85e333538bf31f3f4973637c66fe748f2a8073bbd86d30257f4b",
-      "owner": "Scene particle prewarm",
-      "reason": "Record the measured AlphaFade array borrow, frozen state equivalence, and real author startup comparison.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2cb13aa3cec801f4a760976875d71d1b1eb1840e923acf8597422eaba3db7f67",
-      "after": "cc6481668936eaa95ccf1e4dd025ff26e6bd289af2f1cdde7404e4fa8f437b3a",
-      "owner": "Scene FrameDriver and material submissions",
-      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#gpu-admission-wake-374"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
       "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
       "owner": "Scene static model material preparation",
       "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
       "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#preparation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "1d8330842a7c85e333538bf31f3f4973637c66fe748f2a8073bbd86d30257f4b",
+      "after": "ace33b2ecb1221294e9d0bbc30d56dbf1a2dacfe82e5e681f670a8f8e96230bf",
+      "owner": "Scene particle simulation",
+      "reason": "Document the single Turbulence particle borrow and keyed random inputs.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "cc6481668936eaa95ccf1e4dd025ff26e6bd289af2f1cdde7404e4fa8f437b3a",
+      "after": "f895ee6b2899a477248756ef0167ea73900095826c24b79e887d519b11cb825b",
+      "owner": "Scene particle simulation",
+      "reason": "Record the author startup comparison, isolated state equivalence and independent output.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-turbulence-borrow"
     }
   ]
 }
