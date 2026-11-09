@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 554,
-      "bytes": 229397
+      "lines": 556,
+      "bytes": 231047
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 183,
-      "bytes": 47598
+      "lines": 185,
+      "bytes": 48142
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,11 +431,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "201e5a85b1720d9f0c862194ad2c42e3558a47ad6800f0ee82686c3e20751fcd",
-      "after": "c5880024e23716589c7f22e3fa4003511d48c6ccaea23128c89d12e68b46e318",
-      "owner": "Scene particle prewarm",
-      "reason": "Record the measured AlphaFade array borrow, frozen state equivalence, and real author startup comparison.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "7b7f70b94c5e14721858742dded7b2c83497287940e5d4f8a84e67816187e390",
+      "after": "cee680e026bf6407c01929ace407afb2615538c318c5274dc9af740c9cd7d3be",
+      "owner": "Scene playback evidence",
+      "reason": "Record the authored blur control and same-process video retirement with scoped reopening criteria.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
       "section": "bodies",
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0029274a3be58f5e676425da8f08aa483489976b8b964bb07e8e7676f082c8a8",
-      "after": "b2336a3b19acbc2edfa840bd058ad245b4589d7dfca640466fa21f98a92d07cc",
-      "owner": "Scene author playback evidence",
-      "reason": "Close the two scoped visible feedback items with real cover and late clock captures.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-cover-376"
+      "before": "b2336a3b19acbc2edfa840bd058ad245b4589d7dfca640466fa21f98a92d07cc",
+      "after": "9fc65e0825e0acd7071841ea2f7d8831613e30d804f7bdef18b9e4d1ece885ff",
+      "owner": "Scene playback evidence",
+      "reason": "Record the authored blur control and same-process video retirement with scoped reopening criteria.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#project-blur-286"
     }
   ]
 }

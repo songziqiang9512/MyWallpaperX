@@ -95,7 +95,8 @@
 | 3383210272 | [原曲目](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机成熟帧各2颗。[同帧对照](../capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)已将幅值差定位至准备64档，同帧16档支持取峰。暂收口供值研究，转可直接归因的开放项。重启须有可配对的运行端PCM、原始64谱与准备值，沿[设计](../../architecture/system-audio-spectrum-design.md)裁决分析窗及分域，再验原曲目宽双束、闪烁及相邻消费者。不重跑旧板/同WAV或单改取峰、增益和出生。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
-| 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
+| 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3360178853牙口仍待条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
+| 2868108515 | [同场景时间的实播开关](../capabilities/runtime-evidence-current.md#project-blur-286)已排除234726为链左细纹出现的必要条件。暂停重复帧不作归因；重启须有同取景相位的官方差异或具体source→ROI首错，不重复模糊开关或凭条纹改采样。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
@@ -154,7 +155,8 @@
 | 密集预热 · 3337494481 | 剩余是正常配置的完整场景准备成本；[单root隔离收益](../capabilities/runtime-evidence-current.md#coverage)不授整场启动或Rope历史收益。旧普通Debug/可选观测90秒未首帧与优化诊断完成不同配置，不能作性能前后值。后续先核同配置普通播放/预热热点，分离Turbulence数学与可选观测，不重做已退出的大State参数、不删内容、提预算或原样长窗等待。 |
 | 整体CPU高温 / GPU满载 | 先固定设备、构建、输出与真实workload，联合归因，不以历史温度或局部代码变化代替当前测量。 |
 | 3476868923 /3507496797 /3662790108 | 重型内容冷准备与首帧成本；同输入区分model、shader、资源及首Surface装配，不延时限或减少内容冒充优化。 |
-| 3805547608 /3372715909 | [380跨回绕](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)未见逐圈恶化；93复现的四次少供位于AV未给新缓冲，下一帧恢复，暂无同帧可见异常。暂收口，重启须可定位的播放停顿或可判别同帧差异；不重跑同窗、改时钟或增加轮询。337热切后AV驻留独立待核，须同PID精确source退出。 |
+| 3805547608 | [380跨回绕](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)未见逐圈恶化；93复现的四次少供位于AV未给新缓冲，下一帧恢复，暂无同帧可见异常。暂收口，重启须可定位的播放停顿或可判别同帧差异；不重跑同窗、改时钟或增加轮询。 |
+| 3372715909 | [同PID跨场实测](../capabilities/runtime-evidence-current.md#video-residency-337)已判清高Metal分配随旧场退役清除；场内闲置AV对象仍待定位。仅在可重复的物理占用/呈现代价出现时，取该source的实际持有与退出证据；不重跑同一热切窗或再试解绑重建。 |
 | 3749463715 /3420215721 | 观感低帧率、实际提交/呈现率与drop原因分别核对，不从旧计数判断当前预算。 |
 | 3471294034 | 需同输入、同优化配置测实际呈现与瓶颈；本轮并行诊断短窗不作60 FPS或能耗资格。 |
 | 轻重切换 / 多Surface | 同PID资源驻留与第二屏准备成本；先找真实持有owner和重复工作，不预建共享cache。 |
