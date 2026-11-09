@@ -394,5 +394,18 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["color"], [0.2, 0.4, 0.6])
 
 
+    def test_hidden_prototype_prepares_the_requested_full_source_only(self) -> None:
+        for name in ["hiddenSourceRequested", "hiddenSourceWithVisibleSibling"]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertFalse(row["canLower"])
+                self.assertEqual(row["context"], 57)
+        for name in ["hiddenSourceUnrequested", "hiddenSourceNeutral",
+                     "hiddenSourceWithUnsupportedSibling"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

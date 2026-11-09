@@ -125,12 +125,12 @@
       "bytes": 55283
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 266,
-      "bytes": 51592
+      "lines": 268,
+      "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 499,
-      "bytes": 205957
+      "lines": 500,
+      "bytes": 206749
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 50130
+      "bytes": 49839
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,20 +431,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c7d88609fb6094204fca5a7937467a45df807cde5d1dd989ce12a9b23662e723",
-      "after": "6f46432147b173c9e7272fe8debd60d293f41a091d9a137ec738e1c4ad8bd4e7",
+      "before": "6f46432147b173c9e7272fe8debd60d293f41a091d9a137ec738e1c4ad8bd4e7",
+      "after": "c5e858f2b4bfdc1b268d98aa97410f0cf6df54471fd2df5832e149447ea078fb",
       "owner": "Scene shared image source preparation",
-      "reason": "Specify shared source scrolling and target-local authored values.",
+      "reason": "Treat requested hidden full-source prototypes as prepared resources.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shared-source-image-scroll"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bcf278c0187e80cfd2096ae91b17a3d8405cf437521c085937ab0d6a824544e6",
-      "after": "50636b0bbbad36b4e0f924901d845f6454d100e2dd7adfde05060fcbbc036922",
+      "before": "50636b0bbbad36b4e0f924901d845f6454d100e2dd7adfde05060fcbbc036922",
+      "after": "f481ecc5c984593aadf495b84caf3529c682972552033a464dd7603dd7230b46",
       "owner": "Scene shared image source preparation",
-      "reason": "Record the real author cold-enabled ring on the signed build.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-shared-source-ring"
+      "reason": "Record same-surface property updates and independent authored clones against official runtime.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-shared-source-hot"
     },
     {
       "section": "bodies",

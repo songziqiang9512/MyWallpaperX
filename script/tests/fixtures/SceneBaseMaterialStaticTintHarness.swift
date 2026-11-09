@@ -666,6 +666,21 @@ private typealias Descriptor = SceneRenderDescriptor
         var scrollY = Value(rawValue: "-0.09", components: [-0.09])
         value.materialPasses[0].constantShaderValues["slide-y"] = scrollY
         results["renamedScroll"] = output(value, shader: renamedShader)
+        var hiddenSource = value
+        hiddenSource.layers[0].visible = false
+        let requested = Set(["models/independent/paint.json"])
+        results["hiddenSourceRequested"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        results["hiddenSourceUnrequested"] = output(hiddenSource, shader: renamedShader)
+        var siblingOfHidden = hiddenSource.layers[0]
+        siblingOfHidden.id = 58
+        siblingOfHidden.visible = true
+        hiddenSource.layers.append(siblingOfHidden)
+        results["hiddenSourceWithVisibleSibling"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        hiddenSource.layers[1].parentID = 57
+        results["hiddenSourceWithUnsupportedSibling"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        hiddenSource.layers.removeLast()
+        hiddenSource.materialPasses[0].constantShaderValues = ["pigment-key": nonwhite]
+        results["hiddenSourceNeutral"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
         scrollY.userBinding = "motion"; scrollY.userValueKind = .string
         scrollY.bindingKeys = ["user", "value"]
         value.materialPasses[0].constantShaderValues["slide-y"] = scrollY

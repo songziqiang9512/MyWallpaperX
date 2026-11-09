@@ -48,13 +48,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let dynamicPaths = Set(dynamicImageModelPaths.map(normalized))
         let modelPaths = dynamicPaths.union(descriptor.layers.compactMap(\.imagePath).map(normalized))
         return modelPaths.sorted().compactMap { modelPath in
+            let hasDynamicImageDemand = dynamicPaths.contains(modelPath)
             guard let result = binding(
                 modelPath: modelPath,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
+                hasDynamicImageDemand: hasDynamicImageDemand,
                 admittedLayerColorConsumerIDs:
                     admittedLayerColorConsumerIDs
-            ), result.scriptSource == nil || dynamicPaths.contains(modelPath) else { return nil }
+            ), result.scriptSource == nil || hasDynamicImageDemand else { return nil }
             return result
         }
     }
@@ -63,6 +65,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         modelPath: String,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
+        hasDynamicImageDemand: Bool,
         admittedLayerColorConsumerIDs: Set<Int>
     ) -> Binding? {
         let links = descriptor.modelMaterialLinks.filter {
@@ -97,13 +100,14 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let sourceLayers = descriptor.layers.filter {
             $0.imagePath.map(normalized) == normalized(modelPath)
         }
+        let hasHiddenSource = sourceLayers.contains { $0.visible == false }
         // Validate every consumer before selecting the authored context. A
         // filtered subset could silently skip the first reference or apply the
         // shared value to an unsupported sibling. No per-layer material copy.
-        guard let sourceLayer = sourceLayers.first, sourceLayers.allSatisfy({ layer in
+        guard let sourceLayer = sourceLayers.first, !hasHiddenSource || hasDynamicImageDemand,
+              sourceLayers.allSatisfy({ layer in
             if case .some = layer.utilityLayer { return false }
             return layer.contentKind == "image"
-                && layer.visible != false
                 && layer.puppetMeshPath == nil
                 && layer.staticModelPath == nil
                 && layer.staticBaseTexturePath == nil
@@ -230,9 +234,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }) else { return reject(modelPath, "source-layer-consumer") }
         // A lowered tint needs the direct compositor consumer. A full source
         // Program publishes before each layer's independent effect suffix.
-        guard !canLowerToCompositor || sourceLayers.allSatisfy({
+        guard !canLowerToCompositor || (!hasHiddenSource && sourceLayers.allSatisfy({
             $0.effects.isEmpty && admittedLayerColorConsumerIDs.contains($0.id)
-        }) else { return reject(modelPath, "source-layer-consumer") }
+        })) else { return reject(modelPath, "source-layer-consumer") }
         guard SceneResolvedMaterialHostUniformSchema.resolve(
             .init(name: fact.alphaUniformName, stage: .fragment, type: .float, offset: 0),
             activeTextureSlots: [0]
