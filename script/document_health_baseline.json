@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 57378
+      "bytes": 57482
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 275,
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 550,
-      "bytes": 226065
+      "lines": 551,
+      "bytes": 227158
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 47901
+      "bytes": 47930
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,11 +431,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a2222c9638c29fd27deab859fd34d635fb277d401c70699a549ef7a1c78872d0",
-      "after": "201e5a85b1720d9f0c862194ad2c42e3558a47ad6800f0ee82686c3e20751fcd",
-      "owner": "Scene ordinary video playback",
-      "reason": "Qualify the bounded reproduced AV no-new-buffer cases and explicit stopping conditions.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+      "before": "201e5a85b1720d9f0c862194ad2c42e3558a47ad6800f0ee82686c3e20751fcd",
+      "after": "c5880024e23716589c7f22e3fa4003511d48c6ccaea23128c89d12e68b46e318",
+      "owner": "Scene particle prewarm",
+      "reason": "Record the measured AlphaFade array borrow, frozen state equivalence, and real author startup comparison.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
@@ -449,20 +449,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "2605200f396d754c6adafc17def177bf2769fce74c556a35ce30a9521b8e8507",
-      "after": "b5d91346794c16953826478f504f2aea5ffe494862292472272981d93d2a5a90",
-      "owner": "Scene particle collision bounds",
-      "reason": "Record the qualified 2D physics input and ordered consumer design.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#bounds-collision"
+      "before": "ceeb56abe11c2c9feb70419410a8b24389712def0a6cf2fdd2af8e956a0576a2",
+      "after": "1d8330842a7c85e333538bf31f3f4973637c66fe748f2a8073bbd86d30257f4b",
+      "owner": "Scene particle prewarm",
+      "reason": "Record the measured AlphaFade array borrow, frozen state equivalence, and real author startup comparison.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "99e2cfdcd7936704342a11a04967f27673d03e903b95a26d4729205b67e9fbd8",
-      "after": "ea3fe775bcd385ffc7908a8de386b3ce5a38fe81996b7a9c168bdaa9d8f1387f",
-      "owner": "Scene ordinary video playback",
-      "reason": "Qualify the bounded reproduced AV no-new-buffer cases and explicit stopping conditions.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ordinary-video-loop-380"
+      "before": "ea3fe775bcd385ffc7908a8de386b3ce5a38fe81996b7a9c168bdaa9d8f1387f",
+      "after": "ab9eaad260d1f82a533346037710e75a2779f1b6dbbd90a620f561913522e678",
+      "owner": "Scene particle prewarm",
+      "reason": "Record the measured AlphaFade array borrow, frozen state equivalence, and real author startup comparison.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-alpha-fade-borrow"
     }
   ]
 }

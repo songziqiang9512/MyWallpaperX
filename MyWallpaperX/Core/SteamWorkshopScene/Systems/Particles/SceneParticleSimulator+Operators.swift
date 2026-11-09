@@ -93,17 +93,19 @@ nonisolated extension SceneParticleSimulator {
 #endif
                 break
             }
-            for index in particles.indices {
-                let life = normalizedLives[index]
-                if life <= fadePlan.fadeIn {
-                    particles[index].alpha *= SceneParticleSimulationMath.changeAmount(
-                        life, 0, fadePlan.fadeIn
-                    )
-                }
-                if life > fadePlan.fadeOut {
-                    particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
-                        life, fadePlan.fadeOut, 1
-                    )
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    let life = normalizedLives[index]
+                    if life <= fadePlan.fadeIn {
+                        buffer[index].alpha *= SceneParticleSimulationMath.changeAmount(
+                            life, 0, fadePlan.fadeIn
+                        )
+                    }
+                    if life > fadePlan.fadeOut {
+                        buffer[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
+                            life, fadePlan.fadeOut, 1
+                        )
+                    }
                 }
             }
 #if DEBUG
