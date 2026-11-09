@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 175,
-      "bytes": 29183
+      "bytes": 29689
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 112,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 48940
+      "bytes": 49102
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,11 +431,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "078ef11d8d842e7d20c6b6bbead8d69f2ad361e722a1e86bc85dda5409174153",
-      "after": "bb740bf866584f63b01ee8528c8b55ece898555a2544f0f5fa189191c088a65d",
+      "before": "bb740bf866584f63b01ee8528c8b55ece898555a2544f0f5fa189191c088a65d",
+      "after": "23f8d2cc200b098e7c7cb0eed0710b34903cbee993ff12f45e17c0c63e444889",
       "owner": "SceneScript ValueHost",
-      "reason": "Record owner-local property input and preservation of script writes on stable callbacks.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#script-instance-property-input"
+      "reason": "Record the typed scalar property return contract (JS ToNumber for strings/Bool; array/object rejection).",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#contract"
     },
     {
       "section": "bodies",
@@ -476,11 +476,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7518a9a640f4220c23f4f117476513e55239722dff6c2503474971c1674d64d9",
-      "after": "838d8c6d6627c0ab2d7f3a29fb69271b17af4d4719d9a4885868f99ec359e867",
+      "before": "838d8c6d6627c0ab2d7f3a29fb69271b17af4d4719d9a4885868f99ec359e867",
+      "after": "49f7d271df93266e43df15a3395df6570ba21e731266735f8c237b5674e62e11",
       "owner": "Scene open queue",
-      "reason": "Record the per-frame split activation gate and the remaining bypass-history checks.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "reason": "Record the 531.alpha Number status and the scalar return contract on the alpha row; keep 225 attribution and official behavior open.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
     }
   ]
 }

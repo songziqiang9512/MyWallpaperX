@@ -835,6 +835,20 @@ static MWXSceneQuickJSResult call_primitive(
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_OK;
     }
+    if (!boolean_value && !JS_IsNumber(result)
+        && !JS_IsString(result) && !JS_IsBool(result)) {
+        // Scalar properties accept Number, a string convertible to a finite
+        // Number, or Bool. Arrays/objects (a Vec3, or [] that would become 0)
+        // keep the current value and report a data-shaped failure instead of
+        // being coerced through JS ToNumber.
+        *output = input;
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "callback returned non-scalar value"
+        );
+        JS_FreeValue(domain->context, result);
+        return MWX_SCENE_QUICKJS_BAD_RETURN;
+    }
     double value = 0;
     int conversion = -1;
     if (boolean_value) {

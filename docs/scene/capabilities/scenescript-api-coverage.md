@@ -5,7 +5,7 @@
 <a id="contract"></a>
 ## 作者合同与运行模型
 
-SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。`update` 可选，只有实际导出的 update consumer 进入逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
+SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方 numeric-string/Bool 与错型行为未证，不授官方 parity）：数值标量接受 Number、可转有限数的字符串与 Bool（字符串/Bool 仍按 JS ToNumber 转成数值）；数值标量的数组/对象（含 Vec3）保留当前值并报 typed bad-return，不做 JS 强转（`[]` 不再变成 0）；`undefined`/无返回保留当前值，`null` 拒绝；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。`update` 可选，只有实际导出的 update consumer 进入逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
 
 当前使用真实 QuickJS-NG、模块解析和同一 domain 的 heap；不以源码形状、小解释器或 Swift 字典复制 JS 对象。绑定记录 source、owner、target、作者初值及值类型；模块、shared、闭包和脚本 owner 是不同寿命对象。
 
