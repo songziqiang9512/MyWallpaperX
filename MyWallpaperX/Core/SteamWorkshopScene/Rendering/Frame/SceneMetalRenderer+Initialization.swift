@@ -5,6 +5,7 @@ import simd
 
 extension SceneMetalRenderer {
     var hasPreparedReflectionConsumers: Bool {
+        if !staticModelResources.reflectiveLayerIDs.isEmpty { return true }
         if baseMaterialProviderBindings.lightingProfileByLayerID.values.contains(where: {
             $0.reflection != nil
         }) {

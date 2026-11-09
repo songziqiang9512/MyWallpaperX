@@ -92,9 +92,9 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 /3470948192 | 244 的 origin/scale、115 的 scale 早期坏 return 后都有 finite 成功。当前用户反馈沿实际星球、发光体、深度、受光和星轨文字逐项定位。 |
-| 3453730450 | [作者时钟入场](../capabilities/runtime-evidence-current.md#authored-clock-intro-345)经常规预览复核仍可见，连同月球、背面文字和轨道。单次低观测导出灰图仅保为导出差异。按反馈核发光体与遮挡体的实际输出。 |
-| 3662790108 | [自然时钟仍缺星轨标签](../capabilities/runtime-evidence-current.md#world-orbit-labels)。先查太阳标签合成时的 alpha、世界投影四角及深度。已证实际 TEX 与主画布绘制，原 OrbitA/B 与517→tail/main 供货无需重查。点选问题等具体目标后再开。 |
+| 3455121165 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)已出太阳和多颗行星，八条共享环纹理的轨道存在锐利截断，时钟和星期仍缺。先用隔离包关轨道写深度，核轨道连续和实体遮挡，再决定贴图深度语义。 |
+| 3453730450 | [普通预览](../capabilities/runtime-evidence-current.md#world-model-sample-triage)可见月球、时钟和背面文字，盘外右上缺官方截图的光。下一步隔离作者点灯39的体积开关，保月面直接受光和背景效果。低观测灰图保为独立导出差异。 |
+| 3662790108 | [自然时钟仍缺星轨标签](../capabilities/runtime-evidence-current.md#world-orbit-labels)。优先用隔离包关前方光晕1349的写深度，保深度测试和原透明度，再按需要区分标尺1011。原 TEX 和 OrbitA/B 与517→tail/main 供货无需重查。点选问题等具体目标后再开。 |
 
 ### 基础画面与基本交互优先
 

@@ -442,6 +442,7 @@ extension SceneMetalRenderer {
                 let lit = drawStaticModel(layer: layer, state: modelFrame,
                     worldFrames: frameWorldFrames, frameContext: frameContext,
                     cameraFrame: cameraFrame, lighting: frameLightSnapshot,
+                    reflection: layerMainPass === mainPass ? reflection.preparedEnvironment : nil,
                     pass: layerMainPass, commandBuffer: commandBuffer, leases: &frameDepthLeases)
                 if let reason = modelFrame.depthDeferralReason {
                     compositionGroupRuntime?.closeAllGroupEncoders()

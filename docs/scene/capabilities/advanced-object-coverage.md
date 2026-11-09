@@ -16,6 +16,15 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 源码：[静态模型资源](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)、[DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)。
 
+<a id="static-model-screen-reflection"></a>
+### 静态模型的屏幕反射
+
+内置 `generic4` 的 `REFLECTION` 可用原 mesh 世界法线、视向和主画布片元位置读取场景反射。材质准备保留本路径实际消费的静态 reflectivity、roughness 与 metallic。采样以屏幕偏移、边界淡出和粗糙度 mip 表达，再按材质视角响应加入 HDR 亮度、雾及覆盖所在的原终端顺序。先接主画布的几何法线和标量材质，法线/分量图、外部反射纹理、绑定值及局部组反射分别保留待证。光照和反射独立，缺反射输入时继续原模型颜色与深度。
+
+反射沿现有 Surface 的 ReflectionFrame 读前一完成的主画布颜色，复用同一 mip 纹理、预算、失效与提交 pin。只有可见且已准备的接收者触发需求。命名颜色仍在原图层位置供货。若当前只有主模型深度域，后到的命名颜色可与已确定可画的反射模型共用这一域。保护既有必需终端及捕获容量后再取得可选 history，部分证明不发布完整模型 draw set。组、深度写粒子、未保留容量的命名供货和命名 shadow 留原容量顺序。首帧、尺寸/代次更换或容量不足只缺本帧反射。
+
+用同一原生帧的反射开关、遮挡与背景控制区核实际模型像素，覆盖同帧上游命名颜色晚供货、首帧和稳定帧。独立样本保原反射消费者与无反射模型。真实作者水滴以固定取景核边缘及尖端，官方开关对照区分材质反射和全屏后处理。
+
 
 <a id="model-subtree-raster"></a>
 ## 模型的局部合成

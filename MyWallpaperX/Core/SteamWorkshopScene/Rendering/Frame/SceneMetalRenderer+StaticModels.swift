@@ -227,13 +227,15 @@ extension SceneMetalRenderer {
     func drawStaticModel(layer: SceneRenderDescriptor.Layer, state: StaticModelFrame,
                          worldFrames: [Int: simd_float4x4], frameContext: SceneFrameContext,
                          cameraFrame: SceneParticleCameraFrame, lighting: SceneLightSnapshot,
+                         reflection: SceneFrameTextureResource? = nil,
                          pass: SceneMainPassEncoder, commandBuffer: MTLCommandBuffer,
                          leases: inout [SceneParticleDepthTargetLease]) -> Bool {
         guard let pipeline = staticModelResources.pipeline else { return false }
         let draws = state.prepared?[layer.id]
             ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues, state: state) ?? []
+        let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
         let viewProjection = pass.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
-            usesPerspective: cameraFrame.resolvesPerspective(for: layer)))
+            usesPerspective: usesPerspective))
         let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
         for draw in draws {
@@ -241,6 +243,8 @@ extension SceneMetalRenderer {
                 device: device, commandBuffer: commandBuffer, leases: &leases)
             if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
             guard let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer) else { continue }
+            let environment = usesPerspective && pipeline.supportsReflection
+                && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0 ? reflection : nil
             let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
                 emissiveMask: draw.entry.emissiveMask?.texture,
@@ -255,6 +259,7 @@ extension SceneMetalRenderer {
                 layerAlpha: draw.alpha, material: draw.material,
                 materialColorIsOpaque: draw.entry.materialBlending == .normal, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
+                reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
 #if DEBUG
             if let trace = pass.compositionTrace, trace.isCompositionSelected {
@@ -264,6 +269,12 @@ extension SceneMetalRenderer {
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",
                     reason: "model-internal-material-bindings-not-observed"))
+                if encoded, let environment,
+                   case let .provider(.sceneEnvironment(_, _, producer)) = environment.publication.candidate.identity {
+                    trace.recordComposition(.init(kind: "model-reflection", layerID: layer.id, slot: 6,
+                        source: .init(environment.publication.texture, role: "scene-environment"),
+                        target: pass.compositionTarget, details: ["producerFrameIndex": String(producer.frameIndex)]))
+                }
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
                 let w = draw.world

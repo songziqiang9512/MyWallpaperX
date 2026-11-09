@@ -340,8 +340,20 @@ extension SceneMetalRenderer {
                 groups: compositionGroupRuntime, state: modelFrame)) : nil
         // All callers inspect the same pre-source image/plan facts. Preserve
         // their short cuts while avoiding duplicate reflection-demand scans.
+        let hasReadyReflectiveModel = staticModelResources.reflectiveLayerIDs.contains { id in
+            guard frameVisibleLayerIDs.contains(id),
+                  frameProjection.utilityExecution.memberRootsByLayerID[id] == nil,
+                  !staticModelResources.namedAlbedoLayerIDs.contains(id),
+                  let layer = frameLayersByID[id], cameraFrame.resolvesPerspective(for: layer)
+            else { return false }
+            let draws = modelFrame.prepared?[id] ?? staticModelDraws(layer: layer,
+                worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues, state: modelFrame)
+            return draws?.contains {
+                $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
+            } == true
+        }
         var reflectionDemand: Bool?
-        func requiresReflection() -> Bool {
+        func requiresImageReflection() -> Bool {
             if let reflectionDemand { return reflectionDemand }
             let needed = hasReflectionConsumers(imageTextures: imageTextures,
                 framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
@@ -353,17 +365,18 @@ extension SceneMetalRenderer {
             clearEnabled: frameDescriptor.camera.clearEnabled,
             hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,
             hasSourceMaterials: imageCompositor.resolvedMaterialRuntime?.sourceMaterials.isEmpty == false,
-            requiresReflection: requiresReflection) ?? .textureSource
+            requiresReflection: requiresImageReflection) ?? .textureSource
         var scratchReady = false
         var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
-            requiresReflection: requiresReflection,
+            requiresReflection: { hasReadyReflectiveModel || requiresImageReflection() },
             pool: pool, imageTextures: imageTextures,
             frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
             visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
             worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
             terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
+                && displayMappingInput == .textureSource
                 ? (drawable.texture.width, drawable.texture.height) : nil,
             commandBuffer: commandBuffer) {
             optionalScratch = targets; scratchReady = true
@@ -398,16 +411,9 @@ extension SceneMetalRenderer {
             // The late named-shadow owner prepares its own ordered depth set.
             // Do not pre-acquire leases that it would replace on this frame.
             if !preparesNamedModelShadow,
-               requiresReflection(),
+               hasReadyReflectiveModel || requiresImageReflection(),
                let pool = offscreenTexturePool,
-               let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
-                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
-                snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime, state: modelFrame),
-               prepareMandatoryDepth(state: modelFrame, candidates: candidates,
-                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
-                batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime,
-                commandBuffer: commandBuffer, leases: &frameDepthLeases),
+               prepareReflectionDepth(),
                prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
                 dynamicValues: frameContext.dynamicValues),
                prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
@@ -423,6 +429,29 @@ extension SceneMetalRenderer {
             reflection.admit(targets, sceneColor: history)
             // history is assigned only after the complete mandatory-capacity gate.
             if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
+        }
+        func prepareReflectionDepth() -> Bool {
+            if let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+                snapshot: frameContext.dynamicValues, groups: groups, state: modelFrame) {
+                return prepareMandatoryDepth(state: modelFrame, candidates: candidates,
+                    orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                    batches: particleBatchesByID, particlePipeline: particlePipeline,
+                    mainPass: mainPass, groups: groups,
+                    commandBuffer: commandBuffer, leases: &frameDepthLeases)
+            }
+            // Named graph colors can arrive after this reservation. The
+            // ready reflector and those models use one mandatory root depth.
+            guard groups == nil, hasReadyReflectiveModel,
+                  !particleBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }),
+                  !dependencyRuntime.plan.requiredProviderLayerIDs.contains(where: { id in
+                      dependencyRuntime.requiresCapture(for: id,
+                        activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs)
+                          && (resolvedMaterialFrameTargetPlans[id] == nil
+                              || !dependencyRuntime.requiresGraphOutputCapture(for: id))
+                  }) else { return false }
+            return modelFrame.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &frameDepthLeases).lease != nil
         }
         if let reason = modelFrame.depthDeferralReason {
             compositionGroupRuntime?.closeAllGroupEncoders()

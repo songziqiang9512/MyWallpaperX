@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 126,
-      "bytes": 22946
+      "lines": 135,
+      "bytes": 24512
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 567,
-      "bytes": 242425
+      "lines": 569,
+      "bytes": 244183
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 47338
+      "bytes": 47483
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,20 +458,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "03988477c02ac393db157429327767d6cb462d0ea41edb352ce1fbf3c185322e",
-      "after": "2ad5c5b82d2e1e75f22c9e36613c23fdc3459ec0d47f34e66acf6d931c936d1d",
-      "owner": "Scene world composition",
-      "reason": "Record bounded transparency order and the single depth domain.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+      "before": "2ad5c5b82d2e1e75f22c9e36613c23fdc3459ec0d47f34e66acf6d931c936d1d",
+      "after": "b345e9601f96b08c1d45178e835a53ed57178834b8c4d53e100739dda1424200",
+      "owner": "Scene model material and ReflectionFrame",
+      "reason": "Specify the model surface reader and the shared optional history.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#static-model-screen-reflection"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "16053a4788e79e7f66e207a717e99b71ea471b65a1829eaf351d528836537adb",
-      "after": "4855d9f3f388e76e0bb9fcaad2214364174468df351b7b3bc2b3e0bfa7bba624",
+      "before": "4855d9f3f388e76e0bb9fcaad2214364174468df351b7b3bc2b3e0bfa7bba624",
+      "after": "cf075204ca12f904cd1fe03743ad67b540809e79005cd806c23c434fce1de6df",
       "owner": "Scene runtime evidence",
-      "reason": "Retain signed output, independent sky control and the open orbit-label frame.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#world-terminal-depth"
+      "reason": "Record the original author scenes, official switch and controlled GPU observations.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-screen-reflection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "cf28eeba693fe74626f87f16051855a61ca4db514674a016a874cf0250a4b9d0",
+      "after": "dc36b519f42d1f4202ede558815011d6809c2cbd3b96e87c390e301ffb3d919b",
+      "owner": "Scene open queue",
+      "reason": "Replace broad world model reports with actual reproducers and the next single-variable controls.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }

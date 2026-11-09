@@ -16,6 +16,7 @@ extension SceneMetalRenderer {
         private var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
         private(set) var scratchReady = false
         var mainSourceCompleted = false
+        var preparedEnvironment: SceneFrameTextureResource? { resource }
 
         var snapshot: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation? {
             history?.intent == .snapshot ? history : nil

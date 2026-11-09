@@ -66,15 +66,17 @@ struct ScenePreparedStaticModelResources {
     private let entriesByLayerID: [Int: [Entry]]
     private let animationsByLayerID: [Int: Animation]
     let namedAlbedoLayerIDs: Set<Int>
+    let reflectiveLayerIDs: Set<Int>
 
     private init(pipeline: SceneStaticModelPipeline?, entriesByLayerID: [Int: [Entry]],
-                 animationsByLayerID: [Int: Animation] = [:]) {
+                 animationsByLayerID: [Int: Animation] = [:], reflectiveLayerIDs: Set<Int> = []) {
         self.pipeline = pipeline
         self.entriesByLayerID = entriesByLayerID
         self.animationsByLayerID = animationsByLayerID
         namedAlbedoLayerIDs = Set(entriesByLayerID.compactMap {
             $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil
         })
+        self.reflectiveLayerIDs = reflectiveLayerIDs
     }
 
     static let empty = ScenePreparedStaticModelResources(
@@ -109,12 +111,7 @@ struct ScenePreparedStaticModelResources {
     ) throws -> ScenePreparedStaticModelResources {
         try withoutActuallyEscaping(cancellationCheck) { cancellationCheck in
             let layers = descriptor.layers.filter { $0.staticModelPath != nil }
-            guard !layers.isEmpty,
-                  let pipeline = SceneStaticModelPipeline(
-                      device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat
-                  ) else {
-                return .empty
-            }
+            guard !layers.isEmpty else { return .empty }
 
             struct PreparedGeometry {
                 let materialPath: String
@@ -150,7 +147,8 @@ struct ScenePreparedStaticModelResources {
                     // Material links and geometry use the one completed CPU
                     // snapshot. This owner only uploads it; it never rereads.
                     preparedGeometries = source.parts.compactMap { part in
-                        guard let mesh = pipeline.makeMesh(model: part) else { return nil }
+                        guard let mesh = SceneStaticModelPipeline.makeMesh(model: part, device: device)
+                        else { return nil }
                         return PreparedGeometry(
                             materialPath: part.materialPath,
                             mesh: mesh,
@@ -269,10 +267,18 @@ struct ScenePreparedStaticModelResources {
                 }
             }
 
+            guard !entries.isEmpty else { return .empty }
+            let reflectiveLayerIDs = Set(entries.compactMap { id, parts in
+                parts.contains { ($0.material.surfaceProfile?.reflectivity ?? 0) > 0 } ? id : nil
+            })
+            guard let pipeline = SceneStaticModelPipeline(
+                device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
+                preparesReflection: !reflectiveLayerIDs.isEmpty) else { return .empty }
             return ScenePreparedStaticModelResources(
-                pipeline: entries.isEmpty ? nil : pipeline,
+                pipeline: pipeline,
                 entriesByLayerID: entries,
-                animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 }
+                animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 },
+                reflectiveLayerIDs: pipeline.supportsReflection ? reflectiveLayerIDs : []
             )
         }
     }
@@ -426,8 +432,9 @@ struct ScenePreparedStaticModelResources {
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
         resourceView: SceneResourceView
     ) -> SceneStaticModelSurfaceProfile? {
+        let authoredReflection = pass.combos["REFLECTION"] == 1
         guard pass.shaderPath?.localizedLowercase == "generic4",
-              pass.combos["LIGHTING"] != 0,
+              pass.combos["LIGHTING"] != 0 || authoredReflection,
               pass.userShaderValues["metallic"] == nil,
               pass.userShaderValues["roughness"] == nil,
               let metallic = SceneMaterialPropertyBindingCompiler.staticComponents(
@@ -444,9 +451,24 @@ struct ScenePreparedStaticModelResources {
                 return nil
             }
         }
+        let reflectivity: Double
+        if authoredReflection,
+           pass.combos["NORMALMAP"] == 0 || (pass.combos["NORMALMAP"] == nil
+                && (pass.textureSlots.count < 2 || pass.textureSlots[1] == nil)),
+           (pass.combos["METALLIC_MAP"] ?? 0) == 0, (pass.combos["ROUGHNESS_MAP"] ?? 0) == 0,
+           (pass.combos["REFLECTION_MAP"] ?? 0) == 0,
+           pass.textureSlots.count < 4 || pass.textureSlots[3] == nil
+                || pass.textureSlots[3] == "_rt_MipMappedFrameBuffer",
+           pass.userShaderValues["reflectivity"] == nil {
+            reflectivity = SceneMaterialPropertyBindingCompiler.staticComponents(
+                "reflectivity", instance: nil, pass: pass, count: 1, fallback: [1],
+                requiresCompleteScalar: true)?.first ?? 0
+        } else { reflectivity = 0 }
+        guard pass.combos["LIGHTING"] != 0 || reflectivity > 0 else { return nil }
         return .init(
             metallic: Float(min(1, max(0, metallic))),
-            roughness: Float(min(1, max(0, roughness)))
+            roughness: Float(min(1, max(0, roughness))),
+            reflectivity: Float(min(1, max(0, reflectivity)))
         )
     }
 
