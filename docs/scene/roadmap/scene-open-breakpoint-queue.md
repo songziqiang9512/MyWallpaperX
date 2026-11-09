@@ -155,7 +155,8 @@
 | 密集预热 · 3337494481 | 剩余是正常配置的完整场景准备成本；[单root隔离收益](../capabilities/runtime-evidence-current.md#coverage)不授整场启动或Rope历史收益。旧普通Debug/可选观测90秒未首帧与优化诊断完成不同配置，不能作性能前后值。后续先核同配置普通播放/预热热点，分离Turbulence数学与可选观测，不重做已退出的大State参数、不删内容、提预算或原样长窗等待。 |
 | 整体CPU高温 / GPU满载 | 先固定设备、构建、输出与真实workload，联合归因，不以历史温度或局部代码变化代替当前测量。 |
 | 3476868923 /3507496797 /3662790108 | 重型内容冷准备与首帧成本；同输入区分model、shader、资源及首Surface装配，不延时限或减少内容冒充优化。 |
-| 3805547608 /3372715909 | 视频越播越卡与热切后AV对象驻留，需当前普通播放、精确source退出和可比时序。 |
+| 3805547608 /3372715909 | [380跨回绕](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)未重现逐圈恶化，已定位93短源一圈内间歇少供。只有缺帧可复现并能取同帧AV选帧、导入、发布及实际贡献，才修对应边界；不改全局时钟。337热切后AV驻留独立待核，须同PID精确source退出。 |
+| 普通视频关闭效果的复制 | 380/93、99单effect关闭时仍持续source capture及pair copy，实际帧和计数见[原收据](../capabilities/runtime-evidence-current.md#ordinary-video-loop-380)。先核保留相同source capture、颜色、尺寸与终端时能否退局部复制，隔离实际named/history/后继读取与热启用。固定pair member仍有消费，未获等价性前不直接换raw视频或通放alias。 |
 | 3749463715 /3420215721 | 观感低帧率、实际提交/呈现率与drop原因分别核对，不从旧计数判断当前预算。 |
 | 3471294034 | 需同输入、同优化配置测实际呈现与瓶颈；本轮并行诊断短窗不作60 FPS或能耗资格。 |
 | 轻重切换 / 多Surface | 同PID资源驻留与第二屏准备成本；先找真实持有owner和重复工作，不预建共享cache。 |
