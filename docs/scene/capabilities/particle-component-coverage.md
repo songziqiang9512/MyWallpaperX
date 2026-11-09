@@ -129,12 +129,23 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 
 验收核真实Parser/Simulator的几何、factor/slide、顺序、改名/无关metadata、球外/出向、坏数值/零径向及健康peer；再经原Runtime→生产Metal核可定位几何与像素，复测真实作者及独立邻例并保Plane回归。实际接触及最终贡献未到达时不得以识别/批次数宣称恢复；更复杂world/child、动态CP、连续碰撞和死亡事件仍需独立资格。
 
+<a id="bounds-collision"></a>
+### 壁纸边界碰撞的实现合同
+
+目标是使正交平面中带 `collisionbounds` 的局部坐标根粒子系统在作者画布边缘回弹。已实测原作者的粒子穿过画布边界，固定官方客户端的无参数对照在右边界出现保留切向的回弹，速度约为入向法向的一半。当前仍由原 Simulator 跳过未知算子，实际对照和范围见[运行证据](runtime-evidence-current.md#particle-bounds-oracle)。
+
+沿原 Parser 在冷准备识别该算子。Runtime 仅在实际需要边界的根实例上，把作者正交画布尺寸和原粒子中心使用的世界变换汇合一次。初始预热使用准备时的有效世界矩阵，运行使用当帧世界矩阵，含既有粒子局部 Y 换向。物理边界使用画布范围，窗口取景和鼠标视差继续由渲染处理。Simulation 在作者顺序的原位置消费，按画布坐标纠正越界中心，只反射出界方向的法向速度，保切向和已朝内的速度，再将结果映回同一模拟空间。缺省采用 0.5；用有界轨迹选择响应类和量级，接触步的具体位置仍由原固定步进决定。
+
+实现不增加状态时钟、第二份粒子空间、帧内图重建或全系统扫描。平面逆变换在供货处计算一次，单粒子在界内直接返回，原 Z 保留。不能取得合法画布或同空间变换时仅跳过该算子并保 Movement、Fade 与其他系统。优先接通作者缺省输入，显式 Bounce/Slide、控制点锁定、旋转停止、Stop/Delete、General 世界空间、子系统和非平面作用各随可区分证据扩展。
+
+验收用真实 Parser/Simulator 复现作者 891 的同 ID 入向越界和反弹，核画布边界、切向、朝内、未碰触、同顺序与改名，以及缩放/旋转、预热和无有效画布的反例。经原 Runtime→生产 Metal 验证固定输入的轨迹与最终像素，原作者须保原折射材质、显隐和主景；独立作者至少复测相邻 Sphere/Plane 和原相机取景。官方右边界控制只限定已测行为，不用于拟合作者画面。
+
 <a id="operators"></a>
 ## 需要保留的数值边界
 
 - Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
-- Plane Collision消费原准备平面；静态Sphere的范围由[球体合同](#sphere-collision)维护。wallpaper Collision Bounds仍缺实际边界供货和缺省响应资格，不能拿emitter范围或自然affine反弹代替。
+- Plane Collision消费原准备平面；静态Sphere由[球体合同](#sphere-collision)维护。壁纸画布边界的实现范围归[Bounds合同](#bounds-collision)。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
 - Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。
 - Position Around 使用同一粒子空间中的实际出生位置与目标控制点之差。轴向投影保留出生所在的轴向平面，垂轴分量给出半径；绑定只决定实际出生位置。斜轴以局部负 Z 在垂轴平面的投影为零相位，正交切向按作者轴取向；正负 Z 两极均从正 Y 向正 X 起转。速度的 X/Y/Z 分量分别进入同相位的切向、径向和带符号轴向，保留原出生抽样与叠加顺序。以同一对正弦、余弦求位置和速度，退役独立的速度旋转。Mirror、极近轴数值边界及完整动态相位仍待资格。

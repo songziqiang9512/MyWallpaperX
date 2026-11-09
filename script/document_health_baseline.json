@@ -121,16 +121,16 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 287,
-      "bytes": 55587
+      "lines": 298,
+      "bytes": 57643
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 268,
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 515,
-      "bytes": 214992
+      "lines": 522,
+      "bytes": 216421
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48200
+      "bytes": 48125
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -412,15 +412,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "1015300dd366e6bc3f5de1de446e6c1d2c669a8f0a2d524bb867afac25d4c223",
-      "after": "2605200f396d754c6adafc17def177bf2769fce74c556a35ce30a9521b8e8507",
-      "owner": "Scene particle simulation",
-      "reason": "Describe stable death removal in the existing Simulator contract.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
       "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
@@ -448,21 +439,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fa661aef5975d64ea94fe4d54879bd5c1bd2329de8a6e0bee6693e9f6233b475",
-      "after": "624aa5ea37c47a339bdf059ca9c1afb3830c551a9d47ce076894515e9715e1a8",
-      "owner": "SceneScript ValueHost",
-      "reason": "Record authored track and typed live property behavior from the same signed app.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "078ef11d8d842e7d20c6b6bbead8d69f2ad361e722a1e86bc85dda5409174153",
       "after": "bb740bf866584f63b01ee8528c8b55ece898555a2544f0f5fa189191c088a65d",
       "owner": "SceneScript ValueHost",
       "reason": "Record owner-local property input and preservation of script writes on stable callbacks.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#script-instance-property-input"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "2605200f396d754c6adafc17def177bf2769fce74c556a35ce30a9521b8e8507",
+      "after": "b5d91346794c16953826478f504f2aea5ffe494862292472272981d93d2a5a90",
+      "owner": "Scene particle collision bounds",
+      "reason": "Record the qualified 2D physics input and ordered consumer design.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#bounds-collision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "624aa5ea37c47a339bdf059ca9c1afb3830c551a9d47ce076894515e9715e1a8",
+      "after": "b3b615041dbac78cb9be3f35e95c4fc773e0d22358b5b6b18ae1c8a25ec759a5",
+      "owner": "Scene particle collision bounds",
+      "reason": "Record observed right-edge rebound and a production author crossing.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-bounds-oracle"
     }
   ]
 }

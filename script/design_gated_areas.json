@@ -441,9 +441,9 @@
       "id": "scene-particle-collision-bounds",
       "title": "粒子壁纸边界碰撞",
       "owner": "scene-particle",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "碰撞bounds的坐标、缩放及行为语义尚未形成可实施设计，保持未批准。",
+      "design_notes": "docs/scene/capabilities/particle-component-coverage.md#bounds-collision: the existing Runtime supplies the authored orthographic canvas and particle transform to the ordered Simulator. The default uses a half-speed normal rebound with tangential velocity retained. Viewport, parallax and unavailable modes remain outside this physics input. Approval covers the implementation design only.",
       "matchPatterns": [],
       "contentPatterns": [
         "SceneParticleCollisionBounds",

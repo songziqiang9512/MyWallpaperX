@@ -164,6 +164,13 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 | Child声明与无CP的death叶子 | 原ChildGraphExpansion按实际CP消费者准备，非零未解释flags不再一律拒绝无CP leaf；start index不独立启用绑定，合同见[声明选项](particle-component-coverage.md#child-declaration-options)。固定官方2.8.0.42的flags0/1无CP三点L在真实death及父死亡后平移中等位稳定；flags0/start1保静态CP半径正控，另一CP目标白蓝重合，绑定源和位义仍未知。4项Runtime方法新Debug/Release实跑通过：含9类真实typed reader的局部拒绝、被动index、Sphere无关CP333、改名、人口/位置、原快照重试和健康peer；另9项production Metal方法真实通过，新增3个noCP声明变体的实际vertex及PMA(128,128,128,128)、clear/green读回成立；Metal未覆盖CP绑定场，不借其授资格。最终签名Debug exec `afbbe677abdb7ebaea507cf2acf1249a4b5ff42133694157647500ffffa02438`、dylib `02087384a34a0ea37d53739750ec943f58627db78d991f5a840fa49a1e964055`，6050构建输入稳定。3448877775同三输入摘要4秒前后复验，15706从template拒绝转实际child出生；final selected124有glow Sprite9及父RopeTrail534几何实例写同main/request1/Surface/CB/seal/GPU，1280×831终端PNG无截断、正常退出。511/248只授准备；独立3830665420同输入4秒保首活动分支。四张before/final PNG已查看，但相位未锁，不授逐child最终像素、完整流星、任意flags/空间组合、官方parity或性能。原始输入、失败及独审在`.artifacts/scene-goal-child-event-flags-20261106/`。 |
 | uniform派生全局值的作用域 | 原BindingFacts同次header扫描将与唯一定义返回类型、参数类型/方向一致的callee prototype归同一声明，未决声明（含void）保原non-value blocker；Normalizer实际call/ordinal、out/inout和initializer纯度不变，无Program/帧状态或新owner，产品净+41行。最终6方法0skip，16程序48次A/B/A Metal绘制、768float最大误差7.56e-8；旧产品对4个最终新增变体均strict const编译失败。签名Debug两组自有App（含资源/变量/ID改名）的4PNG/80ROI中心精确RGBA(143,255,64)/白/绿、alpha255，16条sourceCapture→effect0→GBR→tail→ordinary→sealed-main链逐request/CB/Surface/GPU且0截断；真实inout只copy当前effect，健康suffix继续。独立3759799379同三输入摘要4秒复验，两终端PNG/GPU完成及排空保持。作用域邻门9pass/1skip，另1方法的两条旧`.xy`预期在旧产品同样失败，归[队列](../roadmap/scene-open-breakpoint-queue.md)。未发现本缺口作者命中，不授作者恢复、完整语言/官方parity或性能；[合同](render-graph-shader-coverage.md#uniform-derived-global-scope)，原始输入/构建身份/独审在`.artifacts/scene-uniform-callee-prototype-20261106/`。 |
 
+<a id="particle-bounds-oracle"></a>
+## 壁纸边界碰撞的右边缘对照
+
+3780119725 的891在旧终端F67有22实例、颜色/法线/背景与GPU完成。原算子2仅含id/name，仍报`unknown-operator-kind`。原粒子定义、倍率和seed891交给现役Simulator，固定1/60步进。按作者平移、缩放和角度将中心换回画布坐标，粒子5在步39的y从2151.72走到2167.23，穿过2160边界且x约2228，粒子1和7另有同边穿越。此读口是本机模拟与作者几何，原画面尚待接入后对照。
+
+官方2.8.0.42 `daac1ea7…b6bda07`，Session1，512×384作者画布、1280×960预览。自有六行以无参数`collisionbounds`与省略项配对，记录冻结时点0.1079/0.3973/0.6057。两次原生观察中四锚、红时钟及成对内侧点稳定，绿peer向右移动。碰边前两行各有内侧点及x约500的边缘点。后两对省略行仅见内侧点，算子行的外侧出生点回到x约492和472，并各与同一行内侧点同高。按锚点估读，退回速度约96，相对入向192支持半速法向反弹与切向保留。此场未裁定接触子步、粒子尺寸裕量、其他边和非平面作用。官方捕获CLI输出黑PNG，数值来自原生窗口画面估读。输入、读口、运输验证及六个新增guest缓存字节归`.artifacts/scene-bounds-next-20261109/evidence.zip`。官方专用窗口及运输副本已清理，原receiver仍在。
+
 <a id="spot-light-frame"></a>
 ## 可见 SpotLight 的完整帧与局部来源
 
