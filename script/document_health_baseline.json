@@ -113,8 +113,8 @@
       "bytes": 19916
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 93,
-      "bytes": 13863
+      "lines": 95,
+      "bytes": 14244
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 510,
-      "bytes": 212899
+      "lines": 511,
+      "bytes": 213686
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 185,
-      "bytes": 48582
+      "lines": 184,
+      "bytes": 48441
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -430,15 +430,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "ef736a7d1294e73888fab6c648588dd7f8e1f6d5e5a035b24fe6662561c31d4d",
-      "after": "3a5ee867f1c904f1966986474e8bfa43d82d917646ba6c6ed186b0996426a1b9",
-      "owner": "Scene composition source and projection",
-      "reason": "Specify the composition replay, prefix and prepared geometry ownership before implementation.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "a527075f4d73e0cf25413a29daa9db2657749dbfeef6ae39691a5b3dde5692b4",
       "after": "a37a9c06eaf834c5b6587f1636c135e2d8eff998fad40fe1192c8df5e2bec576",
@@ -448,21 +439,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5df603e446b6eeb71f78302441f95032f165da1ba919519b25b7fc1a18f1b9a3",
-      "after": "aeba174226917cb3b2b497baeed80e4a17b10bad716baa5d148f9ff285f25ae9",
-      "owner": "Scene pointer ingress",
-      "reason": "Retain the native event-versus-poll reproduction and both author fixes.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#side-image-switch-321"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "14a5f256ee01c372c043e499f8562b3a00a53f6f58fdd0cba97e47a74af62226",
       "after": "078ef11d8d842e7d20c6b6bbead8d69f2ad361e722a1e86bc85dda5409174153",
       "owner": "Scene pointer ingress",
       "reason": "Define the monitored button stream and source transition contract.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#cursor-primary-button"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
+      "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
+      "owner": "Scene composition source and projection",
+      "reason": "Describe childless passthrough and flat capture through the original perspective consumer.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "aeba174226917cb3b2b497baeed80e4a17b10bad716baa5d148f9ff285f25ae9",
+      "after": "92526f1ee46563c8e95b39ec4b0fb53b65526fbd937d587b7ae26f1a3b1fc307",
+      "owner": "Scene composition source and projection",
+      "reason": "Record the same-input authored childless replay and independent author control.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#childless-passthrough-perspective"
     }
   ]
 }

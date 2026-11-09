@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 from pathlib import Path
 import re
 import shutil
@@ -602,6 +604,58 @@ def perspective_prefix_fixture(*, perspective, copy_background=None, renamed=Fal
     return project, entries, protocol
 
 
+def childless_perspective_fixture(*, passthrough, perspective, renamed=False):
+    project, entries = app_fixture.fixture_entries(effect=True, childless=True, renamed=renamed)
+    scene = json.loads(entries["scene.json"])
+    scene["general"]["perspectiveoverridefov"] = 90
+    prefix, root = scene["objects"]
+    prefix["color"] = "1 0 0"
+    marker_id, late_id = (651, 812) if renamed else (11, 30)
+    marker = dict(prefix, id=marker_id, name="Green prefix marker", color="0 1 0",
+                  origin="78 128 0", size="28 28")
+    late = dict(prefix, id=late_id, name="White late marker", color="1 1 1",
+                origin="112 128 0", size="8 8")
+    angles = (30, 36, 0)
+    assignment = (
+        f"const card = thisLayer; card.perspective = Boolean({int(perspective)}); "
+        "card.angles = new Vec3(15 + 15, 6 * 6, 0);" if renamed else
+        f"thisLayer.perspective = {str(perspective).lower()}; "
+        "thisLayer.angles = new Vec3(30, 36, 0);"
+    )
+    root.update(name="Rekeyed replay card" if renamed else "Owned replay card",
+                origin="90 128 -64", size="100 76", config={"passthrough": passthrough},
+                visible={"value": True, "script": f"export function init(v) {{ {assignment} return v; }}"})
+    scene["objects"] = [prefix, marker, root, late]
+    entries["scene.json"] = app_fixture.encoded(scene)
+    if renamed:
+        for path in entries:
+            if path.startswith("shaders/"):
+                entries[path] = entries[path].replace(b"v_TexCoord", b"v_RekeyedUV")
+
+    # A fitted 90° camera projects this z=-64 plane toward (128,128).
+    # Across cover aspects 1...2.5, the green source at x=64...92 reaches
+    # (99,128) only in the projected replay. The original red at x=55
+    # reappears outside the replay, and the X/Y tilt excludes (130,141).
+    red, cyan, magenta = (255, 0, 0), (0, 255, 255), (255, 0, 255)
+    points = {
+        "prefix_at_unprojected_edge": ((55, 128), red if perspective else cyan),
+        "replayed_green_prefix": ((99, 128), magenta if perspective else cyan),
+        "replayed_red_prefix": ((118, 125), cyan),
+        "outside_tilted_corner": ((130, 141), red),
+        "later_peer_remains_white": ((112, 128), (255, 255, 255)),
+    }
+    protocol = {"canvas": app_fixture.CANVAS,
+        "layerIDs": {"prefix": prefix["id"], "composition": root["id"], "late": late_id},
+        "parameters": {"copybackground": "omitted", "passthrough": passthrough,
+                       "perspective": perspective, "anglesDegrees": angles, "renamed": renamed},
+        "oracle": {name: {"canvasRect": (x - 2, y - 2, x + 2, y + 2), "expectedRGB": color}
+                   for name, ((x, y), color) in points.items()},
+        "channelTolerance": app_fixture.CHANNEL_TOLERANCE,
+        "evidenceBoundary": "childless captured prefix and GPU replay through authored X/Y tilt",
+        "oracleSourceSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    return project, entries, protocol
+
+
 class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -726,6 +780,67 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
 
     def test_renamed_perspective_and_invert_preserve_the_external_prefix(self):
         self.run_perspective_prefix(perspective=True, renamed=True)
+
+    def run_childless_perspective(self, *, passthrough, perspective, renamed=False):
+        project, entries, protocol = childless_perspective_fixture(
+            passthrough=passthrough, perspective=perspective, renamed=renamed)
+        ids = protocol["layerIDs"]
+        clock_settings = {"layerIDs": [ids["composition"]], "sceneTimeWindow": [0, 8],
+                          "interval": .25, "maxSamples": 32}
+        with patch.dict(os.environ, {"MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE": json.dumps(clock_settings)}), \
+                patch.object(app_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(app_fixture, "preregistration", return_value=protocol):
+            log, pixels = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.run_case(
+                self, effect=True, childless=True)
+        self.assertNotIn("layer has no perspective geometry consumer", log)
+        observations = app_fixture.structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        clock_prefix = "phase=timeline-frame-input json="
+        clocks = [json.loads(line.split(clock_prefix, 1)[1]) for line in log.splitlines() if clock_prefix in line]
+        paths = re.findall(r"phase=snapshot reason=(?:ready|after) request=\d+ source=metal path=([^\n]+)", log)
+        self.assertCountEqual([Path(path).name for path in paths], pixels)
+        surfaces = set()
+        for path in paths:
+            _, _, event, lower, upper = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.joined_capture(
+                self, Path(path), log, observations, clocks)
+            surfaces.add(event["surfaceIdentity"])
+            for clock in (lower, upper):
+                angles = next(value for value in clock["values"]
+                              if value["target"] == {"layerID": ids["composition"], "field": "angles"})
+                self.assertEqual(angles["source"], "sceneScript", angles)
+                for actual, degrees in zip(angles["resolved"]["value"], protocol["parameters"]["anglesDegrees"], strict=True):
+                    self.assertAlmostEqual(actual, math.radians(degrees), places=6, msg=str(angles))
+            if not perspective:
+                continue
+            rows = event["rows"]
+            root_rows = [row for row in rows if row.get("layerID") == ids["composition"]]
+            capture = next(row for row in root_rows if row["kind"] == "sourceCapture" and row["outcome"] == "encoded")
+            material = next(row for row in root_rows if row["kind"] == "material" and row["outcome"] == "draw-encoded")
+            replay, = [row for row in root_rows if row["kind"] == "group" and row["outcome"] == "draw-encoded"]
+            seal = next(row for row in rows if row["kind"] == "frame-seal" and row["outcome"] == "sealed")
+            prefix = next(row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == ids["prefix"])
+            late = next(row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == ids["late"])
+            self.assertEqual(capture["source"]["textureToken"], prefix["target"]["textureToken"])
+            self.assertEqual(capture["target"]["textureToken"], material["source"]["textureToken"])
+            self.assertEqual(material["target"]["textureToken"], replay["source"]["textureToken"])
+            self.assertEqual(replay["target"]["textureToken"], late["target"]["textureToken"])
+            self.assertEqual(replay["target"]["textureToken"], seal["target"]["textureToken"])
+            positions = [rows.index(row) for row in (prefix, capture, material, replay, late, seal)]
+            self.assertEqual(positions, sorted(positions))
+        self.assertEqual(len(surfaces), 1)
+        self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), protocol["oracleSourceSHA256"])
+
+    def test_childless_passthrough_replays_default_copy_with_scripted_3d_angles(self):
+        self.run_childless_perspective(passthrough=True, perspective=True)
+
+    def test_childless_non_passthrough_replays_the_same_default_copy(self):
+        self.run_childless_perspective(passthrough=False, perspective=True)
+
+    def test_childless_passthrough_perspective_off_keeps_flat_output(self):
+        self.run_childless_perspective(passthrough=True, perspective=False)
+
+    def test_childless_passthrough_renamed_uses_the_same_replay(self):
+        self.run_childless_perspective(passthrough=True, perspective=True, renamed=True)
 
 
 def passthrough_fixture(*, renamed=False, initial_visible=False):

@@ -95,7 +95,7 @@ nonisolated extension SceneRenderDescriptor {
             }
             return utility.framebufferSource == nil
                 && utility.kind == .composition && contentKind == "composition"
-                && utility.copyBackground && !utility.passthrough
+                && utility.copyBackground
                 && parentID == nil && childLayerIDs.isEmpty
                 && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
         }

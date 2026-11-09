@@ -43,9 +43,11 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
 
 <a id="perspective-composition-prefix"></a>
-### 父组透视与嵌套背景
+### Composition 透视与嵌套背景
 
-具备实际正交画布和局部尺寸的顶层 composition 可接收作者透视值。首屏材质准备后的 SourceRoute 由 LaunchFrameSchema 共享给 Script 和 RuntimePlanner。子组范围限直接成员、各有已准备 Program 的 composition。含复制背景的内组要求外组复制开启。保留旧的 childless、native-camera、passthrough 和无内组 Program 路径。
+无子层的顶层 composition 在正交场景复制背景时，沿现有局部捕获与回绘接收透视值。此时 passthrough 无成员可透传，开启或关闭均取同一背景截点。有已准备 Program 时，原相机以平面 VP 供局部采样，以输出 VP 回绘一次。有子层、透明输入、依赖和 framebuffer source 各沿原准入边界。
+
+具备实际正交画布和局部尺寸的顶层分组 composition 可接收作者透视值。首屏材质准备后的 SourceRoute 由 LaunchFrameSchema 共享给 Script 和 RuntimePlanner。子组范围限直接成员、各有已准备 Program 的 composition。含复制背景的内组要求外组复制开启。保留 native-camera、有成员 passthrough 和无内组 Program 的原路径。
 
 - 原 CameraFrame 以平面 VP 构建局部源逆映射，保各组 world TRS 与 extent。子图、内组 Program 和 tail 写最近的组 attachment。外组在作者位置用 output VP 回绘一次，无 FX 的根用既有局部回绘。
 - 内组复制读进入外组前的场景前缀。原组顺序使该前缀在外根回绘前仍由主目标持有，复用原局部采样。显式 false 保透明初始化。准备结果选择读附件，最近的组附件继续负责写入。
