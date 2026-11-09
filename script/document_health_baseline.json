@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 552,
-      "bytes": 227937
+      "lines": 554,
+      "bytes": 229397
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 183,
-      "bytes": 47776
+      "bytes": 47598
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ab9eaad260d1f82a533346037710e75a2779f1b6dbbd90a620f561913522e678",
-      "after": "0029274a3be58f5e676425da8f08aa483489976b8b964bb07e8e7676f082c8a8",
-      "owner": "Scene runtime evidence",
-      "reason": "Qualify the observed right-shelf poster as a reversible author-controlled output.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#night-poster-213"
+      "before": "0029274a3be58f5e676425da8f08aa483489976b8b964bb07e8e7676f082c8a8",
+      "after": "b2336a3b19acbc2edfa840bd058ad245b4589d7dfca640466fa21f98a92d07cc",
+      "owner": "Scene author playback evidence",
+      "reason": "Close the two scoped visible feedback items with real cover and late clock captures.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#media-cover-376"
     }
   ]
 }
