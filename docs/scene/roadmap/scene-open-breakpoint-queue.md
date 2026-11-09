@@ -115,7 +115,7 @@
 | 输入 | 精确待核位置 |
 |---|---|
 | 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
-| 2927205881 | [同龄Movement](../capabilities/runtime-evidence-current.md#particle-movement-half-life)已拉长原样本晚段并保弯曲，左端仍短。下一步在原几何固定 `instance.rate=.5/2`，用同寿命、恒速年龄标记查出图队列是否随rate改变；再加入原AlphaFade隔离最老可见粒子和发射相位。避免复跑原整景早晚窗或调增益。 |
+| 2927205881 | 原作者左端仍短。[固定速率与淡出](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)两档开场分离、稳态收敛，原AlphaFade对照保尾段渐隐，暂无足以修改公共算法的首错。此项收口；重启须原699同视口/同声源下的实际出生相位、活粒子龄或原sprite可见贡献，或有区分力的动态rate切换首错。避免重跑原整景早晚窗、固定rate板或调增益。 |
 | 线性Movement大阻尼 | [同龄对照](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的drag40在官版比本机多约15 px，drag20在容差内。暂保当前半衰模型。重启须有真实作者画面影响，先隔离实际更新步长与重力注入顺序；不用单个高阻尼点推出参数夹限。 |
 | 正交 Sprite 侧转 | [十五轴板](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)七个精确90°图层在官版可见，本机修复前后同draw/main/GPU均未出点。先沿现有Sprite quad/VP分辨局部几何投影为零与深度裁剪，再找有实际画面影响的作者邻例。保普通固定平面、镜像和原透视分支。 |
 | 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |

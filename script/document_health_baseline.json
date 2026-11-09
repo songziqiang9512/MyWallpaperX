@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 476,
-      "bytes": 200034
+      "lines": 477,
+      "bytes": 200696
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49277
+      "bytes": 49359
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,19 +440,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "da1865c7475c51e41ea77fb6958df74937c50afe0bea191b066f8d2043af1922",
-      "after": "dad9725ef28a5068884c401e968dcb41c9bae8926fa3050112bbfe8a28f69aa3",
+      "before": "dad9725ef28a5068884c401e968dcb41c9bae8926fa3050112bbfe8a28f69aa3",
+      "after": "b044863670ddbe60fc1f7872d1d0c7a2db2a9b8d33ba81556850aaa84849deed",
       "owner": "Scene particle runtime",
-      "reason": "Record calibrated movement geometry and the visible extension in the original sample.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-movement-half-life"
+      "reason": "Record measured steady endpoints and the observed official startup and fade bounds.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "296593b9b1d84217037c7daa6b00ddbee4c6d55fd8dbeb9bf9eb132bf57795ec",
-      "after": "75ed02f7e9d0f95f4059430187577b4e23d30b40298daee26bf2861db6a8f3a5",
+      "before": "75ed02f7e9d0f95f4059430187577b4e23d30b40298daee26bf2861db6a8f3a5",
+      "after": "dc7ceb165450eb0f6a4325afc10830e5e6d621a161f972b3f68ccfa54babd883",
       "owner": "Scene particle runtime",
-      "reason": "Move the author residual to rate/age evidence and retain the large-drag proof limit.",
+      "reason": "Close the fixed-rate avenue and retain layer-attributed restart conditions.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
