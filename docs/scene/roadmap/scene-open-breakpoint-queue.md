@@ -108,7 +108,7 @@
 | 3141464346 | Puppet 同 phase 位置仍开。13/351的环形shader四段及合成已有实绘，归档PCM F183右下见部分彩弧、静音同编号帧无相应轮廓（`scene-problem-retest-20261107-08-01`、`09-01`）。两个作者中心超出当前cover右边界；完整形状待同viewport官方对照，优先区分取景与轨迹，不重跑默认/静音对。 |
 | 2957870426 | PCM/静音已供，目标audio消费者仍未资格。中央竖光、birth Color Random/colorn与ROI须真实出生及颜色单位，不凭bus非零关闭；3383210272并入本次主要效果可见性优先项。 |
 | 3586308277 | SDR原色已恢复，扫描方向/可见度仍未知。[原作者两阶段](../capabilities/runtime-evidence-current.md#shimmer-phase)的Day430主字形均浅绿，未见可归属扫描变化；不能由所选4814近稳像素判冻结。冷常量/时钟链未见首错，g_Time实际上传未读回；现有两图不覆盖完整周期。此项收口，转其他基础播放；重启须可归属扫描ROI/实际phase或明确首错，不第三场延时、调方向/速度/颜色、重跑SDR或新增钩子。 |
-| 3351179520 | 文字环位置/尺度/旋转；需同帧 slot1、MVP、g_Time 与可归属 glyph，而非强制各TRS同心同速。 |
+| 3351179520 | [归档画面按主体配准](../capabilities/runtime-evidence-current.md#circular-text-alignment)后环位、可见轮廓与遮挡对应，本轮无几何首错。保已知 Atami 替代和动态相位边界；重启须同视口/声源的同字串偏差，再以同帧 slot1→422→399→799/main 区分字形、MVP 和 g_Time。无需再跑默认整景。 |
 
 ### 其他待核
 
@@ -117,8 +117,8 @@
 | 3022080536 | 旧固定pointer只取得child0 smoke；[静态复核](../capabilities/runtime-evidence-current.md#instance-color)已定位作者红→暗红ColorChange，尚未取得运动Rope。重启须目标ROI/运动phase/producer，或同capture initialColor/age/上传tint与真实texture path；不重跑旧固定pointer、不由红色外观改operator/纹理或由出生赋色关闭反馈。显式audio child仍独立核对。 |
 | 2927205881 | 原作者左端仍短。[固定速率与淡出](../capabilities/runtime-evidence-current.md#particle-rate-alpha-envelope)两档开场分离、稳态收敛，原AlphaFade对照保尾段渐隐，暂无足以修改公共算法的首错。此项收口；重启须原699同视口/同声源下的实际出生相位、活粒子龄或原sprite可见贡献，或有区分力的动态rate切换首错。避免重跑原整景早晚窗、固定rate板或调增益。 |
 | 线性Movement大阻尼 | [同龄对照](../capabilities/runtime-evidence-current.md#particle-movement-half-life)的drag40在官版比本机多约15 px，drag20在容差内。暂保当前半衰模型。重启须有真实作者画面影响，先隔离实际更新步长与重力注入顺序；不用单个高阻尼点推出参数夹限。 |
-| 正交 Sprite 侧转 | [十五轴板](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)七个精确90°图层在官版可见，本机修复前后同draw/main/GPU均未出点。先沿现有Sprite quad/VP分辨局部几何投影为零与深度裁剪，再找有实际画面影响的作者邻例。保普通固定平面、镜像和原透视分支。 |
-| 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
+| 正交 Sprite 侧转 | [十五轴板](../capabilities/runtime-evidence-current.md#particle-around-phase-frame)的精确90°画面差已到Sprite局部quad/VP；3827949716/28与3173418061/131实际flags4走透视，3577990983/1370仅复合近侧转。重启须同路作者可见缺失或能区分Screen朝向的官方对照，保固定平面、镜像和原透视。 |
+| 3577990983 | [同原包六点](../capabilities/runtime-evidence-current.md#dock-hover-radius)的进/退尺度符合作者半径602.112，暂无越界首错。真实desktop或同条件官方边界仍待有具体反例再开；截图错相属有界采集，不加量重跑或调作者阈值。 |
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |
 | 3768903841 | 横向云片/烟花色彩仍待具体ROI/producer。原R0的238.angles completed、frame0 vectorFailures=0，232已消费其共享时段；238是Day/Night按钮而非烟花writer，未找到旧screen localStorage异常原收据。重启须精确新失败/屏身份/调用回执，不删screen guard或归因烟花；未点击，不授持久化，薄事实在`.artifacts/scene-cloud-238-next-20261109/`。 |

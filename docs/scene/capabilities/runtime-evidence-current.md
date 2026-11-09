@@ -281,6 +281,9 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 
 330原作者同project/pkg/tree、4秒/after2秒，req1/F61 166行零截断，2917实际2048×37 source→滚动→两环同一named→各自遮罩→group/tail→seal，GPU完成。原PNG可见上轮左/下/右长亮线和内侧细线退去，环字与主体保留，关闭该反馈。独立3351179520 F43同原图双源、spin/perspective与环字实际出图；3351163962 F96真实普通文字和圈继续成图，时段位置沿已确认的作者裁幅。三场GPU完成并排空。终端为代表相位，无官方逐像素/全部字体资格。原标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-raster-fix-20261109/`，度量、raw和独审归`.artifacts/scene-circular-text-raster-fix-20261109/`。
 
+<a id="circular-text-alignment"></a>
+3351179520 样本目录的Windows归档图裁出3024×1651客户区，按高等比取1280×831，七个非文字环纹理点对齐中位差(8,0)。配准后左右裸露环字、外沿与手指遮挡对应。原本机签名Debug `94bd5f56…e309` 的F43实采333/a 2048×56，经422圆环、399旋转、799透视至main/GPU完成；333缺原Atami走Poppins Medium。未知的音频、指针和相位不支持字距、逐字形或旋转曲线结论。只读配准收据归`.artifacts/scene-text-ring-alignment-20261109/`。
+
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
 
@@ -289,6 +292,9 @@ CPU探针用原CoreText加载器与原作者127B文本。保存的Jost-Black产�
 3087231311同project/pkg/tree的8秒三点 A(-.4,0)→B(.4,0)→A，原斜带静止且973因缺几何被拒；当前owner由2→3，302/288真实origin同步1254.84314→2585.156738→1254.84314（y1080/z0），973的local为本屏907.199991→2116.800009→907.199991（y982）。原生导出的三张PNG已实际看过斜带横移并返回；request2/3/4、frame72/97/122中288实际采302 named/slot1、terminal replay/tail→sealed main，Surface/CB/GPU闭合且零截断。局部XRay是独立subject，不代斜带验收。变量、名字、等价表达式及clipping资源改名的受控App三点同样成立；独立2134765860默认主景、GPU与退出成立，11个无事件fullscreen未凭空注册owner。三项原生门及帧路由检查通过；旧peer异常后活动数断言经旧产品/旧夹具复现，拆成异常前3/后2，未改产品fuse。各次Ready/停止/Surface释放/排空成立。
 
 固定官方2.8.0.42自有FSC1仅观察到一次 fullscreen move：local等于top-left screen pixels、world等于input cursor world；实际点在viewport外，连续离屏、点击及普通图片button未取得资格，CUA输入未交付即停止。当前真实App采用合成pointer，不授桌面物理输入、任意父变换/多屏、官方完整像素或性能。原输入、失败、三点PNG、构建及独审归`.artifacts/scene-pointer-mask-20261108/`。
+
+<a id="dock-hover-radius"></a>
+3577990983 同原三摘要及签名Debug `93616fa3…c1bd`，单场合成pointer沿Dock中轴六点进退。209的同帧父原点(1920,0)，232本地y36.8；结合实时x，距离约916/690/509/289/133/723，实际scale .800/.800/.895/1.501/1.794/.800，三个同帧图标均与原210半径602.112及作者曲线在.001内。按实际捕获F132/F270匹配main/GPU，左中央图标指定亮像素宽38/34，比例与相邻稳定尺度.895/.800相符。四张轨图中三张已跨指针相位，后续required队列拒绝，raw CHECK保留；整轨画面、普通desktop及官版未资格。原报告、五张现有图与时间收据归`.artifacts/scene-dock-hover-radius-20261109/`。
 
 <a id="cursor-primary-button"></a>
 ## 左键编号与文字切图
