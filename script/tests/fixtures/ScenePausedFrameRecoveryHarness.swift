@@ -136,6 +136,25 @@ final class SceneMediaThumbnailTextureStore {
 }
 
 final class SceneMetalView {
+    final class AdmissionTransport {
+        var blocked = false
+        private var wake: (() -> Void)?
+        func notifyWhenFrameAdmissionOpens(_ wake: @escaping () -> Void) {
+            precondition(blocked)
+            self.wake = wake
+        }
+        func complete() {
+            blocked = false
+            let ready = wake
+            wake = nil
+            ready?()
+        }
+    }
+    let submissions = AdmissionTransport()
+    var renderer: SceneMetalView { self }
+    var imageCompositor: SceneMetalView { self }
+    var resolvedMaterialRuntime: SceneMetalView? { self }
+    var shouldDeferResolvedMaterialFrame: Bool { submissions.blocked }
     enum Plan { case prepared, synchronousDrop, deferred, cancelled }
     var onRenderInvalidated: (() -> Void)?
     var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
@@ -171,7 +190,7 @@ final class SceneMetalView {
         drawnTextGenerations.append(dynamicTextSnapshot?.generation ?? -1)
         onRender?()
         if plan == .synchronousDrop { return .dropped(reasonCode: "controlled-sync-failure") }
-        if plan == .deferred { return .deferred(reasonCode: "controlled-in-flight") }
+        if plan == .deferred || submissions.blocked { return .deferred(reasonCode: "controlled-in-flight") }
         let buffer = MTLCommandBuffer()
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
             initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
@@ -209,6 +228,7 @@ final class SceneDesktopWallpaperSession {
         func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {}
     }
     var sceneClock = SceneClock(hostTime: 0)
+    var activeSimulationProbe: (() -> SceneFrameDriverAttempt)?
     var launchContext: Int? = 1
     var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
     var mediaThumbnailTextures: SceneMediaThumbnailTextureStore? = .init()
@@ -869,6 +889,50 @@ final class SceneDesktopWallpaperSession {
         complete(view, 4, true)
         stopped(owner); frozen(owner, before)
     }
+    static func activeAdmission(_ scenario: String) {
+        let owner = SceneDesktopWallpaperSession()
+        let first = owner.attach(1), second = owner.attach(2)
+        var simulations: [TimeInterval] = []
+        owner.activeSimulationProbe = { [unowned owner] in
+            simulations.append(TransportTime.now)
+            return owner.renderSurfaces()
+        }
+        owner.startFrameDriver()
+        first.metalView.submissions.blocked = true
+        second.metalView.submissions.blocked = scenario != "activeAdmissionMixed"
+        let scheduled = owner.frameDriverDeadline!
+        precondition(RunLoop.main.fireNext())
+        if scenario == "activeAdmissionMixed" {
+            precondition(simulations == [100, scheduled] && second.metalView.commits == 2)
+            second.metalView.submissions.blocked = true
+            precondition(RunLoop.main.fireNext() && simulations.count == 2)
+            _ = owner.attach(1)
+            first.metalView.submissions.complete()
+            precondition(simulations.count == 2)
+            owner.setPlaybackPaused(true)
+            second.metalView.submissions.complete()
+            precondition(simulations.count == 2)
+            stopped(owner)
+            return
+        }
+        precondition(simulations == [100] && RunLoop.main.activeCount == 1)
+        if scenario == "activeAdmissionWake" {
+            TransportTime.now += 0.004
+            second.metalView.submissions.complete()
+            precondition(simulations == [100, TransportTime.now] && second.metalView.commits == 2)
+            first.metalView.submissions.complete()
+            precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
+        } else {
+            let timeout = owner.frameDriverDeadline!
+            precondition(RunLoop.main.fireNext() && simulations == [100, timeout])
+            first.metalView.submissions.complete()
+            second.metalView.submissions.complete()
+            precondition(simulations.count == 2 && RunLoop.main.activeCount == 1)
+        }
+        precondition(abs(owner.frameDriverDeadline! - TransportTime.now - 1.0 / 60) < 0.000001)
+        owner.setPlaybackPaused(true)
+        stopped(owner)
+    }
     static func main() {
         let scenario = CommandLine.arguments[1]
         switch scenario {
@@ -877,6 +941,7 @@ final class SceneDesktopWallpaperSession {
         case "asyncExpiry": asynchronousExpiry()
         case "syncExpiry": synchronousExpiry(.synchronousDrop)
         case "busyExpiry": synchronousExpiry(.deferred)
+        case "activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed": activeAdmission(scenario)
         case "oldCandidate": oldCandidate()
         case "replacedSurface": replacedSurface()
         case "teardown": teardown()

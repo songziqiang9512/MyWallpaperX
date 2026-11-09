@@ -121,18 +121,37 @@ extension SceneDesktopWallpaperSession {
         }
         armFrameDriver(at: nextDeadline)
     }
-    private func armFrameDriver(at deadline: CFTimeInterval) {
+    @discardableResult
+    private func armFrameDriver(at deadline: CFTimeInterval, waitingForGPU: Bool = false) -> Timer {
         frameTimer?.invalidate()
         frameDriverDeadline = deadline
         let delay = max(0.000_001, deadline - CACurrentMediaTime())
-        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
-            guard let self else { return }
+        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] timer in
+            guard let self, self.frameTimer === timer else { return }
             self.frameTimer = nil
+            if !waitingForGPU, self.waitForFrameAdmission(until: deadline + self.sceneFrameInterval) { return }
+            let cadence = waitingForGPU ? CACurrentMediaTime() : deadline
             let attempt = self.renderFrame()
-            self.scheduleFrameDriver(after: attempt, scheduledDeadline: deadline)
+            self.scheduleFrameDriver(after: attempt, scheduledDeadline: cadence)
         }
         RunLoop.main.add(timer, forMode: .common)
         frameTimer = timer
+        return timer
+    }
+    private func waitForFrameAdmission(until deadline: CFTimeInterval) -> Bool {
+        guard isVisible, !sceneClock.isPaused, !surfaces.isEmpty,
+              CACurrentMediaTime() < deadline,
+              surfaces.values.allSatisfy({ $0.metalView.shouldDeferResolvedMaterialFrame }) else { return false }
+        let timer = armFrameDriver(at: deadline, waitingForGPU: true)
+        for (displayID, surface) in surfaces {
+            surface.metalView.renderer.imageCompositor.resolvedMaterialRuntime?.submissions
+                .notifyWhenFrameAdmissionOpens { [weak self, weak surface, weak timer] in
+                    guard let self, let surface, let timer, self.frameTimer === timer,
+                          self.surfaces[displayID] === surface else { return }
+                    timer.fire()
+                }
+        }
+        return true
     }
     private func renderFrame() -> SceneFrameDriverAttempt {
         // Preparing the paused first frame can admit new media providers. They

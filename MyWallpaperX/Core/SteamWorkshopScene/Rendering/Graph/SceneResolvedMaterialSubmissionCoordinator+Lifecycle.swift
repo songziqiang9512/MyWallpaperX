@@ -7,6 +7,17 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return !submissionQueueAcceptsFrameLocked()
     }
 
+    func notifyWhenFrameAdmissionOpens(_ wake: @escaping () -> Void) {
+        lock.lock()
+        if submissionQueueAcceptsFrameLocked() {
+            lock.unlock()
+            wake()
+        } else {
+            frameAdmissionWake = wake
+            lock.unlock()
+        }
+    }
+
     func beginFrame(
         textureSnapshot: SceneFrameTextureRegistrySnapshot,
         dynamicSnapshot: SceneDynamicSnapshot,
@@ -81,6 +92,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             UInt(bitPattern: ObjectIdentifier(self)), reason: reason.rawValue)
 #endif
         lock.lock()
+        frameAdmissionWake = nil
         var emission = Emission()
         if !activeTransactions.isEmpty || preparedSceneColor != nil || preparedDisplayScratch != nil {
             emission.append(failActiveFrameLocked(reason: reason.rawValue))

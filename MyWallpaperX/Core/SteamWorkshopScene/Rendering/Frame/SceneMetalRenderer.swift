@@ -70,9 +70,7 @@ struct SceneMetalRenderer {
         displayOutput: SceneDisplayMappingPostProcess.Output = .sRGB,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
-        // Always-on renderer CPU time. Start is unconditional (the existing
-        // cpuStart below is telemetry-gated); the defer covers every return
-        // path including the resolved-material busy-guard below.
+        // Record renderer CPU time across every return path in Debug.
 #if DEBUG
         let hubRenderStart = ProcessInfo.processInfo.systemUptime
 #endif
@@ -85,9 +83,6 @@ struct SceneMetalRenderer {
 #endif
 
         var didTransferFrameOwnership = false
-        guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
-            return .deferred(reasonCode: "resolved-material-frame-in-flight")
-        }
 #if DEBUG
         let cpuStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
 #endif

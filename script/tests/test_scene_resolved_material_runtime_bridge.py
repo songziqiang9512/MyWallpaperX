@@ -679,6 +679,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 self.skipTest("Metal device unavailable")
             print("SUBMISSION_COORDINATOR_RESULTS " + json.dumps(result, sort_keys=True), flush=True)
             expected = {
+                "surfaceRetirementDiscardsAdmissionWake",
+                "admissionWakeFollowsMatchingHistoryPromotion",
+                "admissionWakeFollowsHistoryRollback",
                 "externalDependencyExactReadyMatchIssuesTicket",
                 "externalDependencyWrongProviderRejected",
                 "externalDependencyWrongSlotRejected",

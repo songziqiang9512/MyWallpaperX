@@ -2,8 +2,8 @@
 
 The existing method-extraction scaffold executes the driver, Session text/media
 notifications, invalidation, surface submission, cohort and PreparedFrame owners.
-Only the normal simulation branch is replaced by a trap. Timer, dispatch,
-raster readiness and Metal completion are hand-controlled transport boundaries;
+The ordinary simulation branch uses a counting probe only in playing scenarios.
+Timer, dispatch, raster readiness and Metal completion are controlled boundaries;
 no scheduler or publication policy is reproduced.
 """
 from pathlib import Path
@@ -37,11 +37,11 @@ def production_harness(sources=None):
     context = read("Runtime/Frame/SceneFrameContext.swift")
     outcome = read("Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift")
     view = read("Rendering/Frame/SceneMetalView.swift")
-    # Execute the complete frozen branch. Entering ordinary clock/VM work is a
-    # test failure, rather than a fake implementation that could conceal it.
+    # Frozen scenarios still fail if ordinary simulation is entered.
     frame = method(driver, "private func renderFrame()")
     frame = frame[:frame.index("        promotePendingDeferredLayerVisibilityIfReady()")]
-    frame += '        fatalError("normal cadence/VM branch entered during paused recovery")\n    }'
+    frame += ('        guard let activeSimulationProbe else { fatalError("ordinary simulation entered during paused recovery") }\n'
+              '        return activeSimulationProbe()\n    }')
     # Surface identity and retry cancellation belong to this production prefix;
     # the later cursor/audio/VM context disposal is outside this transport test.
     retirement = method(teardown, "func teardownSurfaces(")
@@ -52,6 +52,7 @@ def production_harness(sources=None):
         method(driver, "private var sceneBusyFrameRetryInterval:").replace("private var", "var"),
         *(method(driver, signature) for signature in [
             "func startFrameDriver(", "func scheduleFrameDriver(", "private func armFrameDriver(",
+            "private func waitForFrameAdmission(",
         ]),
         *(method(submission, signature) for signature in [
             "func renderSurfaces(", "var awaitsInitialPresentation:",
@@ -122,6 +123,11 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_busy_admission_expire(self):
         self.run_scenario("busyExpiry")
+
+    def test_active_wait_reuses_the_timer_and_simulates_once(self):
+        for scenario in ("activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed"):
+            with self.subTest(scenario=scenario):
+                self.run_scenario(scenario)
 
     def test_old_candidate_failure_preserves_new_success(self):
         self.run_scenario("oldCandidate")

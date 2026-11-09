@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 235,
-      "bytes": 42979
+      "lines": 237,
+      "bytes": 43656
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 558,
-      "bytes": 233390
+      "lines": 559,
+      "bytes": 234760
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 48442
+      "bytes": 48467
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -350,11 +350,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8cfd669a1132db93e7f61355553e139af495428e7b9b1df13f28de0067816854",
-      "after": "3ec4017d341bd0c82b1d2c798b7d8d92c47a14e826cbae2b3008ead1b4fc0e0f",
-      "owner": "Scene main pass encoder",
-      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#rendering"
+      "before": "3ec4017d341bd0c82b1d2c798b7d8d92c47a14e826cbae2b3008ead1b4fc0e0f",
+      "after": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
+      "owner": "Scene FrameDriver and material submissions",
+      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
     },
     {
       "section": "bodies",
@@ -431,10 +431,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "43770169b72f466c92bdf585d0a66d1c1583c58545387c4efb3297548f082c5e",
-      "after": "7567f35dad9398b1d77b52c60f2d8465dc01757aeba27895894c7f05de676635",
-      "owner": "Scene cold material preparation",
-      "reason": "Separate the measured static model shader interface hotspot from the vertex parser hypothesis.",
+      "before": "c0b86d2c7632b7273fcd5f2450a2eb7187f2cfc3c8a00a24f671a2fdd2cf93ec",
+      "after": "7197bf5881f2a4f2599e47a21b0c56958854753c7aaf22aa17bc8b2245eacb39",
+      "owner": "Scene FrameDriver and material submissions",
+      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eb2035360a590bc48e0068e9513726a9dd6a2bc752dead5d0f756916e683a303",
-      "after": "2cb13aa3cec801f4a760976875d71d1b1eb1840e923acf8597422eaba3db7f67",
-      "owner": "Scene static model material preparation",
-      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-startup-366"
+      "before": "2cb13aa3cec801f4a760976875d71d1b1eb1840e923acf8597422eaba3db7f67",
+      "after": "cc6481668936eaa95ccf1e4dd025ff26e6bd289af2f1cdde7404e4fa8f437b3a",
+      "owner": "Scene FrameDriver and material submissions",
+      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#gpu-admission-wake-374"
     },
     {
       "section": "bodies",

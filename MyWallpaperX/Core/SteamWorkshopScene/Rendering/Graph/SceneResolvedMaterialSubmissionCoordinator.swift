@@ -147,6 +147,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var frameLocalFallbacks: [Int: String] = [:]
     var framePreparationComplete = false
     var pendingSubmissions: [PendingSubmission] = []
+    var frameAdmissionWake: (() -> Void)?
     var commandBufferRecords: [ObjectIdentifier: CommandBufferRecord] = [:]
     var nextTransactionID: UInt64 = 0
     var nextSubmissionID: UInt64 = 0
