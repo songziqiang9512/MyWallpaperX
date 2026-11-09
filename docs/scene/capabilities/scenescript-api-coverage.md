@@ -14,7 +14,7 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 <a id="cursor-primary-button"></a>
 ### Cursor 的主键编号
 
-当前 Session/Surface 只接入 primary 左键及其移动、按下、释放和 click。原 C cursor 参数在同一 frozen 对象内提供数值 `button=0`；它表示按钮编号，up/click 后仍是0，按下状态继续归 `input.cursorLeftDown`。沿实际 primary 来源补齐元数据，不新增 ABI、状态、按钮推断或 secondary 事件，不按作者 guard 的源码形状选择供值。world/local、命中、capture、回调生成及 journal/commit 维持原职责，退出缺字段导致合法左键 guard 恒返的行为。
+Session 在原 AppKit 入口保留每条鼠标事件的位置。有窗口的事件转换到屏幕坐标，无窗口的事件已携带屏幕坐标。实时鼠标位置用于原 Surface 轮询。下游沿现有 world/local、命中和 capture 消费 primary 左键的移动、按下、释放和 click。C cursor 参数在同一 frozen 对象内提供数值 `button=0`，up/click 后仍是0，按下状态继续归 `input.cursorLeftDown`。当前入口覆盖 primary，secondary 未接入。
 
 原官方move的[有界观察](runtime-evidence-current.md#fullscreen-cursor)不授官方click、右键/中键或完整parity。本项目以已有primary事件合同供货，验收用真实C/VM的严格数值与等价guard、down/up/click状态、outside/release-outside反例和健康peer；真实作者须闭合文字命中→click→已有图片显隐→最终画面，并保改名及另一事件能力的回归。
 

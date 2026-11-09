@@ -79,9 +79,8 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
         guard debugPointerOverride == nil else { return }
 #endif
-        let screenPoint = event.window?.convertPoint(
-            toScreen: event.locationInWindow
-        ) ?? NSEvent.mouseLocation
+        let eventPoint = event.locationInWindow
+        let screenPoint = event.window?.convertPoint(toScreen: eventPoint) ?? eventPoint
         let primaryButtonIsDown: Bool
         switch event.type {
         case .leftMouseDown:

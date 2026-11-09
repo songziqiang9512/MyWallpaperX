@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 507,
-      "bytes": 211846
+      "lines": 510,
+      "bytes": 212833
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 166,
-      "bytes": 27709
+      "bytes": 27653
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 110,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48660
+      "bytes": 48727
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -448,21 +448,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "01a377cb16f7e8a480e09efbaf6019397a2643837968779b96fd83ff9e6392a9",
-      "after": "6882a29ce0197966e7a066439984e638caf66619f4cec615f441e2e2ae944eec",
-      "owner": "Scene composition source and projection",
-      "reason": "Route the proven nesting issue to the existing composition design and its author acceptance gate.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e9ec6bcae2e38addb533a90f4e972843fa6bd9652cfa5d1eb71c3523bc35fd0e",
+      "after": "5df603e446b6eeb71f78302441f95032f165da1ba919519b25b7fc1a18f1b9a3",
+      "owner": "Scene pointer ingress",
+      "reason": "Retain the authored image-switch control and native early-release evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#side-image-switch-321"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d1699b7a1b15de74c2461c45ef9f426bb826bde60f01c9f27103e58ad1cc6c5d",
-      "after": "e9ec6bcae2e38addb533a90f4e972843fa6bd9652cfa5d1eb71c3523bc35fd0e",
-      "owner": "Scene composition source and projection",
-      "reason": "Replace the blocked author baseline with the same-input recovery and independent rendering results.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#group-perspective-author"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "a527075f4d73e0cf25413a29daa9db2657749dbfeef6ae39691a5b3dde5692b4",
+      "after": "a37a9c06eaf834c5b6587f1636c135e2d8eff998fad40fe1192c8df5e2bec576",
+      "owner": "Scene pointer ingress",
+      "reason": "Route native release discrepancies to one shared raw-versus-poll qualification.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }
