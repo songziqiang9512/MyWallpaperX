@@ -232,6 +232,17 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 
 Prepared target/transition 保有序读写；pool 租约、publication 与 completion 绑定实际 command buffer。unique history 的 seed、reused、失败与取消由原 Coordinator 管理，不靠普通帧重建或全图哈希恢复。
 
+<a id="history-read-write-split"></a>
+### 历史目标读写分离（待实施实验）
+
+当前事实：motionblur 类作者图在 pass0 读 unique `_rt_FullCompoBuffer1`、在作者 copy 写回同一逻辑目标；稳定帧仍由 `ScenePersistentGraphTargetAllocator.rehydrateCopies` 把上一帧 F1 整纹理复制到当前 F1。3420215721 实测 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 `graph-resource-copy` 合计 6.295/19.594ms GPU；该复制是实现 seed，不是作者图节点。
+
+目标：沿用同一 `SceneGraphExecutionState`、history/submission pin 与作者图，做读写分离——首读绑定上一帧已 pin 的 F1 资源，作者 copy 写当前分配，下一帧交换。不新增 allocator、target/history owner、缓存或第二套映射。
+
+准入与回退：仅当 previous state 保留、上一资源描述符/发布身份/内容代次完整且仍被 history pin 持有、作者图模式与 seed copy 覆盖的 target 完全一致时启用；首帧、reset、descriptor/尺寸变化、pin 缺失或任一身份校验失败由现有 seed copy/透明初始化承接，只影响该 effect。不得放宽 read-before-write 或让读取越过写入。
+
+验收与退役：实施后先保留 seed copy 路径。3420215721 稳定帧 `graph-resource-copy` 至少减少六个 seed（目标 ≤8/帧），GPU p50/p95 改善，稳定帧像素与现役相同；首帧/reset/描述符变化、作者 copy-back 顺序、回滚与在途 pin 反例通过。只有同条件证据成立才退役该 copy 与基线。
+
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
 

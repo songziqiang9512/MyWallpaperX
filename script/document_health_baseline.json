@@ -125,8 +125,8 @@
       "bytes": 57663
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 275,
-      "bytes": 53248
+      "lines": 286,
+      "bytes": 54787
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 571,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 47713
+      "bytes": 47780
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -404,11 +404,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c5e858f2b4bfdc1b268d98aa97410f0cf6df54471fd2df5832e149447ea078fb",
-      "after": "20bb8421cba0c553b5a3d662d4a1f210f5017c2125c9ad987942840b5fad599a",
-      "owner": "Scene graph source capture",
-      "reason": "Keep the accepted bypass optimization contract and observed real copy-command removal.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#inactive-terminal-source-capture"
+      "before": "20bb8421cba0c553b5a3d662d4a1f210f5017c2125c9ad987942840b5fad599a",
+      "after": "69ff9955ae4ba43380ead9f9f839fcea30f23ed1793ae2cca6709c7188b15718",
+      "owner": "Scene graph history",
+      "reason": "Define the read/write split experiment for authored unique history targets and its seed-copy fallback.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
     },
     {
       "section": "bodies",
@@ -476,8 +476,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0dd542a7c40dc887d02fd805124aaed70dc2b715c2edbd0ea6ed9093d71d6540",
-      "after": "7007984811fad1ff77b0460eccbb86923291da7b639f980c8874a41799997f1f",
+      "before": "7007984811fad1ff77b0460eccbb86923291da7b639f980c8874a41799997f1f",
+      "after": "df0cc6ae2d8c92e8655470274f545f3d203f61fa13809b88f5791e6c55fa5307",
       "owner": "Scene open queue",
       "reason": "Record the restored authored clock/weekday under natural wall time and retain the official clock boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
