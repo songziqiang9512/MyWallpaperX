@@ -471,6 +471,38 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
             capacity: blend.renderTargetResidentByteCost)
     }
 
+    static func repeatedAttachmentReads(_ device: MTLDevice, _ queue: MTLCommandQueue) -> [[String: Any]] {
+        [true, false].map { clears in
+            let original = target(device, width: 3, height: 2, format: .bgra8Unorm, seed: 59)
+            let copy = target(device, width: 3, height: 2, format: .bgra8Unorm, seed: 31)
+            let expected = clears ? Array(repeating: [UInt8(0), 0, 255, 255], count: 6).flatMap { $0 }
+                : pixels(original)
+            let command = queue.makeCommandBuffer()!
+            let pass = SceneMainPassEncoder(commandBuffer: command, target: original,
+                clearColor: MTLClearColorMake(1, 0, 0, 1), clearEnabled: clears)
+            let counters = ScenePerformanceCounterHub.shared
+            let before = counters.snapshot()[.mainPassRenderPasses, default: 0]
+            let firstRead = pass.withReadableTarget { $0 === original && $1 === command } == true
+            let afterFirst = counters.snapshot()[.mainPassRenderPasses, default: 0]
+            let copied = pass.withReadableTarget { source, buffer in
+                let blit = buffer.makeBlitCommandEncoder()!
+                blit.copy(from: source, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(),
+                    sourceSize: .init(width: 3, height: 2, depth: 1), to: copy,
+                    destinationSlice: 0, destinationLevel: 0, destinationOrigin: .init())
+                blit.endEncoding()
+                return true
+            } == true
+            let finished = pass.finishEnsuringClear()
+            let closed = pass.withReadableTarget { _, _ in true } == nil
+            let afterFinish = counters.snapshot()[.mainPassRenderPasses, default: 0]
+            command.commit(); command.waitUntilCompleted()
+            return ["clears": clears, "firstPasses": afterFirst - before, "laterPasses": afterFinish - afterFirst,
+                "readable": firstRead && copied, "finished": finished && closed,
+                "completed": command.status == .completed,
+                "samePixels": pixels(copy) == expected && pixels(original) == expected]
+        }
+    }
+
     static func main() throws {
         if CommandLine.arguments.contains("--compile-only") {
             print("{\"compiled\":true,\"gpuExecuted\":false}"); return
@@ -541,6 +573,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
             ["rows": rows, "terminalDepth": terminalDepth(device, queue, library),
+             "repeatedAttachmentReads": repeatedAttachmentReads(device, queue),
              "largeGroupBlend": autoreleasepool { largeGroupBlend(device, queue, library, fog) }]), as: UTF8.self))
     }
 }

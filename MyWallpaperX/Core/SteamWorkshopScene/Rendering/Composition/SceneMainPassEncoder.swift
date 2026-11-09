@@ -5,8 +5,7 @@ final class SceneMainPassEncoder {
     private let commandBuffer: MTLCommandBuffer
     private let target: MTLTexture
     private let clearColor: MTLClearColor
-    private let clearEnabled: Bool
-    private var nextLoadAction: MTLLoadAction
+    private var initialLoadAction: MTLLoadAction?
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private let submissionOwner: SceneMainPassEncoder?
@@ -92,8 +91,7 @@ final class SceneMainPassEncoder {
         self.commandBuffer = commandBuffer
         self.target = target
         self.clearColor = clearColor
-        self.clearEnabled = clearEnabled
-        self.nextLoadAction = clearEnabled ? .clear : .load
+        self.initialLoadAction = clearEnabled ? .clear : .load
     }
 
     /// Group passes share their root submission's lifetime. A source capture
@@ -143,7 +141,7 @@ final class SceneMainPassEncoder {
 
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = nextLoadAction
+        descriptor.colorAttachments[0].loadAction = initialLoadAction ?? .load
         descriptor.colorAttachments[0].clearColor = clearColor
         descriptor.colorAttachments[0].storeAction = .store
         if let depthTexture {
@@ -166,14 +164,14 @@ final class SceneMainPassEncoder {
         SceneGPUCensus.recordMainPassRender(usesDepth: depthTexture != nil)
 #endif
 #if DEBUG
-        if nextLoadAction == .clear, let trace = compositionTrace, trace.isCompositionSelected {
+        if initialLoadAction == .clear, let trace = compositionTrace, trace.isCompositionSelected {
             trace.recordComposition(.init(kind: "clear", target: compositionTarget,
                 access: "attachment-clear", outcome: "encoded"))
         }
 #endif
         activeEncoder = encoder
         activeDepthTexture = depthTexture
-        nextLoadAction = .load
+        initialLoadAction = nil
         return encoder
     }
 
@@ -196,7 +194,8 @@ final class SceneMainPassEncoder {
     func withReadableTarget<Result>(
         _ operation: (MTLTexture, MTLCommandBuffer) -> Result
     ) -> Result? {
-        guard encoder() != nil else { return nil }
+        guard !isFinished else { return nil }
+        if initialLoadAction != nil, encoder() == nil { return nil }
         closeForOffscreen()
         return operation(target, commandBuffer)
     }
@@ -204,14 +203,8 @@ final class SceneMainPassEncoder {
     @discardableResult
     func finishEnsuringClear() -> Bool {
         guard !isFinished else { return !encodingFailed }
-        if activeEncoder == nil {
-            _ = encoder()
-        }
-#if DEBUG
-        if let activeEncoder { SceneGPUStageTimestampHook.endedMain(activeEncoder) }
-#endif
-        activeEncoder?.endEncoding()
-        activeEncoder = nil
+        if initialLoadAction != nil { _ = encoder() }
+        closeForOffscreen()
         isFinished = true
         return !encodingFailed
     }

@@ -458,9 +458,8 @@ extension SceneMetalRenderer {
 #if DEBUG
         hubStage(.layerLoopMicros, hubLayerLoopStart)
 #endif
-        // D1: no group encoder may outlive the layer loop — the compositor
-        // seal re-opens the main pass and Metal permits only one active
-        // render encoder per command buffer.
+        // The main pass may still owe its first attachment operation. End
+        // group encoders before finishing it on the shared command buffer.
         compositionGroupRuntime?.closeAllGroupEncoders()
 
         if let reason = modelFrame.sceneDepthFailureReason {

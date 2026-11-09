@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 233,
-      "bytes": 42501
+      "lines": 235,
+      "bytes": 42979
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 556,
-      "bytes": 231047
+      "lines": 557,
+      "bytes": 232157
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 185,
-      "bytes": 48142
+      "lines": 186,
+      "bytes": 48454
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -350,11 +350,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "0c38eb99838de2b6e6b8331d9d81b43d63176d54bd868ba49bb68872cac49bec",
-      "after": "8cfd669a1132db93e7f61355553e139af495428e7b9b1df13f28de0067816854",
-      "owner": "Scene General zoom input",
-      "reason": "General基准与CameraTransforms相对倍率保独立身份；同步原输入合同、四作者运行范围与采集停止线，清除队列已解决项。",
-      "decision": "docs/scene/architecture/runtime-architecture.md#default-2d-general-zoom"
+      "before": "8cfd669a1132db93e7f61355553e139af495428e7b9b1df13f28de0067816854",
+      "after": "3ec4017d341bd0c82b1d2c798b7d8d92c47a14e826cbae2b3008ead1b4fc0e0f",
+      "owner": "Scene main pass encoder",
+      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#rendering"
     },
     {
       "section": "bodies",
@@ -431,10 +431,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7b7f70b94c5e14721858742dded7b2c83497287940e5d4f8a84e67816187e390",
-      "after": "cee680e026bf6407c01929ace407afb2615538c318c5274dc9af740c9cd7d3be",
-      "owner": "Scene playback evidence",
-      "reason": "Record the authored blur control and same-process video retirement with scoped reopening criteria.",
+      "before": "cee680e026bf6407c01929ace407afb2615538c318c5274dc9af740c9cd7d3be",
+      "after": "43770169b72f466c92bdf585d0a66d1c1583c58545387c4efb3297548f082c5e",
+      "owner": "Scene main pass encoder",
+      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b2336a3b19acbc2edfa840bd058ad245b4589d7dfca640466fa21f98a92d07cc",
-      "after": "9fc65e0825e0acd7071841ea2f7d8831613e30d804f7bdef18b9e4d1ece885ff",
-      "owner": "Scene playback evidence",
-      "reason": "Record the authored blur control and same-process video retirement with scoped reopening criteria.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#project-blur-286"
+      "before": "9fc65e0825e0acd7071841ea2f7d8831613e30d804f7bdef18b9e4d1ece885ff",
+      "after": "4ccce0c85c272462f350e4fd1fdc37f0fd9649ddff27e1641732807f079d276c",
+      "owner": "Scene main pass encoder",
+      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#main-pass-empty-encoders"
     }
   ]
 }

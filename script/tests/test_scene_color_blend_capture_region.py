@@ -125,6 +125,14 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             self.assertEqual(row["right"], [255, 0, 0, 255], row)
             self.assertEqual(row["farPeer"], [0, 255, 0, 255], row)
 
+    def test_repeated_attachment_reads_and_finish_keep_pixels_without_extra_passes(self):
+        rows = self.result["repeatedAttachmentReads"]
+        self.assertEqual([row["clears"] for row in rows], [True, False])
+        for row in rows:
+            self.assertEqual((row["firstPasses"], row["laterPasses"]), (1, 0), row)
+            for key in ("readable", "finished", "completed", "samePixels"):
+                self.assertTrue(row[key], row)
+
     def test_large_group_target_mode_31_draws_visible_pixels(self):
         result = self.result.get("largeGroupBlend", {})
         self.assertTrue(result.get("available", False), result)

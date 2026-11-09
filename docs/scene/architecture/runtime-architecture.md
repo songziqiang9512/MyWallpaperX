@@ -117,6 +117,8 @@ PreparedAssembly 唯一持静态 uniform 计划、layout 与 shader/render-state
 
 终端 Compositor 从原 DrawRequest 取得尚未被 Program 消费的依赖，不另传同一依赖的单数投影。正常绘制与延后复用共用最终合成；延后复用沿原 ticket 记账已消费的输入，即使当前 request 的依赖向量为空。
 
+原 `SceneMainPassEncoder` 保首次附件操作（clear 或 load）。首个 encoder 成功创建后，读取前景前先关闭实际写入的 encoder，封口也只关闭当前 encoder。两处都复用已存储的同一附件，不创建空 load/store pass。首次附件操作失败仍交原失败链；保深度 store、组背景、已填历史颜色与后续真实 draw。验证主合成 pass 数和实际颜色等价，再用同条件呈现与 GPU 帧时判断收益。
+
 MTLLibrary/PSO 在 graph/source 准备入口 warmup；PassEncoder 是其正/负缓存 owner。帧只查询，缺准备结果作 effect-local typed failure；reset 撤旧 command 代次而保不可变 PSO。可选 archive 发布不阻挡 ready。执行期仍检查当前 extent、publication、generation、target/hazard 与 GPU 使用期，不重新做静态资格证明。
 
 Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成版本。Surface 实际采用 destroyed 成员时清其 committed 与 pending final tails；在途 pin 沿原 terminal 释放，晚 completion 不能复活 dead tail。跨层 named 是独立 reservation/copy/publication，不连带清健康 consumer 自有 history。隐藏活 provider 仍可因真实 demand 执行。
