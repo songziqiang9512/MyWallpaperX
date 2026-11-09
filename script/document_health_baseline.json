@@ -129,8 +129,8 @@
       "bytes": 53248
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 557,
-      "bytes": 232157
+      "lines": 558,
+      "bytes": 232788
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 186,
-      "bytes": 48454
+      "lines": 187,
+      "bytes": 48804
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,10 +431,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cee680e026bf6407c01929ace407afb2615538c318c5274dc9af740c9cd7d3be",
-      "after": "43770169b72f466c92bdf585d0a66d1c1583c58545387c4efb3297548f082c5e",
-      "owner": "Scene main pass encoder",
-      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
+      "before": "43770169b72f466c92bdf585d0a66d1c1583c58545387c4efb3297548f082c5e",
+      "after": "7567f35dad9398b1d77b52c60f2d8465dc01757aeba27895894c7f05de676635",
+      "owner": "Scene cold material preparation",
+      "reason": "Separate the measured static model shader interface hotspot from the vertex parser hypothesis.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9fc65e0825e0acd7071841ea2f7d8831613e30d804f7bdef18b9e4d1ece885ff",
-      "after": "4ccce0c85c272462f350e4fd1fdc37f0fd9649ddff27e1641732807f079d276c",
-      "owner": "Scene main pass encoder",
-      "reason": "Specify the first attachment operation and retain measured pass removal, visual coverage, and remaining low FPS.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#main-pass-empty-encoders"
+      "before": "4ccce0c85c272462f350e4fd1fdc37f0fd9649ddff27e1641732807f079d276c",
+      "after": "eb2035360a590bc48e0068e9513726a9dd6a2bc752dead5d0f756916e683a303",
+      "owner": "Scene cold material preparation",
+      "reason": "Separate the measured static model shader interface hotspot from the vertex parser hypothesis.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-startup-366"
     }
   ]
 }
