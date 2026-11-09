@@ -95,7 +95,7 @@
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
 | 3306282639 · 图3 | 人物周身文字环多余放射线仍未修。[真实N/E同帧读回](../capabilities/runtime-evidence-current.md#circular-text-edges)已闭合本机文字末边行→e0的圈外延伸，退出“先取得作者边缘/variant”步骤；并不授上游首错或官方named采样默认。有界官方静态仍未到同资源的sampler/slot1绑定；取得该新消费者或合格源/画布边界证据才重启，否则转其他基础画面项。不重复旧LLDB、本packet、公共默认/同字符串旁支或按图改clamp/padding/PMA；2921及中心滤波仍未知。 |
 | 3382111183 | 六个活动 beam emitter（115/178/335/173/167/170）的 exponent100 仍被现计划≤16拒绝。官方 reader/evaluator 与相对64→16投影已取得静态边界；共同音频候选未恢复338321目标且用户报闪烁，已撤回，不再重复消费端/指数研究。下一事实须是实际 provider 的绝对域/状态或合格同声源数值与 ROI；不由 Script AudioBuffers 可超1外推particle，不调gain/bounds或强注入1。原供值与候选停止线归[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
-| 3383210272 | 两道彩光应从中间向左右扩散；顶部扫光/闪烁仍未修。[官方同窗关开](../capabilities/runtime-evidence-current.md#beam-contribution)已定位323/124为宽彩束组、369/391为窄斜带组。静态不对称Trail/Sprite卡仅获本机可读/稳定正控；官方Sprite两版均null-read崩溃，单补注册model材质仍失败，Trail未跑。当前转其他基础画面项；重启须同camera/FOV30、flags4/+Z/非均匀scale且官方真正可读的载体，再核头尾/U、锚点与宽轴。保`.artifacts/scene-trail-uv-control-20261109/`输入/转储，不重跑本卡或多字段试错。现MSL已用齐次导数，不重做端点割线/旧早晚/clip/宽度矩阵。音频绝对producer/status仍未知，[音频域设计](../../architecture/system-audio-spectrum-design.md)不授标定；组归因、卡片或颜色替换不授作者恢复，不调gain/公式或恢复已撤候选。 |
+| 3383210272 | 两道彩光应从中间向左右扩散；顶部扫光/闪烁仍未修。[官方对照](../capabilities/runtime-evidence-current.md#beam-contribution)已分出323/124宽彩束、369/391窄斜带；原样内置SpriteTrail出图并与宽束唯一声明候选同VS/GS。下一判别为同camera/FOV30、flags4/+Z/非均匀scale下的眼位/宽轴与可归属轮廓，仍缺实际draw参数；不得从内置方图或Mirage授作者几何。旧Sprite/Trail卡停止，32×128比例与齐次导数已供，不重乘、不重跑旧矩阵。音频绝对producer/status仍未知，不调gain或恢复已撤候选。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
 | 新增粗筛 · 3557068717及条件项 | 355唯一18秒晚窗已见完整暗地球/时钟/星空，退出“仅小亮点”描述；亮度原因仍UNKNOWN。作者有10–12秒入场与实时太阳，R0四秒与当前时相不等；重启须同帧sun world/normal/material资格，不第三场延时或用无活动需求的420 named计数解释黑。当前结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。3455121165/244的origin/scale、3470948192/115的scale早期坏return后均已有finite成功，不能判持续故障或凭日志顺序归shared调度；具体ROI仍待归因。3453730450时钟、3618302662构图、3360178853牙口与2868108515条纹仍待各自条件/source资格；113对粗筛不授完整视觉，不从其他rawPASS关闭反馈。 |
@@ -121,7 +121,7 @@
 | 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
 | 2134765860 | Night选项字符串4已实际供货；右黑矩形仍需区分作者画布、媒体与独立mask，不由属性接纳判像素归属。 |
 | 3768903841 | 横向云片/烟花色彩仍待具体ROI/producer。原R0的238.angles completed、frame0 vectorFailures=0，232已消费其共享时段；238是Day/Night按钮而非烟花writer，未找到旧screen localStorage异常原收据。重启须精确新失败/屏身份/调用回执，不删screen guard或归因烟花；未点击，不授持久化，薄事实在`.artifacts/scene-cloud-238-next-20261109/`。 |
-| 3226487183 | 1028手部同 phase 形变与 source/reference/effect 链。 |
+| 3226487183 | 1028手部外观仍开。Windows参考与本机取景/画幅不同；现有捕获中实际纹理经mask/wave→mesh→main，未定位首错。重启须同取景与pose/phase的手部ROI或阶段差；不重复默认短窗，不凭轮廓调wave/骨骼。收据在`.artifacts/scene-hand-322-next-20261109/`。 |
 | 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321另保图片切换、首焦点、持续按住与多步跟随。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
@@ -179,7 +179,7 @@
 | 3292370168普通Debug准备与505资格 | 读口跨帧误判和无需求记失败的生产逻辑已沿[观测证据](../capabilities/runtime-evidence-current.md#execution-observation-history)修正；原日志不改。当前`-Onone`/exe886b在4秒观察＋60秒准备监督期限未Ready，末记录first-surface-join4159ms，不能授505实际记账或归为11个播放故障。旧R0为`-O`诊断，不能跨配置判回退。先凭真实准备工作/栈或同配置证据定位，不原样重跑或加预算；`.artifacts/scene-startup-329-next-20261108/`保后继只读入口。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
-| 官方原生采集 | 当前 `cua.getState` 仍15秒超时并重置kernel；本次未恢复VM或执行新官方实验。待采集条件改变后先核正控，不重复旧采集或换输入/截图后端。相机getter不等于shader eye，console文档也未授可读取的数值出口；停止线同上光照研究包。 |
+| 官方原生采集 | 当前2.8.0.42独占窗已由原生CUA观察，先核窗口身份与画面刷新；仍无合格的可量测宽束捕获或实际shader eye数值出口。沿[已验证采集方法](../../../.agents/skills/mywallpaperx-maintainer/references/parallels-official-oracle.md)先取同窗像素正控；不把黑图、旧UI帧或相机getter授为几何资格。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 
 属性接口归[输入与属性](../capabilities/runtime-input-property-coverage.md)，工具按当前实现与输入资格复现。更新队列时只删已解决的具体子问题；没有当前复现则标待核，不复述旧实验流水或维持旧 verdict。

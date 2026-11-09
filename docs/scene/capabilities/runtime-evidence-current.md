@@ -424,7 +424,9 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 图像仅保本chat原生CUA会话，无本地原PNG/JPEG、数值RGB、精确scene time/tick或同PCM相位；原包曲目声明与可见响应不授粒子audio producer绝对单位。原版关闭后的首次图仍留旧预览，核receiver空title/handle0并一次已暴露Raise后取得新桌面；该旧图未当退役资格，控制观察均先Raise再取新状态。四次限窗属性/恢复实际CLI exit0、两窗实际关闭并原生确认；两份34个SM40产出各137210B逐字节同，已保存一次唯一载荷。guest76文件stage及公共运输副本已清理，原receiver保留、VM恢复原suspended。输入/运输、原始路径失败、人工读值、关闭与输出归 `.artifacts/scene-official-oracle-readiness-20261109/` 和 `.artifacts/scene-official-beam-attribution-20261109/`；独审实际核输入/raw与证明上限，没有独立看会话原图。不授几何公式、音频标定、作者修复或性能；下一可判几何控制与停止线归[队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 
-静态UV控制保于`.artifacts/scene-trail-uv-control-20261109/`：复用exe `5fc5be40…3c41`，两份八成员卡仅renderer不同；原camera/FOV30、flags4、+Z/非均匀scale、无脚本/音频/主卡Movement。两场7秒各ready/after两PNG，独审实际看图：主卡ROI及peer外整图RGBA不变，绿peer右移96导出像素；四捕获GPU完成/零截断/排空，source3024×1964→1280×831。Sprite与Trail实际camera路由不同，官方960×624也非同viewport，不由两卡尺寸/朝向差异定错。官方首次Sprite黑窗并C0000005 read0；仅给注册model补stock材质的第二版仍崩，未跑Trail、未改产品。两转储102842/76986B及输入、文件占用失败收据、CLI与本机原图均保留；缺material是具体夹具缺口但不授崩溃首因。两崩溃receiver已退出，重启4324空title/handle0；安全启动UI完整恢复未确认，不能称原桌面已恢复。客体六输入/两转储与公共运输副本已清理、VM恢复suspended。此卡停止，不继续字段/几何矩阵；重启先资格真实官方载体。
+静态UV卡的本机四捕获有固定主卡与移动绿peer，GPU完成；官方两版Sprite均C0000005 read0（单补注册model材质仍失败），未跑Trail。这一夹具停止，原图、输入、转储与退出收据保于`.artifacts/scene-trail-uv-control-20261109/`。
+
+同版官方原样内置SpriteTrail四文件按安装SHA复制，独立512²预览（receiver4324/handle525172）实际见灰底中心放射白拖尾。会话仅一张可判画面，无可量测相位/像素。六个导出产物核长度/SHA，五个与作者归档相同；唯一新`2acdec27…`与作者`ef9ec07…`完整VS及GS逐字节相同，PS各数据块仅SHEX不同。作者8个粒子声明及可达定义无child，323/124为唯一velocity Trail声明；只缩小几何候选，未取得逐draw program/eye/modelInverse数值。内置为方纹理/均匀scale，不能授作者+Z/非均匀几何；本机已消费32×128比例。复用F165实际本机VP，仅将宽轴改为本机眼点相对局部位置的方向与速度叉积，323/124投影边界各至多变化约0.1/29px，仍是局部；此反事实不授官方眼位或动画归因。官方限窗关闭并原生确认，临时guest十文件及运输副本已清理，VM恢复suspended。实测身份、唯一payload、运输首失败和独审归`.artifacts/scene-trail-stock-owner-next-20261109/`。
 
 <a id="limits"></a>
 ## 未取得的资格

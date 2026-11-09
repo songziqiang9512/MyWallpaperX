@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 434,
-      "bytes": 182469
+      "lines": 436,
+      "bytes": 182736
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48538
+      "bytes": 48532
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,20 +422,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "15ce071a223caa80da8b4f6f738c732e5ab28ef6e39ed112655c0c70f014febe",
-      "after": "c8572482e13e57bc5a8de1ffb961afce983512639eb8d4da8fab35ec8bded9eb",
-      "owner": "Scene particle baseline borrow and shimmer qualification",
-      "reason": "Record single-owner synchronous baseline storage, equivalence and bounded real rain cost, retire failed field-writer and event-journal approaches, and stop repeated unqualified shimmer phases. Exact body budget; keep 380 startup and shimmer parity open.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-baseline-borrow"
+      "before": "c8572482e13e57bc5a8de1ffb961afce983512639eb8d4da8fab35ec8bded9eb",
+      "after": "0d3a5e93e5c823803e0483ccf91da49fd5f12b7abb879b7f8042a617d04f2160",
+      "owner": "Scene official velocity Trail geometry evidence",
+      "reason": "Replace the failed carrier guidance with verified stock output and shared stage identity. Bound unresolved per-draw geometry and the hand reference; retain exact current body budgets.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e6f90894622fd0fc65c0cb4e73c96a10a9b8c165adafca54214d6bc9833e6dfe",
-      "after": "2d09610da76543e59a343cb6ba36ada904ac191704f93fab3b333763e1c0b9f3",
-      "owner": "Scene particle baseline borrow and shimmer qualification",
-      "reason": "Record single-owner synchronous baseline storage, equivalence and bounded real rain cost, retire failed field-writer and event-journal approaches, and stop repeated unqualified shimmer phases. Exact body budget; keep 380 startup and shimmer parity open.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-baseline-borrow"
+      "before": "2d09610da76543e59a343cb6ba36ada904ac191704f93fab3b333763e1c0b9f3",
+      "after": "c69ad93647ada338ad23d6cae18b799ec9585693436031857126966867e53275",
+      "owner": "Scene official velocity Trail geometry evidence",
+      "reason": "Replace the failed carrier guidance with verified stock output and shared stage identity. Bound unresolved per-draw geometry and the hand reference; retain exact current body budgets.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#beam-contribution"
     }
   ]
 }
