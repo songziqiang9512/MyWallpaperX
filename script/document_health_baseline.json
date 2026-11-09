@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 550,
-      "bytes": 225894
+      "bytes": 226065
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 47856
+      "bytes": 47901
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,11 +431,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ef180195e0bc6d2596917f7753b4fafbb03f3b6761e1be31d3a71dfb10d9df90",
-      "after": "d9d8bba173a42dc5d1842b834ca911e64f8318891ea141264d9b5714884b1d9e",
-      "owner": "Scene audio input verification",
-      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "a2222c9638c29fd27deab859fd34d635fb277d401c70699a549ef7a1c78872d0",
+      "after": "201e5a85b1720d9f0c862194ad2c42e3558a47ad6800f0ee82686c3e20751fcd",
+      "owner": "Scene ordinary video playback",
+      "reason": "Qualify the bounded reproduced AV no-new-buffer cases and explicit stopping conditions.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
       "section": "bodies",
@@ -458,11 +458,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "224315460225cb800a2f2cf884ba8425c190dcb8a8fabbad4e018d571d05b259",
-      "after": "99e2cfdcd7936704342a11a04967f27673d03e903b95a26d4729205b67e9fbd8",
-      "owner": "Scene graph source capture",
-      "reason": "Keep the accepted bypass optimization contract and observed real copy-command removal.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#inactive-terminal-source-capture-evidence"
+      "before": "99e2cfdcd7936704342a11a04967f27673d03e903b95a26d4729205b67e9fbd8",
+      "after": "ea3fe775bcd385ffc7908a8de386b3ce5a38fe81996b7a9c168bdaa9d8f1387f",
+      "owner": "Scene ordinary video playback",
+      "reason": "Qualify the bounded reproduced AV no-new-buffer cases and explicit stopping conditions.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ordinary-video-loop-380"
     }
   ]
 }
