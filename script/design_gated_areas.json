@@ -1842,16 +1842,18 @@
     },
     {
       "id": "scene-shared-source-user-scalars",
-      "title": "Shared source-material user scalar roles",
+      "title": "Shared image source material inputs",
       "owner": "BaseMaterial proof / property producer / shared source Program",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "design_notes": "Shared image-source contract at #shared-source-image-scroll. Keep scrolling in the original source Program and use the authored value only for a typed input whose property definition is absent.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift"
       ],
       "contentPatterns": [
         "sourceScalar",

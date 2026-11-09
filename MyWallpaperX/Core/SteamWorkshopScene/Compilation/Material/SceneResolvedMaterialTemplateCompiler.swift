@@ -87,6 +87,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         passIndex: Int,
         shaderContract: SceneShaderContract,
         renderState: SceneMaterialRenderState,
+        authoredOnlyUniforms: Set<String> = [],
         inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         compatibilityTarget: SceneShaderCompatibilityTarget = .windowsDX11ShaderModel4
@@ -105,7 +106,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                         name: $0, materialPath: path.value
                     )
                 },
-                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets,
+                authoredOnlyUniforms: authoredOnlyUniforms
             )
             return .success(try makeTemplate(
                 material: material,
@@ -289,7 +291,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     private static func uniformDeclarations(
         _ material: SceneResolvedMaterialNode,
         target targetForName: (String) -> SceneDynamicTarget?,
-        provenSceneScriptValueTargets: Set<SceneDynamicTarget>
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget>,
+        authoredOnlyUniforms: Set<String> = []
     ) throws -> UniformProjection {
         let names = Set(material.constants.keys).union(material.userShaderValues.keys).sorted()
         var values: [Template.UniformDeclaration] = []
@@ -318,7 +321,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 authored: authored,
                 userValue: material.userShaderValues[name],
                 target: target,
-                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets,
+                usesAuthoredUserProperty: !authoredOnlyUniforms.contains(name)
             ) else { throw uniformFailure(.uniformDeclarationInvalid, name) }
             guard fallback != nil || !dynamic.valueContributors.isEmpty
             else { throw uniformFailure(.uniformDeclarationInvalid, name) }

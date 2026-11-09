@@ -658,9 +658,18 @@ private typealias Descriptor = SceneRenderDescriptor
         value.materialPasses[0].textureSlots = ["independent/paint-source"]
         value.materialPasses[0].texturePaths = ["independent/paint-source"]
         value.materialPasses[0].constantShaderValues = ["pigment-key": nonwhite]
-        results["perspectiveRenamedEquivalent"] = output(value,
-            shader: contract(vertex: renamedVertex, fragment: renamedFragment,
-                             identity: "independent/paint-source"))
+        let renamedShader = contract(vertex: renamedVertex, fragment: renamedFragment,
+                                     identity: "independent/paint-source")
+        results["perspectiveRenamedEquivalent"] = output(value, shader: renamedShader)
+        value.layers[0].usesPerspective = false
+        value.materialPasses[0].constantShaderValues["slide-x"] = .init(rawValue: "2", components: [2])
+        var scrollY = Value(rawValue: "-0.09", components: [-0.09])
+        value.materialPasses[0].constantShaderValues["slide-y"] = scrollY
+        results["renamedScroll"] = output(value, shader: renamedShader)
+        scrollY.userBinding = "motion"; scrollY.userValueKind = .string
+        scrollY.bindingKeys = ["user", "value"]
+        value.materialPasses[0].constantShaderValues["slide-y"] = scrollY
+        results["renamedDynamicScroll"] = output(value, shader: renamedShader)
 
         value = perspective; var mixedSibling = value.layers[0]
         mixedSibling.id = 58; mixedSibling.usesPerspective = false

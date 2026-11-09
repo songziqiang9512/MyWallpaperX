@@ -498,6 +498,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             switch SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
                 material: material, layerID: layer.id, materialPath: materialPath,
                 passIndex: pass.passIndex, shaderContract: contract, renderState: state,
+                authoredOnlyUniforms: proof?.authoredOnlyUniforms ?? [],
                 provenSceneScriptValueTargets: sceneScriptTargets
             ) {
             case let .failure(failure):
@@ -561,7 +562,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             if value.scriptProperties != nil { keys.append("scriptproperties") }
             if let key = proof.colorUserPropertyKey {
                 keys.append("user")
-                guard hasUserProducer(key, .vector3) else { return false }
+                guard proof.authoredOnlyUniforms.contains(name) || hasUserProducer(key, .vector3)
+                else { return false }
             }
             return value.bindingKeys.sorted() == keys.sorted()
         }
@@ -570,7 +572,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
               value.bindingKeys.sorted() == ["user", "value"],
               value.userBinding == key, value.scriptSource == nil,
               value.scriptProperties == nil else { return false }
-        return hasUserProducer(key, .scalar)
+        return proof.authoredOnlyUniforms.contains(name) || hasUserProducer(key, .scalar)
     }
 
     /// Evaluation writes raw material output into a transparent source target;

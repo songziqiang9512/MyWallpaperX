@@ -1,8 +1,8 @@
 import Foundation
 
 /// Proves the input interface of a single-texture base material. Neutral
-/// scalars lower to the image compositor; non-neutral, host or user-bound scalars
-/// retain the complete source Program and the existing typed value producers.
+/// scalars lower to the image compositor; scrolling, non-neutral, host or
+/// user-bound scalars retain the complete source Program and typed producers.
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
@@ -29,6 +29,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         var alphaUserPropertyKey: String? = nil
         var scalarUserPropertyKeys: [String: String] = [:]
         var canLowerToCompositor: Bool = true
+        var authoredOnlyUniforms: Set<String> = []
 
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
@@ -176,7 +177,11 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         matrixSchema.materialKeys.allSatisfy({ pass.constantShaderValues[$0] == nil }) else {
             return reject(modelPath, "position-matrix-binding")
         }
-        guard let brightness = scalarBinding(
+        let scrollValues = fact.scrollUniformNames.compactMap {
+            scalarBinding(uniformName: $0, stage: .vertex, pass: pass, prepared: prepared)?.value
+        }
+        guard scrollValues.count == 2,
+              let brightness = scalarBinding(
                 uniformName: fact.brightnessUniformName,
                 stage: .fragment,
                 pass: pass,
@@ -189,18 +194,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 pass: pass,
                 prepared: prepared,
                 allowsUser: true
-              ),
-              fact.scrollUniformNames.count == 2,
-              fact.scrollUniformNames.allSatisfy({
-                neutralScalar(
-                    uniformName: $0,
-                    stage: .vertex,
-                    expected: 0,
-                    pass: pass,
-                    prepared: prepared
-                )
-              }) else {
-            return reject(modelPath, "neutral-scalar-values")
+              ) else {
+            return reject(modelPath, "scalar-values")
         }
         var scalarUserPropertyKeys: [String: String] = [:]
         for scalar in [brightness, power] {
@@ -209,6 +204,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             }
         }
         let canLowerToCompositor = scalarUserPropertyKeys.isEmpty
+            && scrollValues.allSatisfy { $0 == 0 }
             && brightness.value.bitPattern == Double(1).bitPattern
             && power.value.bitPattern == Double(1).bitPattern
             // Annotation defaults prove the interface, not a constant writer.
@@ -355,17 +351,6 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
               ) == nil
         else { return nil }
         return (entry.key, scalar, key)
-    }
-
-    private static func neutralScalar(
-        uniformName: String,
-        stage: SceneShaderContract.StageKind,
-        expected: Double,
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        prepared: SceneShaderPreparedProgram
-    ) -> Bool {
-        scalarBinding(uniformName: uniformName, stage: stage, pass: pass,
-            prepared: prepared)?.value.bitPattern == expected.bitPattern
     }
 
     private static func normalized(_ path: String) -> String {

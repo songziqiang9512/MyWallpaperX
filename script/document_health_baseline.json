@@ -125,12 +125,12 @@
       "bytes": 55283
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 259,
-      "bytes": 50510
+      "lines": 266,
+      "bytes": 51592
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 498,
-      "bytes": 204863
+      "lines": 499,
+      "bytes": 205789
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49839
+      "bytes": 50133
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -403,15 +403,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "481a94df60edb1ae49bbb884fae7df1b54d99282a6fa97d16144b37a8c60a98b",
-      "after": "c7d88609fb6094204fca5a7937467a45df807cde5d1dd989ce12a9b23662e723",
-      "owner": "Scene graph canvas sampler binding",
-      "reason": "Document the existing material encoder canvas sampler boundary, real scene improvement, focused regressions and remaining text ring lines. Exact body budget.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#graph-canvas-sampling"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
       "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
@@ -439,21 +430,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "c7d88609fb6094204fca5a7937467a45df807cde5d1dd989ce12a9b23662e723",
+      "after": "6f46432147b173c9e7272fe8debd60d293f41a091d9a137ec738e1c4ad8bd4e7",
+      "owner": "Scene shared image source preparation",
+      "reason": "Specify shared source scrolling and target-local authored values.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shared-source-image-scroll"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "00ef1e3db44b09911055fc3189bc9e03fd00a2d5544ae5bb06bc65cc9fc1ce50",
-      "after": "c015e8d026461054c4e04225c4e9786f2b99036471511167c329c7656d9ac744",
-      "owner": "Scene particle runtime",
-      "reason": "Record the native counting control and the unqualified Windows fixture.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-audio-threshold-qualification"
+      "before": "c015e8d026461054c4e04225c4e9786f2b99036471511167c329c7656d9ac744",
+      "after": "bcf278c0187e80cfd2096ae91b17a3d8405cf437521c085937ab0d6a824544e6",
+      "owner": "Scene shared image source preparation",
+      "reason": "Record the restored authored ring and its bounded official and neighbor evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#dynamic-shared-source-ring"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8c7c1fd438c26e48a12884f097089b22d978539576873db3ff7be5fa4b96189f",
-      "after": "c001be3295f173083fee94a812da0e1d110fc4540e7dcfe472c3c4e0fa9b2697",
-      "owner": "Scene particle runtime",
-      "reason": "Prioritize a discriminating numeric audio control without repeating the shared song.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "2585a2bd0377b775a2cf38a5d0e8474c894fd77e8f8fbb9384342c3973ba0660",
+      "after": "00ca3f40aca815121398a7467ec9c35b827e0f2cf8f78f6e9d89b4ecaed8dff8",
+      "owner": "Scene shared image source preparation",
+      "reason": "Keep the independent hidden-layer material admission at its real activation boundary.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }

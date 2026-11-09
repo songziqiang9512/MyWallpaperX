@@ -76,7 +76,7 @@
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。 |
 | Puppet · 3577990983、3822822401、3779107475 | auxiliary/reference、非中性通道、dense state1及多contributor姿态按真实reference/attachment坐标基资格，Reader识别不等于evaluator执行。 |
 | point volume · 3047405322、3437487219、3477054430 | 需实际volume consumer；现有spot plan和point表面光照不能代验。 |
-| Script动态特殊资源与typed callback | 特殊Puppet/composition创建字段、3028048463的531.alpha空数组/506.origin分别核prepared catalog及实际producer，不造空实例或无差别容错。 |
+| Script动态特殊资源与typed callback | 特殊Puppet/composition创建字段、3028048463的531.alpha空数组/506.origin分别核prepared catalog及实际producer，不造空实例或无差别容错。3538053643/490与已修的[共享材质内圈](../capabilities/runtime-evidence-current.md#dynamic-shared-source-ring)共用作者资源，但默认隐藏层仍拒绝冷准备；须先取得 `music=true` 的活动同层对照，再核原显隐与材质准备职责，不由默认图判缺环。 |
 | Script粒子scalar回调交接 | 相反自身setter/返回与隐式init后输入/getter次序尚无官方资格。原alpha探针已分清即时journal、附着返回和下一preliminary两路，不把本次input自动当getter基线；重启须官方顺序或明确的项目回调合同，再在原primitive/merge修正，不重跑已闭字段运输/模拟门。原四case与STOP在`.artifacts/scene-particle-instance-fields-next-20261109/native/`，已接字段合同归[Particle instance](../capabilities/scenescript-api-coverage.md#particle-instance-scalars)。 |
 | sampler宏声明接口 | canonical g_TextureN声明配宏采样read已准备通过；自有slot0将声明改为宏别名时，raw SchemaSeed未展开，unconditionalSamplers报authoredSamplerSchemaInvalid。当前没有作者缺图资格。沿原冷预处理/接口事实统一Schema，保真实slot/metadata，不新增别名许可表或忽略用途；后续资源目的仍需独立资格。 |
 | RopeTrail其余renderer字段 | 公共Worldspace与整数subdivision已沿原消费者接通，资格见[组件合同](../capabilities/particle-component-coverage.md#rope-trail-world-subdivision)。child尚无RopeTrail历史消费者，仅局部拒该输出，root多输出不授此能力。显式非正length仍拒绝；固定客户端静态最小值钳制尚无作者/运行资格，不能据此授完整history单位。非screen朝向、动画、size fading及UV字段各需实际消费证据，不以原flags误拒保留它们的整renderer许可。 |

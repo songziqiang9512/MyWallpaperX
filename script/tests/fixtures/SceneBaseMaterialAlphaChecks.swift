@@ -50,7 +50,7 @@ func customMaterialAlphaChecks() -> [String: Bool] {
             descriptor: .init(layers: layers ?? descriptor.layers,
                 modelMaterialLinks: descriptor.modelMaterialLinks,
                 materialPasses: descriptor.materialPasses, texturePropertyKeys: []),
-            materialInstancesByLayerID: instances, propertyProgram: program,
+            materialInstancesByLayerID: instances, propertyCompilation: .init(program: program, diagnostics: []),
             namedLayerIDs: named).isEmpty
     }
     func snapshot(_ values: [SceneDynamicTarget: SceneDynamicValue]) -> SceneDynamicSnapshot {
@@ -126,11 +126,11 @@ func customMaterialAlphaChecks() -> [String: Bool] {
     ] {
         let proposed = SceneMaterialPropertyBindingCompiler.provenPropertyBindings([exactFact],
             descriptor: pair, materialInstancesByLayerID: instances)
-        let proposedProgram = ScenePropertyBindingCompiler().compile(
-            report: .init(bindings: proposed, diagnostics: []), catalog: .init(definitions: definitions)).program
+        let proposedCompilation = ScenePropertyBindingCompiler().compile(
+            report: .init(bindings: proposed, diagnostics: []), catalog: .init(definitions: definitions))
         let admittedFacts = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials([exactFact],
             descriptor: pair, materialInstancesByLayerID: instances,
-            propertyProgram: proposedProgram, namedLayerIDs: named)
+            propertyCompilation: proposedCompilation, namedLayerIDs: named)
         let full = SceneMaterialPropertyBindingCompiler.compile(descriptor: pair,
             materialInstancesByLayerID: instances, provenBindings: admittedFacts)
         let fullProgram = ScenePropertyBindingCompiler().compile(

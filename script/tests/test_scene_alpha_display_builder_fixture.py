@@ -418,7 +418,7 @@ enum SceneBaseMaterialProviderBindingCompiler {
         _ bindings: [SceneBaseMaterialColorModulationCompiler.Binding],
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
-        propertyProgram: ScenePropertyBindingProgram,
+        propertyCompilation: ScenePropertyBindingCompilation,
         namedLayerIDs: Set<Int>
     ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
         precondition(bindings.isEmpty)

@@ -116,6 +116,13 @@ source 的角色由模型、材质及实际编译输入决定。已声明 passth
 
 验证沿原角色解析门和完整 native-world App：无依赖、只声明早层、只声明晚层及资源改名保持同一 source/effect/父变换/深度像素和健康 peer；实际改成 named source 的材质必须保持自己的输入语义，不能借声明等价取得 framebuffer 身份。已有 named/late-miss 门各保自身供货范围，不能代 native-world 与任意 named 组合资格。带依赖 utility 的 effect 热显隐仍有原准入门；layer 显隐使用原消费者，本条不授 native-world 与声明依赖组合的热切换资格。
 
+<a id="shared-source-image-scroll"></a>
+### 共享图片源材质的滚动与作者值
+
+经现有接口证明的单纹理调色材质，有限的静态 UV 滚动值交给完整 source Program，以原时钟、采样和颜色参数生成共享来源。只有零滚动且其他参数中性时才可降为直接合成。完整 Program 中，解析后的属性目录未定义直接属性时使用已验证的作者值，颜色脚本仍以该值为输入。已声明的属性沿现 typed writer，错型、冲突、缺作者值和不支持的动态滚动保局部拒绝。
+
+先由原材质与属性准备确定 writer，再由原 Program 与资源模板把同一来源交给静态层和动态实例。撤掉完整 Program 的零滚动门，保留直接合成的限制。不以已载入的纹理代替材质，不新增运行期资源或缓存。验收核非零滚动与重命名、合法 live writer、缺定义 fallback、坏声明、零滚动邻例及同素材独立作者；官版原包 16:9 预览用于确认内圈位置和可见性，逐像素与滚动相位另需匹配输入。
+
 <a id="named-input-ownership"></a>
 ### Named 输入与发布
 

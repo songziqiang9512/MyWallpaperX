@@ -7,47 +7,60 @@ enum SceneBaseMaterialProviderBindingCompiler {
         _ bindings: [SceneBaseMaterialColorModulationCompiler.Binding],
         descriptor: SceneRenderDescriptor,
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance],
-        propertyProgram: ScenePropertyBindingProgram,
+        propertyCompilation: ScenePropertyBindingCompilation,
         namedLayerIDs: Set<Int>
     ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
+        let propertyProgram = propertyCompilation.program
         let targets = Set(propertyProgram.instructions.map(\.target))
+        let missingProperties = Set(propertyCompilation.diagnostics.compactMap {
+            $0.code == .missingPropertyDefinition ? $0.target : nil
+        })
         func hasUserProducer(_ target: SceneDynamicTarget, key: String,
                              type: SceneDynamicValueType) -> Bool {
             let matches = propertyProgram.instructions.filter { $0.target == target }
             return matches.count == 1 && matches.first?.propertyKey == key
                 && matches.first?.valueType == type
         }
-        return bindings.filter { fact in
+        return bindings.compactMap { binding in
+            var fact = binding
+            let mayUseAuthored = !fact.canLowerToCompositor
+            func usesAuthored(_ target: SceneDynamicTarget, as type: SceneDynamicValueType) -> Bool {
+                mayUseAuthored && missingProperties.contains(target)
+                    && propertyProgram.validation.definitionsByTarget[target]?.valueType == type
+            }
             if fact.scriptSource != nil {
                 guard let inputs = SceneScriptPropertyInputCodec.inputs(fact.scriptProperties),
                       SceneScriptPropertyInputCodec.liveConsumerTargets(
                         layerID: fact.sourceLayerID,
                         targetPath: SceneScriptPropertyTargetPath.encoded(fact.colorBindingPath),
                         inputs: inputs
-                      ).isSubset(of: targets) else { return false }
+                      ).isSubset(of: targets) else { return nil }
             }
-            if let target = fact.colorPropertyTarget {
-                guard propertyProgram.instructions.contains(where: {
-                    $0.target == target && $0.valueType == .vector3
-                }) else { return false }
+            if let target = fact.colorPropertyTarget, let key = fact.colorUserPropertyKey {
+                if usesAuthored(target, as: .vector3) { fact.authoredOnlyUniforms.insert(fact.colorKey) }
+                else if !hasUserProducer(target, key: key, type: .vector3) { return nil }
             }
-            if let target = fact.alphaPropertyTarget {
-                guard targets.contains(target),
-                      let range = propertyProgram.definitions.first(where: { $0.target == target })?
-                        .userPropertyNumericRange,
-                      range.lowerBound >= 0, range.upperBound <= 1 else { return false }
+            if let target = fact.alphaPropertyTarget, let name = fact.alphaKey {
+                if usesAuthored(target, as: .scalar) { fact.authoredOnlyUniforms.insert(name) }
+                else {
+                    guard targets.contains(target),
+                          let range = propertyProgram.validation.definitionsByTarget[target]?.userPropertyNumericRange,
+                          range.lowerBound >= 0, range.upperBound <= 1 else { return nil }
+                }
             }
             for (name, key) in fact.scalarUserPropertyKeys {
                 let target = SceneDynamicTarget.materialConstant(layerID: fact.sourceLayerID,
                     passIndex: 0, name: name, materialPath: fact.materialPath)
-                guard hasUserProducer(target, key: key, type: .scalar) else { return false }
+                if usesAuthored(target, as: .scalar) { fact.authoredOnlyUniforms.insert(name) }
+                else if !hasUserProducer(target, key: key, type: .scalar) { return nil }
             }
-            return descriptor.layers.filter {
+            guard descriptor.layers.filter({
                 $0.imagePath.map { normalized($0).trimmingCharacters(in: .whitespacesAndNewlines) }
                     == fact.modelPath
-            }.allSatisfy {
+            }).allSatisfy({
                 materialInstancesByLayerID[$0.id] == nil && !namedLayerIDs.contains($0.id)
-            }
+            }) else { return nil }
+            return fact
         }
     }
 

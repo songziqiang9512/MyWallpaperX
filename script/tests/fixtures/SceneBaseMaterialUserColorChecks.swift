@@ -48,7 +48,8 @@ func customMaterialUserColorChecks() -> [String: Bool] {
     let targets = Set(program.instructions.map(\.target))
     func admitted(_ program: ScenePropertyBindingProgram, _ facts: [SceneBaseMaterialColorModulationCompiler.Binding]? = nil) -> Bool {
         SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials(facts ?? [fact], descriptor: descriptor,
-            materialInstancesByLayerID: [:], propertyProgram: program, namedLayerIDs: []).count == 1
+            materialInstancesByLayerID: [:], propertyCompilation: .init(program: program, diagnostics: []),
+            namedLayerIDs: []).count == 1
     }
     let source = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor,
         materialInstancesByLayerID: [:], scriptBindings: [], materialPropertyTargets: targets, provenBindings: [fact])
@@ -174,10 +175,32 @@ func customMaterialUserScalarChecks() -> [String: Bool] {
             let targets = Set(program.instructions.map(\.target))
             func admitted(_ candidate: ScenePropertyBindingProgram) -> Bool {
                 SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials([fact], descriptor: descriptor,
-                    materialInstancesByLayerID: [:], propertyProgram: candidate, namedLayerIDs: []).count == 1
+                    materialInstancesByLayerID: [:], propertyCompilation: .init(program: candidate, diagnostics: []),
+                    namedLayerIDs: []).count == 1
             }
             func producerSet(_ candidate: ScenePropertyBindingProgram) -> Set<SceneDynamicUserPropertyProducer> {
                 Set(candidate.instructions.map { .init(propertyKey: $0.propertyKey, target: $0.target, valueType: $0.valueType) })
+            }
+            let missing = ScenePropertyBindingCompiler().compile(report: .init(bindings: bindings, diagnostics: []),
+                catalog: .init(definitions: definitions.filter { $0.key == "opacity" }))
+            let fallbackFact = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials([fact],
+                descriptor: descriptor, materialInstancesByLayerID: [:], propertyCompilation: missing,
+                namedLayerIDs: []).first
+            let authoredOnly = Set(scalarKeys.keys).union([colorKey])
+            checks[label + "missingProjectDefinitionsRetainOnlyAuthoredUniforms"] =
+                fallbackFact?.authoredOnlyUniforms == authoredOnly
+                && fallbackFact?.scriptSource == script
+                && missing.program.instructions.map(\.propertyKey) == ["opacity"]
+            if let fallbackFact {
+                checks[label + "sourceKeepsAuthoredInputsAndRequiresColorScript"] =
+                    authoredOnly.allSatisfy { name in
+                        SceneSourceUniformAdmissionProbe.sourceUniformIsAdmitted(name: name,
+                            value: constants[name]!, proof: fallbackFact, sceneScriptTargets: [colorTarget],
+                            userPropertyProducers: producerSet(missing.program))
+                    }
+                    && !SceneSourceUniformAdmissionProbe.sourceUniformIsAdmitted(name: colorKey,
+                        value: constants[colorKey]!, proof: fallbackFact, sceneScriptTargets: [],
+                        userPropertyProducers: producerSet(missing.program))
             }
             checks[label + "realCompilerProducesEveryScalar"] = compiled.diagnostics.isEmpty && bindings.count == scalarKeys.count + 2
                 && program.instructions.count == scalarKeys.count + 2 && admitted(program)

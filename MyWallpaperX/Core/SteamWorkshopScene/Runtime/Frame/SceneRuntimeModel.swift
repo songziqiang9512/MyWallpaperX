@@ -231,10 +231,10 @@ struct SceneRuntimeModelBuilder {
             rawPropertyVectorProjection.materialBindings, descriptor: renderDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID
         )
-        let proposedMaterialPropertiesProgram = ScenePropertyBindingCompiler().compile(
+        let proposedMaterialPropertyCompilation = ScenePropertyBindingCompiler().compile(
             report: .init(bindings: proposedMaterialProperties, diagnostics: []),
             catalog: project.userProperties
-        ).program
+        )
         let namedMaterialLayerIDs = Set((SceneNamedTextureDependencyReferenceAnalysis.references(
             in: runtimeDescriptor.layers, includingInactiveEffects: true
         ) + SceneNamedTextureDependencyReferenceAnalysis.potentialNamedReferences(
@@ -243,7 +243,7 @@ struct SceneRuntimeModelBuilder {
         let admittedMaterials = SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials(
             rawPropertyVectorProjection.materialBindings, descriptor: runtimeDescriptor,
             materialInstancesByLayerID: sceneDocument.materialInstancesByLayerID,
-            propertyProgram: proposedMaterialPropertiesProgram, namedLayerIDs: namedMaterialLayerIDs
+            propertyCompilation: proposedMaterialPropertyCompilation, namedLayerIDs: namedMaterialLayerIDs
         )
         let propertyVectorProjection = SceneScriptVectorCandidateCatalog(
             candidates: rawPropertyVectorProjection.candidates,

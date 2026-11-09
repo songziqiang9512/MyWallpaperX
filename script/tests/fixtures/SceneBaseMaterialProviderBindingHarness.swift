@@ -89,6 +89,7 @@ enum SceneBaseMaterialColorModulationCompiler {
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
         var scalarUserPropertyKeys: [String: String] = [:]
+        var authoredOnlyUniforms: Set<String> = []
         var canLowerToCompositor: Bool = true
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
