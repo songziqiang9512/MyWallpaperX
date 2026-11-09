@@ -129,8 +129,8 @@
       "bytes": 49153
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 442,
-      "bytes": 185636
+      "lines": 446,
+      "bytes": 186942
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 139,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 48926
+      "bytes": 49013
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -422,20 +422,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "455de335ef938f899ccb0ae0dd564d1f87dc1d902b36635817c439874829f80d",
-      "after": "19cab505801e3021cf051024a2b29f01ab8541270809b2d0531b8755e1f3edfe",
-      "owner": "Scene circular text boundary evidence",
-      "reason": "Record the qualified official probe and matched Mac terminal evidence; replace the open case stop with a bounded upstream discriminator. Exact body budget.",
+      "before": "19cab505801e3021cf051024a2b29f01ab8541270809b2d0531b8755e1f3edfe",
+      "after": "10e1d37bd0e4178fdfae43a4188ea6e7ce72efa97aa7bd804a8f0a573479e943",
+      "owner": "Scene graph sampling boundary evidence",
+      "reason": "Record the original scroll-stage byte readback and same-MSL Metal sampler control. Refine the open issue to the actual graph sampler boundary while preserving proven oblique texture behavior. Exact body budget.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3e5e36d3c8946f7d9d3d7437509e487c95bfadc0164181dd13da8aaa0d3024dd",
-      "after": "4f3d2c45b5603bfec77fe5f59eb1dff32b8b09d202069b1569b98df780fb4a71",
-      "owner": "Scene material video acquisition and playback",
-      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
-      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+      "before": "3ea7f066153fd86eb4ec502ebd2181b8757534c4160b6ec6b5e956da31571e72",
+      "after": "cd7405f02b7139b9d2c7cf1b6dc2f4954d49ec411330518bbbefd289f6d1f18b",
+      "owner": "Scene graph sampling boundary evidence",
+      "reason": "Record the original scroll-stage byte readback and same-MSL Metal sampler control. Refine the open issue to the actual graph sampler boundary while preserving proven oblique texture behavior. Exact body budget.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#circular-text-edges"
     },
     {
       "section": "bodies",

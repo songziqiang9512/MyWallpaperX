@@ -254,7 +254,11 @@ N首/末边行alpha非零分别59/1676个，内域正控非空。实际MVP与四
 
 同一官方客户端原生预览的探针只替换116个成员中两个半环共用的fragment，原project、2917文字来源和两遮罩逐字节保持。首版出现红块，日志为该fragment的X3014；只展开两处向量构造后，V2 `e20a415d…9223d`实际显示紫/青两面板和其余原环，两次可见观察均未见本机那样的大面积放射条。Parallels的PNG只有窗口顶部或全黑，无合格环区，官方定量取样、边行字节和sampler仍未知。收据、原语法错误及修正版归`.artifacts/scene-circular-text-uv-oracle-next-20261109/`。
 
-同一V2包复用签名本机App `ce563653…7292e`，req1/F57两环实际slot1同named2917，原e1遮罩→tail→main及GPU完成闭合。3024×1964原PNG里两面板和原放射条共存。LOD0在3192/2921分别21/18个屏幕列通过3×3中值规则，分布于各至少三个分离区间：Y近1与1.625的alpha编码同值，高于包回内域对照及零基线至少24档。Y近0侧未达到同一判别条件。此结果限定本机高端延伸，原隐式LOD的整体行为及跨端差异归因仍未定；标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-uv-oracle-20261109/`。反馈与首错判别归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
+同一V2包复用签名本机App `ce563653…7292e`，req1/F57两环实际slot1同named2917，原e1遮罩→tail→main及GPU完成闭合。3024×1964原PNG里两面板和原放射条共存。LOD0在3192/2921分别21/18个屏幕列通过3×3中值规则，分布于各至少三个分离区间：Y近1与1.625的alpha编码同值，高于包回内域对照及零基线至少24档。Y近0侧未达到同一判别条件。此结果限定本机高端延伸，标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-uv-oracle-20261109/`。
+
+原作者包单场4秒/after2秒重定向原读回工具至2917/e0，签名观察App `09085158…c5835`、原metallib、4396构建输入稳定。req1/F63/CB `510975231744`/Surface `510925597184` 166行零截断。真实sourceCapture C `510900798080`→slot0→scroll G1 `510900799360` 两图均2048×31 BGRA8/mip1，draw结束后在同CB读取；原tail→两环named与遮罩→main/seal/GPU及原PNG均闭合。C末行alpha非零88、总量19746，G1为1667和106377；相邻行总量17621→17622。实际scroll Y速率0、scale(1,1)，X相位约.092834。按同相位线性逐行对照，前30行均在一个alpha档内，末行1587像素超一档。原PNG仍见环外放射条；异常宽边行首次出现在滚动输出。
+
+同机Metal对原MSL、144B uniform和C原字节重放，保同一pipeline、target、线性clamp、primitive与CB，唯一变量是 `maxAnisotropy`。16重现全部253952个G1字节，1使末行非零1667→97、alpha总量106377→19748，前30行逐字节相同，全部alpha回到同相位线性对照一档内。实际helper导数、官方sampler和产品改后全画面尚未取得。六临时观察钩子已退役且4396输入无漂移，原签名App复原。raw、重放、独审归`.artifacts/scene-circular-text-source-330-next-20261109/`，标准载荷归`.artifacts/scene-evidence/runs/scene-circular-text-source-330-20261109/`。修复范围归[开放队列](../roadmap/scene-open-breakpoint-queue.md#user-feedback)。
 
 <a id="fullscreen-cursor"></a>
 ## Fullscreen 事件与斜向遮罩
