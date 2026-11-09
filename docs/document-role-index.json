@@ -890,9 +890,9 @@
       "lastReviewed": "2026-11-09",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c03050c0f3ab27daa9d7df69532723ce7be31303b062badf30b3baf3db1f0623",
+        "sourceSHA256": "7c57eb93070fe7e2acd61fa1dcb4bc85146aacffdc814af51c9b6656dd76204a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原collector、验收与归档入口：未生成可选文件为null、实际canonical载荷仍收集、真实宣告及captured完整性仍检查；历史报告不倒改，其余导航未变。",
+        "scope": "核对现有benchmark参数、末点抬键与点击调度、截图时序和合成输入范围；保留可选文件与历史报告边界。",
         "limitations": "此导航收据仅核文档与工具入口；实际 App、GPU 和官方证明范围另归运行证据。"
       }
     },

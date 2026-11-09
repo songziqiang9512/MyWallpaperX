@@ -129,8 +129,8 @@
       "bytes": 52254
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 511,
-      "bytes": 213686
+      "lines": 513,
+      "bytes": 214731
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -149,8 +149,8 @@
       "bytes": 28178
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 110,
-      "bytes": 14777
+      "lines": 112,
+      "bytes": 15154
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48441
+      "bytes": 48489
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -367,15 +367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "8f02c5147ab8b2e794ccc25be30cb6a68edaf483146df75e72b81690897a354f",
-      "after": "8e4f919014d94636708503fb2cc307ae5f60c2f34d3cc55d373c9c977b0a6b45",
-      "owner": "Scene benchmark optional evidence collector",
-      "reason": "Record only actual optional files or explicit runtime declarations; keep failure and promised-file integrity. Remove the resolved queue entry and unsupported staging attribution. Exact body budget without spare allowance.",
-      "decision": "docs/scene/development/development-workflow.md#声明扫描与运行诊断"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "053827ea44996f95e60b80b7d39d33822ee36474fcd65b634c7f0dcfe0df9280",
       "after": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
@@ -430,15 +421,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a527075f4d73e0cf25413a29daa9db2657749dbfeef6ae39691a5b3dde5692b4",
-      "after": "a37a9c06eaf834c5b6587f1636c135e2d8eff998fad40fe1192c8df5e2bec576",
-      "owner": "Scene pointer ingress",
-      "reason": "Route native release discrepancies to one shared raw-versus-poll qualification.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "14a5f256ee01c372c043e499f8562b3a00a53f6f58fdd0cba97e47a74af62226",
       "after": "078ef11d8d842e7d20c6b6bbead8d69f2ad361e722a1e86bc85dda5409174153",
@@ -458,11 +440,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "aeba174226917cb3b2b497baeed80e4a17b10bad716baa5d148f9ff285f25ae9",
-      "after": "92526f1ee46563c8e95b39ec4b0fb53b65526fbd937d587b7ae26f1a3b1fc307",
-      "owner": "Scene composition source and projection",
-      "reason": "Record the same-input authored childless replay and independent author control.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#childless-passthrough-perspective"
+      "before": "92526f1ee46563c8e95b39ec4b0fb53b65526fbd937d587b7ae26f1a3b1fc307",
+      "after": "fa661aef5975d64ea94fe4d54879bd5c1bd2329de8a6e0bee6693e9f6233b475",
+      "owner": "Scene cursor and media evidence",
+      "reason": "Record the original author click-to-reversion proof and independent author switch.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "8e4f919014d94636708503fb2cc307ae5f60c2f34d3cc55d373c9c977b0a6b45",
+      "after": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
+      "owner": "Scene Debug pointer evidence",
+      "reason": "Record existing click dispatch at the trajectory endpoint and bound synthetic evidence.",
+      "decision": "docs/scene/development/development-workflow.md#截图与时序"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "65870e2b8f81192e2eaa34904d66b9146a0b4401c40c3d5e3d740978b3b479e3",
+      "after": "7288bda37fcb460c71d0163af52041dedee2e1b8acbd5f802c4a1ce19906744a",
+      "owner": "Scene visible playback queue",
+      "reason": "Replace the unqualified click with the verified next-frame selection reversion.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     }
   ]
 }

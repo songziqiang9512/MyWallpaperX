@@ -251,9 +251,10 @@ extension DebugScenePlaybackRunner {
         }
     }
 
-    static func schedulePointerTrajectory(
+    private static func schedulePointerTrajectory(
         outputDirectory: URL,
-        points: [SIMD2<Float>]
+        points: [SIMD2<Float>],
+        finish: @escaping @MainActor @Sendable (SIMD2<Float>) -> Void
     ) {
         guard let first = points.first else { return }
         NSLog(
@@ -269,18 +270,20 @@ extension DebugScenePlaybackRunner {
         schedulePointerTrajectoryStep(
             outputDirectory: outputDirectory,
             points: points,
-            index: 1
+            index: 1,
+            finish: finish
         )
     }
 
     private static func schedulePointerTrajectoryStep(
         outputDirectory: URL,
         points: [SIMD2<Float>],
-        index: Int
+        index: Int,
+        finish: @escaping @MainActor @Sendable (SIMD2<Float>) -> Void
     ) {
         guard points.indices.contains(index) else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                capturePointerResult(outputDirectory: outputDirectory)
+                finish(points[index - 1])
             }
             return
         }
@@ -306,7 +309,8 @@ extension DebugScenePlaybackRunner {
                 schedulePointerTrajectoryStep(
                     outputDirectory: outputDirectory,
                     points: points,
-                    index: index + 1
+                    index: index + 1,
+                    finish: finish
                 )
             }
         }
@@ -366,10 +370,20 @@ extension DebugScenePlaybackRunner {
         after delay: TimeInterval
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let finish: @MainActor @Sendable (SIMD2<Float>) -> Void = { point in
+                if primaryClick {
+                    let count = ProcessInfo.processInfo.arguments.contains(
+                        "--mwx-debug-scene-primary-double-click") ? 2 : 1
+                    schedulePrimaryClicks(outputDirectory: outputDirectory, pointer: point, remaining: count)
+                } else {
+                    capturePointerResult(outputDirectory: outputDirectory)
+                }
+            }
             if let pointerTrajectory {
                 schedulePointerTrajectory(
                     outputDirectory: outputDirectory,
-                    points: pointerTrajectory
+                    points: pointerTrajectory,
+                    finish: finish
                 )
             } else if let dragPointer {
                 schedulePointerDrag(
@@ -377,12 +391,8 @@ extension DebugScenePlaybackRunner {
                     from: pointer,
                     to: dragPointer
                 )
-            } else if primaryClick {
-                let count = ProcessInfo.processInfo.arguments.contains(
-                    "--mwx-debug-scene-primary-double-click") ? 2 : 1
-                schedulePrimaryClicks(outputDirectory: outputDirectory, pointer: pointer, remaining: count)
             } else {
-                capturePointerResult(outputDirectory: outputDirectory)
+                finish(pointer)
             }
         }
     }

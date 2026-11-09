@@ -127,8 +127,7 @@ enum DebugScenePlaybackRunner {
             return
         }
         guard requestedPointerTrajectory == nil
-                || (!requestedPrimaryClick
-                    && requestedDragPointer == nil
+                || (requestedDragPointer == nil
                     && !requestedHoverPointerFromLaunch
                     && !requestedHoverPointerStationaryEntry) else {
             NSLog(

@@ -130,10 +130,11 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assert_pointer_sequence(payload)
         self.assert_after_deadline(payload)
 
-    def test_trajectory_after_respects_requested_observation_deadline(self) -> None:
+    def test_trajectory_click_follows_unpressed_move_and_endpoint_capture(self) -> None:
         payload = self.run_schedule(extra=(
             "--mwx-debug-scene-after-snapshot-delay", "5",
             "--mwx-debug-scene-pointer-trajectory-json", "[[0.25,-0.5],[-0.6,0.5]]",
+            "--mwx-debug-scene-primary-click",
         ))
         events = payload["events"]
         self.assertEqual([row["event"] for row in events if row["event"].startswith("capture:")],
@@ -143,6 +144,15 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assertTrue(hover["inside"])
         for actual, expected in zip(hover["point"], [-0.6, 0.5]):
             self.assertAlmostEqual(actual, expected, places=6)
+        interactions = [row for row in events if row["event"].startswith(("pointer:", "capture:"))]
+        self.assertEqual(sum(row["event"] == "pointer:down" for row in interactions), 1)
+        start = next(i for i, row in enumerate(interactions)
+                     if row["event"] == "capture:pointer-trajectory-00")
+        endpoint = interactions[start + 1:start + 6]
+        self.assertEqual([row["event"] for row in endpoint],
+                         ["pointer:up", "capture:pointer-trajectory-01",
+                          "pointer:down", "pointer:up", "capture:hover"])
+        self.assertTrue(all(row["point"] == hover["point"] for row in endpoint))
         self.assert_after_deadline(payload)
 
     def test_closing_after_hover_prevents_capture_at_later_deadline(self) -> None:

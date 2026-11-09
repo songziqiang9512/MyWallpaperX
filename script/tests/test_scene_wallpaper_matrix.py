@@ -333,6 +333,7 @@ class SceneWallpaperMatrixTests(unittest.TestCase):
                 "samples": [{
                     "id": "1",
                     "pointer_trajectory_normalized": [[-0.5, 0], [0.5, 0]],
+                    "cursor_primary_click": True,
                 }],
             }
             path.write_text(json.dumps(base), encoding="utf-8")
@@ -346,6 +347,12 @@ class SceneWallpaperMatrixTests(unittest.TestCase):
                 ValueError,
                 "cannot be combined with hover_pointer_normalized",
             ):
+                benchmark.load_matrix(path)
+            base["samples"][0].pop("hover_pointer_normalized")
+            base["samples"][0].pop("cursor_primary_click")
+            base["samples"][0]["cursor_drag_to_normalized"] = [0, 0]
+            path.write_text(json.dumps(base), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "cursor_drag_to_normalized requires"):
                 benchmark.load_matrix(path)
 
     def test_pointer_trajectory_minimum_change_requires_trajectory(self) -> None:
