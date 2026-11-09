@@ -129,8 +129,8 @@
       "bytes": 50510
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 458,
-      "bytes": 191037
+      "lines": 462,
+      "bytes": 191808
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 148,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 48429
+      "bytes": 48146
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -421,15 +421,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a3b79d827f89a22aff17edd2abe4010969eaddb478747e2731d5532c0c6848c4",
-      "after": "a920ab08bb3a3eccd26a89762cc2dde19680f9c08707774febccb85e88ebf1c6",
-      "owner": "Scene text raster layout",
-      "reason": "Record the actual positioned ink extent contract and real author recovery; remove the closed circular text visual issue. Exact body budget.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#text-raster-ink-extent"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "e2ed38ceb8724877940b3cd3dc6382e513b59207b70829f7998fa3f8521e29eb",
       "after": "c9f8d418426a2601174e2e022bea595d06519f1bc1572ac74529f57bbeb61711",
@@ -454,6 +445,15 @@
       "owner": "Scene graph canvas sampler binding",
       "reason": "Document the existing material encoder canvas sampler boundary, real scene improvement, focused regressions and remaining text ring lines. Exact body budget.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#graph-canvas-sampling"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a920ab08bb3a3eccd26a89762cc2dde19680f9c08707774febccb85e88ebf1c6",
+      "after": "bd98d45a3be678ee9ff6b4c968a9a0ed4dcb42702358bd1676f042411ec6c4b8",
+      "owner": "Scene runtime evidence",
+      "reason": "Record the demonstrated Debug reopen failure and recovery, and the official and native input qualification boundary.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#basic-interaction-288"
     }
   ]
 }
