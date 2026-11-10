@@ -611,8 +611,7 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         preamble = preamble.replace(
             swift_declaration(preamble, "    static func preparedResourceLayer("),
             swift_declaration(projection, "    static func preparedResourceLayer("))
-        preamble += LAYER_CARRIER + "\nextension SceneRenderDescriptor.Layer {\n" + swift_declaration(
-            projection, "    private static func descriptorTransform(") + "\n}\n"
+        preamble += LAYER_CARRIER
         binary = compile_vector_harness(Path(cls.temporary.name), HARNESS,
             "event-visibility", preamble=preamble,
             extra_swift_sources=(SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",),

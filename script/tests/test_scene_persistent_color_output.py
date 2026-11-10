@@ -53,11 +53,12 @@ struct TerminalCompositor {
 // Terminal-only carrier: these frame/group entrypoints are outside this
 // gate's asserted source and deliberately trap if accidentally exercised.
 enum SceneUtilityLayerRuntimePlanner {
+    enum BackgroundSource { case enclosing, scenePrefix }
     struct Execution {
         let memberRootsByLayerID: [Int: Int]
         let membersByRootID: [Int: [Int]]
         let orderedRootIDs: [Int]
-        let copyBackgroundRootIDs: Set<Int>
+        let backgroundSourcesByRootID: [Int: BackgroundSource]
         var localSourceRootIDs: Set<Int> = []
     }
 }
@@ -65,7 +66,7 @@ final class SceneCompositionGroupFrameRuntime {
     init(parentPass: SceneMainPassEncoder, commandBuffer: MTLCommandBuffer,
          offscreenTexturePool: SceneOffscreenTexturePool,
          memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]], viewportSize: CGSize,
-         copyBackgroundRootIDs: Set<Int> = [],
+         backgroundSourcesByRootID: [Int: SceneUtilityLayerRuntimePlanner.BackgroundSource] = [:],
          localSourceRootIDs: Set<Int> = [],
          sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:],
          captureBackground: ((MTLTexture, MTLTexture, simd_float4x4, MTLCommandBuffer) -> Bool)? = nil) {

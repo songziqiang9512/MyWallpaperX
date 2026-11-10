@@ -7,6 +7,9 @@
 
 基本优先级为作者 fallback → 有效 user property → Timeline → SceneScript；实际目标 compiler 决定允许的来源组合，不把同名值合成无类型字典。缺值、错型或被拒 producer 保原已定义 fallback/current，不能用 resolver 的回退值覆盖一个健康播放状态。
 
+<a id="visibility-typed-fallback"></a>
+直接绑定的 layer、Puppet animation 与 effect 显隐沿相同 Bool 目标合同：已知非 Bool 属性不覆盖合法 authored Bool，冷 Document 与 BindingProgram 保同一 fallback；错型 writer 局部拒绝，不把 Slider 的0/1强转显隐，不伪造动态 producer 或 Puppet 准备标志。启动期 producer 冲突只核实际 instruction writers；fallback definition 继续提供原值，不冒充独立 Script 的竞争 writer。条件 Combo 仍走原比较域，Script/Timeline 与非法、缺失或冲突 fallback 的边界不变。退役原 Color→普通层显隐专门忽略路径，统一由真实目标类型拒绝 writer、保定义；该固定 fallback 不依赖启动 effective 值，因此不独立增加重建要求。同 key 其他真实消费者已有的重建标记和热更原子性继续保留，不能删除整个 key 或拆开通过。该合同兑现本引擎类型边界，不推断官方错型隐式转换。
+
 BindingProgram 在构造/解码时形成验证结果与索引；LaunchContext.liveState 保存当前有效输入和 revision。value-only 更新只写对应状态；资源、combo 或 topology 变化触发原准备/重建边界。混合键按原事务接纳，不能拆开通过其中几项。
 
 property key、原始 value、Combo value 和 condition 始终使用作者数据；本地化只作用于显示标题与选项 label，不回写运行输入。作者 text/group 是只读说明，unsupported 类型不生成可写运行能力。面板以已接纳的 effective value 显示当前值，fallback、用户 override 与资源替换状态分别保留；条件隐藏控件不删除其输入。资源更新沿原选择/准备/发布事务处理，失败保原选择，不把 UI 临时编辑值冒充热更新已生效。
@@ -19,11 +22,16 @@ property key、原始 value、Combo value 和 condition 始终使用作者数据
 | Effect visibility | 准备好的安全 activation 可热更；未准备/无消费者/不支持结构不因 Bool 字段存在而强行接纳 |
 | User Shortcut | 原配置和真实输入 scope；不从合成 cursor 或脚本普通更新推定 OS 授权 |
 
+<a id="startup-inactive-effect"></a>
 ### 冷启动关闭的 Effect 准备计划
 
 原 Effect visibility 准备入口统一普通层的 DirectBool 与 SceneScript 候选：合法 Bool 初值为 false 时，普通层存在 named 读取或依赖声明不再整层取消其 effect 准备。原 Planner 仍证明实际 graph 与停用时的 previous-current 拓扑，Catalog 仍编译真实 Program、匹配 activation owner 和有序 named Binding；保留候选不等于创建当前帧需求，也不以 Bool 字段代替可执行 consumer。
 
-热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。standalone utility、provider、真实缺 producer/错误 carrier 及 graph/资源身份边界仍由原 owner 承接。验收核真实 DirectBool 入口的冷 false→热 true→false、具名采样、健康后继和 literal 像素，不能以脚本旁路或仅 inactive 帧替代；当前结果见[运行证据](runtime-evidence-current.md)。
+Utility 冷准备的完整 effect target 先取得原层级准备与 SourceRoute 的实际输入，再交原 Planner/Capability 准备 Program；root 的 viewport/group 与成员闭包仍归现有消费者。Effect 入口只消费已有层级准备结果，不保留 fullscreen/composition/project 的独立提名或重复 source resolve。普通非 utility、依赖 consumer/provider 和实际 Program/资源边界保持，不新增 stage owner、持久显隐、资源表或帧内补准备。未覆盖的来源与拓扑边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
+热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。坏层级、缺 source/Program、错误 carrier 或真实依赖冲突只使原消费者不可用；热开启仍由原整键事务拒绝并保 current，不能用源图复制冒充效果输出。
+
+验收固定 Project 层恒 visible，只切 effect 的 DirectBool false→true→false，以同 window/Surface 的 white→gray→white、后置绿色 peer、实际 Program draw→main/seal/request/CB/GPU核资格，保资源/变量/等价表达式改名、缺 fragment 拒绝开启与活动启动邻例。原 fullscreen/composition 和成员资源门继续作为相邻边界；childless passthrough 沿原 source/Program 承接，不另按名称拒绝，空透明来源不能以主目标未变冒充效果执行。若旧 App 不能分、首错另属未实现 source/Program或需要新资源 owner，则停止此切片并重排。独立作者只授实际默认输入与已观测消费者，不将健康邻例称精确缺图恢复；当前结果见[运行证据](runtime-evidence-current.md)。
 
 <a id="property-target-fallback"></a>
 ### 材质属性的目标局部 fallback 合同
@@ -33,6 +41,8 @@ effect pass 的数值常量从已有 authored pass 解析，保原 wrapper、fal
 BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时，该固定数值 fallback 不再依赖 effective 启动投影，因此不为它新增 key 的重建要求。同 key 的其他资源、combo 或启动消费者已有的重建标记继续保留；不能从集合删 key、按部分 mutation 绕开事务，或把尚无合法 definition 的输入一起放宽。合法同 key Bool writer 可沿原 ready/expected-target 门热更，其他真实消费者未准备时仍整体拒绝更新。
 
 准备阶段按完整 layer/effect/pass/name 查真实 writer。同 key 的合法 visibility、其他 layer/pass 或其他数值 target 不阻止本 target 使用已有合法 fallback；也不能借其值、类型或存在性作为本 target 的 producer。保原 authoredFallbackTargets 索引及直接 wrapper 合同，不另发许可、建立 registry 或复制状态。该索引只说明现有 definition 的目标归属；实际 type/ABI、来源和编码值与 fallback 对应仍由原 Program/uniform 消费者负责，不能把 Set membership 说成完整字节验证。
+
+Slider 保留 scalar producer。直接 user/value wrapper 的有限等分量 fallback 可供反射出的非数组 float2，但须有有限等分量 shader 默认值。原 Program 在准备活动 uniform 时定下投影和直接属性范围，替换帧内对 wrapper、默认值及范围来源的重复判断；帧内仍校验实际来源、数值和范围。冷准入先走原精确类型合同，仅 scalar 对等分量双分量 fallback 的错配查询同一投影事实，须至少有一个活动消费者且所有可达变体中的该消费者均支持。未激活的字段不证明 ABI，冲突 writer、非等分量或其他来源不放行。
 
 缺少、错型或被拒的属性 writer 保本 target 的合法原值；本 target 有冲突 writer、缺真实 definition/fallback、非法 wrapper、非有限数、错误 ABI/来源或多 contributor 未获资格时，失败仍局部。移除跨 target 的同 key 冲突判定及其重复扫描，不把 Bool 强转颜色、不用 shader 默认白色补作者原色。合法属性初值与热更继续生效，错误热更保原已提交状态；不改变原混合键事务和 Script/Timeline 优先级。官方错误类型的隐式行为尚未资格，本合同只兑现本引擎现有 typed fallback 语义。
 
@@ -46,6 +56,7 @@ BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时
 Program 保轨道、作者 key、FPS/length、曲线、relative/Combined 关系和事件。普通帧由唯一 PlaybackRuntime 采样已准备数据；play/pause/stop/setFrame 以及 API 快照共用该 state，不能另建第二 clock。
 
 - 数值插值、Bézier 求根、wrap 与 relative 单位由现 evaluator 消费，不能用线性 key 索引替代作者时间。
+- 非文字对象的绝对 `color` 三通道动画发布原 `.layer(.color)`/vector3，由既有 source tint/模型/灯消费者读取。冷准备复用 `colorRGB` 白缺省及原类型、来源优先级和关系检查，无新颜色状态；粒子 `instanceoverride.colorn` 保出生语义，文字 `.text(.color)` 保字形资源 owner。relative、错 lane 与未支持 host 继续局部拒绝。
 - target 与 playback owner 不同。Combined/peer 可共享时间 anchor；销毁一个 target 只撤该活动轨道，幸存成员仍保 clock/命令/事件。
 - 稳定 Program/C/named 索引不因压缩活动数组而改义；隐藏与暂停不退休轨道。
 - 事件按实际时间区间与原确认边界派发，同 cadence 重读或无 drawable 不重复消费。
@@ -75,7 +86,20 @@ effect instance 的数值常量在同一 layer/effect 内一次收集，再按�
 
 Default2D origin/zoom 的真实作者来源可能不同，不能用同一个 layer ID 代替两条输入。native perspective 与普通2D、camera parallax、depth parallax 各有自己的空间语义，不统一改成屏幕像素偏移。
 
+普通二维画布的 `general.zoom` 沿[原相机输入合同](../architecture/runtime-architecture.md#default-2d-general-zoom)发布 `.camera(.generalZoom)`；静态值与 wrapper fallback、独立数值 Timeline、直接 user property、scene return-only Scalar Script 共用原 prepared definition。CameraTransforms及原path继续发布原 `.camera(.zoom)` 相对倍率，getter缺省1；完整记录改eye/center再回写只影响这个原通道。原CameraFrame factory一次组合General基准与相对倍率，再除cover世界范围，不另建时钟或setter状态。General缺省1、沿原相机0.01…100数值域；热更由原live consumer消费，Script失败保合法fallback/current及健康peer，HDR仅约束bloom。
+
+存在作者camera声明时保原路径，不由General新增writer或替健康path制造冲突；General与path叠加、native perspective及未实现组合不列支持。linked、相对动画和动画混合Script/user保声明与局部诊断，不拆关系后发布独立轨；合法作者fallback仍可消费。General由原CameraInputProfile准备并按实际ortho消费者热更，原static CameraTransforms fallback1保留。实际画面及官方控制的证明范围归[运行证据](runtime-evidence-current.md#general-zoom)；官方显式相对倍率与General的组合公式、roundtrip晚段仍未获资格。
+
 原 pointer owner 保存实际本屏坐标、按钮和边沿；命中使用最终输出 geometry/提交结果，不能用 source atlas 框代替。local/global monitor 按活动 owner 安装/移除，状态未变不反复重建或重置手势。
+
+<a id="fullscreen-cursor"></a>
+### Fullscreen 的鼠标事件
+
+Fullscreen utility 的交互面是本屏 viewport，不要求作者 `size`，也不把普通图层的 origin/scale 套到全屏 raster 上。原 CursorHitAdmission 按实际 utility kind 接纳，原 Surface 的 cursor sample 为它提供命中与离屏 capture 投影；其他无尺寸图层保持原拒绝。standalone 与借用的 typed owner 使用同一几何职责，不另建全局监听或状态。
+
+同一 sample 只生成一次原 `sceneScriptSurfaceInput`，world/input cursor 仍由当前 camera 反投影到作者世界；fullscreen event.localPosition 直接消费该 surface 的 top-left screen pixels，不能套普通图片 lower-left local pixels 或从 canonical raster 逆推世界。原 inside、solid、capture、leave/up、owner identity 与失败事务保持，缺 surface 只使该 fullscreen 投影不可用；普通卡片继续原 MVP 与本屏已提交文字几何。替换原“所有 cursor 层必须有 size”的关卡及其零尺寸 quad 路径，不给 descriptor 伪造尺寸。
+
+验收核真实候选构造的 standalone/borrowed、改名、普通无尺寸/坏尺寸和健康 peer；原 Surface→事件→作者位移→named mask→最终输出须在原样本三点往返成立，另核独立真实邻例。官方单次 fullscreen move 只支持 top-left screen-local 与 camera world 的分工，点击、连续离屏与多屏仍独立取证，不借该观察改普通图片事件或 button。
 
 <a id="text"></a>
 ## 文字
@@ -87,6 +111,15 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 初始与动态文字均作为 layer source，raster 颜色与 layer tint 保原乘色语义。没有实际活 layer/clone/named/particle 消费者时退休活动 producer 并撤迟到发布权，保留准备模板与冻结/GPU 引用；hidden 不作为退出。Surface rebuild 复用共享 Store，完整 stop 排空已接纳任务。
 
 隐藏文字的效果后 named 供货沿[原输入与发布 owner](render-graph-shader-coverage.md#named-input-ownership)接入。Store 只提供冻结的 ready raster、原 extent/几何和内容 generation；原 Program 消费它并发布实际最终图结果，不重栅格、另建 clock 或混用 glyph generation 与 named frame epoch。无效果文字保持原来源路径；已有 FramePlan 时核实际 graph 输出，缺资源的局部旁路与无 Program 的精确 base-source fail-soft 分别保原责任，不将它们称为效果执行。未绑定可选纹理的 Resolution 由[原 shader 准备合同](render-graph-shader-coverage.md#unbound-texture-resolution)供已资格的数值，不新增文字资源角色。当前边界与真实 CoreText 供货结果归[运行证据](runtime-evidence-current.md)，任意文字图与完整动画仍需独立验收。
+
+<a id="text-raster-ink-extent"></a>
+### 文字栅格的垂直墨迹范围
+
+初始与更新文字沿原字号、换行、行数、对齐和装饰准备实际 CoreText frame。已定位的行基线与同一行的字形轮廓决定垂直墨迹范围。排印 ascent/descent 用于原行距和锚点，它会漏掉实际越界的墨迹。轮廓位于栅格内时沿原画布。实际越界时，按墨迹范围量化扩展画布，计入原生栅格边缘覆盖并留一行透明取样空间。背景及原装饰几何仍按名义框绘制。一次绘制复用原 frame，触及原纹理上限时缩放其位图映射，保留字号、布局和逻辑位置。
+
+扩展行沿原逻辑单位/栅格行比例换算。原 layer source 发布原中心下降量和绘制锚点修正，后者仅用于实际栅格 quad，保上、中、下对齐与屏幕锚点。SceneScript 命中继续用作者几何及原中心下降量。纹理、实际 extent、绘制修正与 generation 同批发布，Graph 和 Resolution 消费完整扩展面。退出将名义测量框当作实际栅格边界的旧行为，保原不可用布局和取消边界。普通帧只用已准备几何。
+
+验收核可重现的下越字形、合格在框字体、初始/更新同像素、资源改名、三种纵向锚点、原装饰及封顶情况，再核原作者的滚动和文字环、独立 named 文字及普通锚点文字。原作者和官方行为的已证范围归[运行证据](runtime-evidence-current.md#circular-text-edges)。
 
 ### 文字 HDR 亮度
 

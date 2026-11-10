@@ -52,7 +52,8 @@ final class SceneMetalView {
     func sceneScriptCursorFrameSample(pointer:SceneSurfacePointerEvent,surfaceID:UInt32,leavingSurface:SceneScriptSurfaceInput?,
         ownerLayerIDs:Set<Int>,capturedOwnerLayerIDs:Set<Int>,timing:SceneFrameTiming,
         dynamicValues:SceneDynamicSnapshot,descriptor:SceneRenderDescriptor,
-        layersByID:[Int:SceneRenderDescriptor.Layer],worldFrames:[Int:simd_float4x4]
+        layersByID:[Int:SceneRenderDescriptor.Layer],perspectiveReplayRootIDs:Set<Int>,
+        worldFrames:[Int:simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
         consumedFrameMarkers.append(worldFrames[1]?.columns.3.x ?? -1)
         let hit = SceneScriptCursorHit(layerID:1,worldPosition:.init(Double(pointer.normalizedPosition.x),0,0),localPosition:.init(Double(pointer.normalizedPosition.x),0,0))
@@ -68,12 +69,18 @@ final class SceneMetalView {
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptCursorProgram:SceneScriptCursorProgram }
 final class SceneDesktopWallpaperSession {
     struct Surface { let metalView:SceneMetalView }
+    enum PointerSource { case edge, movement, poll }
     var surfaces:[UInt32:Surface] = [20:.init(metalView:.init(20)),10:.init(metalView:.init())]
-    func feed(_ time:Double,_ down:Bool,inside:UInt32) {
+    var localPointerEventMonitor:Bool?
+    var globalPointerEventMonitor:Bool?
+    func feed(_ time:Double,_ down:Bool,inside:UInt32,position:Float=0.2,source:PointerSource = .edge) {
         for (id,surface) in surfaces {
-            let x:Float = id == inside ? 0.2 : 2
+            let x:Float = id == inside ? position : 2
             _ = surface.metalView.pointerState.apply(.init(current:.init(x,0),isInside:id == inside,isPrimaryButtonDown:down))
-            surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,primaryButtonIsDown:down,timestamp:time))
+            if source != .poll {
+                surface.metalView.events.append(.init(normalizedPosition:.init(x,0),isInside:id == inside,
+                    primaryButtonIsDown:down,hasPrimaryButtonEdge:source == .edge,timestamp:time))
+            }
         }
     }
     func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false,
@@ -88,7 +95,8 @@ final class SceneDesktopWallpaperSession {
         prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
             timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1),
             preliminaryForSceneScript:.empty(frameIndex:0),descriptor:.init(layers:[]),layersByID:[:],
-            staticWorldFrames:[:],dynamicLayerIDs:[],puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
+            staticWorldFrames:[:],dynamicLayerIDs:[],perspectiveReplayRootIDs:[],
+            puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
             worldFramesBySurface:&worldFramesBySurface,
             layerSnapshotFailure:failed ? .invalidArgument("test") : nil)
     }
@@ -225,6 +233,66 @@ CHECKS = r'''
         out["crossDrag"] = values(dispatch(drag,cross.samples))
         drag.finalizeLayerMutations(committing:true)
         out["captureReleased"] = drag.edgeStateSnapshot().capturedSurfaceID == nil
+        let buttonScript = """
+          let trace=0, releaseX=0;
+          function report(e,kind,held) {
+              if (input.cursorLeftDown !== held) throw Error('wrong button level');
+              trace=trace*10+kind;
+              thisLayer.origin=new Vec3(trace,e.localPosition.x,input.cursorWorldPosition.x);
+          }
+          export function cursorDown(e){report(e,1,true);}
+          export function cursorUp(e){releaseX=e.localPosition.x;report(e,2,false);}
+          export function cursorClick(e){
+              if (e.localPosition.x !== releaseX) throw Error('click moved from release');
+              report(e,3,false);
+          }
+        """
+        func buttonFrame(_ host:SceneDesktopWallpaperSession,_ program:SceneScriptCursorProgram) -> [String:Any] {
+            let result = dispatch(program,host.prepare(program).samples)
+            program.finalizeLayerMutations(committing:true)
+            let edge = program.edgeStateSnapshot()
+            return ["callbacks":values(result),"failures":result.failures.values.map(\.code).sorted(),
+                "capture":edge.capturedSurfaceID ?? 0,"held":edge.previousPrimaryButtonIsDown]
+        }
+        for (monitor,releaseDisplay) in [("local",UInt32(10)),("global",UInt32(20))] {
+            let monitored = SceneDesktopWallpaperSession()
+            if monitor == "local" { monitored.localPointerEventMonitor = true }
+            else { monitored.globalPointerEventMonitor = true }
+            let (program,_) = try make([(.origin,buttonScript)])
+            monitored.feed(9.95,monitor == "global",inside:10,position:0.75,source:.poll)
+            let before = buttonFrame(monitored,program)
+            monitored.feed(10,true,inside:10,position:-0.5)
+            if monitor == "global" {
+                monitored.feed(10.01,false,inside:10,position:0.75,source:.movement)
+            }
+            monitored.feed(10.02,false,inside:10,position:0.75,source:.poll)
+            let pressed = buttonFrame(monitored,program)
+            monitored.feed(10.20,false,inside:10,position:0.75,source:.poll)
+            let held = buttonFrame(monitored,program)
+            monitored.feed(10.45,false,inside:releaseDisplay,position:-0.5)
+            monitored.feed(10.46,true,inside:10,position:0.75,source:.poll)
+            let released = buttonFrame(monitored,program)
+            out["monitoredButton-\(monitor)"] = ["before":before,"pressed":pressed,"held":held,
+                "released":released,"after":buttonFrame(monitored,program)]
+        }
+        let polling = SceneDesktopWallpaperSession()
+        let (pollingProgram,_) = try make([(.origin,buttonScript)])
+        polling.feed(10,true,inside:10,position:-0.5,source:.poll)
+        let polledPress = buttonFrame(polling,pollingProgram)
+        polling.feed(10.45,false,inside:10,position:-0.5,source:.poll)
+        out["polledButton"] = ["pressed":polledPress,"released":buttonFrame(polling,pollingProgram)]
+        let retired = SceneDesktopWallpaperSession()
+        let (retiredProgram,_) = try make([(.origin,buttonScript)])
+        retired.feed(10,true,inside:10,position:-0.5,source:.poll)
+        let retiredPress = buttonFrame(retired,retiredProgram)
+        retired.localPointerEventMonitor = true
+        retiredProgram.retirePrimaryButtonStream()
+        retired.feed(10.45,false,inside:10,position:-0.5)
+        let retiredRelease = buttonFrame(retired,retiredProgram)
+        retired.feed(11,true,inside:10,position:-0.5)
+        retired.feed(11.45,false,inside:10,position:-0.5)
+        out["retiredButton"] = ["pressed":retiredPress,"released":retiredRelease,
+            "nextClick":buttonFrame(retired,retiredProgram)]
         host.feed(8,true,inside:10);host.feed(9,false,inside:10)
         let consumed = host.prepare(multi)
         out["consumedClick"] = values(dispatch(multi,consumed.samples))
@@ -281,6 +349,73 @@ CHECKS = r'''
         host.surfaces[10] = .init(metalView:.init(10))
         host.feed(3001,false,inside:10)
         out["recreatedReleaseQuiet"] = dispatch(recreated,host.prepare(recreated).samples).ownerEffects.isEmpty
+        let removedCaptureHost = SceneDesktopWallpaperSession()
+        let (removedCapture,_) = try make([(.origin,script)])
+        removedCaptureHost.feed(4000,true,inside:10)
+        _ = dispatch(removedCapture,removedCaptureHost.prepare(removedCapture).samples)
+        removedCapture.finalizeLayerMutations(committing:true)
+        removedCaptureHost.surfaces.removeValue(forKey:10)
+        removedCapture.retireSurfaceInputs([10])
+        let retiredEdge = removedCapture.edgeStateSnapshot()
+        out["removedCaptureState"] = ["captureEmpty":retiredEdge.capturedHits.isEmpty && retiredEdge.capturedSurfaceID == nil,
+            "previousEmpty":retiredEdge.previousHits.isEmpty && retiredEdge.previousSurfaceID == nil
+                && retiredEdge.previousSurface == nil && retiredEdge.previousPointerPosition == nil,
+            "buttonStillDown":retiredEdge.previousPrimaryButtonIsDown,"ownerAlive":removedCapture.ownerCount == 1]
+        removedCaptureHost.feed(4001,true,inside:20)
+        out["removedHeldPressQuiet"] = dispatch(removedCapture,removedCaptureHost.prepare(removedCapture).samples).ownerEffects.isEmpty
+        removedCapture.finalizeLayerMutations(committing:true)
+        removedCaptureHost.surfaces[10] = .init(metalView:.init(10))
+        removedCaptureHost.feed(4002,false,inside:10)
+        out["removedRecreatedReleaseQuiet"] = dispatch(removedCapture,removedCaptureHost.prepare(removedCapture).samples).ownerEffects.isEmpty
+        removedCapture.finalizeLayerMutations(committing:true)
+        removedCaptureHost.feed(4003,true,inside:20);removedCaptureHost.feed(4004,false,inside:20)
+        out["removedNextPhysicalClick"] = values(dispatch(removedCapture,removedCaptureHost.prepare(removedCapture).samples))
+        removedCapture.finalizeLayerMutations(committing:true)
+        let retainedCaptureHost = SceneDesktopWallpaperSession()
+        let (retainedCapture,_) = try make([(.origin,script)])
+        retainedCaptureHost.feed(5000,true,inside:20)
+        _ = dispatch(retainedCapture,retainedCaptureHost.prepare(retainedCapture).samples)
+        retainedCapture.finalizeLayerMutations(committing:true)
+        retainedCaptureHost.surfaces.removeValue(forKey:10)
+        retainedCapture.retireSurfaceInputs([10])
+        let keptEdge = retainedCapture.edgeStateSnapshot()
+        out["retainedCaptureState"] = ["surface":keptEdge.capturedSurfaceID ?? 0,
+            "previous":keptEdge.previousSurfaceID ?? 0,"hits":UInt32(keptEdge.capturedHits.count)]
+        retainedCaptureHost.feed(5001,false,inside:20)
+        out["retainedPhysicalRelease"] = values(dispatch(retainedCapture,retainedCaptureHost.prepare(retainedCapture).samples))
+        retainedCapture.finalizeLayerMutations(committing:true)
+        out["retainedReleaseOnce"] = dispatch(retainedCapture,retainedCaptureHost.prepare(retainedCapture).samples).ownerEffects.isEmpty
+        retainedCapture.finalizeLayerMutations(committing:true)
+        func pendingRows(_ program:SceneScriptCursorProgram) -> [[String:Any]] {
+            program.edgeStateSnapshot().pendingEvents.map {
+                ["kind":$0.kind.callbackName,"surfaceID":$0.surfaceID.map(Int.init) ?? -1,
+                 "contextDisplay":$0.surface?.screenSize.x ?? -1]
+            }
+        }
+        let scopeSource = """
+          let enters=0,leaves=0;
+          export function cursorEnter(e){thisLayer.origin=new Vec3(++enters,leaves,engine.screenResolution.x);}
+          export function cursorLeave(e){thisLayer.origin=new Vec3(enters,++leaves,-engine.screenResolution.x);}
+        """
+        for removedID in [UInt32(10),UInt32(20)] {
+            let scopeHost = SceneDesktopWallpaperSession()
+            let (scope,_) = try make([(.origin,scopeSource)])
+            scopeHost.feed(6000,false,inside:10)
+            _ = dispatch(scope,scopeHost.prepare(scope).samples);scope.finalizeLayerMutations(committing:true)
+            scopeHost.feed(6001,false,inside:20)
+            _ = dispatch(scope,scopeHost.prepare(scope).samples)
+            scope.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[target()])
+            let beforeRemoval = pendingRows(scope)
+            scopeHost.surfaces.removeValue(forKey:removedID)
+            scope.retireSurfaceInputs([removedID])
+            let afterRemoval = pendingRows(scope)
+            let retry = values(dispatch(scope,scopeHost.prepare(scope).samples))
+            scope.finalizeLayerMutations(committing:true)
+            let quiet = dispatch(scope,scopeHost.prepare(scope).samples).ownerEffects.isEmpty
+            scope.finalizeLayerMutations(committing:true)
+            out["pendingRetirement-\(removedID)"] = ["before":beforeRemoval,"after":afterRemoval,
+                "retry":retry,"quiet":quiet,"pendingEmpty":scope.edgeStateSnapshot().pendingEvents.isEmpty]
+        }
 '''
 
 class CursorSurfaceRoutingTests(unittest.TestCase):
@@ -360,6 +495,31 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['crossDrag'],[1,1,0])
         self.assertTrue(self.result['captureReleased'])
 
+    def test_monitored_button_edges_own_capture_until_actual_release(self):
+        for monitor, released in (('local',[123,-0.5,-0.5]),('global',[12,2,2])):
+            rows = self.result[f'monitoredButton-{monitor}']
+            for stage, callbacks, capture, held in (
+                ('before',[],0,False), ('pressed',[1,-0.5,-0.5],10,True),
+                ('held',[],10,True), ('released',released,0,False), ('after',[],0,False),
+            ):
+                with self.subTest(monitor=monitor, stage=stage):
+                    self.assertEqual(rows[stage], {
+                        'callbacks':callbacks,'capture':capture,'held':held,'failures':[],
+                    })
+
+    def test_poll_only_button_edges_remain_when_monitors_are_absent(self):
+        self.assertEqual(self.result['polledButton'], {
+            'pressed':{'callbacks':[1,-0.5,-0.5],'capture':10,'held':True,'failures':[]},
+            'released':{'callbacks':[123,-0.5,-0.5],'capture':0,'held':False,'failures':[]},
+        })
+
+    def test_new_monitor_does_not_inherit_poll_capture(self):
+        self.assertEqual(self.result['retiredButton'], {
+            'pressed':{'callbacks':[1,-0.5,-0.5],'capture':10,'held':True,'failures':[]},
+            'released':{'callbacks':[],'capture':0,'held':False,'failures':[]},
+            'nextClick':{'callbacks':[1123,-0.5,-0.5],'capture':0,'held':False,'failures':[]},
+        })
+
     def test_presentation_retry_cannot_replay_physical_edges(self):
         self.assertTrue(self.result['nextBatchHasNoHistoricalEdges'])
         self.assertEqual(self.result['consumedClick'], [3,3,3])
@@ -385,3 +545,27 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
 
     def test_same_display_replacement_after_teardown_cannot_inherit_capture(self):
         self.assertTrue(self.result['recreatedReleaseQuiet'])
+
+    def test_removed_capture_does_not_release_button_or_inherit_click_on_new_view(self):
+        self.assertEqual(self.result['removedCaptureState'],
+                         {'captureEmpty': True, 'previousEmpty': True, 'buttonStillDown': True, 'ownerAlive': True})
+        self.assertTrue(self.result['removedHeldPressQuiet'])
+        self.assertTrue(self.result['removedRecreatedReleaseQuiet'])
+        self.assertEqual(self.result['removedNextPhysicalClick'], [2, 1, 1])
+
+    def test_removing_peer_preserves_survivor_capture_and_one_release(self):
+        self.assertEqual(self.result['retainedCaptureState'], {'surface': 20, 'previous': 20, 'hits': 1})
+        self.assertEqual(self.result['retainedPhysicalRelease'], [1, 1, 1])
+        self.assertTrue(self.result['retainedReleaseOnce'])
+
+    def test_retirement_prunes_only_originating_surface_pending_events(self):
+        before = [{'kind': 'cursorLeave', 'surfaceID': 10, 'contextDisplay': 10},
+                  {'kind': 'cursorEnter', 'surfaceID': 20, 'contextDisplay': 20}]
+        for removed_id, remaining, retry in ((10, before[1], [3, 1, 20]), (20, before[0], [2, 2, -10])):
+            with self.subTest(removed_id=removed_id):
+                row = self.result[f'pendingRetirement-{removed_id}']
+                self.assertEqual(row['before'], before)
+                self.assertEqual(row['after'], [remaining])
+                self.assertEqual(row['retry'], retry)
+                self.assertTrue(row['quiet'])
+                self.assertTrue(row['pendingEmpty'])

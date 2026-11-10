@@ -16,6 +16,7 @@ extension SceneMetalRenderer {
         private var history: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?
         private(set) var scratchReady = false
         var mainSourceCompleted = false
+        var preparedEnvironment: SceneFrameTextureResource? { resource }
 
         var snapshot: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation? {
             history?.intent == .snapshot ? history : nil
@@ -105,7 +106,7 @@ extension SceneMetalRenderer {
                 commandBuffer: commandBuffer, offscreenTexturePool: pool,
                 memberRootsByLayerID: utilityExecution.memberRootsByLayerID,
                 membersByRootID: utilityExecution.membersByRootID, viewportSize: viewportSize,
-                copyBackgroundRootIDs: utilityExecution.copyBackgroundRootIDs,
+                backgroundSourcesByRootID: utilityExecution.backgroundSourcesByRootID,
                 localSourceRootIDs: utilityExecution.localSourceRootIDs,
                 sourceGeometriesByRootID: sourceGeometriesByRootID,
                 captureBackground: { [imagePipeline] source, target, mvp, commandBuffer in
@@ -117,7 +118,7 @@ extension SceneMetalRenderer {
                             viewportSize: CGSize(width: source.width, height: source.height))
                     else { return false }
                     let uv = geometry.sourceUV
-                    let encoded = SceneOffscreenEffectRenderer.captureSource(
+                    return SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: source, target: target,
                         sourceUniforms: SceneLayerFragmentUniforms(
                             time: 0, alpha: 1, dependencyBlendMode: 0, usesDependencyBlend: 0,
@@ -125,14 +126,6 @@ extension SceneMetalRenderer {
                             tint: .init(repeating: 1), textureFrame0: uv.uniform0,
                             textureFrame1: uv.uniform1),
                         pipeline: pipeline, commandBuffer: commandBuffer)
-#if DEBUG
-                    if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
-                        trace.recordComposition(.init(kind: "group-background-capture",
-                            source: .init(source, role: "enclosing-color"), target: .init(target, role: "group-color"),
-                            outcome: encoded ? "draw-encoded" : "failed"))
-                    }
-#endif
-                    return encoded
                 })
         }
         return (mainPass, groups)

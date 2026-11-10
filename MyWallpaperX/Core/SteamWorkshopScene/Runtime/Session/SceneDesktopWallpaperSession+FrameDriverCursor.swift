@@ -13,6 +13,7 @@ extension SceneDesktopWallpaperSession {
         layersByID: [Int: SceneRenderDescriptor.Layer],
         staticWorldFrames: [Int: simd_float4x4],
         dynamicLayerIDs: Set<Int>,
+        perspectiveReplayRootIDs: Set<Int>,
         puppetAttachmentFramesBySurface: [CGDirectDisplayID: ScenePuppetAttachmentFrameSnapshot],
         worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]],
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
@@ -22,6 +23,7 @@ extension SceneDesktopWallpaperSession {
         }
         let program = launchContext.sceneScriptCursorProgram
         let edge = program.edgeStateSnapshot()
+        let monitorsPrimaryButton = localPointerEventMonitor != nil || globalPointerEventMonitor != nil
         let displayIDs = surfaces.keys.sorted()
         var groups: [Double: [CGDirectDisplayID: SceneSurfacePointerEvent]] = [:]
         var current: [CGDirectDisplayID: SceneSurfacePointerEvent] = [:]
@@ -73,15 +75,20 @@ extension SceneDesktopWallpaperSession {
                 ?? displayIDs.first { group[$0]?.isInside == true }
                 ?? previousSurfaceID.flatMap { group[$0] != nil ? $0 : nil }
                 ?? displayIDs.first { group[$0] != nil }
-            guard let displayID, let pointer = group[displayID],
+            guard let displayID, var pointer = group[displayID],
                   let view = surfaces[displayID]?.metalView else { continue }
+            if monitorsPrimaryButton && !pointer.hasPrimaryButtonEdge && !overflowed {
+                pointer.primaryButtonIsDown = wasDown
+            }
             var input = pointer
             input.timestamp = 0
+            input.hasPrimaryButtonEdge = false
             if previousInput == input && previousSurfaceID == displayID { continue }
             previousInput = input
             let leavingSurface = previousSurfaceID.flatMap { previousID -> SceneScriptSurfaceInput? in
-                guard previousID != displayID, let previousPointer = group[previousID],
+                guard previousID != displayID, var previousPointer = group[previousID],
                       let previousView = surfaces[previousID]?.metalView else { return nil }
+                previousPointer.primaryButtonIsDown = pointer.primaryButtonIsDown
                 return previousView.sceneScriptSurfaceInput(
                     pointer: previousPointer, timing: timing,
                     dynamicValues: preliminaryForSceneScript,
@@ -99,6 +106,7 @@ extension SceneDesktopWallpaperSession {
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
                 descriptor: descriptor, layersByID: layersByID,
+                perspectiveReplayRootIDs: perspectiveReplayRootIDs,
                 worldFrames: worldFrames(
                     for: displayID, view: view,
                     requiresOwnerProjections:

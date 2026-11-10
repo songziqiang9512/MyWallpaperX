@@ -4,11 +4,63 @@ import QuartzCore
 import simd
 
 extension SceneMetalRenderer {
-    /// Owns authored order and each layer's utility defer. Closing group
+    func hasWorldOrderDependency(_ id: Int, utility: SceneUtilityLayerRuntimePlanner.Execution) -> Bool {
+        utility.memberRootsByLayerID[id] != nil || utility.plansByTriggerLayerID[id] != nil
+            || utility.captureLayerIDs.contains(id) || dependencyRuntime.requiresCapture(for: id)
+            || dependencyRuntime.requiresGraphOutputCapture(for: id)
+            || dependencyRuntime.plan.namedReferenceConsumerLayerIDs.contains(id)
+            || staticModelResources.namedAlbedoLayerIDs.contains(id)
+    }
+
+    func sortedWorldImageOrder(
+        _ authored: [SceneRenderDescriptor.Layer], depths: [Int: Float], visible: Set<Int>,
+        cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
+        utility: SceneUtilityLayerRuntimePlanner.Execution
+    ) -> [SceneRenderDescriptor.Layer] {
+        var ordered: [SceneRenderDescriptor.Layer] = []
+        ordered.reserveCapacity(authored.count)
+        var transparent: [(layer: SceneRenderDescriptor.Layer, depth: Float)] = []
+        func finishRange() {
+            if transparent.count > 1 {
+                // Swift sort is stable. Equal-depth cards keep their input order.
+                transparent.sort { $0.depth > $1.depth }
+            }
+            for entry in transparent { ordered.append(entry.layer) }
+            transparent.removeAll(keepingCapacity: true)
+        }
+        for layer in authored {
+            if let depth = depths[layer.id] {
+                transparent.append((layer, depth))
+                continue
+            }
+            if !transparent.isEmpty {
+                let kind = layer.contentKind
+                let nonDrawing = !visible.contains(layer.id) || kind == "container"
+                    || kind == "pointLight" || kind == "directionalLight"
+                let opaqueModel = !nonDrawing && kind == "model"
+                    && cameraFrame.resolvesPerspective(for: layer)
+                    && SceneDynamicLayerValues.alpha(layerID: layer.id,
+                        authoredValue: layer.alpha, snapshot: snapshot) == 1
+                    && staticModelResources[layer.id]?.allSatisfy {
+                        $0.writesDepth && $0.materialBlending == .normal
+                    } == true
+                if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility)
+                    || !(nonDrawing || opaqueModel) {
+                    finishRange()
+                }
+            }
+            ordered.append(layer)
+        }
+        finishRange()
+        return ordered
+    }
+
+    /// Owns prepared frame order and each layer's utility defer. Closing group
     /// encoders and finishing the main pass are part of the same stage.
     func encodeOrderedLayers(
         orderedLayers: [SceneRenderDescriptor.Layer],
         initiallyStopped: Bool,
+        needsTerminalScratch: Bool,
         forwardGraphProviderLayerIDs: Set<Int>,
         preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
@@ -277,7 +329,7 @@ extension SceneMetalRenderer {
                 } ?? imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
                     renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                    textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
@@ -391,6 +443,7 @@ extension SceneMetalRenderer {
                 let lit = drawStaticModel(layer: layer, state: modelFrame,
                     worldFrames: frameWorldFrames, frameContext: frameContext,
                     cameraFrame: cameraFrame, lighting: frameLightSnapshot,
+                    reflection: layerMainPass === mainPass ? reflection.preparedEnvironment : nil,
                     pass: layerMainPass, commandBuffer: commandBuffer, leases: &frameDepthLeases)
                 if let reason = modelFrame.depthDeferralReason {
                     compositionGroupRuntime?.closeAllGroupEncoders()
@@ -438,6 +491,8 @@ extension SceneMetalRenderer {
                         Float(viewportSize.width),
                         Float(viewportSize.height)
                     ),
+                    ambient: frameLightSnapshot.authoredShaderLighting.ambient,
+                    hdrEnabled: frameProjection.descriptor.hdrEnabled,
                     mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
                     preparedDepth: modelFrame.particleDepth[layer.id]?.acquisition,
@@ -456,9 +511,8 @@ extension SceneMetalRenderer {
 #if DEBUG
         hubStage(.layerLoopMicros, hubLayerLoopStart)
 #endif
-        // D1: no group encoder may outlive the layer loop — the compositor
-        // seal re-opens the main pass and Metal permits only one active
-        // render encoder per command buffer.
+        // The main pass may still owe its first attachment operation. End
+        // group encoders before finishing it on the shared command buffer.
         compositionGroupRuntime?.closeAllGroupEncoders()
 
         if let reason = modelFrame.sceneDepthFailureReason {
@@ -469,6 +523,35 @@ extension SceneMetalRenderer {
         if let reason = modelFrame.depthDeferralReason {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
+        }
+
+        if !stopsAfterClaimedFailure, let pointVolumePipeline,
+           let farPlane = cameraFrame.nativeFarPlane,
+           let depth = encodeVolumeOccluderDepth(state: modelFrame, pass: mainPass,
+                pool: offscreenTexturePool, groups: compositionGroupRuntime,
+                needsTerminalScratch: needsTerminalScratch),
+           let encoder = mainPass.encoder(required: false) {
+            let encoded = pointVolumePipeline.draw(
+                lights: frameLightSnapshot.point,
+                camera: .init(
+                    origin: cameraFrame.perspectiveEyePosition,
+                    near: frameProjection.descriptor.camera.nearZ,
+                    forward: cameraFrame.cameraForward, far: farPlane.z,
+                    horizontal: cameraFrame.cameraRight * (farPlane.x / farPlane.z),
+                    vertical: cameraFrame.cameraUp * (farPlane.y / farPlane.z)
+                ),
+                depth: depth, encoder: encoder
+            )
+#if DEBUG
+            if encoded, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "point-volume",
+                    source: .init(depth, role: "model-camera-depth"),
+                    target: mainPass.compositionTarget, access: "texture-bind", outcome: "draw-encoded",
+                    details: ["layerIDs": frameLightSnapshot.point.compactMap {
+                        $0.volume == nil ? nil : $0.layerID.map(String.init)
+                    }.joined(separator: ",")]))
+            }
+#endif
         }
 
         let mainEncoded = mainPass.finishEnsuringClear()

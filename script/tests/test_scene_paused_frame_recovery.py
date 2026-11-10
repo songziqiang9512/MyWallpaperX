@@ -2,8 +2,8 @@
 
 The existing method-extraction scaffold executes the driver, Session text/media
 notifications, invalidation, surface submission, cohort and PreparedFrame owners.
-Only the normal simulation branch is replaced by a trap. Timer, dispatch,
-raster readiness and Metal completion are hand-controlled transport boundaries;
+The ordinary simulation branch uses a counting probe only in playing scenarios.
+Timer, dispatch, raster readiness and Metal completion are controlled boundaries;
 no scheduler or publication policy is reproduced.
 """
 from pathlib import Path
@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 from script.tests.test_steam_library_interactions import method
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -31,14 +32,16 @@ def production_harness(sources=None):
     submission = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift")
     pause = read("Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift")
     teardown = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift")
+    assembly_path = "Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift"
+    assembly = sources.get(assembly_path, session) if sources is not None else read(assembly_path)
     context = read("Runtime/Frame/SceneFrameContext.swift")
     outcome = read("Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift")
     view = read("Rendering/Frame/SceneMetalView.swift")
-    # Execute the complete frozen branch. Entering ordinary clock/VM work is a
-    # test failure, rather than a fake implementation that could conceal it.
+    # Frozen scenarios still fail if ordinary simulation is entered.
     frame = method(driver, "private func renderFrame()")
     frame = frame[:frame.index("        promotePendingDeferredLayerVisibilityIfReady()")]
-    frame += '        fatalError("normal cadence/VM branch entered during paused recovery")\n    }'
+    frame += ('        guard let activeSimulationProbe else { fatalError("ordinary simulation entered during paused recovery") }\n'
+              '        return activeSimulationProbe()\n    }')
     # Surface identity and retry cancellation belong to this production prefix;
     # the later cursor/audio/VM context disposal is outside this transport test.
     retirement = method(teardown, "func teardownSurfaces(")
@@ -49,6 +52,7 @@ def production_harness(sources=None):
         method(driver, "private var sceneBusyFrameRetryInterval:").replace("private var", "var"),
         *(method(driver, signature) for signature in [
             "func startFrameDriver(", "func scheduleFrameDriver(", "private func armFrameDriver(",
+            "private func waitForFrameAdmission(",
         ]),
         *(method(submission, signature) for signature in [
             "func renderSurfaces(", "var awaitsInitialPresentation:",
@@ -59,9 +63,10 @@ def production_harness(sources=None):
         method(session, "func textTexturePublicationDidChange("),
         method(session, "func enqueueMediaThumbnailPublication("),
         method(driver, "func refreshPausedMediaPublications("),
+        method(teardown, "func teardownSurface("),
         retirement,
     ])
-    harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
+    harness = FIXTURE.read_text().replace("// INVALIDATION\n", method(assembly, "metalView.onRenderInvalidated =") + "\n")
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
@@ -76,7 +81,10 @@ def production_harness(sources=None):
     return harness.replace("// PRODUCTION_FRAME_TYPES", "\n".join([
         method(context, "nonisolated struct SceneFrameTiming:"),
         method(context, "nonisolated struct SceneClock {"),
-        outcome.replace("import Metal\n", ""),
+        "extension SceneMetalRenderer {\n" + "\n".join(swift_declaration(outcome, signature) for signature in (
+            "enum FrameOutcome:", "struct InitialVideoPresentation", "final class PreparedFrame:",
+            "static func submitPreparedFrame(",
+        )) + "\n}",
     ]))
 
 
@@ -115,6 +123,11 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_busy_admission_expire(self):
         self.run_scenario("busyExpiry")
+
+    def test_active_wait_reuses_the_timer_and_simulates_once(self):
+        for scenario in ("activeAdmissionWake", "activeAdmissionTimeout", "activeAdmissionMixed"):
+            with self.subTest(scenario=scenario):
+                self.run_scenario(scenario)
 
     def test_old_candidate_failure_preserves_new_success(self):
         self.run_scenario("oldCandidate")

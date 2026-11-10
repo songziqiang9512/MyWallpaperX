@@ -55,7 +55,7 @@ Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件�
 
 目标是让无关函数的形参、局部值或struct成员与全局uniform/只读派生值同名时，仍按实际绑定执行原常量降低。原GenericShaderRuntimeConstantNormalizer只移除已证明可在每次调用初始化的存储qualifier，保作者initializer及顺序；SourceNormalizer、glslang、SPIR-V/MSL、Program、uniform ABI与PSO继续各自原职责。准备失败只影响当前shader/effect，健康后继保持。
 
-初始化及具体读写/调用点复用原Syntax/GlobalReferenceAnalyzer的一次词法声明和binding事实；顶层候选只看顶层声明，函数prototype形参和局部影子不作全局重复声明；case-label等编译期表达式资格由原mandatory编译器检查，Swift不另存case资格状态，也不能用整个函数含case作为否决。退出全文value-name许可、exact引用之后的同名token计数及无关函数的名字对调用点的否决，不复制scope parser、内建名单、Program字段、cache或普通帧工作。若现事实缺少消费者所需声明身份，在原binding owner暴露同一次准备结果，不另建声明表权威或重扫各initializer。
+初始化及具体读写/调用点复用原Syntax/GlobalReferenceAnalyzer的一次词法声明和binding事实；prototype形参和局部影子不作全局重复声明，callee prototype仅在与唯一函数定义的返回类型、参数类型及方向一致时归同一声明，真实值影子、未决重载及out/inout消费保原限制。case-label等编译期表达式由mandatory编译器检查，Swift不另存资格状态或以整个函数含case否决。退出全文value-name许可、exact引用之后的同名token计数及无关作用域否决；沿原functionHeader和参数语义形成同次binding事实，不复制parser、声明表、内建名单、Program/cache或普通帧工作。
 
 真实全局值/作者函数对内建的覆盖、未知绑定、数组及写入/成员写/递增、out/inout、采样/derivative/有副作用helper和compile-time消费者保原语言/纯度限制；证明不足保留原source交原编译器，不静默放行非法类型或猜默认。语言合法的局部影子按其自身作用域判断，不能因另一个作用域存在同名值而拒绝全局值的正常读取。
 
@@ -89,6 +89,15 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 - 真实空槽 Resolution 的名义 `[2,2,2,2]` 只用于已证明精确成对归一化、无 default 且 template/frame 都为空的路径；pending/nonempty 槽不能套用此值。
 - 纹理 reduction 改变工作采样域，不改变最终放置与原材质语义；source-sized raster、camera projection 与 terminal placement 分别消费各自准备事实。
 
+<a id="graph-canvas-sampling"></a>
+### 材质画布采样
+
+已发布的单 mip Graph 画布以线性等向性取样，沿现有 clamp 或 repeat 寻址。材质 PassEncoder 在准备绑定时使用实际候选的 `.provider(.graph)` 身份，原发布入口已证明画布格式、单 mip 与采样合同。资源身份比逻辑槽号、引用名或 mip 数量更准确。每个 PassEncoder 复用两种寻址状态，沿原 sampler 描述器构造；资产、独立 named 发布及其他来源沿原状态集保留 nearest 或线性各向异性。
+
+退出共享 16× 对真实 Graph 画布的绑定，保作者坐标、显式 LOD、地址模式、纹理与 shader ABI。带 `fract` 的有效材质在边界可把隐式 footprint 扩展到相邻行；修改作者导数或全局降低各向异性会扩大语义和影响面。普通绘制与 terminal replay 共用同一绑定决定，附件读取转换及精确快照继续保已选 sampler。初始化失败沿原 PassEncoder 准备失败处理，无帧内创建、重试或发布改动。
+
+验收用同输入的原文字环核圈外放射线与内环，实际 Graph 的 clamp/repeat 与非画布线性/nearest/mip 作为相邻输入和反例，再验独立作者画布与已验证的斜视多 mip 模型。具体画面和证据边界归[运行证据](runtime-evidence-current.md#circular-text-edges)。
+
 <a id="source-channel-layout"></a>
 ### 数据图片的源通道布局
 
@@ -106,6 +115,15 @@ source 的角色由模型、材质及实际编译输入决定。已声明 passth
 图层的 `dependencyLayerIDs` / `authoredDependencies` 不替换 source material 的输入，非空声明不能独立取消合法 source。effect 真正采样的 named 输入继续由已选 Program/DependencyPlan、当帧预约、供货及局部失败承接；不把当前 main prefix 冒充某个命名层的最终输出。声明指向较晚层也不移动本层 source 的作者捕获点。Descriptor 与 Catalog 的两处空依赖许可退出，其余准备、资源与实际读取仍归原 owner，不新建状态或普通帧校验。
 
 验证沿原角色解析门和完整 native-world App：无依赖、只声明早层、只声明晚层及资源改名保持同一 source/effect/父变换/深度像素和健康 peer；实际改成 named source 的材质必须保持自己的输入语义，不能借声明等价取得 framebuffer 身份。已有 named/late-miss 门各保自身供货范围，不能代 native-world 与任意 named 组合资格。带依赖 utility 的 effect 热显隐仍有原准入门；layer 显隐使用原消费者，本条不授 native-world 与声明依赖组合的热切换资格。
+
+<a id="shared-source-image-scroll"></a>
+### 共享图片源材质的滚动与作者值
+
+经现有接口证明的单纹理调色材质，有限的静态 UV 滚动值交给完整 source Program，以原时钟、采样和颜色参数生成共享来源。只有零滚动且其他参数中性时才可降为直接合成。完整 Program 中，解析后的属性目录未定义直接属性时使用已验证的作者值，颜色脚本仍以该值为输入。已声明的属性沿现 typed writer，错型、冲突、缺作者值和不支持的动态滚动保局部拒绝。
+
+先由原材质与属性准备确定 writer，再由原 Program 与资源模板把同一来源交给静态层和动态实例。撤掉完整 Program 的零滚动门，保留直接合成的限制。不以已载入的纹理代替材质，不新增运行期资源或缓存。验收核非零滚动与重命名、合法 live writer、缺定义 fallback、坏声明、零滚动邻例及同素材独立作者；官版原包 16:9 预览用于确认内圈位置和可见性，逐像素与滚动相位另需匹配输入。
+
+已有 SceneScript 创建需求的完整源材质，允许用初始隐藏的合法作者层作为共享材质原型。原型的可见性不决定资源是否可准备。按同一 scoped 模型、首个作者层和现有材质形状完成编译与模板发布，供原 init 构造独立层；作者层显隐和各实例自身显隐分别沿原 typed 值消费。直接合成及无创建需求的隐藏来源保原边界，不重试 init、增加热编译或把创建者的显隐附加给独立实例。验收对照有音频的官版默认及两次热更、真实本机创建与同 Surface 更新、改名和无需求反例，并保原已显示的共享材质。
 
 <a id="named-input-ownership"></a>
 ### Named 输入与发布
@@ -148,10 +166,27 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
+<a id="named-geometry-local-raster"></a>
+### Geometry named 的局部色图
+
+Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图：当前 pose/mesh 采原 graph-final 色源，在 `authoredSize` 居中的矩形内沿原 Y 方向和覆盖规则绘制，透明区保留。world、camera、parallax 与 consumer placement 不进入这张共享图；provider 与 consumer 的作者位主合成仍各自消费原变换。作者 Program 用自身 UV、纹理 Resolution 及作者 offset/scale 等参数采样，不隐式要求两层世界矩阵相等，也不自动做世界重投影。
+
+预约与实际 publication 复用原 provider/epoch 唯一 target。沿既有 named 资源约定，physical 与 mapped 均为实际 raster 像素尺寸，UV 为 identity；超过 pool 的2048边长时等比缩小 target，投影仍用 authoredSize，不能用 target 像素重新缩放 mesh。所选 candidate 在预约和发布时提供相同 metadata；本条不改变全局 Resolution、reduction 或作者参数单位，也不把 raw atlas 冒充已执行 geometry/FX 的色图。
+
+原 GeometryProduct、FrameRuntime、Program 与唯一 compositor 分别承接 source/pose、预约发布、取样和作者位输出，不新增坐标 owner、consumer 专属 target 或缓存。退役仅供旧 exact-placement 准入使用的两套世界 MVP 比较及传递/计算；owner、安装 generation/atlas、有效 authored extent、当前 pose、frame epoch、graph 色源尺寸与真实 encode/资源寿命边界保留。缺源或普通视觉失败沿原局部降级；错误身份不能借此通放。
+
+验收复用原 native/Metal 门，核局部 raster 的 within/over-cap 尺寸、共享 target、可区分 graph 与 atlas 的像素及不同 consumer placement，保坏 owner/source/generation/extent、过期帧与 pose/encode 失败反例。签名 App 必须看到真实 provider publication→所选 Program sampler→主合成/GPU/PNG/排空，另核资源/变量改名与独立作者；Ready 或退掉消费层不算该链恢复。任意世界重投影、局部范围外几何及官方逐像素一致不由本条授予。
+
 <a id="named-source-execution-cuts"></a>
 ### Named 来源的执行截点设计
 
 来源的资源预约与内容就绪是两件事。读取 enclosing attachment 的 raw 来源只能在原作者捕获位置取得 prefix；独立图像、solid 和透明来源可以提前准备。目标是让 `O → U(prefix) → C → P(hidden)` 在 U 捕获后、C 编码前执行 P，而 `C → U → P → D` 中早 C 局部缺 P，晚 D 仍取得 P 的正确结果。不能为了早 C 提前执行并发布降级 P，污染后面的合法消费者。
+
+冷准备的前向独立性按完整 primary 输入集合判定，不按上游数量授许可。较早 C 读取普通 hidden image graph P，P 的每条已选 reference 仍须属于实际 effect/pass/slot、指向原 active dependency 集合中的 primary provider，所有来源由原完整 ownership 闭包接纳。多边拓扑、来源最早位置和同截点排序复用原 Plan，缺一来源仍沿原局部 previous-current 处理；真实 self/cycle、未知 provider、secondary及可见 graph 作者位期限保持。
+
+潜在 Binding 只表达现有来源可准备，不能把 material default 与 instance override 的候选并集当作实际背景读取。原冷候选入口只保已有来源种类、primary结构和前向期限；已支持的可见 graph 不因有活动效果而失去 carrier，退出把可见性作为前向整项禁令的旧关卡。最终 ProgramFirstStagesBackground 消费原 Loader/Finalizer 选中的 launch-active slot/candidate，决定 graph provider 是否真读背景；原完整依赖闭包、来源独立性及实际截点继续约束main/prefix时序，保secondary、自引用及cycle的拒绝。被更高优先实例资产替换的 `_rt_FullFrameBuffer` 不产生实际顺序依赖；真正选中它的 graph provider 继续局部拒绝。原 raw aggregate仍在相同结构 Binding 之后核完整 authored-order 独立性，legacy/staticModel、raw renderOrder、utility和background graph执行范围保持。不加阶段开关、第二套候选选择、持久状态或普通帧计算；原 activeTexturePaths并集及其重复准入退出。
+
+验收沿原 Plan、真实 Loader/Finalizer、Metal 与签名 App：两源各自清零和交换、三项 primary 闭包、ID/资源/变量/槽位改名与上游顺序互换，核 A/B→P→C 单次执行及可区分像素。死 lower background另核显式albedo实例资产胜出与等价改名；真正选中背景、缺源、循环、跨层secondary及raw aggregate反例保持。健康suffix/peer与独立真实样本保回归，只得到potential/ready不算恢复。未找到精确作者命中时，仅授自有作者图实际合成，不宣称作者缺图恢复、官方像素或性能。
 
 原 DependencyPlan 与 FrameRuntime 缓存当前根可达的 prepared DAG，使用 utility 展开后的实际顺序、已选 Binding、当前可见 graph 和 model 需求；候选来源准备顺序不是提交或编码顺序。来源准备阶段一次取得原 source、尺寸、MVP/cursor 与 FrameInputs，沿原路径预约 group source 容量，但不创建 graph ledger、bundle 或命令；所有 activation 依原 policy 使用这个实际逐层 pointer 输入求值一次。原 StageCapability 的 prepared passthrough 事实与精确 slot 投影决定本帧不读取的依赖，不能把任意 false 或全局 pointer inside 当作局部取源证明。同一份 Decision 交 Executor 消费，不重新求值。取 ready publication 时也只消费同一份已准备的 binding/slot 选择；同 provider 的其他活跃槽已供货，不得使已停用槽重新进入向量。实际 epoch、纹理、内容或绑定漂移仍在原消费者拒绝，不以放宽一致性比较掩盖选择漏接。原 Coordinator 从唯一 prepared ledger 临时投影 slot 集合，经现有 Bridge/compositor facade 交普通 image、hidden graph provider 与 utility 的同一个 ready resolver；替换只表示全有/全无的 bypass getter。空集合表示当前可消费 ledger 没有预约外部输入，nil 表示没有当前可消费 ledger；不另存状态、不重求 activation，也不将 effect slot 投影应用于无该slot语义的 model albedo路径。实际截点计划同时给出 graph request/ledger 顺序、原预处理供货及每个作者位置前的供货列表，替代互相重叠的 preparation/global-forward 排序。普通 layer loop 只取本位置的列表，不做依赖遍历、source 分析或重复准备，不增加 phase registry、等待状态、第二份 graph 输出或历史分支。
 
@@ -164,6 +199,8 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 <a id="forward-graph-output-consumption"></a>
 ### 图输出的供货与作者位合成
 
+前向可见来源复用本节原 ticket、cut schedule 与 owned pair，在真实消费者前只执行一次graph/named供货，仍在自己的作者位主合成；Geometry沿[局部色图](#named-geometry-local-raster)取同CB预先供好的pose，不另推进动画或用raw atlas顶替。早消费者、晚同来源消费者和provider主画必须核同epoch/texture及一次执行，保后继图对shared scratch的覆盖、选中main背景、真正缺源与cycle反例；已有不同空间的clipping准备继续由原submission释放，不为减少计数错误复用。
+
 同帧 graph 结果完成 named 供货，不代表可见层已经完成作者位的主合成。原 Coordinator ledger 保留唯一 texture、content、ticket、history 与 pin；提前供货后的可见层在自己的作者位置借用该结果，沿原 final-composite 消费当前 placement、alpha、depth 和 fog。晚消费不重新 claim、解析依赖、取 layer source、执行 graph、分配或发布，不增加结果缓存、持久标志或第二输出 owner。原 `compositorConsumed` 区分主合成是否完成；晚到的主合成回执只接纳这一消费，不能用上游旧 candidate tails 覆盖已包含后继的 scheduled tails。
 
 强引用和 submission pin 只保 GPU 对象寿命，不能阻止同 command buffer 的后继写入共享工作 pair。Preflight 复用 FrameRuntime 的候选 DAG，在实际来源与 activation 准备后解析唯一截点计划，并返回 SceneDrawing 供 layer loop 消费；仅实际提前执行、主合成在后的可见 graph 选择已有 owned pair，其余保持共享。原 `pairStorage` key、预算、memo、lease、回滚和 pin 承接这项寿命，不复制结果或新增缓存，也不把所有可见 graph 一律私有化。实际准备失败保原局部 fallback，不生成另一份执行排序。
@@ -172,7 +209,7 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 可见 color 结果遇到普通 named publication miss 时，仍保已编码结果与原 lookup，供作者位合成；不伪称供货成功，也不沿 hidden discard 撤销有效主输出。hidden miss 保原局部回退，data 不进入颜色合成，错误资源或回执仍由实际 owner 拒绝最小不安全单元。供货可执行性取决于真实 source 截点；background/prefix、utility 或成员顺序依赖不能借本修复升级为全局 prepass 独立来源。
 
-验收沿原 Coordinator/Bridge 门核 U→P→C 后的晚主消费、history/pin、普通供货失败及重复/过期回执；签名 App 用独立来源的 visible U、hidden P 和更早 C，核双 UV 贡献、作者位遮挡、单次 graph/主消费、改名与 hidden 邻例。先限定这个可复验结果，前缀正确取时和多上游调度仍分别留在原队列。
+验收沿原 Coordinator/Bridge 门核 U→P→C 后的晚主消费、history/pin、普通供货失败及重复/过期回执；签名 App 用独立来源的 visible U、hidden P 和更早 C，核双 UV 贡献、作者位遮挡、单次 graph/主消费、改名与 hidden 邻例。先限定这个可复验结果，更广前缀来源、utility/model与其他组合仍沿原队列分别资格。
 
 <a id="color"></a>
 ## 颜色、数据与显示
@@ -195,6 +232,15 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 
 Prepared target/transition 保有序读写；pool 租约、publication 与 completion 绑定实际 command buffer。unique history 的 seed、reused、失败与取消由原 Coordinator 管理，不靠普通帧重建或全图哈希恢复。
 
+<a id="history-read-write-split"></a>
+### 历史目标读写分离（未完成）
+
+motionblur 类作者图在 unique `_rt_FullCompoBuffer1` 上 pass0 读、作者 copy 写回；稳定帧仍由 `ScenePersistentGraphTargetAllocator.rehydrateCopies` 把上一帧 F1 整纹理复制到当前 F1。3420215721 实测 14 copy/帧、342,028,288 B/帧，诊断帧 13 个 `graph-resource-copy` 合计 6.295/19.594ms GPU。读取 token 由上一帧 commit 的 history pin 覆盖到本帧 command buffer 完成，`.history` entry 不驱逐/复用，seed copy 源与分离读取同源（split 分支复用 seed 源纹理校验），不需要新增 pin 或 allocator/target owner。
+
+启用条件：沿用 `SceneGraphExecutionState` 与作者图做读写分离——首访必须是材质读、作者 copy 写回同一闭包 identity、copy 源只能在作者 copy 恢复之后读取；`lifecycleIsValidLocked` 接受 `historyRehydrateCopyCount==0`（由 `transaction.intents` 证明闭包由作者 copy 恢复、无 `.initialize`）；`State.reduce` 首读、`publishRehydratedHistory` 与 `materialPublications` 使用 prior publication；有 authored clear 或 material-function clear 的历史不进入 split。本帧任一 stage 的激活判定非 active（inactive/rejected）或 execution 为 capability-level visual-failure/initially-inactive passthrough 时，本帧也不进入 split（layer-wide 回退；per-stage 需另设计），保留 seed copy 与已提交 history。准入不成立时保留 seed copy/透明初始化；准入后的 State/publish 校验失败走整帧 `framePreparationFailureLocked`（frameRequiresDrop），未覆盖的运行时材料失败仍按现有丢弃路径，反例待补。不得放宽 read-before-write。
+
+验收：Release+DEBUG 诊断构建同条件 A/B 使 3420215721 稳定帧 copy 由 14 降到 8、六个 seed 约 143.3MB/帧消失（约 342.0→198.8MB/帧）；1540 条 copy-back 图执行中 1534 条为 copyCount=0/history=reused，GPU p50/p95 20.889→19.358/23.397→20.693ms，两张不同相位终帧均见拖尾，同 scene-time 像素对比未证；签名 Debug 的 reflection-history 集成门 4/4 通过；状态读绑定、copy-source 反例与 activation/passthrough 的 discard 用例已入 `test_scene_graph_execution_state`（split 丢弃 history vs seed rehydrated 保留）。正式 WMO Release、首帧/reset/描述符变化、executor 门控的端到端切换、257/369 活跃相位与运行时 material 失败路径仍需补测，未通过不退役 seed copy。
+
 <a id="composite-input-admission"></a>
 前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
 
@@ -209,6 +255,11 @@ Prepared target/transition 保有序读写；pool 租约、publication 与 compl
 
 回归沿真实builder→Program→Metal门核helper/条件/多sample、改名、动态uniform及PMA/straight/alpha/HDR，另核合法data/signal与错误供货/表示/身份。源码模式命中不作验收；未支持的MSL操作和未表达角色按具体失败入队，不以效果模式绕过。
 
+<a id="whole-vector-color-input"></a>
+完整向量的颜色输入由原 `ColorMixGraphAnalyzer` 冷准备图追踪实际采样、局部别名、builtin mix 与 RGB 标量写，再由 ShaderSchema/TextureSlotPurpose 交原 Program。已闭合的颜色传递不要求恰有一次 RGB 写：直接复制、乘一和多次合法标量写不因次数或编辑器材质 key 改变输入用途；退出旧次数许可及其无消费者 Set，不新增识别器、owner、缓存或帧内工作。原图仍须闭合每个返回槽的全部 sampler 引用、carrier 读写并排除 vertex 采样；额外活动槽各自取得实际用途。将 mix 解释为 builtin 时必须消费原 syntax 的函数身份，同名 authored helper 不因拼写获得颜色数学证明；证明不足只撤该图事实，不拒整份 shader。
+
+本项只补输入角色，保原 mode、default、注册资产与 candidate 链的冲突边界。Passthrough 继续从选中 publication 取得实际表示；whole-mix、PMA/straight、data FBO、alpha-only/packed signal 与终端 owner 各沿原合同，不能因 vec4 到达输出就把数据改成颜色。验收先在旧 App 核中性乘一正控，再以同字节输入核任意 key 的 alias copy、无注解改名 slot3 的直接复制、原子显隐与健康 peer，经真实资产→子 Program→父 source/Program→main/seal/GPU和原像素门；原生门核多次合法写、同名 helper 把 R 用作 alpha、额外读和实际 data/PMA 供货反例。正控或表示门不成立即停在首错，不换标签、输入或阈值求通过；无精确作者正例不称作者恢复或官方像素等价。
+
 Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 及 pending final tails，保已编码 ledger/pins 到原终态。活 named consumer 的独立 copy、hidden provider、consumer 自身 tail 与 scene color 按真实引用保留。
 
 <a id="terminal"></a>
@@ -217,6 +268,13 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 终端 replay 是同一 GraphExecutor 内的可选优化，保源尺寸采样、冻结输入、真实输出投影与唯一 MainPass。后继 passthrough 不丢最后有效材质；后继成功材质替换候选。只有真实写后读冲突才创建同 descriptor 副本，并沿原 submission 保留。
 
 当前简单 color/placement、部分文字及 captured-main 路径有各自准备资格。复杂 FBO/history/function/geometry 等未取得优化资格时继续原 graph 路线；不能把优化条件升级为所有合法内容的永久门。写入主 pass 后的失败拒绝不安全提交，不能再次合成 graph-final。
+
+<a id="inactive-terminal-source-capture"></a>
+### 停用单阶段的末端捕获
+
+普通 layer texture 的唯一 graph 阶段已由原 activation 判为旁路且没有显式目标时，原源捕获可直接写同规格的固定末端 pair member。源采样、色彩表示、末端 publication、提交与 main 保留，省去该帧的中间写入和同规格复制。判定在原 Executor 接受旁路处完成，沿原 ResourcePassEncoder 替换尚未编码的捕获目标。原计划仍为热启用提供完整 pair。实际源与目的相撞、带前缀或依赖附件的捕获、多阶段、显式目标以及错误旁路保原路由；独立的 named 发布继续使用实际末端。无需新 owner、状态或缓存。
+
+验收核普通视频原 PTS、source capture→固定末端→主合成、复制计数与 GPU 排空，保热启用实际材质和显式 FBO/history 反例。数值/画面先核等价，只用同范围计数说明省掉的 GPU 指令，不从计数估算能耗。
 
 <a id="limits"></a>
 ## 当前边界与回归

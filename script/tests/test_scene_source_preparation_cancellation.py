@@ -60,14 +60,11 @@ enum ProofLeaf {
     static var onCompile: (() -> Void)?
     static func reset() { calls = []; onCompile = nil }
 }
-enum SceneStaticModelMaterialBindingCompiler {
-    static func defaultAlbedoAssetPath<Contract>(
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        shaderContracts: [Contract]
-    ) -> String? { nil }
-    static func compile<Contract>(
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        shaderContracts: [Contract]
+struct SceneStaticModelMaterialBindingCompiler {
+    init<Contract>(shaderContracts: [Contract]) {}
+    func defaultAlbedoAssetPath(pass: SceneRenderDescriptor.MaterialPassDescriptor) -> String? { nil }
+    mutating func compile(
+        pass: SceneRenderDescriptor.MaterialPassDescriptor
     ) -> SceneStaticModelMaterialBindings {
         ProofLeaf.calls.append(pass.id)
         ProofLeaf.onCompile?()

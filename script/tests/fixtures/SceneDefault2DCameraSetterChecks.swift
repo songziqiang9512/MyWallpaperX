@@ -98,7 +98,7 @@ extension SceneDefault2DCameraInputChecks {
             } else {
                 facts[mode + "-whole-bundle-rolled-back"] = state.authoredLayerValues.isEmpty
                 facts[mode + "-correct-rejection-boundary"] = mode == "throw"
-                    ? evaluation.failures[target]?.code == "exception"
+                    ? evaluation.failures[target]?.code == "init-exception"
                     : evaluation.failures.isEmpty && rejected == [target]
                 if mode == "over-limit" {
                     facts["over-limit-reached-swift"] = evaluation.layerMutations.contains {

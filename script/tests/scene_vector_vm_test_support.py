@@ -289,6 +289,7 @@ struct SceneRenderDescriptor {
         var parallaxEnabled = false
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var generalZoom: Float? = nil
         var default2DInputLayerID: Int? = nil
         var default2DOriginInputLayerID: Int? = nil
         var nearZ: Float = 0.01
@@ -446,15 +447,7 @@ struct SceneRenderDescriptor {
         var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
         var initialConfiguration: SceneJSONValue? = nil
 
-        var hasPerspectiveGeometryConsumer: Bool {
-            guard let utilityLayer else {
-                return ["image", "solid", "text", "model"].contains(contentKind)
-            }
-            return utilityLayer.kind == .composition && contentKind == "composition" && parentID == nil
-                && childLayerIDs.isEmpty && dependencyLayerIDs.isEmpty
-                && authoredDependencies.isEmpty && utilityLayer.copyBackground
-                && !utilityLayer.passthrough
-        }
+__PERSPECTIVE_GEOMETRY_CONSUMER__
 
         var supportsUserPropertyImageSourceModulationConsumer: Bool {
             contentKind == "image" && puppetMeshPath == nil && staticModelPath == nil
@@ -488,6 +481,12 @@ _timeline_start = _document_models.index("    struct SceneObjectTimeline:")
 _timeline_end = _document_models.index("\n    /// Particle", _timeline_start)
 SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
     "struct SceneDocument {", "struct SceneDocument {\n" + _document_models[_timeline_start:_timeline_end]
+).replace(
+    "__PERSPECTIVE_GEOMETRY_CONSUMER__",
+    swift_declaration(
+        (SCENE / "Runtime/Frame/SceneRenderDescriptor+Layer.swift").read_text(encoding="utf-8"),
+        "        nonisolated var hasPerspectiveGeometryConsumer:",
+    ),
 )
 
 

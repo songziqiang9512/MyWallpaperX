@@ -20,7 +20,7 @@ typedef struct {
     MWXSceneQuickJSOwner *positive;
     MWXSceneQuickJSOwner *metadata_only;
     MWXSceneQuickJSOwner *time_of_day;
-    MWXSceneQuickJSOwner *invalid_wemath_mix;
+    MWXSceneQuickJSOwner *wemath_infinite_mix;
     MWXSceneQuickJSOwner *wemath_mix;
     MWXSceneQuickJSOwner *wemath_angles;
     MWXSceneQuickJSOwner *wevector;

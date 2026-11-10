@@ -135,34 +135,57 @@ extension SceneDesktopWallpaperSession.Surface {
 
 
 extension SceneDesktopWallpaperSession {
-    struct PreparedParticleSurface {
-        let displayID: CGDirectDisplayID
-        let playback: SceneParticlePlaybackState
-    }
-
     static func surfaceScreens(topology: [SceneScreenTopology])
         -> [(NSScreen, CGDirectDisplayID)] {
         let allScreens = NSScreen.screens
         let target = topology.isEmpty ? SceneScreenTopology.capture(screens: allScreens) : topology
-        let liveScreensByID = Dictionary(uniqueKeysWithValues: allScreens.compactMap { screen in
+        var liveScreensByID = Dictionary(uniqueKeysWithValues: allScreens.compactMap { screen in
             screenID(for: screen).map { ($0, screen) }
         })
-        var screens = target.compactMap { entry -> (NSScreen, CGDirectDisplayID)? in
-            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
-        }
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-           let requested = ProcessInfo.processInfo.environment[
-               "MWX_SCENE_DEBUG_SURFACE_COUNT"
-           ].flatMap(Int.init), (2...4).contains(requested),
-           let first = screens.first {
-            while screens.count < requested {
-                let identity = CGDirectDisplayID.max - UInt32(screens.count)
-                guard !screens.contains(where: { $0.1 == identity }) else { break }
-                screens.append((first.0, identity))
+           let requested = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"].flatMap(Int.init),
+           (2...4).contains(requested),
+           let firstID = SceneScreenTopology.capture(screens: allScreens).first?.displayID,
+           let first = liveScreensByID[firstID] {
+            for index in 1..<requested {
+                liveScreensByID[CGDirectDisplayID.max - UInt32(index)] = first
             }
         }
 #endif
+        return target.compactMap { entry in
+            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
+        }
+    }
+
+#if DEBUG
+    static func debugSurfacePool() -> [(NSScreen, CGDirectDisplayID)] {
+        var screens = surfaceScreens(topology: SceneScreenTopology.capture())
+        if let requested = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"].flatMap(Int.init),
+           (2...4).contains(requested), let first = screens.first {
+            while screens.count < requested {
+                screens.append((first.0, CGDirectDisplayID.max - UInt32(screens.count)))
+            }
+        }
         return screens
     }
+
+    static func debugInitialSurfaceTopology(_ topology: [SceneScreenTopology]) -> [SceneScreenTopology] {
+        guard ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_COUNT"] != nil
+            || ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_INITIAL_INDICES"] != nil else { return topology }
+        let pool = debugSurfacePool()
+        let selected: [(NSScreen, CGDirectDisplayID)]
+        if let raw = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SURFACE_INITIAL_INDICES"] {
+            let parts = raw.split(separator: ",", omittingEmptySubsequences: false)
+            let indices = parts.compactMap { Int($0) }
+            guard indices.count == parts.count, !indices.isEmpty,
+                  Set(indices).count == indices.count, indices.allSatisfy({ pool.indices.contains($0) }) else { return topology }
+            selected = indices.map { pool[$0] }
+        } else {
+            selected = pool
+        }
+        return selected.map { .init(displayID: $0.1, frame: $0.0.frame,
+            backingScaleFactor: $0.0.backingScaleFactor) }
+    }
+#endif
 }

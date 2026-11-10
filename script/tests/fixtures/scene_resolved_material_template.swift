@@ -232,10 +232,12 @@ private func sourceContracts() -> [String: Bool] {
         blending: .normal, depthTest: .disabled, depthWrite: .disabled, cullMode: .noCull, alphaWriting: .unspecified
     )
     func sourceCompile(_ node: SceneResolvedMaterialNode, path: String = "Materials/Source.JSON", passIndex: Int = 5,
-                       shader: SceneShaderContract? = nil, provenTargets: Set<SceneDynamicTarget> = []) -> Result<Template, SceneResolvedMaterialFailure> {
+                       shader: SceneShaderContract? = nil, provenTargets: Set<SceneDynamicTarget> = [],
+                       authoredOnlyUniforms: Set<String> = []) -> Result<Template, SceneResolvedMaterialFailure> {
         SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
             material: node, layerID: 123, materialPath: path, passIndex: passIndex,
             shaderContract: shader ?? contract(node.shaderPath), renderState: state,
+            authoredOnlyUniforms: authoredOnlyUniforms,
             provenSceneScriptValueTargets: provenTargets
         )
     }
@@ -260,6 +262,16 @@ private func sourceContracts() -> [String: Bool] {
     }()
     let wrongProof = template(sourceCompile(source, provenTargets: [.materialConstant(layerID: 124, passIndex: 5, name: "Surface", materialPath: "materials/source.json")]))
     let wrongProofUnproven = wrongProof?.uniformDeclarations.first(where: { $0.name == "Surface" }).map { if case let .dynamic(color) = $0.value { return color.target == colorTarget && color.scriptAttachments == [.unproven] && !color.valueContributors.contains(.sceneScript) }; return false } == true
+    let fallback = template(sourceCompile(source, provenTargets: [colorTarget],
+        authoredOnlyUniforms: ["Coverage", "Surface"]))
+    let sourceAuthoredFallback: Bool = {
+        guard case let .staticExact(coverage)? = fallback?.uniformDeclarations.first(where: { $0.name == "Coverage" })?.value,
+              case let .dynamic(surface)? = fallback?.uniformDeclarations.first(where: { $0.name == "Surface" })?.value
+        else { return false }
+        return coverage.componentBitPatterns == [Double(0.3).bitPattern]
+            && surface.valueContributors == [.sceneScript]
+            && surface.authoredFallback?.componentBitPatterns == [0.2, 0.6, 0.8].map(\.bitPattern)
+    }()
     let overflowPass = SceneRenderDescriptor.MaterialPassDescriptor(
         id: "overflow", materialPath: pass.materialPath, shaderPath: pass.shaderPath,
         textureSlots: Array(repeating: nil, count: 8) + ["textures/overflow.png"], userTextureInputs: [],
@@ -274,6 +286,7 @@ private func sourceContracts() -> [String: Bool] {
             && value?.textureSlots[1]?.candidates.map { referenceToken($0.reference) } == ["property:skin"]
             && value?.textureSlots[2]?.candidates.map { referenceToken($0.reference) } == ["scene-background:123"],
         "sourceSharedUniformProjection": staticExact && dynamicExact,
+        "sourceUndefinedPropertiesKeepAuthoredFallbackAndScript": sourceAuthoredFallback,
         "sourceScriptProofCannotBorrowAnotherLayerIdentity": wrongProofUnproven,
         "sourceStateAuthorshipPreserved": value?.renderState == state && value?.renderState.rawValues.blending == nil && value?.renderState.rawValues.cullMode == nil,
         "sourceGraphBindingRejected": failure(sourceCompile(graphBound))?.code == .textureReferenceInvalid,

@@ -752,7 +752,7 @@ final class SceneVideoTextureSource {
             fatalError("coordinator fixture must not execute video publication")
         }
     }
-    func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
+    func prepareFrame(for timing: SceneFrameTiming, effectVisibility: Bool? = nil) -> Frame? {
         fatalError("coordinator fixture must not prepare video")
     }
     func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness {

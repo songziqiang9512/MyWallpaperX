@@ -93,7 +93,8 @@ typedef enum MWXSceneQuickJSResult {
     MWX_SCENE_QUICKJS_BAD_RETURN = 6,
     MWX_SCENE_QUICKJS_DISABLED = 7,
     MWX_SCENE_QUICKJS_STALE_OWNER = 8,
-    MWX_SCENE_QUICKJS_MUTATION_OVERFLOW = 9
+    MWX_SCENE_QUICKJS_MUTATION_OVERFLOW = 9,
+    MWX_SCENE_QUICKJS_INIT_EXCEPTION = 10
 } MWXSceneQuickJSResult;
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutation {
@@ -140,6 +141,9 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE = 1u << 11,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE = 1u << 12,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED = 1u << 13, /* read-only, this callback */
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME = 1u << 14,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_RATE = 1u << 15,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_COUNT = 1u << 16,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -157,6 +161,9 @@ typedef struct MWXSceneQuickJSLayerMutation {
     double size[2];
     double alpha;
     double particle_alpha;
+    double particle_rate;
+    double particle_count;
+    double volume;
     double origin[3];
     double scale[3];
     double angles[3];

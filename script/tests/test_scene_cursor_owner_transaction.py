@@ -43,6 +43,120 @@ HARNESS = r'''
       let xs=[];
       export function cursorClick(e) { xs.push(e.localPosition.x); thisLayer.origin=new Vec3(xs.length,xs.length>1?xs[xs.length-2]:0,input.cursorWorldPosition.x); }
       """
+    static func primaryButtonCases() throws -> [[String:Any]] {
+        try (0..<2).map { variant in
+            let argument = variant == 0 ? "event" : "pointerEvent"
+            let guardBody = variant == 0
+                ? "if (event.button !== 0) return;"
+                : "if (!(pointerEvent['button'] === (1 - 1))) return;"
+            let source = """
+                let trace=0, pressed=0, clicks=0, held=false;
+                function record(\(argument), kind, expectedDown) {
+                    \(guardBody)
+                    if (typeof \(argument).button !== 'number') throw Error('button type');
+                    if (input.cursorLeftDown !== expectedDown) throw Error('pressed input changed');
+                    trace=trace*10+kind;
+                    pressed=pressed*10+(input.cursorLeftDown ? 1 : 2);
+                    if (kind===4) clicks++;
+                    thisLayer.origin=new Vec3(trace,pressed,clicks);
+                }
+                export function cursorMove(e){record(e,1,held);}
+                export function cursorDown(e){held=true;record(e,2,true);}
+                export function cursorUp(e){held=false;record(e,3,false);}
+                export function cursorClick(e){record(e,4,false);}
+                """
+            let peer = """
+                let moves=0, clicks=0;
+                export function cursorMove(e){thisLayer.origin=new Vec3(++moves,e.localPosition.x,input.cursorLeftDown?1:0);}
+                export function cursorClick(e){thisLayer.origin=new Vec3(moves,++clicks,input.cursorLeftDown?1:0);}
+                """
+            let scenarios: [(String,[SceneScriptCursorFrameSample])] = [
+                ("inside", [sample(1,false),sample(2,false),sample(2,true),sample(3,true),sample(3,false)]),
+                ("outsidePress", [sample(10,false,hit:false),sample(10,true,hit:false),sample(10,false,hit:false)]),
+                ("releaseOutside", [sample(10,false),sample(10,true),sample(11,true,hit:false),sample(11,false,hit:false)]),
+            ]
+            var facts: [String:Any] = ["variant":variant]
+            for (name,samples) in scenarios {
+                let (program,_) = try make([(.origin,source),(.scale,peer)])
+                let result = dispatch(program,samples)
+                program.finalizeLayerMutations(committing:true)
+                let idle = dispatch(program,[samples.last!])
+                facts[name] = [
+                    "failures":result.failures.values.map(\.code).sorted(),
+                    "value":values(result), "peer":values(result,.scale),
+                    "quietAfter":idle.ownerEffects.isEmpty && idle.failures.isEmpty,
+                ]
+                program.finalizeLayerMutations(committing:true)
+            }
+            return facts
+        }
+    }
+    static func failedInitCursorCases() throws -> [[String:Any]] {
+        var facts: [[String:Any]] = []
+        for variant in 0..<2 {
+            let targetName = variant == 0 ? "'cursor'" : "['cur','sor'].join('')"
+            let argument = variant == 0 ? "event" : "tap"
+            let guardBody = variant == 0 ? "event.button !== 0" : "tap['button'] !== (1 - 1)"
+            let source = """
+                let saved, initializations=0, clicks=0;
+                export function init(v) {
+                    saved=thisScene.getLayer(\(targetName));
+                    ++initializations;
+                    thisLayer.origin=new Vec3(999,999,999);
+                    throw new TypeError('ordinary initialization failure');
+                }
+                export function cursorClick(\(argument)) {
+                    if (\(guardBody)) return;
+                    if (++clicks===2) throw new Error('later callback failure');
+                    saved.visible=false;
+                    thisLayer.origin=new Vec3(initializations,clicks,\(argument).localPosition.x);
+                }
+                """
+            let peer = "let n=0;export function cursorClick(e){thisLayer.origin=new Vec3(++n,0,0);}"
+            let scenarios: [(String,[SceneScriptCursorFrameSample])] = [
+                ("inside", click(10)),
+                ("outsidePress", [sample(10,false,hit:false),sample(10,true,hit:false),sample(10,false,hit:false)]),
+                ("releaseOutside", [sample(10,false),sample(10,true),sample(11,true,hit:false),sample(11,false,hit:false)]),
+            ]
+            for (name,samples) in scenarios {
+                let (program,owners) = try make([(.origin,source),(.scale,peer)],borrowed:true)
+                let initialization = owners[0].initializeIfNeeded(input:.vector3(0,0,0),frame:frame,
+                    scriptPropertiesJSON:"{}",userPropertiesJSON:"{}",expectedGeneration:1,
+                    interruptBudget:nil,retainsValueForNextUpdate:true)
+                guard case let .failure(failure) = initialization else { fatalError("init did not fail") }
+                let first = program.dispatch(batch:.init(samples:samples,overflowed:false),frame:frame,
+                    userPropertiesJSON:"{}",initializationFailures:[target():failure])
+                program.finalizeLayerMutations(committing:true)
+                let retried = dispatch(program,[sample(99,false)])
+                let mutation = retried.ownerEffects.first{$0.ownerTarget==target()}?.layerMutations.last
+                var row: [String:Any] = [
+                    "variant":variant,"scenario":name,
+                    "firstCode":first.failures[target()]?.code ?? "none",
+                    "firstValue":values(first),"firstPeer":values(first,.scale),
+                    "initTerminal":!owners[0].needsInitialization,
+                    "value":values(retried),"visibility":mutation?.visible as Any? ?? NSNull(),
+                    "failures":retried.failures.values.map(\.code).sorted(),
+                ]
+                program.finalizeLayerMutations(committing:true)
+                let quiet = dispatch(program,[sample(99,false)])
+                row["quiet"] = quiet.ownerEffects.isEmpty && quiet.failures.isEmpty
+                program.finalizeLayerMutations(committing:true)
+                if name == "inside" {
+                    let later = dispatch(program,click(12))
+                    row["laterCode"] = later.failures[target()]?.code ?? "none"
+                    row["laterValue"] = values(later)
+                    row["laterPeer"] = values(later,.scale)
+                    program.finalizeLayerMutations(committing:true)
+                    let fused = dispatch(program,click(13))
+                    row["fusedValue"] = values(fused)
+                    row["fusedPeer"] = values(fused,.scale)
+                    program.finalizeLayerMutations(committing:true)
+                }
+                facts.append(row)
+            }
+        }
+        return facts
+    }
     static func boneOrder(burst: Bool = false, failPeer: Bool = false, mixed: Bool = false) throws -> [String:Any] {
         let second = burst
             ? "thisLayer.setBoneTransform(0,Mat4.fromTranslation(new Vec3(11,0,0)));" : ""
@@ -108,6 +222,8 @@ HARNESS = r'''
     }
     static func main() throws {
         var out:[String:Any] = [:]
+        out["primaryButton"] = try primaryButtonCases()
+        out["failedInitCursor"] = try failedInitCursorCases()
         out["boneOrder"] = try boneOrder()
         out["boneBurst"] = try boneOrder(burst:true)
         out["boneThrow"] = try boneOrder(failPeer:true)
@@ -257,6 +373,56 @@ class CursorOwnerTransactionTests(unittest.TestCase):
     def test_saved_event_and_surface_inputs_use_current_frame_clock(self):
         self.assertEqual(self.result["savedSurfaceFailures"],0)
         self.assertEqual(self.result["savedSurfaceRetry"],[4,3,0])
+
+    def test_primary_button_is_numeric_zero_for_move_down_up_and_click(self):
+        self.assertEqual(len(self.result["primaryButton"]), 2)
+        for case in self.result["primaryButton"]:
+            with self.subTest(variant=case["variant"]):
+                inside = case["inside"]
+                self.assertEqual(inside["failures"], [])
+                self.assertEqual(inside["value"], [12134, 21122, 1])
+                self.assertEqual(inside["peer"], [2, 1, 0])
+                self.assertTrue(inside["quietAfter"])
+
+    def test_primary_button_guards_keep_outside_click_boundaries_and_peer(self):
+        for case in self.result["primaryButton"]:
+            with self.subTest(variant=case["variant"]):
+                outside = case["outsidePress"]
+                self.assertEqual(outside["failures"], [])
+                self.assertEqual(outside["value"], [])
+                self.assertEqual(outside["peer"], [])
+                self.assertTrue(outside["quietAfter"])
+                released = case["releaseOutside"]
+                self.assertEqual(released["failures"], [])
+                self.assertEqual(released["value"], [213, 112, 0])
+                self.assertEqual(released["peer"], [1, 11, 1])
+                self.assertTrue(released["quietAfter"])
+
+    def test_failed_init_keeps_cached_target_and_later_click_without_repeating_init(self):
+        for case in self.result["failedInitCursor"]:
+            with self.subTest(variant=case["variant"],scenario=case["scenario"]):
+                self.assertEqual(case["firstCode"], "init-exception")
+                self.assertEqual(case["firstValue"], [])
+                self.assertTrue(case["initTerminal"])
+                self.assertEqual(case["failures"], [])
+                self.assertTrue(case["quiet"])
+                if case["scenario"] == "inside":
+                    self.assertEqual(case["firstPeer"], [1, 0, 0])
+                    self.assertEqual(case["value"], [1, 1, 10])
+                    self.assertIs(case["visibility"], False)
+                else:
+                    self.assertEqual(case["value"], [])
+                    self.assertEqual(case["firstPeer"], [])
+
+    def test_later_cursor_exception_still_fuses_only_failed_owner(self):
+        for case in self.result["failedInitCursor"]:
+            if case["scenario"] == "inside":
+                with self.subTest(variant=case["variant"]):
+                    self.assertEqual(case["laterCode"], "exception")
+                    self.assertEqual(case["laterValue"], [])
+                    self.assertEqual(case["laterPeer"], [2, 0, 0])
+                    self.assertEqual(case["fusedValue"], [])
+                    self.assertEqual(case["fusedPeer"], [3, 0, 0])
 
     def test_whole_frame_restore_does_not_duplicate_prior_or_new_events(self):
         self.assertEqual(self.result["droppedCandidate"],[3,10,200])

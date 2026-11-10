@@ -5,7 +5,7 @@ extension SceneMetalRenderer {
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
         renderSizeOverride: [Float]? = nil,
-        textCenterOffsetY: Float = 0,
+        textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)? = nil,
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration,
         visibleHalfExtents: SIMD2<Float>,
@@ -47,7 +47,8 @@ extension SceneMetalRenderer {
                 vertical: layer.textStyle?.verticalAlignment,
                 renderSize: size,
                 padding: (layer.textStyle?.padding ?? 0) + textBorder,
-                centerOffsetY: textCenterOffsetY
+                centerOffsetY: textPlacement?.centerOffsetY ?? 0,
+                rasterOffsetY: renderSizeOverride == nil ? 0 : textPlacement?.rasterOffsetY ?? 0
             )
             : SceneImageLayerPivot.unitOffset(alignment: layer.imageAlignment)
         let shift = parallax + screenAnchor

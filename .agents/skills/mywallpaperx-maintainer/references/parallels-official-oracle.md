@@ -38,11 +38,13 @@ prlctl list --info "$ORACLE_VM"
 
 已经 running 时不要再 start 来“显示窗口”；running 不等于 guest 已解锁、桌面可交互或控制台已置前。stopped 与 paused/suspended 分别按本机帮助选择 start / resume，属于实际运行步骤；失败不升级成 reset / stop --kill / --drop-state。
 
-短通道探针：
+本轮帮助提供 `--use-advanced-terminal` 时，优先沿已验证的高级通道与完整程序路径做短探针；后续命令复用同一通道。已有默认短探针返回 `PrlJob_GetResult: Invalid argument`、高级通道/完整路径组合成功的实际记录；这不唯一定位内部故障，不据此猜通用命令长度或重装 Tools。保留原失败，仍先核本轮 Tools、会话和帮助；组合也失败时停在执行层，不重叠业务调用。
+
+短通道探针（程序路径以本轮 guest 为准）：
 
 ```sh
-prlctl exec "$ORACLE_VM" --current-user whoami.exe
-prlctl exec "$ORACLE_VM" --current-user powershell.exe -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
+prlctl exec "$ORACLE_VM" --current-user --use-advanced-terminal 'C:\Windows\System32\whoami.exe'
+prlctl exec "$ORACLE_VM" --current-user --use-advanced-terminal powershell.exe -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'
 ```
 
 `--current-user` 选择 guest 当前登录用户的凭据；它不保证 GUI 在可见桌面上，也不是授权替代。需要识别 receiver 时，用短只读 PowerShell 查询进程的 `Id / ProcessName / SessionId / Path`，确认实际32/64位入口、版本、哈希与用户会话。CLI 转发进程与长期播放进程分开识别。若 guest 未登录/被锁定，先处理登录现场，不绕过锁屏或切换到另一账号来掩盖问题。
@@ -86,7 +88,7 @@ Mac 夹具能编译或成景，不证明同一自有 shader 已通过官方 HLSL
 
 颜色量测先读原图的 ICC 和像素编码，统一转换到预登记的 RGB 域，再应用同一 ROI 与阈值；记录源 profile、转换与原图摘要。Display 编码的通道值不能直接当 sRGB 判断，不能按 ROI 调色或放宽阈值。Bloom 等后处理与颜色管理分别核对；改变输入需保独立版本，修 reader 则用原字节重放，不冒称新 GPU 运行。JPEG 的颜色类别不授精确 RGB/alpha。
 
-先用已有 native CUA 观察：正确 VM 控制台是否在前台、guest 是否已解锁、是否有模态/UAC覆盖、焦点是否在终端或另一个窗口、鼠标是否被 VM 捕获。点击一次再看新状态；不要对一张旧图连续发送坐标。全屏/Coherence/窗口模式、Retina缩放和 guest 分辨率发生变化后，重新取得窗口与 client rect，再注册 ROI，不能沿用旧坐标。
+先用已有 native CUA 观察：正确 VM 控制台是否在前台、guest 是否已解锁、是否有模态/UAC覆盖、焦点是否在终端或另一个窗口、鼠标是否被 VM 捕获。成功返回也可能仍是旧图；若CLI已闭窗而图中预览仍在，先核实际窗口身份，再做一次已暴露的Raise并以可区分新状态复核，仍无更新就停，不把静止图或success码当资格。点击一次再看新状态；不要对一张旧图连续发送坐标。全屏/Coherence/窗口模式、Retina缩放和 guest 分辨率发生变化后，重新取得窗口与 client rect，再注册 ROI，不能沿用旧坐标。
 
 普通桌面交互不要先开启游戏鼠标优化。官方旧 KB 对“键盘不工作”和“鼠标不能自动捕获”给出不同设置方向，不能混成统一修法；确认具体症状和现有设置再决定是否调整。[P4][P5] 本机 man 还列有 Modality 点击透传选项；只有实际处在该模式且设置吻合时才考虑，不全局改配置碰运气。
 
@@ -106,7 +108,7 @@ Mac 夹具能编译或成景，不证明同一自有 shader 已通过官方 HLSL
 | 窗口可见但点不到 | 查捕获、遮挡、焦点、模式与缩放，用新UI状态定位；不重启来代替诊断 |
 | 捕获全黑或 ROI 落到终端 | 重新资格采集与正控；不判定壁纸黑屏或调整颜色算法 |
 
-同一失败不原样循环；换最小探针定位一层，仍不能区分就停止语义实验并保存现场。只关闭本轮窗口、清理已停止使用的独占 stage；原主客户端与 VM 的去留按原授权，交还资源时报告实际状态，不默认停机。
+同一失败不原样循环；换最小探针定位一层，仍不能区分就停止语义实验并保存现场。只关闭本轮窗口；清理 stage 前，先用运输 manifest 对比运行后的文件清单，保存新增的日志/输出或确认其可重建，不能仅因目录独占就把新增文件当输入副本删除。再清理已停止使用的本轮 stage；原主客户端与 VM 的去留按原授权，交还资源时报告实际状态，不默认停机。
 
 ## 来源与复核
 

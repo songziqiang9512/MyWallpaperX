@@ -47,6 +47,7 @@ final class SceneImageEffectPipelineRepository {
     private let layerColorBlendStateSlot:
         ScenePipelineSlot<SceneLayerColorBlendPipelineState>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
+    private let pointVolumeSlot: ScenePipelineSlot<ScenePointVolumePipeline>
     private let directDrawSlot: ScenePipelineSlot<SceneImageLayerPipeline>
     private let litImageLayerSlot: ScenePipelineSlot<SceneLitImageLayerPipeline>
     private let puppetClippingSlot: ScenePipelineSlot<MTLRenderPipelineState>
@@ -57,6 +58,10 @@ final class SceneImageEffectPipelineRepository {
             SceneLayerColorBlendPipelineState(device: device, pixelFormat: pixelFormat)
         }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device, pixelFormat: pixelFormat) }
+        pointVolumeSlot = .init {
+            guard let library = device.makeDefaultLibrary() else { return nil }
+            return ScenePointVolumePipeline(device: device, library: library, pixelFormat: pixelFormat)
+        }
         directDrawSlot = .init {
             SceneImageLayerPipeline(device: device, pixelFormat: pixelFormat, blendMode: .alphaWeightedAdditive)
         }
@@ -71,6 +76,7 @@ final class SceneImageEffectPipelineRepository {
     }
 
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
+    func pointVolume() -> ScenePointVolumePipeline? { pointVolumeSlot.resolve() }
 
     /// Preparation is launch-only. Frame consumers never invoke a PSO factory.
     func prepareLitImageLayer() -> Bool { litImageLayerSlot.resolve() != nil }

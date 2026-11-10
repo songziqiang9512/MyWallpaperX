@@ -36,6 +36,7 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             extra_swift_sources=(
                 Path(__file__).parent / "fixtures/SceneScriptBooleanReturnChecks.swift",
                 Path(__file__).parent / "fixtures/SceneScriptProjectVisibilityChecks.swift",
+                vm.SCENE / "Systems/Script/SceneScriptMediaFrameCoordinator.swift",
                 vm.SCENE / "Rendering/Composition/SceneBloomPostProcess.swift",
                 vm.SCENE / "Resources/Textures/SceneResourceBudget.swift",
             ),
@@ -64,6 +65,13 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
 
     def test_native_bool_return_contract_and_stateful_continuity(self) -> None:
         for fact, accepted in self.value["returnContract"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(accepted)
+
+    def test_split_initialization_current_value_and_transaction_retries(self) -> None:
+        facts = self.value["initializationCurrentValue"]
+        self.assertTrue(facts)
+        for fact, accepted in facts.items():
             with self.subTest(fact=fact):
                 self.assertTrue(accepted)
 

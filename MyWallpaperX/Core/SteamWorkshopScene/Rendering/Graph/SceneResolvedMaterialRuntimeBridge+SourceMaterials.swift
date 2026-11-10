@@ -169,7 +169,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                 guard let source = SceneLayerSourcePublication(layerID: consumerID, publication: publication,
                     renderSizeWH: imageTextures.layerSourceRenderSize(for: consumerID),
                     effectRenderSizeWH: imageTextures.layerSourceEffectRenderSize(for: consumerID),
-                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: consumerID)) else { continue }
+                    textPlacement: imageTextures.layerSourceTextPlacement(for: consumerID)) else { continue }
                 sources[consumerID] = source
             }
             if original.frameIndex <= 2 {

@@ -106,15 +106,12 @@ extension SceneMetalRenderer {
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 renderSizeOverride: renderSizeOverride,
-                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
-        }
-        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
-            cameraFrame.viewProjection(for: $0) * imageModel($0, $1)
         }
         let dependencyProviderPlacement: (SceneRenderDescriptor.Layer)
             -> (mvp: simd_float4x4, viewport: CGSize) = { provider in
@@ -137,9 +134,6 @@ extension SceneMetalRenderer {
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
-        }
-        let geometryMVP: (SceneRenderDescriptor.Layer, SceneGeometryProduct) -> simd_float4x4 = {
-            cameraFrame.viewProjection(for: $0) * geometryModel($0, $1)
         }
         for layer in orderedLayers {
             let layerID = layer.id
@@ -810,8 +804,8 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 liveLayerIDs: liveLayerIDs, pendingGraphLayerIDs: pendingGraphLayerIDs,
                 layersByID: layersByID, plans: byLayerID,
                 imageTextures: imageTextures, frameContext: frameContext,
-                imageMVP: imageMVP, providerPlacement: dependencyProviderPlacement,
-                geometryMVP: geometryMVP, baseMaterialSelections: &baseMaterialSelections,
+                providerPlacement: dependencyProviderPlacement,
+                baseMaterialSelections: &baseMaterialSelections,
                 failureReason: &dependencyFailureReason) else {
                 return invalid(dependencyFailureReason ?? "dependency-input-invalid")
             }

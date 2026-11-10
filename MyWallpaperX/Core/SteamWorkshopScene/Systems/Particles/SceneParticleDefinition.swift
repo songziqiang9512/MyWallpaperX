@@ -145,10 +145,10 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
         return min(minimum, maximum) ... max(minimum, maximum)
     }
 
-    nonisolated var hasBoundedDirectionsAndSign: Bool {
+    nonisolated var hasValidDirectionsAndSign: Bool {
         guard !hasMalformedDirectionsOrSign,
               let directionValues = Self.vectorComponents(directions),
-              directionValues.allSatisfy({ $0.isFinite && abs($0) <= 1_000_000 }) else {
+              directionValues.allSatisfy(\.isFinite) else {
             return false
         }
         guard sign != nil else { return true }
@@ -202,8 +202,16 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case reduceMovement(SceneParticleReduceMovement)
     case collisionPlane(SceneParticleCollisionPlane)
     case collisionSphere(SceneParticleCollisionSpherePlan?)
+    case collisionBounds(defaultResponse: Bool)
     case inheritEventValue(SceneParticleEventValueOperation?)
     case unsupported(String)
+}
+
+extension SceneParticleDefinition {
+    nonisolated var hasCanvasCollision: Bool {
+        !flags.isWorldSpace && !flags.usesPerspective
+            && operators.contains { $0.kind == .collisionBounds(defaultResponse: true) }
+    }
 }
 
 nonisolated struct SceneParticleBoids: Equatable, Sendable {
@@ -297,7 +305,8 @@ nonisolated struct SceneParticleControlPoint: Equatable, Sendable {
     let angles: SceneParticleNumericValue?
     let parentControlPoint: Int?
     let hasAuthoredAngles: Bool
-    let hasMalformedFields: Bool
+    let hasMalformedOffset: Bool
+    let hasMalformedMetadata: Bool
 
     nonisolated var hasBoundedPointerInput: Bool {
         guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,

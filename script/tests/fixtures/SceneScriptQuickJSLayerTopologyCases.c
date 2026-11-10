@@ -92,7 +92,7 @@ static void dynamic_storage_cases(MWXSceneScriptQuickJSFixture *fixture) {
         mwx_scene_quickjs_owner_commit_layer_mutations(owner);
         fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
             owner, 901, 17, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA, zero, one, zero,
-            1, 1, 0, "", 0, "", 0, .2, 1, 32, one, 0, NULL,
+            1, 1, 0, "", 0, "", 0, .2, 1, 1, 1, 0, 32, one, 0, NULL,
             fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "host publishes authored baseline through real ABI", fixture->diagnostic);
         fixture->failures += mwx_fixture_check(watch_layer_storage(owner) == 4,

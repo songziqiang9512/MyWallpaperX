@@ -161,8 +161,9 @@ private typealias Descriptor = SceneRenderDescriptor
                             valueContributors: [.userProperty(property)], scriptAttachments: [],
                             authoredFallback: fallback, authoredBindingKeys: ["user", "value"])
                         let field = SceneAuthoredShaderUniformLayout.Field(name: schema.name, stage: .fragment, type: .float, offset: 0)
-                        let binding = SceneResolvedMaterialPreparedUniformBinding(field: field, source: .dynamic(.init(
-                            declaration: declaration, contributor: .userProperty(property), fallback: fallback, schema: schema)))
+                        let binding = SceneResolvedMaterialPreparedUniformBinding(field: field, source: .dynamic(
+                            SceneResolvedMaterialUniformProjection.prepareDynamic(
+                                declaration, contributor: .userProperty(property), schema: schema, field: field)))
                         var encoded: [Double] = []
                         for scalar in [0.5, 2.0, 8.0] {
                             let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
@@ -170,7 +171,7 @@ private typealias Descriptor = SceneRenderDescriptor
                                     authoredValue: .scalar(authored.components![0]), userPropertyNumericRange: 0 ... 10)],
                                 userValues: [target: .scalar(scalar)]).snapshot
                             if let resolved = try? SceneResolvedMaterialProgram.resolvedAuthoredUniform(binding, snapshot: snapshot),
-                               resolved.field.stage == .fragment, resolved.encodedValue.count == 4 {
+                               resolved.encodedValue.count == 4 {
                                 encoded.append(Double(resolved.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }))
                             }
                         }
@@ -657,9 +658,33 @@ private typealias Descriptor = SceneRenderDescriptor
         value.materialPasses[0].textureSlots = ["independent/paint-source"]
         value.materialPasses[0].texturePaths = ["independent/paint-source"]
         value.materialPasses[0].constantShaderValues = ["pigment-key": nonwhite]
-        results["perspectiveRenamedEquivalent"] = output(value,
-            shader: contract(vertex: renamedVertex, fragment: renamedFragment,
-                             identity: "independent/paint-source"))
+        let renamedShader = contract(vertex: renamedVertex, fragment: renamedFragment,
+                                     identity: "independent/paint-source")
+        results["perspectiveRenamedEquivalent"] = output(value, shader: renamedShader)
+        value.layers[0].usesPerspective = false
+        value.materialPasses[0].constantShaderValues["slide-x"] = .init(rawValue: "2", components: [2])
+        var scrollY = Value(rawValue: "-0.09", components: [-0.09])
+        value.materialPasses[0].constantShaderValues["slide-y"] = scrollY
+        results["renamedScroll"] = output(value, shader: renamedShader)
+        var hiddenSource = value
+        hiddenSource.layers[0].visible = false
+        let requested = Set(["models/independent/paint.json"])
+        results["hiddenSourceRequested"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        results["hiddenSourceUnrequested"] = output(hiddenSource, shader: renamedShader)
+        var siblingOfHidden = hiddenSource.layers[0]
+        siblingOfHidden.id = 58
+        siblingOfHidden.visible = true
+        hiddenSource.layers.append(siblingOfHidden)
+        results["hiddenSourceWithVisibleSibling"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        hiddenSource.layers[1].parentID = 57
+        results["hiddenSourceWithUnsupportedSibling"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        hiddenSource.layers.removeLast()
+        hiddenSource.materialPasses[0].constantShaderValues = ["pigment-key": nonwhite]
+        results["hiddenSourceNeutral"] = output(hiddenSource, dynamic: requested, shader: renamedShader)
+        scrollY.userBinding = "motion"; scrollY.userValueKind = .string
+        scrollY.bindingKeys = ["user", "value"]
+        value.materialPasses[0].constantShaderValues["slide-y"] = scrollY
+        results["renamedDynamicScroll"] = output(value, shader: renamedShader)
 
         value = perspective; var mixedSibling = value.layers[0]
         mixedSibling.id = 58; mixedSibling.usesPerspective = false

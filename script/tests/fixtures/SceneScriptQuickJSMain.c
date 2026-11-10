@@ -135,7 +135,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(fixture->positive);
     mwx_scene_quickjs_owner_destroy(fixture->metadata_only);
     mwx_scene_quickjs_owner_destroy(fixture->time_of_day);
-    mwx_scene_quickjs_owner_destroy(fixture->invalid_wemath_mix);
+    mwx_scene_quickjs_owner_destroy(fixture->wemath_infinite_mix);
     mwx_scene_quickjs_owner_destroy(fixture->wemath_mix);
     mwx_scene_quickjs_owner_destroy(fixture->wemath_angles);
     mwx_scene_quickjs_owner_destroy(fixture->wevector);

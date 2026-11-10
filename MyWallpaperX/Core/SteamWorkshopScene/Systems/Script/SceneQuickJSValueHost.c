@@ -1,4 +1,5 @@
 #include "SceneQuickJSInternal.h"
+#include <string.h>
 
 static JSValue active_engine_getter(
     JSContext *context,
@@ -161,6 +162,52 @@ static JSValue implicit_script_properties(JSContext *context, JSValueConst this_
         : JS_DupValue(context, owner->implicit_script_properties);
 }
 
+bool mwx_scene_quickjs_assign_script_properties(
+    MWXSceneQuickJSOwner *owner, const char *json, size_t length
+) {
+    if (json == NULL || length == 0) return true;
+
+    const size_t previous_length = owner->script_property_input_length;
+    const char *previous_json = owner->script_property_input_json;
+    if (length == previous_length && memcmp(json, previous_json, length) == 0) return true;
+
+    JSContext *context = owner->domain->context;
+    JSValue target = JS_GetPropertyStr(context, owner->module, "scriptProperties");
+    if (JS_IsUndefined(target)) {
+        if (JS_IsUndefined(owner->implicit_script_properties))
+            owner->implicit_script_properties = JS_NewObject(context);
+        target = JS_DupValue(context, owner->implicit_script_properties);
+    }
+    JSValue source = JS_ParseJSON(context, json, length, "scriptProperties");
+    // Parsed structured values can escape through the mutable target.
+    // Compare against the host bytes, never against a script-owned alias.
+    JSValue previous = previous_length == 0 ? JS_UNDEFINED
+        : JS_ParseJSON(context, previous_json, previous_length, "scriptProperties");
+    bool success = false;
+    if (!JS_IsObject(target) || !JS_IsObject(source) || JS_IsException(previous)) goto done;
+    char *snapshot = js_strndup(context, json, length);
+    if (snapshot == NULL) goto done;
+
+    JSValue arguments[] = {target, source, previous};
+    JSValue result = JS_Call(context, owner->domain->script_property_assigner,
+                             JS_UNDEFINED, 3, arguments);
+    success = !JS_IsException(result);
+    JS_FreeValue(context, result);
+    if (success) {
+        js_free(context, owner->script_property_input_json);
+        owner->script_property_input_json = snapshot;
+        owner->script_property_input_length = length;
+    } else {
+        js_free(context, snapshot);
+    }
+
+done:
+    JS_FreeValue(context, target);
+    JS_FreeValue(context, source);
+    JS_FreeValue(context, previous);
+    return success;
+}
+
 bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     // Author console output is a compatibility sink. User-requested diagnostics
     // own collection and serialization, so normal launch/frame work stays clean.
@@ -214,6 +261,8 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "return new Vec3(this.x*v.x,this.y*v.y,v instanceof Vec2?this.z:this.z*v.z);}"
         "divide(v){if(typeof v==='number'){return new Vec3(this.x/v,this.y/v,this.z/v);}"
         "return new Vec3(this.x/v.x,this.y/v.y,v instanceof Vec2?this.z:this.z/v.z);}"
+        "cross(v){return new Vec3(this.y*v.z-this.z*v.y,"
+        "this.z*v.x-this.x*v.z,this.x*v.y-this.y*v.x);}"
         "reflect(normal){const factor=2*(this.x*normal.x+this.y*normal.y+this.z*normal.z);"
         "return new Vec3(this.x-factor*normal.x,this.y-factor*normal.y,this.z-factor*normal.z);}"
         "mix(v,a){const t=typeof a==='number'?{x:a,y:a,z:a}:a;"
@@ -235,11 +284,22 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "const builder={addSlider:add,addCheckbox:add,addText:add,addColor:add,addCombo:add,finish:()=>values};"
         "return builder;"
         "}"
-        "function assignScriptProperties(target,source){"
-        "for(const key of Object.keys(source)){const next=source[key];"
+        "const sameValue=Object.is,hasOwn=Object.hasOwn,keys=Object.keys,isArray=Array.isArray;"
+        "function equalPropertyInput(value,previous){"
+        "if(sameValue(value,previous))return true;"
+        "if(value===null||previous===null||typeof value!=='object'||typeof previous!=='object'"
+        "||isArray(value)!==isArray(previous))return false;"
+        "const fields=keys(value);"
+        "if(fields.length!==keys(previous).length)return false;"
+        "for(let i=0;i<fields.length;i++){const key=fields[i];"
+        "if(!hasOwn(previous,key)||!equalPropertyInput(value[key],previous[key]))return false;}"
+        "return true;"
+        "}"
+        "function assignScriptProperties(target,source,previous){"
+        "for(const key of keys(source)){const next=source[key];"
+        "if(previous&&hasOwn(previous,key)&&equalPropertyInput(next,previous[key]))continue;"
         "target[key]=target[key] instanceof Vec2?new Vec2(next):"
-        "target[key] instanceof Vec3?new Vec3(next):next;}"
-        "return target;}"
+        "target[key] instanceof Vec3?new Vec3(next):next;}}"
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
         "const console={log(...args){},error(...args){}};"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"

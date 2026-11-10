@@ -339,7 +339,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         observedMediaEvents: SceneScriptObservedMediaFrameEvents? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil,
-        userPropertiesJSON: String? = nil
+        userPropertiesJSON: String? = nil,
+        priorVisibilityValues: [SceneDynamicTarget: Bool] = [:]
     ) -> SceneScriptVectorFrameResult {
         let observedMediaEvent = observedMediaEvents?.thumbnail ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlaybackEvent = observedMediaEvents?.playback ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedPropertiesEvent = observedMediaEvents?.properties ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimelineEvent = observedMediaEvents?.timeline ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent)
         let userJSON = userPropertiesJSON ?? SceneScriptPropertyInputCodec
@@ -709,13 +710,30 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     continue
                 }
             }
+            let priorCallbackAuthoredMutations = callbackLayerMutations
+            if binding.definition.valueType == .bool, !callbackLayerMutations.isEmpty {
+                switch binding.owner.validateBooleanFrame(
+                    value: evaluationInput, mutations: callbackLayerMutations
+                ) {
+                case let .success(resolved):
+                    evaluationInput = resolved.value
+                    callbackLayerMutations = resolved.mutations
+                case let .failure(failure):
+                    failures[target] = failure
+                    if failure.permanentlyDisablesOwner { disabledTargets.insert(target) }
+                    binding.owner.discardLayerMutations()
+                    continue
+                }
+            }
             switch binding.owner.evaluate(
                 input: evaluationInput,
                 frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userJSON,
                 expectedGeneration: generation,
-                interruptBudget: interruptBudget
+                interruptBudget: interruptBudget,
+                priorCallbackAuthoredMutations: priorCallbackAuthoredMutations,
+                priorVisibilityValue: priorVisibilityValues[target]
             ) {
             case let .success(evaluation):
                 callbackLayerMutations.insert(
@@ -726,25 +744,10 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 callbackLayerMutations = SceneScriptLayerMutation.coalescing(
                     callbackLayerMutations
                 )
-                let value: SceneDynamicValue
-                if binding.definition.valueType == .bool {
-                    switch binding.owner.validateBooleanFrame(
-                        value: evaluation.value,
-                        mutations: callbackLayerMutations
-                    ) {
-                    case let .success(resolved):
-                        value = resolved.value
-                        callbackLayerMutations = resolved.mutations
-                    case let .failure(failure):
-                        failures[target] = failure
-                        if failure.permanentlyDisablesOwner {
-                            disabledTargets.insert(target)
-                        }
-                        binding.owner.discardLayerMutations()
-                        continue
-                    }
-                } else {
-                    value = evaluation.value
+                var value = evaluation.value
+                if case let .layer(layerID, .visibility) = target,
+                   callbackLayerMutations.contains(where: { $0.kind == .destroy && $0.layerID == layerID }) {
+                    value = .bool(false)
                 }
                 if case let .failure(failure) = binding.owner.commitStorage() {
                     failures[target] = failure

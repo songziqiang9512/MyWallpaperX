@@ -16,8 +16,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_wallpaper_benchmark as benchmark
 import scene_wallpaper_sample_run as sample_run
+import promote_scene_evidence as promotion
 import web_benchmark_capture as capture
 import scene_preview_visual_evidence as visual
+from scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_snapshot_metrics
 from scene_capability_census_io import tree_manifest
 from scene_preview_visual_evidence import _write_rgb_png
 from script.tests.scene_wallpaper_benchmark_test_support import effect_execution_log
@@ -159,6 +161,8 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         expected = json.loads((SCRIPT_DIR / (
             "tests/fixtures/scene_wallpaper_sample_report_golden.json"
         )).read_text())
+        for field in ("composition_observations", "particle_component_observations"):
+            expected["runtime"][field]["source_line_numbers"] = []
         actual, command = run_sample_fixture(benchmark)
         self.assertEqual(actual, expected)
         self.assertTrue(actual["passed"])
@@ -176,6 +180,77 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         self.assertEqual(result["startup_timeout_allowance"], 180)
         self.assertTrue(result["timed_out"])
         self.assertIn("process timeout", result["failures"])
+
+    def test_failed_collection_promotes_actual_optional_files_without_a_projection(self):
+        cases = (
+            {"missing_ready": True, "missing_preview": True, "missing_runtime": True},
+            {"missing_ready": True, "missing_preview": True},
+            {"runtime_path": "-", "missing_runtime": True},
+            {"runtime_path": "-", "missing_preview": True},
+            {"runtime_path": "   ", "missing_runtime": True},
+        )
+        for control in cases:
+            with self.subTest(control=control):
+                def check_report(result, root):
+                    evidence = result["evidence"]
+                    expected_keys = {"app_log"}
+                    for key, missing in (("preview_log", control.get("missing_preview")),
+                                         ("runtime_evidence", control.get("missing_runtime"))):
+                        if missing:
+                            self.assertIsNone(evidence[key])
+                        else:
+                            self.assertTrue(Path(evidence[key]).is_file())
+                            expected_keys.add(key)
+                    report_path = root / "output/report.json"
+                    report_path.write_text(json.dumps({"samples": [result]}))
+                    with mock.patch.object(promotion, "EVIDENCE_ROOT", root / "evidence"):
+                        package = promotion.promote([("failed", report_path)], Path("run"), 1)
+                    self.assertEqual((package / "failed/report.json").read_bytes(),
+                                     report_path.read_bytes())
+                    manifest = json.loads((package / "manifest.json").read_text())
+                    archived = manifest["runs"][0]["files"]
+                    self.assertEqual({row["key"] for row in archived}, expected_keys)
+                    for row in archived:
+                        self.assertEqual((package / row["path"]).read_bytes(),
+                                         Path(evidence[row["key"]]).read_bytes())
+
+                result, _ = run_sample_fixture(benchmark, log_only=True, control={
+                    **control, "timeout": True, "exit_code": -15,
+                    "result_observer": check_report,
+                })
+                failures = ["process timeout", "process exit -15"]
+                if control.get("missing_ready"):
+                    failures.append("missing ready event")
+                failures.append("missing runtime evidence path")
+                if control.get("missing_ready"):
+                    failures.append("no completed GPU frame")
+                if control.get("missing_preview"):
+                    failures += ["camera projection evidence missing",
+                                 "particle load evidence missing"]
+                if control.get("missing_runtime"):
+                    failures += ["Scene runtime evidence missing or invalid",
+                                 "Scene runtime evidence schema_version mismatch"]
+                self.assertEqual(result["failures"], failures)
+                self.assertFalse(result["passed"])
+                self.assertTrue(result["timed_out"])
+                self.assertEqual(result["exit_code"], -15)
+
+    def test_declared_missing_or_foreign_runtime_files_are_still_rejected_by_promotion(self):
+        for control, error in (({"missing_runtime": True}, "evidence file is missing"),
+                               ({"foreign_runtime_path": True}, "evidence path escapes")):
+            with self.subTest(control=control):
+                def check_report(result, root):
+                    self.assertIsInstance(result["evidence"]["runtime_evidence"], str)
+                    report_path = root / "output/report.json"
+                    report_path.write_text(json.dumps({"samples": [result]}))
+                    with self.assertRaisesRegex(ValueError, error):
+                        promotion.promotion_plan([("failed", report_path)])
+
+                result, _ = run_sample_fixture(benchmark, log_only=True, control={
+                    **control, "result_observer": check_report,
+                })
+                self.assertFalse(result["passed"])
+                self.assertNotIn("missing runtime evidence path", result["failures"])
 
     def test_loose_run_keeps_real_tree_and_explicit_package_expectations(self) -> None:
         copied = []
@@ -237,7 +312,8 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
 
     def test_missing_evidence_preserves_failure_order(self) -> None:
         result, _ = run_sample_fixture(benchmark, control={
-            "missing_ready": True, "missing_performance": True, "black": True,
+            "missing_ready": True, "missing_runtime": True,
+            "missing_performance": True, "black": True,
         })
         self.assertFalse(result["passed"])
         self.assertEqual(result["failures"], [
@@ -486,6 +562,38 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         self.assertEqual((capture["source_width"], capture["source_height"], capture["output_width"], capture["output_height"]), (16, 16, 8, 8))
         self.assertIn("not-presented-or-per-input-visibility", capture["claim_boundary"])
         self.assertTrue(result["runtime"]["lifecycle"]["gpu_drained"])
+        self.assertIsInstance(capture["encoded_line_number"], int)
+        self.assertGreater(capture["encoded_line_number"], 0)
+        with tempfile.TemporaryDirectory(prefix="mwx-snapshot-path-") as directory:
+            root = Path(directory)
+            after, periodic = root / "scene-after-window.png", root / "renamed 周期 image.png"
+            write_png(after)
+            write_png(periodic, shifted=True)
+            for request, cb, texture, width, height in ((17, 43, 67, 16, 16), (91, 103, 211, 31, 19)):
+                encoded = (f"phase=snapshot-encoded request={request} commandBufferToken={cb} "
+                           f"textureToken={texture} width={width} height={height}")
+                lines = [encoded, f"phase=snapshot reason=after request={request} source=metal path={after}",
+                    f"phase=snapshot-encoded request={request + 1} commandBufferToken=809 textureToken=811 width=99 height=71",
+                    f"phase=snapshot reason=series-0007 request={request + 1} source=metal path={periodic}"]
+                text = "\n".join(lines)
+                default = terminal_snapshot_metrics(root, text)
+                self.assertEqual((default["request_id"], default["command_buffer_token"],
+                                  default["texture_token"], default["encoded_line_number"]),
+                                 (request, str(cb), str(texture), 1))
+                self.assertEqual((default["source_width"], default["source_height"]), (width, height))
+                selected = terminal_snapshot_metrics(root, text, snapshot_path=periodic)
+                self.assertEqual(selected["status"], "captured")
+                self.assertEqual((selected["path"], selected["request_id"], selected["command_buffer_token"],
+                                  selected["texture_token"], selected["encoded_line_number"]),
+                                 (str(periodic), request + 1, "809", "811", 3))
+                self.assertEqual((selected["source_width"], selected["source_height"],
+                                  selected["output_width"], selected["output_height"]), (99, 71, 8, 8))
+                # Explicit paths consume the recorded reason, not a filename convention.
+                renamed_reason = text.replace("reason=series-0007", "reason=renamed-phase")
+                self.assertEqual(terminal_snapshot_metrics(root, renamed_reason, snapshot_path=periodic)
+                                 ["request_id"], request + 1)
+                self.assertEqual(terminal_snapshot_metrics(root, text, snapshot_path=root / "absent.png")
+                                 ["status"], "missing-or-invalid")
 
     def test_ordinary_capture_forwards_explicit_edge_without_terminal_mode(self):
         for edge in (None, 512):
@@ -509,15 +617,31 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
                                  None if disabled else "1")
 
     def test_terminal_capture_missing_misrouted_or_unencoded_is_unqualified(self):
-        for failure in ("missing-png", "wrong-path", "missing-encoded", "wrong-request", "missing-tokens", "zero-source-size"):
+        for failure in ("missing-png", "wrong-path", "missing-encoded", "wrong-request", "missing-tokens",
+                        "zero-source-size", "zero-source-height", "wrong-reason", "wrong-source",
+                        "duplicate-persist", "ambiguous-reason", "duplicate-encoded", "ambiguous-encoded",
+                        "encoded-after-persist"):
             def receipts(result_dir):
                 path = result_dir / ("foreign.png" if failure == "wrong-path" else "scene-after-window.png")
                 encoded_request = 18 if failure == "wrong-request" else 17
-                lines = [f"MWX DEBUG SCENE: phase=snapshot reason=after request=17 source=metal path={path}"]
+                reason = "series-0007" if failure == "wrong-reason" else "after"
+                source = "window" if failure == "wrong-source" else "metal"
+                lines = [f"MWX DEBUG SCENE: phase=snapshot reason={reason} request=17 source={source} path={path}"]
                 if failure != "missing-encoded":
                     token = "" if failure == "missing-tokens" else "commandBufferToken=43 textureToken=67 "
                     width = 0 if failure == "zero-source-size" else 8
-                    lines.insert(0, f"MWX DEBUG SCENE: phase=snapshot-encoded request={encoded_request} {token}width={width} height=8")
+                    height = 0 if failure == "zero-source-height" else 8
+                    lines.insert(0, f"MWX DEBUG SCENE: phase=snapshot-encoded request={encoded_request} {token}width={width} height={height}")
+                if failure == "duplicate-persist":
+                    lines.append(lines[-1])
+                if failure == "ambiguous-reason":
+                    lines.append(lines[-1].replace("reason=after", "reason=series-0007"))
+                if failure == "duplicate-encoded":
+                    lines.insert(0, lines[0])
+                if failure == "ambiguous-encoded":
+                    lines.insert(0, "phase=snapshot-encoded request=17 commandBufferToken=71 textureToken=73 width=9 height=7")
+                if failure == "encoded-after-persist":
+                    lines.reverse()
                 return lines
             with self.subTest(failure=failure):
                 result, _ = run_sample_fixture(benchmark, log_only=True, terminal_snapshot=True,
@@ -544,6 +668,16 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
             self.assertEqual(observations["parse_errors"], 4)
             self.assertEqual(observations["observed_count"], 1)
             self.assertIn("not-per-input-visible-contribution", observations["claim_boundary"])
+            self.assertEqual(len(observations["source_line_numbers"]), 1)
+            self.assertGreater(observations["source_line_numbers"][0], 0)
+        next_frame = {**composition, "frameIndex": 8}
+        raw = "\n".join(["unrelated", composition_prefix + json.dumps(composition),
+                         composition_prefix + '{"schemaVersion":1,', composition_prefix + '[]',
+                         composition_prefix + json.dumps(next_frame), composition_prefix + '{"schemaVersion":2}'])
+        observations = structured_runtime_observations(raw, composition_prefix)
+        self.assertEqual(observations["events"], [composition, next_frame])
+        self.assertEqual(observations["source_line_numbers"], [2, 5])
+        self.assertEqual((observations["observed_count"], observations["parse_errors"]), (2, 3))
 
     def test_unknown_process_tool_error_stops_owned_child_and_is_not_a_result_row(self):
         actions, waits = [], []

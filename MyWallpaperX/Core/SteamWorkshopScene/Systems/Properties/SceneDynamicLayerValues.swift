@@ -8,8 +8,7 @@ nonisolated enum SceneDynamicLayerValues {
     ) -> Float {
         let target = SceneDynamicTarget.layer(layerID: layerID, field: .alpha)
         if let resolved = snapshot[target],
-           case let .scalar(value) = resolved.value,
-           value.isFinite {
+           case let .scalar(value) = resolved.value {
             return normalizedAlpha(value)
         }
         return normalizedAlpha(authoredValue ?? 1)
@@ -92,8 +91,11 @@ nonisolated enum SceneDynamicLayerValues {
         return authoredValue
     }
 
+    /// The official client applies a SceneScript alpha Number directly: the
+    /// clamp maps -Infinity to black and +Infinity to opaque, and NaN renders
+    /// invisible rather than opaque.
     private static func normalizedAlpha(_ value: Double) -> Float {
-        guard value.isFinite else { return 1 }
+        guard !value.isNaN else { return 0 }
         return Float(min(max(value, 0), 1))
     }
 

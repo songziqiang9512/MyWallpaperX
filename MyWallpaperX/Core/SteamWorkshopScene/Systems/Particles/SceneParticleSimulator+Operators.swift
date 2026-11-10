@@ -6,7 +6,8 @@ nonisolated extension SceneParticleSimulator {
         operatorIndex: Int,
         duration: Double,
         existingParticleIDUpperBound: UInt64 = .max,
-        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil
     ) {
 #if DEBUG
         let observesParticles = componentObservation != nil && !particles.isEmpty
@@ -33,22 +34,36 @@ nonisolated extension SceneParticleSimulator {
             }
             let gravity = plan.gravity(through: activeWorldSpaceFrame)
                 * effectiveSpeedOverride
+            let exponent = -plan.dampingRate * duration
+            let retention = exp(exponent)
+            // Near zero, use the limit of the gravity integral to avoid cancellation.
+            let gravityTime = abs(exponent) < 1e-8 ? duration : (1 - retention) / plan.dampingRate
+            let gravityImpulse = gravity == .zero ? .zero : gravity * gravityTime
+            let retentionOverflowed = !retention.isFinite
             let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
-            for index in particles.indices {
-                if !radiusIsActive { particles[index].vortexRadius = nil }
-                let acceleration = gravity - particles[index].velocity * plan.drag
-                let integrated = particles[index].velocity + acceleration * duration
-                let (position, velocity) = vortexMovement(
-                    particle: particles[index], velocity: integrated, duration: duration
-                )
-                guard acceptsMotionResult(velocity, position, component: "movement") else {
-                    continue
-                }
-                particles[index].velocity = velocity
-                particles[index].position = position
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    if !radiusIsActive { buffer[index].vortexRadius = nil }
+                    let initialVelocity = buffer[index].velocity
+                    // An unforced stationary peer stays at rest even when growth overflows.
+                    let integrated = retentionOverflowed && initialVelocity == .zero
+                        ? gravityImpulse : initialVelocity * retention + gravityImpulse
+                    let (position, velocity) = vortexMovement(
+                        particlePosition: buffer[index].position,
+                        vortexRadius: buffer[index].vortexRadius,
+                        velocity: integrated, duration: duration
+                    )
+                    guard acceptsMotionResult(velocity, position, component: "movement") else {
+                        continue
+                    }
+                    buffer[index].velocity = velocity
+                    buffer[index].position = position
 #if DEBUG
-                componentObservation?.record("operator", operatorIndex, "evaluated", reason: "motion-result-accepted", time: simulationTime, particleID: particles[index].id)
+                    if observesParticles {
+                        componentObservation?.record("operator", operatorIndex, "evaluated", reason: "motion-result-accepted", time: simulationTime, particleID: buffer[index].id)
+                    }
 #endif
+                }
             }
         case .angularMovement:
             guard let plan = operatorExecutionPlans[operatorIndex].angularMovement else {
@@ -78,17 +93,19 @@ nonisolated extension SceneParticleSimulator {
 #endif
                 break
             }
-            for index in particles.indices {
-                let life = normalizedLives[index]
-                if life <= fadePlan.fadeIn {
-                    particles[index].alpha *= SceneParticleSimulationMath.changeAmount(
-                        life, 0, fadePlan.fadeIn
-                    )
-                }
-                if life > fadePlan.fadeOut {
-                    particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
-                        life, fadePlan.fadeOut, 1
-                    )
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    let life = normalizedLives[index]
+                    if life <= fadePlan.fadeIn {
+                        buffer[index].alpha *= SceneParticleSimulationMath.changeAmount(
+                            life, 0, fadePlan.fadeIn
+                        )
+                    }
+                    if life > fadePlan.fadeOut {
+                        buffer[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
+                            life, fadePlan.fadeOut, 1
+                        )
+                    }
                 }
             }
 #if DEBUG
@@ -236,25 +253,31 @@ nonisolated extension SceneParticleSimulator {
                     $0, componentKind: .operator, componentIndex: operatorIndex
                 )
             } ?? 1
-            for index in particles.indices {
-                let phase = turbulenceRandom(
-                    plan.phaseMinimum, plan.phaseMaximum,
-                    index, operatorIndex, 0
-                ) * phaseAudioFactor
-                let speed = turbulenceRandom(
-                    plan.minimumSpeed, plan.maximumSpeed, index, operatorIndex, 1
-                ) * speedOverride
-                let direction = SceneParticleSimulationMath.turbulenceDirection(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    phase: phase,
-                    scale: plan.scale,
-                    timeScale: plan.timeScale,
-                    mask: plan.mask
-                )
-                let delta = direction * speed * duration
-                    * plan.blendAmount(normalizedLives[index])
-                SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
+            let seed = simulationSeed
+            let time = simulationTime
+            let lives = normalizedLives
+            particles.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    let particleID = buffer[index].id
+                    let phase = Self.turbulenceRandom(
+                        plan.phaseMinimum, plan.phaseMaximum,
+                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 0
+                    ) * phaseAudioFactor
+                    let speed = Self.turbulenceRandom(
+                        plan.minimumSpeed, plan.maximumSpeed,
+                        particleID: particleID, seed: seed, operatorIndex: operatorIndex, salt: 1
+                    ) * speedOverride
+                    let direction = SceneParticleSimulationMath.turbulenceDirection(
+                        position: buffer[index].position,
+                        time: time,
+                        phase: phase,
+                        scale: plan.scale,
+                        timeScale: plan.timeScale,
+                        mask: plan.mask
+                    )
+                    let delta = direction * speed * duration * plan.blendAmount(lives[index])
+                    SceneParticleSimulationMath.addFinite(delta, to: &buffer[index].velocity)
+                }
             }
 #if DEBUG
             if observesParticles {
@@ -388,6 +411,15 @@ nonisolated extension SceneParticleSimulator {
                 blend: operatorExecutionPlans[operatorIndex].blend,
                 controlPointParticleSpace: controlPointParticleSpace
             )
+        case let .collisionBounds(defaultResponse):
+            guard defaultResponse, let collisionBoundsFrame else {
+#if DEBUG
+                componentObservation?.record("operator", operatorIndex, "unavailable",
+                    reason: defaultResponse ? "canvas-bounds-unavailable" : "response-unavailable", time: simulationTime)
+#endif
+                break
+            }
+            applyCollisionBounds(collisionBoundsFrame)
         case let .inheritEventValue(operation):
             guard operation == .setColor,
                   let values = eventValueContext.operatorValues,

@@ -83,10 +83,6 @@ nonisolated enum SceneTimelineTargetCompiler {
         })
         for timeline in descriptor.generalTimelines ?? [] {
             let label = "general \(timeline.host.rawValue)"
-            guard descriptor.camera.bloom.hdr == nil else {
-                diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
-                continue
-            }
             guard !timeline.hasScript else {
                 diagnostics.append("\(label): \(Diagnostic.unsupportedScriptSource.rawValue)")
                 continue
@@ -97,10 +93,35 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
             switch timeline.host {
             case .bloomStrength:
+                guard descriptor.camera.bloom.hdr == nil else {
+                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                    continue
+                }
                 append(
                     animation: timeline.animation,
                     target: .scene(.bloomStrength), valueType: .scalar,
                     authoredValue: .scalar(Double(timeline.authoredValue)),
+                    label: label, into: &candidates, diagnostics: &diagnostics
+                )
+            case .zoom:
+                guard let zoom = descriptor.camera.generalZoom,
+                      timeline.hasUserProperty != true else {
+                    diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                    continue
+                }
+                guard timeline.hasDeclaredIncomingPeer != true else {
+                    diagnostics.append("\(label): \(Diagnostic.combinedAnimationUnsupported.rawValue)")
+                    continue
+                }
+                guard SceneDefault2DCameraInputProfile.acceptsZoom(
+                    Double(zoom), animation: timeline.animation) else {
+                    diagnostics.append("\(label): \(Diagnostic.valueOutOfRange.rawValue)")
+                    continue
+                }
+                append(
+                    animation: timeline.animation,
+                    target: .camera(.generalZoom), valueType: .scalar,
+                    authoredValue: .scalar(Double(zoom)),
                     label: label, into: &candidates, diagnostics: &diagnostics
                 )
             }
@@ -643,6 +664,9 @@ nonisolated enum SceneTimelineTargetCompiler {
             return vector3(layer: layer, field: .angles, authored: layer.anglesXYZ, fill: 0)
         case .scale:
             return vector3(layer: layer, field: .scale, authored: layer.scaleXYZ, fill: 1)
+        case .color:
+            guard layer.contentKind != "text" else { return nil }
+            return vector3(layer: layer, field: .color, authored: layer.colorRGB, fill: 1)
         case .maxwidth:
             guard layer.contentKind == "text", let style = layer.textStyle,
                   style.limitWidth else { return nil }
@@ -651,9 +675,9 @@ nonisolated enum SceneTimelineTargetCompiler {
                 .scalar,
                 .scalar(Double(style.maxWidth))
             )
-        // size/color 有 target 但随包没有 Timeline 样本；zoom 的唯一真实形态由
+        // size 尚无 Timeline 消费资格；zoom 的唯一真实形态由
         // bounded 2D Camera Combined 编译器按组处理，不能脱组猜成普通 layer scalar。
-        case .size, .color, .zoom:
+        case .size, .zoom:
             return nil
         }
     }

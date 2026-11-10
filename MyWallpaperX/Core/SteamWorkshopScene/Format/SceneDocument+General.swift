@@ -6,11 +6,14 @@ extension SceneDocument {
     struct SceneGeneralTimeline: Codable, Equatable {
         enum Host: String, CaseIterable, Codable {
             case bloomStrength = "bloomstrength"
+            case zoom
         }
         let host: Host
         let animation: SceneTimelineAnimation
         let authoredValue: Float
         let hasScript: Bool
+        var hasUserProperty: Bool? = nil
+        var hasDeclaredIncomingPeer: Bool? = nil
     }
 
     // general.* fields that participate in the current 2D runtime.
@@ -49,11 +52,13 @@ extension SceneDocument {
         var authoredOrthographicProjectionActive: Bool? = nil
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
+        var zoom: Float? = nil
         var ambientColorRGB: [Float]? = nil
         var skylightColorRGB: [Float]? = nil
         var lightClasses: LightClassesDescriptor = .init()
         var distanceFog: DistanceFog? = nil
         var hdrEnabled: Bool = false
+        var transparentSorting: Bool? = nil
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
         let clearEnabled: Bool
         let nearZ: Float?
@@ -130,6 +135,10 @@ extension SceneDocumentLoader {
             || (authoredWidth.map { $0.isFinite && $0 > 0 } == true
                 && authoredHeight.map { $0.isFinite && $0 > 0 } == true)
         let timelines = generalTimelines(authoredRoot ?? root)
+        let zoomInput = (authoredRoot ?? root)?["zoom"]
+        let zoomFallback = (zoomInput as? [String: Any])?["value"] ?? zoomInput
+        let zoom = zoomFallback.flatMap { SceneJSONValue(jsonObject: $0)?.numberValue }
+            .map(Self.saturatingFloat)
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
@@ -137,11 +146,13 @@ extension SceneDocumentLoader {
             fovDegrees: root?["fov"].flatMap(Self.floatValue),
             perspectiveOverrideFOVDegrees: root?["perspectiveoverridefov"]
                 .flatMap(Self.floatValue),
+            zoom: zoom,
             ambientColorRGB: floatVector(root?["ambientcolor"]),
             skylightColorRGB: floatVector(root?["skylightcolor"]),
             lightClasses: lightClasses(root?["lightconfig"]),
             distanceFog: distanceFog(root),
             hdrEnabled: visibleValue(root?["hdr"]) ?? false,
+            transparentSorting: (authoredRoot ?? root)?["transparentsorting"] as? Bool,
             clearColor: floatVector(root?["clearcolor"]),
             clearEnabled: (root?["clearenabled"] as? Bool) ?? true,
             nearZ: root?["nearz"].flatMap(Self.floatValue),
@@ -182,21 +193,35 @@ extension SceneDocumentLoader {
     ) -> (animations: [SceneDocument.SceneGeneralTimeline], diagnostics: [String]) {
         var animations: [SceneDocument.SceneGeneralTimeline] = []
         var diagnostics: [String] = []
+        var zoomHasDeclaredIncomingPeer = false
         for host in SceneDocument.SceneGeneralTimeline.Host.allCases {
             let raw = root?[host.rawValue]
+            let wrapper = raw as? [String: Any]
+            // Rejected mode/lanes must not erase a declared connection to zoom.
+            if host != .zoom,
+               let animation = wrapper?["animation"] as? [String: Any],
+               let options = animation["options"] as? [String: Any] {
+                zoomHasDeclaredIncomingPeer = zoomHasDeclaredIncomingPeer
+                    || SceneTimelineAnimationParser.declaredGroupReferences(
+                        parent: options["parent"], children: options["children"]
+                    ).contains { $0.key == "zoom" }
+            }
             let result = SceneTimelineAnimationParser.parse(host: raw)
             if let animation = result.animation {
-                let wrapper = raw as? [String: Any]
                 let script = wrapper?["script"]
                 animations.append(.init(
                     host: host, animation: animation,
                     authoredValue: Self.floatValue(raw) ?? 1,
-                    hasScript: script != nil && !(script is NSNull)
+                    hasScript: script != nil && !(script is NSNull),
+                    hasUserProperty: wrapper?["user"].map { !($0 is NSNull) } ?? false
                 ))
             }
             diagnostics.append(contentsOf: result.diagnostics.map {
                 "\(host.rawValue):\($0.token)"
             })
+        }
+        for index in animations.indices where animations[index].host == .zoom {
+            animations[index].hasDeclaredIncomingPeer = zoomHasDeclaredIncomingPeer
         }
         return (animations, diagnostics)
     }

@@ -66,7 +66,7 @@ nonisolated extension SceneScriptValueOwner {
         if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
         }
-        let isSceneOwner = target == .scene(.bloomStrength)
+        let isSceneOwner = target == .scene(.bloomStrength) || target == .camera(.generalZoom)
         if isSceneOwner {
             guard valueType == .scalar, sourceLayerID == nil,
                   cameraOriginDepthRange == nil, effectNames.isEmpty,

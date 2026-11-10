@@ -179,6 +179,14 @@ static JSValue layer_get(
             return JS_NewBool(context, solid ? authored_baseline->solid : authored_baseline->visible);
         return JS_NewBool(context, solid ? record->solid : record->visible);
     }
+    case LAYER_VOLUME:
+        if (record->dynamic || !record->sound_available || !record->sound_volume_available)
+            return JS_ThrowTypeError(context, "volume target is not an available authored Sound");
+        return JS_NewFloat64(context,
+            authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME)
+                ? authored_mutation->volume
+                : authored_baseline != NULL && (authored_baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME)
+                    ? authored_baseline->volume : record->volume);
     case LAYER_ALPHA:
         return JS_NewFloat64(context,
             authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA)
@@ -373,6 +381,20 @@ static JSValue layer_set(
         *record_value = value != 0;
         break;
     }
+    case LAYER_VOLUME: {
+        if (record->dynamic || !record->sound_available || !record->sound_volume_available)
+            return JS_ThrowTypeError(context, "volume target is not an available authored Sound");
+        double value;
+        if (!JS_IsNumber(argv[0]) || JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value))
+            return JS_ThrowTypeError(context, "Sound volume expects a finite Number");
+        MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+            mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+        if (mutation == NULL)
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        mutation->volume = value;
+        mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VOLUME;
+        break;
+    }
     case LAYER_ALPHA: {
         // The property retains its raw value; display opacity is normalized downstream.
         double value = 0;
@@ -399,11 +421,9 @@ static JSValue layer_set(
     }
     case LAYER_COLOR: {
         double value[3];
-        if (!mwx_scene_quickjs_layer_read_vec3(context, argv[0], value, NULL) ||
-            value[0] < 0 || value[0] > 1 || value[1] < 0 || value[1] > 1 ||
-            value[2] < 0 || value[2] > 1)
+        if (!mwx_scene_quickjs_layer_read_vec3(context, argv[0], value, NULL))
             return JS_ThrowRangeError(
-                context, "dynamic layer color expects a normalized finite Vec3"
+                context, "layer color expects a finite Vec3"
             );
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =

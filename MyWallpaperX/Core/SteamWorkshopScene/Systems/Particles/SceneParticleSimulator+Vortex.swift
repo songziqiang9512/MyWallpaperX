@@ -60,21 +60,22 @@ nonisolated extension SceneParticleSimulator {
     /// Movement remains the only position integrator. Exact rotation avoids
     /// the energy/radius drift of Euler centripetal acceleration or projection.
     func vortexMovement(
-        particle: SceneParticleState, velocity: SIMD3<Double>, duration: Double
+        particlePosition: SIMD3<Double>, vortexRadius: Double?,
+        velocity: SIMD3<Double>, duration: Double
     ) -> (position: SIMD3<Double>, velocity: SIMD3<Double>) {
-        guard let radius = particle.vortexRadius else {
-            return (particle.position + velocity * duration, velocity)
+        guard let radius = vortexRadius else {
+            return (particlePosition + velocity * duration, velocity)
         }
-        let radial = SIMD3(particle.position.x, particle.position.y, 0)
+        let radial = SIMD3(particlePosition.x, particlePosition.y, 0)
         let length = SceneParticleSimulationMath.length(radial)
-        guard length > 1e-12 else { return (particle.position, velocity) }
+        guard length > 1e-12 else { return (particlePosition, velocity) }
         let unit = radial / length
         let tangent = SIMD3(unit.y, -unit.x, 0)
         let speed = dot(velocity, tangent)
         let angle = speed * duration / radius
         let nextUnit = unit * cos(angle) + tangent * sin(angle)
         let position = SIMD3(nextUnit.x * radius, nextUnit.y * radius,
-                             particle.position.z + velocity.z * duration)
+                             particlePosition.z + velocity.z * duration)
         let nextVelocity = SIMD3(nextUnit.y * speed, -nextUnit.x * speed, velocity.z)
         return (position, nextVelocity)
     }

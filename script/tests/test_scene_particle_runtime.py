@@ -28,6 +28,7 @@ else:
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
@@ -146,6 +147,7 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCES = [
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeHarness.swift",
+    Path(__file__).resolve().parent / "fixtures/SceneParticleMultipleRendererHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeLifecycleHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeChildrenHarness.swift",
     Path(__file__).resolve().parent / "fixtures/SceneParticleRuntimeEventsHarness.swift",
@@ -170,8 +172,9 @@ class SceneParticleRuntimeTests(
     def run_harness(self, *arguments: str, configuration: str = "debug") -> dict[str, object]:
         completed = subprocess.run(
             [str(self.binaries[configuration]), *arguments],
-            check=True, capture_output=True, text=True,
+            check=False, capture_output=True, text=True,
         )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         return json.loads(completed.stdout)
 
     def test_authored_retirement_preserves_peer_rng_and_frozen_batches(self) -> None:
@@ -187,6 +190,13 @@ class SceneParticleRuntimeTests(
         for name, value in result.items():
             with self.subTest(name=name):
                 self.assertTrue(value, name)
+
+    def test_prepared_surface_audio_and_current_playback_handoff(self) -> None:
+        for configuration in ("debug", "release"):
+            result = self.run_harness("prepared-surface-handoff", configuration=configuration)
+            for name, value in result.items():
+                with self.subTest(configuration=configuration, name=name):
+                    self.assertTrue(value, name)
 
     def test_generic_layer_alpha_preserves_root_and_child_instance_alpha(self) -> None:
         result = self.run_harness("layer-alpha-synthetic")
@@ -459,7 +469,7 @@ class SceneParticleRuntimeTests(
     def test_child_pointer_control_point_uses_child_local_scale_and_fails_closed_outside(self) -> None:
         result = self.run_harness("child-pointer-control-point-synthetic")
         self.assertEqual(result["outside"], [0, 0, 0])
-        self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
+        self.assertAlmostEqual(result["insideScaled"][0], .375, places=5)
         self.assertEqual(result["insideScaled"][1:], [0, 0])
         self.assertEqual(result["dynamicInsideScaled"], [0, 0, 0])
         self.assertEqual(result["emitterMissing"], [])
@@ -560,60 +570,65 @@ class SceneParticleRuntimeTests(
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
         result = self.run_harness("rope-trail-synthetic")
-        self.assertEqual(result["activeLayerIDs"], [31])
+        self.assertEqual(result["activeLayerIDs"], [31, 32, 34, 35])
         self.assertGreaterEqual(result["prewarmedInstanceCount"], 4)
         self.assertTrue(result["prewarmedAllSegmentsMoveForward"])
-        coarse = result["coarseSignature"]
-        fine = result["fineSignature"]
+        coarse, fine = result["coarseSignature"], result["fineSignature"]
         self.assertEqual(len(coarse), len(fine))
         self.assertGreaterEqual(len(coarse), 4 * 8)
         for coarse_value, fine_value in zip(coarse, fine):
             self.assertAlmostEqual(coarse_value, fine_value, places=5)
-        self.assertTrue(result["bufferMatches"])
-        self.assertTrue(result["usesPerspective"])
-        self.assertTrue(result["sizeIsWorldSpace"])
-        self.assertTrue(result["orientationScreen"])
-        self.assertFalse(result["mixedRendererLoaded"])
-        self.assertFalse(result["malformedRendererLoaded"])
-        self.assertFalse(result["objectRendererLoaded"])
-        self.assertFalse(result["onlyMalformedRendererLoaded"])
-        self.assertTrue(result["missingSpriteRenderer"])
-        self.assertIn(
-            "trailRendererUnsupported:32:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:33:ropetrail:animatedTexture",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:34:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "trailRendererUnsupported:35:ropetrail:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "missingSpriteRenderer:36:",
-            result["diagnosticDetails"],
-        )
-        self.assertIn(
-            "missingSpriteRenderer:37:",
-            result["diagnosticDetails"],
-        )
-        self.assertFalse(result["emptyRendererLoaded"])
-        self.assertIn(
-            "missingSpriteRenderer:38:",
-            result["diagnosticDetails"],
-        )
+        for field in ["bufferMatches", "usesPerspective", "sizeIsWorldSpace",
+                      "orientationScreen", "healthyPeerMatches", "missingSpriteRenderer"]:
+            self.assertTrue(result[field], field)
+        histories = result["histories"]
+        for name in ["default", "explicit", "renamed", "renderer-world", "general-world", "both-world",
+                     "subdivision-negative", "subdivision-zero", "subdivision-near-upper",
+                     "subdivision-upper", "subdivision-overflow"]:
+            with self.subTest(history=name):
+                history = histories[name]
+                signatures = history["signatures"]
+                self.assertEqual(history["liveCounts"], [1, 1, 1, 0, 0, 0])
+                orientation = "worldScreen" if name in ["renderer-world", "both-world"] else "screen"
+                self.assertEqual(history["orientations"], [orientation] * 6)
+                self.assertEqual(history["sizeIsWorldSpace"],
+                                 [name in ["general-world", "both-world"]] * 6)
+                self.assertTrue(history["replayMatches"])
+                self.assertEqual(len(signatures), 6)
+                for signature in signatures[:-1]:
+                    self.assertGreaterEqual(len(signature), 8)
+                self.assertEqual(signatures[-1], [])
+                self.assertNotEqual(signatures[0], signatures[2])
+                self.assertNotEqual(signatures[3], signatures[4])
+                if not name.startswith("subdivision-"):
+                    self.assertEqual(signatures, histories["explicit"]["signatures"])
+        for left, right in [("subdivision-negative", "subdivision-zero"),
+                            ("subdivision-overflow", "subdivision-upper")]:
+            self.assertEqual(histories[left], histories[right], (left, right))
+        self.assertGreater(len(histories["subdivision-upper"]["signatures"][1]),
+                           len(histories["subdivision-zero"]["signatures"][1]))
+        self.assertEqual(result["mixedRendererOrdinals"], [0, 1])
+        self.assertEqual(result["malformedPeerOrdinals"], [0])
+        for field in ["mixedRendererLoaded", "malformedRendererLoaded"]:
+            self.assertTrue(result[field], field)
+        for field in ["objectRendererLoaded",
+                      "onlyMalformedRendererLoaded", "emptyRendererLoaded"]:
+            self.assertFalse(result[field], field)
+        for layer_id, reason in [(33, "animatedTexture"), (39, "unsupportedProfile"),
+                                 (40, "unsupportedProfile"), (41, "unsupportedProfile"),
+                                 (42, "unsupportedProfile"), (43, "unsupportedProfile"),
+                                 (44, "unsupportedProfile")]:
+            self.assertIn(f"trailRendererUnsupported:{layer_id}:ropetrail:{reason}",
+                          result["diagnosticDetails"])
+        for layer_id in [36, 37, 38]:
+            self.assertIn(f"missingSpriteRenderer:{layer_id}:", result["diagnosticDetails"])
 
     def test_rope_runtime_connects_live_particles_and_fails_closed(self) -> None:
         result = self.run_harness("rope-synthetic")
         # Layer 44 carries the renderer world flag (bit0): admitted since the
         # pointer-trail family batch — the spline is affine-invariant, so the
         # local construction renders identically through the layer matrix.
-        self.assertEqual(result["activeLayerIDs"], [41, 42, 44, 45, 46, 48])
+        self.assertEqual(result["activeLayerIDs"], [41, 42, 43, 44, 45, 46, 48])
         self.assertTrue(result["twoFrameWholeSource"])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
@@ -633,10 +648,13 @@ class SceneParticleRuntimeTests(
         self.assertTrue(result["childRopeUVStartsWithPhase"])
         self.assertFalse(any("ropeRendererUnsupported:42:" in detail
                              for detail in result["diagnosticDetails"]))
-        self.assertIn(
-            "ropeRendererUnsupported:43:rope:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
+        self.assertEqual(result["mixedRendererOrdinals"], [0, 1])
+        self.assertTrue(all(count > 0 for count in result["mixedRendererInstanceCounts"]))
+        self.assertTrue(all(value == 1 for value in result["mixedRendererDisplacement"][0]))
+        self.assertTrue(all(value == 0 for value in result["mixedRendererDisplacement"][1]))
+        self.assertEqual(result["mixedRendererRefraction"], [False, False])
+        self.assertFalse(any("ropeRendererUnsupported:43:" in detail
+                             for detail in result["diagnosticDetails"]))
         # Layer 44 (renderer world flag) no longer reports unsupported; its
         # admission is covered by the activeLayerIDs assertion above.
         self.assertIn(

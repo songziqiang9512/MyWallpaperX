@@ -123,12 +123,16 @@ static JSValue cursor_argument(JSContext *context, const void *payload) {
     JSValue argument = JS_NewObject(context);
     JSValue world = vec3_value(context, world_values);
     JSValue local = vec3_value(context, local_values);
+    // Cursor ingress currently dispatches only the primary button (index 0).
     if (JS_IsException(argument) || JS_IsException(world) ||
         JS_IsException(local) || JS_DefinePropertyValueStr(
             context, argument, "worldPosition", JS_DupValue(context, world),
             JS_PROP_ENUMERABLE
         ) < 0 || JS_DefinePropertyValueStr(
             context, argument, "localPosition", JS_DupValue(context, local),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context, argument, "button", JS_NewInt32(context, 0),
             JS_PROP_ENUMERABLE
         ) < 0) {
         JS_FreeValue(context, argument);

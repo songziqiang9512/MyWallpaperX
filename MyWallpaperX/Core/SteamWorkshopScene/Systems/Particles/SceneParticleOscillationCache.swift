@@ -85,7 +85,7 @@ nonisolated struct SceneParticleScalarOscillationPlan: Sendable {
 nonisolated struct SceneParticleMovementPlan: Sendable {
     let authoredGravity: SIMD3<Double>
     let convertsGravityThroughWorldFrame: Bool
-    let drag: Double
+    let dampingRate: Double
 
     nonisolated init(
         _ value: SceneParticleOperator,
@@ -99,7 +99,7 @@ nonisolated struct SceneParticleMovementPlan: Sendable {
             isWorldSpaceSystem || value.isWorldSpaceMovement
         let authoredDrag = value.drag ?? 0
         // Negative drag is authored acceleration; non-finite input has no effect.
-        drag = authoredDrag.isFinite ? authoredDrag : 0
+        dampingRate = authoredDrag.isFinite ? authoredDrag * log(2) : 0
     }
 
     /// Gravity follows the layer's current world orientation: the conversion

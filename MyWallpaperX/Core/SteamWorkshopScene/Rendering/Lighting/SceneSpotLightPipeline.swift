@@ -56,7 +56,7 @@ fragment float4 sceneSpotLightFrag(
     float opticalDepth = max(u.density, 0.0) * 0.22 * profile;
     float opacity = saturate(
         (1.0 - exp(-opticalDepth)) * saturate(u.intensity / 100.0)
-    );
+    ) * u.color.a;
     float colorBoost = 0.8 + saturate(u.intensity / 100.0) * 0.45;
     float3 color = saturate(u.color.rgb * colorBoost);
     return float4(color * opacity, opacity);
@@ -110,44 +110,23 @@ final class SceneSpotLightPipeline {
         plan: SceneSpotLightPlan,
         color: SIMD3<Float>,
         intensity: Float,
-        worldOrigin: SIMD2<Float>,
+        alpha: Float,
+        worldFrame: simd_float4x4,
         viewProjection: simd_float4x4,
-        authoredAngle: Float,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
-        guard color.x.isFinite, color.y.isFinite, color.z.isFinite,
-              (0...1).contains(color.x),
-              (0...1).contains(color.y),
-              (0...1).contains(color.z),
-              intensity.isFinite, intensity >= 0,
-              worldOrigin.x.isFinite,
-              worldOrigin.y.isFinite,
-              viewProjection.columns.0.allFinite,
-              viewProjection.columns.1.allFinite,
-              viewProjection.columns.2.allFinite,
-              viewProjection.columns.3.allFinite,
-              authoredAngle.isFinite else {
+        var mvp = viewProjection * worldFrame
+            * SceneMatrix.scale(SIMD3(plan.radius, plan.supportHalfWidth, 1))
+        guard mvp.columns.0.allFinite,
+              mvp.columns.1.allFinite,
+              mvp.columns.2.allFinite,
+              mvp.columns.3.allFinite else {
             return false
         }
-        let outerHalfWidth = plan.radius * tan(plan.outerConeRadians * 0.5)
-        let innerHalfWidth = plan.radius * tan(plan.innerConeRadians * 0.5)
-        let supportHalfWidth = outerHalfWidth * 1.6
-        guard outerHalfWidth.isFinite,
-              innerHalfWidth.isFinite,
-              supportHalfWidth.isFinite,
-              outerHalfWidth > 0,
-              innerHalfWidth > 0,
-              innerHalfWidth <= outerHalfWidth else {
-            return false
-        }
-        let model = SceneMatrix.translation(SIMD3(worldOrigin.x, worldOrigin.y, 0))
-            * SceneMatrix.rotationZ(-authoredAngle)
-            * SceneMatrix.scale(SIMD3(plan.radius, supportHalfWidth, 1))
         var vertices = Self.vertices
-        var mvp = viewProjection * model
         var uniforms = Uniforms(
-            color: SIMD4(color, 1),
-            innerRatio: innerHalfWidth / supportHalfWidth,
+            color: SIMD4(color, alpha),
+            innerRatio: plan.innerRatio,
             density: plan.density,
             exponent: plan.exponent,
             volumetricsExponent: plan.volumetricsExponent,
@@ -173,9 +152,9 @@ final class SceneSpotLightPipeline {
             index: 0
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        #if DEBUG
+#if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
-                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
 #endif
         return true
     }

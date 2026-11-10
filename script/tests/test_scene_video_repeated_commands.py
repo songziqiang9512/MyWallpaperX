@@ -513,14 +513,13 @@ import QuartzCore
         }
         try commit(first, firstTime)
         let afterSeek = good.playbackSnapshot(sceneTime: 0)!
-        registry.beginSurfaceRebuild(sceneTime: 0, hostTime: CACurrentMediaTime())
-        try registry.prepareDynamicVideoSources(resources: resources, modelPaths: Set(resources.keys), device: device)
         registry.bindPreparedVideoConsumers([layerID: model, badID: model + "-bad"])
-        let rebuilt = try registry.source(sourceKey: goodKey, preparedFile: goodFile,
+        let addedViewSource = try registry.source(sourceKey: goodKey, preparedFile: goodFile,
             owner: .ordinary, layerID: layerID, device: device)
-        registry.completeSurfaceRebuild()
-        let reused = rebuilt === good && registry.pendingSceneScriptMetadataSources.isEmpty
+        let reused = addedViewSource === good && registry.pendingSceneScriptMetadataSources.isEmpty
             && good.hasPlaybackMetadata && registry.preparedVideoSourceReferences[model] == index
+            && registry.sceneScriptSnapshots(sceneTime: 0).layerBindings[layerID] == index
+            && good.playbackSnapshot(sceneTime: 0)?.currentTime == afterSeek.currentTime
         let secondTime = timing(0.01)
         let second = try evaluate(registry.sceneScriptSnapshots(sceneTime: 0.01), secondTime)
         try commit(second, secondTime)
@@ -566,8 +565,8 @@ import QuartzCore
             "healthyFailure": first.failures[target]?.code ?? "none",
             "failedOwnerFailure": first.failures[badTarget]?.code ?? "none",
             "firstStopCommands": firstCommands.filter { $0.action == .stop }.count,
-            "seekPosition": afterSeek.currentTime, "sourceReusedAcrossRebuild": reused,
-            "secondVector": vector(second), "rebuildSeekCommands": ordered(second).filter {
+            "seekPosition": afterSeek.currentTime, "addedViewReusesBoundSource": reused,
+            "secondVector": vector(second), "addedViewSeekCommands": ordered(second).filter {
                 if case .setCurrentTime = $0.action { return true }; return false
             }.count,
             "realEOFGeneration": eofSnapshot.endedGeneration, "eofPosition": eofSnapshot.currentTime,
@@ -644,7 +643,7 @@ class SceneVideoScriptMetadataTests(unittest.TestCase):
                     self.assertEqual(row["pendingAfterPreparation"], 0)
                     for key in ("noUnpreparedNumericSnapshot", "failedSnapshotAbsent", "failedBindingAbsent",
                                 "unavailableRowRetained", "failedPreparedReferenceAbsent", "failedSourceReusedWithoutRetry",
-                                "sourceReusedAcrossRebuild", "cancellationStartedPending", "cancelledSourceCannotPublishLate",
+                                "addedViewReusesBoundSource", "cancellationStartedPending", "cancelledSourceCannotPublishLate",
                                 "cancelledWaiterKeepsSharedPreparation"):
                         self.assertTrue(row[key], (key, row))
                     self.assertEqual(row["healthyFailure"], "none")
@@ -653,7 +652,7 @@ class SceneVideoScriptMetadataTests(unittest.TestCase):
                     self.assertEqual(row["firstSeekCommands"], [row["duration"] / 4])
                     self.assertEqual(row["firstStopCommands"], 0)
                     self.assertAlmostEqual(row["seekPosition"], row["duration"] / 4, delta=0.001)
-                    self.assertEqual(row["rebuildSeekCommands"], 0)
+                    self.assertEqual(row["addedViewSeekCommands"], 0)
                     self.assertEqual(row["secondVector"][:2], [row["duration"], row["duration"]])
                     self.assertGreater(row["realEOFGeneration"], 0)
                     self.assertAlmostEqual(row["eofPosition"], row["duration"], delta=0.05)

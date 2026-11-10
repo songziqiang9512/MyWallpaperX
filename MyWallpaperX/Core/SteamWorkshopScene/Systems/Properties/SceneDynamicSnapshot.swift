@@ -69,6 +69,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
     case center
     case up
     case zoom
+    case generalZoom
     case parallaxEnabled
     case parallaxAmount
     case parallaxDelay
@@ -97,7 +98,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
             0 ... 2
         case .shakeSpeed:
             0 ... 5
-        case .zoom:
+        case .zoom, .generalZoom:
             0.01 ... 100
         case .origin, .eye, .center, .up, .parallaxEnabled, .shakeEnabled:
             nil
@@ -893,7 +894,12 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 diagnostics.append(.init(code: .valueTypeMismatch, target: target, source: source))
                 continue
             }
-            guard value.isFinite else {
+            // Only a SceneScript Number may publish a non-finite value: the
+            // official client applies NaN/-Infinity as invisible alpha and
+            // +Infinity as opaque. Authored, user and Timeline lanes stay
+            // strictly finite.
+            guard value.isFinite
+                    || source == .sceneScript && value.valueType == .scalar else {
                 diagnostics.append(.init(code: .nonFiniteValue, target: target, source: source))
                 continue
             }

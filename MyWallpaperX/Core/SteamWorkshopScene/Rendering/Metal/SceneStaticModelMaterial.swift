@@ -6,6 +6,7 @@ import simd
 struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
     let metallic: Float
     let roughness: Float
+    var reflectivity: Float = 0
 }
 
 struct SceneStaticModelViewTint {

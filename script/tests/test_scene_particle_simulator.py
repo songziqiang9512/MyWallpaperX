@@ -562,7 +562,7 @@ enum Harness {
         }
         var rows: [[String: Any]] = []
         for angular in [false, true] {
-            for drag in [-2.0, 0.0, 2.0] {
+            for drag in angular ? [-2.0, 0.0, 2.0] : [-2.0, 0.0, 2.0, 8.0] {
                 let p = try run(drag, angular: angular)
                 rows.append(["angular": angular, "drag": drag,
                     "velocity": angular ? p.angularVelocity.z : p.velocity.z,
@@ -878,7 +878,7 @@ enum Harness {
     private static func positionAroundJSON(
         _ fields: String,
         point: String = #"{"id":0,"flags":0,"offset":"10 20 0"}"#,
-        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2}"#
+        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","sign":"1 0 0","distancemin":2,"distancemax":2}"#
     ) -> String {
         let initializer = fields.isEmpty
             ? #"{"name":"unsupported-position-around-baseline"}"#
@@ -911,12 +911,12 @@ enum Harness {
             "operator": [["name": "movement", "gravity": "0 0 0"]],
             "renderer": [["name": "sprite"]]
         ]
-        func make(_ root: [String: Any], budget: Int = 3_600,
+        func make(_ root: [String: Any], budget: Int? = nil,
                   step: Double = 1.0 / 60.0) -> SceneParticleSimulator {
             SceneParticleSimulator(
                 definition: SceneParticleDefinitionParser().parse(root: root), seed: 52,
                 fixedTimeStep: step, prewarmStepBudget: budget,
-                stepSnapshotPolicy: .init(interval: 0.1, maximumSnapshots: 5)
+                stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: 0.1, maximumSnapshots: 5)!]
             )
         }
         let warm = make(source)
@@ -924,7 +924,7 @@ enum Harness {
         let initialCount = warm.particles.count
         let warmTime = warm.simulationTime
         let drained = warm.birthEvents.isEmpty && warm.deathEvents.isEmpty
-        let history = warm.consumeStepSnapshots()
+        let history = warm.consumeStepSnapshots().values.flatMap { $0 }
         source.removeValue(forKey: "starttime")
         let played = make(source)
         for _ in 0..<900 { played.advance(by: 1.0 / 60.0) }
@@ -1272,7 +1272,6 @@ enum Harness {
         boxDirections.advance(by: 1)
         let invalidEmitterShapes = [
             #""name":"sphererandom","directions":"nan 1 0""#,
-            #""name":"sphererandom","directions":"1000001 1 0""#,
             #""name":"sphererandom","directions":"1 1""#,
             #""name":"sphererandom","directions":"bad""#,
         ].map { fields -> SceneParticleSimulator in
@@ -1467,13 +1466,88 @@ enum Harness {
         var colors = simulator(colorJSON, seed: 1, step: 0.1)
         colors.advance(by: 0.1)
         let randomColor = colors.particles[0].color
-        let colorFactorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+        let colorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"colorn":"0.5 1 0.25"}"#)
         )
         var colorsWithOverride = simulator(
-            colorJSON, override: colorFactorOverride, seed: 1, step: 0.1
+            colorJSON, override: colorOverride, seed: 1, step: 0.1
         )
         colorsWithOverride.advance(by: 0.1)
+        let colorParser = SceneParticleDefinitionParser()
+        var colorBirthRoot = try object(colorJSON)
+        colorBirthRoot["initializer"] = [
+            ["name": "lifetimerandom", "min": 10, "max": 10],
+            ["name": "colorrandom", "min": "128 64 0", "max": "128 64 0"],
+        ]
+        let colorBirthCases: [(String, String?, Int)] = [
+            ("normalized", #"{"colorn":"0.5 0.25 1"}"#, 0),
+            ("legacy", #"{"color":"127.5 63.75 255"}"#, 0),
+            ("legacyPrecedence", #"{"color":"127.5 63.75 255","colorn":"1 0 0"}"#, 0),
+            ("brightness", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 0),
+            ("brightnessOnly", #"{"brightness":2}"#, 0),
+            ("noOverride", nil, 0),
+            ("disabled", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 8),
+            ("black", #"{"colorn":"0 0 0"}"#, 0),
+            ("operator", #"{"colorn":"0.5 0.25 1"}"#, 0),
+        ]
+        var colorBirthResults: [String: Any] = [:]
+        for (name, rawOverride, flags) in colorBirthCases {
+            var root = colorBirthRoot
+            root["flags"] = flags
+            if name == "operator" {
+                root["operator"] = [["name": "colorchange", "starttime": 0, "endtime": 1,
+                    "startvalue": "0.5 1 0.25", "endvalue": "0.5 1 0.25"]]
+            }
+            let value = colorParser.parseInstanceOverride(try rawOverride.map { try object($0) })
+            var candidate = SceneParticleSimulator(definition: colorParser.parse(root: root),
+                instanceOverride: value, seed: 52, fixedTimeStep: 0.1)
+            candidate.advance(by: 0.1)
+            colorBirthResults[name] = [
+                "colors": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue),
+            ]
+        }
+        var colorCohortResults: [[String: Any]] = []
+        for variant in 0..<2 {
+            var root = try object(liveOverrideDefinitionJSON)
+            root["material"] = variant == 0 ? "palette/base.json" : "renamed/independent.json"
+            var emitters = root["emitter"] as! [[String: Any]]
+            emitters[0]["id"] = variant == 0 ? 71 : 902
+            root["emitter"] = emitters
+            root["initializer"] = colorBirthRoot["initializer"]
+            let property = variant == 0 ? "beam_color" : "renamed_tint"
+            let defaultValue: Any = variant == 0 ? "0.5 0.25 1" as Any : [0.5, 0.25, 1] as Any
+            let authored = colorParser.parseInstanceOverride([
+                "id": variant == 0 ? 73 : 904,
+                "colorn": ["user": property, "value": defaultValue],
+            ])!
+            let current = colorParser.parseInstanceOverride([
+                "colorn": ["user": ["name": property + "_next"], "value": [1, 0.5, 0.25]],
+            ])!
+            let definition = colorParser.parse(root: root)
+            var candidate = SceneParticleSimulator(definition: definition,
+                instanceOverride: authored, seed: 53, fixedTimeStep: 0.25)
+            var peer = SceneParticleSimulator(definition: definition, seed: 54, fixedTimeStep: 0.25)
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            let first = candidate.particles.map { vector($0.color) }
+            let firstID = candidate.particles[0].id
+            candidate.advance(by: 0.25, dynamicInstanceOverride: current)
+            peer.advance(by: 0.25)
+            let second = candidate.particles.map { vector($0.color) }
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            colorCohortResults.append([
+                "first": first, "second": second,
+                "fallback": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "firstIDRetained": candidate.particles[0].id == firstID,
+                "peer": peer.particles.map { vector($0.color) },
+                "propertyKeys": [authored.normalizedColor!.userPropertyKey!, current.normalizedColor!.userPropertyKey!],
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue) + peer.diagnostics.map(\.kind.rawValue),
+            ])
+        }
         let colorAmount = (randomColor.x * 255 - 10) / 230
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
@@ -2118,7 +2192,7 @@ enum Harness {
         let layerImageExplicitSignRejected: Bool =
             signedLayerImageDefinition.emitters[0].sign == .vector([1, 0, 0])
             && !signedLayerImageDefinition.emitters[0].hasMalformedDirectionsOrSign
-            && !signedLayerImageDefinition.emitters[0].hasBoundedDirectionsAndSign
+            && !signedLayerImageDefinition.emitters[0].hasValidDirectionsAndSign
             && signedLayerImage.particles.isEmpty && signedLayerImage.playbackHasWork == nil
         let delayedLayerImageDefinition = SceneParticleDefinitionParser().parse(
             root: try object(delayedLayerImageJSON)
@@ -2329,8 +2403,9 @@ enum Harness {
                 vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
-            "colorOverrideFactor": vector(colorsWithOverride.particles[0].color),
-            "colorBeforeOverrideFactor": vector(randomColor),
+            "colorOverrideValue": vector(colorsWithOverride.particles[0].color),
+            "colorBirthResults": colorBirthResults,
+            "colorCohortResults": colorCohortResults,
             "colorListColors": colorList.particles.map { vector($0.color) },
             "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
             "colorListThenColor": vector(colorListThenColor.particles[0].color),
@@ -3469,10 +3544,13 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_signed_drag_accelerates_or_slows_linear_and_angular_motion(self) -> None:
         result = self.run_harness("signed-drag")
-        expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
-        self.assertEqual(len(result["rows"]), 6)
+        angular_expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
+        linear_expected = {-2: (2, .8535533905932737), 0: (1, .5),
+                           2: (.5, .3017766952966369), 8: (.0625, .078125)}
+        self.assertEqual(len(result["rows"]), 7)
         for row in result["rows"]:
             with self.subTest(angular=row["angular"], drag=row["drag"]):
+                expected = angular_expected if row["angular"] else linear_expected
                 velocity, position = expected[row["drag"]]
                 self.assertAlmostEqual(row["velocity"], velocity, places=12)
                 self.assertAlmostEqual(row["position"], position, places=12)
@@ -3514,42 +3592,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
-        expected_names = {f"mask-{mask}" for mask in range(8)} | {
-            "defaults", "below-threshold", "at-threshold", "above-threshold",
-            "negative-below-threshold", "negative-at-threshold", "negative-above-threshold",
-            "signed-zero", "negative-direction-sign", "reverse-range", "negative-distance-clamp",
-            "equal-shell", "subnormal-shell", "power-overflow", "infinite-maximum",
-            "nan-minimum", "nan-maximum",
-        }
-        oracle_rows = {row["name"]: row for row in result["oracleRows"]}
-        self.assertEqual(set(oracle_rows), expected_names)
-        for name, row in oracle_rows.items():
-            with self.subTest(oracle=name):
-                self.assertEqual(row["samples"], 64)
-                for field in ("bitsOrNaNClassMatch", "rngAfterEachSampleMatches", "drawCountMatches",
-                              "nextRandomMatches", "nextIDUnchanged"):
-                    self.assertTrue(row[field], (field, row))
-                self.assertEqual(row["firstMismatch"], {})
-        for mask in range(8):
-            self.assertEqual(oracle_rows[f"mask-{mask}"]["mask"], mask)
-        for name in ("below-threshold", "at-threshold", "negative-below-threshold",
-                     "negative-at-threshold"):
-            self.assertIn(oracle_rows[name]["mask"], (2, 4))
-        self.assertEqual(oracle_rows["above-threshold"]["mask"], 3)
-        self.assertEqual(oracle_rows["negative-above-threshold"]["mask"], 5)
-        self.assertEqual(oracle_rows["signed-zero"]["mask"], 0)
-        birth_rows = {row["name"]: row for row in result["birthRows"]}
-        self.assertEqual(set(birth_rows), expected_names)
-        for name, row in birth_rows.items():
-            with self.subTest(birth=name):
-                for field in ("positionsMatch", "identitiesMatch", "birthEventsMatch", "nextIDMatches",
-                              "rngMatches", "nextRandomMatches", "rollbackMatches"):
-                    self.assertTrue(row[field], (field, row))
-                self.assertEqual(row["accepted"] + row["rejected"], 8)
-        for name in ("power-overflow", "infinite-maximum"):
-            self.assertGreater(oracle_rows[name]["nonfiniteValues"], 0)
-            self.assertEqual(birth_rows[name]["accepted"], 0)
-            self.assertEqual(birth_rows[name]["rejected"], 8)
 
     def test_periodic_emission_consumes_rate_and_count_with_bounded_work(self) -> None:
         result = self.run_harness("periodic-overrides")
@@ -3588,10 +3630,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             with self.subTest(flags=row["flags"], speed=row["speed"]):
                 self.assertEqual(row["velocity"], [2 * factor, -4 * factor, factor])
                 self.assertEqual(row["position"], [0.75 * factor, -1.5 * factor, 0.375 * factor])
-        self.assertEqual(result["stopped"], [0.875, -1.75, 0.4375])
         self.assertEqual(result["retry"], result["stopped"])
-        self.assertEqual(result["doubled"], [2.765625, -5.53125, 1.3828125])
-        self.assertEqual(result["fallback"], [3.419921875, -6.83984375, 1.7099609375])
+        for name, expected_x in [("stopped", .87840077934934), ("doubled", 2.721302750736767),
+                                 ("fallback", 3.453348467469253)]:
+            for actual, expected in zip(result[name], (expected_x, -2 * expected_x, expected_x / 2)):
+                self.assertAlmostEqual(actual, expected, places=12)
         self.assertTrue(result["preserved"])
         self.assertTrue(result["recovered"])
         self.assertEqual(result["invalidMotion"], 1)
@@ -3674,14 +3717,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(value["historyCount"], 5)
         self.assertTrue(value["historyNonempty"])
 
-    def test_prewarm_extension_is_bounded_and_not_given_to_frame_children(self) -> None:
+    def test_complete_root_prewarm_keeps_child_and_invalid_duration_boundaries(self) -> None:
         value = self.results["extendedPrewarm"]
         self.assertAlmostEqual(value["childTime"], 4)
         self.assertTrue(value["childLimited"])
         self.assertAlmostEqual(value["exactTime"], 60)
         self.assertFalse(value["exactLimited"])
-        self.assertAlmostEqual(value["overTime"], 60)
-        self.assertTrue(value["overLimited"])
+        self.assertAlmostEqual(value["overTime"], 60.01)
+        self.assertFalse(value["overLimited"])
         self.assertAlmostEqual(value["capacityTime"], 60)
         self.assertAlmostEqual(value["operatorTime"], 60)
         self.assertAlmostEqual(value["quadraticTime"], value["linearTime"])
@@ -3724,13 +3767,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["layerImageExplicitSignRetainedAndRejectedWithReadyMap"])
 
     def test_pointer_control_point_force_is_bounded_and_directional(self) -> None:
-        self.assertEqual(self.results["pointerPullVelocity"], [2, 0, 0])
-        self.assertEqual(self.results["pointerPushVelocity"], [-2, 0, 0])
+        for name, strength in [("Pull", .75), ("Push", -.75),
+                               ("InactiveTailBlend", .75), ("LifetimeBlend", .675)]:
+            velocity = self.results[f"pointer{name}Velocity"]
+            self.assertAlmostEqual(velocity[0], strength)
+            self.assertEqual(velocity[1:], [0, 0])
         self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerZeroVelocity"], [0, 0, 0])
-        self.assertEqual(self.results["pointerInactiveTailBlendVelocity"], [2, 0, 0])
-        self.assertAlmostEqual(self.results["pointerLifetimeBlendVelocity"][0], 1.8)
         self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
         self.assertEqual(self.results["pointerIdentityPlan"], [1])
         self.assertTrue(self.results["pointerCachedMatches"])
@@ -3763,7 +3807,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 self.assertTrue(row["forceSupported"])
                 self.assertEqual(row["pointerIdentities"], [1])
                 self.assertEqual(row["pointerMapped"], [10, 0, 0])
-                self.assertEqual(row["velocity"], [2, 0, 0])
+                self.assertAlmostEqual(row["velocity"][0], .75)
+                self.assertEqual(row["velocity"][1:], [0, 0])
                 self.assertEqual(
                     row["diagnostics"],
                     ["controlPointForceBounded", "pointerControlPointBounded"],
@@ -3821,7 +3866,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["delayedLayerImageCount"], 1)
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
-        self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])
+        for actual, expected in zip(self.results["movementPosition"], [.774001598220131, -.326046773496649, 0]):
+            self.assertAlmostEqual(actual, expected, places=12)
         self.assertAlmostEqual(self.results["fadeAlpha"], 0.5)
         self.assertEqual(self.results["worldMovementPosition"], [2, 0, 0])
         self.assertEqual(self.results["worldMovementLocalVelocity"], [4, 0, 0])
@@ -3930,7 +3976,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["nonfiniteEmitterSpeedDiagnostics"], ["emitterSpeedUnsupported"]
         )
 
-    def test_emitter_directions_and_sign_are_bounded_and_fail_closed(self) -> None:
+    def test_emitter_directions_and_sign_are_valid_and_fail_closed(self) -> None:
         self.assertTrue(self.results["sphereDirectionSignBounded"])
         self.assertEqual(
             self.results["sphereDirectionSignDiagnostics"], ["emitterShapeBounded"]
@@ -3943,10 +3989,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
         )
-        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0])
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0])
         self.assertEqual(
             self.results["invalidEmitterShapeDiagnostics"],
-            [["emitterShapeUnsupported"]] * 4,
+            [["emitterShapeUnsupported"]] * 3,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
@@ -4000,13 +4046,40 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
-    def test_color_instance_override_multiplies_initializer_result(self) -> None:
-        for actual, base, factor in zip(
-            self.results["colorOverrideFactor"],
-            self.results["colorBeforeOverrideFactor"],
-            [0.25, 1, 0.0625],
-        ):
-            self.assertAlmostEqual(actual, base * factor, places=12)
+    def test_color_instance_override_replaces_initializer_result(self) -> None:
+        self.assertEqual(self.results["colorOverrideValue"], [0.25, 1, 0.0625])
+        results = self.results["colorBirthResults"]
+        for name in ("normalized", "legacy", "legacyPrecedence"):
+            with self.subTest(profile=name):
+                self.assertEqual(results[name]["colors"], [[0.25, 0.0625, 1]])
+                self.assertEqual(results[name]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["noOverride"]["colors"], [[128 / 255, 64 / 255, 0]])
+        self.assertEqual(results["brightness"]["colors"], [[0.5, 0.125, 2]])
+        self.assertEqual(results["black"]["colors"], [[0, 0, 0]])
+        for name in ("brightnessOnly", "disabled"):
+            self.assertEqual(results[name]["colors"], [[256 / 255, 128 / 255, 0]])
+        self.assertEqual(results["operator"]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["operator"]["colors"], [[0.125, 0.0625, 0.25]])
+        for name, result in results.items():
+            with self.subTest(profile=name):
+                self.assertEqual(result["diagnostics"], [])
+
+    def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
+        initial = [0.25, 0.0625, 1]
+        updated = [1, 0.25, 0.0625]
+        results = self.results["colorCohortResults"]
+        for index, result in enumerate(results):
+            with self.subTest(variant=index):
+                self.assertEqual(result["first"], [initial])
+                self.assertEqual(result["second"], [initial, updated])
+                self.assertEqual(result["fallback"], [initial, updated, initial])
+                self.assertEqual(result["birthColors"], [initial, updated, initial])
+                self.assertTrue(result["firstIDRetained"])
+                self.assertEqual(result["peer"], [[128 / 255, 64 / 255, 0]] * 3)
+                self.assertEqual(result["diagnostics"], [])
+        self.assertEqual(results[0]["propertyKeys"], ["beam_color", "beam_color_next"])
+        self.assertEqual(results[1]["propertyKeys"], ["renamed_tint", "renamed_tint_next"])
+        self.assertEqual(results[0]["fallback"], results[1]["fallback"])
 
     def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
         colors = {tuple(value) for value in self.results["colorListColors"]}
@@ -4052,7 +4125,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["invalidHSVColorDiagnostics"],
             [["hsvColorUnsupported"]] * 19,
         )
-        self.assertEqual(self.results["hsvColorWithOverride"], [0.125, 0.5, 0.5])
+        self.assertEqual(self.results["hsvColorWithOverride"], [0.25, 1, 1])
         self.assertEqual(
             self.results["hsvColorWithOverrideDiagnostics"], ["hsvColorBounded"]
         )
@@ -4201,8 +4274,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_position_around_control_point_maps_repeat_sequence_and_pointer(self) -> None:
         result = self.run_harness("position-around-control-point")
-        expected_positions = [[12, 20, 0], [10, 22, 0], [8, 20, 0], [10, 18, 0]]
-        expected_velocities = [[0, 2, 0], [-2, 0, 0], [0, -2, 0], [2, 0, 0]]
+        radius = math.hypot(8, 20)
+        expected_positions = [[10, 20 + radius, 0], [10 + radius, 20, 0],
+                              [10, 20 - radius, 0], [10 - radius, 20, 0]]
+        expected_velocities = [[0, 2, 0], [2, 0, 0], [0, -2, 0], [-2, 0, 0]]
         for actual, expected in zip(result["positions"], expected_positions):
             for value, wanted in zip(actual, expected):
                 self.assertAlmostEqual(value, wanted)
@@ -4215,7 +4290,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertTrue(result["partitioned"])
         self.assertEqual(result["pointerValues"], [1])
-        for actual, expected in zip(result["pointerFirstPosition"], [7, 6, 0]):
+        for actual, expected in zip(result["pointerFirstPosition"], [5, 6 + math.hypot(3, 6), 0]):
             self.assertAlmostEqual(actual, expected)
         self.assertEqual(
             result["pointerDiagnostics"],

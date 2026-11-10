@@ -156,8 +156,6 @@ enum SceneParticleCameraRenderingHarness {
                   depthTestEnabled: test, depthWriteEnabled: write)
         }
         let eyeDistance = 64 / tan(Float.pi / 6)
-        let cameraState = SceneParticlePipelineRenderState(
-            blendMode: .translucent, cullMode: .none, usesSceneCamera: true)
         var rows: [[String: Any]] = []
         for cameraName in ["orthographic", "canvas-perspective", "native-perspective", "native-perspective-flag-off"] {
             let native = cameraName.hasPrefix("native-perspective")
@@ -176,7 +174,7 @@ enum SceneParticleCameraRenderingHarness {
             ] {
                 let uniforms = frame.particleUniforms(
                     layerModel: model, orientation: orientation, orientationAxis: nil,
-                    usesPerspective: perspective, usesSceneCamera: cameraState.usesSceneCamera,
+                    usesPerspective: perspective, usesSceneCamera: true,
                     viewportSize: SIMD2(64,64), sizeIsWorldSpace: worldSize)
                 let nearClip = uniforms.viewProjection * uniforms.layerModel * SIMD4<Float>(0,0,10,1)
                 let farClip = uniforms.viewProjection * uniforms.layerModel * SIMD4<Float>(0,0,-10,1)
@@ -245,7 +243,7 @@ enum SceneParticleCameraRenderingHarness {
                               "segments": 2, "subdivision": 0]]])
             guard let renderer = definition.renderers.first,
                   let plan = SceneParticleRopeTrailPlan(renderer: renderer,
-                    rendererCount: definition.renderers.count, maximumParticleCount: 1)
+                    maximumParticleCount: 1)
             else { return [["name": name, "completed": false, "reason": "plan"]] }
             var history = SceneParticleRopeTrailHistory(plan: plan)
             var values: [SceneParticleGPUInstance] = []
@@ -358,7 +356,7 @@ enum SceneParticleCameraRenderingHarness {
                           "segments": 2, "subdivision": 0]]])
         guard let renderer = definition.renderers.first,
               let plan = SceneParticleRopeTrailPlan(renderer: renderer,
-                rendererCount: 1, maximumParticleCount: 1) else { return [] }
+                maximumParticleCount: 1) else { return [] }
         let layer = SceneRenderDescriptor.Layer(utilityLayer: nil, usesPerspective: nil)
         // Independent authored geometry: a one-unit horizontal centerline at
         // depth ten, packed world width .05, all anchors inside a 90-degree frustum.
@@ -521,6 +519,19 @@ enum SceneParticleCameraRenderingHarness {
     }
 
     #if MWX_PARTICLE_CAMERA_DEPTH_PROBES
+    private static func spriteCamera(
+        orientation: String = "screen", world: Bool = false, refraction: Bool = false
+    ) -> Bool {
+        let definition = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/camera-profile.json",
+            "renderer": [["name": "sprite", "orientation": orientation, "flags": world ? 1 : 0]]])
+        let pass = SceneParticleMaterialPass(materialPath: "materials/camera-profile.json",
+            shaderPath: "genericparticle", texturePaths: [], blending: "translucent",
+            combos: ["REFRACT": refraction ? 1 : 0])
+        return SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
+            renderer: definition.renderers[0], materialPass: pass)
+    }
+
     static func depthTexture(_ device: MTLDevice, width: Int = 1, height: Int = 1,
         pixels: [UInt8], target: Bool = false) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -555,7 +566,7 @@ enum SceneParticleCameraRenderingHarness {
         refraction: SceneParticleRefractionBinding? = nil, rotation: Float = 0,
         layerID: Int = 731, path: String = "particles/depth.json",
         orientation: SceneParticleOrientation = .screen, trailVelocity: SIMD3<Float>? = nil,
-        perspective: Bool = true, worldSize: Bool = false) -> SceneParticleDrawBatch? {
+        perspective: Bool = true, worldSize: Bool = false, usesSceneCamera: Bool = false) -> SceneParticleDrawBatch? {
         let values = [SceneParticleGPUInstance(position: SIMD3(x, 0, z), size: size,
             rotation: SIMD3(0, rotation, 0), color: SIMD3(repeating: 1), alpha: 1,
             velocity: trailVelocity ?? .zero, trailStretch: trailVelocity == nil ? nil : 1)]
@@ -563,7 +574,7 @@ enum SceneParticleCameraRenderingHarness {
             colorUVScale: SIMD2(repeating: 1), colorSampling: .directImageFallback,
             refraction: refraction, renderState: state, childTemplateIndex: nil,
             instances: values, orientation: orientation, orientationAxis: nil,
-            usesPerspective: perspective, sizeIsWorldSpace: worldSize)
+            usesPerspective: perspective, usesSceneCamera: usesSceneCamera, sizeIsWorldSpace: worldSize)
     }
 
     static func commonCullProfiles() -> [[String: Any]] {
@@ -599,10 +610,11 @@ enum SceneParticleCameraRenderingHarness {
                 var geometry: [[Float]] = [], projectedAreas: [Float] = []
                 for refract in [false, true] {
                     for cull in [SceneParticlePipelineCullMode.back, .none] {
-                        let state = SceneParticlePipelineRenderState(blendMode: .translucent, cullMode: cull,
-                            usesSceneCamera: !refract && orientation != .fixed)
+                        let state = SceneParticlePipelineRenderState(blendMode: .translucent, cullMode: cull)
+                        let usesSceneCamera = spriteCamera(orientation: orientation == .fixed ? "fixed" : "screen",
+                            world: orientation == .worldScreen, refraction: refract)
                         let uniforms = camera.particleUniforms(layerModel: model, orientation: orientation,
-                            orientationAxis: nil, usesPerspective: perspective, usesSceneCamera: state.usesSceneCamera,
+                            orientationAxis: nil, usesPerspective: perspective, usesSceneCamera: usesSceneCamera,
                             viewportSize: SIMD2(64,64), sizeIsWorldSpace: worldSize)
                         geometry.append([uniforms.spriteRight.x,uniforms.spriteRight.y,
                             uniforms.spriteUp.x,uniforms.spriteUp.y])
@@ -612,7 +624,8 @@ enum SceneParticleCameraRenderingHarness {
                         guard let batch = depthBatch(device, texture: refract ? white : red, state: state,
                             z: 0, size: 20, refraction: refract ? binding : nil,
                             path: "particles/renamed-\(name).json", orientation: orientation,
-                            trailVelocity: velocity, perspective: perspective, worldSize: worldSize),
+                            trailVelocity: velocity, perspective: perspective, worldSize: worldSize,
+                            usesSceneCamera: usesSceneCamera),
                               let result = depthDraw("cull-\(perspective)-\(name)-\(refract)-\(cull.rawValue)",
                                 device: device, pipeline: pipeline, batches: pipeline.prepare([batch]),
                                 camera: camera, model: model) else { return [] }
@@ -783,7 +796,7 @@ enum SceneParticleCameraRenderingHarness {
                 for test in [true, false] {
                     let renderState = state(test, cull: renamed ? .back : .none)
                     let actual = camera.particleUniforms(layerModel: SceneMatrix.identity(), orientation: .screen,
-                        orientationAxis: nil, usesPerspective: true, usesSceneCamera: renderState.usesSceneCamera,
+                        orientationAxis: nil, usesPerspective: true, usesSceneCamera: spriteCamera(refraction: true),
                         viewportSize: SIMD2(repeating: 64), sizeIsWorldSpace: false)
                     mvps.append(actual.viewProjection * actual.layerModel)
                     guard let batch = depthBatch(device, texture: white, state: renderState,
@@ -898,7 +911,7 @@ enum SceneParticleCameraRenderingHarness {
             }
             var refractionCameras: [Bool] = []
             for batch in later where batch.refraction != nil {
-                refractionCameras.append(batch.renderState.usesSceneCamera)
+                refractionCameras.append(batch.usesSceneCamera)
             }
             let writerIndex: Int = later.firstIndex { $0.particlePath == "particles/writer.json" } ?? -1
             let readerIndex: Int = later.firstIndex { $0.particlePath == "particles/reader.json" } ?? -1

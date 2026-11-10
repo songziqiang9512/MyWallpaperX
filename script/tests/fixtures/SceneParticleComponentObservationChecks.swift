@@ -26,10 +26,13 @@ nonisolated enum SceneParticleComponentObservationChecks {
                                    fixedTimeStep: 0.25)
         }
         let simulation = make()
-        simulation.observeSelectedRenderer(typedIndex: 0)
+        var assembledSelection = false
+        func selectedIndices() -> [Int] { assembledSelection = true; return [0] }
+        simulation.observeSelectedRenderers(typedIndices: selectedIndices())
         simulation.advance(by: 0.25)
         if !SceneParticleDefinitionParser.componentObservationEnabled {
             return ["disabled-source-map-absent": definition.componentObservationSources == nil,
+                    "disabled-skips-selection-assembly": !assembledSelection,
                     "disabled-state-absent": simulation.componentObservation == nil,
                     "disabled-no-facts": simulation.consumeComponentObservations().isEmpty,
                     "disabled-keeps-real-birth": simulation.particles.count == 1]
@@ -55,6 +58,19 @@ nonisolated enum SceneParticleComponentObservationChecks {
         result["only-selected-renderer-qualified"] = has("renderer", 1, "prepared-executable")
             && has("renderer", 2, "not-selected") && !has("renderer", 2, "prepared-executable")
 
+        let multiple = make()
+        multiple.observeSelectedRenderers(typedIndices: [0, 1])
+        let rendererFacts = multiple.consumeComponentObservations().filter { $0.category == "renderer" }
+        result["all-prepared-renderers-qualified-once-without-contradictory-peers"] =
+            rendererFacts.filter { $0.stage == "prepared-executable" }.map(\.componentIndex) == [1, 2]
+                && !rendererFacts.contains { $0.stage == "not-selected" }
+        let unavailable = make()
+        unavailable.observeSelectedRenderers(typedIndices: [])
+        let unavailableFacts = unavailable.consumeComponentObservations().filter { $0.category == "renderer" }
+        result["unprepared-renderers-do-not-get-executable-facts"] =
+            unavailableFacts.filter { $0.stage == "not-selected" && $0.reason == "renderer-not-prepared" }.count == 2
+                && !unavailableFacts.contains { $0.stage == "prepared-executable" }
+
         var zeroRoot = root
         zeroRoot["emitter"] = [["name": "boxrandom", "rate": 0]]
         let zero = make(zeroRoot)
@@ -71,7 +87,7 @@ nonisolated enum SceneParticleComponentObservationChecks {
         var implicitRoot = root
         implicitRoot.removeValue(forKey: "renderer")
         let implicit = make(implicitRoot)
-        implicit.observeSelectedRenderer(typedIndex: 0)
+        implicit.observeSelectedRenderers(typedIndices: [0])
         let implicitFacts = implicit.consumeComponentObservations()
         result["implicit-renderer-has-no-authored-ordinal"] = has("renderer", -1, "prepared-executable", in: implicitFacts)
             && !implicitFacts.contains { $0.category == "renderer" && $0.componentIndex >= 0 }

@@ -68,7 +68,7 @@ enum SceneParticleChildTemplateSupport {
         }) { return true }
         if definition.initializers.contains(where: {
             $0.positionBetweenControlPointsPlan != nil
-                || definition.supportsBoundedPositionAroundControlPoint($0)
+                || definition.positionAroundControlPointPlan(for: $0) != nil
         }) { return true }
         return definition.operators.contains { value in
             guard !value.audioResponse.isEnabled || value.hasBoundedAudioResponse else {
@@ -176,37 +176,34 @@ enum SceneParticleChildTemplateSupport {
         return resolved == .zero
     }
 
-    static func supportedRenderer(
+    static func supportedRenderers(
         in definition: SceneParticleDefinition
-    ) -> (
-        renderer: SceneParticleRenderer,
-        trail: SceneParticleTrailRenderPlan?,
-        rope: SceneParticleRopePlan?
-    )? {
-        for renderer in definition.renderers {
+    ) -> [SceneParticleRendererPlan] {
+        definition.renderers.enumerated().compactMap { index, renderer in
             switch renderer.kind {
             case .sprite:
-                return (renderer, nil, nil)
+                return .init(index: index, renderer: renderer, trail: nil,
+                             rope: nil, ropeTrail: nil)
             case .spriteTrail:
                 guard let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
                     maximumLength: renderer.maximumLength,
                     hasMalformedFields: renderer.hasMalformedFields
-                ) else { continue }
-                return (renderer, trail, nil)
+                ) else { return nil }
+                return .init(index: index, renderer: renderer, trail: trail,
+                             rope: nil, ropeTrail: nil)
             case .rope:
                 guard let rope = SceneParticleRopePlan(
                     renderer: renderer,
-                    rendererCount: definition.renderers.count,
                     maximumParticleCount: definition.maximumCount ?? 1
-                ) else { continue }
-                return (renderer, nil, rope)
+                ) else { return nil }
+                return .init(index: index, renderer: renderer, trail: nil,
+                             rope: rope, ropeTrail: nil)
             default:
-                continue
+                return nil
             }
         }
-        return nil
     }
 
     static func loadTexture(

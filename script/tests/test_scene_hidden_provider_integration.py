@@ -110,7 +110,7 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
 
-    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False, inactive_direct=False, solid_graph=False, solid_mask=False):
+    def run_provider(self, conditional=True, consumer=True, launch="off", live=None, consumer_hidden=False, optional=False, shadow=False, inactive_direct=False, solid_graph=False, solid_mask=False, forward_visible=False):
         project, entries = fixture_entries(conditional, consumer, consumer_hidden, optional, shadow, solid_graph, solid_mask)
         if inactive_direct:
             scene = json.loads(entries["scene.json"])
@@ -135,6 +135,20 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                 "materials/own_invert.json": json.dumps(material).encode(),
                 "shaders/own_invert.vert": entries["shaders/own_sample.vert"],
                 "shaders/own_invert.frag": b"uniform sampler2D g_Texture1;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture1,v_TexCoord).bgra;}\n"})
+        if forward_visible:
+            scene = json.loads(entries["scene.json"])
+            provider, early, scratch, overlap = scene["objects"]
+            provider["visible"] = True
+            # This unrelated graph overwrites shared working storage between
+            # the early reader and the provider's authored main composite.
+            scratch.update(origin="24 64 0", size="32 32")
+            scratch["effects"] = [{"id": 330, "file": "effects/own_blue/effect.json", "visible": True}]
+            late = copy.deepcopy(early)
+            late.update(id=55, name="Late reader", origin="88 64 0", size="12 12")
+            late["effects"][0]["id"] = 550
+            late["effects"][0]["passes"][0]["id"] = 551
+            scene["objects"] = [early, scratch, provider, late, overlap]
+            entries["scene.json"] = json.dumps(scene).encode()
         with tempfile.TemporaryDirectory(prefix="mwx-hidden-provider-") as temp:
             root = Path(temp)
             content = root / "content"
@@ -159,6 +173,10 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                 center = list(rows[height // 2][width // 2 * 3:width // 2 * 3 + 3])
                 order_x = round(width * 70 / 128)
                 order_pixel = list(rows[height // 2][order_x * 3:order_x * 3 + 3])
+                late_x = round(width * 88 / 128)
+                late_pixel = list(rows[height // 2][late_x * 3:late_x * 3 + 3])
+                provider_x = round(width * 24 / 128)
+                provider_pixel = list(rows[height // 2][provider_x * 3:provider_x * 3 + 3])
                 blue = green = 0
                 blue_left = blue_center = 0
                 for row in rows[::8]:
@@ -170,7 +188,7 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                         blue_left += is_blue and x // 3 < width * (44 / 128)
                         blue_center += is_blue and abs(x // 3 - width / 2) < width * 0.05
                         green += g > 200 and r < 30 and b < 30
-                measured[capture.name] = {"size": [width, height], "center": center, "orderPixel": order_pixel, "blue": blue, "green": green, "blueLeft": blue_left, "blueCenter": blue_center}
+                measured[capture.name] = {"size": [width, height], "center": center, "orderPixel": order_pixel, "latePixel": late_pixel, "providerPixel": provider_pixel, "blue": blue, "green": green, "blueLeft": blue_left, "blueCenter": blue_center}
             if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                 saved = Path(destination) / self._testMethodName
                 saved.mkdir(parents=True, exist_ok=True)
@@ -210,7 +228,7 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                 self.assertRegex(preview, r"prepared static base resources: entries=1 .*deferred=1 loaded=1 failed=0")
                 self.assertNotIn("phase=named-target-capture layer=11 status=succeeded", log)
             for name, value in measured.items():
-                shown = not solid_graph and conditional and (live if name == "scene-after-window.png" and live is not None else launch) == "on"
+                shown = forward_visible or not solid_graph and conditional and (live if name == "scene-after-window.png" and live is not None else launch) == "on"
                 if shown:
                     self.assertGreater(value["blueLeft"], 0, (name, value))
                 else:
@@ -219,7 +237,7 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                 self.assertIn("phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1", log)
             return log, preview, measured
 
-    def assert_solid_graph_execution(self, log):
+    def assert_solid_graph_execution(self, log, provider_visible=False):
         observations = []
         for line in log.splitlines():
             if "axis=graph-execution" in line:
@@ -238,7 +256,9 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
                 self.assertEqual(item["materialNodes"], "1", item)
                 self.assertEqual(item["rejectedNodes"], "0", item)
                 self.assertEqual(item["outcome"], "succeeded", item)
-            self.assertEqual(pair[0]["compositorConsumed"], "false", pair)
+            self.assertEqual(pair[0]["compositorConsumed"], "true" if provider_visible else "false", pair)
+            if provider_visible:
+                self.assertEqual(pair[0]["fullFramePairStorage"], "owned", pair)
             self.assertEqual(pair[1]["compositorConsumed"], "true", pair)
             self.assertEqual(pair[1]["dependencyProviders"], "11", pair)
 
@@ -249,6 +269,18 @@ class SceneHiddenProviderIntegrationTests(unittest.TestCase):
     def test_solid_graph_named_color_and_asset_mask_are_independently_bound(self):
         log, _, _ = self.run_provider(solid_graph=True, solid_mask=True)
         self.assert_solid_graph_execution(log)
+
+    def test_forward_visible_graph_keeps_early_late_and_authored_pixels_after_shared_scratch(self):
+        log, _, measured = self.run_provider(solid_graph=True, forward_visible=True)
+        self.assert_solid_graph_execution(log, provider_visible=True)
+        self.assertIn("phase=named-target-binding layer=55 status=succeeded", log)
+        for name, pixels in measured.items():
+            self.assertEqual(pixels["latePixel"], [0, 0, 255], (name, pixels))
+            self.assertEqual(pixels["providerPixel"], [0, 0, 255], (name, pixels))
+        late = [dict(re.findall(r"(\w+)=([^\s]+)", line)) for line in log.splitlines()
+                if "axis=graph-execution" in line and " layer=55 " in line]
+        self.assertGreaterEqual(len(late), 2)
+        self.assertTrue(all(row["dependencyProviders"] == "11" and row["rejectedNodes"] == "0" for row in late))
 
     def test_inactive_direct_and_optional_siblings_hot_activate(self):
         self.run_provider(optional=True, inactive_direct=True, live="on")

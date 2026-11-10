@@ -174,17 +174,42 @@ private func colorGraphResults() -> [String: Any] {
         "extraSample": colorGraph(extra: "float extracted = texSample2D(g_Texture3, vec2(0.4)).r;"),
         "alphaDataRead": colorGraph(extra: "float extracted = color.a;"),
         "wholeMutation": colorGraph(extra: "color *= gain;"),
-        "doubleRGBMutation": colorGraph(extra: "color.xyz *= gain;"),
         "helperEscape": colorGraph(extra: "mutate(color);")
             + "void mutate(inout vec4 value) { value.a = 0.0; }",
         "nestedLeafSample": colorGraph().replacingOccurrences(
             of: "vec2(0.2)", with: "texSample2D(g_Texture3, vec2(0.1)).xy"
         ),
     ]
+    let copies = [
+        "alias": fragment(body: "vec4 color = texSample2D(g_Texture3, vec2(0.2)); gl_FragColor = color;"),
+        "direct": fragment(body: "gl_FragColor = texSample2D(g_Texture3, vec2(0.2));"),
+    ]
+    let authoredMix = """
+        uniform sampler2D g_Texture3;
+        vec4 mix(vec4 first, vec4 second, float weight) { return vec4(first.rgb, first.r); }
+        void main() {
+            gl_FragColor = mix(texSample2D(g_Texture3, vec2(0.2)), texSample2D(g_Texture3, vec2(0.8)), 0.5);
+        }
+        """
+    let mixSampler = preparedSampler(authoredMix)
     return [
         "singleSlot": token(typed),
         "multipleSlots": slots,
         "transferUnchanged": SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source) == .unresolved,
+        "mutationPurposes": ["zero": colorGraph(""), "one": source,
+            "multiple": colorGraph(extra: "color.xyz *= gain;")].mapValues { token(preparedSampler($0)) },
+        "copyPurposes": copies.mapValues { token(preparedSampler($0)) },
+        "copyTransfersPreserved": copies.mapValues {
+            SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: $0) == .passthrough(textureSlot: 3)
+        },
+        "multipleMutationTransferUnchanged": SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: colorGraph(extra: "color.xyz *= gain;")) == .unresolved,
+        "authoredMixHasNoBuiltinColorFact": mixSampler.map {
+            $0.sourceProvenPurpose == nil && Schema.purpose(for: .asset(customPath), sampler: $0) == nil
+        } == true
+            && SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
+                vertexSource: vertexSource, fragmentSource: authoredMix).isEmpty,
+        "authoredMixHasNoBuiltinTransfer": SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: authoredMix) == .unresolved,
         "rejected": rejected.mapValues {
             SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
                 vertexSource: vertexSource, fragmentSource: $0
@@ -195,6 +220,7 @@ private func colorGraphResults() -> [String: Any] {
             "hidden": token(preparedSampler(colorGraph(metadata: #"// {"hidden":true}"#))),
             "mode": token(preparedSampler(colorGraph(metadata: #"// {"mode":"opacitymask"}"#))),
             "conflict": token(preparedSampler(colorGraph(metadata: #"// {"default":"util/noise"}"#))),
+            "pma": token(preparedSampler(colorGraph(metadata: #"// {"material":"framebuffer"}"#))),
         ],
         "vertexUseRejected": SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
             vertexSource: """
@@ -439,10 +465,6 @@ private enum Main {
                 ))),
             ],
             "negative": [
-                "whole": token(preparedSampler(fragment(body: """
-                    vec4 color = texSample2D(g_Texture3, vec2(0.2));
-                    gl_FragColor = color;
-                    """))),
                 "scalar": token(preparedSampler(fragment(body: """
                     float value = texSample2D(g_Texture3, vec2(0.2)).r;
                     gl_FragColor = vec4(value);
@@ -662,7 +684,6 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
                 "scalar": "redOnly/nil/nil",
                 "alpha": "alphaOnly/nil/nil",
                 "vertexUse": False,
-                "whole": "wholeVector/nil/nil",
             },
             self.result,
         )
@@ -672,6 +693,12 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
         self.assertEqual(graph["singleSlot"], "wholeVector/straight-albedo/straight-albedo")
         self.assertEqual(graph["multipleSlots"], [3, 5])
         self.assertTrue(graph["transferUnchanged"])
+        self.assertEqual(graph["mutationPurposes"], dict.fromkeys(
+            ("zero", "one", "multiple"), "wholeVector/straight-albedo/straight-albedo"))
+        self.assertEqual(graph["copyPurposes"], dict.fromkeys(
+            ("alias", "direct"), "wholeVector/straight-albedo/straight-albedo"))
+        self.assertEqual(graph["copyTransfersPreserved"], dict.fromkeys(("alias", "direct"), True))
+        self.assertTrue(graph["multipleMutationTransferUnchanged"])
 
     def test_color_graph_rejects_data_alpha_control_flow_and_escaped_uses(self) -> None:
         graph = self.result["colorGraph"]
@@ -679,9 +706,12 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertTrue(rejected)
         self.assertTrue(graph["vertexUseRejected"])
+        self.assertTrue(graph["authoredMixHasNoBuiltinColorFact"])
+        self.assertTrue(graph["authoredMixHasNoBuiltinTransfer"])
         self.assertEqual(graph["metadataPreserved"], {
             "noise": "wholeVector/nil/noise", "hidden": "wholeVector/nil/nil",
             "mode": "wholeVector/nil/mask", "conflict": "wholeVector/nil/noise",
+            "pma": "wholeVector/nil/premultiplied-color",
         })
 
     def test_graph_source_color_keeps_publication_purpose_and_adjacent_roles(self) -> None:

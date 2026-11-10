@@ -230,6 +230,116 @@ extension Harness {
         return result
     }
 
+    static func preparedSurfaceHandoff() throws -> [String: Bool] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-prepared-handoff-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle("particles/audio-child.json", material: "materials/shared.json",
+            startTime: 0.5, rate: 0, instantaneous: 1, under: directory)
+        let childURL = directory.appendingPathComponent("particles/audio-child.json")
+        var childDefinition = try JSONSerialization.jsonObject(with: Data(contentsOf: childURL)) as! [String: Any]
+        childDefinition["operator"] = [["name": "turbulence", "mask": "1 1 0", "scale": 0.02,
+            "speedmin": 25, "speedmax": 25, "phasemin": 1, "phasemax": 1,
+            "timescale": 0, "audioprocessingmode": 3]]
+        try writeJSON(childDefinition, to: childURL)
+        try writeParticle("particles/audio-root.json", material: "materials/shared.json",
+            startTime: 0.5, rate: 60, audioProcessingMode: 1,
+            children: [["name": "particles/audio-child.json", "type": "static"]], under: directory)
+        try writeParticle("particles/finished.json", material: "materials/shared.json", flags: 5,
+            renderer: "ropetrail", rendererLength: 0.5, velocityX: 100, startTime: 0.5,
+            moves: true, rate: 0, instantaneous: 1, under: directory)
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let audioDescriptor = SceneRenderDescriptor(layers: [layer(42, "particles/audio-root.json")],
+            renderOrderLayerIDs: [42], materialPasses: [.init(materialPath: "materials/shared.json",
+                shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive")])
+        let audio = SceneParticleAudioInput(left: Array(repeating: 1, count: 16),
+            right: Array(repeating: 1, count: 16), generation: 37)
+        let audible = SceneParticlePlaybackState(descriptor: audioDescriptor,
+            cacheDirectory: directory, device: device, initialAudioInput: audio)
+        let silent = SceneParticlePlaybackState(descriptor: audioDescriptor,
+            cacheDirectory: directory, device: device)
+        let audibleRuntime = SceneParticleRuntime(descriptor: audioDescriptor,
+            cacheDirectory: directory, device: device, initialAudioInput: audio)
+        let silentRuntime = SceneParticleRuntime(descriptor: audioDescriptor,
+            cacheDirectory: directory, device: device)
+        let audioRoot = audible.playbackSimulators.first!.1
+        guard let child = audibleRuntime.frameSnapshot().layers.first?.child?.systems.first,
+              let silentChild = silentRuntime.frameSnapshot().layers.first?.child?.systems.first else {
+            fatalError("prepared handoff fixture did not admit its static audio-operator child")
+        }
+        var result: [String: Bool] = [
+            "rootPrewarmConsumesInitialAudio": !audioRoot.particles.isEmpty
+                && silent.lifecycleSnapshot.rootParticleCount == 0,
+            "staticChildPrewarmConsumesInitialAudio": child.simulatorFrame.particles.count == 1
+                && silentChild.simulatorFrame.particles.count == 1
+                && child.simulatorFrame.particles.map(\.velocity) != silentChild.simulatorFrame.particles.map(\.velocity),
+            "zeroStepKeepsInitialAudio": audioRoot.frameSnapshot().audioInput == audio
+                && child.simulatorFrame.audioInput == audio,
+        ]
+        let descriptor = SceneRenderDescriptor(layers: [layer(42, "particles/finished.json"),
+            layer(43, "particles/finished.json")], renderOrderLayerIDs: [42, 43],
+            materialPasses: audioDescriptor.materialPasses)
+        let retained = SceneParticlePlaybackState(descriptor: descriptor,
+            cacheDirectory: directory, device: device)
+        let added = SceneParticlePlaybackState(descriptor: descriptor,
+            cacheDirectory: directory, device: device)
+        let root = added.playbackSimulators.first { $0.0 == 42 }!.1
+        let retainedRoot = retained.playbackSimulators.first { $0.0 == 42 }!.1
+        let retainedFrame = retainedRoot.frameSnapshot(), prepared = root.frameSnapshot()
+        let retainedCount = retained.batches.flatMap(\.instances).count
+        let hasPreparedTrail = !added.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+        result["fixtureHasFinishedLiveRoot"] = root.hasFinishedEmission && !prepared.particles.isEmpty
+        added.adoptPlayback([42: .init(intent: .playing, revision: 9)])
+        let adopted = root.frameSnapshot()
+        result["emitRevisionDoesNotReplayOrRearm"] = adopted.playback == .init(intent: .playing, revision: 9)
+            && adopted.particles == prepared.particles && adopted.random.state == prepared.random.state
+            && adopted.nextParticleID == prepared.nextParticleID && root.hasFinishedEmission
+            && adopted.emitters.map(\.elapsed) == prepared.emitters.map(\.elapsed)
+            && adopted.emitters.map(\.remainder) == prepared.emitters.map(\.remainder)
+            && adopted.emitters.map(\.emittedInstantaneous) == prepared.emitters.map(\.emittedInstantaneous)
+        _ = added.advance(by: 1.0 / 60)
+        result["finishedRootKeepsNextIDAfterHandoff"] = root.frameSnapshot().nextParticleID == prepared.nextParticleID
+            && root.birthEvents.isEmpty && root.particles.count == prepared.particles.count
+        let beforePause = root.frameSnapshot()
+        added.adoptPlayback([42: .init(intent: .paused, revision: 12)])
+        result["pauseAdoptionPreservesPopulation"] = root.particles == beforePause.particles
+            && root.random.state == beforePause.random.state && root.playback == .init(intent: .paused, revision: 12)
+        added.adoptPlayback([42: .init(intent: .stopped, revision: 17)])
+        result["stopAdoptionClearsPopulationAndPublishedCaches"] = root.particles.isEmpty
+            && root.frameSnapshot().nextParticleID == prepared.nextParticleID
+            && hasPreparedTrail && root.consumeStepSnapshots().isEmpty
+            && added.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+        result["stopAdoptionClearsRopeGhostOnZeroStep"] = added.advance(by: 0)
+            .filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+        result["nextRealCommandUsesCurrentRevision"] = added.validatePlaybackTransitions([
+            .init(layerID: 42, action: .play, revision: 18)])
+            && !added.validatePlaybackTransitions([.init(layerID: 42, action: .play, revision: 19)])
+        added.applyPlaybackTransitions([.init(layerID: 42, action: .play, revision: 18)])
+        _ = added.advance(by: 1.0 / 60)
+        result["realPlayStillRearmsAfterStop"] = !root.particles.isEmpty
+            && root.frameSnapshot().nextParticleID > prepared.nextParticleID
+        let stopped = SceneParticlePlaybackState(descriptor: descriptor,
+            cacheDirectory: directory, device: device,
+            initialPlayback: [42: .init(intent: .stopped, revision: 3)])
+        stopped.adoptPlayback([42: .init(intent: .playing, revision: 20)])
+        _ = stopped.advance(by: 1.0 / 60)
+        result["stoppedPreparedRootCanAdoptPlaying"] = stopped.playbackObservation(layerID: 42)?.liveAny == true
+            && stopped.playbackObservation(layerID: 42)?.revision == 20
+        added.retire(layerIDs: [43])
+        added.adoptPlayback([42: .init(intent: .playing, revision: 21),
+            43: .init(intent: .stopped, revision: 21)])
+        result["destroyedLayerCannotReturnThroughAdoption"] = !added.preparedLayerIDs.contains(43)
+            && added.playbackObservation(layerID: 43) == nil
+        let afterRetained = retainedRoot.frameSnapshot()
+        result["retainedRootAndAddedIdentityStayOwned"] = added.playbackSimulators.first { $0.0 == 42 }!.1 === root
+            && retainedRoot !== root && afterRetained.playback == retainedFrame.playback
+            && afterRetained.particles == retainedFrame.particles && afterRetained.random.state == retainedFrame.random.state
+            && afterRetained.nextParticleID == retainedFrame.nextParticleID
+            && retained.batches.flatMap(\.instances).count == retainedCount
+        return result
+    }
+
     static func syntheticLifecycle() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(

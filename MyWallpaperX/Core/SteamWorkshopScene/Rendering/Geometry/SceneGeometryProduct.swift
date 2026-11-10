@@ -89,27 +89,4 @@ struct SceneGeometryProduct {
             && authoredSize.y >= 1
     }
 
-    /// The first geometry-provider profile is deliberately placement exact:
-    /// the mesh is rasterized in authored-local coordinates and the consumer
-    /// must place that local card exactly where the provider would have been.
-    /// This prevents a consumer-specific world transform from leaking into a
-    /// provider target that may later be shared.
-    func supportsNamedProviderPlacement(
-        providerOutputMVP: simd_float4x4,
-        consumerOutputMVP: simd_float4x4
-    ) -> Bool {
-        for column in 0 ..< 4 {
-            for row in 0 ..< 4 {
-                let provider = providerOutputMVP[column][row]
-                let consumer = consumerOutputMVP[column][row]
-                guard provider.isFinite, consumer.isFinite else { return false }
-                let scale = max(1, max(abs(provider), abs(consumer)))
-                guard abs(provider - consumer) <= 0.0001 * scale else {
-                    return false
-                }
-            }
-        }
-        return true
-    }
-
 }

@@ -440,7 +440,10 @@ extension Harness {
         return result
     }
 
-    static func spriteBatchBounds(_ batch: SceneParticleDrawBatch, device: MTLDevice) -> [Int] {
+    static func spriteBatchBounds(_ batch: SceneParticleDrawBatch, device: MTLDevice,
+                                  viewProjection: simd_float4x4 = simd_float4x4(
+                                    diagonal: SIMD4(1.0 / 32, 1.0 / 32, 1, 1)),
+                                  layerModel: simd_float4x4 = matrix_identity_float4x4) -> [Int] {
         let size = 64
         guard let pipeline = SceneParticleMetalPipeline(device: device),
               let prepared = pipeline.prepare([batch]).first,
@@ -456,8 +459,8 @@ extension Harness {
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
         pipeline.draw(texture: batch.texture, instances: prepared.instanceBuffer,
-            uniforms: SceneParticleLayerUniforms(viewProjection: simd_float4x4(diagonal: SIMD4(1.0 / 32, 1.0 / 32, 1, 1)),
-                layerModel: matrix_identity_float4x4, basis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))),
+            uniforms: SceneParticleLayerUniforms(viewProjection: viewProjection,
+                layerModel: layerModel, basis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))),
             renderState: batch.renderState, colorUVScale: batch.colorUVScale,
             colorSampling: batch.colorSampling, encoder: encoder)
         encoder.endEncoding()

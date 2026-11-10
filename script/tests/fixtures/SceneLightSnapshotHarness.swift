@@ -546,5 +546,88 @@ enum LightSnapshotHarness {
         )
         precondition(invalidRadius.point.isEmpty)
         precondition(invalidRadius.ambient == .zero)
+
+        checkPointVolume(layerID: 101, parentID: 90, name: "Beacon")
+        checkPointVolume(layerID: 13, parentID: 27, name: "Renamed emitter")
+    }
+
+    static func checkPointVolume(layerID: Int, parentID: Int, name: String) {
+        let authored: [String: Any] = [
+            "id": layerID, "name": name, "light": "lpoint",
+            "color": "0.75 0.5 0.25", "intensity": 6, "radius": 14,
+            "exponent": 3, "castvolumetrics": true, "castshadow": false,
+            "density": 2.5, "volumetricsexponent": 7,
+        ]
+        func parse(_ changes: [String: Any] = [:]) -> ScenePointLightDefinition {
+            ScenePointLightDefinition.parse(authored.merging(changes) { _, new in new })!
+        }
+        let emitter = parse()
+        precondition(emitter.volume?.density == 2.5 && emitter.volume?.exponent == 7)
+        precondition(emitter.exponent == 3 && emitter.isSolid == nil)
+
+        let intensity = SceneDynamicTarget.layer(layerID: layerID, field: .intensity)
+        let radius = SceneDynamicTarget.layer(layerID: layerID, field: .radius)
+        let color = SceneDynamicTarget.layer(layerID: layerID, field: .color)
+        let visibility = SceneDynamicTarget.layer(layerID: parentID, field: .visibility)
+        let definitions: [SceneDynamicTargetDefinition] = [
+            .init(target: intensity, valueType: .scalar, authoredValue: .scalar(6)),
+            .init(target: radius, valueType: .scalar, authoredValue: .scalar(14)),
+            .init(target: color, valueType: .vector3, authoredValue: .vector3(0.75, 0.5, 0.25)),
+            .init(target: visibility, valueType: .bool, authoredValue: .bool(false)),
+        ]
+        let shown = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 7, generation: 7, definitions: definitions,
+            userValues: [radius: .scalar(8), visibility: .bool(true)],
+            sceneScriptValues: [intensity: .scalar(4), color: .vector3(0.25, 0.75, 0.5)]
+        ).snapshot
+        let hidden = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 8, generation: 8, definitions: definitions,
+            userValues: [visibility: .bool(false)]
+        ).snapshot
+
+        func snapshot(
+            _ point: ScenePointLightDefinition, parentVisible: Bool = true,
+            dynamic: SceneDynamicSnapshot? = nil
+        ) -> SceneLightSnapshot {
+            let descriptor = SceneRenderDescriptor(
+                lighting: .init(ambientColorRGB: nil, skylightColorRGB: nil),
+                layers: [
+                    .init(id: parentID, visible: parentVisible, spotLight: nil,
+                          directionalLight: nil, originXYZ: [7, 3, 2]),
+                    .init(id: layerID, visible: true, pointLight: point, spotLight: nil,
+                          directionalLight: nil, parentID: parentID, originXYZ: [2, -1, -7]),
+                ]
+            )
+            let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+            let frames = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: layers)
+            let dynamicColors = dynamic.map {
+                [layerID: SceneDynamicLayerValues.color(layerID: layerID,
+                    authoredValue: point.colorRGB, snapshot: $0)]
+            } ?? [:]
+            return SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: frames,
+                dynamicLayerColors: dynamicColors, dynamicSnapshot: dynamic)
+        }
+
+        let direct = snapshot(emitter).point[0]
+        precondition(direct.layerID == layerID && direct.position == SIMD3(9, 2, -5))
+        precondition(direct.color == SIMD3(0.75, 0.5, 0.25) && direct.intensity == 6)
+        precondition(direct.radius == 14 && direct.falloffExponent == 3)
+        precondition(direct.volume?.density == 2.5 && direct.volume?.exponent == 7)
+        precondition(snapshot(emitter, parentVisible: false).point.isEmpty)
+        let current = snapshot(emitter, parentVisible: false, dynamic: shown).point[0]
+        precondition(current.position == direct.position && current.falloffExponent == 3)
+        precondition(current.intensity == 4 && current.radius == 8
+            && current.color == SIMD3(0.25, 0.75, 0.5))
+        precondition(current.volume?.density == 2.5 && current.volume?.exponent == 7)
+        precondition(snapshot(emitter, parentVisible: false, dynamic: hidden).point.isEmpty)
+
+        let switchedOff = snapshot(parse(["castvolumetrics": false])).point[0]
+        precondition(switchedOff.volume == nil && switchedOff.intensity == direct.intensity
+            && switchedOff.falloffExponent == direct.falloffExponent)
+        let shadowed = snapshot(parse(["castshadow": true]))
+        precondition(shadowed.point[0].volume == nil && shadowed.point[0].intensity == direct.intensity)
+        precondition(shadowed.shadowLights.compactMap(\.layerID) == [layerID])
+        let legacy = snapshot(parse(["light": "point"])).point[0]
+        precondition(!legacy.illuminatesStaticModels && legacy.volume == nil)
     }
 }

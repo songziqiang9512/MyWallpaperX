@@ -80,6 +80,7 @@ enum LayerProperty {
     LAYER_SOLID,
     LAYER_PERSPECTIVE,
     LAYER_ALPHA,
+    LAYER_VOLUME,
     LAYER_COLOR,
     LAYER_TEXT,
     LAYER_POINT_SIZE,
@@ -147,6 +148,9 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double alpha;
     bool particle_instance_available;
     double particle_alpha;
+    double particle_rate;
+    double particle_count;
+    double volume;
     double point_size;
     int32_t order_index;
     uint64_t owner_identity;
@@ -166,6 +170,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool world_transform_available;
     uint32_t video_source_index;
     bool sound_available;
+    bool sound_volume_available;
     bool sound_is_playing;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
@@ -210,6 +215,9 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double alpha;
     bool particle_instance_available;
     double particle_alpha;
+    double particle_rate;
+    double particle_count;
+    double volume;
     double point_size;
     bool visible;
     bool solid;
@@ -219,6 +227,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     bool runtime_fields_staged;
     uint32_t video_source_index;
     bool sound_available;
+    bool sound_volume_available;
     bool sound_is_playing;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
@@ -242,6 +251,9 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double angles[3];
     double alpha;
     double particle_alpha;
+    double particle_rate;
+    double particle_count;
+    double volume;
     double point_size;
     double color[3];
     bool visible;
@@ -485,6 +497,8 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSDomain *domain;
     JSValue module;
     JSValue implicit_script_properties;
+    char *script_property_input_json;
+    size_t script_property_input_length;
     uint64_t identity;
     uint64_t generation;
     JSValue text_template_source;
@@ -920,8 +934,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
     const char *script_properties_json, size_t script_properties_length,
     const char *user_properties_json, size_t user_properties_length,
     char *diagnostic, size_t diagnostic_capacity);
-bool mwx_scene_quickjs_assign_script_properties(MWXSceneQuickJSOwner *owner, const char *json, size_t length);
-
 void mwx_scene_quickjs_capture_text_source(MWXSceneQuickJSOwner *, JSValueConst, const char *, size_t);
 void mwx_scene_quickjs_release_text_source(MWXSceneQuickJSOwner *);
 bool mwx_scene_quickjs_layer_owns_dynamic_target(MWXSceneQuickJSOwner *, const MWXSceneQuickJSLayerRecord *);

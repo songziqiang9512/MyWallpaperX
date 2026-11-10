@@ -2,6 +2,15 @@ import Metal
 import simd
 
 extension SceneResolvedMaterialGraphExecutor {
+    struct HistoryContext {
+        let rehydration: [State.PhysicalToken: State.PhysicalToken]
+        let commands: [SceneGraphResourcePassEncoder.PreparedCommand]
+        let reads: [Graph.TextureIdentity: SceneFrameTextureResource]
+        /// A descriptor-changing reprepare preserves the logical swap
+        /// permutation but intentionally starts the new storage transparent.
+        let discardsPreviousContent: Bool
+    }
+
     func validate(
         capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         leases: [SceneGraphRenderTargetLease],
@@ -158,11 +167,39 @@ extension SceneResolvedMaterialGraphExecutor {
         return resource
     }
 
+    /// A stage that may bypass this frame (inactive/rejected activation or a
+    /// visual-failure plan) can discard the split's frame state; keep the
+    /// seed copy on that frame so the committed history survives.
+    func historySplitAllowed(
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) -> Bool {
+        capability.stages.allSatisfy { stage in
+            switch stage.execution {
+            case let .resolved(_, activation):
+                guard let activation else { return true }
+                let effectKey = stage.product.graph.effects[0].key
+                let decision = frameInputs.stageActivationDecisions[effectKey]
+                    ?? activation.evaluate(
+                        dynamicValues: frameInputs.dynamicValues,
+                        pointerIsInside: frameInputs.pointerIsInside
+                    )
+                if case .active = decision { return true }
+                return false
+            case .visualFailurePassthrough, .initiallyInactivePassthrough:
+                return false
+            }
+        }
+    }
+
     func prepareHistoryContext(
         _ copies: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy],
         previous: State,
         previousResources: [Graph.TextureIdentity: SceneFrameTextureResource],
         lease: SceneGraphRenderTargetLease,
+        graph: Graph,
+        materialFunctionTargets: Set<Graph.TextureIdentity>,
+        allowsHistorySplit: Bool,
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> HistoryContext? {
@@ -178,6 +215,7 @@ extension SceneResolvedMaterialGraphExecutor {
             return .init(
                 rehydration: [:],
                 commands: [],
+                reads: [:],
                 discardsPreviousContent: false
             )
         }
@@ -206,6 +244,7 @@ extension SceneResolvedMaterialGraphExecutor {
             return .init(
                 rehydration: [:],
                 commands: [],
+                reads: [:],
                 discardsPreviousContent: !previousResources.isEmpty
             )
         }
@@ -214,6 +253,7 @@ extension SceneResolvedMaterialGraphExecutor {
             return .init(
                 rehydration: [:],
                 commands: [],
+                reads: [:],
                 discardsPreviousContent: false
             )
         }
@@ -229,6 +269,7 @@ extension SceneResolvedMaterialGraphExecutor {
             return .init(
                 rehydration: [:],
                 commands: [],
+                reads: [:],
                 discardsPreviousContent: true
             )
         }
@@ -243,8 +284,23 @@ extension SceneResolvedMaterialGraphExecutor {
             ($0.sourceToken, $0.sourceTexture)
         })
         guard readable.allSatisfy({ identity, resource in
-            previousResources[identity]?.publication.texture === sourceTextures[resource.token]
+            previousResources[identity]?.publication.texture
+                === sourceTextures[resource.token]
         }) else { return nil }
+
+        if allowsHistorySplit, preservesPriorState,
+           materialFunctionTargets.isDisjoint(with: readable.keys),
+           readable.keys.allSatisfy({
+               previous.authoredResources[$0]?.descriptor.initialClear == nil
+           }),
+           readWriteSplitAdmitted(graph: graph, identities: Set(readable.keys)) {
+            return .init(
+                rehydration: [:],
+                commands: [],
+                reads: previousResources,
+                discardsPreviousContent: false
+            )
+        }
 
         let oldDescriptors = Dictionary(uniqueKeysWithValues:
             previous.authoredResources.values.map { ($0.token, $0.descriptor) }
@@ -271,8 +327,52 @@ extension SceneResolvedMaterialGraphExecutor {
         return .init(
             rehydration: rehydration,
             commands: commands,
+            reads: [:],
             discardsPreviousContent: false
         )
+    }
+
+    func readWriteSplitAdmitted(
+        graph: Graph,
+        identities: Set<Graph.TextureIdentity>
+    ) -> Bool {
+        guard !identities.isEmpty else { return false }
+        for identity in identities {
+            var sawAccess = false
+            var currentReadable = false
+            var firstIsMaterialRead = false
+            var restoredByCopy = false
+            for node in graph.nodes {
+                switch node.kind {
+                case .material:
+                    if node.target == identity { return false }
+                    if node.bindings.contains(where: {
+                        $0.texture == identity && $0.texture.kind == .framebuffer
+                    }) {
+                        if !sawAccess { firstIsMaterialRead = true }
+                        sawAccess = true
+                    }
+                case .copy:
+                    // A copy source reads the current mapping only; it is safe
+                    // only after the author copy restored this identity.
+                    if node.commandSource == identity {
+                        guard currentReadable else { return false }
+                        sawAccess = true
+                    }
+                    if node.commandTarget == identity {
+                        currentReadable = true
+                        sawAccess = true
+                        restoredByCopy = true
+                    }
+                case .swap:
+                    return false
+                default:
+                    break
+                }
+            }
+            guard firstIsMaterialRead, restoredByCopy else { return false }
+        }
+        return true
     }
 
     func publishRehydratedHistory(
@@ -285,6 +385,13 @@ extension SceneResolvedMaterialGraphExecutor {
     ) -> Bool {
         let readable = transition.transaction.mappingBefore.filter {
             $0.value.contentGeneration > 0
+        }
+        if !history.reads.isEmpty {
+            guard history.commands.isEmpty,
+                  Set(history.reads.keys) == Set(previousResources.keys) else {
+                return false
+            }
+            return true
         }
         if history.discardsPreviousContent {
             return readable.isEmpty

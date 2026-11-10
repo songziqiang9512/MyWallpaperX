@@ -274,6 +274,69 @@ extension Harness {
         ]
     }
 
+    static func rendererOrdinalUploadTest() -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(), let command = queue.makeCommandBuffer(),
+              let texture = device.makeTexture(descriptor: .texture2DDescriptor(
+                pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+              )) else { return ["available": false] }
+        var white: [UInt8] = [255, 255, 255, 255]
+        texture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                        withBytes: &white, bytesPerRow: 4)
+        let colors: [SIMD3<Float>] = [SIMD3(1, 0, 0), SIMD3(0, 1, 0),
+                                     SIMD3(0, 0, 1), SIMD3(1, 1, 0)]
+        let batches = colors.enumerated().map { index, color in
+            SceneParticleDrawBatch(
+                layerID: 42, particlePath: "particles/repeated-sprite.json", texture: texture,
+                colorUVScale: SIMD2(repeating: 1), colorSampling: .directImageFallback,
+                refraction: nil, renderState: particleState(.additive),
+                childTemplateIndex: index < 2 ? nil : 0,
+                instances: [.init(position: SIMD3(Float(index) * 0.5 - 0.75, 0, 0),
+                                  size: 0.3, rotation: .zero, color: color, alpha: 1)],
+                orientation: .screen, orientationAxis: nil, usesPerspective: false,
+                rendererIndex: index % 2
+            )
+        }
+        let prepared = pipeline.prepare(batches)
+        guard prepared.count == 4 else { return ["available": true, "preparedCount": prepared.count] }
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: 16, height: 16, mipmapped: false)
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: outputDescriptor) else { return ["available": false] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return ["available": false] }
+        let uniforms = SceneParticleLayerUniforms(
+            viewProjection: SceneMatrix.identity(), layerModel: SceneMatrix.identity(),
+            basis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0)))
+        var draws = true
+        for batch in prepared {
+            draws = pipeline.draw(texture: batch.draw.texture, instances: batch.instanceBuffer,
+                uniforms: uniforms, renderState: batch.draw.renderState,
+                colorSampling: batch.draw.colorSampling, encoder: encoder) && draws
+        }
+        encoder.endEncoding()
+        let submitted = prepared.allSatisfy { $0.instanceBuffer.markSubmitted(on: command) }
+        pipeline.retire(layerIDs: [42])
+        let completed = SceneParticleOffscreenReadbackHarness.commitAndWait(command)
+        var pixels: [[Int]] = []
+        for x in [2, 6, 10, 14] {
+            var pixel = [UInt8](repeating: 0, count: 4)
+            output.getBytes(&pixel, bytesPerRow: 16 * 4,
+                            from: MTLRegionMake2D(x, 8, 1, 1), mipmapLevel: 0)
+            pixels.append(pixel.map(Int.init))
+        }
+        return ["available": true, "preparedCount": prepared.count,
+                "uniqueOwners": Set(prepared.map { ObjectIdentifier($0.instanceBuffer) }).count,
+                "draws": draws, "submitted": submitted, "completed": completed,
+                "pixels": pixels]
+    }
+
     private static func topologyRetirementTest() -> [String: Any] {
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),

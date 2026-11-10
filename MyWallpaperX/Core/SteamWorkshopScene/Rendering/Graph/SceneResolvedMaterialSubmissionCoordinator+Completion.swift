@@ -120,8 +120,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         }
         let emission = drainCompletedLocked()
         pruneCommandBufferRecordsLocked()
+        let wake: (() -> Void)?
+        if let registered = frameAdmissionWake, submissionQueueAcceptsFrameLocked() {
+            wake = registered
+            frameAdmissionWake = nil
+        } else {
+            wake = nil
+        }
         lock.unlock()
         emit(emission)
+        wake?()
     }
 
     func pruneCommandBufferRecordsLocked() {

@@ -121,6 +121,24 @@ def surface_vectors() -> list[dict]:
         albedo=[128/255]*3, tint=[1, 1, 1]))
     # Local preservation controls use the old project's center, not an official BRDF claim.
     rows.append(dict(rows[0], name="legacy-point-preserved", surface=None, expectedByte=49))
+    # One axial point at d/R=.5. The legacy-response material has .30
+    # unattenuated direct RGB; compare the profiled material against equal
+    # incident energy from the already validated directional producer.
+    for name, exponent, z, incident in (
+        ("omitted", None, 5.5, .25), ("two", 2, 5.5, .25),
+        ("gentle", .1, 5.5, .9330329915), ("steep", 5, 5.5, .03125),
+        ("zero-inside", 0, 5.5, 1), ("zero-edge", 0, 10.5, 0),
+        ("zero-outside", 0, 11.5, 0), ("gentle-outside", .1, 11.5, 0),
+    ):
+        point = dict(rows[0], lightPosition=[0, 0, z], lightExponent=exponent)
+        rows.append(dict(point, name=f"point-falloff-{name}", surface=None,
+            expectedByte=.30 * incident * 255))
+        if name in ("gentle", "steep"):
+            direction = f"directional-falloff-{name}"
+            rows.append(dict(point, name=f"profiled-point-falloff-{name}",
+                expectedByte=None, equivalentIncidentEnergy=direction))
+            rows.append(dict(point, name=direction, lamp="directional",
+                lightIntensity=2 * incident, expectedByte=None))
     # The old directional preservation row inherited a surface profile while
     # asserting the legacy path. The official metallic single-variable probe
     # disproves that bypass; preserve the original 77 oracle on its nil domain.
@@ -366,7 +384,8 @@ PIXEL_MAIN = r'''
                     directionTowardLight: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: lightIntensity
                 )] : [],
                 point: lamp == "point" ? [.init(position: lightPosition,
-                    color: SIMD3(repeating: 1), intensity: lightIntensity, radius: 10)] : [],
+                    color: SIMD3(repeating: 1), intensity: lightIntensity, radius: 10,
+                    falloffExponent: Float(input["lightExponent"] as? Double ?? 2))] : [],
                 spot: lamp == "spot" ? [.init(position: lightPosition,
                     directionFromLight: SIMD3(0, 0, -1), color: SIMD3(repeating: 1), intensity: lightIntensity,
                     radius: 10, innerConeCosine: cos(Float.pi/9),

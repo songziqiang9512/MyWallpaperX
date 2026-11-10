@@ -171,8 +171,83 @@ enum SceneLightSnapshot {
     }
     enum Failure: Error { case noSelection }
 
+    static func directFallbackChecks() -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        let producers: [(String, String, Any)] = [
+            ("sliderZero", "slider", 0), ("sliderOne", "slider", 1),
+            ("color", "color", "0.2 0.4 0.6"),
+            ("text", "textinput", "true"), ("combo", "combo", "1"),
+        ]
+        for variant in 0..<2 {
+            let parent = variant == 0 ? 403 : 904
+            let animationLayer = variant == 0 ? 513 : 72
+            let key = variant == 0 ? "animation-rate" : "renamed-σ"
+            let target = ScenePuppetAnimationPropertyTarget.visibility(
+                layerID: parent, animationLayerID: animationLayer)
+            for seed in [false, true] {
+                for (name, kind, initial) in producers {
+                    let label = "\(variant)_\(seed)_\(name)"
+                    let wrapper: [String: Any] = ["user": key, "value": seed]
+                    var object: [String: Any] = ["id": parent,
+                        "image": "models/variant-\(variant)/actor-\(variant).json",
+                        "animationlayers": [["id": animationLayer, "animation": 100,
+                            "rate": 1, "additive": false, "blend": 1, "visible": wrapper]]]
+                    if kind == "slider" { object["alpha"] = ["user": key, "value": 0.25] }
+                    if kind == "color" { object["color"] = ["user": key, "value": "0.1 0.2 0.3"] }
+                    let catalog = SceneUserPropertyDefinitionParser().parse(properties: [key: [
+                        "type": kind, "value": initial, "min": 0, "max": 1,
+                        "options": [["label": "One", "value": "1"], ["label": "Two", "value": "2"]]]])
+                    let f = fixture(["objects": [object]], catalog: catalog)
+                    let prepared = layer(f.prepared, parent).puppetAnimationLayers[0]
+                    let initialSnapshot = snapshot(f, 0, values: f.program.evaluate(
+                        effectiveValues: f.effective).userValues)
+                    checks["directFallback_\(label)"] = prepared.visible == seed
+                        && prepared.hasPreparedVisibilityProperty != true
+                        && prepared.visibilityBinding == key
+                        && f.program.definitions.first { $0.target == target }?.authoredValue == .bool(seed)
+                        && !f.program.instructions.contains { $0.target == target }
+                        && f.program.rebuildRequiredPropertyKeys.isEmpty
+                        && initialSnapshot[target]?.value == .bool(seed)
+                        && initialSnapshot[target]?.source == .authored
+                    do {
+                        let selected = try selection(f.prepared, parent)
+                        let runtime = ScenePuppetAnimationPlaybackRuntime()
+                        try runtime.register(layerID: parent, selection: selected,
+                            authoredLayers: layer(f.prepared, parent).puppetAnimationLayers).get()
+                        let first = runtime.advance(frameIndex: 0, sceneTime: 0,
+                            dynamicValues: initialSnapshot)
+                        let second = runtime.advance(frameIndex: 1, sceneTime: 0.5,
+                            dynamicValues: snapshot(f, 1, values: [:]))
+                        checks["fallbackPlayback_\(label)"] = active(first, parent: parent) == (seed ? [0] : [])
+                            && active(second, parent: parent) == (seed ? [0] : [])
+                            && (!seed || phase(second, index: 0, parent: parent) == 1)
+                    } catch {
+                        checks["fallbackPlayback_\(label)"] = false
+                    }
+                    let peer: SceneDynamicTarget? = kind == "slider"
+                        ? .layer(layerID: parent, field: .alpha)
+                        : kind == "color" ? .layer(layerID: parent, field: .color) : nil
+                    var live = ScenePropertyLiveUpdateState(program: f.program,
+                        effectiveValues: f.effective, activeConsumerTargets: peer.map { [$0] } ?? [])
+                    let changed: SceneUserPropertyValue = kind == "slider" ? .number(0.5)
+                        : kind == "color" ? .string("0.7 0.3 0.1") : .string("2")
+                    let accepted = live.apply(changed, forPropertyKey: key)
+                    checks["fallbackDoesNotPublish_\(label)"] = accepted == (peer != nil)
+                        && live.userValues[target] == nil
+                        && snapshot(f, 2, values: live.userValues)[target]?.value == .bool(seed)
+                    if let peer {
+                        checks["sameKeyRealPeer_\(label)"] = live.userValues[peer] == (kind == "slider"
+                            ? .scalar(0.5) : .vector3(0.7, 0.3, 0.1))
+                    }
+                }
+            }
+        }
+        return checks
+    }
+
     static func main() throws {
         var output: [String: Any] = [:]
+        output["directFallback"] = directFallbackChecks()
         let f = fixture(root(), catalog: catalog())
         output["initial"] = ["markers": markers(f.prepared),
             "before": markers(f.descriptor), "descriptorOrder": f.prepared.layers.map(\.id),
@@ -429,6 +504,13 @@ class ScenePuppetAnimationPropertyPreparationTests(unittest.TestCase):
         self.assertEqual(self.result["renamed"], ["renamed-σ"] * 8)
         self.assertEqual(self.result["equivalentReference"], ["mode"] * 8)
         self.assertEqual(self.before, self.after)
+
+    def test_direct_wrong_producer_keeps_typed_image_fallback_through_playback(self):
+        checks = self.result["directFallback"]
+        self.assertTrue(checks)
+        for name, passed in checks.items():
+            with self.subTest(check=name):
+                self.assertTrue(passed)
 
     def test_absent_or_unsupported_producer_keeps_resolved_fallback(self):
         for name, row in self.result["rejections"].items():

@@ -344,6 +344,28 @@ class SceneWallpaperGraphTerminalsTests(unittest.TestCase):
                 "activation_passthrough"
             ]
         )
+        for reason, authored, material, rejected in (
+            ("", 1, 0, 1),
+            ("bad:reason", 1, 0, 1),
+            ("future-valid", 1, 1, 0),
+            ("future-valid", 2, 0, 1),
+            ("future-valid", 0, 0, 0),
+        ):
+            with self.subTest(reason=reason, authored=authored, material=material, rejected=rejected):
+                invalid_activation = benchmark.resolved_material_graph_observation_metrics(
+                    graph_execution_observation(
+                        frame=13, transaction="invalid-activation", trigger="gpu-completed",
+                        authored=authored, material=material, copy=0, swap=0, compose=0,
+                        rejected=rejected, consumed=True,
+                        program="activation-passthrough:" + reason,
+                    )
+                )
+                self.assertIn(
+                    "resolved material graph activation passthrough identity or shape invalid",
+                    invalid_activation["validation_failures"],
+                )
+                self.assertEqual(invalid_activation["terminal_success_count"], 0)
+                self.assertEqual(invalid_activation["program_terminal_success_count"], 0)
 
         disposition, exact_execution = resolved_graph_exact_evidence([68])
         activation_only = benchmark.resolved_material_graph_execution_metrics(
@@ -410,6 +432,15 @@ class SceneWallpaperGraphTerminalsTests(unittest.TestCase):
                 },
             ),
             [],
+        )
+        self.assertIn(
+            "resolved material graph activation passthrough evidence mismatch",
+            benchmark.resolved_material_graph_execution_failures(
+                activation_only,
+                sample={"required_activation_passthrough_reason_codes": [
+                    "effect-activation-visibility-disabled"
+                ]},
+            ),
         )
 
         malformed_layer = benchmark.resolved_material_graph_observation_metrics(

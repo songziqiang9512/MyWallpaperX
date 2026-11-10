@@ -14,6 +14,9 @@ struct SceneParticleDrawBatch {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    var rendererIndex: Int = 0
+    var usesSceneCamera: Bool = false
+    var usesPerspectiveTrailEye: Bool = false
     /// Existing root RopeTrail admission, independent of Sprite material state.
     var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil
@@ -35,9 +38,17 @@ final class SceneParticleMetalPipeline {
         let instanceBuffer: SceneParticleMetalInstanceBuffer
     }
 
+    private struct RefractionFragmentUniforms {
+        let material: SIMD4<Float>
+        let uvScales: SIMD4<Float>
+        var ambientLighting: SIMD4<Float> = .zero
+        var cutout: SIMD4<Float> = .zero
+    }
+
     private struct InstanceBufferKey: Hashable {
         let layerID: Int
         let childTemplateIndex: Int?
+        let rendererIndex: Int
     }
 
     struct BlendConfiguration {
@@ -131,7 +142,9 @@ final class SceneParticleMetalPipeline {
 
     func prepare(_ batches: [SceneParticleDrawBatch]) -> [PreparedBatch] {
         batches.compactMap { batch in
-            let key = InstanceBufferKey(layerID: batch.layerID, childTemplateIndex: batch.childTemplateIndex)
+            let key = InstanceBufferKey(layerID: batch.layerID,
+                                        childTemplateIndex: batch.childTemplateIndex,
+                                        rendererIndex: batch.rendererIndex)
             let buffer: SceneParticleMetalInstanceBuffer
             if let existing = instanceBuffers[key] {
                 buffer = existing
@@ -260,6 +273,8 @@ final class SceneParticleMetalPipeline {
         renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
+        ambient: SIMD3<Float>? = nil,
+        hdrEnabled: Bool = false,
         usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder,
         observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
@@ -271,6 +286,22 @@ final class SceneParticleMetalPipeline {
         guard let state = pipelineStates[variant],
               let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return false }
+        var fragmentUniforms = RefractionFragmentUniforms(
+            material: SIMD4(
+                binding.amount, binding.overbright, Float(binding.colorEncoding.rawValue),
+                (normal.usesParticleFrames ? 1 : 0)
+                    + (normal.authoredFormat == .dxt5 ? 2 : 0)
+                    + (normal.authoredFormat == nil ? 4 : 0)
+            ),
+            uvScales: SIMD4(colorUVScale.x, colorUVScale.y, normal.uvScale.x, normal.uvScale.y)
+        )
+        if binding.usesAmbientLighting {
+            guard let ambient else { return false }
+            fragmentUniforms.ambientLighting = SIMD4(ambient, hdrEnabled ? 2 : 1)
+        }
+        if let cutout = binding.cutout {
+            fragmentUniforms.cutout = SIMD4(cutout, 1)
+        }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
@@ -296,29 +327,10 @@ final class SceneParticleMetalPipeline {
             samplerStates.state(for: normal.sampling),
             index: 1
         )
-        var parameters = SIMD4<Float>(
-            binding.amount,
-            binding.overbright,
-            Float(binding.colorEncoding.rawValue),
-            (normal.usesParticleFrames ? 1 : 0)
-                + (normal.authoredFormat == .dxt5 ? 2 : 0)
-                + (normal.authoredFormat == nil ? 4 : 0)
-        )
-        var scales = SIMD4<Float>(
-            colorUVScale.x,
-            colorUVScale.y,
-            normal.uvScale.x,
-            normal.uvScale.y
-        )
         encoder.setFragmentBytes(
-            &parameters,
-            length: MemoryLayout<SIMD4<Float>>.stride,
+            &fragmentUniforms,
+            length: MemoryLayout<RefractionFragmentUniforms>.stride,
             index: 0
-        )
-        encoder.setFragmentBytes(
-            &scales,
-            length: MemoryLayout<SIMD4<Float>>.stride,
-            index: 1
         )
         encoder.drawPrimitives(
             type: .triangleStrip,

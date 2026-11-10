@@ -55,7 +55,7 @@ def encoded(value):
 
 
 def fixture_entries(*, early=False, source_only=False, visibility=False, bad_material=False,
-                    retire_provider=False):
+                    retire_provider=False, nested=None):
     scene, entries = shadow_fixture(caster_lit=False)
     scene["general"].update(lightconfig={"directional": 1}, ambientcolor="0 0 0")
     next(layer for layer in scene["objects"] if layer.get("light") == "ldirectional")["intensity"] = 2
@@ -95,18 +95,19 @@ void main(){gl_FragColor=vec4(1.0);}
         # provider. An orphan provider transaction must not block that graph.
         scene["objects"].remove(provider)
         scene["objects"].append(provider)
-    if retire_provider:
+    if retire_provider or nested == "retired":
         provider["name"] = "retired-provider"
+        removed_layer = "upstream-source" if nested == "retired" else provider["name"]
         witness = next(layer for layer in scene["objects"] if layer["id"] == 40)
         witness["visible"] = {"value": True, "script": """
 let removed = false;
 export function update(value) {
     if (engine.runtime > 2 && !removed) {
-        thisScene.destroyLayer('retired-provider'); removed = true;
+        thisScene.destroyLayer('LAYER_NAME'); removed = true;
     }
     return true;
 }
-"""}
+""".replace("LAYER_NAME", removed_layer)}
     entries.update({
         "models/provider.json": encoded({"material": "materials/provider.json"}),
         "materials/provider.json": encoded({"passes": [{"shader": "genericimage",
@@ -121,6 +122,26 @@ export function update(value) {
             "textures": ["materials/blue.png"], "combos": {"LIGHTING": 0},
             "blending": "normal", "cullmode": "nocull", "depthwrite": "enabled"}]}),
         "materials/blue.png": png([0, 0, 255, 255])})
+    if nested:
+        upstream_id = 37 if nested == "renamed" else 12
+        shader = "renamed_model_input" if nested == "renamed" else "own_model_input"
+        input_slots = [None, f"_rt_imageLayerComposite_{upstream_id}_a"]
+        upstream = {**provider, "id": upstream_id, "name": "upstream-source",
+                    "effects": [{**effect, "id": 120}]}
+        scene["objects"].append(upstream)
+        provider["dependencies"] = [upstream_id]
+        provider["effects"] = [{**effect, "file": f"effects/{shader}/effect.json",
+                                "passes": [{"textures": input_slots}]}]
+        entries.update({
+            f"effects/{shader}/effect.json": encoded({"passes": [{"material": f"materials/{shader}.json"}]}),
+            f"materials/{shader}.json": encoded({"passes": [{
+                "shader": shader, "textures": input_slots,
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+            f"shaders/{shader}.vert": VERTEX,
+            f"shaders/{shader}.frag": b'''uniform sampler2D g_Texture1; // {"material":"albedo"}
+varying vec2 v_TexCoord;
+void main() { gl_FragColor = texSample2D(g_Texture1, v_TexCoord); }
+'''})
     entries["scene.json"] = encoded(scene)
     project = {"type": "scene", "file": "scene.json", "general": {"properties": {
         "mode": {"type": "combo", "value": "shown", "options": [
@@ -166,13 +187,16 @@ extension SceneMainPassEncoder {
     static func plan(_ kind: String) -> [String: Any] {
         let sourceOnly = kind == "source"
         let early = kind == "early"
+        let nested = ["nested", "missing", "cycle", "aggregate-mixed", "unprepared"].contains(kind)
         let named = kind == "secondary" ? "_rt_imageLayerComposite_11_b" : "_rt_imageLayerComposite_11_a"
-        let graphPath = kind == "background" ? "_rt_FullFrameBuffer" : nil
+        let graphPath = kind == "background" ? "_rt_FullFrameBuffer"
+            : nested ? "_rt_imageLayerComposite_12_a" : nil
+        let graphSlots = nested ? [nil, graphPath] : [graphPath]
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0, texturePaths: graphPath.map { [$0] } ?? [],
-            textureSlots: [graphPath], combos: [:], constantShaderValues: [:])
+            textureSlots: graphSlots, combos: [:], constantShaderValues: [:])
         let provider = SceneRenderDescriptor.Layer(id: 11, contentKind: "image", utilityLayer: nil,
-            dependencyLayerIDs: kind == "dependency" ? [12] : [],
+            dependencyLayerIDs: kind == "dependency" || nested ? [12] : [],
             childLayerIDs: kind == "child" ? [12] : [], visible: kind == "visible",
             effects: sourceOnly ? [] : [.init(id: "owned-clock", file: "effects/owned/effect.json",
                 visible: true, passes: [pass])])
@@ -186,15 +210,46 @@ extension SceneMainPassEncoder {
                 file: "effects/own_sample/effect.json", visible: true, passes: [.init(passIndex: 0,
                     texturePaths: ["_rt_imageLayerComposite_11_a"], textureSlots: [nil, "_rt_imageLayerComposite_11_a"],
                     combos: [:], constantShaderValues: [:])])])
-        let order = kind == "mixed" ? [2, 40, 50, 11] : early ? [11, 2, 40] : [2, 40, 11]
-        let layers = [model, neighbor, provider] + (kind == "mixed" ? [effectConsumer] : [])
+        let cycle = kind == "cycle"
+        let upstream = SceneRenderDescriptor.Layer(id: 12, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: cycle ? [11] : [], childLayerIDs: [], visible: false,
+            effects: [.init(id: "upstream", file: "effects/owned/effect.json", visible: true,
+                passes: cycle ? effectConsumer.effects[0].passes : [])])
+        let usesEffectConsumer = kind == "mixed" || kind == "aggregate-mixed"
+        var order = usesEffectConsumer ? [2, 40, 50, 11] : early ? [11, 2, 40] : [2, 40, 11]
+        var layers = [model, neighbor, provider] + (usesEffectConsumer ? [effectConsumer] : [])
+        if nested && kind != "missing" {
+            order.append(12)
+            layers.append(upstream)
+        }
+        let prepared: [Int: [SceneDependencyRenderPlan.Binding]]
+        if nested {
+            let inner = SceneDependencyRenderPlan.Binding(consumerLayerID: 11, providerLayerID: 12,
+                slot: .init(effectID: "owned-clock", passIndex: 0, slotIndex: 1), blendMode: 0,
+                kind: .imageLayerBlend, requiresForwardCapture: true, requiresResolvedMaterialProgram: true)
+            prepared = switch kind {
+            case "missing": [:]
+            case "unprepared": [11: []]
+            case "aggregate-mixed": [11: [inner], 50: [
+                .init(consumerLayerID: 50, providerLayerID: 11,
+                    slot: .init(effectID: "sample", passIndex: 0, slotIndex: 1), blendMode: 0,
+                    kind: .imageLayerBlend, requiresForwardCapture: true, requiresResolvedMaterialProgram: true),
+                .init(consumerLayerID: 50, providerLayerID: 12,
+                    slot: .init(effectID: "sample", passIndex: 0, slotIndex: 2), blendMode: 0,
+                    kind: .imageLayerBlend, requiresForwardCapture: true, requiresResolvedMaterialProgram: true)]]
+            default: [11: [inner]]
+            }
+        } else {
+            prepared = [:]
+        }
         let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order,
             modelMaterialLinks: [.init(modelPath: "models/owned.mdl", materialPath: "materials/owned.json")],
             materialPasses: [.init(materialPath: "materials/owned.json", passIndex: 0,
                 texturePaths: [named], textureSlots: [named], userTextureInputs: [])])
-        let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: kind == "mixed" ? [40, 50] : [40],
-            admittedResolvedMaterialReferences: Set(SceneDependencyGraphAnalysis.references(in: layers)))
-        let available: Set<Int> = sourceOnly ? [40] : [11, 40]
+        let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: usesEffectConsumer ? [40, 50] : [40],
+            admittedResolvedMaterialReferences: Set(SceneDependencyGraphAnalysis.references(in: layers)),
+            preparedNamedInputBindingsByConsumerLayerID: prepared)
+        let available: Set<Int> = sourceOnly ? [40] : nested ? [11, 12, 40] : [11, 40]
         let activeSchedule = plan.sourcePreparationPlan(authoredLayerIDs: order,
             availableExecutionLayerIDs: available, visibleRootLayerIDs: [2, 40],
             activeStaticModelConsumerLayerIDs: [2], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
@@ -213,7 +268,8 @@ extension SceneMainPassEncoder {
             "authored": descriptor.renderOrderLayerIDs]
     }
     static func main() throws {
-        let cases = ["late", "early", "source", "background", "secondary", "dependency", "child", "visible", "mixed"]
+        let cases = ["late", "early", "source", "background", "secondary", "dependency", "child",
+            "visible", "mixed", "nested", "missing", "cycle", "aggregate-mixed", "unprepared"]
         let rows = Dictionary(uniqueKeysWithValues: cases.map { ($0, plan($0)) })
         let data = try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -274,6 +330,17 @@ class SceneModelGraphAlbedoPlanTests(unittest.TestCase):
         self.assertFalse(mixed["binding"], mixed)
         self.assertTrue(mixed["effectBinding"], mixed)
         self.assertEqual(mixed["graph"], [11])
+
+    def test_nested_model_only_prepares_closed_upstream_in_dependency_order(self):
+        nested = self.rows["nested"]
+        self.assertTrue(nested["binding"], nested)
+        self.assertEqual(nested["forward"], [12, 11])
+        self.assertEqual(nested["preparation"], [12, 11, 40])
+        self.assertEqual(nested["inactive"], [40])
+        for name in ("missing", "cycle", "aggregate-mixed", "unprepared"):
+            row = self.rows[name]
+            self.assertFalse(row["binding"], row)
+            self.assertEqual(row["preparation"], [40])
 
 
 class SceneModelGraphAlbedoShaderTests(unittest.TestCase):
@@ -563,6 +630,19 @@ class SceneModelGraphAlbedoAppTests(unittest.TestCase):
 
     def test_effectful_provider_before_model_uses_same_graph_once(self):
         self.assert_graph_pixels(self.run_case("effectful-early", early=True))
+
+    def test_nested_graph_supplies_model_and_missing_upstream_drops_only_dependent_output(self):
+        for name in ("ordinary", "renamed"):
+            with self.subTest(case=name):
+                self.assert_graph_pixels(self.run_case(f"nested-{name}", nested=name))
+        result = self.run_case("nested-upstream-retired", nested="retired")
+        before = result["pixels"]["scene-ready-window.png"]["pixels"]
+        after = result["pixels"]["scene-after-window.png"]["pixels"]
+        self.assert_rgb(before["model"], before["witness"])
+        self.assertLess(max(before["shadow"]), 15)
+        self.assert_rgb(after["model"], after["receiver"])
+        self.assert_rgb(after["shadow"], after["receiver"])
+        self.assertTrue(result["publicationEvents"], result)
 
     def test_model_visibility_removes_and_restores_graph_demand(self):
         result = self.run_case("model-visibility", visibility=True)

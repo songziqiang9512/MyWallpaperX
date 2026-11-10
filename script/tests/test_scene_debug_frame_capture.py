@@ -38,6 +38,9 @@ enum SceneResolvedMaterialRuntimeBridge {
     enum FramePreparationRequest {}
 }
 enum SceneResolvedMaterialFrameResourceBundle {}
+enum SceneDependencyRenderPlan {
+    enum PreparationSchedule {}
+}
 final class SceneMetalRenderer {}
 enum SceneGPUStageTimestampHook {
     static func surface(_ buffer: MTLCommandBuffer, frameIndex: UInt64, surfaceID: UInt32) {

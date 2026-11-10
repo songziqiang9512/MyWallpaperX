@@ -235,24 +235,31 @@ nonisolated extension SceneScriptQuickJSDomain {
             guard particleResult == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(particleResult, diagnostic: diagnostic)
             }
-            let alphaTarget = SceneDynamicTarget.particle(layerID: layer.id, field: .alpha)
-            let instanceAlpha: Double
-            if case let .scalar(value)? = snapshot[alphaTarget]?.value {
-                instanceAlpha = value
-            } else {
-                instanceAlpha = layer.particleInstanceOverride?.alpha?.value?.scalarValue ?? 1
+            func instanceScalar(_ field: SceneDynamicParticleField, authored: SceneParticleBoundValue?) -> Double {
+                if case let .scalar(value)? = snapshot[.particle(layerID: layer.id, field: field)]?.value {
+                    return value
+                }
+                return authored?.value?.scalarValue ?? 1
             }
-            let instanceResult = mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(
+            let instanceResult = mwx_scene_quickjs_domain_update_layer_particle_instance(
                 handle, UInt32(index), particleInstanceLayerIDs.contains(layer.id) ? 1 : 0,
-                instanceAlpha, &diagnostic, diagnostic.count
+                instanceScalar(.alpha, authored: layer.particleInstanceOverride?.alpha),
+                instanceScalar(.rate, authored: layer.particleInstanceOverride?.rate),
+                instanceScalar(.count, authored: layer.particleInstanceOverride?.count),
+                &diagnostic, diagnostic.count
             )
             guard instanceResult == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(instanceResult, diagnostic: diagnostic)
             }
             if layer.contentKind == "sound" {
+                let volume: Double?
+                if case let .scalar(value)? = snapshot[.layer(layerID: layer.id, field: .volume)]?.value {
+                    volume = value
+                } else { volume = nil }
                 let soundResult = mwx_scene_quickjs_domain_update_layer_sound_fields(
                     handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
-                    soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count
+                    soundPlaybackSnapshots[layer.id] == true ? 1 : 0, volume == nil ? 0 : 1,
+                    volume ?? 0, &diagnostic, diagnostic.count
                 )
                 guard soundResult == MWX_SCENE_QUICKJS_OK else {
                     throw layerSnapshotFailure(soundResult, diagnostic: diagnostic)
@@ -511,9 +518,14 @@ nonisolated extension SceneScriptQuickJSDomain {
                     throw layerSnapshotFailure(reused, diagnostic: diagnostic)
                 }
                 if layer.contentKind == "sound" {
+                    let volume: Double?
+                    if case let .scalar(value)? = snapshot[.layer(layerID: layer.id, field: .volume)]?.value {
+                        volume = value
+                    } else { volume = nil }
                     let result = mwx_scene_quickjs_domain_update_layer_sound_fields(
                         handle, UInt32(index), soundPlaybackSnapshots[layer.id] == nil ? 0 : 1,
-                        soundPlaybackSnapshots[layer.id] == true ? 1 : 0, &diagnostic, diagnostic.count)
+                        soundPlaybackSnapshots[layer.id] == true ? 1 : 0, volume == nil ? 0 : 1,
+                        volume ?? 0, &diagnostic, diagnostic.count)
                     guard result == MWX_SCENE_QUICKJS_OK else {
                         throw layerSnapshotFailure(result, diagnostic: diagnostic)
                     }

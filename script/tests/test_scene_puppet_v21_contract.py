@@ -173,12 +173,17 @@ class ScenePuppetV21ContractTests(unittest.TestCase):
         self.assert_rejected("attachment", "bad-attachment-bone.mdl", "references missing bone 9")
         self.assert_rejected("animation", "animation-bones.mdl", "has 3 bones; expected 2")
 
-    def test_unverified_bone_and_animation_states_fail_closed(self) -> None:
+    def test_invalid_bone_and_animation_flags_fail_closed(self) -> None:
         for owner in ("rig", "attachment"):
             self.assert_rejected(owner, "bone-state.mdl", "bone record 0")
-        for name in ("header-state.mdl", "transform-state.mdl"):
-            self.assert_rejected("animation", name, "invalid MDLA animation header 0")
-        self.assert_rejected("animation", "track-state.mdl", "invalid animation 101 track for bone 0")
+        self.assert_rejected("animation", "header-state.mdl", "invalid MDLA animation header 0")
+        self.assert_rejected("animation", "transform-state.mdl", "unsupported MDLA animation 101 flags 1")
+
+    def test_reader_preserves_reference_track_state_without_admitting_evaluation(self) -> None:
+        row = self.results["animation"]["track-state.mdl"]
+        self.assertTrue(row["ok"], row)
+        self.assertEqual(row["animations"][0]["trackStates"], [1, 0])
+        self.assertEqual(row["animations"][0]["sampleCounts"], [3, 3])
 
 
 if __name__ == "__main__":

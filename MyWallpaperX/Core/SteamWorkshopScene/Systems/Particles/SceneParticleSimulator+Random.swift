@@ -64,8 +64,9 @@ extension SceneParticleSimulator {
         return pow(factor, exponent)
     }
 
-    nonisolated func turbulenceRandom(
-        _ first: Double, _ second: Double, _ index: Int, _ operatorIndex: Int, _ salt: Int
+    nonisolated static func turbulenceRandom(
+        _ first: Double, _ second: Double,
+        particleID: UInt64, seed: UInt64, operatorIndex: Int, salt: Int
     ) -> Double {
         // This keyed sample has no subsequent RNG state. Keep the constant
         // interval arithmetic (including signed zero) without hashing.
@@ -73,7 +74,7 @@ extension SceneParticleSimulator {
             let lower = min(first, second)
             return lower + (max(first, second) - lower)
         }
-        var state = simulationSeed ^ (particles[index].id &* 0x9E3779B97F4A7C15)
+        var state = seed ^ (particleID &* 0x9E3779B97F4A7C15)
         state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
         var generator = SceneParticleRandomGenerator(state: state)
         return generator.value(first, second)
@@ -107,13 +108,20 @@ extension SceneParticleSimulator {
         default:
             unit = .zero
         }
-        let radius = pow(
-            random.value(plan.sphereRadiusPowerMinimum, plan.sphereRadiusPowerMaximum),
-            plan.sphereRadiusInverseDimension
-        )
+        let radialUnit = random.unit()
         var absoluteDirections = directions
         for component in 0..<3 { absoluteDirections[component] = abs(absoluteDirections[component]) }
-        var result = unit * absoluteDirections * radius
+        var result = unit * absoluteDirections
+        if radialUnit == 0 {
+            result *= plan.distanceMinimum.x
+        } else {
+            result *= plan.distanceMaximum.x
+            result *= pow(
+                plan.sphereRadiusMinimumPower
+                    + radialUnit * (1 - plan.sphereRadiusMinimumPower),
+                plan.sphereRadiusInverseDimension
+            )
+        }
         let sign = plan.sign
         for component in 0..<3 where abs(sign[component]) > 1e-6 {
             result[component] = abs(result[component]) * (sign[component] < 0 ? -1 : 1)
@@ -124,8 +132,8 @@ extension SceneParticleSimulator {
     nonisolated func randomBoxOffset(
         _ plan: SceneParticleEmitterSpawnPlan
     ) -> SIMD3<Double> {
-        let minimum = plan.boxDistanceMinimum
-        let maximum = plan.boxDistanceMaximum
+        let minimum = plan.distanceMinimum
+        let maximum = plan.distanceMaximum
         let direction = plan.directions
         return SIMD3(
             randomBoxComponent(minimum.x, maximum.x),

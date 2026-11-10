@@ -397,6 +397,28 @@ enum Harness {
             sceneScriptValues: [:]
         )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
+        let nonFiniteAlpha = SceneDynamicTarget.layer(layerID: 40, field: .alpha)
+        let nonFiniteDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(target: nonFiniteAlpha, valueType: .scalar,
+                  authoredValue: .scalar(0.4)),
+        ]
+        let sceneScriptNonFinite = resolver.resolve(
+            frameIndex: 79, generation: 9, definitions: nonFiniteDefinitions,
+            sceneScriptValues: [nonFiniteAlpha: .scalar(.nan)]
+        )
+        let userNonFinite = resolver.resolve(
+            frameIndex: 79, generation: 9, definitions: nonFiniteDefinitions,
+            userValues: [nonFiniteAlpha: .scalar(.nan)]
+        )
+        let retainedScriptValue = sceneScriptNonFinite.snapshot.values(
+            for: [nonFiniteAlpha], source: .sceneScript
+        )[nonFiniteAlpha]
+        let sceneScriptNonFiniteRetained: Bool
+        if case let .scalar(number)? = retainedScriptValue {
+            sceneScriptNonFiniteRetained = number.isNaN
+        } else {
+            sceneScriptNonFiniteRetained = false
+        }
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
             "valueTypes": values.map { $0.valueType.rawValue },
@@ -466,6 +488,13 @@ enum Harness {
             "boundedOverflowDiagnostics": boundedOverflow.diagnostics.map {
                 diagnostic($0)
             },
+            "sceneScriptNonFinite": resolved(sceneScriptNonFinite.snapshot[nonFiniteAlpha]),
+            "sceneScriptNonFiniteDiagnostics": sceneScriptNonFinite.diagnostics.map {
+                diagnostic($0)
+            },
+            "sceneScriptNonFiniteRetained": sceneScriptNonFiniteRetained,
+            "userNonFinite": resolved(userNonFinite.snapshot[nonFiniteAlpha]),
+            "userNonFiniteDiagnostics": userNonFinite.diagnostics.map { diagnostic($0) },
             "dynamicTransformLayerIDs": dynamicTransform
                 .snapshot.dynamicTransformLayerIDsForFrame.sorted(),
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
@@ -568,6 +597,18 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertTrue(self.result["mismatchMissing"])
         self.assertTrue(self.result["nonFiniteMissing"])
         self.assertEqual(self.result["count"], 3)
+
+    def test_only_scene_script_scalars_may_publish_non_finite_values(self) -> None:
+        self.assertEqual(
+            self.result["sceneScriptNonFinite"], ["scalar(nan)", "sceneScript"]
+        )
+        self.assertEqual(self.result["sceneScriptNonFiniteDiagnostics"], [])
+        self.assertTrue(self.result["sceneScriptNonFiniteRetained"])
+        self.assertEqual(self.result["userNonFinite"], ["scalar(0.4)", "authored"])
+        self.assertEqual(
+            self.result["userNonFiniteDiagnostics"],
+            [["userProperty", "nonFiniteValue"]],
+        )
 
     def test_same_frame_timeline_and_visibility_keep_both_script_priority_lanes(self) -> None:
         self.assertEqual(self.result["sameFrameMultiply"], ["scalar(1.0)", "timeline"])

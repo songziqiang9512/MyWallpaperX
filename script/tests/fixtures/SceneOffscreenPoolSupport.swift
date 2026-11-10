@@ -24,6 +24,8 @@ struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
     let candidate: SceneTextureCandidate
     let contentGeneration: UInt64
+
+    var texture: MTLTexture { candidate.texture }
 }
 
 struct SceneFrameTextureResource {

@@ -318,7 +318,9 @@ extension SceneDependencyRenderPlan {
 
         let staticModelResolution = Self.staticModelBindingsPreservingEffectProviders(
             staticModelCompilation,
-            effectBindings: bindings
+            effectBindings: bindings, layersByID: layersByID,
+            dependencies: dependencyEdges, cyclicLayerIDs: cyclicLayerIDs,
+            aggregates: multiProviderAggregates
         )
         issues.append(contentsOf: staticModelResolution.issues)
 
@@ -892,12 +894,18 @@ extension SceneDependencyRenderPlan {
                   let dependencies = activeDependencyProviderLayerIDs(
                     layer: provider, references: referencesByConsumer[provider.id] ?? []),
                   providerDependenciesAreAdmitted(
-                    provider: provider, activeDependencies: dependencies,
+                    providerID: provider.id, activeDependencies: dependencies,
                     layersByID: layersByID, cyclicLayerIDs: cyclicLayerIDs,
                     legacyBindings: legacyBindings, admittedAggregates: admittedAggregates)
             else { return nil }
-            return programInputBinding(for: reference, layer: layer, layersByID: layersByID,
-                                       order: order, visibleLayerIDs: visibleLayerIDs)
+            guard let binding = potentialProgramInputBinding(
+                for: reference, layer: layer, layersByID: layersByID,
+                order: order, visibleLayerIDs: visibleLayerIDs),
+                !binding.requiresForwardCapture
+                    || !provider.effects.contains(where: { $0.visible != false })
+                    || providerGraphIsAuthoredOrderIndependent(provider)
+            else { return nil }
+            return binding
         }
         guard bindings.count == ordered.count else { return nil }
         return .init(consumerLayerID: layer.id, bindings: bindings)

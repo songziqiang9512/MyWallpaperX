@@ -80,7 +80,7 @@ nonisolated extension SceneParticleOperator {
 
 nonisolated extension SceneParticleControlPoint {
     func hasBoundedReduceMovementInput(identity: Int) -> Bool {
-        guard id == identity, !hasMalformedFields,
+        guard id == identity, !hasMalformedOffset, !hasMalformedMetadata,
               rawFlags == 0 || rawFlags == 2,
               angles == nil, parentControlPoint == nil || parentControlPoint == 0 else {
             return false

@@ -44,13 +44,15 @@ nonisolated struct ScenePreparedImageMaterialCatalog {
         // lit built-in consumer, not a generic render-state/write-mask mapping.
         let supportsDefaultAlpha = pass.shaderPath?.lowercased() == "genericimage2"
             && pass.combos["LIGHTING"] == 1
+        // Stock material data uses either spelling; author shader macros keep their original names.
+        let versionKey = pass.combos["VERSION"] == nil ? "version" : "VERSION"
         guard pass.passIndex == 0,
               pass.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true,
               pass.textureSlots.count == 1, let texture = pass.textureSlots[0],
               !texture.isEmpty, pass.texturePaths == [texture],
               pass.userTextureInputs.allSatisfy({ $0 == nil }), pass.userShaderValues.isEmpty,
               pass.combos.allSatisfy({
-                  ($0.key == "VERSION" && $0.value == 2)
+                  ($0.key == versionKey && $0.value == 2)
                       || ($0.key == "LIGHTING" && (0 ... 1).contains($0.value))
               }),
               pass.constantShaderValues.keys.allSatisfy({ ["metallic", "roughness"].contains($0) }),

@@ -69,49 +69,76 @@ struct SceneDesktopWallpaperLaunchContext {
             }
     }
 
-    func prepareParticleSurfaces(
-        displayIDs: [CGDirectDisplayID], cancellation: SceneWallpaperLaunchCancellation?
-    ) throws -> [SceneDesktopWallpaperSession.PreparedParticleSurface] {
-        let initialValues = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 0, generation: 0,
-            definitions: sceneScriptScalarProgram.definitions,
-            userValues: [:], timelineValues: [:], sceneScriptValues: [:]
-        ).snapshot
-        let topology = sceneScriptDynamicLayerRuntime.snapshot()
-        let layerImage = preparedDeviceResources.baseImages.particleLayerImageCompilation(
+    func makeSurfacePreparationInput(
+        dynamicValues: SceneDynamicSnapshot,
+        topology: SceneScriptLayerTopologySnapshot,
+        audioInput: SceneParticleAudioInput
+    ) -> SceneSurfacePreparationInput {
+        SceneSurfacePreparationInput(
             descriptor: runtimeInput.renderDescriptor,
-            destroyedIDs: topology.destroyedAuthoredLayerIDs
-        )
-        var prepared: [SceneDesktopWallpaperSession.PreparedParticleSurface] = []
-        for displayID in displayIDs {
-            try cancellation?.check()
-            let playback = SceneParticlePlaybackState(
-                descriptor: runtimeInput.renderDescriptor,
-                preparedAssets: preparedParticleAssets,
-                device: preparedDeviceResources.device,
-                textureLoader: preparedDeviceResources.baseImages.textureLoader,
-                layerImage: layerImage,
-                preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
-                initialDynamicValues: initialValues,
-                initialPlayback: topology.particlePlayback,
-                destroyedAuthoredLayerIDs: topology.destroyedAuthoredLayerIDs,
-                rootPrewarmStepBudget: nil,
-                shouldCancelPrewarm: { cancellation?.isCancelled == true }
-            )
-            try cancellation?.check()
-            prepared.append(.init(displayID: displayID, playback: playback))
-        }
-        return prepared
-    }
-
-    func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
-        preparedFirstSurfaceRuntime.take() ?? ScenePreparedDeviceResources.makeMaterialRuntime(
-            catalog: resolvedMaterialCatalog,
-            capabilities: resolvedMaterialExecutionCapabilities,
-            assets: materialAssetCatalog,
+            particleAssets: preparedParticleAssets,
+            baseImages: preparedDeviceResources.baseImages,
             device: preparedDeviceResources.device,
+            visibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+            dynamicValues: dynamicValues, topology: topology, audioInput: audioInput,
+            materialCatalog: resolvedMaterialCatalog,
+            materialCapabilities: resolvedMaterialExecutionCapabilities,
+            materialAssets: materialAssetCatalog,
+            firstMaterialRuntime: preparedFirstSurfaceRuntime.take(),
             capturesExecutionObservations: capturesExecutionObservations
         )
+    }
+
+}
+
+struct SceneSurfacePreparationInput {
+    let descriptor: SceneRenderDescriptor
+    let particleAssets: SceneParticleAssetGraph
+    let baseImages: ScenePreparedBaseImageResources
+    let device: MTLDevice
+    let visibilityLayerIDs: Set<Int>
+    let dynamicValues: SceneDynamicSnapshot
+    let topology: SceneScriptLayerTopologySnapshot
+    let audioInput: SceneParticleAudioInput
+    let materialCatalog: SceneResolvedMaterialRuntimeCatalog
+    let materialCapabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+    let materialAssets: SceneMaterialAssetTextureCatalog
+    let firstMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
+    let capturesExecutionObservations: Bool
+
+    func prepare(displayIDs: [CGDirectDisplayID], cancellation: SceneWallpaperLaunchCancellation?)
+        throws -> [SceneDesktopWallpaperSession.PreparedSurface] {
+        try cancellation?.check()
+        let destroyedLayerIDs = topology.destroyedAuthoredLayerIDs
+        let particleDescriptor = destroyedLayerIDs.isEmpty ? descriptor : descriptor.applying(topology)
+        let layerImage = baseImages.particleLayerImageCompilation(
+            descriptor: particleDescriptor, destroyedIDs: destroyedLayerIDs)
+        var prepared: [SceneDesktopWallpaperSession.PreparedSurface] = []
+        do {
+            for displayID in displayIDs {
+                try cancellation?.check()
+                let playback = SceneParticlePlaybackState(
+                    descriptor: particleDescriptor, preparedAssets: particleAssets,
+                    device: device, textureLoader: baseImages.textureLoader,
+                    layerImage: layerImage,
+                    preparedParticleVisibilityLayerIDs: visibilityLayerIDs,
+                    initialDynamicValues: dynamicValues, initialPlayback: topology.particlePlayback,
+                    initialAudioInput: audioInput,
+                    destroyedAuthoredLayerIDs: destroyedLayerIDs,
+                    shouldCancelPrewarm: { cancellation?.isCancelled == true })
+                let material = prepared.isEmpty ? firstMaterialRuntime : nil
+                prepared.append(.init(displayID: displayID, playback: playback,
+                    materialRuntime: material ?? ScenePreparedDeviceResources.makeMaterialRuntime(
+                        catalog: materialCatalog, capabilities: materialCapabilities,
+                        assets: materialAssets, device: device,
+                        capturesExecutionObservations: capturesExecutionObservations)))
+                try cancellation?.check()
+            }
+            return prepared
+        } catch {
+            for surface in prepared { _ = surface.playback.teardown(reason: "preparationCancelled") }
+            throw error
+        }
     }
 }
 

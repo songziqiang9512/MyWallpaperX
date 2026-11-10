@@ -55,6 +55,9 @@ class SceneParticleControlPointComponentsTests(unittest.TestCase):
     def test_defaults_renaming_and_unrelated_fields(self) -> None:
         self.assertCases("parse/")
 
+    def test_emitter_uses_selected_position_and_preserves_consumed_metadata(self) -> None:
+        self.assertCases("emitter/")
+
     def test_literal_repeat_mirror_and_count_inputs(self) -> None:
         self.assertCases("sequence/")
 

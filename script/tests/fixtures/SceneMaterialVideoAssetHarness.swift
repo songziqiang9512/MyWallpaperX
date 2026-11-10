@@ -294,15 +294,15 @@ final class ScenePerformanceCounterHub {
             checks["layerCommandsDoNotControlAsset"] = beforePause > 0
                 && player(source).rate > 0
                 && pausedVideoFrame.layerBindings[videoLayerID].flatMap { pausedVideoFrame.sources[$0] }?.isPlaying == false
-            registry.pause(sceneTime: 3.2, hostTime: CACurrentMediaTime())
-            checks["globalPauseControlsAsset"] = player(source).rate == 0
-            registry.resume(sceneTime: 3.2, hostTime: CACurrentMediaTime())
-            registry.beginSurfaceRebuild(sceneTime: 3.2, hostTime: CACurrentMediaTime())
+            let pausedAsset = observeDormantAssetPause(source, peer: shared, registry: registry, timing: timing)
+            checks["globalPauseControlsAsset"] = pausedAsset.paused
+            checks["inactiveAssetDoesNotAcquireAndRefreshesHeldPosition"] = pausedAsset.refreshed
             let reacquired = try registry.source(declaration: declaration, owner: .asset, cacheDirectory: cache,
                 device: device, loader: loader)
-            registry.completeSurfaceRebuild()
-            checks["rebuildReusesAssetAndRetiresLayer"] = reacquired === source
-                && registry.sceneScriptSnapshots(sceneTime: 3.2).layerBindings.isEmpty
+            let addedLayer = try registry.source(from: declaration.input, layerID: videoLayerID,
+                cacheDirectory: cache, device: device, loader: loader)
+            checks["addedViewReusesAssetAndLayerBinding"] = reacquired === source && addedLayer === layerSource
+                && registry.sceneScriptSnapshots(sceneTime: 3.2).layerBindings == pausedVideoFrame.layerBindings
             let oldDeclaration = declaration
             try Data([0x11]).appendTo(root.appendingPathComponent(assetName + ".tex"))
             do {
@@ -425,11 +425,10 @@ final class ScenePerformanceCounterHub {
             checks["embeddedPrivateOutsideAuthorAndRetiredCache"] = privateURL != nil
                 && !privateURL.path.hasPrefix(root.path + "/") && !privateURL.path.hasPrefix(retiredCache.deletingLastPathComponent().path + "/")
             let payload = try Data(contentsOf: privateURL)
-            registry.beginSurfaceRebuild(sceneTime: 0.2, hostTime: CACurrentMediaTime())
             let reused = try registry.source(declaration: declaration, owner: .asset,
                 cacheDirectory: cache, device: device, loader: loader)
-            registry.completeSurfaceRebuild()
-            checks["ordinarySurfaceRebuildReusesActualSource"] = reused === source
+            checks["addedViewReusesActualAssetSource"] = reused === source
+                && player(reused!).currentItem === borrowedItem
             let warm = try mounted()
             let warmView = SceneResourceView(projectRoot: .init(source: .loose, url: root), packageRoot: warm, stockRoot: nil)
             let warmCatalog = try SceneMaterialAssetTextureCatalog(demands: [asset], resourceView: warmView,
@@ -486,10 +485,9 @@ final class ScenePerformanceCounterHub {
                 pixels.append(pixel)
                 checks["externalActualFrameKeepsRedPixels"] = pixel[0] > 0.7 && pixel[1] < 0.15 && pixel[2] < 0.15
             } else { checks["externalActualFrameKeepsRedPixels"] = false }
-            registry.beginSurfaceRebuild(sceneTime: 0.2, hostTime: CACurrentMediaTime())
             let reused = registry.userPropertySources(declarations: result.videoDeclarations, device: device)
-            registry.completeSurfaceRebuild()
-            checks["externalSurfaceRebuildReusesAdoptedSource"] = reused[identity] === source
+            checks["addedViewReusesAdoptedUserSource"] = reused[identity] === source
+                && player(reused[identity]!).currentItem === borrowedItem
             let remounted = try mounted()
             let remountedBytes = try remounted.existingLiteralHandle(relativePath: "textures/renamed-card.tex")!.readBytes()
             checks["packageRemountKeepsExternalPrivateBytes"] = remountedBytes == authorBytes
@@ -898,25 +896,23 @@ final class ScenePerformanceCounterHub {
             try preparedRegistry.prepareDynamicVideoSources(resources: [catalogModel: .init(product: .video(
                 source: replacementKey, file: preparedFile, sizeWH: [32, 24]))], modelPaths: [catalogModel], device: device)
             preparedRegistry.retire(layerIDs: [811, 812])
-            preparedRegistry.beginSurfaceRebuild(sceneTime: 0, hostTime: CACurrentMediaTime())
             _ = try watch(handle)
-            try preparedRegistry.prepareDynamicVideoSources(resources: [catalogModel: .init(product: .video(
-                source: replacementKey, file: preparedFile, sizeWH: [32, 24]))], modelPaths: [catalogModel], device: device)
-            let preparedRebuild = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+            let addedAsset = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
                 owner: .asset, device: device)
-            preparedRegistry.completeSurfaceRebuild()
-            let rebuiltCatalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
+            let carrierlessState = replacementLayer.playbackSnapshot(sceneTime: 0)
             checks["catalogZeroCarrierReusesSourceAndFile"] = preparedRegistry.layerSources(deviceRegistryID: device.registryID).isEmpty
-                && catalogState != nil && rebuiltCatalogState?.sourceIncarnation == catalogState?.sourceIncarnation && rebuiltCatalogState?.currentTime == catalogState?.currentTime
-                && rebuiltCatalogState?.rate == catalogState?.rate && rebuiltCatalogState?.isPlaying == catalogState?.isPlaying
+                && catalogState != nil && carrierlessState?.sourceIncarnation == catalogState?.sourceIncarnation && carrierlessState?.currentTime == catalogState?.currentTime
+                && carrierlessState?.rate == catalogState?.rate && carrierlessState?.isPlaying == catalogState?.isPlaying
                 && (player(replacementLayer).currentItem?.asset as? AVURLAsset)?.url == fileURL
             preparedRegistry.bindPreparedVideoConsumers([811: catalogModel])
-            reads["preparedRebuild"] = count()
-            checks["preparedRebuildKeepsReachableSource"] = preparedRebuild === preparedSource
-                && player(preparedSource).currentItem != nil && reads["preparedRebuild"] == 0
+            let addedLayer = try preparedRegistry.source(sourceKey: replacementKey, preparedFile: preparedFile,
+                owner: .ordinary, layerID: 811, device: device)
+            reads["preparedAddedView"] = count()
+            checks["addedViewReusesSourceWithoutPayload"] = addedAsset === preparedSource && addedLayer === replacementLayer
+                && player(preparedSource).currentItem != nil && reads["preparedAddedView"] == 0
                 && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == preparedReservation
-            checks["layerIndexRebuildKeepsSiblingAndRemovesObsolete"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811]
-                && player(layerSource).currentItem == nil && player(obsoleteLayer).currentItem == nil
+            checks["retireAndAddedViewKeepOnlyCurrentBinding"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811]
+                && player(layerSource).currentItem != nil && player(obsoleteLayer).currentItem != nil
                 && preparedRegistry.layerSources(deviceRegistryID: device.registryID)[811] === replacementLayer
             if case .failure(.unavailableLayer(812)) = preparedRegistry.validate([.init(layerID: 812, action: .play)], timing: timing) {
                 checks["layerIndexRetiredCommandsAreUnavailable"] = true

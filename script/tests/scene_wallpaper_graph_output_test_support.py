@@ -299,15 +299,15 @@ def assert_named_graph_output_publication_has_one_terminal_owner(
         effect_execution=exact_execution,
         static_disposition=disposition,
     )
-    test_case.assertFalse(overlapping["execution_succeeded"])
+    test_case.assertTrue(overlapping["execution_succeeded"])
     test_case.assertEqual(
         overlapping["layer_routes"]["named_compositor_overlap_layer_ids"],
         [67],
     )
-    test_case.assertIn(
-        "resolved material graph named publication also consumed by compositor",
-        overlapping["validation_failures"],
-    )
+    test_case.assertEqual(overlapping["validation_failures"], [])
+    test_case.assertEqual(overlapping["layer_routes"]["named_graph_output_published_layer_ids"], [67])
+    test_case.assertEqual(overlapping["layer_routes"]["compositor_consumed_layer_ids"], [67])
+    test_case.assertEqual(overlapping["layer_routes"]["named_published_layer_ids"], [])
 
 
 def assert_utility_capture_respects_dormant_graph_members(

@@ -106,15 +106,22 @@ extension SceneMetalView {
         dynamicValues: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
+        perspectiveReplayRootIDs: Set<Int>,
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
+        let surface = sceneScriptSurfaceInput(
+            pointer: pointer, timing: timing, dynamicValues: dynamicValues,
+            descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames
+        )
         let projections = originInteractionProjections(
             pointer.isInside ? ownerLayerIDs : capturedOwnerLayerIDs,
             pointer: pointer,
+            surface: surface,
             timing: timing,
             dynamicValues: dynamicValues,
             descriptor: descriptor,
             layersByID: layersByID,
+            perspectiveReplayRootIDs: perspectiveReplayRootIDs,
             worldFrames: worldFrames
         )
         return .init(
@@ -122,9 +129,7 @@ extension SceneMetalView {
             ownerProjections: projections.ownerProjections,
             pointerPosition: pointer.normalizedPosition,
             primaryButtonIsDown: pointer.primaryButtonIsDown,
-            surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing,
-                dynamicValues: dynamicValues, descriptor: descriptor,
-                layersByID: layersByID, worldFrames: worldFrames),
+            surface: surface,
             surfaceID: surfaceID,
             leavingSurface: leavingSurface, nativeShortcutGesture: pointer.nativeShortcutGesture
         )
@@ -192,33 +197,22 @@ extension SceneMetalView {
     private func originInteractionProjections(
         _ ownerLayerIDs: Set<Int>,
         pointer: SceneSurfacePointerEvent,
+        surface: SceneScriptSurfaceInput?,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
+        perspectiveReplayRootIDs: Set<Int>,
         worldFrames: [Int: simd_float4x4]
     ) -> (hits: [Int: SceneScriptCursorHit], ownerProjections: [Int: SceneScriptCursorHit]) {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
               !ownerLayerIDs.isEmpty else { return ([:], [:]) }
-        let frameContext = makeFrameContext(
-            timing: timing,
-            dynamicValues: dynamicValues,
-            parallax: parallaxPointerSmoother.preview(
-                delta: timing.simulationFrameTime,
-                delay: dynamicValues.cameraPropertyProjection().parallaxDelay
-                    ?? renderer.renderDescriptor.camera.parallaxDelay
-            ),
-            audioSpectrum: .silent
-        )
-        let cameraFrame = renderer.makeCameraFrame(
-            frameContext: frameContext, descriptor: descriptor,
-            layersByID: layersByID, worldFrames: worldFrames)
-        let parallax = renderer.parallaxConfiguration(
-            cameraFrame: cameraFrame,
-            viewportSize: frameContext.screenSize,
-            dynamicValues: dynamicValues
-        )
+        var cardProjection: (
+            camera: SceneParticleCameraFrame,
+            parallax: SceneLayerParallax.Configuration,
+            pointer: SIMD2<Float>
+        )?
         let submittedText = submittedTextSnapshot
         var hits: [Int: SceneScriptCursorHit] = [:]
         var projections: [Int: SceneScriptCursorHit] = [:]
@@ -226,11 +220,50 @@ extension SceneMetalView {
             guard let layer = layersByID[ownerLayerID],
                   (dynamicValues[.layer(layerID: ownerLayerID, field: .solid)]?.value
                     ?? .bool(layer.solid ?? true)) == .bool(true) else { continue }
+            if layer.utilityLayer?.kind == .fullscreen {
+                guard let surface else { continue }
+                let hit = SceneScriptCursorHit(
+                    layerID: ownerLayerID,
+                    worldPosition: surface.cursorWorldPosition,
+                    localPosition: SIMD3(
+                        surface.cursorScreenPosition.x, surface.cursorScreenPosition.y, 0
+                    )
+                )
+                projections[ownerLayerID] = hit
+                if pointer.isInside { hits[ownerLayerID] = hit }
+                continue
+            }
+            if cardProjection == nil {
+                let frameContext = makeFrameContext(
+                    timing: timing,
+                    dynamicValues: dynamicValues,
+                    parallax: parallaxPointerSmoother.preview(
+                        delta: timing.simulationFrameTime,
+                        delay: dynamicValues.cameraPropertyProjection().parallaxDelay
+                            ?? renderer.renderDescriptor.camera.parallaxDelay
+                    ),
+                    audioSpectrum: .silent
+                )
+                let cameraFrame = renderer.makeCameraFrame(
+                    frameContext: frameContext, descriptor: descriptor,
+                    layersByID: layersByID, worldFrames: worldFrames,
+                    perspectiveReplayRootIDs: perspectiveReplayRootIDs)
+                cardProjection = (
+                    cameraFrame,
+                    renderer.parallaxConfiguration(
+                        cameraFrame: cameraFrame,
+                        viewportSize: frameContext.screenSize,
+                        dynamicValues: dynamicValues
+                    ),
+                    frameContext.cameraParallaxPosition
+                )
+            }
+            let (cameraFrame, parallax, parallaxPosition) = cardProjection!
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFrames,
-                textCenterOffsetY: submittedText?.layerSources[ownerLayerID]?.textCenterOffsetY ?? 0,
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                textPlacement: submittedText?.layerSources[ownerLayerID]?.textPlacement,
+                parallaxMouseNormalized: parallaxPosition,
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)

@@ -43,15 +43,27 @@ extension SceneDependencyRenderPlan {
 
     nonisolated static func staticModelBindingsPreservingEffectProviders(
         _ compilation: StaticModelBindingCompilation,
-        effectBindings: [Int: Binding]
+        effectBindings: [Int: Binding],
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        dependencies: [Int: Set<Int>],
+        cyclicLayerIDs: Set<Int>,
+        aggregates: [Int: MultiProviderAggregate]
     ) -> StaticModelBindingCompilation {
         let effectProviderLayerIDs = Set(
             effectBindings.values.map(\.providerLayerID)
-        )
+        ).union(aggregates.values.flatMap(\.providerLayerIDs))
         var bindings = compilation.bindings
         var issues = compilation.issues
-        for (consumerLayerID, binding) in compilation.bindings
-        where effectProviderLayerIDs.contains(binding.providerLayerID) {
+        for (consumerLayerID, binding) in compilation.bindings {
+            let providerID = binding.providerLayerID
+            let inputs = dependencies[providerID] ?? []
+            guard effectProviderLayerIDs.contains(providerID)
+                || (inputs.isEmpty && layersByID[providerID]?.dependencyLayerIDs.isEmpty == false)
+                || !providerDependenciesAreAdmitted(
+                    providerID: providerID, activeDependencies: inputs,
+                    layersByID: layersByID, cyclicLayerIDs: cyclicLayerIDs,
+                    legacyBindings: effectBindings, admittedAggregates: aggregates
+                ) else { continue }
             bindings.removeValue(forKey: consumerLayerID)
             issues.append(Issue(
                 kind: .dependencyMismatch,
@@ -64,8 +76,8 @@ extension SceneDependencyRenderPlan {
 
     /// Compiles only the shared direct-model contract: one exact model link,
     /// material pass zero/slot zero, a primary named target, and one hidden
-    /// image/solid provider declared by the consumer. An effectful provider must
-    /// have no external dependencies and use an authored-order-independent graph.
+    /// image/solid provider declared by the consumer. Effectful providers use
+    /// the shared authored-order-independent graph contract.
     /// Shader/material values remain owned by the existing static-model pipeline.
     nonisolated static func staticModelNamedTextureBindings(
         descriptor: SceneRenderDescriptor,
@@ -132,10 +144,10 @@ extension SceneDependencyRenderPlan {
                   ["image", "solid"].contains(provider.contentKind),
                   provider.utilityLayer.map({ _ in false }) ?? true,
                   provider.visible == false,
-                  provider.dependencyLayerIDs.isEmpty,
                   provider.childLayerIDs.isEmpty,
                   provider.effects.isEmpty
-                    || Self.providerGraphIsAuthoredOrderIndependent(provider),
+                    ? provider.dependencyLayerIDs.isEmpty
+                    : Self.providerGraphIsAuthoredOrderIndependent(provider),
                   let consumerOrder = order[consumer.id],
                   let providerOrder = order[providerID],
                   consumerOrder != providerOrder else {

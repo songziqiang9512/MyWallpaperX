@@ -50,8 +50,6 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let blendMode: SceneParticlePipelineBlendMode
     let cullMode: SceneParticlePipelineCullMode
     let depthTestEnabled: Bool
-    /// Prepared ordinary Sprite profile; independent of depth/cull switches.
-    let usesSceneCamera: Bool
     let depthWriteEnabled: Bool
     let overbright: Float
 
@@ -59,14 +57,12 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
         blendMode: SceneParticlePipelineBlendMode,
         cullMode: SceneParticlePipelineCullMode,
         depthTestEnabled: Bool = false,
-        usesSceneCamera: Bool = false,
         depthWriteEnabled: Bool = false,
         overbright: Float = 1
     ) {
         self.blendMode = blendMode
         self.cullMode = cullMode
         self.depthTestEnabled = depthTestEnabled
-        self.usesSceneCamera = usesSceneCamera
         self.depthWriteEnabled = depthWriteEnabled
         self.overbright = overbright
     }
@@ -465,7 +461,8 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var spriteRight: SIMD4<Float>
     var spriteUp: SIMD4<Float>
     var spriteForward: SIMD4<Float>
-    var trailLocalNormal: SIMD4<Float>
+    // A local plane direction (w=0) or a homogeneous eye point with signed winding.
+    var trailWidthReference: SIMD4<Float>
     var rasterClipX = SIMD4<Float>(1, 0, 0, 0)
     var rasterClipY = SIMD4<Float>(0, 1, 0, 0)
 
@@ -481,8 +478,7 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     ) {
         self.viewProjection = viewProjection
         self.layerModel = layerModel
-        trailLocalNormal = !sizeIsWorldSpace
-            ? basis.localTrailNormal.map { SIMD4($0, 1) } ?? .zero : .zero
+        trailWidthReference = SIMD4(sizeIsWorldSpace ? .zero : basis.localTrailNormal ?? .zero, 0)
         // Positions/displacements remain in the static layer frame; size has
         // its own coordinate responsibility. General world-space size is
         // already in scene units and must not inherit the node scale again.

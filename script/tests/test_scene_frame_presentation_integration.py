@@ -19,6 +19,9 @@ import unittest
 import uuid
 
 from .scene_pkg_fixture import make_package
+from .scene_display_reconciliation_fixture import (
+    assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
+)
 
 
 def compile_pixel_probe(probe: Path) -> Path:
@@ -245,7 +248,7 @@ class SceneFramePresentationIntegrationTests(unittest.TestCase):
                             cyan = float(subprocess.check_output([str(self.pixel_probe), str(capture), "cyan"], text=True))
                             magenta = float(subprocess.check_output([str(self.pixel_probe), str(capture), "magenta"], text=True))
                             self.assertGreater(cyan, 0.005, "hidden peer did not resume with its retained Sprite frame")
-                            self.assertLess(magenta, 0.001, "destroyed Sprite returned after rebuild")
+                            self.assertLess(magenta, 0.001, "destroyed Sprite returned after display reconciliation")
                         else:
                             self.assertLess(fraction, 0.001, "retired Sprite reappeared in terminal output")
                 if animation_retirement:
@@ -266,40 +269,42 @@ class SceneFramePresentationIntegrationTests(unittest.TestCase):
                         self.assertEqual(len(set(re.findall(
                             r"state=prepared frame=0 surface=(\d+)", before_retirement))), screens)
                 if "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER" in fault:
-                    observed = {stage: json.loads((root / "evidence" / f"surface-rebuild-{stage}.json").read_text())
-                                for stage in ("before", "after", "settled")}
-                    before, after, settled = (observed[stage] for stage in ("before", "after", "settled"))
-                    self.assertTrue(before["sessionID"] and before["requestID"], observed)
+                    observed = load_reconciliation_snapshots(root / "evidence")
+                    before, after, settled = assert_retained_surfaces(self, observed, screens, paused=True)
+                    interval = reconciliation_interval(self, log)
+                    self.assertNotIn("phase=owner-effects-admission", interval)
                     for snapshot in observed.values():
-                        self.assertEqual(snapshot["sessionID"], before["sessionID"], observed)
-                        self.assertEqual(snapshot["requestID"], before["requestID"], observed)
-                        self.assertEqual(snapshot["surfaceCount"], screens, observed)
                         self.assertEqual(len(snapshot["spriteAnimationLayerIDsByDisplay"]), screens, observed)
-                        self.assertTrue(all(ids == [6] for ids in
+                        self.assertTrue(all(ids == ([5, 6] if frozen else [6]) for ids in
                             snapshot["spriteAnimationLayerIDsByDisplay"].values()), observed)
-                    self.assertTrue(set(before["windowNumbers"]).isdisjoint(after["windowNumbers"]), observed)
-                    self.assertEqual(after["windowNumbers"], settled["windowNumbers"], observed)
-                    self.assertGreater(before["sceneTime"], 0.5, observed)
-                    self.assertAlmostEqual(before["sceneTime"], after["sceneTime"], places=9, msg=str(observed))
-                    for snapshot in (before, after):
-                        self.assertTrue(snapshot["isPlaybackPaused"], observed)
-                        self.assertFalse(snapshot["isFrameDriverActive"], observed)
-                    self.assertFalse(settled["isPlaybackPaused"], observed)
-                    self.assertTrue(settled["isFrameDriverActive"], observed)
-                    self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
+                    if frozen:
+                        self.assertTrue(settled["isPlaybackPaused"], observed)
+                        self.assertFalse(settled["isFrameDriverActive"], observed)
+                        self.assertEqual(settled["sceneTime"], before["sceneTime"], observed)
+                        self.assertIn(5, before["committedDestroyedLayerIDs"], observed)
+                        for row in after["surfacesByDisplay"].values():
+                            self.assertNotIn(5, row["destroyedLayerIDs"], observed)
+                    else:
+                        self.assertGreater(before["sceneTime"], 0.5, observed)
+                        self.assertFalse(settled["isPlaybackPaused"], observed)
+                        self.assertTrue(settled["isFrameDriverActive"], observed)
+                        self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
                     captured, requested = before["capturedTopology"], before["requestedTopology"]
                     self.assertTrue(captured, observed)
-                    self.assertEqual([row["displayID"] for row in captured],
-                                     [row["displayID"] for row in requested], observed)
+                    self.assertTrue({row["displayID"] for row in captured}.issubset(
+                        {row["displayID"] for row in requested}), observed)
+                    self.assertEqual({str(row["displayID"]) for row in requested},
+                                     set(before["surfacesByDisplay"]), observed)
                     self.assertNotEqual(captured[0]["frame"], requested[0]["frame"], observed)
                     self.assertAlmostEqual(requested[0]["frame"][0] - captured[0]["frame"][0], 0.5)
                     self.assertAlmostEqual(requested[0]["frame"][2] - captured[0]["frame"][2], -1)
-                    self.assertEqual(captured[1:], requested[1:], observed)
+                    for row in requested[1:]:
+                        self.assertEqual(row["frame"], before["surfacesByDisplay"][str(row["displayID"])]["targetFrame"], observed)
                     self.assertTrue({str(row["displayID"]) for row in captured}.issubset(
                         after["spriteAnimationLayerIDsByDisplay"]), observed)
                     for phase in ("after", "settled"):
                         self.assertTrue(any(f"surface-rebuild-{phase}" in path.name for path in captures), observed)
-                    self.assertRegex(log, r"phase=surface-rebuild state=rebuilt accepted=true")
+                    self.assertRegex(log, r"phase=surface-reconciliation state=retained accepted=true")
                 return log, completed
             except subprocess.TimeoutExpired as error:
                 log = "".join(value.decode(errors="replace") if isinstance(value, bytes) else value or ""
@@ -356,7 +361,8 @@ class SceneFramePresentationIntegrationTests(unittest.TestCase):
         self.assertRegex(log, r"phase=pause-resume state=resumed accepted=true")
 
     def test_committed_destroy_keeps_paused_adopted_sprite_until_new_simulation(self):
-        log, _ = self.run_scene(2, {}, retiring=True, animation_retirement=True, frozen=True)
+        log, _ = self.run_scene(2, {"MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER": "3"},
+                                retiring=True, animation_retirement=True, frozen=True)
         self.assertEqual(len(re.findall(r"phase=surface-resize .*accepted=true", log)), 2)
 
     def test_missing_drawable_keeps_peer_playing_and_recovers_latest(self):

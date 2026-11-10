@@ -497,7 +497,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                   raw.layer_id >= -maximumLayerIdentity,
                   raw.layer_id <= maximumLayerIdentity,
                   raw.order_index >= 0,
-                  raw.alpha.isFinite, raw.particle_alpha.isFinite, raw.point_size.isFinite,
+                  raw.alpha.isFinite, raw.volume.isFinite, raw.point_size.isFinite,
                   raw.origin.0.isFinite, raw.origin.1.isFinite, raw.origin.2.isFinite,
                   raw.scale.0.isFinite, raw.scale.1.isFinite, raw.scale.2.isFinite,
                   raw.angles.0.isFinite, raw.angles.1.isFinite, raw.angles.2.isFinite,
@@ -529,15 +529,6 @@ nonisolated enum SceneScriptLayerMutationBridge {
             guard raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.union(.created).rawValue == 0,
                   raw.dynamic != 0 || !fields.contains(.created) else {
                 return .failure(.invalidArgument("unknown layer mutation fields"))
-            }
-            if raw.dynamic == 1 {
-                guard (0...1).contains(raw.color.0),
-                      (0...1).contains(raw.color.1),
-                      (0...1).contains(raw.color.2) else {
-                    return .failure(.invalidArgument(
-                        "invalid dynamic layer mutation range"
-                    ))
-                }
             }
             let writtenFields = fields.subtracting(.created)
             switch (kind, raw.dynamic, writtenFields.rawValue) {
@@ -596,7 +587,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 text: text, font: font,
                 assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0,
-                particleAlpha: raw.particle_alpha,
+                particleAlpha: raw.particle_alpha, particleRate: raw.particle_rate, particleCount: raw.particle_count,
+                volume: raw.volume,
                 perspective: raw.perspective == 2 ? nil : raw.perspective != 0,
                 size: raw.size_available == 0 ? nil : .init(raw.size.0, raw.size.1),
                 textTemplateIdentity: raw.text_template_identity
@@ -703,14 +695,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         Set((preparedResourceLayerCatalog ?? [:]).filter { $0.value.isVideo }.map(\.key))
     }
 
-    func withdrawAuthoredVideoSources() throws {
-        guard mwx_scene_quickjs_domain_withdraw_authored_video_sources(handle) == MWX_SCENE_QUICKJS_OK else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument("video consumers cannot rebuild inside a callback")
-        }
-    }
-
-    /// Source construction and this immutable model binding precede callbacks.
-    /// Rebuilds may change the first device; stable Registry rows retain clocks.
+    /// Bind the initial prepared catalog once before callbacks; display changes reuse its sources.
     func configurePreparedVideoSources(_ references: [String: Int]) throws {
         for path in preparedVideoModelPaths {
             let index = references[path].map(UInt32.init) ?? UInt32.max

@@ -88,6 +88,7 @@ def fixture_entries(*, three_candidates=False):
 
 def named_vector_entries(control, *, utility_provider=None, forward_nested=False, visible_upstream=False, source_timing=None, provider_activation=False, slot_activation=None):
     """Owned inputs; every consumer samples actual named publications."""
+    independent = forward_nested in ("independent", "independent-reversed")
     renamed = control == "swapRename"
     shift, prefix, weight = (1000, "retitled_vector", "u_UnseenRatio") if renamed else (0, "own_vector", "g_OwnWeight")
     aid, bid, pid = 11 + shift, 12 + shift, 13 + shift
@@ -99,7 +100,7 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
     scene = json.loads(entries["scene.json"])
     objects = []
     for identifier, asset, x in ((aid, "a", 24), (bid, "b", 64), (pid, "pattern", 104)):
-        if control == "missing" and identifier == (pid if forward_nested else bid):
+        if control == "missing" and identifier == (pid if forward_nested and not independent else bid):
             continue
         objects.append({"id": identifier, "name": f"{prefix} hidden {asset}",
                         "image": f"models/{prefix}/{asset}.json", "origin": f"{x} 92 0",
@@ -109,6 +110,9 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
     vertex = entries["shaders/own_sample.vert"]
 
     def effect(name, slot_sources, body, *, reads_previous=False):
+        if independent and renamed:
+            slot_sources = {{2: 1, 5: 6}.get(slot, slot): provider for slot, provider in slot_sources.items()}
+            body = body.replace("g_Texture2", "g_Texture1").replace("g_Texture5", "g_Texture6")
         textures = [None] * (max(slot_sources, default=0) + 1)
         declarations = [f'uniform float {weight}; // {{"default":0.75}}']
         if reads_previous:
@@ -132,7 +136,7 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
     first = effect("z-first", {2: sa}, "gl_FragColor = texSample2D(g_Texture2,v_TexCoord);")
     second = effect("a-second", {5: sb}, mix("texSample2D(g_Texture0,v_TexCoord)", "texSample2D(g_Texture5,v_TexCoord)"), reads_previous=True)
     left, right = ("0.75", "0.25") if renamed else ("0.25", "0.75")
-    paired = effect("same-provider", {2: pid, 5: pid}, mix(
+    paired = effect("same-provider", {2: sa, 5: sb} if independent else {2: pid, 5: pid}, mix(
         f"texSample2D(g_Texture2,vec2({left},0.5))", f"texSample2D(g_Texture5,vec2({right},0.5))"))
     healthy = effect("healthy-a-only", {2: aid}, "gl_FragColor = texSample2D(g_Texture2,v_TexCoord);")
     if utility_provider is not None:
@@ -178,10 +182,9 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
         nested = {"id": nested_id, "name": f"{prefix} hidden effectful two-slot provider",
                   "image": f"models/{prefix}/entry.json", "origin": "24 92 0",
                   "size": "24 24", "visible": False, "effects": [paired]}
-        pattern = [item for item in objects if item["id"] == pid]
+        pattern = [] if independent else [item for item in objects if item["id"] == pid]
         objects = [item for item in objects if item["id"] != pid]
-        # C precedes P, which precedes its shared upstream; P has no authored
-        # dependencies, so its two live sampler slots own the nested demand.
+        # P's live slots own its demand; no authored dependency list substitutes for them.
         if source_timing is not None:
             pattern[0].update(image="models/util/composelayer.json", origin="104 72 0",
                               copybackground=source_timing != "transparent-forward")
@@ -230,6 +233,8 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
                        "image": "models/util/solidlayer.json", "origin": "113 92 0",
                        "size": "6 24", "color": "1 1 0"}
             scene["objects"] = objects + consumers[:3] + [underlay] + pattern + [occluder, nested] + consumers[3:]
+        elif forward_nested == "independent-reversed":
+            scene["objects"] = consumers[:3] + [nested] + objects[::-1] + consumers[3:]
         else:
             scene["objects"] = objects + consumers[:3] + [nested] + pattern + consumers[3:]
     else:
@@ -245,6 +250,10 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
     entries[f"models/{prefix}/pattern.json"] = encoded({"material": f"materials/{prefix}/pattern.json"})
     entries[f"materials/{prefix}/pattern.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{prefix}/pattern.png"]}]})
     entries[f"materials/{prefix}/pattern.png"] = horizontal_pair_png(a, b)
+    if independent and renamed:
+        for path in entries:
+            if path.startswith(f"shaders/{prefix}/"):
+                entries[path] = entries[path].replace(b"v_TexCoord", b"v_SeparateUV").replace(b"sampled", b"incomingColor")
     return project, entries
 
 
@@ -255,7 +264,8 @@ def named_vector_oracle(control, shown, *, utility_provider=None, forward_nested
     expected = {"solid": (24, 40, 56) if control == "missing" else mixed,
                 "image": a if control == "missing" else mixed, "sameProvider": mixed, "aOnly": a}
     if forward_nested:
-        expected.update(solid=mixed, image=mixed,
+        expected.update(solid=expected["solid"] if isinstance(forward_nested, str) else mixed,
+            image=expected["image"] if isinstance(forward_nested, str) else mixed,
             sameProvider={"both": (148, 32, 28), "A0": (4, 20, 16), "B0": (144, 12, 12),
                           "swapRename": (60, 64, 52), "missing": (24, 20, 56)}[control])
     if visible_upstream:
@@ -435,11 +445,13 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                     "oracle": oracle, "optionalSystemInput": "absent mediaThumbnail",
                     "colorBoundary": "named PMA sample -> straight RGB, alpha mask -> one PMA output"}
         if named_control is not None:
+            shift = 1000 if named_control == "swapRename" else 0
             later_shown = initially_shown if live_shown is None else live_shown
             protocol = {"namedControl": named_control,
                 "sourceA": (0, 0, 0) if named_control == "A0" else (192, 32, 16),
                 "sourceB": (0, 0, 0) if named_control == "B0" else (16, 160, 64),
-                "sourceEntry": (24, 40, 56), "weightA": .75, "weightB": .25, "slots": (2, 5),
+                "sourceEntry": (24, 40, 56), "weightA": .75, "weightB": .25,
+                "slots": (1, 6) if isinstance(forward_nested, str) and named_control == "swapRename" else (2, 5),
                 "sourcePatternUV": ((.75, .5), (.25, .5)) if named_control == "swapRename" else ((.25, .5), (.75, .5)),
                 "initiallyShown": initially_shown, "liveShown": live_shown,
                 "utilityProvider": None if utility_provider is None else {
@@ -461,13 +473,14 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 "colorBoundary": "owned opaque color inputs; actual named samples, no output color substitution"}
             if forward_nested:
                 scene = json.loads(entries["scene.json"])
-                protocol["nestedChain"] = {"consumer": 24 + (1000 if named_control == "swapRename" else 0),
-                    "provider": 14 + (1000 if named_control == "swapRename" else 0),
-                    "upstream": 13 + (1000 if named_control == "swapRename" else 0),
+                protocol["nestedChain"] = {"consumer": 24 + shift, "provider": 14 + shift, "upstream": 13 + shift,
                     "rawLayerOrder": [item["id"] for item in scene["objects"]],
                     "providerAuthoredDependencies": [], "suffixGreenFactor": .5,
                     "missingResource": "upstream" if named_control == "missing" else None,
                     "beforeGateConsumerRGB": (24, 20, 56)}
+                if isinstance(forward_nested, str):
+                    protocol["nestedChain"].update(independentUpstreams=True,
+                        upstreams=[11 + shift, 12 + shift], missingResource="B" if named_control == "missing" else None)
                 if visible_upstream:
                     chain = protocol["nestedChain"]
                     chain.pop("beforeGateConsumerRGB")
@@ -497,6 +510,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                                                    "interval": .3, "maxSamples": 32}}
         if source_control is not None:
             protocol = source_protocol
+        protocol["canvas"] = (256, 256)
         if slot_activation is not None:
             states = {"scene-ready-window.png": not slot_activation, "scene-after-window.png": slot_activation}
             if cold_slot:
@@ -625,7 +639,6 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                     self.assertIn(binding, log)
             return
         if named_control is not None:
-            shift = 1000 if named_control == "swapRename" else 0
             if source_timing is not None:
                 self.assert_source_timing_capture_chain(log, captures, protocol)
                 return
@@ -814,6 +827,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         chain = protocol["nestedChain"]
         consumer, provider, upstream = (chain[key] for key in ("consumer", "provider", "upstream"))
         missing = chain["missingResource"] is not None
+        independent, local_missing = chain.get("independentUpstreams", False), missing and chain.get("independentUpstreams", False)
         visible_upstream = chain.get("visibleUpstream", False)
         activation = protocol.get("slotActivation")
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
@@ -823,18 +837,21 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             event = self.selected_capture_event(capture, log, observations)
             rows = event["rows"]
             for layer in ((upstream, provider, consumer) if visible_upstream else (provider, consumer)):
-                self.assertEqual(sum(r["kind"] == "graph-transaction" and r.get("layerID") == layer
-                                     for r in rows), 1, rows)
+                count = sum(r["kind"] == "graph-transaction" and r.get("layerID") == layer for r in rows)
+                if local_missing and layer == provider: self.assertLessEqual(count, 1, rows)
+                else: self.assertEqual(count, 1, rows)
             publications = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == provider]
-            self.assertEqual(len(publications), 1, publications)
-            self.assertEqual(publications[0]["access"], "named-publication-only")
-            self.assertEqual(publications[0]["outcome"], "terminal-consumed")
+            self.assertLessEqual(len(publications), 1, publications)
+            if not local_missing: self.assertEqual(len(publications), 1, publications)
+            for publication in publications:
+                self.assertEqual((publication["access"], publication["outcome"]), ("named-publication-only", "terminal-consumed"))
             p_reads = [r for r in rows if r["kind"] == "material" and r.get("layerID") == provider
                        and r.get("effectIndex") == 0 and r.get("outcome") == "draw-encoded"]
             c_reads = [r for r in rows if r["kind"] in ("material", "terminal-material-replay")
                        and r.get("layerID") == consumer and r.get("effectIndex") == 0
-                       and r.get("slot") == 2 and r.get("outcome") == "draw-encoded"]
-            self.assertEqual(len(c_reads), 1, c_reads)
+                       and r.get("slot") == protocol["slots"][0] and r.get("outcome") == "draw-encoded"]
+            self.assertLessEqual(len(c_reads), 1, c_reads)
+            if not local_missing: self.assertEqual(len(c_reads), 1, c_reads)
             self.assertTrue(any(r["kind"] in ("material", "terminal-material-replay")
                 and r.get("layerID") == consumer and r.get("effectIndex") == (2 if activation else 1)
                 and r.get("outcome") == "draw-encoded" for r in rows))
@@ -853,14 +870,14 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             if missing:
                 self.assertEqual(p_reads, [])
             else:
-                self.assertEqual({r["slot"] for r in p_reads}, {2, 5})
+                self.assertEqual({r["slot"] for r in p_reads}, set(protocol["slots"]))
                 self.assertEqual(len(p_reads), 2)
-                self.assertEqual(p_reads[0]["source"]["textureToken"], p_reads[1]["source"]["textureToken"])
+                self.assertEqual(len({r["source"]["textureToken"] for r in p_reads}), 2 if independent else 1)
                 for field in ("generation", "contentGeneration"):
-                    self.assertIsInstance(p_reads[0]["source"][field], int)
-                    self.assertEqual(p_reads[0]["source"][field], p_reads[1]["source"][field])
+                    self.assertTrue(all(isinstance(r["source"][field], int) for r in p_reads))
+                    if not independent: self.assertEqual(p_reads[0]["source"][field], p_reads[1]["source"][field])
                 self.assertLess(max(rows.index(r) for r in p_reads), rows.index(publications[0]))
-            self.assertLess(rows.index(publications[0]), rows.index(c_reads[0]))
+            if publications and c_reads: self.assertLess(rows.index(publications[0]), rows.index(c_reads[0]))
             authored_main = None
             if visible_upstream:
                 u_material = [r for r in rows if r["kind"] == "material"
@@ -883,8 +900,8 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             receipts.append({"capture": capture.name, "frame": event["frameIndex"],
                 "request": event["captureRequestID"], "commandBuffer": event["commandBufferToken"], "surface": event["surfaceIdentity"],
                 "providerAssociationLimit": "provider IDs from authored slots and publication logs; no typed per-slot provider ID",
-                "providerTail": publications[0],
-                "providerReads": p_reads, "consumerRead": c_reads[0], "authoredMain": authored_main})
+                "providerTail": publications[0] if publications else None,
+                "providerReads": p_reads, "consumerRead": c_reads[0] if c_reads else None, "authoredMain": authored_main})
             if activation:
                 receipts[-1]["conditionalReads"] = conditional
                 receipts[-1]["consumerMain"] = c_main[0]
@@ -894,17 +911,18 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             self.assertEqual(log.count("phase=live-property-update accepted=true"), len(activation["states"]) - 1)
             self.assertRegex(log, r"phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1")
             self.assertEqual(len({row["surface"] for row in receipts}), 1)
-        for effect in ((0, 2) if activation else (0, 1)):
+        for effect in ((1,) if local_missing else (0, 2) if activation else (0, 1)):
             self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={consumer} effect={effect} "
                 r"[^\n]*backend=resolved-material-graph outcome=encoded-output ")
-        self.assertIn(f"phase=named-graph-output-publication layer={provider} status=succeeded", log)
-        if missing:
+        if not local_missing: self.assertIn(f"phase=named-graph-output-publication layer={provider} status=succeeded", log)
+        if missing and not independent:
             self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={provider} effect=0 "
                 r"[^\n]*backend=resolved-material-graph outcome=failed ")
             self.assertNotIn(f"phase=named-target-capture layer={upstream} status=succeeded", log)
-        else:
+        elif not missing:
             phase = "named-graph-output-publication" if visible_upstream else "named-target-capture"
-            self.assertIn(f"phase={phase} layer={upstream} status=succeeded", log)
+            for source in chain.get("upstreams", [upstream]):
+                self.assertIn(f"phase={phase} layer={source} status=succeeded", log)
             self.assertIn(f"phase=named-target-binding layer={provider} status=succeeded", log)
 
     def test_ordinary_three_slot_fallback_preserves_half_alpha_named_color(self):
@@ -925,10 +943,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 self.run_case(named_control=control)
 
     def test_forward_nested_two_slot_provider_publishes_to_earlier_consumer(self):
-        self.run_case(named_control="both", forward_nested=True)
-
-    def test_forward_nested_two_slot_provider_survives_rename(self):
-        self.run_case(named_control="swapRename", forward_nested=True)
+        for mode in (True, "independent", "independent-reversed"):
+            for control in (("both",) if mode == "independent-reversed" else ("both", "swapRename", "A0", "B0", "missing")):
+                with self.subTest(mode=mode, control=control):
+                    self.run_case(named_control=control, forward_nested=mode)
 
     def test_same_named_provider_keeps_only_active_effect_slots_after_hot_update(self):
         for control, enabled in (("both", False), ("swapRename", False)):
@@ -940,10 +958,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             self.run_case(named_control=control, forward_nested=True, slot_activation=False, cold_slot=True)
 
     def test_visible_upstream_graph_publishes_once_and_composites_at_authored_position(self):
-        self.run_case(named_control="both", forward_nested=True, visible_upstream=True)
-
-    def test_visible_upstream_contribution_and_renamed_uvs_keep_authored_position(self):
-        for control in ("A0", "swapRename"):
+        for control in ("both", "A0", "swapRename"):
             with self.subTest(control=control):
                 self.run_case(named_control=control, forward_nested=True, visible_upstream=True)
 
@@ -962,11 +977,6 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         self.run_case(named_control="both", forward_nested=True, source_timing="prefix-cycle",
                       provider_activation_sequence=(False, True, False))
 
-    def test_forward_nested_two_slot_inputs_contribute_and_missing_upstream_is_local(self):
-        for control in ("A0", "B0", "missing"):
-            with self.subTest(control=control):
-                self.run_case(named_control=control, forward_nested=True)
-
     def test_named_slot_vector_consumers_toggle_without_exposing_hidden_providers(self):
         self.run_case(named_control="both", initially_shown=False, live_shown=True)
         self.run_case(named_control="both", initially_shown=True, live_shown=False)
@@ -977,12 +987,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 self.run_case(named_control="both", utility_provider=visibility)
 
     def test_independent_sources_preserve_rgba_and_pixels_before_after_and_renamed(self):
-        for control in ("before", "after", "renamed"):
-            with self.subTest(sourceControl=control):
-                self.run_case(source_control=control)
-
-    def test_missing_or_decode_failed_independent_source_preserves_healthy_suffix_and_peer(self):
-        for control in ("missing-X", "decodeFailed-S-source"):
+        for control in ("before", "after", "renamed", "missing-X", "decodeFailed-S-source"):
             with self.subTest(sourceControl=control):
                 self.run_case(source_control=control)
 

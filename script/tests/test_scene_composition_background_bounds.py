@@ -8,12 +8,15 @@ Top-level passthrough cases additionally exercise an owned root Program through
 the existing live-effect runner; planner admission alone never proves a Program.
 Ordinary background groups additionally use a spatial root Program: its local
 UV mirror must exchange two markers, not merely remove out-of-bounds pixels.
+Nested perspective cases join Metal pixels to the prefix read and group writes.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 from pathlib import Path
 import re
 import shutil
@@ -34,11 +37,12 @@ enum BackgroundLocalPlannerProbe {
         func probe(_ rootID: Int = 20, _ childID: Int = 21,
                    copy: Bool = true, effects: [SceneRenderDescriptor.EffectDescriptor] = [],
                    childEffects: [SceneRenderDescriptor.EffectDescriptor] = [],
-                   ortho: Bool = true, perspective: Bool = false,
+                   ortho: Bool = true, canvas: Bool = true, perspective: Bool = false,
                    passthrough: Bool = false, childKind: String = "solid",
                    dependencies: [Int] = [], admitted: Bool = false,
+                   admittedChild: Bool = false,
                    nested: Bool = false, nestedBackground: Bool = false,
-                   nestedPassthrough: Bool = false) -> [String: Any] {
+                   nestedPassthrough: Bool = false, sized: Bool = false) -> [String: Any] {
             var utility = SceneUtilityLayer(kind: .composition)
             utility.copyBackground = copy
             utility.passthrough = passthrough
@@ -47,6 +51,7 @@ enum BackgroundLocalPlannerProbe {
                 utilityLayer: utility, dependencyLayerIDs: dependencies,
                 childLayerIDs: [childID], visible: true, effects: effects)
             root.usesPerspective = perspective
+            if sized { root.renderSizeWH = [144, 88] }
             var childUtility: SceneUtilityLayer?
             let populatedChildUtility = nestedBackground || nestedPassthrough
             if populatedChildUtility {
@@ -55,11 +60,12 @@ enum BackgroundLocalPlannerProbe {
                 composition.passthrough = nestedPassthrough
                 childUtility = composition
             }
-            let child = SceneRenderDescriptor.Layer(parentID: rootID, id: childID,
+            var child = SceneRenderDescriptor.Layer(parentID: rootID, id: childID,
                 contentKind: populatedChildUtility ? "composition" : childKind,
                 utilityLayer: childUtility, dependencyLayerIDs: [],
                 childLayerIDs: populatedChildUtility ? [childID + 100] : [],
                 visible: true, effects: childEffects)
+            if sized && populatedChildUtility { child.renderSizeWH = [128, 80] }
             // Array order is deliberately different from the authored order.
             var layers = [child, root]
             var order = [rootID, childID]
@@ -83,8 +89,11 @@ enum BackgroundLocalPlannerProbe {
             }
             var descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order)
             descriptor.camera.authoredOrthographicProjectionActive = ortho
+            descriptor.camera.orthoWidth = canvas ? 256 : nil
+            descriptor.camera.orthoHeight = canvas ? 256 : nil
+            let admittedIDs = (admitted ? [rootID] : []) + (admittedChild ? [childID] : [])
             let plans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor,
-                resolvedMaterialLayerIDs: admitted ? [rootID] : [])
+                resolvedMaterialLayerIDs: Set(admittedIDs))
             let execution = SceneUtilityLayerRuntimePlanner.execution(in: descriptor, plans: plans)
             let plan = plans[rootID]!
             var fact: [String: Any] = ["root": rootID, "child": childID,
@@ -92,13 +101,20 @@ enum BackgroundLocalPlannerProbe {
                 "local": plan.usesAuthoredLocalSource,
                 "captureRoots": execution.captureLayerIDs.sorted(),
                 "localRoots": execution.localSourceRootIDs.sorted(),
-                "backgroundRoots": execution.copyBackgroundRootIDs.sorted(),
+                "backgroundRoots": execution.backgroundSourcesByRootID.keys.sorted(),
                 "members": execution.membersByRootID[rootID] ?? [],
                 "childOwner": execution.memberRootsByLayerID[childID] ?? -1,
                 "order": execution.orderedLayerIDs]
             if nestedPassthrough {
                 fact["nestedDisposition"] = plans[childID]!.disposition.rawValue
                 fact["grandchildOwner"] = execution.memberRootsByLayerID[childID + 100] ?? -1
+            }
+            if nestedBackground {
+                fact["childBackground"] = execution.backgroundSourcesByRootID[childID]
+                    .map { String(describing: $0) } ?? "none"
+            }
+            if sized {
+                fact["replayRoots"] = execution.perspectiveReplayRootIDs.sorted()
             }
             return fact
         }
@@ -117,6 +133,11 @@ enum BackgroundLocalPlannerProbe {
             "unprepared-visible-effect": probe(effects: [visible]),
             "nested-background-viewport": probe(effects: [hidden], admitted: true,
                 nestedBackground: true),
+            "nested-background-prefix": probe(childEffects: [visible], admittedChild: true,
+                nestedBackground: true, sized: true),
+            "nested-background-unprepared-child": probe(childEffects: [visible],
+                nestedBackground: true, sized: true),
+            "nested-background-no-child-program": probe(nestedBackground: true, sized: true),
             "background-effect-nested-passthrough": probe(effects: [visible], admitted: true,
                 nestedPassthrough: true),
             "transparent-effect-nested-passthrough": probe(copy: false, effects: [visible],
@@ -125,7 +146,9 @@ enum BackgroundLocalPlannerProbe {
             "nested-passthrough-own-effect": probe(effects: [visible], childEffects: [visible],
                 admitted: true, nestedPassthrough: true),
             "not-orthographic": probe(ortho: false),
-            "perspective": probe(perspective: true),
+            "perspective": probe(perspective: true, sized: true),
+            "perspective-without-canvas": probe(canvas: false, perspective: true, sized: true),
+            "perspective-without-extent": probe(perspective: true),
             "passthrough-no-effect": probe(passthrough: true),
             "passthrough-renamed": probe(709, 218, copy: false, passthrough: true),
             "passthrough-hidden-effect": probe(effects: [hidden], passthrough: true, admitted: true),
@@ -229,6 +252,43 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
         self.assertNotIn(20, value["localRoots"], value)
         self.assertEqual(value["disposition"], "capture", value)
         self.assertIn(20, value["captureRoots"], value)
+        self.assertEqual(value["childBackground"], "enclosing", value)
+
+    def test_sized_nested_background_reads_scene_prefix_with_two_local_targets(self):
+        value = self.facts["nested-background-prefix"]
+        self.assertEqual(value["disposition"], "capture", value)
+        self.assertEqual(value["captureRoots"], [20, 21], value)
+        self.assertEqual(value["localRoots"], [20, 21], value)
+        self.assertEqual(value["backgroundRoots"], [20, 21], value)
+        self.assertEqual(value["childOwner"], 20, value)
+        self.assertEqual(value["childBackground"], "scenePrefix", value)
+        self.assertEqual(value["replayRoots"], [20], value)
+
+    def test_unprepared_nested_program_does_not_supply_a_replay_source(self):
+        value = self.facts["nested-background-unprepared-child"]
+        self.assertEqual(value["captureRoots"], [], value)
+        self.assertEqual(value["replayRoots"], [], value)
+        self.assertEqual(value["childBackground"], "none", value)
+
+    def test_nested_copy_without_child_program_keeps_the_legacy_cut(self):
+        value = self.facts["nested-background-no-child-program"]
+        self.assertFalse(value["local"], value)
+        self.assertEqual(value["captureRoots"], [21], value)
+        self.assertEqual(value["replayRoots"], [], value)
+        self.assertEqual(value["childBackground"], "enclosing", value)
+
+    def test_sized_top_level_perspective_has_a_local_replay_source(self):
+        value = self.facts["perspective"]
+        self.assertEqual(value["disposition"], "capture", value)
+        self.assertEqual(value["captureRoots"], [20], value)
+        self.assertEqual(value["localRoots"], [20], value)
+        self.assertEqual(value["childOwner"], 20, value)
+        self.assertEqual(value["replayRoots"], [20], value)
+
+    def test_auto_ortho_without_canvas_does_not_gain_replay(self):
+        value = self.facts["perspective-without-canvas"]
+        self.assertFalse(value["local"], value)
+        self.assertEqual(value["replayRoots"], [], value)
 
     def test_nested_passthrough_remains_a_structural_member_not_a_new_owner(self):
         value = self.facts["nested-passthrough-structural"]
@@ -258,11 +318,8 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
         self.assertEqual((value["childOwner"], value["grandchildOwner"]), (-1, -1), value)
 
     def test_neighboring_unqualified_profiles_do_not_gain_local_capture(self):
-        for name in ("not-orthographic", "perspective",
-                     "model-member", "particle-member", "external-dependency",
-                     "passthrough-not-orthographic", "passthrough-perspective",
-                     "passthrough-model-member", "passthrough-particle-member",
-                     "passthrough-external-dependency"):
+        for name in ("not-orthographic", "perspective-without-extent",
+                     "passthrough-not-orthographic", "passthrough-perspective"):
             with self.subTest(case=name):
                 value = self.facts[name]
                 self.assertFalse(value["local"], value)
@@ -270,6 +327,25 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
                 self.assertEqual(value["captureRoots"], [], value)
                 self.assertEqual(value["members"], [], value)
                 self.assertEqual(value["childOwner"], -1, value)
+
+    def test_model_and_particle_keep_the_existing_local_group_membership(self):
+        for name in ("model-member", "particle-member", "passthrough-model-member",
+                     "passthrough-particle-member"):
+            with self.subTest(case=name):
+                value = self.facts[name]
+                self.assertEqual(value["captureRoots"], [20], value)
+                self.assertEqual(value["localRoots"], [20], value)
+                self.assertEqual(value["members"], [21], value)
+
+    def test_unprepared_external_dependencies_block_the_local_route(self):
+        for name in ("external-dependency", "passthrough-external-dependency"):
+            with self.subTest(case=name):
+                value = self.facts[name]
+                self.assertTrue(value["local"], value)
+                self.assertEqual(value["disposition"], "unsupportedDependencies", value)
+                self.assertEqual(value["captureRoots"], [], value)
+                self.assertEqual(value["localRoots"], [], value)
+                self.assertEqual(value["members"], [], value)
 
 
 def _authored_point(local, quarter_turn):
@@ -452,6 +528,134 @@ def ordinary_root_program_preregistration(*, enabled):
         "oracleSourceSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
 
 
+def perspective_prefix_fixture(*, perspective, copy_background=None, renamed=False):
+    """Orthographic parent source with one nested invert and an independent peer."""
+    project, entries = app_fixture.fixture_entries(effect=True, renamed=renamed)
+    utility_path = "models/util/composelayer.json"
+    solid_path = next(path for path in entries if path.startswith("models/") and path != utility_path)
+    effect_path = next(path for path in entries if path.startswith("effects/"))
+    ids = dict(zip(("prefix", "outer", "sibling", "composition", "child", "peerPrefix",
+                    "peer", "peerChild", "late"),
+                   (73, 901, 218, 709, 307, 551, 303, 825, 812) if renamed
+                   else (10, 20, 21, 30, 31, 40, 50, 51, 60)))
+
+    def layer(key, image, origin, size, **authored):
+        return {"id": ids[key], "name": f"Rekeyed {key}" if renamed else f"Prefix test {key}",
+                "image": image, "origin": origin, "size": size, "visible": True, **authored}
+
+    def solid(key, origin, size, color, **authored):
+        return layer(key, solid_path, origin, size, color=color, **authored)
+
+    value = str(perspective).lower()
+    assignment = (f"const target = thisLayer; target.perspective = Boolean({int(perspective)});"
+                  if renamed else f"thisLayer.perspective = {value};")
+    outer = layer("outer", utility_path, "90 128 -64", "144 88", scale="0.75 1.25 1",
+                  visible={"value": True, "script": f"export function init(v) {{ {assignment} return v; }}"})
+    inner = layer("composition", utility_path, "0 0 0", "128 80", parent=ids["outer"],
+                  effects=[{"id": 130, "file": effect_path, "visible": True}])
+    if copy_background is not None:
+        inner["copybackground"] = copy_background
+    objects = [
+        solid("prefix", "93 128 0", "98 68", "1 0 0"),
+        outer,
+        solid("sibling", "4 0 0", "64 18", "0 1 0", parent=ids["outer"]),
+        inner,
+        solid("child", "-32 -26 0", "48 24", "1 1 0", parent=ids["composition"]),
+        solid("late", "118 127 0", "10 10", "1 1 1"),
+        solid("peerPrefix", "204 128 0", "36 36", "1 0 0"),
+        layer("peer", utility_path, "204 128 0", "60 76", copybackground=True,
+              effects=[{"id": 150, "file": effect_path, "visible": True}]),
+        solid("peerChild", "0 -24 0", "18 14", "1 1 0", parent=ids["peer"]),
+    ]
+    scene = {"version": 3, "general": {"orthogonalprojection": {"width": 256, "height": 256},
+        "clearcolor": "0 0 0", "clearenabled": True, "perspectiveoverridefov": 90}, "objects": objects}
+    entries["scene.json"] = app_fixture.encoded(scene)
+    if renamed:
+        for path in entries:
+            if path.startswith("shaders/"):
+                entries[path] = entries[path].replace(b"v_TexCoord", b"v_RekeyedUV")
+
+    # Front-facing z=-64 projects toward (128,128). At 90° FOV, cover
+    # viewports up to 2.5:1 put the plane between .44 and .67 of its
+    # orthographic distance from center. These patches are interior across
+    # that interval. PNG Y is 256 minus authored Y.
+    red, green, blue, cyan = (255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)
+    points = {
+        "external_red_only": ((113, 140 if perspective else 147), red if copy_background is False else cyan),
+        "external_red_over_outer_green": ((110, 128), green if copy_background is False else cyan),
+        "inverted_nested_child": ((95, 147) if perspective else (66, 168), blue),
+        "late_overlay_remains_stationary": ((118, 129), (255, 255, 255)),
+        "ordinary_neighbor_prefix": ((204, 128), cyan),
+        "ordinary_neighbor_child": ((204, 153), blue),
+    }
+    if perspective:
+        points.update(unprojected_child_absent=((66, 168), (0, 0, 0)),
+                      external_prefix_remains_stationary=((52, 128), red))
+    protocol = {"canvas": app_fixture.CANVAS, "layerIDs": ids,
+        "parameters": {"perspective": perspective, "innerCopyBackground":
+                       "omitted" if copy_background is None else copy_background, "renamed": renamed},
+        "oracle": {name: {"canvasRect": (x - 2, y - 2, x + 2, y + 2), "expectedRGB": color}
+                   for name, ((x, y), color) in points.items()},
+        "channelTolerance": app_fixture.CHANNEL_TOLERANCE,
+        "minimumCorrectAreaFraction": app_fixture.MINIMUM_CORRECT_FRACTION,
+        "captureMapping": "256x256 cover, front-facing fitted perspective",
+        "evidenceBoundary": "owned outer replay and nested prefix pixels with completed texture provenance",
+        "oracleSourceSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    return project, entries, protocol
+
+
+def childless_perspective_fixture(*, passthrough, perspective, renamed=False):
+    project, entries = app_fixture.fixture_entries(effect=True, childless=True, renamed=renamed)
+    scene = json.loads(entries["scene.json"])
+    scene["general"]["perspectiveoverridefov"] = 90
+    prefix, root = scene["objects"]
+    prefix["color"] = "1 0 0"
+    marker_id, late_id = (651, 812) if renamed else (11, 30)
+    marker = dict(prefix, id=marker_id, name="Green prefix marker", color="0 1 0",
+                  origin="78 128 0", size="28 28")
+    late = dict(prefix, id=late_id, name="White late marker", color="1 1 1",
+                origin="112 128 0", size="8 8")
+    angles = (30, 36, 0)
+    assignment = (
+        f"const card = thisLayer; card.perspective = Boolean({int(perspective)}); "
+        "card.angles = new Vec3(15 + 15, 6 * 6, 0);" if renamed else
+        f"thisLayer.perspective = {str(perspective).lower()}; "
+        "thisLayer.angles = new Vec3(30, 36, 0);"
+    )
+    root.update(name="Rekeyed replay card" if renamed else "Owned replay card",
+                origin="90 128 -64", size="100 76", config={"passthrough": passthrough},
+                visible={"value": True, "script": f"export function init(v) {{ {assignment} return v; }}"})
+    scene["objects"] = [prefix, marker, root, late]
+    entries["scene.json"] = app_fixture.encoded(scene)
+    if renamed:
+        for path in entries:
+            if path.startswith("shaders/"):
+                entries[path] = entries[path].replace(b"v_TexCoord", b"v_RekeyedUV")
+
+    # A fitted 90° camera projects this z=-64 plane toward (128,128).
+    # Across cover aspects 1...2.5, the green source at x=64...92 reaches
+    # (99,128) only in the projected replay. The original red at x=55
+    # reappears outside the replay, and the X/Y tilt excludes (130,141).
+    red, cyan, magenta = (255, 0, 0), (0, 255, 255), (255, 0, 255)
+    points = {
+        "prefix_at_unprojected_edge": ((55, 128), red if perspective else cyan),
+        "replayed_green_prefix": ((99, 128), magenta if perspective else cyan),
+        "replayed_red_prefix": ((118, 125), cyan),
+        "outside_tilted_corner": ((130, 141), red),
+        "later_peer_remains_white": ((112, 128), (255, 255, 255)),
+    }
+    protocol = {"canvas": app_fixture.CANVAS,
+        "layerIDs": {"prefix": prefix["id"], "composition": root["id"], "late": late_id},
+        "parameters": {"copybackground": "omitted", "passthrough": passthrough,
+                       "perspective": perspective, "anglesDegrees": angles, "renamed": renamed},
+        "oracle": {name: {"canvasRect": (x - 2, y - 2, x + 2, y + 2), "expectedRGB": color}
+                   for name, ((x, y), color) in points.items()},
+        "channelTolerance": app_fixture.CHANNEL_TOLERANCE,
+        "evidenceBoundary": "childless captured prefix and GPU replay through authored X/Y tilt",
+        "oracleSourceSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    return project, entries, protocol
+
+
 class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -500,6 +704,143 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
 
     def test_ordinary_active_root_program_mirrors_local_uv_and_clips_both_axes(self):
         self.run_ordinary_root_program(enabled=True)
+
+    def run_perspective_prefix(self, *, perspective, copy_background=None, renamed=False):
+        project, entries, protocol = perspective_prefix_fixture(
+            perspective=perspective, copy_background=copy_background, renamed=renamed)
+        with patch.object(app_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(app_fixture, "preregistration", return_value=protocol):
+            log, _ = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.run_case(self, effect=True)
+
+        observations = app_fixture.structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        ids = protocol["layerIDs"]
+        surfaces = set()
+        for reason in ("ready", "after"):
+            with self.subTest(snapshot=reason):
+                requests = re.findall(rf"phase=snapshot reason={reason} request=(\d+) source=metal ", log)
+                self.assertEqual(len(requests), 1)
+                encoded = list(re.finditer(
+                    rf"phase=snapshot-encoded request={requests[0]} commandBufferToken=(\d+) "
+                    r"textureToken=(\d+) width=(\d+) height=(\d+)", log))
+                self.assertEqual(len(encoded), 1)
+                token, texture, width, height = encoded[0].groups()
+                capture = app_fixture.terminal_composition_snapshot({"status": "captured",
+                    "request_id": int(requests[0]), "command_buffer_token": token, "texture_token": texture,
+                    "source_width": int(width), "source_height": int(height),
+                    "encoded_line_number": log.count("\n", 0, encoded[0].start()) + 1}, observations)
+                self.assertTrue(capture["composition_receipt_matched"], capture)
+                event = next(event for event in observations["events"]
+                             if event["captureRequestID"] == int(requests[0]) and event["commandBufferToken"] == token)
+                self.assertEqual(event["truncatedRows"], 0)
+                surfaces.add(capture["surface_identity"])
+                rows = event["rows"]
+
+                def encoded_row(kind, layer):
+                    matches = [row for row in rows if row["kind"] == kind and row.get("layerID") == ids[layer]
+                               and row["outcome"] == "draw-encoded"]
+                    self.assertEqual(len(matches), 1, (kind, layer, rows))
+                    return matches[0]
+
+                prefix = encoded_row("ordinary", "prefix")
+                sibling = encoded_row("ordinary", "sibling")
+                child = encoded_row("ordinary", "child")
+                material = encoded_row("material", "composition")
+                inner = encoded_row("group", "composition")
+                outer = encoded_row("group", "outer")
+                late = encoded_row("ordinary", "late")
+                positions = [rows.index(row) for row in (prefix, sibling, child, material, inner, outer, late)]
+                self.assertEqual(positions, sorted(positions))
+                main_token = outer["target"]["textureToken"]
+                outer_token = outer["source"]["textureToken"]
+                inner_token = child["target"]["textureToken"]
+                self.assertEqual(len({main_token, outer_token, inner_token}), 3)
+                self.assertEqual(prefix["target"]["textureToken"], main_token)
+                self.assertEqual(late["target"]["textureToken"], main_token)
+                self.assertEqual(sibling["target"]["textureToken"], outer_token)
+                self.assertEqual(inner["target"]["textureToken"], outer_token)
+                self.assertEqual(material["target"]["textureToken"], inner["source"]["textureToken"])
+                copies = [row for row in rows if row["kind"] == "group-background-capture"
+                          and row["outcome"] == "draw-encoded" and row["target"]["textureToken"] == inner_token]
+                self.assertEqual(len(copies), 0 if copy_background is False else 1, copies)
+                if copies:
+                    self.assertEqual(copies[0]["source"]["textureToken"], main_token)
+                    self.assertLess(rows.index(copies[0]), rows.index(child))
+        self.assertEqual(len(surfaces), 1)
+        self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), protocol["oracleSourceSHA256"])
+
+    def test_nested_copy_uses_external_prefix_with_perspective_off(self):
+        self.run_perspective_prefix(perspective=False)
+
+    def test_perspective_replays_nested_external_prefix_with_its_child(self):
+        self.run_perspective_prefix(perspective=True)
+
+    def test_perspective_inner_false_keeps_prior_outer_sibling_and_inverts_child(self):
+        self.run_perspective_prefix(perspective=True, copy_background=False)
+
+    def test_renamed_perspective_and_invert_preserve_the_external_prefix(self):
+        self.run_perspective_prefix(perspective=True, renamed=True)
+
+    def run_childless_perspective(self, *, passthrough, perspective, renamed=False):
+        project, entries, protocol = childless_perspective_fixture(
+            passthrough=passthrough, perspective=perspective, renamed=renamed)
+        ids = protocol["layerIDs"]
+        clock_settings = {"layerIDs": [ids["composition"]], "sceneTimeWindow": [0, 8],
+                          "interval": .25, "maxSamples": 32}
+        with patch.dict(os.environ, {"MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE": json.dumps(clock_settings)}), \
+                patch.object(app_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(app_fixture, "preregistration", return_value=protocol):
+            log, pixels = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.run_case(
+                self, effect=True, childless=True)
+        self.assertNotIn("layer has no perspective geometry consumer", log)
+        observations = app_fixture.structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        clock_prefix = "phase=timeline-frame-input json="
+        clocks = [json.loads(line.split(clock_prefix, 1)[1]) for line in log.splitlines() if clock_prefix in line]
+        paths = re.findall(r"phase=snapshot reason=(?:ready|after) request=\d+ source=metal path=([^\n]+)", log)
+        self.assertCountEqual([Path(path).name for path in paths], pixels)
+        surfaces = set()
+        for path in paths:
+            _, _, event, lower, upper = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.joined_capture(
+                self, Path(path), log, observations, clocks)
+            surfaces.add(event["surfaceIdentity"])
+            for clock in (lower, upper):
+                angles = next(value for value in clock["values"]
+                              if value["target"] == {"layerID": ids["composition"], "field": "angles"})
+                self.assertEqual(angles["source"], "sceneScript", angles)
+                for actual, degrees in zip(angles["resolved"]["value"], protocol["parameters"]["anglesDegrees"], strict=True):
+                    self.assertAlmostEqual(actual, math.radians(degrees), places=6, msg=str(angles))
+            if not perspective:
+                continue
+            rows = event["rows"]
+            root_rows = [row for row in rows if row.get("layerID") == ids["composition"]]
+            capture = next(row for row in root_rows if row["kind"] == "sourceCapture" and row["outcome"] == "encoded")
+            material = next(row for row in root_rows if row["kind"] == "material" and row["outcome"] == "draw-encoded")
+            replay, = [row for row in root_rows if row["kind"] == "group" and row["outcome"] == "draw-encoded"]
+            seal = next(row for row in rows if row["kind"] == "frame-seal" and row["outcome"] == "sealed")
+            prefix = next(row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == ids["prefix"])
+            late = next(row for row in rows if row["kind"] == "ordinary" and row.get("layerID") == ids["late"])
+            self.assertEqual(capture["source"]["textureToken"], prefix["target"]["textureToken"])
+            self.assertEqual(capture["target"]["textureToken"], material["source"]["textureToken"])
+            self.assertEqual(material["target"]["textureToken"], replay["source"]["textureToken"])
+            self.assertEqual(replay["target"]["textureToken"], late["target"]["textureToken"])
+            self.assertEqual(replay["target"]["textureToken"], seal["target"]["textureToken"])
+            positions = [rows.index(row) for row in (prefix, capture, material, replay, late, seal)]
+            self.assertEqual(positions, sorted(positions))
+        self.assertEqual(len(surfaces), 1)
+        self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), protocol["oracleSourceSHA256"])
+
+    def test_childless_passthrough_replays_default_copy_with_scripted_3d_angles(self):
+        self.run_childless_perspective(passthrough=True, perspective=True)
+
+    def test_childless_non_passthrough_replays_the_same_default_copy(self):
+        self.run_childless_perspective(passthrough=False, perspective=True)
+
+    def test_childless_passthrough_perspective_off_keeps_flat_output(self):
+        self.run_childless_perspective(passthrough=True, perspective=False)
+
+    def test_childless_passthrough_renamed_uses_the_same_replay(self):
+        self.run_childless_perspective(passthrough=True, perspective=True, renamed=True)
 
 
 def passthrough_fixture(*, renamed=False, initial_visible=False):

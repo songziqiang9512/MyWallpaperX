@@ -1,8 +1,8 @@
 import Foundation
 
 /// Proves the input interface of a single-texture base material. Neutral
-/// scalars lower to the image compositor; non-neutral, host or user-bound scalars
-/// retain the complete source Program and the existing typed value producers.
+/// scalars lower to the image compositor; scrolling, non-neutral, host or
+/// user-bound scalars retain the complete source Program and typed producers.
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
@@ -29,6 +29,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         var alphaUserPropertyKey: String? = nil
         var scalarUserPropertyKeys: [String: String] = [:]
         var canLowerToCompositor: Bool = true
+        var authoredOnlyUniforms: Set<String> = []
 
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
@@ -47,13 +48,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let dynamicPaths = Set(dynamicImageModelPaths.map(normalized))
         let modelPaths = dynamicPaths.union(descriptor.layers.compactMap(\.imagePath).map(normalized))
         return modelPaths.sorted().compactMap { modelPath in
+            let hasDynamicImageDemand = dynamicPaths.contains(modelPath)
             guard let result = binding(
                 modelPath: modelPath,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
+                hasDynamicImageDemand: hasDynamicImageDemand,
                 admittedLayerColorConsumerIDs:
                     admittedLayerColorConsumerIDs
-            ), result.scriptSource == nil || dynamicPaths.contains(modelPath) else { return nil }
+            ), result.scriptSource == nil || hasDynamicImageDemand else { return nil }
             return result
         }
     }
@@ -62,6 +65,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         modelPath: String,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
+        hasDynamicImageDemand: Bool,
         admittedLayerColorConsumerIDs: Set<Int>
     ) -> Binding? {
         let links = descriptor.modelMaterialLinks.filter {
@@ -96,13 +100,14 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let sourceLayers = descriptor.layers.filter {
             $0.imagePath.map(normalized) == normalized(modelPath)
         }
+        let hasHiddenSource = sourceLayers.contains { $0.visible == false }
         // Validate every consumer before selecting the authored context. A
         // filtered subset could silently skip the first reference or apply the
         // shared value to an unsupported sibling. No per-layer material copy.
-        guard let sourceLayer = sourceLayers.first, sourceLayers.allSatisfy({ layer in
+        guard let sourceLayer = sourceLayers.first, !hasHiddenSource || hasDynamicImageDemand,
+              sourceLayers.allSatisfy({ layer in
             if case .some = layer.utilityLayer { return false }
             return layer.contentKind == "image"
-                && layer.visible != false
                 && layer.puppetMeshPath == nil
                 && layer.staticModelPath == nil
                 && layer.staticBaseTexturePath == nil
@@ -176,7 +181,11 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         matrixSchema.materialKeys.allSatisfy({ pass.constantShaderValues[$0] == nil }) else {
             return reject(modelPath, "position-matrix-binding")
         }
-        guard let brightness = scalarBinding(
+        let scrollValues = fact.scrollUniformNames.compactMap {
+            scalarBinding(uniformName: $0, stage: .vertex, pass: pass, prepared: prepared)?.value
+        }
+        guard scrollValues.count == 2,
+              let brightness = scalarBinding(
                 uniformName: fact.brightnessUniformName,
                 stage: .fragment,
                 pass: pass,
@@ -189,18 +198,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                 pass: pass,
                 prepared: prepared,
                 allowsUser: true
-              ),
-              fact.scrollUniformNames.count == 2,
-              fact.scrollUniformNames.allSatisfy({
-                neutralScalar(
-                    uniformName: $0,
-                    stage: .vertex,
-                    expected: 0,
-                    pass: pass,
-                    prepared: prepared
-                )
-              }) else {
-            return reject(modelPath, "neutral-scalar-values")
+              ) else {
+            return reject(modelPath, "scalar-values")
         }
         var scalarUserPropertyKeys: [String: String] = [:]
         for scalar in [brightness, power] {
@@ -209,6 +208,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             }
         }
         let canLowerToCompositor = scalarUserPropertyKeys.isEmpty
+            && scrollValues.allSatisfy { $0 == 0 }
             && brightness.value.bitPattern == Double(1).bitPattern
             && power.value.bitPattern == Double(1).bitPattern
             // Annotation defaults prove the interface, not a constant writer.
@@ -234,9 +234,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }) else { return reject(modelPath, "source-layer-consumer") }
         // A lowered tint needs the direct compositor consumer. A full source
         // Program publishes before each layer's independent effect suffix.
-        guard !canLowerToCompositor || sourceLayers.allSatisfy({
+        guard !canLowerToCompositor || (!hasHiddenSource && sourceLayers.allSatisfy({
             $0.effects.isEmpty && admittedLayerColorConsumerIDs.contains($0.id)
-        }) else { return reject(modelPath, "source-layer-consumer") }
+        })) else { return reject(modelPath, "source-layer-consumer") }
         guard SceneResolvedMaterialHostUniformSchema.resolve(
             .init(name: fact.alphaUniformName, stage: .fragment, type: .float, offset: 0),
             activeTextureSlots: [0]
@@ -355,17 +355,6 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
               ) == nil
         else { return nil }
         return (entry.key, scalar, key)
-    }
-
-    private static func neutralScalar(
-        uniformName: String,
-        stage: SceneShaderContract.StageKind,
-        expected: Double,
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        prepared: SceneShaderPreparedProgram
-    ) -> Bool {
-        scalarBinding(uniformName: uniformName, stage: stage, pass: pass,
-            prepared: prepared)?.value.bitPattern == expected.bitPattern
     }
 
     private static func normalized(_ path: String) -> String {

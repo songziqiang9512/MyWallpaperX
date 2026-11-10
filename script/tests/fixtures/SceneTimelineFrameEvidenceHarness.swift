@@ -2,7 +2,20 @@ import Foundation
 
 /// Diagnostic input boundary: real parser, Program DTO, playback and resolver.
 enum SceneTimelineFrameEvidenceChecks {
-    static func frameEvidence(_ program: SceneTimelineProgram) throws -> [String: Bool] {
+    static func frameEvidence(_ inputProgram: SceneTimelineProgram) throws -> [String: Bool] {
+        let cameraTarget = SceneDynamicTarget.camera(.zoom)
+        let cameraParsed = SceneTimelineAnimationParser.parse(host: ["value": 3, "animation": [
+            "options": ["fps": 30, "length": 60, "mode": "single"],
+            "c0": [["frame": 0, "value": 3], ["frame": 30, "value": 1]]]])
+        guard let cameraAnimation = cameraParsed.animation, cameraParsed.diagnostics.isEmpty else {
+            throw NSError(domain: "camera evidence animation did not parse", code: 1)
+        }
+        let generalTarget = SceneDynamicTarget.camera(.generalZoom)
+        let program = SceneTimelineProgram(bindings: inputProgram.bindings + [SceneTimelineBinding(
+            definition: .init(target: cameraTarget, valueType: .scalar, authoredValue: .scalar(3)),
+            animation: cameraAnimation, composition: .absolute), SceneTimelineBinding(
+            definition: .init(target: generalTarget, valueType: .scalar, authoredValue: .scalar(3)),
+            animation: cameraAnimation, composition: .absolute)], diagnostics: inputProgram.diagnostics)
         guard let binding = program.bindings.first(where: { $0.playbackOwner != nil }),
               case let .layer(layerID, _) = binding.target else {
             throw NSError(domain: "evidence fixture needs a prepared transform", code: 1)
@@ -56,8 +69,10 @@ enum SceneTimelineFrameEvidenceChecks {
         let retired = output.last!
         let metadata = output[0]
         let bindings = metadata["bindings"] as! [[String: Any]]
+        let color = selected.first { ($0["target"] as? [String: Any])?["field"] as? String == "color" }
         var facts = [
-            "selection": firstRows.count == 6 && selected.count == 3 && missing.count == 3,
+            "selection": firstRows.count == 8 && selected.count == 4 && missing.count == 4,
+            "actualColor": (color?["resolved"] as? [String: Any])?["value"] as? [Double] == [1, 2, 3],
             "actualTimelineSource": selected.allSatisfy { $0["source"] as? String == "timeline" },
             "authoredFallbackSource": secondRows.filter {
                 ($0["target"] as! [String: Any])["layerID"] as? Int == layerID
@@ -69,10 +84,10 @@ enum SceneTimelineFrameEvidenceChecks {
             },
             "frameIdentity": first["frame"] as? Int == 42 && first["snapshotFrame"] as? Int == 42
                 && first["generation"] as? Int == 7 && first["sceneTime"] as? Double == 1,
-            "programProjection": bindings.count == 3 && bindings.allSatisfy {
+            "programProjection": bindings.count == 4 && bindings.allSatisfy {
                 ($0["target"] as! [String: Any])["layerID"] as? Int == layerID
                     && $0["owner"] != nil && $0["keyframeCounts"] != nil && $0["animation"] == nil
-            },
+            } && metadata["cameraZoom"] == nil,
             "duplicateNoBudget": deduplicated,
             "intervalNoBudget": intervalSkipped,
             "sampleLimit": frames.count == 2 && retired["samples"] as? Int == 2
@@ -80,6 +95,61 @@ enum SceneTimelineFrameEvidenceChecks {
             "noPlaybackConsumption": before == playback.observationSnapshot()
                 && originalSnapshot == resolution.snapshot && values == playback.values(sceneTime: 1),
         ]
+        let cameraConfig = try configuration(["layerIDs": [Int](), "cameraZoom": true, "maxSamples": 3])
+        let cameraBudget = SceneTimelineFrameEvidence.OutputBudget()
+        var cameraLines: [String] = []
+        let cameraObserve = SceneTimelineFrameEvidence(configuration: cameraConfig, budget: cameraBudget) { cameraLines.append($0) }
+        SceneTimelineFrameEvidence.recordProgram(program, configuration: cameraConfig, budget: cameraBudget) { cameraLines.append($0) }
+        cameraObserve.record(streamID: 10, frameIndex: 42, sceneTime: 1, snapshot: originalSnapshot)
+        let cameraBytes = cameraBudget.consumedBytes
+        cameraObserve.record(streamID: 10, frameIndex: 42, sceneTime: 1, snapshot: originalSnapshot)
+        facts["cameraDuplicateNoBudget"] = cameraBudget.consumedBytes == cameraBytes
+        cameraObserve.record(streamID: 10, frameIndex: 43, sceneTime: 1.25, snapshot: authored)
+        facts["cameraIntervalNoBudget"] = cameraBudget.consumedBytes == cameraBytes
+        let overridden = SceneDynamicSnapshotResolver().resolve(frameIndex: 44, generation: 8,
+            definitions: program.bindings.map(\.definition), timelineValues: values,
+            sceneScriptValues: [cameraTarget: .scalar(2)]).snapshot
+        cameraObserve.record(streamID: 10, frameIndex: 44, sceneTime: 1.5, snapshot: overridden)
+        cameraObserve.record(streamID: 10, frameIndex: 45, sceneTime: 2, snapshot: .empty(frameIndex: 45, generation: 8))
+        cameraObserve.finish()
+        let cameraOutput = try records(cameraLines)
+        let cameraFrames = cameraOutput.filter { $0["kind"] as? String == "frame" }
+        let cameraRows = cameraFrames.map { ($0["values"] as! [[String: Any]])[0] }
+        let cameraBindings = cameraOutput[0]["bindings"] as! [[String: Any]]
+        let cameraIdentity = ["owner": "camera", "field": "zoom"]
+        facts["cameraOnlySelection"] = cameraConfig.layerIDs.isEmpty && cameraRows.count == 3
+            && cameraFrames.allSatisfy { ($0["values"] as! [[String: Any]]).count == 2 }
+            && cameraRows.allSatisfy { $0["target"] as? [String: String] == cameraIdentity }
+        facts["cameraProgramProjection"] = cameraOutput[0]["cameraZoom"] as? Bool == true
+            && cameraBindings.count == 2 && cameraBindings[0]["target"] as? [String: String] == cameraIdentity
+            && cameraBindings[0]["owner"] as? [String: String] == cameraIdentity
+            && cameraBindings[0]["keyframeCounts"] as? [Int] == [2]
+            && (cameraBindings[0]["authored"] as! [String: Any])["value"] as? Double == 3
+        facts["cameraTimelineAndWriterSource"] = cameraRows[0]["source"] as? String == "timeline"
+            && (cameraRows[0]["resolved"] as! [String: Any])["value"] as? Double == 1
+            && cameraRows[1]["source"] as? String == "sceneScript"
+            && (cameraRows[1]["resolved"] as! [String: Any])["value"] as? Double == 2
+            && cameraRows.prefix(2).allSatisfy { ($0["resolved"] as! [String: Any])["type"] as? String == "scalar" }
+            && cameraRows.prefix(2).allSatisfy { ($0["authored"] as! [String: Any])["value"] as? Double == 3 }
+        let generalRows = cameraFrames.map { ($0["values"] as! [[String: Any]])[1] }
+        facts["cameraGeneralIdentityAndIndependentSource"] = generalRows.allSatisfy {
+            $0["target"] as? [String: String] == ["owner": "camera", "field": "generalZoom"]
+        } && generalRows.prefix(2).allSatisfy {
+            $0["source"] as? String == "timeline"
+                && ($0["resolved"] as! [String: Any])["value"] as? Double == 1
+                && ($0["authored"] as! [String: Any])["value"] as? Double == 3
+        } && (cameraBindings[1]["target"] as? [String: String])?["field"] == "generalZoom"
+        facts["cameraMissingIsNotUnitZoom"] = cameraRows[2]["source"] is NSNull
+            && (cameraRows[2]["resolved"] as! [String: Any])["state"] as? String == "missing"
+            && (cameraRows[2]["authored"] as! [String: Any])["state"] as? String == "missing"
+        facts["cameraSingleCadenceAndBorrowedClock"] = cameraOutput.last?["samples"] as? Int == 3
+            && before == playback.observationSnapshot() && originalSnapshot == resolution.snapshot
+        var mixedLines: [String] = []
+        let mixed = SceneTimelineFrameEvidence(configuration: try configuration(["cameraZoom": true]),
+            budget: cameraBudget) { mixedLines.append($0) }
+        mixed.record(streamID: 11, frameIndex: 42, sceneTime: 1, snapshot: originalSnapshot)
+        mixed.finish()
+        facts["cameraMixedAddsTwoInputRows"] = (try records(mixedLines)[0]["values"] as? [[String: Any]])?.count == 10
         var invalidCount = 0
         for bad in [["layerIDs": [Int]()], ["layerIDs": [layerID, layerID]],
                     ["layerIDs": Array(0..<9)],
@@ -182,6 +252,10 @@ enum TimelineFrameEvidenceHarness {
                     valueType: .vector3, authoredValue: .vector3(10, 20, 30)),
                     animation: vector, composition: .additive, playbackOwner: root)
             }
+            bindings.append(SceneTimelineBinding(definition: .init(
+                target: .layer(layerID: layerID, field: .color), valueType: .vector3,
+                authoredValue: .vector3(0.25, 0.5, 0.75)),
+                animation: vector, composition: .absolute))
             bindings.append(SceneTimelineBinding(definition: .init(
                 target: .layer(layerID: layerID + 1, field: .alpha), valueType: .scalar,
                 authoredValue: .scalar(1)), animation: try animation(vector: false), composition: .absolute))

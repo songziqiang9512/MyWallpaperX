@@ -160,19 +160,21 @@ nonisolated extension SceneParticleControlPoint {
     }
 
     func hasBoundedWorldForceInput(identity: Int) -> Bool {
-        guard (1 ... 7).contains(identity), id == identity, !hasMalformedFields, rawFlags == 2,
+        guard (1 ... 7).contains(identity), id == identity,
+              !hasMalformedOffset, !hasMalformedMetadata, rawFlags == 2,
               angles == nil, parentControlPoint == nil else { return false }
         return Self.boundedVector(offset, fallback: .zero) != nil
     }
 
     func boundedEmitterAngle(identity: Int) -> SIMD3<Double>? {
-        guard id == identity, !hasMalformedFields, rawFlags == 0 || rawFlags == 16,
+        guard id == identity, !hasMalformedMetadata, rawFlags == 0 || rawFlags == 16,
               parentControlPoint == nil else { return nil }
         return Self.boundedVector(angles, fallback: .zero)?.normalizedAngles
     }
 
     var boundedEmitterOffset: SIMD3<Double>? {
-        Self.boundedVector(offset, fallback: .zero)
+        guard !hasMalformedOffset else { return nil }
+        return Self.boundedVector(offset, fallback: .zero)
     }
 
     private static func boundedVector(
@@ -248,7 +250,7 @@ nonisolated extension SceneParticleOperator {
         return .supported(.init(
             controlPoint: controlPoint ?? 0,
             origin: origin,
-            acceleration: acceleration,
+            acceleration: acceleration * 0.75,
             maximumDistance: maximumDistance
         ))
     }
@@ -503,7 +505,8 @@ nonisolated extension SceneParticleDefinition {
             guard SceneParticleSimulationMath.supportsControlPointSource(0, in: self)
             else { return nil }
             if let point = controlPoints.first(where: { $0.id == 0 }),
-               point.hasMalformedFields || !point.hasBoundedStaticInput(identity: 0)
+               point.hasMalformedOffset || point.hasMalformedMetadata
+                || !point.hasBoundedStaticInput(identity: 0)
                 || (point.offset != nil && point.offset != .vector([0, 0, 0])) {
                 return nil
             }

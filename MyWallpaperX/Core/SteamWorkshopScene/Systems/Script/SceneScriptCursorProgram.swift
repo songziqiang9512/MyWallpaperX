@@ -72,6 +72,27 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         clearCandidateEvents()
     }
 
+    func retireSurfaceInputs(_ surfaceIDs: Set<UInt32>) {
+        if let capturedSurfaceID, surfaceIDs.contains(capturedSurfaceID) {
+            capturedHits = [:]
+            self.capturedSurfaceID = nil
+        }
+        if let previousSurfaceID, surfaceIDs.contains(previousSurfaceID) {
+            previousHits = [:]
+            previousPointerPosition = nil
+            self.previousSurfaceID = nil
+            previousSurface = nil
+        }
+        // A removed screen does not release the physical button.
+        pendingEvents.removeAll { $0.surfaceID.map(surfaceIDs.contains) == true }
+    }
+
+    func retirePrimaryButtonStream() {
+        previousPrimaryButtonIsDown = false
+        capturedHits = [:]
+        capturedSurfaceID = nil
+    }
+
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
     func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.ownerTarget) { $0.0.owner.restoreTimerFrame($0.1) } } }
     func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.discardTimerFrame($0.1) } }
@@ -104,7 +125,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         candidateEvents = pendingEvents.filter { !disabledTargets.contains($0.ownerTarget) }
         defer {
             bindings.forEach {
-                $0.owner.clearCursorAuthoredLayerBaselines()
+                $0.owner.clearAuthoredLayerReadBaselines()
             }
         }
         if batch.overflowed {
@@ -460,6 +481,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             binding: SceneScriptCursorBinding,
             hit: SceneScriptCursorHit,
             callbackFrame: SceneScriptFrameInput,
+            surfaceID: UInt32?,
             captureActive: Bool,
             currentHit: Bool,
             nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil
@@ -477,7 +499,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 return
             }
             candidateEvents.append(.init(ownerTarget: target, kind: kind, hit: hit,
-                surface: callbackFrame.surface, captureActive: captureActive, currentHit: currentHit,
+                surface: callbackFrame.surface, surfaceID: surfaceID,
+                captureActive: captureActive, currentHit: currentHit,
                 nativeShortcutGesture: nativeShortcutGesture))
             eventCounts[target, default: 0] += 1
         }
@@ -519,6 +542,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                             replacingSurfaceOf: frame,
                             with: sample.leavingSurface ?? previousSurface
                         ) : callbackFrame,
+                        surfaceID: previousSurfaceID,
                         captureActive: capturedHits[binding.layerID] != nil,
                         currentHit: false
                     )
@@ -528,6 +552,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     record(
                         .enter, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
+                        surfaceID: sample.surfaceID,
                         captureActive: capturedHits[binding.layerID] != nil,
                         currentHit: true
                     )
@@ -536,6 +561,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     record(
                         .down, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
+                        surfaceID: sample.surfaceID,
                         captureActive: false, currentHit: true,
                         nativeShortcutGesture: sample.nativeShortcutGesture
                     )
@@ -551,6 +577,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     record(
                         .move, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
+                        surfaceID: sample.surfaceID,
                         captureActive: captured,
                         currentHit: admittedHits[binding.layerID] != nil
                     )
@@ -564,6 +591,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     record(
                         .up, binding: binding, hit: releaseHit,
                         callbackFrame: callbackFrame,
+                        surfaceID: sample.surfaceID,
                         captureActive: true,
                         currentHit: admittedHits[binding.layerID] != nil,
                         nativeShortcutGesture: sample.nativeShortcutGesture
@@ -572,6 +600,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                         record(
                             .click, binding: binding, hit: releaseHit,
                             callbackFrame: callbackFrame,
+                            surfaceID: sample.surfaceID,
                             captureActive: true, currentHit: true,
                             nativeShortcutGesture: sample.nativeShortcutGesture
                         )

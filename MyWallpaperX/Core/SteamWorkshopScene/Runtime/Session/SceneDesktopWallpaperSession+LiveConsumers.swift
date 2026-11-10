@@ -254,7 +254,9 @@ extension SceneDesktopWallpaperSession {
             changedPropertyKeys: acceptedKeys) else { return false }
         reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
-        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
+        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
+            committedSnapshot: evaluationTransaction.committedSnapshot,
+            committedHandleVolumeLayerIDs: context.sceneScriptDynamicLayerRuntime.committedHandleVolumeLayerIDs)
         launchContext = context
         return true
     }
@@ -371,7 +373,9 @@ extension SceneDesktopWallpaperSession {
         }
         reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
-        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
+        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
+            committedSnapshot: evaluationTransaction.committedSnapshot,
+            committedHandleVolumeLayerIDs: context.sceneScriptDynamicLayerRuntime.committedHandleVolumeLayerIDs)
         adoptedSurfaces.forEach {
             $0.metalView.commitPreparedDeferredBaseImages(
                 layerIDs: pending.layerIDs

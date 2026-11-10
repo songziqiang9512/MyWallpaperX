@@ -344,7 +344,7 @@ private func runMultiNodeCases(
             }
         }
     }
-    let results: [String: Bool] = [
+    var results: [String: Bool] = [
         "launchWarmupPreparesEveryUniqueOrdinaryPipeline":
             ordinaryWarmupReport.plannedPlanCount == 2
                 && ordinaryWarmupReport.uniqueKeyCount > 0
@@ -374,6 +374,10 @@ private func runMultiNodeCases(
         "fboVisualFailureRecoversOnNextFrame":
             fboVisualFailureRecoveredNextFrame,
     ]
+    results.merge(runMaterialGraphViewCases(
+        device: device, queue: queue, source: source,
+        sourcePipeline: sourcePipeline
+    )) { _, new in new }
     return (
         ordinaryGraph,
         secondarySelfUnavailableGraph,
@@ -403,4 +407,106 @@ private func runMultiNodeCases(
         declarationConflictMultiNodeFailure,
         results
     )
+}
+
+private func runMaterialGraphViewCases(
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    source: MTLTexture,
+    sourcePipeline: SceneImageLayerPipeline
+) -> [String: Bool] {
+    var results: [String: Bool] = [:]
+    for (ordinal, name) in ["direct", "renamed"].enumerated() {
+        let indices = ordinal == 0 ? [0, 1, 2] : [7, 11, 23]
+        let targets = ["blue", "green"].map { channel in
+            Graph.TextureIdentity(
+                kind: .framebuffer, layerID: layerID, effect: effect,
+                name: ordinal == 0 ? channel : "other-resource-\(channel)"
+            )
+        }
+        let probe = graph(targets: targets.map { rawTarget($0) }, nodes: [
+            material(indices[0], ordinal: 0, target: targets[0], read: input),
+            material(indices[1], ordinal: 1, target: targets[1], read: input),
+            material(indices[2], ordinal: 2, target: output, read: targets[0],
+                     additionalBindings: [binding(targets[1], slot: 1)]),
+        ])
+        let chain = admittedGraph(probe)
+        let variable = ordinal == 0 ? "mixedColor" : "resultChannels"
+        let blueTerm = ordinal == 0
+            ? "texSample2D(g_Texture0, v_TexCoord).rgb * 0.25"
+            : "texSample2D(g_Texture0, v_TexCoord).rgb / 4.0"
+        let fragment = """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+        uniform sampler2D g_Texture1; // {"material":"framebuffer"}
+        uniform sampler2D g_Texture2; // {"material":"previous","hidden":true}
+        void main() {
+            vec3 \(variable) = \(blueTerm)
+                + texSample2D(g_Texture1, v_TexCoord).rgb * 0.5
+                + texSample2D(g_Texture2, v_TexCoord).rgb * 0.75;
+            gl_FragColor = vec4(\(variable), 1.0);
+        }
+        """
+        var entries = catalog(for: probe).entries
+        for (index, node) in probe.nodes.enumerated() {
+            let original = template(for: node)
+            let shader = shaderContract(
+                nodeIndex: node.nodeIndex, pass: false,
+                constantColor: index == 0 ? "0.0, 0.0, 1.0" : "0.0, 1.0, 0.0",
+                fragmentOverride: index == 2 ? fragment : nil
+            )
+            let value = Template.validated(
+                textureSlots: original.textureSlots, combos: original.combos,
+                uniformDeclarations: original.uniformDeclarations,
+                renderState: original.renderState, graphRole: original.graphRole,
+                shaderContract: shader, diagnosticProvenance: .init(
+                    nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
+                    contractIdentity: shader.identity,
+                    contractCanonicalSHA256: shader.canonicalSHA256,
+                    textureSources: [], uniformSources: []
+                )
+            )!
+            entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(
+                value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)
+            )
+        }
+        let values = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []))
+        let key = "materialGraphView-" + name
+        for phase in ["Prepared", "Encoded", "GPUCompleted", "Pixels"] {
+            results[key + phase] = false
+        }
+        let generation = UInt64(220 + ordinal)
+        guard let claim = values.claim(chain),
+              let capability = values.resolve(claim.token, for: chain),
+              let leases = makeChainedLeases(capability, device: device, generation: generation),
+              let executor = Executor(device: device, capabilities: values),
+              let command = queue.makeCommandBuffer() else { continue }
+        let result = executor.prepare(
+            token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+            frame: frame(generation), sourceTexture: source, sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline, frameInputs: .init(), commandBuffer: command,
+            previousStates: [:], previousGraphResources: [:],
+            effectGeneration: generation, resetGeneration: generation
+        )
+        guard case let .success(prepared) = result,
+              prepared.stages.count == 1,
+              prepared.stages[0].programCacheKeys.count == 3,
+              prepared.stages[0].effectLocalFailureReasonCode == nil,
+              prepared.stages[0].effectLocalActivationBypassReasonCode == nil else { continue }
+        results[key + "Prepared"] = true
+        guard executor.encode(prepared, commandBuffer: command),
+              let readback = appendReadback(prepared.finalTexture, commandBuffer: command)
+        else { continue }
+        results[key + "Encoded"] = true
+        command.commit()
+        command.waitUntilCompleted()
+        let completed = command.status == .completed && command.error == nil
+        results[key + "GPUCompleted"] = completed
+        // Blue and green FBOs plus the red implicit input have distinct weights.
+        results[key + "Pixels"] = completed && executor.effectLocalFallbackCounts.isEmpty
+            && prepared.finalResource.publication.requestIdentity == .graph(output)
+            && matches(readback.firstPixel, [64, 128, 191, 255])
+            && matches(readback.lastPixel, [64, 128, 191, 255])
+    }
+    return results
 }

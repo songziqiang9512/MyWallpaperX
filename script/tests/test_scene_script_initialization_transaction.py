@@ -36,10 +36,10 @@ struct SceneSoundPlaybackRegistry {
         .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
             simulationFrameTime: 1.0 / 60, sceneTime: runtime))
     }
-    static func domain() throws -> SceneScriptQuickJSDomain {
+    static func domain(_ name: String = "subject") throws -> SceneScriptQuickJSDomain {
         let d = try SceneScriptQuickJSDomain()
         try d.configureLayerCatalog(.init(layers: [.init(id: 1, layerIndex: 0,
-            name: "subject", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
+            name: name, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
             scaleHasScript: nil, alpha: 1, effects: [])]))
         return d
     }
@@ -62,6 +62,102 @@ struct SceneSoundPlaybackRegistry {
         o.evaluate(input: .vector3(input, 0, 0), frame: frame(time),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
             interruptBudget: nil)
+    }
+    static func initializationException(_ kind: String, explicit: Bool, renamed: Bool) throws -> [String: Bool] {
+        let d = try domain(renamed ? "alternate subject" : "subject")
+        let local = renamed ? "retainedSubject" : "subject"
+        let calls = renamed ? "preparations" : "initCalls"
+        let updates = renamed ? "laterEntries" : "updates"
+        let lookup = renamed ? "thisScene.getLayer(['alternate','subject'].join(' '))"
+            : "thisScene.getLayer('subject')"
+        let input: SceneDynamicValue
+        let expected: SceneDynamicValue
+        let target: SceneDynamicTarget
+        let returned: String
+        switch kind {
+        case "scalar":
+            input = .scalar(0.5); expected = .scalar(0.75)
+            target = .layer(layerID: 1, field: .alpha); returned = "0.75"
+        case "bool":
+            input = .bool(true); expected = .bool(false)
+            target = .layer(layerID: 1, field: .visibility); returned = "false"
+        case "vector":
+            input = .vector3(1,1,1); expected = .vector3(2,3,4)
+            target = .layer(layerID: 1, field: .scale); returned = "new Vec3(2,3,4)"
+        default:
+            input = .string("authored"); expected = .string("continued")
+            target = .text(layerID: 1, field: .content); returned = "'continued'"
+        }
+        let source = """
+        let \(local), calls=0;
+        export function init(value){
+          calls++;shared.\(calls)=(shared.\(calls)||0)+1;\(local)=\(lookup);
+          \(local).visible=false;\(local).origin=new Vec3(9,8,7);
+          engine.setTimeout(()=>{shared.expired=(shared.expired||0)+1;},1);
+          let absent=\(renamed ? "thisLayer['getTexture'+'Animation']()" : "thisLayer.getTextureAnimation()");
+          absent.pause();
+        }
+        export function update(value){
+          if(!\(local)||calls!==1)throw new Error('lost init local');
+          shared.\(updates)=(shared.\(updates)||0)+1;
+          if(engine.runtime>=3)throw new Error('late update');
+          if(!\(local).visible||\(local).origin.x!==0)throw new Error('failed journal leaked');
+          \(local).visible=false;\(local).origin=new Vec3(4,5,6);return \(returned);
+        }
+        """
+        let owner = try SceneScriptValueOwner(domain: d, source: source, target: target,
+            valueType: input.valueType, effectNames: [], allowsStatefulLayerSideEffects: true,
+            generation: 1, budget: .default)
+        let observer = try vector(d, "export function update(v){return new Vec3(shared.\(calls)||0,shared.\(updates)||0,shared.expired||0);}")
+        func observe(_ time: Double) throws -> SceneDynamicValue {
+            let result = try evaluate(observer, 0, time).get()
+            observer.commitLayerMutations()
+            return result.value
+        }
+        func update(_ time: Double) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
+            owner.evaluate(input: input, frame: frame(time), scriptPropertiesJSON: "",
+                userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)
+        }
+        let checkpoint = owner.timerFrameSnapshot()
+        let first: String
+        if explicit {
+            first = value(owner.initializeIfNeeded(input: input, frame: frame(1),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+                interruptBudget: nil, retainsValueForNextUpdate: true))
+        } else { first = value(update(1)) }
+        let clean = try SceneScriptLayerMutationBridge.mutations(owner: owner.handle, ownerTarget: target).get().isEmpty
+            && mwx_scene_quickjs_owner_active_timer_count(owner.handle) == 0
+        let afterFailure = try observe(1)
+        owner.discardLayerMutations()
+        owner.restoreTimerFrame(checkpoint)
+        owner.discardTimerFrame(checkpoint)
+        let terminalAfterRollback = !owner.needsInitialization
+            && mwx_scene_quickjs_owner_is_initialized(owner.handle)
+        let skipped = try owner.initializeIfNeeded(input: input, frame: frame(1.5),
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get() == nil
+        let later = try update(2).get()
+        owner.discardLayerMutations()
+        let retriedFrame = try update(2.5).get()
+        owner.commitLayerMutations()
+        let beforeLateError = try observe(2.5)
+        let lateError = value(update(3))
+        owner.discardLayerMutations()
+        let disabled = value(update(4))
+        let healthyPeer = try observe(4)
+        return [
+            "initExceptionIsReportedOnce": first == "init-exception" && skipped,
+            "failedInitDiscardsJournalAndTimer": clean && afterFailure == .vector3(1,0,0),
+            "failedInitRemainsTerminalAcrossRollback": terminalAfterRollback,
+            "laterValuesSurvive": later.value == expected && retriedFrame.value == expected,
+            "laterSideEffectsSurvive": [later, retriedFrame].allSatisfy { evaluation in
+                evaluation.layerMutations.contains { $0.layerID == 1 && $0.origin == SIMD3<Double>(4,5,6)
+                    && $0.fields.contains(.origin) && (kind == "bool" || !$0.visible) }
+            },
+            "initLocalSurvivesWithoutRetry": beforeLateError == .vector3(1,2,0),
+            "laterUpdateExceptionStillFuses": lateError == "exception" && disabled == "disabled",
+            "healthyPeerSurvives": healthyPeer == .vector3(1,3,0),
+        ]
     }
     static func cohort(_ retryVariant: Bool) throws -> [String: Bool] {
         let vm = try SceneScriptQuickJSDomain()
@@ -210,7 +306,7 @@ struct SceneSoundPlaybackRegistry {
         }
         let peer = "export function init(value){thisLayer.origin=new Vec3(7,8,9);return value;}"
         var bindings = [binding(1, source), binding(2, peer)]
-        if failure == "conflict" {
+        if failure == "laterOwner" {
             bindings.append(binding(4, "export function init(value){thisScene.getLayerByID(3).text='foreign';thisLayer.origin=new Vec3(99,0,0);return value;}"))
         }
         let vectors = SceneScriptVectorProgram.compile(domain: vm, descriptor: descriptor,
@@ -250,14 +346,14 @@ struct SceneSoundPlaybackRegistry {
                 && (accepted ? updateWrite?.text == "final" : updateWrite == nil),
             "sameOwnerAdmittedOnceForState": rejected.contains(sourceTarget) != accepted
                 && values[alpha] == (accepted ? .scalar(0.6) : nil)
-                && values[content] == (accepted ? .string("final") : nil),
+                && values[content] == (accepted ? .string(failure == "laterOwner" ? "foreign" : "final") : nil),
             "unmodifiedInitAndPropertyFieldsSurvive": values[.layer(layerID: 3, field: .scale)] == (accepted ? .vector3(2,3,4) : nil)
                 && values[.text(layerID: 3, field: .color)] == (accepted ? .vector3(0.25,0.5,0.75) : nil),
             "preflightIsReadOnly": readOnly,
             "throwRejectsWholeOwner": failure != "throw" || update.vector.failures[sourceTarget]?.code == "exception"
                 && !admission.admission.admittedEffects.contains { $0.ownerTarget == sourceTarget },
-            "differentOwnerStillConflicts": failure != "conflict" || rejected.contains(conflictTarget)
-                && values[.layer(layerID: 4, field: .origin)] == nil,
+            "laterOwnerReplacesOnlyItsFields": failure != "laterOwner" || !rejected.contains(conflictTarget)
+                && values[.layer(layerID: 4, field: .origin)] == .vector3(99,0,0),
             "healthyPeerRemainsCommitted": !rejected.contains(peerTarget)
                 && values[.layer(layerID: 2, field: .origin)] == .vector3(7,8,9)]
     }
@@ -408,7 +504,8 @@ struct SceneSoundPlaybackRegistry {
                 && second.1.contains { $0.ownerTarget == sourceTarget } == (failure == "rate"),
             "successDoesNotReplay": !second.1.contains { $0.ownerTarget == peerTarget }
                 && third.1.isEmpty && position(failure == "throw" ? 0 : requested),
-            "throwKeepsFuse": failure != "throw" || first.0.failures[sourceTarget]?.code == "exception",
+            "throwTerminatesInitialization": failure != "throw"
+                || first.0.failures[sourceTarget]?.code == "init-exception" && !sourceOwner.needsInitialization,
         ]
     }
 
@@ -570,16 +667,22 @@ struct SceneSoundPlaybackRegistry {
         let memoryFailure = value(evaluate(memory, 1))
         memory.discardLayerMutations()
         payload["memoryFuse"] = [memoryFailure, value(evaluate(memory, 1, 2))]
-        let exception = try vector(d, "export function init(v) { throw new Error('broken'); } export function update(v) { return v; }")
-        let hard = value(evaluate(exception, 1))
-        exception.discardLayerMutations()
-        payload["permanent"] = [hard, value(evaluate(exception, 1, 2))]
+        var initExceptions: [String: [String: Bool]] = [:]
+        for kind in ["scalar", "bool", "vector", "string"] {
+            for explicit in [false, true] {
+                for renamed in [false, true] {
+                    initExceptions["\(kind)-\(explicit)-\(renamed)"] = try initializationException(
+                        kind, explicit: explicit, renamed: renamed)
+                }
+            }
+        }
+        payload["initExceptions"] = initExceptions
         let stale = try vector(d, "export function init(v) { return v; }")
         payload["stale"] = value(stale.initializeIfNeeded(input: .vector3(1,0,0), frame: frame(1),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 2, interruptBudget: nil))
         payload["cohorts"] = try [cohort(false), cohort(true)]
         payload["callbackCohorts"] = try [callbackCohort("none"), callbackCohort("none", renamed: true),
-            callbackCohort("throw"), callbackCohort("conflict")]
+            callbackCohort("throw"), callbackCohort("laterOwner")]
         payload["mixedSeeks"] = try [mixedAnimationSeek("none"), mixedAnimationSeek("none", renamed: true),
             mixedAnimationSeek("throw"), mixedAnimationSeek("rate")]
         print(String(decoding: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), as: UTF8.self))
@@ -617,9 +720,14 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
         self.assertTrue(self.value["provisionalConsumptionQuiet"])
     def test_init_timers_follow_local_and_whole_frame_rejection(self):
         self.assertEqual([self.value[k] for k in ("timerProvisional", "timerRejected", "timerRetried", "timerFrameRejected", "timerCommitted")], [1,0,1,0,1])
-    def test_permanent_failure_and_stale_generation_remain_closed(self):
-        self.assertEqual(self.value["permanent"], ["exception", "disabled"])
+    def test_stale_generation_remains_closed(self):
         self.assertEqual(self.value["stale"], "stale-owner")
+
+    def test_ordinary_init_exception_is_terminal_but_later_callbacks_remain_live(self):
+        for case, scenario in self.value["initExceptions"].items():
+            for behavior, passed in scenario.items():
+                with self.subTest(case=case, behavior=behavior):
+                    self.assertTrue(passed, scenario)
 
     def test_scalar_and_string_share_initialization_commit_boundary(self):
         self.assertEqual(self.value["scalarLocalValues"], [0.1, 0.2])

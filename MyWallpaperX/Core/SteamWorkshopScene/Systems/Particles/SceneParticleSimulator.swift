@@ -109,6 +109,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         initialPlayback: SceneParticlePlaybackSnapshot = .init(),
+        initialAudioInput: SceneParticleAudioInput = .silent,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -120,8 +121,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan? = nil,
         controlPointForceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         initialControlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
-        stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
+        stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy] = [],
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) {
         self.playback = initialPlayback
@@ -133,6 +135,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.dynamicControlPoints = initialDynamicControlPoints
         self.dynamicControlPointAngles = initialDynamicControlPointAngles
+        self.audioInput = initialAudioInput
         self.maximumEmissionDuration = maximumEmissionDuration
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
@@ -198,9 +201,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             definition.operators[$0].kind == .oscillatePosition
         }
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
-        self.stepSnapshotRecorder = stepSnapshotPolicy.map(
-            SceneParticleStepSnapshotRecorder.init(policy:)
-        )
+        self.stepSnapshotRecorder = stepSnapshotPolicies.isEmpty ? nil
+            : SceneParticleStepSnapshotRecorder(policies: stepSnapshotPolicies)
         self.simulationSeed = seed
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
@@ -223,8 +225,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // prewarmed world-space systems convert through the launch frame.
         activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
-               historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0,
                controlPointParticleSpace: initialControlPointParticleSpace,
+               collisionBoundsFrame: collisionBoundsFrame,
                shouldCancel: shouldCancelPrewarm)
 #if DEBUG
         componentObservation?.origin = "live"
@@ -251,6 +253,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         playback.revision = transition.revision
     }
 
+    /// Revision can advance through emits while this surface is still preparing.
+    func adoptPlayback(_ state: SceneParticlePlaybackSnapshot) {
+        if state.intent == .stopped || (state.intent == .playing && playback.intent == .stopped) {
+            for index in emitters.indices { emitters[index].rearm() }
+        }
+        playback = state
+        if state.intent == .stopped { discardPopulationForPlayback() }
+    }
+
     /// Completed emitters and author pause/stop intent survive visibility changes.
     func restartPopulationForVisibility() {
         for index in emitters.indices where playback.intent == .playing && !emitters[index].hasFinishedEmission(
@@ -267,6 +278,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         audioInput: SceneParticleAudioInput = .silent,
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame? = nil,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         allowsEmission: Bool = true
     ) {
@@ -287,7 +299,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
-            step(by: fixedTimeStep, controlPointParticleSpace: controlPointParticleSpace)
+            step(by: fixedTimeStep, controlPointParticleSpace: controlPointParticleSpace,
+                 collisionBoundsFrame: collisionBoundsFrame)
             accumulator -= fixedTimeStep
         }
         if accumulator < 0 { accumulator = 0 }
@@ -326,8 +339,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         return deathEvents
     }
 
-    nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
-        stepSnapshotRecorder?.consume(particles: particles) ?? []
+    nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshotPolicy: [SceneParticleStepSnapshot]] {
+        stepSnapshotRecorder?.consume(particles: particles) ?? [:]
     }
 
     /// Captures mutable simulation state before a frame is admitted. The
@@ -445,8 +458,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(
-        duration: Double, stepBudget: Int?, historyCapacity: Int,
+        duration: Double, stepBudget: Int?,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         shouldCancel: (() -> Bool)?
     ) {
         guard duration != 0 else { return }
@@ -458,24 +472,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
-        // Background preparation completes the request. Synchronous callers
-        // retain their existing bounded steps and work estimate.
+        // Roots complete on the worker; ordinary child construction keeps its step bound.
         let requestedCount = Int(requestedSteps)
-        let count = stepBudget.map { min(requestedCount, min(max($0, 0), 3_600)) }
+        let count = stepBudget.map { min(requestedCount, max($0, 0)) }
             ?? requestedCount
-        var initializerCost = 0.0
-        var operatorCost = 0.0
-        var boidsCount = 0.0
-        if stepBudget != nil && count > 240 {
-            for value in definition.initializers {
-                initializerCost += 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
-            }
-            for value in definition.operators {
-                operatorCost += 32
-                if case .boids = value.kind { boidsCount += 1 }
-            }
-        }
-        var workRemaining = 4_000_000.0
         var completedSteps = 0
         var remaining = duration
 #if DEBUG
@@ -488,25 +488,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
                 break
             }
-            if stepBudget != nil && completedSteps >= 240 && workRemaining <= 0 { break }
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
-            let previousID = nextParticleID
-            let previousTime = simulationTime
-            step(by: slice, controlPointParticleSpace: controlPointParticleSpace)
+            step(by: slice, controlPointParticleSpace: controlPointParticleSpace,
+                 collisionBoundsFrame: collisionBoundsFrame)
             completedSteps += 1
-            if stepBudget != nil && completedSteps > 240 {
-                // IDs include failed births that reached initialization; lives
-                // still contains the actual pre-death-compaction population.
-                let births = Double(nextParticleID - previousID)
-                let live = simulationTime != previousTime ? Double(normalizedLives.count) : 0
-                let work = Double(definition.emitters.count + definition.operators.count)
-                    + births * initializerCost
-                    + live * (32 + operatorCost + Double(historyCapacity))
-                    + boidsCount * live * live
-                workRemaining -= max(1, work)
-            }
             // These events have never been replayed to children after warmup.
             // Drain per step so a long, short-lived emitter cannot retain its
             // entire prehistory. The bounded trail recorder remains intact.
@@ -527,7 +514,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private nonisolated func step(
         by frameDuration: Double,
-        controlPointParticleSpace: SceneParticleControlPointParticleSpace?
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?
     ) {
         // Rate scales the entire simulation step once. Keep the wall-time step
         // budget unchanged instead of multiplying integration work by the rate.
@@ -548,26 +536,27 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
-        for index in particles.indices {
-            particles[index].alpha = particles[index].initialAlpha
-            particles[index].size = particles[index].initialSize
-            particles[index].color = particles[index].initialColor
-            particles[index].age += duration
-            normalizedLives.append(min(max(
-                particles[index].age / max(particles[index].lifetime, 1e-12), 0
-            ), 1))
+        particles.withUnsafeMutableBufferPointer { buffer in
+            for index in buffer.indices {
+                buffer[index].alpha = buffer[index].initialAlpha
+                buffer[index].size = buffer[index].initialSize
+                buffer[index].color = buffer[index].initialColor
+                buffer[index].age += duration
+                normalizedLives.append(min(max(
+                    buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
+                ), 1))
+            }
         }
         for (operatorIndex, value) in definition.operators.enumerated() {
             apply(value, operatorIndex: operatorIndex, duration: duration,
                   existingParticleIDUpperBound: existingParticleIDUpperBound,
-                  controlPointParticleSpace: controlPointParticleSpace)
+                  controlPointParticleSpace: controlPointParticleSpace,
+                  collisionBoundsFrame: collisionBoundsFrame)
         }
-        // Collect deaths and compact the live prefix in one pass. The previous
-        // two-pass sequence walked every particle once for events and again for
-        // removal, which is a measurable cost for authored systems with tens of
-        // thousands of particles. Preserve authored order while keeping the
-        // event payload and oscillation-cache cleanup identical.
-        var liveCount = 0
+        // A leading range of deaths can be removed in bulk. If a later
+        // death splits the survivors, move the visited range only once.
+        var leadingDeaths = 0
+        var writeIndex: Int?
         for readIndex in particles.indices {
             let particle = particles[readIndex]
             if particle.age + 1e-12 >= particle.lifetime {
@@ -577,15 +566,26 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                         particleID: particle.id, operatorIndex: operatorIndex
                     ))
                 }
-                continue
+                if readIndex == leadingDeaths {
+                    leadingDeaths += 1
+                } else if writeIndex == nil {
+                    let visitedSurvivors = readIndex - leadingDeaths
+                    if leadingDeaths > 0 {
+                        for index in 0..<visitedSurvivors {
+                            particles[index] = particles[index + leadingDeaths]
+                        }
+                    }
+                    writeIndex = visitedSurvivors
+                }
+            } else if let destination = writeIndex {
+                particles[destination] = particle
+                writeIndex = destination + 1
             }
-            if liveCount != readIndex {
-                particles[liveCount] = particle
-            }
-            liveCount += 1
         }
-        if liveCount < particles.count {
-            particles.removeLast(particles.count - liveCount)
+        if let survivorCount = writeIndex {
+            particles.removeLast(particles.count - survivorCount)
+        } else if leadingDeaths > 0 {
+            particles.removeSubrange(..<leadingDeaths)
         }
         simulationTime += duration
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
@@ -735,7 +735,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         spawnPlan: SceneParticleEmitterSpawnPlan,
         frame: SceneParticleEmitterControlPointFrame, strict: Bool = false
     ) -> SceneParticleState? {
-        guard spawnPlan.hasBoundedDirectionsAndSign,
+        guard spawnPlan.hasValidShapeInputs,
               let speedMinimum = spawnPlan.speedMinimum,
               let speedMaximum = spawnPlan.speedMaximum else { return nil }
         var velocity = SIMD3<Double>.zero

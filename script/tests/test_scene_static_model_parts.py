@@ -491,8 +491,7 @@ def resource_support():
     load=(SCENE/'Systems/Puppet/ScenePuppetLayerLoad.swift').read_text()
     config=load[load.index('    struct BoneConfiguration {'):
                 load.index('    /// A launch may retain this result')]
-    initial=load[load.index('    static func initialBoneConfiguration('):
-                 load.index('    struct Outcome {')]
+    initial=swift_declaration(load, '    static func initialBoneConfiguration(')
     bones='\nenum ScenePuppetLayerLoad {\n'+config+initial+'\n}\n'
     properties=(SCENE/'Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift').read_text()
     visibility=swift_declaration(properties, '    nonisolated static func visibilityTargets(')

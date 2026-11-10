@@ -3,6 +3,7 @@
 using namespace metal;
 
 constant bool weightsSourceAlpha [[function_constant(0)]];
+constant bool discardsEmptyDepthWrites [[function_constant(1)]];
 
 // Fixed product shader for the sole image/source compositor. The Swift mirror
 // is SceneLayerFragmentUniforms in SceneMetalPipeline.swift.
@@ -179,6 +180,10 @@ fragment float4 sceneImageLayerFrag(
             * float4(input.modelPosition, 0.0, 1.0);
         const float2 prefixUV = prefixClip.xy / prefixClip.w * float2(0.5, -0.5) + 0.5;
         result.rgb += dependencyTexture.sample(linearClampSampler, prefixUV).rgb * (1.0 - result.a);
+    }
+    if (is_function_constant_defined(discardsEmptyDepthWrites)
+        && discardsEmptyDepthWrites && all(result == float4(0.0))) {
+        discard_fragment();
     }
     return result;
 }

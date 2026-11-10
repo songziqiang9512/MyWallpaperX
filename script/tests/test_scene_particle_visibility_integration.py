@@ -134,6 +134,53 @@ def fixture_entries(*, missing_texture=False, script_mode=None, show_emit=None, 
     return project, entries
 
 
+def control_point_offset_entries(renamed=False):
+    prefix, point_id, base_id = ("retitled", 2, 600) if renamed else ("offset", 1, 50)
+    material = f"materials/{prefix}.json"
+    model = f"models/{prefix}.json"
+    entries = {model: encoded({"solidlayer": True, "width": 256, "height": 256}),
+        material: encoded({"passes": [{"shader": "genericparticle", "textures": [f"{prefix}.png"],
+            "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+        f"materials/{prefix}.png": white_png()}
+    objects, oracle, layers = [], {}, {}
+    cases = [("reference", 50, 128, "16 24 0", True, {}),
+             ("selected", 90, 128, "bad" if renamed else {"bad": 1}, True, {}),
+             ("required-default", 130, 128, {"bad": 1}, False, {}),
+             ("bad-angle", 170, 128, {"bad": 1}, True, {"angles": "bad"}),
+             ("bad-flags", 50, 176, {"bad": 1}, True, {"flags": {"bad": 1}}),
+             ("bad-parent", 90, 176, {"bad": 1}, True, {"parentcontrolpoint": {"bad": 1}}),
+             ("bad-selected-position", 130, 176, {"bad": 1}, True, {})]
+    for index, (name, x, y, offset, override, metadata) in enumerate(cases):
+        identity, path = base_id + index, f"particles/{prefix}-{name}.json"
+        color = "255 255 255" if name == "reference" else "255 0 0"
+        definition = {"material": material, "maxcount": 4, "starttime": 0.25,
+            "controlpoint": [{"id": point_id, "flags": 0, "offset": offset,
+                              "angles": "0 0 1.5707963267948966", **metadata}],
+            "emitter": [{"name": "sphererandom", "controlpoint": point_id, "origin": "24 0 0",
+                         "distancemin": 0, "distancemax": 0, "speedmin": 0, "speedmax": 0, "rate": 0, "instantaneous": 1}],
+            "initializer": [{"name": "lifetimerandom", "min": 30, "max": 30},
+                            {"name": "sizerandom", "min": 8, "max": 8},
+                            {"name": "colorrandom", "min": color, "max": color}],
+            "renderer": [{"name": "sprite"}]}
+        obj = {"id": identity, "name": f"{prefix} {name}", "particle": path,
+               "origin": f"{x - 64} {y - 24} 0", "visible": True}
+        if override:
+            value = "1 2" if name == "bad-selected-position" else "64 0 0"
+            obj["instanceoverride"] = {f"controlpoint{point_id}": {"value": value} if renamed else value}
+        objects.append(obj); entries[path] = encoded(definition)
+        expected = [255, 255, 255] if name == "reference" else [255, 0, 0] if name == "selected" else [0, 0, 0]
+        oracle[name] = {"canvasRect": [x - 2, 256 - y - 2, x + 2, 256 - y + 2], "expectedRGB": expected}
+        layers[str(identity)] = {"name": name, "path": path, "expectedInstances": 1 if name in ("reference", "selected") else 0}
+    objects.append({"id": base_id + 20, "name": f"{prefix} healthy peer", "image": model,
+                    "origin": "220 128 0", "size": "16 16", "color": "0 1 0"})
+    oracle["peer"] = {"canvasRect": [218, 126, 222, 130], "expectedRGB": [0, 255, 0]}
+    entries["scene.json"] = encoded({"version": 3, "general": {
+        "orthogonalprojection": {"width": 256, "height": 256}, "clearcolor": "0 0 0"}, "objects": objects})
+    return {"type": "scene", "file": "scene.json"}, entries, {"canvas": [256, 256], "channelTolerance": 3,
+        "oracle": oracle, "layers": layers, "peerLayer": base_id + 20,
+        "positionBasis": "selected CP (64,0) + quarter-turn emitter origin (24,0), then layer origin; authored Y projects to 256-Y"}
+
+
 def measure_particles(path):
     """Read actual sprites and the independent clock from declared canvas ROIs."""
     width, height, rows = png_rgb_pixels(path)
@@ -372,6 +419,93 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
 
     def test_parent_visible_return_rejection_rolls_back_peer_alpha_and_safe_explicit_births(self):
         self.run_case(parented=True, missing_texture=True, script_mode="return")
+
+    def test_angled_emitter_ignores_only_replaced_malformed_default_position(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                self.run_control_point_offset_case(renamed)
+
+    def run_control_point_offset_case(self, renamed):
+        from script.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
+        project, entries, protocol = control_point_offset_entries(renamed)
+        self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
+        with tempfile.TemporaryDirectory(prefix="mwx-cp-offset-") as temporary:
+            root = Path(temporary)
+            content, home, evidence = root / "content", root / "home", root / "evidence"
+            content.mkdir(); home.mkdir()
+            (content / "project.json").write_bytes(encoded(project))
+            (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
+            command = [str(self.app), "--mwx-debug-scene-root", str(content),
+                "--mwx-debug-scene-duration", "4", "--mwx-debug-scene-after-snapshot-delay", "2",
+                "--mwx-debug-scene-evidence-dir", str(evidence)]
+            env = {key: value for key, value in os.environ.items()
+                   if not key.startswith(("MWX_SCENE_DEBUG_", "MYWALLPAPERX_SCENE_DEBUG_"))}
+            env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1",
+                       MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
+            identity = {"command": command, "appSHA256": self.frozen_app_hashes,
+                "inputSHA256": file_hashes((content / "project.json", content / "scene.pkg")),
+                "entrySHA256": {key: hashlib.sha256(value).hexdigest() for key, value in entries.items()},
+                "testSHA256Before": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+            (root / "protocol.json").write_bytes(encoded(protocol))
+            pixels, receipts = {}, {}
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
+            log = result.stdout + result.stderr
+            (root / "app.log").write_text(log)
+            identity.update(returncode=result.returncode, appSHA256After=app_hashes(self.app),
+                inputSHA256After=file_hashes((content / "project.json", content / "scene.pkg")),
+                testSHA256After=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+            try:
+                observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+                for reason in ("ready", "after"):
+                    png = evidence / f"scene-{reason}-window.png"
+                    pixels[reason] = measure_capture(png, protocol)
+                    capture = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(png))}", log)
+                    self.assertIsNotNone(capture, log[-6000:])
+                    frame = re.search(rf"phase=snapshot-encoded request={capture[1]} commandBufferToken=(\d+) "
+                        r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
+                    self.assertIsNotNone(frame, log[-6000:])
+                    matched = terminal_composition_snapshot({"status": "captured", "request_id": int(capture[1]),
+                        "command_buffer_token": frame[1], "texture_token": frame[2],
+                        "source_width": int(frame[3]), "source_height": int(frame[4])}, observations)
+                    self.assertTrue(matched["composition_receipt_matched"], matched)
+                    receipts[reason] = next(e for e in observations["events"] if e.get("captureRequestID") == int(capture[1])
+                        and e.get("commandBufferToken") == frame[1])
+                self.assertEqual(result.returncode, 0, log[-6000:])
+                self.assertEqual(observations["parse_errors"], 0)
+                self.assertRegex(log, r"phase=stopped surfacesBefore=1 surfacesAfter=0[^\n]*gpuDrained=true")
+                self.assertEqual(identity["appSHA256"], identity["appSHA256After"])
+                self.assertEqual(identity["inputSHA256"], identity["inputSHA256After"])
+                self.assertEqual(identity["testSHA256Before"], identity["testSHA256After"])
+                for reason, measured in pixels.items():
+                    event = receipts[reason]
+                    self.assertEqual((event["gpuStatus"], event["truncatedRows"]), ("completed", 0))
+                    main = next(row["target"]["textureToken"] for row in event["rows"] if row["kind"] == "frame-seal")
+                    layers = {settings["name"]: (int(layer), settings) for layer, settings in protocol["layers"].items()}
+                    for name in ("reference", "peer", *(name for name in layers if name != "reference")):
+                        region = measured["rois"][name]
+                        self.assertGreater(region["total"], 0, (reason, name, region))
+                        self.assertGreaterEqual(region["correct"] / region["total"], .99, (reason, name, region))
+                        if name == "peer":
+                            self.assertTrue(any(row["kind"] == "ordinary" and row.get("layerID") == protocol["peerLayer"]
+                                and row["outcome"] == "draw-encoded" and row["target"]["textureToken"] == main
+                                for row in event["rows"]), event)
+                            continue
+                        layer, settings = layers[name]
+                        draws = [row for row in event["rows"] if row["kind"] == "particle"
+                                 and row.get("layerID") == layer and row["outcome"] == "draw-encoded"]
+                        self.assertEqual(len(draws), settings["expectedInstances"], (reason, settings, draws))
+                        for row in draws:
+                            self.assertEqual(int(row["details"]["instanceCount"]), 1, row)
+                            self.assertEqual(row["source"]["role"], "particle-color")
+                            self.assertEqual([row["source"]["width"], row["source"]["height"]], [4, 4])
+                            self.assertEqual(row["target"]["textureToken"], main, row)
+            finally:
+                (root / "pixels.json").write_bytes(encoded(pixels))
+                (root / "receipts.json").write_bytes(encoded(receipts))
+                (root / "run-identity.json").write_bytes(encoded(identity))
+                if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                    target = Path(destination) / self._testMethodName / ("renamed" if renamed else "original")
+                    shutil.copytree(root, target, ignore=shutil.ignore_patterns("home", "shader-cache"))
 
 
 def ancestor_translation_entries(case):

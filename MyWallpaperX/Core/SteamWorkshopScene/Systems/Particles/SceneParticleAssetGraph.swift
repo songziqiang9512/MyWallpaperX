@@ -122,6 +122,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
     func load(
         rootPaths: [String],
         materialPasses: [SceneParticleMaterialPass],
+        supportsAmbientLighting: Bool = false,
         preparedDefinitions: [String: PreparedDefinition]? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneParticleAssetGraph {
@@ -194,7 +195,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
             let refractionPlan: SceneParticleRefractionPlanner.Plan?
             if let materialPass, let compiledRenderState {
                 refractionPlan = SceneParticleRefractionPlanner.plan(
-                    for: materialPass, renderState: compiledRenderState
+                    for: materialPass, renderState: compiledRenderState,
+                    supportsAmbientLighting: supportsAmbientLighting
                 )
             } else {
                 refractionPlan = nil
@@ -222,7 +224,9 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     refraction = SceneParticleRefractionDeclaration(
                         normalTextureSource: nil,
                         amount: refractionPlan.amount,
-                        overbright: refractionPlan.overbright
+                        overbright: refractionPlan.overbright,
+                        usesAmbientLighting: refractionPlan.usesAmbientLighting,
+                        cutout: refractionPlan.cutout
                     )
                 } else if let refractionPlan,
                           let normalReference = refractionPlan.normalReference,
@@ -232,7 +236,9 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     refraction = SceneParticleRefractionDeclaration(
                         normalTextureSource: normal,
                         amount: refractionPlan.amount,
-                        overbright: refractionPlan.overbright
+                        overbright: refractionPlan.overbright,
+                        usesAmbientLighting: refractionPlan.usesAmbientLighting,
+                        cutout: refractionPlan.cutout
                     )
                 } else if refractionPlan == nil {
                     diagnose(.refractionUnsupported, path, "unsupportedMaterialProfile")
@@ -252,7 +258,6 @@ nonisolated struct SceneParticleAssetGraphLoader {
             let pipelineState = compiledRenderState.flatMap {
                 SceneParticlePipelineRenderStateCompiler.compile(
                     $0,
-                    definition: definition,
                     materialPass: materialPass,
                     isRefraction: refraction != nil
                 )

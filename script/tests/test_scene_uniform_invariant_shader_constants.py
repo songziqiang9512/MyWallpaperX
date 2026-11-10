@@ -118,6 +118,38 @@ void main() {{
                         "fragment": fragment}
         case["equivalentTo"] = source
         result.append(case)
+    for name, source, qualifier in (
+        ("readonly-callee-prototype", "direct-uniform", ""),
+        ("renamed-callee-prototype", "renamed-parenthesized", "in "),
+        ("repeated-callee-prototype", "pure-pow", "const in "),
+    ):
+        case = dict(originals[source], name=name, equivalentTo=source)
+        declarations, body = case["pair"]["fragment"].split("void main() {")
+        vector, scalar = case["vector"], case["scalar"]
+        helpers = (f"vec2 copyVector({qualifier}vec2 {vector});\n"
+                   f"float copyScalar({qualifier}float {scalar});\n")
+        if qualifier == "const in ":
+            helpers += f"float copyScalar(const in float renamedFormal);\n"
+        definition_qualifier = qualifier if qualifier == "const in " else ""
+        helpers += (f"vec2 copyVector({definition_qualifier}vec2 {vector}){{return {vector};}}\n"
+                    f"float copyScalar({definition_qualifier}float {scalar}){{return {scalar};}}\n")
+        # Substitute only the caller: helper formals deliberately shadow globals.
+        body = re.sub(r"\b" + vector + r"\b", f"copyVector({vector})", body)
+        body = re.sub(r"\b" + scalar + r"\b", f"copyScalar({scalar})", body)
+        if source == "renamed-parenthesized":
+            body = body.replace("readCurrentUV()", f"copyVector((({vector})))")
+            body = body.replace("readCurrentLevel()", f"copyScalar((({scalar})))")
+        case["pair"] = {"vertex": case["pair"]["vertex"],
+                        "fragment": declarations + helpers + "void main() {" + body}
+        result.append(case)
+    case = dict(originals["direct-uniform"], name="readonly-input-with-out-peer", equivalentTo="direct-uniform")
+    declarations, body = case["pair"]["fragment"].split("void main() {")
+    helpers = ("vec2 copyVector(in vec2 value, out float scratch);\n"
+               "vec2 copyVector(vec2 renamed, out float result){result=0.5;return renamed;}\n")
+    body = body.replace("derivedUV +", "copyVector(derivedUV, scratch) +")
+    case["pair"] = {"vertex": case["pair"]["vertex"],
+                    "fragment": declarations + helpers + "void main() {float scratch;" + body}
+    result.append(case)
     return result
 
 
@@ -253,8 +285,9 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         original = case["pair"]["fragment"]
         rewritten = output["runtimeConstantFragment"]
         packet = self.compile_generic(root, output)
-        self.assertEqual(re.sub(r"\s+", "", rewritten),
-                         re.sub(r"\s+", "", re.sub(r"\bconst\b", "", original)))
+        expected_source = original.replace(f"const vec2 {case['vector']} =", f"vec2 {case['vector']} =", 1)
+        expected_source = expected_source.replace(f"const float {case['scalar']} =", f"float {case['scalar']} =", 1)
+        self.assertEqual(re.sub(r"\s+", "", rewritten), re.sub(r"\s+", "", expected_source))
         for initializer in case["initializers"]:
             self.assertIn(initializer, rewritten)
         self.assertEqual(output["runtimeConstantVertex"], case["pair"]["vertex"])
@@ -339,6 +372,13 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             "pow-function-shadow": "float pow(float x,float y){return x+y;}\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
             "pow-global-value-shadow": "float pow;\nconst float k=pow(u_gain,u_drive.z);\nvoid main(){gl_FragColor=vec4(k);}",
             "callee-local-value-shadow": "const float k=u_gain;\nfloat consume(float x){return x;}\nvoid main(){float consume=0.5;gl_FragColor=vec4(consume(k));}",
+            "callee-global-value-shadow": "float consume;\nfloat consume(float x);\nconst float k=u_gain;\nfloat consume(float x){return x;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "callee-prototype-inout": "float consume(inout float x);\nconst float k=u_gain;\nfloat consume(inout float x){x+=0.5;return x;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "callee-prototype-out": "float consume(out float x);\nconst float k=u_gain;\nfloat consume(out float x){x=0.5;return x;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "callee-prototype-overload": "float consume(vec2 x);\nfloat consume(float x);\nconst float k=u_gain;\nfloat consume(float x){return x;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "callee-prototype-direction-conflict": "float consume(inout float x);\nconst float k=u_gain;\nfloat consume(float x){return x;}\nvoid main(){gl_FragColor=vec4(consume(k));}",
+            "callee-void-prototype-direction-conflict": "void consume(out float x);\nconst float k=u_gain;\nvoid consume(float x){}\nvoid main(){consume(k);gl_FragColor=vec4(k);}",
+            "callee-void-prototype-out": "void consume(out float x);\nconst float k=u_gain;\nvoid consume(out float x){x=0.5;}\nvoid main(){consume(k);gl_FragColor=vec4(k);}",
             "pow-sample-rhs": "uniform sampler2D g_Texture0;\nconst float k=pow(texSample2D(g_Texture0,vec2(0.5)).r,u_gain);\nvoid main(){gl_FragColor=vec4(k);}",
             "pow-derivative-rhs": "const float k=pow(dFdx(u_gain),2.0);\nvoid main(){gl_FragColor=vec4(k);}",
             "pow-inout-consumer": "const float k=pow(u_gain,u_drive.z);\nfloat touch(inout float x){x+=0.5;return x;}\nvoid main(){gl_FragColor=vec4(touch(k));}",

@@ -664,6 +664,9 @@ final class SceneDependencyFrameRuntime {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
             return nil
         }
+        if isStaticModelSourceProvider(layer.id), !layer.dependencyLayerIDs.isEmpty {
+            return .unavailable(reasonCode: "static-model-provider-graph-unavailable")
+        }
         return captureProviderIfRequired(
             layer: layer,
             sourceTexture: sourceTexture,

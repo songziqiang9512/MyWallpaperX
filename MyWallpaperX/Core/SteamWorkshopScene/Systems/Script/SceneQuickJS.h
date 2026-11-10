@@ -45,9 +45,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index,
     MWXSceneQuickJSParticlePlaybackState state, char *diagnostic, size_t diagnostic_capacity);
 // The instance projection is independent of playback-command admission.
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_instance(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t available,
-    double alpha, char *diagnostic, size_t diagnostic_capacity);
+    double alpha, double rate, double count, char *diagnostic, size_t diagnostic_capacity);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_instance_alpha(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, double *alpha);
 size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner);
@@ -242,12 +242,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_source(
     size_t diagnostic_capacity
 );
 
-/// Surface rebuilding withdraws authored consumers before replacing bindings.
-/// A later numeric snapshot rollback cannot resurrect a withdrawn consumer.
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_withdraw_authored_video_sources(
-    MWXSceneQuickJSDomain *domain
-);
-
 /// Bind a prepared video template before its first script callback. The
 /// renderer owns this launch-stable Source index; the catalog owns eligibility.
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_prepared_video_source(
@@ -264,6 +258,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_sound_fields(
     uint32_t layer_index,
     uint32_t available,
     uint32_t is_playing,
+    uint32_t has_volume,
+    double volume,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -553,6 +549,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t font_length,
     double alpha,
     double particle_alpha,
+    double particle_rate,
+    double particle_count,
+    double volume,
     double point_size,
     const double color[3],
     uint32_t effect_count, const uint8_t *effect_visible,

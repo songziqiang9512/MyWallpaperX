@@ -65,6 +65,29 @@ Session cadence
 
 BindingProgram 在构造/解码入口验证并建立索引；普通属性求值只处理当前输入。自然尺寸回填只改 descriptor 几何，不重算既有准备计划。动态 topology 与 frame schema 分别按实际 revision 更新，同 revision 不回填完整活动树。parent、update 顺序和 render 依赖是三种关系，不能互相替代。
 
+<a id="default-2d-general-zoom"></a>
+### Default2D 的 general.zoom 输入合同
+
+本节约定普通二维画布的 `general.zoom` 输入合同；产品支持和固定官方控制的观察范围由[运行证据](../capabilities/runtime-evidence-current.md#general-zoom)维护。官方普通2D控制在 General=3 的有效大尺度画面同时读到 `getCameraTransforms().zoom=1`，因此 General 基准与 CameraTransforms 相对倍率必须保留独立身份；不能因二者均影响 cover 而合并 target。保存的 editor eye/center 不因此成为普通画布的运行变换。不扩大到 native perspective、source/UV 算法或未获资格的混合相机语义。
+
+`authored general.zoom → 原 GeneralDescriptor / Timeline IR → CameraDescriptor.generalZoom / 原 prepared definition、BindingProgram、ScalarProgram → .camera(.generalZoom) → typed snapshot → 原 CameraFrame factory`。`.camera(.zoom)` 保留 CameraTransforms / 原 path 的相对倍率、fallback1和原命令事务；General 不进入 `staticTransformFields`、C getter/setter 或持久 setter map。解析和来源选择只在冷准备做一次，不新增 zoom store、clock、缓存、来源仲裁表、C ABI 或样本派发。
+
+| 输入 | 原 owner 与准备结果 |
+|---|---|
+| 静态数值与 wrapper fallback | GeneralDescriptor 保原作者数值；原 CameraInputProfile / launch definition merger 形成 generalZoom 的唯一 fallback，缺省保1 |
+| Animation | 原 general Timeline 解析与 TargetCompiler 保作者 lanes/options/身份，交唯一 PlaybackRuntime / SceneClock；linked 与 Script 组合仍须原 owner 的真实消费，不能剥关系后静默改成静态或独立轨 |
+| 直接 user property | 外部 general.zoom 归原 `.scene(field: "zoom")` 路径分类，再映射 typed General target；原 BindingProgram、liveState 和 prepared live consumer 负责热更，不暴露内部 generalZoom 为顶层 camera 字段 |
+| return-only Scalar Script | 原 ScalarProgram / ValueOwner 读取真实 exports并发布 General target；不新增 side-effect 权限 |
+| CameraTransforms setter | 只写原 eye/center/up/zoom；完整 getter record 改 eye/center 后回写不再夺取 General target。原 command/admission/回滚、当帧覆盖及 play 归还原 Timeline 的事务保持 |
+
+已选择的 default2D camera path 保原 zoom 来源、缺省、显隐、命名和播放时钟；General 不作为新增 writer 加入该分支，也不能反过来使健康 path 被拒。有作者camera声明的输入（含原拒绝路径）继续原route；仅无该声明的普通default2D分支接General。原 CameraFrame factory 在普通2D将 General 基准乘既有相对倍率一次，再按原数学将 cover 世界范围除以该倍率；source/main 不另乘相机。此组合来自相对倍率/default1语义与既有数学，官方显式相对倍率2的组合公式及晚段尚未获资格，不能记为官方精确公式已证。General/path混合、native场景仍未支持。HDR条件只约束bloom消费者。
+
+输入沿原 typed 数值与 target 局部失败合同处理；坏属性热更、Script 异常及拒绝的组合保合法 fallback/current 和健康 peer。General只映射独立generalZoom，不暴露内部字段为顶层camera输入；原ortho live consumer接纳General热更，CameraTransforms fallback1与path边界保持。来源已拒绝时不得拿1伪装作者 zoom 已消费，也不在普通帧补解析、补 VM 或重复验证。
+
+当前 SourceFacts 每次 launch 重新解析，property inspection 只保进程内准备快照，没有独立解析磁盘 schema 可升级；launch definitions/index 继续按原 authoredDefinitionRevision 失效。持久编译缓存由构建生成的 SceneShaderCacheIdentity 语义指纹区分，Format 已属于其输入；本次解析变更必须随构建生成新指纹，不手改生成资源、不为未改的 shader wire 格式加版本。若实际改到持久 envelope，才在其原 owner 升级对应 schema；暖帧不扫描源码或重算指纹。
+
+验收先沿真实 parser → 原 producers → typed generalZoom/zoom 各自 source → CameraFrame 验静态、缺省、原 single 曲线、合法属性/Script 与失败/回滚；必须覆盖同帧 General3与getter1，以及普通作者完整record只改eye/center的往返回写不锁住General轨。保旧 path 的显隐、命名、暂停与 setter/play/rollback 反例，以及 HDR 开启仍消费 General。真实 LaunchFrameSchema/FrameDriver 消费不能仅由手工 Fixture merge替代。再核宽窄viewport、非零origin、parallax与同帧cursor/particle，普通image/effect、local composition和fullscreen仍只消费原camera结果。Swift变更须Debug build与隔离首段/终段画面；接线或粗尺度控制不关闭黑纹问题。需要新camera owner、未定混合规则或第二输出时停止扩张。
+
 <a id="dynamic-layers"></a>
 动态层沿 `SceneScriptDynamicLayerRuntime`、原 C handle/journal、typed mutation 和原 compositor 接入。Layer 保存出生资源、尺寸、根关系和 seed；完整 upsert 更新当前值。资源在出生准备，值变化不伪造 topology revision。C authored/dynamic 共享总 layer slots，Swift owner 工作界限是另一种输入预算；具体常量以 [C 头](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h)与[Runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift)为准。槽位只在原事务/快照寿命结束后回收，旧 handle 不能提前复用；journal 按需增长，不给所有 owner 预分配最大 payload。
 
@@ -81,7 +104,11 @@ BindingProgram 在构造/解码入口验证并建立索引；普通属性求值�
 
 前置与最终 snapshot 有不同消费者，不能合成一个阶段来省调用。camera、visibility、particle、texture command 的当帧/next-frame 边界由各自实际语义决定，不能统一改为立即或下一帧。
 
+General基准与CameraTransforms相对倍率共用此值求解顺序但保独立target；最终准入后的generalZoom与zoom只由原CameraFrame factory组合一次并转成本Surface的camera/cover，world、cursor、particle及source/回绘消费同阶段结果。普通帧不读取general，setCameraTransforms的当帧命令和失败回滚仍归原事务，不能通过重跑Timeline或另乘source/main矩阵补相位。
+
 暂停重绘只消费冻结帧。媒体只在 generation、terminal publication 和完整同帧 cohort 匹配时刷新；不采新 Inbox 或重跑 VM。候选首呈现有独立 cohort，稳态不等待所有屏幕。原暂停重试窗口、异步失败恢复与 stale completion 都归 [FrameDriver](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)、[pre-script骨骼](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[SurfaceSimulation](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift)、[SurfaceSubmission](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)。
+
+稳态 tick 到期且当前各屏均等待原材质 GPU 提交时，FrameDriver 可在消费本次模拟输入之前等至下一名义 tick。原 Coordinator 结算并释放历史后，首个恢复准入的当前屏唤醒同一个一次性计时器。截止时照常推进一次模拟，延后的 tick 从实际执行时刻排下一帧，避免追赶时额外触发 VM。健康屏存在时照常前进，媒体、drawable 和编码失败仍走原路径。暂停、换屏、退役沿原计时器与 Surface 身份取消。保原历史提交和失败回滚，不重画旧模拟或放宽串行约束。以原包实际呈现间隔、CPU 每秒成本及独立媒体邻例核验。
 
 <a id="rendering"></a>
 ## 材质、图与输出
@@ -91,6 +118,8 @@ BindingProgram 在构造/解码入口验证并建立索引；普通属性求值�
 PreparedAssembly 唯一持静态 uniform 计划、layout 与 shader/render-state identity；帧只附当前资源、值和设备/附件事实。HostUniformSchema 做准备分类，UniformEncoder 编码已分类输入。图 TextureIdentity 自带 layer-source 与 input-role 值语义，准备和实际 target/transition 共用。
 
 终端 Compositor 从原 DrawRequest 取得尚未被 Program 消费的依赖，不另传同一依赖的单数投影。正常绘制与延后复用共用最终合成；延后复用沿原 ticket 记账已消费的输入，即使当前 request 的依赖向量为空。
+
+原 `SceneMainPassEncoder` 保首次附件操作（clear 或 load）。首个 encoder 成功创建后，读取前景前先关闭实际写入的 encoder，封口也只关闭当前 encoder。两处都复用已存储的同一附件，不创建空 load/store pass。首次附件操作失败仍交原失败链；保深度 store、组背景、已填历史颜色与后续真实 draw。验证主合成 pass 数和实际颜色等价，再用同条件呈现与 GPU 帧时判断收益。
 
 MTLLibrary/PSO 在 graph/source 准备入口 warmup；PassEncoder 是其正/负缓存 owner。帧只查询，缺准备结果作 effect-local typed failure；reset 撤旧 command 代次而保不可变 PSO。可选 archive 发布不阻挡 ready。执行期仍检查当前 extent、publication、generation、target/hazard 与 GPU 使用期，不重新做静态资格证明。
 
@@ -166,11 +195,35 @@ Remap 的 input、range、transform、operation、output 和原 lifecycle blend 
 
 完成条件是新值经实际 Simulator alpha、Rope/Sprite batch 与生产 Metal 消费，并在相同作者输入下核活动 Remap 与最终捕获；未取得同步像素或完整子束资格时保持对应边界。证据和当前能力仍由原组件与运行证据卡维护。
 
+<a id="display-reconciliation"></a>
+## 显示配置和屏实例
+
+目标是显示配置变化时保留仍在目标集的 Surface/View/PlaybackState、VM/cadence、粒子/RNG/拖尾和媒体播放；新增屏才准备独占实例，移除屏才退休对应资源。Session 原 reconciliation/debounce、Host preparation queue 和 retiringSurfaceDrain 继续各自所有权，不增加 controller、Clock、常驻缓存或迁移快照。旧的“任意 topology 变化即全量 teardown/rebuild”应退出已接通的场景，不用窗口更换或构建次数代表收益。
+
+- **几何与成员权威**：主 App 的 `screenTopology` 裁决目标 ID，实际 frame/backing/输出取当前 live NSScreen/window。原 debounce 一次解析 tuples，按唯一 actual `surfaces` 与 resolved 求 retained/removed/added；同集合只刷新变化的几何，缩减只退休差集并发布一次成员。未解析的新增 ID 不拆健康屏；空解析沿原 revoke/stop。异步完成处重新解析当时目标几何，仅采用仍 desired/resolved 且尚无 actual 的结果，不用 IPC frame 或另一份 topology/cache 代替。
+- **原实例与冻结帧**：保留 Surface/View/Renderer/graph、root/active child simulator、sprite/puppet实例和输入队列。playing 沿原 cadence 继续；paused resize 只按新画布重绘原 SimulationFrame，已 commit但未被 simulation 采用的 destroy 不因 geometry 提前执行。extent 变化仅沿现有 allocationReprepare 和 GPU terminal 失效 target/history，不能复用旧尺寸资源，也不更换 graph owner、清播放状态或另加 drain/fence。原 initial cohort 对实际尺寸失效的撤证仍保留，不给过时首呈现 token 续证。
+- **回调事实**：client prepared callback rows 归原 transport/request/record/source/script generation，是启动期 UI 投影，不是每屏播放许可。退役 displayConfiguration.didSet 对它的无消费者清零；几何和成员变化都不产生新的 launched，不能靠等待新 launch恢复同一事实。原 switch/stop/transport 的撤销及 Host 每次 update 对当前 context、实际 prepared/unavailable/retired consumer 的检查仍是 authority，不新增 display 认证、版本或许可表。无屏解析失败的 Session 终态回流另需其原请求链取证，不借任意显示事件猜终态。
+- **新增屏准备输入**：主线程在 job 准入时冻结 `evaluationTransaction.committedSnapshot`、当前 particle intent/revision 与 destroyed IDs、原 audio inbox 的只读 frame 候选。worker 只接 typed 值及实际构造所需 descriptor/assets/base-image loader/material catalogs/device，不能持整个含 VM/Storage/liveState 的 LaunchContext。初始 launch 由原准备 owner 提供初始 typed seed。原 base-image 最终 outcome 在 worker 每 job 编译一次 LayerImage，供全部新增独占实例；不复制 retained 的 SimulationFrame/Simulator、位图或 RNG，不为每帧 property generation 重做预热。
+- **仅移除的退休与消费者**：先从实际map取走removed对象，再共用原单屏CPU/窗口退休步骤：只使该View的graph失效、退休粒子/Puppet、关窗，并由原retireSurface保GPU与capture至终态。全量teardown同批改用同一单屏步骤，退出复制的释放顺序；其全局输入/clock/VM/provider停止仍只归完整teardown。preparedSurfaceIDs同步为survivors，原storage identity在2→1时切唯一屏（失败仍global-only），音频需求按实际survivors一次更新；这三项在原Session共用成员发布步骤。不停健康cadence、不改committed/adopted frame、pendingProviderUpdate或共享媒体/声音。原stop继续join retiringSurfaceDrain，晚GPU/geometry回调沿既有对象身份检查失效，不新增退出队列或epoch。
+- **输入来源与移除**：既有CursorPendingEvent只补optional surfaceID，由record入口写真实sample.surfaceID；跨屏leave消费该sample前原previousSurfaceID，不新增另一份leaving identity。原cursor owner仅撤removed的capture、previous hit/pointer/surface上下文及pending重试，保健康pending与单一物理previousPrimaryButtonIsDown；不合成leave/up/click，不全局empty/revoke shortcut watermark。dispatch到owner commit/finalize在原主线程无await，GPU completion不restore cursor；协调在此段外，不为假想跨段rollback添candidate过滤、tombstone或代次。真实按住移除后不能在survivor伪造down/click。
+- **共享供货与候选**：同 Session 固定 prepared device，video registry 的 layer/device binding 不是 per-screen 引用计数。增减屏均不 withdraw 作者源、begin/completeSurfaceRebuild、重置 binding 或重新 prime initial videos；新增 View 从当前 source owner/key/device 与采用时最后实际接纳的 user publication 幂等取得原源，不另加缓存/计数。初始视频、动态 Store 与启动 cohort 仍只归初始启动；正式 display 入口由 Host 先 cancel pending/unconfirmed，再交 active Session。source incarnation/时钟及后续 decoded 消费若授连续性须实测。
+- **新实例时间与意图**：全部 root 在原 worker 按 job-start typed size/rate/alpha/CP/层变换与 audio 完整执行作者 starttime；audio 在 root/static-child warmup 前进入原 Simulator。pointer 仍按无历史指针预热，安装时才按新屏几何零步投影，不借他屏局部坐标。新屏不补当前 sceneTime 或排队墙钟；SceneClock/VM/Timeline 仍属 Session。采用前仅对新实例按当前 destroyed 整层退休并直接对齐 root 当前 intent/revision：stop 清 root 人口，pause 保人口，play 沿原 rearm 语义；emit 只增 revision 不得伪造 play/rearm，加入消费者前的 emit 不补放。普通 static/frame-created child 原240步及独立 aging 不借本批扩张；全部 root 离主线程后退役3,600步/加权四百万的旧关卡与参数。
+- **零步首帧与装配**：同一单屏装配职责消费必需的独占 PlaybackState/material runtime，供 initial 与 added 共用；删除主线程 cold-root fallback。窗口/View/pipeline/Puppet GPU 仍主线程，Session 共享 Store/VM/源不重建。新增实例在进入 actual map 前，仅对自己按当前 committed dynamic/topology、共享动画/媒体/audio 与 SceneClock 时间生成零 delta SimulationFrame；不跑 VM、发动画事件或更新 retained simulation/pose。paused 原 driver 因全部屏已有帧只重绘，playing 原 timer 不重启；实际空过或 paused 才唤醒 driver。首 GPU/capture 继续归原输出 owner，不增加 handoff 屏障或复用 startup cohort 续证。
+- **混合、无保留屏与失败**：retained 是 actual∩resolved，始终沿原 cadence；obsolete actual−resolved 立即按单屏退休，不让已不 desired 或已迁移的窗口等新增屏。disjoint 准备期间 actual 可空，保同一 Session/VM/clock/共享源，允许输出空窗，首个新屏装好再唤醒 driver。可选图像/pipeline 失败局部降级；新增单屏失败不拆健康屏，不自动无限重做长预热。无健康屏且工作结束、没有更新目标待准备时沿原 revoke/stop；空 resolver 与正在准备的空 actual 分别处理。终态回流原请求/UI 的未资格边界仍独立取证。
+- **新增屏异步工作与退出**：复用 Host 唯一 preparation queue；Session 仅持一个短寿命 pending 工作（覆盖 IDs、原 cancellation），入队前登记原 retiringSurfaceDrain。部分 ID 过时只丢弃其结果，全部不需、stop 或 Host 接受新壁纸请求时取消；切换先让新 candidate 入原队列，旧工作实际收尾后若还需补屏，其下一项排在 candidate 后，在原逐步取消检查点让路；不承诺抢占单步或最大切换延迟。worker 完成后主线程采用/teardown 全部产品并对同 primary loader eviction，最后才清 pending/leave，随后按最新 desired 补尚未准备的新 ID。不用 serial queue 返回冒充 loader 已完成交接，不增锁、任务列表、dirty flag 或取消代次。stop 等这项 CPU 尾、原上传队列、Surface GPU/capture；before-start 取消也必须到实际处置尾才结束工作。
+
+<a id="display-user-texture-updates"></a>
+disjoint 准备空窗不退休 Session 的用户贴图请求。原 Session 在图片准备完成、视频 prime 前后按 context/record、program、device、registry、key revision 与取消状态确认当前性，退出 actual 必须非空的旧条件；再由原 typed live consumer/adoption 接纳，原 publication/liveState 保存结果。新增 View 采用时读取这笔当前资源，不新增 pending 资源表、最后 publication 许可或假屏；完整 stop/新请求与同 key 覆盖仍使原异步尾失效。混绑的粒子显隐、模型动画等真实缺 consumer 仍按原事务拒绝，不借空窗普遍放开热更。paused 供货继承原时钟状态，无 actual 时 driver 在 VM 前退出，新屏沿原零步首帧采用。
+
+验收先在真实 Session 方法核同请求图片/视频 prime 的空窗提交、reset/坏资源保旧、新 revision 与 stop/context/registry/device/program/取消反例；控制边界不冒充解码或 GPU。App 复用原 A→B/准备队列和 DEBUG runner，以原协议解码一笔纹理输入交 Host，核更新提交及完成时 actual=0、同 Session/request、新 B 实际纹理采样→main/seal/GPU与固定像素；未命中空窗即停止资格，不调整结果阈值。自然预热与受控 queued gate 分别记录，不把 queued 称运行中 worker。direct Host 只授其实际纵向链，不代 Service/IPC 同次交付；终态回流、全部暂停属性/视频连续及真实多屏仍独立取证。
+
+验收复用按需DEBUG快照、原App及输入/退休门：按displayID核实例/真实几何、playing进展和paused VM/frame/sprite/root/active-child观测值，像素、allocation/GPU和capture终态继续归原门。DEBUG同集合事件先真缩窗再恢复live几何；移除事件只从原resolver结果取非空子集，交与normal debounce共用的实际协调步骤，不改env屏数冒充物理拓扑、不存override/cache。2→1/3→1须保survivors、精确退休差集、保健康输入重试、撤removed重试及物理按住反例；真实removed导出尾期间健康屏可提交，stop-before-drain仍等原尾。暂停/恢复诊断只比同次resume前后成员，不因dwell期间合法缩减误报恢复失败。新增 A→AB、混合 AB→BC、disjoint A→B 与空解析分别验真实 worker、当前输入/意图对齐、取消/失败及退出尾；长准备期间 retained 必须有真实输出，paused 不得增加 VM cadence。DEBUG accepted暂停截图仅标目标Surface需提交并唤醒原frozen driver，不借内容失效撤cohort、不重跑VM/清graph，也不因拒绝/playing请求重启cadence。初始新增屏的长starttime、准备期间size/rate/CP edit、stop/emit/destroy、晚取消仍独立验收；单物理屏的多个DEBUG View不授真实多屏、物理缩放/EDR、严格RNG轨迹同态、媒体连续或性能。
+
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。
-- Host 的 preparation queue、资源/文字/媒体/storage worker 和编译工具子进程处理准备。初始粒子实例按[预热准备合同](../capabilities/particle-component-coverage.md#prewarm-work)在原队列完整准备、每 Surface 独占移交；AppKit Surface 与 GPU pipeline 仍在主线程安装。后续同 Session display rebuild 的粒子准备尚保有界路径。
-- Surface rebuild 保会话共享 Store/VM；只退休该屏实例、GPU 与 capture。destroy commit 退休粒子/Timeline 等活动状态；文字沿已采用 topology 和成功提交退休。Surface 采用时退休本屏 GPU/history，冻结帧继续持原值。
+- Host 的 preparation queue、资源/文字/媒体/storage worker 和编译工具子进程处理准备。初始粒子实例按[预热准备合同](../capabilities/particle-component-coverage.md#prewarm-work)在原队列完整准备、每 Surface 独占移交；AppKit Surface 与 GPU pipeline 仍在主线程安装。增量新增屏沿同队列准备；具体设计见[显示配置和屏实例](#display-reconciliation)，实现与验证状态只由开放队列/运行证据维护。
+- 显示增减保会话共享 Store/VM；只退休移除屏实例、GPU 与 capture。destroy commit 退休粒子/Timeline 等活动状态；文字沿已采用 topology 和成功提交退休。Surface 采用时退休本屏 GPU/history，冻结帧继续持原值。
 - 完整 stop 先撤新工作与订阅，清 pending 输入，关闭 producer 并登记原 retiringSurfaceDrain；等文字、媒体和 deferred CPU 尾任务后，再用原 command queue barrier 等 GPU terminal。Host 还等待已接纳 preparation 队列尾 fence。
 - GPU、AV borrower、文件租约及 PNG 导出有不同终态。不能用窗口关闭、cache.remove、GPU completed 或进程 RSS 代替所有资源释放。
 

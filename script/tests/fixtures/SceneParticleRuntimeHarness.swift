@@ -49,6 +49,11 @@ struct SceneRenderDescriptor: Codable {
         var hasFramebufferMaterialSource: Bool { false }
         var cameraPath: CameraPath? = nil
         struct CameraPath: Codable { let camera: String; let fov: Double? }
+        struct PointLight: Codable { let kind: String; var intensity: Float? = nil }
+        struct DirectLight: Codable { var intensity: Float? = nil }
+        var pointLight: PointLight? = nil
+        var directionalLight: DirectLight? = nil
+        var spotLight: DirectLight? = nil
     }
 
     struct MaterialPassDescriptor: Codable {
@@ -117,6 +122,16 @@ struct SceneRenderDescriptor: Codable {
         var default2DOriginInputLayerID: Int? = nil
     }
     var camera = CameraDescriptor()
+    struct Lighting: Codable {
+        struct Classes: Codable {
+            var directional = false
+            var point = false
+            var spot = false
+        }
+        var lightClasses = Classes()
+        var ambientColorRGB: [Float]? = nil
+    }
+    var lighting: Lighting? = nil
     var layers: [Layer]
     let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
@@ -151,6 +166,9 @@ extension SceneRenderDescriptor.Layer {
         usesPerspective = try c.decodeIfPresent(Bool.self, forKey: .usesPerspective)
         parallaxDepthXY = try c.decodeIfPresent([Float].self, forKey: .parallaxDepthXY)
         disablesParallaxPropagation = try c.decodeIfPresent(Bool.self, forKey: .disablesParallaxPropagation) ?? false
+        pointLight = try c.decodeIfPresent(PointLight.self, forKey: .pointLight)
+        directionalLight = try c.decodeIfPresent(DirectLight.self, forKey: .directionalLight)
+        spotLight = try c.decodeIfPresent(DirectLight.self, forKey: .spotLight)
     }
 }
 
@@ -241,6 +259,8 @@ enum Harness {
             ])
         case "playback-control":
             try printJSON(playbackControl())
+        case "prepared-surface-handoff":
+            try printJSON(preparedSurfaceHandoff())
         case "authored-retirement":
             try printJSON(authoredRetirement())
         case "delayed-children":
@@ -275,6 +295,8 @@ enum Harness {
             try printJSON(translationAnchoring())
         case "worldspace-translation-edges":
             try printJSON(translationEdges())
+        case "collision-bounds-synthetic":
+            try printJSON(boundsCollisionCases())
         case "worldspace-freeze":
             try printJSON(syntheticWorldSpaceFreeze())
         case "worldspace-freeze-recovery":
@@ -345,6 +367,8 @@ enum Harness {
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
         case "rope-trail-synthetic":
             try printJSON(syntheticRopeTrail())
+        case "multiple-renderers-synthetic":
+            try printJSON(syntheticMultipleRenderers())
         case "rope-synthetic":
             try printJSON(syntheticRope())
         case "static-scaled-rope-synthetic":
@@ -473,6 +497,7 @@ enum Harness {
         renderer: String = "sprite",
         rendererFlags: Int = 0,
         rendererLength: Any? = nil,
+        rendererSubdivision: Any? = nil,
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         additionalRenderers: [Any] = [],
@@ -507,6 +532,7 @@ enum Harness {
             "flags": rendererFlags,
         ]
         if let rendererLength { rendererDefinition["length"] = rendererLength }
+        if let rendererSubdivision { rendererDefinition["subdivision"] = rendererSubdivision }
         if let rendererMinimumLength { rendererDefinition["minlength"] = rendererMinimumLength }
         if let rendererMaximumLength { rendererDefinition["maxlength"] = rendererMaximumLength }
         var emitter: [String: Any] = [
@@ -556,7 +582,7 @@ enum Harness {
         try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]).write(to: url)
     }
 
-    static func writePNG(_ url: URL) throws {
+    static func writePNG(_ url: URL, opaque: Bool = false) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true
         )
@@ -564,7 +590,12 @@ enum Harness {
         guard let context = CGContext(
             data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8,
             space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ), let image = context.makeImage(),
+        ) else { throw HarnessError.imageWrite }
+        if opaque {
+            context.setFillColor(gray: 1, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        guard let image = context.makeImage(),
            let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil)
         else { throw HarnessError.imageWrite }
         CGImageDestinationAddImage(destination, image, nil)
@@ -669,7 +700,8 @@ extension SceneParticleRuntime {
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent
     ) {
         let view = resourceView ?? SceneResourceView(
             projectRootURL: cacheDirectory, packageRootURL: nil)
@@ -682,7 +714,8 @@ extension SceneParticleRuntime {
             staticWorldSpaceFrames: staticWorldSpaceFrames,
             staticWorldSpaceChains: staticWorldSpaceChains,
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
-            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput)
     }
 }
 
@@ -696,7 +729,8 @@ extension SceneParticlePlaybackState {
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent
     ) {
         let view = resourceView ?? SceneResourceView(
             projectRootURL: cacheDirectory, packageRootURL: nil)
@@ -706,6 +740,7 @@ extension SceneParticlePlaybackState {
         self.init(descriptor: descriptor, preparedAssets: assets, device: device,
             textureLoader: textureLoader, layerImage: layerImage,
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
-            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput)
     }
 }

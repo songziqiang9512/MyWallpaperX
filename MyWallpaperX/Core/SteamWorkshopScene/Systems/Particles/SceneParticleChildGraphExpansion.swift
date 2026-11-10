@@ -16,18 +16,7 @@ struct SceneParticleChildTemplate {
     let pointerControlPointIdentities: [Int]
     let needsWorldControlPointFrame: Bool
     let trigger: SceneParticleChildTrigger
-    let trail: SceneParticleTrailRenderPlan?
-    let rope: SceneParticleRopePlan?
-    let texture: MTLTexture
-    let colorUVScale: SIMD2<Float>
-    let colorSampling: SceneParticleTextureSampling
-    let refraction: SceneParticleRefractionBinding?
-    let renderState: SceneParticlePipelineRenderState
-    let spriteAnimation: SceneSpriteAnimation?
-    let staticSpriteAspect: Float
-    let orientation: SceneParticleOrientation
-    let orientationAxis: SIMD3<Float>?
-    let usesPerspective: Bool
+    var renderers: [SceneParticlePreparedRenderer]
     let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     let probability: Double
     let transform: SceneParticleChildTransform
@@ -39,9 +28,6 @@ struct SceneParticleChildTemplate {
 #if DEBUG
     var debugParentParticlePath: String? = nil
     var debugParentComponentIndex: Int? = nil
-    var debugRendererTypedIndex: Int? = nil
-    var debugRendererComponentIndex: Int? = nil
-    var debugRendererKind: String? = nil
 #endif
 }
 
@@ -214,29 +200,32 @@ enum SceneParticleChildGraphExpansion {
         guard asset.supportsBuiltInShaderExecution else {
             return .rejected("\(path):unsupportedShader")
         }
-        guard let renderState = asset.pipelineState else {
-            return .rejected("\(path):unsupportedRenderState")
-        }
         if depth >= maximumDepth, !asset.definition.children.isEmpty {
             return .rejected("\(path):nestedDepthUnsupported")
         }
-        guard SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition),
-              let render = SceneParticleChildTemplateSupport.supportedRenderer(
-                  in: asset.definition
-              )
-        else {
+        var plans = SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition)
+            ? SceneParticleChildTemplateSupport.supportedRenderers(in: asset.definition) : []
+        guard !plans.isEmpty else {
             let profile = trigger == .staticChild
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
         }
-        let permitsStaticRope = render.rope != nil && depth == 1
+        for (index, renderer) in asset.definition.renderers.enumerated() where renderer.kind == .ropeTrail {
+            result.unsupportedDetails.append("\(path):renderer[\(index)]:ropetrail:childHistoryUnavailable")
+        }
+        let permitsStaticRope = depth == 1
             && trigger == .staticChild && asset.definition.children.isEmpty
             && !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
         if transform.hasScale {
-            guard render.rope == nil || permitsStaticRope,
-                  asset.definition.children.isEmpty,
+            guard asset.definition.children.isEmpty,
                   !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
             else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
+            let rendererCount = plans.count
+            if !permitsStaticRope { plans.removeAll { $0.rope != nil } }
+            guard !plans.isEmpty else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
+            if plans.count != rendererCount {
+                result.unsupportedDetails.append("\(path):childScaleOutsideBoundedProfile")
+            }
 #if DEBUG
             result.performanceDetails.append(
                 "\(path):childScaleBounded:scale=\(transform.scale.x),\(transform.scale.y),\(transform.scale.z)"
@@ -289,67 +278,40 @@ enum SceneParticleChildGraphExpansion {
         guard !needsStaticFrame || worldSpaceFrame != nil else {
             return .rejected("\(path):dynamicWorldSpaceTransform")
         }
-        guard let source = asset.textureSource else {
-            return .rejected("\(path):textureLoadFailed")
-        }
-        let texture: MTLTexture
-        let animation: SceneSpriteAnimation?
-        let staticSpriteAspect: Float
-        let colorUVScale: SIMD2<Float>
-        let colorSampling: SceneParticleTextureSampling
-        let refraction: SceneParticleRefractionBinding?
-        do {
-            if let declaration = asset.refraction {
-                guard let loaded = try SceneParticleRefractionTextureLoader.load(
-                    colorSource: source,
-                    declaration: declaration,
-                    textureLoader: textureLoader,
-                    device: device
-                ) else {
-                    return .rejected("\(path):refractionTextureProfileUnsupported")
-                }
-                texture = loaded.color
-                animation = loaded.colorAnimation
-                staticSpriteAspect = loaded.staticSpriteAspect
-                colorUVScale = loaded.colorUVScale
-                colorSampling = loaded.colorSampling
-                refraction = loaded.binding
-            } else {
-                guard let loaded = try SceneParticleChildTemplateSupport.loadTexture(
-                    source,
-                    textureLoader: textureLoader,
-                    builtInTextureRegistry: builtInTextureRegistry,
-                    device: device,
-                    usesWholeImage: render.rope != nil
-                ) else {
-                    return .rejected("\(path):textureLoadFailed")
-                }
-                texture = loaded.texture
-                animation = loaded.animation
-                staticSpriteAspect = loaded.staticAspect
-                colorSampling = loaded.sampling
-                colorUVScale = loaded.uvScale
-                refraction = nil
-            }
-        } catch {
-            return .rejected("\(path):resourceReadFailed:\(error)")
-        }
         let maximum = child.maximumCount ?? 512
         guard maximum > 0, maximum <= 512 else {
             return .rejected("\(path):invalidSystemLimit")
         }
         let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20000)
         let particleBudget = authoredMaximum
-        if animation != nil, render.rope != nil {
-            return .rejected("\(path):ropeAnimatedTextureUnsupported")
-        }
         let systemBudget = trigger == .staticChild ? 1 : maximum
-        if let rope = render.rope, !permitsStaticRope,
-           systemBudget > SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate
-                / max(rope.maximumGeneratedSegments, 1)
-        {
-            return .rejected("\(path):ropeAggregateSegmentBudget")
+        if !permitsStaticRope {
+            var remainingSegments = SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate
+            let rendererCount = plans.count
+            plans.removeAll { plan in
+                guard let rope = plan.rope else { return false }
+                let segments = rope.maximumGeneratedSegments * systemBudget
+                guard segments <= remainingSegments else { return true }
+                remainingSegments -= segments
+                return false
+            }
+            guard !plans.isEmpty else { return .rejected("\(path):ropeAggregateSegmentBudget") }
+            if plans.count != rendererCount {
+                result.unsupportedDetails.append("\(path):ropeAggregateSegmentBudget")
+            }
         }
+        var preparationFailures: [String] = []
+        let renderers = SceneParticlePreparedRenderer.prepare(
+            plans: plans, asset: asset, textureLoader: textureLoader,
+            builtInTextureRegistry: builtInTextureRegistry, device: device,
+            onFailure: { index, detail in
+                preparationFailures.append("\(path):renderer[\(index)]:\(detail)")
+            }
+        )
+        guard !renderers.isEmpty else {
+            return .rejected(preparationFailures.first ?? "\(path):rendererPreparationUnavailable")
+        }
+        result.unsupportedDetails.append(contentsOf: preparationFailures)
         let worldPoints = Set(asset.definition.controlPoints.filter(\.isWorldSpace).compactMap(\.id))
         let needsWorldPointFrame = asset.definition.emitters.contains {
             asset.definition.emitterControlPointSource(for: $0).map(worldPoints.contains) == true
@@ -365,30 +327,14 @@ enum SceneParticleChildGraphExpansion {
             default: return false
             }
         }
-        var template = SceneParticleChildTemplate(
+        let template = SceneParticleChildTemplate(
                 index: templateIndex,
                 path: path,
                 definition: asset.definition,
                 pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
                 needsWorldControlPointFrame: needsWorldPointFrame,
                 trigger: trigger,
-                trail: render.trail,
-                rope: render.rope,
-                texture: texture,
-                colorUVScale: colorUVScale,
-                colorSampling: colorSampling,
-                refraction: refraction,
-                renderState: renderState,
-                spriteAnimation: animation,
-                staticSpriteAspect: staticSpriteAspect,
-                orientation: SceneParticleOrientation(
-                    authoredValue: render.renderer.orientation,
-                    isWorldSpace: render.renderer.isWorldSpace
-                ),
-                orientationAxis: render.renderer.axis.map {
-                    SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).particleFloatValue
-                },
-                usesPerspective: asset.definition.flags.usesPerspective,
+                renderers: renderers,
                 worldSpaceFrame: worldSpaceFrame,
                 probability: probability,
                 transform: transform,
@@ -398,15 +344,6 @@ enum SceneParticleChildGraphExpansion {
                 parentAssetPath: parentAssetPath,
                 instanceOverride: instanceOverride
             )
-#if DEBUG
-        if let sources = asset.definition.componentObservationSources {
-            let typedIndex = asset.definition.renderers.firstIndex(of: render.renderer)
-            template.debugRendererTypedIndex = typedIndex
-            template.debugRendererComponentIndex = typedIndex.flatMap { sources["renderer"]?[$0].componentIndex }
-            template.debugRendererKind = asset.definition.rendererWasImplicit ? "sprite"
-                : typedIndex.flatMap { sources["renderer"]?[$0].kind }
-        }
-#endif
         return .accepted(template, asset)
     }
 }
@@ -421,6 +358,7 @@ extension SceneParticleChildTemplate {
         rootTranslationOffset: SIMD3<Double> = .zero,
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent,
         maximumEmissionDuration: Double? = nil,
         eventValueContext: SceneParticleEventValueContext = .unavailable
     ) -> SceneParticleSimulator {
@@ -430,6 +368,7 @@ extension SceneParticleChildTemplate {
             initialDynamicInstanceOverride: instanceOverride?.resolving(dynamicInstanceValues),
             initialDynamicControlPoints: initialDynamicControlPoints,
             initialDynamicControlPointAngles: initialDynamicControlPointAngles,
+            initialAudioInput: initialAudioInput,
             seed: seed,
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,
@@ -441,25 +380,27 @@ extension SceneParticleChildTemplate {
             eventValueContext: eventValueContext
         )
 #if DEBUG
-        simulator.observeSelectedRenderer(typedIndex: debugRendererTypedIndex)
+        simulator.observeSelectedRenderers(typedIndices: renderers.map(\.index))
 #endif
         return simulator
     }
 
     func instance(
+        renderer: SceneParticlePreparedRenderer,
         origin: SIMD3<Double>,
         particle: SceneParticleState,
         layerAlpha: Float
     ) -> SceneParticleGPUInstance {
         let frames = SceneParticleRuntime.spriteFrames(
-            animation: spriteAnimation,
-            staticAspect: staticSpriteAspect,
+            animation: renderer.spriteAnimation,
+            staticAspect: renderer.staticSpriteAspect,
             definition: definition,
             particleID: particle.id,
             age: Float(particle.age),
             lifetime: Float(particle.lifetime)
         )
         let velocity = transform.velocity(particle.velocity)
+        let trail = renderer.trail
         return SceneParticleGPUInstance(
             position: (origin + transform.position(particle.position)).particleFloatValue,
             size: Float(transform.size(particle.size)),

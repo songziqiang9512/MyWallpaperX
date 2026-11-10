@@ -5,11 +5,27 @@
 <a id="contract"></a>
 ## 作者合同与运行模型
 
-SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。`update` 可选，只有实际导出的 update consumer 进入逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
+SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方三列/六色 alpha 探针已验证数值标量的取值行为：仅 Number 生效，字符串 `'0.5'`、`false`、`null`、`[]` 返回均保留 alpha；Number 的 NaN 与 `-Infinity` 渲染不可见（alpha 0），`+Infinity` 与 1.0 不透明（alpha 1））：数值标量只接受 Number；字符串、Bool、`null`、数组/对象（含 Vec3）保留当前值并报 typed bad-return，不做 JS 强转（`[]` 不再变成 0）；`undefined`/无返回保留当前值；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。非有限 Number 只经 SceneScript 来源进入 typed snapshot，渲染 alpha（`SceneDynamicLayerValues`）按上述官方映射；粒子 alpha/rate/count 与亮度等 domain 目标保持严格有限，`thisLayer.alpha` getter/runtime field 仍按有限回退；上一帧发布值可原样作为下一次 update 输入；authored、user 与 Timeline 值仍在各自入口保持严格有限。探针未覆盖 typed bad-return 诊断、布尔属性及非 alpha 目标，这些仍为本项目合同。`update` 可选，只有实际导出的 update consumer 进入逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
 
 当前使用真实 QuickJS-NG、模块解析和同一 domain 的 heap；不以源码形状、小解释器或 Swift 字典复制 JS 对象。绑定记录 source、owner、target、作者初值及值类型；模块、shared、闭包和脚本 owner 是不同寿命对象。
 
 初始化、属性事件、输入、媒体、动画和 destroy 由实际导出及当前 owner 调度。事件型/idle owner 不因缺 update 被当作不存在。数组、对象别名、RegExp 等语言行为归真实 VM；用户 API 和模块数学归项目 host/value 实现。
+
+<a id="script-instance-property-input"></a>
+### 脚本实例属性供货
+
+`scriptProperties` 由原模块或隐式实例对象持有。原 ValueHost 在首次收到宿主输入时供初值，后续只覆盖有效宿主值实际变化的键。相同输入保留作者赋值和对象别名。其他键的面板变化不重置这些值，真实变化仍在原属性事件或值回调之前生效。导出的对象若被脚本换掉，变化的宿主键写入新对象。
+
+原 owner 只保最近一次成功输入的编码字节，与可变 JS 值分开。相同字节直接退出。不同输入按键比较上一份宿主值，包含结构值，沿原 Vec2/Vec3 赋值和失败入口交接。替换每次回调重解析、全量回填的旧路径。对象、回调顺序、用户属性 revision 和 typed 输出仍由原职责持有。验收核未改宿主值的本地写入、相邻键实际热更、被更新的同键、嵌套对象与改名变体，并复验原作者持续切歌和独立真实热更。
+
+<a id="cursor-primary-button"></a>
+### Cursor 的主键编号
+
+Session 在原 AppKit 入口保留每条鼠标事件的位置。有窗口的事件转换到屏幕坐标，无窗口的事件已携带屏幕坐标。实时鼠标位置用于原 Surface 轮询。下游沿现有 world/local、命中和 capture 消费 primary 左键的移动、按下、释放和 click。C cursor 参数在同一 frozen 对象内提供数值 `button=0`，up/click 后仍是0，按下状态继续归 `input.cursorLeftDown`。当前入口覆盖 primary，secondary 未接入。
+
+有原生监视器时，原 FIFO 中的主键按下和释放决定 cursor 回调的按钮状态，移动和帧末样本沿已消费的状态投影。轮询仍供应当前位置、普通脚本输入和渲染。无监视器时保留原轮询入口，Debug 显式输入继续沿原 FIFO。切换监视器来源时取消旧 capture，退出时丢弃未分派输入。队列溢出沿原无回调同步；以上均保已识别待重试的回调。窗口和 Surface 路由、快捷方式凭据与事务继续由原 owner 持有。
+
+原官方move的[有界观察](runtime-evidence-current.md#fullscreen-cursor)不授官方click、右键/中键或完整parity。本项目以已有primary事件合同供货，验收用真实C/VM的严格数值与等价guard、down/up/click状态、outside/release-outside反例和健康peer；真实作者须闭合文字命中→click→已有图片显隐→最终画面，并保改名及另一事件能力的回归。
 
 <a id="layers"></a>
 ## Layer、Scene 与当前值
@@ -25,7 +41,43 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 动态 Layer 仅保存出生资源、创建尺寸、根关系及作者 seed；完整 upsert 的当前变换/可见性/颜色/文字走原 typed 值通道。结构 revision 不因普通值 setter 推进，也不在稳定帧回填整份作者 Layer。
 
+内置图片模型的直接请求与普通层资源复用共享冷准备目录。该目录识别内置版本字段的 `VERSION:2` 和 `version:2` 两种单独拼写，沿原材质配方和已准备纹理发布动态图层；同时声明两种拼写或未知字段仍局部拒绝。版本判定在冷准备完成，作者 shader 的 combo 名按原大小写解释。
+
+<a id="layer-color-values"></a>
+Layer `color` setter接受有限三分量原值；[公开颜色教程](https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/colors.html)中的RGB255不能被内部0…1范围门拒绝。原getter、journal、authored read baseline与typed snapshot保同一Double值，text/image显示端继续原clamp后转Float，不按幅度猜÷255、改变单位或写回归一值。原C入口、baseline、Swift bridge与Runtime的重复范围许可退出；finite/shape、owner原子提交、回滚及健康peer边界保持，不新增状态或转换owner。createLayer初始seed与addColor的String类型不由setter资格扩张。
+
+验收核红/白255赋值后的真实文本返回、普通归一值与改名等价表达、authored/dynamic text/image的立即getter及次帧原值、同帧baseline与后续写入、非有限/缺分量/String拒绝和失败owner回滚；极大有限值在现text/image显示消费者中仍须有限；灯的独立raw/非负能量ABI保原局部不可用边界。真实作者按各自显隐和实际raster/末合成验收，不以少一条异常授全部画面、HDR或官方单位parity。
+
 普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
+
+<a id="initialization-current-value"></a>
+初始化与当前值交接：分离调用的 `init` 对本属性的合法 setter 已归一为 typed 值时，下一次值求值/update 中的 `thisLayer.visible` 必须能读到它，不能只有 `update(value)` 的入参保留该值、getter 却退回作者初值。复用原 ValueOwner、pending 初始化值和 owner 读值入口；初始化结果只是读值基线，不再次作为本次 setter 发布。后来的合法 setter 或 update 返回仍可改变初始可见性，不把初始化隐藏钉住，也不补造媒体 STOPPED 事件。
+
+原 cursor 结果中的同 owner 显隐写入晚于初始化、早于媒体/属性回调；由现有 owner effects 在本帧投影为最小 typed 前缀，update getter 按当前 journal、较晚 callback、cursor 前缀、初始化值、当前 snapshot 的次序读取。不改写 pending 初始化值来保存未提交的 cursor 结果，也不提前改共享 Layer catalog；此前缀供本次输入与 getter，不重放成新的 setter 或新增持久显隐副本。
+
+该交接随原 owner 的 commit/discard 退出，值或提交失败的重试沿原初始化事务；普通暖帧无初始化或真实前缀写入时不配置基线。验收用真实 VM 的分离 init/update、相反初值、直接返回、别名/改名、指针/媒体写入及已提交初始化值的消费拒绝重试；真实作者的当前显隐、实际 draw 和终端区域必须一致。其余 callback/返回值次序的未闭边界由[问题队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)维护。
+
+<a id="initialization-exception"></a>
+### 初始化异常的失败范围
+
+普通作者 `init` 同步调用抛错，只终结该次初始化；原 C owner 沿原失败出口清理未提交 journal/timer，并以既有 initialized 状态表明无需再执行 init，JS 局部状态仍保留，后继 update/事件继续沿原 owner 调度。沿原 C result 与 Swift failure 传递明确的 init-exception，保原初始化诊断和当帧局部拒绝，不新增 owner、持久 phase、重试链或空动画资源。它替换普通 init 异常导致整个 target 永久停用的旧行为；scalar/Bool、vector 与 string 的显式/隐式初始化使用同一阶段合同。
+
+恢复只在真正作者 init 的 JS_Call 普通异常、host 恢复及 job 检查成功后成立。编译/模块求值、host 安装/恢复、job、预算/中断、内存和 mutation overflow 维持原拒绝；后继 update/事件自身异常仍熔断。正常 init 的 pending→commit/discard、bad-return 重试及 generation/退出保持原职责，失败初始化不提交 typed 写入，也不因后续帧回滚重跑。固定官方2.8.0.42自动探针已见 init 抛错一次后 update 继续，而抛错 update 只执行一次；不授同帧顺序、异常前副作用的官方提交规则或原生点击。
+
+普通 text 的动画方法缺失不由本项补造控制器。验收复用原真实 C/VM 初始化事务和 cursor 门，覆盖一次失败后的局部状态、后继值/显隐写入、改名等价表达、健康 peer、outside/release-outside、正常 init 回滚及后继异常仍停用；真实作者须命中→click→已有图片显隐→最终帧，并保独立既有交互回归。证明范围及未闭项分别归运行证据和开放队列。
+
+<a id="boolean-callback-order"></a>
+Bool 的分离事件前缀与值求值按真实调用顺序消费：属性/媒体回调对本属性的合法 setter 是后继值求值的输入及 getter 基线；后继显式返回可以改变它，同一次值求值中新写的 setter 仍按原规则优先于返回。先前 setter 不在值求值结束后再次折入。没有新值、无 update 的事件 owner 保留该前缀；本 owner 的真实 destroy 始终为不可见，不能被晚返回复活。
+
+原 VectorProgram 在进入 ValueOwner 前归一已分离的事件 layer journal 一次，原 ValueOwner 用同一读值基线供输入与 getter，并只归一其本次 C entry 导出的 journal。成功后只合并已归一副作用和原 coalescing/commit，不再重做全批 Bool 归一；真实 destroy 由合并后的命令保终值及原资源退休。其他目标/字段、跨 owner 顺序、event-only setter、异常与 commit/discard 沿原事务，不增 owner、持久可见性副本、phase flag 或每帧全局扫描。
+
+验收以真实媒体 callback 的相反返回、同字段新 setter、undefined/no-update、destroy、失败 owner 与健康 peer 核值和副作用；App 用公开属性回调与实际热更新显示可区分色卡，保改名变体、同 update 新 setter 及终端/typed 输出一致。Swift 已分离的属性/媒体前缀到值求值沿上述链交接；C entry 内的后继值回调也必须在真正 JS_Call 前消费已有自身显隐，不能因共用 journal 重放先前 setter。同一次值回调新写的 setter 保原发布位；没有 update 的事件 owner 保真实 setter，不凭返回类型改变事件寿命。
+
+C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发成功后、实际值回调前，将真实自身 VIS 转为本次输入及既有 authored baseline；只清这个已消费的发布位，保其它字段、真实 destroy 与独立 topology/sort journal。仅因消费 VIS 变为空壳的记录随原计数退出，不能导出成伪 sort。隐式 init 的真实返回及本次 setter 在同一作用域交给后继 update；App 保既有 split init，不改调度入口或重复调用 init。
+
+作用域只在 C 调用栈保存原 baseline 的 slot/count/fields/visible，按实际 target index 复用原数组，不改 domain catalog、pending 初始化值或公开 ABI，不增持久副本、字段 epoch 或通用事务层。正常、无 update 和失败出口均恢复 caller 的原 baseline；先保证读值交接成功再退发布位。原公开 primitive 入口统一负责失败的 discard/disable，私有回调只恢复本地 host/handles、释放 JSValue 并返回原错误，不再重复清 journal；timer snapshot/admission 保持，JS heap仍不回滚。无真实前缀或初始化值交接的普通暖帧不创建 baseline；专有 effect/Puppet visibility 保原消费者。
+
+验收固定 App one-shot timer 的原图/改名色卡及独立 peer，用实际 timer 后的晚返回和同次新 setter 区分；native 补镜像、输入/getter、undefined/no-update、同值写入、destroy/其它字段/sort、caller baseline 恢复、异常/重试，并保 Swift 已分离前缀门。直接 ValueOwner 的隐式 init 不能冒称普通 App 复现；Puppet/video-ended 混合返回、嵌套回调完整次序和事件自身先读 pending getter仍由队列保未闭，不授精确作者 positive、完整动画或官方 parity。
 
 <a id="prepared-group-visibility"></a>
 层级显隐以原 `SourceRoute` 已接通的组来源和合法成员闭包决定准备范围，composition 与 project 共用这一事实；fullscreen 保留独立的 viewport 消费入口。作者 Bool 与脚本 visibility 目标经同一 `SceneDynamicLayerVisibilityRouteAdmission` 形成 targets、preparationLayerIDs、particleRequirements 和 liveConsumers。初值 false 保留实际可显示成员的 Program、几何和粒子资源准备，不发布子层可见值，也不覆盖 child 自己的 false；普通帧沿原 typed snapshot 更新，资源与 topology owner 分别保持其原失效边界。
@@ -69,12 +121,38 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 | Sound | 原声音定义与 voice registry，volume/播放命令消费既有 typed 值 |
 | Cursor/媒体/用户属性事件 | 原入口快照与 owner 回调；一次性事件不能因 GPU 重试重复派发 |
 
+<a id="particle-instance-scalars"></a>
+### Particle instance 数值
+
+`IParticleLayer.instance` 的 `alpha/rate/count` 复用原 Layer 身份、owner journal、snapshot/commit/discard 与 typed particle target。默认均为1；alpha 供后续出生，count 为自然发射倍数，rate 在原模拟步中缩放时间一次。它们不是粒子存量或绝对发射率；`emitParticles(n)` 保精确请求数量及调用点 alpha 前缀，不能被 count 缩放，也不能让晚 setter 重写早先出生。
+
+接入只一般化现有 alpha 访问器和原 C/Swift 记录中的独立字段位；原 publication 一次供三个当前值，替换并退役 alpha-only publication，不新增 owner、缓存、命令或模拟器。原 typed snapshot 和 root/child 的 override 消费者承接数值；getter 按本 owner 当前写入、读值 baseline、已冻结 snapshot 取值，setter 只在原入口检查真实有限 Number。C publication/baseline 的外部入口保 finite，Swift bridge、baseline 准备和 replay 只传已定型值，退出原 alpha 三处重复检查。非粒子、已退休或无实际 instance 消费者的句柄沿原局部失败，不新增幅度、整数或源码形状许可；现有 preparation 集合复用到当帧 admission，不重复扫描每屏资源。
+
+当次接纳的 instance journal 进入原 frame projection，附着 scalar 返回继续按原 property-bound 合并次序覆盖同 target；已提交句柄值进入下一 preliminary。相反的自身 setter/返回及隐式 init 的输入交接尚无官方排序资格，不能由既有 alpha 行为升级为官方合同，也不为避开未知组合拒绝合法赋值。该范围不改通用 callback 仲裁或 C primitive 调度；需要改变这些职责时先返回独立设计。
+
+验收复用真实 QuickJS→journal/ABI→Runtime→当帧 snapshot→原 Simulator/Metal，核零/.5/1/2、自然数量与时间/运动、字段互不覆盖、baseline/后继读取、失败 owner/健康 peer、缓存句柄与改名等价表达；保显式 emit 精确 n、调用点 alpha 和 root/child 原继承/禁用位。真实 App 以可区分自有控制及独立作者回归限定结果；未定位可归因作者赋值前不报作者恢复，不以当前 VM 数值授官方 parity。证据和未闭范围分别归运行证据与开放队列。
+
+<a id="sound-handle-volume"></a>
+### Sound 句柄音量
+
+`ISoundLayer.volume`沿[公开属性](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ISoundLayer.html#volume-float)接入普通authored Sound的真实音量消费者；缓存引用与shared函数继续由当前执行owner写入原journal。getter按当前写入、owner baseline、已冻结snapshot读值，setter只发布scalar，不直接操作AV。原C入口核数值/finite，原Sound计划与gain消费者保既有数值域；不追加幅度许可或猜官方异常域，不扩动态Sound创建。
+
+prepared Sound binding只提供`.layer(id,.volume)`及其真实seed，在原authored definition map补缺，保已有property、timeline与Script定义，不从render alpha或常量1造基线。C staging、ABI与Swift mutation复用原snapshot/commit/discard，不新增音量表、命令或缓存作为第二权威。音量供值缺失只使该getter/目标不可用；原playback-only snapshot仍可供play/pause/isPlaying，不因新字段拒整份发布。普通帧按原authored→user→timeline→script优先级合并：已提交句柄值进入preliminary，当次接纳的附着scalar返回仍覆盖同target，不把历史setter永久钉在其上。
+
+同一Registry继续持有baseVolume和真实player，并在其后应用master/mute。原无property与已构造附着Script的消费资格不变；新增句柄来源必须同时满足原Runtime已提交authoredLayerValues确有该volume target、且本snapshot entry为`.sceneScript`。source标签自身不能让未构造Script抢占direct property。Session在提交layerPlan后从原值map提取临时layer ID集合，向两条Registry lane只传这一来源事实，不增持久mask/缓存或传完整Runtime。即时property lane跳过同一交集及原静态附着Script目标；没有snapshot值不重置声音。原限量DEBUG回执记录base/master/mute的实际变更，即使effective未变；AV属性仍仅在Float位改变时写入。play/pause/stop、clock、资源和退休仍归原owner。
+
+暂停属性刷新保持原mixed owner集合与冻结clock；已进入该入口的回调可提交仅含volume字段的authored upsert。沿原fixedPoint承接这些prepared Sound target，最终scoped snapshot先取接纳的layerPlan音量，再叠当前合法scalar返回；不启动外部origin writer或新增回调cadence。错型、缺消费者、无效混合写入或失败bundle沿原owner原子拒绝，健康peer保持。
+
+验收复用真实QuickJS→journal→Runtime→snapshot→AVQueuePlayer，核即时/后继getter、0/.5/1、改名、缓存引用/shared执行owner、失败回滚与缺源/退休，保直接property、附着Script、暂停、master/mute和同player/clock。真实3603711180按anyPlaying实际前缀核base与master后effective gain，3555523865保通用C ABI与向量环；不以R0无异常、单一effective数值或PNG证明听感、物理声卡/音频标定或官方像素。
+
 已接入的外部用户快捷动作需要当前真实输入和现有授权 scope；init/update/伪造指针不取得用户手势。OS 动作与 JS heap 副作用不能随 typed admission 失败假装撤回。不同事件/API 的签名和返回值仍以实际 host 与声明对照，不以“返回 true”代替系统动作成功。
 
 <a id="values"></a>
 ## 数值、模块与持久状态
 
 当前 value host 提供 Vec2、Vec3 与有界 Mat4，模块数学沿现 module host；Vec4、Mat3 未安装。向量返回与赋值按各入口所需的 x/y/z 分量及数值合同读取，普通对象满足对应分量合同也可被接受。构造与矩阵操作只承诺实际 host 的子集；矩阵、相机和 world 输入共用 canonical frame。
+
+`Vec3.cross(value)`沿原ValueHost值类承接[公开叉积合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html#cross-value-vec3-vec3)：返回右手叉积的新Vec3，不改变两个输入。它复用原数值运算与最终typed消费者的失败边界，不新增宿主、状态、归一化或幅度许可；未知方法和非法最终值仍局部失败。验收核轴向/反向、一般向量、零/平行、别名及连续两次cross的旋转调用，再核真实作者后继值/副作用及最终输出，不能以原TypeError退出授完整旋转或画面一致。
 
 `setTimeout`/`setInterval` 和 jobs 归原 owner、Scene 时间及调用预算。零步长重绘不重复计时事件；清理 owner 时撤 timers/jobs 和句柄使用权。递归、非有限值、错误参数或预算耗尽只影响实际 owner/操作。
 

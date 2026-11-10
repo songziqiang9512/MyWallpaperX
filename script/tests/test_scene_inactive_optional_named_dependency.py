@@ -141,18 +141,22 @@ enum Harness {
 
     static func inspect(
         _ descriptor: SceneRenderDescriptor,
-        admittedReferences: Set<SceneDependencyRenderPlan.Reference>? = nil
+        admittedReferences: Set<SceneDependencyRenderPlan.Reference>? = nil,
+        consumer: Int = consumerID,
+        sourceAfter: [Int: Int] = [:]
     ) -> [String: Any] {
+        let consumerID = consumer
         let direct = SceneDependencyGraphAnalysis.references(
             in: descriptor.layers
         )
         let potential = SceneDependencyGraphAnalysis
             .potentialNamedReferences(in: descriptor.layers)
         let visible = Set(descriptor.layers.filter { $0.visible != false }.map(\.id))
-        let carriers = SceneDependencyRenderPlan
+        let allCarriers = SceneDependencyRenderPlan
             .potentialNamedBindings(
                 descriptor: descriptor, visibleLayerIDs: visible
-            )[consumerID] ?? []
+            )
+        let carriers = allCarriers[consumerID] ?? []
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor, visibleLayerIDs: visible
         )
@@ -165,13 +169,15 @@ enum Harness {
         // Typed selection input only. Program compilation/readiness is covered
         // by the real Program/GraphExecutor gates, not by these descriptor rows.
         let selected = admittedReferences ?? Set(direct + potential)
-        let preparedInputs = carriers.filter {
-            selected.contains(.init(consumerLayerID: $0.consumerLayerID,
-                providerLayerID: $0.providerLayerID, slot: $0.slot, variant: .primary))
-        }
+        let preparedInputs = Dictionary(uniqueKeysWithValues: descriptor.layers.map { layer in
+            (layer.id, (allCarriers[layer.id] ?? []).filter {
+                selected.contains(.init(consumerLayerID: $0.consumerLayerID,
+                    providerLayerID: $0.providerLayerID, slot: $0.slot, variant: .primary))
+            })
+        })
         let preparedPlan = SceneDependencyRenderPlan(
             descriptor: descriptor, visibleLayerIDs: visible,
-            preparedNamedInputBindingsByConsumerLayerID: [consumerID: preparedInputs]
+            preparedNamedInputBindingsByConsumerLayerID: preparedInputs
         )
         let preparedVector = preparedPlan.multiProviderAggregatesByConsumerLayerID[consumerID]?.bindings
             ?? preparedPlan.bindingsByConsumerLayerID[consumerID].map { [$0] } ?? []
@@ -240,7 +246,57 @@ enum Harness {
         result["preparedRequiresProgram"] = preparedVector.allSatisfy(\.requiresResolvedMaterialProgram)
         result["preparedForward"] = preparedVector.map(\.requiresForwardCapture)
         result["preparedEffectConsumers"] = preparedPlan.requiredEffectConsumerLayerIDs.sorted()
+        result["allPreparedBindings"] = preparedPlan.bindingsByConsumerLayerID.values
+            .sorted { $0.consumerLayerID < $1.consumerLayerID }.map { bindingRow($0) }
+        let graphs = Set(descriptor.layers.filter { $0.effects.contains { $0.visible != false } }.map(\.id))
+        if let sources = preparedPlan.sourcePreparationPlan(
+            authoredLayerIDs: descriptor.renderOrderLayerIDs, availableExecutionLayerIDs: graphs,
+            visibleRootLayerIDs: visible, activeStaticModelConsumerLayerIDs: [],
+            sourceAfterLayerIDByLayerID: sourceAfter) {
+            let schedule = sources.preparationSchedule()
+            result["schedule"] = ["preparation": schedule.preparationLayerIDs,
+                "prepass": schedule.prepassProviderLayerIDs,
+                "scheduled": schedule.scheduledGraphProviderLayerIDs.sorted(),
+                "before": Dictionary(uniqueKeysWithValues:
+                    schedule.providersBeforeLayerID.map { (String($0.key), $0.value) })] as [String: Any]
+        }
         return result
+    }
+
+    static func forwardVisibleChain(
+        puppet: Bool = false, renamed: Bool = false, fault: String = "none"
+    ) -> [String: Any] {
+        let p = renamed ? 719 : 101, c = renamed ? 354 : 202, d = renamed ? 912 : 303
+        let early = renamed ? "renamed-early" : "early", late = renamed ? "renamed-late" : "late"
+        let resource = renamed ? "effects/alternate/layer-mix/effect.json" : "effects/owned/mix/effect.json"
+        let providerSource = fault == "background" ? "_rt_FullFrameBuffer" : "textures/independent-color.png"
+        var provider = SceneRenderDescriptor.Layer(id: p, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [], childLayerIDs: [], visible: true,
+            effects: [.init(id: renamed ? "renamed-source" : "source", file: resource, visible: true,
+                passes: [.init(passIndex: 0, texturePaths: [providerSource], textureSlots: [providerSource],
+                    userTextureInputs: [], combos: [:], constantShaderValues: [:])])])
+        if puppet { provider.puppetMeshPath = renamed ? "models/alternate-pose.mdl" : "models/pose.mdl" }
+        let consumer = SceneRenderDescriptor.Layer(id: c, contentKind: "text", utilityLayer: nil,
+            dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
+            effects: [effect(id: early, visible: true, kind: nil, namedProviderID: p,
+                variant: fault == "secondary" ? "b" : "a", file: resource)])
+        let later = SceneRenderDescriptor.Layer(id: d, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
+            effects: [effect(id: late, visible: true, kind: nil, namedProviderID: p, file: resource)])
+        let layers = fault == "missing" ? [consumer, later] : [consumer, provider, later]
+        let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: layers.map(\.id))
+        var selected = Set(SceneDependencyGraphAnalysis.references(in: descriptor.layers))
+        if fault == "no-program" { selected = [] }
+        if fault == "wrong-slot", let reference = selected.first(where: { $0.consumerLayerID == c }) {
+            selected.remove(reference)
+            selected.insert(.init(consumerLayerID: c, providerLayerID: p,
+                slot: .init(effectID: early, passIndex: 0, slotIndex: 2), variant: .primary))
+        }
+        var row = inspect(descriptor, admittedReferences: selected, consumer: c,
+            sourceAfter: fault == "background" ? [p: p] : [:])
+        row["provider"] = p; row["early"] = c; row["late"] = d
+        row["sourceIndependent"] = SceneDependencyRenderPlan.providerGraphIsAuthoredOrderIndependent(provider)
+        return row
     }
 
     // Resource names are deliberately unrelated to the stock blend declaration.
@@ -358,6 +414,14 @@ enum Harness {
             payload[name] = inspect(graph, admittedReferences: Set(direct + [bad]))
         }
         payload["graphForward"] = inspect(graphDescriptor(forward: true))
+        for puppet in [false, true] {
+            for renamed in [false, true] {
+                payload["forward-\(puppet)-\(renamed)"] = forwardVisibleChain(puppet: puppet, renamed: renamed)
+            }
+        }
+        for fault in ["no-program", "wrong-slot", "secondary", "missing", "background"] {
+            payload["forward-\(fault)"] = forwardVisibleChain(puppet: true, fault: fault)
+        }
         payload["graphWrongProvider"] = inspect(graphDescriptor(optionalProviderID: 999))
         payload["graphWrongSlot"] = inspect(graphDescriptor(optionalSlot: 2))
         payload["graphWrongPass"] = inspect(graphDescriptor(optionalPass: 1))
@@ -580,12 +644,54 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
                 self.assertEqual(self.results[name]["preparedEffects"], ["z-direct", "m-current", "a-previous"])
                 self.assertEqual(self.results[name]["preparedSlots"][-1], last)
         forward = self.results["graphForward"]
-        self.assertEqual(forward["carriers"], [])
-        self.assertEqual(forward["preparedSlots"], [])
+        self.assertEqual([c["effect"] for c in forward["carriers"]], ["z-direct", "m-current", "a-previous"])
+        self.assertEqual(forward["preparedEffects"], ["z-direct", "m-current", "a-previous"])
+        self.assertEqual(forward["preparedForward"], [True] * 3)
+        self.assertEqual(forward["schedule"]["prepass"], [101])
         before = self.results["graphOptionalBeforeDirect"]
         self.assertEqual(before["runtimeSlots"], [{"effect": "direct-b", "pass": 0, "slot": 1}])
         self.assertEqual(before["preparedEffects"], ["optional-a", "direct-b"])
         self.assertEqual(before["preparedProviders"], [101])
+
+    def test_forward_visible_image_and_geometry_share_one_prepared_provider_with_late_reader(self) -> None:
+        for puppet in (False, True):
+            for renamed in (False, True):
+                with self.subTest(puppet=puppet, renamed=renamed):
+                    row = self.results[f"forward-{str(puppet).lower()}-{str(renamed).lower()}"]
+                    p, c, d = row["provider"], row["early"], row["late"]
+                    kind = "geometryLayer" if puppet else "visibleImageGraphOutput"
+                    self.assertEqual(row["carrierKinds"], [kind])
+                    self.assertEqual(row["preparedSlots"], [{"effect": "renamed-early" if renamed else "early",
+                        "pass": 0, "slot": 1}])
+                    self.assertTrue(row["sourceIndependent"])
+                    self.assertEqual(row["preparedForward"], [True])
+                    self.assertEqual(row["preparedProviders"], [p])
+                    self.assertEqual(row["preparedGraphProviders"], [p])
+                    self.assertEqual(row["preparedEffectConsumers"], sorted([c, d]))
+                    bindings = row["allPreparedBindings"]
+                    self.assertEqual([b["provider"] for b in bindings], [p, p])
+                    self.assertEqual({b["consumer"]: b["requiresForwardCapture"] for b in bindings},
+                                     {c: True, d: False})
+                    self.assertTrue(all(b["requiresProgram"] and b["kind"] == kind for b in bindings))
+                    self.assertEqual(row["schedule"], {"preparation": [p, c, d],
+                        "prepass": [p], "scheduled": [p], "before": {}})
+
+    def test_forward_carriers_do_not_replace_program_selection_or_source_availability(self) -> None:
+        empty = self.results["forward-no-program"]
+        self.assertTrue(empty["carriers"])
+        self.assertEqual(empty["preparedProviders"], [])
+        for fault in ("no-program", "wrong-slot", "secondary", "missing"):
+            with self.subTest(fault=fault):
+                row = self.results[f"forward-{fault}"]
+                self.assertEqual(row["preparedSlots"], [])
+                self.assertEqual(row["schedule"]["prepass"], [])
+        for fault in ("wrong-slot", "secondary"):
+            row = self.results[f"forward-{fault}"]
+            self.assertEqual(row["preparedEffectConsumers"], [row["late"]])
+        background = self.results["forward-background"]
+        self.assertFalse(background["sourceIndependent"])
+        self.assertEqual(background["schedule"], {"preparation": [202, 101, 303],
+            "prepass": [], "scheduled": [], "before": {}})
 
     def test_source_boundaries_and_final_cycle_remain_distinct_from_program_permission(self) -> None:
         for name in ("missingProvider", "secondary", "unsupportedPath",

@@ -290,11 +290,12 @@ nonisolated struct SceneParticleDefinitionParser {
                 kind: .malformedComponent, path: "renderer", componentName: name
             ))
         }
+        let length: Double? = root["length"] == nil && kind == .ropeTrail ? 1 : Self.number(root["length"])
         return SceneParticleRenderer(
             id: Self.integer(root["id"]), kind: kind,
             orientation: Self.trimmed(root["orientation"] as? String)?.lowercased(),
             axis: Self.numericValue(root["axis"]), rawFlags: Self.integer(root["flags"]) ?? 0,
-            length: Self.number(root["length"]), minimumLength: Self.number(root["minlength"]),
+            length: length, minimumLength: Self.number(root["minlength"]),
             maximumLength: Self.number(root["maxlength"]), segments: Self.integer(root["segments"]),
             subdivision: Self.number(root["subdivision"]),
             fadesAlpha: Self.boolean(root["fadealpha"]),
@@ -343,9 +344,9 @@ nonisolated struct SceneParticleDefinitionParser {
             id: id, rawFlags: flags ?? 0, offset: offset, angles: angles,
             parentControlPoint: parent,
             hasAuthoredAngles: root["angles"] != nil && !(root["angles"] is NSNull),
-            hasMalformedFields: malformed("id", parsed: id)
+            hasMalformedOffset: malformed("offset", parsed: offset),
+            hasMalformedMetadata: malformed("id", parsed: id)
                 || malformed("flags", parsed: flags)
-                || malformed("offset", parsed: offset)
                 || malformed("angles", parsed: angles)
                 || malformed("parentcontrolpoint", parsed: parent)
         )

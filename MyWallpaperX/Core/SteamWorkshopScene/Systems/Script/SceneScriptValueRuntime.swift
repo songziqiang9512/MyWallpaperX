@@ -156,8 +156,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         retainsValueForNextUpdate: Bool = false,
         propertyRefresh: Bool = false
     ) -> Result<SceneScriptValueEvaluation?, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite,
-              Self.acceptsScalarValue(input, for: target),
+        guard input.valueType == valueType,
+              Self.acceptsScriptScalarValue(input, for: target),
               frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
               frame.frameTime.isFinite, frame.frameTime >= 0,
               frame.runtime.isFinite, frame.runtime >= 0 else {
@@ -275,10 +275,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?,
-        propertyRefresh: Bool = false
+        propertyRefresh: Bool = false,
+        priorCallbackAuthoredMutations: [SceneScriptLayerMutation] = [],
+        priorVisibilityValue: Bool? = nil
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite,
-              Self.acceptsScalarValue(input, for: target),
+        guard input.valueType == valueType,
+              Self.acceptsScriptScalarValue(input, for: target),
               frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
               frame.frameTime.isFinite, frame.frameTime >= 0,
               frame.runtime.isFinite, frame.runtime >= 0 else {
@@ -287,7 +289,19 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         let initializesValue = needsInitialization
         let pendingValue = consumePendingInitializationValue()
-        let scriptInput = sceneScriptInput(pendingValue ?? input)
+        let readBaseline = visibilityReadBaseline(
+            initializationValue: pendingValue,
+            priorCallbackAuthoredMutations: priorCallbackAuthoredMutations,
+            priorVisibilityValue: priorVisibilityValue
+        )
+        if let readBaseline,
+           let failure = configureAuthoredLayerReadBaselines([readBaseline]) {
+            return .failure(failure)
+        }
+        defer {
+            if readBaseline != nil { clearAuthoredLayerReadBaselines() }
+        }
+        let scriptInput = sceneScriptInput(readBaseline.map { .bool($0.visible) } ?? pendingValue ?? input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -403,12 +417,32 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         )
     }
 
+    private func visibilityReadBaseline(
+        initializationValue: SceneDynamicValue?,
+        priorCallbackAuthoredMutations: [SceneScriptLayerMutation],
+        priorVisibilityValue: Bool?
+    ) -> SceneScriptLayerMutation? {
+        guard case let .layer(layerID, .visibility) = target else { return nil }
+        if let latest = priorCallbackAuthoredMutations.last(where: {
+            $0.kind == .upsert && !$0.isDynamic && $0.layerID == layerID
+                && $0.fields.contains(.visibility)
+        }) {
+            return latest.selectingAuthoredFields(.visibility)
+        }
+        guard let visible = priorVisibilityValue ?? initializationValue?.boolValue else { return nil }
+        return .init(kind: .upsert, isDynamic: false, fields: .visibility,
+            layerID: layerID, orderIndex: 0, visible: visible, alpha: 1,
+            origin: .zero, scale: .init(repeating: 1), angles: .zero,
+            color: .init(repeating: 1), pointSize: 0,
+            text: "", font: "", assetPath: nil)
+    }
+
     private func validatedEvaluation(
         value publishedValue: SceneDynamicValue,
         mutations: SceneScriptMediaEventMutations,
         scalarValueFollowsInput: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard Self.acceptsScalarValue(publishedValue, for: target) else {
+        guard Self.acceptsScriptScalarValue(publishedValue, for: target) else {
             discardLayerMutations()
             return .failure(.badReturn("invalid scalar output"))
         }
@@ -656,12 +690,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         guard layerID == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
         }
-        if let failure = configureCursorAuthoredLayerBaselines(
+        if let failure = configureAuthoredLayerReadBaselines(
             authoredLayerBaselines
         ) {
             return .failure(failure)
         }
-        defer { clearCursorAuthoredLayerBaselines() }
+        defer { clearAuthoredLayerReadBaselines() }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptUserShortcutBridge.withScope(
             owner: handle, gesture: nativeShortcutGesture, dispatch: userShortcutDispatch
@@ -754,8 +788,24 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         )
     }
 
+    /// Authored, user, Timeline, document and setter values stay strictly
+    /// finite; only a SceneScript property return may publish non-finite.
     static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
         guard value.isFinite else { return false }
+        return acceptsScalarDomain(value, for: target)
+    }
+
+    /// A SceneScript Number may be non-finite: the official client applies
+    /// NaN/-Infinity as invisible alpha and +Infinity as opaque. Target
+    /// domains still apply, and every ordinary consumer maps or rejects the
+    /// remaining non-finite value locally.
+    private static func acceptsScalarDomain(
+        _ value: Double, for target: SceneDynamicTarget
+    ) -> Bool {
+        if case .particle = target { return value.isFinite }
+        if target == .camera(.generalZoom) {
+            return SceneDynamicCameraField.generalZoom.userPropertyScalarRange?.contains(value) == true
+        }
         if ScenePuppetAnimationPropertyTarget.field(for: target) == .rate {
             return ScenePuppetAnimationCommand.acceptsScalarControl(value)
         }
@@ -769,7 +819,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             return SceneDynamicLayerField.acceptsLightRadius(value)
         }
         if case .layer(_, .brightness) = target {
-            return Float(max(0, value)).isFinite
+            return value.isFinite && Float(max(0, value)).isFinite
         }
         if case .layer(_, .volume) = target {
             return (0 ... 1).contains(value)
@@ -781,9 +831,11 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return true
     }
 
-    private static func acceptsScalarValue(_ value: SceneDynamicValue, for target: SceneDynamicTarget) -> Bool {
+    private static func acceptsScriptScalarValue(
+        _ value: SceneDynamicValue, for target: SceneDynamicTarget
+    ) -> Bool {
         guard case let .scalar(number) = value else { return true }
-        return acceptsScalar(number, for: target)
+        return acceptsScalarDomain(number, for: target)
     }
 
     /// The existing no-update value projection also serves sleeping owners.
@@ -833,6 +885,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return switch raw {
         case MWX_SCENE_QUICKJS_COMPILE_ERROR: .compile(diagnostic)
         case MWX_SCENE_QUICKJS_EXCEPTION: .exception(diagnostic)
+        case MWX_SCENE_QUICKJS_INIT_EXCEPTION: .initializationException(diagnostic)
         case MWX_SCENE_QUICKJS_BUDGET_EXCEEDED: .budgetExceeded(diagnostic)
         case MWX_SCENE_QUICKJS_MEMORY_EXCEEDED: .memoryExceeded(diagnostic)
         case MWX_SCENE_QUICKJS_BAD_RETURN: .badReturn(diagnostic)

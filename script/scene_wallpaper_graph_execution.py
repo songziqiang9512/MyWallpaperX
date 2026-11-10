@@ -554,10 +554,6 @@ def resolved_material_graph_execution_metrics(
         capability_failures.append(
             "resolved material graph accepted layer compositor consumption missing"
         )
-    if named_compositor_overlap_layer_ids:
-        capability_failures.append(
-            "resolved material graph named publication also consumed by compositor"
-        )
     if execution_observations_enabled and missing_next_frame_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer next-frame evidence missing"

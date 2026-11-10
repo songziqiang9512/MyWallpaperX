@@ -65,9 +65,10 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
     private let dynamicValues: SceneDynamicSnapshot?
+    private let perspectiveReplayRootIDs: Set<Int>
     /// Native SceneScript polling uses the far-plane point, not a layer hit.
     /// Keep its extent with the camera that owns the render projection.
-    private let nativeFarPlane: SIMD3<Float>?
+    let nativeFarPlane: SIMD3<Float>?
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
@@ -78,9 +79,11 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         staticCenter: SIMD3<Float>? = nil,
         staticUp: SIMD3<Float>? = nil,
         nativePerspectiveOverride: NativePerspectiveOverride? = nil,
-        dynamicValues: SceneDynamicSnapshot? = nil
+        dynamicValues: SceneDynamicSnapshot? = nil,
+        perspectiveReplayRootIDs: Set<Int> = []
     ) {
         self.dynamicValues = dynamicValues
+        self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         let isCanvas = camera.orthoWidth != nil || camera.orthoHeight != nil
@@ -293,13 +296,12 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         layerOverride ?? defaultsToPerspective
     }
 
-    /// Local composition captures may replay through perspective. Group and
-    /// other utility targets retain the screen-space policy; native-camera
-    /// composition capture is not part of this profile.
+    /// A utility needs a prepared local replay or the childless geometry path.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
         if layer.hasFramebufferMaterialSource { return defaultsToPerspective }
         if layer.utilityLayer != nil,
-           defaultsToPerspective || !layer.hasPerspectiveGeometryConsumer { return false }
+           defaultsToPerspective || !(layer.hasPerspectiveGeometryConsumer
+            || perspectiveReplayRootIDs.contains(layer.id)) { return false }
         if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
            resolved.source != .authored, case let .bool(value) = resolved.value {
             return value
@@ -315,7 +317,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// through the output projection. Ordinary image/utility routes agree.
     func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
         if layer.hasFramebufferMaterialSource { return viewProjection(for: layer) }
-        if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer {
+        if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer
+            || perspectiveReplayRootIDs.contains(layer.id) {
             return orthographicViewProjection
         }
         return viewProjection(for: layer)
@@ -332,7 +335,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         inheritsNativeSceneCamera: Bool = false,
         layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
-        sizeIsWorldSpace: Bool
+        sizeIsWorldSpace: Bool,
+        usesPerspectiveTrailEye: Bool = false
     ) -> SceneParticleLayerUniforms {
         let nativeSprite = defaultsToPerspective && usesSceneCamera
             && (orientation == .screen || orientation == .worldScreen)
@@ -353,7 +357,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         let viewBasis = selectedPerspective
             ? basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
             : orthographicViewBasis
-        return SceneParticleLayerUniforms(
+        var uniforms = SceneParticleLayerUniforms(
             viewProjection: viewProjection(usesPerspective: selectedPerspective),
             layerModel: model,
             basis: basis(for: orientation, layerModel: model,
@@ -363,6 +367,15 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             sizeIsWorldSpace: sizeIsWorldSpace,
             viewBasis: viewBasis
         )
+        if usesPerspectiveTrailEye {
+            let eye = simd_inverse(model) * SIMD4(perspectiveEyePosition, 1)
+            if eye.x.isFinite, eye.y.isFinite, eye.z.isFinite {
+                // Preserve front winding under a reflected layer or the canvas Y flip.
+                let facing: Float = (simd_determinant(model) < 0) != defaultsToPerspective ? 1 : -1
+                uniforms.trailWidthReference = SIMD4(eye.x, eye.y, eye.z, 1) * facing
+            }
+        }
+        return uniforms
     }
 
     func basis(

@@ -415,7 +415,7 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "WEMath.mix scalar interpolation"
     );
 
-    fixture->invalid_wemath_mix = mwx_scene_quickjs_owner_create(
+    fixture->wemath_infinite_mix = mwx_scene_quickjs_owner_create(
         fixture->domain,
         "import * as WEMath from 'WEMath';\n"
         "export function update(value) { return WEMath.mix(value, Infinity, 0.5); }",
@@ -426,11 +426,11 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         29, fixture->diagnostic, sizeof(fixture->diagnostic)
     );
     fixture->failures += mwx_fixture_check(
-        fixture->invalid_wemath_mix != NULL, "invalid WEMath.mix compile", fixture->diagnostic
+        fixture->wemath_infinite_mix != NULL, "WEMath.mix Infinity compile", fixture->diagnostic
     );
     fixture->failures += mwx_fixture_update(
-        fixture->invalid_wemath_mix, 29, 2, MWX_SCENE_QUICKJS_BAD_RETURN, 2,
-        "WEMath.mix Infinity cannot publish as a typed scalar"
+        fixture->wemath_infinite_mix, 29, 2, MWX_SCENE_QUICKJS_OK, INFINITY,
+        "WEMath.mix Infinity publishes as the official non-finite scalar"
     );
 
     // VM numeric values may remain nonfinite until a typed consumer reads them.

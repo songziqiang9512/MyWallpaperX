@@ -49,18 +49,20 @@ nonisolated extension SceneParticleSimulator {
     }
 
 #if DEBUG
-    func observeSelectedRenderer(typedIndex: Int?) {
+    func observeSelectedRenderers(typedIndices: @autoclosure () -> [Int]) {
         guard componentObservation != nil else { return }
+        let selected = Set(typedIndices())
         let origin = componentObservation?.origin
         componentObservation?.origin = "prepared"
         if definition.rendererWasImplicit {
             componentObservation?.pending.append(.init(category: "renderer", componentIndex: -1,
-                kind: "sprite", stage: "prepared-executable", reason: "implicit-default-selected",
+                kind: "sprite", stage: selected.contains(0) ? "prepared-executable" : "not-selected",
+                reason: selected.contains(0) ? "implicit-default-selected" : "renderer-not-prepared",
                 origin: "prepared", simulationTime: simulationTime, particleID: nil))
         } else {
             for index in definition.renderers.indices {
-                componentObservation?.record("renderer", index, index == typedIndex ? "prepared-executable" : "not-selected",
-                    reason: index == typedIndex ? "selected-renderer" : "another-renderer-selected", time: simulationTime)
+                componentObservation?.record("renderer", index, selected.contains(index) ? "prepared-executable" : "not-selected",
+                    reason: selected.contains(index) ? "selected-renderer" : "renderer-not-prepared", time: simulationTime)
             }
         }
         if let origin { componentObservation?.origin = origin }

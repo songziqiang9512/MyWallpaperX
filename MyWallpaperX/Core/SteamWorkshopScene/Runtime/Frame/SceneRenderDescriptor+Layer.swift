@@ -87,15 +87,15 @@ nonisolated extension SceneRenderDescriptor {
             contentKind == "image" || contentKind == "solid"
         }
 
-        /// The local capture/replay profile. Group targets already contain
-        /// member world transforms and retain their full-viewport output.
+        /// Direct geometry and the childless utility capture/replay path.
+        /// Populated groups qualify through their prepared source route.
         nonisolated var hasPerspectiveGeometryConsumer: Bool {
             guard let utility = utilityLayer else {
                 return ["image", "solid", "text", "model"].contains(contentKind)
             }
             return utility.framebufferSource == nil
                 && utility.kind == .composition && contentKind == "composition"
-                && utility.copyBackground && !utility.passthrough
+                && utility.copyBackground
                 && parentID == nil && childLayerIDs.isEmpty
                 && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
         }

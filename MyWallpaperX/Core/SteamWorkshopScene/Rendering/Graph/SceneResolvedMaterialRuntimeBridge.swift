@@ -281,6 +281,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     private var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
     private var orderedAssetVideoIdentities: [SceneAssetTextureIdentity] = []
+    private var assetVideoVisibilityTargets: [SceneAssetTextureIdentity: SceneDynamicTarget] = [:]
     let submissions: SceneResolvedMaterialSubmissionCoordinator
     var sourceMaterials: [Int: PreparedSourceMaterial] = [:] {
         didSet {
@@ -337,7 +338,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     func resolvedAssetStates(
-        timing: SceneFrameTiming
+        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot
     ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
         var states = assetProvider.states(sceneTime: timing.sceneTime)
         for identity in orderedAssetVideoIdentities {
@@ -345,7 +346,13 @@ final class SceneResolvedMaterialRuntimeBridge {
                 states[identity] = .unavailable
                 continue
             }
-            guard let frame = source.prepareFrame(for: timing) else {
+            let visible: Bool? = assetVideoVisibilityTargets[identity].flatMap { target in
+                if case let .bool(value)? = dynamicValues[target]?.value { return value }
+                return nil
+            }
+            let frame = source.prepareFrame(for: timing, effectVisibility: visible)
+            if visible == false { continue }
+            guard let frame else {
                 states[identity] = source.initialFrameReadiness(preparedFrame: nil)
                     == .unavailable ? .unavailable : .pending
                 continue
@@ -364,10 +371,12 @@ final class SceneResolvedMaterialRuntimeBridge {
     /// The bridge does not own a player, media clock or video transaction.
     func installAssetVideoSources(
         _ sources: [SceneAssetTextureIdentity: SceneVideoTextureSource],
-        declaredIdentities: Set<SceneAssetTextureIdentity>
+        declaredIdentities: Set<SceneAssetTextureIdentity>,
+        visibilityTargets: [SceneAssetTextureIdentity: SceneDynamicTarget]
     ) {
         assetVideoSources = sources
         orderedAssetVideoIdentities = declaredIdentities.sorted { $0.reportToken < $1.reportToken }
+        assetVideoVisibilityTargets = visibilityTargets
     }
 
     func commitResolvedAssetFrame() {

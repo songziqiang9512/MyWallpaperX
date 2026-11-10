@@ -76,6 +76,7 @@ final class SceneResolvedMaterialPassEncoder {
 
     let device: MTLDevice
     private let samplers: SceneTextureSamplerStateSet
+    private let canvasSamplers: (clamp: MTLSamplerState, repeating: MTLSamplerState)
     private let ownerToken = UUID()
     private let libraryCondition = NSCondition()
     private var librariesByMetalSource: [String: MetalLibraryEntry] = [:]
@@ -113,11 +114,17 @@ final class SceneResolvedMaterialPassEncoder {
 #endif
 
     init?(device: MTLDevice) {
-        guard let samplers = SceneTextureSamplerStateSet(device: device) else {
+        guard let samplers = SceneTextureSamplerStateSet(device: device),
+              let canvasClamp = SceneTextureSamplerStateSet.makeState(
+                  device: device, filter: .linear, addressMode: .clampToEdge, anisotropic: false
+              ), let canvasRepeat = SceneTextureSamplerStateSet.makeState(
+                  device: device, filter: .linear, addressMode: .repeatWrap, anisotropic: false
+              ) else {
             return nil
         }
         self.device = device
         self.samplers = samplers
+        self.canvasSamplers = (canvasClamp, canvasRepeat)
     }
 
     /// Returns an immutable pass only after all Program, resource, attachment,
@@ -478,11 +485,15 @@ final class SceneResolvedMaterialPassEncoder {
                   ObjectIdentifier(texture) != ObjectIdentifier(target) else {
                 return nil
             }
-            result.append(.init(
-                slot: slotIndex,
-                texture: texture,
-                sampler: samplers.state(for: candidate.sampling)
-            ))
+            let sampler: MTLSamplerState
+            if case .provider(.graph) = candidate.identity {
+                // A published graph canvas already has one mip and linear sampling.
+                sampler = candidate.sampling.addressMode == .repeatWrap
+                    ? canvasSamplers.repeating : canvasSamplers.clamp
+            } else {
+                sampler = samplers.state(for: candidate.sampling)
+            }
+            result.append(.init(slot: slotIndex, texture: texture, sampler: sampler))
         }
         return result
     }

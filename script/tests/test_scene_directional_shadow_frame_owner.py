@@ -132,6 +132,7 @@ struct TextureRegistry { let frameEpoch:UInt64 = 1 }
 struct SceneCompositionGroupFrameRuntime {
  func renderPass(forLayerID:Int)->SceneMainPassEncoder? { nil }
  func closeAllGroupEncoders() {}
+ func terminalScratch(matching:MTLTexture,on:MTLCommandBuffer)->MTLTexture? {nil}
  func sourceIsAvailable(forLayerID:Int)->Bool {false}
  func compositeTargetPass(forRootID:Int)->SceneMainPassEncoder? {nil}
 }
@@ -204,7 +205,7 @@ extension SceneFrameContext {
 }
 extension SceneBaseImageTextureSnapshot {
  func layerSourceRenderSize(for id:Int)->[Float]? { fatalError("unused RF13 ordered preparation shell") }
- func layerSourceTextCenterOffsetY(for id:Int)->Float? { fatalError("unused RF13 ordered preparation shell") }
+ func layerSourceTextPlacement(for id:Int) -> (centerOffsetY: Float, rasterOffsetY: Float)? { fatalError("unused RF13 ordered preparation shell") }
  var geometryProducts:[Int:FixtureGeometryProduct] { fatalError("unused RF13 ordered preparation shell") }
 }
 extension SceneMetalRenderer {
@@ -218,7 +219,7 @@ extension SceneMetalRenderer {
   fatalError("unused RF13 ordered preparation shell")
  }
  func imageModelMatrix(for layer:SceneRenderDescriptor.Layer,worldFramesByLayerID:[Int:simd_float4x4],
-  renderSizeOverride:[Float]?,textCenterOffsetY:Float=0,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,
+  renderSizeOverride:[Float]?,textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)? = nil,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,
   visibleHalfExtents:SIMD2<Float>,usesPerspective:Bool)->simd_float4x4 {
   fatalError("unused RF13 ordered preparation shell")
  }

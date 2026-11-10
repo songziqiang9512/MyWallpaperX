@@ -263,7 +263,7 @@ class SceneParticleWorldSpaceCases:
                             or (154 <= x <= 158 and abs(y - 513) < 0.003), rope)
             self.assertAlmostEqual(z, 0, delta=0.003)
         for name, expected_position, expected_velocity in [
-            ("force", [40, 60, 0], [1, 0, 0]),
+            ("force", [40, 60, 0], [.7353515625, 0, 0]),
             ("vortex", [50, 60, 0], [0, -0.72, 0]),
             ("plane", [40, 60, 0], [0, 0, 0]),
             ("sphere", [44, 60, 0], [0, 0, 0]),
@@ -304,6 +304,57 @@ class SceneParticleWorldSpaceCases:
         for name, value in result.items():
             with self.subTest(fact=name):
                 self.assertTrue(value, result)
+
+    def test_authored_particle_bounds_rebounds_in_canvas_space_and_reaches_metal(self) -> None:
+        expected = {
+            "right": ((1000, 398, 0), (998, 396, 0), (-120, -120, 0)),
+            "control": ((1002, 398, 0), (1006, 396, 0), (240, -120, 0)),
+            "collisionFirst": ((1002, 398, 0), (998, 396, 0), (-120, -120, 0)),
+            "inward": ((1000, 398, 1), (998, 396, 2), (-120, -120, 60)),
+            "inside": ((804, 398, 0), (808, 396, 0), (240, -120, 0)),
+            "lower": ((502, 0, 0), (504, 2, 0), (120, 120, 0)),
+            "turned": ((1000, 398, 0), (998, 396, 0), (-120, -120, 0)),
+            "prewarm": ((1000, 396, 0), (998, 394, 0), (-120, -120, 0)),
+            "singular": ((1002, 398, 0), (1006, 396, 0), (240, -120, 0)),
+        }
+
+        def vector(actual, wanted):
+            self.assertEqual(len(actual), 3)
+            for value, component in zip(actual, wanted):
+                self.assertAlmostEqual(value, component, delta=0.003)
+
+        for configuration in ("debug", "release"):
+            result = self.run_harness("collision-bounds-synthetic", configuration=configuration)
+            self.assertCountEqual(result["active"], [108, 119, 124, 132, 168, 187, 283, 428, 534, 793])
+            for name, (at_contact, later, velocity) in expected.items():
+                with self.subTest(configuration=configuration, case=name):
+                    first, second = result["first"][name], result["second"][name]
+                    self.assertEqual(first["id"], second["id"])
+                    vector(first["position"], at_contact)
+                    vector(second["position"], later)
+                    vector(first["velocity"], (240, -120, 0) if name == "collisionFirst" else velocity)
+                    vector(second["velocity"], velocity)
+            first, second = (result[step]["overshoot"] for step in ("first", "second"))
+            vector(first["position"], (1000, 400, 0))
+            vector(second["position"], (0, 400, 0))
+            self.assertLess(first["velocity"][0], 0)
+            self.assertGreater(second["velocity"][0], 0)
+            initial = result["initial"]
+            self.assertEqual(initial["id"], result["first"]["prewarm"]["id"])
+            vector(initial["position"], (1000, 398, 0))
+            vector(initial["velocity"], (-120, -120, 0))
+            vector(result["noCanvas"]["position"], expected["control"][0])
+            vector(result["noCanvas"]["velocity"], expected["control"][2])
+            right, control = (result["pixels"][name] for name in ("right", "control"))
+            self.assertEqual(len(right), 4)
+            self.assertEqual(len(control), 4)
+            self.assertGreater(right[0], 0)
+            self.assertGreater(right[1], 0)
+            self.assertEqual(right[:2], control[:2])
+            self.assertEqual(right[3], control[3])
+            # The readback reports twice each bounding-box center. The two
+            # paths differ by eight canvas pixels horizontally after two steps.
+            self.assertAlmostEqual(control[2] - right[2], 16, delta=2)
 
     def test_root_world_rope_uses_reference_for_births_pointer_force_and_explicit_context(self):
         result = self.run_harness("worldspace-rope-reference")

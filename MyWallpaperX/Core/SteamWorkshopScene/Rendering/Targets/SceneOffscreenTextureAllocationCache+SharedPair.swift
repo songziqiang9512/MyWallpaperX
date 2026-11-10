@@ -24,7 +24,8 @@ struct SceneOffscreenTextureAllocationCandidate {
              let (.sourceMaterial(_, width, height), .composition(texture, _)),
              let (.terminalInput(_, _, width, height), .composition(texture, _)):
             texture.width == width && texture.height == height && texture.mipmapLevelCount == 1
-        case let (.modelShadow(_, width, height), .composition(texture, _)):
+        case let (.modelShadow(_, width, height), .composition(texture, _)),
+             let (.modelCameraDepth(width, height), .composition(texture, _)):
             texture.width == width && texture.height == height
                 && texture.pixelFormat == .depth32Float && texture.mipmapLevelCount == 1
                 && texture.usage.contains([.shaderRead, .renderTarget])

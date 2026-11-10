@@ -4,7 +4,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     static func dynamicUniformExecutionRejection(
         _ template: Template,
         node: Graph.Node,
-        producers: DynamicProducerCatalog
+        producers: DynamicProducerCatalog,
+        variants: SceneResolvedMaterialVariantCache?
     ) -> Rejection? {
         for declaration in template.uniformDeclarations {
             guard case let .dynamic(dynamic) = declaration.value else { continue }
@@ -32,7 +33,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     guard targetProducers.count == 1,
                           let producer = targetProducers.first else { return false }
                     return producer.propertyKey == propertyKey
-                        && userPropertyValueTypeMatches(producer.valueType, dynamic: dynamic)
+                        && userPropertyValueTypeMatches(
+                            producer.valueType,
+                            dynamic: dynamic,
+                            variants: variants
+                        )
                 case .timeline:
                     return timelineDefinitionMatches(
                         dynamic,

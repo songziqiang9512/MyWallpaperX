@@ -145,6 +145,68 @@ HARNESS = r'''
         rows["modelPrefix"] = ["preparation": prefixModel.preparationLayerIDs,
             "prepass": prefixModel.prepassProviderLayerIDs,
             "scheduled": prefixModel.scheduledGraphProviderLayerIDs.sorted()]
+        for renamed in [false, true] {
+            let c = renamed ? 354 : 88, p = renamed ? 719 : 99, d = renamed ? 912 : 111
+            let order = [c, p, d], visible = Set(order)
+            let early = SceneDependencyRenderPlan.Binding(consumerLayerID: c, providerLayerID: p,
+                slot: .init(effectID: renamed ? "alternate-early" : "early", passIndex: 0, slotIndex: 1),
+                blendMode: 0, kind: .visibleImageGraphOutput, requiresForwardCapture: true,
+                requiresResolvedMaterialProgram: true)
+            let late = SceneDependencyRenderPlan.Binding(consumerLayerID: d, providerLayerID: p,
+                slot: .init(effectID: renamed ? "alternate-late" : "late", passIndex: 0, slotIndex: 1),
+                blendMode: 0, kind: .visibleImageGraphOutput, requiresResolvedMaterialProgram: true)
+            let descriptor = SceneRenderDescriptor(layers: order.map {
+                .init(id: $0, contentKind: "image", utilityLayer: nil, alpha: 1, colorRGB: [1,1,1])
+            }, bindings: [c: early, d: late], graphOutputProviderLayerIDs: [p])
+            let shared = SceneDependencyFrameRuntime(descriptor: descriptor,
+                visibleLayerIDs: visible, executableUtilityConsumerLayerIDs: [], device: device)
+            let provider = descriptor.layers[1]
+            var reason: String?
+            let reservations = [early, late].map {
+                shared.reserveEffectInput(for: $0, providerLayer: provider,
+                    providerTexture: source, providerCandidate: sourceCandidate,
+                    layerMVP: matrix_identity_float4x4, viewportSize: CGSize(width: 2, height: 2),
+                    preparedOutputExtent: (2,2), frameEpoch: 1, failureReason: &reason)
+            }
+            func unavailable() -> [Bool] {
+                [c,d].map {
+                    if case .unavailable = shared.resolvedMaterialEffectInputResolution(
+                        for: $0, textureRegistry: registry) { return true }
+                    return false
+                }
+            }
+            let before = unavailable()
+            let independent = shared.sourcePreparationPlan(authoredLayerIDs: order,
+                availableExecutionLayerIDs: visible, visibleRootLayerIDs: visible,
+                activeStaticModelConsumerLayerIDs: [], topologyRevision: 0,
+                sourceAfterLayerIDByLayerID: { [:] })!
+            let ready = shared.preparationSchedule(sourcePlan: independent,
+                excludingSlotsByConsumerLayerID: [:])!
+            let prefix = shared.sourcePreparationPlan(authoredLayerIDs: order,
+                availableExecutionLayerIDs: visible, visibleRootLayerIDs: visible,
+                activeStaticModelConsumerLayerIDs: [], topologyRevision: 1,
+                sourceAfterLayerIDByLayerID: { [p:p] })!
+            let ordered = shared.preparationSchedule(sourcePlan: prefix,
+                excludingSlotsByConsumerLayerID: [:])!
+            let lateOnly = shared.sourcePreparationPlan(authoredLayerIDs: order,
+                availableExecutionLayerIDs: visible, visibleRootLayerIDs: [p,d],
+                activeStaticModelConsumerLayerIDs: [], topologyRevision: 1,
+                sourceAfterLayerIDByLayerID: { [:] })!
+            rows["visibleForward-\(renamed)"] = [
+                "provider": p, "early": c, "late": d,
+                "preparation": ready.preparationLayerIDs, "prepass": ready.prepassProviderLayerIDs,
+                "scheduled": ready.scheduledGraphProviderLayerIDs.sorted(),
+                "prefixPreparation": ordered.preparationLayerIDs,
+                "prefixPrepass": ordered.prepassProviderLayerIDs,
+                "prefixScheduled": ordered.scheduledGraphProviderLayerIDs.sorted(),
+                "prefixOwnCuts": [prefix.ownCuts[c]!, prefix.ownCuts[p]!, prefix.ownCuts[d]!],
+                "lateOnlyPrepass": shared.preparationSchedule(sourcePlan: lateOnly,
+                    excludingSlotsByConsumerLayerID: [:])!.prepassProviderLayerIDs,
+                "sharedReservation": reservations[0] != nil && reservations[1] != nil
+                    && reservations[0]!.texture === reservations[1]!.texture,
+                "unavailableBefore": before, "unavailableAfter": unavailable(),
+            ]
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -215,6 +277,8 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
 
     def test_visibility_deadline_and_source_revision_are_memo_inputs(self):
         self.assertIn(22, self.rows["prefixVisible"]["active"])
+        self.assertNotIn(22, self.rows["prefixVisible"]["prepass"])
+        self.assertNotIn(22, self.rows["prefixVisible"]["scheduled"])
         self.assertEqual(self.rows["prefixVisible"]["projections"], 14)
         for name in ("prefixHidden", "prefixHiddenStable"):
             self.assertNotIn(22, self.rows[name]["active"])
@@ -235,6 +299,28 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
     def test_unavailable_shadow_supply_does_not_claim_later_prefix_graph(self):
         self.assertEqual(self.rows["modelPrefix"], {
             "preparation": [22, 88], "prepass": [], "scheduled": []})
+
+    def test_forward_visible_provider_is_scheduled_once_for_early_and_late_readers(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.rows[f"visibleForward-{str(renamed).lower()}"]
+                p, c, d = row["provider"], row["early"], row["late"]
+                self.assertEqual(row["preparation"], [p, c, d])
+                self.assertEqual(row["prepass"], [p])
+                self.assertEqual(row["scheduled"], [p])
+                self.assertEqual(row["lateOnlyPrepass"], [])
+                self.assertTrue(row["sharedReservation"])
+                self.assertEqual(row["unavailableBefore"], [True, True])
+                self.assertEqual(row["unavailableAfter"], [True, True])
+
+    def test_visible_prefix_source_keeps_its_own_cut_and_does_not_move_to_early_reader(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                row = self.rows[f"visibleForward-{str(renamed).lower()}"]
+                self.assertEqual(row["prefixPreparation"], [row["early"], row["provider"], row["late"]])
+                self.assertEqual(row["prefixPrepass"], [])
+                self.assertEqual(row["prefixScheduled"], [])
+                self.assertEqual(row["prefixOwnCuts"], [0, 3, 4])
 
 
 if __name__ == "__main__":

@@ -39,6 +39,13 @@ buffer 只取得原 allocation 租约，不能双重计费。浮点导出在独�
 
 cancel 或 seal 失败不消费请求；readback lane 满时保 pending，不阻塞提交。被 stage timestamp 选中的 command buffer 不追加截图，避免改变该次测量。commit 前登记 outstanding，completion 只把 buffer/尺寸/颜色/请求值交 CPU 导出，不长期持 drawable、源纹理或 command buffer。
 
+<a id="capture-receipts"></a>
+### 离线收据关联
+
+原 log reader 保 encoded 与 composition 的源行号，不向旧事件倒填 frame、Surface 或 stream。实际捕获的同 CB completion 必在提交前的 encoded 记录之后，故可排除编码前候选；其后先按 request/CB 保唯一，再核 completed、非空 Surface 和唯一 seal 的 texture/extent。不能先筛掉失败或跨 Surface 候选后挑幸存者，也不能用异步 PNG 写成时间作 completion 上界。缺源行信息的旧记录保持原唯一匹配规则，歧义不授捕获资格。
+
+原 helper 默认读取 after，也可显式读取一个精确 PNG 路径；仅消费与该路径对应的真实 persisted receipt，receipt 与 encoded 均须唯一。不按文件名猜 request，不遍历目录挑图，不由跨 Surface 可重复的 request ID 猜归属。该关联只影响诊断，保原 JSON 事件及正常播放；不增加捕获状态、帧内计算或另一截图 owner。
+
 <a id="drain"></a>
 ## Close 与排空
 

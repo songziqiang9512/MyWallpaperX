@@ -453,10 +453,16 @@ final class SceneVideoTextureSource {
     /// The host commits it only after the surface submission barrier accepts
     /// the frame, so a drawable miss or graph rejection cannot consume video
     /// content generation or replace the last-ready frame.
-    func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
+    func prepareFrame(for timing: SceneFrameTiming, effectVisibility: Bool? = nil) -> Frame? {
+        // A paused consumer must retry its held position, not submit an older
+        // texture acquired before its effect was disabled.
+        let pausedRefresh = effectVisibility == true
+            && !lifecycle.isAdvancingPlayback && lifecycle.needsFrameRefresh
+            && lifecycle.currentTime(at: timing.sceneTime) >= 0
+        let fallback = pausedRefresh ? nil : lastFrame
         if pendingFrameIndex == timing.frameIndex,
            lifecycle.hasPlannedFrame(frameIndex: timing.frameIndex) {
-            return pendingFrame ?? lastFrame
+            return pendingFrame ?? fallback
         }
         pendingFrame = nil
         pendingFrameIndex = nil
@@ -472,6 +478,9 @@ final class SceneVideoTextureSource {
             hasStarted = true
             markPlayerAnchorRequired()
         }
+        if effectVisibility == false && lifecycle.isAdvancingPlayback {
+            lifecycle.requireFrameRefresh()
+        }
         let plan = lifecycle.planFrame(
             frameIndex: timing.frameIndex,
             sceneTime: timing.sceneTime,
@@ -484,9 +493,9 @@ final class SceneVideoTextureSource {
         pendingFrameIndex = timing.frameIndex
         guard plan.shouldDecode else {
             decodedFrameCandidate = nil
-            return lastFrame
+            return fallback
         }
-        if let primedFrame, lifecycle.contentGeneration == 0 {
+        if effectVisibility != false, let primedFrame, lifecycle.contentGeneration == 0 {
             let frame = makeFrame(from: primedFrame, epoch: plan.epoch)
             pendingFrame = frame
             return frame
@@ -495,14 +504,14 @@ final class SceneVideoTextureSource {
         // retried. Its old Scene time can precede the new loop's zero point.
         // Keep the previous texture until that point instead of scheduling
         // item zero against an earlier host time and shifting playback ahead.
-        guard plan.itemTime >= 0 else { return lastFrame }
+        guard plan.itemTime >= 0 else { return fallback }
         guard item?.status == .readyToPlay else {
             markPlayerAnchorRequired()
-            return lastFrame
+            return fallback
         }
 
         let itemTime = boundedItemTime(plan.itemTime)
-        guard preparePlayerPosition(for: itemTime) else { return lastFrame }
+        guard preparePlayerPosition(for: itemTime) else { return fallback }
         if lifecycle.isAdvancingPlayback && (needsPlayerAnchor || player.rate == 0) {
             player.setRate(
                 Float(lifecycle.rate),
@@ -519,7 +528,11 @@ final class SceneVideoTextureSource {
         }
         if lifecycle.isAdvancingPlayback && player.rate == 0 {
             needsPlayerAnchor = true
-            return lastFrame
+            return fallback
+        }
+        if effectVisibility == false {
+            decodedFrameCandidate = nil
+            return nil
         }
         // Acquisition cannot be rolled back with a surface. Reuse this one
         // unpublished payload for the exact target, rebuilding only its typed
@@ -532,8 +545,8 @@ final class SceneVideoTextureSource {
         }
         decodedFrameCandidate = nil
         let expectedCommandGeneration = playerEventState.commandGeneration
-        guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
-            return lastFrame
+        guard pausedRefresh || videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
+            return fallback
         }
         var itemTimeForDisplay = CMTime.invalid
         guard let pixelBuffer = videoOutput.copyPixelBuffer(
@@ -542,7 +555,7 @@ final class SceneVideoTextureSource {
         ),
         expectedCommandGeneration == playerEventState.commandGeneration,
         let texture = makeTexture(from: pixelBuffer) else {
-            return lastFrame
+            return fallback
         }
         let decoded = DecodedFrame(
             texture: texture,
@@ -743,13 +756,6 @@ final class SceneVideoTextureSource {
     func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {
         lifecycle.resumeSuspension(sceneTime: sceneTime, hostTime: hostTime)
         if hasStarted { markPlayerAnchorRequired() }
-    }
-
-    func rebuild(sceneTime: TimeInterval, hostTime: TimeInterval) {
-        player.pause()
-        guard hasStarted else { return }
-        lifecycle.rebuild(sceneTime: sceneTime, hostTime: hostTime)
-        markPlayerAnchorRequired()
     }
 
     /// Losing the final consumer suspends decoder work, not author playback.

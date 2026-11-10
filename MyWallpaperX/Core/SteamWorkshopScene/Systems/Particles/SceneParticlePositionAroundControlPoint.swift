@@ -70,7 +70,8 @@ nonisolated func sceneParticleSequenceRemainder(
     if let integerDivisor {
         return Double(particleID % integerDivisor)
     }
-    if divisor.isInfinite { return Double(particleID) }
+    // Every UInt64 identity is below 2^64, even if its rounded Double is not.
+    if divisor >= 0x1p64 { return Double(particleID) }
     // Reduce exact 32-bit limbs before combining them. Converting the
     // whole identity to Double first loses births above 2^53.
     let highRemainder = (Double(particleID >> 32) * 4_294_967_296)
@@ -89,7 +90,7 @@ extension SceneParticleInitializer {
               value.rawFlags ?? 0 == 0,
               (value.limitBehavior ?? "repeat") == "repeat",
               let bounds = Self.vector(value.bounds ?? .vector([0, 1]), count: 2),
-              let count = value.count, count.isFinite, (1 ... 1_024).contains(count),
+              let count = value.count, count.isFinite, count >= 1,
               let speedMinimum = Self.vector(value.speedMinimum ?? .vector([0, 0, 0]), count: 3),
               let speedMaximum = Self.vector(value.speedMaximum ?? .vector([0, 0, 0]), count: 3),
               (0 ... 7).contains(value.controlPoint ?? 0) else { return nil }
@@ -126,20 +127,16 @@ extension SceneParticleInitializer {
               abs(authoredAxis.y) <= 1_000_000,
               abs(authoredAxis.z) <= 1_000_000 else { return nil }
         let axis = authoredAxis / length
-        let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
-        let first = SIMD3(
-            reference.y * axis.z - reference.z * axis.y,
-            reference.z * axis.x - reference.x * axis.z,
-            reference.x * axis.y - reference.y * axis.x
-        )
-        let basisLength = sqrt(first.x * first.x + first.y * first.y + first.z * first.z)
-        guard basisLength.isFinite, basisLength > 1e-12 else { return nil }
-        let basisU = first / basisLength
-        let basisV = SIMD3(
-            axis.y * basisU.z - axis.z * basisU.y,
-            axis.z * basisU.x - axis.x * basisU.z,
-            axis.x * basisU.y - axis.y * basisU.x
-        )
+        let horizontalLength = hypot(axis.x, axis.y)
+        let basisU: SIMD3<Double>
+        let basisV: SIMD3<Double>
+        if horizontalLength == 0 {
+            basisU = SIMD3(0, 1, 0)
+            basisV = SIMD3(1, 0, 0)
+        } else {
+            basisV = SIMD3(axis.y / horizontalLength, -axis.x / horizontalLength, 0)
+            basisU = SIMD3(-axis.z * basisV.y, axis.z * basisV.x, -horizontalLength)
+        }
         return .init(
             bounds: bounds[0] ... bounds[1], count: count,
             integerCount: UInt64(exactly: count),
@@ -175,9 +172,9 @@ extension SceneParticleControlPoint {
 }
 
 extension SceneParticleDefinition {
-    nonisolated func supportsBoundedPositionAroundControlPoint(
-        _ initializer: SceneParticleInitializer
-    ) -> Bool {
+    nonisolated func positionAroundControlPointPlan(
+        for initializer: SceneParticleInitializer
+    ) -> SceneParticlePositionAroundControlPointPlan? {
         // The pointer value is the layer-local unprojection and births
         // compose positions in local space; world-space and perspective
         // systems share the demand with local ones.
@@ -187,25 +184,24 @@ extension SceneParticleDefinition {
               let point = controlPoints.first(where: { $0.id == plan.controlPoint }),
               point.hasBoundedPointerInput
                 || point.hasBoundedPositionAroundStaticInput(identity: plan.controlPoint)
-        else { return false }
+        else { return nil }
         let emitter = emitters[0]
         if let source = emitterControlPointSource(for: emitter) {
-            return source == plan.controlPoint
+            return source == plan.controlPoint ? plan : nil
         }
         switch emitter.origin {
         case nil:
-            return true
+            return plan
         case let .vector(values):
-            return values.count == 3 && values.allSatisfy { $0 == 0 }
+            return values.count == 3 && values.allSatisfy { $0 == 0 } ? plan : nil
         default:
-            return false
+            return nil
         }
     }
 
     nonisolated var positionAroundPointerControlPointIdentities: Set<Int> {
         Set(initializers.compactMap { initializer in
-            guard supportsBoundedPositionAroundControlPoint(initializer),
-                  let identity = initializer.positionAroundControlPointPlan?.controlPoint,
+            guard let identity = positionAroundControlPointPlan(for: initializer)?.controlPoint,
                   controlPoints.contains(where: {
                       $0.id == identity && $0.hasBoundedPointerInput
                   }) else { return nil }

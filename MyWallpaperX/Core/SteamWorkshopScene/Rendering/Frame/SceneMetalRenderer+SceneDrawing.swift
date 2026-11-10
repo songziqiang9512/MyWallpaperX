@@ -91,7 +91,6 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        let orderedLayers = frameProjection.orderedLayers
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
 #if DEBUG
@@ -106,11 +105,11 @@ extension SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                    usesPerspective: false
                 )
                 return SceneCompositionSourceGeometry(
                     authoredRenderSizeWH: layer.renderSizeWH,
-                    worldMVP: cameraFrame.viewProjection(for: layer) * model
+                    worldMVP: cameraFrame.orthographicViewProjection * model
                 ).map { (rootID, $0) }
             })
         let (mainPass, groups) = makeScenePass(target: mainTarget,
@@ -152,22 +151,41 @@ extension SceneMetalRenderer {
         // Only prepared policy IDs are inspected. Source/effect programs retain
         // their coordinate ABI; this policy belongs to the ordinary terminal.
         var ordinaryDepthLayerIDs: Set<Int> = []
+        var sortableImageDepths: [Int: Float] = [:]
         if let imagePipeline {
             for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
                 guard let layer = frameLayersByID[id],
-                      let state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
+                      var state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
                       imageTextures.geometryProducts[id] == nil,
                       (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
                         || compositionGroupRuntime == nil) else { continue }
                 let additiveImage = state.supportsImageAdditiveRGB
+                var sortDepth: Float?
                 if additiveImage {
                     guard !dependencyRuntime.requiresGraphOutputCapture(for: id),
                           !dependencyRuntime.requiresEffect(for: id) else { continue }
                 } else {
                     guard cameraFrame.defaultsToPerspective,
-                          cameraFrame.resolvesPerspective(for: layer),
-                          imageCompositor.preflightResolvedMaterialClaim(layerID: id)
-                            .execution?.supportsTerminalMaterialReplay != true else { continue }
+                          cameraFrame.resolvesPerspective(for: layer) else { continue }
+                    // Native text composites its captured color through the world quad.
+                    let claim = layer.contentKind == "text" ? nil
+                        : imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
+                    if frameDescriptor.transparentSorting == true, groups == nil,
+                       layer.contentKind == "image", state.blending == .translucent,
+                       state.depthTest == .enabled, (layer.colorBlendMode ?? 0) == 0,
+                       let claim, claim.sourceRoute == .capturedLayerTexture,
+                       claim.dependencyOwnership == .none, claim.sceneBackgroundRequirement == nil,
+                       imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: id) != true,
+                       !hasWorldOrderDependency(id, utility: frameProjection.utilityExecution),
+                       let world = frameWorldFrames[id] {
+                        let origin = world.columns.3
+                        let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
+                        guard depth.isFinite else { continue }
+                        state = state.withoutDepthWrite
+                        sortDepth = depth
+                    } else if claim?.supportsTerminalMaterialReplay == true {
+                        continue
+                    }
                 }
                 guard imagePipeline.supports(state) else {
                     // Optional RGB policy failure keeps the prior safe image
@@ -176,9 +194,15 @@ extension SceneMetalRenderer {
                     continue
                 }
                 modelFrame.imageMaterialStates[id] = state
+                if let sortDepth { sortableImageDepths[id] = sortDepth }
                 if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
             }
         }
+        let authoredLayers = frameProjection.orderedLayers
+        let orderedLayers = sortableImageDepths.isEmpty ? authoredLayers
+            : sortedWorldImageOrder(authoredLayers, depths: sortableImageDepths,
+                visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
+                utility: frameProjection.utilityExecution)
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
             ordinaryLayerIDs: ordinaryDepthLayerIDs,
@@ -188,8 +212,9 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer, leases: &frameDepthLeases)
         modelFrame.unavailableImageMaterialLayerIDs.formUnion(
             unavailableDepthConsumers.intersection(ordinaryDepthLayerIDs))
+        let rejectedFramebufferSources = unavailableDepthConsumers.intersection(requestedFramebufferSources)
         let unavailableFramebufferSources = framebufferSourceLayerIDs.subtracting(requestedFramebufferSources)
-            .union(unavailableDepthConsumers.intersection(requestedFramebufferSources))
+            .union(rejectedFramebufferSources)
         let unavailableTerminalLayers = unavailableFramebufferSources
             .union(modelFrame.unavailableImageMaterialLayerIDs)
         if let reason = modelFrame.sceneDepthFailureReason {
@@ -202,7 +227,7 @@ extension SceneMetalRenderer {
             mainPass.closeForOffscreen()
             return .deferred(reasonCode: reason)
         }
-        for layerID in unavailableFramebufferSources {
+        for layerID in rejectedFramebufferSources {
             utilityCaptureTelemetry.record(layerID: layerID, encoded: false, on: commandBuffer)
         }
 #if DEBUG
@@ -216,7 +241,7 @@ extension SceneMetalRenderer {
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
-            authoredLayerIDs: frameProjection.orderedLayerIDs,
+            authoredLayerIDs: sortableImageDepths.isEmpty ? frameProjection.orderedLayerIDs : orderedLayers.map(\.id),
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             visibleRootLayerIDs: frameVisibleLayerIDs,
             activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs,
@@ -317,8 +342,20 @@ extension SceneMetalRenderer {
                 groups: compositionGroupRuntime, state: modelFrame)) : nil
         // All callers inspect the same pre-source image/plan facts. Preserve
         // their short cuts while avoiding duplicate reflection-demand scans.
+        let hasReadyReflectiveModel = staticModelResources.reflectiveLayerIDs.contains { id in
+            guard frameVisibleLayerIDs.contains(id),
+                  frameProjection.utilityExecution.memberRootsByLayerID[id] == nil,
+                  !staticModelResources.namedAlbedoLayerIDs.contains(id),
+                  let layer = frameLayersByID[id], cameraFrame.resolvesPerspective(for: layer)
+            else { return false }
+            let draws = modelFrame.prepared?[id] ?? staticModelDraws(layer: layer,
+                worldFrames: frameWorldFrames, snapshot: frameContext.dynamicValues, state: modelFrame)
+            return draws?.contains {
+                $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
+            } == true
+        }
         var reflectionDemand: Bool?
-        func requiresReflection() -> Bool {
+        func requiresImageReflection() -> Bool {
             if let reflectionDemand { return reflectionDemand }
             let needed = hasReflectionConsumers(imageTextures: imageTextures,
                 framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
@@ -330,17 +367,18 @@ extension SceneMetalRenderer {
             clearEnabled: frameDescriptor.camera.clearEnabled,
             hasPersistentSceneColor: sceneColor != nil, hasShadowReceiver: hasShadowReceiver,
             hasSourceMaterials: imageCompositor.resolvedMaterialRuntime?.sourceMaterials.isEmpty == false,
-            requiresReflection: requiresReflection) ?? .textureSource
+            requiresReflection: requiresImageReflection) ?? .textureSource
         var scratchReady = false
         var optionalScratch: [SceneOffscreenTexturePool.PinnedTexture]?
         if let pool = offscreenTexturePool,
            let targets = reserveOptionalEffectScratch(requiresShadow: shadowCandidates != nil,
-            requiresReflection: requiresReflection,
+            requiresReflection: { hasReadyReflectiveModel || requiresImageReflection() },
             pool: pool, imageTextures: imageTextures,
             frameContext: frameContext, framePlans: resolvedMaterialFrameTargetPlans,
             visibleLayerIDs: frameVisibleLayerIDs, orderedLayers: orderedLayers,
             worldFrames: frameWorldFrames, cameraFrame: cameraFrame, parallax: parallaxConfiguration,
             terminalExtent: sceneColor == nil && displayMappingPostProcess != nil
+                && displayMappingInput == .textureSource
                 ? (drawable.texture.width, drawable.texture.height) : nil,
             commandBuffer: commandBuffer) {
             optionalScratch = targets; scratchReady = true
@@ -375,16 +413,9 @@ extension SceneMetalRenderer {
             // The late named-shadow owner prepares its own ordered depth set.
             // Do not pre-acquire leases that it would replace on this frame.
             if !preparesNamedModelShadow,
-               requiresReflection(),
+               hasReadyReflectiveModel || requiresImageReflection(),
                let pool = offscreenTexturePool,
-               let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
-                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
-                snapshot: frameContext.dynamicValues, groups: compositionGroupRuntime, state: modelFrame),
-               prepareMandatoryDepth(state: modelFrame, candidates: candidates,
-                orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
-                batches: particleBatchesByID, particlePipeline: particlePipeline,
-                mainPass: mainPass, groups: compositionGroupRuntime,
-                commandBuffer: commandBuffer, leases: &frameDepthLeases),
+               prepareReflectionDepth(),
                prepareTerminalCapacity(sceneColor: sceneColor, target: drawable.texture,
                 dynamicValues: frameContext.dynamicValues),
                prepareFramebufferSnapshotCapacity(orderedLayers: orderedLayers,
@@ -400,6 +431,29 @@ extension SceneMetalRenderer {
             reflection.admit(targets, sceneColor: history)
             // history is assigned only after the complete mandatory-capacity gate.
             if history != nil { preparedEnvironment = reflection.resolve(commandBuffer) }
+        }
+        func prepareReflectionDepth() -> Bool {
+            if let candidates = modelFrame.prepared ?? shadowDrawCandidates(orderedLayers: orderedLayers,
+                visible: frameVisibleLayerIDs, worldFrames: frameWorldFrames,
+                snapshot: frameContext.dynamicValues, groups: groups, state: modelFrame) {
+                return prepareMandatoryDepth(state: modelFrame, candidates: candidates,
+                    orderedLayers: orderedLayers, visible: frameVisibleLayerIDs,
+                    batches: particleBatchesByID, particlePipeline: particlePipeline,
+                    mainPass: mainPass, groups: groups,
+                    commandBuffer: commandBuffer, leases: &frameDepthLeases)
+            }
+            // Named graph colors can arrive after this reservation. The
+            // ready reflector and those models use one mandatory root depth.
+            guard groups == nil, hasReadyReflectiveModel,
+                  !particleBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }),
+                  !dependencyRuntime.plan.requiredProviderLayerIDs.contains(where: { id in
+                      dependencyRuntime.requiresCapture(for: id,
+                        activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs)
+                          && (resolvedMaterialFrameTargetPlans[id] == nil
+                              || !dependencyRuntime.requiresGraphOutputCapture(for: id))
+                  }) else { return false }
+            return modelFrame.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &frameDepthLeases).lease != nil
         }
         if let reason = modelFrame.depthDeferralReason {
             compositionGroupRuntime?.closeAllGroupEncoders()
@@ -561,6 +615,8 @@ extension SceneMetalRenderer {
         return encodeOrderedLayers(
             orderedLayers: orderedLayers,
             initiallyStopped: stopsAfterClaimedFailure,
+            needsTerminalScratch: sceneColor == nil && displayMappingPostProcess != nil
+                && displayMappingInput == .textureSource,
             forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
             preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,

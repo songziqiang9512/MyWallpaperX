@@ -170,9 +170,10 @@ struct SceneMetalRenderer {
             rejectedOwners = Set(admission.rejectedOwners.compactMap(\.ownerTarget))
                 .union(fixedPoint.externallyRejectedOwners)
             layers.commit(admission.layerPlan)
-            let scriptValues = result.values.merging(scalar.values) { _, current in current }
+            var scriptValues = result.values.merging(scalar.values) { _, current in current }
                 .filter { !rejectedOwners.contains($0.key) }
                 .merging(committedValues) { _, current in current }
+            admission.layerPlan.overlayCameraValues(into: &scriptValues)
             let settledTimeline = timelineValues.merging(
                 try playback.preview(commands, sceneTime: time).get()) { _, current in current }
             let resolution = SceneDynamicSnapshotResolver().resolve(frameIndex: frameIndex,
@@ -307,7 +308,7 @@ struct SceneMetalRenderer {
         }
         let throwing = try Fixture(throwingRoot, key: "lensScale")
         let (first, failed) = try throwing.frame()
-        facts["script-throw-keeps-authored-origin"] = failed.failures[originTarget]?.code == "exception"
+        facts["script-throw-keeps-authored-origin"] = failed.failures[originTarget]?.code == "init-exception"
             && first[originTarget]?.value == .vector3(0, 0, 500)
             && first[originTarget]?.source == .authored
             && throwing.camera(first).cameraOrigin == SIMD3(0, 0, 500)
@@ -411,7 +412,7 @@ struct SceneMetalRenderer {
                 continue
             }
             facts["throw-rejects-the-whole-owner"] =
-                evaluation.failures[originTarget]?.code == "exception" && evaluation.layerMutations.isEmpty
+                evaluation.failures[originTarget]?.code == "init-exception" && evaluation.layerMutations.isEmpty
             facts["throw-no-camera-or-peer-leak"] = snapshot[originTarget]?.value == .vector3(0,0,500)
                 && snapshot[originTarget]?.value == acceptedBeforeCallback?[originTarget]?.value
                 && snapshot[originTarget]?.source == .authored
@@ -970,6 +971,7 @@ struct SceneMetalRenderer {
             "combinedRejections": try combinedRejections(),
             "pathVisibility": try pathVisibility(), "independentRejections": try independentRejections(),
             "malformedPeers": try malformedPeers(),
+            "generalZoom": try generalZoom(),
             "setterAliases": try [setterAliases(0), setterAliases(1)],
             "setterFailures": try setterFailures(), "setterPeers": try setterPeers(),
             "setterRetirement": try setterRetirement(), "setterNeighbors": try setterNeighbors(),

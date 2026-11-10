@@ -3,6 +3,7 @@ import Foundation
 struct SceneMdlPuppetAttachment {
     let boneIndex: Int
     let name: String
+    let isNamedBinding: Bool
     let modelLocalFrameColumnMajor: [Float]
     let modelBindFrameColumnMajor: [Float]
 
@@ -28,7 +29,6 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
     case invalidAttachmentCount(Int)
     case invalidAttachmentBone(name: String, boneIndex: Int)
     case invalidAttachmentName
-    case duplicateAttachmentName(String)
 
     nonisolated var description: String {
         switch self {
@@ -54,8 +54,6 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
             return "attachment \(name) references missing bone \(boneIndex)"
         case .invalidAttachmentName:
             return "empty or oversized MDAT0001 attachment name"
-        case .duplicateAttachmentName(let name):
-            return "duplicate MDAT0001 attachment name \(name)"
         }
     }
 }
@@ -208,9 +206,6 @@ nonisolated enum SceneMdlPuppetAttachmentReader {
             guard name.isEmpty == false else {
                 throw SceneMdlPuppetAttachmentReadError.invalidAttachmentName
             }
-            guard names.insert(name).inserted else {
-                throw SceneMdlPuppetAttachmentReadError.duplicateAttachmentName(name)
-            }
             guard boneFrames.indices.contains(boneIndex) else {
                 throw SceneMdlPuppetAttachmentReadError.invalidAttachmentBone(
                     name: name,
@@ -229,6 +224,7 @@ nonisolated enum SceneMdlPuppetAttachmentReader {
             attachments.append(SceneMdlPuppetAttachment(
                 boneIndex: boneIndex,
                 name: name,
+                isNamedBinding: names.insert(name).inserted,
                 modelLocalFrameColumnMajor: localFrame,
                 modelBindFrameColumnMajor: multiply(boneFrames[boneIndex], localFrame)
             ))

@@ -159,6 +159,13 @@ final class SceneOffscreenTexturePool {
             commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
     }
 
+    func reserveModelCameraDepth(
+        width: Int, height: Int, commandBuffer: MTLCommandBuffer
+    ) -> PinnedTexture? {
+        reserveFrameTextures(dimensions: [(width, height)], kind: .modelCameraDepth,
+            commandBuffer: commandBuffer, textureFactory: nil)?.first
+    }
+
     /// Coverage storage remains isolated across parts and sampling domains.
     /// Reusing storage does not preserve a prepared mask's content.
     /// The draw consumer owns completion/cancellation of the returned pin.
@@ -189,7 +196,7 @@ final class SceneOffscreenTexturePool {
     }
 
     private enum FrameTextureKind {
-        case composition, environment, shadow(Int), sourceMaterial(Int)
+        case composition, environment, shadow(Int), modelCameraDepth, sourceMaterial(Int)
         case terminalInput(layerID: Int, slot: Int)
         case puppetClipping(layerID: Int, clipID: Int, domain: UUID)
     }
@@ -201,7 +208,8 @@ final class SceneOffscreenTexturePool {
         if dimensions.isEmpty { return [] }
         let format: MTLPixelFormat, bytesPerPixel: Int, mipmapped: Bool
         switch kind {
-        case .shadow: format = .depth32Float; bytesPerPixel = 4; mipmapped = false
+        case .shadow, .modelCameraDepth:
+            format = .depth32Float; bytesPerPixel = 4; mipmapped = false
         case .environment:
             format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
         case .composition, .sourceMaterial, .terminalInput:
@@ -219,6 +227,7 @@ final class SceneOffscreenTexturePool {
                 .terminalInput(layerID: layerID, slot: slot, width: width, height: height)
             case .environment: .environment(width: width, height: height)
             case .shadow(let slot): .modelShadow(slot: slot, width: width, height: height)
+            case .modelCameraDepth: .modelCameraDepth(width: width, height: height)
             case let .puppetClipping(layerID, clipID, domain):
                 .puppetClipping(layerID: layerID, clipID: clipID, domain: domain,
                     width: width, height: height)

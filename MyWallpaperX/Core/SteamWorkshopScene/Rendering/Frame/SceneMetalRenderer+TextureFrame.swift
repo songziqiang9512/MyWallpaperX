@@ -40,7 +40,7 @@ extension SceneMetalRenderer {
             layerSources: imageTextures.textures,
             explicitLayerSources: imageTextures.explicitLayerSources,
             assetStates: imageCompositor.resolvedMaterialAssetStates(
-                timing: frameContext.timing
+                timing: frameContext.timing, dynamicValues: frameContext.dynamicValues
             ),
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyStates,

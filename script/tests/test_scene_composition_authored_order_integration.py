@@ -55,6 +55,95 @@ def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
+def spotlight_fixture(preset="identity"):
+    """Owned group/reference pair; the reference retains the identical parent TRS."""
+    renamed = preset == "quarter-turn"
+    angle, scale, child_angle, child_scale = {
+        "identity": (0, (1, 1), 0, (1, 1)),
+        "quarter-turn": (math.pi / 2, (2, 1), 0, (1, 1)),
+        "shear": (.4, (1.6, .7), .25, (.9, 1.1)),
+    }[preset]
+    ids = dict(zip(("composition", "child", "referenceParent", "reference", "legacy", "nonchild"),
+                   (901, 218, 403, 709, 73, 402) if renamed else (20, 21, 40, 41, 51, 60)))
+    prefix = "moved_channel_cycle" if renamed else "own_channel_cycle"
+    effect = f"effects/{prefix}/effect.json"
+    solid = f"models/{prefix}_solid.json"
+    initial = not renamed
+    key = "renamed_light_group" if renamed else "light_group"
+    trs = {"angles": f"0 0 {angle}", "scale": f"{scale[0]} {scale[1]} 1"}
+    parent = {"id": ids["composition"], "name": "Owned cone group", "origin": "160 240 0",
+              "image": "models/util/composelayer.json", "size": "200 120", **trs,
+              "copybackground": False, "alpha": 1, "visible": {"user": key, "value": initial},
+              "effects": [{"id": ids["composition"] * 10, "file": effect, "visible": True}]}
+    reference_parent = {"id": ids["referenceParent"], "name": "Healthy ordinary transform parent",
+                        "origin": "480 240 0", "visible": True, **trs}
+    cone = {"light": "lspot", "radius": 160, "innercone": 3, "outercone": 8,
+            "density": 3, "intensity": 80, "exponent": 2, "volumetricsexponent": 2,
+            "castvolumetrics": True, "solid": True, "visible": True,
+            "angles": f"0 0 {child_angle}", "scale": f"{child_scale[0]} {child_scale[1]} 1"}
+    origin_script = ("export function update(previous){let shift=7*10;return new Vec3(-shift,0,0);}"
+                     if renamed else "export function update(v){return new Vec3(-70,0,0);}")
+    color_script = ("export function update(previous){let unit=1/5;return new Vec3(unit,unit*2,unit*3);}"
+                    if renamed else "export function update(v){return new Vec3(.2,.4,.6);}")
+    alpha_script = ("export function update(previous){let divisor=2;return 1/divisor;}"
+                    if renamed else "export function update(v){return .5;}")
+    child = {**cone, "id": ids["child"], "parent": ids["composition"], "name": "Owned typed cone",
+             "origin": {"value": "-80 0 0", "script": origin_script},
+             "color": {"value": ".6 .2 .4", "script": color_script},
+             "alpha": {"value": 1, "script": alpha_script}}
+    reference = {**cone, "id": ids["reference"], "parent": ids["referenceParent"],
+                 "name": "Healthy literal post-cycle cone", "origin": "-70 0 0",
+                 "color": ".4 .6 .2", "alpha": .5}
+    # This unparented root intentionally meets the retired strict Timeline gate,
+    # so the old App can prove real cone output while rejecting the parented pair.
+    frames = [{"frame": frame, "value": 0, "lockangle": True, "locklength": True}
+              for frame in (0, 30)]
+    legacy = {**cone, "id": ids["legacy"], "name": "Legacy admitted standalone control",
+              "origin": "295 375 0", "radius": 100, "color": ".8 .3 .1", "alpha": 1,
+              "scale": "1 1 1", "angles": {"value": "0 0 0", "animation": {
+                  **{f"c{index}": frames for index in range(3)}, "relative": True,
+                  "options": {"fps": 30, "length": 30, "mode": "mirror"}}}}
+    peer = {"id": ids["nonchild"], "name": "Healthy ordinary peer", "origin": "320 100 0",
+            "image": solid, "size": "20 20", "color": "0 1 0", "visible": True}
+    scene = {"version": 3, "general": {"orthogonalprojection": {"width": 640, "height": 480},
+              "clearcolor": "0 0 0"}, "objects": [parent, child, reference_parent, reference, legacy, peer]}
+    uv, sample = ("v_MovedUV", "channelValue") if renamed else ("v_TexCoord", "c")
+    entries = {"scene.json": encoded(scene), solid: encoded({"solidlayer": True, "width": 256, "height": 256}),
+        "models/util/composelayer.json": encoded({"width": 200, "height": 120, "autosize": False}),
+        effect: encoded({"passes": [{"material": f"materials/{prefix}.json"}]}),
+        f"materials/{prefix}.json": encoded({"passes": [{"shader": prefix, "textures": [None],
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+        f"shaders/{prefix}.vert": VERTEX.replace(b"v_TexCoord", uv.encode()),
+        f"shaders/{prefix}.frag": (f"uniform sampler2D g_Texture0;\nvarying vec2 {uv};\n"
+            f"void main(){{vec4 {sample}=texSample2D(g_Texture0,{uv});"
+            f"gl_FragColor=vec4({sample}.gbr,{sample}.a);}}\n").encode()}
+    project = {"type": "scene", "file": "scene.json", "general": {"properties": {
+        key: {"type": "bool", "text": "Owned cone group visibility", "value": initial}}}}
+    protocol = {"canvas": [640, 480], "layerIDs": ids, "oracle": {
+        "healthyPeer": {"canvasRect": [316, 376, 324, 384], "expectedRGB": [0, 255, 0]}},
+        "channelTolerance": 4, "minimumCorrectAreaFraction": .99,
+        "spotlight": {"preset": preset, "parentAngle": angle, "parentScale": scale,
+            "childAngle": child_angle, "childScale": child_scale, "initialVisible": initial,
+            "sequence": [{key: not initial}], "afterDelay": 3, "translation": [320, 0],
+            "coreAlong": [40, 70, 100], "gridLocalBounds": [-90, -36, 100, 36], "gridStep": 4,
+            "coreMinimumPeak": 6, "coreColorRatio": [2/3, 1, 1/3], "coreRatioTolerance": .12,
+            "maximumMeanChannelError": 3, "maximumP95ChannelError": 8, "maximumMaskMismatch": .06,
+            "maskThreshold": 5, "hiddenMaximumPeak": 1,
+            "quarterTurnAnchors": {"positive": [[160, 180], [160, 300], [160, 340]],
+                                   "black": [[240, 100], [186, 300], [160, 432]]},
+            "legacyCore": [325, 105]},
+        "geometry": {"groupSize": [200, 120], "groupCenter": [160, 240], "referenceCenter": [480, 240],
+            "typedWriters": {"origin": {"authored": [-80, 0, 0], "resolved": [-70, 0, 0]},
+                             "color": {"authored": [.6, .2, .4], "resolved": [.2, .4, .6]},
+                             "alpha": {"authored": 1, "resolved": .5}},
+            "coordinateConvention": "Orthographic authored root Y becomes 480-Y, child Y becomes -Y, and authored X/Z angles change sign; parentAngle/childAngle retain authored values. Camera ortho(bottom=+halfY,top=-halfY) and Metal viewport make renderer world Y increase down the PNG; sample_world uses point(worldX,worldY) with centered cover scale, without another Y reflection",
+            "quarterTurnLiteral": "T(160,240) Rz(-pi/2) S(2,1) T(-70,0): apex=(160,380), end=(160,60); +localX points -worldY and upward in PNG; capture canvas Y=worldY",
+            "shear": "Rz(-.4) S(1.6,.7) Rz(-.25) S(.9,1.1); unequal parent axes precede child rotation, so the two transformed child axes are not perpendicular",
+            "sampling": "Fixed 320-unit world-X translation; patch means on preregistered local grid, no mask alignment. Core color/shape and boundary tolerances permit low-resolution group raster filtering.",
+            "boundary": "Black clear/copybackground=false/group alpha1; reference pre-GBR color and alpha.5; internal implementation comparison, no official parity"}}
+    return project, entries, protocol
+
+
 def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
                     effect=True, childless=False, hide_child_next_frame=False,
                     container=False, renamed=False, hide_container_next_frame=False, quad=False,
@@ -173,10 +262,15 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
             "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
         uv = "v_MovedUV" if renamed else "v_TexCoord"
         entries[f"shaders/{prefix}.vert"] = VERTEX.replace(b"v_TexCoord", uv.encode())
+        material = quad_input.get("samplerMaterial", "albedo")
+        annotation = "" if material is None else f' // {{"material":"{material}"}}'
+        sample = f"texSample2D(g_Texture{slot},{uv})"
+        body = (f"gl_FragColor={sample};" if quad_input.get("directSample") else
+                f"vec4 sampled={sample};gl_FragColor=sampled;")
         entries[f"shaders/{prefix}.frag"] = (
-            f'uniform sampler2D g_Texture{slot}; // {{"material":"albedo"}}\nvarying vec2 {uv};\n'
-            f"void main(){{vec4 sampled=texSample2D(g_Texture{slot},{uv});"
-            "gl_FragColor=sampled;}\n").encode()
+            f"uniform sampler2D g_Texture{slot};{annotation}\nvarying vec2 {uv};\n"
+            f"void main(){{{body}}}\n").encode()
+        scene["general"].update(quad_input.get("general", {}))
         for path in ("effects/own_yellow/effect.json", "materials/own_yellow.json",
                      "shaders/own_yellow.vert", "shaders/own_yellow.frag"):
             del entries[path]
@@ -272,7 +366,8 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             return values
         initial = quad_input["initialVisible"]
         protocol["quadInput"] = {**quad_input, "key": key,
-            "samplerMaterial": "albedo", "loadPurpose": "straightAlbedo",
+            "samplerMaterial": quad_input.get("samplerMaterial", "albedo"),
+            "loadPurpose": "straightAlbedo",
             "texturePath": f"materials/{prefix}/tiles.tex", "rgbaExtent": [16, 16],
             "rgbaQuadrants": [[255, 0, 0, 255], [0, 255, 0, 255], [255, 0, 255, 0], [255, 255, 0, 255]],
             "sequence": [{key: not initial}], "afterDelay": 3,
@@ -292,18 +387,19 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             "each readback joins its exact request/CB/seal/completed event and bounded snapshot clock")
         protocol["evidenceBoundary"] = (
             "owned typed straight-albedo asset sampling and atomic live visibility through nearest group raster; "
-            "sampler purpose is explicitly authored as material=albedo, not inferred from whole-vector color flow; "
+            "sampler purpose comes from its authored annotation or the prepared color-input graph; "
             "no TEXS/atlas, implicit graph source, arbitrary parent alpha, or official parity claim")
     return protocol
 
 
 def measure_capture(path, protocol):
     width, height, rows = png_rgb_pixels(path)
-    scale = max(width / CANVAS[0], height / CANVAS[1])
+    canvas = protocol["canvas"]
+    scale = max(width / canvas[0], height / canvas[1])
 
     def point(x, y):
-        return ((x - CANVAS[0] / 2) * scale + width / 2,
-                (y - CANVAS[1] / 2) * scale + height / 2)
+        return ((x - canvas[0] / 2) * scale + width / 2,
+                (y - canvas[1] / 2) * scale + height / 2)
 
     measured = {}
     oracle = protocol.get("snapshotOracles", {}).get(path.name, protocol["oracle"])
@@ -327,7 +423,44 @@ def measure_capture(path, protocol):
         center = list(rows[math.floor(cy)][math.floor(cx) * 3:math.floor(cx) * 3 + 3])
         measured[name] = {"expectedRGB": expected, "centerRGB": center,
                           "correct": correct, "total": total, "maximumChannelError": maximum_error}
-    return {"size": [width, height], "rois": measured}
+    result = {"size": [width, height], "rois": measured}
+    if settings := protocol.get("spotlight"):
+        def sample_world(x, y):
+            # One canvas-unit patch, fixed before capture; never fit either mask.
+            x0, y0 = point(x - .5, y - .5)
+            x1, y1 = point(x + .5, y + .5)
+            if not (0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height):
+                raise AssertionError(f"preregistered SpotLight sample cropped: {(x, y, width, height)}")
+            samples = [rows[py][px * 3:px * 3 + 3]
+                       for py in range(math.ceil(y0), math.floor(y1))
+                       for px in range(math.ceil(x0), math.floor(x1))]
+            return [sum(rgb[c] for rgb in samples) / len(samples) for c in range(3)]
+        def parent_point(x, y):
+            angle, (sx, sy) = -settings["parentAngle"], settings["parentScale"]
+            return (160 + math.cos(angle) * sx * x - math.sin(angle) * sy * y,
+                    240 + math.sin(angle) * sx * x + math.cos(angle) * sy * y)
+        def pair(x, y):
+            wx, wy = parent_point(x, y)
+            return {"group": sample_world(wx, wy), "reference": sample_world(wx + 320, wy)}
+        angle, (sx, _) = -settings["childAngle"], settings["childScale"]
+        cores = [pair(-70 + math.cos(angle) * sx * along, math.sin(angle) * sx * along)
+                 for along in settings["coreAlong"]]
+        left, bottom, right, top = settings["gridLocalBounds"]
+        grid = [pair(x, y) for y in range(bottom, top + 1, settings["gridStep"])
+                for x in range(left, right + 1, settings["gridStep"])]
+        errors = sorted(max(abs(a-b) for a, b in zip(p["group"], p["reference"])) for p in grid)
+        threshold = settings["maskThreshold"]
+        result["spotlight"] = {"core": cores, "gridSamples": len(grid),
+            "meanChannelError": sum(errors) / len(errors), "p95ChannelError": errors[int(len(errors) * .95)],
+            "maskMismatch": sum((max(p["group"]) > threshold) != (max(p["reference"]) > threshold)
+                                for p in grid) / len(grid),
+            "groupMaximumPeak": max(max(p["group"]) for p in grid),
+            "legacyCore": sample_world(*settings["legacyCore"])}
+        if settings["preset"] == "quarter-turn":
+            result["spotlight"]["literalAnchors"] = {
+                kind: [sample_world(x, y) for x, y in points]
+                for kind, points in settings["quarterTurnAnchors"].items()}
+    return result
 
 
 def app_hashes(app):
@@ -343,6 +476,39 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
         cls.frozen_app_hashes = app_hashes(cls.app)
+
+    def joined_capture(self, path, log, observations, clocks):
+        reason = "ready" if "ready" in path.name else "after"
+        request = re.findall(
+            rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
+        self.assertEqual(len(request), 1)
+        receipt_pattern = (rf"phase=snapshot-encoded request={request[0]} commandBufferToken=(\d+) "
+                           r"textureToken=(\d+) width=(\d+) height=(\d+)")
+        receipts = list(re.finditer(receipt_pattern, log))
+        self.assertEqual(len(receipts), 1)
+        receipt = receipts[0]
+        matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[0]),
+            "command_buffer_token": receipt[1], "texture_token": receipt[2],
+            "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
+        self.assertTrue(matched["composition_receipt_matched"], matched)
+        event = next(e for e in observations["events"]
+                     if e["captureRequestID"] == int(request[0]) and e["commandBufferToken"] == receipt[1])
+        self.assertEqual(event["truncatedRows"], 0)
+        self.assertEqual(event["gpuStatus"], "completed")
+        event_position = log.index("MWX SCENE COMPOSITION OBSERVATION: " + next(
+            line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]
+            for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line
+            and json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]) == event))
+        self.assertLess(receipt.start(), event_position)
+        frames = [c for c in clocks if c["kind"] == "frame" and c["stream"] == event["displayID"]]
+        lower = max((c for c in frames if c["frame"] <= event["frameIndex"]), key=lambda c: c["frame"])
+        upper = min((c for c in frames if c["frame"] >= event["frameIndex"]), key=lambda c: c["frame"])
+        self.assertTrue(lower["observationComplete"] and upper["observationComplete"])
+        self.assertEqual(lower["frame"], lower["snapshotFrame"])
+        self.assertEqual(upper["frame"], upper["snapshotFrame"])
+        self.assertEqual(lower["generation"], upper["generation"])
+        self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
+        return request, receipt, event, lower, upper
 
     def check_quad_input_captures(self, protocol, log, captures, evidence):
         settings, ids = protocol["quadInput"], protocol["layerIDs"]
@@ -370,36 +536,8 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
         readout = []
         for path in captures:
             reason = "ready" if "ready" in path.name else "after"
-            request = re.findall(
-                rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
-            self.assertEqual(len(request), 1)
-            receipt_pattern = (rf"phase=snapshot-encoded request={request[0]} commandBufferToken=(\d+) "
-                               r"textureToken=(\d+) width=(\d+) height=(\d+)")
-            receipts = list(re.finditer(receipt_pattern, log))
-            self.assertEqual(len(receipts), 1)
-            receipt = receipts[0]
-            matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[0]),
-                "command_buffer_token": receipt[1], "texture_token": receipt[2],
-                "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
-            self.assertTrue(matched["composition_receipt_matched"], matched)
-            event = next(e for e in observations["events"]
-                         if e["captureRequestID"] == int(request[0]) and e["commandBufferToken"] == receipt[1])
-            self.assertEqual(event["truncatedRows"], 0)
-            self.assertEqual(event["gpuStatus"], "completed")
-            event_position = log.index("MWX SCENE COMPOSITION OBSERVATION: " + next(
-                line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]
-                for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line
-                and json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]) == event))
-            self.assertLess(receipt.start(), event_position)
+            request, receipt, event, lower, upper = self.joined_capture(path, log, observations, clocks)
             self.assertEqual(receipt.start() < update_position, reason == "ready")
-            frames = [c for c in clocks if c["kind"] == "frame" and c["stream"] == event["displayID"]]
-            lower = max((c for c in frames if c["frame"] <= event["frameIndex"]), key=lambda c: c["frame"])
-            upper = min((c for c in frames if c["frame"] >= event["frameIndex"]), key=lambda c: c["frame"])
-            self.assertTrue(lower["observationComplete"] and upper["observationComplete"])
-            self.assertEqual(lower["frame"], lower["snapshotFrame"])
-            self.assertEqual(upper["frame"], upper["snapshotFrame"])
-            self.assertEqual(lower["generation"], upper["generation"])
-            self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
             visible = settings["initialVisible"] if reason == "ready" else not settings["initialVisible"]
             rows = event["rows"]
             root_rows = [r for r in rows if r.get("layerID") == ids["composition"]]
@@ -423,6 +561,7 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                 sample = sampled[0]
                 self.assertEqual(sample["slot"], settings["slot"])
                 self.assertIn(settings["texturePath"], sample["source"]["logical"])
+                self.assertEqual(sample["source"]["purpose"], settings.get("loadPurpose", "straightAlbedo"))
                 self.assertEqual([sample["source"]["width"], sample["source"]["height"]], settings["rgbaExtent"])
                 draw = next(r for r in child_rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
                 child_tail = next(r for r in child_rows if r["kind"] == "tail-consume"
@@ -451,9 +590,82 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                            by_capture["scene-ready-window.png"]["generation"])
         (evidence.parent / "quad-input-readout.json").write_bytes(encoded(readout))
 
-    def run_case(self, **parameters):
-        protocol = preregistration(**parameters)
-        project, entries = fixture_entries(**parameters)
+    def check_spotlight_captures(self, protocol, log, preview, captures, pixels, evidence):
+        settings, ids = protocol["spotlight"], protocol["layerIDs"]
+        self.assertRegex(preview + log, r"scene script VM: schema=quickjs-ng-typed-v2 bindings=1 vectorBindings=2 stringBindings=0 targets=3 ")
+        self.assertEqual(re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log),
+                         [("0", "true")])
+        for visible in (False, True):
+            value = str(visible).lower()
+            self.assertRegex(log, rf"layer={ids['composition']} source=userProperty value={value} effective={value}")
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        prefix = "phase=timeline-frame-input json="
+        clocks = [json.loads(line.split(prefix, 1)[1]) for line in log.splitlines() if prefix in line]
+        readout = []
+        for path in captures:
+            request, receipt, event, lower, upper = self.joined_capture(path, log, observations, clocks)
+            ready = "ready" in path.name
+            visible = settings["initialVisible"] if ready else not settings["initialVisible"]
+            self.assertEqual(receipt.start() < log.index("phase=live-property-update accepted=true "), ready)
+            for clock in (lower, upper):
+                origin = next(v for v in clock["values"] if v["target"] == {"layerID": ids["child"], "field": "origin"})
+                self.assertEqual(origin["source"], "sceneScript")
+                self.assertEqual(origin["resolved"]["value"], [-70, 0, 0])
+                self.assertEqual(origin["authored"]["value"], [-80, 0, 0])
+            rows = event["rows"]
+            cone = [r for r in rows if r["kind"] == "geometry" and r.get("layerID") == ids["child"]
+                    and r.get("details", {}).get("geometryKind") == "spotLight" and r["outcome"] == "draw-encoded"]
+            self.assertEqual(len(cone), int(visible))
+            seal = next(r for r in rows if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+            reference = next(r for r in rows if r["kind"] == "geometry" and r.get("layerID") == ids["reference"])
+            self.assertEqual(reference["target"]["textureToken"], seal["target"]["textureToken"])
+            self.assertTrue(any(r["kind"] == "ordinary" and r.get("layerID") == ids["nonchild"] for r in rows))
+            if visible:
+                root_rows = [r for r in rows if r.get("layerID") == ids["composition"]]
+                source = next(r for r in root_rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded")
+                material = next(r for r in root_rows if r["kind"] == "material" and r["outcome"] == "draw-encoded")
+                group = next(r for r in root_rows if r["kind"] == "group" and r["outcome"] == "draw-encoded")
+                tail = next(r for r in root_rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
+                self.assertEqual(cone[0]["target"]["textureToken"], source["source"]["textureToken"])
+                self.assertEqual(source["target"]["textureToken"], material["source"]["textureToken"])
+                self.assertEqual(material["target"]["textureToken"], group["source"]["textureToken"])
+                self.assertEqual(material["target"]["textureToken"], tail["source"]["textureToken"])
+                self.assertEqual(group["target"]["textureToken"], seal["target"]["textureToken"])
+                self.assertLess(rows.index(cone[0]), rows.index(source))
+            measurement = pixels[path.name]["spotlight"]
+            self.assertGreater(max(measurement["legacyCore"]), 10, measurement)
+            for core in measurement["core"]:
+                for name in (("group", "reference") if visible else ("reference",)):
+                    peak = max(core[name])
+                    self.assertGreaterEqual(peak, settings["coreMinimumPeak"], core)
+                    self.assertTrue(all(abs(c/peak-r) <= settings["coreRatioTolerance"]
+                        for c, r in zip(core[name], settings["coreColorRatio"])), core)
+            if visible:
+                for core in measurement["core"]:
+                    self.assertTrue(all(abs(a - b) <= protocol["channelTolerance"]
+                        for a, b in zip(core["group"], core["reference"])), core)
+                for metric, limit in (("meanChannelError", "maximumMeanChannelError"),
+                                      ("p95ChannelError", "maximumP95ChannelError"),
+                                      ("maskMismatch", "maximumMaskMismatch")):
+                    self.assertLessEqual(measurement[metric], settings[limit], measurement)
+                if anchors := measurement.get("literalAnchors"):
+                    self.assertTrue(all(max(rgb) >= 4 for rgb in anchors["positive"]), anchors)
+                    self.assertTrue(all(max(rgb) <= 1 for rgb in anchors["black"]), anchors)
+            else:
+                self.assertLessEqual(measurement["groupMaximumPeak"], settings["hiddenMaximumPeak"], measurement)
+            readout.append({"capture": path.name, "visible": visible, "request": request[0],
+                "commandBuffer": receipt[1], "surface": event["surfaceIdentity"], "frame": event["frameIndex"],
+                "clockBracket": [lower["sceneTime"], upper["sceneTime"]], "rows": rows})
+        self.assertEqual(len({r["surface"] for r in readout}), 1)
+        (evidence.parent / "spotlight-readout.json").write_bytes(encoded(readout))
+
+    def run_case(self, *, spotlight=None, **parameters):
+        if spotlight:
+            project, entries, protocol = spotlight_fixture(spotlight)
+        else:
+            protocol = preregistration(**parameters)
+            project, entries = fixture_entries(**parameters)
         project_bytes = encoded(project)
         package = make_package(list(entries.items()))
         inputs = {name: hashlib.sha256(value).hexdigest() for name, value in entries.items()}
@@ -470,12 +682,13 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             (content / "scene.pkg").write_bytes(package)
             (root / "preregistration.json").write_bytes(encoded(protocol))
             env = os.environ.copy()
-            if "quadInput" in protocol:
+            if "quadInput" in protocol or spotlight:
                 for key in tuple(env):
                     if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
                         del env[key]
                 env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps({
-                    "layerIDs": protocol["quadInput"]["cohortLayerIDs"],
+                    "layerIDs": ([protocol["layerIDs"]["child"]] if spotlight
+                                 else protocol["quadInput"]["cohortLayerIDs"]),
                     "sceneTimeWindow": [0, 8], "interval": .25, "maxSamples": 32})
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home),
                        MWX_SCENE_DEBUG_SURFACE_COUNT="1",
@@ -483,7 +696,7 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "7",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
-            if settings := protocol.get("quadInput"):
+            if settings := protocol.get("quadInput", protocol.get("spotlight")):
                 command += ["--mwx-debug-scene-after-snapshot-delay", str(settings["afterDelay"]),
                             "--mwx-debug-scene-live-property-sequence-json", json.dumps(settings["sequence"])]
             identity = {"command": command, "appSHA256": self.frozen_app_hashes,
@@ -522,6 +735,8 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                     self.assertRegex(log, rf"layer={transition['layer']} source=sceneScript value=false effective=false")
                 if "quadInput" in protocol:
                     self.check_quad_input_captures(protocol, log, captures, evidence)
+                if spotlight:
+                    self.check_spotlight_captures(protocol, log, preview, captures, pixels, evidence)
                 for name, measurement in pixels.items():
                     for roi, value in measurement["rois"].items():
                         with self.subTest(capture=name, roi=roi):
@@ -609,6 +824,17 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
         self.run_case(copy_background=True, container=True, quad=True, renamed=True,
                       order="child-before-root", quad_input={"slot": 3, "initialVisible": True})
 
+    def test_whole_vector_quad_infers_color_for_an_arbitrary_editor_key(self):
+        self.run_case(copy_background=True, container=True, quad=True,
+                      quad_input={"slot": 0, "initialVisible": False, "samplerMaterial": "otherPigment",
+                                  "general": {"bloom": False, "cameraparallax": False}})
+
+    def test_renamed_direct_quad_infers_color_without_an_annotation(self):
+        self.run_case(copy_background=True, container=True, quad=True, renamed=True,
+                      order="child-before-root", quad_input={"slot": 3, "initialVisible": True,
+                          "samplerMaterial": None, "directSample": True,
+                          "general": {"bloom": False, "cameraparallax": False}})
+
     def test_project_omitted_background_inverts_prior_scene_and_child(self):
         self.run_case(project_layer=True)
 
@@ -623,6 +849,15 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def test_project_missing_effect_keeps_group_members(self):
         self.run_case(project_layer=True, effect=False)
+
+    def test_spotlight_typed_writers_match_literal_reference_and_hide_without_residue(self):
+        self.run_case(spotlight="identity")
+
+    def test_renamed_spotlight_parent_quarter_turn_and_scale_show_after_ready(self):
+        self.run_case(spotlight="quarter-turn")
+
+    def test_spotlight_nonuniform_parent_and_rotated_child_keep_shear(self):
+        self.run_case(spotlight="shear")
 
 
 if __name__ == "__main__":

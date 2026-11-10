@@ -19,6 +19,12 @@ extension SceneMetalRenderer {
     /// Pass-scoped scene depth in one command buffer. Models and qualified
     /// terminals share first-clear/resource decisions, including failed leases.
     final class StaticModelFrame {
+        struct VolumeOccluder {
+            let mesh: SceneStaticModelMesh
+            let modelToClip: simd_float4x4
+            let cullMode: MTLCullMode
+        }
+
         struct Depth {
             let acquisition: SceneParticleDepthTargetPool.Acquisition
             /// Particle depth retains its original independent clear policy.
@@ -44,6 +50,8 @@ extension SceneMetalRenderer {
             }
         }
         private let commandBuffer: MTLCommandBuffer
+        let collectsVolumeOccluders: Bool
+        var volumeOccluders: [VolumeOccluder] = []
         // A present nil rejects this frame's direct draw; absence preserves the
         // immutable static resource. All passes consume this one publication.
         private var directMeshes: [Int: SceneStaticModelMesh?] = [:]
@@ -61,8 +69,9 @@ extension SceneMetalRenderer {
         var shadows: [SceneStaticModelShadow] = []
         var pins: [SceneGraphRenderTargetResidencyPin] = []
 
-        init(commandBuffer: MTLCommandBuffer) {
+        init(commandBuffer: MTLCommandBuffer, collectsVolumeOccluders: Bool = false) {
             self.commandBuffer = commandBuffer
+            self.collectsVolumeOccluders = collectsVolumeOccluders
         }
 
         func publishDirectModelMesh(_ mesh: SceneStaticModelMesh?, for layerID: Int,
@@ -227,17 +236,24 @@ extension SceneMetalRenderer {
     func drawStaticModel(layer: SceneRenderDescriptor.Layer, state: StaticModelFrame,
                          worldFrames: [Int: simd_float4x4], frameContext: SceneFrameContext,
                          cameraFrame: SceneParticleCameraFrame, lighting: SceneLightSnapshot,
+                         reflection: SceneFrameTextureResource? = nil,
                          pass: SceneMainPassEncoder, commandBuffer: MTLCommandBuffer,
                          leases: inout [SceneParticleDepthTargetLease]) -> Bool {
         guard let pipeline = staticModelResources.pipeline else { return false }
         let draws = state.prepared?[layer.id]
             ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues, state: state) ?? []
+        let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
+        let viewProjection = pass.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
+            usesPerspective: usesPerspective))
+        let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
         for draw in draws {
             _ = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                 device: device, commandBuffer: commandBuffer, leases: &leases)
             if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return encodedLit }
             guard let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer) else { continue }
+            let environment = usesPerspective && pipeline.supportsReflection
+                && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0 ? reflection : nil
             let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
                 emissiveMask: draw.entry.emissiveMask?.texture,
@@ -245,14 +261,20 @@ extension SceneMetalRenderer {
                 emissiveMaskSampling: draw.entry.emissiveMask?.sampling,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
-                viewProjection: cameraFrame.reverseDepthViewProjection(
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)),
+                viewProjection: viewProjection,
+                frontFacing: frontFacing,
                 cameraPosition: cameraFrame.perspectiveEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material,
                 materialColorIsOpaque: draw.entry.materialBlending == .normal, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
+                reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
+            if encoded && state.collectsVolumeOccluders && usesPerspective && pass.isSceneRoot
+                && draw.entry.writesDepth && draw.entry.materialBlending == .normal && draw.alpha == 1 {
+                state.volumeOccluders.append(.init(mesh: draw.mesh,
+                    modelToClip: viewProjection * draw.world, cullMode: draw.material.cullMode))
+            }
 #if DEBUG
             if let trace = pass.compositionTrace, trace.isCompositionSelected {
                 var source = SceneCompositionTextureObservation(draw.texture, role: "model-color")
@@ -261,6 +283,12 @@ extension SceneMetalRenderer {
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",
                     reason: "model-internal-material-bindings-not-observed"))
+                if encoded, let environment,
+                   case let .provider(.sceneEnvironment(_, _, producer)) = environment.publication.candidate.identity {
+                    trace.recordComposition(.init(kind: "model-reflection", layerID: layer.id, slot: 6,
+                        source: .init(environment.publication.texture, role: "scene-environment"),
+                        target: pass.compositionTarget, details: ["producerFrameIndex": String(producer.frameIndex)]))
+                }
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
                 let w = draw.world
@@ -289,19 +317,73 @@ extension SceneMetalRenderer {
         return encodedLit
     }
 
+    func encodeVolumeOccluderDepth(
+        state: StaticModelFrame, pass: SceneMainPassEncoder, pool: SceneOffscreenTexturePool?,
+        groups: SceneCompositionGroupFrameRuntime?, needsTerminalScratch: Bool
+    ) -> MTLTexture? {
+        guard !state.volumeOccluders.isEmpty, let pipeline = staticModelResources.pipeline,
+              let pool else { return nil }
+        let extent = pass.targetExtent
+        return pass.withReadableTarget { color, commandBuffer -> MTLTexture? in
+            if needsTerminalScratch, groups?.terminalScratch(matching: color, on: commandBuffer) == nil {
+                guard let scratch = pool.reserveDisplayScratch(width: extent.width,
+                    height: extent.height, commandBuffer: commandBuffer) else { return nil }
+                pass.retainCompositionPin(scratch.pin)
+            }
+            guard let target = pool.reserveModelCameraDepth(width: extent.width,
+                height: extent.height, commandBuffer: commandBuffer) else { return nil }
+            state.pins.append(target.pin)
+            let descriptor = MTLRenderPassDescriptor()
+            descriptor.depthAttachment.texture = target.texture
+            descriptor.depthAttachment.loadAction = .clear
+            descriptor.depthAttachment.storeAction = .store
+            descriptor.depthAttachment.clearDepth = 0
+#if DEBUG
+            let encoder = SceneGPUStageTimestampHook.render(commandBuffer, descriptor, role: "volume-occluder-depth")
+#else
+            let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+#endif
+            guard let encoder else { return nil }
+            let winding = pass.rasterFrontFacing
+            for occluder in state.volumeOccluders {
+                pipeline.drawCameraDepth(mesh: occluder.mesh, modelToClip: occluder.modelToClip,
+                    frontFacing: winding, cullMode: occluder.cullMode, encoder: encoder)
+            }
+            encoder.endEncoding()
+#if DEBUG
+            if let trace = pass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "volume-occluder-depth",
+                    target: .init(target.texture, role: "model-camera-depth"), outcome: "encoded",
+                    details: ["partCount": String(state.volumeOccluders.count)]))
+            }
+#endif
+            return target.texture
+        } ?? nil
+    }
+
     /// Returns a complete draw set only when its original late bindings are already
     /// known. Pending named producers keep the original draw/lease path for this frame.
     func shadowDrawCandidates(orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
                               worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
                               groups: SceneCompositionGroupFrameRuntime?, state: StaticModelFrame? = nil) -> [Int: [StaticModelDraw]]? {
+        let prefix = staticModelDrawPrefix(orderedLayers: orderedLayers, visible: visible,
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state)
+        return prefix.count == orderedLayers.count ? prefix.draws : nil
+    }
+
+    private func staticModelDrawPrefix(orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
+        worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
+        groups: SceneCompositionGroupFrameRuntime?, state: StaticModelFrame?
+    ) -> (draws: [Int: [StaticModelDraw]], count: Int) {
         var result: [Int: [StaticModelDraw]] = [:]
-        for layer in orderedLayers where visible.contains(layer.id) && layer.contentKind == "model" {
+        for (index, layer) in orderedLayers.enumerated()
+        where visible.contains(layer.id) && layer.contentKind == "model" {
             if let groups, groups.renderPass(forLayerID: layer.id) == nil { continue }
             guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot, state: state,
-                requiresCompleteNamedInputs: true) else { return nil }
+                requiresCompleteNamedInputs: true) else { return (result, index) }
             result[layer.id] = draws
         }
-        return result
+        return (result, orderedLayers.count)
     }
 
     private func visitFramebufferSnapshotConsumers(
@@ -414,21 +496,26 @@ extension SceneMetalRenderer {
         batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
-        leases: inout [SceneParticleDepthTargetLease]
+        leases: inout [SceneParticleDepthTargetLease], prefixCount: Int? = nil
     ) -> Bool {
         let prepared = state.prepared ?? candidates
-        state.prepared = prepared
+        if prefixCount == nil { state.prepared = prepared }
         var complete = true
-        for layer in orderedLayers where visible.contains(layer.id) {
-            guard let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) else { continue }
-            if staticModelResources.pipeline != nil, let draws = prepared[layer.id], !draws.isEmpty {
+        for layer in orderedLayers.prefix(prefixCount ?? orderedLayers.count)
+        where visible.contains(layer.id) {
+            let modelNeedsDepth = staticModelResources.pipeline != nil && prepared[layer.id]?.isEmpty == false
+            let particleNeedsDepth = particlePipeline != nil
+                && batches[layer.id]?.contains(where: { $0.draw.renderState.depthWriteEnabled }) == true
+            guard modelNeedsDepth || particleNeedsDepth,
+                  let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
+            else { continue }
+            if modelNeedsDepth {
                 let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                     device: device, commandBuffer: commandBuffer, leases: &leases)
                 complete = complete && depth.lease != nil
                 if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return false }
             }
-            if let particlePipeline, let layerBatches = batches[layer.id],
-               layerBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }) {
+            if particleNeedsDepth, let particlePipeline {
                 let extent = pass.targetExtent
                 if let existing = state.particleDepth[layer.id] {
                     complete = complete && existing.lease != nil
@@ -441,13 +528,13 @@ extension SceneMetalRenderer {
                 }
             }
         }
-        state.prepared = prepared
         return complete
     }
 
     /// Qualify optional terminal consumers before they own graph candidates.
     /// Complete real draws keep their original mandatory allocation order. A
-    /// pending named model keeps its late path and excludes only this consumer.
+    /// pending named model keeps its late path. Only ordinary terminals may
+    /// borrow a domain established by the ready mandatory prefix.
     func unavailableSharedTerminalDepthLayers(
         _ layerIDs: Set<Int>, state: StaticModelFrame,
         orderedLayers: [SceneRenderDescriptor.Layer], ordinaryLayerIDs: Set<Int> = [],
@@ -467,26 +554,44 @@ extension SceneMetalRenderer {
         guard !mainConsumers.isEmpty else { return consumers }
         // A degraded/unreserved group may become drawable in admission. Its
         // mandatory depth cannot be promised by this earlier complete plan.
-        for layer in orderedLayers where visible.contains(layer.id) {
-            let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
-                || (particlePipeline != nil && batches[layer.id]?.contains(where: {
-                    $0.draw.renderState.depthWriteEnabled
-                }) == true)
-            if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
+        if let groups {
+            for layer in orderedLayers where visible.contains(layer.id) {
+                let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
+                    || (particlePipeline != nil && batches[layer.id]?.contains(where: {
+                        $0.draw.renderState.depthWriteEnabled
+                    }) == true)
+                if requiresDepth, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
+            }
         }
-        guard let candidates = shadowDrawCandidates(orderedLayers: orderedLayers, visible: visible,
-            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state) else { return consumers }
+        let prefix = staticModelDrawPrefix(orderedLayers: orderedLayers, visible: visible,
+            worldFrames: worldFrames, snapshot: snapshot, groups: groups, state: state)
+        let complete = prefix.count == orderedLayers.count
+        let eligible = complete ? mainConsumers : mainConsumers.intersection(ordinaryLayerIDs)
+        let prefixCount: Int?
+        if complete {
+            prefixCount = nil
+        } else {
+            guard !eligible.isEmpty, staticModelResources.pipeline != nil,
+                  let firstMain = orderedLayers.prefix(prefix.count).firstIndex(where: { layer in
+                      prefix.draws[layer.id]?.isEmpty == false
+                          && (groups == nil || groups?.renderPass(forLayerID: layer.id) === mainPass)
+                  }) else { return consumers }
+            prefixCount = firstMain + 1
+        }
         // Ordinary failed model parts keep their existing local failure. Once
         // their allocation attempts have priority; a valid scene-domain lease
         // remains usable if another mandatory resource could not be acquired.
-        _ = prepareMandatoryDepth(state: state, candidates: candidates, orderedLayers: orderedLayers,
+        _ = prepareMandatoryDepth(state: state, candidates: prefix.draws, orderedLayers: orderedLayers,
             visible: visible, batches: batches, particlePipeline: particlePipeline,
-            mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases)
+            mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases,
+            prefixCount: prefixCount)
         if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return consumers }
-        _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
-            device: device, commandBuffer: commandBuffer, leases: &leases)
+        if complete {
+            _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &leases)
+        }
         return state.terminalDepthBinding(pass: mainPass, commandBuffer: commandBuffer) == nil
-            ? consumers : consumers.subtracting(mainConsumers)
+            ? consumers : consumers.subtracting(eligible)
     }
 
     /// Preserve the original mandatory allocation prefix before optional shadow.
@@ -566,7 +671,7 @@ extension SceneMetalRenderer {
                         if let profile = baseMaterialProviderBindings.lightingProfile(for: layer), profile.surfaceEnabled {
                             let model = imageModelMatrix(for: layer, worldFramesByLayerID: worldFrames,
                                 renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-                                textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                                textPlacement: imageTextures.layerSourceTextPlacement(for: layer.id),
                                 parallaxMouseNormalized: frameContext.cameraParallaxPosition, configuration: parallax,
                                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                                 usesPerspective: cameraFrame.resolvesPerspective(for: layer))

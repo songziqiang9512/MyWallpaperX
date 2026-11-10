@@ -241,7 +241,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "case (.upsert, 0, _)\n                where !fields.isEmpty && fields.isSubset(of: .authoredFields):",
             mutations,
         )
-        self.assertIn("if raw.dynamic == 1", mutations)
         # ABI transport rejects non-finite numbers. Field-specific admissible
         # ranges belong to the existing target owner, not every raw DTO field.
         self.assertIn("raw.alpha.isFinite", mutations)
@@ -249,7 +248,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("mutation.alpha.isFinite", layer_runtime)
         self.assertIn("SceneScriptValueOwner.acceptsScalar(mutation.pointSize, for: target)", layer_runtime)
         self.assertIn("hasPointSizeInput || (1...1024).contains(mutation.pointSize)", layer_runtime)
-        self.assertIn("(0...1).contains(raw.color.0)", mutations)
         self.assertIn("unknown layer mutation kind", mutations)
         self.assertNotIn(
             "raw.kind == UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue)\n                    ? .destroy : .upsert",

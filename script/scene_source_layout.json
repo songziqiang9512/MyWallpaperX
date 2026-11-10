@@ -442,6 +442,7 @@
         "file_globs": [
           "SceneAuthoredShaderLightingInputs.swift",
           "SceneLightSnapshot.swift",
+          "ScenePointVolumePipeline.swift",
           "SceneSpotLightPipeline.swift",
           "SceneSpotLightPlan.swift",
           "SceneSpotLightRuntime.swift"
@@ -617,6 +618,7 @@
           "SceneDesktopWallpaperSession+Shutdown.swift",
           "SceneDesktopWallpaperSession+SoundProperties.swift",
           "SceneDesktopWallpaperSession+SurfaceTeardown.swift",
+          "SceneDesktopWallpaperSession+SurfacePreparation.swift",
           "SceneDesktopWallpaperSession+DynamicLayerVisibility.swift",
           "SceneDesktopWallpaperSession+VideoProviders.swift",
           "SceneDesktopWallpaperHost.swift",

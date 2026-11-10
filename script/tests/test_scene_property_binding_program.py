@@ -1675,7 +1675,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["rejectedCodes"],
-            ["unsupportedTarget", "malformedInputBinding", "missingPropertyDefinition"],
+            ["malformedInputBinding", "missingPropertyDefinition", "authoredTypeMismatch", "propertyKindMismatch"],
         )
         self.assertNotIn("SceneUserPropertyResolver", PROGRAM_SOURCE.read_text(encoding="utf-8"))
 
@@ -1839,7 +1839,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["shaderFallbackRebuild"],
-            ["color", "duplicateEqual", "infinity", "invalidKind", "malformed", "missingSingle", "nan", "signedZero", "unequal"],
+            ["infinity", "malformed", "nan", "signedZero", "unequal"],
         )
         self.assertEqual(
             self.result["shaderFallbackLiveSingleUser"],
@@ -1950,7 +1950,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["conditionalLocalContrastRebuild"],
-            ["conditionalStrength"],
+            [],
         )
         self.assertEqual(self.result["invalidLocalContrastCount"], 0)
         self.assertEqual(

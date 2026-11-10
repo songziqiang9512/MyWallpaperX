@@ -142,11 +142,11 @@ struct SceneBaseImageTextureSnapshot {
         return layerSource.renderSizeWH
     }
 
-    func layerSourceTextCenterOffsetY(for layerID: Int) -> Float? {
+    func layerSourceTextPlacement(for layerID: Int) -> (centerOffsetY: Float, rasterOffsetY: Float)? {
         guard let texture = textures[layerID],
               let source = layerSourcePublications[layerID],
               source.isComplete(layerID: layerID, matching: texture) else { return nil }
-        return source.textCenterOffsetY
+        return source.textPlacement
     }
 
     func layerSourceEffectRenderSize(for layerID: Int) -> [Float]? {

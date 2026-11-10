@@ -280,6 +280,13 @@ enum Harness {
         }
     }
 
+    static func materialBindingTokens(_ intents: [State.Intent]) -> [[String]] {
+        intents.compactMap {
+            guard case .material(_, _, let bindings, _) = $0 else { return nil }
+            return bindings.map(\.resource.token.rawValue)
+        }
+    }
+
     static func functionClearReasons(_ intents: [State.Intent]) -> [String] {
         intents.compactMap {
             guard case let .initialize(_, _, reason) = $0,

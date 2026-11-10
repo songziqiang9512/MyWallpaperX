@@ -557,11 +557,13 @@ extension SceneImageLayerCompositor {
     }
 
     func resolvedMaterialAssetStates(
-        timing: SceneFrameTiming
+        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot
     ) -> [
         SceneAssetTextureIdentity: SceneTextureProviderState
     ] {
-        resolvedMaterialRuntime?.resolvedAssetStates(timing: timing) ?? [:]
+        resolvedMaterialRuntime?.resolvedAssetStates(
+            timing: timing, dynamicValues: dynamicValues
+        ) ?? [:]
     }
 
     func commitResolvedMaterialAssetFrame() {

@@ -269,7 +269,7 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
 '''
 
 
-CHANNEL_CASES = r'''
+NATIVE_ASSET_CASES = r'''
 import Metal
 
 extension Harness {
@@ -280,6 +280,46 @@ extension Harness {
     static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Any] {
         guard let snapshot = source.playbackSnapshot(sceneTime: sceneTime) else { return ["available": false] }
         return ["available": true, "duration": snapshot.duration, "currentTime": snapshot.currentTime]
+    }
+
+    static func observeDormantAssetPause(
+        _ source: SceneVideoTextureSource, peer: SceneVideoTextureSource,
+        registry: SceneVideoTextureSourceRegistry, timing: () -> SceneFrameTiming
+    ) -> (paused: Bool, refreshed: Bool) {
+        guard let beforeDormancy = source.prepareFrame(for: timing()) else {
+            fatalError("active asset frame missing before dormancy")
+        }
+        registry.commitPreparedFrame()
+        var dormantAcquired = false
+        _ = pump(0.35) {
+            let frame = source.prepareFrame(for: timing(), effectVisibility: false)
+            dormantAcquired = dormantAcquired
+                || (frame?.contentGeneration ?? 0) > beforeDormancy.contentGeneration
+            registry.commitPreparedFrame()
+            return false
+        }
+        let heldTiming = timing()
+        registry.pause(sceneTime: heldTiming.sceneTime, hostTime: heldTiming.hostTime)
+        let paused = player(source).rate == 0
+        let heldTime = source.playbackSnapshot(sceneTime: heldTiming.sceneTime)!.currentTime
+        var returnedStaleFrame = false
+        let refreshed = pump(0.8) {
+            let time = timing()
+            let frame = source.prepareFrame(for: time, effectVisibility: true)
+            let peerFrame = peer.prepareFrame(for: time, effectVisibility: true)
+            registry.commitPreparedFrame()
+            guard let frame else {
+                returnedStaleFrame = returnedStaleFrame || peerFrame != nil
+                return false
+            }
+            let current = frame.contentGeneration == beforeDormancy.contentGeneration + 1
+                && frame.decodedItemTime.map { abs($0 - heldTime) <= 0.11 } == true
+                && peerFrame?.contentGeneration == frame.contentGeneration
+            returnedStaleFrame = returnedStaleFrame || !current
+            return current
+        }
+        registry.resume(sceneTime: timing().sceneTime, hostTime: CACurrentMediaTime())
+        return (paused, !dormantAcquired && refreshed && !returnedStaleFrame)
     }
 
     static func channelPipeline(_ device: MTLDevice) throws -> MTLComputePipelineState {
@@ -469,7 +509,7 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
         harness = ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"
         carriers, carrier_inputs = video_carrier_source(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
         readiness_source.write_text("import Foundation\n" + readiness.declaration(readiness_input.read_text(),
-            "enum SceneOrdinaryVideoFrameReadiness:") + "\n" + carriers + "\n" + CHANNEL_CASES)
+            "enum SceneOrdinaryVideoFrameReadiness:") + "\n" + carriers + "\n" + NATIVE_ASSET_CASES)
         shader = cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
         delegate_sources = segment_delegate_sources(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
         cls.source_inputs = list(dict.fromkeys(sources + list(delegate_sources) + [
@@ -555,7 +595,7 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
             (self.evidence / "storage.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
         print(json.dumps(result, sort_keys=True), flush=True)
         required = {"embeddedActualFrameKeepsRedPixels", "embeddedBorrowsActualSourceAVAsset",
-            "ordinarySurfaceRebuildReusesActualSource", "independentPackageMountKeepsActualSource",
+            "addedViewReusesActualAssetSource", "independentPackageMountKeepsActualSource",
             "retiredCachePollutionDoesNotChangePackageBytes", "retiredCachePollutionKeepsBorrowedEmbeddedBytes",
             "retiredCachePollutionKeepsCurrentDeclaration", "embeddedAVBorrowerAlonePinsFile",
             "embeddedFinalAVBorrowerUnlinksFile", "externalCandidatePrimesActualDecoder",
@@ -708,11 +748,11 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
             'cancelledRequestIsRejected', 'cancelledRequestExpectedIO', 'sourceChangedEscapesBeforePayload',
             'actualAssetKeepsCompletedFile', 'lastBorrowActuallyReleased', 'lastBorrowMissReadsOriginalPayload'}
         expected.update({'preparedColdAvoidsPayloadAndDuplicateFile', 'preparedActualFrameUsesCompletedMP4',
-            'preparedLiveCacheHitAvoidsPayload', 'preparedRebuildKeepsReachableSource',
+            'preparedLiveCacheHitAvoidsPayload', 'addedViewReusesSourceWithoutPayload',
             'preparedCancelledCacheHitIsRejected', 'preparedStopRetiresActualPlayer',
             'preparedAssetAlonePinsCompletedFile', 'preparedFinalBorrowReturnsReservation',
             'layerIndexExcludesAssetAndKeepsBothLayers', 'layerIndexSharesResourceAndTargetsDistinctRevision',
-            'wrongLayerRejectedAtomically', 'knownNativeDurationRejectedAtomically', 'staleSourceCommandRejected', 'missingSourceCommandRejected', 'layerIndexRebuildKeepsSiblingAndRemovesObsolete',
+            'wrongLayerRejectedAtomically', 'knownNativeDurationRejectedAtomically', 'staleSourceCommandRejected', 'missingSourceCommandRejected', 'retireAndAddedViewKeepOnlyCurrentBinding',
             'layerIndexRetiredCommandsAreUnavailable', 'layerIndexStopClearsBindings',
             'catalogZeroCarrierReusesSourceAndFile'})
         self.assertEqual(set(result['checks']), expected)

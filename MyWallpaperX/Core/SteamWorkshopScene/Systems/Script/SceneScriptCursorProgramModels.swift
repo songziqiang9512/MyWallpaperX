@@ -81,10 +81,8 @@ nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
     }
 }
 
-/// Frame-visible cursor edge state. Dispatch advances this state before the
-/// surface outcome is known; a deferred/dropped frame must restore it so the
-/// next successful frame still sees enter/leave, press/release and click
-/// edges for every event it re-dispatches.
+/// Cursor edges and complete events still awaiting owner publication.
+/// Presentation retries consume the adopted frame without rewinding input.
 nonisolated struct SceneScriptCursorEdgeState: Sendable {
     var previousHits: [Int: SceneScriptCursorHit]
     var capturedHits: [Int: SceneScriptCursorHit]
@@ -111,6 +109,7 @@ nonisolated struct SceneScriptCursorPendingEvent: Sendable {
     let kind: SceneScriptCursorEventKind
     let hit: SceneScriptCursorHit
     let surface: SceneScriptSurfaceInput?
+    let surfaceID: UInt32?
     let captureActive: Bool
     let currentHit: Bool
     var nativeShortcutGesture: ScenePlaybackShortcutGesture? = nil

@@ -598,7 +598,7 @@ import Metal
                 dynamicValues: snapshot, pool: nil,
                 viewportSize: CGSize(width: 4, height: 4), commandBuffer: cb,
                 utilityExecution: .init(memberRootsByLayerID: [:], membersByRootID: [:],
-                    orderedRootIDs: [], copyBackgroundRootIDs: []))
+                    orderedRootIDs: [], backgroundSourcesByRootID: [:]))
             precondition(pass.finishEnsuringClear())
             if hdr { precondition(mapping.encode(source: source, target: display, commandBuffer: cb)) }
             else { copy(source, display, cb) }

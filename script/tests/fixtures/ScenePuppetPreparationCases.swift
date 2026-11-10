@@ -371,6 +371,38 @@ private enum ScenePuppetPreparationCases {
                 resourceView: resourceView, needsAnimations: animations)
         }
         var output: [String: Any] = [:]
+        var attachmentOrder: [String: Any] = [:]
+        for (label, path) in [("ordered", "attachment-motion.mdl"),
+                               ("renamed-reordered", "attachment-renamed-reordered.mdl"),
+                               ("unique", "attachment-unique.mdl")] {
+            let prepared = try asset(path)
+            let pose = ScenePuppetLayerLoad.preparePose(
+                for: sourceLayer(61, mesh: path, animated: true), asset: prepared)
+            guard let pose, case let .ready(raw) = prepared,
+                  case let .evaluated(_, selection, evaluator, _, _) = pose.geometry else {
+                attachmentOrder[label] = try describe(pose)
+                continue
+            }
+            var frames: [[String: [Float]]] = []
+            var points: [[[Float]]] = []
+            for phase in [0, 1] {
+                let samples = selection.clips.map { _ in
+                    ScenePuppetAnimationEvaluator.FrameSample(frameA: phase, frameB: phase)
+                }
+                let transforms = try evaluator.boneTransforms(selection: selection, frameSamples: samples)
+                let projected = ScenePuppetAttachmentPoseProjection.frames(
+                    attachments: raw.attachments, boneWorldMatrices: transforms.world) ?? [:]
+                frames.append(projected.mapValues { value in
+                    (0..<4).flatMap { column in (0..<4).map { row in value[column][row] } }
+                })
+                points.append(try evaluator.deformedPositions(selection: selection, frameSamples: samples)
+                    .map { [$0.x, $0.y] })
+            }
+            attachmentOrder[label] = ["rawNames": raw.attachments.map(\.name),
+                "cold": raw.attachments.first?.sceneBindFrameColumnMajor ?? [],
+                "frames": frames, "points": points]
+        }
+        output["attachment-order"] = attachmentOrder
         output["optional-hidden"] = try optionalHiddenChecks(asset("shared.mdl"))
         output["optional-hidden-bind"] = try optionalHiddenChecks(asset("bind.mdl"))
         output["local-additive"] = try localAdditiveChecks(asset("partial-additive.mdl"))

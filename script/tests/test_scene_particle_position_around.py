@@ -160,37 +160,42 @@ import simd
     }
 
     static func basisResults() -> [[String: Any]] {
-        let axes = ["0 0 1", "0 0 -7", "1 0 0", "0 3 0", "1 2 3",
-                    "0.44 0 0.9", "0.43 0 0.9"]
+        let axes: [(String, SIMD3<Double>, SIMD3<Double>)] = [
+            ("0 0 1", .init(0, 1, 0), .init(1, 0, 0)),
+            ("0 0 -7", .init(0, 1, 0), .init(1, 0, 0)),
+            ("1 0 0", .init(0, 0, -1), .init(0, -1, 0)),
+            ("0 3 0", .init(0, 0, -1), .init(1, 0, 0)),
+            ("1 1 0", .init(0, 0, -1), .init(1, -1, 0) / sqrt(2)),
+            ("2 2 0", .init(0, 0, -1), .init(1, -1, 0) / sqrt(2)),
+            ("1 2 3", .init(3, 6, -5) / sqrt(70), .init(2, -1, 0) / sqrt(5)),
+            ("1 0 2", .init(2, 0, -1) / sqrt(5), .init(0, -1, 0)),
+            ("1 0 3", .init(3, 0, -1) / sqrt(10), .init(0, -1, 0)),
+        ]
         var rows: [[String: Any]] = []
-        for rawAxis in axes {
+        for (rawAxis, zeroPhase, quarterPhase) in axes {
             for renamed in [false, true] {
                 let def = definition(5, renamed: renamed, extra: ["axis": rawAxis,
-                    "speedmin": "1 2 3", "speedmax": "4 5 6"])
+                    "bounds": "0.25 0.25", "speedmin": "1 2 3", "speedmax": "4 5 6"])
                 let sim = simulator(def)
                 guard let plan = def.initializers[1].positionAroundControlPointPlan else {
                     preconditionFailure("owned basis fixture rejected")
                 }
-                // A separate SIMD oracle reconstructs the authored circle;
-                // dynamic CP translations remain current for each execution.
+                // The phase directions above come from the ordered color controls.
                 let axisValues = rawAxis.split(separator: " ").map { Double($0)! }
                 let axis = simd_normalize(SIMD3(axisValues[0], axisValues[1], axisValues[2]))
-                let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
-                let u = simd_normalize(simd_cross(reference, axis)), v = simd_cross(axis, u)
                 for target in [SIMD3<Double>(1, 2, 3), SIMD3<Double>(20, -7, 5)] {
                     sim.advance(by: 0, dynamicControlPoints: [0: target])
-                    var particle = SceneParticleState(id: 1, position: SIMD3(50, 7, 3), velocity: .zero,
+                    let local = SIMD3<Double>(50, 7, 3)
+                    var particle = SceneParticleState(id: 1, position: target + local, velocity: .zero,
                         color: .init(repeating: 1), alpha: 1, size: 8, rotation: .zero,
                         angularVelocity: .zero, age: 0, lifetime: 120,
                         initialColor: .init(repeating: 1), initialAlpha: 1, initialSize: 8)
-                    let axial = simd_dot(particle.position, axis)
-                    let radius = simd_length(particle.position - axis * axial)
-                    let angle = 2 * Double.pi / 5
-                    let expectedPosition = target + axis * axial + (u * cos(angle) + v * sin(angle)) * radius
+                    let axial = simd_dot(local, axis)
+                    let radius = simd_length(local - axis * axial)
+                    let expectedPosition = target + axis * axial + quarterPhase * radius
                     var random = sim.frameSnapshot().random
                     let speed = SIMD3(random.value(1, 4), random.value(2, 5), random.value(3, 6))
-                    let expectedVelocity = speed * cos(angle) + simd_cross(axis, speed) * sin(angle)
-                        + axis * simd_dot(axis, speed) * (1 - cos(angle))
+                    let expectedVelocity = -zeroPhase * speed.x + quarterPhase * speed.y + axis * speed.z
                     let applied = sim.applyPositionAroundControlPoint(plan, to: &particle)
                     let state = sim.frameSnapshot()
                     rows.append(["axis": rawAxis, "renamed": renamed, "applied": applied,
@@ -205,12 +210,28 @@ import simd
         return rows
     }
 
+    static func unboundBirthResults() -> [String: [[Double]]] {
+        let cases: [(String, String, SIMD3<Double>)] = [
+            ("perpendicular", "0 0 1", .init(40, 0, 0)),
+            ("opposite", "0 0 1", .init(-40, 0, 0)),
+            ("coincident", "0 0 1", .init(50, 0, 0)),
+            ("axial", "1 0 0", .init(40, 0, 0)),
+            ("mixed", "1 0 0", .init(40, 36, 0)),
+        ]
+        return Dictionary(uniqueKeysWithValues: cases.map { name, axis, target in
+            let sim = simulator(definition(4, renamed: name == "opposite", extra: ["axis": axis]))
+            sim.advance(by: 0.125, dynamicControlPoints: [0: target])
+            return (name, sim.particles.map { [$0.position.x, $0.position.y, $0.position.z] })
+        })
+    }
+
     static func main() throws {
         var rows: [[String: Any]] = []
         for (label, count, renamed) in [
             ("integer2", 2 as Any, false), ("integer3", 3 as Any, false),
             ("fractional", 2.5 as Any, false), ("renamed", "2.5e0" as Any, true),
-            ("trinity-value", 3.02 as Any, false), ("independent-value", 2.2 as Any, true)] {
+            ("trinity-value", 3.02 as Any, false), ("independent-value", 2.2 as Any, true),
+            ("long-sequence", 1_500 as Any, false), ("renamed-long", "1.5e3" as Any, true)] {
             let def = definition(count, renamed: renamed)
             let sim = simulator(def)
             sim.advance(by: 0.125)
@@ -224,7 +245,7 @@ import simd
                 "partitioned": sim.particles == partitioned.particles])
         }
         var invalid: [[String: Any]] = []
-        for raw: Any in [0, -1, 0.999, 1024.001, "nan", "inf", "bad", true, [2, 3]] {
+        for raw: Any in [0, -1, 0.999, "-inf", "nan", "inf", "bad", true, [2, 3]] {
             let def = definition(raw)
             let sim = simulator(def)
             sim.advance(by: 0.125)
@@ -240,12 +261,13 @@ import simd
         let adjacentRejected = adjacent.allSatisfy {
             definition(2.5, extra: $0).initializers[1].positionAroundControlPointPlan == nil
         }
-        let ids: [UInt64] = [0, 1, 4, 4_294_967_295, 4_294_967_296,
+        let ids: [UInt64] = [0, 1, 4, 1_499, 1_500, 1_501, 4_294_967_295, 4_294_967_296,
             9_007_199_254_740_991, 9_007_199_254_740_992, 9_007_199_254_740_993,
             UInt64.max - 1, UInt64.max]
         var wide: [[String: Any]] = []
-        for count in [1.0, 2.5, 3.02, 2.2, 1024.0, 1.0.nextUp, 1024.0.nextDown] {
-            let def = definition(count)
+        for count in [1.0, 2.5, 3.02, 2.2, 1024.0, 1.0.nextUp, 1024.0.nextDown,
+                      1_024.001, 1_500.0, 1_500.5, 0x1p64] {
+            let def = definition(count, extra: ["bounds": "0.125 0.375"])
             let sim = simulator(def)
             sim.advance(by: 0.125)
             guard let plan = def.initializers[1].positionAroundControlPointPlan else { continue }
@@ -262,7 +284,8 @@ import simd
         }
         let result: [String: Any] = ["rows": rows, "invalid": invalid,
                                     "adjacentRejected": adjacentRejected, "wide": wide,
-                                    "defaults": omissionResults(), "basis": basisResults()]
+                                    "defaults": omissionResults(), "basis": basisResults(),
+                                    "unboundBirths": unboundBirthResults()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
     }
 }
@@ -298,10 +321,11 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
                 self.assertIn("positionAroundControlPointBounded", row["diagnostics"])
                 self.assertNotIn("positionAroundControlPointUnsupported", row["diagnostics"])
         rows = {row["label"]: row for row in self.result["rows"]}
-        for label, distinct in [("integer2", 2), ("integer3", 3), ("fractional", 5)]:
+        for label, distinct in [("integer2", 2), ("integer3", 3), ("fractional", 5), ("long-sequence", 5)]:
             points = rows[label]["positions"]
             self.assertEqual(len({tuple(round(v, 6) for v in point) for point in points}), distinct)
         self.assertEqual(rows["fractional"]["positions"], rows["renamed"]["positions"])
+        self.assertEqual(rows["long-sequence"]["positions"], rows["renamed-long"]["positions"])
         # Rotation-independent oracle from the preregistered official N3 board.
         points = rows["fractional"]["positions"][:3]
         chords = sorted(math.dist(a, b) / 50 for i, a in enumerate(points) for b in points[i + 1:])
@@ -309,20 +333,20 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected, places=8)
 
     def test_large_identity_positions_match_exact_rational_remainder(self):
-        self.assertEqual(len(self.result["wide"]), 70)
+        self.assertEqual(len(self.result["wide"]), 143)
         for row in self.result["wide"]:
             with self.subTest(count=row["count"], identity=row["id"]):
                 self.assertTrue(row["applied"])
                 count = Fraction.from_float(row["count"])
                 cycles = Fraction(int(row["id"])) / count
-                phase = float(cycles - cycles.numerator // cycles.denominator)
-                expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
+                phase = 0.125 + 0.25 * float(cycles - cycles.numerator // cycles.denominator)
+                expected = [50 * math.sin(phase * math.tau), 50 * math.cos(phase * math.tau), 0]
                 for actual, value in zip(row["position"], expected):
                     self.assertAlmostEqual(actual, value, delta=1e-10)
 
     def test_prepared_circle_basis_preserves_axes_dynamic_control_points_and_random_sequence(self):
         rows = self.result["basis"]
-        self.assertEqual(len(rows), 28)
+        self.assertEqual(len(rows), 36)
         for row in rows:
             with self.subTest(axis=row["axis"], renamed=row["renamed"]):
                 self.assertTrue(row["applied"])
@@ -346,6 +370,25 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
         self.assertTrue(all(3 <= size <= 9 for size in row["followingSizes"]))
         self.assertIn("positionAroundControlPointBounded", row["diagnostics"])
         self.assertNotIn("positionAroundControlPointUnsupported", row["diagnostics"])
+
+    def test_unbound_births_preserve_source_plane_and_use_target_relative_radius(self):
+        cases = {
+            "perpendicular": ([40, 0, 0], 10, 2),
+            "opposite": ([-40, 0, 0], 90, 2),
+            "coincident": ([50, 0, 0], 0, 2),
+            "axial": ([50, 0, 0], 0, 0),
+            "mixed": ([50, 36, 0], 36, 0),
+        }
+        self.assertEqual(set(self.result["unboundBirths"]), set(cases))
+        for name, (center, radius, axial_index) in cases.items():
+            with self.subTest(case=name):
+                positions = self.result["unboundBirths"][name]
+                self.assertEqual(len(positions), 5)
+                for position in positions:
+                    self.assertAlmostEqual(position[axial_index], center[axial_index], places=10)
+                    self.assertAlmostEqual(math.dist(position, center), radius, places=10)
+                distinct = {tuple(round(value, 8) for value in p) for p in positions}
+                self.assertEqual(len(distinct), 4 if radius else 1)
 
     def test_four_field_omissions_preserve_raw_plan_births_and_shared_rng(self):
         defaults = self.result["defaults"]
@@ -397,7 +440,7 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
         self.assertEqual(half["bounds"], [0.25, 0.75])
         for identity, (position, velocity) in enumerate(zip(half["positions"], half["velocities"])):
             phase = 0.25 + 0.5 * identity / 5
-            expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
+            expected = [50 * math.sin(phase * math.tau), 50 * math.cos(phase * math.tau), 0]
             for actual, value in zip(position, expected):
                 self.assertAlmostEqual(actual, value, delta=1e-10)
             self.assertAlmostEqual(math.dist(velocity, [0, 0, 0]), 2, places=12)

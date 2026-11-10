@@ -9,6 +9,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     var authoredLayerDefinitions: [SceneDynamicTargetDefinition] {
         authoredDefinitionOrder.compactMap { authoredDefinitionsByTarget[$0] }
     }
+    /// Prepared definitions grant no handle writes; only committed setters do.
+    var committedHandleVolumeLayerIDs: Set<Int> {
+        Set(authoredLayerValues.keys.compactMap {
+            guard case let .layer(layerID, .volume) = $0 else { return nil }
+            return layerID
+        })
+    }
     /// Bumps only when the set or order of authored dynamic definitions is
     /// published. Frame-varying values do not invalidate the launch schema.
     private(set) var authoredDefinitionRevision: UInt64 = 0
@@ -22,6 +29,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private let cameraOriginInputLayerID: Int?
     private let cameraOriginClipSpan: (nearZ: Double, farZ: Double)
     private let supportsCompositionPerspective: Bool
+    private let perspectiveReplayRootIDs: Set<Int>
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
     private var authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
@@ -42,9 +50,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     init(
         descriptor: SceneRenderDescriptor,
         authoredMutationLayerIDs: Set<Int>,
+        perspectiveReplayRootIDs: Set<Int> = [],
         preparedResourceLayerTemplates:
             [String: SceneScriptPreparedResourceLayerTemplate] = [:],
         textTemplates: [UInt64: SceneScriptPreparedTextTemplate] = [:],
+        preparedSoundDefinitions: [SceneDynamicTargetDefinition] = [],
         layerOrderProjection: (@Sendable (Set<UInt64>)
             -> Result<[Int]?, SceneScriptScalarRuntimeFailure>)? = nil
     ) {
@@ -52,6 +62,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         cameraOriginInputLayerID = descriptor.camera.default2DOriginInputLayerID
         cameraOriginClipSpan = (Double(descriptor.camera.nearZ), Double(descriptor.camera.farZ))
         supportsCompositionPerspective = (descriptor.camera.orthoHeight ?? 0) > 0
+        self.perspectiveReplayRootIDs = perspectiveReplayRootIDs
         authoredLayersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
         )
@@ -66,13 +77,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             // A prepared authored handle may receive its first visibility write
             // this cadence. Register the typed lane before callbacks, including
             // ancestor containers, so the shared snapshot can consume it now.
-            if let alpha = Self.definition(for: .particle(layerID: layer.id, field: .alpha), layer: layer) {
-                definitions.append(alpha)
+            for field: SceneDynamicParticleField in [.alpha, .rate, .count] {
+                if let definition = Self.definition(for: .particle(layerID: layer.id, field: field), layer: layer) {
+                    definitions.append(definition)
+                }
             }
             guard let cameraLayerID = descriptor.camera.default2DOriginInputLayerID else { return definitions }
             return definitions.filter { $0.target != .layer(layerID: cameraLayerID, field: .origin) }
         }
-        let definitions = initialDefinitions + Self.staticCameraDefinitions(for: descriptor.camera)
+        let definitions = initialDefinitions + Self.staticCameraDefinitions(for: descriptor.camera) + preparedSoundDefinitions
         authoredDefinitionOrder = definitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
             uniqueKeysWithValues: definitions.map { ($0.target, $0) }
@@ -263,25 +276,44 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     Self.ensureDefinition(for: target, layer: authoredLayer,
                         order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
-                if mutation.fields.contains(.particleAlpha) {
-                    guard authoredLayer.contentKind == "particle", mutation.particleAlpha.isFinite else {
-                        return .failure(.invalidArgument("invalid authored particle instance alpha"))
+                if !mutation.fields.intersection(.particleInstance).isEmpty {
+                    guard authoredLayer.contentKind == "particle" else {
+                        return .failure(.invalidArgument("invalid authored particle instance target"))
                     }
-                    let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: .alpha)
+                    let values: [(SceneScriptLayerMutation.Fields, SceneDynamicParticleField, Double)] = [
+                        (.particleAlpha, .alpha, mutation.particleAlpha),
+                        (.particleRate, .rate, mutation.particleRate),
+                        (.particleCount, .count, mutation.particleCount),
+                    ]
+                    for (field, targetField, value) in values where mutation.fields.contains(field) {
+                        let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: targetField)
+                        guard authoredTargets.insert(target).inserted else {
+                            return .failure(.invalidArgument("conflicting authored particle instance target"))
+                        }
+                        candidateAuthoredValues[target] = .scalar(value)
+                        Self.ensureDefinition(for: target, layer: authoredLayer,
+                            order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                    }
+                }
+                if mutation.fields.contains(.volume) {
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .volume)
+                    guard authoredLayer.contentKind == "sound", mutation.volume.isFinite,
+                          candidateDefinitions[target] != nil else {
+                        return .failure(.invalidArgument("invalid authored Sound volume"))
+                    }
                     guard authoredTargets.insert(target).inserted else {
-                        return .failure(.invalidArgument("conflicting authored particle instance alpha"))
+                        return .failure(.invalidArgument("conflicting authored layer mutation target"))
                     }
-                    candidateAuthoredValues[target] = .scalar(mutation.particleAlpha)
-                    Self.ensureDefinition(for: target, layer: authoredLayer,
-                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                    candidateAuthoredValues[target] = .scalar(mutation.volume)
                 }
                 if mutation.fields.contains(.color),
                    ![mutation.color.x, mutation.color.y, mutation.color.z]
-                    .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
+                    .allSatisfy({ $0.isFinite }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
-                let consumesPerspective = authoredLayer.hasPerspectiveGeometryConsumer
-                    && (authoredLayer.utilityLayer == nil || supportsCompositionPerspective)
+                let consumesPerspective = perspectiveReplayRootIDs.contains(authoredLayer.id)
+                    || (authoredLayer.hasPerspectiveGeometryConsumer
+                        && (authoredLayer.utilityLayer == nil || supportsCompositionPerspective))
                 if mutation.fields.contains(.perspective),
                    (mutation.perspective == nil || (!consumesPerspective
                     && mutation.perspective != authoredLayer.usesPerspective)) {

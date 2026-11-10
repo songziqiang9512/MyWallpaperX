@@ -111,14 +111,15 @@ enum Harness {
             layerID: 8,
             publication: validPublication,
             renderSizeWH: [16_384, 4_096],
-            textCenterOffsetY: 40
+            textPlacement: (40, -13)
         )
         guard valid?.renderSizeWH == [16_384, 4_096],
-              valid?.textCenterOffsetY == 40,
+              valid?.textPlacement?.centerOffsetY == 40,
+              valid?.textPlacement?.rasterOffsetY == -13,
               SceneLayerSourcePublication(layerID: 8, publication: validPublication,
-                renderSizeWH: [100, 50], textCenterOffsetY: .infinity) == nil,
+                renderSizeWH: [100, 50], textPlacement: (.infinity, 0)) == nil,
               SceneLayerSourcePublication(layerID: 8, publication: validPublication,
-                textCenterOffsetY: 40) == nil,
+                textPlacement: (40, -13)) == nil,
               valid?.isComplete(layerID: 8, matching: texture) == true,
               valid?.isComplete(layerID: 8, matching: replacement) == false,
               SceneLayerSourcePublication(

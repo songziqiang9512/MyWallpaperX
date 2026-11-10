@@ -22,12 +22,18 @@ struct SceneUtilityLayerRuntimePlan {
     /// transparent source of a childless composition with copybackground=false.
     var isolatedGroupMembers: [Int]? = nil
     var usesAuthoredLocalSource: Bool = false
+    var allowsPerspectiveReplay: Bool = false
 
     var shouldCapture: Bool { disposition == .capture }
     var usesIsolatedGroupTarget: Bool { isolatedGroupMembers != nil }
 }
 
 enum SceneUtilityLayerRuntimePlanner {
+    enum BackgroundSource {
+        case enclosing
+        case scenePrefix
+    }
+
     struct Execution {
         let orderedLayerIDs: [Int]
         let plansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
@@ -35,8 +41,9 @@ enum SceneUtilityLayerRuntimePlanner {
         let memberRootsByLayerID: [Int: Int]
         let membersByRootID: [Int: [Int]]
         let orderedRootIDs: [Int]
-        let copyBackgroundRootIDs: Set<Int>
+        let backgroundSourcesByRootID: [Int: BackgroundSource]
         var localSourceRootIDs: Set<Int> = []
+        var perspectiveReplayRootIDs: Set<Int> = []
     }
 
     /// Prepared once per descriptor/topology revision. Members execute at
@@ -67,6 +74,19 @@ enum SceneUtilityLayerRuntimePlanner {
             append(layerID)
         }
         let captures = values.filter(\.shouldCapture)
+        let perspectiveReplayRootIDs = Set(captures.filter(\.allowsPerspectiveReplay).map(\.layerID))
+        let backgroundSources: [Int: BackgroundSource] = descriptor.layers.reduce(into: [:]) { result, layer in
+            guard membership.membersByRootID[layer.id] != nil,
+                  layer.utilityLayer?.copyBackground == true else { return }
+            // Only an admitted nested local source can read across the
+            // enclosing root. The contiguous group schedule leaves main at
+            // the outer entry cut until the outer output replays.
+            let readsPrefix = plans[layer.id]?.usesAuthoredLocalSource == true
+                && membership.memberRootsByLayerID[layer.id].map {
+                    perspectiveReplayRootIDs.contains($0)
+                } == true
+            result[layer.id] = readsPrefix ? .scenePrefix : .enclosing
+        }
         return Execution(
             orderedLayerIDs: ordered,
             plansByTriggerLayerID: Dictionary(grouping: captures, by: \.triggerLayerID),
@@ -74,11 +94,9 @@ enum SceneUtilityLayerRuntimePlanner {
             memberRootsByLayerID: membership.memberRootsByLayerID,
             membersByRootID: membership.membersByRootID,
             orderedRootIDs: ordered.filter { membership.membersByRootID[$0] != nil },
-            copyBackgroundRootIDs: Set(descriptor.layers.compactMap { layer in
-                membership.membersByRootID[layer.id] != nil
-                    && layer.utilityLayer?.copyBackground == true ? layer.id : nil
-            }),
-            localSourceRootIDs: Set(captures.filter(\.usesAuthoredLocalSource).map(\.layerID))
+            backgroundSourcesByRootID: backgroundSources,
+            localSourceRootIDs: Set(captures.filter(\.usesAuthoredLocalSource).map(\.layerID)),
+            perspectiveReplayRootIDs: perspectiveReplayRootIDs
         )
     }
 
@@ -111,16 +129,19 @@ enum SceneUtilityLayerRuntimePlanner {
     static func plans(
         in descriptor: SceneRenderDescriptor,
         dependencyPlan: SceneDependencyRenderPlan,
-        resolvedMaterialLayerIDs: Set<Int>
+        resolvedMaterialLayerIDs: Set<Int>,
+        sourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution]? = nil
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let namedTargetLayerIDs = dependencyPlan.requiredProviderLayerIDs
+        let routes = sourceRoutes ?? SceneUtilityLayerSourceRoute.preparedResolutions(
+            in: descriptor, resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+        )
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
-            let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(
-                layer: layer,
-                descriptor: descriptor
-            ).get()
+            let sourceRoute = routes[layer.id]
+            let allowsPerspectiveReplay = sourceRoute?.allowsPerspectiveReplay == true
+            let usesLocalSource = allowsPerspectiveReplay || sourceRoute?.usesAuthoredLocalSource == true
             let hasVisibleEffects = layer.effects.contains { $0.visible != false }
             let disposition: SceneUtilityLayerRuntimePlan.Disposition
             // Admission may prepare a dynamically visible fullscreen while
@@ -135,8 +156,7 @@ enum SceneUtilityLayerRuntimePlanner {
             let preparedSource = utility.kind != .fullscreen
                 && sourceRoute != nil
                 && resolvedMaterialLayerIDs.contains(layer.id)
-            let preparedLocalSource = sourceRoute?.usesAuthoredLocalSource == true
-                && !hasVisibleEffects
+            let preparedLocalSource = usesLocalSource && !hasVisibleEffects
             let preparedUtility = preparedFullscreen || preparedSource || preparedLocalSource
             // Local sources retain their raster without an active effect.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
@@ -167,7 +187,8 @@ enum SceneUtilityLayerRuntimePlanner {
                     isolatedGroupMembers: sourceRoute?.usesIsolatedGroupTarget
                         == true
                         ? sourceRoute?.orderedCompositionSubtreeLayerIDs : nil,
-                    usesAuthoredLocalSource: sourceRoute?.usesAuthoredLocalSource == true
+                    usesAuthoredLocalSource: usesLocalSource,
+                    allowsPerspectiveReplay: allowsPerspectiveReplay
                 )
             )
         })
@@ -349,7 +370,7 @@ final class SceneCompositionGroupFrameRuntime {
     private let offscreenTexturePool: SceneOffscreenTexturePool
     private let memberRootsByLayerID: [Int: Int]
     private let membersByRootID: [Int: [Int]]
-    private let copyBackgroundRootIDs: Set<Int>
+    private let backgroundSourcesByRootID: [Int: SceneUtilityLayerRuntimePlanner.BackgroundSource]
     private let viewportSize: CGSize
     private let sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry]
     private let captureBackground: ((MTLTexture, MTLTexture, simd_float4x4,
@@ -369,7 +390,7 @@ final class SceneCompositionGroupFrameRuntime {
         memberRootsByLayerID: [Int: Int],
         membersByRootID: [Int: [Int]],
         viewportSize: CGSize,
-        copyBackgroundRootIDs: Set<Int> = [],
+        backgroundSourcesByRootID: [Int: SceneUtilityLayerRuntimePlanner.BackgroundSource] = [:],
         localSourceRootIDs: Set<Int> = [],
         sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:],
         captureBackground: ((MTLTexture, MTLTexture, simd_float4x4,
@@ -380,7 +401,7 @@ final class SceneCompositionGroupFrameRuntime {
         self.offscreenTexturePool = offscreenTexturePool
         self.memberRootsByLayerID = memberRootsByLayerID
         self.membersByRootID = membersByRootID
-        self.copyBackgroundRootIDs = copyBackgroundRootIDs
+        self.backgroundSourcesByRootID = backgroundSourcesByRootID
         self.viewportSize = viewportSize
         self.sourceGeometriesByRootID = sourceGeometriesByRootID
         self.captureBackground = captureBackground
@@ -552,17 +573,26 @@ final class SceneCompositionGroupFrameRuntime {
         closeAllGroupEncoders()
         parentPass.closeForOffscreen()
         let initialized: Bool
-        if copyBackgroundRootIDs.contains(rootID) {
-            initialized = enclosingPass.withReadableTarget { source, _ in
+        if let backgroundSource = backgroundSourcesByRootID[rootID] {
+            let readPass = backgroundSource == .scenePrefix ? parentPass : enclosingPass
+            initialized = readPass.withReadableTarget { source, _ in
                 pass.withReadableTarget { target, commandBuffer in
                     if let localGeometry = sourceGeometriesByRootID[rootID] {
-                        // Sample the root's plane from its actual enclosing
-                        // attachment, including an enclosing local group's map.
-                        // Allocation and member raster extent remain local.
+                        // The read attachment owns the sampling coordinates.
                         guard let captureBackground else { return false }
-                        return captureBackground(source, target,
-                            enclosingPass.rasterModelViewProjection(
+                        let encoded = captureBackground(source, target,
+                            readPass.rasterModelViewProjection(
                                 localGeometry.worldModelViewProjection), commandBuffer)
+#if DEBUG
+                        if let trace = pass.compositionTrace, trace.isCompositionSelected {
+                            trace.recordComposition(.init(kind: "group-background-capture", layerID: rootID,
+                                source: .init(source, role: backgroundSource == .scenePrefix
+                                    ? "scene-prefix" : "enclosing-color"),
+                                target: .init(target, role: "group-color"),
+                                outcome: encoded ? "draw-encoded" : "failed"))
+                        }
+#endif
+                        return encoded
                     }
                     // Both targets come from the viewport-sized frame/pool
                     // producers; a resize or format mismatch cannot be blitted.
@@ -605,7 +635,7 @@ final class SceneCompositionGroupFrameRuntime {
 
     private func isEmptySource(_ rootID: Int) -> Bool {
         membersByRootID[rootID]?.isEmpty == true
-            && !copyBackgroundRootIDs.contains(rootID)
+            && backgroundSourcesByRootID[rootID] == nil
     }
 
     private func reservePass(forRootID rootID: Int) -> SceneMainPassEncoder? {

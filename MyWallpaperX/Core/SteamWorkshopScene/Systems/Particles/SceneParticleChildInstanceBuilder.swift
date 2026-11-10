@@ -5,7 +5,7 @@ import Foundation
 /// systems can never become adjacent rope nodes.
 enum SceneParticleChildInstanceBuilder {
     /// Rebuild all templates in authored system order using the prepared index
-    /// and reusable per-template instance storage.
+    /// and reusable per-renderer instance storage.
     static func rebuildAll(
         templates: [SceneParticleChildTemplate],
         templatesByIndex: [Int: SceneParticleChildTemplate],
@@ -13,10 +13,15 @@ enum SceneParticleChildInstanceBuilder {
         renderOnlySystems: [SceneParticleChildSystem] = [],
         layerAlpha: Float,
         rootTranslationOffset: SIMD3<Double> = .zero,
-        into scratch: inout [Int: [SceneParticleGPUInstance]]
+        into scratch: inout [SceneParticleChildRendererKey: [SceneParticleGPUInstance]]
     ) {
         for template in templates {
-            scratch[template.index, default: []].removeAll(keepingCapacity: true)
+            for renderer in template.renderers {
+                let key = SceneParticleChildRendererKey(
+                    templateIndex: template.index, rendererIndex: renderer.index
+                )
+                scratch[key, default: []].removeAll(keepingCapacity: true)
+            }
         }
         if renderOnlySystems.isEmpty {
             for system in systems {
@@ -46,34 +51,66 @@ enum SceneParticleChildInstanceBuilder {
         }
     }
 
+    static func batches(
+        templates: [SceneParticleChildTemplate],
+        layerID: Int,
+        scratch: [SceneParticleChildRendererKey: [SceneParticleGPUInstance]]
+    ) -> [SceneParticleDrawBatch] {
+        var batches: [SceneParticleDrawBatch] = []
+        batches.reserveCapacity(scratch.count)
+        for template in templates {
+            for renderer in template.renderers {
+                let key = SceneParticleChildRendererKey(
+                    templateIndex: template.index, rendererIndex: renderer.index
+                )
+                guard let instances = scratch[key], !instances.isEmpty else { continue }
+                batches.append(renderer.drawBatch(
+                    layerID: layerID, particlePath: template.path,
+                    childTemplateIndex: template.index, instances: instances,
+                    sizeIsWorldSpace: template.definition.flags.isWorldSpace
+                ))
+            }
+        }
+        return batches
+    }
+
     private static func append(
         _ system: SceneParticleChildSystem,
         lookup: [Int: SceneParticleChildTemplate],
         layerAlpha: Float,
         rootTranslationOffset: SIMD3<Double>,
-        into scratch: inout [Int: [SceneParticleGPUInstance]]
+        into scratch: inout [SceneParticleChildRendererKey: [SceneParticleGPUInstance]]
     ) {
         guard let template = lookup[system.templateIndex] else { return }
         let origin = system.origin + (system.isWorldSpace ? .zero : rootTranslationOffset)
-        if let rope = template.rope {
-            scratch[template.index, default: []].append(contentsOf: rope.instances(
-                particles: system.simulator.particles,
-                origin: origin,
-                particleOrigins: system.isWorldSpace ? system.particleOrigins : [:],
-                scale: template.transform.scale,
-                layerAlpha: layerAlpha,
-                simulationTime: system.simulator.simulationTime
-            ))
-            return
-        }
-        for particle in system.simulator.renderParticlesForCurrentAdvance() {
-            scratch[template.index, default: []].append(template.instance(
-                origin: system.isWorldSpace
-                    ? system.particleOrigins[particle.id] ?? origin
-                    : origin,
-                particle: particle,
-                layerAlpha: layerAlpha
-            ))
+        let currentParticles = system.simulator.particles
+        let particles = template.renderers.contains { $0.rope == nil }
+            ? system.simulator.renderParticlesForCurrentAdvance() : []
+        for renderer in template.renderers {
+            let key = SceneParticleChildRendererKey(
+                templateIndex: template.index, rendererIndex: renderer.index
+            )
+            if let rope = renderer.rope {
+                scratch[key, default: []].append(contentsOf: rope.instances(
+                    particles: currentParticles,
+                    origin: origin,
+                    particleOrigins: system.isWorldSpace ? system.particleOrigins : [:],
+                    scale: template.transform.scale,
+                    layerAlpha: layerAlpha,
+                    simulationTime: system.simulator.simulationTime
+                ))
+                continue
+            }
+            for particle in particles {
+                scratch[key, default: []].append(template.instance(
+                    renderer: renderer,
+                    origin: system.isWorldSpace
+                        ? system.particleOrigins[particle.id] ?? origin
+                        : origin,
+                    particle: particle,
+                    layerAlpha: layerAlpha
+                ))
+            }
         }
     }
 

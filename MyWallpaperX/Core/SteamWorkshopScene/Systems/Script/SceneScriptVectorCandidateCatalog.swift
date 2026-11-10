@@ -189,7 +189,6 @@ nonisolated extension SceneScriptVectorProgram {
             )
             guard admittedLayerColorConsumerIDs.contains(layer.id),
                   !occupiedTargets.contains(target),
-                  layer.visible != false,
                   let modelPath = layer.staticModelPath,
                   let links = linksByModel[normalizedMaterialPath(modelPath)],
                   links.count == 1,

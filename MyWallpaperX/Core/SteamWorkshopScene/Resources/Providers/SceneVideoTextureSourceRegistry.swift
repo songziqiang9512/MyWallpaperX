@@ -15,7 +15,6 @@ final class SceneVideoTextureSourceRegistry {
     private struct RegisteredSource {
         let source: SceneVideoTextureSource
         var observationIndex: Int?
-        var retainedForPreparedCatalog = false
         var consumerCount = 0
     }
 
@@ -66,8 +65,7 @@ final class SceneVideoTextureSourceRegistry {
     private let epoch: UInt64
     private let capturesLifecycleObservations: Bool
     private var sources: [SourceIdentity: RegisteredSource] = [:]
-    /// Source rows are stable while live. Noncatalog rows are reclaimed only
-    /// at preparation boundaries; native incarnations prevent handle ABA.
+    /// Source rows stay stable for this launch; native incarnations prevent handle ABA.
     private var ordinarySources: [SceneVideoTextureSource?] = []
     private var preparedSourceIdentitiesByModel: [String: [SourceIdentity]] = [:]
     private var pendingUserPropertyCandidates: [SceneUserPropertyTextureIdentity: PendingCandidate] = [:]
@@ -76,7 +74,6 @@ final class SceneVideoTextureSourceRegistry {
     /// One layer index serves command lookup and the first-device script
     /// observation. Membership and device order change only with sources.
     private var sourceIdentitiesByLayer: [Int: [SourceIdentity]] = [:]
-    private var rebuildingSourceIdentities: Set<SourceIdentity>?
 
     init(
         epoch: UInt64,
@@ -150,16 +147,13 @@ final class SceneVideoTextureSourceRegistry {
         // the former decoder; no failed replacement may stop the live source.
         let retired = replaced.compactMap { removeSource($0) }
         sources[candidate.sourceIdentity] = .init(source: candidate.source, observationIndex: nil)
-        rebuildingSourceIdentities?.subtract(replaced)
-        rebuildingSourceIdentities?.insert(candidate.sourceIdentity)
         pendingUserPropertyCandidates.removeValue(forKey: candidate.identity)
         candidate.transferred = true
         retired.forEach { $0.stop() }
         return true
     }
 
-    /// Immutable declarations select already-adopted sources. This is also
-    /// the rebuild reachability declaration; there is no frame-time file I/O.
+    /// Immutable declarations select already-adopted sources without frame-time file I/O.
     func userPropertySources(
         declarations: [String: SceneUserPropertyVideoDeclaration], device: MTLDevice
     ) -> [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] {
@@ -171,7 +165,6 @@ final class SceneVideoTextureSourceRegistry {
             let identity = SourceIdentity(owner: .userProperty(declaration.identity),
                 source: declaration.source, deviceRegistryID: device.registryID)
             guard let source = sources[identity]?.source, source.owner == identity.owner else { continue }
-            rebuildingSourceIdentities?.insert(identity)
             result[declaration.identity] = source
         }
         return result
@@ -189,7 +182,6 @@ final class SceneVideoTextureSourceRegistry {
             return false
         }
         for identity in retired { removeSource(identity)?.stop() }
-        rebuildingSourceIdentities?.subtract(retired)
     }
 
     func source(
@@ -298,8 +290,8 @@ final class SceneVideoTextureSourceRegistry {
         }
     }
 
-    /// Every input shares the owner/device cache, lifecycle epoch and rebuild
-    /// admission. Materialize a payload or file lease only on a true miss.
+    /// Every input shares the owner/device cache and lifecycle epoch.
+    /// Materialize a payload or file lease only on a true miss.
     private func source(
         sourceKey: SceneTextureLoader.SourceKey,
         owner: SceneVideoTexturePlaybackOwner,
@@ -316,13 +308,11 @@ final class SceneVideoTextureSourceRegistry {
         )
         if let entry = sources[identity] {
             try Task.checkCancellation()
-            rebuildingSourceIdentities?.insert(identity)
             if owner == .ordinary, let layerID { bind(identity, to: layerID) }
             return entry.source
         }
         guard let source = try makeSource() else { return nil }
         try Task.checkCancellation()
-        rebuildingSourceIdentities?.insert(identity)
         source.adoptLifecycleEpoch(epoch)
         let index = owner == .ordinary ? ordinarySources.firstIndex(where: { $0 == nil }) ?? ordinarySources.count : nil
         if let index {
@@ -375,7 +365,6 @@ final class SceneVideoTextureSourceRegistry {
             guard case let .video(key, file, _)? = resources[path]?.product,
                   try source(sourceKey: key, preparedFile: file, owner: .ordinary, device: device) != nil else { continue }
             let identity = SourceIdentity(owner: .ordinary, source: key, deviceRegistryID: device.registryID)
-            sources[identity]?.retainedForPreparedCatalog = true
             var identities = preparedSourceIdentitiesByModel[path] ?? []
             identities.removeAll { $0.deviceRegistryID == device.registryID }
             identities.append(identity)
@@ -495,32 +484,6 @@ final class SceneVideoTextureSourceRegistry {
         }
     }
 
-    func beginSurfaceRebuild(
-        sceneTime: TimeInterval,
-        hostTime: TimeInterval
-    ) {
-        rebuildingSourceIdentities = []
-        for identity in sources.keys { sources[identity]?.consumerCount = 0 }
-        sourceIdentitiesByLayer.removeAll()
-        preparedSourceIdentitiesByModel.removeAll()
-        sources.values.forEach {
-            $0.source.rebuild(sceneTime: sceneTime, hostTime: hostTime)
-        }
-    }
-
-    func completeSurfaceRebuild() {
-        guard let rebuildingSourceIdentities else { return }
-        let obsoleteIdentities = sources.compactMap { identity, entry -> SourceIdentity? in
-            if !entry.retainedForPreparedCatalog && !rebuildingSourceIdentities.contains(identity) { return identity }
-            if identity.owner == .ordinary && entry.consumerCount == 0 { entry.source.suspendUnusedBackend() }
-            return nil
-        }
-        for identity in obsoleteIdentities {
-            removeSource(identity)?.stop()
-        }
-        self.rebuildingSourceIdentities = nil
-    }
-
     /// Resolve one shared decode publication after all display consumers have
     /// sampled this simulation frame. GPU submission belongs to each consumer.
     func commitPreparedFrame() {
@@ -540,7 +503,6 @@ final class SceneVideoTextureSourceRegistry {
         ordinarySources.removeAll()
         preparedSourceIdentitiesByModel.removeAll()
         sourceIdentitiesByLayer.removeAll()
-        rebuildingSourceIdentities = nil
     }
 
     deinit {

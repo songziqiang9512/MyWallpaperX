@@ -78,12 +78,14 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
             "overbrightSixtyFour", "overbrightSixtyFive", "overbrightLarge",
             "spritetrail", "rope", "ropetrail", "fixed", "upright", "axis", "rendererFlags",
             "malformedRenderer", "unknownRendererField", "twoRenderers", "normalCull",
+            "mixedRenderers", "repeatedRenderers", "malformedPeerRenderers",
             "depthTest", "depthWrite", "bothDepth", "ropeDepthCull", "trailReadOnlyDepth",
             "ropeTrailDepthWrite",
         }
         ordinary = {
             "oldAdditiveRope", "oldTranslucentTrail", "oldFixedTranslucent", "oldSpriteDepthCull",
             "translucentRopeDepthCull", "additiveTrailReadOnlyDepth", "refractionTrailReadOnlyDepth",
+            "refractionRenderers",
         }
         resource_failures = {"customShader", "missingTexture"}
         rejected = {
@@ -129,7 +131,7 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
         self.assertFalse(rows["missingTexture"]["textureAvailable"])
         self.assertIn("missingTextureFile", rows["missingTexture"]["diagnostics"])
 
-    def test_material_preparation_preserves_the_original_camera_selection(self) -> None:
+    def test_material_preparation_selects_camera_per_actual_renderer(self) -> None:
         rows = self.outputs["profiles"]
         camera_selected = {
             "sprite", "renamed", "screen", "rendererFlagOne", "normalizedBlend",
@@ -138,7 +140,13 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
             "depthTest", "depthWrite", "bothDepth", "oldSpriteDepthCull", "customShader",
             "missingTexture",
         }
-        self.assertEqual({name for name, row in rows.items() if row["sceneCamera"]}, camera_selected)
+        expected = {name: [name in camera_selected] for name in rows}
+        expected.update(twoRenderers=[True, True], mixedRenderers=[True, False, False],
+                        repeatedRenderers=[True, False, False], malformedPeerRenderers=[True, False],
+                        refractionRenderers=[False, False, False])
+        for name, row in rows.items():
+            with self.subTest(name=name):
+                self.assertEqual(row["sceneCameras"], expected[name])
 
     def test_cull_and_depth_follow_the_authored_material_state(self) -> None:
         rows = self.outputs["profiles"]

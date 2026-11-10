@@ -7,41 +7,32 @@ extension SceneDependencyRenderPlan {
 
     /// A forward graph runs before any authored compositor layer. It may use
     /// its own layer source, static assets, frame inputs and primary named
-    /// inputs from one upstream that the same dependency plan schedules
+    /// inputs from upstreams that the same dependency plan schedules
     /// first. The main target and secondary targets retain authored-order
     /// dependencies and are rejected here.
     nonisolated static func providerGraphIsAuthoredOrderIndependent(
-        _ layer: SceneRenderDescriptor.Layer,
-        references: [Reference]? = nil,
-        texturePaths: [String]? = nil
+        _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
-        let projectedDependencies = references.map { references in
-            Set(references.compactMap {
-                $0.providerLayerID == layer.id ? nil : $0.providerLayerID
-            })
-        }
-        let references = references ?? SceneDependencyGraphAnalysis.references(in: [layer])
-        guard let activeDependencies = projectedDependencies ?? activeDependencyProviderLayerIDs(
+        let references = SceneDependencyGraphAnalysis.references(in: [layer])
+        guard let activeDependencies = activeDependencyProviderLayerIDs(
             layer: layer,
             references: references
         ) else { return false }
         if activeDependencies.isEmpty {
             guard references.isEmpty else { return false }
         } else {
-            guard activeDependencies.count == 1,
-                  let dependencyLayerID = activeDependencies.first,
-                  references.allSatisfy({
-                      $0.consumerLayerID == layer.id
-                          && $0.providerLayerID == dependencyLayerID
-                          && $0.variant == .primary
-                  }) else { return false }
+            guard references.allSatisfy({
+                $0.consumerLayerID == layer.id
+                    && activeDependencies.contains($0.providerLayerID)
+                    && $0.variant == .primary
+            }) else { return false }
         }
-        let paths = texturePaths ?? layer.effects.filter { $0.visible != false }
+        let paths = layer.effects.filter { $0.visible != false }
             .flatMap(\.passes).flatMap { $0.texturePaths + $0.textureSlots.compactMap { $0 } }
         return paths.allSatisfy { path in
             guard path.caseInsensitiveCompare("_rt_FullFrameBuffer") != .orderedSame else { return false }
             guard let named = SceneNamedTextureReference.parse(path) else { return true }
-            return activeDependencies == [named.providerLayerID] && named.variant == .primary
+            return activeDependencies.contains(named.providerLayerID) && named.variant == .primary
         }
     }
     /// Reconstructs the descriptor's authored effect/pass/slot order for the
@@ -77,15 +68,13 @@ extension SceneDependencyRenderPlan {
         return ordered
     }
 
-    /// Chooses the existing publication renderer for a typed named slot.
-    nonisolated static func programInputBinding(
+    /// Prepares a publication carrier; the selected Program owns actual reads.
+    nonisolated static func potentialProgramInputBinding(
         for reference: Reference,
         layer: SceneRenderDescriptor.Layer,
         layersByID: [Int: SceneRenderDescriptor.Layer],
         order: [Int: Int],
-        visibleLayerIDs: Set<Int>,
-        providerReferences: [Reference]? = nil,
-        providerTexturePaths: [String]? = nil
+        visibleLayerIDs: Set<Int>
     ) -> Binding? {
         guard reference.consumerLayerID == layer.id,
               reference.providerLayerID != layer.id,
@@ -121,13 +110,8 @@ extension SceneDependencyRenderPlan {
             let independentRawSource = provider.effects.isEmpty
                 && provider.dependencyLayerIDs.isEmpty
                 && provider.utilityLayer?.copyBackground != true
-            let independentGraph = hasEffects && provider.utilityLayer == nil
-                && providerGraphIsAuthoredOrderIndependent(provider,
-                    references: providerReferences, texturePaths: providerTexturePaths)
-            // A visible graph's frame ticket still owns its main output.
-            guard !(hasEffects && provider.visible != false
-                    && visibleLayerIDs.contains(provider.id)),
-                  independentRawSource || independentGraph
+            let graphCandidate = hasEffects && provider.utilityLayer == nil
+            guard independentRawSource || graphCandidate
             else { return nil }
         }
         return Binding(consumerLayerID: layer.id, providerLayerID: provider.id,
@@ -142,25 +126,25 @@ extension SceneDependencyRenderPlan {
     /// active provider ID. Unknown IDs, self edges and cyclic nodes remain
     /// rejected before any target reservation or graph execution is created.
     nonisolated static func providerDependenciesAreAdmitted(
-        provider: SceneRenderDescriptor.Layer,
+        providerID: Int,
         activeDependencies: Set<Int>,
         layersByID: [Int: SceneRenderDescriptor.Layer],
         cyclicLayerIDs: Set<Int>,
         legacyBindings: [Int: Binding],
         admittedAggregates: [Int: MultiProviderAggregate]
     ) -> Bool {
-        guard !cyclicLayerIDs.contains(provider.id),
+        guard !cyclicLayerIDs.contains(providerID),
               activeDependencies.allSatisfy({ dependencyID in
-                  dependencyID != provider.id
+                  dependencyID != providerID
                       && layersByID[dependencyID] != nil
                       && !cyclicLayerIDs.contains(dependencyID)
               }) else { return false }
         guard !activeDependencies.isEmpty else { return true }
-        if let aggregate = admittedAggregates[provider.id] {
+        if let aggregate = admittedAggregates[providerID] {
             return aggregate.providerLayerIDs == activeDependencies
         }
-        guard let binding = legacyBindings[provider.id] else { return false }
-        return binding.providerLayerID != provider.id
+        guard let binding = legacyBindings[providerID] else { return false }
+        return binding.providerLayerID != providerID
             && activeDependencies == [binding.providerLayerID]
     }
 

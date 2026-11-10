@@ -150,11 +150,8 @@ extension SceneDesktopWallpaperHost {
                      .parallaxMouseInfluence:
                     return instruction.target
                 case .shakeEnabled, .shakeAmplitude, .shakeRoughness,
-                     .shakeSpeed:
+                     .shakeSpeed, .zoom, .generalZoom:
                     return hasOrthographicCamera ? instruction.target : nil
-                case .zoom:
-                    return hasOrthographicCamera && descriptor.camera.default2DInputLayerID != nil
-                        ? instruction.target : nil
                 case .origin, .eye, .center, .up:
                     return nil
                 }
@@ -167,42 +164,34 @@ extension SceneDesktopWallpaperHost {
         let layerVisibilityTargets = Set(
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor,
-                candidates: propertyBindingProgram.liveLayerVisibilityTargets,
-                preparedStaticModelLayerIDs: preparedStaticModelLayerIDs
+                candidates: propertyBindingProgram.liveLayerVisibilityTargets
             ).filter { target in
-                guard case let .layer(layerID, .visibility) = target else {
+                guard case let .layer(layerID, .visibility) = target,
+                      let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
                     return false
                 }
-                if descriptor.layers.first(where: { $0.id == layerID })?.contentKind == "quad" {
+                if layer.staticModelPath != nil {
+                    return preparedStaticModelLayerIDs.contains(layerID)
+                }
+                if layer.contentKind == "quad" {
                     guard let claim = resolvedMaterialExecutionCapabilities.claim(layerID: layerID),
                           let capability = resolvedMaterialExecutionCapabilities.resolve(claim.token),
                           case .transparentDirectDraw = capability.sourceRoute,
                           !capability.materials.isEmpty else { return false }
                     return true
                 }
-                if let layer = descriptor.layers.first(where: { $0.id == layerID }),
-                   layer.contentKind == "composition",
-                   !layer.dependencyLayerIDs.isEmpty {
-                    // A future-visible source needs an actually prepared
-                    // dependency closure, even while capture is skipped hidden.
-                    return resolvedMaterialExecutionCapabilities.executionLayerIDs
-                        .contains(layerID)
-                }
-                guard utilityPlans[layerID]?.kind == .fullscreen else {
+                guard let utilityPlan = utilityPlans[layerID] else {
                     return true
                 }
-                // A legal standalone fullscreen without any effects has no
-                // output to prepare. Potentially active effects still require
-                // the actual execution capability and capture below.
-                if let layer = descriptor.layers.first(where: { $0.id == layerID }),
-                   layer.effects.isEmpty, layer.authoredDependencies.isEmpty,
-                   utilityPlans[layerID]?.requiresNamedTarget == false,
+                // No-output utilities need no Program. Prepared local raster
+                // and effect sources retain their original planner capacity.
+                if layer.effects.isEmpty, layer.dependencyLayerIDs.isEmpty,
+                   layer.authoredDependencies.isEmpty,
+                   !utilityPlan.requiresNamedTarget,
                    !referencedProviderLayerIDs.contains(layerID) {
                     return true
                 }
-                return resolvedMaterialExecutionCapabilities.executionLayerIDs
-                    .contains(layerID)
-                    && utilityPlans[layerID]?.shouldCapture == true
+                return utilityPlan.shouldCapture
             }
         )
         let modelMaterialTargets = Set<SceneDynamicTarget>(

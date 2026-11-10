@@ -81,7 +81,8 @@ extension SceneDesktopWallpaperSession.Surface {
         )
         let cameraFrame = metalView.renderer.makeCameraFrame(
             frameContext: frameContext, descriptor: frameProjection.descriptor,
-            layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames
+            layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames,
+            perspectiveReplayRootIDs: frameProjection.utilityExecution.perspectiveReplayRootIDs
         )
         let particleBatches = advanceParticles(
             timing: timing, dynamicValues: dynamicValues,

@@ -127,8 +127,7 @@ struct SceneImageLayerCompositor {
         } else if let state = request.terminalMaterialState {
             let needsDepth = state.requiresDepthAttachment
             guard request.layer.utilityLayer == nil,
-                  request.layer.contentKind == "image" || request.layer.contentKind == "solid",
-                  request.layer.imageMaterialRenderState == state, pipeline.supports(state),
+                  pipeline.supports(state),
                   needsDepth == (request.terminalDepth != nil),
                   needsDepth == (request.terminalMVP != nil),
                   request.geometryProduct == nil,

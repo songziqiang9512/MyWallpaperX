@@ -25,6 +25,7 @@ struct SceneUtilityLayer {
     let kind: Kind
     var copyBackground: Bool = true
     var passthrough: Bool = false
+    var framebufferSource: String? = nil
     init(kind: Kind) { self.kind = kind }
 }
 
@@ -56,7 +57,11 @@ struct SceneEffectTextureInput {
 }
 
 struct SceneRenderDescriptor {
-    struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
+    struct Camera {
+        var authoredOrthographicProjectionActive: Bool? = nil
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+    }
     struct ModelMaterialLink {
         let modelPath: String
         let materialPath: String?
@@ -109,6 +114,7 @@ struct SceneRenderDescriptor {
         var displayScriptOwnership: DisplayScriptOwnership? = nil
         var parentID: Int? = nil
         var usesPerspective: Bool? = nil
+        var renderSizeWH: [Float]? = nil
         var colorBlendMode: Int? = nil
         let id: Int
         var staticModelPath: String? = nil
@@ -138,14 +144,23 @@ enum SceneLayerVisibility {
 }
 #if !SCENE_ACTUAL_COMPOSITION_SOURCE_ROUTE
 struct SceneUtilityLayerSourceRoute {
+    typealias Resolution = Self
     let usesIsolatedGroupTarget = false
     let usesAuthoredLocalSource = false
+    let allowsPerspectiveReplay = false
     let orderedCompositionSubtreeLayerIDs: [Int] = []
     let capturesCompositionSubtree: Bool
     let triggerLayerID: Int
     static func resolve(layer: SceneRenderDescriptor.Layer, descriptor: SceneRenderDescriptor)
         -> Result<Self, NSError> {
         .success(.init(capturesCompositionSubtree: false, triggerLayerID: layer.id))
+    }
+    static func preparedResolutions(in descriptor: SceneRenderDescriptor,
+                                    resolvedMaterialLayerIDs: Set<Int>) -> [Int: Resolution] {
+        Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
+            guard layer.utilityLayer != nil else { return nil }
+            return (layer.id, .init(capturesCompositionSubtree: false, triggerLayerID: layer.id))
+        })
     }
 }
 #endif

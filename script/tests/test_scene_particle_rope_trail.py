@@ -84,49 +84,26 @@ enum Harness {
             "subdivision": 0,
         ], maximumCount: 3855)
 
-        let rejected: [Bool] = [
-            plan(["name": "ropetrail"], maximumCount: 1) == nil,
-            plan(["name": "ropetrail", "length": 0], maximumCount: 1) == nil,
-            plan(["name": "ropetrail", "length": -1], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "segments": 0,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "segments": 65536,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "orientation": "upright",
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "axis": "0 0 1",
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "flags": 1,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "minlength": 0.1,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "maxlength": 2,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "subdivision": -1,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "uvscale": 1,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "uvsmoothing": false,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "uvscrolling": false,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "fadesize": true,
-            ], maximumCount: 1) == nil,
-            plan([
-                "name": "ropetrail", "length": 1, "futurefield": 1,
-            ], maximumCount: 1) == nil,
+        let rejectedRenderers: [[String: Any]] = [
+            ["name": "ropetrail", "length": 0],
+            ["name": "ropetrail", "length": -1],
+            ["name": "ropetrail", "length": 1, "segments": 0],
+            ["name": "ropetrail", "length": 1, "segments": 65536],
+            ["name": "ropetrail", "length": 1, "orientation": "upright"],
+            ["name": "ropetrail", "length": 1, "axis": "0 0 1"],
+            ["name": "ropetrail", "length": 1, "flags": 2],
+            ["name": "ropetrail", "length": 1, "flags": 3],
+            ["name": "ropetrail", "length": 1, "minlength": 0.1],
+            ["name": "ropetrail", "length": 1, "maxlength": 2],
+            ["name": "ropetrail", "length": 1, "uvscale": 1],
+            ["name": "ropetrail", "length": 1, "uvsmoothing": false],
+            ["name": "ropetrail", "length": 1, "uvscrolling": false],
+            ["name": "ropetrail", "length": 1, "fadesize": true],
+            ["name": "ropetrail", "length": 1, "futurefield": 1],
+            ["name": "ropetrail", "length": 1, "subdivision": Double.nan],
+            ["name": "ropetrail", "length": 1, "subdivision": Double.infinity],
+        ]
+        let rejected = rejectedRenderers.map { plan($0, maximumCount: 1) == nil } + [
             plan([
                 "name": "ropetrail", "length": 1,
             ], maximumCount: 0) == nil,
@@ -138,37 +115,14 @@ enum Harness {
             ], maximumCount: 3856) == nil,
         ]
 
-        let malformedSegments = definition([
-            "name": "ropetrail",
-            "length": 1,
-            "segments": 1.5,
-        ], maximumCount: 1)
-        let malformedFade = definition([
-            "name": "ropetrail",
-            "length": 1,
-            "fadealpha": "true",
-        ], maximumCount: 1)
-        let malformedNumericFadeAlpha = definition([
-            "name": "ropetrail",
-            "length": 1,
-            "fadealpha": 1,
-        ], maximumCount: 1)
-        let malformedNumericFadeSize = definition([
-            "name": "ropetrail",
-            "length": 1,
-            "fadesize": 0,
-        ], maximumCount: 1)
-        let malformedLength = definition([
-            "name": "ropetrail",
-            "length": "bad",
-        ], maximumCount: 1)
-        let malformedDefinitions = [
-            malformedSegments,
-            malformedFade,
-            malformedNumericFadeAlpha,
-            malformedNumericFadeSize,
-            malformedLength,
+        let malformedRenderers: [[String: Any]] = [
+            ["name": "ropetrail", "length": 1, "segments": 1.5],
+            ["name": "ropetrail", "length": 1, "fadealpha": "true"],
+            ["name": "ropetrail", "length": 1, "fadealpha": 1],
+            ["name": "ropetrail", "length": 1, "fadesize": 0],
+            ["name": "ropetrail", "length": "bad"],
         ]
+        let malformedDefinitions = malformedRenderers.map { definition($0, maximumCount: 1) }
         let multipleRenderers = SceneParticleDefinitionParser().parse(root: [
             "material": "materials/particle.json",
             "maxcount": 1,
@@ -178,13 +132,12 @@ enum Harness {
                 ["name": "sprite"],
             ],
         ])
-        let multipleRendererRejected: Bool = {
+        let peerRendererPreservesPlan: Bool = {
             guard let renderer = multipleRenderers.renderers.first else { return false }
             return SceneParticleRopeTrailPlan(
                 renderer: renderer,
-                rendererCount: multipleRenderers.renderers.count,
                 maximumParticleCount: 1
-            ) == nil
+            ) != nil
         }()
         let explicitObjectRenderer = SceneParticleDefinitionParser().parse(root: [
             "material": "materials/particle.json",
@@ -213,6 +166,8 @@ enum Harness {
             "fadeSegments": fadeProfile?.segmentCount ?? -1,
             "fadeEnabled": fadeProfile?.fadesAlpha ?? false,
             "longAccepted": longProfile != nil,
+            "omittedLength": plan(["name": "ropetrail"], maximumCount: 1)?.length ?? -1,
+            "worldRendererAccepted": plan(["name": "ropetrail", "length": 1, "flags": 1], maximumCount: 1) != nil,
             "budgetBoundaryAccepted": budgetBoundary != nil,
             "allUnsupportedRejected": rejected.allSatisfy { $0 },
             "malformedFlagged": malformedDefinitions.allSatisfy {
@@ -225,11 +180,10 @@ enum Harness {
                 guard let renderer = $0.renderers.first else { return false }
                 return SceneParticleRopeTrailPlan(
                     renderer: renderer,
-                    rendererCount: $0.renderers.count,
                     maximumParticleCount: $0.maximumCount ?? 1
                 ) == nil
             },
-            "multipleRendererRejected": multipleRendererRejected,
+            "peerRendererPreservesPlan": peerRendererPreservesPlan,
             "explicitObjectRendererRejected": !explicitObjectRenderer.rendererWasImplicit
                 && explicitObjectRenderer.renderers.isEmpty
                 && explicitObjectRenderer.diagnostics.contains {
@@ -360,9 +314,15 @@ enum Harness {
         func error(_ values: [SceneParticleGPUInstance]) -> Float {
             values.map { abs($0.positionAndSize.y - $0.positionAndSize.x * $0.positionAndSize.x) }.max() ?? 1
         }
-        let equal = zip(omitted, explicit).allSatisfy {
-            $0.positionAndSize == $1.positionAndSize && $0.velocityAndTrail == $1.velocityAndTrail
-                && $0.trailHeadJoin == $1.trailHeadJoin && $0.trailTailJoin == $1.trailTailJoin
+        func sameGeometry(_ left: [SceneParticleGPUInstance], _ right: [SceneParticleGPUInstance]) -> Bool {
+            left.count == right.count && zip(left, right).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize && $0.velocityAndTrail == $1.velocityAndTrail
+                    && $0.trailHeadJoin == $1.trailHeadJoin && $0.trailTailJoin == $1.trailTailJoin
+                    && $0.frame0B == $1.frame0B && $0.rotationAndAlpha == $1.rotationAndAlpha
+            }
+        }
+        let normalizedPlans = [-16, 0, 1, 31, 32, 33].map { subdivision in
+            plan(["name": "ropetrail", "length": 1, "segments": 4, "subdivision": subdivision], maximumCount: 1)
         }
         let joints = zip(omitted, omitted.dropFirst()).allSatisfy { newer, older in
             let a = SIMD3(newer.positionAndSize.x, newer.positionAndSize.y, newer.positionAndSize.z)
@@ -379,13 +339,18 @@ enum Harness {
             let cosine = min(max(simd_dot(first / firstLength, second / secondLength), -1), 1)
             return Double(acos(cosine)) * 180 / Double.pi
         }
-        return ["defaultMatchesOne": equal && omitted.count == explicit.count,
+        return ["defaultMatchesOne": sameGeometry(omitted, explicit),
+                "normalizedSubdivisions": normalizedPlans.map { $0?.subdivision ?? -1 },
+                "normalizedSnapshotCapacities": normalizedPlans.map { $0?.stepSnapshotPolicy?.maximumSnapshots ?? -1 },
+                "negativeMatchesZero": sameGeometry(values(-16), coarse),
+                "overflowMatchesUpper": sameGeometry(values(33), values(32)),
                 "fineCount": omitted.count, "coarseCount": coarse.count,
                 "maximumSegmentTurnDegrees": turns.max() ?? 0,
                 "errorRatio": error(omitted) / error(coarse), "sharedEndpoints": joints,
                 "fractionRejected": plan(["name": "ropetrail", "length": 1, "subdivision": 0.5], maximumCount: 1) == nil,
                 "overflowRejected": plan(["name": "ropetrail", "length": 1, "subdivision": 1e100], maximumCount: 1) == nil,
-                "budgetRejected": plan(["name": "ropetrail", "length": 1, "segments": 1024, "subdivision": 64], maximumCount: 1) == nil]
+                "normalizedBudgetAccepted": plan(["name": "ropetrail", "length": 1, "segments": 1024, "subdivision": 64], maximumCount: 1) != nil,
+                "budgetRejected": plan(["name": "ropetrail", "length": 1, "segments": 2048, "subdivision": 64], maximumCount: 1) == nil]
     }
 
     private static func largeHistoryContract() -> [String: Any] {
@@ -797,7 +762,6 @@ enum Harness {
         guard let renderer = value.renderers.first else { return nil }
         return SceneParticleRopeTrailPlan(
             renderer: renderer,
-            rendererCount: value.renderers.count,
             maximumParticleCount: value.maximumCount ?? 1
         )
     }
@@ -869,12 +833,14 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertEqual(profiles["fadeSegments"], 6)
         self.assertTrue(profiles["fadeEnabled"])
         self.assertTrue(profiles["longAccepted"])
+        self.assertEqual(profiles["omittedLength"], 1)
+        self.assertTrue(profiles["worldRendererAccepted"])
         self.assertTrue(profiles["budgetBoundaryAccepted"])
         self.assertTrue(profiles["allUnsupportedRejected"])
         self.assertTrue(profiles["malformedFlagged"])
         self.assertTrue(profiles["malformedDiagnosed"])
         self.assertTrue(profiles["malformedRejected"])
-        self.assertTrue(profiles["multipleRendererRejected"])
+        self.assertTrue(profiles["peerRendererPreservesPlan"])
         self.assertTrue(profiles["explicitObjectRendererRejected"])
         self.assertTrue(profiles["onlyMalformedRendererRejected"])
         self.assertTrue(profiles["explicitEmptyRendererRejected"])
@@ -900,6 +866,10 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
     def test_subdivision_refines_authored_curvature_and_shares_endpoints(self) -> None:
         value = self.result["subdivision"]
         self.assertTrue(value["defaultMatchesOne"])
+        self.assertEqual(value["normalizedSubdivisions"], [0, 0, 1, 31, 32, 32])
+        self.assertEqual(value["normalizedSnapshotCapacities"], [20, 20, 36, 516, 532, 532])
+        self.assertTrue(value["negativeMatchesZero"])
+        self.assertTrue(value["overflowMatchesUpper"])
         # Drawable nodes come from the prepared history, so the finer profile
         # keeps more nodes than the coarse one instead of a fixed count.
         self.assertGreater(value["fineCount"], value["coarseCount"])
@@ -911,6 +881,7 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertLess(value["maximumSegmentTurnDegrees"], 5.0)
         self.assertTrue(value["fractionRejected"])
         self.assertTrue(value["overflowRejected"])
+        self.assertTrue(value["normalizedBudgetAccepted"])
         self.assertTrue(value["budgetRejected"])
 
     def test_long_dense_history_preserves_segments_and_snapshot(self) -> None:

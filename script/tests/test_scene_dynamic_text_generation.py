@@ -187,12 +187,12 @@ struct SceneLayerSourcePublication {
     let layerID: Int
     let publication: SceneTextureProviderPublication
     let renderSizeWH: [Float]
-    let textCenterOffsetY: Float
+    let textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)?
     var texture: MTLTexture { publication.candidate.texture }
     init?(layerID: Int,publication: SceneTextureProviderPublication,
-          renderSizeWH: [Float]? = nil,textCenterOffsetY: Float = 0) {
+          renderSizeWH: [Float]? = nil,textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)? = nil) {
         self.layerID = layerID; self.publication = publication
-        self.renderSizeWH = renderSizeWH ?? []; self.textCenterOffsetY = textCenterOffsetY
+        self.renderSizeWH = renderSizeWH ?? []; self.textPlacement = textPlacement
     }
 }
 struct SceneFrameTiming {}
@@ -262,7 +262,7 @@ final class ControlledRasterProducer: @unchecked Sendable {
     }
 }
 enum SceneTextTextureLoader {
-    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var sourceFont: String? = nil }
+    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var rasterOffsetY: Float = 0; var sourceFont: String? = nil }
     static var producer: ControlledRasterProducer!
     static func makeDynamicTexture(for layer: SceneRenderDescriptor.Layer,content: String,
         fontPath: String?,pointSize: Float,colorRGB: [Float],maxWidth: Float,
@@ -407,7 +407,7 @@ __FRAME_ASSEMBLY_METHOD__
                 "textureSize": [source.texture.width,source.texture.height],
                 "physicalSize": [candidate.physicalSize.width,candidate.physicalSize.height],
                 "mappedSize": [candidate.mappedSize.width,candidate.mappedSize.height],
-                "renderSize": source.renderSizeWH,"offset": source.textCenterOffsetY,
+                "renderSize": source.renderSizeWH,"offset": source.textPlacement?.centerOffsetY ?? 0,
                 "generation": generation,"publicationGeneration": source.publication.contentGeneration,
                 "sourceLayer": source.layerID,"requestLayer": requestLayer,"providerLayer": providerLayer]
         }
@@ -505,7 +505,7 @@ final class ControlledFontWork: @unchecked Sendable {
     enum ReadFailure: Error { case sourceChanged }
 }
 enum SceneTextTextureLoader {
-    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var sourceFont: String? = nil }
+    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var rasterOffsetY: Float = 0; var sourceFont: String? = nil }
     static let work = ControlledFontWork()
     static func makeDynamicTexture(for layer: SceneRenderDescriptor.Layer, content: String,
         fontPath: String?, pointSize: Float, colorRGB: [Float], maxWidth: Float,

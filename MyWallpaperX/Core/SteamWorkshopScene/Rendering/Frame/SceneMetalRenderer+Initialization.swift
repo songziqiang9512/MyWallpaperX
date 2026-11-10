@@ -5,6 +5,7 @@ import simd
 
 extension SceneMetalRenderer {
     var hasPreparedReflectionConsumers: Bool {
+        if !staticModelResources.reflectiveLayerIDs.isEmpty { return true }
         if baseMaterialProviderBindings.lightingProfileByLayerID.values.contains(where: {
             $0.reflection != nil
         }) {
@@ -18,6 +19,7 @@ extension SceneMetalRenderer {
 
     init?(
         renderDescriptor: SceneRenderDescriptor,
+        utilitySourceRoutes: [Int: SceneUtilityLayerSourceRoute.Resolution],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
@@ -69,6 +71,8 @@ extension SceneMetalRenderer {
             scriptSourceEvidence: scriptSourceEvidence,
             pipeline: pipelineRepository.spotLight()
         )
+        self.pointVolumePipeline = staticModelResources.pipeline?.supportsCameraDepth == true
+            ? pipelineRepository.pointVolume() : nil
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
         let resolvedMaterialVisibleRootLayerIDs =
             resolvedMaterialRuntime?.visibleExecutionRootLayerIDs ?? []
@@ -91,7 +95,8 @@ extension SceneMetalRenderer {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             dependencyPlan: dependencyRuntime.plan,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
+            sourceRoutes: utilitySourceRoutes
         )
         let utilityExecution = SceneUtilityLayerRuntimePlanner.execution(
             in: renderDescriptor, plans: utilityPlans

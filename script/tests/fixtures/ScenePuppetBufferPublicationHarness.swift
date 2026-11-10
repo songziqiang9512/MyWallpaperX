@@ -166,7 +166,7 @@ func makePlayback(_ fixture: (SceneMdlPuppetMesh, SceneMdlPuppetRig,
         additiveAnimations: fixture.2.clips.map(\.animation))
     let state = ScenePuppetPlaybackState.make(layerID: 42, mesh: fixture.0,
         evaluator: evaluator, selection: fixture.2,
-        attachments: [.init(boneIndex: 0, name: "tip",
+        attachments: [.init(boneIndex: 0, name: "tip", isNamedBinding: true,
             modelLocalFrameColumnMajor: identity, modelBindFrameColumnMajor: identity)])
     let output = try ScenePuppetMeshGeometry.prepare(layerID: 42, mesh: fixture.0,
         atlasTexture: atlas, layerWidth: 16, layerHeight: 16, device: device,

@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from script.tests.test_scene_particle_simulator import SWIFT_SOURCES
 
+POLICY_HARNESS = Path(__file__).resolve().parent / "fixtures" / "SceneParticleStepSnapshotPolicyHarness.swift"
+
 HARNESS = r'''
 import Foundation
 @main enum Harness {
@@ -27,7 +29,7 @@ import Foundation
                 "children": children, "renderer": [["name": "sprite"]]]
             return SceneParticleSimulator(definition: try SceneParticleDefinitionParser().parse(root: root),
                 instanceOverride: instance, initialPlayback: initial, seed: 81, fixedTimeStep: step,
-                stepSnapshotPolicy: .init(interval: 0.25, maximumSnapshots: 8))
+                stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: 0.25, maximumSnapshots: 8)!])
         }
         func command(_ sim: SceneParticleSimulator, _ action: SceneParticlePlaybackAction, _ revision: UInt64) {
             sim.applyPlaybackTransition(.init(layerID: 42, action: action, revision: revision))
@@ -602,7 +604,7 @@ import Foundation
             _ = sim.consumeBirthEvents()
             sim.advance(by: 0.25)
             result["sign-\(label)-rejects-only-birth-keeps-peer-and-survivor"] =
-                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                !sim.definition.emitters[0].hasValidDirectionsAndSign
                 && first.particles.count == 1 && sim.particles.count == 2
                 && sim.particles[0].id == first.particles[0].id
                 && sim.particles[0].age == first.particles[0].age + 0.25
@@ -657,8 +659,7 @@ import Foundation
                 && actual.frameSnapshot().random.state == before.random.state
                 && actual.frameSnapshot().nextParticleID == before.nextParticleID
         }
-        for (label, rawDirections) in [("shape", "1 0"), ("nonfinite", "nan 1 0"),
-                                       ("retained-cap", "1000001 1 0")] {
+        for (label, rawDirections) in [("shape", "1 0"), ("nonfinite", "nan 1 0")] {
             let sim = try radial(["name": "boxrandom", "directions": rawDirections,
                                   "sign": "unusedAxis"], peer: true, streaming: true)
             sim.advance(by: 0.25)
@@ -666,7 +667,7 @@ import Foundation
             _ = sim.consumeBirthEvents()
             sim.advance(by: 0.25)
             result["box-directions-\(label)-still-rejects-locally-with-peer-and-survivor"] =
-                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                !sim.definition.emitters[0].hasValidDirectionsAndSign
                 && first.particles.count == 1 && sim.particles.count == 2
                 && sim.particles[0].id == first.particles[0].id
                 && sim.particles[0].age == first.particles[0].age + 0.25
@@ -837,9 +838,11 @@ import Foundation
         }
         do {
             func one(_ sim: SceneParticleSimulator, _ position: SIMD3<Double>,
-                     velocity: SIMD3<Double> = .zero) -> Bool {
+                     velocity: SIMD3<Double> = .zero, velocityTolerance: Double = 0) -> Bool {
                 guard sim.particles.count == 1 else { return false }
-                return sim.particles[0].position == position && sim.particles[0].velocity == velocity
+                let difference = sim.particles[0].velocity - velocity
+                return sim.particles[0].position == position
+                    && max(abs(difference.x), abs(difference.y), abs(difference.z)) <= velocityTolerance
             }
             let parser = SceneParticleDefinitionParser()
             let sourceEmitter: [String: Any] = ["name": "sphererandom", "controlpoint": 1,
@@ -900,9 +903,9 @@ import Foundation
             defaultForce.advance(by: 0.25); instanceForce.advance(by: 0.25)
             dynamicForce.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(16, -24, 0)])
             result["cp-force-consumes-selected-target-and-component-origin"] =
-                one(defaultForce, .zero, velocity: SIMD3(0, 10, 0))
-                && one(instanceForce, .zero, velocity: SIMD3(10, 0, 0))
-                && one(dynamicForce, .zero, velocity: SIMD3(0, -10, 0))
+                one(defaultForce, .zero, velocity: SIMD3(0, 5.7, 0), velocityTolerance: 1e-9)
+                && one(instanceForce, .zero, velocity: SIMD3(5.1, 0, 0), velocityTolerance: 1e-9)
+                && one(dynamicForce, .zero, velocity: SIMD3(0, -5.7, 0), velocityTolerance: 1e-9)
             var aroundRoot = root
             var aroundEmitter = sourceEmitter
             aroundEmitter["origin"] = "0 0 0"
@@ -916,8 +919,8 @@ import Foundation
             let instanceAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
             let dynamicAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
             defaultAround.advance(by: 0.25); instanceAround.advance(by: 0.25); dynamicAround.advance(by: 0.25, dynamicControlPoints: dynamic)
-            result["cp-around-consumes-the-same-selected-source"] = one(defaultAround, SIMD3(18, 24, 0))
-                && one(instanceAround, SIMD3(50, 0, 0)) && one(dynamicAround, SIMD3(62, 8, 0))
+            result["cp-around-consumes-the-same-selected-source"] = one(defaultAround, SIMD3(16, 26, 0))
+                && one(instanceAround, SIMD3(48, 2, 0)) && one(dynamicAround, SIMD3(60, 10, 0))
             var pointerRoot = root
             pointerRoot["controlpoint"] = [["id": 1, "flags": 1, "offset": "0 0 0"]]
             let pointerDefinition = parser.parse(root: pointerRoot)
@@ -947,6 +950,7 @@ import Foundation
                 && manualCP.particles.isEmpty && manualCP.frameSnapshot().nextParticleID == manualBefore.nextParticleID
                 && manualCP.frameSnapshot().random.state == manualBefore.random.state
         }
+        result.merge(SceneParticleStepSnapshotPolicyHarness.facts()) { _, value in value }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -962,7 +966,7 @@ class SceneParticlePlaybackSimulatorTests(unittest.TestCase):
             for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
                 binary = directory / ("fixture-" + mode)
                 compile_result = subprocess.run([shutil.which("swiftc"), "-O", *flags,
-                    *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
+                    *map(str, SWIFT_SOURCES), str(POLICY_HARNESS), str(harness), "-o", str(binary)], capture_output=True, text=True)
                 self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
                 run = subprocess.run([str(binary)], capture_output=True, text=True)
                 self.assertEqual(run.returncode, 0, run.stderr)

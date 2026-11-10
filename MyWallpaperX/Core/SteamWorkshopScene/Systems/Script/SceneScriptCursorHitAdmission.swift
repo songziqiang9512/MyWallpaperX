@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated enum SceneScriptCursorHitAdmission {
     static func accepts(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+        if layer.utilityLayer?.kind == .fullscreen { return true }
         guard let size = layer.sizeWH,
               size.count == 2,
               size.allSatisfy({ $0.isFinite && $0 > 0 }) else {

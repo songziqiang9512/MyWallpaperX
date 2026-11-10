@@ -115,10 +115,15 @@ nonisolated enum SceneDefault2DCameraInputProfile {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>
     ) -> [SceneDynamicTargetDefinition] {
+        var definitions: [SceneDynamicTargetDefinition] = []
+        if !timelineTargets.contains(.camera(.generalZoom)),
+           let zoom = descriptor.camera.generalZoom {
+            definitions.append(.init(target: .camera(.generalZoom), valueType: .scalar,
+                authoredValue: .scalar(Double(zoom))))
+        }
         guard let id = descriptor.camera.default2DInputLayerID,
               let layer = descriptor.layers.first(where: { $0.id == id }),
-              case let .object(authored)? = layer.initialConfiguration else { return [] }
-        var definitions: [SceneDynamicTargetDefinition] = []
+              case let .object(authored)? = layer.initialConfiguration else { return definitions }
         if descriptor.camera.default2DOriginInputLayerID == id,
            !timelineTargets.contains(.camera(.origin)),
            let input = authored["origin"], originInputIsSupported(input),

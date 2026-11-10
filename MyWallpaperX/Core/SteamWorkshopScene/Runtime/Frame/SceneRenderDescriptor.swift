@@ -30,6 +30,7 @@ struct SceneRenderDescriptor: Codable {
         var bloom: SceneBloomConfiguration = .disabled
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
+        var generalZoom: Float? = nil
         /// Prepared source identity for the bounded default 2D camera inputs.
         var default2DInputLayerID: Int? = nil
         /// Only an admitted origin field transfers the source layer's origin lane.
@@ -49,6 +50,7 @@ struct SceneRenderDescriptor: Codable {
     let camera: CameraDescriptor
     var lighting: LightingDescriptor? = nil
     var hdrEnabled: Bool = false
+    var transparentSorting: Bool? = nil
     var generalTimelines: [SceneDocument.SceneGeneralTimeline]? = nil
     var generalTimelineDiagnostics: [String]? = nil
 
@@ -129,7 +131,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 (
                     model.relativePath,
                     Dictionary(
-                        uniqueKeysWithValues: model.puppetAttachments.map {
+                        uniqueKeysWithValues: model.puppetAttachments.lazy.filter(\.isNamedBinding).map {
                             ($0.name, $0.sceneBindFrameColumnMajor)
                         }
                     )
@@ -180,6 +182,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 distanceFog: sceneDocument.general.distanceFog
             ),
             hdrEnabled: sceneDocument.general.hdrEnabled,
+            transparentSorting: sceneDocument.general.transparentSorting,
             generalTimelines: sceneDocument.general.timelines,
             generalTimelineDiagnostics: sceneDocument.general.timelineDiagnostics,
             layers: sceneDocument.objects.enumerated().map { index, object in
@@ -291,6 +294,11 @@ nonisolated struct SceneRenderDescriptorBuilder {
                    object.materialInstance?.isMalformed != true,
                    object.materialInstance?.unknownKeys.isEmpty != false {
                     layer.imageMaterialRenderState = facts?.state
+                }
+                if preparesNativeImageState, contentKind == "text",
+                   (layer.colorBlendMode ?? 0) == 0,
+                   case let .object(fields)? = object.authoredValue {
+                    layer.imageMaterialRenderState = .compileTextDepth(fields["depthtest"]?.stringValue)
                 }
                 return layer
             },
@@ -432,6 +440,9 @@ nonisolated struct SceneRenderDescriptorBuilder {
         let directMaterials = Set(directStaticModelMaterialLinks.compactMap {
             $0.materialPath.map { $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase }
         })
+        var modelMaterialCompiler = SceneStaticModelMaterialBindingCompiler(
+            shaderContracts: directMaterials.isEmpty ? [] : catalog.shaderContracts
+        )
         return try catalog.materials.flatMap { material in
             try checkCancellation?()
             return try material.passes.enumerated().map { index, pass in
@@ -461,15 +472,10 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     material.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
                 ) {
                     descriptor.staticModelDefaultAlbedoAssetPath =
-                        SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
-                            pass: descriptor, shaderContracts: catalog.shaderContracts
-                        )
+                        modelMaterialCompiler.defaultAlbedoAssetPath(pass: descriptor)
                     try checkCancellation?()
                     descriptor.staticModelMaterialBindings =
-                        SceneStaticModelMaterialBindingCompiler.compile(
-                            pass: descriptor,
-                            shaderContracts: catalog.shaderContracts
-                        )
+                        modelMaterialCompiler.compile(pass: descriptor)
                 }
                 try checkCancellation?()
                 return descriptor
@@ -634,6 +640,20 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 object in object.authoredValue.map { (object.id, $0) }
             })
         )
+        // General/path composition is unqualified; keep every authored camera
+        // declaration on the existing path route, including rejected paths.
+        let hasAuthoredCamera = document.objects.contains { object in
+            guard case let .object(configuration)? = object.authoredValue else {
+                return object.cameraPath != nil
+            }
+            return configuration["camera"] != nil
+        }
+        if !hasAuthoredCamera,
+           let width = gen.orthoWidth, let height = gen.orthoHeight,
+           width.isFinite, height.isFinite, width > 0, height > 0,
+           let zoom = gen.zoom, SceneDefault2DCameraInputProfile.acceptsZoom(Double(zoom)) {
+            camera.generalZoom = zoom
+        }
         if let source = document.objects.first(where: { $0.id == camera.default2DInputLayerID }) {
             camera.default2DOriginInputLayerID = SceneDefault2DCameraInputProfile.originSourceLayerID(
                 sourceLayerID: camera.default2DInputLayerID,

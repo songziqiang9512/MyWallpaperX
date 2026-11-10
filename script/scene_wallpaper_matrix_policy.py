@@ -88,9 +88,9 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(
                 "hover_pointer_stationary_entry requires hover_pointer_normalized"
             )
-        if primary_click and hover_pointer is None:
+        if primary_click and hover_pointer is None and pointer_trajectory is None:
             raise ValueError(
-                "cursor_primary_click requires hover_pointer_normalized"
+                "cursor_primary_click requires hover_pointer_normalized or pointer_trajectory_normalized"
             )
         if subframe_click and not primary_click:
             raise ValueError(
@@ -109,7 +109,7 @@ def load_matrix(path: Path) -> dict[str, Any]:
                 raise ValueError(
                     "pointer_trajectory_normalized cannot be combined with hover_pointer_normalized"
                 )
-            if stationary_entry or primary_click or drag_pointer is not None:
+            if stationary_entry or drag_pointer is not None:
                 raise ValueError(
                     "pointer_trajectory_normalized cannot be combined with other pointer interactions"
                 )

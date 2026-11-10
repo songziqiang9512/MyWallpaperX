@@ -12,7 +12,8 @@ from urllib.parse import unquote
 
 def structured_runtime_observations(log_text: str, prefix: str) -> dict[str, Any]:
     events, errors = [], 0
-    for line in log_text.splitlines():
+    source_line_numbers = []
+    for line_number, line in enumerate(log_text.splitlines(), 1):
         if prefix not in line:
             continue
         try:
@@ -24,26 +25,43 @@ def structured_runtime_observations(log_text: str, prefix: str) -> dict[str, Any
             errors += 1
             continue
         events.append(event)
-    return {"events": events, "observed_count": len(events), "parse_errors": errors,
+        source_line_numbers.append(line_number)
+    return {"events": events, "source_line_numbers": source_line_numbers,
+            "observed_count": len(events), "parse_errors": errors,
             "claim_boundary": "observed-runtime-stages-not-per-input-visible-contribution"}
 
 
-def terminal_snapshot_metrics(result_dir: Path, log_text: str) -> dict[str, Any]:
+def terminal_snapshot_metrics(result_dir: Path, log_text: str, *,
+                              snapshot_path: Path | None = None) -> dict[str, Any]:
     from web_benchmark_capture import png_rgb_pixels
-    path = result_dir / "scene-after-window.png"
+    path = snapshot_path if snapshot_path is not None else result_dir / "scene-after-window.png"
     image = png_rgb_pixels(path)
-    receipts = re.findall(r"phase=snapshot reason=after request=(\d+) source=metal path=([^\r\n]+)", log_text)
-    request = next((value for value, location in receipts if Path(location.strip()).resolve() == path.resolve()), None)
     result: dict[str, Any] = {"status": "missing-or-invalid", "path": str(path),
                               "claim_boundary": "terminal-png-not-presented-or-per-input-visibility"}
-    encoded = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log_text) if request else None
-    if image is None or encoded is None or int(encoded[3]) < 1 or int(encoded[4]) < 1:
+    lines = log_text.splitlines()
+    resolved_path = path.resolve()
+    receipts = [(number, match) for number, line in enumerate(lines, 1)
+        for match in re.finditer(r"phase=snapshot reason=(\S+) request=(\d+) source=metal path=([^\r\n]+)", line)
+        if Path(match[3].strip()).resolve() == resolved_path]
+    if image is None or len(receipts) != 1:
+        return result
+    receipt_line_number, receipt = receipts[0]
+    if snapshot_path is None and receipt[1] != "after":
+        return result
+    request = receipt[2]
+    encodings = [(number, match) for number, line in enumerate(lines, 1)
+        for match in re.finditer(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", line)]
+    if len(encodings) != 1:
+        return result
+    encoded_line_number, encoded = encodings[0]
+    if encoded_line_number >= receipt_line_number or int(encoded[3]) < 1 or int(encoded[4]) < 1:
         return result
     width, height, rows = image
     result.update(status="captured", request_id=int(request), output_width=width, output_height=height,
                   non_black=any(value > 2 for row in rows for value in row))
     result.update(command_buffer_token=encoded[1], texture_token=encoded[2],
-                  source_width=int(encoded[3]), source_height=int(encoded[4]))
+                  source_width=int(encoded[3]), source_height=int(encoded[4]),
+                  encoded_line_number=encoded_line_number)
     return result
 
 
@@ -53,7 +71,7 @@ def terminal_composition_snapshot(capture: Mapping[str, Any], observations: Mapp
     result = {key: capture[key] for key in (
         "status", "path", "request_id", "command_buffer_token", "texture_token",
         "source_width", "source_height", "output_width", "output_height",
-        "non_black", "claim_boundary") if key in capture}
+        "non_black", "claim_boundary", "encoded_line_number") if key in capture}
     result["composition_receipt_matched"] = False
     if capture.get("status") != "captured" or not all(
         isinstance(capture.get(key), int) and not isinstance(capture[key], bool) and capture[key] > 0
@@ -64,7 +82,14 @@ def terminal_composition_snapshot(capture: Mapping[str, Any], observations: Mapp
     events = observations.get("events", [])
     if not isinstance(events, list):
         return result
-    matches = [event for event in events if isinstance(event, Mapping)
+    line_numbers = observations.get("source_line_numbers", [])
+    encoded_line_number = capture.get("encoded_line_number")
+    use_line_order = (type(encoded_line_number) is int and encoded_line_number > 0
+        and isinstance(line_numbers, list) and len(line_numbers) == len(events)
+        and all(type(number) is int and number > 0 for number in line_numbers)
+        and all(earlier < later for earlier, later in zip(line_numbers, line_numbers[1:])))
+    matches = [event for index, event in enumerate(events)
+        if (not use_line_order or line_numbers[index] > encoded_line_number) and isinstance(event, Mapping)
         and event.get("schemaVersion") == 1
         and event.get("captureRequestID") == capture["request_id"]
         and event.get("commandBufferToken") == capture["command_buffer_token"]]
@@ -219,6 +244,11 @@ def resolved_material_graph_observation_metrics(
     ]
     validation_failures: list[str] = []
     terminal_successes: list[dict[str, Any]] = []
+    pending_fallbacks: list[dict[str, Any]] = []
+    fallback_identity_fields = (
+        "runtime_instance_identity", "transaction", "frame", "layer_id",
+        "effect_index", "descriptor_id", "program_identity",
+    )
     execution_observed_layer_ids: set[int] = set()
     diagnostic_count = 0
     layer_source_transient_diagnostics: list[dict[str, Any]] = []
@@ -324,7 +354,13 @@ def resolved_material_graph_observation_metrics(
             validation_failures.append(
                 "resolved material graph observation GPU completion invalid"
             )
-        if outcome != "succeeded" or gpu_completion != "completed":
+        program_identity = unquote(fields.get("program", ""))
+        visual_program = program_identity.startswith("visual-failure-passthrough:")
+        if outcome != "succeeded" or (
+            gpu_completion != "completed" and not (
+                gpu_completion == "-" and visual_program
+            )
+        ):
             continue
 
         try:
@@ -377,7 +413,6 @@ def resolved_material_graph_observation_metrics(
             if target_descriptor_counts == "-"
             else bool(re.fullmatch(r"[0-9a-f]{64}", target_descriptors_sha256))
         )
-        program_identity = unquote(fields.get("program", ""))
         rejected_passthrough_shape = (
             counts["rejected_nodes"] == counts["authored_nodes"]
             and counts["authored_nodes"] > 0
@@ -386,15 +421,21 @@ def resolved_material_graph_observation_metrics(
             and counts["swap_nodes"] == 0
             and counts["compose_nodes"] == 0
         )
-        activation_passthrough = rejected_passthrough_shape and (
-            program_identity.startswith("activation-passthrough:")
+        activation_program = program_identity.startswith("activation-passthrough:")
+        activation_passthrough = (
+            activation_program
+            and rejected_passthrough_shape
+            and re.fullmatch(
+                r"[A-Za-z0-9._-]+",
+                program_identity.removeprefix("activation-passthrough:"),
+            ) is not None
         )
         visual_failure_reason = program_identity.removeprefix(
             "visual-failure-passthrough:"
         )
         visual_failure_passthrough = (
             rejected_passthrough_shape
-            and program_identity.startswith("visual-failure-passthrough:")
+            and visual_program
             and effect_index is not None
             and descriptor_id is not None
             and re.fullmatch(r"[A-Za-z0-9._-]+", visual_failure_reason)
@@ -405,6 +446,14 @@ def resolved_material_graph_observation_metrics(
         )
         terminal_failures = [
             message for valid, message in (
+                (
+                    not activation_program or activation_passthrough,
+                    "resolved material graph activation passthrough identity or shape invalid",
+                ),
+                (
+                    not visual_program or visual_failure_passthrough,
+                    "resolved material graph visual failure passthrough identity or shape invalid",
+                ),
                 (
                     runtime_instance_identity == "legacy" or bool(re.fullmatch(
                         r"[A-Za-z0-9._:-]+", runtime_instance_identity
@@ -503,7 +552,7 @@ def resolved_material_graph_observation_metrics(
         validation_failures.extend(terminal_failures)
         if terminal_failures:
             continue
-        terminal_successes.append({
+        observation = {
             "runtime_instance_identity": runtime_instance_identity,
             "frame": frame,
             "layer_id": layer_id,
@@ -543,7 +592,21 @@ def resolved_material_graph_observation_metrics(
             "reset": reset,
             "history_rehydrate_copy_count": history_rehydrate_copy_count,
             "history_content_discarded": history_content_discarded,
-        })
+        }
+        if gpu_completion == "completed":
+            terminal_successes.append(observation)
+        elif visual_failure_passthrough:
+            pending_fallbacks.append({key: observation[key] for key in (
+                *fallback_identity_fields, "visual_failure_passthrough", "outcome", "gpu_completion",
+            )})
+
+    completed_fallbacks = {
+        tuple(observation[key] for key in fallback_identity_fields)
+        for observation in terminal_successes
+        if observation["visual_failure_passthrough"]
+    }
+    pending_fallbacks = [observation for observation in pending_fallbacks
+        if tuple(observation[key] for key in fallback_identity_fields) not in completed_fallbacks]
 
     recovered_transient_count = 0
     unrecovered_transient_count = 0
@@ -925,5 +988,6 @@ def resolved_material_graph_observation_metrics(
             for provider in observation.get("dependency_providers", [])
         }),
         "terminal_success_observations": terminal_successes,
+        "pending_visual_failure_passthroughs": pending_fallbacks,
         "validation_failures": list(dict.fromkeys(validation_failures)),
     }

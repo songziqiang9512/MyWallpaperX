@@ -12,6 +12,7 @@ enum SceneTextTextureLoader {
         let texture: MTLTexture
         let renderSizeWH: [Float]
         let centerOffsetY: Float
+        let rasterOffsetY: Float
         let sourceFont: SceneTextFontResolver.Resolution
     }
 
@@ -160,8 +161,22 @@ enum SceneTextTextureLoader {
             : CTFontCreateCopyWithAttributes(
                 sourceFont.font, CTFontGetSize(sourceFont.font) * CGFloat(layout.scale), nil, nil
             )
-        let width = layout.width
-        let height = layout.height
+        guard let positioned = positionText(
+            prepared.text, wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
+            lineBounds: prepared.lineBounds, style: style, font: font, layout: layout
+        ) else { return nil }
+        let expansion = verticalInkExpansion(positioned.frame, height: layout.height)
+        let expandedHeight = CGFloat(layout.height) + expansion.top + expansion.bottom
+        let fit = min(1, CGFloat(maxDimension) / expandedHeight)
+        let width = max(1, Int((CGFloat(layout.width) * fit).rounded()))
+        let height = Int((expandedHeight * fit).rounded())
+        let logicalRowHeight = renderSize[1] / Float(layout.height)
+        let rasterOffsetY: Float
+        switch style.verticalAlignment.localizedLowercase {
+        case "top": rasterOffsetY = Float(expansion.top) * logicalRowHeight
+        case "bottom": rasterOffsetY = -Float(expansion.bottom) * logicalRowHeight
+        default: rasterOffsetY = Float(expansion.top - expansion.bottom) * logicalRowHeight / 2
+        }
         let rowBytes = width * 4
         var pixels = [UInt8](repeating: 0, count: rowBytes * height)
 
@@ -178,17 +193,11 @@ enum SceneTextTextureLoader {
             ) else {
                 return false
             }
-            draw(
-                text: prepared.text,
-                wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
-                lineBounds: prepared.lineBounds,
-                style: style,
-                font: font,
-                layout: layout,
-                width: width,
-                height: height,
-                context: context
-            )
+            context.scaleBy(x: CGFloat(width) / CGFloat(layout.width),
+                            y: CGFloat(height) / expandedHeight)
+            context.translateBy(x: 0, y: expansion.bottom)
+            draw(frame: positioned.frame, attributed: positioned.attributed,
+                 style: style, font: font, layout: layout, context: context)
             return true
         }
         try checkCancellation?()
@@ -215,8 +224,11 @@ enum SceneTextTextureLoader {
         // the shared layer pivot consumes this logical, pre-downsample offset.
         return RenderedTexture(
             raster: RasterizedTexture(
-                texture: texture, renderSizeWH: renderSize,
+                texture: texture,
+                renderSizeWH: [renderSize[0], renderSize[1]
+                    + Float(expansion.top + expansion.bottom) * logicalRowHeight],
                 centerOffsetY: Float(CTFontGetDescent(sourceFont.font)) / 2,
+                rasterOffsetY: rasterOffsetY,
                 sourceFont: sourceFont
             ),
             font: sourceFont,
@@ -277,29 +289,14 @@ enum SceneTextTextureLoader {
         return (content, size, wrapWidth, lineBounds)
     }
 
-    private static func draw(
-        text: String,
+    private static func positionText(
+        _ text: String,
         wrapWidth: CGFloat,
         lineBounds: SceneTextRowLimit.LineBounds,
         style: SceneTextDescriptor,
         font: CTFont,
-        layout: SceneTextGeometry.RasterLayout,
-        width: Int,
-        height: Int,
-        context: CGContext
-    ) {
-        let bounds = CGRect(x: 0, y: 0, width: width, height: height)
-        context.clear(bounds)
-        // Glyph-path margins can place the first outline at a fractional
-        // origin. Quantizing that origin again clips its edge at padding=0.
-        context.setShouldSubpixelPositionFonts(true)
-        context.setShouldSubpixelQuantizeFonts(false)
-        if style.opaqueBackground {
-            context.setFillColor(color(style.backgroundColorRGB, brightness: style.backgroundBrightness))
-            let border = CGFloat(style.decorationInset * layout.scale)
-            context.fill(bounds.insetBy(dx: border, dy: border))
-        }
-
+        layout: SceneTextGeometry.RasterLayout
+    ) -> (frame: CTFrame, attributed: CFAttributedString)? {
         let padding = CGFloat(layout.padding)
         let contentWidth = CGFloat(layout.contentWidth)
         let contentHeight = CGFloat(layout.contentHeight)
@@ -317,7 +314,7 @@ enum SceneTextTextureLoader {
             kCFAllocatorDefault,
             text as CFString,
             attributes as CFDictionary
-        ) else { return }
+        ) else { return nil }
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)
         // Padding narrows the authored content box, but it must not become a
         // CoreText line-height limit. A font line may be taller than that box
@@ -350,7 +347,49 @@ enum SceneTextTextureLoader {
             textWidth: wrapWidth
         )
         let path = CGPath(rect: CGRect(x: x, y: y, width: wrapWidth, height: textHeight), transform: nil)
-        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        return (CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil), attributed)
+    }
+
+    private static func verticalInkExpansion(_ frame: CTFrame, height: Int) -> (top: CGFloat, bottom: CGFloat) {
+        let lines = CTFrameGetLines(frame) as! [CTLine]
+        var origins = [CGPoint](repeating: .zero, count: lines.count)
+        CTFrameGetLineOrigins(frame, CFRange(location: 0, length: 0), &origins)
+        let pathY = CTFrameGetPath(frame).boundingBoxOfPath.minY
+        var low = CGFloat.infinity
+        var high = -CGFloat.infinity
+        for (line, origin) in zip(lines, origins) {
+            let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+            let baseline = pathY + origin.y
+            let minY = baseline + ink.minY
+            let maxY = baseline + ink.maxY
+            guard minY.isFinite, maxY.isFinite, minY < maxY else { continue }
+            low = min(low, minY)
+            high = max(high, maxY)
+        }
+        guard low < 0 || high > CGFloat(height) else { return (0, 0) }
+        // Native ink can cover one row above its ideal outline. Keep a clear
+        // sampling row outside that coverage and the rounded lower edge.
+        return (max(0, ceil(high) + 2 - CGFloat(height)), max(0, 1 - floor(low)))
+    }
+
+    private static func draw(
+        frame: CTFrame,
+        attributed: CFAttributedString,
+        style: SceneTextDescriptor,
+        font: CTFont,
+        layout: SceneTextGeometry.RasterLayout,
+        context: CGContext
+    ) {
+        // Glyph-path margins can place the first outline at a fractional
+        // origin. Quantizing that origin again clips its edge at padding=0.
+        context.setShouldSubpixelPositionFonts(true)
+        context.setShouldSubpixelQuantizeFonts(false)
+        if style.opaqueBackground {
+            let bounds = CGRect(x: 0, y: 0, width: layout.width, height: layout.height)
+            let border = CGFloat(style.decorationInset * layout.scale)
+            context.setFillColor(color(style.backgroundColorRGB, brightness: style.backgroundBrightness))
+            context.fill(bounds.insetBy(dx: border, dy: border))
+        }
         context.textMatrix = .identity
         context.saveGState()
         let scale = CGFloat(layout.scale)
@@ -383,7 +422,7 @@ enum SceneTextTextureLoader {
             // original fill afterward so the outline cannot eat the glyph.
             let radius = min(
                 CGFloat(outline.thickness) * CGFloat(layout.scale),
-                CGFloat(max(width, height)) * 2
+                CGFloat(max(layout.width, layout.height)) * 2
             )
             context.setLineJoin(.miter)
             context.setMiterLimit(CGFloat(SceneTextDescriptor.Outline.miterLimit))
@@ -397,7 +436,7 @@ enum SceneTextTextureLoader {
             )
             let outlineFramesetter = CTFramesetterCreateWithAttributedString(outlined)
             let outlineFrame = CTFramesetterCreateFrame(
-                outlineFramesetter, CFRange(location: 0, length: 0), path, nil
+                outlineFramesetter, CFRange(location: 0, length: 0), CTFrameGetPath(frame), nil
             )
             CTFrameDraw(outlineFrame, context)
         }

@@ -51,16 +51,14 @@ final class SceneParticleRuntime {
         if let visibility {
             layers[index].wasVisible = visibility.isVisible
             if visibility.resetsPopulation {
-                root.instances = []
-                root.ropeTrailHistory?.clear(keepingCapacity: false)
+                root.clearOutputs(keepingCapacity: false)
             }
         }
         layers[index].rootRender = root
     }
     func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
         for index in layers.indices where layerIDs.contains(layers[index].layerID) {
-            layers[index].rootRender?.instances.removeAll(keepingCapacity: true)
-            layers[index].rootRender?.ropeTrailHistory?.clear()
+            layers[index].rootRender?.clearOutputs()
         }
     }
 
@@ -84,8 +82,7 @@ final class SceneParticleRuntime {
                   transition.revision > root.simulator.playback.revision else { continue }
             root.simulator.applyPlaybackTransition(transition)
             if transition.action == .stop {
-                root.instances.removeAll(keepingCapacity: true)
-                root.ropeTrailHistory?.clear()
+                root.clearOutputs()
             }
             layers[index].rootRender = root
         }
@@ -130,6 +127,20 @@ final class SceneParticleRuntime {
             (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
                 && $0.contentKind == "particle" && $0.particlePath != nil
         }
+        let lightClasses = descriptor.lighting?.lightClasses ?? .init()
+        // Hidden lamps retain their prepared dynamic inputs and may become live.
+        let hasPotentialDirectLights = descriptor.layers.contains { layer in
+            if let point = layer.pointLight {
+                return point.kind == "point" || lightClasses.point
+            }
+            return (layer.directionalLight != nil && lightClasses.directional)
+                || (layer.spotLight != nil && lightClasses.spot)
+        }
+        let supportsAmbientLighting = !hasPotentialDirectLights
+            && SceneAuthoredShaderLightingInputs.Builder(
+                orthographicHeight: descriptor.camera.orthoHeight,
+                ambient: descriptor.lighting?.ambientColorRGB
+            ).finish().ambient != nil
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
                 materialPath: $0.materialPath,
@@ -168,6 +179,7 @@ final class SceneParticleRuntime {
         ).load(
             rootPaths: particleLayers.compactMap(\.particlePath),
             materialPasses: materialPasses,
+            supportsAmbientLighting: supportsAmbientLighting,
             preparedDefinitions: preparedDefinitions,
             checkCancellation: checkCancellation
         )
@@ -183,9 +195,10 @@ final class SceneParticleRuntime {
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialWorldFrames: [Int: simd_float4x4]? = nil,
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        initialAudioInput: SceneParticleAudioInput = .silent,
         destroyedAuthoredLayerIDs: Set<Int> = [],
-        rootPrewarmStepBudget: Int? = 3_600,
         shouldCancelPrewarm: (() -> Bool)? = nil
     ) {
         self.device = device
@@ -207,14 +220,21 @@ final class SceneParticleRuntime {
                 && $0.contentKind == "particle"
                 && $0.particlePath != nil
         }
-        // Prewarm consumes the initial typed transform, before the first advance.
-        let initialPointFrames = graph.assetsByPath.values.contains(where: {
-            $0.definition.controlPoints.contains { ($0.rawFlags ?? 0) & 2 != 0 }
-        }) ? SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: descriptor, byID: visibilityLayersByID,
-            snapshot: initialDynamicValues,
-            staticFrames: SceneLayerWorldFrameResolver.compute(
-                descriptor: descriptor, byID: visibilityLayersByID)) : [:]
+        let needsInitialPointFrames = graph.assetsByPath.values.contains {
+            $0.definition.controlPoints.contains { $0.rawFlags & 2 != 0 }
+        }
+        // Production supplies the pose already used for its initial batches.
+        var prewarmWorldFrames = initialWorldFrames
+        func prewarmWorldFrame(for layerID: Int) -> simd_float4x4? {
+            if prewarmWorldFrames == nil {
+                prewarmWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+                    descriptor: descriptor, byID: visibilityLayersByID,
+                    snapshot: initialDynamicValues,
+                    staticFrames: SceneLayerWorldFrameResolver.compute(
+                        descriptor: descriptor, byID: visibilityLayersByID))
+            }
+            return prewarmWorldFrames?[layerID]
+        }
 #if DEBUG
         let layersByPath = Dictionary(
             grouping: particleLayers,
@@ -271,8 +291,7 @@ final class SceneParticleRuntime {
                 continue
             }
             let layerImageMap = layerImageEmissionMaps[layer.id]
-            let render = asset.definition.renderers.isEmpty ? nil
-                : supportedRenderer(in: asset.definition, layerID: layer.id, path: path)
+            let renderers = supportedRenderers(in: asset.definition, layerID: layer.id, path: path)
             let forceEnvironment = descriptor.particleControlPointForceEnvironment(
                 for: layer, definition: asset.definition)
             let translation = staticWorldSpaceFrames[layer.id] == nil
@@ -302,8 +321,8 @@ final class SceneParticleRuntime {
 #endif
                 continue
             }
-            let initialControlPointFrame = SceneParticleControlPointFrame(worldFrame: initialPointFrames[layer.id],
-                                                                        sceneOrthoHeight: descriptor.camera.orthoHeight)
+            let initialControlPointFrame = needsInitialPointFrames ? SceneParticleControlPointFrame(
+                worldFrame: prewarmWorldFrame(for: layer.id), sceneOrthoHeight: descriptor.camera.orthoHeight) : nil
             let childRuntime = SceneParticleChildRuntime(
                 layerID: layer.id,
                 rootAsset: asset,
@@ -317,7 +336,8 @@ final class SceneParticleRuntime {
                 controlPointFrame: initialControlPointFrame,
                 rootTranslationOffset: translation?.frame.birthPositionOffset ?? .zero,
                 initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
-                initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id)
+                initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
+                initialAudioInput: initialAudioInput
             )
 #if DEBUG
             for detail in childRuntime.unsupportedDetails {
@@ -365,29 +385,37 @@ final class SceneParticleRuntime {
             }
 
             guard asset.supportsBuiltInShaderExecution,
-                  let renderState = asset.pipelineState,
                   admitsLayerImageEmitters(
                     asset.definition, map: layerImageMap, layerID: layer.id, path: path
                   ),
-                  let render,
-                  let rootRender = makeRootRenderRuntime(
-                    asset: asset,
-                    renderState: renderState,
-                    render: render,
-                    layer: layer,
-                    path: path,
-                    layerImageMap: layerImageMap,
-                    worldSpaceFrame: worldSpaceFrame,
-                    rootWorldTranslation: translation?.plan,
-                    forceEnvironment: forceEnvironment,
-                    controlPointFrame: initialControlPointFrame,
-                    initialDynamicValues: initialDynamicValues,
-                    initialPlayback: initialPlayback[layer.id] ?? .init(),
-                    prewarmStepBudget: rootPrewarmStepBudget,
-                    shouldCancelPrewarm: shouldCancelPrewarm,
-                    textureLoader: textureLoader,
-                    builtInTextureRegistry: builtInTextureRegistry
-                  ) else { continue }
+                  !renderers.isEmpty else { continue }
+            let boundsExtent = asset.definition.hasCanvasCollision ? collisionBoundsExtent : nil
+            let initialBoundsFrame: SceneParticleCollisionBoundsFrame?
+            if (asset.definition.startTime ?? 0) > 0, let boundsExtent,
+               let worldFrame = prewarmWorldFrame(for: layer.id) {
+                initialBoundsFrame = .init(extent: boundsExtent, worldFrame: worldFrame)
+            } else {
+                initialBoundsFrame = nil
+            }
+            guard let rootRender = makeRootRenderRuntime(
+                asset: asset,
+                plans: renderers,
+                layer: layer,
+                path: path,
+                layerImageMap: layerImageMap,
+                worldSpaceFrame: worldSpaceFrame,
+                rootWorldTranslation: translation?.plan,
+                forceEnvironment: forceEnvironment,
+                controlPointFrame: initialControlPointFrame,
+                collisionBoundsExtent: boundsExtent,
+                collisionBoundsFrame: initialBoundsFrame,
+                initialDynamicValues: initialDynamicValues,
+                initialPlayback: initialPlayback[layer.id] ?? .init(),
+                initialAudioInput: initialAudioInput,
+                shouldCancelPrewarm: shouldCancelPrewarm,
+                textureLoader: textureLoader,
+                builtInTextureRegistry: builtInTextureRegistry
+            ) else { continue }
 #if DEBUG
             appendSimulationDiagnostics(
                 rootRender.simulator.diagnostics,
@@ -419,9 +447,12 @@ final class SceneParticleRuntime {
         requiredPipelineVariants = layers.reduce(into: []) { variants, layer in
             var layerVariants = layer.childRuntime?.requiredPipelineVariants ?? []
             if let root = layer.rootRender {
-                layerVariants.insert(.init(isRefraction: root.refraction != nil,
-                    blendMode: root.renderState.blendMode,
-                    usesDepthAttachment: root.renderState.depthWriteEnabled))
+                for output in root.outputs {
+                    let renderer = output.renderer
+                    layerVariants.insert(.init(isRefraction: renderer.refraction != nil,
+                        blendMode: renderer.renderState.blendMode,
+                        usesDepthAttachment: renderer.renderState.depthWriteEnabled))
+                }
             }
             variants.formUnion(SceneParticlePipelineVariant.includingLayerDepth(layerVariants))
         }
@@ -526,8 +557,7 @@ final class SceneParticleRuntime {
             // their independent aging lifecycle below.
             if !isVisible || (layers[index].wasVisible != nil && layers[index].wasVisible != isVisible) {
                 layers[index].rootRender?.simulator.restartPopulationForVisibility()
-                layers[index].rootRender?.instances.removeAll(keepingCapacity: true)
-                layers[index].rootRender?.ropeTrailHistory?.clear()
+                layers[index].rootRender?.clearOutputs()
             }
             layers[index].wasVisible = isVisible
             let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
@@ -557,6 +587,13 @@ final class SceneParticleRuntime {
                 rootControlPoints.merge(pointerValues) { _, pointer in pointer }
                 let instanceOverride = SceneParticleInstanceOverride.resolving(
                     authored: root.simulator.instanceOverride, dynamic: dynamicOverride)
+                let collisionFrame: SceneParticleCollisionBoundsFrame?
+                if layerDelta > 0, let extent = root.collisionBoundsExtent,
+                   let worldFrame = layerWorldFrames[layerID] {
+                    collisionFrame = .init(extent: extent, worldFrame: worldFrame)
+                } else {
+                    collisionFrame = nil
+                }
                 root.simulator.advance(
                     by: layerDelta,
                     dynamicControlPoints: rootControlPoints,
@@ -564,7 +601,8 @@ final class SceneParticleRuntime {
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput,
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
-                    controlPointFrame: pointFrame
+                    controlPointFrame: pointFrame,
+                    collisionBoundsFrame: collisionFrame
                 )
 #if DEBUG
                 collectEvaluationObservations(layerID: layerID,
@@ -616,28 +654,15 @@ final class SceneParticleRuntime {
 #endif
             }
             guard isVisible, var root = layers[index].rootRender else { continue }
-            rebuildGPUInstances(root: &root)
-            batches.append(SceneParticleDrawBatch(
-                layerID: layerID,
-                particlePath: layers[index].particlePath,
-                texture: root.texture,
-                colorUVScale: root.colorUVScale,
-                colorSampling: root.colorSampling,
-                refraction: root.refraction,
-                renderState: root.renderState,
-                childTemplateIndex: nil,
-                instances: root.instances,
-                orientation: root.orientation,
-                orientationAxis: root.orientationAxis,
-                usesPerspective: root.usesPerspective,
-                inheritsNativeSceneCamera: root.ropeTrailHistory != nil,
-                referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
-                sizeIsWorldSpace: root.definition.flags.isWorldSpace
-            ))
-#if DEBUG
-            batches[batches.count - 1].debugRendererComponentIndex = root.debugRendererComponentIndex
-            batches[batches.count - 1].debugRendererKind = root.debugRendererKind
-#endif
+            root.rebuildInstances()
+            for output in root.outputs {
+                batches.append(output.renderer.drawBatch(
+                    layerID: layerID, particlePath: layers[index].particlePath,
+                    childTemplateIndex: nil, instances: output.instances,
+                    referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
+                    sizeIsWorldSpace: root.definition.flags.isWorldSpace
+                ))
+            }
             layers[index].rootRender = root
         }
         return batches
@@ -649,8 +674,7 @@ final class SceneParticleRuntime {
                 FrameSnapshot.LayerSnapshot.RootSnapshot(
                     simulator: $0.simulator,
                     simulatorFrame: $0.simulator.frameSnapshot(),
-                    instances: $0.instances,
-                    ropeTrailHistory: $0.ropeTrailHistory
+                    outputs: $0.outputs
                 )
             }
             return FrameSnapshot.LayerSnapshot(
@@ -674,8 +698,7 @@ final class SceneParticleRuntime {
             if let rootSnapshot = snapshot.layers[index].root,
                var root = layers[index].rootRender {
                 rootSnapshot.simulator.restoreFrame(rootSnapshot.simulatorFrame)
-                root.instances = rootSnapshot.instances
-                root.ropeTrailHistory = rootSnapshot.ropeTrailHistory
+                root.outputs = rootSnapshot.outputs
                 layers[index].rootRender = root
             }
             if let childSnapshot = snapshot.layers[index].child {
@@ -725,79 +748,6 @@ final class SceneParticleRuntime {
         layers.removeAll(keepingCapacity: false)
     }
 
-    private func rebuildGPUInstances(
-        root: inout SceneParticleRootRenderRuntime
-    ) {
-        let stepSnapshots = root.simulator.consumeStepSnapshots()
-        if let rope = root.rope {
-            root.instances = rope.instances(
-                particles: root.simulator.particles,
-                layerAlpha: 1,
-                simulationTime: root.simulator.simulationTime
-            )
-            return
-        }
-        if var history = root.ropeTrailHistory {
-            root.instances = history.advance(
-                snapshots: stepSnapshots, currentParticles: root.simulator.particles,
-                layerAlpha: 1
-            )
-            root.ropeTrailHistory = history
-            return
-        }
-        let particles = root.simulator.renderParticlesForCurrentAdvance()
-        root.instances.removeAll(keepingCapacity: true)
-        root.instances.reserveCapacity(particles.count)
-        for particle in particles {
-            let frames = Self.spriteFrames(
-                animation: root.spriteAnimation,
-                staticAspect: root.staticSpriteAspect,
-                definition: root.definition,
-                particleID: particle.id,
-                age: Float(particle.age),
-                lifetime: Float(particle.lifetime)
-            )
-            root.instances.append(SceneParticleGPUInstance(
-                position: particle.position.particleFloatValue,
-                size: Float(particle.size),
-                rotation: particle.rotation.particleFloatValue,
-                color: particle.color.particleFloatValue,
-                alpha: Float(particle.alpha),
-                velocity: root.trail?.direction(for: particle.velocity)
-                    ?? particle.velocity.particleFloatValue,
-                trailStretch: root.trail?.stretch(for: particle.velocity),
-                currentFrame: frames.current.orientedForTrail(root.trail != nil),
-                nextFrame: frames.next?.orientedForTrail(root.trail != nil),
-                currentFrameAspect: frames.currentAspect,
-                nextFrameAspect: frames.nextAspect,
-                frameMix: frames.mix
-            ))
-        }
-        // Translucent particles blend as premultiplied "over", so draw order
-        // decides local brightness; simulation order is not a depth order and
-        // shows as uneven stacking and flicker. Sort far-to-near by the depth
-        // proxy available at rebuild time — the layer-local z axis. In this
-        // engine's orthographic and fallback-perspective frames the camera sits
-        // on the +z side looking toward -z, so SMALLER z is farther; ascending
-        // z therefore draws far first and near last, which is what "over"
-        // compositing requires. The proxy is exact for unrotated layers and an
-        // approximation for X/Y-rotated layers and authored perspective scenes.
-        // Only large translucent systems pay for the sort: additive blending
-        // is commutative (one/one) and order-invariant, opaque profiles are
-        // never admitted by the pipeline compiler, and the 256-instance
-        // threshold keeps small systems at zero sort cost. The index
-        // tiebreak makes the sort stable: equal-depth instances keep
-        // simulation order.
-        if root.renderState.blendMode == .translucent, root.instances.count >= 256 {
-            let order = root.instances.indices.sorted { lhs, rhs in
-                let lhsZ = root.instances[lhs].positionAndSize.z
-                let rhsZ = root.instances[rhs].positionAndSize.z
-                return lhsZ == rhsZ ? lhs < rhs : lhsZ < rhsZ
-            }
-            root.instances = order.map { root.instances[$0] }
-        }
-    }
-
 #if DEBUG
     var childRuntimeSummaries: [String] {
         layers.compactMap { layer in
@@ -819,97 +769,35 @@ final class SceneParticleRuntime {
 
     // swiftlint:disable:next function_parameter_count
     private func makeRootRenderRuntime(
-        asset: SceneParticleAsset,
-        renderState: SceneParticlePipelineRenderState,
-        render: (
-            renderer: SceneParticleRenderer,
-            trail: SceneParticleTrailRenderPlan?,
-            rope: SceneParticleRopePlan?,
-            ropeTrail: SceneParticleRopeTrailPlan?
-        ),
-        layer: SceneRenderDescriptor.Layer,
-        path: String,
+        asset: SceneParticleAsset, plans: [SceneParticleRendererPlan],
+        layer: SceneRenderDescriptor.Layer, path: String,
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
         forceEnvironment: SceneParticleControlPointForceEnvironment,
         controlPointFrame: SceneParticleControlPointFrame?,
+        collisionBoundsExtent: SIMD2<Float>?,
+        collisionBoundsFrame: SceneParticleCollisionBoundsFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
-        prewarmStepBudget: Int?,
-        shouldCancelPrewarm: (() -> Bool)?,
-        textureLoader: SceneTextureLoader,
+        initialAudioInput: SceneParticleAudioInput,
+        shouldCancelPrewarm: (() -> Bool)?, textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
-        guard let textureSource = asset.textureSource else { return nil }
-        let texture: MTLTexture
-        let spriteAnimation: SceneSpriteAnimation?
-        let staticSpriteAspect: Float
-        let colorUVScale: SIMD2<Float>
-        let colorSampling: SceneParticleTextureSampling
-        let refraction: SceneParticleRefractionBinding?
-        do {
-            if let declaration = asset.refraction {
-                guard let loaded = try SceneParticleRefractionTextureLoader.load(
-                    colorSource: textureSource,
-                    declaration: declaration,
-                    textureLoader: textureLoader,
-                    device: device
-                ) else {
+        let prepared = SceneParticlePreparedRenderer.prepare(
+            plans: plans, asset: asset, textureLoader: textureLoader,
+            builtInTextureRegistry: builtInTextureRegistry, device: device
+        ) { _, reason in
 #if DEBUG
-                    addDiagnostic(
-                        kind: .refractionUnsupported,
-                        layerID: layer.id,
-                        path: path,
-                        detail: "textureProfileUnsupported"
-                    )
+            let kind: SceneParticleRuntimeDiagnosticKind
+            if reason.hasPrefix("rope:") { kind = .ropeRendererUnsupported }
+            else if reason.hasPrefix("ropetrail:") { kind = .trailRendererUnsupported }
+            else if reason == "textureProfileUnsupported" { kind = .refractionUnsupported }
+            else { kind = .textureLoadFailed }
+            addDiagnostic(kind: kind, layerID: layer.id, path: path, detail: reason)
 #endif
-                    return nil
-                }
-                texture = loaded.color
-                spriteAnimation = loaded.colorAnimation
-                staticSpriteAspect = loaded.staticSpriteAspect
-                colorUVScale = loaded.colorUVScale
-                colorSampling = loaded.colorSampling
-                refraction = loaded.binding
-            } else {
-                guard let loaded = try SceneParticleChildTemplateSupport.loadTexture(
-                    textureSource,
-                    textureLoader: textureLoader,
-                    builtInTextureRegistry: builtInTextureRegistry,
-                    device: device,
-                    usesWholeImage: render.rope != nil
-                ) else {
-#if DEBUG
-                    addDiagnostic(
-                        kind: .textureLoadFailed, layerID: layer.id, path: path,
-                        detail: "particleColorTexturePreparationFailed"
-                    )
-#endif
-                    return nil
-                }
-                texture = loaded.texture
-                spriteAnimation = loaded.animation
-                staticSpriteAspect = loaded.staticAspect
-                colorSampling = loaded.sampling
-                colorUVScale = loaded.uvScale
-                refraction = nil
-            }
-        } catch {
-#if DEBUG
-            addDiagnostic(kind: .textureLoadFailed, layerID: layer.id, path: path,
-                          detail: "resourceReadFailed:\(error)")
-#endif
-            return nil
         }
-        guard supportsPathRendererTexture(
-            rope: render.rope,
-            ropeTrail: render.ropeTrail,
-            animation: spriteAnimation,
-            layerID: layer.id,
-            path: path
-        ) else { return nil }
-
+        guard !prepared.isEmpty else { return nil }
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
@@ -920,53 +808,39 @@ final class SceneParticleRuntime {
             initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
             initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
+            initialAudioInput: initialAudioInput,
             seed: UInt64(bitPattern: Int64(layer.id)),
-            prewarmStepBudget: prewarmStepBudget,
+            prewarmStepBudget: nil,
             shouldCancelPrewarm: shouldCancelPrewarm,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
             rootWorldTranslation: rootWorldTranslation,
             controlPointForceEnvironment: forceEnvironment,
             controlPointFrame: controlPointFrame,
-            stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
-        )
-        var root = SceneParticleRootRenderRuntime(
-            definition: asset.definition,
-            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities(environment: forceEnvironment),
-            trail: render.trail,
-            rope: render.rope,
-            texture: texture,
-            colorUVScale: colorUVScale,
-            colorSampling: colorSampling,
-            refraction: refraction,
-            renderState: renderState,
-            spriteAnimation: spriteAnimation,
-            staticSpriteAspect: staticSpriteAspect,
-            orientation: SceneParticleOrientation(
-                authoredValue: render.renderer.orientation,
-                isWorldSpace: render.renderer.isWorldSpace
-            ),
-            orientationAxis: render.renderer.axis.map {
-                SceneParticleSimulationMath.vector(
-                    $0,
-                    fallback: SIMD3(0, 0, 1)
-                ).particleFloatValue
-            },
-            usesPerspective: asset.definition.flags.usesPerspective,
-            simulator: simulator,
-            ropeTrailHistory: render.ropeTrail.map(
-                SceneParticleRopeTrailHistory.init(plan:)
-            )
+            collisionBoundsFrame: collisionBoundsFrame,
+            stepSnapshotPolicies: prepared.compactMap { $0.snapshotPolicy }
         )
 #if DEBUG
-        if let sources = asset.definition.componentObservationSources {
-            let typedIndex = asset.definition.renderers.firstIndex(of: render.renderer)
-            root.debugRendererComponentIndex = typedIndex.flatMap { sources["renderer"]?[$0].componentIndex }
-            root.debugRendererKind = asset.definition.rendererWasImplicit ? "sprite"
-                : typedIndex.flatMap { sources["renderer"]?[$0].kind }
-            simulator.observeSelectedRenderer(typedIndex: typedIndex)
-        }
+        simulator.observeSelectedRenderers(typedIndices: prepared.map(\.index))
 #endif
-        return root
+        return SceneParticleRootRenderRuntime(
+            definition: asset.definition,
+            collisionBoundsExtent: collisionBoundsExtent,
+            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities(environment: forceEnvironment),
+            simulator: simulator,
+            outputs: prepared.map {
+                SceneParticleRootRendererOutput(
+                    renderer: $0,
+                    ropeTrailHistory: $0.ropeTrail.map(SceneParticleRopeTrailHistory.init(plan:))
+                )
+            }
+        )
+    }
+
+    private var collisionBoundsExtent: SIMD2<Float>? {
+        let camera = descriptor.camera
+        guard camera.authoredOrthographicProjectionActive != false,
+              let width = camera.orthoWidth, let height = camera.orthoHeight else { return nil }
+        return SIMD2(width, height)
     }
 }

@@ -16,14 +16,11 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
-import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import test_scene_sampler_default_purpose as schema_fixture
-import test_scene_static_model_material_properties as property_fixture
+from . import test_scene_sampler_default_purpose as schema_fixture
+from . import test_scene_static_model_material_properties as property_fixture
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -204,6 +201,15 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
         self.assertEqual(result["missing"]["state"], "unavailable")
         self.assertEqual(result["ambiguous"]["state"], "unavailable")
         self.assertEqual(result["noPassZero"]["state"], "unavailable")
+        self.assertEqual(result["sharedFirst"]["components"], [[0.125], [0.25, 0.5, 0.75], [1.75]])
+        self.assertEqual(result["sharedOtherMaterial"]["components"], [[0.4], [0.3, 0.6, 0.9], [1.75]])
+        self.assertEqual(result["sharedOtherMaterial"]["keys"], ["Alpha", "Color", None])
+        self.assertEqual(result["sharedBadProducer"]["reason"], "alpha-numeric-input")
+        self.assertEqual(result["sharedBadCombo"]["reason"], "shader-interface-unproven")
+        self.assertEqual(result["sharedBadComboAgain"], result["sharedBadCombo"])
+        self.assertEqual(result["sharedOtherContract"]["components"][0], [0.625])
+        self.assertEqual(result["newPreparation"]["components"][0], [0.875])
+        self.assertEqual(result["sharedRecovered"], result["sharedFirst"])
 
     def test_unconditional_interface_does_not_need_runtime_texture_facts(self) -> None:
         result = self.result("proofBoundaries")

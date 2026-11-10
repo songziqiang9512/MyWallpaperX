@@ -301,7 +301,8 @@ nonisolated extension SceneScriptCursorProgram {
               binding.targetPath == [
                   .key("objects"), .index(index), .key("visible"),
               ],
-              ["image", "text", "composition"].contains(layer.contentKind),
+              (["image", "text", "composition"].contains(layer.contentKind)
+                || layer.utilityLayer?.kind == .fullscreen),
               SceneScriptCursorHitAdmission.accepts(layer) else { return nil }
         return .init(
             layerID: layerID,

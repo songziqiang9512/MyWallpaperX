@@ -28,7 +28,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": "",
+      "design_notes": " StaticModel local composition contract: docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster. The nearest MainPass maps only clip XY of reverse-depth VP and supplies its XY-map winding to model color culling, preserving Z/W and original world/normal/light/shadow plus existing pass-scoped depth lifetime. Retire the model type rejection only with its consumer; retain the separate cold-hidden parent visibility/preparation boundary. No extra renderer, depth/resource owner, cache or ABI.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
@@ -119,7 +119,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/effect-execution-coverage.md",
-      "design_notes": "Current contracts: designDoc#project-subtree-source and #particle-subtree-raster. Project descendants use the existing prepared utility group/source/order/geometry and unique compositor. A bounded official visible, top-level, orthographic full-canvas default-input control qualifies prior prefix plus own members at the root cut; source model flags alone do not qualify other domains. Preserve explicit authored background choice, original childless/fullscreen paths and resource/pin lifecycle; missing local-raster consumers stay explicit. No new renderer, source owner, permission table or ordinary-frame classification. Canonical camera/viewport and existing particle raster/REFRACT mapping remain owned by their original contracts.",
+      "design_notes": "Current contracts: designDoc#project-subtree-source, #particle-subtree-raster and #perspective-composition-prefix. The qualified orthographic nested composition design shares the prepared SourceRoute for Script and rendering. Copy reads the outer entry prefix, local effects write the enclosing attachment, and perspective applies once at final root replay. Cold inactive effect preparation uses docs/scene/capabilities/runtime-input-property-coverage.md#startup-inactive-effect. Project descendants use the existing prepared utility group/source/order/geometry and unique compositor. A bounded official visible, top-level, orthographic full-canvas default-input control qualifies prior prefix plus own members at the root cut; source model flags alone do not qualify other domains. Preserve explicit authored background choice, original childless/fullscreen paths and resource/pin lifecycle; missing local-raster consumers stay explicit. No new renderer, source owner, permission table or ordinary-frame classification. Canonical camera/viewport and existing particle raster/REFRACT mapping remain owned by their original contracts. Visible SpotLight frame contract: docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame. Reuse complete shared worldFrame and typed appearance, original Plan geometry preparation, nearest MainPass depth-preserving clip XY and the existing cone/unique compositor. Retire parent/leaf/dependency and sample-shaped angle/timeline gates plus worldOrigin/currentAngle reconstruction. Existing scalar/vector definitions are the source authority; preserve unconsumed writer/effect boundaries. No new resource, clock, renderer, cache or GPU ABI; static model depth remains separate. The original RuntimeModel color-producer selection includes the existing volumetric cone consumer independently of static-model presence and its ancestor launch visibility; runtime visibility still owns drawing. StaticModel local composition contract: docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster. The nearest MainPass maps only clip XY of reverse-depth VP and supplies its XY-map winding to model color culling, preserving Z/W and original world/normal/light/shadow plus existing pass-scoped depth lifetime. Retire the model type rejection only with its consumer; retain the separate cold-hidden parent visibility/preparation boundary. No extra renderer, depth/resource owner, cache or ABI.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
@@ -127,20 +127,38 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ImageLayerEncoding.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
       ],
       "contentPatterns": [
         "SceneUtilityLayerSourceRoute",
         "SceneUtilityLayerRuntimePlanner",
         "SceneCaptureGeometryResolver"
       ]
+    },
+    {
+      "id": "scene-puppet-attachment-binding",
+      "title": "Puppet有序挂点与冷/热名称绑定",
+      "owner": "scene-puppet-reader/prepared-descriptor/pose-projection",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "Contract: designDoc#puppet-attachments. Preserve MDAT raw order and records; resolve first named binding once at the original Reader using its existing Set, then consume that immutable fact in cold Descriptor and live PoseProjection. Retire duplicate-name whole-table rejection and unfiltered unique-key construction. Keep structural/bone/finite affine boundaries, existing model-to-Scene Y conjugation, original parent×attachment×child world resolver and unique output. No new owner, cache, numeric Script API or per-frame name resolution. Official selection evidence is bounded to the fixed-client ordered/renamed controls; broader parity is not implied.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift"
+      ],
+      "contentPatterns": []
     },
     {
       "id": "web-mediaremote-nowplaying",
@@ -358,7 +376,7 @@
       "owner": "scene-dynamic-layer-visibility-admission",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "designDoc#prepared-group-visibility: layer visibility reuses the original admitted group source and member closure for targets, preparationLayerIDs, particleRequirements and liveConsumers. Retain cold-hidden Project descendants without forcing child visibility, adding state, recompiling at reveal or changing the fullscreen viewport owner. Validate one shared Bool across a parent group and independent particle, cold false/true/false, renamed inputs, stable window/Surface and actual source-to-terminal pixels. Effect inactive-stage qualification remains a separate input contract.",
+      "design_notes": "designDoc#prepared-group-visibility: layer visibility reuses the original admitted group source and member closure for targets, preparationLayerIDs, particleRequirements and liveConsumers. Retain cold-hidden Project descendants without forcing child visibility, adding state, recompiling at reveal or changing the fullscreen viewport owner. Validate one shared Bool across a parent group and independent particle, cold false/true/false, renamed inputs, stable window/Surface and actual source-to-terminal pixels. Effect inactive-stage qualification remains a separate input contract. Model parent visibility uses docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster. Structural model-leaf demands feed the original RuntimeModel typed visibility projection and actual color producers; UI and Script reuse that preparation. Consumer readiness retains actual leaf GPU resources and utility source/Program capacity, child false, local bad-model skip and original property transactions, without initial-visible permission, a new readiness owner or ordinary-frame checks.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
       ],
@@ -423,9 +441,9 @@
       "id": "scene-particle-collision-bounds",
       "title": "粒子壁纸边界碰撞",
       "owner": "scene-particle",
-      "status": "blocked-pending-design",
+      "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "碰撞bounds的坐标、缩放及行为语义尚未形成可实施设计，保持未批准。",
+      "design_notes": "docs/scene/capabilities/particle-component-coverage.md#bounds-collision: the existing Runtime supplies the authored orthographic canvas and particle transform to the ordered Simulator. The default uses a half-speed normal rebound with tangential velocity retained. Viewport, parallax and unavailable modes remain outside this physics input. Approval covers the implementation design only.",
       "matchPatterns": [],
       "contentPatterns": [
         "SceneParticleCollisionBounds",
@@ -531,7 +549,7 @@
       "owner": "Scene prepared material / graph / unique MainPass",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "Current contracts: DesignDoc#named-input-ownership, #independent-named-source, #named-parent-base, #named-source-execution-cuts, #forward-graph-output-consumption and #framebuffer-source-declarations. Use actual prepared ABI/source and exact Binding slots, original source cuts, one ledger/publication/main owner and local fallback; never substitute base for effect output or replay descendants. Ordinary parent own output: remove leaf permission for a consumable raw base or existing visible graph-final; graph consumers retain the original required-provider set, ledger publication and authored main owner. Raw capture cannot stand in for effect output. No new state, traversal or repeated execution; hidden/forward/utility/Puppet domains keep their own qualification. Property target fallback: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Source-free quad: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. These linked contracts own the design details; this registry only routes implementation.",
+      "design_notes": "Current contracts: DesignDoc#named-input-ownership, #independent-named-source, #named-parent-base, #named-source-execution-cuts, #forward-graph-output-consumption and #framebuffer-source-declarations. Use actual prepared ABI/source and exact Binding slots, original source cuts, one ledger/publication/main owner and local fallback; never substitute base for effect output or replay descendants. Ordinary parent own output: remove leaf permission for a consumable raw base or existing visible graph-final; graph consumers retain the original required-provider set, ledger publication and authored main owner. Raw capture cannot stand in for effect output. No new state, traversal or repeated execution. Hidden ordinary forward graph admission uses the complete primary input set and original dependency closure/source-cut schedule; retire singleton upstream permission, keep self/cycle/secondary/background and visible-output deadlines. Utility/model and dead lower candidates keep their own qualification. Property target fallback: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Source-free quad: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. These linked contracts own the design details; this registry only routes implementation. Geometry primary local raster: DesignDoc#named-geometry-local-raster. Retire unused world-MVP equality admission and its plumbing; preserve original provider-local pose/graph raster, named physical=mapped target pixels, identity UV, source/epoch/generation/extent and encode boundaries. No new owner, target or reprojection.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
@@ -566,7 +584,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift"
       ],
       "contentPatterns": []
     },
@@ -603,18 +622,21 @@
     },
     {
       "id": "scene-material-video-assets",
-      "title": "材质视频asset与fallback共用媒体owner",
+      "title": "材质视频准备、按需取图与fallback",
       "owner": "scene-video-assets",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/material-video-assets.md",
-      "design_notes": "",
+      "design_notes": "复用原材质资源归属与可旁路效果显隐，停取图不改播放器时钟或提交权威。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift"
       ],
-      "contentPatterns": []
+      "contentPatterns": [
+        "materialVideoVisibilityTarget",
+        "assetVideoVisibilityTargets"
+      ]
     },
     {
       "id": "scene-property-panel-conditions",
@@ -708,15 +730,19 @@
     },
     {
       "id": "scene-sound-volume-script",
-      "title": "Sound volume scalar script through existing registry",
-      "owner": "Scene scalar Program / existing Sound Playback Registry",
+      "title": "Sound handle and scalar volume through one registry",
+      "owner": "SceneScript layer mutation / existing Sound Playback Registry",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "design_notes": "Current contract: designDoc#sound-handle-volume. Prepared Sound bindings provide minimal scalar target/seed definitions to the existing map; frozen C snapshot and authored journal publish handle getter/setter values through the original typed mutation and resolved snapshot. Preserve authored/user/timeline/script ordering and current attached scalar output precedence. Registry retains one baseVolume/player and applies master/mute afterwards. A sceneScript source label alone cannot claim a property-backed Sound: the new handle lane also requires target membership from the existing Runtime committed authoredLayerValues volume keys, passed as a temporary layer-ID set after layerPlan commit. The immediate property lane skips the same intersection; no persistent mask or full Runtime crossing. Paused refresh retains its existing owner set/clock and admits volume-only authored upserts through fixedPoint and scoped snapshot. No dynamic Sound, AV calls from JS, new state/cache/commands, or callback scheduling.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayer*Host.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerMutation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime*.swift"
       ],
       "contentPatterns": []
     },
@@ -781,11 +807,11 @@
     },
     {
       "id": "shared-audio-spectrum-response",
-      "title": "共享音频频段、标定、响应与Video叠层",
+      "title": "共享音频物理分析、消费域与Video叠层",
       "owner": "shared-playback-audio",
       "status": "approved",
       "designDoc": "docs/architecture/system-audio-spectrum-design.md",
-      "design_notes": "2026-10-17真实音乐同源参考对照修订：唯一采集/30Hz发布；Hann/频段幅度均值/固定均衡/固定分贝窗口/最终高度包络；Video/Web/Scene投影同一响应，退出峰值跟随参考、可听度乘数和二次显示曲线。保留作者样式，不主张逐柱频轴、Windows私有公式或全样本一致。",
+      "design_notes": "2026-11-08职责纠正，数值实现待资格：保唯一PCM历史、每声道同窗FFT、捕获时间与30Hz发布；在原Analyzer的显示轴/gain/dB/包络之前形成实际需求的消费域。Video/Web保原显示响应，Scene沿原六数组与typed消费者，不取native最终柱高/均值粗档。现frequencyAmplitudes已混显示选择，不能改名充作者raw。作者轴、绝对单位、provider条件与必要历史仍UNKNOWN；相对max pooling不授上游，不恢复已撤候选或按主束调gain。实施同批退Scene旧供值/同高度断言，不加第二FFT/provider/clock、IPC域副本或显示fallback；先保native回归与合格作者输入、实际主图层/ROI及独立样本。",
       "matchPatterns": [
         "MyWallpaperX/Core/Playback/SystemAudio*Spectrum*.swift",
         "WallpaperDaemonSources/Daemon/Spectrum/*.swift",
@@ -936,18 +962,20 @@
     },
     {
       "id": "scene-native-rope-camera",
-      "title": "已准入Rope相机与screen displacement截面",
+      "title": "公共粒子朝向与Rope相机及几何准备",
       "owner": "Scene prepared particle geometry / existing CameraFrame",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/runtime-systems-reference.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Current public orientation / existing typed batch and camera owner; RopeTrail input preparation is specified at #rope-trail-world-subdivision. Retire the kind-specific rejection of the existing Worldspace bit0, preserve unknown bits and independent General world semantics. Normalize integral subdivision to0...32 in the original cold plan using fixed-client loader evidence; keep budgets/history/geometry and camera policies. Prove real input-to-root draw/target/composition/GPU with variants, counterexamples and an independent sample; no official parity claim from static storage. Multiple renderer and per-policy history preparation follows DesignDoc#multiple-renderer-outputs; retain actual Plan fields, bounded history and unique Simulator while retiring aggregate-count and first-supported selection.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift"
       ],
       "contentPatterns": []
     },
@@ -1248,7 +1276,7 @@
       "owner": "Scene project/material preparation and shared shader facts",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "render-graph-shader-coverage.md#whole-vector-color-input: reuse the existing root-local graph and exact candidate/Program facts; retire RGB mutation-count permission and its unused Set. Resolve authored mix identity before builtin interpretation at the shared graph source. Keep output transfer, data/signal, PMA and existing candidate conflict ownership; verify equivalent copy forms, actual pixels/atomic visibility and independent author boundaries without new owners or frame work.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
@@ -1696,11 +1724,11 @@
     },
     {
       "id": "scene-static-camera-transforms",
-      "title": "Static camera DTO to shared camera frame",
-      "owner": "Scene script and camera frame owners",
+      "title": "Default2D camera inputs and shared camera frame",
+      "owner": "Existing General / Timeline / Binding / Scalar / CameraFrame owners",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/architecture/runtime-architecture.md",
+      "design_notes": "DesignDoc#default-2d-general-zoom separates authored General static/Timeline/property/return-only Script as camera.generalZoom from CameraTransforms/path camera.zoom. Official ordinary-2D General3 with getter zoom1 proves distinct identity; CameraFrame alone combines the General base with the existing relative multiplier, whose explicit2 composition and late official behavior remain unqualified. Preserve getter/setter/play/rollback and original path route; General never enters staticTransformFields or the setter map. Retire the erroneous shared camera.zoom producer, descriptor.zoom and internal camera binding mapping; reuse scene field classification, original profile/schema, SceneClock and generated semantic cache identity. No new store, clock, C ABI, source algorithm or mixed path support; retain source-to-output and real Host consumer validation.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
@@ -1726,7 +1754,16 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument+General.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwnerConstruction.swift"
       ],
       "contentPatterns": []
     },
@@ -1805,16 +1842,18 @@
     },
     {
       "id": "scene-shared-source-user-scalars",
-      "title": "Shared source-material user scalar roles",
+      "title": "Shared image source material inputs",
       "owner": "BaseMaterial proof / property producer / shared source Program",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "design_notes": "Shared image-source contract at #shared-source-image-scroll. Keep scrolling in the original source Program and use the authored value only for a typed input whose property definition is absent.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift"
       ],
       "contentPatterns": [
         "sourceScalar",
@@ -1827,7 +1866,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts. Property target-local fallback and no-writer rebuild retirement: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Preserve other consumers rebuild marks and atomic live updates. Source-free quad dependency and hierarchy contract: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. Existing prepared sampler/input facts and nearest raster own execution; no blanket slot0 or parentless permission. Emitter numeric preparation: docs/scene/capabilities/particle-component-coverage.md#emitter-speed and #emitter-sign. Prepare finite ordered speed endpoints and shape-owned integer direction selection in the existing cold SpawnPlan; ignore unused Box sign at the original Parser while preserving other shapes and parse each used numeric field once; reuse original radial sampling/RNG and final multiplied Float birth checks. Retire arbitrary numeric permission without changing space or scheduling semantics. Periodic count contract: docs/scene/capabilities/particle-component-coverage.md#periodic-emission. Consume the existing typed cap in original EmitterState windows, one natural-usage scalar, live count scaling and carried fraction; preserve original no-cap arithmetic, clocks/RNG and value snapshots. Retire the blanket cap nil gate without moving it to playback or adding permission state. Full-capacity scheduling and early explicit/natural phase differences remain separately tracked, with no parity claim. Control point position precedence: docs/scene/capabilities/particle-component-coverage.md#control-point-position. Reuse the original CP owner for dynamic/instance replacement of ordinary definition positions across emitter and simulator consumers; keep pointer offsets additive and component origins separate. No new state, registry or space expansion. Particle CP component ownership: docs/scene/architecture/runtime-architecture.md#particle-control-point-components. Typed position, single-CP radius and two-CP endpoint consumers share original prepared plans and frame transactions. Single-CP radius prepares consumed numeric inputs once. Bounded official controls and docs/scene/capabilities/particle-component-coverage.md#control-point-radius define single-CP radius/default/step strength and preserved-velocity scope. Moving-CP controls require prior-point transport; keep point/endpoint history in the original Simulator snapshot owner, without a parallel cache or per-particle history. Preserve the explicitly unqualified fractional blend, singular point and same-cadence explicit-birth combinations. Reuse current CP conversion and original root/child reference offsets based on actual consumer demand. No raw-flag combination admission, sample/path dispatch, new per-particle history or second CP owner. World translation ownership: docs/scene/architecture/runtime-architecture.md#particle-world-translation. Reuse the original static reference, typed current frame, child origin/birth-origin tables and batch/model owner; connect ancestor translation and creation/prewarm consistently without renderer-name permission, duplicate offsets or false parent death on freeze. Unknown child flags and unimplemented spatial consumers retain their independent boundary. Prewarm work ownership: docs/scene/capabilities/particle-component-coverage.md#prewarm-work. Prepare complete initial-launch root states on the existing Host queue after resource join and transfer one independent PlaybackState per frozen target Surface in PreparedLaunch. Preserve original steps/events/RNG/history, token cancellation and queue-tail release; retain frame-created child and current rebuild bounded behavior. The original base-image owner supplies the same final retry outcome to compiler and Surface. No shared mutable simulators, seed cache, extra clock or live accounting state. Event inheritance contract: docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance. Replace color-only raw-key admission with typed operations and the existing runtime event context projection of color/size/alpha. Preserve original snapshots/follow refresh, local unavailable writers and final birth checks; retire whole-template admission and duplicate initializer permission. Numerical units and repeated random-writer semantics require bounded official controls and native event-to-output verification; no sample dispatch or extra state owner.",
+      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts. Property target-local fallback and no-writer rebuild retirement: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Preserve other consumers rebuild marks and atomic live updates. Source-free quad dependency and hierarchy contract: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. Existing prepared sampler/input facts and nearest raster own execution; no blanket slot0 or parentless permission. Emitter numeric preparation: docs/scene/capabilities/particle-component-coverage.md#emitter-speed and #emitter-sign. Prepare finite ordered speed endpoints and shape-owned integer direction selection in the existing cold SpawnPlan; ignore unused Box sign at the original Parser while preserving other shapes and parse each used numeric field once; reuse original radial sampling/RNG and final multiplied Float birth checks. Retire arbitrary numeric permission without changing space or scheduling semantics. Periodic count contract: docs/scene/capabilities/particle-component-coverage.md#periodic-emission. Consume the existing typed cap in original EmitterState windows, one natural-usage scalar, live count scaling and carried fraction; preserve original no-cap arithmetic, clocks/RNG and value snapshots. Retire the blanket cap nil gate without moving it to playback or adding permission state. Full-capacity scheduling and early explicit/natural phase differences remain separately tracked, with no parity claim. Control point position precedence: docs/scene/capabilities/particle-component-coverage.md#control-point-position. Reuse the original CP owner for dynamic/instance replacement and original component origins/pointer addition. Split offset parse failure from id/flags/angles/parent metadata in the immutable parsed CP and retire its aggregate field. Angle consumes metadata; the original selected-default branch consumes offset. Preserve both for current world-force/reduce/vortex consumers, typed current frames and real invalid-input boundaries. No wrapper, new owner, state, cache, frame scan or space expansion; require actual old-App failure and new position pixels. Particle CP component ownership: docs/scene/architecture/runtime-architecture.md#particle-control-point-components. Typed position, single-CP radius and two-CP endpoint consumers share original prepared plans and frame transactions. Single-CP radius prepares consumed numeric inputs once. Bounded official controls and docs/scene/capabilities/particle-component-coverage.md#control-point-radius define single-CP radius/default/step strength and preserved-velocity scope. Moving-CP controls require prior-point transport; keep point/endpoint history in the original Simulator snapshot owner, without a parallel cache or per-particle history. Preserve the explicitly unqualified fractional blend, singular point and same-cadence explicit-birth combinations. Reuse current CP conversion and original root/child reference offsets based on actual consumer demand. No raw-flag combination admission, sample/path dispatch, new per-particle history or second CP owner. World translation ownership: docs/scene/architecture/runtime-architecture.md#particle-world-translation. Reuse the original static reference, typed current frame, child origin/birth-origin tables and batch/model owner; connect ancestor translation and creation/prewarm consistently without renderer-name permission, duplicate offsets or false parent death on freeze. Unknown child flags and unimplemented spatial consumers retain their independent boundary. Prewarm work ownership: docs/scene/capabilities/particle-component-coverage.md#prewarm-work. Prepare complete initial-launch root states on the existing Host queue after resource join and transfer one independent PlaybackState per frozen target Surface in PreparedLaunch. Preserve original steps/events/RNG/history, token cancellation and queue-tail release; retain frame/static-child bounded behavior; all root preparation moves to the original worker after complete display integration. The original base-image owner supplies the same final retry outcome to compiler and Surface. No shared mutable simulators, seed cache, extra clock or live accounting state. Event inheritance contract: docs/scene/capabilities/particle-component-coverage.md#event-value-inheritance. Replace color-only raw-key admission with typed operations and the existing runtime event context projection of color/size/alpha. Preserve original snapshots/follow refresh, local unavailable writers and final birth checks; retire whole-template admission and duplicate initializer permission. Numerical units and repeated random-writer semantics require bounded official controls and native event-to-output verification; no sample dispatch or extra state owner. RopeTrail omitted length: docs/scene/capabilities/particle-component-coverage.md#rope-trail-length. Normalize only an absent renderer length member to one at the original DefinitionParser; preserve explicit null/malformed/nonpositive boundaries and the existing RopeTrailPlan/history/Metal consumers. No state, new owner, budget or unit expansion; qualify omitted/explicit-one pixel equivalence, author execution and an independent trail. Display reconciliation and user-texture completion: docs/scene/architecture/runtime-architecture.md#display-reconciliation and #display-user-texture-updates. Original desired/actual maps, Session/clock/source ownership, retained instances and independent new-surface work remain authoritative. Drop actual-nonempty from user-texture request currentness during disjoint preparation; preserve context/program/device/registry/revision/cancellation and real consumer/adoption boundaries. New views adopt the original current publication. Verify empty-actual completion and real new-view pixels without fake screens, a publication permission table or a second resource owner; keep exact cancellation/drain and independent stop/UI qualification.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1860,6 +1899,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePreparation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift",
@@ -2006,6 +2046,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionBetweenControlPoints.swift",
@@ -2017,7 +2058,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+Support.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+Support.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift"
       ],
       "contentPatterns": []
     },
@@ -2063,12 +2105,18 @@
       "owner": "Existing ParticlePipelineRenderStateCompiler / RefractionPlanner / MetalPipeline",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "DesignDoc#material-state separates A2C/shared depth material readiness from renderer names while retaining the exact existing camera selection. Reuse actual vertex/joins, PSO, nearest attachment and depth ownership; remove coverage-only cull/depth bans and the unsupported overbright64 ceiling. Qualify live-particle Rope separately from RopeTrail history, hardware alpha/cull/depth, absent PSO, renamed inputs and actual authored pointer output. No new state, token, pipeline owner, MSAA/resolve or frame work; unsupported material inputs still need their actual consumers. DesignDoc#optional-refraction-normal consumes the original Catalog optional second slot directly: omission and typed nil share the existing no-normal loader/shader branch; nonempty missing/invalid resources remain local failures. Preserve the failed official displacement qualification and its unknown boundary; verify real Catalog/AssetGraph, existing absent/valid GPU controls and active author batch-to-capture without a default texture or new owner.",
+      "design_notes": "DesignDoc#material-state separates A2C/shared depth material readiness from renderer names while preserving actual renderer camera selection. Reuse actual vertex/joins, PSO, nearest attachment and depth ownership; remove coverage-only cull/depth bans and the unsupported overbright64 ceiling. Qualify live-particle Rope separately from RopeTrail history, hardware alpha/cull/depth, absent PSO, renamed inputs and actual authored pointer output. No new state, token, pipeline owner, MSAA/resolve or frame work; unsupported material inputs still need their actual consumers. DesignDoc#optional-refraction-normal consumes the original Catalog optional second slot directly: omission and typed nil share the existing no-normal loader/shader branch; nonempty missing/invalid resources remain local failures. Preserve the failed official displacement qualification and its unknown boundary; verify real Catalog/AssetGraph, existing absent/valid GPU controls and active author batch-to-capture without a default texture or new owner. Multiple renderer preparation and GPU identity follow DesignDoc#multiple-renderer-outputs: one simulation/material/source, ordered renderer outputs and consumer camera, original upload/command lifetime; retire whole-definition camera/count and scalar output ownership. DesignDoc#ambient-particle-lighting defines native REFRACT LIGHTING1 without potential direct-light consumers: prepare ortho ambient availability and the smallest typed direct-light demand fact once, retain the operation through original Plan/Declaration/Binding, and consume same-frame authored ambient plus scene HDR before background/overbright/coverage. Preserve native receiver coefficient conventions, all L0 behavior and unsupported direct-light/material boundaries. Retire only the blanket LIGHTING rejection covered by this consumer; no light table, clock, resource/output owner, cache or ordinary-frame scan. Require actual birth, batch and author pixels plus independent L0/alpha/HDR regression. DesignDoc#cutout-particle-coverage adds the actual static smoothstep coverage operation to existing native REFRACT plans and bindings, with cold defaults/ordered thresholds/canonical opacity, pre-cutout refraction alpha and once-only final PMA. Consolidate fragment uniforms in the original pipeline and retire separate bindings; preserve L0/ambient/double-sided and resource failures. No discard, A2C, new PSO/owner, hot parsing, per-particle CPU work or array allocation; require production literal pixels and original plus neighboring author output.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionPlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionBinding.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift"
       ],
       "contentPatterns": []
     },
@@ -2126,10 +2174,11 @@
       "owner": "Existing Shader Syntax / GlobalReferenceAnalyzer / Generic runtime constant normalizer",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "uniform-derived-global-scope: reuse original cold lexical binding/declaration facts for actual global and per-call identity. Retire whole-source name uniqueness/token-count permission and unrelated scope call rejection. Preserve initializer/evaluation, true shadowing, write/out-inout/purity proof. Mandatory strict compiler owns case-label constant-expression grammar; do not mirror it with a new Swift qualification Set; no second parser, normalizer, Program state or ordinary-frame scan. Validate actual compiler red/green, same-program A/B/A Metal and signed App effect/terminal controls before claiming restored execution.",
+      "design_notes": "uniform-derived-global-scope: reuse original cold lexical binding/declaration facts for actual global and per-call identity. Match a callee prototype to its unique definition using return type and all parameter types/directions; retain unresolved overloads and true value shadows in the existing non-value blocker facts. Preserve initializer/evaluation, write/out-inout/purity proof. Mandatory strict compiler owns case-label constant-expression grammar; no second parser, declaration table, normalizer, Program state or ordinary-frame scan. Validate compiler red/green, same-program A/B/A Metal and signed App effect/terminal controls before claiming restored execution.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFunctionSemantics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift"
       ],

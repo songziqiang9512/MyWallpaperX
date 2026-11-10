@@ -3,6 +3,8 @@
 #include "SceneSurfaceResponse.metalh"
 using namespace metal;
 
+constant bool sceneStaticModelUsesReflection [[function_constant(0)]];
+
 struct SceneStaticModelVertex {
     float3 position;
     float3 normal;
@@ -29,7 +31,7 @@ struct SceneStaticModelUniforms {
     float4 emissiveColorAndBrightness;
     float4 viewTintFrontAndExponent;
     float4 viewTintBackAndEnabled;
-    float4 cameraPosition;
+    float4 cameraPosition; // eye.xyz, authored HDR brightness
     uint4 materialFlags;
     uint4 lightCounts;
     float4 ambientColor;
@@ -46,6 +48,7 @@ struct SceneStaticModelUniforms {
     float4 spotOuterCosines;
     SceneModelShadowUniforms shadows[4];
     float4 surfaceMaterial;
+    float4 pointFalloffExponents;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -347,6 +350,7 @@ fragment half4 sceneStaticModelFragment(
     texture2d<half> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
     array<depth2d<float>, 4> shadowTextures [[texture(2)]],
+    texture2d<float> reflectionTexture [[texture(6), function_constant(sceneStaticModelUsesReflection)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
@@ -442,12 +446,12 @@ fragment half4 sceneStaticModelFragment(
         }
         float distanceToLight = sqrt(distanceSquared);
         float3 directionTowardLight = toLight / distanceToLight;
-        float radial = clamp(
+        float remaining = clamp(
             1.0 - distanceToLight / max(positionRadius.w, 1e-4),
             0.0,
             1.0
         );
-        radial *= radial;
+        float radial = sceneRadialFalloff(remaining, uniforms.pointFalloffExponents[lightIndex]);
         float diffuse = max(dot(normal, directionTowardLight), 0.0);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
@@ -529,8 +533,25 @@ fragment half4 sceneStaticModelFragment(
         ) * emissive;
         litColor = min(litColor + emittedColor, float3(MAXFLOAT));
     }
+    if (sceneStaticModelUsesReflection) {
+        constexpr sampler reflectionSampler(filter::linear, mip_filter::linear, address::clamp_to_edge);
+        const float2 extent(reflectionTexture.get_width(), reflectionTexture.get_height());
+        const float4 clipNormal = uniforms.viewProjectionMatrix * float4(normal, 0.0);
+        // Clip W keeps the camera-axis scale through reverse-depth projection.
+        const float2 screenNormal = normalize(float3(clipNormal.xy, clipNormal.w)).xy;
+        const float facing = saturate(abs(dot(normal, viewDirection)));
+        const float2 shift = screenNormal * float2(1.5, -1.5 * extent.x / extent.y) * pow(facing, 4.0);
+        const float2 uv = in.position.xy / extent + shift;
+        const float2 edge = smoothstep(float2(-0.3), float2(0.0), uv)
+            * (1.0 - smoothstep(float2(1.0), float2(1.3), uv));
+        const float mip = uniforms.surfaceMaterial.y * float(reflectionTexture.get_num_mip_levels() - 1);
+        const float3 incident = reflectionTexture.sample(reflectionSampler, uv, level(mip)).rgb;
+        const float weight = edge.x * edge.y * (1.0 - facing) * uniforms.surfaceMaterial.w;
+        const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - uniforms.surfaceMaterial.x);
+        litColor += saturate(reflected) * uniforms.cameraPosition.w;
+    }
     litColor = sceneDistanceFog(litColor,
-        uniforms.cameraPosition.xyz - in.worldPosition,
+        towardCamera,
         uniforms.distanceFogColor, uniforms.distanceFogRange);
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
@@ -553,6 +574,12 @@ struct SceneStaticModelShadowVertexOut {
     float2 uv;
     float3 lightPosition; // orthographic clip.xyz or perspective light coordinates
 };
+vertex float4 sceneStaticModelCameraDepthVertex(
+    uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
+    constant float4x4 &modelToClip [[buffer(1)]]) {
+    return modelToClip * float4(vertices[vertexID].position, 1.0);
+}
+
 vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {

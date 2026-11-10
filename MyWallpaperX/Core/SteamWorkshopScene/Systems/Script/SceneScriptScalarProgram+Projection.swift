@@ -95,18 +95,26 @@ nonisolated extension SceneScriptScalarProgram {
         timelineTargets: Set<SceneDynamicTarget>
     ) -> SceneDynamicTarget? {
         if binding.owner.kind == .scene {
-            let target = SceneDynamicTarget.scene(.bloomStrength)
             guard binding.owner.objectIndex == nil, binding.owner.objectID == nil,
                   binding.owner.effectIndex == nil, binding.owner.effectID == nil,
                   binding.owner.passIndex == nil, binding.owner.passID == nil,
                   binding.owner.animationLayerIndex == nil, binding.owner.animationLayerID == nil,
-                  binding.targetPath == [.key("general"), .key("bloomstrength")],
                   binding.valueType == .number,
                   let authored = binding.authoredValue?.numberValue,
-                  SceneScriptValueOwner.acceptsScalar(authored, for: target),
-                  binding.wrapperKeys == ["script", "value"],
-                  binding.properties.isEmpty, binding.userPropertyKey == nil,
-                  descriptor.camera.bloom.hdr == nil,
+                  binding.userPropertyKey == nil else { return nil }
+            let target: SceneDynamicTarget
+            if binding.targetPath == [.key("general"), .key("bloomstrength")] {
+                guard binding.wrapperKeys == ["script", "value"],
+                      binding.properties.isEmpty, descriptor.camera.bloom.hdr == nil else { return nil }
+                target = .scene(.bloomStrength)
+            } else if binding.targetPath == [.key("general"), .key("zoom")] {
+                guard descriptor.camera.generalZoom != nil,
+                      binding.wrapperKeys == ["script", "value"]
+                        || SceneScriptDynamicProviderHostContract.supports(
+                            keys: binding.wrapperKeys ?? [], host: .objectScalar) else { return nil }
+                target = .camera(.generalZoom)
+            } else { return nil }
+            guard SceneScriptValueOwner.acceptsScalar(authored, for: target),
                   !timelineTargets.contains(target) else { return nil }
             return target
         }

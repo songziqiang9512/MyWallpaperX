@@ -11,12 +11,14 @@ nonisolated final class SceneTimelineFrameEvidence {
         let layerIDs: [Int]
         let start, end, interval: Double
         let maxSamples: Int
+        var cameraZoom = false
 
         private struct Payload: Decodable {
             let layerIDs: [Int]
             let sceneTimeWindow: [Double]
             let interval: Double
             let maxSamples: Int
+            let cameraZoom: Bool?
         }
 
         enum Invalid: Error { case configuration }
@@ -25,10 +27,12 @@ nonisolated final class SceneTimelineFrameEvidence {
             let data = Data(raw.utf8)
             guard data.count <= 4_096,
                   let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  Set(object.keys) == ["layerIDs", "sceneTimeWindow", "interval", "maxSamples"]
+                  Set(object.keys).subtracting(["cameraZoom"])
+                    == ["layerIDs", "sceneTimeWindow", "interval", "maxSamples"]
             else { throw Invalid.configuration }
             let value = try JSONDecoder().decode(Payload.self, from: data)
-            guard (1...8).contains(value.layerIDs.count),
+            guard value.layerIDs.count <= 8,
+                  !value.layerIDs.isEmpty || value.cameraZoom == true,
                   Set(value.layerIDs).count == value.layerIDs.count,
                   value.layerIDs.allSatisfy({ $0 >= 0 }),
                   value.sceneTimeWindow.count == 2,
@@ -41,15 +45,16 @@ nonisolated final class SceneTimelineFrameEvidence {
             else { throw Invalid.configuration }
             return Configuration(layerIDs: value.layerIDs.sorted(),
                 start: value.sceneTimeWindow[0], end: value.sceneTimeWindow[1],
-                interval: value.interval, maxSamples: value.maxSamples)
+                interval: value.interval, maxSamples: value.maxSamples,
+                cameraZoom: value.cameraZoom ?? false)
         }
 
         var targets: [SceneDynamicTarget] {
             layerIDs.flatMap { id in
-                [SceneDynamicLayerField.origin, .angles, .scale].map {
+                [SceneDynamicLayerField.origin, .angles, .scale, .color].map {
                     .layer(layerID: id, field: $0)
                 }
-            }
+            } + (cameraZoom ? [.camera(.zoom), .camera(.generalZoom)] : [])
         }
     }
 
@@ -169,6 +174,7 @@ nonisolated final class SceneTimelineFrameEvidence {
             "bindings": rows, "diagnosticCount": program.diagnostics.count,
             "diagnostics": Array(program.diagnostics.prefix(64)),
             "observationComplete": selectedCount <= 24 && program.diagnostics.count <= 64 && !invalidMetadata]
+        if configuration.cameraZoom { record["cameraZoom"] = true }
         if line(record) == nil {
             record = ["kind": "program", "observationComplete": false,
                 "reason": "program-byte-limit-or-encoding", "layerIDs": configuration.layerIDs,
@@ -280,6 +286,9 @@ nonisolated final class SceneTimelineFrameEvidence {
     private static func targetRecord(_ target: SceneDynamicTarget) -> [String: Any] {
         if case let .layer(layerID, field) = target {
             return ["layerID": layerID, "field": field.rawValue]
+        }
+        if case let .camera(field) = target {
+            return ["owner": "camera", "field": field.rawValue]
         }
         return ["unsupportedOwner": true]
     }

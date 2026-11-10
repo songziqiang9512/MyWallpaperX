@@ -35,9 +35,13 @@ extension SceneDesktopWallpaperSession {
             base.authoredValue(for: $0) != nil
         })
         let userValues = candidate.userValues.filter { targets.contains($0.key) }
+        let committedVolumes = context.sceneScriptDynamicLayerRuntime.snapshot().authoredLayerValues.filter {
+            guard case .layer(_, .volume) = $0.key else { return false }
+            return targets.contains($0.key)
+        }
         guard let preliminary = evaluationTransaction.prepareScoped(
             replacing: targets, index: context.dynamicDefinitionIndex,
-            userValues: userValues) else { return false }
+            userValues: userValues, sceneScriptValues: committedVolumes) else { return false }
         let frozenClock = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: Date())
         let timing = SceneFrameTiming(frameIndex: base.frameIndex, hostTime: frozenClock.hostTime,
             sceneTime: frozenClock.sceneTime, rawFrameTime: 0, simulationFrameTime: 0,
@@ -79,10 +83,12 @@ extension SceneDesktopWallpaperSession {
             failures.formUnion(result.failures.keys)
             effects.append(contentsOf: result.ownerEffects)
         }
-        // The first paused envelope admits Sound commands and scalar results.
+        // Paused mixed-volume owners may also write authored Sound volume.
         // Other effects reject their entire owner, never disappear silently.
         for effect in effects where !effect.materialFunctionMutations.isEmpty
-            || !effect.animationMutations.isEmpty || !effect.layerMutations.isEmpty
+            || !effect.animationMutations.isEmpty || effect.layerMutations.contains(where: {
+                $0.kind != .upsert || $0.isDynamic || $0.fields != [.volume]
+            })
             || !effect.textureAnimationCommands.isEmpty || !effect.puppetBoneMutations.isEmpty
             || !effect.puppetAnimationCommands.isEmpty || effect.puppetAnimationCallbackRegistrations != 0
             || !effect.particlePlaybackCommands.isEmpty
@@ -102,9 +108,18 @@ extension SceneDesktopWallpaperSession {
         let rejected = fixedPoint.externallyRejectedOwners.union(
             fixedPoint.admission.rejectedOwners.compactMap(\.ownerTarget))
         let acceptedValues = values.filter { !rejected.contains($0.key) }
-        guard let pending = evaluationTransaction.prepareScoped(replacing: targets,
+        let volumeTargets = Set(fixedPoint.admission.admittedEffects.flatMap(\.layerMutations).map {
+            SceneDynamicTarget.layer(layerID: $0.layerID, field: .volume)
+        })
+        let scopedTargets = targets.union(volumeTargets)
+        var scriptValues = fixedPoint.admission.layerPlan.authoredLayerValues.filter {
+            guard case .layer(_, .volume) = $0.key else { return false }
+            return scopedTargets.contains($0.key)
+        }
+        scriptValues.merge(acceptedValues) { _, current in current }
+        guard let pending = evaluationTransaction.prepareScoped(replacing: scopedTargets,
             index: context.dynamicDefinitionIndex, userValues: userValues,
-            sceneScriptValues: acceptedValues) else { return false }
+            sceneScriptValues: scriptValues) else { return false }
         program.restoreFrameState(previousState, rejectedOwnerTargets: rejected)
         commitSceneScriptLayerPlan(context, plan: fixedPoint.admission.layerPlan, rejectedOwnerTargets: rejected)
         commitSceneMediaPlayback(SceneScriptMediaPlaybackCommandBridge.orderedCommands(

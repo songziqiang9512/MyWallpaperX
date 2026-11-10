@@ -20,12 +20,13 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         authored: SceneDocument.ShaderValue?,
         userValue: String?,
         target: SceneDynamicTarget?,
-        provenSceneScriptValueTargets: Set<SceneDynamicTarget>
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget>,
+        usesAuthoredUserProperty: Bool = true
     ) -> Binding? {
         var sources: [Template.DynamicUniformSource] = []
         var attachments: [Template.DynamicUniformScriptAttachment] = []
         let authoredUserProperty: String?
-        if let raw = authored?.userBinding {
+        if usesAuthoredUserProperty, let raw = authored?.userBinding {
             guard let normalized = normalizedProviderValue(raw) else { return nil }
             authoredUserProperty = normalized
         } else {

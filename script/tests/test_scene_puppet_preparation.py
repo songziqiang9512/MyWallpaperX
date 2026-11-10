@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.test_scene_puppet_mesh import build_mdl
+from script.tests.test_scene_puppet_mesh import build_attachment_block, build_mdl
 from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_puppet_animation import animation_record
 
@@ -69,6 +69,7 @@ def fixture_mdl(
     bone_order: tuple[int, int] = (0, 1),
     independent_roots: bool = False,
     animation_records: list[bytes] | None = None,
+    attachment_records: list[tuple[int, str, list[float]]] | None = None,
 ) -> bytes:
     """Write a small owned legacy/modern fixture, not a parser."""
     vertices = bytearray()
@@ -97,8 +98,10 @@ def fixture_mdl(
         skeleton += b"\0\0\1" + struct.pack("<32f",
             *(value for index in bone_order for value in reference[index]))
     struct.pack_into("<I", skeleton, 9, len(body) + len(skeleton))
+    attachments = (build_attachment_block(attachment_records, len(body) + len(skeleton))
+                   if attachment_records is not None else b"")
     if not animation:
-        return bytes(body + skeleton + b"\0")
+        return bytes(body + skeleton + attachments + b"\0")
     if modern:
         records = animation_records
     else:
@@ -114,8 +117,8 @@ def fixture_mdl(
     block = bytearray((b"MDLA0006\0" if modern else b"MDLA0004\0")
                       + b"\0" * 4 + struct.pack("<I", len(records)))
     block += b"".join(records)
-    struct.pack_into("<I", block, 9, len(body) + len(skeleton) + len(block))
-    return bytes(body + skeleton + block)
+    struct.pack_into("<I", block, 9, len(body) + len(skeleton) + len(attachments) + len(block))
+    return bytes(body + skeleton + attachments + block)
 
 
 class ScenePuppetPreparationTests(unittest.TestCase):
@@ -178,6 +181,13 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             "static-uv20.mdl": build_mdl(magic=b"MDLV0016", stride=20,
                 vertex_format=9, include_mdls=False, suffix=b"\0"),
         }
+        attachments = [(1, "tip", matrix(5, 7)), (0, "peer", matrix(-3, 8)),
+                       (1, "tip", matrix(23, -11))]
+        files["attachment-motion.mdl"] = fixture_mdl(attachment_records=attachments)
+        files["attachment-renamed-reordered.mdl"] = fixture_mdl(attachment_records=[
+            (bone, "jointA" if name == "tip" else name, local)
+            for bone, name, local in [attachments[2], attachments[1], attachments[0]]])
+        files["attachment-unique.mdl"] = fixture_mdl(attachment_records=attachments[:2])
         def channels(end: float) -> dict[int, list[tuple[float, ...]]]:
             pose = lambda x: (x, 0, 0, 0, 0, 0, 1, 1, 1)
             return {0: [pose(4), pose(end)], 1: [pose(2), pose(2)]}
@@ -215,6 +225,26 @@ class ScenePuppetPreparationTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls._temporary.cleanup()
+
+    def test_prepared_attachments_share_first_binding_in_cold_and_animated_poses(self) -> None:
+        rows = self.result["attachment-order"]
+        for label, socket, raw_names, cold, live in (
+            ("ordered", "tip", ["tip", "peer", "tip"], [11, -7, 0], [37, -7, 0]),
+            ("renamed-reordered", "jointA", ["jointA", "peer", "jointA"], [29, 11, 0], [55, 11, 0]),
+            ("unique", "tip", ["tip", "peer"], [11, -7, 0], [37, -7, 0]),
+        ):
+            with self.subTest(label=label):
+                row = rows[label]
+                self.assertEqual(row["rawNames"], raw_names)
+                self.assertEqual(row["cold"][12:15], cold)
+                self.assertEqual(row["frames"][0][socket], row["cold"])
+                self.assertEqual(row["frames"][1][socket][12:15], live)
+                self.assertEqual(row["frames"][0]["peer"][12:15], [1, -8, 0])
+                self.assertEqual(row["frames"][1]["peer"][12:15], [27, -8, 0])
+                self.assertEqual(set(row["frames"][1]), {socket, "peer"})
+                self.assertEqual(row["points"], rows["unique"]["points"])
+        self.assertEqual(rows["unique"]["points"][0][0], [-10, -20])
+        self.assertEqual(rows["unique"]["points"][1][0], [16, -20])
 
     def test_shared_mesh_animation_demand_is_or_in_both_source_orders(self) -> None:
         for key in ("plain-first", "animated-first", "renamed"):

@@ -131,6 +131,150 @@ enum SceneParticleControlPointComponentsHarness {
         record("per-birth-source", actualSource)
     }
 
+    static func emitterCases() throws {
+        func emitterRoot(_ fields: [String: Any] = [:], source: Int) -> [String: Any] {
+            var point: [String: Any] = ["id": source, "flags": 0, "offset": "16 24 0",
+                                       "angles": "0 0 1.5707963267948966"]
+            point.merge(fields) { _, replacement in replacement }
+            var raw = root(instantaneous: 1, origin: "24 0 0", controlPoints: [point], lifetime: 10)
+            var target = (raw["emitter"] as! [[String: Any]])[0]
+            var peer = target
+            target["controlpoint"] = source
+            peer["id"] = 93; peer["origin"] = "-40 12 0"
+            if source == 2 {
+                raw["material"] = "renamed/deeper/emitter.json"
+                target["id"] = 801; target["authorLabel"] = "renamed target"
+            }
+            raw["emitter"] = [target, peer]
+            return raw
+        }
+
+        let malformedOffsets: [(String, Any)] = [
+            ("object", ["bad": 1]), ("bool", false), ("string", "bad"),
+        ]
+        let malformedMetadata: [(String, [String: Any])] = [
+            ("angles-object", ["angles": ["bad": 1]]),
+            ("angles-short", ["angles": "1 2"]),
+            ("angles-nonfinite", ["angles": "nan 0 0"]),
+            ("flags-object", ["flags": ["bad": 1]]),
+            ("flags-unsupported", ["flags": 1]),
+            ("parent-object", ["parentcontrolpoint": ["bad": 1]]),
+            ("parent-unsupported", ["parentcontrolpoint": 0]),
+        ]
+        var firstInstance: SceneParticleSimulator?
+        var firstDynamic: SceneParticleSimulator?
+        for source in [1, 2] {
+            let key = "controlpoint\(source)"
+            let instance: [String: Any] = [key: "64 0 0"]
+            let unavailableSupplies: [(String, [String: Any]?)] = [
+                ("absent", nil), ("empty-value", [key: ["user": "unpublished"]]),
+            ]
+            let dynamic = [source: SIMD3<Double>(96, 0, 0)]
+            let validRoot = emitterRoot(source: source)
+            let validInstance = try simulator(validRoot, instance: instance)
+            let validDynamic = try simulator(validRoot, instance: instance)
+            validInstance.advance(by: 0.25)
+            validDynamic.advance(by: 0.25, dynamicControlPoints: dynamic)
+            results["emitter/cp\(source)-valid-default-instance-and-dynamic-select-before-rotated-origin"] =
+                matches(points(validInstance.particles), [[64, 24, 0], [-40, 12, 0]])
+                && matches(points(validDynamic.particles), [[96, 24, 0], [-40, 12, 0]])
+                && validInstance.particles.map(\.id) == [0, 1]
+                && validDynamic.particles.map(\.id) == [0, 1]
+                && validInstance.particles.map(\.lifetime) == [10, 10]
+                && validDynamic.particles.map(\.lifetime) == [10, 10]
+                && validInstance.frameSnapshot().random.state == validDynamic.frameSnapshot().random.state
+            if source == 1 {
+                firstInstance = validInstance; firstDynamic = validDynamic
+            } else {
+                results["emitter/cp2-resource-id-and-control-point-renaming-keep-state-and-rng"] =
+                    firstInstance?.particles == validInstance.particles
+                    && firstDynamic?.particles == validDynamic.particles
+                    && firstInstance?.frameSnapshot().random.state == validInstance.frameSnapshot().random.state
+                    && firstDynamic?.frameSnapshot().random.state == validDynamic.frameSnapshot().random.state
+            }
+            let wrapped = try simulator(validRoot, instance: [key: ["value": "64 0 0"]])
+            wrapped.advance(by: 0.25)
+            results["emitter/cp\(source)-static-value-wrapper-is-equivalent"] =
+                wrapped.particles.count == 2 && wrapped.particles == validInstance.particles
+                && wrapped.frameSnapshot().random.state == validInstance.frameSnapshot().random.state
+
+            var peerRoot = validRoot
+            peerRoot["emitter"] = Array((validRoot["emitter"] as! [[String: Any]]).suffix(1))
+            let peer = try simulator(peerRoot)
+            peer.advance(by: 0.25)
+            results["emitter/cp\(source)-healthy-emitter-reference-is-nonempty"] =
+                matches(points(peer.particles), [[-40, 12, 0]])
+                && peer.particles.map(\.id) == [0] && peer.particles.map(\.lifetime) == [10]
+            for (name, offset) in malformedOffsets {
+                let raw = emitterRoot(["offset": offset], source: source)
+                let selectedInstance = try simulator(raw, instance: instance)
+                let selectedDynamic = try simulator(raw, instance: instance)
+                let selectedWrapped = try simulator(raw, instance: [key: ["value": "64 0 0"]])
+                selectedInstance.advance(by: 0.25)
+                selectedDynamic.advance(by: 0.25, dynamicControlPoints: dynamic)
+                selectedWrapped.advance(by: 0.25)
+                results["emitter/cp\(source)-\(name)-default-instance-keeps-state-and-rng"] =
+                    matches(points(selectedInstance.particles), [[64, 24, 0], [-40, 12, 0]])
+                    && selectedInstance.particles == validInstance.particles
+                    && selectedInstance.frameSnapshot().random.state == validInstance.frameSnapshot().random.state
+                results["emitter/cp\(source)-\(name)-default-dynamic-keeps-state-and-rng"] =
+                    matches(points(selectedDynamic.particles), [[96, 24, 0], [-40, 12, 0]])
+                    && selectedDynamic.particles == validDynamic.particles
+                    && selectedDynamic.frameSnapshot().random.state == validDynamic.frameSnapshot().random.state
+                results["emitter/cp\(source)-\(name)-default-wrapper-keeps-state-and-rng"] =
+                    selectedWrapped.particles.count == 2 && selectedWrapped.particles == validInstance.particles
+                    && selectedWrapped.frameSnapshot().random.state == validInstance.frameSnapshot().random.state
+                for (supply, override) in unavailableSupplies {
+                    let unavailable = try simulator(raw, instance: override)
+                    unavailable.advance(by: 0.25)
+                    results["emitter/cp\(source)-\(name)-default-\(supply)-rejects-only-target"] =
+                        matches(points(unavailable.particles), [[-40, 12, 0]])
+                        && unavailable.particles == peer.particles
+                        && unavailable.frameSnapshot().random.state == peer.frameSnapshot().random.state
+                    record("emitter-cp\(source)-\(name)-\(supply)", unavailable)
+                }
+                record("emitter-cp\(source)-\(name)-instance", selectedInstance)
+                record("emitter-cp\(source)-\(name)-dynamic", selectedDynamic)
+            }
+            for (name, fields) in malformedMetadata {
+                let raw = emitterRoot(fields, source: source)
+                let selectedInstance = try simulator(raw, instance: instance)
+                let selectedDynamic = try simulator(raw, instance: instance)
+                selectedInstance.advance(by: 0.25)
+                selectedDynamic.advance(by: 0.25, dynamicControlPoints: dynamic)
+                results["emitter/cp\(source)-\(name)-position-override-keeps-metadata-rejection-local"] =
+                    matches(points(selectedInstance.particles), [[-40, 12, 0]])
+                    && matches(points(selectedDynamic.particles), [[-40, 12, 0]])
+                    && selectedInstance.particles == peer.particles && selectedDynamic.particles == peer.particles
+                    && selectedInstance.frameSnapshot().random.state == peer.frameSnapshot().random.state
+                    && selectedDynamic.frameSnapshot().random.state == peer.frameSnapshot().random.state
+                if name.hasPrefix("angles-") {
+                    let replacedAngle = try simulator(raw, instance: [key: "64 0 0",
+                        "controlpointangle\(source)": "0 0 0"])
+                    replacedAngle.advance(by: 0.25, dynamicControlPoints: dynamic,
+                        dynamicControlPointAngles: [source: .zero])
+                    results["emitter/cp\(source)-\(name)-angle-override-does-not-hide-malformed-metadata"] =
+                        matches(points(replacedAngle.particles), [[-40, 12, 0]])
+                        && replacedAngle.particles == peer.particles
+                        && replacedAngle.frameSnapshot().random.state == peer.frameSnapshot().random.state
+                }
+                record("emitter-cp\(source)-\(name)", selectedDynamic)
+            }
+            for (name, position) in [("nonfinite", SIMD3<Double>(.nan, 0, 0)),
+                                      ("out-of-bounds", SIMD3<Double>(1_000_001, 0, 0))] {
+                let selectedBad = try simulator(validRoot, instance: instance)
+                selectedBad.advance(by: 0.25, dynamicControlPoints: [source: position])
+                results["emitter/cp\(source)-\(name)-selected-dynamic-does-not-fall-back"] =
+                    matches(points(selectedBad.particles), [[-40, 12, 0]])
+                    && selectedBad.particles == peer.particles
+                    && selectedBad.frameSnapshot().random.state == peer.frameSnapshot().random.state
+                record("emitter-cp\(source)-\(name)-dynamic", selectedBad)
+            }
+            record("emitter-cp\(source)-valid-instance", validInstance)
+            record("emitter-cp\(source)-valid-dynamic", validDynamic)
+        }
+    }
+
     static func sequenceCases() throws {
         let repeat4 = try simulator(root(between: between(["count": 4]), instantaneous: 5))
         let mirror4 = try simulator(root(between: between(["count": 4, "limitbehavior": "mirror"]), instantaneous: 7))
@@ -717,6 +861,7 @@ enum SceneParticleControlPointComponentsHarness {
 
     static func main() throws {
         try parseCases()
+        try emitterCases()
         try sequenceCases()
         try flagCases()
         try failureCases()

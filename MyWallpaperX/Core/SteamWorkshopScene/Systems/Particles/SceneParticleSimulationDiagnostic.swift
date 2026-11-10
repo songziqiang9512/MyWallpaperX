@@ -222,7 +222,7 @@ extension SceneParticleSimulationMath {
             $0.directions != nil || $0.sign != nil || $0.hasMalformedDirectionsOrSign
         }
         if !shapeEmitters.isEmpty {
-            if shapeEmitters.allSatisfy(\.hasBoundedDirectionsAndSign) {
+            if shapeEmitters.allSatisfy(\.hasValidDirectionsAndSign) {
                 add(.emitterShapeBounded, "sources=\(shapeEmitters.count)")
             } else {
                 add(.emitterShapeUnsupported, "directionsOrSign")
@@ -243,7 +243,7 @@ extension SceneParticleSimulationMath {
                     ? .positionOffsetUnsupported : .positionOffsetBounded,
                     "positionoffsetrandom")
             case .positionAroundControlPoint:
-                add(definition.supportsBoundedPositionAroundControlPoint(initializer)
+                add(definition.positionAroundControlPointPlan(for: initializer) != nil
                     ? .positionAroundControlPointBounded
                     : .positionAroundControlPointUnsupported,
                     "mapsequencearoundcontrolpoint")
@@ -298,6 +298,10 @@ extension SceneParticleSimulationMath {
                     "collisionplane")
             case let .collisionSphere(plan):
                 if plan == nil { add(.unsupportedOperator, "collisionsphere") }
+            case let .collisionBounds(defaultResponse):
+                if !defaultResponse || definition.flags.isWorldSpace || definition.flags.usesPerspective {
+                    add(.unsupportedOperator, "collisionbounds")
+                }
             case let .inheritEventValue(operation):
                 add(operation == .setColor
                     && eventValueContext.operatorValues.map(

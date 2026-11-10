@@ -429,6 +429,8 @@ enum SceneSubmissionLifecycleChecks {
                 finalTails: [effect: newTail], gpuStatus: nil,
                 cancellationReason: nil, retiredHistoryPins: []
             )]
+            var retiredWake = false
+            coordinator.notifyWhenFrameAdmissionOpens { retiredWake = true }
             coordinator.invalidate(reason: .surfaceStop)
             let heldBeforeCallback = oldPin.active && newPin.active
                 && commit.submissionPin.active
@@ -443,6 +445,7 @@ enum SceneSubmissionLifecycleChecks {
                 && oldPin.releaseCount == 1 && newPin.releaseCount == 1
                 && coordinator.pendingSubmissions.isEmpty
                 && coordinator.committedTails.isEmpty
+            results["surfaceRetirementDiscardsAdmissionWake"] = !retiredWake
         }
 
         do {
@@ -741,9 +744,19 @@ enum SceneSubmissionLifecycleChecks {
                 coordinator: coordinator, identity: 1,
                 commandBuffer: bufferA, tail: tailA, commit: commitA
             )
+            var wakeSawCommittedA = false
+            coordinator.notifyWhenFrameAdmissionOpens {
+                wakeSawCommittedA = !coordinator.shouldDeferFrame
+                    && coordinator.committedTails[effect]?.historyPin === pinA
+            }
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(bufferA), observationID: 0, status: .completed
+            )
+            let heldUntilMatchingCompletion = coordinator.shouldDeferFrame && !wakeSawCommittedA
             coordinator.completeCommandBuffer(
                 identity: ObjectIdentifier(bufferA), observationID: coordinator.commandBufferRecords[ObjectIdentifier(bufferA)]?.observationID ?? 0, status: .completed
             )
+            results["admissionWakeFollowsMatchingHistoryPromotion"] = heldUntilMatchingCompletion && wakeSawCommittedA
             let resetAfterA = coordinator.resetGeneration
 
             let bufferB = queue.makeCommandBuffer()!
@@ -758,9 +771,15 @@ enum SceneSubmissionLifecycleChecks {
                 coordinator: coordinator, identity: 2,
                 commandBuffer: bufferB, tail: tailB, commit: commitB
             )
+            var wakeSawRollbackA = false
+            coordinator.notifyWhenFrameAdmissionOpens {
+                wakeSawRollbackA = !coordinator.shouldDeferFrame && !pinB.active
+                    && coordinator.committedTails[effect]?.historyPin === pinA
+            }
             coordinator.completeCommandBuffer(
                 identity: ObjectIdentifier(bufferB), observationID: coordinator.commandBufferRecords[ObjectIdentifier(bufferB)]?.observationID ?? 0, status: .failed
             )
+            results["admissionWakeFollowsHistoryRollback"] = wakeSawRollbackA
             let baseForC = coordinator.scheduledTails[effect]
             let reusedA = baseForC?.state.logicalMapping[historyIdentity]?
                 .token.rawValue == "A"

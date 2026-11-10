@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RF04 A: completed scene color reaches default F5 in a frozen real App.
+"""Completed scene color reaches image and static model receivers in a real App.
 
 Set MWX_SCENE_INTEGRATION_APP to a frozen Debug executable. Evidence is kept
 under MWX_SCENE_INTEGRATION_EVIDENCE, or a printed task-specific temp root.
@@ -21,6 +21,10 @@ import unittest
 import zlib
 
 from script.tests.scene_pkg_fixture import make_package
+from script.tests.scene_display_reconciliation_fixture import (
+    assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
+)
+from script.tests.test_scene_static_model_reader import build_model
 from script.web_benchmark_capture import png_rgb_pixels
 
 
@@ -28,6 +32,8 @@ REPO = Path(__file__).resolve().parents[2]
 CANVAS = (160, 96)
 NORMAL_RGB = (230, 128, 204)
 ROIS = {"receiver": (80, 48), "lateRed": (140, 48), "greenPeer": (20, 80)}
+MODEL_ROIS = {"grazing": (80, 34), "front": (80, 62), "unoccludedBlue": (80, 48),
+              "historyRed": (119, 48), "opaquePeer": (45, 68), "exterior": (67, 48)}
 PIXEL_TOLERANCE = 4
 METAL_FAILURE = re.compile(
     r"MTLCommandBufferErrorDomain|Metal Validation Error|failed assertion"
@@ -92,6 +98,53 @@ def fixture_entries(reflection: int) -> dict[str, bytes]:
     }
 
 
+def model_reflection_entries(reflection: int, *, reflectivity: int = 1,
+                             stem: str = "receiver") -> dict[str, bytes]:
+    entries, objects = {}, []
+    encode = lambda value: json.dumps(value, sort_keys=True).encode()
+    receiver_material = f"materials/{stem}.json"
+
+    def paint(path, rgb, *, shader="genericimage", **authored):
+        texture = path.removesuffix(".json") + ".png"
+        entries[texture] = rgba_png(rgb)
+        entries[path] = encode({"passes": [{"shader": shader, "textures": [texture],
+            "combos": {"LIGHTING": 0}, "blending": "normal", "cullmode": "nocull",
+            "depthtest": "enabled", "depthwrite": "enabled", **authored}]})
+
+    def mesh(path, material, bounds, z, normal=(0., 0., 1.)):
+        x0, y0, x1, y1 = bounds
+        vertices = [((x, y, z), normal, (0., 1., 0., 1.), uv)
+                    for x, y, uv in ((x0, y0, (0., 0.)), (x1, y0, (1., 0.)),
+                                     (x1, y1, (1., 1.)), (x0, y1, (0., 1.)))]
+        entries[path] = build_model(vertices=vertices, indices=(0, 2, 1, 0, 3, 2),
+            bounds=(x0, y0, z, x1, y1, z), material=material.encode())
+        objects.append({"id": 10 + len(objects), "model": path, "origin": "0 96 0",
+                        "scale": "1 -1 1", "perspective": True, "castshadow": False})
+
+    paint(receiver_material, (0, 0, 0), shader="generic4",
+        combos={"LIGHTING": 0, "NORMALMAP": 0, "REFLECTION": reflection},
+        constantshadervalues={"reflectivity": reflectivity, "roughness": 0, "metallic": 0})
+    paint("materials/late-blue.json", (0, 0, 255))
+    paint("materials/opaque-green.json", (0, 255, 0))
+    # The fitted perspective camera preserves the z=0 canvas. Both normals
+    # tilt toward the red source, but only the grazing patch should respond
+    # strongly. The blue model checks black receiver depth even without history.
+    mesh(f"models/{stem}-grazing.mdl", receiver_material, (73, 26, 87, 42), 0,
+         (.8146, 0., .58))
+    mesh(f"models/{stem}-front.mdl", receiver_material, (73, 54, 87, 70), 0,
+         (.12, 0., .9928))
+    mesh("models/late-blue.mdl", "materials/late-blue.json", (73, 24, 87, 72), -24)
+    mesh("models/opaque-green.mdl", "materials/opaque-green.json", (37, 60, 53, 76), 0)
+    objects.append({"id": 30, "image": "models/util/solidlayer.json", "origin": "126 48 0",
+                    "size": "72 96", "color": "1 0 0"})
+    entries["scene.json"] = encode({"version": 3, "objects": objects, "general": {
+        "orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]},
+        "perspectiveoverridefov": 35, "cameraparallax": False, "bloom": False, "hdr": False,
+        "clearcolor": "0 0 0", "clearenabled": True, "ambientcolor": "0 0 0",
+        "skylightcolor": "0 0 0"}})
+    return entries
+
+
 def reflection_oracle() -> dict:
     # Independent double calculation for the project's documented F5 profile.
     # Y-down card orientation flips the decoded normal Y; orthographic view is
@@ -146,7 +199,7 @@ HISTORY_PROTOCOL = {
     "surfaces": 2, "durationSeconds": 8, "timeoutSeconds": 70,
     "held": {"destroySceneTime": 0, "startPaused": True, "pauseResume": "1.5:3",
              "resize": "1.1:0.8,2.25:0.75", "rebuildAfter": "3.5", "afterSnapshotDelay": 5.0,
-             "pendingTail": {"reason": "resize-01", "terminal": "teardown"}},
+             "pendingTail": {"reason": "resize-01", "terminal": "completed"}},
     "warm": {"destroySceneTime": 2, "startPaused": False,
              "pauseResume": "1.5:2", "rebuildAfter": "5", "afterSnapshotDelay": 2.5},
     "ROIs": HISTORY_ROIS, "pixelTolerance": PIXEL_TOLERANCE,
@@ -246,8 +299,11 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
             Path(destination).mkdir(parents=True, exist_ok=True)
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="rf04-reflection-history-", dir=destination))
         sources = [Path(__file__), REPO / "script/tests/scene_pkg_fixture.py",
+                   REPO / "script/tests/test_scene_static_model_reader.py",
+                   REPO / "script/tests/scene_display_reconciliation_fixture.py",
                    REPO / "script/web_benchmark_capture.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift"]
@@ -265,12 +321,15 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
     def run_case(self, reflection: int, *, capture: bool,
                  extra_arguments: tuple[str, ...] = (),
                  initial_snapshot: str = "scene-ready-window.png",
-                 material_input_path: str = "materials/receiver.json") -> dict:
-        name = f"Ref{reflection}-capture-{'on' if capture else 'off'}"
+                 material_input_path: str = "materials/receiver.json",
+                 name: str | None = None, entries: dict[str, bytes] | None = None,
+                 rois: dict | None = None) -> dict:
+        name = name or f"Ref{reflection}-capture-{'on' if capture else 'off'}"
         work = self.evidence_root / name
         content, home = work / "content", work / "home"
         content.mkdir(parents=True); home.mkdir()
-        entries = fixture_entries(reflection)
+        if entries is None:
+            entries = fixture_entries(reflection)
         (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
         (work / "scene-input.json").write_bytes(entries["scene.json"])
@@ -296,7 +355,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         log = (work / "app.log").read_text()
         pixels = {}
         for path in sorted((work / "evidence").glob("*-window.png")):
-            pixels[path.name] = measure_capture(path)
+            pixels[path.name] = measure_capture(path) if rois is None else measure_capture(path, rois)
         identity.update(appAfter={path: sha256(Path(path)) for path in self.app_identity},
                         sourcesAfter={path: sha256(Path(path)) for path in self.source_identity})
         (work / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
@@ -318,7 +377,8 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         self.assertRegex(log, r"phase=ready [^\n]*surfaces=[1-9]\d*")
         self.assertRegex(log, r"phase=stopped surfacesBefore=[1-9]\d* surfacesAfter=0 gpuDrained=true")
         if capture:
-            self.assertRegex(log, r"state=completed frame=[1-9]\d* surface=\d+ gpu=completed")
+            frame = r"\d+" if "--mwx-debug-scene-start-paused" in extra_arguments else r"[1-9]\d*"
+            self.assertRegex(log, rf"state=completed frame={frame} surface=\d+ gpu=completed")
             self.assertIn(initial_snapshot, pixels)
             self.assertIn("scene-after-window.png", pixels)
         else:
@@ -383,25 +443,22 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
             identity["returncode"] = process.returncode
             pixels = {path.name: measure_capture(path, HISTORY_ROIS)
                       for path in sorted(evidence.glob("*-window.png"))}
-            observed = {stage: json.loads((evidence / f"surface-rebuild-{stage}.json").read_text())
-                        for stage in ("before", "after", "settled")}
+            observed = load_reconciliation_snapshots(evidence)
             retired = re.search(r"(?m)^.*lifecycle=layer-retirement[^\n]*sceneTime=([\d.]+)", log)
-            teardown = next((match for match in re.finditer(
-                r"(?m)^.*phase=surface-teardown clearContext=false[^\n]*", log)
-                if retired and match.start() > retired.end()), None)
-            rebuild = teardown.start() if teardown else -1
-            provider_before = history_graph_receipts(log[:rebuild], 11) if rebuild >= 0 else []
-            provider_after = history_graph_receipts(log[rebuild:], 11) if rebuild >= 0 else []
+            interval = reconciliation_interval(self, log)
+            reconciliation = log.index(interval)
+            provider_before = history_graph_receipts(log[:reconciliation], 11)
+            provider_after = history_graph_receipts(log[reconciliation:], 11)
             victim = history_graph_receipts(log, 31)
             completed = lambda rows: [row for row in rows if row.get("gpuCompletion") == "completed"
                 and row.get("copyNodes") == "1" and row.get("materialNodes") == "2"
                 and row.get("rejectedNodes") == "0"]
             qualification = {"retirementLine": retired.group(0) if retired else None,
                 "retirementSceneTime": float(retired.group(1)) if retired else None,
-                "rebuildTeardownLine": teardown.group(0) if teardown else None,
+                "reconciliationLine": interval.splitlines()[0],
                 "victimGraphCompleted": completed(victim),
-                "hiddenProviderBeforeRebuild": completed(provider_before),
-                "hiddenProviderAfterRebuild": completed(provider_after),
+                "hiddenProviderBeforeReconciliation": completed(provider_before),
+                "hiddenProviderAfterReconciliation": completed(provider_after),
                 "namedConsumerCompleted": [row for row in history_graph_receipts(log, 22)
                     if row.get("gpuCompletion") == "completed" and row.get("compositorConsumed") == "true"],
                 "namedPublicationLines": [line for line in log.splitlines()
@@ -413,66 +470,67 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
             self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-rejected|outcome=failed"
                 r"|predecessor-output-not-consumed|frame-success-blueprint-rejected")
             self.assertRegex(log, r"phase=ready [^\n]*surfaces=2 ")
-            self.assertRegex(log, r"phase=surface-rebuild state=rebuilt accepted=true surfacesBefore=2 surfacesAfter=2")
+            self.assertRegex(log, r"phase=surface-reconciliation state=retained accepted=true surfacesBefore=2 surfacesAfter=2")
             self.assertRegex(log, r"phase=stopped surfacesBefore=2 surfacesAfter=0 gpuDrained=true")
             self.assertIsNotNone(retired, qualification)
-            self.assertIsNotNone(teardown, qualification)
-            self.assertLess(retired.start(), teardown.start(), qualification)
+            self.assertLess(retired.start(), reconciliation, qualification)
             self.assertRegex(retired.group(0), r"owners=1 destroyCallbacks=\d+ quiescent=1 failures=0")
             self.assertEqual(len({row["runtime"] for row in completed(victim)}), 2, qualification)
             self.assertTrue(any(row.get("history") == "seeded" for row in completed(victim)), qualification)
             self.assertTrue(qualification["namedPublicationLines"], qualification)
             before_ids = {row["runtime"] for row in completed(provider_before)}
-            after_ids = {row["runtime"] for row in completed(provider_after)} - before_ids
+            after_ids = {row["runtime"] for row in completed(provider_after)}
             self.assertEqual(len(before_ids), 2, qualification)
-            self.assertEqual(len(after_ids), 2, qualification)
-            self.assertTrue(before_ids.isdisjoint(after_ids), qualification)
-            self.assertTrue((before_ids | after_ids).issubset(
+            self.assertEqual(before_ids, after_ids, qualification)
+            self.assertTrue(before_ids.issubset(
                 {row["runtime"] for row in qualification["namedConsumerCompleted"]}), qualification)
-            before, after, settled = (observed[stage] for stage in ("before", "after", "settled"))
-            self.assertTrue(before["sessionID"] and before["requestID"], observed)
-            for key in ("sessionID", "requestID", "surfaceCount"):
-                self.assertEqual(before[key], after[key], observed)
-                self.assertEqual(before[key], settled[key], observed)
-            self.assertEqual(before["surfaceCount"], 2, observed)
-            self.assertTrue(set(before["windowNumbers"]).isdisjoint(after["windowNumbers"]), observed)
-            self.assertEqual(after["windowNumbers"], settled["windowNumbers"], observed)
+            before, after, settled = assert_retained_surfaces(self, observed, 2, paused=phase == "held")
+            owners = {row["graphRuntimeIdentity"] for row in before["surfacesByDisplay"].values()}
+            self.assertEqual(owners, before_ids, (observed, qualification))
+            for owner in owners:
+                rows = [row for row in completed(provider_after) if row["runtime"] == owner]
+                self.assertTrue(any(row.get("history") in ("seeded", "reused") for row in rows), qualification)
+                old_allocations = {row["allocationGeneration"] for row in completed(provider_before)
+                                   if row["runtime"] == owner}
+                for allocation in {row["allocationGeneration"] for row in rows} - old_allocations:
+                    self.assertTrue(any(row["allocationGeneration"] == allocation
+                        and (row.get("history") == "seeded" or int(row["historyRehydrateCopyCount"]) > 0)
+                        for row in rows), qualification)
             self.assertTrue(before["capturedTopology"] and before["requestedTopology"], observed)
-            self.assertEqual([row["displayID"] for row in before["capturedTopology"]],
-                             [row["displayID"] for row in before["requestedTopology"]], observed)
+            self.assertTrue({row["displayID"] for row in before["capturedTopology"]}.issubset(
+                {row["displayID"] for row in before["requestedTopology"]}), observed)
+            self.assertEqual({str(row["displayID"]) for row in before["requestedTopology"]},
+                             set(before["surfacesByDisplay"]), observed)
             self.assertNotEqual(before["capturedTopology"], before["requestedTopology"], observed)
             self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
             self.assertFalse(settled["isPlaybackPaused"], observed)
             self.assertTrue(settled["isFrameDriverActive"], observed)
             if phase == "held":
                 failures = qualification["snapshotFailureLines"]
-                self.assertEqual(len(failures), 1, qualification)
-                self.assertRegex(failures[0], r"phase=snapshot-failed reason=resize-01 request=\d+ stage=teardown(?:\s|$)")
-                self.assertNotIn("scene-resize-01-window.png", pixels, qualification)
-                self.assertGreater(log.index(failures[0]), retired.end(), qualification)
-                self.assertLess(log.index(failures[0]), teardown.start(), qualification)
+                self.assertEqual(failures, [], qualification)
+                self.assertIn("scene-resize-01-window.png", pixels, qualification)
+                self.assertRegex(log, r"phase=snapshot reason=resize-01 request=\d+ source=metal")
                 self.assertRegex(log, r"phase=surface-resize index=0 scale=0\.8000 accepted=true")
                 self.assertRegex(log, r"phase=surface-resize index=1 scale=0\.7500 accepted=true")
                 self.assertEqual(qualification["retirementSceneTime"], 0, qualification)
-                self.assertTrue(before["isPlaybackPaused"] and after["isPlaybackPaused"], observed)
-                self.assertFalse(before["isFrameDriverActive"] or after["isFrameDriverActive"], observed)
-                self.assertEqual(before["sceneTime"], after["sceneTime"], observed)
+                self.assertNotIn("phase=owner-effects-admission", interval)
+                self.assertIn(31, before["committedDestroyedLayerIDs"], observed)
+                for row in after["surfacesByDisplay"].values():
+                    self.assertNotIn(31, row["destroyedLayerIDs"], observed)
                 self.assertRegex(log, r"phase=pause-resume state=paused accepted=false[^\n]*pausedBefore=true pausedAfter=true")
                 self.assertRegex(log, r"phase=pause-resume state=resumed accepted=false surfacesPaused=2 "
                     r"surfacesBeforeResume=2 surfacesAfterResume=2 pausedBeforeResume=true pausedAfterResume=false "
                     r"timerBeforeResume=inactive timerAfterResume=active")
-                alive = ("scene-ready-window.png", "scene-resize-00-window.png")
+                alive = ("scene-ready-window.png", "scene-resize-00-window.png",
+                         "scene-resize-01-window.png", "scene-surface-rebuild-after-window.png")
                 absent = ("scene-after-window.png", "scene-pause-resume-after-window.png",
-                          "scene-surface-rebuild-after-window.png", "scene-surface-rebuild-settled-window.png")
+                          "scene-surface-rebuild-settled-window.png")
             else:
                 self.assertEqual(qualification["snapshotFailureLines"], [], qualification)
                 self.assertGreaterEqual(qualification["retirementSceneTime"], 2, qualification)
                 self.assertLess(qualification["retirementSceneTime"], before["sceneTime"], observed)
                 for rows in (completed(victim), completed(provider_before)):
                     self.assertTrue(any(row.get("history") == "reused" for row in rows), qualification)
-                self.assertFalse(before["isPlaybackPaused"] or after["isPlaybackPaused"], observed)
-                self.assertTrue(before["isFrameDriverActive"] and after["isFrameDriverActive"], observed)
-                self.assertGreater(after["sceneTime"], before["sceneTime"], observed)
                 self.assertRegex(log, r"phase=pause-resume state=paused accepted=true")
                 self.assertRegex(log, r"phase=pause-resume state=resumed accepted=true")
                 alive = ("scene-ready-window.png", "scene-after-window.png", "scene-pause-resume-after-window.png")
@@ -493,7 +551,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
             self.assertEqual(identity["sourcesBefore"], identity["sourcesAfter"], identity)
             self.assertEqual(identity["inputsBefore"], identity["inputsAfter"], identity)
 
-    def test_graph_history_lifecycle_through_pause_rebuild_and_stop(self):
+    def test_graph_history_lifecycle_through_pause_reconciliation_and_stop(self):
         for phase in ("held", "warm"):
             with self.subTest(phase=phase):
                 self.run_history_lifecycle(phase)
@@ -515,6 +573,44 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 delta = [mirror["receiver"]["mean"][c] - plain["receiver"]["mean"][c] for c in range(3)]
                 self.assertGreater(delta[0], 40, delta)
                 self.assertLessEqual(max(abs(delta[1]), abs(delta[2])), PIXEL_TOLERANCE, delta)
+
+    def test_static_model_reflection_uses_completed_color_and_keeps_depth(self):
+        cold = "scene-resize-00-window.png"
+        warm = "scene-after-window.png"
+        # The runner queues the resize capture before the first paused redraw
+        # at the new extent. The next snapshot draws with that extent's history.
+        arguments = ("--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "2:0.8",
+                     "--mwx-debug-scene-after-snapshot-delay", "4")
+        reference_red = None
+        for name, reflection, reflectivity, stem in (
+            ("off", 0, 1, "receiver"), ("zero", 1, 0, "receiver"),
+            ("on", 1, 1, "receiver"), ("renamed", 1, 1, "moved-surface"),
+        ):
+            with self.subTest(material=name):
+                result = self.run_case(reflection, capture=True, name=f"model-{name}", rois=MODEL_ROIS,
+                    entries=model_reflection_entries(reflection, reflectivity=reflectivity, stem=stem),
+                    material_input_path=f"materials/{stem}.json", extra_arguments=arguments,
+                    initial_snapshot=cold)
+                first, settled = result["pixels"][cold], result["pixels"][warm]
+                self.assertNotEqual(first["size"], result["pixels"]["scene-ready-window.png"]["size"])
+                self.assertEqual(first["size"], settled["size"])
+                self.assert_pixel(first["grazing"], [0, 0, 0])
+                for row in (first, settled):
+                    for roi, rgb in {"front": [0, 0, 0], "unoccludedBlue": [0, 0, 255],
+                        "historyRed": [255, 0, 0], "opaquePeer": [0, 255, 0],
+                        "exterior": [0, 0, 0]}.items():
+                        self.assert_pixel(row[roi], rgb)
+                if reflection and reflectivity:
+                    self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
+                    red, green, blue = settled["grazing"]["mean"]
+                    self.assertGreater(red, 25, settled["grazing"])
+                    self.assertLessEqual(max(green, blue), PIXEL_TOLERANCE, settled["grazing"])
+                    if reference_red is not None:
+                        self.assertAlmostEqual(red, reference_red, delta=PIXEL_TOLERANCE)
+                    reference_red = red
+                else:
+                    self.assertFalse(result["completedSourceSubmissions"], result)
+                    self.assert_pixel(settled["grazing"], [0, 0, 0])
 
     def test_capture_off_product_drawable_remains_legal(self):
         # SceneDebugFrameCapture.configure forces framebufferOnly=false only

@@ -468,6 +468,7 @@
         "gpu_failed_count": 0,
         "dependency_consumed_provider_layer_ids": [],
         "terminal_success_observations": [],
+        "pending_visual_failure_passthroughs": [],
         "validation_failures": []
       },
       "exact_backend": {

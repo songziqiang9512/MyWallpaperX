@@ -28,9 +28,11 @@ extension SceneRenderDescriptor {
     var camera: HistorySurfaceCameraProperties { .init() }
 }
 struct HistorySurfaceProjection {
+    struct UtilityExecution { let perspectiveReplayRootIDs: Set<Int> = [] }
     let descriptor: SceneRenderDescriptor
     let layersByID: [Int: SceneRenderDescriptor.Layer]
     let worldFrames: [Int: simd_float4x4]
+    let utilityExecution = UtilityExecution()
 }
 struct HistorySurfaceCamera {}
 final class HistorySurfaceRuntime {
@@ -55,7 +57,8 @@ final class HistorySurfaceRenderer {
     }
     func makeCameraFrame(
         frameContext: SceneFrameContext, descriptor: SceneRenderDescriptor,
-        layersByID: [Int: SceneRenderDescriptor.Layer], worldFrames: [Int: simd_float4x4]
+        layersByID: [Int: SceneRenderDescriptor.Layer], worldFrames: [Int: simd_float4x4],
+        perspectiveReplayRootIDs: Set<Int>
     ) -> HistorySurfaceCamera { .init() }
 }
 final class HistorySurfacePuppet {

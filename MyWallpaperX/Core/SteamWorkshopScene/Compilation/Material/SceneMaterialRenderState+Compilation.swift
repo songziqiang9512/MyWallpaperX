@@ -2,6 +2,14 @@ import Foundation
 
 /// Launch/preparation-only normalization of authored material fields.
 nonisolated extension SceneMaterialRenderState {
+    static func compileTextDepth(_ depthTest: String?) -> Self? {
+        guard typed(depthTest, as: Depth.self) == .enabled else { return nil }
+        return .init(rawValues: .init(blending: nil, depthTest: depthTest,
+            depthWrite: nil, cullMode: nil, alphaWriting: nil),
+            blending: .translucent, depthTest: .enabled, depthWrite: .enabled,
+            cullMode: .noCull, alphaWriting: .unspecified)
+    }
+
     static func compile(
         blending: String?,
         depthTest: String?,

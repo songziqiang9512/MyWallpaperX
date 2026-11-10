@@ -4,7 +4,6 @@ import Foundation
 nonisolated enum SceneParticlePipelineRenderStateCompiler {
     static func compile(
         _ state: SceneMaterialRenderState,
-        definition: SceneParticleDefinition,
         materialPass: SceneParticleMaterialPass?,
         isRefraction: Bool = false
     ) -> SceneParticlePipelineRenderState? {
@@ -12,7 +11,6 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
               let overbright = overbright(in: materialPass) else { return nil }
 
         let ordinaryInputs = supportsOrdinaryMaterialProfile(materialPass)
-        let usesSceneCamera = selectsSceneCamera(definition) && ordinaryInputs
         let blendMode: SceneParticlePipelineBlendMode
         switch state.blending {
         case .translucent: blendMode = .translucent
@@ -34,7 +32,6 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
             blendMode: blendMode,
             cullMode: state.cullMode == .normal ? .back : .none,
             depthTestEnabled: state.depthTest == .enabled,
-            usesSceneCamera: usesSceneCamera,
             depthWriteEnabled: state.depthWrite == .enabled,
             overbright: overbright
         )
@@ -65,19 +62,19 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
     }
 
     // This selects the existing coordinate convention, not execution rights.
-    private static func selectsSceneCamera(_ definition: SceneParticleDefinition) -> Bool {
-        guard definition.renderers.count == 1,
-              let renderer = definition.renderers.first,
+    static func usesSceneCamera(
+        renderer: SceneParticleRenderer,
+        materialPass: SceneParticleMaterialPass?
+    ) -> Bool {
+        guard renderer.kind == .sprite,
+              supportsOrdinaryMaterialProfile(materialPass),
               renderer.rawFlags == 0 || renderer.rawFlags == 1,
               renderer.axis == nil,
               !renderer.hasMalformedFields,
               renderer.unsupportedFieldNames.isEmpty,
               renderer.orientation.map({
                   $0.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-              }).map({ $0.isEmpty || $0 == "screen" }) ?? true,
-              !definition.diagnostics.contains(where: {
-                  $0.kind == .malformedComponent && $0.path.hasPrefix("renderer[")
-              }) else { return false }
-        return renderer.kind == .sprite
+              }).map({ $0.isEmpty || $0 == "screen" }) ?? true else { return false }
+        return true
     }
 }

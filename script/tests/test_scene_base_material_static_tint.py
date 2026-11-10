@@ -268,7 +268,7 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["count"], 0)
 
     def test_non_neutral_static_scalars_keep_the_full_source_program(self) -> None:
-        for name in ["brightnessTwo", "powerHalf", "powerPoint99",
+        for name in ["brightnessTwo", "powerHalf", "powerPoint99", "scrollNonzero", "renamedScroll",
                      "fullProgramMixedColorAndUserAlpha"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 1)
@@ -279,7 +279,7 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
         self.assertTrue(mixed["hasScript"])
         self.assertEqual(mixed["colorUserKey"], "palette")
         self.assertEqual(mixed["alphaUserKey"], "liveOpacity")
-        for name in ["scrollNonzero", "overflowingBrightness", "nonfinitePower",
+        for name in ["overflowingBrightness", "nonfinitePower", "renamedDynamicScroll",
                      "unknownBrightnessWrapper"]:
             with self.subTest(name=name):
                 self.assertEqual(self.result[name]["count"], 0)
@@ -392,6 +392,19 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
                 self.assertEqual(self.result[name]["count"], 1)
                 self.assertEqual(self.result[name]["context"], context)
                 self.assertEqual(self.result[name]["color"], [0.2, 0.4, 0.6])
+
+
+    def test_hidden_prototype_prepares_the_requested_full_source_only(self) -> None:
+        for name in ["hiddenSourceRequested", "hiddenSourceWithVisibleSibling"]:
+            with self.subTest(name=name):
+                row = self.result[name]
+                self.assertEqual(row["count"], 1)
+                self.assertFalse(row["canLower"])
+                self.assertEqual(row["context"], 57)
+        for name in ["hiddenSourceUnrequested", "hiddenSourceNeutral",
+                     "hiddenSourceWithUnsupportedSibling"]:
+            with self.subTest(name=name):
+                self.assertEqual(self.result[name]["count"], 0)
 
 
 if __name__ == "__main__":

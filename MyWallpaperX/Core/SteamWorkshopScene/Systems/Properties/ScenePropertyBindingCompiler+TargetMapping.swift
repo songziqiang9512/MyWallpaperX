@@ -30,7 +30,7 @@ extension ScenePropertyBindingCompiler {
             }
         }
         switch binding.target {
-        case let .layerVisibility(layerID) where layerID >= 0 && propertyKind == .bool:
+        case let .layerVisibility(layerID) where layerID >= 0:
             return (.layer(layerID: layerID, field: .visibility), .bool, .bool)
         case let .shaderValue(layerID, effectIndex, passIndex, name, _):
             guard layerID >= 0, effectIndex >= 0, passIndex >= 0,
@@ -139,6 +139,7 @@ extension ScenePropertyBindingCompiler {
             }
         case let .scene(field):
             switch field {
+            case "zoom": (.camera(.generalZoom), .scalar, .slider)
             case "clearcolor": (.scene(.clearColor), .vector3, .color)
             case "bloom": (.scene(.bloomEnabled), .bool, .bool)
             case "bloomstrength": (.scene(.bloomStrength), .scalar, .slider)

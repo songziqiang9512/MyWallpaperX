@@ -474,20 +474,45 @@ import Dispatch
   namedEntry = .init(materialPath: namedEntry.materialPath, dynamicMaterialPath: "",
    mesh: namedEntry.mesh,
    albedo: nil, namedAlbedo: "owned-late-provider", material: namedEntry.material)
-  let lateRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline, entries: [1: [namedEntry]]))
+  let lateRenderer = SceneMetalRenderer(device: device, resources: .init(pipeline: pipeline,
+   entries: [1: [namedEntry], 2: [entry(SIMD3(0, 1, 0))]]))
   let lateCB = queue.makeCommandBuffer()!
   let latePass = SceneMainPassEncoder(commandBuffer: lateCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let lateState = SceneMetalRenderer.StaticModelFrame(commandBuffer: lateCB)
   var lateLeases: [SceneParticleDepthTargetLease] = []
   let lateExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: lateState,
-   orderedLayers: [.init(id: 1)], visible: [1, 20], worldFrames: world, snapshot: dynamic,
+   orderedLayers: [.init(id: 1), .init(id: 2)], ordinaryLayerIDs: [21],
+   visible: [1, 2, 20, 21], worldFrames: world, snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: latePass, groups: nil,
    commandBuffer: lateCB, leases: &lateLeases)
-  checks["source-unknown-late-input-keeps-original-chain"] = lateExclusion == [20]
+  checks["source-unknown-late-input-keeps-original-chain"] = lateExclusion == [20, 21]
    && lateState.prepared == nil && lateLeases.isEmpty && lateState.depthDeferralReason == nil
    && lateRenderer.staticModelDepthTargetPool.residentByteCost == 0
   lateState.cancel(); latePass.closeForOffscreen()
+  let prefixCB = queue.makeCommandBuffer()!
+  let prefixPass = SceneMainPassEncoder(commandBuffer: prefixCB, target: first.output,
+   clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)
+  let prefixState = SceneMetalRenderer.StaticModelFrame(commandBuffer: prefixCB)
+  var prefixLeases: [SceneParticleDepthTargetLease] = []
+  let prefixExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: prefixState,
+   orderedLayers: [.init(id: 2), .init(id: 1)], ordinaryLayerIDs: [21],
+   visible: [1, 2, 20, 21], worldFrames: world, snapshot: dynamic,
+   batches: [:], particlePipeline: nil, mainPass: prefixPass, groups: nil,
+   commandBuffer: prefixCB, leases: &prefixLeases)
+  let prefixBinding = prefixState.terminalDepthBinding(pass: prefixPass, commandBuffer: prefixCB)
+  checks["source-pending-model-keeps-only-ordinary-prefix-domain"] = prefixExclusion == [20]
+   && prefixState.prepared == nil && prefixLeases.count == 1 && prefixBinding != nil
+  _ = lateRenderer.drawStaticModel(layer: .init(id: 2), state: prefixState, worldFrames: world,
+   frameContext: .init(dynamicValues: dynamic), cameraFrame: camera, lighting: lighting,
+   pass: prefixPass, commandBuffer: prefixCB, leases: &prefixLeases)
+  let prefixTerminalOpened = prefixBinding?.encoder(prefixPass) != nil
+  prefixPass.closeForOffscreen()
+  prefixLeases.forEach { $0.arm(on: prefixCB) }; prefixState.arm(on: prefixCB)
+  prefixCB.commit(); prefixCB.waitUntilCompleted()
+  checks["source-prefix-model-and-ordinary-rejoin-actual-pass"] = prefixCB.status == .completed
+   && prefixCB.error == nil && prefixTerminalOpened && prefixLeases.count == 1
+   && rgb(first) == [0, 255, 0, 255]
   // Refresh late draw payloads through their original owner without changing
   // the already reserved pass domain or acquiring a second model texture.
   let freshCB = queue.makeCommandBuffer()!

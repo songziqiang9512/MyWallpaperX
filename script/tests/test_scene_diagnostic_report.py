@@ -7,12 +7,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_diagnostic_report as diagnostic
+from scene_wallpaper_graph_output_metrics import structured_runtime_observations
 
 
 def resolved_execution(
@@ -439,6 +441,89 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         fixture["runtime"]["composition_observations"]["events"].append(event)
         value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
         self.assertEqual(value["basicDisplayStatus"], "runtime-evidence-incomplete")
+
+        prefix = "MWX SCENE COMPOSITION OBSERVATION: "
+        before = {**event, "frameIndex": 98}
+        capture["encoded_line_number"] = 2
+        for before_line in (1, 2):
+            lines = [prefix + json.dumps(before), "phase=snapshot-encoded request=7"]
+            if before_line == 2:
+                lines = ["unrelated", lines[1] + " " + lines[0]]
+            lines += ["phase=snapshot reason=after request=7 source=metal path=/tmp/output.png",
+                      prefix + json.dumps(event), prefix + '{"schemaVersion":1,']
+            observations = structured_runtime_observations("\n".join(lines), prefix)
+            fixture["runtime"]["composition_observations"] = observations
+            with self.subTest(before_line=before_line):
+                self.assertEqual(observations["source_line_numbers"], [before_line, 4])
+                self.assertEqual(observations["parse_errors"], 1)
+                value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                self.assertEqual(value["basicDisplayStatus"], "terminal-compositor-observed")
+                self.assertEqual(value["evidenceSummary"]["terminalSnapshot"]["frame_index"], 99)
+        # Uniqueness is decided before inspecting completion, Surface or seal.
+        for extra in (event, {**event, "gpuStatus": "failed"},
+                      {**event, "surfaceIdentity": "another-surface"},
+                      {**event, "rows": []}, {**event, "truncatedRows": 9}):
+            fixture["runtime"]["composition_observations"] = {
+                "events": [before, event, extra], "source_line_numbers": [1, 4, 5]}
+            with self.subTest(extra=extra):
+                value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                self.assertEqual(value["basicDisplayStatus"], "runtime-evidence-incomplete")
+        for extra in ({**event, "captureRequestID": 8}, {**event, "commandBufferToken": "other"}):
+            fixture["runtime"]["composition_observations"] = {
+                "events": [before, event, extra], "source_line_numbers": [1, 4, 5]}
+            self.assertEqual(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                             ["basicDisplayStatus"], "terminal-compositor-observed")
+        truncated = {**event, "truncatedRows": 9}
+        fixture["runtime"]["composition_observations"] = {
+            "events": [before, truncated], "source_line_numbers": [1, 4]}
+        self.assertEqual(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                         ["basicDisplayStatus"], "terminal-compositor-observed")
+        for rows in ([], [event["rows"][0], event["rows"][0]],
+                     [{**event["rows"][0], "outcome": "failed"}]):
+            fixture["runtime"]["composition_observations"] = {
+                "events": [before, {**event, "rows": rows}], "source_line_numbers": [1, 4]}
+            self.assertFalse(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                             ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+        # Missing or malformed ordering data grants no ability to discard a candidate.
+        for ordinals in (None, [], [1], [1, 4, 5], [True, 4], ["1", 4],
+                         [0, 4], [4, 4], [4, 1], [1, 4.0], "1,4", {0: 1, 1: 4}):
+            observations = {"events": [before, event]}
+            if ordinals is not None:
+                observations["source_line_numbers"] = ordinals
+            fixture["runtime"]["composition_observations"] = observations
+            with self.subTest(ordinals=ordinals):
+                self.assertFalse(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                                 ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+        for ordinals in (None, [], [True], ["4"], [0], [1, 4]):
+            observations = {"events": [event]}
+            if ordinals is not None:
+                observations["source_line_numbers"] = ordinals
+            fixture["runtime"]["composition_observations"] = observations
+            self.assertTrue(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                            ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+        for encoded_line in (None, 0, -1, True, "2", 2.0):
+            capture["encoded_line_number"] = encoded_line
+            observations = {"events": [before, event], "source_line_numbers": [1, 4]}
+            fixture["runtime"]["composition_observations"] = observations
+            with self.subTest(encoded_line=encoded_line):
+                self.assertFalse(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                                 ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+                observations.update(events=[event], source_line_numbers=[4])
+                self.assertTrue(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                                ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+        for request, cb, texture, width, height in ((11, "submit-renamed", "output-renamed", 640, 480),
+                                                   (92, "another", "another-texture", 911, 513)):
+            renamed_capture = {**capture, "request_id": request, "command_buffer_token": cb,
+                "texture_token": texture, "source_width": width, "source_height": height,
+                "encoded_line_number": 2}
+            renamed_event = deepcopy(event)
+            renamed_event.update(captureRequestID=request, commandBufferToken=cb, surfaceIdentity="renamed")
+            renamed_event["rows"][0]["target"] = {"textureToken": texture, "width": width, "height": height}
+            fixture["evidence"]["snapshot_capture"] = renamed_capture
+            fixture["runtime"]["composition_observations"] = {
+                "events": [renamed_event], "source_line_numbers": [4]}
+            self.assertTrue(diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                            ["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
 
     def test_effect_local_fallback_clusters_without_sample_or_layer_identity(self) -> None:
         fixtures = []

@@ -7,8 +7,6 @@ extension SceneResolvedMaterialGraphExecutor {
         let commandCount: Int
     }
 
-    /// Applies one effect-entry passthrough after the outer loop has chosen
-    /// the source representation. The only GPU work remains the original pair copy.
     func preparePassthrough(
         _ passthrough: StagePassthrough,
         stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
@@ -18,6 +16,8 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
+        sourceCommand: inout Command,
+        captureCanWriteOutput: Bool,
         effectLocalFailureReasonCode: inout String?,
         effectLocalActivationBypassReasonCode: inout String?
     ) -> Failure? {
@@ -39,50 +39,8 @@ extension SceneResolvedMaterialGraphExecutor {
             rejection = failure
             isActivation = false
         }
-        if !isActivation {
-            guard stageCapability.supportsEffectEntryPassthrough else { return rejection }
-        }
-        let failure = prepareStagePassthrough(
-            pairStep: pairStep,
-            lease: lease,
-            snapshot: snapshot,
-            pair: &pair,
-            publications: &publications,
-            commands: &commands,
-            rejection: rejection
-        )
-        guard failure == nil else { return failure }
-        if isActivation {
-            effectLocalActivationBypassReasonCode = reasonCode
-            return nil
-        }
-#if DEBUG
-        ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
-#endif
-        effectLocalFailureReasonCode = reasonCode
-        if reasonCode.hasPrefix("material-pass-preparation-")
-            || reasonCode.hasPrefix("material-finalizer-") {
-#if DEBUG
-            recordEffectLocalFramePreparationFallback(
-                reasonCode: reasonCode,
-                effect: pairStep.effect,
-                boundedDetail: boundedDetail
-            )
-#endif
-        }
-        return nil
-    }
-
-    private func prepareStagePassthrough(
-        pairStep: Pair.EffectStep,
-        lease: SceneGraphRenderTargetLease,
-        snapshot: VisualFailureSnapshot,
-        pair: inout PairAtom,
-        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
-        commands: inout [Command],
-        rejection: Failure
-    ) -> Failure? {
-        guard commands.count >= snapshot.commandCount else {
+        guard (isActivation || stageCapability.supportsEffectEntryPassthrough),
+              commands.count >= snapshot.commandCount else {
             return rejection
         }
         commands.removeSubrange(snapshot.commandCount ..< commands.count)
@@ -96,14 +54,18 @@ extension SceneResolvedMaterialGraphExecutor {
             ) else { return rejection }
             publication = value
         } else {
-            guard let copy = resourceEncoder?.prepareCopy(
-                      source: pair.resource.publication.texture,
-                      target: pairTexture(
-                          lease: lease,
-                          member: pairStep.outputMember
-                      )
-                  ),
-                  let generation = nextPairGeneration(),
+            let target = pairTexture(lease: lease, member: pairStep.outputMember)
+            // This bypass has no reader of the entry member before publication.
+            if isActivation, captureCanWriteOutput, case let .resource(capture) = sourceCommand,
+               let redirected = capture.retargetingPlainSourceCapture(toEquivalentTarget: target) {
+                sourceCommand = .resource(redirected)
+            } else {
+                guard let copy = resourceEncoder?.prepareCopy(
+                    source: pair.resource.publication.texture, target: target
+                ) else { return rejection }
+                commands.append(.resource(copy))
+            }
+            guard let generation = nextPairGeneration(),
                   let value = pairResource(
                       lease: lease,
                       identity: pairStep.outputIdentity,
@@ -111,7 +73,6 @@ extension SceneResolvedMaterialGraphExecutor {
                       generation: generation,
                       representation: pair.representation
                   ) else { return rejection }
-            commands.append(.resource(copy))
             publication = value
         }
         publications[pairStep.outputIdentity] = publication
@@ -120,6 +81,22 @@ extension SceneResolvedMaterialGraphExecutor {
             resource: publication,
             representation: pair.representation
         )
+        if isActivation {
+            effectLocalActivationBypassReasonCode = reasonCode
+            return nil
+        }
+#if DEBUG
+        ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
+        if reasonCode.hasPrefix("material-pass-preparation-")
+            || reasonCode.hasPrefix("material-finalizer-") {
+            recordEffectLocalFramePreparationFallback(
+                reasonCode: reasonCode,
+                effect: pairStep.effect,
+                boundedDetail: boundedDetail
+            )
+        }
+#endif
+        effectLocalFailureReasonCode = reasonCode
         return nil
     }
 

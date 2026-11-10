@@ -9,6 +9,7 @@ extension SceneParticleDefinitionParser {
         let controlPoint = Self.integer(root["controlpoint"])
         let origin = Self.numericValue(root["origin"])
         let audioResponse = Self.audioResponse(root)
+        let rawFlags = Self.integer(root["flags"])
         let kind: SceneParticleOperatorKind
         switch name {
         case "movement": kind = .movement
@@ -36,6 +37,14 @@ extension SceneParticleDefinitionParser {
         case "collisionplane": kind = .collisionPlane(.init(root: root))
         case "collisionsphere":
             kind = .collisionSphere(audioResponse.isEnabled ? nil : .init(root: root, origin: origin))
+        case "collisionbounds":
+            let responseFields = ["collisionbehavior", "bouncefactor", "controlpoint",
+                                  "blendinstart", "blendinend", "blendoutstart", "blendoutend"]
+            let configured = responseFields.contains { key in
+                root[key].map { !($0 is NSNull) } ?? false
+            }
+            kind = .collisionBounds(defaultResponse: !audioResponse.isEnabled && !configured
+                && (root["flags"] == nil || root["flags"] is NSNull || rawFlags == 0))
         case "inheritvaluefromevent":
             kind = .inheritEventValue(.init(root: root))
         default:
@@ -46,7 +55,7 @@ extension SceneParticleDefinitionParser {
         }
         return SceneParticleOperator(
             id: Self.integer(root["id"]), kind: kind,
-            rawFlags: Self.integer(root["flags"]) ?? 0,
+            rawFlags: rawFlags ?? 0,
             gravity: Self.numericValue(root["gravity"]), drag: Self.number(root["drag"]),
             force: Self.numericValue(root["force"]),
             fadeInTime: Self.number(root["fadeintime"]),

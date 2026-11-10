@@ -163,11 +163,10 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         checks["actualGPUSamplesAdvanceRedToBlue"] = pixels.contains { $0[0] > 0.9 && $0[2] < 0.1 }
             && pixels.contains { $0[2] > 0.9 && $0[0] < 0.1 } && generations.count > 10
 
-        registry.beginSurfaceRebuild(sceneTime: 2.25, hostTime: CACurrentMediaTime())
-        let rebuilt = registry.userPropertySources(declarations: declarations.videoDeclarations, device: device)
-        registry.completeSurfaceRebuild()
-        checks["rebuildReusesBothDecoders"] = rebuilt[property] === candidate.source
-            && rebuilt[hidden] === peerCandidate.source
+        let addedViewSources = registry.userPropertySources(declarations: declarations.videoDeclarations, device: device)
+        checks["addedViewReusesBothDecoders"] = addedViewSources[property] === candidate.source
+            && addedViewSources[hidden] === peerCandidate.source
+            && addedViewSources[property]?.sourceIncarnation == candidate.source.sourceIncarnation
         let staleCandidate = registry.makeUserPropertyCandidate(declaration: a, device: device)!
         let replacement = registry.makeUserPropertyCandidate(declaration: a, device: device)!
         let replacementPrimed = await replacement.source.primeInitialFrame()

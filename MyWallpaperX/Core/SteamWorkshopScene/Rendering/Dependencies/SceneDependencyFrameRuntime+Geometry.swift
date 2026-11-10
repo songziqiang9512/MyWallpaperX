@@ -42,7 +42,7 @@ extension SceneDependencyFrameRuntime {
     }
 
     /// Reserves the one provider-owned target for an exact typed dependency.
-    /// Geometry adds source generation and placement constraints, while all
+    /// Geometry adds the installed source and local extent, while all
     /// binding kinds retain the same frame-epoch and physical-texture owner.
     func reserveEffectInput(
         for binding: SceneDependencyRenderPlan.Binding,
@@ -53,8 +53,6 @@ extension SceneDependencyFrameRuntime {
         viewportSize: CGSize,
         preparedOutputExtent: (width: Int, height: Int)? = nil,
         geometryProduct: SceneGeometryProduct? = nil,
-        providerOutputMVP: simd_float4x4? = nil,
-        consumerOutputMVP: simd_float4x4? = nil,
         frameEpoch: UInt64,
         failureReason: inout String?
     ) -> SceneDependencyEffectInput? {
@@ -80,8 +78,6 @@ extension SceneDependencyFrameRuntime {
             providerTexture: providerTexture,
             providerCandidate: providerCandidate,
             geometryProduct: geometryProduct,
-            providerOutputMVP: providerOutputMVP,
-            consumerOutputMVP: consumerOutputMVP,
             layerMVP: layerMVP,
             viewportSize: viewportSize,
             preparedOutputExtent: preparedOutputExtent,
@@ -257,8 +253,6 @@ extension SceneDependencyFrameRuntime {
         providerTexture: MTLTexture?,
         providerCandidate: SceneTextureCandidate?,
         geometryProduct: SceneGeometryProduct? = nil,
-        providerOutputMVP: simd_float4x4? = nil,
-        consumerOutputMVP: simd_float4x4? = nil,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         preparedOutputExtent: (width: Int, height: Int)? = nil,
@@ -313,18 +307,6 @@ extension SceneDependencyFrameRuntime {
             guard geometryProduct.effectSourceExtentContract
                     == .exactSamplingTexture else {
                 failureReason = "geometry-provider-source-extent-invalid"
-                return nil
-            }
-            guard let providerOutputMVP,
-                  let consumerOutputMVP else {
-                failureReason = "geometry-provider-placement-missing"
-                return nil
-            }
-            guard geometryProduct.supportsNamedProviderPlacement(
-                    providerOutputMVP: providerOutputMVP,
-                    consumerOutputMVP: consumerOutputMVP
-                  ) else {
-                failureReason = "geometry-provider-placement-mismatch"
                 return nil
             }
             guard let extent = geometryPublicationExtent(geometryProduct) else {

@@ -75,6 +75,7 @@ struct SceneRenderDescriptor {
     }
     var layers: [Layer]
     var camera = Camera()
+    var preparedUtilityPlans: [Int: SceneUtilityLayerRuntimePlanner.Plan] = [:]
 }
 
 struct SceneResolvedMaterialRuntimeCatalog {
@@ -125,7 +126,7 @@ struct SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 }
 enum SceneUtilityLayerRuntimePlanner {
-    enum Kind { case fullscreen }
+    enum Kind { case fullscreen, composition }
     struct Plan {
         var kind: Kind
         var requiresNamedTarget: Bool
@@ -133,7 +134,7 @@ enum SceneUtilityLayerRuntimePlanner {
     }
     static func plans(in descriptor: SceneRenderDescriptor,
         resolvedMaterialLayerIDs: Set<Int>, preparedNamedInputBindingsByConsumerLayerID: [Int: [Int]])
-        -> [Int: Plan] { [:] }
+        -> [Int: Plan] { descriptor.preparedUtilityPlans }
 }
 enum SceneLightSnapshot {
     static func liveConsumerTargets(descriptor: SceneRenderDescriptor)
@@ -148,7 +149,7 @@ enum SceneDynamicLayerVisibilityRouteAdmission {
     // Route shape is exercised by the visibility admission gate. Here a legal
     // candidate lets the real Host prove actual preparation is still required.
     static func targets(in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>, preparedStaticModelLayerIDs: Set<Int>)
+        candidates: Set<SceneDynamicTarget>)
         -> Set<SceneDynamicTarget> { candidates }
 }
 struct SceneSoundPlaybackProgram {
@@ -207,10 +208,12 @@ HARNESS = r'''
         definitions: [SceneUserPropertyDefinition] = [], rebuild: [String] = [],
         scriptConsumers: [String: Set<SceneDynamicTarget>] = [:],
         scriptTargets: Set<SceneDynamicTarget> = [], programOverride: ScenePropertyBindingProgram? = nil,
+        preparedUtilityPlans: [Int: SceneUtilityLayerRuntimePlanner.Plan] = [:],
         clearEnabled: Bool = true, hdr: Bool = false)
         -> ScenePropertyLiveUpdateState {
         let p = programOverride ?? program(bindings, rebuild: rebuild)
         var descriptor = SceneRenderDescriptor(layers: layers)
+        descriptor.preparedUtilityPlans = preparedUtilityPlans
         descriptor.camera.clearEnabled = clearEnabled
         descriptor.camera.bloom.hdr = hdr ? .init() : nil
         return SceneDesktopWallpaperHost.makeLivePropertyState(
@@ -648,7 +651,8 @@ HARNESS = r'''
             type: .bool, seed: .bool(false))
         for prepared in [false, true] {
             var s = state([composition], [visibilityBinding], values: ["show": .bool(false)],
-                prepared: prepared ? [9, 10] : [])
+                prepared: prepared ? [9, 10] : [],
+                preparedUtilityPlans: [9: .init(kind: .composition, requiresNamedTarget: false, shouldCapture: prepared)])
             let before = s
             let accepted = s.apply(.bool(true), forPropertyKey: "show")
             rows[prepared ? "preparedComposition" : "unpreparedComposition"] = [

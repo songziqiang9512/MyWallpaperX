@@ -85,31 +85,14 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
                   (layer.effects[effectIndex].visible == false)
                     == requiresInitiallyInactiveEffect,
                   visibleLayerIDs.contains(layerID) else { return nil }
-            let standaloneFullscreen = layer.contentKind == "fullscreen"
-                && layer.parentID == nil && layer.childLayerIDs.isEmpty
-                && layer.utilityLayer?.kind == .fullscreen
-                && (try? SceneUtilityLayerSourceRoute.resolve(
-                    layer: layer, descriptor: descriptor
-                ).get()) != nil
             let layerTarget = SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
             let ordinaryHierarchy = SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor, candidates: [layerTarget]
             ).contains(layerTarget)
-            // These compositions already capture through the same prepared
-            // source route when enabled at launch. Retain their inactive
-            // stages so a typed toggle can activate the existing graph later.
-            let compositionSource = layer.contentKind == "composition"
-                ? try? SceneUtilityLayerSourceRoute.resolve(
-                    layer: layer, descriptor: descriptor
-                ).get() : nil
-            let standaloneComposition = layer.contentKind == "composition"
-                && layer.utilityLayer?.kind == .composition
+            // Hierarchy admission already resolves the utility source and members.
+            let standaloneUtility = layer.utilityLayer != nil
                 && layer.parentID == nil
-                && compositionSource != nil
-                && (layer.utilityLayer?.passthrough == false
-                    || compositionSource?.usesAuthoredLocalSource == true)
                 && ordinaryHierarchy
-            let standaloneUtility = standaloneFullscreen || standaloneComposition
             guard standaloneUtility
                 || (["image", "solid", "text"].contains(layer.contentKind)
                     && layer.utilityLayer == nil && ordinaryHierarchy) else { return nil }

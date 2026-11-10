@@ -7,6 +7,11 @@ struct SceneParticleChildAdvanceResult {
 #endif
 }
 
+struct SceneParticleChildRendererKey: Hashable {
+    let templateIndex: Int
+    let rendererIndex: Int
+}
+
 #if DEBUG
 struct SceneParticleChildAudioEvaluationObservation {
     let particlePath: String

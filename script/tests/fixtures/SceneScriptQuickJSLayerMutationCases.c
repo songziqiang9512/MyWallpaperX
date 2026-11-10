@@ -1,5 +1,6 @@
 #include "SceneScriptQuickJSFixture.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -203,8 +204,112 @@ static void font_path_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
         positive[0], positive[1], same_intent[0] && same_intent[1], invalid, unicode_bytes, rollback);
 }
 
+static void layer_color_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(domain != NULL, "raw color domain", fixture->diagnostic);
+    if (domain == NULL) return;
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_domain_set_asset_path_normalizer(
+        domain, strndup) == MWX_SCENE_QUICKJS_OK,
+        "raw color canonical prepared identity", fixture->diagnostic);
+    fixture->failures += mwx_fixture_configure_layers(domain);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    const char *path = "models/raw-color.json";
+    const MWXSceneQuickJSDynamicImageDescriptor image = {
+        .model_path = path, .model_path_length = strlen(path), .natural_size = {4, 4},
+    };
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
+        domain, 1, &image, fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "raw color prepared image catalog", fixture->diagnostic);
+    const char *source =
+        "let layers;function check(layer){const c=layer.color;"
+        "if(c.x!==255||c.y!==-2||c.z!==Number.MAX_VALUE)throw Error('raw color lost');}"
+        "export function update(v){if(v==='write'){"
+        "const baseline=thisLayer.color;if(baseline.x!==-4||baseline.y!==255||"
+        "baseline.z!==Number.MAX_VALUE)throw Error('raw baseline');"
+        "layers=[thisLayer,thisScene.getLayerByID(42),"
+        "thisScene.createLayer({name:'raw-text',text:'seed'}),"
+        "thisScene.createLayer({name:'raw-image',image:'models/raw-color.json'})];"
+        "for(const layer of layers)for(const rgb of [[255,0,0],[255,255,255],"
+        "[-3,.5,Number.MAX_VALUE],[.25,.5,.75],[255,-2,Number.MAX_VALUE]]){"
+        "const renamed=new Vec3(...rgb);layer.color=renamed;const got=layer.color;"
+        "if(got.x!==rgb[0]||got.y!==rgb[1]||got.z!==rgb[2])throw Error('immediate color');}"
+        "return 'fps-ok';}"
+        "if(v==='invalid'){for(const layer of layers)for(const bad of "
+        "[new Vec3(NaN,0,0),new Vec3(Infinity,0,0),new Vec3(-Infinity,0,0),"
+        "{x:1,y:2},'1 1 1']){let rejected=false;try{layer.color=bad;}catch(e){rejected=true;}"
+        "if(!rejected)throw Error('bad color accepted');check(layer);}return 'invalid-ok';}"
+        "if(v==='throw'){for(const layer of layers)layer.color=new Vec3(.1,.2,.3);"
+        "thisLayer.text='partial';throw Error('deliberate color failure');}"
+        "for(const layer of layers)check(layer);return 'read-ok';}";
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        domain, source, strlen(source), 940, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(owner != NULL, "raw color owner", fixture->diagnostic);
+    fixture->failures += mwx_fixture_configure_owner_layer(owner, 17, "raw color text owner");
+    const double zero[3] = {0, 0, 0}, one[3] = {1, 1, 1};
+    const double baseline[3] = {-4, 255, DBL_MAX}, final[3] = {255, -2, DBL_MAX};
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
+        owner, 940, 17, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR,
+        zero, one, zero, 1, 1, 0, "", 0, "", 0, 1, 1, 1, 1, 0, 32, baseline, 0, NULL,
+        fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "finite raw authored read baseline accepted", fixture->diagnostic);
+    fixture->failures += mwx_fixture_update_string(owner, 940, "write", MWX_SCENE_QUICKJS_OK,
+        "fps-ok", "raw color writes continue to the text return");
+    const size_t count = mwx_scene_quickjs_owner_layer_mutation_count(owner);
+    fixture->failures += mwx_fixture_check(count == 4, "one latest mutation per raw color layer", fixture->diagnostic);
+    int authored = 0, dynamic = 0;
+    for (size_t index = 0; index < count; ++index) {
+        MWXSceneQuickJSLayerMutation mutation = {0};
+        const MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_layer_mutation_at(
+            owner, index, &mutation, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(result == MWX_SCENE_QUICKJS_OK &&
+            memcmp(mutation.color, final, sizeof(final)) == 0,
+            "authored and dynamic text/image journal keeps last raw color", fixture->diagnostic);
+        if (mutation.dynamic) ++dynamic; else ++authored;
+    }
+    fixture->failures += mwx_fixture_check(authored == 2 && dynamic == 2,
+        "raw color covers authored and dynamic targets", fixture->diagnostic);
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
+    MWXSceneQuickJSResult snapshot = mwx_scene_quickjs_domain_begin_layer_snapshot(
+        domain, 2, 0, fixture->diagnostic, sizeof(fixture->diagnostic));
+    for (uint32_t index = 0; snapshot == MWX_SCENE_QUICKJS_OK && index < 2; ++index)
+        snapshot = mwx_scene_quickjs_domain_update_layer_runtime_fields(
+            domain, index, one, zero, 0, 1, 1, 0, 1, "baseline", 8, "", 0, 32, final,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+    if (snapshot == MWX_SCENE_QUICKJS_OK)
+        snapshot = mwx_scene_quickjs_domain_commit_layer_snapshot(domain, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(snapshot == MWX_SCENE_QUICKJS_OK,
+        "consumed raw color reaches next authored runtime snapshot", fixture->diagnostic);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    fixture->failures += mwx_fixture_update_string(owner, 940, "read", MWX_SCENE_QUICKJS_OK,
+        "read-ok", "next callback reads committed authored and dynamic raw colors");
+    fixture->failures += mwx_fixture_update_string(owner, 940, "invalid", MWX_SCENE_QUICKJS_OK,
+        "invalid-ok", "nonfinite missing component and String colors reject atomically");
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+        "invalid colors and reads publish no mutation", fixture->diagnostic);
+    fixture->failures += mwx_fixture_update_string(owner, 940, "throw", MWX_SCENE_QUICKJS_EXCEPTION,
+        "", "throw after raw color writes rolls back whole callback");
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
+        "failed color callback leaves no partial journal", fixture->diagnostic);
+    const char *observer_source =
+        "export function update(v){for(const layer of [thisLayer,thisScene.getLayerByID(42),"
+        "thisScene.getLayer('raw-text'),thisScene.getLayer('raw-image')]){const c=layer.color;"
+        "if(c.x!==255||c.y!==-2||c.z!==Number.MAX_VALUE)throw Error('rollback color');}"
+        "if(thisLayer.text!=='baseline')throw Error('rollback text');return 'healthy';}";
+    MWXSceneQuickJSOwner *observer = mwx_scene_quickjs_owner_create(
+        domain, observer_source, strlen(observer_source), 941, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_configure_owner_layer(observer, 17, "raw color healthy peer");
+    fixture->failures += mwx_fixture_update_string(observer, 941, "read", MWX_SCENE_QUICKJS_OK,
+        "healthy", "healthy peer sees previous complete raw colors after owner failure");
+    mwx_scene_quickjs_owner_destroy(observer);
+    mwx_scene_quickjs_owner_destroy(owner);
+    mwx_scene_quickjs_domain_destroy(domain);
+}
+
 void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     font_path_contract_cases(fixture);
+    layer_color_contract_cases(fixture);
     fixture->static_setter = mwx_scene_quickjs_owner_create(
         fixture->domain,
         "export function update(value){thisLayer.origin=new Vec3(1,2,3);return value;}",

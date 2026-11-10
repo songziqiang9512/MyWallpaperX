@@ -99,8 +99,16 @@ import CryptoKit
    let w=tex.width, h=tex.height
    var bytes=[UInt8](repeating:0,count:w*h*4)
    tex.getBytes(&bytes,bytesPerRow:w*4,from:MTLRegionMake2D(0,0,w,h),mipmapLevel:0)
-   let scale=Double(w)/Double(logical[0])
-   let pivot=SceneTextLayerPivot.unitOffset(horizontal:style.horizontalAlignment,vertical:style.verticalAlignment,renderSize:SIMD2(logical[0],logical[1]),padding:style.padding,centerOffsetY:raster.centerOffsetY)
+   let scaleX=Double(w)/Double(logical[0]), logicalHeight=Double(logical[1])
+   func contentPivot(_ vertical: String, height: Double, offsetY: Double) -> SIMD2<Float> {
+    SceneTextLayerPivot.unitOffset(horizontal:style.horizontalAlignment,vertical:vertical,
+        renderSize:SIMD2(logical[0],Float(height)),padding:style.padding,
+        centerOffsetY:raster.centerOffsetY,rasterOffsetY:Float(offsetY))
+   }
+   func worldY(_ y: Double, rows: Int, height: Double, pivotY: Float) -> Double {
+    (y/Double(rows)-0.5-Double(pivotY))*height
+   }
+   let pivot=contentPivot(style.verticalAlignment,height:logicalHeight,offsetY:Double(raster.rasterOffsetY))
    var minX=w, minY=h, maxX = -1, maxY = -1, ink=0
    var minAlphaX=w, minAlphaY=h, maxAlphaX = -1, maxAlphaY = -1
    var inkRows=Set<Int>()
@@ -108,12 +116,36 @@ import CryptoKit
     if bytes[i+3]>0 { minAlphaX=min(minAlphaX,x); maxAlphaX=max(maxAlphaX,x); minAlphaY=min(minAlphaY,y); maxAlphaY=max(maxAlphaY,y) }
     if bytes[i+1]>=128 && bytes[i+2]>=128 { minX=min(minX,x); maxX=max(maxX,x); minY=min(minY,y); maxY=max(maxY,y); ink += 1; inkRows.insert(y) }
    }}
-   let dx=Double(pivot.x*logical[0]),dy = -Double(pivot.y*logical[1])
-   return ["size":logical,"raster":[w,h],"ink":ink,
+   let dx=Double(pivot.x*logical[0])
+   let firstInkY=Double(minY)+0.5, lastInkY=Double(maxY)+0.5
+   var facts: [String:Any] = ["size":logical,"raster":[w,h],"ink":ink,
     "rows":inkRows.filter { !inkRows.contains($0-1) }.count,
     "pixelSHA256":SHA256.hash(data:Data(bytes)).map { String(format:"%02x", $0) }.joined(),
-    "glyphWorld":[(Double(minX)+0.5-Double(w)/2)/scale+dx,(Double(minY)+0.5-Double(h)/2)/scale+dy,(Double(maxX)+0.5-Double(w)/2)/scale+dx,(Double(maxY)+0.5-Double(h)/2)/scale+dy],
-    "backgroundWorld":[(Double(minAlphaX)-Double(w)/2)/scale+dx,(Double(minAlphaY)-Double(h)/2)/scale+dy,(Double(maxAlphaX+1)-Double(w)/2)/scale+dx,(Double(maxAlphaY+1)-Double(h)/2)/scale+dy]]
+    "glyphWorld":[(Double(minX)+0.5-Double(w)/2)/scaleX+dx,
+        worldY(firstInkY,rows:h,height:logicalHeight,pivotY:pivot.y),
+        (Double(maxX)+0.5-Double(w)/2)/scaleX+dx,
+        worldY(lastInkY,rows:h,height:logicalHeight,pivotY:pivot.y)],
+    "backgroundWorld":[(Double(minAlphaX)-Double(w)/2)/scaleX+dx,
+        worldY(Double(minAlphaY),rows:h,height:logicalHeight,pivotY:pivot.y),
+        (Double(maxAlphaX+1)-Double(w)/2)/scaleX+dx,
+        worldY(Double(maxAlphaY+1),rows:h,height:logicalHeight,pivotY:pivot.y)]]
+   if layer.name == "scaled-0" {
+    // Reuse the actual ink rows. One leading and five trailing rows give
+    // an asymmetric canvas without depending on a host font clipping.
+    let rowHeight=logicalHeight/Double(h)
+    let expandedHeight=logicalHeight+6*rowHeight
+    var anchors: [String:[[Double]]] = [:]
+    for (vertical, offsetInRows) in [("top",1.0),("center",-2.0),("bottom",-5.0)] {
+     let before=contentPivot(vertical,height:logicalHeight,offsetY:0)
+     let after=contentPivot(vertical,height:expandedHeight,offsetY:offsetInRows*rowHeight)
+     anchors[vertical] = [firstInkY,lastInkY].map { y in
+      [worldY(y,rows:h,height:logicalHeight,pivotY:before.y),
+       worldY(y+1,rows:h+6,height:expandedHeight,pivotY:after.y)]
+     }
+    }
+    facts["asymmetricAnchors"] = anchors
+   }
+   return facts
   }
   guard let same=try SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,resourceView:resourceView,device:device),
     let changed=try SceneTextTextureLoader.makeDynamicTexture(for:layer,content:"HOHO",pointSize:style.pointSize,colorRGB:style.colorRGB,resourceView:resourceView,device:device) else { throw HarnessError.descriptorRejected }
@@ -240,6 +272,10 @@ class SceneTextPaddingTests(unittest.TestCase):
         tolerance = max(plain["size"][0], padded["size"][0]) / 2048 + 1
         for actual, expected in zip(padded["glyphWorld"], plain["glyphWorld"]):
             self.assertAlmostEqual(actual, expected, delta=tolerance)
+        for vertical in ["top", "center", "bottom"]:
+            with self.subTest(asymmetric_alignment=vertical):
+                for original, expanded in plain["asymmetricAnchors"][vertical]:
+                    self.assertAlmostEqual(expanded, original, delta=0.001)
 
 
 if __name__ == "__main__":

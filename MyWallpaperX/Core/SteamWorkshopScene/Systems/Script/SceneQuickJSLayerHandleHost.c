@@ -8,6 +8,17 @@
 #include <string.h>
 #include <strings.h>
 
+static const struct { const char *name; enum LayerProperty property; bool writable; } layer_fields[] = {
+    {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
+    {"size", LAYER_SIZE, false},
+    {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
+    {"perspective", LAYER_PERSPECTIVE, true},
+    {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, true},
+    {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
+    {"volume", LAYER_VOLUME, true},
+    {"name", LAYER_NAME, false},
+};
+
 static void finalize_layer_handle(JSRuntime *runtime, JSValue value) {
     (void)runtime;
     free(JS_GetOpaque(value, JS_GetClassID(value)));
@@ -353,19 +364,10 @@ JSValue mwx_scene_quickjs_layer_make_layer_handle(
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
     }
-    const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
-        {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
-        {"size", LAYER_SIZE, false},
-        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
-        {"perspective", LAYER_PERSPECTIVE, true},
-        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, true},
-        {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
-        {"name", LAYER_NAME, false},
-    };
-    for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field) {
+    for (size_t field = 0; field < sizeof(layer_fields) / sizeof(layer_fields[0]); ++field) {
         if (!mwx_scene_quickjs_layer_define_property(context, layer, owner, index, owner_target, persistent,
-                             fields[field].name, fields[field].property,
-                             fields[field].writable)) {
+                             layer_fields[field].name, layer_fields[field].property,
+                             layer_fields[field].writable)) {
             JS_FreeValue(context, layer); return JS_EXCEPTION;
         }
     }
@@ -462,17 +464,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!mwx_scene_quickjs_define_puppet_animation_lookup(
             owner, owner->material_function_layer, UINT32_MAX, true, true
         )) return false;
-    const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
-        {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
-        {"size", LAYER_SIZE, false},
-        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
-        {"perspective", LAYER_PERSPECTIVE, true},
-        {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, true},
-        {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
-    };
-    for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field)
+    for (size_t field = 0; field < sizeof(layer_fields) / sizeof(layer_fields[0]); ++field)
         if (!mwx_scene_quickjs_layer_define_property(context, owner->material_function_layer, owner, 0, true, true,
-                             fields[field].name, fields[field].property, fields[field].writable))
+                             layer_fields[field].name, layer_fields[field].property, layer_fields[field].writable))
             return false;
     // The owner's own layer handle must carry the same writable surface as
     // every looked-up layer handle: a swallowed `thisLayer.alpha = value` is a

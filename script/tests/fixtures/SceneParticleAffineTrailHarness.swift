@@ -9,6 +9,12 @@ import simd
 /// no position/tangent calculation is replaced and no stock asset is read.
 enum SceneParticleAffineTrailHarness {
     struct Case: Decodable {
+        struct Perspective: Decodable {
+            let yaw: Float
+            let offsetX: Float
+            let depth: Float
+        }
+
         let name: String
         let kind: String
         let scale: [Float]
@@ -21,6 +27,8 @@ enum SceneParticleAffineTrailHarness {
         let vertexOnly: Bool?
         let orientation: String?
         let orientationAxis: [Float]?
+        let perspective: Perspective?
+        let backCull: Bool?
     }
 
     enum Failure: Error {
@@ -31,6 +39,7 @@ enum SceneParticleAffineTrailHarness {
     }
 
     static let extent = 512
+    static let perspectiveCanvas: Float = 2160
     // Tilted valid cards extend outside +/-10 in world Z. Keep this geometry
     // test's camera from clipping them before the coverage oracle can observe
     // the complete quad; depth behavior is not the property under test.
@@ -68,11 +77,21 @@ enum SceneParticleAffineTrailHarness {
             ),
             viewportSize: CGSize(width: CGFloat(extent), height: CGFloat(extent))
         )
+        let perspectiveCamera = SceneParticleCameraFrame(
+            camera: .init(
+                eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+                orthoWidth: perspectiveCanvas, orthoHeight: perspectiveCanvas,
+                fovDegrees: nil, perspectiveOverrideFOVDegrees: 30,
+                nearZ: 0.01, farZ: 10000
+            ),
+            viewportSize: CGSize(width: CGFloat(extent), height: CGFloat(extent))
+        )
         var rows: [[String: Any]] = []
         for value in cases {
             rows.append(try render(
                 value, device: device, queue: queue, pipeline: pipeline,
-                source: source, camera: camera, vertexProbe: vertexProbe
+                source: source, camera: value.perspective == nil ? camera : perspectiveCamera,
+                vertexProbe: vertexProbe
             ))
         }
         return ["extent": extent, "alphaThreshold": 127,
@@ -103,9 +122,17 @@ enum SceneParticleAffineTrailHarness {
         // Match the public Scene Y-down layer-frame convention: reflect the
         // authored layer rotation and local particle Y exactly once.
         let center: Float = value.vertexOnly == true ? 0 : Float(extent) / 2
-        let worldFrame = SceneMatrix.translation(SIMD3(center, center, 0))
-            * SceneMatrix.rotationX(value.tiltX ?? 0)
-            * SceneMatrix.rotationZ(-value.angle) * SceneMatrix.scale(scale)
+        let worldFrame: simd_float4x4
+        if let perspective = value.perspective {
+            let canvasCenter = perspectiveCanvas * 0.5
+            worldFrame = SceneMatrix.translation(
+                SIMD3(canvasCenter + perspective.offsetX, canvasCenter - 96, 80)
+            ) * SceneMatrix.rotationY(perspective.yaw) * SceneMatrix.scale(scale)
+        } else {
+            worldFrame = SceneMatrix.translation(SIMD3(center, center, 0))
+                * SceneMatrix.rotationX(value.tiltX ?? 0)
+                * SceneMatrix.rotationZ(-value.angle) * SceneMatrix.scale(scale)
+        }
         let model = SceneParticleCameraFrame.particleLayerModel(
             worldFrame: worldFrame, parallaxOffset: .zero
         )
@@ -136,10 +163,6 @@ enum SceneParticleAffineTrailHarness {
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
             throw Failure.unavailable("render encoder")
         }
-        let projection = value.vertexOnly == true ? SceneMatrix.identity() : SceneMatrix.ortho(
-            left: 0, right: Float(extent), bottom: Float(extent), top: 0,
-            near: -depthHalfExtent, far: depthHalfExtent
-        )
         let orientation = SceneParticleOrientation(authoredValue: value.orientation)
         let axis: SIMD3<Float>
         if let components = value.orientationAxis {
@@ -150,18 +173,33 @@ enum SceneParticleAffineTrailHarness {
         } else {
             axis = SIMD3(0, 0, 1)
         }
-        let basis = camera.basis(
-            for: orientation, layerModel: model, orientationAxis: axis
-        )
-        let uniforms = SceneParticleLayerUniforms(
-            viewProjection: projection, layerModel: model, basis: basis,
-            viewportSize: SIMD2(repeating: Float(extent)),
-            sizeIsWorldSpace: value.worldSize == true,
-            viewBasis: camera.basis(for: .screen)
-        )
+        let viewportSize = SIMD2(repeating: Float(extent))
+        let uniforms: SceneParticleLayerUniforms
+        if value.perspective != nil {
+            uniforms = camera.particleUniforms(
+                layerModel: model, orientation: orientation, orientationAxis: axis,
+                usesPerspective: true, usesSceneCamera: false, viewportSize: viewportSize,
+                sizeIsWorldSpace: value.worldSize == true,
+                usesPerspectiveTrailEye: value.kind == "trail"
+            )
+        } else {
+            let projection = value.vertexOnly == true ? SceneMatrix.identity() : SceneMatrix.ortho(
+                left: 0, right: Float(extent), bottom: Float(extent), top: 0,
+                near: -depthHalfExtent, far: depthHalfExtent
+            )
+            let basis = camera.basis(
+                for: orientation, layerModel: model, orientationAxis: axis
+            )
+            uniforms = SceneParticleLayerUniforms(
+                viewProjection: projection, layerModel: model, basis: basis,
+                viewportSize: viewportSize, sizeIsWorldSpace: value.worldSize == true,
+                viewBasis: camera.basis(for: .screen)
+            )
+        }
         let encoded = pipeline.draw(
             texture: source, instances: buffer, uniforms: uniforms,
-            renderState: .init(blendMode: .translucent, cullMode: .none),
+            renderState: .init(blendMode: .translucent,
+                               cullMode: value.backCull == true ? .back : .none),
             colorSampling: .init(texFlags: 3),
             encoder: encoder
         )
@@ -270,7 +308,8 @@ enum SceneParticleAffineTrailHarness {
                 Double(value.velocity[2])
             )
             return [SceneParticleGPUInstance(
-                position: .zero, size: value.size, rotation: .zero,
+                position: SIMD3(0, 0, value.perspective?.depth ?? 0),
+                size: value.size, rotation: .zero,
                 color: SIMD3(repeating: 1), alpha: 1,
                 velocity: plan.direction(for: velocity),
                 trailStretch: plan.stretch(for: velocity),
@@ -287,8 +326,7 @@ enum SceneParticleAffineTrailHarness {
                 "renderer": [["name": "rope", "subdivision": 0]]
             ])
             guard let plan = SceneParticleRopePlan(
-                renderer: definition.renderers[0], rendererCount: 1,
-                maximumParticleCount: 2
+                renderer: definition.renderers[0], maximumParticleCount: 2
             ) else { throw Failure.malformedCase(value.name) }
             let halfLength = Double(value.size * 0.5 * value.stretch * 0.5)
             let delta = SIMD3<Double>(

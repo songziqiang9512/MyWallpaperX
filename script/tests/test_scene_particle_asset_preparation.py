@@ -58,6 +58,10 @@ MAIN = r'''
                 withIntermediateDirectories: true)
             try Data([1]).write(to: target)
         }
+        try writeJSON(definition("materials/ambient.json"),
+            to: primary.appendingPathComponent("particles/ambient.json"))
+        try writeJSON(definition("materials/renamed-ambient.json"),
+            to: primary.appendingPathComponent("particles/renamed-ambient.json"))
         let view = SceneResourceView(projectRootURL: lower, packageRootURL: primary,
                                      stockAssetsRootURL: stock)
         let pass = SceneRenderDescriptor.MaterialPassDescriptor(
@@ -95,6 +99,196 @@ MAIN = r'''
             checks["texturePrimaryAllCandidatesPrecedeLowerExact"] = URL(fileURLWithPath: input.diagnosticPath).standardizedFileURL
                 == primary.appendingPathComponent("materials/probe.tex").standardizedFileURL
         } else { checks["texturePrimaryAllCandidatesPrecedeLowerExact"] = false }
+
+        func ambientGraph(lamps: [SceneRenderDescriptor.Layer] = [],
+                          classes: SceneRenderDescriptor.Lighting.Classes = .init(),
+                          combos: [String: Int] = ["REFRACT": 1, "LIGHTING": 1],
+                          textures: [String] = ["probe"], layerID: Int = 70,
+                          height: Float? = 1080, sourceOrtho: Bool? = true,
+                          path: String = "particles/ambient.json", material: String = "materials/ambient.json",
+                          cullMode: String = "nocull", values: [String: SceneDocument.ShaderValue] = [:],
+                          userValues: [String: String] = [:]) throws -> SceneParticleAssetGraph {
+            let litPass = SceneRenderDescriptor.MaterialPassDescriptor(
+                materialPath: material, shaderPath: "genericparticle",
+                texturePaths: textures, constantShaderValues: values, userShaderValues: userValues,
+                blending: "translucent", combos: combos, cullMode: cullMode)
+            let unlitPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: pass.materialPath,
+                shaderPath: "genericparticle", texturePaths: ["probe"], blending: "translucent",
+                combos: ["REFRACT": 1, "LIGHTING": 0])
+            var input = SceneRenderDescriptor(layers: [layer(layerID, path),
+                layer(71, "Particles/Renamed.JSON")] + lamps,
+                renderOrderLayerIDs: [layerID, 71] + lamps.map(\.id), materialPasses: [litPass, unlitPass])
+            input.lighting = .init(lightClasses: classes)
+            input.camera = .init(authoredOrthographicProjectionActive: sourceOrtho)
+            input.camera.orthoHeight = height
+            return try SceneParticleRuntime.prepareAssets(descriptor: input, resourceView: view,
+                stockTextureBundleURL: nil)
+        }
+        func lightingCheck(_ name: String, _ value: SceneParticleAssetGraph, accepted: Bool,
+                           path: String = "particles/ambient.json", expectedLighting: Bool = true) {
+            let asset = value.assetsByPath[path]
+            checks[name] = (accepted
+                ? asset?.textureSource != nil && asset?.refraction?.usesAmbientLighting == expectedLighting
+                : asset?.textureSource == nil && value.diagnostics.contains {
+                    $0.assetPath == path && $0.kind == .refractionUnsupported })
+                && value.assetsByPath["particles/renamed.json"]?.textureSource != nil
+                && value.assetsByPath["particles/renamed.json"]?.refraction?.usesAmbientLighting == false
+                && value.assetsByPath["particles/renamed.json"]?.refraction?.cutout == nil
+        }
+        func lamp(_ id: Int, point: SceneRenderDescriptor.Layer.PointLight? = nil,
+                  directional: SceneRenderDescriptor.Layer.DirectLight? = nil,
+                  spot: SceneRenderDescriptor.Layer.DirectLight? = nil) -> SceneRenderDescriptor.Layer {
+            .init(id: id, name: "renamed hidden zero-strength lamp", contentKind: "light",
+                particlePath: nil, particleInstanceOverride: nil, parentID: nil,
+                visible: false, displayScriptOwnership: .init(visible: true, alpha: false), alpha: 1,
+                pointLight: point, directionalLight: directional, spotLight: spot)
+        }
+        lightingCheck("ambientWithNoPotentialLights", try ambientGraph(), accepted: true)
+        lightingCheck("ambientRenamedLayerID", try ambientGraph(layerID: 970), accepted: true)
+        lightingCheck("ambientMissingOrthoHeightRejected", try ambientGraph(height: nil), accepted: false)
+        lightingCheck("ambientNativePerspectiveRejected", try ambientGraph(height: nil, sourceOrtho: false), accepted: false)
+        let modern = lamp(301, point: .init(kind: "lpoint", intensity: 0))
+        let legacy = lamp(302, point: .init(kind: "point", intensity: 0))
+        let directional = lamp(303, directional: .init(intensity: 0))
+        let spot = lamp(304, spot: .init(intensity: 0))
+        lightingCheck("disabledModernPointClassIsInert", try ambientGraph(lamps: [modern]), accepted: true)
+        lightingCheck("legacyPointRemainsPotentialWithoutClass", try ambientGraph(lamps: [legacy]), accepted: false)
+        lightingCheck("hiddenZeroModernPointRemainsPotential", try ambientGraph(lamps: [modern],
+            classes: .init(point: true)), accepted: false)
+        lightingCheck("disabledDirectionalAndSpotClassesAreInert", try ambientGraph(lamps: [directional, spot]), accepted: true)
+        lightingCheck("hiddenZeroDirectionalRemainsPotential", try ambientGraph(lamps: [directional],
+            classes: .init(directional: true)), accepted: false)
+        lightingCheck("hiddenZeroSpotRemainsPotential", try ambientGraph(lamps: [spot],
+            classes: .init(spot: true)), accepted: false)
+        for double in [0, 1] {
+            let combos = ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": double]
+            let value = try ambientGraph(combos: combos)
+            lightingCheck("ambientAcceptsDouble-\(double)", value, accepted: true)
+            checks["doubleKeepsNoCull-\(double)"] = value.assetsByPath["particles/ambient.json"]?.renderState?.cullMode == .noCull
+                && value.assetsByPath["particles/ambient.json"]?.pipelineState?.cullMode == SceneParticlePipelineCullMode.none
+            lightingCheck("unlitAcceptsDouble-\(double)", try ambientGraph(
+                combos: ["REFRACT": 1, "LIGHTING": 0, "DOUBLESIDEDLIGHTING": double]),
+                accepted: true, expectedLighting: false)
+            lightingCheck("missingLightingAcceptsDouble-\(double)", try ambientGraph(
+                combos: ["REFRACT": 1, "DOUBLESIDEDLIGHTING": double]),
+                accepted: true, expectedLighting: false)
+        }
+        let doubleOne = ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1]
+        let unlitDouble = ["REFRACT": 1, "LIGHTING": 0, "DOUBLESIDEDLIGHTING": 1]
+        lightingCheck("unlitDoubleWithoutAmbientEnvironment", try ambientGraph(combos: unlitDouble, height: nil),
+            accepted: true, expectedLighting: false)
+        lightingCheck("unlitDoubleWithPotentialLamp", try ambientGraph(lamps: [modern],
+            classes: .init(point: true), combos: unlitDouble), accepted: true, expectedLighting: false)
+        let renamedDouble = try ambientGraph(combos: doubleOne, layerID: 971,
+            path: "particles/renamed-ambient.json", material: "materials/renamed-ambient.json")
+        lightingCheck("doubleRenamedMaterialAndID", renamedDouble, accepted: true,
+            path: "particles/renamed-ambient.json")
+        checks["doubleRenamedConsumerEquivalent"] = renamedDouble.assetsByPath["particles/renamed-ambient.json"]?.refraction
+            == (try ambientGraph(combos: doubleOne)).assetsByPath["particles/ambient.json"]?.refraction
+        let backCull = try ambientGraph(combos: doubleOne, cullMode: "normal")
+        lightingCheck("doubleWithBackCull", backCull, accepted: true)
+        checks["doubleDoesNotDisableRasterCull"] = backCull.assetsByPath["particles/ambient.json"]?.renderState?.cullMode == .normal
+            && backCull.assetsByPath["particles/ambient.json"]?.pipelineState?.cullMode == .back
+        lightingCheck("doubleMissingAmbientEnvironment", try ambientGraph(combos: doubleOne, height: nil), accepted: false)
+        lightingCheck("doubleHiddenZeroLampStillPotential", try ambientGraph(lamps: [modern],
+            classes: .init(point: true), combos: doubleOne), accepted: false)
+        lightingCheck("doubleLegacyLampStillPotential", try ambientGraph(lamps: [legacy], combos: doubleOne), accepted: false)
+        lightingCheck("doubleOutOfDomain", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 2]), accepted: false)
+        lightingCheck("doubleUnsupportedLighting", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 2, "DOUBLESIDEDLIGHTING": 1]), accepted: false)
+        lightingCheck("ambientRejects-UNKNOWN", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 1, "UNKNOWN": 1]), accepted: false)
+        lightingCheck("doubleRejects-UNKNOWN", try ambientGraph(
+            combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1, "UNKNOWN": 1]), accepted: false)
+        let cutoutKeys = ["ui_editor_properties_cutout_start", "ui_editor_properties_cutout_end",
+                          "ui_editor_properties_cutout_opacity"]
+        func cutoutValue(_ components: [Double]?, kind: String = "number", dynamic: Bool = false,
+                         boxed: Bool = false) -> SceneDocument.ShaderValue {
+            var value = SceneDocument.ShaderValue(rawValue: components?.description ?? "bad",
+                valueKind: boxed ? "binding" : kind, components: components,
+                userBinding: dynamic ? "live-cutout" : nil, timeline: nil, timelineDiagnostics: [])
+            if boxed { value.bindingKeys = ["value"] }
+            return value
+        }
+        let cutoutOn = ["REFRACT": 1, "CUTOUT": 1]
+        let cutoutDefault = try ambientGraph(combos: cutoutOn)
+        lightingCheck("cutoutDefault", cutoutDefault, accepted: true, expectedLighting: false)
+        checks["cutoutDefaultParameters"] = cutoutDefault.assetsByPath["particles/ambient.json"]?.refraction?.cutout
+            == SIMD3<Float>(0.1, 0.2, 1)
+        let explicitCutout = Dictionary(uniqueKeysWithValues: zip(cutoutKeys, [0.1, 0.2, 1]).map {
+            ($0.0, cutoutValue([$0.1], boxed: true)) })
+        let renamedCutout = try ambientGraph(combos: cutoutOn, layerID: 972,
+            path: "particles/renamed-ambient.json", material: "materials/renamed-ambient.json", values: explicitCutout)
+        lightingCheck("cutoutExplicitDefaultRenamed", renamedCutout, accepted: true,
+            path: "particles/renamed-ambient.json", expectedLighting: false)
+        checks["cutoutExplicitDefaultEquivalent"] = renamedCutout.assetsByPath["particles/renamed-ambient.json"]?.refraction
+            == cutoutDefault.assetsByPath["particles/ambient.json"]?.refraction
+        for parameters in [SIMD3<Double>(-0.5, 0.5, 0.25), SIMD3<Double>(1, 3, 0)] {
+            let values = Dictionary(uniqueKeysWithValues: zip(cutoutKeys,
+                [parameters.x, parameters.y, parameters.z]).map { ($0.0, cutoutValue([$0.1])) })
+            let value = try ambientGraph(combos: cutoutOn, values: values)
+            lightingCheck("cutoutOrdered-\(parameters)", value, accepted: true, expectedLighting: false)
+            checks["cutoutPreserves-\(parameters)"] = value.assetsByPath["particles/ambient.json"]?.refraction?.cutout
+                == SIMD3(Float(parameters.x), Float(parameters.y), Float(parameters.z))
+        }
+        let badCutout: [(String, String, SceneDocument.ShaderValue)] = [
+            ("shape", cutoutKeys[0], cutoutValue([0.1, 0.2])),
+            ("type", cutoutKeys[0], cutoutValue(nil, kind: "boolean")),
+            ("dynamic", cutoutKeys[0], cutoutValue([0.1], dynamic: true)),
+            ("nonfinite", cutoutKeys[0], cutoutValue([.nan])),
+            ("floatOverflow", cutoutKeys[1], cutoutValue([Double.greatestFiniteMagnitude])),
+            ("equal", cutoutKeys[0], cutoutValue([0.2])),
+            ("reversed", cutoutKeys[0], cutoutValue([0.3])),
+            ("opacityNegative", cutoutKeys[2], cutoutValue([-0.01])),
+            ("opacityOverOne", cutoutKeys[2], cutoutValue([1.01])),
+        ]
+        for (name, key, value) in badCutout {
+            lightingCheck("cutoutRejects-\(name)", try ambientGraph(combos: cutoutOn,
+                values: [key: value]), accepted: false)
+        }
+        lightingCheck("cutoutRejectsFloatCollapsedOrder", try ambientGraph(combos: cutoutOn,
+            values: [cutoutKeys[0]: cutoutValue([1e8]), cutoutKeys[1]: cutoutValue([1e8 + 1])]), accepted: false)
+        let inactiveValues = [cutoutKeys[0]: cutoutValue([.nan]), cutoutKeys[1]: cutoutValue([1, 2]),
+                              cutoutKeys[2]: cutoutValue([0.5], dynamic: true)]
+        for (name, disabled, expectedLighting) in [
+            ("omitted", ["REFRACT": 1], false), ("zero", ["REFRACT": 1, "CUTOUT": 0], false),
+            ("ambient", ["REFRACT": 1, "LIGHTING": 1, "CUTOUT": 0], true)
+        ] {
+            let value = try ambientGraph(combos: disabled, values: inactiveValues)
+            lightingCheck("cutoutInactiveIgnores-\(name)", value, accepted: true, expectedLighting: expectedLighting)
+            checks["cutoutInactiveStaysNil-\(name)"] = value.assetsByPath["particles/ambient.json"]?.refraction?.cutout == nil
+        }
+        lightingCheck("cutoutInactiveUnknownKeyRejected", try ambientGraph(combos: ["REFRACT": 1],
+            values: ["ui_editor_properties_cutout_surprise": cutoutValue([0.1])]), accepted: false)
+        lightingCheck("cutoutInactivePassUserStillRejected", try ambientGraph(combos: ["REFRACT": 1],
+            userValues: [cutoutKeys[0]: "user-cutout"]), accepted: false)
+        lightingCheck("cutoutUnknownComboStillRejected", try ambientGraph(
+            combos: ["REFRACT": 1, "CUTOUT": 2]), accepted: false)
+        lightingCheck("cutoutWithAmbientDouble", try ambientGraph(
+            combos: ["REFRACT": 1, "CUTOUT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1]), accepted: true)
+        lightingCheck("cutoutDoesNotBypassDirectLighting", try ambientGraph(lamps: [modern],
+            classes: .init(point: true), combos: ["REFRACT": 1, "CUTOUT": 1, "LIGHTING": 1]), accepted: false)
+        lightingCheck("ambientBadNormalKeepsPeer", try ambientGraph(textures: ["probe", "absent-normal"]), accepted: false)
+        let missingColor = try ambientGraph(textures: ["absent-color"])
+        checks["ambientBadColorKeepsPeer"] = missingColor.assetsByPath["particles/ambient.json"]?.textureSource == nil
+            && missingColor.diagnostics.contains { $0.kind == .missingTextureFile
+                && $0.assetPath == "particles/ambient.json" }
+            && missingColor.assetsByPath["particles/renamed.json"]?.textureSource != nil
+            && missingColor.assetsByPath["particles/renamed.json"]?.refraction?.usesAmbientLighting == false
+        let rawLit = SceneParticleMaterialPass(materialPath: "materials/ambient.json", shaderPath: "genericparticle",
+            texturePaths: ["probe"], blending: "translucent",
+            combos: ["REFRACT": 1, "LIGHTING": 1, "DOUBLESIDEDLIGHTING": 1])
+        let state = SceneMaterialRenderState.compile(blending: "translucent", depthTest: "disabled",
+            depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!
+        checks["planRequiresExplicitAmbientSupport"] = SceneParticleRefractionPlanner.plan(
+            for: rawLit, renderState: state) == nil && SceneParticleRefractionPlanner.plan(
+                for: rawLit, renderState: state, supportsAmbientLighting: true)?.usesAmbientLighting == true
+        let conservative = try SceneParticleAssetGraphLoader(resourceView: view, stockTextureBundleURL: nil)
+            .load(rootPaths: ["particles/ambient.json"], materialPasses: [rawLit])
+        checks["graphDefaultDoesNotAssumeAmbientSupport"] =
+            conservative.assetsByPath["particles/ambient.json"]?.textureSource == nil
+
         ParticleDefinitionProbe.parses = 0
         ParticleDefinitionProbe.reads = [:]
         var captured: [String: SceneParticleAssetGraphLoader.PreparedDefinition] = [:]

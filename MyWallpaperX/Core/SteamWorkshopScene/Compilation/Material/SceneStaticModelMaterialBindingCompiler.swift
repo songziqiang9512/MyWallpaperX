@@ -2,7 +2,7 @@ import Foundation
 
 /// Addresses the fixed model renderer's existing channels through a strict
 /// authored interface proof. This does not execute a custom shader program.
-nonisolated enum SceneStaticModelMaterialBindingCompiler {
+nonisolated struct SceneStaticModelMaterialBindingCompiler {
     private struct Interface {
         let channel: SceneStaticModelMaterialBindings.Channel
         let name: String
@@ -16,48 +16,61 @@ nonisolated enum SceneStaticModelMaterialBindingCompiler {
         .init(channel: .brightness, name: "g_Brightness", type: .float, componentCount: 1),
     ]
 
-    static func defaultAlbedoAssetPath(
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> String? {
+    private static let fields = interfaces.map {
+        SceneAuthoredShaderUniformLayout.Field(
+            name: $0.name, stage: .fragment, type: $0.type, offset: 0
+        )
+    }
+
+    private struct InterfaceKey: Hashable {
+        let shader: String
+        let combos: [String: Int]
+    }
+
+    private let contractsByShader: [String: SceneShaderContract]
+    private var interfaceProofs: [InterfaceKey: [String: SceneResolvedMaterialShaderSchema.Uniform]?] = [:]
+
+    init(shaderContracts: [SceneShaderContract]) {
+        contractsByShader = Dictionary(grouping: shaderContracts) { Self.normalizedShader($0.identity) }
+            .compactMapValues { $0.count == 1 ? $0[0] : nil }
+    }
+
+    func defaultAlbedoAssetPath(pass: SceneRenderDescriptor.MaterialPassDescriptor) -> String? {
         guard pass.passIndex == 0,
               pass.textureSlots.first.flatMap({ $0 }) == nil,
               pass.userTextureInputs.first.flatMap({ $0 }) == nil,
-              let shaderPath = pass.shaderPath else { return nil }
-        let contracts = shaderContracts.filter {
-            normalizedShader($0.identity) == normalizedShader(shaderPath)
-        }
-        guard contracts.count == 1, let contract = contracts.first else { return nil }
+              let shaderPath = pass.shaderPath,
+              let contract = contractsByShader[Self.normalizedShader(shaderPath)] else { return nil }
         return SceneResolvedMaterialShaderSchema.unconditionalColorAssetDefault(
             slot: 0, contract: contract, combos: pass.combos
         )?.value
     }
 
-    static func compile(
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneStaticModelMaterialBindings {
+    mutating func compile(pass: SceneRenderDescriptor.MaterialPassDescriptor) -> SceneStaticModelMaterialBindings {
         guard pass.passIndex == 0 else { return unavailable("material-pass-index") }
         guard let shaderPath = pass.shaderPath else { return unavailable("shader-reference") }
-        let contracts = shaderContracts.filter {
-            normalizedShader($0.identity) == normalizedShader(shaderPath)
+        let shader = Self.normalizedShader(shaderPath)
+        guard let contract = contractsByShader[shader], contract.diagnostics.isEmpty else {
+            return unavailable("shader-contract")
         }
-        guard contracts.count == 1, let contract = contracts.first,
-              contract.diagnostics.isEmpty else { return unavailable("shader-contract") }
         if contract.sourceKind == .hostBuiltin {
             return .init(state: .hostBuiltin, bindings: [], rejectionReason: nil)
         }
-        let fields = interfaces.map {
-            SceneAuthoredShaderUniformLayout.Field(
-                name: $0.name, stage: .fragment, type: $0.type, offset: 0
+        let proofKey = InterfaceKey(shader: shader, combos: pass.combos)
+        let proof: [String: SceneResolvedMaterialShaderSchema.Uniform]?
+        if let prepared = interfaceProofs[proofKey] {
+            proof = prepared
+        } else {
+            proof = SceneResolvedMaterialShaderSchema.unconditionalStaticModelUniforms(
+                Self.fields, contract: contract, explicitCombos: pass.combos
             )
+            // updateValue retains a failed proof; subscript assignment of nil would remove it.
+            interfaceProofs.updateValue(proof, forKey: proofKey)
         }
-        guard let schemas = SceneResolvedMaterialShaderSchema.unconditionalStaticModelUniforms(
-            fields, contract: contract, explicitCombos: pass.combos
-        ) else { return unavailable("shader-interface-unproven") }
+        guard let schemas = proof else { return unavailable("shader-interface-unproven") }
 
         var bindings: [SceneStaticModelMaterialBindings.Binding] = []
-        for interface in interfaces {
+        for interface in Self.interfaces {
             guard let schema = schemas[interface.name] else {
                 return unavailable("\(interface.channel.rawValue)-interface")
             }
@@ -81,7 +94,7 @@ nonisolated enum SceneStaticModelMaterialBindingCompiler {
                    ) {
                     return unavailable("\(interface.channel.rawValue)-property-key")
                 }
-                if let state = valueShapeFailure(authored.value) {
+                if let state = Self.valueShapeFailure(authored.value) {
                     return .init(
                         state: state, bindings: [],
                         rejectionReason: "\(interface.channel.rawValue)-producer-shape"
@@ -143,11 +156,11 @@ nonisolated enum SceneStaticModelMaterialBindingCompiler {
         }
     }
 
-    private static func rejected(_ reason: String) -> SceneStaticModelMaterialBindings {
+    private func rejected(_ reason: String) -> SceneStaticModelMaterialBindings {
         .init(state: .rejected, bindings: [], rejectionReason: reason)
     }
 
-    private static func unavailable(_ reason: String) -> SceneStaticModelMaterialBindings {
+    private func unavailable(_ reason: String) -> SceneStaticModelMaterialBindings {
         .init(state: .unavailable, bindings: [], rejectionReason: reason)
     }
 

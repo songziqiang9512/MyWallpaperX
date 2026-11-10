@@ -303,12 +303,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 )
                 return .init(
                     field: field,
-                    source: .dynamic(.init(
-                        declaration: dynamic,
+                    source: .dynamic(SceneResolvedMaterialUniformProjection.prepareDynamic(
+                        dynamic,
                         contributor: contributor,
-                        fallback: dynamic.authoredFallback
-                            ?? schema.defaultValue,
-                        schema: schema
+                        schema: schema,
+                        field: field
                     ))
                 )
             }

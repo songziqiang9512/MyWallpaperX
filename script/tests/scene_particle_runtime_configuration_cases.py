@@ -125,3 +125,62 @@ class SceneParticleRuntimeConfigurationCases:
                               "compilationDiagnostics"):
                     self.assertEqual(result[field], configuration == "debug", field)
                 self.assertTrue(result["definitionDiagnostics"])
+
+    def test_multiple_renderers_share_real_simulation_and_keep_local_outputs(self) -> None:
+        results = [self.run_harness("multiple-renderers-synthetic", configuration=configuration)
+                   for configuration in ("debug", "release")]
+        self.assertEqual(results[0], results[1])
+        result = results[0]
+        self.assertEqual(result["rootPreparedIndices"], list(range(6)))
+        for field in ("rootTextureShared", "randomizedPopulation", "replayMatches",
+                      "pauseMatchesSingles", "pauseStopsBirths", "pauseKeepsExistingMotion",
+                      "stopClearsEveryOutput", "stopMatchesSingles", "stopKeepsPeer"):
+            self.assertTrue(result[field], field)
+        rows = result["root"]
+        self.assertEqual(len(rows), 6)
+        for index, row in enumerate(rows):
+            with self.subTest(frame=index):
+                self.assertEqual(row["rootSystems"], 2)  # Target and independent peer, not six simulators.
+                self.assertTrue(all(row["singleGeometry"]), row)
+                self.assertTrue(all(row["singleState"]), row)
+                for field in ("variantGeometry", "variantState", "peerGeometry", "peerState"):
+                    self.assertTrue(row[field], (field, row))
+        for row in rows[:2]:
+            self.assertEqual(row["indices"], list(range(6)))
+            self.assertEqual(row["population"], 3)
+            self.assertTrue(all(count > 0 for count in row["counts"]))
+            self.assertEqual([row["counts"][index] for index in (0, 3, 4)], [3, 3, 3])
+        self.assertEqual(rows[3]["population"], 0)
+        self.assertEqual([rows[3]["counts"][index] for index in (0, 2, 3, 4)], [0, 0, 0, 0])
+        self.assertGreater(rows[3]["counts"][5], 0)
+        self.assertEqual(rows[4]["indices"], [5])  # Short history drains before the longer policy.
+        self.assertGreater(rows[4]["counts"][5], 0)
+        self.assertEqual(rows[5]["indices"], [])
+        self.assertEqual(rows[5]["counts"], [0] * 6)
+        for trigger, expected in (("static", [0, 1, 2, 3, 6, 7]), ("eventspawn", [0, 1, 2, 3])):
+            with self.subTest(trigger=trigger):
+                child = result["children"][trigger]
+                self.assertEqual(child["indices"], expected)
+                self.assertTrue(all(count > 0 for count in child["counts"]))
+                for field in ("geometryMatches", "simulationMatches", "variantMatches", "replayMatches",
+                              "spriteAndTrailDiffer", "duplicateSpriteMatches", "textureViewsShared",
+                              "implicitMatchesExplicit"):
+                    self.assertTrue(child[field], (field, child))
+                self.assertEqual(child["rootSystems"], 1)
+                self.assertEqual(child["childSystems"], 1)
+                self.assertEqual(child["childPopulation"], 3)
+                self.assertEqual(child["templateIndices"], [0])
+                self.assertEqual(child["nextSystemID"], 2)
+                self.assertEqual(child["nextSeed"], 0 if trigger == "static" else 1)
+                self.assertEqual(child["rootNextID"], 0 if trigger == "static" else 1)
+                self.assertEqual(child["childNextID"], 3)
+                self.assertEqual(child["implicitIndices"], [0])
+        container = result["container"]
+        self.assertEqual(container["activeLayers"], [310])
+        self.assertEqual(container["rootSystems"], 0)
+        self.assertEqual(container["childSystems"], 1)
+        self.assertEqual(container["childPopulation"], 3)
+        self.assertEqual(container["indices"], [0, 1])
+        self.assertTrue(all(count > 0 for count in container["counts"]))
+        for field in ("noRootSimulator", "allChildOutputs", "noExecutableTemplateRejected", "badDeclarationRejected"):
+            self.assertTrue(container[field], (field, container))

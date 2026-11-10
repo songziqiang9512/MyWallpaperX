@@ -14,12 +14,6 @@ final class SceneVideoTextureSource {
     ) { return nil }
 }
 
-nonisolated struct SceneParticleRefractionDeclaration {
-    let normalTextureSource: SceneParticleTextureSource?
-    let amount: Float
-    let overbright: Float
-}
-
 struct SceneSpriteAnimation {
     init(container: SceneTexContainer, sourceInput: SceneResourceView.FileInput) throws {}
 }
@@ -336,6 +330,8 @@ enum Harness {
         }
         let result: [String: Any] = [
             "available": true,
+            "ambientLighting": try ambientLightingProfiles(device: device, loader: loader, directory: directory),
+            "cutout": try cutoutProfiles(device: device, loader: loader, directory: directory),
             "r8Color": try r8ColorProfiles(device: device, loader: loader, directory: directory),
             "staticPrimaryNormal": try staticPrimaryNormalProfiles(device: device,
                 loader: loader, directory: directory),
@@ -431,7 +427,7 @@ enum Harness {
         return pixels[offset ..< offset + 4].map(Int.init)
     }
 
-    private static func drawPixels(
+    static func drawPixels(
         device: MTLDevice,
         refraction: SceneParticleRefractionTextureLoader.Loaded,
         particleAlpha: Float,
@@ -439,7 +435,9 @@ enum Harness {
         gradientBackground: Bool,
         size: Int = 32,
         instance: SceneParticleGPUInstance? = nil,
-        uniforms: SceneParticleLayerUniforms? = nil
+        uniforms: SceneParticleLayerUniforms? = nil,
+        ambient: SIMD3<Float>? = nil, hdrEnabled: Bool = false,
+        rejectFirst: SceneParticleRefractionBinding? = nil
     ) throws -> [UInt8] {
         guard let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
@@ -508,27 +506,30 @@ enum Harness {
         ) else {
             throw HarnessError.gpu
         }
-        let encoded = pipeline.drawRefraction(
-            texture: refraction.color,
-            binding: refraction.binding,
-            background: captured,
-            instances: instances,
-            uniforms: uniforms ?? SceneParticleLayerUniforms(
-                viewProjection: SceneMatrix.identity(),
-                layerModel: SceneMatrix.identity(),
-                basis: SceneParticleOrientation.screen.basis(
-                    cameraRight: SIMD3(1, 0, 0),
-                    cameraUp: SIMD3(0, 1, 0),
-                    cameraForward: SIMD3(0, 0, -1)
-                ),
-                viewportSize: SIMD2(repeating: Float(size))
+        let drawUniforms = uniforms ?? SceneParticleLayerUniforms(
+            viewProjection: SceneMatrix.identity(),
+            layerModel: SceneMatrix.identity(),
+            basis: SceneParticleOrientation.screen.basis(
+                cameraRight: SIMD3(1, 0, 0),
+                cameraUp: SIMD3(0, 1, 0),
+                cameraForward: SIMD3(0, 0, -1)
             ),
+            viewportSize: SIMD2(repeating: Float(size))
+        )
+        if let rejectFirst {
+            try rejectMissingAmbient(pipeline: pipeline, texture: refraction.color, binding: rejectFirst,
+                background: captured, instances: instances, uniforms: drawUniforms, encoder: encoder)
+        }
+        let encoded = pipeline.drawRefraction(
+            texture: refraction.color, binding: refraction.binding, background: captured,
+            instances: instances, uniforms: drawUniforms,
             renderState: SceneParticlePipelineRenderState(
                 blendMode: blendMode,
                 cullMode: .none
             ),
             colorUVScale: refraction.colorUVScale,
             colorSampling: refraction.colorSampling,
+            ambient: ambient, hdrEnabled: hdrEnabled,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -811,7 +812,7 @@ enum Harness {
         ])
     }
 
-    private static func makeRawTex(
+    static func makeRawTex(
         pixel: [UInt8],
         flags: UInt32 = 0,
         textureWidth: UInt32 = 4,
@@ -886,7 +887,7 @@ enum Harness {
         return data as Data
     }
 
-    private static func makeTex(
+    static func makeTex(
         format: UInt32,
         flags: UInt32 = 0,
         textureWidth: UInt32 = 4,
@@ -987,7 +988,7 @@ enum Harness {
         try readback.pixel(texture)
     }
 
-    private enum HarnessError: Error {
+    enum HarnessError: Error {
         case gpu
         case texture
     }

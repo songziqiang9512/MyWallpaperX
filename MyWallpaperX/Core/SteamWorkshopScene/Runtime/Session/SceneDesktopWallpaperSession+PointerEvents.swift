@@ -50,14 +50,16 @@ extension SceneDesktopWallpaperSession {
                   launchRequestID?.uuidString ?? "none", lifecycleID.uuidString,
                   (localPointerEventMonitor == nil ? 0 : 1) + (globalPointerEventMonitor == nil ? 0 : 1))
         }
+        guard debugPointerOverride == nil else { return }
 #endif
+        if localPointerEventMonitor != nil || globalPointerEventMonitor != nil {
+            launchContext?.sceneScriptCursorProgram.retirePrimaryButtonStream()
+        }
     }
 
     func removePointerEventMonitors() {
-#if DEBUG
-        let hadMonitors = localPointerEventMonitor != nil || globalPointerEventMonitor != nil
-#endif
         userShortcutInput.revoke()
+        guard localPointerEventMonitor != nil || globalPointerEventMonitor != nil else { return }
         if let localPointerEventMonitor {
             NSEvent.removeMonitor(localPointerEventMonitor)
             self.localPointerEventMonitor = nil
@@ -66,8 +68,12 @@ extension SceneDesktopWallpaperSession {
             NSEvent.removeMonitor(globalPointerEventMonitor)
             self.globalPointerEventMonitor = nil
         }
+        for surface in surfaces.values {
+            _ = surface.metalView.drainSceneScriptPointerEvents()
+        }
+        launchContext?.sceneScriptCursorProgram.retirePrimaryButtonStream()
 #if DEBUG
-        if hadMonitors, SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             NSLog("MWX DEBUG SCENE: phase=pointer-monitors request=%@ session=%@ installed=0",
                   launchRequestID?.uuidString ?? "none", lifecycleID.uuidString)
         }
@@ -79,55 +85,33 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
         guard debugPointerOverride == nil else { return }
 #endif
-        let screenPoint = event.window?.convertPoint(
-            toScreen: event.locationInWindow
-        ) ?? NSEvent.mouseLocation
-        let primaryButtonIsDown: Bool
-        switch event.type {
-        case .leftMouseDown:
-            primaryButtonIsDown = true
-        case .leftMouseUp:
-            primaryButtonIsDown = false
-        default:
-            primaryButtonIsDown = NSEvent.pressedMouseButtons & 1 != 0
-        }
-        let hasNativeMainThreadIngress = Thread.isMainThread
-        let publish = { [weak self] in
-            guard let self else { return }
-            guard self.isVisible, self.isOutputActive else { return }
-            let timestamp = CACurrentMediaTime()
-            let buttonEvent = event.type == .leftMouseDown || event.type == .leftMouseUp
-            var admitsNativeAction = false
-            if hasNativeMainThreadIngress, buttonEvent {
-                let receiver = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0)
-                admitsNativeAction = self.surfaces.values.contains { $0.window.windowNumber == receiver }
-                    || PlaybackDesktopInputAdmission.allowsDesktopWindow(windowNumber: receiver)
-            }
-            let gestureID: UInt64?
-            if admitsNativeAction {
-                gestureID = self.userShortcutInput.receiveNativeButtonEvent(
-                    down: event.type == .leftMouseDown, up: event.type == .leftMouseUp)
+        let eventPoint = event.locationInWindow
+        let screenPoint = event.window?.convertPoint(toScreen: eventPoint) ?? eventPoint
+        let type = event.type
+        let buttonEvent = type == .leftMouseDown || type == .leftMouseUp
+        let timestamp = CACurrentMediaTime()
+        var grant: ScenePlaybackShortcutGesture?
+        if buttonEvent {
+            let receiver = NSWindow.windowNumber(at: screenPoint, belowWindowWithWindowNumber: 0)
+            if surfaces.values.contains(where: { $0.window.windowNumber == receiver })
+                || PlaybackDesktopInputAdmission.allowsDesktopWindow(windowNumber: receiver) {
+                if let gestureID = userShortcutInput.receiveNativeButtonEvent(
+                    down: type == .leftMouseDown, up: type == .leftMouseUp),
+                   let requestID = launchRequestID, let context = launchContext {
+                    grant = .init(requestID: requestID,
+                        configurationRevision: context.userShortcuts.revision, gestureID: gestureID)
+                }
             } else {
-                if buttonEvent { self.userShortcutInput.revoke() }
-                gestureID = nil
-            }
-            let grant: ScenePlaybackShortcutGesture?
-            if let gestureID, let requestID = self.launchRequestID, let context = self.launchContext {
-                grant = .init(requestID: requestID,
-                    configurationRevision: context.userShortcuts.revision, gestureID: gestureID)
-            } else { grant = nil }
-            for surface in surfaces.values {
-                surface.metalView.recordSceneScriptPointerEvent(
-                    screenPoint: screenPoint,
-                    primaryButtonIsDown: primaryButtonIsDown,
-                    timestamp: timestamp, nativeShortcutGesture: grant
-                )
+                userShortcutInput.revoke()
             }
         }
-        if Thread.isMainThread {
-            publish()
-        } else {
-            DispatchQueue.main.async(execute: publish)
+        for surface in surfaces.values {
+            surface.metalView.recordSceneScriptPointerEvent(
+                screenPoint: screenPoint,
+                primaryButtonIsDown: type == .leftMouseDown || type == .leftMouseDragged,
+                hasPrimaryButtonEdge: buttonEvent,
+                timestamp: timestamp, nativeShortcutGesture: grant
+            )
         }
     }
 }

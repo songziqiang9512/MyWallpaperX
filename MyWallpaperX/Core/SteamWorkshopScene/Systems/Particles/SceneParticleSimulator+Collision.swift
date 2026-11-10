@@ -1,6 +1,61 @@
 import Foundation
+import simd
+
+nonisolated struct SceneParticleCollisionBoundsFrame {
+    let extent: SIMD2<Double>
+    let origin: SIMD2<Double>
+    let localToCanvas: simd_double2x2
+    let canvasToLocal: simd_double2x2
+
+    init?(extent: SIMD2<Float>, worldFrame: simd_float4x4) {
+        let (x, y, z, translation) = worldFrame.columns
+        guard extent.x.isFinite, extent.y.isFinite, extent.x > 0, extent.y > 0,
+              x.z == 0, y.z == 0, z.x == 0, z.y == 0,
+              translation.x.isFinite, translation.y.isFinite else { return nil }
+        let a = SIMD2(Double(x.x), Double(x.y))
+        // Match the local Y reflection in the particle draw model.
+        let b = -SIMD2(Double(y.x), Double(y.y))
+        let determinant = a.x * b.y - a.y * b.x
+        guard determinant.isFinite, determinant != 0 else { return nil }
+        self.extent = SIMD2(Double(extent.x), Double(extent.y))
+        origin = SIMD2(Double(translation.x), Double(translation.y))
+        localToCanvas = simd_double2x2(a, b)
+        canvasToLocal = simd_double2x2(SIMD2(b.y, -a.y) / determinant,
+                                       SIMD2(-b.x, a.x) / determinant)
+    }
+}
 
 extension SceneParticleSimulator {
+    nonisolated func applyCollisionBounds(_ frame: SceneParticleCollisionBoundsFrame) {
+        for index in particles.indices {
+            let localPosition = particles[index].position
+            let canvasPosition = frame.origin + frame.localToCanvas
+                * SIMD2(localPosition.x, localPosition.y)
+            let clamped = simd_clamp(canvasPosition, .zero, frame.extent)
+            guard clamped != canvasPosition else { continue }
+
+            let localVelocity = particles[index].velocity
+            let canvasVelocity = frame.localToCanvas * SIMD2(localVelocity.x, localVelocity.y)
+            var impulse = SIMD2<Double>.zero
+            for axis in 0..<2 where (clamped[axis] - canvasPosition[axis]) * canvasVelocity[axis] < 0 {
+                impulse[axis] = -1.5 * canvasVelocity[axis]
+            }
+            let projectedPosition = frame.canvasToLocal * (clamped - frame.origin)
+            let localImpulse = frame.canvasToLocal * impulse
+            let position = SIMD3(projectedPosition.x, projectedPosition.y, localPosition.z)
+            let velocity = localVelocity + SIMD3(localImpulse.x, localImpulse.y, 0)
+            guard acceptsMotionResult(velocity, position, component: "collisionbounds") else { continue }
+            particles[index].position = position
+            particles[index].velocity = velocity
+#if DEBUG
+            if let operatorIndex = componentObservation?.activeOperatorIndex {
+                componentObservation?.record("operator", operatorIndex, "evaluated",
+                    reason: "canvas-contact-applied", time: simulationTime, particleID: particles[index].id)
+            }
+#endif
+        }
+    }
+
     nonisolated func applyCollisionPlane(
         plan: SceneParticleCollisionPlanePlan?,
         controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil

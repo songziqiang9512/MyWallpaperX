@@ -21,8 +21,8 @@
       "bytes": 18252
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 40,
-      "bytes": 5740
+      "lines": 42,
+      "bytes": 6603
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
@@ -81,24 +81,24 @@
       "bytes": 13288
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
-      "lines": 51,
-      "bytes": 4068
+      "lines": 58,
+      "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 184,
-      "bytes": 25987
+      "lines": 237,
+      "bytes": 43656
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
       "bytes": 2303
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 76,
-      "bytes": 8545
+      "lines": 78,
+      "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 59,
-      "bytes": 6705
+      "lines": 68,
+      "bytes": 8178
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -109,32 +109,32 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 73,
-      "bytes": 8522
+      "lines": 154,
+      "bytes": 28891
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 84,
-      "bytes": 12189
+      "lines": 95,
+      "bytes": 14244
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 57,
-      "bytes": 5938
+      "lines": 68,
+      "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 211,
-      "bytes": 36565
+      "lines": 298,
+      "bytes": 57663
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 226,
-      "bytes": 42590
+      "lines": 284,
+      "bytes": 55770
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 126,
-      "bytes": 80227
+      "lines": 571,
+      "bytes": 247311
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 117,
-      "bytes": 17485
+      "lines": 150,
+      "bytes": 25187
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -145,24 +145,24 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 97,
-      "bytes": 12465
+      "lines": 175,
+      "bytes": 30292
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 106,
-      "bytes": 13141
+      "lines": 112,
+      "bytes": 15154
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
       "bytes": 5885
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 39,
-      "bytes": 4260
+      "lines": 41,
+      "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 181,
-      "bytes": 35699
+      "lines": 187,
+      "bytes": 49595
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -340,201 +340,147 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "c042c47f01928a700441b2054af6cbd452fe5d368b666b39bb4d48419ab70f72",
-      "after": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
-      "owner": "scene-video-assets",
-      "reason": "Specify opaque straight asset preparation/publication and terminal local-failure behavior in the existing video contract, with strict pending and identity boundaries.",
-      "decision": "docs/scene/capabilities/material-video-assets.md#视频资产的颜色用途"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "1fc894d7f9152714cd29d4e596ed00325765dc8a232f996f4f012c06edfcfacc",
-      "after": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
-      "owner": "scene-snapshot-capacity",
-      "reason": "Replace the redundant fixed framebuffer snapshot ceiling with shared actual-allocation admission; preserve explicit limits, cached capacity, continuation rollback and real lease lifetime.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#framebuffer-snapshot"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "cb15af3de90aaaf56327e7fcbfe9e80598b731588438471656d6aef11f5e5deb",
-      "after": "96336635bdea8a2a76cbaf27eabc97f9a35a2656df6ac0ddaaaa6200c022313d",
-      "owner": "scene-generic-execution",
-      "reason": "Define all-effect admission by actual compiler, typed interfaces, resources and execution; source-shape compensation remains generic compiler debt.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/local-library-loading-design.md",
-      "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
-      "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
-      "owner": "repository-maintainer",
-      "reason": "Keep one current thumbnail migration authority, R113-R115 verified scope and unresolved presentation boundaries. R115 retires online image ownership and duplicate preview while documenting actual reuse, source publication and test/build evidence; compact prior quick summaries.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/thumbnail-delivery-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "af6609f3e0b876bbde5fb2fbe918d8af146627c2339575c4080580e0bb2f3edf",
-      "owner": "repository-maintainer",
-      "reason": "Complete Ready-before-optional-persistence delivery in the original bounded worker, source/hook ordering, invalidation and transient ready reuse; record exact synthetic before/after evidence, cross-target tail-window tradeoff, real AV and consumer gates. Synchronize the user-authorized workspace closeout; no new product cache/queue or whole-App FPS claim.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
-      "after": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
-      "owner": "repository-maintainer",
-      "reason": "Keep current non-displaying Steam prefetch ownership and measured 96-image retirement; preserve fallback/retry/display state and prior target-size scope. Reject the ambiguous static-animation terminal candidate using actual ImageIO counterexamples; retain native timeout evidence and explicit FPS/RSS limits.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/dedicated-host-process-design.md",
-      "before": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
-      "after": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
-      "owner": "repository-maintainer",
-      "reason": "Keep five requested audio, native modal, session removal, provider index migration and join-time sorting contracts and bounded verification current; replace obsolete historical process prose. No new product owner or Scene change.",
-      "decision": "docs/web/dedicated-host-process-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/wallhaven-online-browser-design.md",
-      "before": "2690d9776ded0dc0220a0e3860595bdbccc850cb500190dfe3caa6ca9b831070",
-      "after": "bd9be1c312fa4322cf4f2fead58c436b666b9f256b0848596c76398e3aa2cf41",
-      "owner": "repository-maintainer",
-      "reason": "Apply user decision to retire old online index/path migration and obsolete UI-cache conversion. Record bounded non-Scene legacy consumer audit, actual costs, current-function exclusions and removal consequences; preserve previous five requested fixes and concurrent Scene work.",
-      "decision": "docs/development/code-slimming-program.md#legacy-app-data-audit"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "8d783765e1b2faa6a41c25617a84fe82d81119c9c9a45bb331d893cc14f5795f",
-      "after": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
-      "owner": "app-current-strategy",
-      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
-      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/lock-screen-screensaver-design.md",
-      "before": "f521826674cfca7a3f1509b4a92681788f54cfbfa57a30c460e23ffed0270b6c",
-      "after": "35afd09387393a02cfefd7dad02a2dc54f1f94ac28fdd814e5e9f44de124ebf9",
-      "owner": "app-current-strategy",
-      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
-      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/code-slimming-program.md",
-      "before": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
-      "after": "1fe25764911947a6767b14f887c115056baf31e7c34888c1122820beb1a7cbec",
-      "owner": "app-unused-entry-cleanup",
-      "reason": "Record confirmed unused-code retirements, independent review findings and narrowed scroll proof; preserve parallel Scene records and all current behavior boundaries.",
-      "decision": "docs/development/code-slimming-program.md#overload-writeonly-cleanup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "61081b07fdb5780ade398937f3a203a11627fb7cab8924333662a22d910fe939",
-      "after": "73b8d381e45bb0417fa58ab7d1e248d3ce8dd0f777f15546cc6850529b31ec14",
-      "owner": "app-unused-entry-cleanup",
-      "reason": "Document the eight explicitly authorized zero-consumer cleanup groups and preserved active owners, remove obsolete navigation/Web-path claims, and bind nearest validation without changing Scene or current data formats.",
-      "decision": "docs/development/code-slimming-program.md#dead-entry-cleanup"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
-      "after": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
-      "after": "aab7cee49e905774c6811507867e3cf7ea39ae8d1ed54107ec4827c2e2d29530",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
-      "after": "8b1473ff883502c4b7a476c60aab62255bfee0512bb56ec55342a155b2fdd49c",
-      "owner": "scene-uniform-derived-global-scope",
-      "reason": "Use the existing prepared lexical facts for global readonly storage lowering; retire whole-source and whole-function permission plus duplicated case-label qualification state. Keep actual write/direction proof and mandatory compiler grammar ownership. Record final strict/compiler/Metal/App facts and replace the closed scope queue entry with the distinct, still-unqualified declared-helper consumer boundary. No new document authority, Program or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#uniform-derived-global-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "e5b6f55653a82c812ba5d5924e1a33d38c9eea0eb4d690ec33a5e8c517d13884",
-      "after": "ccb88a22390c70c29d203aa837a6b1864b536b2ec4a1338a0d4f1b087fe0f720",
-      "owner": "scene-project-subtree-source",
-      "reason": "Use the existing utility group/source/order/geometry owners for Project descendants and record the bounded official source-cut and actual mask/particle-to-terminal qualification. Keep dynamic activation and other unqualified consumers in the open queue, preserve fullscreen ownership, and remove the closed missing-source assertion. No new document authority or ordinary-frame state.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#project-subtree-source"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
-      "after": "fb0ccb6c68dc385c9e7a11209b7afcdb61690537f4eafedd23523634fdc94881",
-      "owner": "scene-prepared-group-visibility",
-      "reason": "Use the existing shared source/member closure to prepare Project layer visibility, qualify cold-hidden shared-Bool parent/particle cycles and stable final composition with renamed inputs, and retain only the independent inactive-effect gap. Preserve reader correction and proof ceilings in the existing evidence authority; no new document, runtime state, owner or hot compilation.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#prepared-group-visibility"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
-      "after": "e86abaaa395264d6418a66613320fe0ef0acc63353c13887309106fc0ff1645d",
-      "owner": "scene-linked-authored-constant",
-      "reason": "Represent absent sampled lanes independently of a valid authored numeric value and shared clock in the original Timeline owners. Qualify real constant uniforms, preserve other-host/default/relative and malformed-component boundaries, and replace obsolete Gamma/bokeh failure assertions with the current same-input native, official and author-to-terminal evidence. No new document authority or runtime state.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
+      "before": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
+      "after": "703fc03f70034848f6c9e0db40c927cdaccfea70343da0cc75ce0da2a46d1231",
+      "owner": "Scene material graph resource view",
+      "reason": "Define consumer-scoped graph projection, record bounded identical-workload Debug CPU-frame evidence, and replace eye/late355 qualification with concrete producer and restart limits.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "ef4119361f89923eff29c61bca49b1e263c1daa045f3d54ad27996ea478ac458",
-      "after": "3dae57fe23995055a2970ab9ef62341a0daafe62bbbeb6003e30c8efd740df33",
-      "owner": "scene-complete-initial-prewarm",
-      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "3ec4017d341bd0c82b1d2c798b7d8d92c47a14e826cbae2b3008ead1b4fc0e0f",
+      "after": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
+      "owner": "Scene FrameDriver and material submissions",
+      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "before": "e3b2771a33afa68dd0fc4d6843b5699c0374f2a964654b4037a61e8aa6bf1ee9",
+      "after": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
+      "owner": "Scene audio input verification",
+      "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
+      "decision": "docs/architecture/system-audio-spectrum-design.md#验收与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "053827ea44996f95e60b80b7d39d33822ee36474fcd65b634c7f0dcfe0df9280",
+      "after": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
+      "owner": "Scene bounded followup qualification",
+      "reason": "Preserve one current instrumented function sample and two bounded R0 input investigations as concrete stop conditions. No product fix or performance gain is claimed; keep unlocalized visual feedback and actual source-material capability open. Exact body budget.",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#costs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "before": "e4686c656bc41c7edfbe764c6a5fdd13688681ef9c140821d3d457d474888955",
+      "after": "6101c81d5a0bb091996a7b50a4c5156eafc1349024b78174f347df44bca9ce43",
+      "owner": "Scene ordered capture receipts",
+      "reason": "Define source-order qualification and exact periodic PNG input in the existing offline reader. Record original357 archive transport and independent288 byte replay without changing old verdicts; remove solved reader queue item and bound violin followup. No new App/GPU/build. Exact body budget.",
+      "decision": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md#capture-receipts"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
+      "after": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
+      "owner": "Scene material video acquisition and playback",
+      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
+      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
+      "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
+      "owner": "Scene material uniform",
+      "reason": "Document the single cold projection used by scalar Slider admission and active float2 uniform encoding.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "bfc94d923aa6099008907b4e48760cd5a0ef052c220bd337ec59209b1338aea2",
+      "after": "ceb5cc93a57a1b844b0507f826a72ee5c5eef8c791b5af2df514d1cd801339e4",
+      "owner": "Scene graph history",
+      "reason": "Gate the history split on the per-frame activation decision and document the seed fallback on bypass frames.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
+      "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
+      "owner": "Scene composition source and projection",
+      "reason": "Describe childless passthrough and flat capture through the original perspective consumer.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "8e4f919014d94636708503fb2cc307ae5f60c2f34d3cc55d373c9c977b0a6b45",
+      "after": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
+      "owner": "Scene Debug pointer evidence",
+      "reason": "Record existing click dispatch at the trajectory endpoint and bound synthetic evidence.",
+      "decision": "docs/scene/development/development-workflow.md#截图与时序"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "789212c3dc1abcc0a5460217f12fa26dd3bdc8dea0b1a46f9e473ac79e42a9ea",
+      "after": "7aeb3e0a70d07f885575ad8bda5a805d40556d460131e0eec7e686efb1652a7a",
+      "owner": "SceneScript ValueHost",
+      "reason": "Record the SceneScript-only non-finite scalar chain and the official NaN/-Infinity/+Infinity alpha mapping.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#contract"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
+      "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
+      "owner": "Scene static model material preparation",
+      "reason": "Specify batch-local interface proof reuse and retain the measured launch and visual evidence.",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#preparation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d4b710449764625114f855a70796280246db1ae578cef15445c7cce62a7a952c",
-      "after": "3807ae73269435e49e8805fc1b46f885a8944f450e884c59b9c25abdc4b21e36",
-      "owner": "scene-complete-initial-prewarm",
-      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
+      "before": "1d8330842a7c85e333538bf31f3f4973637c66fe748f2a8073bbd86d30257f4b",
+      "after": "ace33b2ecb1221294e9d0bbc30d56dbf1a2dacfe82e5e681f670a8f8e96230bf",
+      "owner": "Scene particle simulation",
+      "reason": "Document the single Turbulence particle borrow and keyed random inputs.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
+      "after": "a6e594b09e30cc9e604beee9de632483db333c37204b3e07947fdf42d14a0b69",
+      "owner": "Scene capability contract",
+      "reason": "Define authored text depth through the ordinary world terminal and record the real-sample enabled/disabled boundary.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0dfbb2dac00bb251cd3637cbb2aa718add3117f8bdac0b177d9dbb8c39430571",
-      "after": "3770c57736933729081b8a91972b889906df8248a45ce737d2cc29840f93f1ce",
-      "owner": "scene-complete-initial-prewarm",
-      "reason": "Move complete initial particle preparation to the original Host queue with independent per-Surface ownership and shared final image outcomes; preserve exact step and cancellation boundaries. Replace obsolete initial budget assertions with current author/GPU and bounded lifecycle evidence, and isolate the remaining display-rebuild debt. No new document authority or live-frame accounting state.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "26033c5c888b9d16af8edff94ee4208759c5e6445aa6c855a99f6388101766de",
+      "after": "cc944a6a57d817d316de6199c458ea0d30d5cd9f4167bb07157210af17d438ce",
+      "owner": "Scene runtime evidence",
+      "reason": "Record the 342 read/write split A/B, GPU timing and integration results.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#scene-playback-triage-342"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "82e1fcc9036b3f1a61e642bacff5ccef3ff5171d869c4086c00e08ad8fadbee3",
-      "after": "4a90c0742d4b16fb76a12e7eadad62192e9ab4192354ddd78650b0946e3997bd",
-      "owner": "scene-display-followup-handoff",
-      "reason": "Record the pending incremental display direction, exact lifecycle owners, fresh-instance semantics and verification boundaries in the existing open queue; remove the transaction-fixture issue whose real regression now passes. No product implementation or new document authority.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#display-reconciliation"
+      "before": "65b232c3e5ffe70a377182663e4d340849ab735471bb79f7bfc944e5c5bee32c",
+      "after": "519a63bd40d388ddb432dcf8b1c33c4f31a5c347e1c87e96436dfe1e575de48e",
+      "owner": "Scene open queue",
+      "reason": "Record the alpha non-finite defect, its source-scoped fix boundary and the retired negative assertions; keep non-alpha targets and 225 attribution open.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
     }
   ]
 }

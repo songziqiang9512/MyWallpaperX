@@ -296,7 +296,7 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
         self.assertNotEqual(rows["inwardBirth"]["facts"][0]["particlePath"],
                             rows["renamedInwardBirth"]["facts"][0]["particlePath"])
 
-    def test_emitter_sign_selects_sides_after_fractional_input_and_keeps_same_encoder_peer(self) -> None:
+    def test_emitter_direction_inputs_reach_literal_sides_and_keep_same_encoder_peer(self) -> None:
         rows = {row["name"]: row for row in self.result["signBirth"]}
         controls = (
             ("positiveTenSign", "10 0 0", "1 0 0", (1,), [84, 32, 92, 64]),
@@ -305,6 +305,9 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
             ("negativeFractionSign", "-0.5 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
             ("positiveYAxisSign", "0 1 0", "0 1 0", (2,), [60, 8, 68, 40]),
             ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0", (2,), [60, 8, 68, 40]),
+            ("largeDirectionsSphere", "1 0 0", "1099511627776 0 0", (1,), [84, 32, 92, 64]),
+            ("tinyRadiusDirections", "1 0 0", "1e200 0 0", (1,), [84, 32, 92, 64]),
+            ("renamedLargeYDirections", "0 1 0", "0 1099511627776 0", (2,), [60, 8, 68, 40]),
         )
         self.assertEqual(set(rows), {control[0] for control in controls})
         clear, source, peer = [16, 24, 40, 102], [96, 160, 224, 255], [192, 96, 48, 255]

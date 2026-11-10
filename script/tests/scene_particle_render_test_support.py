@@ -17,14 +17,16 @@ def run_particle_harness(
         harness = directory / "Harness.swift"
         harness.write_text(harness_source, encoding="utf-8")
         binary = directory / "scene-particle-render"
-        subprocess.run(
+        compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc",
                 *(str(path) for path in swift_sources), str(harness),
                 "-framework", "Metal", "-o", str(binary),
             ],
-            check=True, capture_output=True, text=True,
+            capture_output=True, text=True,
         )
+        if compilation.returncode:
+            raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
             [str(binary)], check=True, capture_output=True, text=True
         )

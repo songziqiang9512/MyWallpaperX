@@ -18,6 +18,7 @@ nonisolated extension SceneRenderDescriptor {
         var descriptor = Self(
             entryPath: entryPath, camera: camera, lighting: lighting,
             hdrEnabled: hdrEnabled,
+            transparentSorting: transparentSorting,
             layers: merged,
             rootLayerIDs: merged.filter { $0.parentID == nil }.map(\.id),
             renderOrderLayerIDs: topology.renderOrderLayerIDs,

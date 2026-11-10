@@ -270,6 +270,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         })
     }
 
+    func materialVideoVisibilityTarget(for effect: Graph.EffectKey) -> SceneDynamicTarget? {
+        guard let stage = capabilitiesByLayerID[effect.layerID]?.stages.first(where: {
+            $0.product.graph.effects.first?.key == effect
+        }), stage.supportsEffectEntryPassthrough else { return nil }
+        return stage.execution.activationPolicy?.effectVisibilityTarget
+    }
+
     var launchPipelineWarmupCapabilities: [LayerCapability] {
         capabilitiesByLayerID.keys.sorted().compactMap {
             capabilitiesByLayerID[$0]

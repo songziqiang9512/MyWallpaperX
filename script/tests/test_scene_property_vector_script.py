@@ -186,14 +186,35 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
                 self.assertTrue(passed, (group, key, value))
         self.assertEqual(value["legacyParserCounts"], [1, 1, 1])
 
-    def test_named_pass_return_boundary_keeps_current_user_fallback(self) -> None:
+    def test_named_pass_return_boundary_applies_numbers_and_keeps_user_fallback(self) -> None:
         value = self.result()["namedUserScalar"]
         cases = {"bool", "string", "vec2", "nan", "infinity", "throw", "undefined"}
-        self.assertEqual(set(value["badReturnFacts"]), cases | {"properties-" + name for name in cases})
+        next_frame = {"nan-next-frame", "infinity-next-frame",
+                      "properties-nan-next-frame", "properties-infinity-next-frame"}
+        self.assertEqual(
+            set(value["badReturnFacts"]),
+            cases | {"properties-" + name for name in cases} | next_frame,
+        )
         for key, passed in value["badReturnFacts"].items():
-            self.assertTrue(passed, (key, value))
-            expected = {"bool": 1.0, "string": 0.5}.get(key.removeprefix("properties-"), 0.4)
-            self.assertAlmostEqual(value["badFallbacks"][key], expected)
+            with self.subTest(fact=key):
+                self.assertTrue(passed, (key, value))
+        # SceneScript Number returns apply, including the official non-finite
+        # alpha values; the second frame must not fuse the owner off.
+        self.assertEqual(
+            value["badNonFiniteReturns"],
+            {"nan": "nan", "infinity": "infinity",
+             "properties-nan": "nan", "properties-infinity": "infinity"},
+        )
+        # Bool, numeric String, Vec3, throw and undefined keep the current
+        # user value, so the old 1.0/0.5 coercion assertions retire.
+        fallback_cases = cases - {"nan", "infinity"}
+        self.assertEqual(
+            set(value["badFallbacks"]),
+            fallback_cases | {"properties-" + name for name in fallback_cases},
+        )
+        for key, fallback in value["badFallbacks"].items():
+            with self.subTest(fallback=key):
+                self.assertAlmostEqual(fallback, 0.4)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -269,6 +290,11 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             (self.proof / "observations.json").write_text(completed.stdout)
             (self.proof / "runtime.stderr").write_text(completed.stderr)
         return json.loads(completed.stdout)
+
+    def test_layer_raw_color_uses_the_real_dynamic_bridge_and_preserves_rollback(self) -> None:
+        for fact, passed in self.result()["rawLayerColors"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(passed)
 
     def test_layer_perspective_init_cross_lookup_reaches_typed_snapshot(self) -> None:
         for key, accepted in self.result()["layerPerspective"].items():

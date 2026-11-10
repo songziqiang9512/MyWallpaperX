@@ -4,7 +4,96 @@
 #include <stdio.h>
 #include <string.h>
 
+static int scalar_output_matches(double actual, double expected) {
+    return (isnan(actual) && isnan(expected)) || actual == expected;
+}
+
+static void script_instance_property_cases(MWXSceneScriptQuickJSFixture *fixture, const char *gain_name) {
+    char source[2048];
+    snprintf(source, sizeof(source),
+        "const gain = '%s';"
+        "export var scriptProperties = createScriptProperties()"
+        ".addSlider({name:gain,value:1}).addSlider({name:'channel',value:1})"
+        ".addColor({name:'tint',value:new Vec3(1,2,3)})"
+        ".addText({name:'settings',value:null}).finish();"
+        "let tintAlias, settingsAlias;"
+        "export function init(value) {"
+        "  if (scriptProperties[gain] !== 4 || scriptProperties.channel !== 2 ||"
+        "      !(scriptProperties.tint instanceof Vec3) || scriptProperties.tint.x !== 5 ||"
+        "      scriptProperties.settings.display.offset !== 9)"
+        "    throw new Error('cold script properties');"
+        "  scriptProperties[gain] += 10;"
+        "  tintAlias = scriptProperties.tint; tintAlias.x += 10;"
+        "  settingsAlias = scriptProperties.settings.display; settingsAlias.offset += 10;"
+        "  return value;"
+        "}"
+        "export function update(value) {"
+        "  if (value.x) {"
+        "    scriptProperties[gain] += 20; scriptProperties.tint.x += 20;"
+        "    scriptProperties.settings.display.offset += 20;"
+        "  }"
+        "  const tint = scriptProperties.tint;"
+        "  const display = scriptProperties.settings.display;"
+        "  const channel = display === settingsAlias && display.offset === 39"
+        "    ? scriptProperties.channel : -scriptProperties.channel;"
+        "  return new Vec3(scriptProperties[gain], tint === tintAlias ? tint.x : -tint.x, channel);"
+        "}", gain_name);
+    const struct {
+        const char *properties;
+        double input[3];
+        double expected[3];
+        const char *label;
+    } cases[] = {
+        {"{\"%s\":4,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"channel\":2,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {1, 0, 0}, {34, 35, 2}, "cold input precedes init and preserves init writes in update"},
+        {"{\"%s\":4,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"channel\":2,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {34, 35, 2}, "unchanged host input preserves update writes and aliases"},
+        {"{\"channel\":3,\"tint\":{\"z\":3,\"y\":2,\"x\":5},\"%s\":4,"
+         "\"settings\":{\"display\":{\"style\":\"compact\",\"offset\":9}}}",
+         {0, 0, 0}, {34, 35, 3}, "hot channel preserves local gain and equivalent tint and settings aliases"},
+        {"{\"channel\":3,\"tint\":{\"x\":5,\"y\":2,\"z\":3},\"%s\":7,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {7, 35, 3}, "hot gain replaces the author's gain without replacing aliases"},
+        {"{\"channel\":3,\"tint\":{\"x\":6,\"y\":2,\"z\":3},\"%s\":7,"
+         "\"settings\":{\"display\":{\"offset\":9,\"style\":\"compact\"}}}",
+         {0, 0, 0}, {7, -6, 3}, "changed tint replaces the old alias"},
+    };
+    const uint64_t generation = 13;
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        fixture->domain, source, strlen(source), generation,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(owner != NULL, "script instance properties compile", fixture->diagnostic);
+    if (owner == NULL) return;
+    char properties[256];
+    MWXSceneQuickJSOwner *peer = mwx_scene_quickjs_owner_create(
+        fixture->domain, source, strlen(source), generation,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(peer != NULL, "script instance property peer compiles", fixture->diagnostic);
+    if (peer != NULL) {
+        snprintf(properties, sizeof(properties), cases[0].properties, gain_name);
+        fixture->failures += mwx_fixture_update_vec3(
+            peer, generation, cases[0].input, properties, "{}", MWX_SCENE_QUICKJS_OK,
+            cases[0].expected, "peer receives cold script instance properties"
+        );
+    }
+    for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++) {
+        snprintf(properties, sizeof(properties), cases[index].properties, gain_name);
+        fixture->failures += mwx_fixture_update_vec3(
+            owner, generation, cases[index].input, properties, "{}",
+            MWX_SCENE_QUICKJS_OK, cases[index].expected, cases[index].label
+        );
+    }
+    mwx_scene_quickjs_owner_destroy(peer);
+    mwx_scene_quickjs_owner_destroy(owner);
+}
+
 void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    script_instance_property_cases(fixture, "gain");
+    script_instance_property_cases(fixture, "level");
     const char *scalar_user_source =
         "export function update(value) { return engine.userProperties.live; }";
     fixture->scalar_user = mwx_scene_quickjs_owner_create(
@@ -49,6 +138,165 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "changed user property snapshot",
         fixture->diagnostic
     );
+
+    const char *scalar_return_sources[] = {
+        "export function update(value) { return []; }",
+        "export function update(value) { return '5'; }",
+        "export function update(value) { return {}; }",
+        "export function update(value) { return 9; }",
+        "export function update(value) { return true; }",
+        "export function update(value) { return new Vec3(0,0,0); }",
+        "export function update(value) { return null; }",
+    };
+    const double scalar_return_expected[] = {7, 7, 7, 9, 7, 7, 7};
+    for (size_t index = 0; index < 7; ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_return_sources[index],
+            strlen(scalar_return_sources[index]), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, "scalar return owner", fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_update_scalar(
+            owner, 15, 7, &scalar_user_frame, &output,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            (index == 3
+                ? result == MWX_SCENE_QUICKJS_OK
+                : result == MWX_SCENE_QUICKJS_BAD_RETURN)
+                && output == scalar_return_expected[index],
+            "scalar return accepts Number only and rejects strings/bools/arrays/objects/null",
+            fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    // The official client applies a scalar Number directly, including NaN and
+    // +/-Infinity (invisible vs opaque alpha), and carries the previous frame's
+    // published Number into the next update input.
+    static const struct {
+        const char *source;
+        double input;
+        MWXSceneQuickJSResult result;
+        double output;
+        const char *label;
+    } scalar_nonfinite_cases[] = {
+        {"export function update(value) { return NaN; }", 2,
+         MWX_SCENE_QUICKJS_OK, NAN, "NaN return publishes"},
+        {"export function update(value) { return Infinity; }", 2,
+         MWX_SCENE_QUICKJS_OK, INFINITY, "+Infinity return publishes"},
+        {"export function update(value) { return -Infinity; }", 2,
+         MWX_SCENE_QUICKJS_OK, -INFINITY, "-Infinity return publishes"},
+        {"export function update(value) { return value; }", NAN,
+         MWX_SCENE_QUICKJS_OK, NAN, "NaN previous value reaches update"},
+        {"export function update(value) { return value; }", INFINITY,
+         MWX_SCENE_QUICKJS_OK, INFINITY, "+Infinity previous value reaches update"},
+        {"export function update(value) { return value; }", -INFINITY,
+         MWX_SCENE_QUICKJS_OK, -INFINITY, "-Infinity previous value reaches update"},
+    };
+    for (size_t index = 0;
+         index < sizeof(scalar_nonfinite_cases) / sizeof(scalar_nonfinite_cases[0]);
+         ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_nonfinite_cases[index].source,
+            strlen(scalar_nonfinite_cases[index].source), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, scalar_nonfinite_cases[index].label,
+            fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_update_scalar(
+            owner, 15, scalar_nonfinite_cases[index].input, &scalar_user_frame,
+            &output, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == scalar_nonfinite_cases[index].result &&
+                scalar_output_matches(output, scalar_nonfinite_cases[index].output),
+            scalar_nonfinite_cases[index].label, fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    const char *scalar_init_sources[] = {
+        "export function init(value) { return []; }",
+        "export function init(value) { return 9; }",
+        "export function init(value) { return '5'; }",
+    };
+    for (size_t index = 0; index < 3; ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_init_sources[index],
+            strlen(scalar_init_sources[index]), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, "scalar init owner", fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        uint32_t did_initialize = 0;
+        MWXSceneQuickJSResult result =
+            mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                owner, 15, 7, 0, &scalar_user_frame,
+                "{}", 2, "{}", 2, &output, &did_initialize,
+                fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+        fixture->failures += mwx_fixture_check(
+            (index == 1
+                ? result == MWX_SCENE_QUICKJS_OK && did_initialize == 1
+                    && output == 9
+                : result == MWX_SCENE_QUICKJS_BAD_RETURN && did_initialize == 0
+                    && output == 7),
+            "scalar init accepts Number only and rejects arrays/strings without initializing",
+            fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    static const struct {
+        const char *source;
+        double output;
+        const char *label;
+    } scalar_nonfinite_init_cases[] = {
+        {"export function init(value) { return NaN; }", NAN, "NaN init publishes"},
+        {"export function init(value) { return Infinity; }", INFINITY, "+Infinity init publishes"},
+        {"export function init(value) { return -Infinity; }", -INFINITY, "-Infinity init publishes"},
+    };
+    for (size_t index = 0;
+         index < sizeof(scalar_nonfinite_init_cases) /
+             sizeof(scalar_nonfinite_init_cases[0]);
+         ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_nonfinite_init_cases[index].source,
+            strlen(scalar_nonfinite_init_cases[index].source), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, scalar_nonfinite_init_cases[index].label,
+            fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        uint32_t did_initialize = 0;
+        MWXSceneQuickJSResult result =
+            mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                owner, 15, 7, 0, &scalar_user_frame,
+                "{}", 2, "{}", 2, &output, &did_initialize,
+                fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_OK && did_initialize == 1 &&
+                scalar_output_matches(output, scalar_nonfinite_init_cases[index].output),
+            scalar_nonfinite_init_cases[index].label, fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
 
     const char *vec3_source =
         "'use strict';\n"
@@ -120,6 +368,92 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         MWX_SCENE_QUICKJS_OK, vec3_mix_expected,
         "Vec3 mix with number and vector amounts"
     );
+
+    static const struct {
+        const char *label, *left, *right, *expression;
+        double expected[3];
+    } cross_cases[] = {
+        {"X by Y", "new Vec3(1,0,0)", "new Vec3(0,1,0)", NULL, {0,0,1}},
+        {"Y by X", "new Vec3(0,1,0)", "new Vec3(1,0,0)", NULL, {0,0,-1}},
+        {"Y by Z", "new Vec3(0,1,0)", "new Vec3(0,0,1)", NULL, {1,0,0}},
+        {"Z by X", "new Vec3(0,0,1)", "new Vec3(1,0,0)", NULL, {0,1,0}},
+        {"general", "new Vec3(2,-3,4)", "new Vec3(-5,6,7)", NULL, {-45,-34,-3}},
+        {"reversed general", "new Vec3(-5,6,7)", "new Vec3(2,-3,4)", NULL, {45,34,3}},
+        {"zero", "new Vec3()", "new Vec3(7,-8,9)", NULL, {0,0,0}},
+        {"parallel", "new Vec3(2,4,6)", "new Vec3(1,2,3)", NULL, {0,0,0}},
+        {"object operand", "new Vec3(1,2,3)", "({x:4,y:5,z:6})", NULL, {-3,6,-3}},
+        {"renamed equivalent call", "new VectorType(4/2,-6/2,2+2)",
+            "new VectorType({x:-5,y:6,z:7})", "crossLeft['cr'+'oss'](crossRight)", {-45,-34,-3}},
+        {"cyclic axis rotation", "new Vec3(0.5,0.5,0.5)", "new Vec3(1,0,0)",
+            "(()=>{const first=crossLeft.cross(crossRight);"
+            "return crossRight.add(first.multiply(2*0.5))"
+            ".add(crossLeft.cross(first).multiply(2));})()", {0,1,0}},
+    };
+    size_t cross_callbacks_passed = 0, cross_negative_passed = 0;
+    const size_t cross_case_count = sizeof(cross_cases) / sizeof(cross_cases[0]);
+    for (size_t index = 0; index < cross_case_count; ++index) {
+        char source[1536], label[160];
+        const int written = snprintf(source, sizeof(source),
+            "export function update(value){const VectorType=Vec3;"
+            "const crossLeft=%s,crossRight=%s;"
+            "const before=[crossLeft.x,crossLeft.y,crossLeft.z,crossRight.x,crossRight.y,crossRight.z];"
+            "const result=%s;"
+            "if(!(result instanceof Vec3)||result===crossLeft||result===crossRight)"
+            "throw Error('cross must return a new Vec3');"
+            "if(crossLeft.x!==before[0]||crossLeft.y!==before[1]||crossLeft.z!==before[2]||"
+            "crossRight.x!==before[3]||crossRight.y!==before[4]||crossRight.z!==before[5])"
+            "throw Error('cross mutated an operand');return result;}",
+            cross_cases[index].left, cross_cases[index].right,
+            cross_cases[index].expression != NULL
+                ? cross_cases[index].expression : "crossLeft.cross(crossRight)");
+        snprintf(label, sizeof(label), "Vec3 cross %s compile", cross_cases[index].label);
+        if (written < 0 || (size_t)written >= sizeof(source)) {
+            fixture->failures += mwx_fixture_check(false, label, "fixture source truncated");
+            continue;
+        }
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 147,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        for (size_t callback = 1; callback <= 2; ++callback) {
+            snprintf(label, sizeof(label), "Vec3 cross %s callback %zu", cross_cases[index].label, callback);
+            const int failure = mwx_fixture_update_vec3(owner, 147, vec3_input, "", "{}",
+                MWX_SCENE_QUICKJS_OK, cross_cases[index].expected, label);
+            fixture->failures += failure;
+            cross_callbacks_passed += failure == 0;
+        }
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+    static const struct {
+        const char *label, *expression;
+        MWXSceneQuickJSResult result;
+    } cross_negative_cases[] = {
+        {"unknown method", "value.crossTypo(new Vec3(0,1,0))", MWX_SCENE_QUICKJS_EXCEPTION},
+        {"numeric target has no vector add", "(0).add(value)", MWX_SCENE_QUICKJS_EXCEPTION},
+        {"nonfinite typed result", "new Vec3(Number.MAX_VALUE,0,0).cross(new Vec3(0,Number.MAX_VALUE,0))",
+            MWX_SCENE_QUICKJS_BAD_RETURN},
+    };
+    for (size_t index = 0; index < sizeof(cross_negative_cases) / sizeof(cross_negative_cases[0]); ++index) {
+        char source[512];
+        snprintf(source, sizeof(source),
+            "export function update(value){return %s;}",
+            cross_negative_cases[index].expression);
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, source, strlen(source), 148,
+            fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, cross_negative_cases[index].label, fixture->diagnostic);
+        if (owner == NULL) continue;
+        const int failure = mwx_fixture_update_vec3(owner, 148, vec3_input, "", "{}",
+            cross_negative_cases[index].result, NULL, cross_negative_cases[index].label);
+        fixture->failures += failure;
+        cross_negative_passed += failure == 0;
+        fixture->failures += mwx_fixture_update_vec3(fixture->vec3_mix, 135, vec3_input, "", "{}",
+            MWX_SCENE_QUICKJS_OK, vec3_mix_expected, "Vec3 cross local failure preserves the existing mix peer");
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+    printf("MWX_VEC3_CROSS_CONTRACT cases=%zu callbacks=%zu negative=%zu\n",
+        cross_case_count, cross_callbacks_passed, cross_negative_passed);
 
     const char *vec2_mix_source =
         "let saved;"

@@ -73,7 +73,7 @@ private struct SceneStaticModelUniforms {
     var emissiveColorAndBrightness: SIMD4<Float>
     var viewTintFrontAndExponent: SIMD4<Float>
     var viewTintBackAndEnabled: SIMD4<Float>
-    var cameraPosition: SIMD4<Float>
+    var cameraPosition: SIMD4<Float> // eye.xyz, authored HDR brightness
     var materialFlags: SIMD4<UInt32>
     var lightCounts: SIMD4<UInt32>
     var ambientColor: SIMD4<Float>
@@ -114,6 +114,7 @@ private struct SceneStaticModelUniforms {
     var shadow2: SceneModelShadowUniforms
     var shadow3: SceneModelShadowUniforms
     var surfaceMaterial: SIMD4<Float>
+    var pointFalloffExponents: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -121,6 +122,10 @@ private struct SceneStaticModelUniforms {
 /// stay with the renderer that owns that encoder.
 struct SceneStaticModelPipeline {
     let state: MTLRenderPipelineState
+    private let reflectionState: MTLRenderPipelineState?
+    private let cameraDepthState: MTLRenderPipelineState?
+    var supportsReflection: Bool { reflectionState != nil }
+    var supportsCameraDepth: Bool { cameraDepthState != nil }
 
     private let device: MTLDevice
     private let writingDepthState: MTLDepthStencilState
@@ -135,19 +140,27 @@ struct SceneStaticModelPipeline {
     init?(
         device: MTLDevice,
         colorPixelFormat: MTLPixelFormat = .bgra8Unorm,
-        depthPixelFormat: MTLPixelFormat = .depth32Float
+        depthPixelFormat: MTLPixelFormat = .depth32Float,
+        preparesReflection: Bool = false,
+        preparesCameraDepth: Bool = false
     ) {
         guard Self.hasExpectedUniformABI,
               let library = device.makeDefaultLibrary(),
-              let vertex = library.makeFunction(name: "sceneStaticModelVertex"),
-              let fragment = library.makeFunction(name: "sceneStaticModelFragment") else {
+              let vertex = library.makeFunction(name: "sceneStaticModelVertex") else {
             return nil
         }
+        func fragment(reflection: Bool) -> MTLFunction? {
+            let values = MTLFunctionConstantValues()
+            var enabled = reflection
+            values.setConstantValue(&enabled, type: .bool, index: 0)
+            return try? library.makeFunction(name: "sceneStaticModelFragment", constantValues: values)
+        }
+        guard let baseFragment = fragment(reflection: false) else { return nil }
 
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Scene static model"
         descriptor.vertexFunction = vertex
-        descriptor.fragmentFunction = fragment
+        descriptor.fragmentFunction = baseFragment
         descriptor.depthAttachmentPixelFormat = depthPixelFormat
 
         let attachment = descriptor.colorAttachments[0]!
@@ -191,10 +204,23 @@ struct SceneStaticModelPipeline {
         }
         self.device = device
         self.state = state
+        if preparesReflection, let reflectiveFragment = fragment(reflection: true) {
+            descriptor.label = "Scene static model reflection"
+            descriptor.fragmentFunction = reflectiveFragment
+            reflectionState = try? device.makeRenderPipelineState(descriptor: descriptor)
+        } else { reflectionState = nil }
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
         self.disabledDepthState = disabledDepthState
         self.samplerStates = samplerStates
+        if preparesCameraDepth,
+           let vertex = library.makeFunction(name: "sceneStaticModelCameraDepthVertex") {
+            let depthDescriptor = MTLRenderPipelineDescriptor()
+            depthDescriptor.label = "Scene opaque model camera depth"
+            depthDescriptor.vertexFunction = vertex
+            depthDescriptor.depthAttachmentPixelFormat = depthPixelFormat
+            cameraDepthState = try? device.makeRenderPipelineState(descriptor: depthDescriptor)
+        } else { cameraDepthState = nil }
         let shadowDescriptor = MTLRenderPipelineDescriptor()
         shadowDescriptor.label = "Scene directional model shadow"
         shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
@@ -231,6 +257,10 @@ struct SceneStaticModelPipeline {
     /// Uploads the Reader's immutable geometry. Format owns nonempty triangles
     /// and index ranges; this owner checks the Swift/MSL ABI and GPU allocation.
     func makeMesh(model: SceneMdlStaticModel) -> SceneStaticModelMesh? {
+        Self.makeMesh(model: model, device: device)
+    }
+
+    static func makeMesh(model: SceneMdlStaticModel, device: MTLDevice) -> SceneStaticModelMesh? {
         guard Self.hasExpectedVertexABI else { return nil }
         let vertices = model.vertices
         let indices = model.indices
@@ -319,6 +349,7 @@ struct SceneStaticModelPipeline {
         // admitted before depth/shadow preparation; standalone draws derive it.
         normalMatrix preparedNormalMatrix: simd_float3x3? = nil,
         viewProjection: simd_float4x4,
+        frontFacing: MTLWinding = .counterClockwise,
         cameraPosition: SIMD3<Float>,
         textureFrame: SceneTextureUVTransform,
         sampling: SceneTextureSampling,
@@ -328,6 +359,7 @@ struct SceneStaticModelPipeline {
         lighting: SceneLightSnapshot,
         writesDepth: Bool,
         shadows: [SceneStaticModelShadow] = [],
+        reflectionTexture: MTLTexture? = nil,
         frameEpoch: UInt64 = 0,
         commandBuffer: MTLCommandBuffer? = nil,
         encoder: MTLRenderCommandEncoder
@@ -431,7 +463,7 @@ struct SceneStaticModelPipeline {
                 material.viewTint == nil ? 0 : 1
             ),
             cameraPosition: SIMD4(
-                cameraPosition.x, cameraPosition.y, cameraPosition.z, 1
+                cameraPosition.x, cameraPosition.y, cameraPosition.z, brightness
             ),
             materialFlags: SIMD4(
                 (!materialColorIsOpaque && material.textureAlphaIsOpacity ? 1 : 0)
@@ -487,17 +519,26 @@ struct SceneStaticModelPipeline {
             ),
             shadow0: maps[0], shadow1: maps[1], shadow2: maps[2], shadow3: maps[3],
             surfaceMaterial: material.surfaceProfile.map {
-                SIMD4($0.metallic, $0.roughness, 1, 0)
-            } ?? .zero
+                SIMD4($0.metallic, $0.roughness, 1, $0.reflectivity)
+            } ?? .zero,
+            pointFalloffExponents: SIMD4(
+                points[0].falloffExponent, points[1].falloffExponent,
+                points[2].falloffExponent, points[3].falloffExponent
+            )
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(state)
+        if let reflectionTexture, let reflectionState, uniforms.surfaceMaterial.w > 0 {
+            encoder.setRenderPipelineState(reflectionState)
+            encoder.setFragmentTexture(reflectionTexture, index: 6)
+        } else {
+            encoder.setRenderPipelineState(state)
+        }
         encoder.setDepthStencilState(
             writesDepth ? writingDepthState : nonwritingDepthState
         )
-        encoder.setFrontFacing(.counterClockwise)
+        encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(material.cullMode)
         defer {
             encoder.setCullMode(.none)
@@ -543,6 +584,29 @@ struct SceneStaticModelPipeline {
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
+#endif
+        return true
+    }
+
+    @discardableResult
+    func drawCameraDepth(
+        mesh: SceneStaticModelMesh, modelToClip: simd_float4x4,
+        frontFacing: MTLWinding, cullMode: MTLCullMode, encoder: MTLRenderCommandEncoder
+    ) -> Bool {
+        guard let cameraDepthState else { return false }
+        var transform = modelToClip
+        encoder.setRenderPipelineState(cameraDepthState)
+        encoder.setDepthStencilState(writingDepthState)
+        encoder.setFrontFacing(frontFacing)
+        encoder.setCullMode(cullMode)
+        encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float4x4>.stride, index: 1)
+        encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indexCount,
+            indexType: mesh.indexType, indexBuffer: mesh.indexBuffer, indexBufferOffset: 0)
+#if DEBUG
+        SceneGPUStageTimestampHook.drew(encoder)
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
 #endif
         return true
     }
@@ -658,7 +722,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1344
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1360
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -673,6 +737,7 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow0) == 880
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1216
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.surfaceMaterial) == 1328
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointFalloffExponents) == 1344
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128
@@ -759,11 +824,12 @@ struct SceneStaticModelPipeline {
         _ lights: [SceneLightSnapshot.Point], energyScale: Float
     ) -> [(
         positionRadius: SIMD4<Float>,
-        colorIntensity: SIMD4<Float>
+        colorIntensity: SIMD4<Float>,
+        falloffExponent: Float
     )] {
         (0..<SceneLightSnapshot.maximumLightCount).map { index in
             guard lights.indices.contains(index) else {
-                return (.zero, .zero)
+                return (.zero, .zero, 2)
             }
             let light = lights[index]
             return (
@@ -774,7 +840,8 @@ struct SceneStaticModelPipeline {
                 SIMD4(
                     light.color.x, light.color.y, light.color.z,
                     light.intensity * energyScale
-                )
+                ),
+                light.falloffExponent
             )
         }
     }

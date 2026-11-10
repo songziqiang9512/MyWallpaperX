@@ -1,8 +1,7 @@
 import Foundation
 import simd
 
-/// Bounded Rope Trail support for the shape shared by current stock and
-/// Workshop samples. Public renderer semantics define a per-particle path;
+/// Bounded Rope Trail support. Public renderer semantics define a per-particle path;
 /// UV animation, size fading, and non-screen orientation remain
 /// closed until their geometry and sampling contracts are implemented.
 nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
@@ -43,14 +42,12 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
 
     nonisolated init?(
         renderer: SceneParticleRenderer,
-        rendererCount: Int,
         maximumParticleCount: Int
     ) {
-        guard rendererCount == 1,
-              renderer.kind == .ropeTrail,
+        guard renderer.kind == .ropeTrail,
               renderer.orientation == nil || renderer.orientation == "screen",
               renderer.axis == nil,
-              renderer.rawFlags == 0,
+              renderer.rawFlags & ~1 == 0,
               renderer.minimumLength == nil,
               renderer.maximumLength == nil,
               renderer.uvScale == nil,
@@ -63,17 +60,17 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
         }
         guard let length = renderer.length else { return nil }
         let segmentCount = renderer.segments ?? Self.defaultSegmentCount
-        guard let subdivision = Int(exactly: renderer.subdivision ?? 1),
-              subdivision >= 0,
-              subdivision < Self.maximumSegmentInstanceCount,
-              segmentCount > 0,
+        guard let authoredSubdivision = Int(exactly: renderer.subdivision ?? 1) else {
+            return nil
+        }
+        let subdivision = min(32, max(0, authoredSubdivision))
+        guard segmentCount > 0,
               segmentCount <= Self.maximumSegmentInstanceCount / (subdivision + 1) else {
             return nil
         }
         let renderSegmentCount = segmentCount * (subdivision + 1)
         guard length.isFinite,
               length > 0,
-              segmentCount > 0,
               renderSegmentCount <= (Self.maximumHistorySampleCount - 4) / 4,
               length / TimeInterval(renderSegmentCount * 4) > 0,
               maximumParticleCount > 0,

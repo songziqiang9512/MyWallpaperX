@@ -5,8 +5,7 @@ final class SceneMainPassEncoder {
     private let commandBuffer: MTLCommandBuffer
     private let target: MTLTexture
     private let clearColor: MTLClearColor
-    private let clearEnabled: Bool
-    private var nextLoadAction: MTLLoadAction
+    private var initialLoadAction: MTLLoadAction?
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private let submissionOwner: SceneMainPassEncoder?
@@ -20,6 +19,7 @@ final class SceneMainPassEncoder {
     }
 
     var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
+    var isSceneRoot: Bool { submissionOwner == nil }
 #if DEBUG
     var compositionTrace: SceneEffectExecutionFrameTrace?
     var compositionTarget: SceneCompositionTextureObservation {
@@ -29,6 +29,25 @@ final class SceneMainPassEncoder {
 
     func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
         worldClipToTargetClip.map { $0 * worldMVP } ?? worldMVP
+    }
+
+    func rasterClipProjection(_ viewProjection: simd_float4x4) -> simd_float4x4 {
+        guard worldClipToTargetClip != nil else { return viewProjection }
+        let rows = rasterClipRows
+        let map = simd_float4x4(columns: (
+            SIMD4(rows.x.x, rows.y.x, 0, 0),
+            SIMD4(rows.x.y, rows.y.y, 0, 0),
+            SIMD4(rows.x.z, rows.y.z, 1, 0),
+            SIMD4(rows.x.w, rows.y.w, 0, 1)
+        ))
+        return map * viewProjection
+    }
+
+    var rasterFrontFacing: MTLWinding {
+        let rows = rasterClipRows
+        let determinant = Double(rows.x.x) * Double(rows.y.y)
+            - Double(rows.x.y) * Double(rows.y.x)
+        return determinant < 0 ? .clockwise : .counterClockwise
     }
 
     var rasterClipRows: (x: SIMD4<Float>, y: SIMD4<Float>) {
@@ -73,8 +92,7 @@ final class SceneMainPassEncoder {
         self.commandBuffer = commandBuffer
         self.target = target
         self.clearColor = clearColor
-        self.clearEnabled = clearEnabled
-        self.nextLoadAction = clearEnabled ? .clear : .load
+        self.initialLoadAction = clearEnabled ? .clear : .load
     }
 
     /// Group passes share their root submission's lifetime. A source capture
@@ -105,14 +123,15 @@ final class SceneMainPassEncoder {
 
     deinit { cancelCompositionPins() }
 
-    func encoder() -> MTLRenderCommandEncoder? {
-        encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1)
+    func encoder(required: Bool = true) -> MTLRenderCommandEncoder? {
+        encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1, required: required)
     }
 
     func encoder(
         depthTexture: MTLTexture?,
         clearsDepth: Bool,
-        clearDepth: Double = 1
+        clearDepth: Double = 1,
+        required: Bool = true
     ) -> MTLRenderCommandEncoder? {
         guard !isFinished else { return nil }
         if let activeEncoder,
@@ -124,7 +143,7 @@ final class SceneMainPassEncoder {
 
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = nextLoadAction
+        descriptor.colorAttachments[0].loadAction = initialLoadAction ?? .load
         descriptor.colorAttachments[0].clearColor = clearColor
         descriptor.colorAttachments[0].storeAction = .store
         if let depthTexture {
@@ -139,7 +158,7 @@ final class SceneMainPassEncoder {
         let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         #endif
         guard let encoder = timestampEncoder else {
-            encodingFailed = true
+            if required { encodingFailed = true }
             return nil
         }
         encoder.label = "Scene main layer composite"
@@ -147,14 +166,14 @@ final class SceneMainPassEncoder {
         SceneGPUCensus.recordMainPassRender(usesDepth: depthTexture != nil)
 #endif
 #if DEBUG
-        if nextLoadAction == .clear, let trace = compositionTrace, trace.isCompositionSelected {
+        if initialLoadAction == .clear, let trace = compositionTrace, trace.isCompositionSelected {
             trace.recordComposition(.init(kind: "clear", target: compositionTarget,
                 access: "attachment-clear", outcome: "encoded"))
         }
 #endif
         activeEncoder = encoder
         activeDepthTexture = depthTexture
-        nextLoadAction = .load
+        initialLoadAction = nil
         return encoder
     }
 
@@ -177,7 +196,8 @@ final class SceneMainPassEncoder {
     func withReadableTarget<Result>(
         _ operation: (MTLTexture, MTLCommandBuffer) -> Result
     ) -> Result? {
-        guard encoder() != nil else { return nil }
+        guard !isFinished else { return nil }
+        if initialLoadAction != nil, encoder() == nil { return nil }
         closeForOffscreen()
         return operation(target, commandBuffer)
     }
@@ -185,14 +205,8 @@ final class SceneMainPassEncoder {
     @discardableResult
     func finishEnsuringClear() -> Bool {
         guard !isFinished else { return !encodingFailed }
-        if activeEncoder == nil {
-            _ = encoder()
-        }
-#if DEBUG
-        if let activeEncoder { SceneGPUStageTimestampHook.endedMain(activeEncoder) }
-#endif
-        activeEncoder?.endEncoding()
-        activeEncoder = nil
+        if initialLoadAction != nil { _ = encoder() }
+        closeForOffscreen()
         isFinished = true
         return !encodingFailed
     }

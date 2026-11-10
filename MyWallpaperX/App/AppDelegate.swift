@@ -178,9 +178,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
 
  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
- // 点击 Dock 图标/重新打开时直接激活主窗口，不重新走启动分支。
- // 初始激活被跳过（如 DEBUG 隔离运行）时在此兜底补跑延后的整库扫描；
- // 已补跑过则为 no-op。
+#if DEBUG
+ // Direct playback probes never admit the library window.
+ guard MyWallpaperXApplication.libraryWorkspace != nil else { return false }
+#endif
+ // 重新打开时补跑延后的资料库扫描，再激活已准入的主窗口。
  SteamWorkshopService.shared.performStartupLibraryReloadIfNeeded()
  MainWindowCoordinator.activateMainWindow()
  return true
