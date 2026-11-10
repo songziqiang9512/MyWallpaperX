@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 175,
-      "bytes": 29689
+      "bytes": 29786
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 112,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 49102
+      "bytes": 49216
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -431,10 +431,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "bb740bf866584f63b01ee8528c8b55ece898555a2544f0f5fa189191c088a65d",
-      "after": "23f8d2cc200b098e7c7cb0eed0710b34903cbee993ff12f45e17c0c63e444889",
+      "before": "23f8d2cc200b098e7c7cb0eed0710b34903cbee993ff12f45e17c0c63e444889",
+      "after": "789212c3dc1abcc0a5460217f12fa26dd3bdc8dea0b1a46f9e473ac79e42a9ea",
       "owner": "SceneScript ValueHost",
-      "reason": "Record the typed scalar property return contract (JS ToNumber for strings/Bool; array/object rejection).",
+      "reason": "Record the Number-only scalar property contract after the official six-color type probe.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#contract"
     },
     {
@@ -476,10 +476,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "838d8c6d6627c0ab2d7f3a29fb69271b17af4d4719d9a4885868f99ec359e867",
-      "after": "49f7d271df93266e43df15a3395df6570ba21e731266735f8c237b5674e62e11",
+      "before": "49f7d271df93266e43df15a3395df6570ba21e731266735f8c237b5674e62e11",
+      "after": "65b232c3e5ffe70a377182663e4d340849ab735471bb79f7bfc944e5c5bee32c",
       "owner": "Scene open queue",
-      "reason": "Record the 531.alpha Number status and the scalar return contract on the alpha row; keep 225 attribution and official behavior open.",
+      "reason": "Record the official six-color type probe and the Number-only contract on the alpha row; keep 225 attribution and the array producer open.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
     }
   ]

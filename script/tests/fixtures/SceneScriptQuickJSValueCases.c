@@ -141,9 +141,11 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "export function update(value) { return {}; }",
         "export function update(value) { return 9; }",
         "export function update(value) { return true; }",
+        "export function update(value) { return new Vec3(0,0,0); }",
+        "export function update(value) { return null; }",
     };
-    const double scalar_return_expected[] = {7, 5, 7, 9, 1};
-    for (size_t index = 0; index < 5; ++index) {
+    const double scalar_return_expected[] = {7, 7, 7, 9, 7, 7, 7};
+    for (size_t index = 0; index < 7; ++index) {
         MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
             fixture->domain, scalar_return_sources[index],
             strlen(scalar_return_sources[index]), 15,
@@ -159,11 +161,11 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
             fixture->diagnostic, sizeof(fixture->diagnostic)
         );
         fixture->failures += mwx_fixture_check(
-            (index == 0 || index == 2
-                ? result == MWX_SCENE_QUICKJS_BAD_RETURN
-                : result == MWX_SCENE_QUICKJS_OK)
+            (index == 3
+                ? result == MWX_SCENE_QUICKJS_OK
+                : result == MWX_SCENE_QUICKJS_BAD_RETURN)
                 && output == scalar_return_expected[index],
-            "scalar return accepts Number/numeric string and rejects arrays/objects",
+            "scalar return accepts Number only and rejects strings/bools/arrays/objects/null",
             fixture->diagnostic
         );
         mwx_scene_quickjs_owner_destroy(owner);
@@ -172,8 +174,9 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
     const char *scalar_init_sources[] = {
         "export function init(value) { return []; }",
         "export function init(value) { return 9; }",
+        "export function init(value) { return '5'; }",
     };
-    for (size_t index = 0; index < 2; ++index) {
+    for (size_t index = 0; index < 3; ++index) {
         MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
             fixture->domain, scalar_init_sources[index],
             strlen(scalar_init_sources[index]), 15,
@@ -192,12 +195,12 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
                 fixture->diagnostic, sizeof(fixture->diagnostic)
             );
         fixture->failures += mwx_fixture_check(
-            (index == 0
-                ? result == MWX_SCENE_QUICKJS_BAD_RETURN && did_initialize == 0
-                    && output == 7
-                : result == MWX_SCENE_QUICKJS_OK && did_initialize == 1
-                    && output == 9),
-            "scalar init accepts Number and rejects arrays without initializing",
+            (index == 1
+                ? result == MWX_SCENE_QUICKJS_OK && did_initialize == 1
+                    && output == 9
+                : result == MWX_SCENE_QUICKJS_BAD_RETURN && did_initialize == 0
+                    && output == 7),
+            "scalar init accepts Number only and rejects arrays/strings without initializing",
             fixture->diagnostic
         );
         mwx_scene_quickjs_owner_destroy(owner);

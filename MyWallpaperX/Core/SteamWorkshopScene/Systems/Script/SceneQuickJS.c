@@ -835,16 +835,14 @@ static MWXSceneQuickJSResult call_primitive(
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_OK;
     }
-    if (!boolean_value && !JS_IsNumber(result)
-        && !JS_IsString(result) && !JS_IsBool(result)) {
-        // Scalar properties accept Number, a string convertible to a finite
-        // Number, or Bool. Arrays/objects (a Vec3, or [] that would become 0)
-        // keep the current value and report a data-shaped failure instead of
-        // being coerced through JS ToNumber.
+    if (!boolean_value && !JS_IsNumber(result)) {
+        // Scalar properties accept a Number primitive only. Strings, Bool,
+        // null, arrays and objects keep the current value and report a
+        // data-shaped failure; the official client does not coerce them.
         *output = input;
         write_diagnostic(
             diagnostic, diagnostic_capacity,
-            "callback returned non-scalar value"
+            "callback returned non-number value"
         );
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_BAD_RETURN;
