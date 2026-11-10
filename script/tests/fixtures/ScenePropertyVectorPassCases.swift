@@ -395,7 +395,8 @@ extension Harness {
                 && vm.bindings.count == 1 && vm.definitions.first?.authoredValue == .scalar(0.15)
                 && evaluated.failures.isEmpty && abs(scalar(evaluated.values[target]) - 0.575) < 1e-10
         }
-        var badFallbacks: [String: Double] = [:], badFacts: [String: Bool] = [:]
+        var badFallbacks: [String: Double] = [:], badNonFiniteReturns: [String: String] = [:]
+        var badFacts: [String: Bool] = [:]
         let badReturns = [("bool", "true"), ("string", "'0.5'"), ("vec2", "new Vec2(1, 2)"),
                           ("nan", "NaN"), ("infinity", "Infinity"),
                           ("throw", "(() => { throw new Error('owned failure'); })()"),
@@ -425,18 +426,39 @@ extension Harness {
                 effectivePropertyValues: state.effectiveValues, propertyRevision: state.revision)
             let settled = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: vm.generation,
                 definitions: input.definitions, userValues: state.userValues, sceneScriptValues: evaluated.values).snapshot
-            badFallbacks[label] = scalar(settled[target]?.value)
-            // The existing Scalar VM coerces Bool/numeric String returns; only
-            // the raw named wrapper remains exact Number at parser admission.
-            let coerced = kind == "bool" ? 1.0 : kind == "string" ? 0.5 : nil
-            badFacts[label] = vm.bindings.count == 1 && (kind == "undefined" || coerced != nil
+            let settledValue = scalar(settled[target]?.value)
+            if settledValue.isFinite {
+                badFallbacks[label] = settledValue
+            } else {
+                badNonFiniteReturns[label] = settledValue.isNaN ? "nan" : "infinity"
+            }
+            // Only a Number return publishes, including the officially applied
+            // NaN and +Infinity. Every other normal return keeps the current
+            // user value with one data-shaped failure; `undefined` forwards it.
+            let nonFinite = kind == "nan" || kind == "infinity"
+            badFacts[label] = vm.bindings.count == 1 && (kind == "undefined" || nonFinite
                 ? evaluated.failures.isEmpty && settled[target]?.source == .sceneScript
                 : evaluated.values[target] == nil && evaluated.failures.count == 1 && settled[target]?.source == .userProperty)
+            if nonFinite {
+                // The following frame receives the published Number as its
+                // update input. It must stay enabled and publish again.
+                let next = vm.evaluate(inputs: settled.values(for: vm.inputTargets),
+                    frame: fixture.frame)
+                let nextSettled = SceneDynamicSnapshotResolver().resolve(
+                    frameIndex: 2, generation: vm.generation, definitions: input.definitions,
+                    userValues: state.userValues, sceneScriptValues: next.values).snapshot
+                let nextValue = scalar(nextSettled[target]?.value)
+                badFacts[label + "-next-frame"] = next.failures.isEmpty
+                    && nextSettled[target]?.source == .sceneScript
+                    && !vm.disabledTargets.contains(target)
+                    && (kind == "nan" ? nextValue.isNaN : nextValue == .infinity)
+            }
         }
         return ["namedUserScalar": { ["variantValues": variantValues, "variantFacts": variantFacts,
             "parserRejections": parserRejections, "legacyParserCounts": legacyParser,
             "projectionRejections": projectionFacts, "propertyDefinitionFailures": propertyFailures,
-            "badFallbacks": badFallbacks, "badReturnFacts": badFacts,
+            "badFallbacks": badFallbacks, "badNonFiniteReturns": badNonFiniteReturns,
+            "badReturnFacts": badFacts,
             "propertyValues": propertyValues, "propertyFacts": propertyFacts] as [String: Any] }]
     }
 }

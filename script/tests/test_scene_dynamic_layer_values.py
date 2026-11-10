@@ -64,6 +64,21 @@ enum Harness {
             ]
         ).snapshot
         let empty = SceneDynamicSnapshot.empty(frameIndex: 3)
+        let scriptAlpha10 = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let scriptNonFinite = resolver.resolve(
+            frameIndex: 4,
+            generation: 2,
+            definitions: [
+                .init(target: alpha, valueType: .scalar, authoredValue: .scalar(0.6)),
+                .init(target: otherAlpha, valueType: .scalar, authoredValue: .scalar(0.8)),
+                .init(target: scriptAlpha10, valueType: .scalar, authoredValue: .scalar(0.5)),
+            ],
+            sceneScriptValues: [
+                alpha: .scalar(.nan),
+                otherAlpha: .scalar(-.infinity),
+                scriptAlpha10: .scalar(.infinity),
+            ]
+        ).snapshot
         let payload: [String: Any] = [
             "dynamic": value(layerID: 7, authored: 0.6, snapshot: dynamic),
             "dynamicClamp": value(layerID: 8, authored: 0.6, snapshot: dynamic),
@@ -74,6 +89,9 @@ enum Harness {
             "authoredHigh": value(layerID: 7, authored: 3, snapshot: empty),
             "authoredNonFinite": value(layerID: 7, authored: .infinity, snapshot: empty),
             "default": value(layerID: 7, authored: nil, snapshot: empty),
+            "scriptNaN": value(layerID: 7, authored: 0.4, snapshot: scriptNonFinite),
+            "scriptNegativeInfinity": value(layerID: 8, authored: 0.4, snapshot: scriptNonFinite),
+            "scriptPositiveInfinity": value(layerID: 10, authored: 0.4, snapshot: scriptNonFinite),
             "colorDynamicClamp": components(colorValue(
                 layerID: 7, authored: [0.6, 0.7, 0.8], snapshot: dynamic
             )),
@@ -362,6 +380,11 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         self.assertEqual(self.result["authoredHigh"], 1)
         self.assertEqual(self.result["authoredNonFinite"], 1)
         self.assertEqual(self.result["default"], 1)
+
+    def test_scene_script_non_finite_alpha_follows_the_official_mapping(self) -> None:
+        self.assertEqual(self.result["scriptNaN"], 0)
+        self.assertEqual(self.result["scriptNegativeInfinity"], 0)
+        self.assertEqual(self.result["scriptPositiveInfinity"], 1)
 
     def test_dynamic_color_wins_clamps_and_rejects_non_finite_values(self) -> None:
         self.assert_color("colorDynamicClamp", [0, 0.5, 1])

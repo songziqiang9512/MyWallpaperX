@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+static int scalar_output_matches(double actual, double expected) {
+    return (isnan(actual) && isnan(expected)) || actual == expected;
+}
+
 static void script_instance_property_cases(MWXSceneScriptQuickJSFixture *fixture, const char *gain_name) {
     char source[2048];
     snprintf(source, sizeof(source),
@@ -171,6 +175,55 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         mwx_scene_quickjs_owner_destroy(owner);
     }
 
+    // The official client applies a scalar Number directly, including NaN and
+    // +/-Infinity (invisible vs opaque alpha), and carries the previous frame's
+    // published Number into the next update input.
+    static const struct {
+        const char *source;
+        double input;
+        MWXSceneQuickJSResult result;
+        double output;
+        const char *label;
+    } scalar_nonfinite_cases[] = {
+        {"export function update(value) { return NaN; }", 2,
+         MWX_SCENE_QUICKJS_OK, NAN, "NaN return publishes"},
+        {"export function update(value) { return Infinity; }", 2,
+         MWX_SCENE_QUICKJS_OK, INFINITY, "+Infinity return publishes"},
+        {"export function update(value) { return -Infinity; }", 2,
+         MWX_SCENE_QUICKJS_OK, -INFINITY, "-Infinity return publishes"},
+        {"export function update(value) { return value; }", NAN,
+         MWX_SCENE_QUICKJS_OK, NAN, "NaN previous value reaches update"},
+        {"export function update(value) { return value; }", INFINITY,
+         MWX_SCENE_QUICKJS_OK, INFINITY, "+Infinity previous value reaches update"},
+        {"export function update(value) { return value; }", -INFINITY,
+         MWX_SCENE_QUICKJS_OK, -INFINITY, "-Infinity previous value reaches update"},
+    };
+    for (size_t index = 0;
+         index < sizeof(scalar_nonfinite_cases) / sizeof(scalar_nonfinite_cases[0]);
+         ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_nonfinite_cases[index].source,
+            strlen(scalar_nonfinite_cases[index].source), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, scalar_nonfinite_cases[index].label,
+            fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_update_scalar(
+            owner, 15, scalar_nonfinite_cases[index].input, &scalar_user_frame,
+            &output, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == scalar_nonfinite_cases[index].result &&
+                scalar_output_matches(output, scalar_nonfinite_cases[index].output),
+            scalar_nonfinite_cases[index].label, fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
     const char *scalar_init_sources[] = {
         "export function init(value) { return []; }",
         "export function init(value) { return 9; }",
@@ -202,6 +255,45 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
                     && output == 7),
             "scalar init accepts Number only and rejects arrays/strings without initializing",
             fixture->diagnostic
+        );
+        mwx_scene_quickjs_owner_destroy(owner);
+    }
+
+    static const struct {
+        const char *source;
+        double output;
+        const char *label;
+    } scalar_nonfinite_init_cases[] = {
+        {"export function init(value) { return NaN; }", NAN, "NaN init publishes"},
+        {"export function init(value) { return Infinity; }", INFINITY, "+Infinity init publishes"},
+        {"export function init(value) { return -Infinity; }", -INFINITY, "-Infinity init publishes"},
+    };
+    for (size_t index = 0;
+         index < sizeof(scalar_nonfinite_init_cases) /
+             sizeof(scalar_nonfinite_init_cases[0]);
+         ++index) {
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+            fixture->domain, scalar_nonfinite_init_cases[index].source,
+            strlen(scalar_nonfinite_init_cases[index].source), 15,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            owner != NULL, scalar_nonfinite_init_cases[index].label,
+            fixture->diagnostic
+        );
+        if (!owner) continue;
+        double output = 0;
+        uint32_t did_initialize = 0;
+        MWXSceneQuickJSResult result =
+            mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                owner, 15, 7, 0, &scalar_user_frame,
+                "{}", 2, "{}", 2, &output, &did_initialize,
+                fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_OK && did_initialize == 1 &&
+                scalar_output_matches(output, scalar_nonfinite_init_cases[index].output),
+            scalar_nonfinite_init_cases[index].label, fixture->diagnostic
         );
         mwx_scene_quickjs_owner_destroy(owner);
     }

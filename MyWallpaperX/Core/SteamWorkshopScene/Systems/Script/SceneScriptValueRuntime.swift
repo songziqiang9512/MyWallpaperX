@@ -156,8 +156,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         retainsValueForNextUpdate: Bool = false,
         propertyRefresh: Bool = false
     ) -> Result<SceneScriptValueEvaluation?, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite,
-              Self.acceptsScalarValue(input, for: target),
+        guard input.valueType == valueType,
+              Self.acceptsScriptScalarValue(input, for: target),
               frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
               frame.frameTime.isFinite, frame.frameTime >= 0,
               frame.runtime.isFinite, frame.runtime >= 0 else {
@@ -279,8 +279,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         priorCallbackAuthoredMutations: [SceneScriptLayerMutation] = [],
         priorVisibilityValue: Bool? = nil
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite,
-              Self.acceptsScalarValue(input, for: target),
+        guard input.valueType == valueType,
+              Self.acceptsScriptScalarValue(input, for: target),
               frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
               frame.frameTime.isFinite, frame.frameTime >= 0,
               frame.runtime.isFinite, frame.runtime >= 0 else {
@@ -442,7 +442,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         mutations: SceneScriptMediaEventMutations,
         scalarValueFollowsInput: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard Self.acceptsScalarValue(publishedValue, for: target) else {
+        guard Self.acceptsScriptScalarValue(publishedValue, for: target) else {
             discardLayerMutations()
             return .failure(.badReturn("invalid scalar output"))
         }
@@ -788,8 +788,21 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         )
     }
 
+    /// Authored, user, Timeline, document and setter values stay strictly
+    /// finite; only a SceneScript property return may publish non-finite.
     static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
         guard value.isFinite else { return false }
+        return acceptsScalarDomain(value, for: target)
+    }
+
+    /// A SceneScript Number may be non-finite: the official client applies
+    /// NaN/-Infinity as invisible alpha and +Infinity as opaque. Target
+    /// domains still apply, and every ordinary consumer maps or rejects the
+    /// remaining non-finite value locally.
+    private static func acceptsScalarDomain(
+        _ value: Double, for target: SceneDynamicTarget
+    ) -> Bool {
+        if case .particle = target { return value.isFinite }
         if target == .camera(.generalZoom) {
             return SceneDynamicCameraField.generalZoom.userPropertyScalarRange?.contains(value) == true
         }
@@ -806,7 +819,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             return SceneDynamicLayerField.acceptsLightRadius(value)
         }
         if case .layer(_, .brightness) = target {
-            return Float(max(0, value)).isFinite
+            return value.isFinite && Float(max(0, value)).isFinite
         }
         if case .layer(_, .volume) = target {
             return (0 ... 1).contains(value)
@@ -818,9 +831,11 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return true
     }
 
-    private static func acceptsScalarValue(_ value: SceneDynamicValue, for target: SceneDynamicTarget) -> Bool {
+    private static func acceptsScriptScalarValue(
+        _ value: SceneDynamicValue, for target: SceneDynamicTarget
+    ) -> Bool {
         guard case let .scalar(number) = value else { return true }
-        return acceptsScalar(number, for: target)
+        return acceptsScalarDomain(number, for: target)
     }
 
     /// The existing no-update value projection also serves sleeping owners.

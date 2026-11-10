@@ -847,25 +847,17 @@ static MWXSceneQuickJSResult call_primitive(
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_BAD_RETURN;
     }
+    // A scalar Number publishes whatever the callback returned, including
+    // NaN and +/-Infinity: the official client applies them (invisible vs
+    // opaque alpha). Authored, user and Timeline inputs stay strictly finite
+    // at the Swift typed-snapshot boundary.
     double value = 0;
-    int conversion = -1;
     if (boolean_value) {
-        conversion = JS_ToBool(domain->context, result);
+        value = JS_ToBool(domain->context, result) != 0;
     } else {
-        conversion = JS_ToFloat64(domain->context, &value, result);
+        JS_ToFloat64(domain->context, &value, result);
     }
-    if (boolean_value && conversion >= 0) value = conversion != 0;
     JS_FreeValue(domain->context, result);
-    if (conversion < 0 || !isfinite(value)) {
-        write_diagnostic(
-            diagnostic,
-            diagnostic_capacity,
-            boolean_value
-                ? "callback returned non-Boolean value"
-                : "callback returned non-finite or non-scalar value"
-        );
-        return MWX_SCENE_QUICKJS_BAD_RETURN;
-    }
     *output = value;
     return MWX_SCENE_QUICKJS_OK;
 }
@@ -2091,8 +2083,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
+    // Scalar input may be the preceding frame's published Number, so NaN and
+    // +/-Infinity are legitimate here; the Swift typed snapshot owns the
+    // authored/user/Timeline finite contract.
     if (owner == NULL || frame == NULL || output == NULL ||
-        did_initialize == NULL || !isfinite(input) || boolean_value > 1 ||
+        did_initialize == NULL || boolean_value > 1 ||
         property_refresh > 1 ||
         (boolean_value != 0 && !owner->value_only && !owner->effectful_boolean) ||
         (boolean_value == 0 && owner->value_only) ||
@@ -2257,7 +2252,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
-    if (owner == NULL || frame == NULL || output == NULL || !isfinite(input) ||
+    // See initialize_primitive: a scalar update input may be a previous
+    // SceneScript Number, whose non-finite values the official client keeps.
+    if (owner == NULL || frame == NULL || output == NULL ||
         boolean_value > 1 || property_refresh > 1 ||
         (boolean_value != 0 &&
          !owner->value_only && !owner->effectful_boolean) ||
