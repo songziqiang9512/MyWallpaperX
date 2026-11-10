@@ -5,7 +5,7 @@
 <h1 align="center">MyWallpaperX</h1>
 
 <p align="center"><strong>初心至简，保持纯粹。</strong></p>
-<p align="center">目前macOS上最佳的Wallpaper Engine壁纸引擎。<br>原生体验 · 动态壁纸 · 开源自由</p>
+<p align="center">抛却任何复杂操作的Wallpaper Engine壁纸引擎，上手即用。<br>原生体验 · 动态壁纸 · 开源自由</p>
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest"><img src="https://img.shields.io/github/v/release/songziqiang9512/MyWallpaperX?style=flat-square&color=5b6ee1" alt="最新正式版本"></a>
@@ -16,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest">下载正式版</a> ·
-  <a href="docs/releases/2.12.2.md">2.12.2 更新说明</a> ·
+  <a href="docs/releases/2.12.3.md">2.12.3 更新说明</a> ·
   <a href="https://www.mwpx.me">官方网站</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">问题反馈</a>
 </p>
 
 ---
 
-**MyWallpaperX** 是一款为 Apple Silicon Mac 专属适配开发的开源壁纸引擎应用。完全兼容Wallpaper Engine场景壁纸/web壁纸等。可自由导入本地视频和图片，创建你自己的播放列表。定时切换，自动更换屏保。界面以 macOS 原生控件构建，让浏览与日常控制自然融入系统。
+**MyWallpaperX** 是一款为 Apple Silicon Mac 专属适配开发的开源壁纸引擎应用。根据Windows平台官方语义，在macOS上实现完全重写，完全兼容Wallpaper Engine场景壁纸/web壁纸等。还可以自由导入本地视频和图片，创建你自己的播放列表。定时切换，自动更换屏保。主交互系统以 macOS 系统原生风格构建，让浏览与日常控制自然融入系统。
 
 ## 看见喜欢的桌面
 
@@ -56,12 +56,12 @@
 
 | 类型 | 你可以做什么 |
 | --- | --- |
-| **视频壁纸** | 导入本地影像，调整填充方式、播放速度和音量，以循环、顺序或随机方式播放。 |
+| **视频壁纸** | 导入任何本地影像，调整填充方式、播放速度和音量，以循环、顺序或随机方式播放。 |
 | **互动网页** | 播放 Web 壁纸，调整作者提供的属性，体验时钟、鼠标交互、音频可视化与受支持的歌曲信息展示。 |
 | **实时场景** | 以 Metal 渲染 Scene 壁纸中的图层、粒子、文字，以及已支持的模型动画、视频纹理与脚本交互。 |
 | **静态图片** | 导入本地图片，或下载在线作品，预览后设为系统桌面。通过应用自动切换能力，自动轮换。 |
 
-Scene 兼容范围持续完善，部分复杂作品仍可能存在特效、动画或交互差异；支持某类能力不代表所有同类作品均已兼容。
+Scene 兼容范围持续完善，上千作品测试还原Windows官方99%+。部分复杂作品仍可能存在特效、动画或交互差异；支持某类能力不代表所有同类作品均已兼容。
 
 ### 从发现到收藏
 
@@ -73,12 +73,25 @@ Scene 兼容范围持续完善，部分复杂作品仍可能存在特效、动�
 
 ### 常用操作，触手可及
 
-- **菜单栏控制面板**：查看当前壁纸和封面，直接暂停／继续、调节音量、切换上一张／下一张及轮换方式，快速进入设置和作品属性。
+- **菜单栏控制**：查看当前壁纸和封面，直接暂停／继续、调节音量、切换上一张／下一张及轮换方式，快速进入设置和作品属性。
 - **全局快捷键**：在设置中分配常用按键，随时控制播放、切换壁纸和静音。
 - **恢复与节能**：按需恢复上次播放内容，并根据全屏、焦点、电池供电和电脑不活跃等状态暂停播放。
 - **音频与歌曲响应**：兼容的 Web、Scene 作品可响应系统音频；启用歌曲信息后，可按作品实现展示标题、封面与进度。
 - **HDR 场景**：在支持的屏幕上呈现兼容 Scene 作品的 HDR 高光，也可切换回普通亮度。
 - **视频屏保**：从“锁屏与屏保”设置或本地视频卡片选择视频，保存后在系统设置中启用。可固定视频或跟随最近播放的视频；主 App 退出后仍可独立播放，使用电池时默认显示静帧。
+
+## 技术栈与播放引擎
+
+**技术栈**：界面与播放控制使用 Swift + AppKit；Scene 渲染使用 Metal；视频使用 AVFoundation；Web 壁纸使用 WebKit（WKWebView）；SceneScript 由 QuickJS-NG 执行，作者 shader 经 glslang / SPIRV-Cross 编译为 Metal；Steam 工坊获取由独立的 .NET 8 + SteamKit2 服务完成；应用更新使用 Sparkle。
+
+**播放架构**：主 App 负责界面、资料库、设置与用户意图；桌面窗口、播放时钟、输入和渲染在独立后台播放进程中运行。两者通过有界 IPC 交换启动、停止、属性与状态，主界面的重绘不参与壁纸的逐帧驱动；切换时先准备好新画面，再退休旧画面。
+
+| 引擎 | 播放方式 |
+| --- | --- |
+| **视频** | 独立播放 helper 使用 AVPlayer / AVPlayerLooper 与 AVPlayerLayer，在桌面窗口内循环或切换；控制与音频策略由主 App 统一下发。 |
+| **互动网页** | 专用后台 AppKit 宿主进程运行 WKWebView，每块显示器独立 surface；本地资源通过受控 scheme 提供，属性、输入与音频经版本化 IPC 桥接。 |
+| **实时场景** | 独立 Scene 渲染进程把作者项目解析为 typed program、资源与渲染图，QuickJS-NG 执行脚本，Metal 完成逐帧合成；粒子由数据驱动解释器推进。 |
+| **静态图片** | 直接通过系统桌面接口设置，不常驻动态渲染进程；自动切换由主 App 调度。 |
 
 ## 安装与开始使用
 
@@ -113,7 +126,7 @@ Scene 兼容范围持续完善，部分复杂作品仍可能存在特效、动�
 
 欢迎通过 [Issues](https://github.com/songziqiang9512/MyWallpaperX/issues) 提交问题和建议，或加入 QQ 群 **569399751** 交流。反馈时请附上应用与 macOS 版本、芯片型号、复现步骤；作品相关问题请提供链接或 ID。
 
-如果喜欢 MyWallpaperX，欢迎点亮 [Star](https://github.com/songziqiang9512/MyWallpaperX)，让更多人发现它。
+如果喜欢 MyWallpaperX，欢迎点亮 [Star](https://github.com/songziqiang9512/MyWallpaperX)，让更多人发现它，这对本项目是否能持久开发维护下去至关重要。
 
 <details>
 <summary>自愿支持项目开发</summary>
