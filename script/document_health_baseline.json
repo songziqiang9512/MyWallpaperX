@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 58410
+      "bytes": 58717
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
       "bytes": 56807
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 254971
+      "lines": 587,
+      "bytes": 252520
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 51959
+      "bytes": 52072
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -449,10 +449,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "64d8e5183ef53bc3fa81e282655ea07e2cc1c2adba58ae5c6c10107ff6278d51",
-      "after": "3a609f959b7d4fe3e64fa5c0445b1d29d84e1a698d49d7284a8deb33b43970d2",
+      "before": "3a609f959b7d4fe3e64fa5c0445b1d29d84e1a698d49d7284a8deb33b43970d2",
+      "after": "0c360cf4b266e6b378f9b874399ebce6515af425b24d3c2aaa98316bc9f24e55",
       "owner": "Particle component contract",
-      "reason": "Record the contiguous live suffix storage and amortized leading-death compaction as the current particle storage contract.",
+      "reason": "Extend the particle death contract with the conditional payload copy and warmup event suppression.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
@@ -467,19 +467,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "41aa30646cbdb3919d8c8c241293a764b491e51a1df7c923a612070d1c73818e",
-      "after": "59b662629596726fc0367bc5cd07a33a5b258225b5c0f9de1986b372247754b6",
+      "before": "59b662629596726fc0367bc5cd07a33a5b258225b5c0f9de1986b372247754b6",
+      "after": "e6127f1166a6c0154cab5079cb86c4c6efe73358d2dadc1cde4b90747a5c6249",
       "owner": "Scene runtime evidence",
-      "reason": "Record the prefix-storage A/B, the missing bulk memmove, its equivalence fixtures and the bounded per-frame materialization cost.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-lead-death-buffer"
+      "reason": "Consolidate the three particle-prewarm batches into one current section with the new interleaved A/B, payload-copy mechanism and limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fbf2d811cb19b9de4f88a5afaa390aea1ee7ff9a1368b23583cd1e92e5d1188b",
-      "after": "a6ad1171935028644d79794564abfab50f8c56052578599597a05051f1f78168",
+      "before": "a6ad1171935028644d79794564abfab50f8c56052578599597a05051f1f78168",
+      "after": "399269cb7eae7b28dc35eebd52975a107adb18956cb8dff08aa912014c7e9b69",
       "owner": "Scene open queue",
-      "reason": "Close the measured prefix-storage batch under the startup item and keep the remaining hot-path stop lines.",
+      "reason": "Close the third particle-prewarm batch under the startup item and keep the remaining operator/reset stop lines.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     }
   ]

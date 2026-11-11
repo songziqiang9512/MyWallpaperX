@@ -356,8 +356,13 @@ import simd
     static func orderedDeaths() -> [String: Any] {
         let operatorValue: [String: Any] = ["name": "oscillateposition", "frequencymin": 1,
             "frequencymax": 2, "scalemin": "1 0 0", "scalemax": "3 1 0"]
+        // Death payloads are observed after the step's operator pass; a
+        // constant alpha writer makes the post-operator value visible in every
+        // death event.
+        let alphaWriter: [String: Any] = ["name": "alphachange", "starttime": 0,
+            "endtime": 1, "startvalue": 0.5, "endvalue": 0.5]
         let input = source(capacity: 8, start: 0, rate: 0, burst: 8,
-                           lifetime: step * 8, operators: [operatorValue])
+                           lifetime: step * 8, operators: [operatorValue, alphaWriter])
         let patterns: [(String, [Int])] = [("none", []), ("prefix", [0, 1]),
             ("interior", [2, 5]), ("mixed", [0, 1, 4, 6]), ("all", Array(0..<8))]
         var rows: [String: Any] = [:]
@@ -387,6 +392,8 @@ import simd
                 "deaths": current.deathEvents.map(\.id),
                 "deathSizes": current.deathEvents.map(\.size),
                 "deathAges": current.deathEvents.map(\.age),
+                "deathAlphas": current.deathEvents.map(\.alpha),
+                "survivorAlphas": current.particles.map(\.alpha),
                 "cachedIDs": current.positionOscillationCache.keys.map(\.particleID).sorted(),
                 "historyIDs": history(current).map { $0.particles.map(\.id) }
             ]

@@ -24,6 +24,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private var transientRenderBirths: [SceneParticleState] = []
     private(set) var birthEvents: [SceneParticleState] = []
     private(set) var deathEvents: [SceneParticleState] = []
+    /// True only inside init-time warmUp; live advance never sets it.
+    private var isPrewarming = false
     private(set) var simulationTime = 0.0
     let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
@@ -508,6 +510,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #if DEBUG
         var cancelled = false
 #endif
+        isPrewarming = true
+        defer { isPrewarming = false }
         for _ in 0..<count {
             if shouldCancel?() == true {
 #if DEBUG
@@ -587,15 +591,24 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // death splits the survivors, move the visited range only once.
         var leadingDeaths = 0
         var writeIndex: Int?
+        let tracksOscillation = !positionOscillationOperatorIndices.isEmpty
+        // The payload sample is 265 bytes (272-byte stride); copying it per
+        // particle per step dominates the scan. Only deaths with a consumer
+        // need the copy, and warmup produces no event consumer at all.
+        let needsDeathPayload = !isPrewarming || tracksOscillation
         particles.withUnsafeMutableBufferPointer { buffer in
             for readIndex in buffer.indices {
-                let particle = buffer[readIndex]
-                if particle.age + 1e-12 >= particle.lifetime {
-                    deathEvents.append(particle)
-                    for operatorIndex in positionOscillationOperatorIndices {
-                        positionOscillationCache.removeValue(forKey: .init(
-                            particleID: particle.id, operatorIndex: operatorIndex
-                        ))
+                if buffer[readIndex].age + 1e-12 >= buffer[readIndex].lifetime {
+                    if needsDeathPayload {
+                        let particle = buffer[readIndex]
+                        if tracksOscillation {
+                            for operatorIndex in positionOscillationOperatorIndices {
+                                positionOscillationCache.removeValue(forKey: .init(
+                                    particleID: particle.id, operatorIndex: operatorIndex
+                                ))
+                            }
+                        }
+                        if !isPrewarming { deathEvents.append(particle) }
                     }
                     if readIndex == leadingDeaths {
                         leadingDeaths += 1
@@ -609,7 +622,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                         writeIndex = visitedSurvivors
                     }
                 } else if let destination = writeIndex {
-                    buffer[destination] = particle
+                    buffer[destination] = buffer[readIndex]
                     writeIndex = destination + 1
                 }
             }
@@ -717,7 +730,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     func appendBirth(_ particle: SceneParticleState) {
         particles.append(particle)
-        birthEvents.append(particle)
+        if !isPrewarming { birthEvents.append(particle) }
     }
 
     func emitExplicitly(count: Int, context: EmissionContext,

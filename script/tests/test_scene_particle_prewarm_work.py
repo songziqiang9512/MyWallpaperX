@@ -196,6 +196,8 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                 self.assertEqual(row["deaths"], deaths)
                 self.assertEqual(row["deathSizes"], [identity + 1 for identity in deaths])
                 self.assertEqual(row["deathAges"], [4 / 32] * len(deaths))
+                self.assertEqual(row["deathAlphas"], [0.5] * len(deaths))
+                self.assertEqual(row["survivorAlphas"], [0.5] * len(survivors))
                 self.assertEqual(row["survivors"], survivors)
                 self.assertEqual(row["cachedIDs"], survivors)
                 self.assertEqual(row["historyIDs"], [survivors])
