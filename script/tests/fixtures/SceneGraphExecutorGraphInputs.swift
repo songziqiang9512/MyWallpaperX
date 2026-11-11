@@ -4,7 +4,7 @@ import Foundation
 import Metal
 import simd
 
-private typealias Graph = SceneAuthoredEffectRenderPlan
+typealias Graph = SceneAuthoredEffectRenderPlan
 private typealias Plan = SceneGraphRenderTargetPlan
 private typealias Executor = SceneResolvedMaterialGraphExecutor
 private typealias Template = SceneResolvedMaterialTemplate

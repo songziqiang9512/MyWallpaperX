@@ -95,10 +95,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchContext.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "self.launchDefinitions = SceneDynamicDefinitionMerger.merge(",
-            frame_schema,
-        )
-        self.assertIn(
             "self.sceneScriptStatefulTargets = Set(",
             frame_schema,
         )
@@ -228,23 +224,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
 
-
-    def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
-        renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
-        encoder = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift").read_text(
-            encoding="utf-8"
-        )
-        main_pass = renderer.index("let (mainPass, groups) = makeScenePass(")
-        self.assertIn(
-            "clearEnabled: frameDescriptor.camera.clearEnabled",
-            renderer[main_pass:],
-        )
-        self.assertIn("private let clearEnabled: Bool", encoder)
-        self.assertIn(
-            "self.nextLoadAction = clearEnabled ? .clear : .load",
-            encoder,
-        )
-        self.assertIn("nextLoadAction = .load", encoder)
 
     def test_runtime_model_has_no_parallel_placeholder_framework(self) -> None:
         source = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift").read_text(

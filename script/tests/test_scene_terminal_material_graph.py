@@ -470,6 +470,10 @@ private func terminalCase(
     let transitions = zip(red, red.dropFirst()).filter { ($0 > threshold) != ($1 > threshold) }.count
     let bypassCount = inactive.union(failed).count
     let expectedPins = lastActive != nil && bypassCount > 0 && budget > 0 ? 1 : 0
+    // 1fb165dc0 captures an inactive material output directly into its
+    // terminal target, so an all-inactive, non-replay chain performs no
+    // intermediate copies; every other bypass pattern keeps one per bypass.
+    let bypassCopies = lastActive == nil && !hasReplay ? 0 : bypassCount
     let highDensity = lastActive == 0 && hasReplay
     let snapshotMatches = expectedPins == 0 || (snapshotReadback != nil && originalReadback != nil
         && snapshotReadback!.allPixels == originalReadback!.allPixels)
@@ -512,7 +516,7 @@ private func terminalCase(
             "optionalMissKeepsActiveTail": !optionalReplayFailure || (!hasReplay
                 && prepared.stages.last?.effectLocalActivationBypassReasonCode == nil
                 && prepared.stages.last?.effectLocalFailureReasonCode == nil),
-            "necessaryCopiesOnly": copyCount == UInt64(bypassCount + expectedPins),
+            "necessaryCopiesOnly": copyCount == UInt64(bypassCopies + expectedPins),
             "necessaryPinsOnly": prepared.terminalInputPins.count == expectedPins,
             "snapshotIsExactRealInput": snapshotMatches && snapshotDistinct,
             "pinHeldUntilCompletion": pinsBeforeCompletion == expectedPins,

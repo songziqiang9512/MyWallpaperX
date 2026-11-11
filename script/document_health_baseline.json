@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 52584
+      "bytes": 52874
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -476,10 +476,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5f0f8ead56353d3ff019645e13bf4c1871bd4a0d6c6601ddb64e0fb54f61adc2",
-      "after": "dd8fa5ee7b58259d5a20c41a2c5497eb654236e53746d82c4a3873adfa76938e",
+      "before": "dd8fa5ee7b58259d5a20c41a2c5497eb654236e53746d82c4a3873adfa76938e",
+      "after": "568b83c9843a85d7f23ad63cd90782100c007951be22ef6c243e90cf4f9e906d",
       "owner": "Scene open queue",
-      "reason": "R7 gate recovery: corrected non-Scene links and particle-drift fixes; remaining drift and dependency-edge decision recorded.",
+      "reason": "R8 gate recovery: realtime/effect-draw/terminal fixtures restored; remaining drift classified with evidence.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
