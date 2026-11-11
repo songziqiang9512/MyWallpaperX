@@ -11,7 +11,7 @@ nonisolated extension SceneParticleSimulator {
 
     struct FrameSnapshot {
         let playback: SceneParticlePlaybackSnapshot
-        var particles: [SceneParticleState]
+        var particles: SceneParticleBuffer
 #if DEBUG
         var diagnostics: [SceneParticleSimulationDiagnostic] = []
 #endif
@@ -48,7 +48,7 @@ nonisolated extension SceneParticleSimulator {
     /// This does not invent a playback command, rewind clocks or reuse IDs.
     func discardPopulationForPlayback() {
         var state = frameSnapshot()
-        state.particles = []
+        state.particles = SceneParticleBuffer()
         state.transientRenderBirths = []
         state.birthEvents = []
         state.deathEvents = []
@@ -172,7 +172,9 @@ nonisolated extension SceneParticleSimulator.FrameSnapshot {
         func states(_ values: [SceneParticleState], extra: Int = 0) -> Int {
             2 * max(values.capacity, values.count + extra) * MemoryLayout<SceneParticleState>.stride + 64
         }
-        let arrays = states(particles, extra: count) + states(birthEvents, extra: count)
+        let particleStorage = 2 * max(particles.capacity, particles.count + count)
+            * MemoryLayout<SceneParticleState>.stride + 64
+        let arrays = particleStorage + states(birthEvents, extra: count)
             + states(deathEvents) + states(transientRenderBirths)
             + 2 * normalizedLives.capacity * MemoryLayout<Double>.stride
             + 2 * emitters.capacity * MemoryLayout<SceneParticleEmitterState>.stride

@@ -224,6 +224,39 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     self.assertEqual((state["initialSize"], state["initialColor"]), (7, [1, 0, 1]))
                     self.assertEqual((state["alpha"], state["initialAlpha"]), (alpha, 0.375))
 
+    def test_leading_death_compaction_keeps_live_order_and_history(self) -> None:
+        partial = self.result["compaction"]["partial"]
+        self.assertEqual(partial["firstDeaths"], list(range(70)))
+        self.assertEqual(partial["firstSurvivors"], list(range(70, 96)))
+        self.assertEqual(partial["firstHistory"], [list(range(70, 96))])
+        self.assertEqual(partial["deaths"], [])
+        self.assertEqual(partial["survivors"], list(range(70, 96)))
+        self.assertEqual(partial["ages"], [5 / 32] * 26)
+        self.assertEqual(partial["history"], [list(range(70, 96)), list(range(70, 96))])
+        self.assertEqual(partial["nextSurvivors"], list(range(70, 96)))
+        self.assertEqual(partial["nextAges"], [6 / 32] * 26)
+        all_row = self.result["compaction"]["all"]
+        self.assertEqual(all_row["firstDeaths"], list(range(96)))
+        self.assertEqual(all_row["firstSurvivors"], [])
+        self.assertEqual(all_row["firstHistory"], [[]])
+        self.assertEqual(all_row["deaths"], [])
+        self.assertEqual(all_row["survivors"], [])
+        self.assertEqual(all_row["history"], [[], []])
+        self.assertEqual(all_row["nextSurvivors"], [])
+        # Dead prefix below the threshold followed by a leading and an interior
+        # death: the split compaction must keep authored order and payload.
+        mixed = self.result["compaction"]["mixed"]
+        mixed_survivors = [index for index in range(4, 96) if index != 40]
+        self.assertEqual(mixed["firstDeaths"], [0, 1, 2])
+        self.assertEqual(mixed["firstSurvivors"], list(range(3, 96)))
+        self.assertEqual(mixed["firstHistory"], [list(range(3, 96))])
+        self.assertEqual(mixed["deaths"], [3, 40])
+        self.assertEqual(mixed["survivors"], mixed_survivors)
+        self.assertEqual(mixed["ages"], [5 / 32] * 91)
+        self.assertEqual(mixed["history"], [list(range(3, 96)), mixed_survivors])
+        self.assertEqual(mixed["nextSurvivors"], mixed_survivors)
+        self.assertEqual(mixed["nextAges"], [6 / 32] * 91)
+
     def test_event_color_writer_resets_when_follow_payload_becomes_unusable(self) -> None:
         row = self.result["fieldWriters"]["event"]
         self.assertReplay(row)

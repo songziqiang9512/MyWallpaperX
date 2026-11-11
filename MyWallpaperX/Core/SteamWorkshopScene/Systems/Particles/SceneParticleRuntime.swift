@@ -569,7 +569,6 @@ final class SceneParticleRuntime {
             let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
-            var parentParticles = layers[index].rootRender?.simulator.particles ?? []
             let dynamicControlPoints = dynamicValues.particleControlPoints(
                 layerID: layerID
             )
@@ -610,10 +609,13 @@ final class SceneParticleRuntime {
 #endif
                 births = root.simulator.consumeBirthEvents()
                 deaths = root.simulator.consumeDeathEvents()
-                parentParticles = root.simulator.particles
                 layers[index].rootRender = root
             }
             if let childRuntime = layers[index].childRuntime {
+                // One materialization per frame per parent layer. A visible
+                // root has already advanced; hidden or frozen keeps its
+                // pre-advance population because advance was skipped.
+                let parentParticles = layers[index].rootRender?.simulator.particles.liveArray ?? []
                 // Particle opacity comes from particle/instance alpha;
                 // generic layer alpha does not modulate particle renderers.
                 let result = childRuntime.advance(

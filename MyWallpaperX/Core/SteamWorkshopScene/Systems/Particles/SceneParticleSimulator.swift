@@ -17,7 +17,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private(set) var diagnostics: [SceneParticleSimulationDiagnostic]
     var componentObservation: SceneParticleComponentObservationState?
 #endif
-    var particles: [SceneParticleState] = []
+    var particles = SceneParticleBuffer()
     /// Birth-state samples whose complete authored lifetime fell inside the
     /// current display callback. They remain lifecycle-dead and event-visible;
     /// Sprite assembly alone may render the sample once before the next advance.
@@ -338,12 +338,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     /// Returns the authored-order Sprite sample set for the current display
-    /// callback. The common path returns the persistent array through COW;
-    /// allocation and sorting occur only when a particle was born and died
-    /// entirely between two display callbacks.
+    /// call. The live storage is materialized once per call; sorting
+    /// only happens when a particle was born and died entirely between two
+    /// display callbacks.
     nonisolated func renderParticlesForCurrentAdvance() -> [SceneParticleState] {
-        guard !transientRenderBirths.isEmpty else { return particles }
-        var result = particles
+        guard !transientRenderBirths.isEmpty else { return particles.liveArray }
+        var result = particles.liveArray
         result.reserveCapacity(particles.count + transientRenderBirths.count)
         result.append(contentsOf: transientRenderBirths)
         result.sort { $0.id < $1.id }
@@ -587,35 +587,37 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // death splits the survivors, move the visited range only once.
         var leadingDeaths = 0
         var writeIndex: Int?
-        for readIndex in particles.indices {
-            let particle = particles[readIndex]
-            if particle.age + 1e-12 >= particle.lifetime {
-                deathEvents.append(particle)
-                for operatorIndex in positionOscillationOperatorIndices {
-                    positionOscillationCache.removeValue(forKey: .init(
-                        particleID: particle.id, operatorIndex: operatorIndex
-                    ))
-                }
-                if readIndex == leadingDeaths {
-                    leadingDeaths += 1
-                } else if writeIndex == nil {
-                    let visitedSurvivors = readIndex - leadingDeaths
-                    if leadingDeaths > 0 {
-                        for index in 0..<visitedSurvivors {
-                            particles[index] = particles[index + leadingDeaths]
-                        }
+        particles.withUnsafeMutableBufferPointer { buffer in
+            for readIndex in buffer.indices {
+                let particle = buffer[readIndex]
+                if particle.age + 1e-12 >= particle.lifetime {
+                    deathEvents.append(particle)
+                    for operatorIndex in positionOscillationOperatorIndices {
+                        positionOscillationCache.removeValue(forKey: .init(
+                            particleID: particle.id, operatorIndex: operatorIndex
+                        ))
                     }
-                    writeIndex = visitedSurvivors
+                    if readIndex == leadingDeaths {
+                        leadingDeaths += 1
+                    } else if writeIndex == nil {
+                        let visitedSurvivors = readIndex - leadingDeaths
+                        if leadingDeaths > 0 {
+                            for index in 0..<visitedSurvivors {
+                                buffer[index] = buffer[index + leadingDeaths]
+                            }
+                        }
+                        writeIndex = visitedSurvivors
+                    }
+                } else if let destination = writeIndex {
+                    buffer[destination] = particle
+                    writeIndex = destination + 1
                 }
-            } else if let destination = writeIndex {
-                particles[destination] = particle
-                writeIndex = destination + 1
             }
         }
         if let survivorCount = writeIndex {
             particles.removeLast(particles.count - survivorCount)
         } else if leadingDeaths > 0 {
-            particles.removeSubrange(..<leadingDeaths)
+            particles.removeLeading(leadingDeaths)
         }
         simulationTime += duration
         stepSnapshotRecorder?.record(duration: duration, particles: particles)

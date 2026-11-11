@@ -582,6 +582,15 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 限制：A/B 为先后两组（A 两场后 B 四场），非交替；只授该诊断构建、该样本/root 的冷启动预热与 Ready，不授正式 Release、presented、能耗或全库；log-only run 仍保 graph/effect 执行观察；逐粒子组件观察只由 terminal 快照或 pointer 轨迹开启（`MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION`），该模式使本样本预热超时且未留收据，A/B 只用 log-only。受影响的 focused 粒子组 40 模块中，本批涉及的 reset/death 断言（含新增的 movementOnly 无写入者用例）通过；其余 4 个模块以测试源集缺少 `SceneResourceView` 等产品类型首错失败，属既有夹具漂移，未计入本批回归。
 
+<a id="particle-lead-death-buffer"></a>
+## 队首死亡的前缀存储
+
+粒子存储的连续 live 区间是死亡前缀之后的后缀（`SceneParticleBuffer`）：队首死亡只前移 head（O(1)），累计前缀达到 64 后做一次摊销压缩；非队首死亡仍走原 read/write 压紧。reset、operator、事件、快照、renderer、child 与 rollback 只观察连续 live 区间，顺序与 payload 不变。旧构建每步 `removeSubrange(..<leadingDeaths)` 的整段 memmove 落在预热线程 672 个样本里 669 个为 `_platform_memmove`（16.8%），是 3808922316 星域 root 剩余最大单点。中间构建（只换存储、未借用扫描）两场观测 prewarm 约 34.0–34.3s（中间收据未保留），随后把死亡扫描改为借用连续 live buffer 的中间复核构建（exe `025a63a…`）四场 prewarm 28,873.2–29,123.2ms；中间群无同批交替 A/B，只作过程定位，不作为本批结论。
+
+同构建配置（Release + DEBUG、Swift -O、single-file 诊断配置关闭）、同签名 App 参数、同输入/矩阵/60fps：A 组 exe `76a5957d…cb44`（产品内容与 `f2fdf6551` 等价，取自上一批收据）四场 particle-prewarm 35,357.8/35,328.3/35,544.6/35,538.8ms、Ready 41,496.5/41,351.2/41,660.0/41,564.5ms；B 组（最终复核构建）exe `705de210…3a42` 四场 prewarm 28,496.9/28,664.6/28,772.0/29,261.9ms、Ready 36,752.1/35,545.4/35,620.1/36,339.0ms。中位：prewarm 35,448.3→28,718.3ms（−6.73s，−19.0%），Ready 41,530.5→35,979.6ms（−5.55s，−13.4%）；组内极差 216/765ms、309/1,207ms。相对本批前的诊断基线（prewarm 41,950.6ms、Ready 48,608.0ms），累计 prewarm −13.23s（−31.5%）、Ready −12.63s（−26.0%）。
+
+等价性：`test_scene_particle_prewarm_work` 的 leadingDeathCompaction 覆盖 96 粒子队首死亡（70/96，超过 64 阈值）与混合路径（先只死 3 个队首留下 head=3，下一步再死 1 个队首+1 个中间粒子，验证 writeIndex 压紧与相对 live 的 removeLast），核对死亡顺序、存活顺序、年龄、完整/部分 history 与下一步；`test_scene_particle_simulator` 用 `SceneParticleBuffer([particle])` 单粒赋值覆盖存储替换。focused 粒子组 40 个模块：36 个 OK、4 个与 Round2 同源的既有失败（3 个编译首错、1 个断言）（audio_declaration 缺 SceneParticlePositionBetweenControlPoints；builtin_textures/color_adaptation 缺 SceneResourceView；definitions 缺 `.collisionBounds` 分支）。3420215721 log-only + `--require-graph-execution` 最终回归 PASS。限制：A/B 为先后两组（A 取上批收据四场、B 本批四场），非交替；只授该诊断构建与该样本/root 的冷启动预热与 Ready，不授正式 Release、presented、能耗或全库。旧实现消费点靠 COW 零拷贝；本批单 renderer 的 visible root 每帧物化 1–2 次（有 child 时 parentParticles 与 sprite 各一次），rope/ropeTrail 每 renderer 各 1 次，child 每 system 每帧 1–2 次，嵌套 parent 每父帧 1 次（每层每帧至多一次 parentParticles）；并删除了 visible 路径重复 parentParticles 与 sprite-only child rope 两处无用物化。逐帧成本本批未单独测，342 只授该样本可播放性。
+
 <a id="limits"></a>
 ## 未取得的资格
 

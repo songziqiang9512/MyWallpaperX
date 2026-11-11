@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 58118
+      "bytes": 58410
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
       "bytes": 56807
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 590,
-      "bytes": 251701
+      "lines": 599,
+      "bytes": 254971
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 51775
+      "bytes": 51959
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -449,10 +449,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ace33b2ecb1221294e9d0bbc30d56dbf1a2dacfe82e5e681f670a8f8e96230bf",
-      "after": "64d8e5183ef53bc3fa81e282655ea07e2cc1c2adba58ae5c6c10107ff6278d51",
+      "before": "64d8e5183ef53bc3fa81e282655ea07e2cc1c2adba58ae5c6c10107ff6278d51",
+      "after": "3a609f959b7d4fe3e64fa5c0445b1d29d84e1a698d49d7284a8deb33b43970d2",
       "owner": "Particle component contract",
-      "reason": "Record the per-step initial-value reset mask and vector finite conversion as the current prewarm hot-path contract.",
+      "reason": "Record the contiguous live suffix storage and amortized leading-death compaction as the current particle storage contract.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
@@ -467,19 +467,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bca64625905a05496a2d7bf997e767e9b224a07656839d3b09871424033d6a9f",
-      "after": "41aa30646cbdb3919d8c8c241293a764b491e51a1df7c923a612070d1c73818e",
+      "before": "41aa30646cbdb3919d8c8c241293a764b491e51a1df7c923a612070d1c73818e",
+      "after": "59b662629596726fc0367bc5cd07a33a5b258225b5c0f9de1986b372247754b6",
       "owner": "Scene runtime evidence",
-      "reason": "Record the 3808922316 prewarm/Ready A/B, its equivalence bounds and the bounded observation-mode limit.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
+      "reason": "Record the prefix-storage A/B, the missing bulk memmove, its equivalence fixtures and the bounded per-frame materialization cost.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-lead-death-buffer"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cf8f3d933b3e18eb505552575dc7352b5f147ab518bf45af04558307b3d60458",
-      "after": "fbf2d811cb19b9de4f88a5afaa390aea1ee7ff9a1368b23583cd1e92e5d1188b",
+      "before": "fbf2d811cb19b9de4f88a5afaa390aea1ee7ff9a1368b23583cd1e92e5d1188b",
+      "after": "a6ad1171935028644d79794564abfab50f8c56052578599597a05051f1f78168",
       "owner": "Scene open queue",
-      "reason": "Close the measured prewarm hot-path batch and state the remaining startup work and stop lines.",
+      "reason": "Close the measured prefix-storage batch under the startup item and keep the remaining hot-path stop lines.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     }
   ]

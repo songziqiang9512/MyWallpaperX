@@ -811,7 +811,8 @@ import Foundation
             }
             func release(_ bytes:Int){active-=bytes}
             func actualArrayStorage(_ snapshot:SceneParticleSimulator.FrameSnapshot)->Int {
-                var bytes=[snapshot.particles,snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
+                var bytes=snapshot.particles.capacity*MemoryLayout<SceneParticleState>.stride
+                    +[snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
                     .reduce(0){$0+$1.capacity*MemoryLayout<SceneParticleState>.stride}
 #if DEBUG
                 bytes += snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride

@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuffer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
@@ -114,7 +115,7 @@ enum Harness {
             state(id: 1, position: SIMD3(10, 0, 0), velocity: SIMD3(2, 0, 0)),
             state(id: 2, position: SIMD3(100, 0, 0), velocity: SIMD3(5, 0, 0)),
         ]
-        simulator.particles = reversed ? states.reversed() : states
+        simulator.particles = SceneParticleBuffer(reversed ? Array(states.reversed()) : states)
         simulator.advance(by: 0.5)
         return simulator
     }

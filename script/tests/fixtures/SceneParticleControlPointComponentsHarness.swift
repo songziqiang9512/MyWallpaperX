@@ -58,7 +58,7 @@ enum SceneParticleControlPointComponentsHarness {
         )
     }
 
-    static func points(_ particles: [SceneParticleState]) -> [[Double]] {
+    static func points<C: Collection>(_ particles: C) -> [[Double]] where C.Element == SceneParticleState {
         particles.map { [$0.position.x, $0.position.y, $0.position.z] }
     }
 

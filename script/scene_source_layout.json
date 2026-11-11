@@ -679,6 +679,7 @@
           "SceneParticleAssetGraph.swift",
           "SceneParticleAudioResponsePlan.swift",
           "SceneParticleBoids.swift",
+          "SceneParticleBuffer.swift",
           "SceneParticleBuiltInTextureRegistry.swift",
           "SceneParticleCameraFrame.swift",
           "SceneParticleCameraFrame+LayerCamera.swift",

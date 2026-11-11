@@ -157,6 +157,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleBuffer.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleRopePlan.swift",

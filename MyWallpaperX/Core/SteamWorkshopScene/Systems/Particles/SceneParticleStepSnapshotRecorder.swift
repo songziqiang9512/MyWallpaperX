@@ -75,14 +75,14 @@ nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
 
     nonisolated mutating func record(
         duration: TimeInterval,
-        particles: [SceneParticleState]
+        particles: SceneParticleBuffer
     ) {
         guard duration.isFinite, duration > 0 else { return }
         recordSamples(duration: duration, particles: particles, includesPartial: false)
     }
 
     nonisolated mutating func consume(
-        particles: [SceneParticleState]
+        particles: SceneParticleBuffer
     ) -> [SceneParticleStepSnapshotPolicy: [SceneParticleStepSnapshot]] {
         // Only materialize samples retained by a history, or the final
         // partial interval requested by the consumer. Intermediate simulation
@@ -98,7 +98,7 @@ nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
 
     private nonisolated mutating func recordSamples(
         duration: TimeInterval,
-        particles: [SceneParticleState],
+        particles: SceneParticleBuffer,
         includesPartial: Bool
     ) {
         var convertedParticles: [SceneParticleStepParticle]?

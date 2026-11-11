@@ -394,11 +394,55 @@ import simd
         return rows
     }
 
+    /// Leading deaths past the storage compaction threshold must keep the live
+    /// order, snapshots and the next step identical to a compact array. The
+    /// mixed case first leaves a dead prefix below the threshold and then kills
+    /// one leading and one interior particle, exercising the in-place split.
+    static func leadingDeathCompaction() -> [String: Any] {
+        func run(expired: [Int], second: ((SceneParticleSimulator) -> Void)? = nil) -> [String: Any] {
+            let input = source(capacity: 96, start: 0, rate: 0, burst: 96,
+                               lifetime: step * 8)
+            let simulator = make(input, history: 4)
+            simulator.advance(by: step * 3)
+            _ = simulator.consumeBirthEvents()
+            for index in expired {
+                simulator.particles[index].lifetime = step * 4
+            }
+            simulator.advance(by: step, allowsEmission: false)
+            let first = simulator.frameSnapshot()
+            let firstDeaths = simulator.consumeDeathEvents().map(\.id)
+            let firstHistory = history(first).map { $0.particles.map(\.id) }
+            second?(simulator)
+            simulator.advance(by: step, allowsEmission: false)
+            let current = simulator.frameSnapshot()
+            let retainedHistory = history(current).map { $0.particles.map(\.id) }
+            simulator.advance(by: step, allowsEmission: false)
+            let next = simulator.frameSnapshot()
+            return ["firstDeaths": firstDeaths,
+                    "firstSurvivors": first.particles.map(\.id),
+                    "firstHistory": firstHistory,
+                    "deaths": current.deathEvents.map(\.id),
+                    "survivors": current.particles.map(\.id),
+                    "ages": current.particles.map(\.age),
+                    "history": retainedHistory,
+                    "nextSurvivors": next.particles.map(\.id),
+                    "nextAges": next.particles.map(\.age)]
+        }
+        return ["partial": run(expired: Array(0..<70)),
+                "all": run(expired: Array(0..<96)),
+                "mixed": run(expired: Array(0..<3)) { simulator in
+                    // The first step already removed three leading particles;
+                    // indices below are relative to the remaining live range.
+                    simulator.particles[0].lifetime = step * 4
+                    simulator.particles[37].lifetime = step * 4
+                }]
+    }
+
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
             "emptySystems": emptySystems(), "bounds": boundaries(),
             "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines(),
-            "orderedDeaths": orderedDeaths()]
+            "orderedDeaths": orderedDeaths(), "compaction": leadingDeathCompaction()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

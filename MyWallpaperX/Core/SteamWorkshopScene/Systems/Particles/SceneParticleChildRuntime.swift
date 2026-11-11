@@ -548,7 +548,7 @@ final class SceneParticleChildRuntime {
                 particleOrigins: origins,
                 births: births,
                 deaths: deaths,
-                particles: systems[index].simulator.particles
+                particles: systems[index].simulator.particles.liveArray
             ))
         }
         return frames

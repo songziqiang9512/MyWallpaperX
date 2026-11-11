@@ -31,7 +31,7 @@ enum SceneParticleEmitterDirectionsHarness {
                                initialPlayback: .init(intent: paused ? .paused : .playing), seed: 52)
     }
 
-    static func coordinates(_ particles: [SceneParticleState]) -> [[Double]] {
+    static func coordinates<C: Collection>(_ particles: C) -> [[Double]] where C.Element == SceneParticleState {
         particles.map { [Double(Float($0.position.x)), Double(Float($0.position.y)),
                          Double(Float($0.position.z))] }
     }
