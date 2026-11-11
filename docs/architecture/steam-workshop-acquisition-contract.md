@@ -73,7 +73,7 @@ v2 仍是当前准备事务与退休 generation 的身份格式，不是可随�
 
 ## 6. 旧路退出与后续维护
 
-SteamCMD、PTY/输出解析、自动社区登录、Cookie/个人 HTML 抓取和旧密码读取都不再是产品获取 fallback；公开网页只保用户主动外链。遗留状态只由[精确退役器](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLegacyAcquisitionRetirement.swift)按独立组件 marker 清理，不读 Cookie 转 token，不触系统浏览器、Steam 客户端或用户壁纸库。退役失败保原项并可重试，不借迁移清理未知目录。
+SteamCMD、PTY/输出解析、自动社区登录、Cookie/个人 HTML 抓取和旧密码读取都不再是产品获取 fallback；公开网页只保用户主动外链。原精确退役器已随旧获取链退出（服务启动不再调用），其旧凭据、缓存与运行目录不再由产品迁移或清理；不读 Cookie 转 token，不触系统浏览器、Steam 客户端或用户壁纸库，也不借迁移清理未知目录。
 
 后续修复按当前 owner 的普通维护处理。协议/进程最近门为 [protocol golden](../../script/tests/test_steam_protocol_golden.py)、[client lifecycle](../../script/tests/test_steam_client_lifecycle.py)；任务/文件最近门为 [download execution](../../script/tests/test_steam_download_execution.py)、[library transaction](../../script/tests/test_steam_library_transaction.py)、[publication](../../script/tests/test_steam_library_publication.py)。账号取证入口为 [steam_auth_gate.py](../../script/steam_auth_gate.py)，按当次授权、隔离状态与脱敏输出执行。
 

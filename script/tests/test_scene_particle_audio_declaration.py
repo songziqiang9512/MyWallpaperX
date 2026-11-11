@@ -213,6 +213,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             COLLISION_SOURCE,
             COLLISION_SPHERE_SOURCE,
             POSITION_AROUND_SOURCE,
+            POSITION_BETWEEN_SOURCE,
             AUDIO_PLAN_SOURCE,
             PARSER_SOURCE,
             OPERATOR_PARSER_SOURCE,

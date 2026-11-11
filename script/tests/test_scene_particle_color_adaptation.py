@@ -156,6 +156,11 @@ class SceneParticleColorAdaptationTests(unittest.TestCase):
                 ["swiftc", "-import-objc-header", str(root / "faults.h"),
                  str(SCENE / "Resources/Textures/SceneTextureSampling.swift"),
                  str(SCENE / "Systems/Particles/SceneParticleTextureSource.swift"),
+                 str(SCENE / "Resources/Assets/SceneResourceView.swift"),
+                 str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
+                 str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
+                 str(SCENE / "Format/ScenePkgReader.swift"),
+                 str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"),
                  str(root / "harness.swift"), str(root / "faults.o"), "-o", str(root / "harness")],
             ]
             for command in commands:

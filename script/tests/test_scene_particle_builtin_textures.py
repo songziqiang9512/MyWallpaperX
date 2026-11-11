@@ -15,6 +15,11 @@ SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuiltInTextureRegistry.swift",
 ]
 
@@ -69,8 +74,8 @@ enum Harness {
             "unknownBuiltInFails": SceneParticleTextureSource(reference: "particle/not-supported") == nil,
             "emptyFails": SceneParticleTextureSource(reference: "  ") == nil,
             "fileCase": SceneParticleTextureSource.file(
-                URL(fileURLWithPath: "/tmp/drop.tex")
-            ) == .file(URL(fileURLWithPath: "/tmp/drop.tex")),
+                .externalFile(URL(fileURLWithPath: "/tmp/drop.tex"))
+            ) == .file(.externalFile(URL(fileURLWithPath: "/tmp/drop.tex"))),
         ]
 
         guard let device = MTLCreateSystemDefaultDevice() else {

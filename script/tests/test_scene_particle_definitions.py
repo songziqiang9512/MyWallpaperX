@@ -721,6 +721,7 @@ enum Harness {
         case .reduceMovement: "reducemovementnearcontrolpoint"
         case .collisionPlane: "collisionplane"
         case .collisionSphere: "collisionsphere"
+        case .collisionBounds: "collisionbounds"
         case .inheritEventValue: "inheritvaluefromevent"
         case let .unsupported(name): name
         }

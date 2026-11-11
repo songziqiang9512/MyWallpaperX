@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18252
+      "bytes": 18202
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 52287
+      "lines": 187,
+      "bytes": 52584
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -476,11 +476,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "399269cb7eae7b28dc35eebd52975a107adb18956cb8dff08aa912014c7e9b69",
-      "after": "5f0f8ead56353d3ff019645e13bf4c1871bd4a0d6c6601ddb64e0fb54f61adc2",
+      "before": "5f0f8ead56353d3ff019645e13bf4c1871bd4a0d6c6601ddb64e0fb54f61adc2",
+      "after": "dd8fa5ee7b58259d5a20c41a2c5497eb654236e53746d82c4a3873adfa76938e",
       "owner": "Scene open queue",
-      "reason": "Close the third particle-prewarm batch under the startup item and keep the remaining operator/reset stop lines.",
+      "reason": "R7 gate recovery: corrected non-Scene links and particle-drift fixes; remaining drift and dependency-edge decision recorded.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "593c325e5e45c16dd02a2d072c9878b782f2bc4e7e97ae5a2191b65d33771897",
+      "after": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
+      "owner": "Repository documentation",
+      "reason": "R7 gate recovery: corrected non-Scene links and particle-drift fixes; remaining drift and dependency-edge decision recorded.",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
     }
   ]
 }

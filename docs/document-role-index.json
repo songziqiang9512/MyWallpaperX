@@ -140,12 +140,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-05",
+      "lastReviewed": "2026-11-12",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0268ae86a58ae9f2f217f64ef2ca609da9a0b4e2c9a0d7c3c1706ee3ef80600",
+        "sourceSHA256": "40d9da2e61e4d47241b40b70a74768d2c37da1478c450f9c2ae7469e73f24dbb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, and current JobStore v5/ready v3 ownership.",
+        "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, current JobStore v5/ready v3 ownership, and the retired-file link now pointing at the current Steam acquisition boundary.",
         "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
       }
     },
