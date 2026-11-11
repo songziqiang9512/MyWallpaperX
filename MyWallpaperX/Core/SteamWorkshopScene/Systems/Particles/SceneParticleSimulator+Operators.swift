@@ -40,19 +40,30 @@ nonisolated extension SceneParticleSimulator {
             let gravityTime = abs(exponent) < 1e-8 ? duration : (1 - retention) / plan.dampingRate
             let gravityImpulse = gravity == .zero ? .zero : gravity * gravityTime
             let retentionOverflowed = !retention.isFinite
+            // Without a radius-maintaining Vortex plan no writer ever sets
+            // vortexRadius, so the nil-radius clearing and the exact vortex
+            // integration collapse to the plain linear step.
+            let maintainsRadius = maintainsVortexRadius
             let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
             particles.withUnsafeMutableBufferPointer { buffer in
                 for index in buffer.indices {
-                    if !radiusIsActive { buffer[index].vortexRadius = nil }
                     let initialVelocity = buffer[index].velocity
                     // An unforced stationary peer stays at rest even when growth overflows.
                     let integrated = retentionOverflowed && initialVelocity == .zero
                         ? gravityImpulse : initialVelocity * retention + gravityImpulse
-                    let (position, velocity) = vortexMovement(
-                        particlePosition: buffer[index].position,
-                        vortexRadius: buffer[index].vortexRadius,
-                        velocity: integrated, duration: duration
-                    )
+                    let position: SIMD3<Double>
+                    let velocity: SIMD3<Double>
+                    if maintainsRadius {
+                        if !radiusIsActive { buffer[index].vortexRadius = nil }
+                        (position, velocity) = vortexMovement(
+                            particlePosition: buffer[index].position,
+                            vortexRadius: buffer[index].vortexRadius,
+                            velocity: integrated, duration: duration
+                        )
+                    } else {
+                        position = buffer[index].position + integrated * duration
+                        velocity = integrated
+                    }
                     guard acceptsMotionResult(velocity, position, component: "movement") else {
                         continue
                     }
