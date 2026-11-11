@@ -206,11 +206,23 @@ extension SceneResolvedMaterialGraphExecutor {
         let preservesPriorState = previous.effectGeneration == effectGeneration
             && previous.resetGeneration == resetGeneration
             && previous.allocationGeneration != nil
-        guard preservesPriorState || copies.isEmpty else { return nil }
+        guard preservesPriorState else {
+            // A runtime material failure can drop this effect's committed state
+            // while the allocator still plans seeds from its retained history
+            // allocation. Without the previous mapping those seeds cannot be
+            // rehydrated, so rebuild from the plan's first-frame initialization
+            // and leave the stale seeds unencoded instead of dropping the frame.
+            return .init(
+                rehydration: [:],
+                commands: [],
+                reads: [:],
+                discardsPreviousContent: !previousResources.isEmpty
+            )
+        }
         let readable = previous.logicalMapping.filter {
             $0.value.contentGeneration > 0
         }
-        if preservesPriorState && readable.isEmpty {
+        if readable.isEmpty {
             guard copies.isEmpty else { return nil }
             return .init(
                 rehydration: [:],
@@ -240,14 +252,6 @@ extension SceneResolvedMaterialGraphExecutor {
                   return generation == previous.allocationGeneration
                       && token == versioned.token.rawValue
               }) else { return nil }
-        if !preservesPriorState {
-            return .init(
-                rehydration: [:],
-                commands: [],
-                reads: [:],
-                discardsPreviousContent: !previousResources.isEmpty
-            )
-        }
         if previous.allocationGeneration == lease.generation {
             guard copies.isEmpty else { return nil }
             return .init(
@@ -288,7 +292,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 === sourceTextures[resource.token]
         }) else { return nil }
 
-        if allowsHistorySplit, preservesPriorState,
+        if allowsHistorySplit,
            materialFunctionTargets.isDisjoint(with: readable.keys),
            readable.keys.allSatisfy({
                previous.authoredResources[$0]?.descriptor.initialClear == nil

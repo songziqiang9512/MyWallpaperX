@@ -381,6 +381,9 @@ private enum Harness {
             intents(freshRecovered) == ["material", "material", "material"],
             "fresh recovery does not reseed"
         )
+        guard let freshRecoveredStage = freshRecovered.stages.first else {
+            fatalError("fresh recovered stage")
+        }
         let freshRecoveredRead = encodeAndRead(
             freshRecovered,
             executor: validExecutor,
@@ -389,6 +392,68 @@ private enum Harness {
         expect(
             matches(freshRecoveredRead.pixel, [0, 128, 64, 255]),
             "fresh recovery output"
+        )
+
+        // A runtime failure discards this effect's committed state, but the
+        // allocator can still plan seeds from its retained history allocation.
+        // Without the previous logical mapping those seeds cannot be
+        // rehydrated; the frame must rebuild from first-frame initialization
+        // instead of dropping.
+        let discardedState = initialFailedStage.transition.nextState
+        expect(
+            discardedState.logicalMapping.isEmpty
+                && discardedState.historyClosureIdentities.isEmpty
+                && discardedState.effectGeneration == nil,
+            "runtime failure discards the effect state"
+        )
+        let tornLease = lease(targetPlan, device: device, generation: 72)
+        guard let tornCopies = copies(
+            stage: freshRecoveredStage,
+            oldLease: freshLease,
+            newLease: tornLease
+        ), tornCopies.count == 1 else { fatalError("torn history copies") }
+        let referenceCommand = queue.makeCommandBuffer()!
+        let reference = prepareFrame(
+            executor: validExecutor,
+            token: validClaim.token,
+            lease: lease(targetPlan, device: device, generation: 73),
+            index: 75,
+            source: source,
+            pipeline: pipeline,
+            command: referenceCommand
+        )
+        let tornCommand = queue.makeCommandBuffer()!
+        let torn = validExecutor.prepare(
+            token: validClaim.token, leases: [tornLease],
+            historyRehydrateCopiesByEffect: [effect: tornCopies],
+            frame: frame(75),
+            sourceTexture: source, sourceUniforms: .neutral(),
+            sourcePipeline: pipeline, frameInputs: .init(),
+            commandBuffer: tornCommand,
+            previousStates: [effect: discardedState],
+            previousGraphResources: [effect: [:]],
+            effectGeneration: 1, resetGeneration: 1
+        )
+        guard case let .success(tornGraph) = torn,
+              let tornStage = tornGraph.stages.first else {
+            fatalError("stale history seeds must not reject the frame: \(failure(torn))")
+        }
+        expect(
+            tornStage.historyRehydrateCopyCount == 0,
+            "stale history seeds stay unencoded"
+        )
+        expect(
+            intents(tornGraph) == intents(reference)
+                && intents(tornGraph).contains("initialize"),
+            "stale history seeds take the first-frame initialization path"
+        )
+        let tornRead = encodeAndRead(tornGraph, executor: validExecutor, command: tornCommand)
+        let referenceRead = encodeAndRead(
+            reference, executor: validExecutor, command: referenceCommand
+        )
+        expect(
+            matches(tornRead.pixel, referenceRead.pixel),
+            "stale history seeds keep the first-frame initialization pixels"
         )
 
         let payload: [String: Any] = [
@@ -400,6 +465,7 @@ private enum Harness {
             "stableRollback": true,
             "freshRehydrateRollback": true,
             "recovery": true,
+            "staleHistorySeedRebuildsFirstFrame": true,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -433,6 +499,7 @@ class ScenePersistentHistoryVisualFailureGPUTests(unittest.TestCase):
                 "stableRollback": True,
                 "freshRehydrateRollback": True,
                 "recovery": True,
+                "staleHistorySeedRebuildsFirstFrame": True,
             },
         )
 
