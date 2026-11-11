@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 587,
-      "bytes": 252520
+      "bytes": 253135
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 52072
+      "bytes": 52287
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -467,8 +467,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "59b662629596726fc0367bc5cd07a33a5b258225b5c0f9de1986b372247754b6",
-      "after": "e6127f1166a6c0154cab5079cb86c4c6efe73358d2dadc1cde4b90747a5c6249",
+      "before": "e6127f1166a6c0154cab5079cb86c4c6efe73358d2dadc1cde4b90747a5c6249",
+      "after": "069431b0170db8b7dc9153f07ed8efe4703438e875af2d8f13452db4e742e11f",
       "owner": "Scene runtime evidence",
       "reason": "Consolidate the three particle-prewarm batches into one current section with the new interleaved A/B, payload-copy mechanism and limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
@@ -476,8 +476,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a6ad1171935028644d79794564abfab50f8c56052578599597a05051f1f78168",
-      "after": "399269cb7eae7b28dc35eebd52975a107adb18956cb8dff08aa912014c7e9b69",
+      "before": "399269cb7eae7b28dc35eebd52975a107adb18956cb8dff08aa912014c7e9b69",
+      "after": "5f0f8ead56353d3ff019645e13bf4c1871bd4a0d6c6601ddb64e0fb54f61adc2",
       "owner": "Scene open queue",
       "reason": "Close the third particle-prewarm batch under the startup item and keep the remaining operator/reset stop lines.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"

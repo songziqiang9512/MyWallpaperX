@@ -104,18 +104,27 @@ nonisolated extension SceneParticleSimulator {
 #endif
                 break
             }
+            // The two changeAmount calls guard `end > start` per particle.
+            // Hoist those launch-stable guards; keep the divisions so the
+            // arithmetic and rounding stay bit-identical, including the
+            // degenerate fadeIn == 0 / fadeOut == 1 cases.
+            let fadeIn = fadePlan.fadeIn
+            let fadeInPositive = fadeIn > 0
+            let fadeOut = fadePlan.fadeOut
+            let fadeOutBelowOne = fadeOut < 1
+            let fadeOutDenominator = 1 - fadeOut
             particles.withUnsafeMutableBufferPointer { buffer in
                 for index in buffer.indices {
                     let life = normalizedLives[index]
-                    if life <= fadePlan.fadeIn {
-                        buffer[index].alpha *= SceneParticleSimulationMath.changeAmount(
-                            life, 0, fadePlan.fadeIn
-                        )
+                    if life <= fadeIn {
+                        buffer[index].alpha *= fadeInPositive
+                            ? min(max(life / fadeIn, 0), 1)
+                            : (life > fadeIn ? 1 : 0)
                     }
-                    if life > fadePlan.fadeOut {
-                        buffer[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
-                            life, fadePlan.fadeOut, 1
-                        )
+                    if life > fadeOut {
+                        buffer[index].alpha *= fadeOutBelowOne
+                            ? 1 - min(max((life - fadeOut) / fadeOutDenominator, 0), 1)
+                            : 1 - (life > 1 ? 1 : 0)
                     }
                 }
             }
