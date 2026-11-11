@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 57663
+      "bytes": 58118
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
       "bytes": 56807
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 578,
-      "bytes": 249544
+      "lines": 590,
+      "bytes": 251701
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 51891
+      "bytes": 51775
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -449,10 +449,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "1d8330842a7c85e333538bf31f3f4973637c66fe748f2a8073bbd86d30257f4b",
-      "after": "ace33b2ecb1221294e9d0bbc30d56dbf1a2dacfe82e5e681f670a8f8e96230bf",
-      "owner": "Scene particle simulation",
-      "reason": "Document the single Turbulence particle borrow and keyed random inputs.",
+      "before": "ace33b2ecb1221294e9d0bbc30d56dbf1a2dacfe82e5e681f670a8f8e96230bf",
+      "after": "64d8e5183ef53bc3fa81e282655ea07e2cc1c2adba58ae5c6c10107ff6278d51",
+      "owner": "Particle component contract",
+      "reason": "Record the per-step initial-value reset mask and vector finite conversion as the current prewarm hot-path contract.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
@@ -467,20 +467,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "59dcc3127db68b2d2eb6f905f86aaaa97e899673c82c8df024d27e1c9ab4d045",
-      "after": "bca64625905a05496a2d7bf997e767e9b224a07656839d3b09871424033d6a9f",
+      "before": "bca64625905a05496a2d7bf997e767e9b224a07656839d3b09871424033d6a9f",
+      "after": "41aa30646cbdb3919d8c8c241293a764b491e51a1df7c923a612070d1c73818e",
       "owner": "Scene runtime evidence",
-      "reason": "Record WMO Release history-split runs, activation of the authored audio bars and the stale-seed first-frame rebuild gate.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stale-history-seed"
+      "reason": "Record the 3808922316 prewarm/Ready A/B, its equivalence bounds and the bounded observation-mode limit.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7319000df5a67a50b8fa06f20b18552ec1636e357d5ffbfc0e5b754265f260a5",
-      "after": "cf8f3d933b3e18eb505552575dc7352b5f147ab518bf45af04558307b3d60458",
+      "before": "cf8f3d933b3e18eb505552575dc7352b5f147ab518bf45af04558307b3d60458",
+      "after": "fbf2d811cb19b9de4f88a5afaa390aea1ee7ff9a1368b23583cd1e92e5d1188b",
       "owner": "Scene open queue",
-      "reason": "Close the first-frame and hidden audio-bar activation checks, record the measured 3808922316 prewarm hotspot breakdown, and list the pre-existing focused-gate fixture drift.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
+      "reason": "Close the measured prewarm hot-path batch and state the remaining startup work and stop lines.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     }
   ]
 }

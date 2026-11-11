@@ -201,13 +201,18 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                 self.assertEqual(row["historyIDs"], [survivors])
 
     def test_field_writer_baselines_preserve_birth_values_and_do_not_accumulate(self) -> None:
-        expected = {"none": (7, [1, 0, 1]), "size": (14, [1, 0, 1]),
-                    "oscillate": (21, [1, 0, 1]), "twoSizeWriters": (42, [1, 0, 1]),
-                    "color": (7, [0.5, 0, 0.75]), "combined": (42, [0.5, 0, 0.75]),
-                    "renamed": (42, [0.5, 0, 0.75])}
+        # (size, color, alpha): alpha 0.1875 is one 0.5 alphaChange on the 0.375
+        # birth value; movementOnly has no writer, so all three resets are skipped.
+        expected = {"none": (7, [1, 0, 1], 0.1875), "size": (14, [1, 0, 1], 0.1875),
+                    "oscillate": (21, [1, 0, 1], 0.1875),
+                    "twoSizeWriters": (42, [1, 0, 1], 0.1875),
+                    "color": (7, [0.5, 0, 0.75], 0.1875),
+                    "combined": (42, [0.5, 0, 0.75], 0.1875),
+                    "renamed": (42, [0.5, 0, 0.75], 0.1875),
+                    "movementOnly": (7, [1, 0, 1], 0.375)}
         rows = self.result["fieldWriters"]["rows"]
         self.assertEqual(set(rows), set(expected))
-        for name, (size, color) in expected.items():
+        for name, (size, color, alpha) in expected.items():
             row = rows[name]
             with self.subTest(name=name):
                 self.assertReplay(row)
@@ -217,7 +222,7 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
                     state = row[phase]
                     self.assertEqual((state["size"], state["color"]), (size, color))
                     self.assertEqual((state["initialSize"], state["initialColor"]), (7, [1, 0, 1]))
-                    self.assertEqual((state["alpha"], state["initialAlpha"]), (0.1875, 0.375))
+                    self.assertEqual((state["alpha"], state["initialAlpha"]), (alpha, 0.375))
 
     def test_event_color_writer_resets_when_follow_payload_becomes_unusable(self) -> None:
         row = self.result["fieldWriters"]["event"]

@@ -71,6 +71,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// Only these operators own per-particle oscillation cache entries. Keeping
     /// the indices prepared avoids scanning every operator for each death.
     private let positionOscillationOperatorIndices: [Int]
+    /// Per-step initial-value reset is only observable for attributes some
+    /// operator writes; other attributes already stay at their birth value.
+    private let operatorResetsAlpha: Bool
+    private let operatorResetsSize: Bool
+    private let operatorResetsColor: Bool
     let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
@@ -200,6 +205,28 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
         }
+        var resetsAlpha = false
+        var resetsSize = false
+        var resetsColor = false
+        for operatorValue in definition.operators {
+            switch operatorValue.kind {
+            case .alphaFade, .alphaChange, .oscillateAlpha:
+                resetsAlpha = true
+            case .sizeChange, .oscillateSize:
+                resetsSize = true
+            case .colorChange, .inheritEventValue:
+                resetsColor = true
+            case .movement, .angularMovement, .oscillatePosition,
+                 .controlPointAttract, .controlPointRadius,
+                 .maintainControlPointDistance, .turbulence, .boids, .vortex,
+                 .capVelocity, .remapValue, .reduceMovement, .collisionPlane,
+                 .collisionSphere, .collisionBounds, .unsupported:
+                break
+            }
+        }
+        operatorResetsAlpha = resetsAlpha
+        operatorResetsSize = resetsSize
+        operatorResetsColor = resetsColor
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicies.isEmpty ? nil
             : SceneParticleStepSnapshotRecorder(policies: stepSnapshotPolicies)
@@ -536,11 +563,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
+        let resetsAlpha = operatorResetsAlpha
+        let resetsSize = operatorResetsSize
+        let resetsColor = operatorResetsColor
         particles.withUnsafeMutableBufferPointer { buffer in
             for index in buffer.indices {
-                buffer[index].alpha = buffer[index].initialAlpha
-                buffer[index].size = buffer[index].initialSize
-                buffer[index].color = buffer[index].initialColor
+                if resetsAlpha { buffer[index].alpha = buffer[index].initialAlpha }
+                if resetsSize { buffer[index].size = buffer[index].initialSize }
+                if resetsColor { buffer[index].color = buffer[index].initialColor }
                 buffer[index].age += duration
                 normalizedLives.append(min(max(
                     buffer[index].age / max(buffer[index].lifetime, 1e-12), 0
@@ -802,6 +832,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     /// Reject only this particle's unsafe operator result, before either half
     /// of the integration is committed or narrowed to the GPU's Float ABI.
+    @inline(__always)
     nonisolated func acceptsMotionResult(
         _ velocity: SIMD3<Double>, _ position: SIMD3<Double>, component: String
     ) -> Bool {

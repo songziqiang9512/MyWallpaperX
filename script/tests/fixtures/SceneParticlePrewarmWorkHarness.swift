@@ -298,6 +298,7 @@ import simd
             "startvalue": "0.5 0.25 0.75", "endvalue": "0.5 0.25 0.75"]
         let alpha: [String: Any] = ["name": "alphachange", "starttime": 0, "endtime": 1,
             "startvalue": 0.5, "endvalue": 0.5]
+        let movement: [String: Any] = ["name": "movement", "gravity": "0 0 0"]
         var root = source(capacity: 1, start: 1, rate: 0, burst: 1, lifetime: 64)
         root["initializer"] = [["id": 21, "name": "lifetimerandom", "min": 64, "max": 64],
             ["id": 22, "name": "sizerandom", "min": 7, "max": 7],
@@ -306,11 +307,14 @@ import simd
         let cases: [(String, [[String: Any]])] = [("none", []), ("size", [size]),
             ("oscillate", [oscillate]), ("twoSizeWriters", [size, oscillate]),
             ("color", [color]), ("combined", [size, oscillate, color]),
-            ("renamed", [size, oscillate, color])]
+            ("renamed", [size, oscillate, color]), ("movementOnly", [movement])]
         var rows: [String: Any] = [:]
         for (name, operators) in cases {
             var input = root
-            input["operator"] = operators + [alpha]
+            // The hot-path case has no alpha/size/color writer at all, so all
+            // three per-step resets can be skipped; other cases keep the alpha
+            // writer to observe baseline rebasing.
+            input["operator"] = name == "movementOnly" ? operators : operators + [alpha]
             if name == "renamed" {
                 input["material"] = "materials/another-birth-spectrum.json"
                 input["operator"] = (operators + [alpha]).enumerated().map { index, value in
@@ -361,8 +365,13 @@ import simd
             let simulator = make(input, history: 4)
             simulator.advance(by: step * 3)
             _ = simulator.consumeBirthEvents()
+            // Death payloads are observed after the step's operator pass. No
+            // operator writes size in this fixture, so the particle keeps its
+            // birth size; set the value and its baseline together the way a
+            // real birth leaves them.
             for index in simulator.particles.indices {
                 simulator.particles[index].initialSize = Double(index + 1)
+                simulator.particles[index].size = Double(index + 1)
             }
             for index in expired {
                 simulator.particles[index].lifetime = step * 4

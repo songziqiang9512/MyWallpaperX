@@ -12,6 +12,9 @@ nonisolated struct SceneParticleState: Equatable, Sendable {
     var age: Double
     var lifetime: Double
 
+    // Birth baselines: makeParticle writes them together with color/alpha/size.
+    // Afterwards only a writing operator moves the live value, so a per-step
+    // reset can skip attributes no operator kind writes.
     var initialColor: SIMD3<Double>
     var initialAlpha: Double
     var initialSize: Double
@@ -102,8 +105,12 @@ nonisolated enum SceneParticleSimulationMath {
         sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
     }
 
+    @inline(__always)
     static func isGPUFinite(_ value: SIMD3<Double>) -> Bool {
-        Float(value.x).isFinite && Float(value.y).isFinite && Float(value.z).isFinite
+        // SIMD3<Float> converts per lane exactly like Float(lane), so the
+        // accepted and rejected values stay identical to the scalar form.
+        let float = SIMD3<Float>(value)
+        return float.x.isFinite && float.y.isFinite && float.z.isFinite
     }
 
     static func addFinite(

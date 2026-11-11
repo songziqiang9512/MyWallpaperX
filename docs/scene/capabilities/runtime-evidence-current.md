@@ -570,6 +570,18 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 `test_scene_persistent_history_visual_failure_gpu` 新增"已丢弃状态 + fresh lease 的 seed copies"场景，并与同帧"无 previous、无 copies"的独立首帧初始化参照比较。输入为工作树 `f31c1b775` 加本批 1 个产品文件与 1 个测试文件；修复前 harness 在 executor 返回 `history-rejected` 处终止，修复后 `historyRehydrateCopyCount==0`、intents 与首帧参照完全相同（含 `initialize`），GPU 读回像素与参照一致；该夹具 history target 带 authored clear，故重建走 `.authoredClear`，不据此单独声称 transparent seed。该门只授 executor 状态合同与首帧初始化重建像素，不授真实 App 中运行时失败的发生频率、可见拖尾、完整画面或性能。
 
+<a id="particle-prewarm-hotpath"></a>
+## 预热热路径的等价削减
+
+3808922316 的隐藏主题星域 root（starttime=100000、rate .1 → 6M 固定步）在此前构建中 Warmup 约 41.9s。本批只做两处逐粒等价替换，不改固定步进、RNG、出生/死亡顺序、快照或算子次序：
+
+- 逐粒初始值 reset 只对作者算子实际写入的属性执行。无写入者的 alpha/size/color 自出生即等于初值，跳过赋值不可能改变状态；有写入者仍在每步前回到出生初值，`test_scene_particle_prewarm_work` 的 field-writer baseline 与 event color 回退断言保持通过。
+- GPU 有限性接受改用一次 `SIMD3<Float>` 向量转换（逐 lane IEEE 舍入与标量转换相同）并把接受判断内联到 movement 调用点，接受/拒绝边界不变。
+
+同构建配置（Release + DEBUG、Swift -O、single-file 诊断配置关闭）、同签名 App 参数、同输入/矩阵/60fps：A 组 exe `fba428ae…db89`（产品源 `bc79ce94f`）两场 particle-prewarm 41,979.8/41,921.5ms、Ready 49,279.1/47,936.9ms；B 组（本批产品源）exe `76a5957d…cb44` 四场 prewarm 35,357.8/35,328.3/35,544.6/35,538.8ms、Ready 41,496.5/41,351.2/41,660.0/41,564.5ms。中位：prewarm 41,950.6→35,448.3ms（−6.50s，−15.5%），Ready 48,608.0→41,530.5ms（−7.08s，−14.6%）；组内极差 A 58ms/1.34s、B 216ms/0.31s。除上述三处产品改动外无其他产品差异。
+
+限制：A/B 为先后两组（A 两场后 B 四场），非交替；只授该诊断构建、该样本/root 的冷启动预热与 Ready，不授正式 Release、presented、能耗或全库；log-only run 仍保 graph/effect 执行观察；逐粒子组件观察只由 terminal 快照或 pointer 轨迹开启（`MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION`），该模式使本样本预热超时且未留收据，A/B 只用 log-only。受影响的 focused 粒子组 40 模块中，本批涉及的 reset/death 断言（含新增的 movementOnly 无写入者用例）通过；其余 4 个模块以测试源集缺少 `SceneResourceView` 等产品类型首错失败，属既有夹具漂移，未计入本批回归。
+
 <a id="limits"></a>
 ## 未取得的资格
 
