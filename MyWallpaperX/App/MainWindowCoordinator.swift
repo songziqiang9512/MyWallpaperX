@@ -24,23 +24,13 @@ enum MainWindowCoordinator {
     }
 
     static func mainWindow() -> NSWindow? {
-        if let window = mainWindowController?.window {
-            return window
-        }
-        return NSApp.windows.first { window in
-            window.identifier?.rawValue == "MainWindow"
-        }
+        mainWindowController?.window
     }
 
     static func activateMainWindow() {
         // 优先复用现有 controller / window，避免重复创建导致状态丢失。
         if let controller = mainWindowController {
             controller.showWindow(nil)
-            return
-        }
-
-        if let existingWindow = mainWindow() {
-            activate(window: existingWindow)
             return
         }
 
@@ -76,9 +66,9 @@ enum MainWindowCoordinator {
     }
 
     static func handleWindowWillClose(_ controller: MainWindowController) {
-        if mainWindowController === controller {
-            mainWindowController = nil
-        }
+        // The window is hidden, not retired: keep its controller so the Dock or
+        // an app reopen reuses the same live composition instead of reviving a
+        // closed window whose subscriptions were already torn down.
         resetModuleStateForClosedMainWindow()
         // 关闭主窗口时隐藏 Dock 图标，维持“窗口即应用入口”的表现。
         setDockIconVisible(false)

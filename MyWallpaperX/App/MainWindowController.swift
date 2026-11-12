@@ -31,7 +31,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.toolbarStyle = .unified
         window.setContentSize(Self.defaultContentSize)
         window.minSize = NSSize(width: 900, height: 650)
-        window.isReleasedWhenClosed = true
+        // Reused by the coordinator after close, so AppKit must not release it.
+        window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.collectionBehavior.remove(.fullScreenAuxiliary)
         window.collectionBehavior.remove(.moveToActiveSpace)
@@ -58,10 +59,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
         if !hasShownWindow { window.center(); hasShownWindow = true }
         MainWindowCoordinator.activate(window: window)
+        composition.resumeAfterWindowOpen()
     }
 
     func windowWillClose(_ notification: Notification) {
-        composition.close()
+        composition.suspendForWindowClose()
         SettingsWindowController.shared.updateMainWindowTint(nil, animated: false)
         MainWindowCoordinator.handleWindowWillClose(self)
     }

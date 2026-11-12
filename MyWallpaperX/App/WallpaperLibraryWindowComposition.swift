@@ -18,6 +18,7 @@ import Combine
     private var windowVisibility: NSKeyValueObservation?
     private var windowObservers: [NSObjectProtocol] = []
     private var lastPage: WallpaperLibraryPage?
+    private var isSuspended = false
     private var lastDirectoryRevision: (UInt64, Int64, UUID)?
     private var allEntries: [WallpaperPlaylistDirectoryEntry] = []
     private var covers: [UUID: WallpaperPlaylistArtwork] = [:]
@@ -396,6 +397,7 @@ import Combine
     }
 
     private func render() {
+        guard !isSuspended else { return }
         let model = workspace.presentation, state = model.state
         let relationships = workspace.relationships, catalog = workspace.catalog.catalog
         var query = state.query
@@ -975,22 +977,24 @@ import Combine
         else if workspace.presentation.selectionState.isSelecting { commands.toggleSelectionMode() }
     }
 
-    func close() {
-        onlineImages.close()
-        creationNotice.dismiss()
+    /// The window is hidden, not retired: release transient surfaces and visible
+    /// image demand, then resume the same composition on reopen. Keep the
+    /// subscriptions; reviving a closed window without them leaves its stale
+    /// grid visible while every action renders nothing.
+    func suspendForWindowClose() {
+        isSuspended = true
+        onlineImages.close(); creationNotice.dismiss()
         inspector.closeInspector(); inspector.closePreview()
-        artwork.setDemand(sourceToken: sidebarDemand, playlistIDs: [])
-        artwork.setDemand(sourceToken: directoryDemand, playlistIDs: [])
-        artwork.setDemand(sourceToken: headerDemand, playlistIDs: [])
+        for token in [sidebarDemand, directoryDemand, headerDemand] { artwork.setDemand(sourceToken: token, playlistIDs: []) }
         artwork.updateCurrentList(first: nil)
         workspace.catalog.setVisibleReferences([], sourceToken: gridDemand)
         adapter.updateViewport(visible: [], prefetch: [])
-        picker?.close()
-        commands.playlists?.close()
-        directoryReturnContext = nil
-        windowVisibility = nil
-        windowObservers.forEach(NotificationCenter.default.removeObserver)
-        windowObservers = []
-        subscriptions.removeAll()
+        picker?.close(); commands.playlists?.close()
+    }
+
+    func resumeAfterWindowOpen() {
+        guard isSuspended else { return }
+        isSuspended = false; lastRenderSignature = nil
+        publishRemoteMode(workspace.presentation.page); render()
     }
 }

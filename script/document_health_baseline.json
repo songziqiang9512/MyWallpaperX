@@ -45,8 +45,8 @@
       "bytes": 22539
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 555,
-      "bytes": 102577
+      "lines": 556,
+      "bytes": 103425
     },
     "docs/development/pixiv-online-browser-design.md": {
       "lines": 166,
@@ -490,6 +490,15 @@
       "owner": "Repository documentation",
       "reason": "R7 gate recovery: corrected non-Scene links and particle-drift fixes; remaining drift and dependency-edge decision recorded.",
       "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "73b8d381e45bb0417fa58ab7d1e248d3ce8dd0f777f15546cc6850529b31ec14",
+      "after": "5faaabce0e3682e8b2e4106326450920a2d0a57dd771c3497c862ce45f9f51e3",
+      "owner": "Main window UI",
+      "reason": "Window close/reopen lifecycle contract, acceptance row and retained-window memory tradeoff recorded after the reusable-window regression fix.",
+      "decision": "docs/development/main-window-playlists-redesign.md"
     }
   ]
 }
