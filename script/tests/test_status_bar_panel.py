@@ -1,4 +1,5 @@
 """Run the production AppKit panel, preview lifetime, and committed-state projection."""
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -79,6 +80,32 @@ class StatusBarPanelTests(unittest.TestCase):
                                  capture_output=True, text=True, timeout=60)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertIn("status-panel-checks-passed", run.stdout)
+
+    def test_native_panel_takes_keyboard_focus_when_opened(self):
+        controller = (ROOT / "MyWallpaperX/App/StatusBarController.swift").read_text()
+        view = (ROOT / "MyWallpaperX/App/StatusBarPanelView.swift").read_text()
+        self.assertEqual(view.count("override var acceptsFirstResponder: Bool { true }"), 1)
+        toggle = method(controller, "    @objc private func togglePanel()")
+        self.assertIn("NSApp.activate(ignoringOtherApps: true)", toggle)
+        self.assertIn("makeFirstResponder(self.panelController.panel)", toggle)
+        harness = (ROOT / "script/tests/fixtures/StatusBarPanelFocusHarness.swift").read_text()
+        harness = harness.replace("    // PRODUCTION_TOGGLE", toggle)
+        with tempfile.TemporaryDirectory(prefix="mwx-status-focus-", dir="/private/tmp") as folder:
+            work = Path(folder)
+            source = work / "Checks.swift"
+            source.write_text(harness)
+            binary = prepare_native_app(work, "StatusBarPanelFocus")
+            built = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors",
+                                    "-parse-as-library", str(source),
+                                    "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                                   capture_output=True, text=True, timeout=120)
+            self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+            ran = run_native_app(binary, [str(work)], timeout=30)
+            self.assertEqual(ran.launch_returncode, 0, ran.stdout + ran.stderr)
+            checks = json.loads(ran.stdout)
+            for name, passed in checks.items():
+                with self.subTest(name=name):
+                    self.assertIs(passed, True, ran.stdout + ran.stderr)
 
 
 if __name__ == "__main__":

@@ -58,7 +58,7 @@
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
-      "bytes": 17690
+      "bytes": 17968
     },
     "docs/development/ui-quality-audit.md": {
       "lines": 178,
@@ -499,6 +499,15 @@
       "owner": "Main window UI",
       "reason": "Window close/reopen lifecycle contract, acceptance row and retained-window memory tradeoff recorded after the reusable-window regression fix.",
       "decision": "docs/development/main-window-playlists-redesign.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "ed069d383b8ffd1adce6d6b6db999cb9aad18d4d2634bcef1d22dc1a76f257d1",
+      "after": "1b80994208efaa63d2e7663144303c4befe7afd6078aeab240e0d6af2eeb1158",
+      "owner": "Status bar panel",
+      "reason": "Status panel now activates for keyboard focus (Tab/Esc) on open; fact added with the panel focus gate.",
+      "decision": "docs/development/status-bar-panel-redesign.md"
     }
   ]
 }

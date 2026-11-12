@@ -95,7 +95,17 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         SystemMonitor.shared.refreshRuntimeStats(includeNetwork: true)
         refreshApplicationStats()
         refreshPanel()
+        // An inactive accessory app cannot own the key window, so opening the
+        // control panel activates this app just enough to give the panel
+        // keyboard focus (Tab/Esc work without an extra click).
+        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.popover.isShown,
+                  let window = self.popover.contentViewController?.view.window else { return }
+            window.makeKey()
+            window.makeFirstResponder(self.panelController.panel)
+        }
     }
 
     private func startObserving() {
@@ -245,8 +255,8 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private func closeThen(_ action: @escaping () -> Void) {
         popover.performClose(nil)
         DispatchQueue.main.async {
-            // Only deliberate window/chooser actions activate the app. Merely
-            // opening the status item must not steal focus from another app.
+            // The panel already activates for keyboard focus; repeat it here in
+            // case focus moved away before the window/chooser action completes.
             NSApp.activate(ignoringOtherApps: true)
             action()
         }

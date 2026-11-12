@@ -4,6 +4,8 @@ import AppKit
 /// visual-effect background would obscure it and create a second material pass.
 final class StatusBarPanelView: NSView {
     override var isFlipped: Bool { true }
+    /// The popover panel owns keyboard focus so Tab/Esc work without a click.
+    override var acceptsFirstResponder: Bool { true }
     let cover = StatusBarPanelCoverView()
     let openMain = StatusBarPanelSymbolButton(symbol: "house", help: "打开主界面", size: 18)
     let previous = StatusBarPanelSymbolButton(symbol: "backward.end.fill", help: "上一张", size: 18)
