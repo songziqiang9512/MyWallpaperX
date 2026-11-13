@@ -138,7 +138,8 @@ struct SceneParticlePreparedRenderer {
     func drawBatch(
         layerID: Int, particlePath: String, childTemplateIndex: Int?,
         instances: [SceneParticleGPUInstance],
-        referenceWorldFrame: simd_float4x4? = nil, sizeIsWorldSpace: Bool
+        referenceWorldFrame: simd_float4x4? = nil, sizeIsWorldSpace: Bool,
+        spriteYScale: Float = 1
     ) -> SceneParticleDrawBatch {
         var batch = SceneParticleDrawBatch(
             layerID: layerID, particlePath: particlePath, texture: texture,
@@ -151,7 +152,8 @@ struct SceneParticlePreparedRenderer {
             usesPerspectiveTrailEye: trail != nil && usesPerspective
                 && orientation == .screen && !sizeIsWorldSpace && childTemplateIndex == nil,
             inheritsNativeSceneCamera: ropeTrail != nil,
-            referenceWorldFrame: referenceWorldFrame, sizeIsWorldSpace: sizeIsWorldSpace
+            referenceWorldFrame: referenceWorldFrame, sizeIsWorldSpace: sizeIsWorldSpace,
+            spriteYScale: spriteYScale
         )
 #if DEBUG
         batch.debugRendererComponentIndex = debugRendererComponentIndex

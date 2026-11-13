@@ -163,6 +163,15 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 
 hidden/dormant child 的实例和潜在 renderer 需求保持。已提交销毁 root 时，由实际归属退休其 CPU root 与独占 ChildRuntime；健康 root 的 RNG、clock 和状态不变。冻结 DrawBatch 继续是值，不被退休操作追写。
 
+<a id="child-plane-scale"></a>
+### Child 平面缩放与 Sprite 几何
+
+目标是让正值非等比 XY 的局部 screen Sprite 沿原 child 事件与批次出图。中心仍为 `origin + scale × position`，速度沿原变换；原 `size × scale.x` 继续承担共同尺寸，原 Template 冷准备唯一形状比例 `scale.y / scale.x`，经既有 DrawBatch 到 CameraFrame。Sprite 的粒子旋转先执行，平面比例随后作用于系统局部几何，最后进入原 layer/camera；不得再把 child scale 乘进中心模型，或借 TEX 帧宽高伪装形状。
+
+CameraFrame 在原 screen 几何处形成 `linear × diag(1, ratio, 1) × billboardBasis`，只供既有 `spriteRight/Up/Forward`；中心模型、方向/光照基、view 基及 VP 不受该比例改写。比例为1走原几何，无新 shader、GPU布局、逐粒字段、owner、缓存或时钟。旧 XY 等比与任意已准入 Z、Trail/Rope 的尺寸与速度链保持；这不是完整 XYZ 形状缩放的资格。
+
+新范围限 `z=1`、非 General world 的局部 screen Sprite leaf；其他非等比 renderer 在原冷计划按 renderer 局部诊断，健康 Sprite/父/peer 继续。镜像、声明旋转、嵌套缩放和 world movement 沿已有边界，不用资源名、路径或样本选择算法。验收使用真实准备→事件→batch→CameraFrame→Metal，核两向非等比、旋转角点、中心只缩放一次、改名、等比邻例与混合不支持输出，并补真实 follow/spawn 作者和独立邻例。官方同输入正控及误差裁决归[运行证据](runtime-evidence-current.md)，未资格的倾转/世界空间不外推一致。
+
 <a id="child-declaration-options"></a>
 ### Child声明选项与实际输入需求
 

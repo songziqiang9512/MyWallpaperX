@@ -336,7 +336,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
         sizeIsWorldSpace: Bool,
-        usesPerspectiveTrailEye: Bool = false
+        usesPerspectiveTrailEye: Bool = false,
+        spriteYScale: Float = 1
     ) -> SceneParticleLayerUniforms {
         let nativeSprite = defaultsToPerspective && usesSceneCamera
             && (orientation == .screen || orientation == .worldScreen)
@@ -362,7 +363,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             layerModel: model,
             basis: basis(for: orientation, layerModel: model,
                          orientationAxis: orientationAxis ?? SIMD3(0, 0, 1),
-                         nativeSpriteCoordinates: nativeCoordinates),
+                         nativeSpriteCoordinates: nativeCoordinates,
+                         spriteYScale: spriteYScale),
             viewportSize: viewportSize,
             sizeIsWorldSpace: sizeIsWorldSpace,
             viewBasis: viewBasis
@@ -384,7 +386,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         fixedUp: SIMD3<Float> = SIMD3(0, -1, 0),
         layerModel: simd_float4x4? = nil,
         orientationAxis: SIMD3<Float> = SIMD3(0, 0, 1),
-        nativeSpriteCoordinates: Bool = false
+        nativeSpriteCoordinates: Bool = false,
+        spriteYScale: Float = 1
     ) -> SceneParticleOrientationBasis {
         let yDirection: Float = nativeSpriteCoordinates ? 1 : -1
         let visualUp = cameraUp * yDirection
@@ -420,9 +423,10 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
                 SIMD3(layerModel.columns.1.x, layerModel.columns.1.y, layerModel.columns.1.z) * yDirection,
                 SIMD3(layerModel.columns.2.x, layerModel.columns.2.y, layerModel.columns.2.z)
             )
-            let geometry = linear * simd_float3x3(
+            let billboard = simd_float3x3(
                 basis.right, basis.up, simd_cross(basis.right, basis.up)
             )
+            let geometry = linear * billboard
             let localRight = basis.right * SIMD3<Float>(1, yDirection, 1)
             let localUp = basis.up * SIMD3<Float>(1, yDirection, 1)
             let localTrailNormal = simd_cross(localRight, localUp)
@@ -430,7 +434,13 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
                 cameraRight: cameraRight, cameraUp: visualUp, cameraForward: cameraForward,
                 fixedRight: geometry.columns.0, fixedUp: geometry.columns.1
             )
-            basis.localGeometry = geometry
+            if spriteYScale == 1 {
+                basis.localGeometry = geometry
+            } else {
+                var shapeLinear = linear
+                shapeLinear.columns.1 *= spriteYScale
+                basis.localGeometry = shapeLinear * billboard
+            }
             basis.localTrailNormal = localTrailNormal
         }
         if orientation == .fixed, layerModel != nil {

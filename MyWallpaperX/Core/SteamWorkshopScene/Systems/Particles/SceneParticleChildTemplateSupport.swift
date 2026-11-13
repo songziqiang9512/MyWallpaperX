@@ -8,15 +8,15 @@ enum SceneParticleChildControlPointCopyAdmission {
     case unsupported(String)
 }
 
-/// Project-owned bounded child transform profile. Screen-plane scale stays uniform;
-/// mirroring, rotation, nested scaling, and world-space movement remain fail-closed.
-/// Rope consumes this frame only in the depth-one static profile.
+/// Common size remains separate from the prepared Sprite plane-shape ratio.
+/// Mirroring, rotation, nested scaling, and world movement keep their existing bounds.
 struct SceneParticleChildTransform: Equatable {
     private static let minimumScale = 1.0 / 1_024.0
     private static let maximumScale = 1_024.0
 
     let origin: SIMD3<Double>
     let scale: SIMD3<Double>
+    let spriteYScale: Float
 
     var hasScale: Bool { scale != SIMD3(repeating: 1) }
 
@@ -27,12 +27,14 @@ struct SceneParticleChildTransform: Equatable {
               let scale = Self.vector(child.scale, fallback: SIMD3(repeating: 1)),
               angles == .zero,
               allowsOrigin || origin == .zero,
-              scale.x == scale.y,
+              scale.x == scale.y || scale.z == 1,
               scale.x >= Self.minimumScale, scale.x <= Self.maximumScale,
+              scale.y >= Self.minimumScale, scale.y <= Self.maximumScale,
               scale.z >= Self.minimumScale, scale.z <= Self.maximumScale
         else { return nil }
         self.origin = origin
         self.scale = scale
+        spriteYScale = Float(scale.y / scale.x)
     }
 
     func position(_ value: SIMD3<Double>) -> SIMD3<Double> {

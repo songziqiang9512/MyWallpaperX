@@ -67,7 +67,8 @@ enum SceneParticleChildInstanceBuilder {
                 batches.append(renderer.drawBatch(
                     layerID: layerID, particlePath: template.path,
                     childTemplateIndex: template.index, instances: instances,
-                    sizeIsWorldSpace: template.definition.flags.isWorldSpace
+                    sizeIsWorldSpace: template.definition.flags.isWorldSpace,
+                    spriteYScale: template.transform.spriteYScale
                 ))
             }
         }

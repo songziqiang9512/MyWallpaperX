@@ -649,6 +649,44 @@ enum SceneParticleCameraRenderingHarness {
         return rows
     }
 
+    static func childPlaneScaleProfiles() throws -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice() else { return [] }
+        var rows: [[String: Any]] = []
+        var descriptor = SceneRenderDescriptor.CameraDescriptor()
+        descriptor.orthoWidth = 64; descriptor.orthoHeight = 64
+        let camera = SceneParticleCameraFrame(camera: descriptor, viewportSize: CGSize(width: 64, height: 64))
+        let model = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.translation(SIMD3(12, 40, 0)), parallaxOffset: .zero)
+        for renamed in [false, true] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-plane-camera-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let runtime = try CameraHarness.childPlaneScaleRuntime(under: directory, device: device, renamed: renamed)
+            defer { runtime.teardown() }
+            guard let pipeline = SceneParticleMetalPipeline(device: device, requiredVariants: runtime.requiredPipelineVariants)
+            else { return [] }
+            _ = runtime.advance(by: 1.0 / 60.0)
+            let batches = runtime.advance(by: 1.0 / 60.0)
+            for batch in batches where batch.childTemplateIndex != nil && batch.instances[0].velocityAndTrail.w < 0 {
+                let name = URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent
+                guard let result = depthDraw("plane-\(renamed)-\(name)", device: device, pipeline: pipeline,
+                    batches: pipeline.prepare([batch]), camera: camera, model: model) else { return [] }
+                let background = depthBackground()
+                let lit = (0..<4096).filter { index in
+                    let start = index * 4
+                    return result.pixels[start..<start + 4] != background[start..<start + 4]
+                }
+                let xs = lit.map { $0 % 64 }, ys = lit.map { $0 / 64 }
+                rows.append(["name": name, "renamed": renamed, "completed": result.completed,
+                    "bounds": [xs.min() ?? -1, ys.min() ?? -1, (xs.max() ?? -1) + 1, (ys.max() ?? -1) + 1],
+                    "centroid": [xs.reduce(0.0) { $0 + Double($1) + 0.5 } / Double(max(1, lit.count)),
+                                 ys.reduce(0.0) { $0 + Double($1) + 0.5 } / Double(max(1, lit.count))],
+                    "visiblePixels": lit.count, "hasDepth": result.hasLease])
+            }
+        }
+        return rows
+    }
+
     static func depthDraw(_ name: String, device: MTLDevice, pipeline: SceneParticleMetalPipeline,
         batches: [SceneParticleMetalPipeline.PreparedBatch], camera: SceneParticleCameraFrame,
         model: simd_float4x4 = SceneMatrix.identity())

@@ -1,6 +1,7 @@
 """Build the same real Runtime fixture in both configurations and compare behavior."""
 from __future__ import annotations
 
+import math
 import shutil
 import subprocess
 import tempfile
@@ -66,6 +67,48 @@ def compile_runtime_configurations(cls, source_root, swift_sources, harness_sour
 
 
 class SceneParticleRuntimeConfigurationCases:
+    def test_child_plane_scale_cold_batches_preserve_centers_and_local_renderer_failure(self) -> None:
+        for configuration in ("debug", "release"):
+            result = self.run_harness("child-plane-scale-synthetic", configuration=configuration)
+            self.assertEqual(len(result["variants"]), 2, result)
+            baseline = None
+            for variant in result["variants"]:
+                self.assertEqual((variant["roots"], variant["children"]), (8, 8), variant)
+                rows = variant["rows"]
+                self.assertEqual(len(rows), 8, rows)
+                self.assertEqual({row["name"] for row in rows}, {
+                    f"{name}-child" for name in ("tall-0", "tall-45", "wide-0", "wide-45",
+                                                "uniform-0", "uniform-45", "mixed", "uniform-trail")}, rows)
+                if baseline is None:
+                    baseline = rows
+                self.assertEqual(rows, baseline, variant)
+                for row in rows:
+                    with self.subTest(configuration=configuration, renamed=variant["renamed"], name=row["name"]):
+                        family = row["name"].split("-")[0]
+                        sx, sy = {"tall": (.5, 1.5), "wide": (1.5, .5),
+                                  "uniform": (2, 2), "mixed": (.5, 1.5)}[family]
+                        self.assertEqual(row["renderer"], 0, row)
+                        self.assertEqual(row["instances"], 1, row)
+                        self.assertEqual(row["position"], [4 + 6 * sx, 5 + 4 * sy, 0], row)
+                        self.assertAlmostEqual(row["halfSize"], 16 * sx, places=6)
+                        self.assertAlmostEqual(row["ratio"], sy / sx, places=6)
+                        rotated = "45" in row["name"] or row["name"] == "mixed-child"
+                        self.assertAlmostEqual(row["rotationZ"], math.pi / 4 if rotated else 0, places=6)
+                        self.assertEqual(row["spriteRight"], row["baseRight"], row)
+                        for actual, base in zip(row["spriteUp"], row["baseUp"], strict=True):
+                            self.assertAlmostEqual(actual, base * sy / sx, places=6)
+                        self.assertTrue(row["centerModelUnchanged"], row)
+                        self.assertTrue(row["viewUnchanged"], row)
+                        self.assertTrue(row["directionBasisUnchanged"], row)
+                        if row["name"] == "uniform-trail-child":
+                            self.assertGreaterEqual(row["trail"], 0, row)
+                        else:
+                            self.assertEqual(row["trail"], -1, row)
+                if configuration == "debug":
+                    for renderer in (1, 2, 3):
+                        suffix = f"mixed-child.json:renderer[{renderer}]:childPlaneScaleUnavailable"
+                        self.assertTrue(any(suffix in detail for detail in variant["diagnosticDetails"]), variant)
+
     def test_release_keeps_real_runtime_transactions_and_output(self) -> None:
         # Exact report projections omitted by #if DEBUG. Actual admission,
         # positions, allocation budgets, frozen-state rollback, RNG, instance

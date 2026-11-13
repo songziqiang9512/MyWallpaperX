@@ -220,6 +220,22 @@ enum SceneParticleChildGraphExpansion {
             guard asset.definition.children.isEmpty,
                   !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
             else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
+            if transform.scale.x != transform.scale.y {
+                plans.removeAll { plan in
+                    let orientation = SceneParticleOrientation(
+                        authoredValue: plan.renderer.orientation,
+                        isWorldSpace: plan.renderer.isWorldSpace
+                    )
+                    guard plan.renderer.kind == .sprite, orientation == .screen,
+                          !asset.definition.flags.isWorldSpace else {
+                        result.unsupportedDetails.append(
+                            "\(path):renderer[\(plan.index)]:childPlaneScaleUnavailable"
+                        )
+                        return true
+                    }
+                    return false
+                }
+            }
             let rendererCount = plans.count
             if !permitsStaticRope { plans.removeAll { $0.rope != nil } }
             guard !plans.isEmpty else { return .rejected("\(path):childScaleOutsideBoundedProfile") }

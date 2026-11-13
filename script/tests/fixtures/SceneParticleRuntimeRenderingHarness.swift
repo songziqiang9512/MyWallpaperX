@@ -539,7 +539,7 @@ extension Harness {
                 ["name": "particles/scale-child.json", "type": "static", "scale": "2 2 2"],
                 ["name": "particles/zero-scale-child.json", "type": "static", "scale": "0 0 1"],
                 ["name": "particles/negative-scale-child.json", "type": "static", "scale": "-1 -1 1"],
-                ["name": "particles/nonuniform-scale-child.json", "type": "static", "scale": "2 3 1"],
+                ["name": "particles/nonuniform-z-scale-child.json", "type": "static", "scale": "2 3 2"],
                 ["name": "particles/huge-scale-child.json", "type": "static", "scale": "2048 2048 1"],
                 ["name": "particles/malformed-scale-child.json", "type": "static", "scale": "invalid"],
                 ["name": "particles/event-origin-child.json", "type": "eventspawn", "origin": "1 2 3"],
@@ -769,6 +769,112 @@ extension Harness {
         }
 #endif
         return facts3
+    }
+
+    static func childPlaneScaleRuntime(
+        under directory: URL, device: MTLDevice, renamed: Bool
+    ) throws -> SceneParticleRuntime {
+        let folder = renamed ? "particles/alternate" : "particles/plane"
+        let material = renamed ? "materials/other-palette.json" : "materials/plane.json"
+        let texture = renamed ? "renamed-pixels.png" : "plane.png"
+        try writePNG(directory.appendingPathComponent("materials/\(texture)"), opaque: true)
+        let cases: [(String, String, Double)] = [
+            ("tall-0", "0.5 1.5 1", 0), ("tall-45", "0.5 1.5 1", .pi / 4),
+            ("wide-0", "1.5 0.5 1", 0), ("wide-45", "1.5 0.5 1", .pi / 4),
+            ("uniform-0", "2 2 3", 0), ("uniform-45", "2 2 3", .pi / 4),
+            ("mixed", "0.5 1.5 1", .pi / 4), ("uniform-trail", "2 2 3", 0),
+        ]
+        var layers: [SceneRenderDescriptor.Layer] = []
+        for (index, item) in cases.enumerated() {
+            let (name, scale, angle) = item
+            let childPath = "\(folder)/\(name)-child.json", rootPath = "\(folder)/\(name)-root.json"
+            var renderers: [[String: Any]] = [["name": name == "uniform-trail" ? "spritetrail" : "sprite"]]
+            if name == "mixed" {
+                renderers += [["name": "spritetrail"], ["name": "sprite", "orientation": "fixed"], ["name": "rope"]]
+            }
+            var child: [String: Any] = [
+                "material": material, "maxcount": name == "mixed" ? 2 : 1, "starttime": 0, "flags": 0,
+                "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1,
+                             "origin": "6 4 0", "distancemin": 0, "distancemax": 0,
+                             "speedmin": 0, "speedmax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 60, "max": 60],
+                                ["name": "sizerandom", "min": 32, "max": 32],
+                                ["name": "alpharandom", "min": 1, "max": 1],
+                                ["name": "rotationrandom", "min": "0 0 \(angle)", "max": "0 0 \(angle)"],
+                                ["name": "velocityrandom", "min": "0 0 0", "max": "0 0 0"]],
+                "renderer": renderers,
+            ]
+            try writeJSON(child, to: directory.appendingPathComponent(childPath))
+            child["maxcount"] = 1
+            child["renderer"] = [["name": "sprite"]]
+            child["emitter"] = [["name": "sphererandom", "rate": 0, "instantaneous": 1,
+                                 "origin": "4 5 0", "distancemin": 0, "distancemax": 0,
+                                 "speedmin": 0, "speedmax": 0]]
+            child["children"] = [["name": childPath, "type": "eventfollow", "probability": 1,
+                                  "origin": "0 0 0", "angles": "0 0 0", "scale": scale]]
+            try writeJSON(child, to: directory.appendingPathComponent(rootPath))
+            var value = SceneRenderDescriptor.Layer(id: (renamed ? 1400 : 400) + index,
+                name: renamed ? "Renamed output \(index)" : name, contentKind: "particle",
+                particlePath: rootPath, particleInstanceOverride: nil, parentID: nil, visible: true, alpha: 1)
+            value.originXYZ = [12, 40, 0]
+            layers.append(value)
+        }
+        let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: layers.map(\.id),
+            materialPasses: [.init(materialPath: material, shaderPath: "genericparticle",
+                texturePaths: [texture], blending: "translucent", cullMode: "nocull")])
+        let graph = try SceneParticleRuntime.prepareAssets(descriptor: descriptor,
+            resourceView: .init(projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil),
+            stockTextureBundleURL: nil)
+        return SceneParticleRuntime(descriptor: descriptor, preparedAssets: graph, device: device)
+    }
+
+    static func syntheticChildPlaneScale() throws -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        var variants: [[String: Any]] = []
+        for renamed in [false, true] {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-child-plane-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let runtime = try childPlaneScaleRuntime(under: directory, device: device, renamed: renamed)
+            defer { runtime.teardown() }
+            _ = runtime.advance(by: 1.0 / 60.0)
+            let batches = runtime.advance(by: 1.0 / 60.0)
+            var descriptor = SceneRenderDescriptor.CameraDescriptor()
+            descriptor.orthoWidth = 64; descriptor.orthoHeight = 64
+            let camera = SceneParticleCameraFrame(camera: descriptor, viewportSize: CGSize(width: 64, height: 64))
+            let model = SceneParticleCameraFrame.particleLayerModel(
+                worldFrame: SceneMatrix.translation(SIMD3(12, 40, 0)), parallaxOffset: .zero)
+            let rows: [[String: Any]] = batches.filter { $0.childTemplateIndex != nil }.map { batch in
+                let instance = batch.instances[0]
+                let uniforms = camera.particleUniforms(layerModel: model, orientation: batch.orientation,
+                    orientationAxis: batch.orientationAxis, usesPerspective: batch.usesPerspective,
+                    usesSceneCamera: batch.usesSceneCamera, viewportSize: SIMD2(64, 64),
+                    sizeIsWorldSpace: batch.sizeIsWorldSpace, spriteYScale: batch.spriteYScale)
+                let baseline = camera.particleUniforms(layerModel: model, orientation: batch.orientation,
+                    orientationAxis: batch.orientationAxis, usesPerspective: batch.usesPerspective,
+                    usesSceneCamera: batch.usesSceneCamera, viewportSize: SIMD2(64, 64),
+                    sizeIsWorldSpace: batch.sizeIsWorldSpace)
+                return ["name": URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent,
+                    "renderer": batch.rendererIndex, "instances": batch.instances.count,
+                    "position": [instance.positionAndSize.x, instance.positionAndSize.y, instance.positionAndSize.z],
+                    "halfSize": instance.positionAndSize.w, "rotationZ": instance.rotationAndAlpha.z,
+                    "ratio": batch.spriteYScale, "trail": instance.velocityAndTrail.w,
+                    "spriteRight": [uniforms.spriteRight.x, uniforms.spriteRight.y, uniforms.spriteRight.z],
+                    "spriteUp": [uniforms.spriteUp.x, uniforms.spriteUp.y, uniforms.spriteUp.z],
+                    "baseUp": [baseline.spriteUp.x, baseline.spriteUp.y, baseline.spriteUp.z],
+                    "baseRight": [baseline.spriteRight.x, baseline.spriteRight.y, baseline.spriteRight.z],
+                    "centerModelUnchanged": uniforms.layerModel == baseline.layerModel,
+                    "viewUnchanged": uniforms.viewProjection == baseline.viewProjection,
+                    "directionBasisUnchanged": uniforms.basisRight == baseline.basisRight && uniforms.basisUp == baseline.basisUp]
+            }
+            var variant: [String: Any] = ["renamed": renamed, "rows": rows,
+                "roots": runtime.lifecycleSnapshot.rootParticleCount, "children": runtime.lifecycleSnapshot.childParticleCount]
+            #if DEBUG
+            variant["diagnosticDetails"] = runtime.diagnostics.compactMap(\.detail)
+            #endif
+            variants.append(variant)
+        }
+        return ["variants": variants]
     }
 
     static func syntheticBatchEvidence() throws -> [String: Any] {

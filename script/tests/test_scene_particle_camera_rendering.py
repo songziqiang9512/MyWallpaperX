@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 import os
 import ast
+import math
 import tempfile
 from pathlib import Path
 
@@ -79,6 +80,7 @@ extension SceneRenderDescriptor.CameraDescriptor {
         result["refractionDepth"] = SceneParticleCameraRenderingHarness.refractionDepthProfiles()
         result["commonCull"] = SceneParticleCameraRenderingHarness.commonCullProfiles()
         result["particleVariantDemand"] = SceneParticleCameraRenderingHarness.particleVariantDemand()
+        result["childPlaneScale"] = try SceneParticleCameraRenderingHarness.childPlaneScaleProfiles()
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -89,7 +91,14 @@ CAMERA_HARNESS_SOURCE += "\nextension CameraHarness {\n" + "\n".join(
         "    static func writeAnimatedTEX(",
         "    static func appendUInt32(",
         "    static func appendFloat32(",
+        "    static func writeJSON(",
+        "    static func writePNG(",
+        "    enum HarnessError: Error {",
     ]
+) + "\n}\n"
+CAMERA_HARNESS_SOURCE += "\nextension CameraHarness {\n" + _declaration(
+    RUNTIME_FIXTURE.with_name("SceneParticleRuntimeRenderingHarness.swift").read_text(),
+    "    static func childPlaneScaleRuntime(",
 ) + "\n}\n"
 
 
@@ -106,6 +115,42 @@ class SceneParticleCameraRenderingTests(unittest.TestCase):
         finally:
             if previous is None:
                 os.environ.pop("MWX_PARTICLE_CAMERA_READBACK_DIR", None)
+
+    def test_child_plane_scale_reaches_production_frame_and_rotated_metal_bounds(self) -> None:
+        rows = self.result["childPlaneScale"]
+        self.assertEqual(len(rows), 14, rows)
+        self.assertEqual({row["name"] for row in rows}, {
+            f"{name}-child" for name in ("tall-0", "tall-45", "wide-0", "wide-45",
+                                        "uniform-0", "uniform-45", "mixed")}, rows)
+        scales = {"tall": (.5, 1.5), "wide": (1.5, .5), "uniform": (2, 2), "mixed": (.5, 1.5)}
+        for row in rows:
+            with self.subTest(name=row["name"], renamed=row["renamed"]):
+                self.assertTrue(row["completed"], row)
+                self.assertFalse(row["hasDepth"], row)
+                self.assertGreater(row["visiblePixels"], 20, row)
+                sx, sy = scales[row["name"].split("-")[0]]
+                rotated = "45" in row["name"] or row["name"] == "mixed-child"
+                cx, cy = 16 + 6 * sx, 35 - 4 * sy
+                cosine = math.sqrt(.5) if rotated else 1
+                sine = math.sqrt(.5) if rotated else 0
+                # Narrow rotated tips can contain no pixel center. Compare
+                # sampled coverage rather than the continuous corner envelope.
+                covered = []
+                for y in range(64):
+                    for x in range(64):
+                        dx, dy = (x + .5 - cx) / sx, (y + .5 - cy) / sy
+                        if abs(cosine * dx - sine * dy) < 8 and abs(sine * dx + cosine * dy) < 8:
+                            covered.append((x, y))
+                xs, ys = zip(*covered, strict=True)
+                expected = [min(xs), min(ys), max(xs) + 1, max(ys) + 1]
+                for actual, edge in zip(row["bounds"], expected, strict=True):
+                    self.assertAlmostEqual(actual, edge, delta=1, msg=str(row))
+                for actual, center in zip(row["centroid"], [cx, cy], strict=True):
+                    self.assertAlmostEqual(actual, center, delta=.5, msg=str(row))
+        original = {row["name"]: row for row in rows if not row["renamed"]}
+        for row in rows:
+            self.assertEqual(row["bounds"], original[row["name"]]["bounds"], row)
+            self.assertEqual(row["visiblePixels"], original[row["name"]]["visiblePixels"], row)
 
     def test_readonly_refraction_keeps_pixels_and_avoids_depth_for_both_orders(self) -> None:
         rows = self.result["refractionDepth"]["readonly"]

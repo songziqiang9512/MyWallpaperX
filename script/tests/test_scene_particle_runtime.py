@@ -319,7 +319,7 @@ class SceneParticleRuntimeTests(
             "particles/angles-child.json",
             "particles/zero-scale-child.json",
             "particles/negative-scale-child.json",
-            "particles/nonuniform-scale-child.json",
+            "particles/nonuniform-z-scale-child.json",
             "particles/huge-scale-child.json",
             "particles/malformed-scale-child.json",
             "particles/event-origin-child.json",

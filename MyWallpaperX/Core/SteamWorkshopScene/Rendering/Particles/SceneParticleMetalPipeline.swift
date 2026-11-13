@@ -21,6 +21,7 @@ struct SceneParticleDrawBatch {
     var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
+    var spriteYScale: Float = 1
 #if DEBUG
     var debugRendererComponentIndex: Int? = nil
     var debugRendererKind: String? = nil

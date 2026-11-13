@@ -112,7 +112,8 @@ extension SceneParticleMetalPipeline {
                 layerUsesPerspective: layerUsesPerspective,
                 viewportSize: viewportSize,
                 sizeIsWorldSpace: batch.sizeIsWorldSpace,
-                usesPerspectiveTrailEye: batch.usesPerspectiveTrailEye
+                usesPerspectiveTrailEye: batch.usesPerspectiveTrailEye,
+                spriteYScale: batch.spriteYScale
             )
             uniforms.rasterClipX = raster.x
             uniforms.rasterClipY = raster.y
