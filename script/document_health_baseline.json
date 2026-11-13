@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49331
+      "bytes": 49509
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -507,6 +507,15 @@
       "owner": "Existing Scene Rope plan and runtime evidence",
       "reason": "Separate incoming and outgoing UV at repeated geometry within the existing Rope owner, replacing the shared endpoint. Record fixed-threshold official controls, actual candidate and independent author regression evidence; retire the solved queue item and retain A2C limits.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-span-uv"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "66b85ea3265511d6a89818131489ee5a6ddf8bce467cb0712412dd2169486c11",
+      "after": "ca3fd8a90e9740ce283520f979e7b88f0c45727fee7f43c3190a1092d115373c",
+      "owner": "Existing Scene open queue",
+      "reason": "Replace the historical ordinary-Debug preparation note with one bounded current attempt and explicit acquisition failures; no work-thread stack, product attribution, new fix or retry is claimed.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }
