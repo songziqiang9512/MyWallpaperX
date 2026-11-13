@@ -1518,11 +1518,11 @@
     },
     {
       "id": "main-window-mixed-playlists",
-      "title": "Music式主界面重排与混合播放列表",
+      "title": "现役混合播放列表与用户关系；旧主界面视觉目标已退出",
       "owner": "App/Shell and shared user-library relationships",
       "status": "approved",
       "designDoc": "docs/development/main-window-playlists-redesign.md",
-      "design_notes": "Current-format retirement authorized 2026-11-05; see section 9. Keep current database/profile/playback/download/system publication semantics, retire historical App-format conversion, source-wide migration locks and old cleanup owners. No Scene engine changes.",
+      "design_notes": "Current-format retirement authorized 2026-11-05; see section 9. Keep current database/profile/playback/download/system publication semantics, retire historical App-format conversion, source-wide migration locks and old cleanup owners. No Scene engine changes. 2026-11-13: UI target is superseded by immersive-main-window-ui; this area retains current relationship/playback semantics only. The new UI requires explicit user approval of generated mockups before product implementation.",
       "matchPatterns": [
         "MyWallpaperX/Core/LibraryCollections/*",
         "MyWallpaperX/Models/WallpaperReference*.swift",
@@ -2188,6 +2188,33 @@
         "unshadowedCall",
         "ValueDeclarationFacts"
       ]
+    },
+    {
+      "id": "immersive-main-window-ui",
+      "title": "Folia 式沉浸主界面与全部交互重构",
+      "owner": "App/Shell and existing module UI owners",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/development/immersive-ui-design.md",
+      "design_notes": "P0 only: reference research, complete design specification, capability map, execution/retirement plan and image_gen mockups. User explicitly requires approval of visual proposals before product UI edits. Execution authority: docs/development/immersive-ui-execution-plan.md. Keep one Workspace/Presentation and original services/playback/output owners; retire old presentation in the corresponding stage, no classic-UI fallback. Approval and native feasibility/runtime gates remain pending.",
+      "matchPatterns": [
+        "MyWallpaperX/Shell/*.swift",
+        "MyWallpaperX/App/*Window*.swift",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/App/WallpaperLibraryInspectorCoordinator.swift",
+        "MyWallpaperX/App/WallpaperPlaylist*.swift",
+        "MyWallpaperX/App/StatusBarPanel*.swift",
+        "MyWallpaperX/Modules/*/UI/*.swift",
+        "MyWallpaperX/Modules/*/Toolbar/*.swift",
+        "MyWallpaperX/Shared/Settings/*.swift",
+        "MyWallpaperX/Shared/Components/WallpaperCard*.swift",
+        "MyWallpaperX/Shared/Components/WallpaperLibrary*.swift",
+        "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageGridItem.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageInspectorView.swift",
+        "MyWallpaperX/Shared/UI/WallpaperFilterPanelController.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

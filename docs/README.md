@@ -45,7 +45,7 @@
 - [Wallhaven在线浏览接入](development/wallhaven-online-browser-design.md)：来源接口预检、两图片来源共享的获取/发布合同及Wallhaven实施步骤。
 - [Pixiv在线浏览接入](development/pixiv-online-browser-design.md)：隔离登录会话、排行/搜索/作者、多页图片及共享库接入步骤。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
-- [主界面与混合播放列表改造](development/main-window-playlists-redesign.md)：Apple Music 风格的侧栏、统一卡片和逐页工具栏规范，以及关系迁移、跨类型轮换与分批验收；分批实施与验收见专项。
+- [沉浸式 UI 设计规范](development/immersive-ui-design.md)：Folia 参考研究、二维壁纸墙、胶囊导航、统一交互与全功能迁移；[执行计划](development/immersive-ui-execution-plan.md)管理分阶段实施、旧 UI 退役和验收。此前[主界面与混合播放列表方案](development/main-window-playlists-redesign.md)仅供现役实现与关系/播放语义核对。
 - [UI正确性与交互链审查](development/ui-quality-audit.md)：本轮审查、修复与验证入口；[前轮结算](history/cross-topic/ui-quality-audit-completed-2026-10-27.md)，稳定职责归AppKit合同。
 - [代码精简专项](development/code-slimming-program.md)：先读当前范围、最近验证和未解决项；已结批次沿页内历史指针按需回查。
 - [全模块缩略图交付与复用](development/thumbnail-delivery-design.md#overview)：网格、详情、picker、列表小图的统一请求与代码复用；本地/在线获取分界、旧链退出及呈现验收。

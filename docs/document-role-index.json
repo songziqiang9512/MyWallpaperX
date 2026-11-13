@@ -9,6 +9,8 @@
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
+      "docs/development/immersive-ui-design.md",
+      "docs/development/immersive-ui-execution-plan.md",
       "docs/development/local-library-loading-design.md",
       "docs/development/lock-screen-screensaver-design.md",
       "docs/development/main-window-playlists-redesign.md",
@@ -190,6 +192,34 @@
       }
     },
     {
+      "path": "docs/development/immersive-ui-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "用户认可效果图后按唯一执行计划完成全功能与旧 UI 退役验收；稳定职责交回 AppKit/业务合同，不保并列旧 UI 目标。",
+      "lastReviewed": "2026-11-13",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f98c750f5e23a7d96f75297976dad54b28d0f1216295a600c38c79056786bc55",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "P0 参考源码、当前功能入口、视觉规范与分阶段退役/验收设计；用户确认前无产品 UI 实施。",
+        "limitations": "设计与导航审查，不证明 AppKit 画布、性能、真实在线账号、下载、播放或系统宿主已验收。"
+      }
+    },
+    {
+      "path": "docs/development/immersive-ui-execution-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "用户认可效果图后按唯一执行计划完成全功能与旧 UI 退役验收；稳定职责交回 AppKit/业务合同，不保并列旧 UI 目标。",
+      "lastReviewed": "2026-11-13",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "eaa6968d04339eff3c21dfaad569718a9c19f34081d42392f68bd16f752995d0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "P0 参考源码、当前功能入口、视觉规范与分阶段退役/验收设计；用户确认前无产品 UI 实施。",
+        "limitations": "设计与导航审查，不证明 AppKit 画布、性能、真实在线账号、下载、播放或系统宿主已验收。"
+      }
+    },
+    {
       "path": "docs/development/local-library-loading-design.md",
       "role": "active-plan",
       "entrypoint": "docs/development/main-window-playlists-redesign.md",
@@ -214,13 +244,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "主界面、混合用户关系和轮换各阶段完成验收或由用户结束专项后，稳定职责交回所属合同并归档；未实施设计不宣称现有能力。",
-      "lastReviewed": "2026-11-05",
+      "lastReviewed": "2026-11-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85400b969f07f1ce0cde0d50f0d801a49ebc2084817517b65d8d61bc693c81d5",
+        "sourceSHA256": "1f1f8c0e93a66fbd022976e0bebc022779f6e66a4401d531dae313dfcb32738a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retire eight unused non-Scene entry/state groups and obsolete route assertions; preserve current navigation, ticketed playback, page sorting and audio recovery owners.",
-        "limitations": "Current source/caller and document audit; runtime and build results have separate bounded evidence. No real user-library, live account or actual system-host parity claim."
+        "scope": "旧主界面视觉目标退出并指向新的待确认规范；现役关系/播放正文暂留供迁移核对。",
+        "limitations": "仅更新目标和入口，不重新认领旧实现的运行或验收证据。"
       }
     },
     {
@@ -1712,6 +1742,74 @@
           "gateRefs": [
             "document-links",
             "scene-structure"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "immersive-ui",
+      "title": "Folia 式沉浸 UI 设计与全功能重构",
+      "keywords": [
+        "Folia",
+        "沉浸",
+        "UI重构",
+        "UI改造",
+        "无限墙",
+        "二维画布",
+        "胶囊导航",
+        "工具面板"
+      ],
+      "documents": [
+        "docs/development/immersive-ui-design.md",
+        "docs/development/immersive-ui-execution-plan.md",
+        "docs/architecture/appkit-migration.md",
+        "docs/development/thumbnail-delivery-design.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Shell",
+        "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift",
+        "MyWallpaperX/App/WallpaperLibraryWindowToolbar.swift",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/Shared/Settings"
+      ],
+      "verification": "P0 只设计/生图，等待用户确认；实施按阶段选择真实行为门、Debug build 与隔离窗口，不以生图代替原生验收。",
+      "owner": "App/Shell UI",
+      "firstRead": "docs/development/immersive-ui-design.md#overview",
+      "nearestTestGroups": [
+        "main-library-page-presentation",
+        "library-visible-source-lifecycle",
+        "main-library-workspace-playback",
+        "main-library-personal-settings",
+        "main-library-window-composition",
+        "main-library-window-toolbar",
+        "main-library-modal-presentation",
+        "main-library-inspector",
+        "main-library-downloaded-source",
+        "main-library-remote-toolbar",
+        "steam-detail-author-navigation",
+        "main-library-main-menu",
+        "shared-download-management"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
           ],
           "requiredArguments": [
             "--path"
