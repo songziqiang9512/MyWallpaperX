@@ -16,7 +16,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
-| 启动仍慢 · 3808922316 | 原90秒超时已退出；默认原包首屏仍主要等待隐藏主题星域完整预热。已退出的死亡搬移/无消费者payload、无writer reset、算子重复工作与raw initializer热复制不再列修复项；现同输入优化诊断App预热18.12s、Ready24.05s，协议、收益及证明上限只归[预热热路径](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)。后续仅凭当前优化机器码/阶段采样定位可移除的实际完整工作，或新官方证据区分活动创建与时长；随机区间算术当前成本不足，不续做。没有可分辨收益即重排，不原样重跑、不跳隐藏/该root、不减时长/步数或改RNG，不重开已退数组与计划双链。 |
+| 启动仍慢 · 3808922316 | 原90秒超时已退出；默认原包首屏仍主要等待隐藏主题星域完整预热。已退出的死亡搬移/无消费者payload、无writer reset、算子重复工作与raw initializer热复制不再列修复项；现同输入优化诊断App预热18.12s、Ready24.05s，协议、收益及证明上限只归[预热热路径](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)。后续仅凭当前优化机器码/阶段采样定位可移除的实际完整工作，或新官方证据区分活动创建与时长；随机区间算术当前成本不足；raw Operator的ordinal候选虽退热复制，预注册交错计时未过收益门，代码/设计已撤回；无新证据不续做这两条，不原样补跑。没有可分辨收益即重排，不原样重跑、不跳隐藏/该root、不减时长/步数或改RNG，不重开已退数组与计划双链。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
 | source fallback 的路径/摘要许可 | XRay固定路径/UI/摘要与Masks的Pulse/Blur/Waterwaves路径门仍有真实降级消费者；尚无当前作者被误挡的画面归因。现分支只接unclaimed且无frame target，不能借已认领Program许可；颜色来源/PMA不证明alpha与空间覆盖，归一blur即反例。本次停止实施；若续查只先资格Masks真实unclaimed的等价改名画面及source-coverage阻断，再决定原冷owner能否供完整事实并退旧门，XRay不并批。不造新coverage系统、通放base或补路径名单。正反例与停止线在`.artifacts/scene-source-coverage-20261108/`。 |
 | material default动画入口 | 该存储位执行语义尚无作者/官方正例，不能仅凭AssetCatalog未parse认定冻结缺陷。先取合法default动画行为正控，再由原descriptor冷准备汇合material/instance有效值与definition-only pass identity，不让TargetCompiler重解资源或另建owner。 |
@@ -93,7 +93,7 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 | 默认自然墙钟时钟/星期已正常；[条件资格与停止线](../capabilities/runtime-evidence-current.md#authored-text-depth)确认107深度关闭时的官/本差异及后绘84参与，未证错误opaque分类。独立七区本地正反控成立，官方命名窗虽活着，CUA仍旧图并报noWindowsAvailable；采集STOP，off未开。不重跑四开关/84或这组旧采集；恢复真实窗口—画面绑定后再裁disabled写深度/排序/font批次，保opacity、近远与画布观察，不预选writeOnly或统一overlay，也不重开默认缺钟。 |
+| 3455121165 | 默认自然墙钟时钟/星期正常；[条件资格与停止线](../capabilities/runtime-evidence-current.md#authored-text-depth)确认107关闭深度的官/本差异及84参与，未证错误opaque分类。旧采集绑定已恢复，静态v2及补作者常量字段的v3均见七绿框、却所有官方glyph正控缺失；当前为字体carrier资格STOP，off未开，不据此改产品。不重跑四开关/84、旧采集或猜字段；先取得字形正控，再裁disabled写深度/排序/font批次，保opacity与近远观察，不预选writeOnly/统一overlay，不重开默认缺钟。 |
 
 ### 基础画面与基本交互优先
 

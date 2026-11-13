@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 259273
+      "bytes": 260198
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49331
+      "bytes": 49506
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -502,20 +502,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fa9f6205674dc8376ba40723d1de1df9fc2a44aabe710a1362e5c86ea70429ac",
-      "after": "fb71cff1bbd3468fed3bed1b9a71f85b2559e0b445a8cdb0473d279c0c310d59",
-      "owner": "Existing Scene world composition evidence",
-      "reason": "Replace the unresolved text-depth condition report with same-build independent switches and one model84 diagnostic, retain the official capture and transport ceilings, and make the missing scheduling qualification explicit. No product policy change.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+      "before": "a6052b6f813da98be43b21cf450efd003bafbe45f61c59b2bc217c27ae42f81a",
+      "after": "ed8e67668497a475601bb874c4b11a45957c04435fa2e6e7224f9d7d1a169b5a",
+      "owner": "Existing Scene current evidence and open queue",
+      "reason": "Record the rejected raw Operator optimization with exact retirement and replace the recovered capture stop with the still-unqualified official glyph positive control. No product policy or performance benefit claimed.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2321146a3ffa19b78507dbb2ad67230b7aa4e906fdcc81ceadc5a019547a648d",
-      "after": "ed948c4a5bfc9760b11c11d438b02e159aeb434c4af758007c30e2d2aed46e71",
-      "owner": "Existing Scene world composition evidence",
-      "reason": "Replace the unresolved text-depth condition report with same-build independent switches and one model84 diagnostic, retain the official capture and transport ceilings, and make the missing scheduling qualification explicit. No product policy change.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+      "before": "141403838c55a9b23ca148febb8953b1c879b581e58bd9cd7d9b550834757b8b",
+      "after": "58c7b4eecb8fd09a5c76b6d7aca5b4b6bee3c19a420f413f1cd73cc2be9cfe73",
+      "owner": "Existing Scene current evidence and open queue",
+      "reason": "Record the rejected raw Operator optimization with exact retirement and replace the recovered capture stop with the still-unqualified official glyph positive control. No product policy or performance benefit claimed.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
     }
   ]
 }
