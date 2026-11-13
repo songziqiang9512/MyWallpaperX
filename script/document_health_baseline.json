@@ -125,12 +125,12 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 284,
-      "bytes": 55614
+      "lines": 293,
+      "bytes": 57121
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 600,
-      "bytes": 263292
+      "lines": 599,
+      "bytes": 265106
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49509
+      "bytes": 49733
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -501,21 +501,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "57d783f70caaf4d53a46389a445e574dcd5f6a0e3d5dcad365fc05bfa789e945",
+      "after": "ebbbe557aaac07926228c9548ce87d144fada2486c81b15abc1f67b5518c6053",
+      "owner": "Existing Scene VariantResolver and sampler readiness",
+      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5694f6441ac19f173b5a72047e8aa3d6bc21598430f6e09efa4bb502f6d2708a",
-      "after": "539712a747991b79d9a14e6b3768636734792e32049962ed836ffb055db90b37",
-      "owner": "Existing Scene Rope plan and runtime evidence",
-      "reason": "Separate incoming and outgoing UV at repeated geometry within the existing Rope owner, replacing the shared endpoint. Record fixed-threshold official controls, actual candidate and independent author regression evidence; retire the solved queue item and retain A2C limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-span-uv"
+      "before": "539712a747991b79d9a14e6b3768636734792e32049962ed836ffb055db90b37",
+      "after": "829ba472b34d7c02c53d5709ab3f965efa74c1b344fc0966d67162ae9f178dd3",
+      "owner": "Existing Scene VariantResolver and sampler readiness",
+      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "66b85ea3265511d6a89818131489ee5a6ddf8bce467cb0712412dd2169486c11",
-      "after": "ca3fd8a90e9740ce283520f979e7b88f0c45727fee7f43c3190a1092d115373c",
-      "owner": "Existing Scene open queue",
-      "reason": "Replace the historical ordinary-Debug preparation note with one bounded current attempt and explicit acquisition failures; no work-thread stack, product attribution, new fix or retry is claimed.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "ca3fd8a90e9740ce283520f979e7b88f0c45727fee7f43c3190a1092d115373c",
+      "after": "01466b05f939d348fa5e3fd1c269f91d72e2418d89fe611d48685700fac41137",
+      "owner": "Existing Scene VariantResolver and sampler readiness",
+      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
     }
   ]
 }

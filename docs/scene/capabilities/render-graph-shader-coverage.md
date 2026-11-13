@@ -17,6 +17,15 @@
 
 Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
 
+<a id="sampler-presence-zero"></a>
+### 未绑定纹理的显式零 combo
+
+原 VariantResolver 分别持有作者宏定义与实际纹理 readiness。[官方 paint texture 合同](https://docs.wallpaperengine.io/en/scene/shader/variables.html#visible-texture-with-painting)允许未绑定时 combo 为0；显式整数0与真实 false 兼容，不因其宏定义不同于省略时的 undefined 而拒绝。只在原 readiness 比较处接纳这一情况，保 `.defined(0)`、explicit provenance 和原 validated slots；省略值仍沿原 undefined。退出“纹理 absent 必须连作者宏也未定义”的误拒，不新增资源、owner、解析或普通帧工作。
+
+零值与未定义不合并：`#if COMBO` 关闭，而 `#if defined(COMBO)`/`#ifdef` 仍看到该定义，`#ifndef` 不成立。unknown readiness、共享槽冲突、true+0、false+1与其他不匹配显式值保原错误；实际活采样缺源仍由原 Program/TextureResolver 拒绝，不生成白纹理或假 ready。范围只授已知 false 的显式零，不改变 optional 资源的未来可达状态政策。
+
+验收复用真实 Resolver→Preprocessor→Program/资源门，覆盖宏/资源改名、paint 与普通 sampler、definedness/provenance、上述冲突及活读缺源；同一冻结 App 输入核无纹理的数值分支和实际多 pass/终端像素，另跑独立真实作者邻例。原属性动画 scope 对照的载体失败单独保留，不能据此宣称 named lookup、wrapper 或作者翻页已恢复。
+
 <a id="generic-varying-array-budget"></a>
 ### 固定数组接口的准入设计
 

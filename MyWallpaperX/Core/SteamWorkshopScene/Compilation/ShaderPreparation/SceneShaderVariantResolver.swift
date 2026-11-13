@@ -302,8 +302,9 @@ nonisolated enum SceneShaderVariantResolver {
             let expected: SceneShaderMacroDefinition = isReady
                 ? .defined(.integer(1))
                 : .undefined
-            if explicit[combo] != nil {
-                guard definitions[combo] == expected else {
+            if let value = explicit[combo] {
+                // Keep authored zero defined; numeric false is not macro absence.
+                guard definitions[combo] == expected || (!isReady && value == 0) else {
                     throw Failure(
                         code: .explicitTextureReadinessConflict,
                         combo: combo,

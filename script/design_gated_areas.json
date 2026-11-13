@@ -784,7 +784,7 @@
       "owner": "scene-shader-preparation",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "Existing VariantResolver and Program binding ownership: #sampler-presence-zero accepts only explicit integer zero with known absent readiness, preserving defined(0), explicit provenance and validated slots. Retire exact-undefined rejection, not macro definedness. Preserve unknown/mixed/true-zero/false-one errors and actual active-sampler binding rejection; no new resource, owner or frame work. Verify production preprocessing, scoped resource failures, same frozen App pixels and an independent real scene; property-animation lookup scope remains unqualified.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderVariantResolver*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift"

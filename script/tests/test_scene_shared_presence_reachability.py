@@ -217,8 +217,40 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
     case .failure(.capacity): facts["launch"] = "capacity"
     case let .failure(.material(failure)):
         facts["launch"] = ([failure.code.rawValue] + failure.boundedDetails).joined(separator: ":")
+        facts["failureSlot"] = failure.slot
     }
     return facts
+}
+
+private func explicitZeroFacts(combo: String, material: String) throws -> [String: Any] {
+    let source = fragment(combo: combo, material: material).replacingOccurrences(
+        of: "gl_FragColor = color;", with: """
+        #if defined(\(combo))
+            color.r = 0.25;
+        #endif
+        #ifdef \(combo)
+            color.g = 0.5;
+        #endif
+        #ifndef \(combo)
+            color.b = 1.0;
+        #endif
+            gl_FragColor = color;
+        """)
+    let shader = contract("explicit-zero-\(combo)", source)
+    let environment = try SceneShaderVariantResolver.resolve(stage: .fragment,
+        stages: shader.stages, explicitCombos: [combo: 0],
+        textureReadiness: [1: false, 2: false]).get()
+    guard let resolution = environment.comboResolutions.first(where: { $0.binding.name == combo }),
+          case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader, combos: [combo: 0], textureReadiness: [1: false, 2: false]) else {
+        throw NSError(domain: "explicit-zero-preparation", code: 1)
+    }
+    var result = facts(template(shader, references: [:], combos: [combo: 0]))
+    result["definedZero"] = resolution.binding.definition == .defined(.integer(0))
+    result["provenance"] = resolution.provenance.rawValue
+    result["validatedSlots"] = resolution.validatedTextureSlots
+    result["preparedFragment"] = prepared.fragment.source
+    return result
 }
 
 @main private struct Harness {
@@ -292,6 +324,12 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
             .replacingOccurrences(of: #""combo":"PRESENT""#, with: #""combo":17"#))
         results["malformed"] = facts(template(malformed, references: references))
         results["malformedPreparation"] = preparation(malformed, readiness: [1: true, 2: true])
+        results["explicitZero"] = try explicitZeroFacts(combo: "MASK", material: "paint")
+        results["renamedExplicitZero"] = try explicitZeroFacts(combo: "READY_PAINT", material: "other")
+        let definedRead = contract("explicit-zero-defined-read", fragment(
+            combo: "MASK", material: "paint", expression: "defined(MASK)"))
+        results["explicitZeroDefinedRead"] = facts(template(
+            definedRead, references: [:], combos: ["MASK": 0]))
         var providerReferences = references
         providerReferences[1] = .provider(.sceneEnvironment)
         results["providerMasks"] = SceneResolvedMaterialShaderSchema.launchAvailabilityMasks(
@@ -379,6 +417,30 @@ class SceneSharedPresenceReachabilityTests(unittest.TestCase):
         self.assertIn("explicit-texture-readiness-conflict", self.result["explicitConflict"]["launch"])
         self.assertNotEqual(self.result["malformed"]["launch"], "accepted")
         self.assertIn("invalid-annotation", self.result["malformedPreparation"])
+
+    def test_explicit_zero_preserves_macro_definition_and_real_absent_program(self) -> None:
+        for name in ("explicitZero", "renamedExplicitZero"):
+            with self.subTest(name=name):
+                facts = self.result[name]
+                self.assertTrue(facts["definedZero"], facts)
+                self.assertEqual(facts["provenance"], "explicit-resolved-material")
+                self.assertEqual(facts["validatedSlots"], [1, 2])
+                source = facts["preparedFragment"]
+                self.assertNotIn("texSample2D", source)
+                self.assertIn("color.r = 0.25;", source)
+                self.assertIn("color.g = 0.5;", source)
+                self.assertNotIn("color.b = 1.0;", source)
+                self.assertEqual(facts["masks"], [0], facts)
+                self.assertEqual(facts["reachable"], [], facts)
+                self.assertEqual(facts["launch"], "accepted", facts)
+                self.assertEqual(facts["activeSlots"], [], facts)
+                self.assertEqual(facts["variantMasks"], [0], facts)
+
+    def test_explicit_zero_defined_guard_keeps_real_missing_texture_rejection(self) -> None:
+        facts = self.result["explicitZeroDefinedRead"]
+        self.assertEqual(facts["reachable"], [1, 2], facts)
+        self.assertEqual(facts["launch"], "textureBindingInvalid", facts)
+        self.assertEqual(facts["failureSlot"], 1, facts)
 
     def test_same_template_seed_preserves_complete_availability_projection(self) -> None:
         for name in ("emptySeed", "consensus", "renamed", "unguarded", "selfGated",

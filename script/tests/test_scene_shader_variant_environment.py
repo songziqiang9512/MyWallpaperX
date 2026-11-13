@@ -796,7 +796,7 @@ private func runReadinessFixtures() throws -> [String] {
         "Equivalent final variants changed digest only because provenance differed."
     )
 
-    for (value, isReady) in [(1, false), (0, true), (0, false)] {
+    for (value, isReady) in [(1, false), (0, true)] {
         let conflict = try failure(variant(
             stage,
             explicit: ["HAS_TEXTURE": value],
