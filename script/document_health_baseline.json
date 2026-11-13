@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 154,
-      "bytes": 28891
+      "bytes": 28557
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 258412
+      "bytes": 259382
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49144
+      "bytes": 49366
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -502,11 +502,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1194af80ae45e5ad17bbb1baa746ca56bfdd6d63ef19b06f10099a5100a2f26e",
-      "after": "fa9f6205674dc8376ba40723d1de1df9fc2a44aabe710a1362e5c86ea70429ac",
-      "owner": "Existing Scene particle execution and runtime evidence",
-      "reason": "Consolidate historical prewarm/live-range evidence, correct historical arm counts, and record current same-input CPU and full App benefit, machine-code tradeoff and regression limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#initializer-execution"
+      "before": "fa9f6205674dc8376ba40723d1de1df9fc2a44aabe710a1362e5c86ea70429ac",
+      "after": "fb71cff1bbd3468fed3bed1b9a71f85b2559e0b445a8cdb0473d279c0c310d59",
+      "owner": "Existing Scene world composition evidence",
+      "reason": "Replace the unresolved text-depth condition report with same-build independent switches and one model84 diagnostic, retain the official capture and transport ceilings, and make the missing scheduling qualification explicit. No product policy change.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "2321146a3ffa19b78507dbb2ad67230b7aa4e906fdcc81ceadc5a019547a648d",
+      "after": "ed948c4a5bfc9760b11c11d438b02e159aeb434c4af758007c30e2d2aed46e71",
+      "owner": "Existing Scene world composition evidence",
+      "reason": "Replace the unresolved text-depth condition report with same-build independent switches and one model84 diagnostic, retain the official capture and transport ceilings, and make the missing scheduling qualification explicit. No product policy change.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     }
   ]
 }

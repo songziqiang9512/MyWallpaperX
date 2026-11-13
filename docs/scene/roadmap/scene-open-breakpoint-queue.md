@@ -93,7 +93,7 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 | [作者文字世界深度](../capabilities/runtime-evidence-current.md#authored-text-depth)已恢复自然墙钟下晚帧时钟与星期；固定 MYWALLPAPERX_SCENE_DEBUG_WALL_DATE 冻结 Date.now()，复核用自然墙钟。官版同时关闭 107/199 深度时星期不可读而时钟仍在，本地同输入两者都不可见，时钟差异归后续绘制层，仍需单独取证。 |
+| 3455121165 | 默认自然墙钟下时钟/星期已正常；[现役独立条件对照](../capabilities/runtime-evidence-current.md#authored-text-depth)确认：仅关107深度仍在官版清晰、本地消失；仅隐后绘84后本地恢复。84材质与纹理均不透明，没有漏alpha证据；不能据此假定opaque分类错或把文字统一后移。重启先资格直接text/模型的官方调度与实际首次覆盖，保opacity文字、近/远模型和画布观察；不重跑本批四开关/84矩阵、重开默认缺钟或用hidden84当修复。固定WALL_DATE会冻结作者Date.now()，保自然墙钟。 |
 
 ### 基础画面与基本交互优先
 
