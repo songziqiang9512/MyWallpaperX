@@ -128,36 +128,30 @@ nonisolated extension SceneParticleSimulator {
     /// Prepared once, beside the actual initializer execution plans. Cost is
     /// bounded work, not time: noise octaves and selected audio bins are charged.
     static func explicitInitializerWork(
-        definition: SceneParticleDefinition,
         plans: [SceneParticleInitializerExecutionPlan]
     ) -> UInt64? {
         var work: UInt64 = 0
-        for (index, value) in definition.initializers.enumerated() {
-            let plan = plans[index]
-            switch value.kind {
+        for plan in plans {
+            switch plan {
             case .unsupported: return nil
-            case .hsvColor: guard plan.hsvColor != nil else { return nil }; work += 16
-            case .colorList: guard plan.colorList != nil else { return nil }; work += 8
-            case .positionOffset:
-                guard let offset = plan.positionOffset else { return nil }
+            case let .hsvColor(value): guard value != nil else { return nil }; work += 16
+            case let .colorList(colors): guard colors != nil else { return nil }; work += 8
+            case let .positionOffset(offset):
+                guard let offset else { return nil }
                 work += UInt64(32 + offset.octaves * 48)
-            case .positionAroundControlPoint:
-                guard plan.positionAroundControlPoint != nil else { return nil }; work += 32
-            case .positionBetweenControlPoints:
-                guard plan.positionBetweenControlPoints != nil else { return nil }; work += 32
-            case .turbulentVelocity:
-                guard let turbulence = plan.turbulentVelocity,
+            case let .positionAroundControlPoint(value):
+                guard value != nil else { return nil }; work += 32
+            case let .positionBetweenControlPoints(value):
+                guard value != nil else { return nil }; work += 32
+            case let .turbulentVelocity(turbulence):
+                guard let turbulence,
                       !turbulence.audioResponseEnabled || turbulence.audioResponsePlan != nil else { return nil }
                 work += 96 + UInt64(turbulence.audioResponsePlan?.frequencies.count ?? 0)
             case .inheritEventValue:
                 // The root profile has no parent event producer. Its ordinary
                 // fallback still renders; explicit exact-n cannot claim support.
                 return nil
-            case .lifetime, .size, .alpha:
-                work += 8
-            case .velocity, .rotation, .angularVelocity:
-                work += 8
-            case .color:
+            case .lifetime, .size, .alpha, .velocity, .rotation, .angularVelocity, .color:
                 work += 8
             }
         }

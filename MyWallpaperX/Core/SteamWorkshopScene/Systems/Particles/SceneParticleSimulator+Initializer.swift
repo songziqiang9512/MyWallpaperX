@@ -48,73 +48,61 @@ nonisolated struct SceneParticleRandomColorPlan: Sendable {
 /// Launch-stable authored projections used by the particle initializer hot path.
 /// Turbulent velocity and event values remain live because they consume position/time,
 /// audio or frame-local event state.
-nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
-    let scalar: SceneParticleRandomScalarPlan?
-    let vector: SceneParticleRandomVectorPlan?
-    let color: SceneParticleRandomColorPlan?
-    let hsvColor: SceneParticleHSVColorPlan?
-    let colorList: [SIMD3<Double>]?
-    let turbulentVelocity: SceneParticleTurbulentVelocityPlan?
-    let positionOffset: SceneParticlePositionOffsetPlan?
-    let positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
-    let positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
+nonisolated enum SceneParticleInitializerExecutionPlan: Sendable {
+    case lifetime(SceneParticleRandomScalarPlan)
+    case size(SceneParticleRandomScalarPlan)
+    case alpha(SceneParticleRandomScalarPlan)
+    case velocity(SceneParticleRandomVectorPlan)
+    case rotation(SceneParticleRandomVectorPlan)
+    case angularVelocity(SceneParticleRandomVectorPlan)
+    case color(SceneParticleRandomColorPlan)
+    case hsvColor(SceneParticleHSVColorPlan?)
+    case colorList([SIMD3<Double>]?)
+    case turbulentVelocity(SceneParticleTurbulentVelocityPlan?)
+    case positionOffset(SceneParticlePositionOffsetPlan?)
+    case positionAroundControlPoint(SceneParticlePositionAroundControlPointPlan?)
+    case positionBetweenControlPoints(SceneParticlePositionBetweenControlPointsPlan?)
+    case inheritEventValue(SceneParticleEventValueOperation?)
+    case unsupported
 
     nonisolated init(_ value: SceneParticleInitializer, definition: SceneParticleDefinition) {
-        var scalar: SceneParticleRandomScalarPlan?
-        var vector: SceneParticleRandomVectorPlan?
-        var color: SceneParticleRandomColorPlan?
-        var hsvColor: SceneParticleHSVColorPlan?
-        var colorList: [SIMD3<Double>]?
-        var turbulentVelocity: SceneParticleTurbulentVelocityPlan?
-        var positionOffset: SceneParticlePositionOffsetPlan?
-        var positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
-        var positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
-
         switch value.kind {
         case .lifetime:
-            scalar = .init(value, defaults: (0, 1))
+            self = .lifetime(.init(value, defaults: (0, 1)))
         case .size:
-            scalar = .init(value, defaults: (0, 20))
+            self = .size(.init(value, defaults: (0, 20)))
         case .velocity:
-            vector = .init(value, defaults: (.zero, .zero))
+            self = .velocity(.init(value, defaults: (.zero, .zero)))
         case .color:
-            color = .init(value, defaults: (.zero, SIMD3(repeating: 255)))
+            self = .color(.init(value, defaults: (.zero, SIMD3(repeating: 255))))
         case .hsvColor:
-            hsvColor = value.boundedHSVColor
+            self = .hsvColor(value.boundedHSVColor)
         case .colorList:
-            colorList = value.boundedColorList
+            self = .colorList(value.boundedColorList)
         case .turbulentVelocity:
-            turbulentVelocity = value.turbulentVelocity.map(
+            self = .turbulentVelocity(value.turbulentVelocity.map(
                 SceneParticleTurbulentVelocityPlan.init
-            )
+            ))
         case .alpha:
-            scalar = .init(value, defaults: (0.05, 1))
+            self = .alpha(.init(value, defaults: (0.05, 1)))
         case .rotation:
-            vector = .init(value, defaults: (.zero, SIMD3(0, 0, 2 * .pi)))
+            self = .rotation(.init(value, defaults: (.zero, SIMD3(0, 0, 2 * .pi))))
         case .angularVelocity:
-            vector = .init(
+            self = .angularVelocity(.init(
                 value,
                 defaults: (SIMD3(0, 0, -5), SIMD3(0, 0, 5))
-            )
+            ))
         case .positionOffset:
-            positionOffset = value.boundedPositionOffset
+            self = .positionOffset(value.boundedPositionOffset)
         case .positionAroundControlPoint:
-            positionAroundControlPoint = definition.positionAroundControlPointPlan(for: value)
+            self = .positionAroundControlPoint(definition.positionAroundControlPointPlan(for: value))
         case .positionBetweenControlPoints:
-            positionBetweenControlPoints = value.positionBetweenControlPointsPlan
-        default:
-            break
+            self = .positionBetweenControlPoints(value.positionBetweenControlPointsPlan)
+        case let .inheritEventValue(operation):
+            self = .inheritEventValue(operation)
+        case .unsupported:
+            self = .unsupported
         }
-
-        self.scalar = scalar
-        self.vector = vector
-        self.color = color
-        self.hsvColor = hsvColor
-        self.colorList = colorList
-        self.turbulentVelocity = turbulentVelocity
-        self.positionOffset = positionOffset
-        self.positionAroundControlPoint = positionAroundControlPoint
-        self.positionBetweenControlPoints = positionBetweenControlPoints
     }
 }
 
@@ -123,114 +111,71 @@ extension SceneParticleSimulator {
         to particle: inout SceneParticleState, strict: Bool = false,
         emitterControlPointOrigin: SIMD3<Double> = .zero
     ) -> Bool {
-        for (initializerIndex, initializer) in definition.initializers.enumerated() {
-            let executionPlan = initializerExecutionPlans[initializerIndex]
+        for (initializerIndex, executionPlan) in initializerExecutionPlans.enumerated() {
 #if DEBUG
             componentObservation?.record("initializer", initializerIndex, "attempted", reason: "birth-initializer-dispatch", time: simulationTime, particleID: particle.id)
 #endif
-            switch initializer.kind {
-            case .lifetime:
-                guard let plan = executionPlan.scalar else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            switch executionPlan {
+            case let .lifetime(plan):
                 particle.lifetime = randomScalar(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "lifetime-assigned", time: simulationTime, particleID: particle.id)
 #endif
-            case .size:
-                guard let plan = executionPlan.scalar else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            case let .size(plan):
                 particle.size *= randomScalar(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "size-multiplied", time: simulationTime, particleID: particle.id)
 #endif
-            case .velocity:
+            case let .velocity(plan):
                 // Wallpaper Engine initializes both authored velocity vectors to zero before
                 // reading the optional `min` and `max` fields. Keep a missing endpoint at that
                 // public engine default; inventing a symmetric range changes one-sided authored
                 // profiles such as `max: "0 100 0"` into bidirectional motion.
-                guard let plan = executionPlan.vector else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
                 particle.velocity += randomVector(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "velocity-assigned", time: simulationTime, particleID: particle.id)
 #endif
-            case .color:
-                guard let plan = executionPlan.color else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            case let .color(plan):
                 particle.color = randomColor(plan) / 255
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "color-assigned", time: simulationTime, particleID: particle.id)
 #endif
-            case .hsvColor:
-                if let plan = executionPlan.hsvColor,
+            case let .hsvColor(plan):
+                if let plan,
                    let color = randomHSVColor(plan) {
                     particle.color = color
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "hsv-color-assigned", time: simulationTime, particleID: particle.id)
 #endif
                 }
-            case .colorList:
-                if let colors = executionPlan.colorList,
+            case let .colorList(colors):
+                if let colors,
                    let color = randomColorFromList(colors) {
                     particle.color = color
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "list-color-assigned", time: simulationTime, particleID: particle.id)
 #endif
                 }
-            case .alpha:
-                guard let plan = executionPlan.scalar else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            case let .alpha(plan):
                 particle.alpha *= randomScalar(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "alpha-multiplied", time: simulationTime, particleID: particle.id)
 #endif
-            case .rotation:
-                guard let plan = executionPlan.vector else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            case let .rotation(plan):
                 particle.rotation += randomVector(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "rotation-assigned", time: simulationTime, particleID: particle.id)
 #endif
-            case .angularVelocity:
-                guard let plan = executionPlan.vector else {
-#if DEBUG
-                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
-#endif
-                    break
-                }
+            case let .angularVelocity(plan):
                 particle.angularVelocity += randomVector(plan)
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "evaluated", reason: "angular-velocity-assigned", time: simulationTime, particleID: particle.id)
 #endif
-            case .turbulentVelocity:
+            case let .turbulentVelocity(plan):
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "unknown", reason: "helper-evaluation-witness-unavailable", time: simulationTime, particleID: particle.id)
 #endif
-                let audioFactor = executionPlan.turbulentVelocity?.audioResponsePlan.map {
+                let audioFactor = plan?.audioResponsePlan.map {
                     1 + evaluateAudioResponse(
                         $0,
                         componentKind: .initializer,
@@ -238,15 +183,15 @@ extension SceneParticleSimulator {
                     )
                 }
                 particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
-                    executionPlan.turbulentVelocity, particle.position, simulationTime,
+                    plan, particle.position, simulationTime,
                     &random, audioInput: audioInput,
                     preparedAudioFactor: audioFactor, strict: strict
                 )
-            case .positionOffset:
+            case let .positionOffset(plan):
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, "unknown", reason: "helper-evaluation-witness-unavailable", time: simulationTime, particleID: particle.id)
 #endif
-                if let plan = executionPlan.positionOffset {
+                if let plan {
                     let delta = SceneParticleSimulationMath.positionOffset(
                             plan, position: particle.position, time: simulationTime,
                             particleID: particle.id, simulationSeed: simulationSeed, strict: strict
@@ -254,9 +199,8 @@ extension SceneParticleSimulator {
                     if strict { particle.position += delta }
                     else { SceneParticleSimulationMath.addFinite(delta, to: &particle.position) }
                 }
-            case .positionAroundControlPoint:
-                guard let plan = executionPlan.positionAroundControlPoint
-                else {
+            case let .positionAroundControlPoint(plan):
+                guard let plan else {
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
 #endif
@@ -268,8 +212,8 @@ extension SceneParticleSimulator {
                     reason: applied ? "control-point-position-applied" : "control-point-position-unavailable", time: simulationTime, particleID: particle.id)
 #endif
                 if !applied, strict { return false }
-            case .positionBetweenControlPoints:
-                guard let plan = executionPlan.positionBetweenControlPoints else {
+            case let .positionBetweenControlPoints(plan):
+                guard let plan else {
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
 #endif

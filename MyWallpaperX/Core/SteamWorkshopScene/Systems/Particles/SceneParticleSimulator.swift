@@ -180,11 +180,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         // Random writers multiply, while an absent size writer retains the default.
         birthSizeSeed = definition.initializers.contains { $0.kind == .size } ? 1 : 20
-        explicitInitializerWork = Self.explicitInitializerWork(
-            definition: definition, plans: initializerExecutionPlans)
+        explicitInitializerWork = Self.explicitInitializerWork(plans: initializerExecutionPlans)
         var pointConsumers = definition.emitters.compactMap { definition.emitterControlPointSource(for: $0) }
         for plan in initializerExecutionPlans {
-            if let between = plan.positionBetweenControlPoints {
+            if case let .positionBetweenControlPoints(between?) = plan {
                 pointConsumers.append(contentsOf: [between.controlPointStart, between.controlPointEnd])
             }
         }

@@ -90,7 +90,7 @@ import Darwin
         let sim = try make(1.0)
         sim.advance(by: step)
         guard sim.particles.count == 1,
-              let scalar = sim.initializerExecutionPlans.first?.scalar else {
+              case let .lifetime(scalar)? = sim.initializerExecutionPlans.first else {
             throw NSError(domain: "missing-real-birth-sampler", code: 1)
         }
         let cases: [(String, Double, Double)] = [

@@ -121,8 +121,8 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 307,
-      "bytes": 60354
+      "lines": 314,
+      "bytes": 62035
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 257177
+      "bytes": 258412
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49963
+      "bytes": 49144
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -493,20 +493,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "6d963ab7a615aaf15909272e52092f7cb182a8419a86ae5b7d527ed7610540cf",
-      "after": "76360e849eb340859c8d640c653c2097322e4ad01c35337f73648022d911be88",
-      "owner": "Existing Scene particle geometry and runtime evidence",
-      "reason": "Replace the global XY-equality rejection with the existing batch/CameraFrame plane-shape consumer; record the fixed official probe, actual author ceilings and preserved neighbors. Remove the closed queue item and keep one current authority.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-plane-scale"
+      "before": "76360e849eb340859c8d640c653c2097322e4ad01c35337f73648022d911be88",
+      "after": "c67639f455cc31ae9cf7192260897d16f86864a9d12399a8b91cf0687f2f85e6",
+      "owner": "Existing Scene particle execution and runtime evidence",
+      "reason": "Replace the existing initializer execution owner with one ordered typed payload sequence, retire raw/optional double dispatch and preserve live, strict and RNG boundaries.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#initializer-execution"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6db17bb7406a622c5fee60dc0b321fc6d76dcc0275d6d4d87febde686a32eaa9",
-      "after": "1194af80ae45e5ad17bbb1baa746ca56bfdd6d63ef19b06f10099a5100a2f26e",
-      "owner": "Existing Scene particle geometry and runtime evidence",
-      "reason": "Replace the global XY-equality rejection with the existing batch/CameraFrame plane-shape consumer; record the fixed official probe, actual author ceilings and preserved neighbors. Remove the closed queue item and keep one current authority.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#child-plane-scale"
+      "before": "1194af80ae45e5ad17bbb1baa746ca56bfdd6d63ef19b06f10099a5100a2f26e",
+      "after": "fa9f6205674dc8376ba40723d1de1df9fc2a44aabe710a1362e5c86ea70429ac",
+      "owner": "Existing Scene particle execution and runtime evidence",
+      "reason": "Consolidate historical prewarm/live-range evidence, correct historical arm counts, and record current same-input CPU and full App benefit, machine-code tradeoff and regression limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#initializer-execution"
     }
   ]
 }

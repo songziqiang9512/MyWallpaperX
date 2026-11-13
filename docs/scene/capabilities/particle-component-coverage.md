@@ -26,6 +26,13 @@ LayerImage 继续使用原 compiler：原 base-image owner 将 provider 缺 outc
 
 现有 `prewarmStepBudget` 只截断本次同步模拟，Snapshot 没有续热游标；不能先限步再用普通 live advance 冒充补齐历史。默认隐藏的 root 在零步初始 advance 中清人口/轨迹，但保 RNG、ID、模拟时间和已完成 emitter 状态；未完成者沿原 rearm。跳过其预热也不是既有状态的等价变换。资源可准备、完整实例创建与可见绘制分别是需求，隐藏本身不取消脚本或后续显现的消费者。
 
+<a id="initializer-execution"></a>
+初始化分派继续由原 `SceneParticleInitializerExecutionPlan` 冷准备，按作者顺序为每个 initializer 保留一个带对应 payload 的 enum case。出生只枚举这一个执行序列，退出每次复制完整 raw initializer、再索引九组 optional 聚合计划的双链。Scalar/Vector/Color 的必备 payload 由 case 直接持有，退役不可能缺失的热 guard；原 Definition 仍拥有作者事实、冷准入和诊断名称，不另存 kind 镜像、计划表或缓存。CP 需求收集和显式发射工作量同样消费原有序计划；原预算值和失败半径保持。
+
+真正不可用的 HSV/list、Turbulent、Offset、Around/Between payload 仍保原 case、ordinal 和原诊断：HSV/list nil 只 attempted；Turbulent/Offset 即使 nil 仍 unknown，Turbulent nil 保 helper 的普通零/strict NaN；Around/Between nil 只局部 break，已具计划但本次 CP 不可用时 strict 才拒当前出生。事件继承只准备 operation，本次 parent context、audio、位置和时间继续由原 live 消费者供给。不得借本批前移随机区间减法、消耗或省略 RNG、改变 pow/乘加顺序、浮点环境、writer 顺序、快照和后继 live 状态。
+
+验收先以当前优化机器码和采样确认实际复制，再用同输入交错对照否证收益；无可分辨收益就退回候选并重排。保完整粒子/RNG/emitter/归一寿命摘要、不可用组件和 strict 反例、显式事务与预热后 live 接力，另做实际作者和独立样本运行。单次 profiled 时长不作无采样基线，CPU harness 不外推 App Ready、GPU、能耗或全库收益。
+
 验收核完整真实状态/RNG/事件/历史与 live handoff、多 Surface 独占、取消释放、真实初始画面和候选准备期间旧 Scene 输出。[运行证据](runtime-evidence-current.md)拥有当前结果；[官方 General 资料](../development/source-index.md#官方作者资料)按秒描述编辑器系统 Start Time，未直接定义 raw JSON 换算、内部步长/上限或隐藏创建策略。standalone 成本、直接 DEBUG Host 与物理多屏、daemon IPC、官方完整语义和逐帧流畅度分别设证明上限。
 
 <a id="components"></a>
