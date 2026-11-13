@@ -376,6 +376,66 @@ extension Harness {
             "noExecutableTemplateRejected": emptyContainer.activeLayerIDs.isEmpty,
             "badDeclarationRejected": badDeclaration.activeLayerIDs.isEmpty,
         ]
+        func nonzeroPrefix() throws -> [String: Any] {
+            let leaf = "particles/prefix-leaf.json", middle = "particles/prefix-middle.json"
+            let follow: [String: Any] = ["name": leaf, "type": "eventfollow", "maxcount": 8]
+            try writeDefinition(leaf, renderers: [["name": "sprite"]], lifetime: 4, burst: 1)
+            try writeDefinition(middle, renderers: [["name": "sprite"], ["name": "rope"]],
+                lifetime: 4, burst: 8, children: [follow])
+            try writeDefinition("particles/prefix-root.json", renderers: [
+                ["name": "sprite"], ["name": "spritetrail", "length": 0.4],
+                ["name": "rope"], ["name": "ropetrail", "length": 0.5],
+            ], lifetime: 4, burst: 8,
+                children: [["name": middle, "type": "static"], follow])
+            let shared = runtime("particles/prefix-root.json", id: 410, peer: false)
+            let compact = runtime("particles/prefix-root.json", id: 410, peer: false)
+            defer { [shared, compact].forEach { $0.teardown() } }
+            func simulators(_ value: SceneParticleRuntime) -> [SceneParticleSimulator] {
+                [value.layers[0].rootRender!.simulator]
+                    + value.layers[0].childRuntime!.frameSnapshot().systems.map(\.simulator)
+            }
+            for value in [shared, compact] {
+                _ = value.advance(by: 0.125)
+                for simulator in simulators(value) where simulator.particles.count == 8 {
+                    for index in 0..<3 {
+                        simulator.particles[index].lifetime = simulator.particles[index].age + 1.0 / 120
+                    }
+                }
+                _ = value.advance(by: 0.125)
+            }
+            for simulator in simulators(compact) {
+                simulator.particles = SceneParticleBuffer(Array(simulator.particles))
+            }
+            let heads = simulators(shared).filter { $0.particles.count == 5 }
+                .map { $0.renderParticlesForCurrentAdvance().startIndex }
+            let zeroDraws = [shared, compact].map { $0.advance(by: 0) }
+            let childState = shared.frameSnapshot().layers[0].child!
+            var geometryMatches = MultipleRendererDrawState(zeroDraws[0]) == MultipleRendererDrawState(zeroDraws[1])
+            let zeroStepStable = MultipleRendererDrawState(shared.advance(by: 0)) == MultipleRendererDrawState(zeroDraws[0])
+            let checkpoints = [shared, compact].map { $0.frameSnapshot() }
+            let forwardDraws = [shared, compact].map { $0.advance(by: 0.125) }
+            geometryMatches = geometryMatches
+                && MultipleRendererDrawState(forwardDraws[0]) == MultipleRendererDrawState(forwardDraws[1])
+            let forward = shared.frameSnapshot().layers[0]
+            let control = compact.frameSnapshot().layers[0]
+            let statesMatch = multipleRendererFramesMatch(forward.root!.simulatorFrame, control.root!.simulatorFrame)
+                && multipleRendererChildrenMatch(forward.child!, control.child!)
+            shared.restoreFrame(checkpoints[0])
+            let retry = shared.advance(by: 0.125)
+            let restored = shared.frameSnapshot().layers[0]
+            return [
+                "liveStarts": heads, "rootIDs": rootFrame(shared).particles.map(\.id),
+                "depthOneFollowerIDs": childState.systems.filter { $0.depth == 1 }.compactMap(\.parentParticleID).sorted(),
+                "depthTwoFollowerIDs": childState.systems.filter { $0.depth == 2 }.compactMap(\.parentParticleID).sorted(),
+                "geometryMatchesCompact": geometryMatches, "simulationMatchesCompact": statesMatch,
+                "zeroStepStable": zeroStepStable,
+                "rootRopeVisible": zeroDraws[0].contains { $0.childTemplateIndex == nil && $0.rendererIndex == 2 && !$0.instances.isEmpty },
+                "childRopeVisible": zeroDraws[0].contains { $0.childTemplateIndex != nil && $0.rendererIndex == 1 && !$0.instances.isEmpty },
+                "replayMatches": MultipleRendererDrawState(retry) == MultipleRendererDrawState(forwardDraws[0])
+                    && multipleRendererFramesMatch(forward.root!.simulatorFrame, restored.root!.simulatorFrame)
+                    && multipleRendererChildrenMatch(forward.child!, restored.child!),
+            ]
+        }
         return [
             "root": rootRows, "rootPreparedIndices": prepared.map { $0.renderer.index },
             "rootTextureShared": textureShared, "randomizedPopulation": randomizedPopulation,
@@ -386,7 +446,7 @@ extension Harness {
                 && !paused.particles.isEmpty && paused.particles.map(\.position) != beforePause.particles.map(\.position),
             "stopClearsEveryOutput": stopClearsEveryOutput, "stopMatchesSingles": stopMatches,
             "stopKeepsPeer": stoppedDraws[0].contains { $0.layerID == 111 && !$0.instances.isEmpty },
-            "children": childResults, "container": containerFacts,
+            "children": childResults, "container": containerFacts, "nonzeroPrefix": try nonzeroPrefix(),
         ]
     }
 }

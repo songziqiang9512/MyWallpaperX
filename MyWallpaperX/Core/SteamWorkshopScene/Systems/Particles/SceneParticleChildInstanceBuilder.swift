@@ -84,7 +84,7 @@ enum SceneParticleChildInstanceBuilder {
         guard let template = lookup[system.templateIndex] else { return }
         let origin = system.origin + (system.isWorldSpace ? .zero : rootTranslationOffset)
         let currentParticles = template.renderers.contains { $0.rope != nil }
-            ? system.simulator.particles.liveArray : []
+            ? system.simulator.particles.liveParticles : []
         let particles = template.renderers.contains { $0.rope == nil }
             ? system.simulator.renderParticlesForCurrentAdvance() : []
         for renderer in template.renderers {

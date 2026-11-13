@@ -612,10 +612,7 @@ final class SceneParticleRuntime {
                 layers[index].rootRender = root
             }
             if let childRuntime = layers[index].childRuntime {
-                // One materialization per frame per parent layer. A visible
-                // root has already advanced; hidden or frozen keeps its
-                // pre-advance population because advance was skipped.
-                let parentParticles = layers[index].rootRender?.simulator.particles.liveArray ?? []
+                let parentParticles = layers[index].rootRender?.simulator.particles.liveParticles ?? []
                 // Particle opacity comes from particle/instance alpha;
                 // generic layer alpha does not modulate particle renderers.
                 let result = childRuntime.advance(

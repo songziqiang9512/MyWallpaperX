@@ -65,7 +65,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
     }
 
     nonisolated func instances(
-        particles: [SceneParticleState],
+        particles: some Collection<SceneParticleState>,
         origin: SIMD3<Double> = .zero,
         particleOrigins: [UInt64: SIMD3<Double>] = [:],
         scale: SIMD3<Double> = SIMD3(repeating: 1),

@@ -340,16 +340,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     /// Returns the authored-order Sprite sample set for the current display
-    /// call. The live storage is materialized once per call; sorting
-    /// only happens when a particle was born and died entirely between two
-    /// display callbacks.
-    nonisolated func renderParticlesForCurrentAdvance() -> [SceneParticleState] {
-        guard !transientRenderBirths.isEmpty else { return particles.liveArray }
-        var result = particles.liveArray
+    /// call. Ordinary samples share live storage; materialization and sorting
+    /// only happen when a particle was born and died entirely between callbacks.
+    nonisolated func renderParticlesForCurrentAdvance() -> ArraySlice<SceneParticleState> {
+        guard !transientRenderBirths.isEmpty else { return particles.liveParticles }
+        var result = Array(particles)
         result.reserveCapacity(particles.count + transientRenderBirths.count)
         result.append(contentsOf: transientRenderBirths)
         result.sort { $0.id < $1.id }
-        return result
+        return result[...]
     }
 
     /// Current-callback diagnostic used by lifecycle/performance validation.

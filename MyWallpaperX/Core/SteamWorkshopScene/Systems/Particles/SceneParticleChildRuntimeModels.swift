@@ -39,7 +39,7 @@ struct SceneParticleChildParentFrame {
     let particleOrigins: [UInt64: SIMD3<Double>]
     let births: [SceneParticleState]
     let deaths: [SceneParticleState]
-    let particles: [SceneParticleState]
+    let particles: ArraySlice<SceneParticleState>
 
     func position(for particle: SceneParticleState) -> SIMD3<Double> {
         (particleOrigins[particle.id] ?? origin) + scale * particle.position

@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 298,
-      "bytes": 58717
+      "bytes": 58706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 589,
-      "bytes": 253690
+      "bytes": 253178
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -447,15 +447,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "3a609f959b7d4fe3e64fa5c0445b1d29d84e1a698d49d7284a8deb33b43970d2",
-      "after": "0c360cf4b266e6b378f9b874399ebce6515af425b24d3c2aaa98316bc9f24e55",
-      "owner": "Particle component contract",
-      "reason": "Extend the particle death contract with the conditional payload copy and warmup event suppression.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
       "after": "a6e594b09e30cc9e604beee9de632483db333c37204b3e07947fdf42d14a0b69",
@@ -507,15 +498,6 @@
       "owner": "App/Shell immersive UI design",
       "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
       "decision": "docs/development/immersive-ui-execution-plan.md#entry"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "069431b0170db8b7dc9153f07ed8efe4703438e875af2d8f13452db4e742e11f",
-      "after": "d363f51ac8d08eecd74633e66efbd6f66b36a21a18af7bda665b3949b6c5d1b9",
-      "owner": "Scene capability and runtime evidence",
-      "reason": "Record bounded repair verification and retire stale claims without changing product validation limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stale-history-seed"
     },
     {
       "section": "bodies",

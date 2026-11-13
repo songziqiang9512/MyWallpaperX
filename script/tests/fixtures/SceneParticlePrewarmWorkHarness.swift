@@ -445,11 +445,58 @@ import simd
                 }]
     }
 
+    static func liveRenderStorage() -> [[String: Any]] {
+        (1..<64).map { prefix in
+            let input = source(capacity: 96, start: 0, rate: 0, burst: 96,
+                               lifetime: step * 8)
+            let simulator = make(input)
+            simulator.advance(by: step)
+            _ = simulator.consumeBirthEvents()
+            for index in 0..<prefix { simulator.particles[index].lifetime = step * 2 }
+            let originalAddress = simulator.particles.withUnsafeMutableBufferPointer {
+                UInt(bitPattern: $0.baseAddress!)
+            }
+            simulator.advance(by: step)
+            let deaths = simulator.consumeDeathEvents().map(\.id)
+            let first = simulator.renderParticlesForCurrentAdvance()
+            simulator.advance(by: 0)
+            let second = simulator.renderParticlesForCurrentAdvance()
+            let sharedLiveRange = first.withUnsafeBufferPointer { left in
+                second.withUnsafeBufferPointer { right in
+                    let expected = originalAddress + UInt(prefix * MemoryLayout<SceneParticleState>.stride)
+                    return UInt(bitPattern: left.baseAddress!) == expected
+                        && left.baseAddress == right.baseAddress
+                }
+            }
+            let retained = simulator.frameSnapshot()
+            let oldParticle = first.first!
+            simulator.particles[0].position.x += 17
+            let changed = simulator.renderParticlesForCurrentAdvance()
+            let isolatedMutation = first.first == oldParticle && second.first == oldParticle
+                && retained.particles.first == oldParticle
+                && changed.first?.position.x == oldParticle.position.x + 17
+                && first.withUnsafeBufferPointer { left in
+                    changed.withUnsafeBufferPointer { left.baseAddress != $0.baseAddress }
+                }
+            simulator.restoreFrame(retained)
+            let restored = simulator.renderParticlesForCurrentAdvance()
+            let restoredStorage = first.withUnsafeBufferPointer { left in
+                restored.withUnsafeBufferPointer { left.baseAddress == $0.baseAddress }
+            }
+            return ["prefix": prefix, "deaths": deaths,
+                    "survivors": first.map(\.id), "zeroStepSurvivors": second.map(\.id),
+                    "sharedLiveRange": sharedLiveRange, "isolatedMutation": isolatedMutation,
+                    "restoredStorage": restoredStorage,
+                    "restoredParticles": Array(restored) == Array(first)]
+        }
+    }
+
     static func main() throws {
         let result: [String: Any] = ["sparse": sparse(), "workload": workload(),
             "emptySystems": emptySystems(), "bounds": boundaries(),
             "complete": complete(), "cancellation": cancellation(), "fieldWriters": fieldWriterBaselines(),
-            "orderedDeaths": orderedDeaths(), "compaction": leadingDeathCompaction()]
+            "orderedDeaths": orderedDeaths(), "compaction": leadingDeathCompaction(),
+            "liveRenderStorage": liveRenderStorage()]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

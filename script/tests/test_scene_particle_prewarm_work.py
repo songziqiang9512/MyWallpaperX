@@ -259,6 +259,18 @@ class SceneParticlePrewarmWorkTests(unittest.TestCase):
         self.assertEqual(mixed["nextSurvivors"], mixed_survivors)
         self.assertEqual(mixed["nextAges"], [6 / 32] * 91)
 
+    def test_live_and_zero_step_render_views_share_nonzero_head_storage(self) -> None:
+        rows = self.result["liveRenderStorage"]
+        self.assertEqual([row["prefix"] for row in rows], list(range(1, 64)))
+        for row in rows:
+            prefix = row["prefix"]
+            with self.subTest(prefix=prefix):
+                self.assertEqual(row["deaths"], list(range(prefix)))
+                self.assertEqual(row["survivors"], list(range(prefix, 96)))
+                self.assertEqual(row["zeroStepSurvivors"], row["survivors"])
+                for field in ("sharedLiveRange", "isolatedMutation", "restoredStorage", "restoredParticles"):
+                    self.assertTrue(row[field], (field, row))
+
     def test_event_color_writer_resets_when_follow_payload_becomes_unusable(self) -> None:
         row = self.result["fieldWriters"]["event"]
         self.assertReplay(row)

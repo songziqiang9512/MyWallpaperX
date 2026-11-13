@@ -184,3 +184,10 @@ class SceneParticleRuntimeConfigurationCases:
         self.assertTrue(all(count > 0 for count in container["counts"]))
         for field in ("noRootSimulator", "allChildOutputs", "noExecutableTemplateRejected", "badDeclarationRejected"):
             self.assertTrue(container[field], (field, container))
+        prefix = result["nonzeroPrefix"]
+        self.assertEqual(prefix["liveStarts"], [3, 3])
+        for field in ("rootIDs", "depthOneFollowerIDs", "depthTwoFollowerIDs"):
+            self.assertEqual(prefix[field], list(range(3, 8)), (field, prefix))
+        for field in ("geometryMatchesCompact", "simulationMatchesCompact", "zeroStepStable",
+                      "rootRopeVisible", "childRopeVisible", "replayMatches"):
+            self.assertTrue(prefix[field], (field, prefix))

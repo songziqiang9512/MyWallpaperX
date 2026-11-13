@@ -275,7 +275,7 @@ final class SceneParticleChildRuntime {
         by frameDelta: TimeInterval,
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
-        parentParticles: [SceneParticleState],
+        parentParticles: some Collection<SceneParticleState>,
         layerAlpha: Float,
         dynamicInstanceValues: SceneDynamicParticleValues? = nil,
         pointerLocalPosition: SIMD3<Double>? = nil,
@@ -489,7 +489,7 @@ final class SceneParticleChildRuntime {
     /// event frames that feed nested children, before completed systems are recycled.
     private func advanceDepthOne(
         by frameDelta: TimeInterval,
-        rootParticles: [SceneParticleState],
+        rootParticles: some Collection<SceneParticleState>,
         dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
@@ -548,7 +548,7 @@ final class SceneParticleChildRuntime {
                 particleOrigins: origins,
                 births: births,
                 deaths: deaths,
-                particles: systems[index].simulator.particles.liveArray
+                particles: systems[index].simulator.particles.liveParticles
             ))
         }
         return frames
@@ -827,7 +827,7 @@ final class SceneParticleChildRuntime {
     }
 
     private func reconcileFollowers(
-        _ parents: [SceneParticleState],
+        _ parents: some Collection<SceneParticleState>,
         depth: Int,
         parentPath: String?,
         scopeID: UInt64?,

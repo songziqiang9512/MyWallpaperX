@@ -187,12 +187,12 @@ struct SceneParticleRootRenderRuntime {
 
     mutating func rebuildInstances() {
         let streams = simulator.consumeStepSnapshots()
-        var spriteParticles: [SceneParticleState]?
+        var spriteParticles: ArraySlice<SceneParticleState>?
         for index in outputs.indices {
             let renderer = outputs[index].renderer
             if let rope = renderer.rope {
                 outputs[index].instances = rope.instances(
-                    particles: simulator.particles.liveArray, layerAlpha: 1,
+                    particles: simulator.particles.liveParticles, layerAlpha: 1,
                     simulationTime: simulator.simulationTime
                 )
                 continue
@@ -200,7 +200,7 @@ struct SceneParticleRootRenderRuntime {
             if var history = outputs[index].ropeTrailHistory {
                 outputs[index].instances = history.advance(
                     snapshots: renderer.snapshotPolicy.flatMap { streams[$0] } ?? [],
-                    currentParticles: simulator.particles.liveArray, layerAlpha: 1
+                    currentParticles: simulator.particles.liveParticles, layerAlpha: 1
                 )
                 outputs[index].ropeTrailHistory = history
                 continue

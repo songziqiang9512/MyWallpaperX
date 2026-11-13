@@ -287,7 +287,7 @@ extension SceneParticleRopeTrailParticle {
 extension SceneParticleRopeTrailHistory {
     mutating func advance(
         snapshots: [SceneParticleStepSnapshot],
-        currentParticles: [SceneParticleState],
+        currentParticles: some Collection<SceneParticleState>,
         layerAlpha: Float
     ) -> [SceneParticleGPUInstance] {
         for snapshot in snapshots {

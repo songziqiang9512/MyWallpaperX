@@ -2247,6 +2247,8 @@
         "script/tests/test_scene_particle_playback_*.py",
         "script/tests/test_scene_particle_visibility_integration.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntimeModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
         "script/tests/fixtures/SceneParticleRuntime*Harness.swift",

@@ -31,9 +31,9 @@ nonisolated struct SceneParticleBuffer: RandomAccessCollection, Equatable, Senda
     /// free capacity; emission budgeting must reserve for it.
     var capacity: Int { storage.capacity }
 
-    /// Materializes the live range for consumers that need an owned array
-    /// (renderer, child and rope inputs). Not called in the simulation loop.
-    var liveArray: [SceneParticleState] { Array(storage[head...]) }
+    /// Shares the contiguous live range; retained views use Array's COW
+    /// isolation when a later simulation step changes the storage.
+    var liveParticles: ArraySlice<SceneParticleState> { storage[head...] }
 
     @inline(__always) nonisolated mutating func append(_ value: SceneParticleState) {
         storage.append(value)
