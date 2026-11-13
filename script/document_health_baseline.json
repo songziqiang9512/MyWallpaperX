@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 599,
-      "bytes": 260198
+      "bytes": 261228
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 186,
-      "bytes": 49506
+      "bytes": 49438
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -501,21 +501,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a6052b6f813da98be43b21cf450efd003bafbe45f61c59b2bc217c27ae42f81a",
-      "after": "ed8e67668497a475601bb874c4b11a45957c04435fa2e6e7224f9d7d1a169b5a",
-      "owner": "Existing Scene current evidence and open queue",
-      "reason": "Record the rejected raw Operator optimization with exact retirement and replace the recovered capture stop with the still-unqualified official glyph positive control. No product policy or performance benefit claimed.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "141403838c55a9b23ca148febb8953b1c879b581e58bd9cd7d9b550834757b8b",
       "after": "58c7b4eecb8fd09a5c76b6d7aca5b4b6bee3c19a420f413f1cd73cc2be9cfe73",
       "owner": "Existing Scene current evidence and open queue",
       "reason": "Record the rejected raw Operator optimization with exact retirement and replace the recovered capture stop with the still-unqualified official glyph positive control. No product policy or performance benefit claimed.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "ed8e67668497a475601bb874c4b11a45957c04435fa2e6e7224f9d7d1a169b5a",
+      "after": "aed86e1dacadd544e36ae437bf46629a094efe88a33794d4ffad69f0c435d2e5",
+      "owner": "Existing Scene Rope current evidence",
+      "reason": "Record one controlled static native/official Rope comparison and its out-of-candidate stop, including the actual capture time deviation. Retire the obsolete visible-producer unknown without choosing a UV fix or expanding default/curved semantics.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rope-958-sampling"
     }
   ]
 }
