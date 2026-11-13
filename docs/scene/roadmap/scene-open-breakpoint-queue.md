@@ -93,7 +93,7 @@
 
 | 输入 | 当前起点 |
 |---|---|
-| 3455121165 | 默认自然墙钟下时钟/星期已正常；[现役独立条件对照](../capabilities/runtime-evidence-current.md#authored-text-depth)确认：仅关107深度仍在官版清晰、本地消失；仅隐后绘84后本地恢复。84材质与纹理均不透明，没有漏alpha证据；不能据此假定opaque分类错或把文字统一后移。重启先资格直接text/模型的官方调度与实际首次覆盖，保opacity文字、近/远模型和画布观察；不重跑本批四开关/84矩阵、重开默认缺钟或用hidden84当修复。固定WALL_DATE会冻结作者Date.now()，保自然墙钟。 |
+| 3455121165 | 默认自然墙钟时钟/星期已正常；[条件资格与停止线](../capabilities/runtime-evidence-current.md#authored-text-depth)确认107深度关闭时的官/本差异及后绘84参与，未证错误opaque分类。独立七区本地正反控成立，官方命名窗虽活着，CUA仍旧图并报noWindowsAvailable；采集STOP，off未开。不重跑四开关/84或这组旧采集；恢复真实窗口—画面绑定后再裁disabled写深度/排序/font批次，保opacity、近远与画布观察，不预选writeOnly或统一overlay，也不重开默认缺钟。 |
 
 ### 基础画面与基本交互优先
 
