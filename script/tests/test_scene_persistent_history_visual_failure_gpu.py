@@ -479,6 +479,24 @@ private enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class ScenePersistentHistoryVisualFailureGPUTests(unittest.TestCase):
+    def test_runtime_failure_keeps_split_history_and_healthy_stages(self) -> None:
+        harness = EXECUTOR_FIXTURE["HARNESS_SUPPORT_SOURCE"] + (
+            Path(__file__).with_name("fixtures") / "ScenePersistentHistoryRuntimeFailureHarness.swift"
+        ).read_text(encoding="utf-8")
+        compilation, completed = compile_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(payload, {
+            "metalAvailable": True, "runtimeHistoryFallback": True,
+            "healthyStageCopyAndSuffix": True, "repeatedFailure": True,
+            "activation": True, "firstFrame": True, "reset": True,
+        })
+
     def test_visual_failure_preserves_committed_history_and_recovers(self) -> None:
         compilation, completed = compile_harness(SUPPORT, HARNESS)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)

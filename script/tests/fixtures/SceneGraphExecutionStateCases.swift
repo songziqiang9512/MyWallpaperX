@@ -724,11 +724,15 @@ extension Harness {
             previous: splitFirst.nextState,
             historyReads: [q1: splitPrevious]
         ))
-        // A bypassing frame keeps history only when the frame used the seed
-        // rehydration: the split's mappingBefore has no readable history.
+        // A split fallback must seed the previous content before committing;
+        // the successful frame's unexecuted copy-back is not readable history.
         let splitAllocationToken = splitAllocation.resources[q1]!.token
         let splitDiscarded = State.discardingUncommittedVisualFailure(
             split, previous: splitFirst.nextState
+        )
+        let splitRehydrated = State.discardingUncommittedVisualFailure(
+            split, previous: splitFirst.nextState,
+            historyRehydration: [splitPrevious.token: splitAllocationToken]
         )
         let seedRehydrated = require(State.reduce(
             graph: splitGraph,
@@ -931,6 +935,10 @@ extension Harness {
             "readBeforeWriteFailure": readBeforeWriteFailure,
             "splitDiscardClosureCount": splitDiscarded?.nextState
                 .historyClosureIdentities.count ?? -1,
+            "splitFallbackMatchesSeed": splitRehydrated == seedDiscarded,
+            "splitFallbackIntents": splitRehydrated.map {
+                kinds($0.transaction.intents)
+            } ?? ["missing"],
             "seedDiscardClosureCount": seedDiscarded?.nextState
                 .historyClosureIdentities.count ?? -1,
             "seedDiscardMappingGeneration": seedDiscarded.map {

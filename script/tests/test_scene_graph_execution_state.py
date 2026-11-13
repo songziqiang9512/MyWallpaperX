@@ -115,8 +115,10 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
             "freshAllocationTokenReuse",
         )
 
-    def test_bypassing_frames_keep_history_only_on_the_seed_path(self) -> None:
+    def test_split_fallback_restores_history_only_after_seeding(self) -> None:
         self.assertEqual(self.result["splitDiscardClosureCount"], 0)
+        self.assertTrue(self.result["splitFallbackMatchesSeed"])
+        self.assertEqual(self.result["splitFallbackIntents"], [])
         self.assertEqual(self.result["seedDiscardClosureCount"], 1)
         self.assertGreater(self.result["seedDiscardMappingGeneration"], 0)
 

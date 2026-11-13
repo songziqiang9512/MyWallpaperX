@@ -15,12 +15,6 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 STATE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift"
 )
-EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
-)
-VISUAL_FAILURE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
-)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
@@ -488,22 +482,6 @@ class ScenePersistentHistoryVisualFailureRollbackTests(unittest.TestCase):
     ) -> None:
         self.assertTrue(self.result["malformedRollbackRejected"])
         self.assertTrue(self.result["localRollbackHasNoPersistentState"])
-
-    def test_product_route_uses_previous_state_and_separates_dependencies(
-        self,
-    ) -> None:
-        executor = EXECUTOR_SOURCE.read_text(encoding="utf-8")
-        visual = VISUAL_FAILURE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("previous: previous", executor)
-        self.assertIn(
-            "preEncodeVisualFailureGraphTopologyIsSupported",
-            visual,
-        )
-        self.assertIn(
-            "transition.nextState.historyClosureIdentities.isEmpty",
-            visual,
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

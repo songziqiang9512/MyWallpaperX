@@ -306,11 +306,19 @@ extension SceneResolvedMaterialGraphExecutor {
             )
         }
 
+        return prepareHistoryRehydration(copies, previous: previous, lease: lease)
+    }
+
+    func prepareHistoryRehydration(
+        _ copies: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy],
+        previous: State,
+        lease: SceneGraphRenderTargetLease
+    ) -> HistoryContext? {
         let oldDescriptors = Dictionary(uniqueKeysWithValues:
             previous.authoredResources.values.map { ($0.token, $0.descriptor) }
         )
         let newDescriptors = Dictionary(uniqueKeysWithValues:
-            nextResources.values.map { ($0.token, $0.descriptor) }
+            lease.framebufferAllocation.resources.values.map { ($0.token, $0.descriptor) }
         )
         var rehydration: [State.PhysicalToken: State.PhysicalToken] = [:]
         var commands: [SceneGraphResourcePassEncoder.PreparedCommand] = []
@@ -334,6 +342,40 @@ extension SceneResolvedMaterialGraphExecutor {
             reads: [:],
             discardsPreviousContent: false
         )
+    }
+
+    func discardVisualFailure(
+        _ transition: State.Transition,
+        previous: State,
+        previousResources: [Graph.TextureIdentity: SceneFrameTextureResource],
+        history: inout HistoryContext,
+        copies: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy],
+        lease: SceneGraphRenderTargetLease,
+        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        commands: inout [Command]
+    ) -> State.Transition? {
+        let wasSplit = !history.reads.isEmpty
+        if wasSplit {
+            guard let seeded = prepareHistoryRehydration(
+                copies, previous: previous, lease: lease
+            ) else { return nil }
+            history = seeded
+        }
+        guard let discarded = State.discardingUncommittedVisualFailure(
+            transition, previous: previous,
+            historyRehydration: wasSplit ? history.rehydration : [:]
+        ) else { return nil }
+        if wasSplit {
+            // The material never encoded its copy-back. Preserve the committed
+            // contents in this frame's allocation only on the fallback path.
+            guard publishRehydratedHistory(
+                transition: discarded, previous: previous,
+                previousResources: previousResources, history: history,
+                lease: lease, publications: &publications
+            ) else { return nil }
+            commands.insert(contentsOf: history.commands.map(Command.resource), at: 0)
+        }
+        return discarded
     }
 
     func readWriteSplitAdmitted(

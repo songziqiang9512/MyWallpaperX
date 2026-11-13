@@ -167,11 +167,29 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     /// never promoted to history.
     static func discardingUncommittedVisualFailure(
         _ candidate: Transition,
-        previous: Self
+        previous: Self,
+        historyRehydration: [PhysicalToken: PhysicalToken] = [:]
     ) -> Transition? {
         guard candidate.transaction.allocationGeneration > 0 else { return nil }
         if !candidate.nextState.historyClosureIdentities.isEmpty {
-            let mapping = candidate.transaction.mappingBefore
+            let preservesPriorGeneration = previous.allocationGeneration != nil
+                && previous.effectGeneration
+                    == candidate.transaction.effectGeneration
+                && previous.resetGeneration
+                    == candidate.transaction.resetGeneration
+            let mapping: [Identity: VersionedResource]
+            if historyRehydration.isEmpty {
+                mapping = candidate.transaction.mappingBefore
+            } else {
+                guard preservesPriorGeneration,
+                      let rebased = rebase(
+                          previous.logicalMapping,
+                          from: previous.authoredResources,
+                          to: candidate.nextState.authoredResources,
+                          rehydrating: historyRehydration
+                      ) else { return nil }
+                mapping = rebased
+            }
             guard !candidate.nextState.historyLogicalIdentities.isEmpty,
                   candidate.nextState.historyLogicalIdentities.isSubset(
                       of: candidate.nextState.historyClosureIdentities
@@ -196,11 +214,6 @@ nonisolated struct SceneGraphExecutionState: Equatable {
                     == candidate.nextState.historyClosureIdentities else {
                 return discardingAllTargetState(candidate)
             }
-            let preservesPriorGeneration = previous.allocationGeneration != nil
-                && previous.effectGeneration
-                    == candidate.transaction.effectGeneration
-                && previous.resetGeneration
-                    == candidate.transaction.resetGeneration
             let lastGeneration: UInt64
             if preservesPriorGeneration {
                 guard previous.lastContentGeneration

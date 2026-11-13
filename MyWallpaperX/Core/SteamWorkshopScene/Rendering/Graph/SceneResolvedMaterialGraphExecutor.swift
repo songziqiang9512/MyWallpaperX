@@ -370,7 +370,7 @@ final class SceneResolvedMaterialGraphExecutor {
             let allowsHistorySplit = historySplitAllowed(
                 capability: capability, frameInputs: frameInputs
             )
-            guard let history = prepareHistoryContext(
+            guard var history = prepareHistoryContext(
                 historyRehydrateCopiesByEffect[effect] ?? [],
                 previous: previous,
                 previousResources: previousResources,
@@ -483,17 +483,14 @@ final class SceneResolvedMaterialGraphExecutor {
                 ) { return .failure(failure) }
             }
             let committedTransition: State.Transition
-            var discardedPersistentTargetState = false
             if effectLocalFailureReasonCode != nil
                 || effectLocalActivationBypassReasonCode != nil,
                !graph.renderTargets.isEmpty {
-                guard let discarded = State.discardingUncommittedVisualFailure(
-                    transition,
-                    previous: previous
+                guard let discarded = discardVisualFailure(
+                    transition, previous: previous, previousResources: previousResources,
+                    history: &history, copies: historyRehydrateCopiesByEffect[effect] ?? [],
+                    lease: lease, publications: &publications, commands: &stageCommands
                 ) else { return .failure(.stateRejected) }
-                discardedPersistentTargetState =
-                    !transition.nextState.historyClosureIdentities.isEmpty
-                        && discarded.nextState.historyClosureIdentities.isEmpty
                 committedTransition = discarded
             } else {
                 committedTransition = transition
@@ -532,7 +529,9 @@ final class SceneResolvedMaterialGraphExecutor {
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
                 effectLocalActivationBypassReasonCode:
                     effectLocalActivationBypassReasonCode,
-                discardedPersistentTargetState: discardedPersistentTargetState,
+                discardedPersistentTargetState:
+                    !transition.nextState.historyClosureIdentities.isEmpty
+                        && committedTransition.nextState.historyClosureIdentities.isEmpty,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
                 fullFramePairIsShared: lease.fullFramePairStorage == .shared,

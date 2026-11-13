@@ -564,11 +564,13 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 固定x64同版本默认provider的有界静态读取为约29ms有效段加编码静音尾，FFT长度1920/2089（44.1/48kHz），分组bin 1–639。与本机约85ms去DC/Hann的频谱在泄漏、低频及常值输入上有可区分差异；换带轴无法恢复被窗口改变的值。此事实尚未配对运行中x86的原始PCM及原始64谱。探针源、数表、独审、编译结果与可复现收据归`.artifacts/scene-audio-band-projection-20261109/`。
 
 <a id="stale-history-seed"></a>
-## 运行时失败后的 stale history seed
+## 运行时材料失败后的历史保持
 
-`SceneResolvedMaterialGraphExecutor.prepareHistoryContext` 原先在 effect 已提交状态被运行时材料失败丢弃（`discardingAllTargetState`：`effectGeneration` 清空、闭包为空）而 allocator 仍按保留的历史分配提供 `historyRehydrateCopies` 时，因 `guard preservesPriorState || copies.isEmpty` 返回 `historyRejected`，下一帧整层进入 `framePreparationFailureLocked`。现改为无 prior state 时直接返回空 context：stale copies 不编码，本帧按 plan 首帧初始化重建（history target 无 authored clear 时即 transparent history seed，342 属此；本夹具为 authored clear）。
+成功帧保持 history split；运行时材料局部失败按需 seed 已提交内容，撤销该 effect 本帧未执行的材质和写回，不再清掉已有拖尾。没有 prior state 的 stale copies 仍忽略并按首帧初始化；reset 不恢复旧内容。合同归[历史读写分离](render-graph-shader-coverage.md#history-read-write-split)。
 
-`test_scene_persistent_history_visual_failure_gpu` 新增"已丢弃状态 + fresh lease 的 seed copies"场景，并与同帧"无 previous、无 copies"的独立首帧初始化参照比较。输入为工作树 `f31c1b775` 加本批 1 个产品文件与 1 个测试文件；修复前 harness 在 executor 返回 `history-rejected` 处终止，修复后 `historyRehydrateCopyCount==0`、intents 与首帧参照完全相同（含 `initialize`），GPU 读回像素与参照一致；该夹具 history target 带 authored clear，故重建走 `.authoredClear`，不据此单独声称 transparent seed。该门只授 executor 状态合同与首帧初始化重建像素，不授真实 App 中运行时失败的发生频率、可见拖尾、完整画面或性能。
+`test_scene_graph_execution_state` 与 `test_scene_persistent_history_visual_failure_rollback` 共 19 项通过；`test_scene_persistent_history_visual_failure_gpu` 两项通过。新增三 effect 夹具建立可区分的非透明历史，再让中间 effect 的末材质缺少实际 host ambient 输入；其先前已准备的材质和 copy 被撤销，只有失败 effect 按需补 seed，前后健康 effect 继续。读回覆盖连续失败、恢复、首帧、reset 和 activation；fresh lease token 只证明映射，不单独证明 allocator/pin 生命周期。原 capability-level 和 stale-seed 首帧反例保持；已无行为价值的旧源码字符串测试退役。
+
+本次签名普通 Debug 的 4615 个构建输入前后无漂移，主 executable `fe4f1e98…56186`、实现 dylib `b6e2d2fe…5c7166`、metallib `87d66fcf…a1bd`。3420215721、独立粒子 3742497499 与世界模型文字 3455121165 原包短运行均 PASS，Graph 合同、终端 PNG 和停止排空成立；342 的 1408 条 graph 记录含 410 reused、6 seeded，所有 historyRehydrateCopyCount 为 0，保成功帧 split。画面已核主体、粒子/文字与历史效果；并未在这些原包中注入材料失败或进行同相位官方/性能比较。原 `test_scene_reflection_history_integration` 的 4 项 App/Metal 反射、深度和 history 生命周期方法通过；它补独立生命周期邻例，不代替原包材料失败注入。必要证据归 `.artifacts/scene-evidence/runs/scene-three-repairs-20261113`；构建输入与 focused 结果归 `.artifacts/scene-three-repairs-20261113/`。
 
 <a id="particle-prewarm-hotpath"></a><a id="particle-lead-death-buffer"></a>
 ## 粒子预热热路径与死亡处理

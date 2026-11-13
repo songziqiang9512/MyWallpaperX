@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
-      "bytes": 56807
+      "bytes": 55614
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 587,
-      "bytes": 253135
+      "lines": 589,
+      "bytes": 253690
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 52874
+      "lines": 188,
+      "bytes": 51975
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -411,15 +411,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ceb5cc93a57a1b844b0507f826a72ee5c5eef8c791b5af2df514d1cd801339e4",
-      "after": "4db930019af1ee7d50f8c54afab88ec904b992ea2c3eea3acb1d5dc57254e28c",
-      "owner": "Scene graph history",
-      "reason": "Record the shipping-config history-split runs, stale-seed first-frame rebuild and bounded remaining pixel/reset gaps.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#history-read-write-split"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
       "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
@@ -474,24 +465,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e6127f1166a6c0154cab5079cb86c4c6efe73358d2dadc1cde4b90747a5c6249",
-      "after": "069431b0170db8b7dc9153f07ed8efe4703438e875af2d8f13452db4e742e11f",
-      "owner": "Scene runtime evidence",
-      "reason": "Consolidate the three particle-prewarm batches into one current section with the new interleaved A/B, payload-copy mechanism and limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dd8fa5ee7b58259d5a20c41a2c5497eb654236e53746d82c4a3873adfa76938e",
-      "after": "568b83c9843a85d7f23ad63cd90782100c007951be22ef6c243e90cf4f9e906d",
-      "owner": "Scene open queue",
-      "reason": "R8 gate recovery: realtime/effect-draw/terminal fixtures restored; remaining drift classified with evidence.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "593c325e5e45c16dd02a2d072c9878b782f2bc4e7e97ae5a2191b65d33771897",
       "after": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
@@ -534,6 +507,24 @@
       "owner": "App/Shell immersive UI design",
       "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
       "decision": "docs/development/immersive-ui-execution-plan.md#entry"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "069431b0170db8b7dc9153f07ed8efe4703438e875af2d8f13452db4e742e11f",
+      "after": "d363f51ac8d08eecd74633e66efbd6f66b36a21a18af7bda665b3949b6c5d1b9",
+      "owner": "Scene capability and runtime evidence",
+      "reason": "Record bounded repair verification and retire stale claims without changing product validation limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stale-history-seed"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "568b83c9843a85d7f23ad63cd90782100c007951be22ef6c243e90cf4f9e906d",
+      "after": "26f659da6d825c52daa4c64d1d40ec4b4f255c951e7a4ef943614229a2f31314",
+      "owner": "Scene capability and runtime evidence",
+      "reason": "Record bounded repair verification and retire stale claims without changing product validation limits.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
     }
   ]
 }
