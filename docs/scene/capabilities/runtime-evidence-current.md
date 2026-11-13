@@ -586,6 +586,11 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 `test_scene_property_vector_script` 的生产 Swift/C 夹具覆盖 32 组 init-only、Timeline 休眠、属性 refresh 与 init+update，以及字面值/改名等价表达式。旧 no-update 投影在 18 组非有限返回中报 bad-return；改用原 SceneScript 数值域后，37 项测试通过，NaN/负无穷沿 typed snapshot 到实际 alpha 消费函数映射为 0，正无穷为 1。16 项 setter、authored/user/Timeline、brightness、bound data property 与返回类型反例保留原限制，131 个编译输入仅 runtime 发生变化。证据归 `.artifacts/scene-init-only-alpha-20261113/verification.json`；这只证明 QuickJS 到 alpha 消费函数，不单独授该输入的 Metal 像素、实际 App 或官方行为。
 
+<a id="rescreen-recent-inputs"></a>
+## 已知反馈与近期目录复筛
+
+2026-11-13复用[本次签名Debug候选](#stale-history-seed)（exec/dylib/metallib逐项一致），无重建。全目录轻入口盘点764项，762份project解析、3736952187/3763323436缺project；未全读包，不称762份Scene合法。18项专用census均完整解析，其身份直接供matrix；2项已知反馈3437487219/3477054430加16个近期目录候选均默认4秒短窗PASS，Ready/终端PNG/GPU完成/排空俱全，逐图未见主体缺块/错层。后14项为jobs2诊断，非性能资格；source/meta、完整ID、输入与原始事实归`.artifacts/scene-evidence/runs/scene-rescreen-20261113`，辅助入口库存归`.artifacts/scene-rescreen-20261113`。缺11-07完整身份基线，不把16项认定严格新增；六世界目录近期仅补参考PNG，不能据此重开旧STOP。Earth亮侧/Cloud Chroma和完整受光仍未知；347紫边对应作者默认moonlightcolor及同帧u_Color，灰色旧图未锁属性/相位，不据此修色。其余音频、鼠标、媒体、随机文字与周期分支未触发保未知。两活动父链新定位同一冷拒：2657524136/194的FIRE follow/prob1、scale(.5,1.5,1)，3485662637/424的GlowNew spawn/prob.4、scale(20,3,1)，均因ChildTransform要求XY相等而unsupportedTransform。265同父follow兄弟已创建并在终帧绘制；348同父spawn兄弟在T0实际出生、终帧已退，systems0不证明从未请求，仍不能授被拒模板本次像素贡献或spawn抽样结果。下一资格是原child几何独立XY缩放，不能仅删门。主景PASS不授这些局部能力已执行或官方parity；18项逐图和活动失败分母有独立只读复核。
+
 <a id="limits"></a>
 ## 未取得的资格
 

@@ -129,8 +129,8 @@
       "bytes": 55614
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 594,
-      "bytes": 253999
+      "lines": 599,
+      "bytes": 255722
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 51075
+      "bytes": 50501
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -493,11 +493,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ef9864f11774e81bd201e39f8e5f74f82e883c038eaa09ef11583dbddc284620",
-      "after": "59ab45f6d383c73b3ae4a2a6a63b41bd6be332d441f135ed291f557df24d3a4e",
-      "owner": "Scene capability and runtime evidence",
-      "reason": "Record bounded repair verification and retire stale claims without changing product validation limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#stale-history-seed"
+      "before": "59ab45f6d383c73b3ae4a2a6a63b41bd6be332d441f135ed291f557df24d3a4e",
+      "after": "6db17bb7406a622c5fee60dc0b321fc6d76dcc0275d6d4d87febde686a32eaa9",
+      "owner": "Scene runtime evidence",
+      "reason": "Record the bounded eighteen-input rescreen and two independently observed child-transform preparation rejections; retain explicit denominator and trigger limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#rescreen-recent-inputs"
     }
   ]
 }

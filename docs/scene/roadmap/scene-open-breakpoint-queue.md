@@ -4,7 +4,7 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-2026-11-07 按已知问题定位与新增目录复测：176个已知作者定位和115个新增目录不重合；291个定位中2项已移除、2项仍缺输入，287个合法输入均已实际运行。该R0中285项取得Ready、终端PNG与GPU排空。3808922316后续见下表；3834591400的同输入首帧失败[已恢复](../capabilities/runtime-evidence-current.md#forward-visible-program-input)。历史分母保持，原始CHECK不作当前缺陷数。当前统计与非默认条件结果归[运行证据](../capabilities/runtime-evidence-current.md#coverage)。
+2026-11-13 定向复筛：764个目录中762份project可解析、2份缺失；这不是全包合法输入数。两项未STOP的已知反馈与16个近期目录候选共18份完整入口可解析，默认短窗均取得Ready、终端PNG与GPU排空。缺11-07完整身份快照，16项不认领严格新增；各阶段事实及剩余条件归[运行证据](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)。旧R0分母与原CHECK保在同证据页，不作当前缺陷数。
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
@@ -15,6 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| Child 非等比平面缩放 · 2657524136/194、3485662637/424 | 两条活动父链的Sprite child分别为follow/prob1、spawn/prob.4，scale为(.5,1.5,1)/(20,3,1)，均先被原XY相等门拒绝；同父出生及健康兄弟事件消费者已实证。先核局部变换到实际Sprite几何的缩放/旋转顺序，再沿原准备/实例/批次uniform接入，保uniform与其他renderer；不只删guard，未取得FIRE/Glow像素贡献。详见[复筛证据](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)。 |
 | REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
 | 启动仍慢 · 3808922316 | 原90秒超时已退出；当前同配置原包首屏主要由预热构成。三批等价替换后同构建 A/B：①（逐粒 reset 只写实际使用属性、有限性校验向量化）prewarm 41,950.6→35,448.3ms、Ready 48,608.0→41,530.5ms；②（队首死亡前缀存储 `SceneParticleBuffer`、死亡扫描借用 live buffer）prewarm→28,718.3ms（−19.0%）、Ready→35,979.6ms（−13.4%）；③（死亡扫描只对需要消费者的死亡复制 payload、预热期跳过无消费者事件 payload）交错 A/B：prewarm 29,128.7→20,773.3ms（−8.36s，−28.7%）、Ready 36,340.7→27,573.5ms（−8.77s，−24.1%）；④（无 radius-maintaining Vortex 时 Movement 走线性积分、AlphaFade guard 提升）交错 A/B：prewarm 21,199.7→20,268.4ms（−0.93s，−4.4%）、Ready 29,139.7→27,681.6ms（−1.46s，−5.0%）；相对优化前诊断基线累计 prewarm −51.7%、Ready −43.1%。证据归[预热热路径](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)与[前缀存储](../capabilities/runtime-evidence-current.md#particle-lead-death-buffer)。剩余热点为算子数学（隔离 harness HEAD 总时长 38.5s 中约 17.3s，本批后总时长 29.2s）、逐粒 reset 与 emit；下一步只追可证明的完整工作减少或可区分活动创建/时长的新官版证据；不重做已退出的数组访问、不原样重跑、加预算、跳隐藏或跳过该 root 预热，也不再做无当前阶段证据的结构改造。剩余百分比来自有界采样，仅作估计。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |
@@ -62,7 +63,7 @@
 | 着色器类型回归预期 | `test_scene_shader_global_scope.test_float2_arithmetic_does_not_cross_unproven_expression_boundaries` 的 user-call/normalize 仍期待不补`.xy`，与现有typed复合求值后窄化合同冲突；同输入旧/新产品都补`.xy`。其余9方法通过、GPU独立项1skip；按真实类型与编译/像素修订这两条旧预期，不能撤回合法转换迎合测试。 |
 | 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍超过1000行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码行数与职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
 | 条件/周期分支 | 3768303048本轮manual day/night的122/109及夜雪59有效显隐已成立，day sticky unavailable59对应隐藏，不能判活动粒子失败；真实时钟与pointer未资格。3042492564原树click父链隐藏，派生media条件已供货且有click后738绘制，仍缺首次出生回执/无click对照，不授点击因果。3764725758/3830665420第二轮仍未知，长窗不代完整事件。 |
-| 存量回归夹具与产品源漂移 | 2026-11-12 R7 已修 4 个粒子漂移模块，全量粒子 focused 40/40 ALL OK。R8 又修 3 个：`test_scene_realtime_path_policy`（删除已失效的 launchDefinition 字面量与 single load-action 源码形状断言——`check_test_assertions` 禁止新增形状镜像；保留同模块已有的“merge 只在 schema、FrameDriver 不重 merge”断言，clearEnabled 语义另由多个渲染门覆盖）；`test_scene_effect_draw_alpha` 与 `test_scene_terminal_material_graph`（fixture `SceneGraphExecutorGraphInputs.swift` 的 `Graph` alias 从 private 放开，Support.swift 拼接文本恢复可见；terminal 另按 `1fb165dc0`“inactive material 直接捕获到 terminal target”修 copy 期望：all-inactive 且无 replay 时不产生中间 copy），两模块均全绿，邻近 `test_scene_resolved_material_graph_executor`/`graph_execution_state` 全绿。收据 `.artifacts/gate-recovery-r8/`。仍开放且已定性：`test_scene_preserved_channel_frame_local_unique` 的 `composition-consumer-external-refused` flag、`test_scene_resolved_material_pass_encoder` 的 9 个 binary-archive/pipeline flag、`test_scene_external_primary_visual_failure_passthrough` harness 的 `providerResource`/`providerTexture` 标识符改名、`test_scene_resolved_material_program_derivation` 5 个 prepared-assembly flag——均需按真实产品入口/提交证据重定期望，非源集缺失；`test_scene_material_program_census` 在补 `PackageBacking` 闭包后仍会被 harness 内与产品重复的 `SceneResolvedMaterialProgram.PreparedAssembly`/`SceneTextureLoadPurpose` stub 顶住（本轮尝试已回退），需专门整理 census harness 与产品源边界；`test_document_registry`/`role_index` 因 `docs/architecture/Scene-Engine-Architecture-Design.md`（另一会话 f31c1b775）未登记而红，需其 owner 补登记或归档。依赖 gate 的 `SceneResolvedMaterialUniformProjection→DirectUserBindingContract` 边仍 open（搬迁实验会波及 fixture/source-set 清单，已回退；ratchet 拒绝 baseline 扩张），需专门设计批次。沿真实入口逐个修或删除无独立价值断言，修后重跑对应 focused 组。 |
+| 存量回归夹具与产品源漂移 | `test_scene_preserved_channel_frame_local_unique` 的 `composition-consumer-external-refused` flag、`test_scene_resolved_material_pass_encoder` 的 9 个 binary-archive/pipeline flag、`test_scene_external_primary_visual_failure_passthrough` harness 的 `providerResource`/`providerTexture` 标识符改名、`test_scene_resolved_material_program_derivation` 5 个 prepared-assembly flag——均需按真实产品入口/提交证据重定期望，非源集缺失；`test_scene_material_program_census` 在补 `PackageBacking` 闭包后仍会被 harness 内与产品重复的 `SceneResolvedMaterialProgram.PreparedAssembly`/`SceneTextureLoadPurpose` stub 顶住（本轮尝试已回退），需专门整理 census harness 与产品源边界；`test_document_registry`/`role_index` 因 `docs/architecture/Scene-Engine-Architecture-Design.md`（另一会话 f31c1b775）未登记而红，需其 owner 补登记或归档。依赖 gate 的 `SceneResolvedMaterialUniformProjection→DirectUserBindingContract` 边仍 open（搬迁实验会波及 fixture/source-set 清单，已回退；ratchet 拒绝 baseline 扩张），需专门设计批次。沿真实入口逐个修或删除无独立价值断言，修后重跑对应 focused 组。 |
 
 ## 需定向扩域的能力入口
 
@@ -134,7 +135,7 @@
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
-| 3437487219 | Earth亮侧/云层光色；Cloud Chroma MR/specular/pigment及coverage，另分闪烁与collision。 |
+| 3437487219 | [本轮短窗](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)地表、云纹、昼夜界、大气与时钟完整，未得基础缺图首错。Cloud Chroma/MR/specular/pigment与精确受光、闪烁/collision仍须同条件ROI；不据旧参考亮侧差或默认PNG调灯。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |
 | 3768724269 /3287715210 | 光束范围/根部/右上渐变；眼周亮度/渐变与横移细竖纹分别定位。 |
@@ -143,7 +144,7 @@
 | 3248220186 /3337494481 | 前者运动/密度/亮度；后者跨面文字、扁盒/粉顶、遮挡与solid亮度。 |
 | 2938612768 /2775915974 | 293默认裁屏已沿[原文字与画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)定位，重启须点击/更晚相位的具体新差异，不重复默认移位对照或改anchor；277顶部灰边仍须实际画幅/图层与相位资格。 |
 | 3712499998 | 作者明确声明21→22、28→29、33→34三对文字，子层有独立近邻位置及压缩Y scale；原R0六层均有效visible，不能将副本文字直接判引擎重复draw或删child。样式反馈仍开，重启须具体glyph/geometry/样式差异及同viewport/phase消费者或官方参考，不重跑原默认短窗；薄事实在`.artifacts/scene-text-pairs-371-next-20261109/`。 |
-| 3477054430 | 显示完整性、月亮/球体/文字、低频与猫受光，逐ROI定位。 |
+| 3477054430 | [本轮短窗](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)月亮、猫、耳机与楼体完整；紫月边对应默认moonlightcolor及同帧u_Color，不立配色缺陷。完整运动、低频响应与受光仍待明确同条件ROI，不重复默认整景。 |
 | 3764725758 /3549827466 /3581882134 | 左斜光/眼睛漂动、缺光ROI与暖亮/冷暗来源。 |
 | 3723344874 /3793998447 /3792249095 | 人物后烟雾涡动、音频属性差异、外圈样式及内外位置。 |
 | 3042492564 /2932157836 | 光束/右裁切/blur/布局/媒体交互、精确spin及媒体仲裁。 |
@@ -179,7 +180,6 @@
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 3292370168普通Debug准备与505资格 | 读口跨帧误判和无需求记失败的生产逻辑已沿[观测证据](../capabilities/runtime-evidence-current.md#execution-observation-history)修正；原日志不改。当前`-Onone`/exe886b在4秒观察＋60秒准备监督期限未Ready，末记录first-surface-join4159ms，不能授505实际记账或归为11个播放故障。旧R0为`-O`诊断，不能跨配置判回退。先凭真实准备工作/栈或同配置证据定位，不原样重跑或加预算；`.artifacts/scene-startup-329-next-20261108/`保后继只读入口。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
-| Compilation / Rendering 依赖门 | 原 HEAD `c131654c9` 与本批均因 `SceneResolvedMaterialUniformProjection` 消费 `SceneResolvedMaterialDirectUserBindingContract` 超出当前登记而失败；未新增边。后续沿实际 prepared contract 职责裁决公共边或归属，不为过门扩大基线；原 HEAD 的 `Scene-Engine-Architecture-Design.md` 也未登记而阻断 document-registry；文件与索引未改，本批分开记录，不改 UI/架构提案或扩大基线。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 官方原生采集 | [原作者窗](../capabilities/runtime-evidence-current.md#beam-contribution)已复核刷新，当前仅定性。量测仍须沿[采集方法](../../../.agents/skills/mywallpaperx-maintainer/references/parallels-official-oracle.md)取得有效同窗像素或实际draw数值；黑图和相机getter不能授几何资格。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
