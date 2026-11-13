@@ -1,6 +1,191 @@
 import Foundation
 
 extension Harness {
+    static func initializedScalarCases(_ fixture: PropertyVectorFixture) -> PropertyVectorObservations {
+        let target = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let alphaDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 10, layerIndex: 0, name: "Initialized alpha", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], scaleHasScript: false,
+            alpha: 1, effects: [])])
+        let variants = [
+            ("nan", "value", "return NaN;"),
+            ("nan-renamed", "incoming", "const zero = incoming - incoming; return zero / zero;"),
+            ("negativeInfinity", "value", "return -Infinity;"),
+            ("negativeInfinity-renamed", "seed", "const denominator = 0; return -seed / denominator;"),
+            ("positiveInfinity", "value", "return Infinity;"),
+            ("positiveInfinity-renamed", "initial", "return initial / (initial - initial);"),
+            ("finite", "value", "return 0.25;"),
+            ("finite-renamed", "authored", "const quarter = authored / 4; return quarter;"),
+        ]
+        func encoded(_ value: SceneDynamicValue?) -> String {
+            guard case let .scalar(number)? = value else { return "missing" }
+            if number.isNaN { return "nan" }
+            if number == .infinity { return "positiveInfinity" }
+            if number == -.infinity { return "negativeInfinity" }
+            return String(number)
+        }
+        let refreshDefinition = SceneUserPropertyDefinition(
+            key: "refresh", title: "Refresh", kind: .slider, runtimeType: "slider",
+            order: 0, index: nil, minimumValue: nil, maximumValue: nil,
+            stepValue: nil, allowsFractionalValues: true, fractionalPrecision: nil,
+            displayCondition: nil, defaultValue: .number(1), options: [])
+        var observations: [String: [String: Any]] = [:]
+        for variant in variants {
+            let (label, parameter, body) = variant
+            for mode in ["initOnly", "timelineInitOnly", "propertiesInitOnly", "initAndUpdate"] {
+                let properties = mode == "propertiesInitOnly"
+                let source = """
+                    let starts = 0;
+                    let initializedValue;
+                    export function init(\(parameter)) {
+                        if (++starts !== 1) throw new Error('init repeated');
+                        initializedValue = (() => { \(body) })();
+                        return initializedValue;
+                    }
+                    """ + (mode == "initAndUpdate" ? """
+                    export function update(value) {
+                        if (starts !== 1 || !Object.is(value, initializedValue))
+                            throw new Error('initial value lost');
+                        return value;
+                    }
+                    """ : "") + (properties ? """
+                    export var scriptProperties = createScriptProperties()
+                        .addSlider({name:'refreshValue', value:1}).finish();
+                    export function applyUserProperties(changed) {
+                        if (starts !== 1) throw new Error('properties lost initialization');
+                        thisLayer.origin = new Vec3(starts, scriptProperties.refreshValue, 0);
+                    }
+                    """ : "")
+                let metadata: [String: SceneJSONValue] = properties ? ["refreshValue":
+                    .object(["user": .string("refresh"), "value": .number(1)])] : [:]
+                let vm = SceneScriptScalarProgram.compile(domain: fixture.domain,
+                    descriptor: alphaDescriptor,
+                    scriptBindings: [alphaBinding(source: source, value: 1, properties: metadata,
+                        wrapperKeys: properties ? ["script", "scriptproperties", "value"] : ["script", "value"])],
+                    userPropertyDefinitions: properties ? [refreshDefinition] : [],
+                    timelineTargets: mode == "timelineInitOnly" ? [target] : [],
+                    generation: UInt64(1_800 + observations.count))
+                fixture.retained.append(vm)
+                let owners = vm.bindings.map(ObjectIdentifier.init)
+                var input: [SceneDynamicTarget: SceneDynamicValue] = [target: .scalar(1)]
+                let index = SceneDynamicSnapshotResolver.prepare(definitions: vm.definitions)
+                var settled = SceneDynamicSnapshotResolver().resolve(frameIndex: 0,
+                    generation: vm.generation, index: index)
+                var values: [String] = [], alphas: [Float] = [], sources: [String] = []
+                var failures: [String] = [], sleeping: [Bool] = [], publishes: [Bool] = []
+                var refreshObserved = !properties
+                for step in 0..<4 {
+                    let refresh = step == 2
+                    let frame = SceneScriptFrameInput(timing: .init(
+                        wallDate: Date(timeIntervalSince1970: Double(step)),
+                        simulationFrameTime: 1.0 / 60, sceneTime: 2 + Double(step)),
+                        timeZone: TimeZone(secondsFromGMT: 0)!)
+                    let evaluated = vm.evaluate(inputs: input, frame: frame,
+                        effectivePropertyValues: properties ? ["refresh": .number(step < 2 ? 1 : 2)] : [:],
+                        propertyRevision: step < 2 ? 1 : 2,
+                        targetFilter: refresh ? target : nil, propertyRefresh: refresh)
+                    settled = SceneDynamicSnapshotResolver().resolve(frameIndex: UInt64(step),
+                        generation: vm.generation, index: index, base: settled,
+                        sceneScriptValues: evaluated.values)
+                    values.append(encoded(settled.snapshot[target]?.value))
+                    alphas.append(SceneDynamicLayerValues.alpha(layerID: 10, authoredValue: 1, snapshot: settled.snapshot))
+                    sources.append(settled.snapshot[target]?.source.rawValue ?? "missing")
+                    failures += evaluated.failures.values.map(\.code)
+                    sleeping.append(vm.bindings.first?.requiresFrameEvaluation == false)
+                    publishes.append(evaluated.values[target] != nil)
+                    if refresh, properties {
+                        refreshObserved = evaluated.layerMutations.contains {
+                            $0.fields.contains(.origin) && $0.origin == SIMD3(1, 2, 0)
+                        }
+                    }
+                    input = settled.snapshot.values(for: vm.inputTargets)
+                }
+                observations[mode + "/" + label] = ["values": values, "alphas": alphas,
+                    "sources": sources, "failures": failures, "sleeping": sleeping, "publishes": publishes,
+                    "oneOwner": owners.count == 1 && owners == vm.bindings.map(ObjectIdentifier.init),
+                    "initialized": vm.bindings.first?.needsInitialization == false,
+                    "enabled": vm.disabledTargets.isEmpty, "refreshObserved": refreshObserved]
+            }
+        }
+        var counterexamples: [String: Bool] = [:]
+        for (ordinal, expression) in ["NaN", "-Infinity", "Infinity"].enumerated() {
+            let setter = """
+                export function init(value) {
+                    let rejected = false;
+                    try { thisLayer.alpha = \(expression); } catch (error) { rejected = true; }
+                    if (!rejected) throw new Error('non-finite setter accepted');
+                    return 0.25;
+                }
+                """
+            let setterVM = SceneScriptScalarProgram.compile(domain: fixture.domain,
+                descriptor: alphaDescriptor,
+                scriptBindings: [alphaBinding(source: setter, value: 1, wrapperKeys: ["script", "value"])],
+                generation: UInt64(1_950 + ordinal))
+            fixture.retained.append(setterVM)
+            let setterResult = setterVM.evaluate(inputs: [target: .scalar(1)], frame: fixture.frame)
+            counterexamples["setter/" + expression] = setterVM.bindings.count == 1
+                && setterResult.failures.isEmpty && scalar(setterResult.values[target]) == 0.25
+                && !setterResult.layerMutations.contains { $0.fields.contains(.alpha) }
+
+            let source = "export function init(value) { return \(expression); }"
+            var descriptor = fixture.descriptor
+            descriptor.layers[0].brightness = 1
+            descriptor.layers[0].supportsUserPropertyImageSourceModulationConsumer = true
+            let original = alphaBinding(source: source, value: 1, wrapperKeys: ["script", "value"])
+            let brightness = SceneScriptBindingIR(source: source, owner: original.owner,
+                targetPath: [.key("objects"), .index(0), .key("brightness")], properties: [:],
+                authoredValue: .number(1), valueType: .number, wrapperKeys: ["script", "value"])
+            let brightnessTarget = SceneDynamicTarget.layer(layerID: 10, field: .brightness)
+            let brightnessVM = SceneScriptScalarProgram.compile(domain: fixture.domain,
+                descriptor: descriptor, scriptBindings: [brightness], generation: UInt64(1_960 + ordinal))
+            fixture.retained.append(brightnessVM)
+            let rejected = brightnessVM.evaluate(inputs: [brightnessTarget: .scalar(1)], frame: fixture.frame)
+            counterexamples["brightness/" + expression] = brightnessVM.bindings.count == 1
+                && rejected.values[brightnessTarget] == nil && rejected.failures[brightnessTarget]?.code == "bad-return"
+
+            let definition = SceneDynamicTargetDefinition(target: target, valueType: .scalar, authoredValue: .scalar(1))
+            let number = ordinal == 0 ? Double.nan : (ordinal == 1 ? -.infinity : .infinity)
+            let user = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [definition], userValues: [target: .scalar(number)])
+            let timeline = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [definition], timelineValues: [target: .scalar(number)])
+            let authored = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [.init(target: target, valueType: .scalar, authoredValue: .scalar(number))])
+            counterexamples["strictSources/" + expression] = !SceneScriptValueOwner.acceptsScalar(number, for: target)
+                && user.snapshot[target]?.source == .authored && scalar(user.snapshot[target]?.value) == 1
+                && timeline.snapshot[target]?.source == .authored && scalar(timeline.snapshot[target]?.value) == 1
+                && authored.snapshot[target] == nil
+
+            let boundSource = "export function init(value) { thisObject.held = \(expression); return value; }"
+            let boundTarget = SceneDynamicTarget.effectConstant(layerID: 10, effectIndex: 0, passIndex: 0, name: "held")
+            let boundDescriptor = SceneRenderDescriptor(layers: [.init(
+                id: 10, layerIndex: 0, name: "Bound scalar", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], scaleHasScript: false,
+                alpha: 1, effects: [.init(name: "Bound pass", effectID: 100, passes: [.init(
+                    passIndex: 0, id: 200, constantShaderValues: ["held": .init(
+                        scriptSource: boundSource, components: [1])])])])])
+            let boundVM = SceneScriptScalarProgram.compile(domain: fixture.domain, descriptor: boundDescriptor,
+                scriptBindings: [passBinding(key: "held", source: boundSource, value: 1)],
+                generation: UInt64(1_980 + ordinal))
+            fixture.retained.append(boundVM)
+            let bound = boundVM.evaluate(inputs: [boundTarget: .scalar(1)], frame: fixture.frame)
+            counterexamples["boundData/" + expression] = boundVM.bindings.count == 1
+                && bound.values[boundTarget] == nil && bound.failures[boundTarget]?.code == "bad-return"
+        }
+        for (ordinal, expression) in ["false", "'0.25'", "new Vec3(1, 2, 3)", "undefined"].enumerated() {
+            let source = "export function init(value) { return \(expression); }"
+            let vm = SceneScriptScalarProgram.compile(domain: fixture.domain, descriptor: alphaDescriptor,
+                scriptBindings: [alphaBinding(source: source, value: 1, wrapperKeys: ["script", "value"])],
+                generation: UInt64(1_970 + ordinal))
+            fixture.retained.append(vm)
+            let evaluated = vm.evaluate(inputs: [target: .scalar(1)], frame: fixture.frame)
+            counterexamples["typedInit/" + expression] = vm.bindings.count == 1 && (expression == "undefined"
+                ? evaluated.failures.isEmpty && scalar(evaluated.values[target]) == 1
+                : evaluated.values[target] == nil && evaluated.failures[target]?.code == "bad-return")
+        }
+        return ["initializedScalars": { ["cases": observations, "counterexamples": counterexamples] as [String: Any] }]
+    }
+
     static func passCases(_ fixture: PropertyVectorFixture) -> PropertyVectorObservations {
         let descriptor = fixture.descriptor
         let domain = fixture.domain

@@ -839,7 +839,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     }
 
     /// The existing no-update value projection also serves sleeping owners.
-    /// It reads only a finite data property; no callback, timer or journal runs.
+    /// Bound data properties stay finite; unbound input keeps Script Number
+    /// semantics. No callback, timer or journal runs.
     func scalarValueWithoutUpdate(
         input: Double, expectedGeneration: UInt64
     ) -> Result<(value: Double, followsInput: Bool), SceneScriptScalarRuntimeFailure> {
@@ -849,7 +850,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         }
         return boundScalarValue().flatMap { bound in
             let value = bound ?? input
-            guard Self.acceptsScalar(value, for: target) else {
+            guard Self.acceptsScalarDomain(value, for: target) else {
                 return .failure(.badReturn("invalid bound scalar output"))
             }
             return .success((value, bound == nil))

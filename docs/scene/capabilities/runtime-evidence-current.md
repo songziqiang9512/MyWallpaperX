@@ -581,6 +581,11 @@ F165的Z和alpha分别反推两步、约.167模拟秒的新生；撤回候选F13
 
 既有等价性用隔离 harness 的扩展 digest（粒子全字段+vortexRadius 存在性/值+simulationTime+random.state+nextParticleID+normalizedLives+emitter 进度+振荡缓存 key）对比 HEAD 与本批产品源，starfield 与 22 个合成边界定义（fade 端点、radius 准入/拒绝、gravity、overflow、long-lived）全部相等；反汇编确认 fast/slow 分支与内联除法替代了原 out-of-line 调用。`test_scene_particle_prewarm_work` 的 orderedDeaths 仍断言死亡事件 payload 是算子后值（0.5），覆盖 prefix/interior/mixed/all 死亡与属性重置掩码、事件清空/live 恢复；受影响 10 个粒模块在批源上全 OK。死亡 payload 阶段的隔离 harness 10.0→1.8s；3420215721 log-only + `--require-graph-execution` 回归 PASS。限制：A/B 交错每组只 3 场、单样本/root；只授该诊断构建与冷启动预热/Ready，不授正式 Release、presented、能耗或全库。非零死亡前缀曾让 live-range 交接按显示帧复制整份粒子；现改共享 ArraySlice，不新增缓存或 owner，仅 transient Sprite 合并保原物化排序。13 项预热门用实际地址验证 head 1…63、零步复用、COW 隔离与 restore；旧 Buffer/Simulator 的 63 组地址断言均失败。真实 Runtime 的 Sprite/SpriteTrail/Rope/RopeTrail、root/static child/follow/depth-two 与 compact control 的全部 GPU 字段、状态/RNG/事件一致，零步和 rollback replay 保持，multiple-renderer 的 Debug/Release 与原 8 项 Debug 行为方法通过。仅消除交接复制，不宣称 Rope 几何准备零分配或授逐帧性能/能耗；共同 App 邻例见[本次复验](#stale-history-seed)。
 
+<a id="init-only-scalar-publication"></a>
+## 仅初始化脚本的标量发布
+
+`test_scene_property_vector_script` 的生产 Swift/C 夹具覆盖 32 组 init-only、Timeline 休眠、属性 refresh 与 init+update，以及字面值/改名等价表达式。旧 no-update 投影在 18 组非有限返回中报 bad-return；改用原 SceneScript 数值域后，37 项测试通过，NaN/负无穷沿 typed snapshot 到实际 alpha 消费函数映射为 0，正无穷为 1。16 项 setter、authored/user/Timeline、brightness、bound data property 与返回类型反例保留原限制，131 个编译输入仅 runtime 发生变化。证据归 `.artifacts/scene-init-only-alpha-20261113/verification.json`；这只证明 QuickJS 到 alpha 消费函数，不单独授该输入的 Metal 像素、实际 App 或官方行为。
+
 <a id="limits"></a>
 ## 未取得的资格
 

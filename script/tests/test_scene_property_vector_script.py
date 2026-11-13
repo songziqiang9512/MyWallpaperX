@@ -125,6 +125,38 @@ HARNESS += (SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_t
 
 
 class ScenePropertyVectorScriptTests(unittest.TestCase):
+    def test_initialized_alpha_numbers_survive_sleep_refresh_and_following_frames(self) -> None:
+        cases = self.result()["initializedScalars"]["cases"]
+        variants = {"nan": ("nan", 0), "negativeInfinity": ("negativeInfinity", 0),
+                    "positiveInfinity": ("positiveInfinity", 1), "finite": ("0.25", 0.25)}
+        modes = {"initOnly", "timelineInitOnly", "propertiesInitOnly", "initAndUpdate"}
+        self.assertEqual(set(cases), {mode + "/" + name + suffix for mode in modes
+                                    for name in variants for suffix in ["", "-renamed"]})
+        for key, value in cases.items():
+            mode, name = key.split("/")
+            expected, alpha = variants[name.removesuffix("-renamed")]
+            with self.subTest(case=key):
+                self.assertEqual(value["values"], [expected] * 4, value)
+                self.assertEqual(value["alphas"], [alpha] * 4, value)
+                self.assertEqual(value["sources"], ["sceneScript"] * 4, value)
+                self.assertEqual(value["failures"], [], value)
+                self.assertEqual(value["sleeping"], [mode != "initAndUpdate"] * 4, value)
+                publications = {"initOnly": [True, False, False, False],
+                                "propertiesInitOnly": [True, False, True, False]}
+                self.assertEqual(value["publishes"], publications.get(mode, [True] * 4), value)
+                for fact in ["oneOwner", "initialized", "enabled", "refreshObserved"]:
+                    self.assertTrue(value[fact], (key, fact, value))
+
+    def test_initialized_scalar_return_keeps_strict_sources_setters_and_target_domains(self) -> None:
+        facts = self.result()["initializedScalars"]["counterexamples"]
+        self.assertEqual(set(facts), {group + "/" + expression
+            for group in ["setter", "brightness", "strictSources", "boundData"]
+            for expression in ["NaN", "-Infinity", "Infinity"]}
+            | {"typedInit/" + expression for expression in ["false", "'0.25'", "new Vec3(1, 2, 3)", "undefined"]})
+        for fact, passed in facts.items():
+            with self.subTest(fact=fact):
+                self.assertTrue(passed, facts)
+
     def test_mixed_material_user_input_and_inner_flag_share_the_existing_vm(self) -> None:
         value = self.result()["materialMixed"]
         self.assertEqual(value["ownerCount"], 1, value)
