@@ -129,8 +129,8 @@
       "bytes": 57121
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 265106
+      "lines": 600,
+      "bytes": 266302
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 175,
-      "bytes": 30235
+      "lines": 186,
+      "bytes": 32191
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 112,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49733
+      "bytes": 49752
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -511,20 +511,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "539712a747991b79d9a14e6b3768636734792e32049962ed836ffb055db90b37",
-      "after": "829ba472b34d7c02c53d5709ab3f965efa74c1b344fc0966d67162ae9f178dd3",
-      "owner": "Existing Scene VariantResolver and sampler readiness",
-      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
+      "before": "829ba472b34d7c02c53d5709ab3f965efa74c1b344fc0966d67162ae9f178dd3",
+      "after": "3b6c9ad5f503a0a52f17398882930d40380fb15833853099ffd2e6f160af034f",
+      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
+      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fde1016c2d836c4f1647ca5c2aa4dabf9281f1d82617b6e4553b34bfa74e14b4",
+      "after": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
+      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
+      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ca3fd8a90e9740ce283520f979e7b88f0c45727fee7f43c3190a1092d115373c",
-      "after": "01466b05f939d348fa5e3fd1c269f91d72e2418d89fe611d48685700fac41137",
-      "owner": "Existing Scene VariantResolver and sampler readiness",
-      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
+      "before": "01466b05f939d348fa5e3fd1c269f91d72e2418d89fe611d48685700fac41137",
+      "after": "2fdf3b0ff31418e23acadd31c098a16c906a79476362a727fb474b39ef2bf947",
+      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
+      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
     }
   ]
 }
