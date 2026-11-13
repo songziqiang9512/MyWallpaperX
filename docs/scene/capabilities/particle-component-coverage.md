@@ -277,6 +277,15 @@ RopeTrail复用[公共renderer Worldspace选项](https://docs.wallpaperengine.io
 
 验证扩真实冷准备与原生产 Metal 像素门：省略/显式默认、资源/ID改名、另一组有序阈值与 opacity、阈值上下/中点、raw alpha 超过 1、LA8/normal/背景、HDR/overbright/PMA 次序及 inactive 常量。保坏类型/动态值、未资格阈值、潜在灯和健康 peer。因 fragment ABI 改变，本批补原 L0、ambient 与双面实际作者；主作者按实际获准推进、自然出生和非零 batch 选窗，核真实 color/normal/background→main/seal/GPU及画面。供货、覆盖或位置先失败时回到首错，不调作者参数补图；不由此授四层逐输入像素、完整光照或官方一致性。
 
+<a id="rope-span-uv"></a>
+### Rope 同位采样的逐段 UV
+
+原 RopePlan 的几何采样仍只为同位连续样本保留首个 Sample，位置、join、宽度、size/color/alpha 不重建。纹理端点属于各个可画 span：合并几何位置时，保该节点第一次到达的 incoming UV，并将 outgoing UV 推进到最后一个同位采样；原 instance 读取 tail.outgoing 与 head.incoming。退出“几何节点只有一个 UV、强迫相邻段共值”的旧职责，不改原 `uvPositions` 的 index/lifetime、fallback、scale 或 scrolling 规则。只在同一临时 samples 中加一个端值，复用原 per-segment frame/range；无新数组、持久状态、shader/ABI、资源或 owner。
+
+固定官方的非对称静态输入在显式 subdivision0、uvsmoothing=false 下，以六点及同向斜线作正控，在两个重复节点见 UV 跳变、连续节点保持连续；低画幅读口失败保留，高画幅仅修采集资格，所有 oracle/阈值保持。此证据支持逐 span 端值供货，不决定默认 UV 模式、曲线或内部出生/去重阶段。subdivision>0 仍完整生成原曲线样本，再沿原距离阈值合并；不能先按原节点位置跳过整条 span。RopeTrail 沿原历史消费者。
+
+验收直接调用原 Plan，覆盖首/中/末重复、无重复/全同位、改名/按ID排序、重复记录不同外观及健康 peer；保首个 Sample 外观，核 index、寿命/fallback、缩放/scrolling 和细分非零曲线。实际 App 用同一色带控制核供货到原 GPU，再核原作者与另一活动 Rope 场景；未取得的完整轨迹、默认/曲线官版一致性及 A2C 分别保界。
+
 <a id="rope-source"></a>
 ### 单图 Rope 纹理
 

@@ -121,16 +121,16 @@
       "bytes": 7381
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 314,
-      "bytes": 62035
+      "lines": 323,
+      "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 284,
       "bytes": 55614
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 599,
-      "bytes": 262149
+      "lines": 600,
+      "bytes": 263292
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49428
+      "bytes": 49331
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -493,29 +493,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "76360e849eb340859c8d640c653c2097322e4ad01c35337f73648022d911be88",
-      "after": "c67639f455cc31ae9cf7192260897d16f86864a9d12399a8b91cf0687f2f85e6",
-      "owner": "Existing Scene particle execution and runtime evidence",
-      "reason": "Replace the existing initializer execution owner with one ordered typed payload sequence, retire raw/optional double dispatch and preserve live, strict and RNG boundaries.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#initializer-execution"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "141403838c55a9b23ca148febb8953b1c879b581e58bd9cd7d9b550834757b8b",
-      "after": "58c7b4eecb8fd09a5c76b6d7aca5b4b6bee3c19a420f413f1cd73cc2be9cfe73",
-      "owner": "Existing Scene current evidence and open queue",
-      "reason": "Record the rejected raw Operator optimization with exact retirement and replace the recovered capture stop with the still-unqualified official glyph positive control. No product policy or performance benefit claimed.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-prewarm-hotpath"
+      "before": "c67639f455cc31ae9cf7192260897d16f86864a9d12399a8b91cf0687f2f85e6",
+      "after": "0e9637e18575420f5d6978f31db4ed437443f1ef4e5f087cdf9493a77d7ea6c5",
+      "owner": "Existing Scene Rope plan and runtime evidence",
+      "reason": "Separate incoming and outgoing UV at repeated geometry within the existing Rope owner, replacing the shared endpoint. Record fixed-threshold official controls, actual candidate and independent author regression evidence; retire the solved queue item and retain A2C limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-span-uv"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "aed86e1dacadd544e36ae437bf46629a094efe88a33794d4ffad69f0c435d2e5",
-      "after": "5694f6441ac19f173b5a72047e8aa3d6bc21598430f6e09efa4bb502f6d2708a",
-      "owner": "Existing Scene point volume evidence",
-      "reason": "Record one bounded real-author official on/off/on comparison and its no-clear-contribution stop; retire the unsupported priority attribution without changing the existing volume contract or product.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-volume-328-stop"
+      "before": "5694f6441ac19f173b5a72047e8aa3d6bc21598430f6e09efa4bb502f6d2708a",
+      "after": "539712a747991b79d9a14e6b3768636734792e32049962ed836ffb055db90b37",
+      "owner": "Existing Scene Rope plan and runtime evidence",
+      "reason": "Separate incoming and outgoing UV at repeated geometry within the existing Rope owner, replacing the shared endpoint. Record fixed-threshold official controls, actual candidate and independent author regression evidence; retire the solved queue item and retain A2C limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-span-uv"
     }
   ]
 }

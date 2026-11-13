@@ -49,6 +49,7 @@ enum Harness {
         let result: [String: Any] = [
             "profiles": profileContract(),
             "topology": topologyContract(),
+            "repeatedSpans": repeatedSpanContract(),
             "scaledGeometry": scaledGeometryContract(),
         ]
         let data = try JSONSerialization.data(
@@ -264,6 +265,83 @@ enum Harness {
         ]
     }
 
+    private static func repeatedSpanContract() -> [String: Any] {
+        let straight = plan(["name": "rope", "subdivision": 0], maximumCount: 6)!
+        let nodes = [
+            particle(id: 0, position: .zero, size: 2, alpha: 0.5,
+                     color: SIMD3(1, 0, 0), age: 0.8),
+            particle(id: 1, position: SIMD3(10, 0, 0), size: 4,
+                     color: SIMD3(0, 1, 0), age: 0.6),
+            particle(id: 2, position: SIMD3(10, 0, 0), size: 80, alpha: 0,
+                     color: SIMD3(9, 8, 7), age: 0.4),
+            particle(id: 3, position: SIMD3(20, 0, 0), size: 6, alpha: 0.25,
+                     color: SIMD3(0, 0, 1)),
+        ]
+        let repeated = straight.instances(particles: nodes, layerAlpha: 0.5)
+        let allEnds = straight.instances(particles: [
+            particle(id: 0, position: .zero),
+            particle(id: 1, position: .zero),
+            particle(id: 2, position: SIMD3(10, 0, 0)),
+            particle(id: 3, position: SIMD3(10, 0, 0)),
+            particle(id: 4, position: SIMD3(20, 0, 0)),
+            particle(id: 5, position: SIMD3(20, 0, 0)),
+        ], layerAlpha: 1)
+        let allCoincident = straight.instances(particles: (0..<6).map {
+            particle(id: UInt64($0), position: .zero)
+        }, layerAlpha: 1)
+        let renamed = nodes.enumerated().map { index, item in
+            particle(id: UInt64(101 + index * 7), position: item.position,
+                     size: item.size, alpha: item.alpha, color: item.color,
+                     age: item.age, lifetime: item.lifetime)
+        }
+        let reordered = straight.instances(particles: Array(renamed.reversed()), layerAlpha: 0.5)
+        let smooth = plan([
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
+        ], maximumCount: 6)!
+        let lifetime = smooth.instances(particles: nodes, layerAlpha: 1)
+        var unequalLifetimes = nodes
+        unequalLifetimes[1].lifetime = 2
+        let fallback = smooth.instances(particles: unequalLifetimes, layerAlpha: 1)
+        let scrolling = plan([
+            "name": "rope", "subdivision": 0, "uvscale": 2,
+            "uvsmoothing": true, "uvscrolling": true,
+        ], maximumCount: 6)!.instances(particles: nodes, layerAlpha: 1, simulationTime: 2.25)
+        let curved = plan(["name": "rope", "subdivision": 3], maximumCount: 6)!
+            .instances(particles: nodes, layerAlpha: 0.5)
+        let defaultCurve = plan(["name": "rope"], maximumCount: 6)!
+            .instances(particles: nodes, layerAlpha: 0.5)
+        func ranges(_ values: [SceneParticleGPUInstance]) -> [[Float]] {
+            values.map { [$0.frame0B.z, $0.frame0B.w] }
+        }
+        func signature(_ values: [SceneParticleGPUInstance]) -> [[SIMD4<Float>]] {
+            values.map { [
+                $0.positionAndSize, $0.rotationAndAlpha, $0.colorAndFrameMix,
+                $0.frame0A, $0.frame0B, $0.frame1A, $0.frame1B,
+                $0.velocityAndTrail, $0.trailHeadJoin, $0.trailTailJoin,
+            ] }
+        }
+        return [
+            "innerUVRanges": ranges(repeated),
+            "endUVRanges": ranges(allEnds),
+            "allCoincidentCount": allCoincident.count,
+            "positions": repeated.map { [$0.positionAndSize.x, $0.positionAndSize.y] },
+            "sizes": repeated.map(\.positionAndSize.w),
+            "colors": repeated.map { [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z] },
+            "alphas": repeated.map(\.rotationAndAlpha.w),
+            "endpointHalfWidths": repeated.map { [$0.trailTailJoin.w, $0.trailHeadJoin.w] },
+            "renamedAndReorderedMatches": signature(repeated) == signature(reordered),
+            "lifetimeUVRanges": ranges(lifetime),
+            "fallbackUVRanges": ranges(fallback),
+            "scrollingUVRanges": ranges(scrolling),
+            "curvedCount": curved.count,
+            "middleCurveDisplacements": curved.dropFirst(4).prefix(4).map { $0.velocityAndTrail.x },
+            "curvedUVContinuous": zip(curved, curved.dropFirst()).allSatisfy {
+                abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
+            },
+            "defaultMatchesSubdivisionThree": signature(defaultCurve) == signature(curved),
+        ]
+    }
+
     private static func scaledGeometryContract() -> [String: Any] {
         let ribbon = plan(["name": "rope", "subdivision": 0], maximumCount: 3)!
         let local = [
@@ -321,6 +399,7 @@ enum Harness {
         position: SIMD3<Double>,
         size: Double = 2,
         alpha: Double = 1,
+        color: SIMD3<Double> = SIMD3(0.5, 0.75, 1),
         age: Double = 0,
         lifetime: Double = 1
     ) -> SceneParticleState {
@@ -328,14 +407,14 @@ enum Harness {
             id: id,
             position: position,
             velocity: .zero,
-            color: SIMD3(0.5, 0.75, 1),
+            color: color,
             alpha: alpha,
             size: size,
             rotation: .zero,
             angularVelocity: .zero,
             age: age,
             lifetime: lifetime,
-            initialColor: SIMD3(0.5, 0.75, 1),
+            initialColor: color,
             initialAlpha: alpha,
             initialSize: size
         )
@@ -477,6 +556,38 @@ class SceneParticleRopeTests(unittest.TestCase):
         self.assertEqual(result["curvedCount"], 8)
         self.assertTrue(result["curvedMatchesExplicitWorldNodes"])
         self.assertTrue(result["rootIdentityUnchanged"])
+
+    def test_repeated_spans_keep_first_sample_geometry_and_appearance(self) -> None:
+        result = self.result["repeatedSpans"]
+        self.assertEqual(result["positions"], [[5, 0], [15, 0]])
+        self.assertEqual(result["sizes"], [1.5, 2.5])
+        self.assertEqual(result["colors"], [[0.5, 0.5, 0], [0, 0.5, 0.5]])
+        self.assertEqual(result["alphas"], [0.375, 0.3125])
+        self.assertEqual(result["endpointHalfWidths"], [[1, 2], [2, 3]])
+        self.assertEqual(result["allCoincidentCount"], 0)
+        self.assertTrue(result["renamedAndReorderedMatches"])
+
+    def test_repeated_spans_keep_literal_uv_endpoints_and_existing_uv_modes(self) -> None:
+        result = self.result["repeatedSpans"]
+        for key, expected in (
+            ("innerUVRanges", [[0, 0.3333333333333333], [0.6666666666666666, 1]]),
+            ("endUVRanges", [[0.2, 0.4], [0.6, 0.8]]),
+            ("lifetimeUVRanges", [[0.2, 0.4], [0.6, 1]]),
+            ("fallbackUVRanges", [[0, 0.3333333333333333], [0.6666666666666666, 1]]),
+            ("scrollingUVRanges", [[0.25, 0.9166666666666666], [1.5833333333333333, 2.25]]),
+        ):
+            with self.subTest(mode=key):
+                self.assertEqual(len(result[key]), len(expected))
+                for actual, endpoints in zip(result[key], expected, strict=True):
+                    self.assertAlmostEqual(actual[0], endpoints[0], places=6)
+                    self.assertAlmostEqual(actual[1], endpoints[1], places=6)
+
+    def test_repeated_nodes_keep_original_subdivision_curve_and_default(self) -> None:
+        result = self.result["repeatedSpans"]
+        self.assertEqual(result["curvedCount"], 12)
+        self.assertEqual(result["middleCurveDisplacements"], [0.46875, -0.46875, -0.46875, 0.46875])
+        self.assertTrue(result["curvedUVContinuous"])
+        self.assertTrue(result["defaultMatchesSubdivisionThree"])
 
 
 if __name__ == "__main__":

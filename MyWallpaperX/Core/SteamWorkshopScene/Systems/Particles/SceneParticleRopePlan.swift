@@ -96,7 +96,7 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         let safeLayerAlpha = min(max(layerAlpha, 0), 1)
         // Build one shared chain across particle boundaries. Independent quads
         // cannot agree on the width or bisector at a curved ribbon's joints.
-        var samples: [(value: Sample, uv: Float)] = []
+        var samples: [(value: Sample, incomingUV: Float, outgoingUV: Float)] = []
         samples.reserveCapacity(generatedCount + 1)
         for index in 0..<(nodes.count - 1) {
             let first = index == 0 ? 0 : 1
@@ -104,13 +104,14 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
                 let t = Double(subdivision) / Double(subdivisionCount + 1)
                 let value = sample(nodes: nodes, index: index, t: t)
                 let uv = Self.mix(nodeUVs[index], nodeUVs[index + 1], Float(t))
-                // A stationary span owns one vertex. Keep the first appearance
-                // so both surviving neighbours use the same width and UV.
+                // Share the first geometry sample, while each surviving span
+                // keeps its own UV endpoint across the stationary interval.
                 if let previous = samples.last,
                    simd_distance(previous.value.position, value.position) <= 0.0001 {
+                    samples[samples.count - 1].outgoingUV = uv
                     continue
                 }
-                samples.append((value, uv))
+                samples.append((value, uv, uv))
             }
         }
         guard samples.count >= 2 else { return [] }
@@ -121,7 +122,8 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
             let head = samples[index + 1]
             let displacement = head.value.position - tail.value.position
             if let instance = Self.instance(
-                tail: tail.value, head: head.value, tailUV: tail.uv, headUV: head.uv,
+                tail: tail.value, head: head.value,
+                tailUV: tail.outgoingUV, headUV: head.incomingUV,
                 headDirection: index + 2 < samples.count
                     ? samples[index + 2].value.position - head.value.position : displacement,
                 tailDirection: index > 0
