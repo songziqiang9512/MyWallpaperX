@@ -3095,7 +3095,8 @@
         "script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift",
         "script/tests/test_scene_static_model_normal_map.py",
         "script/tests/fixtures/SceneStaticModelNormalChecks.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
+        "script/tests/test_scene_static_model_material_map.py"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -3111,7 +3112,8 @@
         "test_scene_point_model_shadow",
         "test_scene_static_model_normal_map",
         "test_scene_native_world_composition",
-        "test_scene_point_volume"
+        "test_scene_point_volume",
+        "test_scene_static_model_material_map"
       ]
     },
     {

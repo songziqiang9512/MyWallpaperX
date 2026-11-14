@@ -284,7 +284,7 @@ enum SceneStaticModelVertexBasisChecks {
                 let encoder = pass.encoder(depthTexture: depth.texture, clearsDepth: index == 0, clearDepth: 0)!
                 precondition(renderer.staticModelResources.pipeline!.draw(mesh: draw.entry.mesh,
                     texture: draw.texture, colorTextureIsPremultiplied: draw.premultiplied,
-                    emissiveMask: nil, emissiveMaskTextureFrame: nil, emissiveMaskSampling: nil,
+                    materialMap: nil,
                     modelMatrix: draw.world,
                     normalMatrix: draw.normalMatrix,
                     viewProjection: camera.reverseDepthViewProjection(usesPerspective: layer.usesPerspective == true),

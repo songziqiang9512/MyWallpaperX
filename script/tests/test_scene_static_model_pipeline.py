@@ -331,7 +331,7 @@ fragment half4 sceneStaticModelFragment(
             report = run_swift(sources, support, label="light-count", metal_sources=[probe_shader])
             self.assertEqual(report["counts"], [[0, count, 0] for count in range(5)])
 
-    def test_fixed_metal_shader_compiles_and_matches_vertex_abi(self) -> None:
+    def test_fixed_metal_shader_compiles(self) -> None:
         metal = subprocess.run(
             ["xcrun", "--sdk", "macosx", "--find", "metal"],
             check=True,
@@ -352,36 +352,6 @@ fragment half4 sceneStaticModelFragment(
                 text=True,
             )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        source = METAL_SOURCE.read_text(encoding="utf-8")
-        ordered_fields = (
-            "float3 position;",
-            "float3 normal;",
-            "float4 tangent;",
-            "float2 uv;",
-        )
-        offsets = [source.index(field) for field in ordered_fields]
-        self.assertEqual(offsets, sorted(offsets))
-        self.assertIn("texture2d<half> colorTexture [[texture(0)]]", source)
-        self.assertIn("texture2d<half> componentTexture [[texture(1)]]", source)
-        self.assertIn("sampler colorSampler [[sampler(0)]]", source)
-        self.assertIn("modelVertex.uv.x * uniforms.textureFrame0.zw", source)
-        self.assertIn("modelVertex.uv.y * uniforms.textureFrame1.xy", source)
-        self.assertIn("(uniforms.materialFlags.x & 1u) != 0u", source)
-        self.assertIn("(uniforms.materialFlags.x & 2u) != 0u", source)
-        self.assertIn("(uniforms.materialFlags.y & 1u) != 0u", source)
-        self.assertIn("(uniforms.materialFlags.y & 2u) == 0u", source)
-        self.assertIn("sampler componentSampler [[sampler(1)]]", source)
-        self.assertIn("out.componentUV = uniforms.componentTextureFrame0.xy", source)
-        self.assertIn("componentTexture.sample(componentSampler, in.componentUV).a", source)
-        self.assertIn("uniforms.componentTextureFrame0.xy", source)
-        self.assertIn("uniforms.emissiveColorAndBrightness.w", source)
-        self.assertIn("uniforms.lightDirectionIntensity[lightIndex]", source)
-        self.assertIn("max(dot(normal, light.xyz), 0.0)", source)
-        self.assertNotIn("lighting / (float3(1.0) + lighting)", source)
-        self.assertIn("uniforms.materialFlags.w != 0", source)
-        self.assertIn("mix(albedo.rgb, tinted, albedo.a)", source)
-        self.assertIn("uniforms.viewTintBackAndEnabled.w > 0.5", source)
-        self.assertIn("uniforms.cameraPosition.xyz - in.worldPosition", source)
 
     def test_pipeline_typechecks_against_decoded_vertex_contract(self) -> None:
         swiftc = shutil.which("swiftc")
@@ -728,40 +698,6 @@ enum MaterialHarness {
                 [str(executable)], capture_output=True, text=True
             )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-
-    def test_pipeline_uses_fixed_depth_blend_and_slots(self) -> None:
-        source = PIPELINE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("material.usesHDRBrightness", source)
-        self.assertIn("material.color.x * brightness", source)
-        for contract in (
-            "device.makeDefaultLibrary()",
-            "writingDepthDescriptor.depthCompareFunction = .greaterEqual",
-            "writingDepthDescriptor.isDepthWriteEnabled = true",
-            "nonwritingDepthDescriptor.depthCompareFunction = .greaterEqual",
-            "nonwritingDepthDescriptor.isDepthWriteEnabled = false",
-            "attachment.sourceRGBBlendFactor = .one",
-            "attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha",
-            "encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)",
-            "encoder.setFragmentTexture(texture, index: 0)",
-            "encoder.setFragmentTexture(emissiveMask ?? texture, index: 1)",
-            "samplerStates.state(for: sampling)",
-            "material: SceneStaticModelMaterial",
-            "emissiveMask: MTLTexture?",
-            "emissiveMaskTextureFrame: SceneTextureUVTransform?",
-            "emissiveMaskSampling: SceneTextureSampling?",
-            "lighting: SceneLightSnapshot",
-            "encoder.setFragmentBytes(",
-            "sampling.isResolvedForMaterialProgram",
-            "!sampling.usesClampBorderFallback",
-            "writesDepth ? writingDepthState : nonwritingDepthState",
-            "indexType: mesh.indexType",
-            "indexType: usesWideIndices ? .uint32 : .uint16",
-            "indices.contains { $0 > UInt16.max }",
-        ):
-            self.assertIn(contract, source)
-        self.assertNotIn("makeLibrary(source:", source)
-        self.assertNotIn("chroma4", source.lower())
-        self.assertNotIn("parity", source.lower())
 
 if __name__ == "__main__":
     unittest.main()

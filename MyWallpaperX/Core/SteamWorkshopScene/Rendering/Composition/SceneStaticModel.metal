@@ -376,7 +376,16 @@ fragment half4 sceneStaticModelFragment(
             ? albedo.rgb / albedo.a
             : half3(0.0);
     }
-    bool surfaceEnabled = uniforms.surfaceMaterial.z != 0.0;
+    float4 surfaceMaterial = uniforms.surfaceMaterial;
+    const uint components = uniforms.materialFlags.y >> 2u;
+    float4 componentMaps = float4(0.0);
+    if (components != 0u) {
+        componentMaps = float4(componentTexture.sample(componentSampler, in.componentUV));
+        if ((components & 1u) != 0u) surfaceMaterial.x = componentMaps.r;
+        if ((components & 2u) != 0u) surfaceMaterial.y = componentMaps.g;
+        if ((components & 4u) != 0u) surfaceMaterial.w *= componentMaps.b;
+    }
+    bool surfaceEnabled = surfaceMaterial.z != 0.0;
     float3 surfaceColor;
     if (surfaceEnabled) {
         // The prepared HDR tint is Float. Keep it finite through surface
@@ -469,7 +478,7 @@ fragment half4 sceneStaticModelFragment(
         float visibility = directionalVisibility[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                light.xyz, surfaceColor, uniforms.surfaceMaterial.xy)
+                light.xyz, surfaceColor, surfaceMaterial.xy)
                 * uniforms.lightColor[lightIndex].xyz * light.w * visibility;
         } else {
             lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
@@ -495,7 +504,7 @@ fragment half4 sceneStaticModelFragment(
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                directionTowardLight, surfaceColor, uniforms.surfaceMaterial.xy)
+                directionTowardLight, surfaceColor, surfaceMaterial.xy)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * pointVisibility[lightIndex];
         } else {
@@ -528,7 +537,7 @@ fragment half4 sceneStaticModelFragment(
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                directionTowardLight, surfaceColor, uniforms.surfaceMaterial.xy)
+                directionTowardLight, surfaceColor, surfaceMaterial.xy)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * cone * spotVisibility[lightIndex];
         } else {
@@ -560,10 +569,8 @@ fragment half4 sceneStaticModelFragment(
     }
     float3 litColor = surfaceEnabled ? surfaceColor * lighting + surfaceRadiance
         : float3(half3(surfaceColor) * half3(lighting));
-    if ((uniforms.materialFlags.y & 1u) != 0u) {
-        float emissive = float(saturate(
-            componentTexture.sample(componentSampler, in.componentUV).a
-        )) * uniforms.emissiveColorAndBrightness.w;
+    if ((components & 8u) != 0u) {
+        float emissive = saturate(componentMaps.a) * uniforms.emissiveColorAndBrightness.w;
         // The mask scales additional radiance; brightness is not a mix weight.
         // Keep finite HDR energy through fog and coverage before half storage.
         float3 emittedColor = min(
@@ -572,7 +579,7 @@ fragment half4 sceneStaticModelFragment(
         ) * emissive;
         litColor = min(litColor + emittedColor, float3(MAXFLOAT));
     }
-    if (sceneStaticModelUsesReflection) {
+    if (sceneStaticModelUsesReflection && surfaceMaterial.w > 0.0) {
         constexpr sampler reflectionSampler(filter::linear, mip_filter::linear, address::clamp_to_edge);
         const float2 extent(reflectionTexture.get_width(), reflectionTexture.get_height());
         const float4 clipNormal = uniforms.viewProjectionMatrix * float4(normal, 0.0);
@@ -583,10 +590,10 @@ fragment half4 sceneStaticModelFragment(
         const float2 uv = in.position.xy / extent + shift;
         const float2 edge = smoothstep(float2(-0.3), float2(0.0), uv)
             * (1.0 - smoothstep(float2(1.0), float2(1.3), uv));
-        const float mip = uniforms.surfaceMaterial.y * float(reflectionTexture.get_num_mip_levels() - 1);
+        const float mip = surfaceMaterial.y * float(reflectionTexture.get_num_mip_levels() - 1);
         const float3 incident = reflectionTexture.sample(reflectionSampler, uv, level(mip)).rgb;
-        const float weight = edge.x * edge.y * (1.0 - facing) * uniforms.surfaceMaterial.w;
-        const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - uniforms.surfaceMaterial.x);
+        const float weight = edge.x * edge.y * (1.0 - facing) * surfaceMaterial.w;
+        const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - surfaceMaterial.x);
         litColor += saturate(reflected) * uniforms.cameraPosition.w;
     }
     litColor = sceneDistanceFog(litColor,

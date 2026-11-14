@@ -34,7 +34,7 @@ struct ScenePreparedStaticModelResources {
         let mesh: SceneStaticModelMesh
         let albedo: SceneTextureCandidate?
         let namedAlbedo: SceneNamedTextureReference?
-        let emissiveMask: SceneTextureCandidate?
+        let materialMap: SceneStaticModelMaterialMap?
         let normalMap: SceneStaticModelNormalMap?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
@@ -45,7 +45,7 @@ struct ScenePreparedStaticModelResources {
         init(
             modelPath: String, materialPath: String, dynamicMaterialPath: String,
             mesh: SceneStaticModelMesh, albedo: SceneTextureCandidate?,
-            namedAlbedo: SceneNamedTextureReference?, emissiveMask: SceneTextureCandidate?,
+            namedAlbedo: SceneNamedTextureReference?, materialMap: SceneStaticModelMaterialMap?,
             material: SceneStaticModelMaterial, writesDepth: Bool,
             materialBlending: SceneMaterialRenderState.Blending?,
             geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
@@ -58,7 +58,7 @@ struct ScenePreparedStaticModelResources {
             self.mesh = mesh
             self.albedo = albedo
             self.namedAlbedo = namedAlbedo
-            self.emissiveMask = emissiveMask
+            self.materialMap = materialMap
             self.normalMap = normalMap
             self.material = material
             self.writesDepth = writesDepth
@@ -234,22 +234,13 @@ struct ScenePreparedStaticModelResources {
                     } else {
                         albedo = nil
                     }
-                    let emission = shaderValue(named: "emissivebrightness", in: pass)
-                    // Dynamic declarations need the mask even with a zero seed.
-                    // Resource reservation does not grant a live script consumer.
-                    let hasDynamicEmissiveBrightness = emission?.userBinding != nil || emission?.scriptSource != nil
-                    let emissiveMask = modelMaterial.emissiveBrightness > 0
-                        || hasDynamicEmissiveBrightness
-                        ? try optionalTexture(
-                            at: 2,
-                            in: pass,
-                            purpose: .mask,
-                            resolver: textureResolver,
-                            textureLoader: textureLoader,
-                            device: device, checkCancellation: cancellationCheck
-                        )
-                        : nil
-                    let normal = modelMaterial.surfaceProfile != nil && pass.combos["NORMALMAP"] != 0
+                    let materialMap = try Self.materialMap(pass, material: modelMaterial,
+                        resolver: textureResolver, textureLoader: textureLoader,
+                        device: device, checkCancellation: cancellationCheck)
+                    let needsSurfaceNormal = modelMaterial.receivesLighting
+                        || (modelMaterial.surfaceProfile?.reflectivity ?? 0) > 0
+                    let normal = modelMaterial.surfaceProfile != nil && needsSurfaceNormal
+                        && pass.combos["NORMALMAP"] != 0
                         ? try optionalTexture(at: 1, in: pass, purpose: .normal,
                             resolver: textureResolver, textureLoader: textureLoader,
                             device: device, checkCancellation: cancellationCheck)
@@ -261,7 +252,7 @@ struct ScenePreparedStaticModelResources {
                         mesh: preparedGeometry.mesh,
                         albedo: albedo,
                         namedAlbedo: namedAlbedo,
-                        emissiveMask: emissiveMask,
+                        materialMap: materialMap,
                         material: modelMaterial,
                         writesDepth: depthEnabled(pass.depthWrite),
                         materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
@@ -388,10 +379,11 @@ struct ScenePreparedStaticModelResources {
         }
         let emissiveColor = components(named: "emissivecolor", in: pass)
             ?? [1, 1, 1]
+        let surface = surfaceProfile(pass, resourceView: resourceView)
         let emissiveBrightness = components(
             named: "emissivebrightness",
             in: pass
-        )?.first ?? 0
+        )?.first ?? (surface == nil ? 0 : 1)
         let tintFront = components(named: "tintfront", in: pass)
         let tintBack = components(named: "tintback", in: pass)
         let tintExponent = components(named: "tintwexponent", in: pass)?
@@ -435,7 +427,7 @@ struct ScenePreparedStaticModelResources {
             usesHDRBrightness: hdrEnabled,
             viewTint: viewTint,
             channelBindings: pass.staticModelMaterialBindings,
-            surfaceProfile: surfaceProfile(pass, resourceView: resourceView),
+            surfaceProfile: surface,
             // Missing or unrecognized state retains the existing back-face
             // policy; only the authored no-cull state opens both mesh sides.
             cullMode: SceneMaterialRenderState.Cull(rawValue:
@@ -451,9 +443,8 @@ struct ScenePreparedStaticModelResources {
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
         resourceView: SceneResourceView
     ) -> SceneStaticModelSurfaceProfile? {
-        let authoredReflection = pass.combos["REFLECTION"] == 1
+        let authoredReflection = pass.combos["REFLECTION"].map { $0 != 0 } ?? false
         guard pass.shaderPath?.localizedLowercase == "generic4",
-              pass.combos["LIGHTING"] != 0 || authoredReflection,
               pass.userShaderValues["metallic"] == nil,
               pass.userShaderValues["roughness"] == nil,
               let metallic = SceneMaterialPropertyBindingCompiler.staticComponents(
@@ -472,8 +463,6 @@ struct ScenePreparedStaticModelResources {
         }
         let reflectivity: Double
         if authoredReflection,
-           (pass.combos["METALLIC_MAP"] ?? 0) == 0, (pass.combos["ROUGHNESS_MAP"] ?? 0) == 0,
-           (pass.combos["REFLECTION_MAP"] ?? 0) == 0,
            pass.textureSlots.count < 4 || pass.textureSlots[3] == nil
                 || pass.textureSlots[3] == "_rt_MipMappedFrameBuffer",
            pass.userShaderValues["reflectivity"] == nil {
@@ -481,12 +470,53 @@ struct ScenePreparedStaticModelResources {
                 "reflectivity", instance: nil, pass: pass, count: 1, fallback: [1],
                 requiresCompleteScalar: true)?.first ?? 0
         } else { reflectivity = 0 }
-        guard pass.combos["LIGHTING"] != 0 || reflectivity > 0 else { return nil }
         return .init(
             metallic: Float(min(1, max(0, metallic))),
             roughness: Float(min(1, max(0, roughness))),
             reflectivity: Float(min(1, max(0, reflectivity)))
         )
+    }
+
+    private static func materialMap(
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        material: SceneStaticModelMaterial,
+        resolver: SceneTexturePathResolver,
+        textureLoader: SceneTextureLoader,
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneStaticModelMaterialMap? {
+        let emission = shaderValue(named: "emissivebrightness", in: pass)
+        let needsEmission = material.emissiveBrightness > 0
+            || emission?.userBinding != nil || emission?.scriptSource != nil
+        let surface = material.surfaceProfile
+        var requested: UInt32 = 0
+        var automatic: UInt32 = 0
+        if let surface {
+            guard pass.combos["PBRMASKS"] != 0 else { return nil }
+            for (name, bit) in [("METALLIC_MAP", UInt32(1)), ("ROUGHNESS_MAP", 2),
+                                ("REFLECTION_MAP", 4), ("EMISSIVE_MAP", 8)] {
+                if let value = pass.combos[name] {
+                    if value != 0 { requested |= bit }
+                } else {
+                    automatic |= bit
+                }
+            }
+            let needsResponse = material.receivesLighting || surface.reflectivity > 0
+            let demand: UInt32 = (needsResponse ? 3 : 0) | (surface.reflectivity > 0 ? 4 : 0)
+                | (needsEmission ? 8 : 0)
+            requested &= demand
+            automatic &= demand
+        } else if needsEmission {
+            requested = 8
+        }
+        guard (requested | automatic) != 0,
+              let candidate = try optionalTexture(at: 2, in: pass, purpose: .mask,
+                  resolver: resolver, textureLoader: textureLoader, device: device,
+                  checkCancellation: checkCancellation) else { return nil }
+        let components = requested | (((candidate.sampling.rawFlags ?? 0) >> 20) & automatic)
+        guard components != 0 else { return nil }
+        return .init(texture: candidate.texture, textureFrame: candidate.uvTransform,
+            sampling: candidate.sampling, components: components)
     }
 
     /// Optional packed material data fails soft, leaving the ordinary lit

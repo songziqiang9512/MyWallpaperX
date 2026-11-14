@@ -257,9 +257,7 @@ extension SceneMetalRenderer {
                 && (draw.material.surfaceProfile?.reflectivity ?? 0) > 0 ? reflection : nil
             let encoded = pipeline.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: draw.premultiplied,
-                emissiveMask: draw.entry.emissiveMask?.texture,
-                emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform,
-                emissiveMaskSampling: draw.entry.emissiveMask?.sampling,
+                materialMap: draw.entry.materialMap,
                 normalMap: draw.entry.normalMap,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
@@ -294,6 +292,12 @@ extension SceneMetalRenderer {
                         source: .init(normal.texture, role: "model-normal-data"),
                         target: pass.compositionTarget,
                         details: ["encoding": String(normal.encoding.rawValue)]))
+                }
+                if encoded, let map = draw.entry.materialMap {
+                    trace.recordComposition(.init(kind: "model-material-map", layerID: layer.id, slot: 1,
+                        source: .init(map.texture, role: "model-material-data"),
+                        target: pass.compositionTarget,
+                        details: ["components": String(map.components)]))
                 }
                 if encoded, let environment,
                    case let .provider(.sceneEnvironment(_, _, producer)) = environment.publication.candidate.identity {

@@ -367,7 +367,7 @@ PIXEL_MAIN = r'''
     let enabled = v["shadow_enabled"] as? Bool ?? true
     let wrongLight = projection.map { SceneStaticModelShadow(texture:map,frameEpoch:7,generation:1,lightLayerID:999,projection:.directional($0),commandBuffer:cb) }
     let testedShadow = mode == 7 ? wrongLight : shadow
-    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,emissiveMask:emissionMask,emissiveMaskTextureFrame:.identity,emissiveMaskSampling:.linearClamp,modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadows:(mode == 2 || mode == 3 || mode >= 7) && enabled ? testedShadow.map { [$0] } ?? [] : [],frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
+    precondition(pipeline.draw(mesh:receiver,texture:albedo,colorTextureIsPremultiplied:false,materialMap:.init(texture:emissionMask,textureFrame:.identity,sampling:.linearClamp,components:8),modelMatrix:receiverWorld,viewProjection:view,cameraPosition:SIMD3(Float(position[0]),Float(position[1]),100),textureFrame:.identity,sampling:.linearClamp,layerAlpha:0.75,material:material(1,false,false,true,mode == 6 ? 0 : 0.8),lighting:lights,writesDepth:true,shadows:(mode == 2 || mode == 3 || mode >= 7) && enabled ? testedShadow.map { [$0] } ?? [] : [],frameEpoch:mode == 3 ? 8 : 7,commandBuffer:mode == 8 ? queue.makeCommandBuffer()! : cb,encoder:e))
     e.endEncoding()
     let b = device.makeBuffer(length:256,options:.storageModeShared)!
     let blit = cb.makeBlitCommandEncoder()!

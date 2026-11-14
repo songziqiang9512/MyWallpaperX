@@ -243,6 +243,8 @@ def emission_mask_fixture():
     for i in range(8):
         path = f'materials/part{i:03}.json'
         material = json.loads(entries[path]); p = material['passes'][0]
+        p['shader'] = 'generic4'
+        p['combos']['EMISSIVE_MAP'] = 1
         p['textures'] = [f'materials/part{i:03}.png', None, f'materials/mask{i:03}.png']
         entries[f'materials/mask{i:03}.png'] = png([255,255,255,255])
         entries[f'materials/mask{i:03}.rgba'] = bytes([255,255,255,255])
@@ -564,7 +566,8 @@ class SceneStaticModelSurfaceAdmissionTests(unittest.TestCase):
   precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
   pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
       combos:["LIGHTING":0],constantShaderValues:[:],shaderPath:"generic4")
-  precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
+  precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view)
+               == .init(metallic:0,roughness:0.7))
   for key in ["metallic","roughness"] {
    for constants in [[:],[key:SceneDocument.ShaderValue(components:[0.5])]] {
     var userPass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
@@ -812,8 +815,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
     def test_zero_script_seed_reserves_typed_mask_with_local_optional_failures(self):
         row = self.rows['emission']
         self.assertEqual(row['parts'], [f'materials/part{i:03}.json' for i in [0,1,2,3,4,5,7]])
-        self.assertEqual([bool(identity) for identity in row['maskIDs']], [True,True,False,False,False,False,True])
-        self.assertEqual(row['maskPurposes'], ['mask','mask','','','','','mask'])
+        self.assertEqual(row['materialMapComponents'], [8,8,0,0,0,0,8])
         self.assertEqual(row['emissionSeeds'], [0,0,0,0,0,0,1])
         mask_requests = [request['path'] for request in row['textureRequests'] if request['purpose'] == 'mask']
         self.assertEqual(sorted(mask_requests), ['mask000.png','mask001.png','mask005.png','mask007.png'])

@@ -36,6 +36,7 @@ import simd
    var result = SceneRenderDescriptor.MaterialPassDescriptor(materialPath:path,
        textureSlots:(pass["textures"] as? [Any] ?? []).map{$0 as? String},
        combos:pass["combos"] as! [String:Int],constantShaderValues:constants,depthWrite:pass["depthwrite"] as? String)
+   result.shaderPath = pass["shader"] as? String
    result.staticModelDefaultAlbedoAssetPath = pass["defaultAlbedo"] as? String
    result.blending = pass["blending"] as? String
    if pass["rejectedMaterial"] as? Bool == true {
@@ -199,8 +200,7 @@ import simd
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
       "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
       "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
-      "maskIDs":parts.map{$0.emissiveMask.map{String(describing:$0.identity)} ?? ""},
-      "maskPurposes":parts.map{$0.emissiveMask.map{String(describing:$0.purpose)} ?? ""},
+      "materialMapComponents":parts.map{$0.materialMap?.components ?? 0},
       "emissionSeeds":parts.map{$0.material.emissiveBrightness},"textureRequests":loader.requests,
       "meshIndexCounts":parts.map{$0.mesh.indexCount},"peerParts":resources[1]?.count ?? 0,"rejections":rejected,
       "frames":frames,"peerFrames":peerFrames,"overlapFrames":overlapFrames,

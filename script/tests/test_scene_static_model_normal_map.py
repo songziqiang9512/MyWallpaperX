@@ -71,16 +71,22 @@ def prepare(root, rows):
         (folder / f"models/{model}.mdl").write_bytes(parts.reader.build_model(
             vertices=vertices, indices=(0, 2, 1, 0, 3, 2), bounds=(-40, -40, 0, 40, 40, 0),
             material=f"materials/{material}.json".encode()))
-        combos = {"LIGHTING": 1}
+        combos = {"LIGHTING": row.get("lighting", 1), **row.get("mapCombos", {})}
         if row["normalCombo"] >= 0:
             combos["NORMALMAP"] = row["normalCombo"]
-        if row["reflection"]:
+        if row["reflection"] and "REFLECTION" not in combos:
             combos["REFLECTION"] = 1
+        albedo = "alternate-color" if row["renamed"] else "white"
+        textures = [f"materials/{albedo}.png", f"materials/{normal}.png"]
+        if row.get("materialPixels") is not None:
+            textures.append("materials/alternate-components.png" if row["renamed"] else "materials/components.png")
+            if not row.get("mapMissing", False):
+                (folder / textures[-1]).write_bytes(parts.png([0, 0, 0, 255]))
         (folder / f"materials/{material}.json").write_text(json.dumps({"passes": [{"shader": row["shader"],
-            "textures": ["materials/white.png", f"materials/{normal}.png"], "combos": combos,
-            "constantshadervalues": {"alpha": row["alpha"], "roughness": 1}}]}))
+            "textures": textures, "combos": combos,
+            "constantshadervalues": {"alpha": row["alpha"], "roughness": 1, **row.get("constants", {})}}]}))
         (folder / "models/far.mdl").write_bytes(parts.quad(-40, 40, -40, 40, -10, "materials/far.json"))
-        for stem, rgba in [("white", [255, 255, 255, 255]), ("blue", [0, 0, 255, 255])]:
+        for stem, rgba in [(albedo, row.get("albedo", [255, 255, 255, 255])), ("blue", [0, 0, 255, 255])]:
             (folder / f"materials/{stem}.rgba").write_bytes(bytes(rgba))
             (folder / f"materials/{stem}.png").write_bytes(parts.png(rgba))
         # Only the texture transport is replaced; this file establishes a real VFS input.

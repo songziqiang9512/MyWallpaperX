@@ -367,9 +367,7 @@ struct SceneStaticModelPipeline {
         mesh: SceneStaticModelMesh,
         texture: MTLTexture,
         colorTextureIsPremultiplied: Bool,
-        emissiveMask: MTLTexture?,
-        emissiveMaskTextureFrame: SceneTextureUVTransform?,
-        emissiveMaskSampling: SceneTextureSampling?,
+        materialMap: SceneStaticModelMaterialMap? = nil,
         normalMap: SceneStaticModelNormalMap? = nil,
         modelMatrix: simd_float4x4,
         // The renderer carries this from the same current world transform
@@ -396,11 +394,6 @@ struct SceneStaticModelPipeline {
         guard Self.isFinite(modelMatrix),
               Self.isFinite(viewProjection),
               Self.isValid(textureFrame),
-              emissiveMask == nil || (
-                  emissiveMaskTextureFrame.map(Self.isValid) == true
-                      && emissiveMaskSampling?.isResolvedForMaterialProgram == true
-                      && emissiveMaskSampling?.usesClampBorderFallback == false
-              ),
               sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback,
               layerAlpha.isFinite,
@@ -468,12 +461,8 @@ struct SceneStaticModelPipeline {
             normalMatrix: normalMatrix,
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1,
-            componentTextureFrame0: (
-                emissiveMaskTextureFrame ?? textureFrame
-            ).uniform0,
-            componentTextureFrame1: (
-                emissiveMaskTextureFrame ?? textureFrame
-            ).uniform1,
+            componentTextureFrame0: (materialMap?.textureFrame ?? textureFrame).uniform0,
+            componentTextureFrame1: (materialMap?.textureFrame ?? textureFrame).uniform1,
             materialColorAndOpacity: SIMD4(
                 max(material.color.x * brightness, 0),
                 max(material.color.y * brightness, 0),
@@ -504,7 +493,7 @@ struct SceneStaticModelPipeline {
             materialFlags: SIMD4(
                 (!materialColorIsOpaque && material.textureAlphaIsOpacity ? 1 : 0)
                     | (colorTextureIsPremultiplied ? 2 : 0),
-                (emissiveMask == nil ? 0 : 1)
+                ((materialMap?.components ?? 0) << 2)
                     | (material.receivesLighting ? 0 : 2),
                 normalMap?.encoding.rawValue ?? 0,
                 material.textureAlphaIsTintMask ? 1 : 0
@@ -598,7 +587,7 @@ struct SceneStaticModelPipeline {
         encoder.setFragmentTexture(texture, index: 0)
         // Keep the fixed Metal ABI bound even when this optional channel is
         // absent; the material flag prevents the placeholder from sampling.
-        encoder.setFragmentTexture(emissiveMask ?? texture, index: 1)
+        encoder.setFragmentTexture(materialMap?.texture ?? texture, index: 1)
         encoder.setFragmentTexture(normalMap?.texture ?? texture, index: 7)
         encoder.setFragmentSamplerState(
             samplerStates.state(for: normalMap?.sampling ?? sampling), index: 2)
@@ -607,7 +596,7 @@ struct SceneStaticModelPipeline {
             index: 0
         )
         encoder.setFragmentSamplerState(
-            samplerStates.state(for: emissiveMaskSampling ?? sampling),
+            samplerStates.state(for: materialMap?.sampling ?? sampling),
             index: 1
         )
         encoder.setFragmentBytes(

@@ -50,7 +50,7 @@ import simd
             let command = queue.makeCommandBuffer()!
             let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
             precondition(pipeline.draw(mesh: mesh, texture: target, colorTextureIsPremultiplied: false,
-                emissiveMask: nil, emissiveMaskTextureFrame: nil, emissiveMaskSampling: nil,
+                materialMap: nil,
                 modelMatrix: matrix_identity_float4x4, viewProjection: matrix_identity_float4x4,
                 cameraPosition: SIMD3(0, 0, 1), textureFrame: .identity,
                 sampling: .directImageFallback, layerAlpha: 1, material: material,

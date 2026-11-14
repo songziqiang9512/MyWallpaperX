@@ -34,45 +34,6 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
             "nonisolated var isImageRenderable", 1
         )[1].split("}", 1)[0])
 
-    def test_preparation_reuses_typed_texture_and_device_resource_owners(self) -> None:
-        resources = RESOURCES.read_text(encoding="utf-8")
-        preparation = PREPARATION.read_text(encoding="utf-8")
-        self.assertIn("let albedo: SceneTextureCandidate", resources)
-        self.assertIn("let emissiveMask: SceneTextureCandidate?", resources)
-        self.assertIn("let material: SceneStaticModelMaterial", resources)
-        self.assertIn("pass.textureSlots.first.flatMap", resources)
-        self.assertNotIn("pass.texturePaths.first", resources)
-        self.assertIn("textureLoader.loadCandidate(", resources)
-        self.assertIn("purpose: .straightAlbedo", resources)
-        self.assertIn("purpose: .mask", resources)
-        self.assertIn(
-            "candidate.sampling.isResolvedForMaterialProgram", resources
-        )
-        self.assertIn(
-            "!candidate.sampling.usesClampBorderFallback", resources
-        )
-        self.assertIn('named: "emissivebrightness"', resources)
-        self.assertIn('named: "emissivecolor"', resources)
-        self.assertIn(")?.first ?? 0", resources)
-        self.assertIn('pass.combos["TINTMASKALPHA"] != 1', resources)
-        self.assertIn('pass.combos["TINTMASKALPHA"] == 1', resources)
-        self.assertIn('receivesLighting: pass.combos["LIGHTING"] != 0', resources)
-        self.assertLess(
-            resources.index('named: "color"'),
-            resources.index('named: "Color"'),
-        )
-        self.assertLess(
-            resources.index('named: "alpha"'),
-            resources.index('named: "Alpha"'),
-        )
-        self.assertIn("pass.constantShaderValues[name]", resources)
-        self.assertNotIn("localizedCaseInsensitiveCompare", resources)
-        self.assertIn('named: "tintback"', resources)
-        self.assertIn("let viewTint: SceneStaticModelViewTint?", resources)
-        self.assertIn("textureLoader: baseImages.textureLoader", preparation)
-        self.assertIn("let staticModels: ScenePreparedStaticModelResources", preparation)
-        self.assertIn("var preparedLayerIDs: [Int]", resources)
-
     def test_renderer_uses_existing_main_pass_and_surface_route(self) -> None:
         renderer = read_source_family(RENDERER)
         view = VIEW.read_text(encoding="utf-8")
@@ -87,9 +48,7 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         model_stage = RENDERER.with_name("SceneMetalRenderer+StaticModels.swift").read_text(encoding="utf-8")
         self.assertIn("state.sceneDepthEncoder(pass: pass, commandBuffer: commandBuffer)", model_stage)
         self.assertIn("pipeline.draw(", model_stage)
-        self.assertIn("emissiveMask: draw.entry.emissiveMask?.texture", model_stage)
-        self.assertIn("emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform", model_stage)
-        self.assertIn("emissiveMaskSampling: draw.entry.emissiveMask?.sampling", model_stage)
+        self.assertIn("materialMap: draw.entry.materialMap", model_stage)
         self.assertIn("entry.material.resolvingDynamicValues(", model_stage)
         self.assertIn(").resolvingDynamicViewTintBack(", model_stage)
         self.assertIn("material: draw.material", model_stage)

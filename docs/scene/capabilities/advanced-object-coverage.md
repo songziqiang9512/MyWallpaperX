@@ -35,18 +35,29 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 
-目标是让实际模型材质的法线图改变世界受光和已有反射，保留真实几何的深度、遮挡和阴影轮廓。沿原 stock `generic4` surface profile 的来源资格准备 slot1；显式 `NORMALMAP=0` 关闭，省略时由实际槽供货启用。自定义 shader 和其它材质族仍需各自实际消费者，不由槽序号猜用途。
+目标是让实际模型材质的法线图改变世界受光和已有反射，保留真实几何的深度、遮挡和阴影轮廓。沿原 stock `generic4` surface profile 的来源资格且存在实际照明/反射消费者时准备 slot1；显式 `NORMALMAP=0` 关闭，省略时由实际槽供货启用。自定义 shader 和其它材质族仍需各自实际消费者，不由槽序号猜用途。
 
 `authored material/slot1 → 原 TextureLoader(.normal) → 原模型 Entry 的不可变 normal binding → 原模型 draw → 唯一 compositor`。准备期一次决定原 TEX 格式的 RG、A/G 或压缩 A/G 解码；没有 TEX 元数据的普通图片采用标准 RGB 法线。保每张图自己的 UV 和 sampler，不依赖 albedo 的尺寸或格式。原 vertex 以模型线性矩阵变换 tangent，以逆转置变换 normal；fragment 正交化切线，按原 tangent.w 和模型镜像手性构造标准 TBN，再归一化扰动法线。动画继续消费原已更新切线，不增加骨骼计算或第二几何流。该非均匀缩放策略是本引擎的自有几何算法，未授官方像素一致。
 
-无图、显式关闭或可选资源失败保几何法线和原颜色；零切线/退化采样局部保几何法线，不拒整模型。仅启用的图增加一次片元采样；不加逐帧资源解析、缓存、状态树、深度 target 或 PSO 家族。环境的几何方向渐变、阴影的实际接收平面和 caster、alpha/深度继续原合同；直接光与已有反射消费扰动法线。原反射的“有 normal 即拒绝”限制随消费者退出，分量图及外部反射图仍不由此放行。
+无图、显式关闭或可选资源失败保几何法线和原颜色；零切线/退化采样局部保几何法线，不拒整模型。仅启用的图增加一次片元采样；不加逐帧资源解析、缓存、状态树、深度 target 或 PSO 家族。环境的几何方向渐变、阴影的实际接收平面和 caster、alpha/深度继续原合同；直接光与已有反射消费扰动法线。原反射的“有 normal 即拒绝”限制随消费者退出，分量图沿[原分量消费者](#model-material-map)独立准备，外部反射图仍待接入。
 
 验收沿原模型资源和 production Metal 门，覆盖平法线、相反切向扰动、tangent.w、旋转/镜像/非均匀变换、独立 UV/采样、原格式与普通图片、显式关闭/缺图和健康 peer；另核原 alpha/深度及反射邻例。真实月球和独立楼体使用原包取得实际 normal binding、同帧 main/GPU 与画面，不以 slot 声明代贡献。实现及运行资格由本节与[模型证据](model-runtime-evidence.md#model-normal-map)分别维护。
+
+<a id="model-material-map"></a>
+### 模型的分量贴图
+
+目标是让活动stock generic4模型的slot2参与金属度、粗糙度、反射与发光，而非只作发光A图。沿原material/Entry/TextureLoader/Pipeline/Metal承接：原SurfaceProfile描述已证明stock来源的静态数值材质，不再把LIGHTING关闭混作非stock资格；没有照明或反射消费者时不加载normal。保原标量M缺省0/R缺省.7及显式0，stock发光亮度缺省按材质合同1，只有真实A分量才产生发光；未取得该profile的材质保原legacy响应和默认，不新增猜测来源。
+
+用一份typed material-map binding替换emissiveMask及其三个可空GPU参数，持原纹理、独立UV/sampler和冷准备有效位。沿已存在TEX bit20…23元数据，R替换metallic、G替换roughness、B乘reflectivity、A乘emissivebrightness；分量combo省略取header，显式0关闭、任意非零开启，与原编译宏的整数#if语义一致；header不是显式分量的授权门，普通PNG也可由作者明确选择通道。PBRMASKS显式0仅关闭整张分量图，保albedo/normal与标量响应；其它非零允许。缺图或无有效位回标量/无附加发光；A combo省略时，MR载入不能把没有A metadata的RGB隐含alpha1当发光；作者显式非零A按原通道值执行。未资格legacy材质仅保原有A路径。退出因发光亮度为零就不准备真实MR、已具map却固定标量、以及因显式MR/B map拒反射的旧限制，不保第二mask字段、第二纹理加载或兼容draw API。
+
+原shader每片元最多一次slot1数据采样同时供四分量，复用原SurfaceResponse、主画布反射、normal、fog、PMA、alpha/depth/caster与唯一compositor；有效位随原uniform传入，不增ABI字节、PSO、缓存或普通帧解析。原资源入口已确认的mapUV/sampling不再以多组可空参数在draw重复校验；可选资源失败只丢相关分量，不阻断albedo/模型。新增typed binding承接真实多消费者数据及退旧nullable三元组，不建资源owner。
+
+验收用真实准备→原Frame/Metal的分区map与相同M/R/B/A的纯标量/显式图邻例作等值像素对照，保省略位缺失/显式启用及禁位、总开关、非零整数变体、标量0、缺图、独立UV/sampler、完整改名、法线/反射共存、HDR/alpha/depth；既有发光及shadow门按影响补测。原月球53/77须实际绑定非恒定分量并取得完整作者画面；分量运算由等值标量门和隔离真实资产的固定球面开关对照归因，不能把作者供货直接升级为严格原景A/B或77逐part贡献。另用独立真实样本检查启用与无map邻例。未取得作者/官方分量像素配对时以明确的本引擎材质运算和等值标量正反例判定，不拟合亮度或宣全部官方像素/性能。
 
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射
 
-内置 `generic4` 的 `REFLECTION` 可用原 mesh 世界法线、视向和主画布片元位置读取场景反射。材质准备保留本路径实际消费的静态 reflectivity、roughness 与 metallic。采样以屏幕偏移、边界淡出和粗糙度 mip 表达，再按材质视角响应加入 HDR 亮度、雾及覆盖所在的原终端顺序。主画布采用几何法线或[实际法线图](#model-normal-map)及标量材质；分量图、外部反射纹理、绑定值及局部组反射仍待接入。光照和反射独立，缺反射输入时继续原模型颜色与深度。
+内置 `generic4` 的 `REFLECTION` 可用原 mesh 世界法线、视向和主画布片元位置读取场景反射。材质准备保留本路径实际消费的静态 reflectivity、roughness 与 metallic。采样以屏幕偏移、边界淡出和粗糙度 mip 表达，再按材质视角响应加入 HDR 亮度、雾及覆盖所在的原终端顺序。主画布采用几何法线或[实际法线图](#model-normal-map)及[分量材质](#model-material-map)；外部反射纹理、动态MR/reflectivity及局部组反射仍待接入。光照和反射独立，缺反射输入时继续原模型颜色与深度。
 
 反射沿现有 Surface 的 ReflectionFrame 读前一完成的主画布颜色，复用同一 mip 纹理、预算、失效与提交 pin。只有可见且已准备的接收者触发需求。命名颜色仍在原图层位置供货。若当前只有主模型深度域，后到的命名颜色可与已确定可画的反射模型共用这一域。保护既有必需终端及捕获容量后再取得可选 history，部分证明不发布完整模型 draw set。组、深度写粒子、未保留容量的命名供货和命名 shadow 留原容量顺序。首帧、尺寸/代次更换或容量不足只缺本帧反射。
 

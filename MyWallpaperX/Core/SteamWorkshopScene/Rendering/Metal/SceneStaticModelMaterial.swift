@@ -1,6 +1,14 @@
 import Metal
 import simd
 
+/// One slot-local data binding shared by the prepared material components.
+struct SceneStaticModelMaterialMap {
+    let texture: MTLTexture
+    let textureFrame: SceneTextureUVTransform
+    let sampling: SceneTextureSampling
+    let components: UInt32
+}
+
 /// Slot-local data prepared with the model material, independent of albedo.
 struct SceneStaticModelNormalMap {
     enum Encoding: UInt32 {

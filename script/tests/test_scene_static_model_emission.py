@@ -404,8 +404,7 @@ PIXEL_MAIN = r'''
             precondition(pipeline.draw(
                 mesh: mesh, texture: albedo,
                 colorTextureIsPremultiplied: input["colorPremultiplied"] as? Bool ?? false,
-                emissiveMask: mask, emissiveMaskTextureFrame: mask == nil ? nil : .identity,
-                emissiveMaskSampling: mask == nil ? nil : .linearClamp, modelMatrix: matrix_identity_float4x4,
+                materialMap: mask.map { .init(texture: $0, textureFrame: .identity, sampling: .linearClamp, components: 8) }, modelMatrix: matrix_identity_float4x4,
                 viewProjection: matrix_identity_float4x4,
                 cameraPosition: vector(input["cameraPosition"] as? [Double] ?? [0, 0, 10]),
                 textureFrame: .identity, sampling: .linearClamp,

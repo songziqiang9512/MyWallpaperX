@@ -26,14 +26,22 @@
         let materialPath = renamed ? "materials/alternate-surface.json" : "materials/input.json"
         let normalRelative = renamed ? "materials/surface-vectors.png" : "materials/normal.png"
         let combo = Int(number("normalCombo"))
-        var combos = ["LIGHTING": 1]
+        var combos = ["LIGHTING": item["lighting"] as? Int ?? 1]
+        combos.merge(item["mapCombos"] as? [String: Int] ?? [:], uniquingKeysWith: { _, value in value })
         if combo >= 0 { combos["NORMALMAP"] = combo }
         let reflection = item["reflection"] as! Bool
-        if reflection { combos["REFLECTION"] = 1 }
+        if reflection && combos["REFLECTION"] == nil { combos["REFLECTION"] = 1 }
+        var values: [String: SceneDocument.ShaderValue] = [
+            "alpha": .init(components: [Double(number("alpha"))]), "roughness": .init(components: [1])]
+        for (key, value) in item["constants"] as? [String: Any] ?? [:] {
+            let components = (value as? [NSNumber])?.map(\.doubleValue) ?? [(value as! NSNumber).doubleValue]
+            values[key] = .init(components: components)
+        }
+        let componentRelative = renamed ? "materials/alternate-components.png" : "materials/components.png"
+        var textureSlots: [String?] = [renamed ? "materials/alternate-color.png" : "materials/white.png", normalRelative]
+        if item["materialPixels"] != nil { textureSlots.append(componentRelative) }
         var primary = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: materialPath,
-            textureSlots: ["materials/white.png", normalRelative], combos: combos,
-            constantShaderValues: ["alpha": .init(components: [Double(number("alpha"))]),
-                "roughness": .init(components: [1])])
+            textureSlots: textureSlots, combos: combos, constantShaderValues: values)
         primary.shaderPath = item["shader"] as? String
         primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
         var farPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/far.json",
@@ -47,6 +55,7 @@
         far.utilityLayer = nil; far.usesPerspective = true; far.originXYZ = [0, 0, 0]
         var descriptor = SceneRenderDescriptor(lighting: nil, layers: [near, far],
             renderOrderLayerIDs: [7, 9], materialPasses: [primary, farPass])
+        descriptor.hdrEnabled = item["hdr"] as? Bool ?? false
         descriptor.camera = .init(eye: [0, 0, 160], center: [0, 0, 0], up: [0, 1, 0],
             orthoWidth: nil, orthoHeight: nil, fovDegrees: 60,
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
@@ -73,6 +82,28 @@
             sampling: .init(texFlags: (item["nearest"] as! Bool ? 1 : 0)
                 | (item["repeat"] as! Bool ? 0 : 2)),
             authoredFormat: sourceFormat >= 0 ? SceneShaderTextureFormat(rawValue: UInt32(sourceFormat)) : nil)
+        if let componentPixels = item["materialPixels"] as? [NSNumber] {
+            let componentWidth = item["materialWidth"] as? Int ?? 1
+            let componentDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: componentWidth, height: 1, mipmapped: false)
+            componentDescriptor.storageMode = .shared; componentDescriptor.usage = .shaderRead
+            let componentTexture = device.makeTexture(descriptor: componentDescriptor)!
+            let bytes = componentPixels.map(\.uint8Value)
+            precondition(bytes.count == componentWidth * 4)
+            bytes.withUnsafeBytes { componentTexture.replace(region: MTLRegionMake2D(0, 0, componentWidth, 1),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: componentWidth * 4) }
+            let componentPath = folder.appendingPathComponent(componentRelative).resolvingSymlinksInPath().path
+            let header = item["mapHeader"] as? Int ?? 0
+            loader.candidates[componentPath] = .init(texture: componentTexture,
+                identity: .file(path: componentPath), generation: .immutable(revision: 1), purpose: .mask,
+                content: .data, physicalSize: CGSize(width: componentWidth, height: 1),
+                mappedSize: CGSize(width: componentWidth, height: 1),
+                uvTransform: .init(origin: SIMD2((item["mapOffset"] as? NSNumber)?.floatValue ?? 0, 0),
+                    xAxis: SIMD2((item["mapScale"] as? NSNumber)?.floatValue ?? 1, 0), yAxis: SIMD2(0, 1)),
+                sampling: header < 0 ? .directImageFallback : .init(texFlags: UInt32(header) << 20
+                    | (item["mapNearest"] as? Bool ?? true ? 1 : 0)
+                    | (item["mapRepeat"] as? Bool ?? false ? 0 : 2)))
+        }
         var sources = try prepareModelSources(descriptor, view: .init(root: folder))
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: .init(root: folder), device: device, textureLoader: loader,
@@ -116,8 +147,7 @@
             let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: cb)!
             let draw = renderer.staticModelDraws(layer: near, worldFrames: worlds, snapshot: snapshot)!.first!
             precondition(resources.pipeline!.draw(mesh: draw.mesh, texture: draw.texture,
-                colorTextureIsPremultiplied: false, emissiveMask: nil, emissiveMaskTextureFrame: nil,
-                emissiveMaskSampling: nil, normalMap: draw.entry.normalMap, modelMatrix: draw.world,
+                colorTextureIsPremultiplied: false, materialMap: draw.entry.materialMap, normalMap: draw.entry.normalMap, modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix, viewProjection: camera.reverseDepthViewProjection(usesPerspective: true),
                 cameraPosition: camera.perspectiveEyePosition, textureFrame: draw.textureFrame,
                 sampling: draw.sampling, layerAlpha: draw.alpha, material: draw.material,
@@ -147,6 +177,9 @@
         }
         return ["name": name, "rgba": rgba(32, 32), "outside": rgba(0, 0),
             "encoding": resources[7]!.first!.normalMap?.encoding.rawValue ?? 0,
+            "components": resources[7]!.first!.materialMap?.components ?? 0,
+            "emissionSeed": resources[7]!.first!.material.emissiveBrightness,
+            "surfaceProfile": resources[7]!.first!.material.surfaceProfile != nil,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
     }
