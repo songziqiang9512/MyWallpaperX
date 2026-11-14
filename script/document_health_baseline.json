@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 176,
-      "bytes": 33420
+      "lines": 183,
+      "bytes": 34635
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 271270
+      "bytes": 272856
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 50499
+      "bytes": 50539
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -510,30 +510,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b5f8656738bfc9410c3e1665e365e407b3d478e83eb781d7641ccc9c7251db5b",
-      "after": "46ce00e6b2f5200ea77e85a690e3b55992ac923eaec10d1e4b07387eb663319c",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "9125fb5eb73b4c9a46f10e45bfb53c77355269efb31c10e5db9aa220790db547",
+      "after": "0c28523ed44c9503ffc9b2da211c065afeec5729297d3491864e17ba652ee21c",
       "owner": "Scene model materials",
-      "reason": "Existing model resource/Metal owners now consume normal maps with one documented TBN, typed format and failure contract; retire the prior reflection exclusion.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-normal-map"
+      "reason": "Add qualified old/new literal GPU differences and signed original-author output; merge the existing parent-visibility evidence paragraph to stay within 600 lines.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-additive-blend"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "46ce00e6b2f5200ea77e85a690e3b55992ac923eaec10d1e4b07387eb663319c",
+      "after": "acf346a0c1ffc78a9f9144adcc04fdd5d93a6e5809063b96024bbc39648c3b94",
+      "owner": "Scene model materials",
+      "reason": "Define the actual additive RGB consumer and retirement of fixed source-over; preserve existing independent depth/cull ownership without claiming disabled depth-test support.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-additive-blend"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e1c8cc4f8abd41a97ca8239594ee2d5fd9acecbb5eb34f76e08367dfecc830e0",
-      "after": "42d83e56378a658385f0c8d1b8199bff6d09bd2a6052b376b2fab78b0df2a0c8",
+      "before": "42d83e56378a658385f0c8d1b8199bff6d09bd2a6052b376b2fab78b0df2a0c8",
+      "after": "80783e4110f9dd17bd589c8fa67d0e6c8aa4bc33f99870d53c83dbee4e9bf372",
       "owner": "Scene model materials",
-      "reason": "User prioritizes world-model composition; record the verified additive consumer gap and independent active Earth varying failure without losing existing open issues.",
+      "reason": "Retire additive, record the remaining depth-test consumer and qualify the independent hidden Earth effect input instead of claiming a lost authored declaration.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5c4eb5feaae66c0e54260580b2bdb3ea1387a204a918f074b441c58b648360dc",
-      "after": "9125fb5eb73b4c9a46f10e45bfb53c77355269efb31c10e5db9aa220790db547",
-      "owner": "Scene model materials",
-      "reason": "Replace redundant model parent-visibility implementation narrative with bounded evidence and add actual model normal GPU/App qualification.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-normal-map"
     }
   ]
 }

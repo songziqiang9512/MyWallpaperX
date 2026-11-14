@@ -35,7 +35,7 @@
             constantShaderValues: ["alpha": .init(components: [Double(number("alpha"))]),
                 "roughness": .init(components: [1])])
         primary.shaderPath = item["shader"] as? String
-        primary.cullMode = "nocull"; primary.blending = "translucent"
+        primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
         var farPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/far.json",
             textureSlots: ["materials/blue.png"], combos: ["LIGHTING": 0], constantShaderValues: [:])
         farPass.shaderPath = "generic4"; farPass.cullMode = "nocull"; farPass.blending = "normal"
@@ -97,7 +97,7 @@
         outputDescriptor.storageMode = .shared; outputDescriptor.usage = [.renderTarget, .shaderRead]
         let output = device.makeTexture(descriptor: outputDescriptor)!, cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: output,
-            clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: true)
+            clearColor: MTLClearColorMake(item["additive"] as! Bool ? 64.0 / 255.0 : 0, 0, 0, 0), clearEnabled: true)
         let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
         let snapshot = SceneDynamicSnapshot.empty(frameIndex: 1, generation: 1)
@@ -121,6 +121,7 @@
                 normalMatrix: draw.normalMatrix, viewProjection: camera.reverseDepthViewProjection(usesPerspective: true),
                 cameraPosition: camera.perspectiveEyePosition, textureFrame: draw.textureFrame,
                 sampling: draw.sampling, layerAlpha: draw.alpha, material: draw.material,
+                additiveRGB: item["additive"] as! Bool,
                 lighting: lighting, writesDepth: true, reflectionTexture: colorBands,
                 commandBuffer: cb, encoder: encoder))
         } else { for layer in item["far"] as! Bool ? [near, far] : [near] {

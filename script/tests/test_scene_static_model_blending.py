@@ -1,4 +1,4 @@
-"""Prepared static-model normal coverage through the real frame and Metal owners."""
+"""Prepared static-model blending through the real frame and Metal owners."""
 
 import json
 import os
@@ -16,10 +16,12 @@ SOURCES = parts.NATIVE_SOURCES
 
 def cases():
     def case(name, blend="normal", alpha=1, texture_alpha=255, layer_alpha=1,
-             far=True, near=True, renamed=False, near_writes_depth=True):
+             far=True, near=True, renamed=False, near_writes_depth=True,
+             far_first=False, far_blend="normal", far_layer_alpha=1):
         return dict(name=name, blend=blend, alpha=alpha, textureAlpha=texture_alpha,
                     layerAlpha=layer_alpha, far=far, near=near, renamed=renamed,
-                    nearWritesDepth=near_writes_depth)
+                    nearWritesDepth=near_writes_depth, farFirst=far_first,
+                    farBlend=far_blend, farLayerAlpha=far_layer_alpha)
 
     return [
         case("near-only", far=False), case("far-only", near=False),
@@ -38,6 +40,24 @@ def cases():
         case("legacy-unknown-zero", blend="not-a-mode", alpha=0),
         case("normal-write-disabled-alone", far=False, near_writes_depth=False),
         case("normal-write-disabled-far", near_writes_depth=False),
+        case("additive-full", blend="additive", far_first=True),
+        case("additive-half", blend="additive", alpha=.5, far_first=True),
+        case("additive-layer-half", blend="additive", layer_alpha=.5, far_first=True),
+        case("additive-texture-half", blend="additive", texture_alpha=128, far_first=True),
+        case("additive-zero", blend="additive", alpha=0, far_first=True),
+        case("additive-texture-zero", blend="additive", texture_alpha=0, far_first=True),
+        case("additive-alone-half", blend="additive", alpha=.5, far=False),
+        case("additive-over-half-background", blend="additive", alpha=.5,
+             far_first=True, far_layer_alpha=.5),
+        case("additive-no-write-after-background", blend="additive", alpha=.5,
+             far_first=True, near_writes_depth=False),
+        case("additive-no-write-before-background", blend="additive", alpha=.5,
+             near_writes_depth=False),
+        case("near-opaque-far-additive", far_blend="additive"),
+        case("near-no-write-far-additive", far_blend="additive", near_writes_depth=False),
+        case("normal-after-background", far_first=True),
+        case("translucent-after-background", blend="translucent", alpha=.5, far_first=True),
+        case("additive-renamed", blend=" Additive ", alpha=.5, far_first=True, renamed=True),
     ]
 
 
@@ -49,7 +69,7 @@ def prepare_fixture(root, rows):
         names = ["red", "blue"] if not row["renamed"] else ["ember_surface", "sky_surface"]
         for stem, z, rgba, blend, alpha, writes_depth in [
             (names[0], 10, [255, 0, 0, row["textureAlpha"]], row["blend"], row["alpha"], row["nearWritesDepth"]),
-            (names[1], -10, [0, 0, 255, 255], "normal", 1, True),
+            (names[1], -10, [0, 0, 255, 255], row["farBlend"], 1, True),
         ]:
             material = f"materials/{stem}.json"
             (directory / f"models/{stem}.mdl").write_bytes(parts.quad(8, 56, 8, 56, z, material))
@@ -145,6 +165,42 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
                 self.assertEqual(row["outside"], [0, 0, 0, 0])
                 self.assertTrue(row["prepared"])
                 self.assertTrue(row["encoded"])
+
+    def test_additive_adds_premultiplied_rgb_and_preserves_source_over_alpha(self):
+        for name, expected in [
+            ("additive-full", [255, 0, 255, 255]),
+            ("additive-half", [128, 0, 255, 255]),
+            ("additive-layer-half", [128, 0, 255, 255]),
+            ("additive-texture-half", [128, 0, 255, 255]),
+            ("additive-alone-half", [128, 0, 0, 128]),
+            ("additive-over-half-background", [128, 0, 128, 191]),
+            ("additive-renamed", [128, 0, 255, 255]),
+        ]:
+            with self.subTest(name=name):
+                self.assertEqual(self.rows[name]["preparedBlend"], "additive")
+                self.assert_pixel(self.rows[name], expected)
+                self.assertEqual(self.rows[name]["depth"], self.rows["near-only"]["depth"])
+        self.assertEqual(self.rows["additive-renamed"]["rgba"], self.rows["additive-half"]["rgba"])
+        for name in ["additive-zero", "additive-texture-zero"]:
+            self.assert_pixel(self.rows[name], [0, 0, 255, 255])
+            self.assertEqual(self.rows[name]["depth"], self.rows["far-only"]["depth"])
+        self.assert_pixel(self.rows["normal-after-background"], [255, 0, 0, 255])
+        self.assert_pixel(self.rows["translucent-after-background"], [128, 0, 128, 255])
+
+    def test_additive_does_not_override_geometric_depth_or_author_write_state(self):
+        for name, expected in [
+            ("additive-no-write-after-background", [128, 0, 255, 255]),
+            ("additive-no-write-before-background", [0, 0, 255, 255]),
+            ("near-no-write-far-additive", [255, 0, 255, 255]),
+        ]:
+            with self.subTest(name=name):
+                self.assertEqual(self.rows[name]["preparedWritesDepth"], [False, True])
+                self.assert_pixel(self.rows[name], expected)
+                self.assertEqual(self.rows[name]["depth"], self.rows["far-only"]["depth"])
+        row = self.rows["near-opaque-far-additive"]
+        self.assertEqual(row["preparedFarBlend"], "additive")
+        self.assert_pixel(row, [255, 0, 0, 255])
+        self.assertEqual(row["depth"], self.rows["near-only"]["depth"])
 
 
 if __name__ == "__main__":

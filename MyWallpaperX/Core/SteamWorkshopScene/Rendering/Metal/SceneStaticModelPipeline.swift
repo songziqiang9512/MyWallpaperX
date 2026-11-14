@@ -125,8 +125,10 @@ private struct SceneStaticModelUniforms {
 struct SceneStaticModelPipeline {
     let state: MTLRenderPipelineState
     private let reflectionState: MTLRenderPipelineState?
+    private let additiveState: MTLRenderPipelineState?
+    private let additiveReflectionState: MTLRenderPipelineState?
     private let cameraDepthState: MTLRenderPipelineState?
-    var supportsReflection: Bool { reflectionState != nil }
+    var supportsReflection: Bool { reflectionState != nil || additiveReflectionState != nil }
     var supportsCameraDepth: Bool { cameraDepthState != nil }
 
     private let device: MTLDevice
@@ -144,6 +146,7 @@ struct SceneStaticModelPipeline {
         colorPixelFormat: MTLPixelFormat = .bgra8Unorm,
         depthPixelFormat: MTLPixelFormat = .depth32Float,
         preparesReflection: Bool = false,
+        preparesAdditive: Bool = false,
         preparesCameraDepth: Bool = false
     ) {
         guard Self.hasExpectedUniformABI,
@@ -206,11 +209,26 @@ struct SceneStaticModelPipeline {
         }
         self.device = device
         self.state = state
-        if preparesReflection, let reflectiveFragment = fragment(reflection: true) {
+        let reflectiveFragment = preparesReflection ? fragment(reflection: true) : nil
+        if let reflectiveFragment {
             descriptor.label = "Scene static model reflection"
             descriptor.fragmentFunction = reflectiveFragment
             reflectionState = try? device.makeRenderPipelineState(descriptor: descriptor)
         } else { reflectionState = nil }
+        if preparesAdditive {
+            attachment.destinationRGBBlendFactor = .one
+            descriptor.label = "Scene additive model"
+            descriptor.fragmentFunction = baseFragment
+            additiveState = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if let reflectiveFragment {
+                descriptor.label = "Scene additive model reflection"
+                descriptor.fragmentFunction = reflectiveFragment
+                additiveReflectionState = try? device.makeRenderPipelineState(descriptor: descriptor)
+            } else { additiveReflectionState = nil }
+        } else {
+            additiveState = nil
+            additiveReflectionState = nil
+        }
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
         self.disabledDepthState = disabledDepthState
@@ -359,6 +377,7 @@ struct SceneStaticModelPipeline {
         layerAlpha: Float,
         material: SceneStaticModelMaterial,
         materialColorIsOpaque: Bool = false,
+        additiveRGB: Bool = false,
         lighting: SceneLightSnapshot,
         writesDepth: Bool,
         shadows: [SceneStaticModelShadow] = [],
@@ -395,6 +414,9 @@ struct SceneStaticModelPipeline {
               Self.isFinite(normalMatrix) else {
             return false
         }
+        let colorState: MTLRenderPipelineState? = additiveRGB ? additiveState : state
+        guard let colorState else { return false }
+        let reflectiveState = additiveRGB ? additiveReflectionState : reflectionState
         // Official `lpoint` lights static models; `point` lights only 2D lit
         // images (own-fixture black-box, 2026-10-06). Shadow slots and the
         // encoded uniforms must index the same filtered array.
@@ -536,11 +558,11 @@ struct SceneStaticModelPipeline {
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        if let reflectionTexture, let reflectionState, uniforms.surfaceMaterial.w > 0 {
-            encoder.setRenderPipelineState(reflectionState)
+        if let reflectionTexture, let reflectiveState, uniforms.surfaceMaterial.w > 0 {
+            encoder.setRenderPipelineState(reflectiveState)
             encoder.setFragmentTexture(reflectionTexture, index: 6)
         } else {
-            encoder.setRenderPipelineState(state)
+            encoder.setRenderPipelineState(colorState)
         }
         encoder.setDepthStencilState(
             writesDepth ? writingDepthState : nonwritingDepthState

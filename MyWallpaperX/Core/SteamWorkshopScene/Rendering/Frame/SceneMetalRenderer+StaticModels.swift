@@ -267,7 +267,8 @@ extension SceneMetalRenderer {
                 cameraPosition: cameraFrame.perspectiveEyePosition,
                 textureFrame: draw.textureFrame, sampling: draw.sampling,
                 layerAlpha: draw.alpha, material: draw.material,
-                materialColorIsOpaque: draw.entry.materialBlending == .normal, lighting: lighting,
+                materialColorIsOpaque: draw.entry.materialBlending == .normal,
+                additiveRGB: draw.entry.materialBlending == .additive, lighting: lighting,
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
@@ -283,7 +284,8 @@ extension SceneMetalRenderer {
                 trace.recordComposition(.init(kind: "model", layerID: layer.id, slot: 0,
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",
-                    reason: "model-internal-material-bindings-not-observed"))
+                    reason: "model-internal-material-bindings-not-observed",
+                    details: ["blending": draw.entry.materialBlending?.rawValue ?? "legacy"]))
                 if encoded, let normal = draw.entry.normalMap {
                     trace.recordComposition(.init(kind: "model-normal", layerID: layer.id, slot: 7,
                         source: .init(normal.texture, role: "model-normal-data"),

@@ -16,6 +16,13 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 源码：[静态模型资源](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)、[DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)。
 
+<a id="model-additive-blend"></a>
+### 模型的加法颜色
+
+原材质准备已经解析的 `blending=additive` 直接决定模型颜色管线：片元保持原 PMA，RGB 以 `one/one` 加到已有画布，alpha 沿唯一 compositor 的 source-over 合同；普通/半透明及缺省材质保原策略。层、材质和纹理透明度只乘一次。模型资源准备仅在存在该材质时创建相应原 PSO；反射与加法可组合，复用同一 fragment/资源，不按资源名或模型形状分派。缺失的加法 PSO 只拒对应 draw，不能悄悄按覆盖混合绘制。
+
+保持现有深度测试、写入、cull、caster 和光照职责，不从加法或透明度推导统一停写深度，也不另建排序/深度域。原 Frame 直接把已解析混合事实交给原 Pipeline，退已保存 additive 却固定 source-over 的断点，无热解析、附加 pass、资源或输出 owner。生产 GPU 门以非黑背景检验 full/half/zero alpha、改名、深度写开关与近遮挡，保 normal/translucent 邻例；真实星星模型另验同帧颜色/主画布/GPU，独立无加法作者保持原画面。该 RGB 合成是本引擎明确的通用算法，不授全部官方材质语义。
+
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 

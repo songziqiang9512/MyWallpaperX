@@ -47,8 +47,10 @@
             layers[index].scaleXYZ = [1, -1, 1]
         }
         layers[0].alpha = (input["layerAlpha"] as! NSNumber).doubleValue
+        layers[1].alpha = (input["farLayerAlpha"] as! NSNumber).doubleValue
+        let farFirst = input["farFirst"] as! Bool
         var descriptor = SceneRenderDescriptor(lighting: nil, layers: layers,
-            renderOrderLayerIDs: ids, materialPasses: passes)
+            renderOrderLayerIDs: farFirst ? Array(ids.reversed()) : ids, materialPasses: passes)
         descriptor.camera = .init(eye: [0,0,0], center: [0,0,-1], up: [0,1,0],
             orthoWidth: 64, orthoHeight: 64, fovDegrees: nil,
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
@@ -74,7 +76,8 @@
             clearColor: MTLClearColorMake(0,0,0,0), clearEnabled: true)
         let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
-        let selected = [(0, input["near"] as! Bool), (1, input["far"] as! Bool)]
+        var selected = [(0, input["near"] as! Bool), (1, input["far"] as! Bool)]
+        if farFirst { selected.reverse() }
         for (index, enabled) in selected where enabled {
             _ = renderer.drawStaticModel(layer: layers[index], state: state, worldFrames: worlds,
                 frameContext: .init(dynamicValues: dynamic), cameraFrame: camera, lighting: lighting,
@@ -106,6 +109,7 @@
         }
         return ["name": name, "prepared": resources[ids[0]]?.count == 1 && resources[ids[1]]?.count == 1,
             "preparedBlend": resources[ids[0]]![0].materialBlending?.rawValue ?? "unresolved",
+            "preparedFarBlend": resources[ids[1]]![0].materialBlending?.rawValue ?? "unresolved",
             "opacity": resources[ids[0]]![0].material.opacity,
             "preparedWritesDepth": ids.map { resources[$0]![0].writesDepth },
             "rgba": rgba(32,32), "outside": rgba(1,1),

@@ -18,7 +18,7 @@ def cases():
             format=-1, storage="rgba", normalCombo=1, shader="generic4",
             missing=False, override=False, width=1, uv=.5, frameOffset=0,
             frameScale=1, repeat=False, nearest=True, ambient=False,
-            alpha=1, far=False, reflection=False, renamed=False), **changes))
+            alpha=1, far=False, reflection=False, renamed=False, additive=False), **changes))
 
     return [
         row("rgb-positive"), row("rgb-negative", pixels=[0, 128, 128, 255]),
@@ -53,6 +53,7 @@ def cases():
         row("reflection-right", pixels=[218, 128, 218, 255], reflection=True),
         row("reflection-left", pixels=[37, 128, 218, 255], reflection=True),
         row("reflection-flat", pixels=[128, 128, 255, 255], reflection=True),
+        row("reflection-additive", pixels=[218, 128, 218, 255], reflection=True, additive=True),
         row("renamed", renamed=True),
     ]
 
@@ -152,7 +153,8 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
             self.assertLessEqual(abs(actual * 2 - full), 2)
         for row in self.rows.values():
             self.assertTrue(row["completed"], row)
-            self.assertEqual(row["outside"], [0, 0, 0, 0], row)
+            self.assertEqual(row["outside"], [64, 0, 0, 0]
+                if row["name"] == "reflection-additive" else [0, 0, 0, 0], row)
 
     def test_perturbed_normal_selects_independent_reflection_bands(self):
         right, left, flat = [self.rows["reflection-" + name] for name in ["right", "left", "flat"]]
@@ -161,6 +163,9 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
         self.assertGreater(left["rgba"][0], 10, left)
         self.assertEqual(left["rgba"][1:3], [0, 0], left)
         self.assertLessEqual(max(flat["rgba"][:3]), 1, flat)
+        additive = self.rows["reflection-additive"]
+        self.assertEqual(additive["rgba"][0], 64, additive)
+        self.assertEqual(additive["rgba"][1:], right["rgba"][1:], additive)
 
 
 if __name__ == "__main__":
