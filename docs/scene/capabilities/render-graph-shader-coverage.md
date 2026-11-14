@@ -125,6 +125,15 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 - 真实空槽 Resolution 的名义 `[2,2,2,2]` 只用于已证明精确成对归一化、无 default 且 template/frame 都为空的路径；pending/nonempty 槽不能套用此值。
 - 纹理 reduction 改变工作采样域，不改变最终放置与原材质语义；source-sized raster、camera projection 与 terminal placement 分别消费各自准备事实。
 
+<a id="small-atlas-frame-uv"></a>
+### 图集小帧的非退化UV
+
+typed slot的UV有效性按实际映射判断：现SlotBinding保有限origin/两轴与有限非零行列式，不用归一化面积的任意下限决定播放。4096² atlas中的1² frame两轴为1/4096、面积约5.96e−8，仍是完整一个源像素；阈值1e−7会在共享binding入口因图集分辨率误拒，实际依赖该binding的发布与绘制随之局部失去纹理。同一阈值也在StaticModel颜色/阴影的raw textureFrame入口拒绝整次draw。本批一并退这两条同源面积许可，保原尺寸/用途/纹理兼容及真实零面积/非有限值的拒绝，不改抽样、geometry或物理资源额度。原模型Frame在真正坏raw frame使drawShadow拒绝时撤整map，现失败范围另列队，不借本批宣单caster局部隔离。
+
+原UV数据继续由Loader/同candidate/frame provider传播，现纯数据SceneTextureUVTransform拥有一份有限/非退化谓词，原SlotBinding与模型颜色/阴影入口共用；SlotBinding的private UV/area helpers与模型private isValid同批退出。两入口各自仍可收到raw frame，保各自原检查次数，不新增owner、字段、cache、wrapper或帧内额外运算。当前Loader与MaterialProgram的轴对齐范围保持，旋转/skew另按队列的完整链资格；本修复不据该局部放行宣任意仿射TEX支持。Textures已属原构建语义身份，不新建缓存版本或播放清库。
+
+验收在最近候选/材质门用真实4096² TEX与1² frame经过Loader→frame provider/publication→binding→实际Metal，和独立小图逐像素等值；保相邻正常frame、资源改名、零面积/非有限和健康peer。原模型Frame/Metal门另核相同tiny UV的颜色与三灯shadow、身份frame等值及真实退化拒绝，不能以image通过代替模型。App沿同自有输入做旧新贡献控制并复用有效同身份控制，独立作者保原播放；不以metadata ready代替实际采样，也不授活动作者命中、更多UV形状或性能。 共享小帧与模型颜色/投影已按此闭合，范围见[模型运行证据](model-runtime-evidence.md#small-atlas-frame-uv)。
+
 <a id="graph-canvas-sampling"></a>
 ### 材质画布采样
 

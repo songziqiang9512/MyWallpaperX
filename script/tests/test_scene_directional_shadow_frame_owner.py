@@ -400,6 +400,11 @@ def model_shadow_coverage_cases():
              row("reverse-culled", expected=(False, False), reverse=True),
              row("reverse-nocull", reverse=True, noCull=True),
              row("hidden-covered", expected=(False, False), hidden=True)]
+    for light in ["directional", "spot", "point"]:
+        rows += [row(light+"-uv-reference", light, frameScale=1, noCull=True),
+                 row(light+"-uv-tiny", light, frameScale=1/4096, frameOrigin=[.5,.5], noCull=True)]
+    rows += [row("uv-zero", expected=(False, False), frameScale=0, expectedShadow=False, noCull=True),
+             row("uv-nan", expected=(False, False), frameScale=1, frameInvalid="nan", expectedShadow=False, noCull=True)]
     return rows
 
 
@@ -471,9 +476,15 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   }
   var material=makeMaterial(Float(coverage?["opacity"] as? Double ?? 1),coverage?["tintMask"] as? Bool ?? false)
   material.cullMode=noCull ? .none:.back
+  var textureFrame=SceneTextureUVTransform.identity
+  if let scale=coverage?["frameScale"] as? Double {
+   let origin=(coverage?["frameOrigin"] as? [Double] ?? [0,0]).map(Float.init)
+   textureFrame = .init(origin:SIMD2(origin),xAxis:SIMD2(Float(scale),0),yAxis:SIMD2(0,Float(scale)))
+   if coverage?["frameInvalid"] as? String == "nan" {textureFrame = .init(origin:.zero,xAxis:SIMD2(Float.nan,0),yAxis:SIMD2(0,1))}
+  }
   let entry=ScenePreparedStaticModelResources.Entry(
    materialPath:coverage?["renamed"] as? Bool == true ? "surfaces/Φ renamed finish":"own-cull",dynamicMaterialPath:"",
-   mesh:mesh,albedo:PreparedTexture(texture:casterTexture),material:material,
+   mesh:mesh,albedo:PreparedTexture(texture:casterTexture,uvTransform:textureFrame),material:material,
    writesDepth:coverage?["writesDepth"] as? Bool ?? true,testsDepth:coverage?["testsDepth"] as? Bool ?? true,
    materialBlending:(coverage?["blending"] as? String).flatMap(SceneMaterialRenderState.Blending.init(rawValue:)))
   var entries=[1:[entry]]
@@ -502,7 +513,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     color:SIMD3(repeating:1),intensity:1,radius:10,innerConeCosine:cos(.pi/6),outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
   else {light = .point(.init(layerID:7,castsShadow:true,position:position,color:SIMD3(repeating:1),intensity:1,radius:10))}
   let outDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:64,height:64,mipmapped:false)
-  outDesc.storageMode = .private;outDesc.usage = .renderTarget
+  outDesc.storageMode = coverage?["frameScale"] == nil ? .private:.shared;outDesc.usage = .renderTarget
   let output=device.makeTexture(descriptor:outDesc)!,cb=queue.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
   let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:32*1024*1024)
@@ -517,9 +528,18 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
    particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
    mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
-  let shadow=state.shadows.first!,map=shadow.texture
-  let blit=cb.makeBlitCommandEncoder()!
+  let shadow=state.shadows.first
+  var colorEncoded:Bool?=nil
+  if coverage?["frameScale"] != nil {
+   let ambient=SceneLightSnapshot(ambient:SIMD3(repeating:0.25),skylight:.zero,directional:[],point:[],spot:[],overflowCount:0)
+   colorEncoded=renderer.drawStaticModel(layer:layer,state:state,worldFrames:worlds,
+    frameContext:.init(dynamicValues:dynamic),cameraFrame:camera,lighting:ambient,
+    pass:pass,commandBuffer:cb,leases:&leases)
+   precondition(pass.finishEnsuringClear())
+  }
   var buffers:[MTLBuffer]=[]
+  if let shadow {
+  let map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
   let points:[SIMD3<Float>] = coverage == nil ? worlds.keys.sorted().map{worlds[$0]!.columns.3.xyz}
     : [(world*SIMD4(-0.5,0,0,1)).xyz,(world*SIMD4(0.5,0,0,1)).xyz]
       + worlds.keys.sorted().filter{$0 != 1}.map{worlds[$0]!.columns.3.xyz}
@@ -542,13 +562,21 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
    buffers.append(buffer)
   }
-  blit.endEncoding();leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
+  blit.endEncoding()
+  }
+  leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
   precondition(cb.status == .completed && cb.error == nil)
   let depths=buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee}
   var result:[String:Any] = ["family":family,"light":type,"transformed":transformed,"reverse":reverse,"noCull":noCull,
    "nativeCamera":camera.defaultsToPerspective,"perspectiveLayer":camera.resolvesPerspective(for:layer),
-   "depth":depths[0],"peerDepth":Array(depths.dropFirst(coverage == nil ? 1:2)),"completed":true]
+   "depth":depths.first.map{$0 as Any} ?? NSNull(),"peerDepth":Array(depths.dropFirst(coverage == nil ? 1:2)),
+   "shadowPublished":shadow != nil,"completed":true]
   if let coverage {result["name"]=coverage["name"]!;result["coverageDepth"]=Array(depths.prefix(2))}
+  if let colorEncoded {
+   var pixel=[UInt8](repeating:0,count:4)
+   pixel.withUnsafeMutableBytes{output.getBytes($0.baseAddress!,bytesPerRow:4,from:.init(origin:.init(x:32,y:32,z:0),size:.init(width:1,height:1,depth:1)),mipmapLevel:0)}
+   result["colorEncoded"]=colorEncoded;result["colorRGBA"]=[pixel[2],pixel[1],pixel[0],pixel[3]]
+  }
   return result
  }
 }
@@ -593,6 +621,11 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             self.assertTrue(row['completed'], row)
             self.assertTrue(row['nativeCamera'] and row['perspectiveLayer'], row)
             self.assertEqual(row['light'], case['light'])
+            self.assertEqual(row['shadowPublished'], case.get('expectedShadow', True), row)
+            if not case.get('expectedShadow', True):
+                self.assertEqual(row['coverageDepth'], [])
+                self.assertEqual(row['peerDepth'], [])
+                continue
             self.assertEqual(len(row['peerDepth']), 2, row)
             for depth in row['peerDepth']:
                 self.assertGreaterEqual(depth, 0, row)
@@ -608,6 +641,25 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             self.assertEqual(rows[light+'-normal']['coverageDepth'][1], rows[light+'-holes']['coverageDepth'][1])
         for name in ['camera-test-off', 'camera-write-off', 'camera-test-write-off', 'additive-covered']:
             self.assertEqual(rows[name]['coverageDepth'], rows['directional-translucent']['coverageDepth'])
+
+
+    def test_small_texture_frame_keeps_model_color_and_three_shadow_projections(self):
+        rows = {row['name']: row for row in self.report['coverageRows']}
+        for light in ['directional', 'spot', 'point']:
+            reference, tiny = [rows[light+suffix] for suffix in ['-uv-reference', '-uv-tiny']]
+            self.assertTrue(reference['colorEncoded'] and tiny['colorEncoded'], (reference, tiny))
+            self.assertGreater(min(reference['colorRGBA'][:3]), 0, reference)
+            self.assertEqual(tiny['colorRGBA'], reference['colorRGBA'])
+            self.assertEqual(tiny['coverageDepth'], reference['coverageDepth'])
+            self.assertTrue(all(0 <= d < .99 for d in tiny['coverageDepth']), tiny)
+            self.assertEqual(tiny['peerDepth'], reference['peerDepth'])
+        for name in ['uv-zero', 'uv-nan']:
+            row = rows[name]
+            self.assertFalse(row['colorEncoded'], row)
+            self.assertEqual(row['colorRGBA'], [0, 0, 0, 255])
+            self.assertFalse(row['shadowPublished'], row)
+            self.assertEqual(row['coverageDepth'], [])
+            self.assertEqual(row['peerDepth'], [])
 
 
 def typecheck():

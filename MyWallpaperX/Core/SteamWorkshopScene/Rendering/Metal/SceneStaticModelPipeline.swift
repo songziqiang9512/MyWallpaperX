@@ -401,7 +401,7 @@ struct SceneStaticModelPipeline {
     ) -> Bool {
         guard Self.isFinite(modelMatrix),
               Self.isFinite(viewProjection),
-              Self.isValid(textureFrame),
+              textureFrame.isFiniteAndNondegenerate,
               sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback,
               layerAlpha.isFinite,
@@ -706,7 +706,7 @@ struct SceneStaticModelPipeline {
         }
         guard let pipeline, let shadowDepthState,
               Self.isFinite(modelMatrix), Self.isFinite(clip),
-              Self.isValid(textureFrame), sampling.isResolvedForMaterialProgram,
+              textureFrame.isFiniteAndNondegenerate, sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback, layerAlpha.isFinite,
               material.opacity.isFinite, texture.device === device else { return false }
         var uniforms = SceneStaticModelShadowUniforms(
@@ -939,14 +939,4 @@ struct SceneStaticModelPipeline {
             && matrix.columns.2.z.isFinite
     }
 
-    private nonisolated static func isValid(
-        _ transform: SceneTextureUVTransform
-    ) -> Bool {
-        let determinant = transform.xAxis.x * transform.yAxis.y
-            - transform.xAxis.y * transform.yAxis.x
-        return transform.origin.x.isFinite && transform.origin.y.isFinite
-            && transform.xAxis.x.isFinite && transform.xAxis.y.isFinite
-            && transform.yAxis.x.isFinite && transform.yAxis.y.isFinite
-            && determinant.isFinite && abs(determinant) > 1e-7
-    }
 }

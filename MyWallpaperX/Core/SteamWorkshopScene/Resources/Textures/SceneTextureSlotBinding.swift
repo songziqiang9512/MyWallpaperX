@@ -108,7 +108,7 @@ nonisolated struct SceneTextureSlotBinding {
                 pixelFormat: candidate.pixelFormat,
                 authoredFormat: candidate.authoredFormat
             )
-            && valid(candidate.uvTransform)
+            && candidate.uvTransform.isFiniteAndNondegenerate
     }
 
     private static func valid(
@@ -158,26 +158,6 @@ nonisolated struct SceneTextureSlotBinding {
             && size.height > 0
             && size.width.rounded() == size.width
             && size.height.rounded() == size.height
-    }
-
-    private static func finite(_ value: SIMD2<Float>) -> Bool {
-        value.x.isFinite && value.y.isFinite
-    }
-
-    private static func valid(_ transform: SceneTextureUVTransform) -> Bool {
-        let area = determinant(transform)
-        return finite(transform.origin)
-            && finite(transform.xAxis)
-            && finite(transform.yAxis)
-            && area.isFinite
-            && abs(area) > 0.000_000_1
-    }
-
-    private static func determinant(
-        _ transform: SceneTextureUVTransform
-    ) -> Float {
-        transform.xAxis.x * transform.yAxis.y
-            - transform.xAxis.y * transform.yAxis.x
     }
 
     private func near(_ lhs: SIMD2<Float>, _ rhs: SIMD2<Float>) -> Bool {

@@ -307,9 +307,15 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             run=subprocess.run([str(binary),str(library),str(work)],capture_output=True,text=True)
             self.assertEqual(run.returncode,0,run.stderr)
-            report=json.loads(run.stdout);self.assertEqual(len(report['vectors']),len(vectors));self.assertTrue(all(report['contracts'].values()),report)
+            report=json.loads(run.stdout)
+            if 'smallAtlasFrames' in report:
+                import hashlib
+                report['smallAtlasInputFiles']=[dict(path=relative,bytes=(work/relative).stat().st_size,
+                    sha256=hashlib.sha256((work/relative).read_bytes()).hexdigest())
+                    for relative in sorted({row['path'] for row in report['smallAtlasFrames']})]
             print(json.dumps(report,sort_keys=True))
             if destination:(Path(destination)/'gpu-report.json').write_text(json.dumps(report,indent=2))
+            self.assertEqual(len(report['vectors']),len(vectors));self.assertTrue(all(report['contracts'].values()),report)
 
 def fixture_emission_rgb(color, *, brightness=1, map_alpha=255, effect_gain=1):
     # run_normal authors materials/albedo.png as opaque (128,128,128).
@@ -414,6 +420,21 @@ class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
             pbr_map={'rgba':[0,0,0,0],'next_rgba':[0,0,0,255],'flags':1<<23,'animated':True})
         for key,wanted in [('scene-ready-window.png',[0,0,0]),('scene-after-window.png',fixture_emission_rgb((.25,.5,.125)))]:
             for actual,expected in zip(result[key]['roiMean'],wanted):self.assertLessEqual(abs(actual-expected),2,result)
+
+    def test_tiny_atlas_frame_matches_independent_small_texture(self):
+        color=(.25,.5,.125)
+        expected=fixture_emission_rgb(color,map_alpha=128)
+        common=dict(no_lights=True,scalar_values={'emissivecolor':'0.25 0.5 0.125'})
+        self.scenario_id='independent-small-bc3'
+        reference=self.check_map(expected,**common,
+            pbr_map={'rgba':[255,0,0,128],'flags':8<<20,'format':4})
+        self.scenario_id='4096-atlas-one-pixel-frame'
+        actual=self.check_map(expected,**common,
+            pbr_map={'rgba':[255,0,0,128],'flags':8<<20,'format':4,'atlasSize':[4096,4096],
+                     'spriteFrames':[[2048,2048,1,0,0,1]]})
+        for frame in reference:
+            self.assertEqual(actual[frame]['center'],reference[frame]['center'])
+            self.assertEqual(actual[frame]['roiMean'],reference[frame]['roiMean'])
 
     def test_lighting_zero_does_not_admit_emission(self):
         self.check_map([128]*3,no_lights=True,lighting=0,pbr_map={'rgba':[255]*4,'flags':11<<20})

@@ -5,13 +5,19 @@ import simd
 @main enum PBRMapHarness {
     typealias Capture = SceneBaseMaterialLitCapturePayload
     static func tex(_ rgba: [UInt8], flags: UInt32, format: UInt32 = 0,
-                    width: UInt32 = 4, height: UInt32 = 4) -> Data {
+                    width: UInt32 = 4, height: UInt32 = 4,
+                    frames: [[Float]] = [], frameDuration: Float = 2.5) -> Data {
         var data=Data("TEXV0005\0TEXI0001\0".utf8)
         func u(_ x:UInt32) { var v=x.littleEndian;withUnsafeBytes(of:&v){data.append(contentsOf:$0)} }
-        for v in [format,flags,width,height,width,height,0] { u(v) }
+        for v in [format,flags | (frames.isEmpty ? 0:4),width,height,width,height,0] { u(v) }
         data.append(Data("TEXB0002\0".utf8))
         for v in [UInt32(1),1,width,height,0,0,UInt32(rgba.count)] { u(v) }
-        data.append(contentsOf:rgba);return data
+        data.append(contentsOf:rgba)
+        if !frames.isEmpty {
+            data.append(Data("TEXS0002\0".utf8));u(UInt32(frames.count))
+            for frame in frames { u(0);u(frameDuration.bitPattern);for value in frame { u(value.bitPattern) } }
+        }
+        return data
     }
     static func main() throws {
         let device=MTLCreateSystemDefaultDevice()!,queue=device.makeCommandQueue()!
@@ -25,26 +31,26 @@ import simd
             guard case let .loaded(candidate)=try! loader.loadCandidate(from:url,purpose:purpose,device:device) else { fatalError(name) }
             return candidate
         }
-        func target(_ value:[Float]? = nil)->MTLTexture {
-            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Float,width:1,height:1,mipmapped:false)
+        func target(_ value:[Float]? = nil,size:Int=1)->MTLTexture {
+            let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba16Float,width:size,height:size,mipmapped:false)
             d.storageMode = .shared;d.usage=[.shaderRead,.renderTarget]
             let t=device.makeTexture(descriptor:d)!
-            if let value { let raw=value.map(Float16.init);raw.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:8)} }
+            if let value { let raw=Array(repeating:value.map(Float16.init),count:size*size).flatMap{$0};raw.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,size,size),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:8*size)} }
             return t
         }
         func render(_ map:Capture.TextureInput,allowed:UInt32=11,required:UInt32=0,material:SIMD2<Float>? = SIMD2(0.2,0.8),
                     emission:SIMD4<Float>? = SIMD4(0.25,0.5,1,2),source:[Float] = [0.5,0.25,0.125,1],
                     intensity:Float=0,light:SIMD3<Float> = SIMD3(0,0,1),normal:SIMD3<Float> = SIMD3(0,0,1),
-                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false)->[Float] {
+                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false,size:Int=1)->[Float] {
             let normalMatrix=simd_float4x4(diagonal:SIMD4(1,1,normal.z,1))
             let packed=Capture.packLights(pointLights:[.init(position:light,color:SIMD3(repeating:1),intensity:intensity,radius:1000)],spotLights:[],ambient:.zero,material:material,view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:normalMatrix)!
             let payload=Capture(pipeline:lit,lights:packed,normal:.disabled,materialMap:map,mapAllowedComponents:allowed,mapRequiredComponents:required,emission:emission)!
-            let input=target(source),output=target(),command=queue.makeCommandBuffer()!
+            let input=target(source),output=target(size:size),command=queue.makeCommandBuffer()!
             let uniforms=SceneLayerFragmentUniforms(time:0,alpha:opacity,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:SIMD2<UInt32>(0,sourceIsStraight ? 1 : 0),tint:SIMD4(tint,1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
             precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:input,target:output,sourceUniforms:uniforms,pipeline:base,commandBuffer:command,sourceLighting:payload))
             command.commit();command.waitUntilCompleted();precondition(command.status == .completed)
-            var raw=[Float16](repeating:0,count:4)
-            raw.withUnsafeMutableBytes{output.getBytes($0.baseAddress!,bytesPerRow:8,from:MTLRegionMake2D(0,0,1,1),mipmapLevel:0)}
+            var raw=[Float16](repeating:0,count:4*size*size)
+            raw.withUnsafeMutableBytes{output.getBytes($0.baseAddress!,bytesPerRow:8*size,from:MTLRegionMake2D(0,0,size,size),mipmapLevel:0)}
             return raw.map(Float.init)
         }
         let vectors=try JSONSerialization.jsonObject(with:Data(contentsOf:work.appendingPathComponent("vectors.json"))) as! [[String:Any]]
@@ -191,6 +197,65 @@ import simd
         contracts["actualFrameProvider"]=a.texture === b.texture && alpha(a.candidate)==0 && alpha(b.candidate)==1
         contracts["cancelRetryGeneration"]=b.contentGeneration == retry.contentGeneration
         contracts["metadataInAtom"]=a.candidate.sampling.rawFlags == (UInt32(8)<<20)|4 && a.contentGeneration != b.contentGeneration
+        // One physical source pixel remains a valid frame in a large atlas.
+        let bc3Block:[UInt8]=[128,128,0,0,0,0,0,0]+colorBlock
+        var largeBC3=[UInt8](repeating:0,count:4096*4096)
+        for i in stride(from:0,to:largeBC3.count,by:16) {
+            largeBC3[i]=128;largeBC3[i+1]=128;largeBC3[i+9]=248;largeBC3[i+11]=248
+        }
+        let tinyPath="tiny-atlas.tex",renamedPath="independent/renamed-tiny-atlas.tex",normalPath="normal-atlas-frame.tex"
+        let tinyFrame:[Float]=[2048,2048,1,0,0,1],normalFrame:[Float]=[2048,2048,32,0,0,32]
+        try tex(largeBC3,flags:UInt32(8)<<20,format:4,width:4096,height:4096,frames:[tinyFrame]).write(to:work.appendingPathComponent(tinyPath))
+        try FileManager.default.createDirectory(at:work.appendingPathComponent("independent"),withIntermediateDirectories:true)
+        try FileManager.default.linkItem(at:work.appendingPathComponent(tinyPath),to:work.appendingPathComponent(renamedPath))
+        try tex(largeBC3,flags:UInt32(8)<<20,format:4,width:4096,height:4096,frames:[normalFrame]).write(to:work.appendingPathComponent(normalPath))
+        let tinyReference=load("tiny-reference-bc3",tex(bc3Block,flags:UInt32(8)<<20,format:4))
+        let smallBC3Pixels=render(.resolve(tinyReference,kind:.materialMap),allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:8)
+        let smallPNGPixels=render(pngInput,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:8)
+        let blackPixels=Array(repeating:[0,0,0,1] as [Float],count:64).flatMap{$0}
+        contracts["smallAtlasIndependentBC3PNGAllPixels"]=smallBC3Pixels == smallPNGPixels && smallBC3Pixels == Array(repeating:[alphaHalf,alphaHalf,alphaHalf,1],count:64).flatMap{$0}
+        let paths=[tinyPath,renamedPath,normalPath]
+        let identities=paths.map{SceneAssetTextureIdentity(virtualPath:$0,purpose:.mask)!}
+        let largeCatalog=try SceneMaterialAssetTextureCatalog(demands:Set(identities),resourceView:.init(projectRootURL:work,packageRootURL:nil),descriptor:.init(),device:device)
+        let largeProvider=largeCatalog.makeFrameProvider(),largeStates=largeProvider.states(sceneTime:0)
+        var smallAtlasFrames:[[String:Any]]=[
+            ["path":"tiny-reference-bc3.tex","case":"independentBC3","status":"ready","pixels":smallBC3Pixels],
+            ["path":"headerless.png","case":"independentPNG","status":pngInput.status,"pixels":smallPNGPixels]
+        ]
+        var normalAtlas:SceneTextureCandidate?
+        for (index,identity) in identities.enumerated() {
+            var input:Capture.TextureInput = .unavailable
+            var row:[String:Any]=["path":paths[index],"sourceDimensions":[4096,4096],"framePixels":index == 2 ? normalFrame:tinyFrame,"format":4,"block":bc3Block,"frameDuration":2.5]
+            if case let .ready(publication)=largeStates[identity] {
+                let frameRegistry=SceneFrameTextureRegistry(),request=SceneFrameTextureIdentity.asset(identity)
+                frameRegistry.set(publication,for:request)
+                input = .resolve(frameRegistry.lookup(request),kind:.materialMap)
+                let candidate=publication.candidate,uv=candidate.uvTransform
+                row["publicationComplete"]=publication.isComplete
+                row["physicalSize"]=[candidate.physicalSize.width,candidate.physicalSize.height]
+                row["mappedSize"]=[candidate.mappedSize.width,candidate.mappedSize.height]
+                row["uv"]=[uv.origin.x,uv.origin.y,uv.xAxis.x,uv.xAxis.y,uv.yAxis.x,uv.yAxis.y]
+                contracts["smallAtlasSourceExtent\(index)"]=candidate.physicalSize == CGSize(width:4096,height:4096) && candidate.mappedSize == CGSize(width:4096,height:4096)
+                if index == 2 { normalAtlas=candidate }
+            }
+            let pixels=render(input,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:8)
+            row["status"]=input.status;row["pixels"]=pixels;smallAtlasFrames.append(row)
+            contracts["smallAtlasFrame\(index)Ready"]=input.status == "ready"
+            contracts["smallAtlasFrame\(index)AllPixelsMatchIndependent"]=pixels == smallBC3Pixels
+            contracts["smallAtlasFrame\(index)UnavailableIsLocalBlack"]=input.status != "unavailable" || pixels == blackPixels
+        }
+        largeProvider.commitFrame()
+        if let c=normalAtlas {
+            for (name,uv) in [("zero",SceneTextureUVTransform(origin:.zero,xAxis:.zero,yAxis:SIMD2(0,1))),
+                              ("nan",SceneTextureUVTransform(origin:SIMD2(Float.nan,0),xAxis:SIMD2(1,0),yAxis:SIMD2(0,1)))] {
+                let bad=SceneTextureCandidate(texture:c.texture,identity:c.identity,generation:c.generation,purpose:c.purpose,content:c.content,physicalSize:c.physicalSize,mappedSize:c.mappedSize,uvTransform:uv,sampling:c.sampling,authoredFormat:c.authoredFormat)
+                let publication=SceneTextureProviderPublication(requestIdentity:.asset(identities[2]),candidate:bad,contentGeneration:1)
+                let input=Capture.TextureInput.resolve(bad,kind:.materialMap)
+                let pixels=render(input,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:8)
+                contracts["smallAtlas\(name)RemainsInvalid"]=SceneTextureSlotBinding(slotIndex:2,candidate:bad) == nil && !publication.isComplete && input.status == "invalid" && pixels == blackPixels
+                smallAtlasFrames.append(["path":normalPath,"case":name,"status":input.status,"publicationComplete":publication.isComplete,"pixels":pixels])
+            }
+        }
         // Cache admission is optional; native GPU residency admission is not.
         let metadataOnly=SceneTextureCandidate(texture:a.texture,identity:a.candidate.identity,generation:a.candidate.generation,purpose:a.candidate.purpose,content:a.candidate.content,physicalSize:a.candidate.physicalSize,mappedSize:a.candidate.mappedSize,uvTransform:a.candidate.uvTransform,sampling:.init(texFlags:4))
         let changed=SceneTextureProviderPublication(requestIdentity:a.requestIdentity,candidate:metadataOnly,contentGeneration:a.contentGeneration)
@@ -222,6 +287,6 @@ import simd
         if case let .loaded(candidate)=try retryLoader.loadCandidate(from:url,purpose:.mask,device:device) {
             contracts["budgetReleaseRetriesSource"]=render(.resolve(candidate,kind:.materialMap),intensity:1) != fallback
         } else { contracts["budgetReleaseRetriesSource"]=false }
-        print(String(decoding:try JSONSerialization.data(withJSONObject:["vectors":records,"contracts":contracts],options:[.sortedKeys]),as:UTF8.self))
+        print(String(decoding:try JSONSerialization.data(withJSONObject:["vectors":records,"contracts":contracts,"smallAtlasFrames":smallAtlasFrames],options:[.sortedKeys]),as:UTF8.self))
     }
 }

@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 320,
-      "bytes": 63001
+      "lines": 329,
+      "bytes": 65191
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 597,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 191,
-      "bytes": 52795
+      "lines": 192,
+      "bytes": 53238
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 165,
-      "bytes": 46658
+      "lines": 177,
+      "bytes": 50376
     }
   },
   "archives": [
@@ -505,24 +505,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8611068d8d1129c118dd83551fe7385c99df1479629510f18ad48119a04b21ea",
-      "after": "c107611a9955f39a9c746ee4550f470b27f4974d11584aa82392bd2927798773",
-      "owner": "Existing Format ShaderValue ingress and model material consumers",
-      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "f86c8f5cecdfb5a16d9a383db27298a1f980a927a80e08df77d5d2c9cd9d70da",
-      "after": "9bb32c4405428b670d05171eea526ba894f57973533618207185d84f9addcf75",
-      "owner": "Existing Format ShaderValue ingress and model material consumers",
-      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "073016944f7a78f6cbfc53b9da1b9cb8ccd30c72524f5ee11679fd6c304cfe26",
       "after": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
@@ -541,12 +523,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "c107611a9955f39a9c746ee4550f470b27f4974d11584aa82392bd2927798773",
+      "after": "3a606facace0bcaf3f0d7d97cb7d71f47da0d744d9d9508a21be5c567c2490f2",
+      "owner": "Existing UV value type, slot binding and model draw inputs",
+      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "9bb32c4405428b670d05171eea526ba894f57973533618207185d84f9addcf75",
+      "after": "c0e9810f15909c28564788da3fa316ff8dc513430a90f50d1fa73f9e4748dac4",
+      "owner": "Existing UV value type, slot binding and model draw inputs",
+      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "22ab6e1189f8525539ab066701b700d301b94303ddf8bc48f489a189389676be",
-      "after": "d04b757605afd4ded144cbea0fbccd767844c6f0218a6259c217798537bbb6f0",
-      "owner": "Existing image LightingProfile and LitCapture map consumers",
-      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
+      "before": "d04b757605afd4ded144cbea0fbccd767844c6f0218a6259c217798537bbb6f0",
+      "after": "a4e68f2d154556553ca97abcc1127182f3ae9af20be89fac68bda7cce434e304",
+      "owner": "Existing UV value type, slot binding and model draw inputs",
+      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
     }
   ]
 }

@@ -163,3 +163,15 @@
 原3437487219自然5s，F136/CB526867416832的112/114到main526816402304；独立3453730450自然20s/after17，F771/CB521702624768的53、77所选part及306/340/342到main521616583296。两原入口摘要匹配、同main/seal/GPU及排空，地表/云/大气/时钟和月面/轨道/标题/时钟完整；不认领原作者数组命中或自然钟严格A/B。首次benchmark多传一层Scene目录，输入缺失且未启动App，修正参数后才取得这些资格。
 
 自有输入/前后四图、31方法及保留失败、构建身份与独审归`.artifacts/scene-model-numeric-arrays-20261115`；原作者报告/必要图和日志归`.artifacts/scene-evidence/runs/scene-model-numeric-arrays-20261115`。旧最小数组复现解除未解决保护；官方像素、性能及更多shader消费者未授。
+
+## 小帧UV的模型颜色与投影 <a id="small-atlas-frame-uv"></a>
+
+2026-11-15按[共享UV合同](render-graph-shader-coverage.md#small-atlas-frame-uv)，现SceneTextureUVTransform一份finite/nonzero谓词替换SlotBinding与StaticModel颜色/阴影入口的1e−7面积许可，旧私有valid/area实现退出。三产品净减21行，原raw frame入口各保同一次检查，无新owner/字段/ABI/cache/范围门、Double或普通帧运算；原Textures构建语义身份自然更新。旋转/skew与Loader轴范围仍未扩。
+
+原真实Frame/Metal载体的同8个raw UV新增输入中，普通frame中心色[32,32,32,255]而tiny全黑且draw=false、整灯图未发布；旧三方法有两方法失败。最终三方法151条输入通过，原120相机/三灯与23覆盖行逐记录相同。tiny在directional/spot/point下的中心色均与identity相同，各投影所选两点的深度分别为[.5,.5]、[.400000006,.400000006]、[.403161734,.403064817]，与各自identity逐Float相同，peer投影相等。只授prepared-input真实Frame颜色/三灯投影读回，不借此授实际MDL albedo动画/provider全链或receiver最终阴影像素。zero/NaN仍拒draw；现Frame撤整light map、没有可读peer depth，沿[开放队列](../roadmap/scene-open-breakpoint-queue.md)独立处理，不授单caster隔离；原carrier假定first!的失败留在载荷，不把空map填成depth1。
+
+真实4096² BC3 TEXS单frame（origin2048²、轴1,0/0,1、duration2.5）由原Loader→Catalog provider/publication→SlotBinding→8²实际Metal：旧tiny及实际改名路径unavailable、64像素全黑，32px frame健康；新两tiny ready且publicationComplete、physical/mapped仍4096²，UV两轴1/4096、面积5.960464477539063e−8，64像素全[.501953125,.501953125,.501953125,1]，与独立4² BC3/PNG逐像素相同。原37材质向量逐记录相同；最终57行为合同通过，zero/NaN仍invalid黑。旧55合同中的两tiny共4项失败；就绪后另两extent事实可观察，不把它们算旧可执行结果。Native5路径共4份唯一输入，逐SHA与App实际包内TEX相符，真正改名不靠label；已结束临时载荷由冻配方恢复并逐SHA核对，归档明确重放来源。
+
+普通Debug32.244s且三产品/project/锁文件前后相同，strict deep/原helpers通过；exe39c4e2ec…a6d9d、dylibaf938e9c…b78eb、metallib仍4957688f…83bf1。原App自有载体只比较独立4² BC3与同alpha128的4096²1px frame，无灯/原albedo/颜色/相机不变；旧两场tiny黑而control[16,32,8]，最终两场同[16,32,8]且wholePNG与旧control逐字相同。两scene.pkg及原TEX旧新逐字同（tiny16777344B），原mapped保持4096²。新tiny F96/request2/CB533801385984/main533836326912，新control F97/request2/CB528768090112/main528803212544，sourceCapture→ordinary→main/seal/GPU、零截断与排空闭合。App五个执行文件全程固定；local driver漏UVTransform启动源码采样，真实三产品由既有Debug before/after和独立during/post receipt闭合，不伪称该driver在start采过。App不授内部UV/uniform读回。
+
+独立3437487219原project/pkg匹配，自然5s的F138/request1/CB504072506880中112/114与135到main504131230592/seal/GPU并排空，地表/云/大气/时钟完整；未发现该作者活动tiny输入，不授原景缺图恢复、官方像素/性能或线性atlas边缘与独立图全部等价。自有源/输入/红绿读回与App图、构建与独审归`.artifacts/scene-small-atlas-frame-20261115`，作者原报告归`.artifacts/scene-evidence/runs/scene-small-atlas-frame-20261115`；未决坏caster失败范围另用独立保护包`.artifacts/scene-model-shadow-draw-rejection-gap-20261115`保留。

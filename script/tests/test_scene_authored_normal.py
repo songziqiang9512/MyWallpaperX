@@ -164,7 +164,17 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
             p['textures']=(p['textures']+[None]*3)[:3];p['textures'][2]='materials/pbr.tex'
             p['combos'].update(pbr_map.get('combos',{}))
             entries['materials/receiver.json']=json.dumps(material).encode()
-            data=tex(0,4,4,bytes(pbr_map['rgba'])*16,pbr_map['flags'])
+            width,height=pbr_map.get('atlasSize',(4,4));fmt=pbr_map.get('format',0)
+            if fmt == 4:
+                # Existing BC3 fixture block: constant red and explicit alpha.
+                block=bytes([pbr_map['rgba'][3]]*2+[0]*6+[0,248,0,248,0,0,0,0])
+                payload=block*((width+3)//4)*((height+3)//4)
+            else:payload=bytes(pbr_map['rgba'])*width*height
+            frames=pbr_map.get('spriteFrames',[])
+            data=tex(fmt,width,height,payload,pbr_map['flags']|(4 if frames else 0))
+            if frames:
+                data+=b'TEXS0002\0'+struct.pack('<I',len(frames))
+                for frame in frames:data+=struct.pack('<If6f',0,2.5,*frame)
             if pbr_map.get('animated'):
                 payload=b''.join(bytes(pbr_map['rgba'] if i%8<4 else pbr_map['next_rgba']) for i in range(32))
                 data=tex(0,8,4,payload,pbr_map['flags']|4)+b'TEXS0002\0'+struct.pack('<I',2)
