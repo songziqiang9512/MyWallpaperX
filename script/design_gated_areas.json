@@ -262,7 +262,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "",
+      "design_notes": "DEBUG component first-witness cost and ordering: docs/scene/development/development-workflow.md#声明扫描与运行诊断. Movement records immediately after its first accepted writeback, then disables only repeated success observations for that loop. Keep rejection order, capacity/truncation, source/origin, first particle/time and rollback; loop-local flag only, no persistent cache or Release work.",
       "matchPatterns": [],
       "contentPatterns": []
     },

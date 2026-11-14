@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 269740
+      "bytes": 271162
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 115,
-      "bytes": 16116
+      "bytes": 16201
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 184,
-      "bytes": 49172
+      "bytes": 49163
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -475,11 +475,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
-      "before": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
-      "after": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
-      "owner": "scene-runtime",
-      "reason": "Ready-relative pointer input design and qualified mature384 activity expose the active material-binding failure; replace obsolete acquisition STOP with observed scope and retain precise proof limits.",
-      "decision": "docs/scene/development/development-workflow.md#pointer-input-timing"
+      "before": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
+      "after": "af1496fae4fa0b220a741a47c8220bd4f68f4929fcc22071c15ef59517ab533b",
+      "owner": "Scene diagnostic component first-fact consumer",
+      "reason": "Define the profiled redundant Movement success-observation retirement while preserving immediate first-witness ordering, local rejection/truncation, rollback and zero Release work; no new observation owner or persistent state.",
+      "decision": "docs/scene/development/development-workflow.md#声明扫描与运行诊断"
     },
     {
       "section": "bodies",
@@ -516,6 +516,15 @@
       "owner": "Existing Scene Puppet preparation/playback and Script frame owners",
       "reason": "Define bounded String Single instance creation and original Cursor command transport before implementation, with one resource preparation, identity/journal/pose/lifetime and explicit unsupported official-default boundaries. Current evidence and solved queue prose are consolidated rather than adding an authority.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#image-single-animation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "35e9d5ef7af54fa719e941ef143575ce1d1f5b3071e2ec18278ecb829f20ccce",
+      "after": "5c4eb5feaae66c0e54260580b2bdb3ea1387a204a918f074b441c58b648360dc",
+      "owner": "Scene particle preparation and DEBUG component observation",
+      "reason": "Consolidate prior initializer and retired candidate evidence; record the qualified startup work stack, fixed DEBUG CPU comparison, equal original state/history digests and raw first-fact payloads, plus independent real sample while retaining the unresolved full-author timeout and all proof ceilings. No new authority.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#movement-first-fact-cost"
     }
   ]
 }

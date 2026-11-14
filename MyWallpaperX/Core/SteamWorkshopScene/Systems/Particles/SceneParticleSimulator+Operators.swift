@@ -46,6 +46,9 @@ nonisolated extension SceneParticleSimulator {
             let maintainsRadius = maintainsVortexRadius
             let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
             particles.withUnsafeMutableBufferPointer { buffer in
+#if DEBUG
+                var shouldObserve = observesParticles
+#endif
                 for index in buffer.indices {
                     let initialVelocity = buffer[index].velocity
                     // An unforced stationary peer stays at rest even when growth overflows.
@@ -70,8 +73,9 @@ nonisolated extension SceneParticleSimulator {
                     buffer[index].velocity = velocity
                     buffer[index].position = position
 #if DEBUG
-                    if observesParticles {
+                    if shouldObserve {
                         componentObservation?.record("operator", operatorIndex, "evaluated", reason: "motion-result-accepted", time: simulationTime, particleID: buffer[index].id)
+                        shouldObserve = false
                     }
 #endif
                 }

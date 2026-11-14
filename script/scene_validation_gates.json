@@ -2495,7 +2495,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionBetweenControlPoints.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+MaintainControlPointDistance.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+MaintainControlPointDistance.swift",
+        "script/tests/fixtures/SceneParticleComponentObservationChecks.swift"
       ],
       "keywords": [
         "particle"

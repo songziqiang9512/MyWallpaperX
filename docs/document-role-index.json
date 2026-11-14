@@ -927,10 +927,10 @@
       "lastReviewed": "2026-11-14",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "105bf28a900b8fab6855771f2ef8373113c8d7215882bad742f1754b3473c31c",
+        "sourceSHA256": "4e9f862a58434cd4aa99f2737d01c4a38a06b600695e18ec2c8bee9952c24bcf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原benchmark入口、Ready相对delay与绝对分钟相位、互斥/隔离参数、原drag预算及退出capture owner；仅本次新增锚点及相对链接复核。",
-        "limitations": "此导航收据仅核文档与工具入口；实际 App、GPU 和官方证明范围另归运行证据。"
+        "scope": "核对原benchmark/捕获入口与Movement组件首witness的原Source/State/循环、失败/截断及rollback职责；仅本文与相对链接的有界审查。",
+        "limitations": "收据只核合同与源码/工具入口，不授App、GPU或官方行为；全仓未登记Scene架构文档的既有registry失败保持。"
       }
     },
     {

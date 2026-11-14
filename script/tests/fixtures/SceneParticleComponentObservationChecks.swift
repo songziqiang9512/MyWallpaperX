@@ -137,6 +137,84 @@ nonisolated enum SceneParticleComponentObservationChecks {
                 $0.category == "emitter" && $0.componentIndex == 1
                     && $0.stage == "accepted-birth" && $0.origin == "explicit"
             }
+
+        var motionRoot = explicitRoot
+        motionRoot["operator"] = [["name": "movement", "gravity": "0 0 0"]]
+        func makeMotion(rejected: [Int]) throws -> SceneParticleSimulator {
+            let value = make(motionRoot)
+            let births = try value.preparePlaybackCandidate(
+                commands: [(.init(layerID: 1, action: .emit, revision: 1, count: 3), SceneParticleSimulator.EmissionContext())],
+                charge: { _, _ in }, release: { _ in })
+            value.restoreFrame(births.state)
+            for index in rejected { value.particles[index].velocity = SIMD3<Double>(.infinity, 0, 0) }
+            _ = value.consumeComponentObservations()
+            return value
+        }
+        func motionFacts(_ values: [SceneParticleComponentObservation]) -> [SceneParticleComponentObservation] {
+            values.filter { $0.category == "operator" && $0.componentIndex == 0
+                && ($0.stage == "evaluated" || $0.stage == "rejected") }
+        }
+        let mixed = try makeMotion(rejected: [0])
+        let mixedCheckpoint = mixed.frameSnapshot()
+        let firstAcceptedID = mixed.particles[1].id
+        mixed.advance(by: 0.25, allowsEmission: false)
+        let mixedFacts = mixed.consumeComponentObservations()
+        let mixedMotion = motionFacts(mixedFacts)
+        let mixedState = mixed.frameSnapshot()
+        result["movement-first-rejection-keeps-later-first-acceptance"] =
+            mixedMotion.map(\.stage) == ["rejected", "evaluated"]
+            && mixedMotion.last?.particleID == firstAcceptedID
+            && mixedMotion.last?.simulationTime == mixedCheckpoint.simulationTime
+            && mixedMotion.last?.origin == "live"
+        mixed.advance(by: 0.25, allowsEmission: false)
+        result["movement-repeated-step-keeps-first-facts"] = mixed.consumeComponentObservations().isEmpty
+        mixed.restoreFrame(mixedCheckpoint)
+        let mixedRollbackEmpty = mixed.consumeComponentObservations().isEmpty
+        mixed.advance(by: 0.25, allowsEmission: false)
+        let replayed = mixed.frameSnapshot()
+        result["movement-mixed-result-rollback-replays-first-facts"] = mixedRollbackEmpty
+            && mixed.consumeComponentObservations() == mixedFacts
+            && replayed.particles == mixedState.particles
+            && replayed.simulationTime == mixedState.simulationTime
+            && replayed.random.state == mixedState.random.state
+            && replayed.nextParticleID == mixedState.nextParticleID
+            && replayed.normalizedLives == mixedState.normalizedLives
+
+        let acceptedFirst = try makeMotion(rejected: [1, 2])
+        let acceptedFirstID = acceptedFirst.particles[0].id
+        acceptedFirst.advance(by: 0.25, allowsEmission: false)
+        let acceptedFirstFacts = motionFacts(acceptedFirst.consumeComponentObservations())
+        result["movement-success-does-not-hide-later-rejections"] =
+            acceptedFirstFacts.map(\.stage) == ["evaluated", "rejected"]
+            && acceptedFirstFacts.first?.particleID == acceptedFirstID
+            && acceptedFirst.diagnostics.contains { $0.kind == .invalidOperatorState && $0.componentName == "movement" }
+        let allRejected = try makeMotion(rejected: [0, 1, 2])
+        allRejected.advance(by: 0.25, allowsEmission: false)
+        result["movement-all-rejected-never-records-success"] =
+            motionFacts(allRejected.consumeComponentObservations()).map(\.stage) == ["rejected"]
+
+        let saturated = try makeMotion(rejected: [])
+        saturated.componentObservation?.record("operator", 0, "attempted", reason: "operator-dispatch", time: saturated.simulationTime)
+        for index in saturated.componentObservation!.observed.count..<1024 {
+            saturated.componentObservation?.record("operator", 0, "capacity-fixture", reason: String(index), time: saturated.simulationTime)
+        }
+        _ = saturated.consumeComponentObservations()
+        let saturatedCheckpoint = saturated.frameSnapshot()
+        saturated.advance(by: 0.25, allowsEmission: false)
+        let truncated = saturated.consumeComponentObservations()
+        result["movement-capacity-retains-one-original-truncation"] = truncated.count == 1
+            && truncated.first?.stage == "truncated"
+            && truncated.first?.reason == "first-fact-capacity-1024"
+            && truncated.first?.simulationTime == saturatedCheckpoint.simulationTime
+            && truncated.first?.origin == "live" && truncated.first?.particleID == nil
+            && saturated.componentObservation?.observed.count == 1024
+        saturated.advance(by: 0.25, allowsEmission: false)
+        let noRepeatedTruncation = saturated.consumeComponentObservations().isEmpty
+        saturated.restoreFrame(saturatedCheckpoint)
+        let saturatedRollbackEmpty = saturated.consumeComponentObservations().isEmpty
+        saturated.advance(by: 0.25, allowsEmission: false)
+        result["movement-capacity-rollback-replays-one-truncation"] = noRepeatedTruncation
+            && saturatedRollbackEmpty && saturated.consumeComponentObservations() == truncated
         return result
     }
 }
