@@ -38,6 +38,11 @@
             let components = (value as? [NSNumber])?.map(\.doubleValue) ?? [(value as! NSNumber).doubleValue]
             values[key] = .init(components: components)
         }
+        if item["dynamicBack"] != nil {
+            var back = values["tintback"] ?? .init(components: [1, 1, 1])
+            back.scriptSource = "export function update(v) { return v; }"
+            values["tintback"] = back
+        }
         let componentRelative = renamed ? "materials/alternate-components.png" : "materials/components.png"
         var textureSlots: [String?] = [renamed ? "materials/alternate-color.png" : "materials/white.png", normalRelative]
         if item["materialPixels"] != nil { textureSlots.append(componentRelative) }
@@ -75,17 +80,25 @@
         let resourceView = SceneResourceView(projectRootURL: folder, packageRootURL: nil,
             stockAssetsRootURL: item["gradientDefault"] as? Bool == true ? folder.appendingPathComponent("stock") : nil)
         let width = Int(number("width")), storage = item["storage"] as! String
+        let height = item["normalHeight"] as? Int ?? 1
+        let normalLevels = item["normalLevels"] as? [[NSNumber]]
         let format: MTLPixelFormat = storage == "bc5" ? .bc5_rgSnorm
             : storage == "rg" ? .rg8Unorm : .rgba8Unorm
         let td = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
-            width: storage == "bc5" ? 4 : width, height: storage == "bc5" ? 4 : 1, mipmapped: false)
+            width: storage == "bc5" ? 4 : width, height: storage == "bc5" ? 4 : height,
+            mipmapped: normalLevels != nil)
         td.storageMode = .shared; td.usage = .shaderRead
         let normalTexture = device.makeTexture(descriptor: td)!
         let pixels: [UInt8] = storage == "bc5" ? [127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             : (item["pixels"] as! [NSNumber]).map(\.uint8Value)
-        pixels.withUnsafeBytes { normalTexture.replace(region: MTLRegionMake2D(0, 0, td.width, td.height),
-            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: storage == "bc5" ? 16
-                : width * (storage == "rg" ? 2 : 4)) }
+        let levels = normalLevels?.map { $0.map(\.uint8Value) } ?? [pixels]
+        precondition(levels.count == normalTexture.mipmapLevelCount)
+        for (level, bytes) in levels.enumerated() {
+            let levelWidth = max(1, td.width >> level), levelHeight = max(1, td.height >> level)
+            bytes.withUnsafeBytes { normalTexture.replace(region: MTLRegionMake2D(0, 0, levelWidth, levelHeight),
+                mipmapLevel: level, withBytes: $0.baseAddress!, bytesPerRow: storage == "bc5" ? 16
+                    : levelWidth * (storage == "rg" ? 2 : 4)) }
+        }
         let normalPath = folder.appendingPathComponent(normalRelative).resolvingSymlinksInPath().path
         let sourceFormat = Int(number("format"))
         loader.candidates[normalPath] = .init(texture: normalTexture, identity: .file(path: normalPath),
@@ -96,6 +109,23 @@
             sampling: .init(texFlags: (item["nearest"] as! Bool ? 1 : 0)
                 | (item["repeat"] as! Bool ? 0 : 2)),
             authoredFormat: sourceFormat >= 0 ? SceneShaderTextureFormat(rawValue: UInt32(sourceFormat)) : nil)
+        if let albedoPixels = item["albedoPixels"] as? [NSNumber] {
+            let albedoWidth = item["albedoWidth"] as! Int
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: albedoWidth, height: 1, mipmapped: false)
+            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
+            let texture = device.makeTexture(descriptor: descriptor)!, bytes = albedoPixels.map(\.uint8Value)
+            precondition(bytes.count == albedoWidth * 4)
+            bytes.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, albedoWidth, 1),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: albedoWidth * 4) }
+            let path = folder.appendingPathComponent(textureSlots[0]!).resolvingSymlinksInPath().path
+            let uvScale = (item["albedoUVScale"] as? NSNumber)?.floatValue ?? 1
+            loader.candidates[path] = .init(texture: texture, identity: .file(path: path),
+                generation: .immutable(revision: 1), purpose: .straightAlbedo, content: .data,
+                physicalSize: CGSize(width: albedoWidth, height: 1), mappedSize: CGSize(width: albedoWidth, height: 1),
+                uvTransform: .init(origin: .zero, xAxis: SIMD2(uvScale, 0), yAxis: SIMD2(0, uvScale)),
+                sampling: .init(texFlags: 3))
+        }
         if let componentPixels = item["materialPixels"] as? [NSNumber] {
             let componentWidth = item["materialWidth"] as? Int ?? 1
             let componentDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
@@ -188,7 +218,16 @@
             clearColor: MTLClearColorMake(item["additive"] as! Bool ? 64.0 / 255.0 : 0, 0, 0, 0), clearEnabled: true)
         let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
-        let snapshot = SceneDynamicSnapshot.empty(frameIndex: 1, generation: 1)
+        var snapshot = SceneDynamicSnapshot.empty(frameIndex: 1, generation: 1)
+        if let components = item["dynamicBack"] as? [NSNumber] {
+            let target = SceneDynamicTarget.layer(layerID: 7, field: .color)
+            let resolution = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [.init(target: target, valueType: .vector3, authoredValue: .vector3(1, 1, 1))],
+                sceneScriptValues: [target: .vector3(components[0].doubleValue,
+                    components[1].doubleValue, components[2].doubleValue)])
+            precondition(resolution.diagnostics.isEmpty)
+            snapshot = resolution.snapshot
+        }
         let shadowPool = gradientShadow ? SceneOffscreenTexturePool(device: device,
             pixelFormat: .bgra8Unorm, residentByteBudget: 64 * 1024 * 1024) : nil
         if let pool = shadowPool {
@@ -255,6 +294,10 @@
             "replicatesRed": resources[7]!.first!.gradient?.replicatesRed ?? false,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
+        if let probes = item["probePixels"] as? [[Int]] {
+            result["probes"] = probes.map { rgba($0[0], $0[1]) }
+            result["normalMipCount"] = normalTexture.mipmapLevelCount
+        }
         if item["geometryFacts"] as? Bool == true {
             func xyz(_ value: SIMD4<Float>) -> SIMD3<Float> { SIMD3(value.x, value.y, value.z) }
             let world = renderer.staticModelWorld(for: near.id, worldFrames: worlds)

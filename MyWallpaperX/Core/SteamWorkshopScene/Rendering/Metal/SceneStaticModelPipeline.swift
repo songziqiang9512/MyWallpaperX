@@ -119,6 +119,7 @@ private struct SceneStaticModelUniforms {
     var normalTextureFrame1: SIMD4<Float>
     var gradientTextureFrame: SIMD4<Float>
     var rimParameters: SIMD4<Float>
+    var specularTintAndColorMode: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -454,6 +455,8 @@ struct SceneStaticModelPipeline {
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
             : 1
+        let chroma = material.surfaceProfile?.kind == .chroma4
+        let colorBrightness: Float = chroma ? 1 : brightness
         // Opaque material RGB is independent of its authored fragment alpha.
         // Project it into the existing PMA target using geometric coverage;
         // keep the layer fade separate from material/texture opacity.
@@ -467,9 +470,9 @@ struct SceneStaticModelPipeline {
             componentTextureFrame0: (materialMap?.textureFrame ?? textureFrame).uniform0,
             componentTextureFrame1: (materialMap?.textureFrame ?? textureFrame).uniform1,
             materialColorAndOpacity: SIMD4(
-                max(material.color.x * brightness, 0),
-                max(material.color.y * brightness, 0),
-                max(material.color.z * brightness, 0),
+                max(material.color.x * colorBrightness, 0),
+                max(material.color.y * colorBrightness, 0),
+                max(material.color.z * colorBrightness, 0),
                 min(max(coverage, 0), 1)
             ),
             emissiveColorAndBrightness: SIMD4(
@@ -559,7 +562,9 @@ struct SceneStaticModelPipeline {
                 normalMap != nil && simd_determinant(normalMatrix) < 0 ? -1 : 1, 0),
             gradientTextureFrame: gradient?.sampleLine ?? .zero,
             rimParameters: SIMD4(material.surfaceProfile?.rimAmount ?? 0,
-                material.surfaceProfile?.rimExponent ?? 4, 0, 0)
+                material.surfaceProfile?.rimExponent ?? 4, 0, 0),
+            specularTintAndColorMode: SIMD4(material.surfaceProfile?.specularTint ?? .init(repeating: 1),
+                chroma ? 1 : 0)
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -764,7 +769,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1424
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1440
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -784,6 +789,7 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalTextureFrame1) == 1376
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.gradientTextureFrame) == 1392
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.rimParameters) == 1408
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.specularTintAndColorMode) == 1424
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128

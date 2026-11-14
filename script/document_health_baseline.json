@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 234,
-      "bytes": 46994
+      "lines": 249,
+      "bytes": 50970
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 189,
-      "bytes": 51798
+      "lines": 190,
+      "bytes": 52358
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 99,
-      "bytes": 27905
+      "lines": 111,
+      "bytes": 31422
     }
   },
   "archives": [
@@ -515,29 +515,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "f6d41fcbedc6f8703a657f18b364020efec855c429e17e8f975df2c6347d79a6",
-      "after": "23631c53607935a4ebfdd2d27ce381a0dbd78628699c27c7e578f107ba75035a",
-      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
-      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
+      "before": "23631c53607935a4ebfdd2d27ce381a0dbd78628699c27c7e578f107ba75035a",
+      "after": "afd3bdfc300b2eef6741ef9733facda8ee4568aed4d9c1c92b92a938880cdcea",
+      "owner": "Scene static model surface preparation and Metal",
+      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "732372c52f1878ce6b2845139c1a5d560774b86800d9140456b6abcf40b65ece",
-      "after": "f6ffe6d3e9186f784154e480b6dd4d1c8d49605e93cb8f82ad8e759cbfbcd695",
-      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
-      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
+      "before": "f6ffe6d3e9186f784154e480b6dd4d1c8d49605e93cb8f82ad8e759cbfbcd695",
+      "after": "70b44ff53667b7006d02743c7430a6bffd053dfac85d183c7be9527eb6d638b4",
+      "owner": "Scene static model surface preparation and Metal",
+      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "448a7c6e486642a47be118c8e72c018d03f84748589bf17aaf308623545013e3",
-      "after": "fdc112f78c04c135c7b3e63e4546018da924cf9ce6ee92fd9666484f702c43ad",
-      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
-      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
+      "before": "fdc112f78c04c135c7b3e63e4546018da924cf9ce6ee92fd9666484f702c43ad",
+      "after": "797e2e64573badc8bef1294ab1b51cfeed2a2bb1a4e31b838e2e03ecf64ff03e",
+      "owner": "Scene static model surface preparation and Metal",
+      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
     }
   ]
 }

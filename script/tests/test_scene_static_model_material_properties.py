@@ -405,7 +405,7 @@ enum Harness {
 
 
 class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
-    def test_real_shader_value_and_surface_profile_keep_rim_failures_local(self):
+    def run_surface_profile_probe(self, main, label, evidence):
         document = (SCENE_ROOT / "Format/SceneDocument.swift").read_text()
         support = STUBS.replace(swift_declaration(STUBS, "enum SceneShaderUserValueKind {"), "")
         support = support.replace(swift_declaration(support, "    struct ShaderValue {"), "")
@@ -419,14 +419,39 @@ class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
         profile = swift_declaration((SCENE_ROOT / "Resources/Textures/ScenePreparedStaticModelResources.swift").read_text(),
                                     "    static func surfaceProfile(")
         boundary = r'''
-// This CPU probe supplies only an already stock-qualified namespace.
-// Real root/override selection is exercised by the native resource and App gates.
+// This CPU probe supplies resolved source roles, not a VFS implementation.
+// Real root selection and texture availability belong to the native/App gates.
 struct SceneResourceView {
- enum Source {case stock}
+ enum Source {case stock,loose,package}
  struct Resource {let source:Source}
- func resolvedResource(relativePath:String)->Resource? {nil}
+ var sources:[String:Source]=[:]
+ func resolvedResource(relativePath:String)->Resource? {sources[relativePath].map{Resource(source:$0)}}
 }
 '''
+        sources = [*SOURCES, SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+                   SCENE_ROOT / "Format/SceneTimelineAnimation.swift"]
+        parent = os.environ.get(evidence)
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        directory = (nullcontext(tempfile.mkdtemp(prefix="mwx-" + label + "-", dir=parent)) if parent
+                     else tempfile.TemporaryDirectory(prefix="mwx-" + label + "-"))
+        with directory as temporary:
+            work = Path(temporary)
+            source, binary = work / "Harness.swift", work / "probe"
+            source.write_text("import Foundation\n" + support + parser + boundary + surface
+                              + "\nenum ScenePreparedStaticModelResources {\n" + profile + "\n}\n" + main)
+            compiled = subprocess.run(["xcrun", "swiftc", *map(str, sources), str(source),
+                "-module-cache-path", str(work / "cache"), "-o", str(binary)], capture_output=True, text=True)
+            (work / "compile.stdout").write_text(compiled.stdout)
+            (work / "compile.stderr").write_text(compiled.stderr)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True)
+            (work / "run.stdout").write_text(result.stdout)
+            (work / "run.stderr").write_text(result.stderr)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(label + ": OK", result.stdout)
+
+    def test_real_shader_value_and_surface_profile_keep_rim_failures_local(self):
         main = r'''
 @main enum RimSurfaceAdmissionProbe {
  static func main() {
@@ -484,28 +509,84 @@ struct SceneResourceView {
  }
 }
 '''
-        sources = [*SOURCES, SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
-                   SCENE_ROOT / "Format/SceneTimelineAnimation.swift"]
-        parent = os.environ.get("MWX_MODEL_RIM_EVIDENCE")
-        if parent:
-            Path(parent).mkdir(parents=True, exist_ok=True)
-        directory = (nullcontext(tempfile.mkdtemp(prefix="mwx-rim-admission-", dir=parent)) if parent
-                     else tempfile.TemporaryDirectory(prefix="mwx-rim-admission-"))
-        with directory as temporary:
-            work = Path(temporary)
-            source, binary = work / "Harness.swift", work / "probe"
-            source.write_text("import Foundation\n" + support + parser + boundary + surface
-                              + "\nenum ScenePreparedStaticModelResources {\n" + profile + "\n}\n" + main)
-            compiled = subprocess.run(["xcrun", "swiftc", *map(str, sources), str(source),
-                "-module-cache-path", str(work / "cache"), "-o", str(binary)], capture_output=True, text=True)
-            (work / "compile.stdout").write_text(compiled.stdout)
-            (work / "compile.stderr").write_text(compiled.stderr)
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True)
-            (work / "run.stdout").write_text(result.stdout)
-            (work / "run.stderr").write_text(result.stderr)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("rim-surface-admission: OK", result.stdout)
+        self.run_surface_profile_probe(main, "rim-surface-admission", "MWX_MODEL_RIM_EVIDENCE")
+
+    def test_real_shader_value_and_surface_profile_keep_chroma_tint_failures_local(self):
+        main = r'''
+@main enum ChromaSurfaceAdmissionProbe {
+ static func main() {
+  func parsed(_ raw:Any)->SceneDocument.ShaderValue {SceneDocumentLoader.shaderValue(from:raw)}
+  func profile(_ tint:Any?=nil,shader:String?="chroma4",lighting:Int=1,
+               users:[String:String]=[:],sources:[String:SceneResourceView.Source]=[:],
+               replacing:[String:Any]=[:])->SceneStaticModelSurfaceProfile? {
+   var constants=["metallic":parsed(0.25),"roughness":parsed(0.75),"reflectivity":parsed(0.5)]
+   if let tint {constants["speculartint"]=parsed(tint)}
+   for (key,raw) in replacing {constants[key]=parsed(raw)}
+   var pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"surface",passIndex:0,
+       shaderPath:shader,combos:["LIGHTING":lighting,"REFLECTION":1],constantShaderValues:constants)
+   pass.userShaderValues=users
+   let result=ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:.init(sources:sources))
+   if let result {
+    precondition(result.metallic == 0.25 && result.roughness == 0.75 && result.reflectivity == 0.5,
+                 "A bad specular tint must not retire valid common surface data")
+   }
+   return result
+  }
+  let white=SIMD3<Float>(repeating:1), tint=SIMD3<Float>(0,0.5,1)
+  precondition(profile()!.kind == .chroma4 && profile()!.specularTint == white)
+  precondition(profile(lighting:0)!.kind == .chroma4)
+  precondition(profile(shader:"ChRoMa4")!.kind == .chroma4)
+  precondition(profile(shader:"generic4")!.kind == .generic4)
+  let defaults=SceneStaticModelSurfaceProfile(metallic:0,roughness:0.7)
+  precondition(defaults.kind == .generic4 && defaults.specularTint == white)
+  let valid:[Any] = ["0 5e-1 1",["value":"0 0.5 1"],
+      ["value":"0 0.5 1","user":NSNull()]]
+  for raw in valid {
+   precondition(profile(raw)!.specularTint == tint)
+   precondition(profile(raw,shader:"generic4")!.specularTint == white)
+  }
+  precondition(profile("-1 2 1e300")!.specularTint == SIMD3(0,2,Float.greatestFiniteMagnitude))
+  let timeline:[String:Any] = ["options":["fps":30,"length":30,"mode":"loop"],
+      "c0":[["frame":0,"value":0],["frame":30,"value":1]],
+      "c1":[["frame":0,"value":0.5],["frame":30,"value":0.5]],
+      "c2":[["frame":0,"value":1],["frame":30,"value":0]]]
+  let animated:[String:Any] = ["value":"0 0.5 1","animation":timeline]
+  precondition(parsed(animated).timeline != nil)
+  let bad:[Any] = [NSNull(),17,"not a vector","0 1","0 0.5 1 2",[0.0,0.5],
+      "0 nan 1","0 inf 1",
+      ["value":"0 0.5 1","user":"tint"],
+      ["value":"0 0.5 1","user":17],
+      ["value":"0 0.5 1","script":"export function update(v){return v;}"],
+      ["value":"0 0.5 1","script":17],
+      ["value":"0 0.5 1","animation":17],animated]
+  for raw in bad {precondition(profile(raw)!.specularTint == white)}
+  precondition(profile("0 0.5 1",users:["speculartint":"property"])!.specularTint == white)
+  for key in ["script","animation"] {
+   let value=parsed(["value":"0 0.5 1",key:17])
+   precondition(value.bindingKeys.contains(key) && value.scriptSource == nil && value.timeline == nil)
+  }
+  let shaders:[String?] = [nil,"custom/chroma4","chroma4.frag","genericimage","generic40"]
+  for shader in shaders {precondition(profile(shader:shader) == nil)}
+  for shader in ["chroma4","generic4"] {
+   for suffix in [".vert",".frag"] {
+    let path="shaders/"+shader+suffix
+    precondition(profile(shader:shader,sources:[path:.stock]) != nil)
+    for source in [SceneResourceView.Source.loose,.package] {
+     precondition(profile(shader:shader,sources:[path:source]) == nil)
+    }
+   }
+   for key in ["metallic","roughness"] {
+    precondition(profile(shader:shader,users:[key:"property"]) == nil)
+    precondition(profile(shader:shader,replacing:[key:["value":0.25,"script":17]]) == nil)
+   }
+  }
+  precondition(profile(sources:["shaders/generic4.frag":.loose])!.kind == .chroma4)
+  precondition(profile(shader:"generic4",sources:["shaders/chroma4.vert":.loose])!.kind == .generic4)
+  print("chroma-surface-admission: OK")
+ }
+}
+'''
+        self.run_surface_profile_probe(main, "chroma-surface-admission", "MWX_MODEL_CHROMA_EVIDENCE")
 
     def test_opt_in_complete_scalar_rejects_filtered_plain_and_wrapper_values(self):
         main=r'''

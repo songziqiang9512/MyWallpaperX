@@ -480,7 +480,8 @@ enum MaterialHarness {
             var authoredCull = base
             authoredCull.cullMode = mode
             authoredCull.surfaceProfile = .init(metallic: 0.25, roughness: 0.7,
-                reflectivity: 0.4, rimAmount: 2, rimExponent: 0)
+                reflectivity: 0.4, rimAmount: 2, rimExponent: 0,
+                kind: .chroma4, specularTint: SIMD3(0.1, 0.2, 0.3))
             let dynamic = authoredCull.resolvingDynamicValues(
                 layerID: 7, snapshot: snapshot
             )

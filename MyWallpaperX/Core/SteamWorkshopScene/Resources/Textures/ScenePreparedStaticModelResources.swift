@@ -242,6 +242,9 @@ struct ScenePreparedStaticModelResources {
                         device: device, checkCancellation: cancellationCheck)
                     let needsSurfaceNormal = modelMaterial.receivesLighting
                         || (modelMaterial.surfaceProfile?.reflectivity ?? 0) > 0
+                        || (modelMaterial.surfaceProfile?.kind == .chroma4 && modelMaterial.viewTint.map {
+                            $0.front != $0.back || $0.usesDynamicBackColor
+                        } == true)
                     let normal = modelMaterial.surfaceProfile != nil && needsSurfaceNormal
                         && pass.combos["NORMALMAP"] != 0
                         ? try optionalTexture(at: 1, in: pass, purpose: .normal,
@@ -390,11 +393,14 @@ struct ScenePreparedStaticModelResources {
             named: "emissivebrightness",
             in: pass
         )?.first ?? (surface == nil ? 0 : 1)
-        let tintFront = components(named: "tintfront", in: pass)
-        let tintBack = components(named: "tintback", in: pass)
+        let tintFrontValue = shaderValue(named: "tintfront", in: pass)
+        let tintBackValue = shaderValue(named: "tintback", in: pass)
+        let defaultTint: [Double]? = surface?.kind == .chroma4
+            && (tintFrontValue != nil || tintBackValue != nil) ? [1, 1, 1] : nil
         let tintExponent = components(named: "tintwexponent", in: pass)?
             .first ?? 1.5
-        let viewTint: SceneStaticModelViewTint? = if let tintFront, let tintBack {
+        let viewTint: SceneStaticModelViewTint? = if let tintFront = tintFrontValue?.components ?? defaultTint,
+                                                    let tintBack = tintBackValue?.components ?? defaultTint {
             .init(
                 front: SIMD3(
                     component(tintFront, at: 0, default: 1),
@@ -408,7 +414,7 @@ struct ScenePreparedStaticModelResources {
                 ),
                 exponent: Float(tintExponent),
                 usesDynamicBackColor:
-                    shaderValue(named: "tintback", in: pass)?.scriptSource != nil
+                    tintBackValue?.scriptSource != nil
             )
         } else {
             nil
@@ -444,13 +450,14 @@ struct ScenePreparedStaticModelResources {
     }
 
     /// The resource namespace owns source precedence. An author override of
-    /// either generic4 root stage never gains the fixed model surface policy.
+    /// either stock root stage never gains the fixed model surface policy.
     static func surfaceProfile(
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
         resourceView: SceneResourceView
     ) -> SceneStaticModelSurfaceProfile? {
         let authoredReflection = pass.combos["REFLECTION"].map { $0 != 0 } ?? false
-        guard pass.shaderPath?.localizedLowercase == "generic4",
+        guard let shader = pass.shaderPath?.localizedLowercase,
+              let kind = SceneStaticModelSurfaceProfile.Kind(rawValue: shader),
               pass.userShaderValues["metallic"] == nil,
               pass.userShaderValues["roughness"] == nil,
               let metallic = SceneMaterialPropertyBindingCompiler.staticComponents(
@@ -462,7 +469,7 @@ struct ScenePreparedStaticModelResources {
                   requiresCompleteScalar: true
               )?.first else { return nil }
         for suffix in [".vert", ".frag"] {
-            if let stage = resourceView.resolvedResource(relativePath: "shaders/generic4" + suffix),
+            if let stage = resourceView.resolvedResource(relativePath: "shaders/" + shader + suffix),
                stage.source != .stock {
                 return nil
             }
@@ -476,6 +483,7 @@ struct ScenePreparedStaticModelResources {
                 "reflectivity", instance: nil, pass: pass, count: 1, fallback: [1],
                 requiresCompleteScalar: true)?.first ?? 0
         } else { reflectivity = 0 }
+        let maximum = Double(Float.greatestFiniteMagnitude)
         var rimAmount: Float = 0
         var rimExponent: Float = 4
         if pass.combos["RIMLIGHTING"].map({ $0 != 0 }) == true,
@@ -488,15 +496,22 @@ struct ScenePreparedStaticModelResources {
            let exponent = SceneMaterialPropertyBindingCompiler.staticComponents(
                "rimexponent", instance: nil, pass: pass, count: 1, fallback: [4],
                requiresCompleteScalar: true)?.first {
-            let maximum = Double(Float.greatestFiniteMagnitude)
             rimAmount = Float(min(maximum, max(0, amount)))
             rimExponent = Float(min(maximum, max(0, exponent)))
+        }
+        var specularTint = SIMD3<Float>(repeating: 1)
+        if kind == .chroma4, pass.userShaderValues["speculartint"] == nil,
+           let values = SceneMaterialPropertyBindingCompiler.staticComponents(
+               "speculartint", instance: nil, pass: pass, count: 3, fallback: [1, 1, 1]) {
+            specularTint = SIMD3(Float(min(maximum, max(0, values[0]))),
+                Float(min(maximum, max(0, values[1]))), Float(min(maximum, max(0, values[2]))))
         }
         return .init(
             metallic: Float(min(1, max(0, metallic))),
             roughness: Float(min(1, max(0, roughness))),
             reflectivity: Float(min(1, max(0, reflectivity))),
-            rimAmount: rimAmount, rimExponent: rimExponent
+            rimAmount: rimAmount, rimExponent: rimExponent, kind: kind,
+            specularTint: specularTint
         )
     }
 

@@ -38,14 +38,20 @@ struct SceneStaticModelNormalMap {
     let encoding: Encoding
 }
 
-/// Static generic4 surface parameters, prepared once for all model light kinds.
+/// Stock surface parameters, prepared once for all model light kinds.
 /// Materials without this admitted profile retain their legacy response.
 struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
+    enum Kind: String, Sendable {
+        case generic4, chroma4
+    }
+
     let metallic: Float
     let roughness: Float
     var reflectivity: Float = 0
     var rimAmount: Float = 0
     var rimExponent: Float = 4
+    var kind: Kind = .generic4
+    var specularTint: SIMD3<Float> = .init(repeating: 1)
 }
 
 struct SceneStaticModelViewTint {

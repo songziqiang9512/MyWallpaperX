@@ -53,6 +53,7 @@ struct SceneStaticModelUniforms {
     float4 normalTextureFrame1; // UV y-axis.xy, model handedness.z
     float4 gradientTextureFrame; // center-line origin.xy, x-axis.zw
     float4 rimParameters; // amount, exponent, unused, unused
+    float4 specularTintAndColorMode; // specular RGB, Chroma surface-color policy
 };
 
 struct SceneStaticModelRasterVertex {
@@ -354,7 +355,7 @@ float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
 static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
     float3 light, float signedNoL, float3 surfaceColor, float2 material,
     texture2d<float> gradientTexture, sampler gradientSampler,
-    float4 gradientFrame, uint gradientChannels, float rimWeight) {
+    float4 gradientFrame, uint gradientChannels, float rimWeight, float3 specularTint) {
     const float noL = clamp(signedNoL, 0.0, 1.0);
     float3 diffuseCosine = float3(noL);
     if (gradientChannels != 0u) {
@@ -367,7 +368,7 @@ static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
     const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view,
         light, clamp(surfaceColor, 0.0, 1.0), material.x, material.y, true,
         SceneSurfaceAnalyticSchlick, noL, diffuseCosine);
-    return (surfaceColor * weights.diffuse + weights.specular) / M_PI_F;
+    return (surfaceColor * weights.diffuse + weights.specular * specularTint) / M_PI_F;
 }
 
 fragment half4 sceneStaticModelFragment(
@@ -401,6 +402,7 @@ fragment half4 sceneStaticModelFragment(
         if ((components & 4u) != 0u) surfaceMaterial.w *= componentMaps.b;
     }
     bool surfaceEnabled = surfaceMaterial.z != 0.0;
+    const bool chroma = uniforms.specularTintAndColorMode.w > 0.5;
     float3 surfaceColor;
     if (surfaceEnabled) {
         // The prepared HDR tint is Float. Keep it finite through surface
@@ -409,6 +411,8 @@ fragment half4 sceneStaticModelFragment(
             float luminancePeak = float(max(albedo.r, max(albedo.g, albedo.b)));
             float3 tinted = luminancePeak * uniforms.materialColorAndOpacity.xyz;
             surfaceColor = mix(float3(albedo.rgb), tinted, float(albedo.a));
+        } else if (chroma) {
+            surfaceColor = float3(albedo.rgb);
         } else {
             surfaceColor = float3(albedo.rgb) * uniforms.materialColorAndOpacity.xyz;
         }
@@ -461,12 +465,40 @@ fragment half4 sceneStaticModelFragment(
             if (perturbedLength > 1e-12) normal = perturbed * rsqrt(perturbedLength);
         }
     }
+    half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
+    half outputAlpha = authoredOpacity * (
+        (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : half(1.0)
+    );
+    // Keep implicit texture samples and receiver-plane derivatives before
+    // coverage rejection; uncovered texels need no light or shadow work.
+    if (outputAlpha <= half(0.0)) {
+        discard_fragment();
+    }
     float3 surfaceRadiance = float3(0.0);
     float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
     float viewLengthSquared = dot(towardCamera, towardCamera);
     float3 viewDirection = viewLengthSquared > 1e-8
         ? towardCamera * rsqrt(viewLengthSquared)
         : float3(0.0, 0.0, 1.0);
+    float3 viewTint = float3(1.0);
+    const bool hasViewTint = uniforms.viewTintBackAndEnabled.w > 0.5;
+    if (hasViewTint) {
+        float facing = dot(viewDirection, normal);
+        // Unmasked facing is signed; only the masked response uses exponent.
+        float frontWeight = uniforms.materialFlags.w != 0u
+            ? pow(clamp(facing, 0.0, 1.0), uniforms.viewTintFrontAndExponent.w)
+            : facing;
+        viewTint = mix(uniforms.viewTintBackAndEnabled.xyz,
+            uniforms.viewTintFrontAndExponent.xyz, frontWeight);
+    }
+    float3 specularTint = uniforms.specularTintAndColorMode.xyz;
+    if (chroma) {
+        if (uniforms.materialFlags.w != 0u) {
+            viewTint = mix(float3(1.0), viewTint, float(albedo.a));
+            specularTint = mix(float3(1.0), specularTint, float(albedo.a));
+        }
+        if (hasViewTint) surfaceColor *= viewTint;
+    }
     float rimWeight = 0.0;
     if (uniforms.rimParameters.x > 0.0
         && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
@@ -501,7 +533,8 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 light.xyz, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
+                rimWeight, specularTint)
                 * uniforms.lightColor[lightIndex].xyz * light.w * visibility;
         } else {
             lighting += uniforms.lightColor[lightIndex].xyz * light.w * max(signedNoL, 0.0) * visibility;
@@ -528,7 +561,8 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
+                rimWeight, specularTint)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * pointVisibility[lightIndex];
         } else {
@@ -562,7 +596,8 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
+                rimWeight, specularTint)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * cone * spotVisibility[lightIndex];
         } else {
@@ -570,25 +605,7 @@ fragment half4 sceneStaticModelFragment(
                 * radial * cone * max(signedNoL, 0.0) * spotVisibility[lightIndex];
         }
     }
-    half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
-    half outputAlpha = authoredOpacity * (
-        (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : half(1.0)
-    );
-    // A fully uncovered texel must not occlude later material parts through
-    // the depth buffer. Tint-mask alpha is excluded by the coverage flag.
-    if (outputAlpha <= half(0.0)) {
-        discard_fragment();
-    }
-    if (uniforms.viewTintBackAndEnabled.w > 0.5) {
-        float facing = dot(viewDirection, normal);
-        // Unmasked front/back tint uses signed facing directly. The exponent
-        // belongs to the masked response, not every view-dependent material.
-        float frontWeight = uniforms.materialFlags.w != 0u
-            ? pow(clamp(facing, 0.0, 1.0),
-                max(uniforms.viewTintFrontAndExponent.w, 0.01))
-            : facing;
-        float3 viewTint = mix(uniforms.viewTintBackAndEnabled.xyz,
-            uniforms.viewTintFrontAndExponent.xyz, frontWeight);
+    if (!chroma && hasViewTint) {
         surfaceColor *= viewTint;
         surfaceRadiance *= viewTint;
     }
@@ -619,8 +636,9 @@ fragment half4 sceneStaticModelFragment(
         const float3 incident = reflectionTexture.sample(reflectionSampler, uv, level(mip)).rgb;
         const float weight = edge.x * edge.y * (1.0 - facing) * surfaceMaterial.w;
         const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - surfaceMaterial.x);
-        litColor += saturate(reflected) * uniforms.cameraPosition.w;
+        litColor += saturate(reflected) * (chroma ? 1.0 : uniforms.cameraPosition.w);
     }
+    if (chroma) litColor *= uniforms.cameraPosition.w;
     litColor = sceneDistanceFog(litColor,
         towardCamera,
         uniforms.distanceFogColor, uniforms.distanceFogRange);

@@ -44,18 +44,18 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 
-目标是让实际模型材质的法线图改变世界受光和已有反射，保留真实几何的深度、遮挡和阴影轮廓。沿原 stock `generic4` surface profile 的来源资格且存在实际照明/反射消费者时准备 slot1；显式 `NORMALMAP=0` 关闭，省略时由实际槽供货启用。自定义 shader 和其它材质族仍需各自实际消费者，不由槽序号猜用途。
+目标是让实际模型材质的法线图改变世界受光和已有反射，保留真实几何的深度、遮挡和阴影轮廓。沿已资格 stock `generic4/chroma4` surface profile，在实际照明/反射或Chroma非常色view tint消费者需要法线时准备 slot1；显式 `NORMALMAP=0` 关闭，省略时由实际槽供货启用。自定义 shader 和其它材质族仍需各自实际消费者，不由槽序号猜用途。
 
 `authored material/slot1 → 原 TextureLoader(.normal) → 原模型 Entry 的不可变 normal binding → 原模型 draw → 唯一 compositor`。准备期一次决定原 TEX 格式的 RG、A/G 或压缩 A/G 解码；没有 TEX 元数据的普通图片采用标准 RGB 法线。保每张图自己的 UV 和 sampler，不依赖 albedo 的尺寸或格式。原 vertex 以模型线性矩阵变换 tangent，以逆转置变换 normal；fragment 正交化切线，按原 tangent.w 和模型镜像手性构造标准 TBN，再归一化扰动法线。动画继续消费原已更新切线，不增加骨骼计算或第二几何流。该非均匀缩放策略是本引擎的自有几何算法，未授官方像素一致。
 
-无图、显式关闭或可选资源失败保几何法线和原颜色；零切线/退化采样局部保几何法线，不拒整模型。仅启用的图增加一次片元采样；不加逐帧资源解析、缓存、状态树、深度 target 或 PSO 家族。环境的几何方向渐变、阴影的实际接收平面和 caster、alpha/深度继续原合同；直接光与已有反射消费扰动法线。原反射的“有 normal 即拒绝”限制随消费者退出，分量图沿[原分量消费者](#model-material-map)独立准备，外部反射图仍待接入。
+无图、显式关闭或可选资源失败保几何法线和原颜色；零切线/退化采样局部保几何法线，不拒整模型。仅启用的图增加一次片元采样；不加逐帧资源解析、缓存、状态树、深度 target 或 PSO 家族。环境的几何方向渐变、阴影的实际接收平面和 caster、alpha/深度继续原合同；直接光、已有反射及Chroma view tint消费扰动法线。原反射的“有 normal 即拒绝”限制随消费者退出，分量图沿[原分量消费者](#model-material-map)独立准备，外部反射图仍待接入。
 
 验收沿原模型资源和 production Metal 门，覆盖平法线、相反切向扰动、tangent.w、旋转/镜像/非均匀变换、独立 UV/采样、原格式与普通图片、显式关闭/缺图和健康 peer；另核原 alpha/深度及反射邻例。真实月球和独立楼体使用原包取得实际 normal binding、同帧 main/GPU 与画面，不以 slot 声明代贡献。实现及运行资格由本节与[模型证据](model-runtime-evidence.md#model-normal-map)分别维护。
 
 <a id="model-material-map"></a>
 ### 模型的分量贴图
 
-目标是让活动stock generic4模型的slot2参与金属度、粗糙度、反射与发光，而非只作发光A图。沿原material/Entry/TextureLoader/Pipeline/Metal承接：原SurfaceProfile描述已证明stock来源的静态数值材质，不再把LIGHTING关闭混作非stock资格；没有照明或反射消费者时不加载normal。保原标量M缺省0/R缺省.7及显式0，stock发光亮度缺省按材质合同1，只有真实A分量才产生发光；未取得该profile的材质保原legacy响应和默认，不新增猜测来源。
+活动stock generic4/chroma4模型的slot2参与金属度、粗糙度、反射与发光，而非只作发光A图。沿原material/Entry/TextureLoader/Pipeline/Metal承接：原SurfaceProfile描述已证明stock来源的静态数值材质，不再把LIGHTING关闭混作非stock资格；normal按实际照明、反射与Chroma view tint需求准备。保原标量M缺省0/R缺省.7及显式0，stock发光亮度缺省按材质合同1，只有真实A分量才产生发光；未取得该profile的材质保原legacy响应和默认，不新增猜测来源。
 
 用一份typed material-map binding替换emissiveMask及其三个可空GPU参数，持原纹理、独立UV/sampler和冷准备有效位。沿已存在TEX bit20…23元数据，R替换metallic、G替换roughness、B乘reflectivity、A乘emissivebrightness；分量combo省略取header，显式0关闭、任意非零开启，与原编译宏的整数#if语义一致；header不是显式分量的授权门，普通PNG也可由作者明确选择通道。PBRMASKS显式0仅关闭整张分量图，保albedo/normal与标量响应；其它非零允许。缺图或无有效位回标量/无附加发光；A combo省略时，MR载入不能把没有A metadata的RGB隐含alpha1当发光；作者显式非零A按原通道值执行。未资格legacy材质仅保原有A路径。退出因发光亮度为零就不准备真实MR、已具map却固定标量、以及因显式MR/B map拒反射的旧限制，不保第二mask字段、第二纹理加载或兼容draw API。
 
@@ -66,7 +66,7 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 <a id="model-shading-gradient"></a>
 ### 模型的渐变漫反射
 
-已开启SHADINGGRADIENT的stock generic4模型沿原受光链消费真实slot4。只沿原SurfaceProfile资格、LIGHTING与明确非零combo准备；省略/0不读图。沿既有静态文件链消费slot4，文件与typed userTextureInputs[4]均省略时沿该stock材质族声明的默认gradient/gradient_toon_smooth供货；本批不接用户纹理provider，明确用户输入而无文件时只缺该lookup，不能用默认冒充；不授完整user/file优先级。显式坏图只退普通响应，不偷用默认、不拒整part。自定义/覆盖root shader不取得此固定材质语义，不准备整套generic Program来读取这个已资格stock默认。
+已开启SHADINGGRADIENT的stock generic4/chroma4模型沿原受光链消费真实slot4。只沿原SurfaceProfile资格、LIGHTING与明确非零combo准备；省略/0不读图。沿既有静态文件链消费slot4，文件与typed userTextureInputs[4]均省略时沿该stock材质族声明的默认gradient/gradient_toon_smooth供货；本批不接用户纹理provider，明确用户输入而无文件时只缺该lookup，不能用默认冒充；不授完整user/file优先级。显式坏图只退普通响应，不偷用默认、不拒整part。自定义/覆盖root shader不取得此固定材质语义，不准备整套generic Program来读取这个已资格stock默认。
 
 原Resource/TextureLoader按data用途与真实格式准备一份typed lookup binding：纹理、sampler、R8/RG88复制R或其它RGB，以及由原UV变换一次投影的水平中心采样线(origin+.5*yAxis,xAxis)。Entry→原Frame→Pipeline直接携带；新增一个16B uniform及texture8/sampler3，沿原lightCounts空分量编码禁用/R/RGB，不加varying、PSO、pass、池、cache或owner。普通帧不解析/取资源/重投影不变UV；无图仅保固定ABI与未采样占位绑定，不授零成本。
 
@@ -77,7 +77,7 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 <a id="model-rim-lighting"></a>
 ### 模型的轮廓漫反射
 
-活动stock generic4的RIMLIGHTING沿原直接光执行，不另造灯或视角发光owner。沿原SurfaceProfile资格与LIGHTING，明确任意非零combo才冷准备rimamount/rimexponent，省略默认2/4；0或省略开关关闭。复用原staticComponents的实际静态值合同，错型/动态/不完整值仅令rim amount为0，保原M/R/反射profile；不新增键名单、编辑器范围许可或热解析。数值在冷入口归一到非负GPU Float可表示域，负数归0，超出Float上限夹到其最大有限值；显式amount0与exponent0均合法；原typed ShaderValue尚未区分的错型动态声明仍交原helper的完整声明边界，不删有实际消费者的门。
+活动stock generic4/chroma4的RIMLIGHTING沿原直接光执行，不另造灯或视角发光owner。沿原SurfaceProfile资格与LIGHTING，明确任意非零combo才冷准备rimamount/rimexponent，省略默认2/4；0或省略开关关闭。复用原staticComponents的实际静态值合同，错型/动态/不完整值仅令rim amount为0，保原M/R/反射profile；不新增键名单、编辑器范围许可或热解析。数值在冷入口归一到非负GPU Float可表示域，负数归0，超出Float上限夹到其最大有限值；显式amount0与exponent0均合法；原typed ShaderValue尚未区分的错型动态声明仍交原helper的完整声明边界，不删有实际消费者的门。
 
 本引擎明确自有算法：扰动后的world normal与当前view在片元求一次rimWeight=amount×(1−saturate(abs(N·V)))^exponent；exponent0定义曲线恒1，包括正面边界。原model SurfaceResponse把正NoL×rimWeight加到已有diffuseCosine，再交同一shared BRDF，Fresnel/GGX、每灯color/intensity、radial/cone与真实shadow visibility保持原乘法与次序。abs使正背面轮廓对称；此项属于漫反射，metallic1无贡献，NoL0、无直接灯、纯ambient与完全阴影也无rim贡献，即使gradient照亮背半球。该语义比独立自发光更贴物体受光/遮挡目标；不据阅读的stock灯内结构宣称官方像素一致。
 
@@ -85,10 +85,25 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 验收分静态准备和真实像素：原真实static helper及实际surfaceProfile调用核缺省/普通/user:null、动态/错型与raw/count/finite变体，只退rim而其它profile保持；不拿GPU载体的已类型化静态替身冒充入口验证。复用原Frame/Metal门，以同几何/相机事实的rim闭式权重和独立普通灯色控制核正面/侧面/背面、0/非零整数、exponent0、normal/gradient/金属、三灯/衰减/cone/真实shadow、无灯/ambient/发光/反射/HDR/alpha/depth及改名，不复制BRDF。复用冻结真实月球资产同钟RIM1/0与旧App，核实际像素贡献；原月球和独立作者补完整图。可复用同身份载体与已证输入，只补本批影响范围；rim用户provider/动态MR及官方像素不由静态正例外推。当前结果见[运行证据](model-runtime-evidence.md#model-rim-lighting)。
 
+<a id="model-chroma-surface"></a>
+### Chroma 的共同表面受光与颜色次序
+
+真实Cloud模型的stock chroma4已消费共同M/R与高光tint，退出legacy Lambert丢掉声明的路径。原SurfaceProfile承接已资格的generic4/chroma4种类与静态specularTint（缺省白）；同一次冷选择按实际shader标识核原两stage来源，不按模型/媒体路径选算法，不新增分类owner/cache。M/R继续原静态完整值合同；Chroma的specularTint坏/动态值只退白，不丢其它profile；generic4仍白色高光。tint向量沿原三个有限分量合同，不在消费者重解已归一raw文本或增加文本形状许可。任意shader、动态M/R与未资格来源继续原边界，不把本批静态profile授为通用shader执行。
+
+两种stock profile共用原normal、分量图、反射、gradient/rim与shared SurfaceResponse；无直接光/反射的Chroma仍在view tint依赖法线时预载normal（front/back不同或有动态back），静态常色不为view tint读normal；Chroma实际也声明这些consumer。specularTint只乘原weights.specular，不修改F0、Fresnel、diffuse分配、反射或灯能量；roughness0沿项目delta规则无有限高光。mask时高光tint按原albedoA从白混合至作者tint。原light/color/attenuation/cone/真实shadow各乘一次，不复制BRDF或直接调场景灯。
+
+Chroma先形成有效surfaceColor再进BRDF/F0：无mask忽略全局color；有mask按原A混合luma/color，view tint另按同一A从白混合至front/back结果。无mask的view facing保原signed合同，指数只在mask读取；声明单侧front/back时另一侧缺省白，均无声明不准备无用view运算；当前已消费的动态tintback沿原typed copy，更多writer另行资格。generic4保原全局color与受光后view tint次序。原view公式只计算一次后按准备种类应用，退出Chroma通用晚染色职责；Pipeline已经投影的指数下限不再在Metal重复clamp。
+
+HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原HDR gain，随后fog/PMA；必须只对Chroma退原reflection内的gain，避免平方。generic4保原HDR算法，不借共同profile改它的已证像素。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；不照译参考的max/overbright发光。pigment/noise暂不准备，保独立未闭项，不宣完整Chroma或官方像素。
+
+只在原profile加种类/静态tint，原uniform末加一份16B（tint.xyz与颜色种类w），不新增flags位、纹理、varying、PSO、pass、Frame、池或状态owner。为前置view tint，原alpha/discard整体前移到albedo/component/normal隐式采样及world导数之后、shadow/灯/tint之前；后续gradient/reflection为显式LOD、shadow为无mip depth，不新增导数状态。普通帧不解析/重新资格或做资源查找；关闭/白默认仍有固定ABI/共享片元成本，不授零成本或性能收益。
+
+验收在原资源→Frame→Metal门用白tint/pigment0的Chroma与generic4等值M/R、三灯/normal/map/gradient/rim/遮挡，R0 tint无贡献、R>0零/白/彩tint从实际输出分离两瓣，反证改F0或最终RGB乘tint。核无mask color无效、单侧默认/动态back与先染albedo参考、mask0/半/1同时限制view/spec tint、HDR反射/发光只一次gain、宿主alpha/depth/坏图/覆盖与改名；含带mip normal的透明边界，确保discard迁移不改采样。复用真实parser/helper/profile CPU门与同身份载体。冻结实际Cloud几何/原TEX与alpha、白front/back、pigment0的同灯旧/新控制只授MR贡献；原作者完整图与独立generic4回归不代R0有限高光或pigment资格。当前结果见[模型证据](model-runtime-evidence.md#model-chroma-surface)。
+
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射
 
-内置 `generic4` 的 `REFLECTION` 可用原 mesh 世界法线、视向和主画布片元位置读取场景反射。材质准备保留本路径实际消费的静态 reflectivity、roughness 与 metallic。采样以屏幕偏移、边界淡出和粗糙度 mip 表达，再按材质视角响应加入 HDR 亮度、雾及覆盖所在的原终端顺序。主画布采用几何法线或[实际法线图](#model-normal-map)及[分量材质](#model-material-map)；外部反射纹理、动态MR/reflectivity及局部组反射仍待接入。光照和反射独立，缺反射输入时继续原模型颜色与深度。
+已资格 `generic4/chroma4` 的 `REFLECTION` 可用原 mesh 世界法线、视向和主画布片元位置读取场景反射。材质准备保留本路径实际消费的静态 reflectivity、roughness 与 metallic。采样以屏幕偏移、边界淡出和粗糙度 mip 表达，再按材质视角响应加入 HDR 亮度、雾及覆盖所在的原终端顺序。主画布采用几何法线或[实际法线图](#model-normal-map)及[分量材质](#model-material-map)；外部反射纹理、动态MR/reflectivity及局部组反射仍待接入。光照和反射独立，缺反射输入时继续原模型颜色与深度。
 
 反射沿现有 Surface 的 ReflectionFrame 读前一完成的主画布颜色，复用同一 mip 纹理、预算、失效与提交 pin。只有可见且已准备的接收者触发需求。命名颜色仍在原图层位置供货。若当前只有主模型深度域，后到的命名颜色可与已确定可画的反射模型共用这一域。保护既有必需终端及捕获容量后再取得可选 history，部分证明不发布完整模型 draw set。组、深度写粒子、未保留容量的命名供货和命名 shadow 留原容量顺序。首帧、尺寸/代次更换或容量不足只缺本帧反射。
 
