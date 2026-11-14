@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 302,
-      "bytes": 59078
+      "lines": 311,
+      "bytes": 60935
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 587,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 50247
+      "lines": 188,
+      "bytes": 50816
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 43,
-      "bytes": 12002
+      "lines": 53,
+      "bytes": 14724
     }
   },
   "archives": [
@@ -488,11 +488,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "ebbbe557aaac07926228c9548ce87d144fada2486c81b15abc1f67b5518c6053",
-      "after": "8473755822c2056a098d66b05c5b270af2b134bcd70d9e08cf915d78711f8369",
-      "owner": "scene-material-runtime",
-      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
+      "before": "8473755822c2056a098d66b05c5b270af2b134bcd70d9e08cf915d78711f8369",
+      "after": "8611068d8d1129c118dd83551fe7385c99df1479629510f18ad48119a04b21ea",
+      "owner": "Scene shader interface and model material consumers",
+      "reason": "Record the shared cold implicit numeric varying contract, actual phase-mask-to-model qualification and newly proven uniform/name-shape boundaries; retire the solved phase queue entry and select the active material-mask gap.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#implicit-fragment-varying"
     },
     {
       "section": "bodies",
@@ -524,11 +524,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "3f68d4b3c6c0ae9f229ff45559f0edbdbda7a10fa578e9768b3e5658179c755a",
-      "owner": "Scene model materials and evidence",
-      "reason": "One stable model evidence topic owns named albedo, material, local composition and camera-depth qualification; extracted bodies are retired from the index and the actual depth result is added.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#scope"
+      "before": "3f68d4b3c6c0ae9f229ff45559f0edbdbda7a10fa578e9768b3e5658179c755a",
+      "after": "80a2f03495a8fef06cd9d0973201c049a718e9c12c7d26f479636a5c23d16af3",
+      "owner": "Scene shader interface and model material consumers",
+      "reason": "Record the shared cold implicit numeric varying contract, actual phase-mask-to-model qualification and newly proven uniform/name-shape boundaries; retire the solved phase queue entry and select the active material-mask gap.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#implicit-fragment-varying"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b8273388c0d1cc259e5296e74a0f489bd835f42934c2312fdb6201e382af48f5",
+      "after": "e03c134d97b53e7f0d92b6aff9623b454e0251a7d1b7b9721057335025cb8233",
+      "owner": "Scene shader interface and model material consumers",
+      "reason": "Record the shared cold implicit numeric varying contract, actual phase-mask-to-model qualification and newly proven uniform/name-shape boundaries; retire the solved phase queue entry and select the active material-mask gap.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#implicit-fragment-varying"
     }
   ]
 }

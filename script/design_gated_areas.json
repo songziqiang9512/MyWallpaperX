@@ -2224,6 +2224,19 @@
         "MyWallpaperX/Shared/UI/WallpaperFilterPanelController.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-implicit-fragment-varying",
+      "title": "省略片元声明的已生产 stage 输入",
+      "owner": "Existing BackendCanonicalizer / Syntax / GlobalReferenceAnalyzer",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "design_notes": "implicit-fragment-varying: infer only unique complete vertex varying declarations consumed as exact free function-body values without fragment global/storage/function/type collisions. Preserve type and fixed extent, local lexical identity, explicit interfaces and compiler failure; callee/global initializer/signature/unknown references and unmodeled qualifiers stay unchanged. Both backends consume original shared cold compiler input before conversions and dead projection, no parser/runtime/Program/cache owner. Require old compiler failure, renamed dual-backend phase pixels, signed App upstream-mask-to-model execution and independent author output.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

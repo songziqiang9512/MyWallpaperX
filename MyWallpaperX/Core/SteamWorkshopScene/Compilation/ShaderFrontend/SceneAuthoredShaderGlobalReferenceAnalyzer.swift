@@ -21,6 +21,7 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         var globalIndices: [String: [Int]] = [:]
         var possibleGlobals: Set<String> = []
         var structureTypeNames: Set<String> = []
+        var topLevelStructureTypeNames: Set<String> = []
     }
 
     private struct Binding {
@@ -53,8 +54,9 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
         bindings(in: unit).valueTypes[token]
     }
 
-    static func structureTypeNames(in unit: Unit) -> Set<String> {
-        bindings(in: unit).structureTypeNames
+    static func structureTypeNames(in unit: Unit, topLevelOnly: Bool = false) -> Set<String> {
+        let facts = bindings(in: unit)
+        return topLevelOnly ? facts.topLevelStructureTypeNames : facts.structureTypeNames
     }
 
     static func globalValueDeclarations(
@@ -92,7 +94,10 @@ nonisolated enum SceneAuthoredShaderGlobalReferenceAnalyzer {
             if tokens[index].text == "struct",
                let structure = structureBody(at: index, before: tokens.count, tokens: tokens) {
                 structures.formUnion(index...structure.end)
-                if let name = structure.name { facts.structureTypeNames.insert(tokens[name].text) }
+                if let name = structure.name {
+                    facts.structureTypeNames.insert(tokens[name].text)
+                    facts.topLevelStructureTypeNames.insert(tokens[name].text)
+                }
                 structureRanges.append(index..<(structure.end + 1))
                 let members = structureMemberValues(in: structure.body, tokens: tokens)
                 structureValues += members.known

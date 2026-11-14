@@ -35,6 +35,15 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 验收复用真实 Resolver→Preprocessor→Program/资源门，覆盖宏/资源改名、paint 与普通 sampler、definedness/provenance、上述冲突及活读缺源；同一冻结 App 输入核无纹理的数值分支和实际多 pass/终端像素，另跑独立真实作者邻例。原属性动画 scope 对照的载体失败单独保留，不能据此宣称 named lookup、wrapper 或作者翻页已恢复。
 
+<a id="implicit-fragment-varying"></a>
+### 省略片元声明的 stage 输入
+
+目标是让作者片元函数实际读取顶点已声明并生产的 varying 时，省略重复声明不再使材质旁路。此处采用本项目明确的自有链接规则，不据单个变量名、资源路径或截图选算法。原 BackendCanonicalizer 在其它类型转换及 dead-varying 投影前，复用原 Syntax/GlobalReferenceAnalyzer 的一次双阶段声明、词法 binding 与 token 角色事实，补成双方共享的 compiler 输入；strict 与 bounded 后端继续检查真实类型、接口和 Metal 能力。
+
+只补顶点唯一、完整的原生数值型 varying 声明，保原类型及固定数组长度；带未建模 qualifier 或不明确声明保原源码。片元候选必须没有同名顶层值、storage、函数或类型，其精确引用均为函数体内未被形参/局部/成员遮蔽的值使用；callee、函数签名、全局初始化及未知引用不猜作输入。显式声明和不一致接口不改，缺生产者不补零值，真实局部作用域同名允许与另一函数的自由引用共存。原作者源码、diagnostic 身份和准备缓存 owner 保持，不增 parser、Program 字段、资源/store、缓存或普通帧工作；失败仍只影响当前 shader/effect。
+
+验收先用相同输入取得旧编译/执行失败，再核两后端实际 Metal 相位像素；覆盖完整变量/资源改名、等价表达式、helper/混合作用域及固定数组，相邻局部/形参/成员、内建 callee、同名 uniform/函数/类型、重复声明和缺生产者保各自原结果或实际编译失败。签名 App 须确认原424→420→237供货及模型可归因像素，独立真实样本保持；不以编译成功或夜光存在代替相位执行，不预设整体更亮，不授官方像素与性能。
+
 <a id="generic-varying-array-budget"></a>
 ### 固定数组接口的准入设计
 

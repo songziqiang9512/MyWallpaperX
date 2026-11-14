@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Value-only helper arguments and grouped floating-varying prefix reads.
+"""Value-only arguments, varying prefixes, and omitted fragment inputs.
 
 CPU methods never create a Metal device. The separate pixel method consumes
 both real backend outputs using the same compiled fixture. Explicit WORK and
@@ -40,6 +40,15 @@ GPU_ENABLED = os.environ.get("MWX_SCENE_VARYING_PREFIX_GPU", "1") == "1"
 EXPECTED_COPY_PIXELS = [
     0.25, 0.25, 0.25, 1.0, 0.5, 0.25, 0.75, 1.0,
     0.25, 0.5, 0.25, 1.0, 0.5, 0.5, 0.75, 1.0,
+]
+PHASE_TEXTURE = [
+    1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+    0.0, 0.0, 1.0, 1.0, 0.25, 0.5, 0.75, 1.0,
+]
+# A half-width phase swaps the two texels in each row; copy/zero UV cannot pass.
+EXPECTED_PHASE_PIXELS = [
+    0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+    0.25, 0.5, 0.75, 1.0, 0.0, 0.0, 1.0, 1.0,
 ]
 
 
@@ -123,6 +132,65 @@ def reverse_pixels(operation: str) -> list[float]:
     return result
 
 
+def implicit_phase_cases() -> list[dict]:
+    cases = []
+    for name, carrier, sampler, phase, helper, expression in (
+        ("implicit-phase", "v_TexCoord", 0, "u_Phase", "",
+         "fract(v_TexCoord + u_Phase)"),
+        ("implicit-phase-equivalent-renamed", "orbitCoordinate", 3, "u_OrbitOffset", "",
+         "fract((orbitCoordinate * vec2(1.0)) + u_OrbitOffset / vec2(2.0))"),
+        ("implicit-phase-helper-mixed-scope", "surfaceCoordinate", 0, "u_Phase", """
+vec2 localCoordinate() { vec2 surfaceCoordinate=vec2(0.0); return surfaceCoordinate; }
+vec2 formalCoordinate(vec2 surfaceCoordinate) { return surfaceCoordinate; }
+vec2 shiftedCoordinate() {
+    return fract(surfaceCoordinate + u_Phase + localCoordinate() + formalCoordinate(vec2(0.0)));
+}
+""", "shiftedCoordinate()"),
+        ("implicit-phase-local-structure-type", "carried", 0, "u_Phase", """
+vec2 localType() { struct carried { vec2 uv; }; return vec2(0.0); }
+""", "fract(carried + u_Phase + localType())"),
+    ):
+        cases.append({"name": name, "pair": {
+            "vertex": vertex_source(carrier, width=2),
+            "fragment": (f"uniform sampler2D g_Texture{sampler};\nuniform vec2 {phase};\n"
+                         + helper + f"\nvoid main(){{gl_FragColor=texSample2D(g_Texture{sampler},{expression});}}"),
+        }, "uniforms": {phase: [1.0 if name.endswith("renamed") else 0.5, 0.0]},
+            "textures": [{"index": sampler, "pixels": PHASE_TEXTURE}], "carrier": carrier})
+    cases.append({"name": "implicit-phase-fixed-array", "pair": {
+        "vertex": """
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 phaseCoordinates[2];
+void main() {
+    gl_Position=vec4(a_Position,1.0);
+    phaseCoordinates[0]=a_TexCoord;
+    phaseCoordinates[1]=a_TexCoord+vec2(0.5,0.0);
+}
+""",
+        "fragment": ("uniform sampler2D g_Texture0;\n"
+                     "vec2 shiftedCoordinate(){return fract(phaseCoordinates[1]);}\n"
+                     "void main(){gl_FragColor=texSample2D(g_Texture0,shiftedCoordinate());}"),
+    }, "uniforms": {}, "textures": [{"index": 0, "pixels": PHASE_TEXTURE}],
+        "carrier": "phaseCoordinates"})
+    return cases
+
+
+def implicit_shadow_cases() -> list[dict]:
+    cases = []
+    for name, declarations, expression, uniforms, color in (
+        ("implicit-local-only", "", "carried", {}, [0.125, 0.875, 0.25, 1.0]),
+        ("implicit-formal-only", "vec2 readLocal(vec2 carried){return carried*0.5;}",
+         "readLocal(vec2(0.25,0.75))", {}, [0.125, 0.375, 0.25, 1.0]),
+    ):
+        local = "vec2 carried=vec2(0.125,0.875);" if name == "implicit-local-only" else ""
+        cases.append({"name": name, "pair": {
+            "vertex": vertex_source(width=2),
+            "fragment": (declarations + "\nvoid main(){" + local
+                         + f"gl_FragColor=vec4({expression},0.25,1.0);}}"),
+        }, "uniforms": uniforms, "expected": color * 4})
+    return cases
+
+
 def pack_uniforms(fields: list[dict], size: int, index: int,
                   values: dict[str, list[float]]) -> dict:
     storage = bytearray((size + 3) // 4 * 4)
@@ -186,7 +254,8 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
         return root, output
 
     def prepare(self, name: str, pair: dict[str, str], expected: list[float] | None = None,
-                uniforms: dict[str, list[float]] | None = None) -> Path:
+                uniforms: dict[str, list[float]] | None = None,
+                textures: list[dict] | None = None) -> Path:
         root, output = self.analyze(name, pair)
         self.assertTrue(output["idempotent"])
         self.assertEqual(output["boundedDiagnosticCodes"], [], name)
@@ -202,7 +271,7 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
             commands += [
                 [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
                  stem + "." + suffix, "-o", suffix + ".spv"],
-                [str(GLSLANG.with_name("spirv-cross")), suffix + ".spv", "--msl",
+                [str(GLSLANG.with_name("spirv-cross")), suffix + ".spv", "--msl", "--msl-decoration-binding",
                  "--rename-entry-point", "main", entry, stage, "--output", suffix + ".metal"],
             ]
         if uniforms:
@@ -224,6 +293,8 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
                         "fragmentFunction": output["boundedFragmentFunction"]},
         }
         for backend, packet in packets.items():
+            if textures:
+                packet["fragmentTextures"] = textures
             (root / (backend + "-pixels.json")).write_text(json.dumps(packet, indent=2))
             if uniforms:
                 values = {**uniforms, "mwxRenderSize": [2.0, 2.0],
@@ -256,8 +327,125 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
         (root / "packet-identity.json").write_text(json.dumps({
             "harnessSHA256": hashlib.sha256(self.binary.read_bytes()).hexdigest(),
             "pair": pair, "uniforms": uniforms or {},
+            **({"fragmentTextures": textures} if textures else {}),
         }, indent=2))
         return root
+
+    def strict_link(self, root: Path, output: dict, normalized: bool) -> subprocess.CompletedProcess:
+        stem = "normalized" if normalized else "canonical"
+        fields = ("normalizedVertex", "normalizedFragment") if normalized else (
+            "canonicalVertex", "canonicalFragment")
+        for suffix, field in zip(("vert", "frag"), fields):
+            (root / (stem + "." + suffix)).write_text(output[field])
+        flags = ["-V", "--auto-map-bindings", "--auto-map-locations"] if normalized else ["-d"]
+        completed = subprocess.run([str(GLSLANG), *flags, "-l", stem + ".vert", stem + ".frag"],
+                                   cwd=root, capture_output=True, text=True, timeout=30)
+        (root / (stem + "-link.stdout")).write_text(completed.stdout)
+        (root / (stem + "-link.stderr")).write_text(completed.stderr)
+        return completed
+
+    def test_implicit_phase_inputs_reach_both_backend_routes(self) -> None:
+        for case in implicit_phase_cases():
+            with self.subTest(name=case["name"]):
+                root = self.prepare(case["name"], case["pair"], EXPECTED_PHASE_PIXELS,
+                                    case["uniforms"], case["textures"])
+                output = json.loads((root / "analysis.json").read_text())
+                extent = r"\s*\[\s*2\s*\]" if case["name"].endswith("fixed-array") else ""
+                self.assertRegex(output["canonicalFragment"],
+                                 r"\bvarying\s+vec2\s+" + case["carrier"] + extent + r"\s*;")
+
+    def test_implicit_inputs_preserve_local_and_formal_owners(self) -> None:
+        for case in implicit_shadow_cases():
+            with self.subTest(name=case["name"]):
+                root = self.prepare(case["name"], case["pair"], case["expected"], case["uniforms"])
+                output = json.loads((root / "analysis.json").read_text())
+                self.assertNotRegex(output["canonicalFragment"], r"\bvarying\s+\w+\s+carried\b")
+
+    def test_implicit_inputs_do_not_replace_other_names_or_invent_producers(self) -> None:
+        normal_vertex = vertex_source(width=2)
+        free_fragment = "void main(){gl_FragColor=vec4(carried,0.0,1.0);}"
+        cases = [
+            ("member-only", normal_vertex,
+             "struct Payload{vec2 carried;};void main(){Payload value;value.carried=vec2(0.5);"
+             "gl_FragColor=vec4(value.carried,0.0,1.0);}", False),
+            ("local-structure-instance-member-only", normal_vertex,
+             "vec2 readLocal(){struct Payload{vec2 carried;};Payload value;"
+             "value.carried=vec2(0.5);return value.carried;}"
+             "void main(){gl_FragColor=vec4(readLocal(),0.0,1.0);}", False),
+            ("builtin-callee", vertex_source("sin", width=2),
+             "void main(){gl_FragColor=vec4(sin(0.5));}", False),
+            ("function-owner", normal_vertex,
+             "vec2 carried(){return vec2(0.5);}void main(){gl_FragColor=vec4(carried(),0.0,1.0);}", False),
+            ("uniform-stage-namespace-gap", normal_vertex,
+             "uniform vec2 carried;\nvoid main(){gl_FragColor=vec4(carried,0.25,1.0);}", False),
+            ("structure-type-owner", normal_vertex,
+             "struct carried{vec2 uv;};void main(){carried value;value.uv=vec2(0.5);"
+             "gl_FragColor=vec4(value.uv,0.0,1.0);}", False),
+            ("custom-global-owner", normal_vertex,
+             "struct Payload{vec2 uv;};Payload carried;void main(){carried.uv=vec2(0.5);"
+             "gl_FragColor=vec4(carried.uv,0.0,1.0);}", False),
+            ("global-initializer-only", normal_vertex,
+             "vec2 stored=carried;void main(){gl_FragColor=vec4(stored,0.0,1.0);}", True),
+            ("explicit-conflict", normal_vertex,
+             "varying vec3 carried;void main(){gl_FragColor=vec4(carried,1.0);}", True),
+            ("qualified-producer", normal_vertex.replace("varying vec2 carried;",
+             "centroid varying vec2 carried;"), free_fragment, True),
+            ("explicit-array-length-conflict", normal_vertex.replace("varying vec2 carried;",
+             "varying vec2 carried[2];").replace("carried = a_TexCoord;",
+             "carried[0]=a_TexCoord;carried[1]=a_TexCoord;"),
+             "varying vec2 carried[3];void main(){gl_FragColor=vec4(carried[2],0.0,1.0);}", True),
+            ("no-producer", "attribute vec3 a_Position;void main(){gl_Position=vec4(a_Position,1.0);}",
+             free_fragment, True),
+            ("duplicate-producer", normal_vertex.replace("varying vec2 carried;",
+             "varying vec2 carried;varying vec2 carried;"), free_fragment, True),
+            ("conflicting-producer", normal_vertex.replace("varying vec2 carried;",
+             "varying vec2 carried;varying vec3 carried;"), free_fragment, True),
+        ]
+        for name, vertex, fragment, rejected in cases:
+            with self.subTest(name=name):
+                root, output = self.analyze("implicit-rejected-" + name, {"vertex": vertex, "fragment": fragment})
+                self.assertTrue(output["idempotent"], name)
+                carrier = "sin" if name == "builtin-callee" else "carried"
+                if name == "explicit-array-length-conflict":
+                    self.assertRegex(output["canonicalFragment"], r"\bvarying\s+vec2\s+carried\s*\[\s*3\s*\]\s*;")
+                else:
+                    self.assertNotRegex(output["canonicalFragment"],
+                                        r"\bvarying\s+vec2\s+" + carrier + r"\b", name)
+                if name == "explicit-conflict":
+                    self.assertRegex(output["canonicalFragment"], r"\bvarying\s+vec3\s+carried\s*;")
+                boundary = {"normalizerFailure": output.get("normalizerFailure"),
+                            "boundedDiagnosticCodes": output["boundedDiagnosticCodes"]}
+                if name == "uniform-stage-namespace-gap":
+                    self.assertNotIn("normalizerFailure", output)
+                    self.assertEqual(output["canonicalFragment"], fragment)
+                    canonical = self.strict_link(root, output, normalized=False)
+                    self.assertEqual(canonical.returncode, 0, canonical.stdout + canonical.stderr)
+                    normalized = self.strict_link(root, output, normalized=True)
+                    self.assertNotEqual(normalized.returncode, 0, "existing generic stage namespace gap changed")
+                    self.assertEqual(output["boundedDiagnosticCodes"], [])
+                    self.assertIn("boundedMSL", output)
+                    (root / "strict-boundary.json").write_text(json.dumps({**boundary,
+                        "canonicalAuthoredStrictReturncode": canonical.returncode,
+                        "normalizedStrictReturncode": normalized.returncode,
+                        "genericGap": "cross-stage-uniform-varying-namespace",
+                        "boundedQualification": "diagnostics-and-MSL-only-no-Metal-pixels"}, indent=2))
+                    continue
+                if "normalizerFailure" in output and rejected:
+                    (root / "strict-boundary.json").write_text(json.dumps(
+                        {**boundary, "stage": "rejected-by-existing-generic-normalizer"}, indent=2))
+                    continue
+                normalized = "normalizerFailure" not in output
+                # Unsupported generic struct admission stays visible while the
+                # actual authored GLSL linker still proves the healthy source.
+                completed = self.strict_link(root, output, normalized)
+                (root / "strict-boundary.json").write_text(json.dumps({**boundary,
+                    "stage": "normalized-strict-link" if normalized else "canonical-authored-strict-link",
+                    "command": completed.args, "returncode": completed.returncode}, indent=2))
+                if rejected:
+                    self.assertNotEqual(completed.returncode, 0,
+                                        name + " must retain its actual compiler failure: " + completed.stdout)
+                else:
+                    self.assertEqual(completed.returncode, 0, name + completed.stdout + completed.stderr)
 
     def test_coordinate_value_copy_reaches_both_backend_routes(self) -> None:
         for name, pair in copy_cases():
@@ -376,16 +564,18 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
         self.assertNotRegex(output["normalizedFragment"], r"\bin\s+vec4\s+carried\b")
 
     def prepared_pixels(self, name: str, pair: dict[str, str], expected: list[float],
-                        uniforms: dict[str, list[float]] | None = None) -> Path:
+                        uniforms: dict[str, list[float]] | None = None,
+                        textures: list[dict] | None = None) -> Path:
         root = self.work / "cases" / name
         if not (root / "packet-identity.json").is_file():
             self.assertFalse(self.reused_harness,
                              "prepare CPU packets using this exact compiled fixture before separate GPU readback")
-            root = self.prepare(name, pair, expected, uniforms)
+            root = self.prepare(name, pair, expected, uniforms, textures)
         identity = json.loads((root / "packet-identity.json").read_text())
         self.assertEqual(identity, {
             "harnessSHA256": hashlib.sha256(self.binary.read_bytes()).hexdigest(),
             "pair": pair, "uniforms": uniforms or {},
+            **({"fragmentTextures": textures} if textures else {}),
         }, "GPU packets must match this shader input and compiled fixture")
         self.assertEqual(json.loads((root / "expected.json").read_text()), expected)
         return root
@@ -407,6 +597,21 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
                 self.assertEqual(len(observed), len(expected))
                 for actual, target in zip(observed, expected):
                     self.assertAlmostEqual(actual, target, places=6)
+
+    @unittest.skipUnless(GPU_ENABLED, "Metal readback is disabled for the separate CPU gate")
+    def test_implicit_phase_exact_pixels(self) -> None:
+        for case in implicit_phase_cases():
+            with self.subTest(name=case["name"]):
+                root = self.prepared_pixels(case["name"], case["pair"], EXPECTED_PHASE_PIXELS,
+                                            case["uniforms"], case["textures"])
+                self.assert_exact_pixels(root, EXPECTED_PHASE_PIXELS, bool(case["uniforms"]))
+
+    @unittest.skipUnless(GPU_ENABLED, "Metal readback is disabled for the separate CPU gate")
+    def test_implicit_shadow_exact_pixels(self) -> None:
+        for case in implicit_shadow_cases():
+            with self.subTest(name=case["name"]):
+                root = self.prepared_pixels(case["name"], case["pair"], case["expected"], case["uniforms"])
+                self.assert_exact_pixels(root, case["expected"], bool(case["uniforms"]))
 
     @unittest.skipUnless(GPU_ENABLED, "Metal readback is disabled for the separate CPU gate")
     def test_coordinate_value_copy_exact_pixels(self) -> None:

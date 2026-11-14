@@ -876,7 +876,10 @@
         "script/tests/test_scene_light_host_array_frontends.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+        "script/tests/test_scene_varying_value_parameter_prefix.py",
+        "script/tests/fixtures/SceneVaryingValueParameterPrefixHarness.swift"
       ],
       "modules": [
         "test_scene_shader_global_scope",
@@ -884,7 +887,8 @@
         "test_scene_generic_shader_program_artifact",
         "test_scene_shader_persistent_cache",
         "test_scene_shader_compiler_request_contract",
-        "test_scene_light_host_array_frontends"
+        "test_scene_light_host_array_frontends",
+        "test_scene_varying_value_parameter_prefix"
       ]
     },
     {

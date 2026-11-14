@@ -21,6 +21,12 @@ private struct PixelInput: Decodable {
     let fragmentMSL: String
     let vertexFunction: String
     let fragmentFunction: String
+    let fragmentTextures: [PixelTextureInput]?
+}
+
+private struct PixelTextureInput: Decodable {
+    let index: Int
+    let pixels: [Float]
 }
 
 private struct UniformBufferInput: Decodable {
@@ -156,6 +162,29 @@ private enum VaryingValueParameterPrefixHarness {
         descriptor.fragmentFunction = fragment.makeFunction(name: input.fragmentFunction)
         descriptor.colorAttachments[0].pixelFormat = .rgba32Float
         let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        var sources: [(Int, MTLTexture)] = []
+        for source in input.fragmentTextures ?? [] {
+            guard (0..<16).contains(source.index), source.pixels.count == 16 else {
+                throw NSError(domain: "texture-input", code: 1)
+            }
+            let sourceDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .rgba32Float, width: 2, height: 2, mipmapped: false)
+            sourceDescriptor.storageMode = .shared
+            sourceDescriptor.usage = .shaderRead
+            guard let texture = device.makeTexture(descriptor: sourceDescriptor) else {
+                throw NSError(domain: "source-texture-allocation", code: 1)
+            }
+            source.pixels.withUnsafeBytes {
+                texture.replace(region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
+                                withBytes: $0.baseAddress!, bytesPerRow: 32)
+            }
+            sources.append((source.index, texture))
+        }
+        let samplerDescriptor = MTLSamplerDescriptor()
+        samplerDescriptor.minFilter = .nearest
+        samplerDescriptor.magFilter = .nearest
+        let sampler = sources.isEmpty ? nil : device.makeSamplerState(descriptor: samplerDescriptor)
+        if !sources.isEmpty && sampler == nil { throw NSError(domain: "source-sampler-allocation", code: 1) }
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba32Float, width: 2, height: 2, mipmapped: false
         )
@@ -201,6 +230,10 @@ private enum VaryingValueParameterPrefixHarness {
                         }
                     }
                 }
+            }
+            for (index, texture) in sources {
+                encoder.setFragmentTexture(texture, index: index)
+                encoder.setFragmentSamplerState(sampler, index: index)
             }
             encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             encoder.endEncoding()

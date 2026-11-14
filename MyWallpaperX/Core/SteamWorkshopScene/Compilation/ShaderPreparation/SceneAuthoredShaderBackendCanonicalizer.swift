@@ -28,11 +28,12 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
         unboundTextureResolutionSlots: Set<Int> = []
     ) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
+        let linked = linkImplicitFragmentInputs(original)
         var result = Pair(
             vertex: SceneAuthoredShaderBuiltInVectorConversion
                 .rewriteIntrinsicArguments(
                     SceneAuthoredShaderDiscreteMaskConversion.rewrite(
-                        vertex,
+                        linked.vertex,
                         stage: .vertex
                     ),
                     stage: .vertex
@@ -40,7 +41,7 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
             fragment: SceneAuthoredShaderBuiltInVectorConversion
                 .rewriteIntrinsicArguments(
                     SceneAuthoredShaderDiscreteMaskConversion.rewrite(
-                        fragment,
+                        linked.fragment,
                         stage: .fragment
                     ),
                     stage: .fragment
@@ -111,6 +112,40 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
             boundTextureSlots: boundTextureSlots
         )
         return Pair(vertex: projected.vertex, fragment: projected.fragment)
+    }
+
+    private static func linkImplicitFragmentInputs(_ pair: Pair) -> Pair {
+        let vertex = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: pair.vertex, stage: .vertex), stage: .vertex)
+        let fragment = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: pair.fragment, stage: .fragment), stage: .fragment)
+        guard vertex.diagnostics.isEmpty, fragment.diagnostics.isEmpty,
+              let producer = vertex.unit, let consumer = fragment.unit else { return pair }
+        let producerValues = SceneAuthoredShaderGlobalReferenceAnalyzer.globalValueDeclarations(in: producer)
+        let consumerNames = Set(consumer.declarations.map(\.name))
+            .union(SceneAuthoredShaderGlobalReferenceAnalyzer.globalValueDeclarations(in: consumer).keys)
+            .union(consumer.functions.map(\.name))
+            .union(SceneAuthoredShaderGlobalReferenceAnalyzer.structureTypeNames(in: consumer, topLevelOnly: true))
+        let declarations = producer.declarations.filter { declaration in
+            let name = declaration.name, start = declaration.range.lowerBound
+            guard declaration.storage == .varying, !consumerNames.contains(name),
+                  producerValues[name]?.count == 1,
+                  start == 0 || [";", "}"].contains(producer.tokens[start - 1].text),
+                  let references = SceneAuthoredShaderGlobalReferenceAnalyzer.exactReferenceIndices(name, in: consumer),
+                  !references.isEmpty else { return false }
+            // Callees and custom-type globals also appear in reference facts;
+            // neither is an omitted function-body input declaration.
+            return references.allSatisfy { index in
+                consumer.functions.contains { $0.bodyRange.contains(index) }
+                    && consumer.tokens[index + 1].text != "("
+            }
+        }
+        guard !declarations.isEmpty else { return pair }
+        let inputs = declarations.map { declaration in
+            let extent = declaration.arraySize.map { "[\($0)]" } ?? ""
+            return "varying \(declaration.typeName) \(declaration.name)\(extent);"
+        }.joined(separator: "\n")
+        return Pair(vertex: pair.vertex, fragment: inputs + "\n" + pair.fragment)
     }
 
     private static func lowerUnboundTextureResolutions(_ pair: Pair, slots: Set<Int>) -> Pair {
