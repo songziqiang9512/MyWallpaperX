@@ -766,7 +766,6 @@
           "ScenePuppetAnimationPropertyPreparation.swift",
           "ScenePuppetAnimationPropertyTarget.swift",
           "SceneScriptDynamicProviderHostContract.swift",
-          "SceneScriptValueOwnership.swift",
           "SceneUserProperty.swift",
           "SceneUserPropertyBindings.swift",
           "SceneUserPropertyDefinitionParser.swift",

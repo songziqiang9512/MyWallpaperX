@@ -418,9 +418,9 @@ struct RateFixture {
           if(event.name==='set')return value+1.5;return undefined;}
         export function update(value){return value;}
         """))
-        try domain.publishPuppetAnimationEvents([
+        try domain.publishAnimationEvents([
             .init(identity: identity, sequence: 1, name: "set", frame: 1),
-            .init(identity: identity, sequence: 2, name: "keep", frame: 2)], failures: [:])
+            .init(identity: identity, sequence: 2, name: "keep", frame: 2)], failures: [:], timelineEvents:[])
         let result = program.evaluate(inputs: [target: .scalar(1)], frame: frame(0))
         program.finalizeLayerMutations(committing: true)
         _ = playback.advance(frameIndex: 1, sceneTime: 1,
@@ -430,8 +430,8 @@ struct RateFixture {
             let (badDomain, bad, _) = try prepared(single(
                 "export function animationEvent(event,value){thisObject.pause();return \(expression);}",
                 peer: "export function update(value){return 2.5;}"))
-            try badDomain.publishPuppetAnimationEvents([
-                .init(identity: identity, sequence: 1, name: "bad", frame: 1)], failures: [:])
+            try badDomain.publishAnimationEvents([
+                .init(identity: identity, sequence: 1, name: "bad", frame: 1)], failures: [:], timelineEvents:[])
             let failed = bad.evaluate(inputs: [target: .scalar(1), sibling: .scalar(1)], frame: frame(0))
             rejected.append(failed.failures[target] != nil && failed.values[target] == nil
                 && number(failed.values[sibling]) == 2.5
@@ -441,7 +441,7 @@ struct RateFixture {
         }
         return ["value": number(result.values[target]), "failures": result.failures.count,
             "pose": state(playback), "rejected": rejected,
-            "consumed": !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(program.bindings[0].handle)]
+            "consumed": !mwx_scene_quickjs_owner_has_pending_animation_events(program.bindings[0].handle)]
     }
     static func sortCohort() throws -> [String: Any] {
         let input = RateFixture([

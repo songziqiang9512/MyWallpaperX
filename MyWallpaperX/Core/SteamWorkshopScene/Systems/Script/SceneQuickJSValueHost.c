@@ -1,6 +1,16 @@
 #include "SceneQuickJSInternal.h"
 #include <string.h>
 
+JSValue mwx_scene_quickjs_make_vector(MWXSceneQuickJSDomain *domain, const double *input, uint32_t dimensions) {
+    JSValue arguments[3];
+    for (uint32_t index = 0; index < dimensions; ++index)
+        arguments[index] = JS_NewFloat64(domain->context, input[index]);
+    JSValue value = JS_CallConstructor(domain->context,
+        dimensions == 2 ? domain->vec2_constructor : domain->vec3_constructor, (int)dimensions, arguments);
+    for (uint32_t index = 0; index < dimensions; ++index) JS_FreeValue(domain->context, arguments[index]);
+    return value;
+}
+
 static JSValue active_engine_getter(
     JSContext *context,
     JSValueConst this_value,

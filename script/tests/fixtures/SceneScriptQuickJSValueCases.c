@@ -920,7 +920,7 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         const MWXSceneQuickJSFrameInput frame = {.time_of_day = 0.25, .frame_time = 1.0 / 60.0, .runtime = 2};
         double output[3] = {0};
         const MWXSceneQuickJSResult status = mwx_scene_quickjs_owner_update_vector(
-            owner, 54, vec3_input, 3, &frame, "{}", 2, "{}", 2, output, fixture->diagnostic, sizeof(fixture->diagnostic));
+            owner, 54, vec3_input, 3, &frame, "{}", 2, "{}", 2, output, fixture->diagnostic, sizeof(fixture->diagnostic), NULL);
         bool passed = status == hsv_cases[index].result;
         if (status == MWX_SCENE_QUICKJS_OK) {
             for (size_t component = 0; component < 3; ++component)

@@ -610,6 +610,21 @@ static void finish_dynamic_layer_transaction(
     clear_dynamic_layer_journal(owner);
 }
 
+void mwx_scene_quickjs_consume_authored_mutation_field(MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSAuthoredLayerMutationRecord *mutation, uint32_t field) {
+    mutation->fields &= ~field;
+    if (mutation->fields != 0 || mutation->effect_visible != NULL) return;
+    size_t index = (size_t)(mutation - owner->authored_layer_mutations);
+    free(mutation->text);
+    free(mutation->font);
+    owner->authored_layer_mutation_count -= 1;
+    owner->layer_mutation_count -= 1;
+    memmove(mutation, mutation + 1,
+        (owner->authored_layer_mutation_count - index) * sizeof(*mutation));
+    owner->authored_layer_mutations[owner->authored_layer_mutation_count] =
+        (MWXSceneQuickJSAuthoredLayerMutationRecord){0};
+}
+
 void mwx_scene_quickjs_owner_discard_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
@@ -617,6 +632,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     if (owner->domain->particle_boundary != NULL)
         owner->domain->particle_boundary(owner->domain->particle_emission_opaque, owner, 1);
     mwx_scene_quickjs_finish_text_clones(owner, false);
+    mwx_scene_quickjs_finish_animation_events(owner, false);
     mwx_scene_quickjs_puppet_animation_finish_transaction(owner, false);
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
@@ -652,6 +668,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
 ) {
     if (owner == NULL || owner->domain == NULL) return;
     mwx_scene_quickjs_finish_text_clones(owner, true);
+    mwx_scene_quickjs_finish_animation_events(owner, true);
     mwx_scene_quickjs_puppet_animation_finish_transaction(owner, true);
     owner->camera_command_count = owner->camera_command_read_start = 0;
     owner->camera_command_overflow = false;

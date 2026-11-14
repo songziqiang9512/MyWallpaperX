@@ -31,7 +31,6 @@ SWIFT_SOURCES = [
     SCENE / "Format/ScenePointLightDefinition.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
@@ -487,6 +486,10 @@ SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
         (SCENE / "Runtime/Frame/SceneRenderDescriptor+Layer.swift").read_text(encoding="utf-8"),
         "        nonisolated var hasPerspectiveGeometryConsumer:",
     ),
+)
+SWIFT_PREAMBLE += swift_declaration(
+    (SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_text(encoding="utf-8"),
+    "nonisolated struct SceneTimelineAnimationEventOccurrence:",
 )
 
 

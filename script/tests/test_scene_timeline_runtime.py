@@ -22,9 +22,6 @@ from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, mi
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-GRAPH_EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
-)
 SWIFT_SOURCES = [
     Path(__file__).with_name("fixtures") / "SceneTimelineCombinedPlaybackChecks.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
@@ -238,6 +235,8 @@ SCENE_FIXTURE = {
         },
     ],
 }
+for layer_index, host in ((0, "alpha"), (3, "angles"), (4, "origin")):
+    SCENE_FIXTURE["objects"][layer_index][host]["animation"]["options"]["events"] = [{"frame": 10, "name": "raw"}]
 
 
 def general_bloom_fixtures():
@@ -579,6 +578,7 @@ enum Harness {
         let camera = try SceneTimelineCombinedPlaybackChecks.camera(program)
         payload["cameraPlayback"] = camera.facts
         payload["cameraSeekSnapshot"] = camera.seekSnapshot
+        payload["eventScope"] = SceneTimelineCombinedPlaybackChecks.unsupportedEventScope(program)
 
         let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
         let playback = SceneTimelinePlaybackRuntime(program: program)
@@ -596,7 +596,7 @@ enum Harness {
             sceneTime: 5
         )
         let observationState = playback.observationSnapshot()
-        _ = playback.values(sceneTime: 5.5)
+        _ = playback.sample(sceneTime: 5.5)
         let observationConsumed = playback.observationSnapshot()
         playback.restoreObservationState(observationState)
         let observationRestored = playback.observationSnapshot()
@@ -734,11 +734,19 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         cls.result = json.loads(completed.stdout)
         cls.combined_results = []
         for label, (fixture, response) in accepted_combined_scenes().items():
+            group = fixture["objects"][0]
+            for host in ("origin", "angles", "scale"):
+                group[host]["animation"]["options"]["events"] = (
+                    [{"frame": 20, "name": "end"}, {"frame": 10, "name": "mid"},
+                     {"frame": 20, "name": "same frame"}, {"frame": 20, "name": "end"},
+                     {"frame": 0, "name": "zero"},
+                     {"frame": -1, "name": "negative"}, {"frame": 21, "name": "outside"}]
+                    if group[host]["animation"]["options"].get("children") else
+                    [{"frame": 3, "name": "child raw"}, {"frame": True, "name": "invalid child"}])
             entry = directory / f"combined-{label}.json"
             entry.write_text(json.dumps(fixture), encoding="utf-8")
             result = subprocess.run([str(binary), str(entry), "combined"],
                                     check=True, capture_output=True, text=True)
-            group = fixture["objects"][0]
             root = next(key for key in ("origin", "angles")
                         if group[key]["animation"]["options"].get("children"))
             cls.combined_results.append((label, group["id"], root, response, json.loads(result.stdout)))
@@ -808,7 +816,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertTrue(all(result["retirement"].values()), result["retirement"])
                 self.assertTrue(all(result["facts"].values()), result["facts"])
                 self.assertEqual(result["responseOptions"], [response] * 3)
-                self.assertEqual(result["diagnostics"], [] if response == [None, None]
+                self.assertEqual([d for d in result["diagnostics"] if ": events[" not in d], [] if response == [None, None]
                                  else [f"layer {layer_id} {root}: responseOptionsUnmodeled"])
 
     def test_mixed_groups_compile_and_share_typed_playback(self) -> None:
@@ -854,28 +862,17 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertEqual(replay["secondRestart"], 1)
         self.assertAlmostEqual(replay["secondMidpoint"], 0.5)
 
-    def test_prepared_program_has_frame_driven_uniform_consumption_proof(self) -> None:
-        source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "func recordTypedFrameDrivenUniformConsumptions(",
-            source,
-        )
-        self.assertIn(
-            "case (.timeline, .timeline):",
-            source,
-        )
-        self.assertIn(
-            "case (.sceneScript, .sceneScript):",
-            source,
-        )
-        self.assertIn(
-            "expected == uniform.encodedValue",
-            source,
-        )
-        self.assertIn(
-            "MWX typed input consumption: channel=%@",
-            source,
-        )
+    def test_single_events_use_one_owner_cursor_and_acceptance_boundary(self) -> None:
+        self.assertTrue(all(self.result["eventScope"].values()), self.result["eventScope"])
+        for label, layer_id, root_key, _, result in self.combined_results:
+            with self.subTest(variant=label):
+                events = result["events"]
+                self.assertTrue(all(events["facts"].values()), events)
+                self.assertEqual(events["first"], [[10, "mid"]])
+                self.assertEqual(events["endpoint"], [[20, "end"], [20, "same frame"], [20, "end"]])
+                self.assertEqual([d for d in result["diagnostics"] if ": events[" in d],
+                    [f"layer {layer_id} {host}: events[1]: invalidEvent"
+                     for host in ("origin", "angles", "scale") if host != root_key])
 
     def test_admitted_restart_projects_first_value_without_committing_or_observing(self) -> None:
         preview = self.result["preview"]

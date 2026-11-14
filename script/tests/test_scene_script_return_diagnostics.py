@@ -52,13 +52,13 @@ static int vector_dimensions(int mode) {
         for (size_t i=0;i<4;++i) {
             result=mwx_scene_quickjs_owner_initialize_vector(o,1,input,invalid[i],&f,"",0,"{}",2,output,&initialized,message,sizeof(message));
             failures+=check(result==MWX_SCENE_QUICKJS_INVALID_ARGUMENT && output[0]==-99 && output[1]==-99,"invalid init dimensions",message);
-            result=mwx_scene_quickjs_owner_update_vector(o,1,input,invalid[i],&f,"",0,"{}",2,output,message,sizeof(message));
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,invalid[i],&f,"",0,"{}",2,output,message,sizeof(message), NULL);
             failures+=check(result==MWX_SCENE_QUICKJS_INVALID_ARGUMENT && output[0]==-99 && output[1]==-99,"invalid update dimensions",message);
         }
     } else {
         if (variant==9) input[1]=INFINITY;
         if (variant==1) result=mwx_scene_quickjs_owner_initialize_vector(o,1,input,dimensions,&f,"",0,"{}",2,output,&initialized,message,sizeof(message));
-        else result=mwx_scene_quickjs_owner_update_vector(o,variant==8?2:1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message));
+        else result=mwx_scene_quickjs_owner_update_vector(o,variant==8?2:1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message), NULL);
         MWXSceneQuickJSResult expected=variant>=4&&variant<=6?MWX_SCENE_QUICKJS_BAD_RETURN:variant==8?MWX_SCENE_QUICKJS_STALE_OWNER:variant==9?MWX_SCENE_QUICKJS_INVALID_ARGUMENT:MWX_SCENE_QUICKJS_OK;
         failures+=check(result==expected,"typed vector outcome",message);
         if (variant<=3) {
@@ -67,13 +67,13 @@ static int vector_dimensions(int mode) {
         }
         if (variant==0) {
             mwx_scene_quickjs_owner_commit_layer_mutations(o);
-            result=mwx_scene_quickjs_owner_update_vector(o,1,input,2,&f,"",0,"{}",2,output,message,sizeof(message));
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,2,&f,"",0,"{}",2,output,message,sizeof(message), NULL);
             failures+=check(result==MWX_SCENE_QUICKJS_OK&&output[0]==8&&output[1]==10,"init committed once",message);
         }
         if (variant==1) failures+=check(initialized==1,"out of band init",message);
         if (variant>=4&&variant<=6) {
             f.runtime=2;
-            result=mwx_scene_quickjs_owner_update_vector(o,1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message));
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message), NULL);
             failures+=check(result==MWX_SCENE_QUICKJS_OK&&output[0]==7&&output[1]==8&&(dimensions==2||output[2]==9),"typed return recovery",message);
         }
     }
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
                 "",0,"{}",2,output,&initialized,message,capacity);
         } else {
             result = mwx_scene_quickjs_owner_update_vector(owner,1,input, 3,&frame,
-                "",0,"{}",2,output,message,capacity);
+                "",0,"{}",2,output,message,capacity, NULL);
         }
         failures += check(result == (mode == 5 ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_BAD_RETURN),
                           "return classification", capacity ? message : "zero capacity");
@@ -143,14 +143,14 @@ int main(int argc, char **argv) {
                 "",0,"{}",2,output,&initialized,diagnostic,sizeof(diagnostic));
         } else {
             result = mwx_scene_quickjs_owner_update_vector(owner,1,input, 3,&frame,
-                "",0,"{}",2,output,diagnostic,sizeof(diagnostic));
+                "",0,"{}",2,output,diagnostic,sizeof(diagnostic), NULL);
         }
         failures += check(result==MWX_SCENE_QUICKJS_OK,"next frame recovery",diagnostic);
         failures += check(output[0]==(mode==5 ? 2 : 7) && output[1]==(mode==5 ? 2 : 8)
             && output[2]==(mode==5 ? 3 : 9),"recovered vector",diagnostic);
         mwx_scene_quickjs_owner_commit_layer_mutations(owner);
         result=mwx_scene_quickjs_owner_update_vector(peer,1,input, 3,&frame,"",0,"{}",2,
-            output,diagnostic,sizeof(diagnostic));
+            output,diagnostic,sizeof(diagnostic), NULL);
         failures += check(result==MWX_SCENE_QUICKJS_OK && output[0]==4 && output[1]==5 && output[2]==6,
                           "independent peer",diagnostic);
         mwx_scene_quickjs_owner_commit_layer_mutations(peer);

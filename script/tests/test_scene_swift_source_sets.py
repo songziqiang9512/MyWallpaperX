@@ -271,7 +271,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             ))),
         )
         self.assertEqual(len(frame_finalization), 55)
-        self.assertEqual(len(template_compilation), 4)
+        self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
             tuple(dict.fromkeys((
@@ -281,7 +281,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         lookup_input = 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift'
         self.assertEqual(set(template_compilation) & set(frame_finalization), {lookup_input})
-        self.assertEqual(len(complete), 58)
+        self.assertEqual(len(complete), 57)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.

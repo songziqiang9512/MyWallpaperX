@@ -128,9 +128,20 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 
 已编译Timeline bindings→原冷catalog→C handle→原有序animation journal→同PlaybackRuntime preview/commit→typed snapshot保持唯一链。原完整target的layer/effect/pass只在冷配置投影，target index与压缩catalog index、current-property sentinel各保身份。一个C动画target配置入口取代旧current-only ABI，原named许可位退为component scope身份；不新增registry、clock、播放状态或逐帧作者树查询，保原目标存活、句柄/owner寿命和事务失败范围。
 
-pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCurrentAnimation，不把animation字段当已准备轨。原ValueOwner用真实exports和当次init/pending消费区分值返回与无update的input转发；原coordinator保同一角色，vector与scalar沿原preview在admission回接真实Timeline输入。事件/idle owner不造值writer；真实init本次返回和真实update（包括return input）仍是值writer。已提交无Timeline值归原EvaluationTransaction，pending初始化寿命不延长，无持久输入副本或值相等猜测。两lane只遍历本帧实际转发target集合，退出无关Timeline全表扫描，保原scalar合法域和拒绝过滤。
+pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCurrentAnimation，不把animation字段当已准备轨。原ValueOwner用真实exports和当次init/pending消费区分值返回与无update的input转发；原coordinator保同一角色，vector与scalar沿原preview在admission回接真实Timeline输入。仅转发输入的事件/idle owner不造值writer；真实init本次返回和真实update（包括return input）仍是值writer。已提交无Timeline值归原EvaluationTransaction，pending初始化寿命不延长，无持久输入副本或值相等猜测。两lane只遍历本帧实际转发target集合，退出无关Timeline全表扫描，保原scalar合法域和拒绝过滤。
 
-最近真实C/VM与共享coordinator/Playback/Transaction核同pass/改名、current无参/同名、跨域/missing/duplicate、保留句柄/退休/回滚、精确冷目标、Vec2/Vec3、init/事件/timer及真正update角色；App复用冻结九卡和既有官方oracle。作者288翻页尚缺成熟相位的真实命中，其余活动输入、其他组件和持续播放不由静态九卡升级；后继只补队列记录的触发资格及同subject Program→最终页，不强制显隐或重复旧矩阵。
+最近真实C/VM与共享coordinator/Playback/Transaction核同pass/改名、current无参/同名、跨域/missing/duplicate、保留句柄/退休/回滚、精确冷目标、Vec2/Vec3、init/事件/timer及真正update角色；App复用冻结九卡和既有官方oracle。作者后继输入、材质与事件资格统一见[运行证据](runtime-evidence-current.md#component-animation-scope)，静态九卡不升级为完整作者动画、其他组件或持续播放；不强制显隐或重复旧矩阵。
+
+<a id="animation-events"></a>
+### Property 与 Puppet 的共同 animationEvent 接收
+
+[官方事件教程](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)给出`animationEvent(event, value)`及同layer监听；此scope不同于组件当前pass的具名动画查询。自然property事件以原prepared target归属的layer投递给实际导出该函数的存活owner，覆盖本属性、同pass其他属性、其他pass/effect及同层visibility/alpha；接收者不必自带Timeline，隐藏不等于退休。首批值域为原Bool/Number/Vec2/Vec3 typed entry；来源和限定运行范围由[证据](runtime-evidence-current.md#property-timeline-events)拥有，不扩大到未资格类型/来源。
+
+共用原Domain的intrusive owner链、pending队列、cursor/epoch及commit/discard；Puppet实record身份/incarnation/sequence与property来源使用不同tag，不给property伪造Puppet catalog记录或另建listener/source registry。构造末端按真实exports/Puppet控制需求统一注册，旧Puppet configure退出隐式listener注册；无export的Puppet控制仍保原rebind。只有receiver真实退休清整队列，Puppet source过期按原逐项身份检查省略，不能因receiver自身clip暂缺清掉其他property pending。原Puppet控制/ended callback合法域保持。
+
+原共同C drain恢复该owner handles/engine，调用真实export并沿原jobs、journal和typed decode交接。第一参为事件name/frame，第二参为接收属性的当前typed值，不把source轨的Vec2发给所有人或压成Number。Number/Vec2/Vec3只在本次调用栈报告实际返回/写值角色，经既有`valueFollowsInput`及coordinator/admission接numeric Timeline preview；无返回且无自身写入保输入转发，真返回即使等值也不能据值相等猜角色。Bool保持当前Bool并由原visibility journal归一，本身无numeric Timeline来源，不声称同一role metadata。自身setter归原journal/current，原init/update角色保持；Number alpha只消费匹配的旧setter字段、返回仍走原scalar域，复用原Bool字段清理/空record压缩，保其他字段、effect与后继setter，不把NaN/±Infinity写入严格setter运输。scalar永久源码类别与media回调识别器退出，不新增持久role、last-event值或setter overlay；Number对置setter/return只要求已资格的首次getter观察，不外推其他类型或永久覆盖顺序。
+
+自然producer与确认顺序见[Timeline合同](runtime-input-property-coverage.md#timeline-events)。事件内play下一动画仍走原有序journal/preview/apply，不递归flush新事件或另加timer。多listener/callback-update精确次序、相反Bool/Vec setter-return、向量原地改后undefined等边界只随实际证据扩展；沿原局部异常/失败半径，不修改作者逻辑。旧Puppet-only pending/dispatch/publisher职责同批退出，共同部分由原Animation bridge/host承接，Puppet专有身份与控制继续原owner。
 
 <a id="particle-instance-scalars"></a>
 ### Particle instance 数值

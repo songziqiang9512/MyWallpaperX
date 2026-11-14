@@ -18,6 +18,233 @@ typedef struct MWXSceneQuickJSAnimationHandle {
     bool scene_lookup;
 } MWXSceneQuickJSAnimationHandle;
 
+uint32_t mwx_scene_quickjs_owner_animation_event_export(const MWXSceneQuickJSOwner *owner) {
+    if (owner == NULL) return 0;
+    JSContext *context = owner->domain->context;
+    JSValue function = JS_GetPropertyStr(context, owner->module, "animationEvent");
+    uint32_t kind = JS_IsUndefined(function) ? 0 : JS_IsFunction(context, function) ? 1 : 2;
+    JS_FreeValue(context, function);
+    return kind;
+}
+
+void mwx_scene_quickjs_owner_configure_animation_events(MWXSceneQuickJSOwner *owner, uint32_t exported) {
+    if (owner == NULL || owner->domain == NULL) return;
+    owner->handles_animation_events = exported != 0;
+    if (!owner->handles_animation_events && !owner->puppet_animation_configured) return;
+    owner->animation_next = owner->domain->animation_owners;
+    owner->domain->animation_owners = owner;
+}
+
+size_t mwx_scene_quickjs_domain_animation_owner_count(const MWXSceneQuickJSDomain *domain) {
+    size_t count = 0;
+    if (domain != NULL) for (const MWXSceneQuickJSOwner *owner = domain->animation_owners;
+        owner; owner = owner->animation_next) count++;
+    return count;
+}
+
+bool mwx_scene_quickjs_owner_has_pending_animation_events(const MWXSceneQuickJSOwner *owner) {
+    return owner != NULL && !owner->disabled && owner->handles_animation_events &&
+        (owner->animation_event_failure != 0 || owner->animation_event_cursor < owner->animation_event_count);
+}
+
+static bool animation_receiver_matches(MWXSceneQuickJSOwner *owner, int64_t layer_id) {
+    if (owner->disabled) return false;
+    if (!owner->target_layer_configured)
+        return owner->domain->layer_count == 0 && owner->puppet_animation_configured &&
+            owner->puppet_animation_identity.layer_id == layer_id;
+    if (owner->target_layer_index >= owner->domain->layer_count) return false;
+    const MWXSceneQuickJSLayerRecord *layer = &owner->domain->layers[owner->target_layer_index];
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *pending =
+        mwx_scene_quickjs_authored_mutation_for_layer(owner, owner->target_layer_index);
+    return layer->configured && !layer->destroyed && layer->layer_id == layer_id &&
+        (pending == NULL || !pending->destroyed);
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_animation_events(
+    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSAnimationEvent *events,
+    size_t count, char *diagnostic, size_t diagnostic_capacity) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active || (count != 0 && events == NULL))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (size_t i = 0; i < count; ++i) {
+        const MWXSceneQuickJSAnimationEvent *event = &events[i];
+        if (event->source_kind > 1) continue;
+        MWXSceneQuickJSPuppetAnimationIdentity identity = { event->layer_id,
+            event->animation_layer_index, event->animation_layer_id, event->has_animation_layer_id };
+        MWXSceneQuickJSPuppetAnimationRecord *record = event->source_kind == 1
+            ? mwx_scene_quickjs_puppet_animation_record_for_identity(domain, identity) : NULL;
+        uint32_t failure = event->failure;
+        if (!failure && event->name == NULL) failure = 2;
+        if (!failure && event->source_kind == 1) {
+            if (event->sequence == 0 || strlen(event->name) == 0 || strlen(event->name) > 1024 ||
+                !isfinite(event->frame) || event->frame < 0 || event->frame > 9007199254740991.0) failure = 2;
+            else if (record == NULL || record->incarnation == 0 ||
+                event->sequence <= record->event_published_sequence) continue;
+        }
+        for (MWXSceneQuickJSOwner *owner = domain->animation_owners;
+             owner != NULL; owner = owner->animation_next) {
+            if (!owner->handles_animation_events || !animation_receiver_matches(owner, event->layer_id)) continue;
+            if (failure) { owner->animation_event_failure = failure; continue; }
+            if (owner->animation_event_count == 64) { owner->animation_event_failure = 5; continue; }
+            if (owner->animation_events == NULL) {
+                owner->animation_events = js_malloc_rt(domain->runtime, 64 * sizeof(*owner->animation_events));
+                if (owner->animation_events == NULL) { owner->animation_event_failure = 8; continue; }
+            }
+            char *name = js_malloc_rt(domain->runtime, strlen(event->name) + 1);
+            if (name == NULL) { owner->animation_event_failure = 8; continue; }
+            strcpy(name, event->name);
+            owner->animation_events[owner->animation_event_count++] = (MWXSceneQuickJSAnimationPendingEvent){
+                .source_kind = event->source_kind, .layer_id = event->layer_id,
+                .puppet_identity = record == NULL ? (MWXSceneQuickJSPuppetAnimationIdentity){0} : identity,
+                .puppet_incarnation = record == NULL ? 0 : record->incarnation,
+                .name = name, .frame = event->frame };
+        }
+        if (!failure && record != NULL) record->event_published_sequence = event->sequence;
+    }
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+bool mwx_scene_quickjs_animation_transaction(MWXSceneQuickJSOwner *owner) {
+    if (owner->animation_baseline == NULL)
+        owner->animation_baseline = mwx_scene_quickjs_owner_timer_snapshot(owner);
+    return owner->animation_baseline != NULL;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_animation_events(
+    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
+    const char *properties, size_t properties_length, const char *users, size_t users_length,
+    double *value, uint32_t dimensions, bool boolean_value, uint32_t returned_value_field,
+    uint32_t *value_produced, char *diagnostic, size_t diagnostic_capacity) {
+    if (!mwx_scene_quickjs_owner_has_pending_animation_events(owner)) return MWX_SCENE_QUICKJS_OK;
+    if (owner->animation_event_failure) {
+        const char *reasons[] = { "", "unsupportedMode", "invalidEvent", "nonFinitePhase",
+            "multipleLoopsCrossed", "eventBudgetExceeded", "sequenceOverflow", "invalidEvent", "event allocation failed" };
+        uint32_t code = owner->animation_event_failure;
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+            code < sizeof(reasons) / sizeof(reasons[0]) ? reasons[code] : "invalid event failure");
+        return code == 5 ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW :
+            code == 8 ? MWX_SCENE_QUICKJS_MEMORY_EXCEEDED : MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (!mwx_scene_quickjs_animation_transaction(owner)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    JSContext *context = owner->domain->context;
+    JSValue function = JS_UNDEFINED;
+    JSValue layer = JS_UNDEFINED, scene = JS_UNDEFINED, object = JS_UNDEFINED, engine = JS_UNDEFINED;
+    bool handles = false, bound = false;
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    while (result == MWX_SCENE_QUICKJS_OK && owner->animation_event_cursor < owner->animation_event_count) {
+        const MWXSceneQuickJSAnimationPendingEvent *pending = &owner->animation_events[owner->animation_event_cursor];
+        MWXSceneQuickJSPuppetAnimationRecord *record = pending->source_kind == 1
+            ? mwx_scene_quickjs_puppet_animation_record_for_identity(owner->domain, pending->puppet_identity) : NULL;
+        if (!animation_receiver_matches(owner, pending->layer_id) ||
+            (pending->source_kind == 1 && (record == NULL || record->incarnation != pending->puppet_incarnation))) {
+            owner->animation_event_cursor++; continue;
+        }
+        if (owner->puppet_animation_configured && !owner->puppet_animation_available) break;
+        if (!bound) {
+            function = JS_GetPropertyStr(context, owner->module, "animationEvent");
+            if (!JS_IsFunction(context, function)) {
+                mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent must be a function");
+                result = MWX_SCENE_QUICKJS_BAD_RETURN;
+                break;
+            }
+            mwx_scene_quickjs_begin_callback(owner);
+            bool assigned = mwx_scene_quickjs_assign_script_properties(owner, properties, properties_length);
+            handles = assigned && mwx_scene_quickjs_bind_owner_handles(owner, &layer, &scene, &object);
+            bound = handles && mwx_scene_quickjs_bind_frame_engine_host(owner, frame, users, users_length, &engine);
+            if (!bound) { result = MWX_SCENE_QUICKJS_EXCEPTION; break; }
+        }
+        mwx_scene_quickjs_begin_callback(owner);
+        JSValue event = JS_NewObject(context);
+        JSValue name = JS_IsException(event) ? JS_EXCEPTION : JS_NewString(context, pending->name);
+        if (JS_IsException(event) || JS_IsException(name)) {
+            JS_FreeValue(context, name); JS_FreeValue(context, event);
+            (void)mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
+            result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+            break;
+        }
+        bool created = JS_DefinePropertyValueStr(context, event, "name", name, JS_PROP_C_W_E) >= 0 &&
+            JS_DefinePropertyValueStr(context, event, "frame", JS_NewFloat64(context, pending->frame), JS_PROP_C_W_E) >= 0;
+        JSValue input = dimensions > 1 ? mwx_scene_quickjs_make_vector(owner->domain, value, dimensions)
+            : boolean_value ? JS_NewBool(context, *value != 0) : JS_NewFloat64(context, *value);
+        if (!created || JS_IsException(input)) {
+            JS_FreeValue(context, input); JS_FreeValue(context, event);
+            result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+            break;
+        }
+        JSValue arguments[] = { event, input };
+        JSValue returned = JS_Call(context, function, owner->module, 2, arguments);
+        JS_FreeValue(context, event); JS_FreeValue(context, input);
+        bool produced = !JS_IsUndefined(returned);
+        if (JS_IsException(returned)) result = mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
+        else if (produced) {
+            bool valid;
+            if (dimensions > 1) valid = mwx_scene_quickjs_read_vector(context, returned, value, dimensions, true);
+            else if (boolean_value) {
+                valid = JS_IsBool(returned) || !owner->puppet_animation_configured;
+                produced = JS_IsBool(returned);
+                if (produced) *value = JS_ToBool(context, returned);
+            } else valid = JS_IsNumber(returned) && JS_ToFloat64(context, value, returned) >= 0 &&
+                (!owner->puppet_animation_configured || isfinite(*value));
+            if (!valid) {
+                mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent returned an invalid typed value");
+                result = MWX_SCENE_QUICKJS_BAD_RETURN;
+            }
+        }
+        JS_FreeValue(context, returned);
+        if (result == MWX_SCENE_QUICKJS_OK) result = mwx_scene_quickjs_drain_jobs(owner, diagnostic, diagnostic_capacity);
+        if (result == MWX_SCENE_QUICKJS_OK) {
+            if (returned_value_field != 0) {
+                // Consume this callback's earlier self write in the same journal.
+                // A later event/update can still write the field normally.
+                MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                    mwx_scene_quickjs_authored_mutation_for_layer(owner, owner->target_layer_index);
+                if (mutation != NULL && !mutation->destroyed && (mutation->fields & returned_value_field) != 0) {
+                    if (produced) mwx_scene_quickjs_consume_authored_mutation_field(owner, mutation, returned_value_field);
+                    else { *value = mutation->alpha; produced = true; }
+                }
+            }
+            if (produced && value_produced != NULL) *value_produced = 1;
+            owner->animation_event_cursor++;
+            if (boolean_value) mwx_scene_quickjs_prepare_puppet_animation_visibility(owner, value);
+        }
+    }
+    if (bound && !mwx_scene_quickjs_restore_frame_engine_host(owner, engine)) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    if (handles && !mwx_scene_quickjs_restore_owner_handles(owner, layer, scene, object)) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    mwx_scene_quickjs_end_callback(owner);
+    JS_FreeValue(context, function);
+    return result;
+}
+
+void mwx_scene_quickjs_finish_animation_events(MWXSceneQuickJSOwner *owner, bool commit) {
+    if (owner->animation_baseline != NULL) {
+        if (!commit) mwx_scene_quickjs_owner_timer_restore(owner, owner->animation_baseline);
+        mwx_scene_quickjs_owner_timer_snapshot_destroy(owner->animation_baseline, owner);
+        owner->animation_baseline = NULL;
+    }
+    if (commit && owner->animation_event_cursor != 0) {
+        size_t consumed = owner->animation_event_cursor;
+        for (size_t i = 0; i < consumed; ++i) js_free_rt(owner->domain->runtime, owner->animation_events[i].name);
+        owner->animation_event_count -= consumed;
+        memmove(owner->animation_events, owner->animation_events + consumed,
+            owner->animation_event_count * sizeof(*owner->animation_events));
+        owner->animation_event_cursor = 0;
+        if (owner->animation_event_queue_epoch != UINT64_MAX) owner->animation_event_queue_epoch++;
+    }
+}
+
+void mwx_scene_quickjs_destroy_animation_events(MWXSceneQuickJSOwner *owner) {
+    for (size_t i = 0; i < owner->animation_event_count; ++i)
+        js_free_rt(owner->domain->runtime, owner->animation_events[i].name);
+    js_free_rt(owner->domain->runtime, owner->animation_events);
+    owner->animation_events = NULL;
+    owner->animation_event_count = owner->animation_event_cursor = 0;
+    owner->animation_event_failure = 0;
+    if (owner->animation_event_queue_epoch != UINT64_MAX) owner->animation_event_queue_epoch++;
+    MWXSceneQuickJSOwner **cursor = &owner->domain->animation_owners;
+    while (*cursor != NULL && *cursor != owner) cursor = &(*cursor)->animation_next;
+    if (*cursor == owner) *cursor = owner->animation_next;
+}
+
 // The JS closure belongs to this domain, but can outlive its original owner.
 // Resolve only the current callback owner; never dereference a retained owner.
 static MWXSceneQuickJSOwner *animation_handle_owner(

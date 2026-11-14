@@ -42,6 +42,12 @@ nonisolated struct SceneTimelineProgram: Codable, Equatable {
     nonisolated static let empty = SceneTimelineProgram(bindings: [], diagnostics: [])
 }
 
+nonisolated struct SceneTimelineAnimationEventOccurrence: Equatable, Sendable {
+    let target: SceneDynamicTarget
+    let name: String
+    let frame: Double
+}
+
 /// 把作者 Timeline 编译成 `SceneDynamicTargetDefinition` + 动画。
 ///
 /// 只负责「能不能写、写到哪」，不求值；求值是 `SceneTimelineEvaluator` 的事。
@@ -173,6 +179,9 @@ nonisolated enum SceneTimelineTargetCompiler {
         })
         var bindings: [SceneTimelineBinding] = []
         for candidate in allCandidates {
+            diagnostics.append(contentsOf: candidate.binding.animation.options.eventDiagnostics.map {
+                "\(candidate.label): \($0)"
+            })
             if rejectedOwners.contains(candidate.binding.playbackOwnerTarget) {
                 diagnostics.append("\(candidate.label): \(Diagnostic.duplicateTarget.rawValue)")
                 continue
@@ -443,6 +452,8 @@ nonisolated enum SceneTimelineTargetCompiler {
             parent: nil, children: []
         )
         clock.name = name
+        clock.events = animation.options.events
+        clock.eventDiagnostics = animation.options.eventDiagnostics
         return SceneTimelineAnimation(lanes: animation.lanes, options: clock,
             isRelative: animation.isRelative, previewValue: animation.previewValue)
     }

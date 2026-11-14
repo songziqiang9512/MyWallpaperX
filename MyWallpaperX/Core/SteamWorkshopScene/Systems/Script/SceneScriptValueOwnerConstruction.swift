@@ -221,11 +221,13 @@ nonisolated extension SceneScriptValueOwner {
                     // predicate keeps it idle until it has scheduled work.
                     // Event-only owners use this same lifetime and journal.
                     guard !handlesDestroy,
-                          allowsStatefulLayerSideEffects else {
+                          allowsStatefulLayerSideEffects || exports.animationEventExport != 0 else {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
                     }
                 }
             }
+            mwx_scene_quickjs_owner_configure_animation_events(
+                created, valueType == .string ? 0 : exports.animationEventExport)
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error

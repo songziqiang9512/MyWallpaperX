@@ -640,21 +640,8 @@ static MWXSceneQuickJSResult advance_layer_boolean_input(
         baseline->visible = visible;
     }
     *input = value;
-    if (mutation != NULL && !mutation->destroyed && (mutation->fields & field) != 0) {
-        mutation->fields &= ~field;
-        if (mutation->fields == 0 && mutation->effect_visible == NULL) {
-            // Real sorts live in the topology journal, not this consumed VIS record.
-            size_t index = (size_t)(mutation - owner->authored_layer_mutations);
-            free(mutation->text);
-            free(mutation->font);
-            owner->authored_layer_mutation_count -= 1;
-            owner->layer_mutation_count -= 1;
-            memmove(mutation, mutation + 1,
-                    (owner->authored_layer_mutation_count - index) * sizeof(*mutation));
-            owner->authored_layer_mutations[owner->authored_layer_mutation_count] =
-                (MWXSceneQuickJSAuthoredLayerMutationRecord){0};
-        }
-    }
+    if (mutation != NULL && !mutation->destroyed && (mutation->fields & field) != 0)
+        mwx_scene_quickjs_consume_authored_mutation_field(owner, mutation, field);
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -1182,18 +1169,7 @@ static MWXSceneQuickJSResult call_vector(
         );
     }
     mwx_scene_quickjs_begin_callback(owner);
-    JSValue vector_arguments[3];
-    for (size_t index = 0; index < dimensions; ++index) {
-        vector_arguments[index] = JS_NewFloat64(domain->context, input[index]);
-    }
-    JSValue argument = JS_CallConstructor(
-        domain->context,
-        dimensions == 2 ? domain->vec2_constructor : domain->vec3_constructor,
-        (int)dimensions, vector_arguments
-    );
-    for (size_t index = 0; index < dimensions; ++index) {
-        JS_FreeValue(domain->context, vector_arguments[index]);
-    }
+    JSValue argument = mwx_scene_quickjs_make_vector(domain, input, dimensions);
     JSValue callback_argument = JS_DupValue(domain->context, argument);
     initializing = initializing && !JS_IsException(argument);
     JSValue result = JS_Call(domain->context, function, owner->module, 1, &callback_argument);
@@ -1916,6 +1892,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     mwx_scene_quickjs_owner_release_layer_journal_storage(owner);
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);
+    mwx_scene_quickjs_destroy_animation_events(owner);
     mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
@@ -2229,10 +2206,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     size_t diagnostic_capacity
 ) {
     return mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
-        owner, expected_generation, input, boolean_value, 0, frame,
+        owner, expected_generation, input, boolean_value, 0, 0, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
-        output, diagnostic, diagnostic_capacity
+        output, diagnostic, diagnostic_capacity, NULL
     );
 }
 
@@ -2242,6 +2219,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
     double input,
     uint32_t boolean_value,
     uint32_t property_refresh,
+    uint32_t returned_value_field,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
@@ -2249,13 +2227,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
     size_t user_properties_length,
     double *output,
     char *diagnostic,
-    size_t diagnostic_capacity
+    size_t diagnostic_capacity, uint32_t *event_value_produced
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (event_value_produced != NULL) *event_value_produced = 0;
     // See initialize_primitive: a scalar update input may be a previous
     // SceneScript Number, whose non-finite values the official client keeps.
     if (owner == NULL || frame == NULL || output == NULL ||
         boolean_value > 1 || property_refresh > 1 ||
+        (returned_value_field != 0 && (boolean_value != 0 || !owner->target_layer_configured ||
+            returned_value_field != MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA)) ||
         (boolean_value != 0 &&
          !owner->value_only && !owner->effectful_boolean) ||
         (boolean_value == 0 && owner->value_only) ||
@@ -2314,9 +2295,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
             user_properties_json, user_properties_length, diagnostic, diagnostic_capacity);
     if (result != MWX_SCENE_QUICKJS_OK) goto failed;
     result = property_refresh ? MWX_SCENE_QUICKJS_OK
-        : mwx_scene_quickjs_dispatch_puppet_animation_events(owner, frame,
+        : mwx_scene_quickjs_dispatch_animation_events(owner, frame,
             script_properties_json, script_properties_length,
-            user_properties_json, user_properties_length, &input, diagnostic, diagnostic_capacity);
+            user_properties_json, user_properties_length, &input, 1, boolean_value != 0,
+            returned_value_field, event_value_produced, diagnostic, diagnostic_capacity);
     if (result != MWX_SCENE_QUICKJS_OK) goto failed;
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {
@@ -2631,9 +2613,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     size_t user_properties_length,
     double *output,
     char *diagnostic,
-    size_t diagnostic_capacity
+    size_t diagnostic_capacity, uint32_t *event_value_produced
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (event_value_produced != NULL) *event_value_produced = 0;
     if (owner == NULL || owner->value_only || input == NULL ||
         frame == NULL || output == NULL ||
         (dimensions != 2 && dimensions != 3) ||
@@ -2671,41 +2654,40 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     }
     double current[3] = {0};
     memcpy(current, input, sizeof(double) * dimensions);
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     if (!mwx_scene_quickjs_owner_is_initialized(owner)) {
-        MWXSceneQuickJSResult result = initialize_vector_callback(
+        result = initialize_vector_callback(
             owner, current, dimensions, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             current, diagnostic, diagnostic_capacity
         );
-        if (result != MWX_SCENE_QUICKJS_OK) {
-            mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-            if (failure_permanently_disables(result)) owner->disabled = true;
-            return result;
-        }
+        if (result != MWX_SCENE_QUICKJS_OK) goto failed;
     }
+    result = mwx_scene_quickjs_dispatch_animation_events(owner, frame,
+        script_properties_json, script_properties_length, user_properties_json, user_properties_length,
+        current, dimensions, false, 0, event_value_produced, diagnostic, diagnostic_capacity);
+    if (result != MWX_SCENE_QUICKJS_OK) goto failed;
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {
-        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-        owner->disabled = true;
-        return MWX_SCENE_QUICKJS_EXCEPTION;
+        result = MWX_SCENE_QUICKJS_EXCEPTION;
+        goto failed;
     }
     if (!JS_IsFunction(domain->context, update)) {
         memcpy(output, current, sizeof(double) * dimensions);
         return MWX_SCENE_QUICKJS_OK;
     }
-    MWXSceneQuickJSResult result = call_vector(
+    result = call_vector(
         owner, update, false, current, dimensions, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity
     );
     JS_FreeValue(domain->context, update);
+failed:
     if (result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-        if (failure_permanently_disables(result)) {
-            owner->disabled = true;
-        }
+        if (failure_permanently_disables(result)) owner->disabled = true;
     }
     return result;
 }

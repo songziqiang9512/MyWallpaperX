@@ -47,7 +47,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             || mwx_scene_quickjs_owner_has_staged_effect_visibility(handle)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
             || mwx_scene_quickjs_owner_has_pending_puppet_animation_end(handle)
-            || mwx_scene_quickjs_owner_has_pending_puppet_animation_events(handle)
+            || mwx_scene_quickjs_owner_has_pending_animation_events(handle)
     }
 
     /// Authored `init` runs once, before any other authored callback. A route
@@ -308,20 +308,25 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
         var valueFollowsInput = false
+        var eventValueProduced: UInt32 = 0
         switch scriptInput {
         case let .scalar(value):
             var output = 0.0
+            let returnedValueField: UInt32 = if case .layer(_, .alpha) = target {
+                SceneScriptLayerMutation.Fields.alpha.rawValue
+            } else { 0 }
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
                     mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
-                        handle, expectedGeneration, value, 0, propertyRefresh ? 1 : 0, &frameInput,
+                        handle, expectedGeneration, value, 0, propertyRefresh ? 1 : 0,
+                        returnedValueField, &frameInput,
                         properties, scriptPropertiesJSON.utf8.count,
                         userProperties, userPropertiesJSON.utf8.count,
-                        &output, &diagnostic, diagnostic.count
+                        &output, &diagnostic, diagnostic.count, &eventValueProduced
                     )
                 }
             }
-            if result == MWX_SCENE_QUICKJS_OK, !handlesUpdate {
+            if result == MWX_SCENE_QUICKJS_OK, !handlesUpdate, eventValueProduced == 0 {
                 switch scalarValueWithoutUpdate(input: output, expectedGeneration: expectedGeneration) {
                 case let .success(projection):
                     output = projection.value
@@ -339,10 +344,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 userPropertiesJSON.withCString { userProperties in
                     mwx_scene_quickjs_owner_update_primitive_with_properties_mode(
                         handle, expectedGeneration, value ? 1 : 0, 1,
-                        propertyRefresh ? 1 : 0, &frameInput,
+                        propertyRefresh ? 1 : 0, 0, &frameInput,
                         properties, scriptPropertiesJSON.utf8.count,
                         userProperties, userPropertiesJSON.utf8.count,
-                        &output, &diagnostic, diagnostic.count
+                        &output, &diagnostic, diagnostic.count, &eventValueProduced
                     )
                 }
             }
@@ -377,7 +382,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                                 properties, scriptPropertiesJSON.utf8.count,
                                 userProperties, userPropertiesJSON.utf8.count,
                                 outputBuffer.baseAddress,
-                                &diagnostic, diagnostic.count
+                                &diagnostic, diagnostic.count, &eventValueProduced
                             )
                         }
                     }
@@ -392,7 +397,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                     ? .vector2(output[0], output[1])
                     : .vector3(output[0], output[1], output[2])
             )
-            valueFollowsInput = !handlesUpdate && !initializesValue && pendingValue == nil
+            valueFollowsInput = !handlesUpdate && !initializesValue && pendingValue == nil && eventValueProduced == 0
         default:
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }

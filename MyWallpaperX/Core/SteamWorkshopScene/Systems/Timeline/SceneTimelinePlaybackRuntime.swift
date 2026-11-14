@@ -31,9 +31,22 @@ nonisolated enum SceneTimelinePlaybackFailure: Error, Equatable, Sendable {
 /// 唯一的 Timeline 播放状态。每个已编译 playback owner 只保一份本地播放位置，并消费
 /// 现有 SceneClock 的绝对时间；不创建第二套 clock、property registry 或 animation IR。
 nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
-    private enum State: Equatable {
+    private enum Playback: Equatable {
         case playing(anchorSceneTime: Double, anchorElapsedFrames: Double)
         case paused(elapsedFrames: Double)
+    }
+    private struct State: Equatable {
+        var playback: Playback
+        var publishedFrame: Double = 0
+    }
+    fileprivate struct PublicationPosition {
+        let stateIndex: Int
+        let end: Double
+    }
+    nonisolated struct Sample {
+        let values: [SceneDynamicTarget: SceneDynamicValue]
+        let animationEvents: [SceneTimelineAnimationEventOccurrence]
+        fileprivate let publicationPositions: [PublicationPosition]
     }
 
     /// Keep binding/handle ordinals independent of shared playback state.
@@ -79,10 +92,21 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 stateIndex = states.count
                 ownerIndices[ownerTarget] = stateIndex
                 members.append([])
-                animations.append(owner.animation)
-                states.append(owner.animation.options.startsPaused
+                var options = owner.animation.options
+                switch ownerTarget {
+                case .camera, .scene: options.events = []
+                default:
+                    options.events = options.mode == .single ? options.events.enumerated()
+                        .filter { $0.element.frame > 0 && $0.element.frame <= options.length }
+                        .sorted { $0.element.frame == $1.element.frame
+                            ? $0.offset < $1.offset : $0.element.frame < $1.element.frame }
+                        .map(\.element) : []
+                }
+                animations.append(.init(lanes: owner.animation.lanes, options: options,
+                    isRelative: owner.animation.isRelative, previewValue: owner.animation.previewValue))
+                states.append(.init(playback: owner.animation.options.startsPaused
                     ? .paused(elapsedFrames: 0)
-                    : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0))
+                    : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0)))
             }
             indices[binding.target] = stateIndex
             if let group = members[stateIndex].firstIndex(where: {
@@ -155,10 +179,41 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         values.reserveCapacity(orderedBindings.count)
         for index in orderedStates.indices {
-            project(stateIndex: index, state: orderedStates[index], sceneTime: sceneTime,
-                into: &values, observe: true)
+            project(stateIndex: index, elapsed: elapsedFrames(state: orderedStates[index],
+                animation: ownerAnimations[index], sceneTime: sceneTime), into: &values, observe: false)
         }
         return values
+    }
+
+    func sample(sceneTime: Double) -> Sample {
+        guard sceneTime.isFinite, sceneTime >= 0 else {
+            return .init(values: [:], animationEvents: [], publicationPositions: [])
+        }
+        var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        values.reserveCapacity(orderedBindings.count)
+        var events: [SceneTimelineAnimationEventOccurrence] = []
+        var positions: [PublicationPosition] = []
+        for index in orderedStates.indices {
+            let state = orderedStates[index], animation = ownerAnimations[index]
+            let elapsed = elapsedFrames(state: state, animation: animation, sceneTime: sceneTime)
+            guard project(stateIndex: index, elapsed: elapsed, into: &values, observe: true),
+                  !animation.options.events.isEmpty, case .playing = state.playback else { continue }
+            let end = min(max(0, elapsed), animation.options.length)
+            guard end > state.publishedFrame else { continue }
+            let target = orderedBindings[stateMembers[index][0][0]].playbackOwnerTarget
+            for event in animation.options.events where event.frame > state.publishedFrame && event.frame <= end {
+                events.append(.init(target: target, name: event.name, frame: event.frame))
+            }
+            positions.append(.init(stateIndex: index, end: end))
+        }
+        return .init(values: values, animationEvents: events, publicationPositions: positions)
+    }
+
+    /// The host publishes and accepts synchronously before any callback can change playback.
+    func acceptPublishedEvents(from sample: Sample) {
+        for position in sample.publicationPositions {
+            orderedStates[position.stateIndex].publishedFrame = position.end
+        }
     }
 
     /// 一帧产生的命令先在副本上完整校验，全部合法才提交，避免同帧局部 mutation。
@@ -192,8 +247,8 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 return .failure(.unknownTarget(mutation.target))
             }
             guard projected.insert(index).inserted else { continue }
-            project(stateIndex: index, state: candidate[index], sceneTime: sceneTime,
-                into: &values, observe: false)
+            project(stateIndex: index, elapsed: elapsedFrames(state: candidate[index],
+                animation: ownerAnimations[index], sceneTime: sceneTime), into: &values, observe: false)
         }
         return .success(values)
     }
@@ -237,43 +292,48 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 animation: animation,
                 sceneTime: sceneTime
             )
+            let next: Playback
+            var position = elapsed
             switch mutation.command {
             case .play:
                 // A completed single animation starts a new run. Playing or
                 // paused positions before its end still resume in place.
                 let completed = animation.options.mode == .single
                     && elapsed >= animation.options.length
-                candidate[stateIndex] = .playing(
+                position = completed ? 0 : elapsed
+                next = .playing(
                     anchorSceneTime: sceneTime,
                     anchorElapsedFrames: completed ? 0 : elapsed
                 )
             case .pause:
-                candidate[stateIndex] = .paused(elapsedFrames: elapsed)
+                next = .paused(elapsedFrames: elapsed)
             case .stop:
-                candidate[stateIndex] = .paused(elapsedFrames: 0)
+                position = 0
+                next = .paused(elapsedFrames: 0)
             case let .setFrame(frame):
                 guard frame.isFinite else { return .failure(.invalidFrame(mutation.target)) }
-                switch state {
+                position = frame
+                switch state.playback {
                 case .playing:
-                    candidate[stateIndex] = .playing(
+                    next = .playing(
                         anchorSceneTime: sceneTime, anchorElapsedFrames: frame)
                 case .paused:
-                    candidate[stateIndex] = .paused(elapsedFrames: frame)
+                    next = .paused(elapsedFrames: frame)
                 }
             }
+            candidate[stateIndex] = .init(playback: next,
+                publishedFrame: min(max(0, position), animation.options.length))
         }
         return .success(candidate)
     }
 
+    @discardableResult
     private func project(
         stateIndex: Int,
-        state: State,
-        sceneTime: Double,
+        elapsed: Double,
         into values: inout [SceneDynamicTarget: SceneDynamicValue],
         observe: Bool
-    ) {
-        let elapsed = elapsedFrames(state: state, animation: ownerAnimations[stateIndex],
-            sceneTime: sceneTime)
+    ) -> Bool {
         let groups = stateMembers[stateIndex]
         for group in groups {
             let binding = orderedBindings[group[0]]
@@ -282,13 +342,13 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 for member in groups.joined() {
                     values.removeValue(forKey: orderedBindings[member].target)
                 }
-                return
+                return false
             }
             for index in group {
                 values[orderedBindings[index].target] = value
             }
         }
-        guard observe, !pendingNextFrameObservations.isEmpty else { return }
+        guard observe, !pendingNextFrameObservations.isEmpty else { return true }
         for index in groups.joined() {
             let target = orderedBindings[index].target
             guard pendingNextFrameObservations.remove(target) != nil,
@@ -300,6 +360,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             )
 #endif
         }
+        return true
     }
 
     private static func samplesMatch(
@@ -310,6 +371,10 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         var rhsOptions = rhs.animation.options
         lhsOptions.name = nil
         rhsOptions.name = nil
+        lhsOptions.events = []
+        rhsOptions.events = []
+        lhsOptions.eventDiagnostics = []
+        rhsOptions.eventDiagnostics = []
         return lhsOptions == rhsOptions
             && lanesMatch(lhs.animation.lanes, rhs.animation.lanes)
             && lhs.animation.isRelative == rhs.animation.isRelative
@@ -366,7 +431,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         animation: SceneTimelineAnimation,
         sceneTime: Double
     ) -> Double {
-        switch state {
+        switch state.playback {
         case let .playing(anchorSceneTime, anchorElapsedFrames):
             return anchorElapsedFrames
                 + max(0, sceneTime - anchorSceneTime) * animation.options.fps

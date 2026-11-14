@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 268381
+      "bytes": 269996
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 150,
-      "bytes": 25187
+      "lines": 161,
+      "bytes": 27695
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 186,
-      "bytes": 32640
+      "lines": 197,
+      "bytes": 35654
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49618
+      "bytes": 49995
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -402,15 +402,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "48726d5da06394d1092133a697f728995dee48c58db54e64207dba5f8f26323b",
-      "after": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
-      "owner": "Scene material uniform",
-      "reason": "Document the single cold projection used by scalar Slider admission and active float2 uniform encoding.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
       "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
@@ -492,15 +483,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
-      "after": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
-      "owner": "Existing Scene animation catalog and typed frame value owners",
-      "reason": "Replace planned component pass scope with current cold target/Combined/value-role implementation and bounded actual native/coordinator/App evidence. Retire solved queue responsibilities; keep author acquisition STOP and independent existing interaction regression. No new document or product owner.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
       "after": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
@@ -520,20 +502,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "303f35273bbc302829198019bea78f3dfb6765e47741bccd46daedcb43542248",
-      "after": "e1b522d0a92917ca963f28772e8e4becfee79c80bc31dd985dfb4c14404eae4b",
-      "owner": "scene-material-runtime",
-      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
+      "before": "e1b522d0a92917ca963f28772e8e4becfee79c80bc31dd985dfb4c14404eae4b",
+      "after": "fb398a67012b51a8eeb06677661634448d7c40e5c5377b19eafd52da7d96198d",
+      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
+      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
+      "after": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
+      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
+      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
+      "after": "55db713002265b73f53950d4b4685781d995a108916ae7475511c085842752c7",
+      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
+      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#animation-events"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "89b37f986e1042f4ef0ab919093df2d4633edf4cae787cd2e715ebc928b538dc",
-      "after": "4da7501b55d1eed995e1455a6534f0584c027a3d21e39c104eb5af09f2f3d438",
-      "owner": "scene-material-runtime",
-      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
+      "before": "4da7501b55d1eed995e1455a6534f0584c027a3d21e39c104eb5af09f2f3d438",
+      "after": "2278170ff4abd3265811edd30810e452a5fadbce8cdb098f394399012b088d1a",
+      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
+      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
     }
   ]
 }

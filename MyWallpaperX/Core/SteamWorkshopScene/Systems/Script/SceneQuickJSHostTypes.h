@@ -42,14 +42,15 @@ typedef struct MWXSceneQuickJSPuppetAnimationSnapshot {
 
 // Native source occurrence. Strings are borrowed during publication; the
 // existing receiver owner retains any uncommitted payload.
-typedef struct MWXSceneQuickJSPuppetAnimationEvent {
+typedef struct MWXSceneQuickJSAnimationEvent {
+    uint32_t source_kind; // property=0, Puppet=1; only Puppet uses clip identity/sequence.
     int64_t layer_id, animation_layer_id;
     uint32_t animation_layer_index, has_animation_layer_id;
     uint64_t sequence;
     const char *name;
-    int64_t frame;
+    double frame;
     uint32_t failure; // zero occurrence; 1...6 native source failure
-} MWXSceneQuickJSPuppetAnimationEvent;
+} MWXSceneQuickJSAnimationEvent;
 
 typedef struct MWXSceneQuickJSPuppetAnimationCommand {
     int64_t layer_id;

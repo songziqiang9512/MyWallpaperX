@@ -149,7 +149,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Script/SceneScriptVectorCandidateCatalog.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptVectorProgramModels.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneScriptValueOwnership.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptLayerTopologyModels.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticlePlaybackModels.swift",

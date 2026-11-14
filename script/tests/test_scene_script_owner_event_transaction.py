@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import SCENE, compile_vector_harness
 
 HARNESS = r'''
 @main enum Harness {
@@ -35,6 +35,149 @@ HARNESS = r'''
     static func number(_ v: SceneDynamicValue?) -> Double {
         switch v { case let .scalar(x)?: (x * 100000).rounded(); case let .vector3(x,_,_)?: x;
         case let .string(x)?: Double(x) ?? -999; default: -999 }
+    }
+    static func propertyEvents() throws -> [String: Any] {
+        let alpha = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+        let peer = SceneDynamicTarget.layer(layerID: 1, field: .origin)
+        let foreign = SceneDynamicTarget.layer(layerID: 2, field: .alpha)
+        let sinkAlpha = SceneDynamicTarget.layer(layerID: 3, field: .alpha)
+        let sinkOrigin = SceneDynamicTarget.layer(layerID: 3, field: .origin)
+        var out: [String: Any] = [:]
+        for (label, expression) in [("finite", "Number(1)/4"), ("nan", "NaN"),
+                                    ("negative", "-Infinity"), ("positive", "Infinity")] {
+            let d = descriptor()
+            let source = """
+                let count=0;
+                export function init(){engine.setTimeout(()=>{
+                  thisLayer.alpha=.6;thisLayer.angles=new Vec3(0,0,1);},0);}
+                export function animationEvent(e,v) {
+                  if(e.name!=='\(label)'||e.frame!==30||typeof v!=='number')throw Error('typed event');
+                  count++;thisLayer.alpha=.75;thisLayer.scale=new Vec3(2,3,4);
+                  thisScene.getLayerByID(3).alpha=count/10;
+                  if(count===2){thisLayer.alpha=.5;return;}
+                  return \(expression);
+                }
+                """
+            let bindings = [binding(1, "alpha", source), binding(1, "origin", """
+                let count=0;export function animationEvent(e,v){
+                  if(e.name!=='\(label)'||e.frame!==30||!(v instanceof Vec3))throw Error('peer value');
+                  thisScene.getLayerByID(3).origin=new Vec3(++count,0,0);
+                  return new Vec3(count,2,3);
+                }
+                """), binding(2, "alpha", """
+                let called=false;export function animationEvent(){called=true;return .9;}
+                export function update(v){if(called)throw Error('foreign event');return v;}
+                """)]
+            let candidate = try SceneScriptQuickJSProgramCandidate.compile(
+                authoredDescriptor: d, runtimeDescriptor: d, scriptBindings: bindings,
+                vectorProjection: SceneScriptVectorProgram.project(descriptor: d, scriptBindings: bindings),
+                userPropertyDefinitions: [], timelineTargets: [alpha, peer], scalarExcludedTargets: [],
+                stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 1)
+            guard let domain = candidate.domain else { fatalError("event domain") }
+            let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram: candidate.vectorProgram,
+                stringProgram: candidate.stringProgram, scalarProgram: candidate.scalarProgram)
+            let definitions = candidate.vectorProgram.definitions + candidate.scalarProgram.definitions
+            let initial = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: definitions).snapshot
+            try domain.publishLayerSnapshot(initial, descriptor: d)
+            let prime = coordinator.initialize(vectorInputs: [peer: .vector3(0,0,0)], stringInputs: [:],
+                scalarInputs: [alpha: .scalar(1), foreign: .scalar(1)], effectivePropertyValues: [:],
+                frame: .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+                    simulationFrameTime: 0, sceneTime: 0)), userPropertiesJSON: "{}", audioSpectrum: .silent)
+            candidate.vectorProgram.finalizeLayerMutations(committing: true)
+            candidate.scalarProgram.finalizeLayerMutations(committing: true)
+            coordinator.finalizeInitializations()
+            let runtime = SceneScriptDynamicLayerRuntime(descriptor: d, authoredMutationLayerIDs: [1,2,3])
+            func publish() throws {
+                try domain.publishAnimationEvents([], failures: [:], timelineEvents: [
+                    .init(target: .layer(layerID: 1, field: .scale), name: label, frame: 30)])
+            }
+            func evaluate() -> SceneScriptMediaFrameCoordinatorResult {
+                coordinator.evaluate(vectorInputs: [peer: .vector3(0,0,0)], stringInputs: [:],
+                    scalarInputs: [alpha: .scalar(1), foreign: .scalar(1)], effectivePropertyValues: [:],
+                    frame: frame, userPropertiesJSON: "{}", events: .empty, audioSpectrum: .silent)
+            }
+            func finalize(_ rejected: Set<SceneDynamicTarget> = []) {
+                candidate.vectorProgram.finalizeLayerMutations(committing: true, rejectedOwnerTargets: rejected)
+                candidate.scalarProgram.finalizeLayerMutations(committing: true, rejectedOwnerTargets: rejected)
+            }
+            func matches(_ value: SceneDynamicValue?) -> Bool {
+                guard case let .scalar(number)? = value else { return false }
+                switch label {
+                case "nan": return number.isNaN
+                case "negative": return number == -.infinity
+                case "positive": return number == .infinity
+                default: return number == 0.25
+                }
+            }
+            try publish()
+            let result = evaluate()
+            let admitted = runtime.preflightOwnerEffectsToFixedPoint(result.ownerEffects,
+                excludingOwners: Set(result.scalar.failures.keys).union(result.vector.failures.keys)) { _, _ in [] }
+            runtime.commit(admitted.admission.layerPlan)
+            let scriptValues = result.scalar.valuesForAdmission(timelineValues: [alpha: .scalar(0.9)], excluding: [])
+                .merging(result.vector.valuesForAdmission(timelineValues: [peer: .vector3(9,9,9)], excluding: [])) { _, new in new }
+            var transaction = SceneEvaluationTransaction()
+            let pending = transaction.prepare(frameIndex: 2,
+                resolution: SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 1,
+                    definitions: definitions, sceneScriptValues: scriptValues))
+            transaction.commit(pending)
+            finalize()
+            var facts: [String: Bool] = [
+                "owners": candidate.scalarProgram.bindings.count == 2 && candidate.vectorProgram.bindings.count == 1,
+                "callbacksAccepted": result.scalar.failures.isEmpty && result.vector.failures.isEmpty,
+                "primed": prime.failures.isEmpty,
+                "typedReturn": matches(result.scalar.values[alpha]),
+                "returnIsWriter": !result.scalar.timelineInputTargets.contains(alpha),
+                "snapshotReturn": matches(transaction.previousValue(for: alpha)),
+                "sameLayerPeer": result.vector.values[peer] == .vector3(1,2,3),
+                "peerIsWriter": !result.vector.timelineInputTargets.contains(peer),
+                "foreignQuiet": result.scalar.values[foreign] == .scalar(1),
+                "otherFields": runtime.snapshot().authoredLayerValues[.layer(layerID: 1, field: .scale)] == .vector3(2,3,4),
+                "priorCallbackField": runtime.snapshot().authoredLayerValues[.layer(layerID: 1, field: .angles)] != nil,
+                "otherTarget": runtime.snapshot().authoredLayerValues[sinkAlpha] == .scalar(0.1),
+                "queuesCommitted": candidate.scalarProgram.bindings.allSatisfy {
+                    !mwx_scene_quickjs_owner_has_pending_animation_events($0.handle) }
+                    && !mwx_scene_quickjs_owner_has_pending_animation_events(candidate.vectorProgram.bindings[0].owner.handle)]
+            if label == "finite" {
+                var current = transaction.previousValues(for: [alpha, peer, foreign])
+                current.merge(runtime.snapshot().authoredLayerValues) { _, new in new }
+                let next = SceneDynamicSnapshotResolver().resolve(frameIndex: 3, generation: 2,
+                    definitions: definitions, sceneScriptValues: current).snapshot
+                try domain.publishLayerSnapshot(next, descriptor: d)
+                let getter = try SceneScriptValueOwner(domain: domain,
+                    source: "export function update(){return thisScene.getLayerByID(1).alpha;}",
+                    target: .layer(layerID: 3, field: .brightness), valueType: .scalar,
+                    effectNames: [], generation: 1, budget: .default)
+                facts["firstGetter"] = try getter.evaluate(input: .scalar(1), frame: frame,
+                    scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+                    interruptBudget: nil).get().value == .scalar(0.25)
+                getter.commitLayerMutations()
+                try publish()
+                let checkpoint = candidate.scalarProgram.frameStateSnapshot()
+                let rejected = evaluate()
+                facts["laterSetter"] = rejected.scalar.values[alpha] == .scalar(0.5)
+                let partial = runtime.preflightOwnerEffectsToFixedPoint(rejected.ownerEffects,
+                    excludingOwners: [alpha]) { _, _ in [] }
+                runtime.commit(partial.admission.layerPlan)
+                candidate.scalarProgram.restoreFrameState(checkpoint, rejectedOwnerTargets: [alpha])
+                finalize([alpha])
+                facts["rejectedAlphaPending"] = candidate.scalarProgram.bindings.contains {
+                    $0.target == alpha && mwx_scene_quickjs_owner_has_pending_animation_events($0.handle) }
+                facts["peerCommittedOnce"] = runtime.snapshot().authoredLayerValues[sinkOrigin] == .vector3(2,0,0)
+                facts["rejectedJournalAbsent"] = runtime.snapshot().authoredLayerValues[sinkAlpha] == .scalar(0.1)
+                let retry = evaluate()
+                let accepted = runtime.preflightOwnerEffectsToFixedPoint(retry.ownerEffects) { _, _ in [] }
+                runtime.commit(accepted.admission.layerPlan)
+                finalize()
+                facts["retryOwnJournal"] = runtime.snapshot().authoredLayerValues[sinkAlpha] == .scalar(0.3)
+                facts["peerNotReplayed"] = runtime.snapshot().authoredLayerValues[sinkOrigin] == .vector3(2,0,0)
+                facts["retryWriter"] = retry.scalar.values[alpha] == .scalar(0.25)
+                    && !retry.scalar.timelineInputTargets.contains(alpha)
+            }
+            out[label] = ["facts": facts, "failures": result.scalar.failures.map { $0.value.code }]
+        }
+        return out
     }
     static func exercise(
         targets: [SceneDynamicTarget],
@@ -75,6 +218,7 @@ HARNESS = r'''
     }
     static func main() throws {
         var out: [String: Any] = [:]
+        out["propertyEvents"] = try propertyEvents()
         let d = descriptor()
         for family in ["scalar", "string", "vector", "sameLayer"] {
             let field = family == "scalar" ? "alpha" : family == "string" ? "text" : "origin"
@@ -176,9 +320,17 @@ class OwnerEventTransactionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-owner-event-test-")
         cls.addClassCleanup(cls.temp.cleanup)
-        binary = compile_vector_harness(Path(cls.temp.name), HARNESS, "owner-event-transaction", whole_module_optimization=True)
+        binary = compile_vector_harness(Path(cls.temp.name), HARNESS, "owner-event-transaction",
+            extra_swift_sources=(SCENE / "Systems/Script/SceneScriptMediaFrameCoordinator.swift",
+                                 SCENE / "Systems/Properties/SceneEvaluationTransaction.swift"),
+            whole_module_optimization=True)
         run = subprocess.run([str(binary)], text=True, capture_output=True, check=True)
         cls.result = json.loads(run.stdout.strip().splitlines()[-1])
+
+    def test_property_events_keep_real_return_domain_scope_and_owner_transactions(self):
+        for label, result in self.result["propertyEvents"].items():
+            with self.subTest(label=label):
+                self.assertTrue(all(result["facts"].values()), result)
 
     def test_rejected_first_event_retries_without_replaying_peer(self):
         for family in ("scalar", "string", "vector", "sameLayer"):

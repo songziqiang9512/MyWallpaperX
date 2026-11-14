@@ -243,7 +243,7 @@ HARNESS = r'''
             && firstOrdinary.puppetAnimationCommands.map(\.identity) == [foreign,foreign]
         var nested:SceneScriptValueOwner?=try SceneScriptValueOwner(domain:crossDomain,source:"export function update(v){return v;}",
             target:target,valueType:.bool,effectNames:[],puppetAnimationIdentity:identity,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
-        let hadNested=nested != nil&&mwx_scene_quickjs_domain_puppet_animation_owner_count(crossDomain.handle)==1
+        let hadNested=nested != nil&&mwx_scene_quickjs_domain_animation_owner_count(crossDomain.handle)==1
         nested=nil
         let retained=try evaluate(ordinary).get();ordinary.commitLayerMutations()
         let readonly=try makeOrdinary("""
@@ -268,7 +268,7 @@ HARNESS = r'''
         let retirement=try evaluate(retiring).get();retiring.discardLayerMutations()
         let throwing=try makeOrdinary("export function update(v){thisScene.getLayer('foreign').getAnimationLayer(0).setFrame(99);throw new Error('late');}")
         out["lookupOrdinaryBoundaries"]=[crossNative.snapshots().first{$0.identity == foreign}?.visible == false,
-            hadNested&&mwx_scene_quickjs_domain_puppet_animation_owner_count(crossDomain.handle)==0&&retained.value == .bool(true),
+            hadNested&&mwx_scene_quickjs_domain_animation_owner_count(crossDomain.handle)==0&&retained.value == .bool(true),
             retained.puppetAnimationCommands.isEmpty,read.value == .bool(true)&&read.puppetAnimationCommands.isEmpty,
             permissionResult.value == .bool(true)&&permissionResult.puppetAnimationCallbackRegistrations==0,
             retirement.value == .bool(true)&&retirement.puppetAnimationCommands.isEmpty,
@@ -469,7 +469,7 @@ HARNESS = r'''
             allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
         try domain.publishPuppetAnimationSnapshot(native.snapshots())
         let events=[occurrence(identity,1,"A"),occurrence(sibling,1,"B"),occurrence(foreign,1,"foreign")]
-        try domain.publishPuppetAnimationEvents(events,failures:[:])
+        try domain.publishAnimationEvents(events,failures:[:], timelineEvents:[])
         let first=try evaluate(owner).get()
         out["eventOrderValue"]=first.value == .bool(false)
         out["eventWritablePayloadIsolated"]=try evaluate(peer).get().value == .bool(true)
@@ -478,35 +478,35 @@ HARNESS = r'''
         try native.validate(first.puppetAnimationCommands,sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1).get()
         try native.apply(first.puppetAnimationCommands,frameIndex:1).get();owner.commitLayerMutations()
         out["eventNativeSiblingPlaying"]=native.snapshots().first{$0.identity == sibling}?.isPlaying == true
-        try domain.publishPuppetAnimationEvents(events,failures:[:])
-        out["eventDeduplicated"] = !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(owner.handle)
+        try domain.publishAnimationEvents(events,failures:[:], timelineEvents:[])
+        out["eventDeduplicated"] = !mwx_scene_quickjs_owner_has_pending_animation_events(owner.handle)
 
         phase("events/retry-and-property-refresh")
         let (pendingDomain,pending)=try lookupOwner("""
         export function animationEvent(e,v){thisObject.pause();return e.name==='enable';}
         """)
-        try pendingDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"disable")],failures:[:])
+        try pendingDomain.publishAnimationEvents([occurrence(sibling,1,"disable")],failures:[:], timelineEvents:[])
         out["eventOnlyWakes"]=pending.requiresFrameEvaluation
         let refresh=try pending.evaluate(input:.bool(true),frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}",
             expectedGeneration:1,interruptBudget:nil,propertyRefresh:true).get()
         out["eventRefreshUntouched"]=refresh.value == .bool(true) && refresh.puppetAnimationCommands.isEmpty
-            && mwx_scene_quickjs_owner_has_pending_puppet_animation_events(pending.handle)
+            && mwx_scene_quickjs_owner_has_pending_animation_events(pending.handle)
         let rejected=try evaluate(pending).get();pending.discardLayerMutations()
         out["eventRejectedValue"]=rejected.value == .bool(false)
         out["eventRejectedStillPending"]=pending.requiresFrameEvaluation
         // A later cadence adds payload; rejecting the old candidate cannot lose either occurrence.
-        try pendingDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"disable"),occurrence(identity,1,"enable")],failures:[:])
+        try pendingDomain.publishAnimationEvents([occurrence(sibling,1,"disable"),occurrence(identity,1,"enable")],failures:[:], timelineEvents:[])
         let retry=try evaluate(pending).get()
         out["eventCrossCadenceRetry"]=retry.value == .bool(true) && actions(retry.puppetAnimationCommands) == ["pause","pause"]
         pending.commitLayerMutations()
-        try pendingDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"disable"),occurrence(identity,1,"enable")],failures:[:])
+        try pendingDomain.publishAnimationEvents([occurrence(sibling,1,"disable"),occurrence(identity,1,"enable")],failures:[:], timelineEvents:[])
         out["eventOnlySleeps"] = !pending.requiresFrameEvaluation
 
         phase("events/transaction-snapshot")
         let (rollbackDomain,rollback)=try lookupOwner("""
         export function animationEvent(e,v){thisObject.pause();return !v;}
         """)
-        try rollbackDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"edge")],failures:[:])
+        try rollbackDomain.publishAnimationEvents([occurrence(sibling,1,"edge")],failures:[:], timelineEvents:[])
         guard let checkpoint=mwx_scene_quickjs_owner_timer_snapshot(rollback.handle) else { fatalError("timer checkpoint") }
         _=try evaluate(rollback).get()
         out["eventTimerRestored"]=mwx_scene_quickjs_owner_timer_restore(rollback.handle,checkpoint)
@@ -520,26 +520,29 @@ HARNESS = r'''
         let (transientDomain,transient)=try lookupOwner("export function animationEvent(e,v){thisObject.pause();return false;}")
         let invalid=[prepared(identity,"Authored clip",3,fps:.nan),prepared(sibling,"Side arc",29,false),prepared(foreign,"Foreign clip",55)]
         try transientDomain.publishPuppetAnimationSnapshot(invalid)
-        try transientDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"retained")],failures:[:])
+        try transientDomain.publishAnimationEvents([occurrence(sibling,1,"retained")],failures:[:], timelineEvents:[])
         let unavailable=try evaluate(transient).get()
         out["eventTemporaryKeepsPayload"]=unavailable.puppetAnimationCommands.isEmpty
-            && mwx_scene_quickjs_owner_has_pending_puppet_animation_events(transient.handle)
+            && mwx_scene_quickjs_owner_has_pending_animation_events(transient.handle)
         try transientDomain.publishPuppetAnimationSnapshot(mirrors())
         let recovered=try evaluate(transient).get();transient.commitLayerMutations()
         out["eventTemporaryRecoversOnce"]=recovered.value == .bool(false)
             && actions(recovered.puppetAnimationCommands) == ["pause"]
-            && !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(transient.handle)
-        try transientDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"retained")],failures:[:])
-        out["eventTemporaryDedup"] = !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(transient.handle)
+            && !mwx_scene_quickjs_owner_has_pending_animation_events(transient.handle)
+        try transientDomain.publishAnimationEvents([occurrence(sibling,1,"retained")],failures:[:], timelineEvents:[])
+        out["eventTemporaryDedup"] = !mwx_scene_quickjs_owner_has_pending_animation_events(transient.handle)
         let (abaDomain,aba)=try lookupOwner("""
-        export function animationEvent(e,v){if(e.name!=='fresh')throw new Error('retired source');thisObject.pause();return v;}
+        export function animationEvent(e,v){if(e.name==='property'){thisObject.stop();return v;}
+          if(e.name!=='fresh')throw new Error('retired source');thisObject.pause();return v;}
         """)
-        try abaDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"old")],failures:[:])
+        try abaDomain.publishAnimationEvents([occurrence(sibling,1,"old")],failures:[:], timelineEvents:[])
+        try abaDomain.publishAnimationEvents([],failures:[:],timelineEvents:[
+            .init(target:.layer(layerID:42,field:.alpha),name:"property",frame:30)])
         try abaDomain.publishPuppetAnimationSnapshot(mirrors().filter{$0.identity != sibling})
         try abaDomain.publishPuppetAnimationSnapshot(mirrors())
-        try abaDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"fresh")],failures:[:])
+        try abaDomain.publishAnimationEvents([occurrence(sibling,1,"fresh")],failures:[:], timelineEvents:[])
         let replacement=try evaluate(aba).get();aba.commitLayerMutations()
-        out["eventSourceABA"]=actions(replacement.puppetAnimationCommands) == ["pause"]
+        out["eventSourceABA"]=actions(replacement.puppetAnimationCommands) == ["stop","pause"]
 
         phase("events/aggregate-parent-budgets")
         let (aggregateDomain,aggregate)=try lookupOwner("export function animationEvent(e,v){thisObject.pause();return v;}")
@@ -548,40 +551,42 @@ HARNESS = r'''
         try aggregateDomain.publishPuppetAnimationSnapshot([prepared(identity,"Authored clip",3)]
             + sources.dropFirst().map{prepared($0,"bounded",0)})
         let batch=sources.flatMap{id in (1...64).map{occurrence(id,UInt64($0),"edge")}}
-        try aggregateDomain.publishPuppetAnimationEvents(batch,failures:[:])
+        try aggregateDomain.publishAnimationEvents(batch,failures:[:], timelineEvents:[])
         let aggregateResult=try evaluate(aggregate).get();aggregate.commitLayerMutations()
         out["eventAggregate4160"]=batch.count == 4160 && aggregateResult.puppetAnimationCommands.count == 64
-            && !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(aggregate.handle)
+            && !mwx_scene_quickjs_owner_has_pending_animation_events(aggregate.handle)
 
         phase("events/local-failures")
         let (badDomain,bad)=try lookupOwner("""
         let attempts=0;export function animationEvent(e,v){attempts++;if(attempts===1)return 17;return false;}
         """)
-        try badDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"edge")],failures:[:])
+        try badDomain.publishAnimationEvents([occurrence(sibling,1,"edge")],failures:[:], timelineEvents:[])
         if case let .failure(f)=evaluate(bad){out["eventBadReturn"]=f.code}
         // Native cursor rolls back; JS lexical attempts deliberately does not.
         out["eventBadReturnRetry"]=try evaluate(bad).get().value == .bool(false)
         bad.commitLayerMutations()
         let (throwDomain,throwing)=try lookupOwner("export function animationEvent(e,v){thisObject.stop();throw new Error('own failure');}")
-        try throwDomain.publishPuppetAnimationEvents([occurrence(identity,1,"edge")],failures:[:])
+        try throwDomain.publishAnimationEvents([occurrence(identity,1,"edge")],failures:[:], timelineEvents:[])
         if case let .failure(f)=evaluate(throwing){out["eventThrow"]=f.code}
         out["eventThrowCommands"]=try SceneScriptPuppetAnimationBridge.commands(owner:throwing.handle).get().count
         let (limitDomain,limit)=try lookupOwner("export function animationEvent(e,v){return v;}")
-        try limitDomain.publishPuppetAnimationEvents((1...65).map{occurrence(sibling,UInt64($0),"edge")},failures:[:])
+        try limitDomain.publishAnimationEvents((1...65).map{occurrence(sibling,UInt64($0),"edge")},failures:[:], timelineEvents:[])
         if case let .failure(f)=evaluate(limit){out["eventQueueBudget"]=f.code}
         let (failureDomain,failure)=try lookupOwner("export function animationEvent(e,v){return v;}")
-        try failureDomain.publishPuppetAnimationEvents([],failures:[foreign:.unsupportedMode])
+        try failureDomain.publishAnimationEvents([],failures:[foreign:.unsupportedMode], timelineEvents:[])
         out["eventForeignFailureQuiet"] = !failure.requiresFrameEvaluation
-        try failureDomain.publishPuppetAnimationEvents([],failures:[sibling:.unsupportedMode])
+        try failureDomain.publishAnimationEvents([],failures:[sibling:.unsupportedMode], timelineEvents:[])
         if case let .failure(f)=evaluate(failure){out["eventSourceFailure"]=f.code}
         let (_,healthy)=try make("export function update(v){return v;}")
         out["eventHealthyPeer"]=try evaluate(healthy).get().value == .bool(true)
 
         phase("events/retirement-and-scope")
         let (retiredDomain,retired)=try lookupOwner("export function animationEvent(e,v){throw new Error('retired payload');}")
-        try retiredDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"edge")],failures:[:])
+        try retiredDomain.publishAnimationEvents([occurrence(sibling,1,"edge")],failures:[:], timelineEvents:[])
         try retiredDomain.publishPuppetAnimationSnapshot([])
-        out["eventRetirementClears"] = !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(retired.handle)
+        let expired=evaluate(retired);retired.commitLayerMutations()
+        out["eventRetirementClears"] = !failed(expired)
+            && !mwx_scene_quickjs_owner_has_pending_animation_events(retired.handle)
         let ordinaryDomain=try SceneScriptQuickJSDomain();let ordinaryDescriptor=descriptor()
         try ordinaryDomain.configureLayerCatalog(ordinaryDescriptor)
         let scalar=try SceneScriptValueOwner(domain:ordinaryDomain,
@@ -590,7 +595,7 @@ HARNESS = r'''
         let scalarResult=try scalar.evaluate(input:.scalar(2),frame:frame,scriptPropertiesJSON:"",userPropertiesJSON:"{}",
             expectedGeneration:1,interruptBudget:nil).get()
         out["eventOrdinaryScalarPreserved"]=scalarResult.value == .scalar(5)
-            && mwx_scene_quickjs_domain_puppet_animation_owner_count(ordinaryDomain.handle) == 0
+            && mwx_scene_quickjs_domain_animation_owner_count(ordinaryDomain.handle) == 1
         let text=try SceneScriptValueOwner(domain:ordinaryDomain,
             source:"export function update(v){return v+'!';} export function animationEvent(e,v){throw new Error('not a receiver');}",
             target:.text(layerID:42,field:.content),valueType:.string,effectNames:[],generation:1,budget:.default)
@@ -600,13 +605,13 @@ HARNESS = r'''
         let (typeDomain,typed)=try lookupOwner("export const animationEvent=3;export function update(v){return !v;}")
         out["eventInvalidCallbackBeforeOccurrence"]=try evaluate(typed).get().value == .bool(false)
         typed.commitLayerMutations()
-        try typeDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"edge")],failures:[:])
+        try typeDomain.publishAnimationEvents([occurrence(sibling,1,"edge")],failures:[:], timelineEvents:[])
         if case let .failure(f)=evaluate(typed){out["eventInvalidCallbackAtOccurrence"]=f.code}
         let (invalidatedDomain,invalidated)=try lookupOwner("export function animationEvent(e,v){return v;}")
-        try invalidatedDomain.publishPuppetAnimationEvents([occurrence(sibling,1,"edge")],failures:[:])
+        try invalidatedDomain.publishAnimationEvents([occurrence(sibling,1,"edge")],failures:[:], timelineEvents:[])
         mwx_scene_quickjs_owner_invalidate(invalidated.handle)
-        out["eventInvalidationUnregisters"]=mwx_scene_quickjs_domain_puppet_animation_owner_count(invalidatedDomain.handle) == 0
-            && !mwx_scene_quickjs_owner_has_pending_puppet_animation_events(invalidated.handle)
+        out["eventInvalidationUnregisters"]=mwx_scene_quickjs_domain_animation_owner_count(invalidatedDomain.handle) == 0
+            && !mwx_scene_quickjs_owner_has_pending_animation_events(invalidated.handle)
         return out
     }
 
@@ -939,11 +944,11 @@ class PuppetAnimationHostTests(unittest.TestCase):
     def test_raw_seek_and_failure_budgets(self):
         self.assertTrue(self.values["boundsValue"])
         self.assertEqual(self.values["boundsActions"],["pause","frame:-1.5","frame:720.5"])
-        self.assertEqual(self.values["throwFailure"],"exception")
+        self.assertEqual(self.values["throwFailure"],"init-exception")
         self.assertEqual(self.values["throwCommands"],0)
         self.assertEqual(self.values["overflowFailure"],"mutation-overflow")
         self.assertEqual(self.values["overflowCommands"],0)
-        self.assertEqual(self.values["rootBudgetFailure"],"exception")
+        self.assertEqual(self.values["rootBudgetFailure"],"init-exception")
         self.assertEqual(self.values["endedThrowFailure"],"exception")
         self.assertEqual(self.values["endedThrowCommands"],0)
         self.assertFalse(self.values["endedThrowPending"])

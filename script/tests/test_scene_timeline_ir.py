@@ -54,6 +54,13 @@ enum Harness {
                 animation["c0"] = lane
                 host["animation"] = animation
             }
+            if name == "event_nonfinite" {
+                var animation = host["animation"] as! [String: Any]
+                var options = animation["options"] as! [String: Any]
+                options["events"] = [["frame": Double.nan, "name": "not finite"]]
+                animation["options"] = options
+                host["animation"] = animation
+            }
             let result = SceneTimelineAnimationParser.parse(host: host)
             var entry: [String: Any] = [
                 "diagnostics": result.diagnostics.map { diagnostic in
@@ -65,6 +72,9 @@ enum Harness {
             ]
             if let animation = result.animation {
                 entry["animation"] = encode(animation)
+                let data = try JSONEncoder().encode(animation.options)
+                entry["metadataRoundTrip"] = try JSONDecoder().decode(
+                    SceneTimelineOptions.self, from: data) == animation.options
             }
             output[name] = entry
         }
@@ -91,6 +101,8 @@ enum Harness {
                 "parent": animation.options.parent?.key ?? "-",
                 "children": animation.options.children.map(\.key),
                 "durationSeconds": animation.options.durationSeconds,
+                "events": animation.options.events.map { ["frame": $0.frame, "name": $0.name] },
+                "eventDiagnostics": animation.options.eventDiagnostics,
             ],
             "lanes": animation.lanes.map { lane in
                 lane.map { keyframe in
@@ -397,6 +409,20 @@ for name, front_x, back_x, enabled in (
     }
 
 
+for name, events in {
+    "event_raw_order": [{"frame": 15, "name": "probe"}, {"frame": -1.5, "name": ""},
+                        {"frame": 15, "name": "probe"}, {"frame": 0, "name": "事件" * 600}],
+    "event_invalid_rows": [None, {"frame": True, "name": "bool"}, {"frame": "1", "name": "string"},
+                           {"frame": 1, "name": "nul\0name"}, {"frame": 1},
+                           {"frame": 2.5, "name": ""}],
+    "event_bad_table": {"frame": 1, "name": "not an array"},
+    "event_null": None,
+    "event_nonfinite": [],
+}.items():
+    CASES[name] = {"value": 1, "animation": {"c0": [keyframe(0, 0), keyframe(30, 1)],
+        "options": {"fps": 30, "length": 30, "mode": "single", "events": events}}}
+
+
 class SceneTimelineIRTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -547,6 +573,25 @@ class SceneTimelineIRTests(unittest.TestCase):
     def test_absent_animation_is_not_a_diagnostic(self) -> None:
         self.assertNotIn("animation", self.result["no_animation"])
         self.assertEqual(self.diagnostic_codes("no_animation"), [])
+
+    def test_events_preserve_raw_order_and_diagnose_without_rejecting_curves(self) -> None:
+        names = ("single_start_paused", "event_raw_order", "event_invalid_rows",
+                 "event_bad_table", "event_null", "event_nonfinite")
+        for name in names:
+            with self.subTest(case=name):
+                self.assertEqual(self.diagnostic_codes(name), [])
+                self.assertTrue(self.result[name]["metadataRoundTrip"])
+                self.assertEqual(self.animation(name)["componentCount"], 1)
+        self.assertEqual(self.animation("event_raw_order")["options"]["events"],
+                         CASES["event_raw_order"]["animation"]["options"]["events"])
+        self.assertEqual(self.animation("event_invalid_rows")["options"]["events"],
+                         [{"frame": 2.5, "name": ""}])
+        for name, count in (("event_invalid_rows", 5), ("event_bad_table", 1),
+                            ("event_nonfinite", 1), ("event_null", 0), ("single_start_paused", 0)):
+            options = self.animation(name)["options"]
+            self.assertEqual(len(options["eventDiagnostics"]), count, name)
+            if name != "event_invalid_rows":
+                self.assertEqual(options["events"], [], name)
 
     def test_omitted_lanes_preserve_clock_and_links_without_synthesizing_keyframes(self) -> None:
         for name, parent, preview, length in (("missing_lanes", "-", "-", 30), ("constant_child", "Drive", "7.0", 360)):

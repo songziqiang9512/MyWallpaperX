@@ -64,11 +64,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
     let bindings: [SceneScriptValueOwner]
     let inputTargets: Set<SceneDynamicTarget>
     let inputValueTypes: Set<SceneDynamicValueType>
-    /// Targets whose script owns a typed value. Event-only Timeline controls
-    /// remain instantiated so their callbacks can issue playback mutations,
-    /// while the Timeline stays the sole value producer.
-    private let valuePublishingTargets: Set<SceneDynamicTarget>
-    private let idleTimelinePublishingTargets: Set<SceneDynamicTarget>
+    private let timelineTargets: Set<SceneDynamicTarget>
     private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
@@ -181,7 +177,6 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         livePropertyInputTargets: Set<SceneDynamicTarget> = [],
         userPropertyDefinitions: [SceneUserPropertyDefinition] = [],
         authoredOrdinals: [SceneDynamicTarget: Int] = [:],
-        valuePublishingTargets: Set<SceneDynamicTarget> = [],
         timelineTargets: Set<SceneDynamicTarget> = []
     ) {
         self.domain = domain
@@ -209,8 +204,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         self.livePropertyInputTargets = livePropertyInputTargets
             .union(eventOwnerTargets)
         self.authoredOrdinals = authoredOrdinals
-        self.valuePublishingTargets = valuePublishingTargets
-        idleTimelinePublishingTargets = valuePublishingTargets.intersection(timelineTargets)
+        self.timelineTargets = timelineTargets
         userPropertyKinds = propertyKinds
         self.definitions = definitions
     }
@@ -301,7 +295,6 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:]
         var livePropertyInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
-        var valuePublishingTargets: Set<SceneDynamicTarget> = []
         var requiresDomainReconstruction = false
         for (binding, target, authored, properties) in candidates {
             let effectNames: [String?]
@@ -353,13 +346,6 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 )
                 owners.append(owner)
                 definitions.append(.init(target: target, valueType: .scalar, authoredValue: .scalar(authored)))
-                if !SceneScriptValueOwnership.isEventOnlyTimelineControl(
-                    source: binding.source,
-                    bindingKeys: binding.wrapperKeys ?? [],
-                    hasTimeline: timelineTargets.contains(target)
-                ) {
-                    valuePublishingTargets.insert(target)
-                }
                 propertyInputsByTarget[target] = properties
                 var inputTargets = SceneScriptPropertyInputCodec.liveConsumerTargets(
                     binding: binding, inputs: properties)
@@ -398,7 +384,6 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
             livePropertyInputTargets: livePropertyInputTargets,
             userPropertyDefinitions: userPropertyDefinitions,
             authoredOrdinals: authoredOrdinals,
-            valuePublishingTargets: valuePublishingTargets,
             timelineTargets: timelineTargets
         )
         return .init(
@@ -513,7 +498,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 // input through the prepared value lane. In particular, a
                 // Timeline must keep advancing after an init-only script.
                 // Do not run the VM or promote event-only Timeline controls.
-                if idleTimelinePublishingTargets.contains(binding.target) {
+                if timelineTargets.contains(binding.target) {
                     switch binding.scalarValueWithoutUpdate(
                         input: value, expectedGeneration: generation
                     ) {
@@ -748,12 +733,10 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 effects.append(evaluation)
                 effects.layerMutations = SceneScriptLayerMutation.coalescing(effects.layerMutations)
                 if !effects.isEmpty { ownerEffects.append(effects) }
-                if valuePublishingTargets.contains(binding.target) {
-                    values[binding.target] = evaluation.value
-                    if idleTimelinePublishingTargets.contains(binding.target),
-                       evaluation.valueFollowsInput, !hasActiveInitializationValue {
-                        timelineInputTargets.insert(binding.target)
-                    }
+                values[binding.target] = evaluation.value
+                if timelineTargets.contains(binding.target),
+                   evaluation.valueFollowsInput, !hasActiveInitializationValue {
+                    timelineInputTargets.insert(binding.target)
                 }
                 materialFunctionMutations.append(contentsOf: effects.materialFunctionMutations)
                 animationMutations.append(contentsOf: effects.animationMutations)

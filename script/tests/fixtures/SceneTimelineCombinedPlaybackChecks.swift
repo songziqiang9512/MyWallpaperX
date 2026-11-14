@@ -3,6 +3,104 @@ import Foundation
 /// Behavioral checks on a Program produced by the real parser/descriptor/compiler.
 /// Observation restore here exercises the Runtime API, not an absent host rollback caller.
 enum SceneTimelineCombinedPlaybackChecks {
+    static func unsupportedEventScope(_ program: SceneTimelineProgram) -> [String: Bool] {
+        let bindings = program.bindings.filter { binding in
+            guard !binding.animation.options.events.isEmpty else { return false }
+            if case .camera = binding.target { return true }
+            return binding.animation.options.mode != .single
+        }
+        let runtime = SceneTimelinePlaybackRuntime(program: .init(bindings: bindings, diagnostics: []))
+        let sample = runtime.sample(sceneTime: 100)
+        return ["compiledUnsupportedBindingsRetained": bindings.count == 4,
+                "otherValuesRemainLive": sample.values.count == 4
+                    && sample.values == runtime.values(sceneTime: 100),
+                "noUnqualifiedEvents": sample.animationEvents.isEmpty]
+    }
+
+    static func events(_ program: SceneTimelineProgram) throws -> [String: Any] {
+        let group = program.bindings.filter { $0.playbackOwner != nil }
+        let owner = group.first!.playbackOwnerTarget
+        let root = group.first { $0.target == owner }!
+        let child = group.first { $0.target != owner }!.target
+        let peer = program.bindings.first { $0.playbackOwner == nil }!.target
+        let invalid = SceneDynamicTarget.layer(layerID: 999, field: .alpha)
+        let mid = [SceneTimelineAnimationEventOccurrence(target: owner, name: "mid", frame: 10)]
+        let end = [SceneTimelineAnimationEventOccurrence(target: owner, name: "end", frame: 20),
+                   .init(target: owner, name: "same frame", frame: 20),
+                   .init(target: owner, name: "end", frame: 20)]
+        let runtime = SceneTimelinePlaybackRuntime(program: program)
+        var facts = ["ownerRawOrder": root.animation.options.events.map(\.frame) == [20, 10, 20, 20, 0, -1, 21],
+            "childRawTables": group.filter { $0.target != owner }.allSatisfy {
+                $0.animation.options.events == [.init(frame: 3, name: "child raw")]
+                    && $0.animation.options.eventDiagnostics.count == 1 },
+            "pausedDoesNotPublish": runtime.sample(sceneTime: 4).animationEvents.isEmpty]
+        try runtime.apply([.init(target: child, command: .play)], sceneTime: 4).get()
+        let observations = runtime.observationSnapshot()
+        let values = runtime.values(sceneTime: 5)
+        _ = try runtime.preview([.init(target: child, command: .setFrame(18))], sceneTime: 5).get()
+        facts["valuesAndPreviewPure"] = runtime.observationSnapshot() == observations
+            && runtime.values(sceneTime: 5) == values
+        let first = runtime.sample(sceneTime: 5)
+        facts["sharedOwnerOnce"] = first.animationEvents == mid
+        facts["valuesAndEventsSameSample"] = first.values == values
+        facts["unacceptedCanRetry"] = runtime.sample(sceneTime: 5).animationEvents == mid
+            && runtime.sample(sceneTime: 5.5).animationEvents == mid
+        runtime.acceptPublishedEvents(from: first)
+        facts["acceptedDoesNotReplay"] = runtime.sample(sceneTime: 5.75).animationEvents.isEmpty
+        let endpoint = runtime.sample(sceneTime: 6)
+        facts["duplicatesAndEndpointOrder"] = endpoint.animationEvents == end
+        runtime.acceptPublishedEvents(from: endpoint)
+        facts["endpointOnlyOnce"] = runtime.sample(sceneTime: 100).animationEvents.isEmpty
+        try runtime.apply([.init(target: child, command: .play)], sceneTime: 100).get()
+        let restarted = runtime.sample(sceneTime: 101)
+        facts["completedPlayRestartsOrigin"] = restarted.animationEvents == mid
+        runtime.acceptPublishedEvents(from: restarted)
+        try runtime.apply([.init(target: child, command: .pause)], sceneTime: 101.25).get()
+        facts["pausedHoldsCursor"] = runtime.sample(sceneTime: 105).animationEvents.isEmpty
+        try runtime.apply([.init(target: child, command: .play)], sceneTime: 105).get()
+        facts["resumedNaturalEndpoint"] = runtime.sample(sceneTime: 105.75).animationEvents == end
+
+        let sought = SceneTimelinePlaybackRuntime(program: program)
+        try sought.apply([.init(target: child, command: .play)], sceneTime: 0).get()
+        try sought.apply([.init(target: child, command: .setFrame(15))], sceneTime: 0.5).get()
+        facts["seekDoesNotSynthesizeCrossing"] = sought.sample(sceneTime: 0.5).animationEvents.isEmpty
+            && sought.sample(sceneTime: 1).animationEvents == end
+        try sought.apply([.init(target: child, command: .stop), .init(target: child, command: .play)],
+            sceneTime: 1).get()
+        facts["stopPlayStartsNaturalRun"] = sought.sample(sceneTime: 2).animationEvents == mid
+        try sought.apply([.init(target: child, command: .play)], sceneTime: 2.2).get()
+        facts["activePlayAlignsWithoutRewind"] = sought.sample(sceneTime: 2.2).animationEvents.isEmpty
+            && sought.sample(sceneTime: 3.1).animationEvents == end
+
+        let rejected = SceneTimelinePlaybackRuntime(program: program)
+        try rejected.apply([.init(target: child, command: .play)], sceneTime: 0).get()
+        let beforeFailure = rejected.sample(sceneTime: 1)
+        let failed = rejected.apply([.init(target: child, command: .setFrame(19)),
+            .init(target: invalid, command: .stop)], sceneTime: 1)
+        if case let .failure(failure) = failed {
+            facts["failedBatchKeepsPublicationCursor"] = failure == .unknownTarget(invalid)
+                && rejected.sample(sceneTime: 1).animationEvents
+                == beforeFailure.animationEvents && beforeFailure.animationEvents == mid
+        } else { facts["failedBatchKeepsPublicationCursor"] = false }
+
+        let retired = SceneTimelinePlaybackRuntime(program: program)
+        try retired.apply([.init(target: child, command: .play)], sceneTime: 0).get()
+        retired.acceptPublishedEvents(from: retired.sample(sceneTime: 1))
+        retired.retire(targets: [owner])
+        let surviving = retired.sample(sceneTime: 2)
+        facts["partialRetirementKeepsOwnerCursor"] = surviving.animationEvents == end
+            && surviving.values[owner] == nil && surviving.values[child] != nil
+        retired.retire(targets: Set(group.map(\.target)))
+        let peerOnly = retired.sample(sceneTime: 20)
+        facts["wholeOwnerRetirementKeepsPeer"] = peerOnly.animationEvents.isEmpty
+            && Set(peerOnly.values.keys) == [peer]
+        let decoded = try JSONDecoder().decode(SceneTimelineProgram.self, from: JSONEncoder().encode(program))
+        facts["metadataRoundTrip"] = decoded == program
+        return ["facts": facts,
+                "first": first.animationEvents.map { [$0.frame, $0.name] as [Any] },
+                "endpoint": endpoint.animationEvents.map { [$0.frame, $0.name] as [Any] }]
+    }
+
     static func retirement(_ program: SceneTimelineProgram) throws -> [String: Bool] {
         let group = program.bindings.filter { $0.playbackOwner != nil }
         let removed = Set(group.map(\.target))
@@ -277,6 +375,7 @@ enum SceneTimelineCombinedPlaybackChecks {
         try playback.apply([.init(target: child, command: .play)], sceneTime: 4).get()
         let pending = playback.observationSnapshot()
         samples.append(try sample(5))
+        _ = playback.sample(sceneTime: 5)
         let consumed = playback.observationSnapshot()
         playback.restoreObservationState(pending)
         let restored = playback.observationSnapshot()
@@ -319,6 +418,7 @@ enum SceneTimelineCombinedPlaybackChecks {
         let legacyValues = SceneTimelinePlaybackRuntime(program: legacyDecoded).values(sceneTime: 2)
         return [
             "retirement": try retirement(program),
+            "events": try events(program),
             "samples": samples,
             "preview": try vectors(projected),
             "ordered": try vectors(ordered.values(sceneTime: 1)),

@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 /// 作者 Timeline（编辑器 "Animation"）的无损 IR。
 ///
@@ -56,6 +57,11 @@ nonisolated struct SceneTimelineGroupReference: Codable, Equatable {
     let key: String
 }
 
+nonisolated struct SceneTimelineAnimationEvent: Codable, Equatable {
+    let frame: Double
+    let name: String
+}
+
 nonisolated struct SceneTimelineOptions: Codable, Equatable {
     let fps: Double
     let length: Double
@@ -71,6 +77,9 @@ nonisolated struct SceneTimelineOptions: Codable, Equatable {
     let children: [SceneTimelineGroupReference]
     /// Authored lookup name; playback identity remains the compiled target.
     var name: String? = nil
+    var events: [SceneTimelineAnimationEvent] = []
+    /// Event errors do not enter the lane diagnostics that reject a value track.
+    var eventDiagnostics: [String] = []
 
     /// 作者声明的总时长。`length` 是帧数，不是秒。
     nonisolated var durationSeconds: Double {
@@ -255,6 +264,7 @@ nonisolated enum SceneTimelineAnimationParser {
         ) else {
             return nil
         }
+        let events = parseEvents(root["events"])
         return SceneTimelineOptions(
             fps: fps,
             length: length,
@@ -265,8 +275,29 @@ nonisolated enum SceneTimelineAnimationParser {
             stiffness: doubleValue(root["stiffness"]),
             parent: parent.reference,
             children: children,
-            name: root["name"] as? String
+            name: root["name"] as? String,
+            events: events.values,
+            eventDiagnostics: events.diagnostics
         )
+    }
+
+    private nonisolated static func parseEvents(_ value: Any?)
+        -> (values: [SceneTimelineAnimationEvent], diagnostics: [String]) {
+        guard let value, !(value is NSNull) else { return ([], []) }
+        guard let rows = value as? [Any] else { return ([], ["events: invalidTable"]) }
+        var events: [SceneTimelineAnimationEvent] = []
+        var diagnostics: [String] = []
+        for (index, raw) in rows.enumerated() {
+            guard let row = raw as? [String: Any],
+                  let frame = row["frame"] as? NSNumber,
+                  CFGetTypeID(frame) != CFBooleanGetTypeID(), frame.doubleValue.isFinite,
+                  let name = row["name"] as? String, !name.utf8.contains(0) else {
+                diagnostics.append("events[\(index)]: invalidEvent")
+                continue
+            }
+            events.append(.init(frame: frame.doubleValue, name: name))
+        }
+        return (events, diagnostics)
     }
 
     /// 已声明的 lane 必须从 `c0` 起连续，避免把 `c2` 写回 component 0。

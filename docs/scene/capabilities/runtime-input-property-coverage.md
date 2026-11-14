@@ -79,6 +79,17 @@ effect instance 的数值常量在同一 layer/effect 内一次收集，再按�
 
 验收沿真实 parser→TargetCompiler→PlaybackRuntime→DynamicSnapshot→prepared uniform bytes→Metal/terminal：不同曲线、跨 pass 别名、改名、同名其他 effect、冲突分量与健康 peer、play/pause/stop/setFrame/完成重启及退休；核实际时间下的动态颜色与独立作者活动相位。编译/绑定或晚相位零值不作可见效果证明；树形合同不冒充官方像素一致性。
 
+<a id="timeline-events"></a>
+### Property Timeline 的自然事件
+
+事件元数据由原Timeline解析入口保存为`frame:Number/name:String`，缺省为空；只在此入口检查条目形状、有限帧及实际字符串运输约束。坏事件局部诊断并省略，不拒绝原合法值轨；编辑器metadata不作身份。保作者同帧/同名的独立条目及顺序，冷期准备执行顺序。事件表不参与曲线值共享判定，不因多个lane/Combined成员重复求值或广播；首批由真实playback owner发出其事件，child自带表保真且不据此授予独立事件时钟。
+
+原PlaybackRuntime状态增加一个已发布的本地帧位置，继续读取唯一SceneClock；一次host sample产生值、自然occurrence及临时待接纳位置。Single正向自然区间为已发布位置到本次clamp终点的左开右闭区间，精确终点可达，完成后不重发。原Domain共用publisher接纳后才推进该位置；入口失败保待发布，单receiver失败不重播给已接纳peer。sample/preview不调用Script，preview不提交事件；原FrameDriver在Surface循环前一次采样/发布/接纳，GPU失败、多屏或冻结重绘不重跑。callback的commit/discard继续只管理原receiver pending/cursor/epoch，不倒退已经发布的自然时间，也不声称JS heap可回滚。
+
+命令继续走同一candidateStates/preview/apply。离散stop/setFrame对齐事件起点而不把跳过区间伪装成自然crossing；原完成后play的重启沿原clock重置发布起点。共享target退休保幸存owner的clock和事件位置，无新播放表、registry、永久Swift队列或值副本。首批自然Single正帧/同层接收之外的seek触发、frame0、Loop/Mirror/反向、大跨步次序及child事件不据此授官方一致；未资格只限制事件执行，原值轨继续。无可路由layer身份的来源也保数值链，不构造假layer或Puppet身份。
+
+共同接收与typed值职责归[animationEvent合同](scenescript-api-coverage.md#animation-events)。验收复用IR/TargetCompiler/PlaybackRuntime、真实Domain/typed entry和原FrameDriver门，核重复采样/preview、端点/暂停/命令、Combined/退休、局部坏事件、发布失败/receiver回滚/peer及Puppet邻界；实际作者须从自然事件到自身handler、原命令/显隐及同subject材质/最终GPU，而非只报callback或非黑。官方输入及证明范围归[运行证据](runtime-evidence-current.md#property-timeline-events)。
+
 <a id="camera"></a>
 ## 相机、world 与 Cursor
 

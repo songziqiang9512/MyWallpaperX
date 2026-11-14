@@ -224,9 +224,10 @@ extension SceneDesktopWallpaperSession {
         let definitionIndex = launchContext.dynamicDefinitionIndex
         let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()
         let audioSpectrum = audioSpectrumFrame.snapshot
-        let timelineValues = launchContext.timelinePlaybackRuntime.values(
+        let timelineSample = launchContext.timelinePlaybackRuntime.sample(
             sceneTime: timing.sceneTime
         )
+        let timelineValues = timelineSample.values
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
         let mediaThumbnailSnapshot = mediaThumbnailTextures.snapshot()
         let mediaThumbnailGenerationIsTerminal =
@@ -373,9 +374,11 @@ extension SceneDesktopWallpaperSession {
                     preparedTextValues: launchContext.sceneScriptDynamicLayerRuntime.preparedTextValues(in: preliminaryForSceneScript),
                     awaitingHostFrameOutcome: true
                 )
-            try launchContext.propertyVectorScriptProgram.domain?.publishPuppetAnimationEvents(
+            try launchContext.propertyVectorScriptProgram.domain?.publishAnimationEvents(
                 puppetAnimationFrame.animationEvents,
-                failures: puppetAnimationFrame.eventFailures)
+                failures: puppetAnimationFrame.eventFailures,
+                timelineEvents: timelineSample.animationEvents)
+            launchContext.timelinePlaybackRuntime.acceptPublishedEvents(from: timelineSample)
             if surfaces.count == 1 {
                 try surfaces.values.first?.publishSceneScriptPuppetPoseFrame(
                     sceneScriptPuppetPoseFrame,

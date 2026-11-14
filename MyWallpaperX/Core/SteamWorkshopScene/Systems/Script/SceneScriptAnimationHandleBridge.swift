@@ -109,6 +109,83 @@ nonisolated enum SceneScriptAnimationHandleBridge {
 }
 
 nonisolated extension SceneScriptQuickJSDomain {
+    func publishAnimationEvents(
+        _ puppetEvents: [ScenePuppetAnimationEventOccurrence],
+        failures: [ScenePuppetAnimationIdentity: ScenePuppetAnimationEventFailure],
+        timelineEvents: [SceneTimelineAnimationEventOccurrence]
+    ) throws {
+        guard !puppetEvents.isEmpty || !failures.isEmpty || !timelineEvents.isEmpty else { return }
+        guard mwx_scene_quickjs_domain_animation_owner_count(handle) > 0 else { return }
+        var names: [UnsafeMutablePointer<CChar>] = []
+        defer { names.forEach { free($0) } }
+        func record(_ identity: ScenePuppetAnimationIdentity) throws -> MWXSceneQuickJSAnimationEvent {
+            guard identity.layerID >= 0,
+                  let index = UInt32(exactly: identity.animationLayerIndex) else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet event identity")
+            }
+            var raw = MWXSceneQuickJSAnimationEvent()
+            raw.source_kind = 1
+            raw.layer_id = Int64(identity.layerID)
+            raw.animation_layer_index = index
+            raw.animation_layer_id = Int64(identity.animationLayerID ?? 0)
+            raw.has_animation_layer_id = identity.animationLayerID == nil ? 0 : 1
+            return raw
+        }
+        var records: [MWXSceneQuickJSAnimationEvent] = []
+        for event in puppetEvents {
+            var raw = try record(event.identity)
+            if event.sequence == 0 || event.name.isEmpty || event.name.utf8.count > 1024
+                || event.name.utf8.contains(0) || event.frame < 0
+                || event.frame > 9_007_199_254_740_991 {
+                raw.failure = 2
+            } else {
+                guard let name = strdup(event.name) else {
+                    throw SceneScriptScalarRuntimeFailure.memoryExceeded("animation event payload")
+                }
+                names.append(name)
+                raw.sequence = event.sequence
+                raw.name = UnsafePointer(name)
+                raw.frame = Double(event.frame)
+            }
+            records.append(raw)
+        }
+        for (identity, failure) in failures.sorted(by: {
+            if $0.key.layerID != $1.key.layerID { return $0.key.layerID < $1.key.layerID }
+            return $0.key.animationLayerIndex < $1.key.animationLayerIndex
+        }) {
+            var raw = try record(identity)
+            switch failure {
+            case .unsupportedMode: raw.failure = 1
+            case .invalidEvent: raw.failure = 2
+            case .nonFinitePhase: raw.failure = 3
+            case .multipleLoopsCrossed: raw.failure = 4
+            case .eventBudgetExceeded: raw.failure = 5
+            case .sequenceOverflow: raw.failure = 6
+            }
+            records.append(raw)
+        }
+        for event in timelineEvents {
+            guard let layerID = SceneScriptLayerMutationBridge.layerID(for: event.target) else { continue }
+            guard let name = strdup(event.name) else {
+                throw SceneScriptScalarRuntimeFailure.memoryExceeded("animation event payload")
+            }
+            names.append(name)
+            var raw = MWXSceneQuickJSAnimationEvent()
+            raw.layer_id = Int64(layerID)
+            raw.name = UnsafePointer(name)
+            raw.frame = event.frame
+            records.append(raw)
+        }
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = records.withUnsafeBufferPointer {
+            mwx_scene_quickjs_domain_publish_animation_events(
+                handle, $0.baseAddress, $0.count, &diagnostic, diagnostic.count)
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw SceneScriptPuppetAnimationBridge.failure(result, diagnostic)
+        }
+    }
+
     /// Publishes only already-compiled targets; no second animation registry
     /// or playback state is reconstructed from the author document in a frame.
     func configureNamedAnimations(_ bindings: [(target: SceneDynamicTarget, name: String)]) throws {

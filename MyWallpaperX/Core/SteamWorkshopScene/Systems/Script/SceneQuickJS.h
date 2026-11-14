@@ -16,7 +16,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
     const MWXSceneQuickJSPuppetAnimationSnapshot *snapshots, size_t count,
     char *diagnostic, size_t diagnostic_capacity);
 size_t mwx_scene_quickjs_owner_puppet_animation_registration_count(const MWXSceneQuickJSOwner *owner);
-size_t mwx_scene_quickjs_domain_puppet_animation_owner_count(const MWXSceneQuickJSDomain *domain);
+size_t mwx_scene_quickjs_domain_animation_owner_count(const MWXSceneQuickJSDomain *domain);
 size_t mwx_scene_quickjs_owner_puppet_animation_command_count(const MWXSceneQuickJSOwner *owner);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_animation_command_at(
     const MWXSceneQuickJSOwner *owner, size_t index,
@@ -24,9 +24,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_animation_command_at(
     char *diagnostic, size_t diagnostic_capacity);
 bool mwx_scene_quickjs_owner_has_pending_puppet_animation_end(const MWXSceneQuickJSOwner *owner);
 uint32_t mwx_scene_quickjs_owner_animation_event_export(const MWXSceneQuickJSOwner *owner);
-bool mwx_scene_quickjs_owner_has_pending_puppet_animation_events(const MWXSceneQuickJSOwner *owner);
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animation_events(
-    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSPuppetAnimationEvent *events,
+void mwx_scene_quickjs_owner_configure_animation_events(MWXSceneQuickJSOwner *owner, uint32_t exported);
+bool mwx_scene_quickjs_owner_has_pending_animation_events(const MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_animation_events(
+    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSAnimationEvent *events,
     size_t count, char *diagnostic, size_t diagnostic_capacity);
 
 void mwx_scene_quickjs_domain_begin_particle_frame(MWXSceneQuickJSDomain *domain,
@@ -718,6 +719,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
     double input,
     uint32_t boolean_value,
     uint32_t property_refresh,
+    uint32_t returned_value_field,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
@@ -725,7 +727,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties_m
     size_t user_properties_length,
     double *output,
     char *diagnostic,
-    size_t diagnostic_capacity
+    size_t diagnostic_capacity, uint32_t *event_value_produced
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_bool_with_properties(
@@ -768,7 +770,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     size_t user_properties_length,
     double *output,
     char *diagnostic,
-    size_t diagnostic_capacity
+    size_t diagnostic_capacity, uint32_t *event_value_produced
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properties(

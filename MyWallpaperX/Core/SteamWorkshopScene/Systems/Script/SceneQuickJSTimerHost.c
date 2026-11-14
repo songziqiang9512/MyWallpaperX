@@ -382,8 +382,8 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     }
     snapshot->puppet_animation_callback_count = owner->puppet_animation_callback_count;
     snapshot->puppet_animation_delivered_sequence = owner->puppet_animation_delivered_sequence;
-    snapshot->puppet_event_cursor = owner->puppet_event_cursor;
-    snapshot->puppet_event_queue_epoch = owner->puppet_event_queue_epoch;
+    snapshot->animation_event_cursor = owner->animation_event_cursor;
+    snapshot->animation_event_queue_epoch = owner->animation_event_queue_epoch;
     snapshot->camera_command_count = owner->camera_command_count;
     snapshot->camera_command_read_start = owner->camera_command_read_start;
     snapshot->camera_command_overflow = owner->camera_command_overflow;
@@ -433,9 +433,9 @@ bool mwx_scene_quickjs_owner_timer_restore(
         owner->puppet_animation_delivered_sequence = snapshot->puppet_animation_delivered_sequence;
     // Source payload is retained until commit; only provisional consumption
     // rolls back. Retirement/commit invalidates snapshots of the old queue.
-    if (owner->puppet_event_queue_epoch == snapshot->puppet_event_queue_epoch &&
-        snapshot->puppet_event_cursor <= owner->puppet_event_count)
-        owner->puppet_event_cursor = snapshot->puppet_event_cursor;
+    if (owner->animation_event_queue_epoch == snapshot->animation_event_queue_epoch &&
+        snapshot->animation_event_cursor <= owner->animation_event_count)
+        owner->animation_event_cursor = snapshot->animation_event_cursor;
     owner->camera_command_count = snapshot->camera_command_count;
     owner->camera_command_read_start = snapshot->camera_command_read_start;
     owner->camera_command_overflow = snapshot->camera_command_overflow;

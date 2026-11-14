@@ -580,6 +580,7 @@ void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
     // generation becomes stale so provisional records cannot retain the
     // domain topology lock or leak into a later snapshot.
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+    mwx_scene_quickjs_destroy_animation_events(owner);
     if (owner->puppet_animation_configured) mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     owner->generation += 1;
     owner->disabled = true;

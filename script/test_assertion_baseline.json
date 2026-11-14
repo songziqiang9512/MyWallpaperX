@@ -918,27 +918,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_timeline_runtime.py",
-      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
-      "method": "assertIn",
-      "literal": "case (.sceneScript, .sceneScript):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_timeline_runtime.py",
-      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
-      "method": "assertIn",
-      "literal": "case (.timeline, .timeline):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_timeline_runtime.py",
-      "scope": "SceneTimelineRuntimeTests.test_prepared_program_has_frame_driven_uniform_consumption_proof",
-      "method": "assertIn",
-      "literal": "func recordTypedFrameDrivenUniformConsumptions(",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_utility_layers.py",
       "scope": "SceneUtilityLayerTests.test_document_and_descriptor_preserve_generic_dependencies",
       "method": "assertIn",

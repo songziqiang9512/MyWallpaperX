@@ -528,7 +528,7 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
             guarded.xy[0] = guarded.xy[1] = -1;
             status = mwx_scene_quickjs_owner_update_vector(mix_prefix, 282,
                 prefix_cases[index].xy, 2, &mix_frame, "", 0, "{}", 2,
-                guarded.xy, fixture->diagnostic, sizeof(fixture->diagnostic));
+                guarded.xy, fixture->diagnostic, sizeof(fixture->diagnostic), NULL);
             fixture->failures += mwx_fixture_check(status == prefix_cases[index].status &&
                 guarded.before == 101 && guarded.after == 303 &&
                 (status != MWX_SCENE_QUICKJS_OK ||

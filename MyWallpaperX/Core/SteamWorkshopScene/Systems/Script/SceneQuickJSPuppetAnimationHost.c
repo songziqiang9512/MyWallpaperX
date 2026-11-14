@@ -31,7 +31,7 @@ static bool same_identity(MWXSceneQuickJSPuppetAnimationIdentity a,
         (!a.has_animation_layer_id || a.animation_layer_id == b.animation_layer_id);
 }
 
-static MWXSceneQuickJSPuppetAnimationRecord *record_for_identity(
+MWXSceneQuickJSPuppetAnimationRecord *mwx_scene_quickjs_puppet_animation_record_for_identity(
     MWXSceneQuickJSDomain *domain, MWXSceneQuickJSPuppetAnimationIdentity identity
 ) {
     for (size_t i = 0; i < domain->puppet_animation_count; ++i)
@@ -70,67 +70,6 @@ static MWXSceneQuickJSPuppetAnimationRecord *source_record(MWXSceneQuickJSOwner 
     return resolve_source(owner, true);
 }
 
-static void clear_pending_events(MWXSceneQuickJSOwner *owner) {
-    for (size_t i = 0; i < owner->puppet_event_count; ++i) js_free_rt(owner->domain->runtime, owner->puppet_events[i].name);
-    js_free_rt(owner->domain->runtime, owner->puppet_events);
-    owner->puppet_events = NULL;
-    owner->puppet_event_count = owner->puppet_event_cursor = 0;
-    owner->puppet_event_failure = 0;
-    if (owner->puppet_event_queue_epoch != UINT64_MAX) owner->puppet_event_queue_epoch++;
-}
-
-uint32_t mwx_scene_quickjs_owner_animation_event_export(const MWXSceneQuickJSOwner *owner) {
-    if (owner == NULL) return 0;
-    JSContext *context = owner->domain->context;
-    JSValue function = JS_GetPropertyStr(context, owner->module, "animationEvent");
-    uint32_t kind = JS_IsUndefined(function) ? 0 : JS_IsFunction(context, function) ? 1 : 2;
-    JS_FreeValue(context, function);
-    return kind;
-}
-
-bool mwx_scene_quickjs_owner_has_pending_puppet_animation_events(const MWXSceneQuickJSOwner *owner) {
-    return owner != NULL && !owner->disabled && owner->puppet_handles_events &&
-        (owner->puppet_event_failure != 0 || owner->puppet_event_cursor < owner->puppet_event_count);
-}
-
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animation_events(
-    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSPuppetAnimationEvent *events,
-    size_t count, char *diagnostic, size_t diagnostic_capacity) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->callback_active ||
-        (count != 0 && events == NULL)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (size_t i = 0; i < count; ++i) {
-        const MWXSceneQuickJSPuppetAnimationEvent *event = &events[i];
-        MWXSceneQuickJSPuppetAnimationIdentity identity = { event->layer_id,
-            event->animation_layer_index, event->animation_layer_id, event->has_animation_layer_id };
-        MWXSceneQuickJSPuppetAnimationRecord *record = record_for_identity(domain, identity);
-        uint32_t failure = event->failure;
-        if (!failure && (event->sequence == 0 || event->name == NULL ||
-            strlen(event->name) == 0 || strlen(event->name) > 1024 || event->frame < 0 ||
-            event->frame > INT64_C(9007199254740991))) failure = 2;
-        if (!failure && (record == NULL || record->incarnation == 0 ||
-            event->sequence <= record->event_published_sequence)) continue;
-        for (MWXSceneQuickJSOwner *owner = domain->puppet_animation_owners;
-             owner != NULL; owner = owner->puppet_animation_next) {
-            if (!owner->puppet_handles_events || resolve_source(owner, false) == NULL ||
-                owner->puppet_animation_identity.layer_id != event->layer_id) continue;
-            if (failure) { owner->puppet_event_failure = failure; continue; }
-            if (owner->puppet_event_count == 64) { owner->puppet_event_failure = 5; continue; }
-            if (owner->puppet_events == NULL) {
-                owner->puppet_events = js_malloc_rt(domain->runtime, 64 * sizeof(*owner->puppet_events));
-                if (owner->puppet_events == NULL) { owner->puppet_event_failure = 8; continue; }
-            }
-            char *name = js_malloc_rt(domain->runtime, strlen(event->name) + 1);
-            if (name == NULL) { owner->puppet_event_failure = 8; continue; }
-            strcpy(name, event->name);
-            owner->puppet_events[owner->puppet_event_count++] =
-                (MWXSceneQuickJSPuppetPendingEvent){ identity, record->incarnation, name, event->frame };
-        }
-        if (!failure) record->event_published_sequence = event->sequence;
-    }
-    return MWX_SCENE_QUICKJS_OK;
-}
-
 static MWXSceneQuickJSOwner *handle_owner(const PuppetAnimationHandle *handle) {
     if (handle == NULL || handle->domain == NULL || !handle->domain->callback_active) return NULL;
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
@@ -143,15 +82,9 @@ static MWXSceneQuickJSPuppetAnimationRecord *handle_record(
     MWXSceneQuickJSOwner *owner, const PuppetAnimationHandle *handle
 ) {
     if (!parent_alive(owner, handle->target_layer_index, handle->target.layer_id)) return NULL;
-    MWXSceneQuickJSPuppetAnimationRecord *record = record_for_identity(owner->domain, handle->target);
+    MWXSceneQuickJSPuppetAnimationRecord *record = mwx_scene_quickjs_puppet_animation_record_for_identity(owner->domain, handle->target);
     return record != NULL && record->available && record->incarnation == handle->target_incarnation
         ? record : NULL;
-}
-
-static bool puppet_transaction(MWXSceneQuickJSOwner *owner) {
-    if (owner->puppet_animation_baseline != NULL) return true;
-    owner->puppet_animation_baseline = mwx_scene_quickjs_owner_timer_snapshot(owner);
-    return owner->puppet_animation_baseline != NULL;
 }
 
 static void apply_command(MWXSceneQuickJSPuppetAnimationSnapshot *state,
@@ -193,7 +126,7 @@ static bool puppet_command(MWXSceneQuickJSOwner *owner,
         owner->puppet_animation_command_overflow = true;
         return false;
     }
-    if (!puppet_transaction(owner)) return false;
+    if (!mwx_scene_quickjs_animation_transaction(owner)) return false;
     uint32_t ordinal = 0;
     for (size_t i = owner->puppet_animation_command_count; i > 0; --i) {
         if (owner->puppet_animation_commands[i - 1].callback_epoch != owner->domain->callback_epoch) break;
@@ -248,7 +181,7 @@ static JSValue animation_call(JSContext *context, JSValueConst this_value,
             return JS_ThrowRangeError(context, "Puppet animation ended profile is unsupported");
         if (owner->puppet_animation_callback_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_CALLBACKS)
             return JS_ThrowRangeError(context, "Puppet animation callback budget exceeded");
-        if (!puppet_transaction(owner)) return JS_ThrowInternalError(context, "animation callback snapshot allocation failed");
+        if (!mwx_scene_quickjs_animation_transaction(owner)) return JS_ThrowInternalError(context, "animation callback snapshot allocation failed");
         owner->puppet_animation_callbacks[owner->puppet_animation_callback_count++] = JS_DupValue(context, argv[0]);
         owner->puppet_animation_registration_count++;
         return JS_UNDEFINED;
@@ -398,9 +331,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
         layer_id, authored_index, animation_layer_id, has_animation_layer_id };
     owner->puppet_animation_catalog_index = SIZE_MAX;
     owner->puppet_animation_configured = true;
-    owner->puppet_handles_events = mwx_scene_quickjs_owner_animation_event_export(owner) != 0;
-    owner->puppet_animation_next = owner->domain->puppet_animation_owners;
-    owner->domain->puppet_animation_owners = owner;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -433,12 +363,13 @@ void mwx_scene_quickjs_destroy_puppet_animation_catalog(MWXSceneQuickJSDomain *d
 }
 
 static void refresh_owners(MWXSceneQuickJSDomain *domain, bool layout_changed) {
-    for (MWXSceneQuickJSOwner *owner = domain->puppet_animation_owners; owner; owner = owner->puppet_animation_next) {
+    for (MWXSceneQuickJSOwner *owner = domain->animation_owners; owner; owner = owner->animation_next) {
+        if (!owner->puppet_animation_configured) continue;
         size_t index = owner->puppet_animation_catalog_index;
         MWXSceneQuickJSPuppetAnimationRecord *record = index < domain->puppet_animation_count
             ? &domain->puppet_animations[index] : NULL;
         if (layout_changed || !owner->puppet_animation_catalog_bound) {
-            record = record_for_identity(domain, owner->puppet_animation_identity);
+            record = mwx_scene_quickjs_puppet_animation_record_for_identity(domain, owner->puppet_animation_identity);
             owner->puppet_animation_catalog_index = record == NULL ? SIZE_MAX
                 : (size_t)(record - domain->puppet_animations);
             owner->puppet_animation_catalog_bound = true;
@@ -449,9 +380,7 @@ static void refresh_owners(MWXSceneQuickJSDomain *domain, bool layout_changed) {
         }
         owner->puppet_animation_available = !owner->disabled && record != NULL && record->available &&
             owner->puppet_animation_incarnation == record->incarnation;
-        if (record == NULL || owner->puppet_animation_incarnation != record->incarnation)
-            clear_pending_events(owner);
-        if (owner->puppet_animation_baseline == NULL && owner->puppet_animation_command_count == 0) {
+        if (owner->animation_baseline == NULL && owner->puppet_animation_command_count == 0) {
             owner->puppet_animation_visibility = (MWXSceneQuickJSPuppetVisibilityValue){0};
             owner->puppet_animation_visibility_staged = false;
         }
@@ -511,7 +440,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
         // Duplicate input identities are all unavailable. Only their canonical
         // first slot may retain the old allocation and incarnation for recovery.
         if (!first) continue;
-        MWXSceneQuickJSPuppetAnimationRecord *old = record_for_identity(domain, identity);
+        MWXSceneQuickJSPuppetAnimationRecord *old = mwx_scene_quickjs_puppet_animation_record_for_identity(domain, identity);
         if (old != NULL && old->incarnation != 0) {
             records[i].snapshot = old->snapshot;
             records[i].incarnation = old->incarnation;
@@ -590,7 +519,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_end(
         return MWX_SCENE_QUICKJS_DISABLED;
     }
     owner->puppet_animation_delivered_sequence = snapshot->ended_sequence;
-    if (!puppet_transaction(owner)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    if (!mwx_scene_quickjs_animation_transaction(owner)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     mwx_scene_quickjs_begin_callback(owner);
     JSValue previous_layer = JS_UNDEFINED, previous_scene = JS_UNDEFINED, previous_object = JS_UNDEFINED, previous_engine = JS_UNDEFINED;
     bool properties = mwx_scene_quickjs_assign_script_properties(owner, script_properties_json, script_properties_length);
@@ -618,114 +547,17 @@ void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner 
     if (record == NULL) return;
     if (owner->puppet_animation_visibility_staged)
         *output = current_state(owner, record).visible ? 1 : 0;
-    if (!puppet_transaction(owner)) { owner->puppet_animation_command_overflow = true; return; }
+    if (!mwx_scene_quickjs_animation_transaction(owner)) { owner->puppet_animation_command_overflow = true; return; }
     owner->puppet_animation_visibility = (MWXSceneQuickJSPuppetVisibilityValue){
         true, *output != 0, owner->puppet_animation_command_count };
     owner->puppet_animation_visibility_staged = false;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_puppet_animation_events(
-    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSFrameInput *frame,
-    const char *properties, size_t properties_length, const char *users, size_t users_length,
-    double *value, char *diagnostic, size_t diagnostic_capacity) {
-    if (!mwx_scene_quickjs_owner_has_pending_puppet_animation_events(owner)) return MWX_SCENE_QUICKJS_OK;
-    if (owner->puppet_event_failure) {
-        const char *reasons[] = { "", "unsupportedMode", "invalidEvent", "nonFinitePhase",
-            "multipleLoopsCrossed", "eventBudgetExceeded", "sequenceOverflow", "invalidEvent", "event allocation failed" };
-        uint32_t code = owner->puppet_event_failure;
-        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
-            code < sizeof(reasons) / sizeof(reasons[0]) ? reasons[code] : "invalid event failure");
-        return code == 5 ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW :
-            code == 8 ? MWX_SCENE_QUICKJS_MEMORY_EXCEEDED : MWX_SCENE_QUICKJS_DISABLED;
-    }
-    if (source_record(owner) == NULL) {
-        if (resolve_source(owner, false) != NULL) return MWX_SCENE_QUICKJS_OK;
-        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "Puppet event receiver is temporarily unavailable");
-        return MWX_SCENE_QUICKJS_STALE_OWNER;
-    }
-    if (!puppet_transaction(owner)) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
-    JSContext *context = owner->domain->context;
-    JSValue function = JS_GetPropertyStr(context, owner->module, "animationEvent");
-    if (!JS_IsFunction(context, function)) {
-        JS_FreeValue(context, function);
-        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "animationEvent must be a function");
-        return MWX_SCENE_QUICKJS_BAD_RETURN;
-    }
-    mwx_scene_quickjs_begin_callback(owner);
-    JSValue layer = JS_UNDEFINED, scene = JS_UNDEFINED, object = JS_UNDEFINED, engine = JS_UNDEFINED;
-    bool assigned = mwx_scene_quickjs_assign_script_properties(owner, properties, properties_length);
-    bool handles = assigned && mwx_scene_quickjs_bind_owner_handles(owner, &layer, &scene, &object);
-    bool bound = handles && mwx_scene_quickjs_bind_frame_engine_host(owner, frame, users, users_length, &engine);
-    MWXSceneQuickJSResult result = bound ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_EXCEPTION;
-    while (result == MWX_SCENE_QUICKJS_OK && owner->puppet_event_cursor < owner->puppet_event_count) {
-        const MWXSceneQuickJSPuppetPendingEvent *pending = &owner->puppet_events[owner->puppet_event_cursor];
-        MWXSceneQuickJSPuppetAnimationRecord *record = record_for_identity(owner->domain, pending->identity);
-        if (record == NULL || record->incarnation != pending->incarnation) {
-            owner->puppet_event_cursor++; continue;
-        }
-        JSValue event = JS_NewObject(context);
-        JSValue name = JS_IsException(event) ? JS_EXCEPTION : JS_NewString(context, pending->name);
-        if (JS_IsException(event) || JS_IsException(name)) {
-            JS_FreeValue(context, name); JS_FreeValue(context, event);
-            (void)mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
-            result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
-            break;
-        }
-        bool created =
-            JS_DefinePropertyValueStr(context, event, "name", name, JS_PROP_C_W_E) >= 0 &&
-            JS_DefinePropertyValueStr(context, event, "frame", JS_NewFloat64(context, (double)pending->frame), JS_PROP_C_W_E) >= 0;
-        if (!created) { JS_FreeValue(context, event); result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; break; }
-        JSValue arguments[] = { event, owner->effectful_boolean
-            ? JS_NewBool(context, *value != 0) : JS_NewFloat64(context, *value) };
-        JSValue returned = JS_Call(context, function, owner->module, 2, arguments);
-        JS_FreeValue(context, event); JS_FreeValue(context, arguments[1]);
-        if (JS_IsException(returned)) result = mwx_scene_quickjs_exception_result(owner->domain, diagnostic, diagnostic_capacity);
-        else if (!JS_IsUndefined(returned)) {
-            if (owner->effectful_boolean && JS_IsBool(returned)) {
-                *value = JS_ToBool(context, returned);
-            } else if (!owner->effectful_boolean && JS_IsNumber(returned)
-                && JS_ToFloat64(context, value, returned) >= 0 && isfinite(*value)) {
-                // The common primitive callback continues with this Number.
-            } else {
-                mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
-                    owner->effectful_boolean ? "animationEvent expects Boolean or undefined return"
-                        : "animationEvent expects finite Number or undefined return");
-                result = MWX_SCENE_QUICKJS_BAD_RETURN;
-            }
-        }
-        JS_FreeValue(context, returned);
-        if (result == MWX_SCENE_QUICKJS_OK) result = mwx_scene_quickjs_drain_jobs(owner, diagnostic, diagnostic_capacity);
-        if (result == MWX_SCENE_QUICKJS_OK) {
-            owner->puppet_event_cursor++;
-            mwx_scene_quickjs_prepare_puppet_animation_visibility(owner, value);
-        }
-    }
-    if (bound && !mwx_scene_quickjs_restore_frame_engine_host(owner, engine)) result = MWX_SCENE_QUICKJS_EXCEPTION;
-    if (handles && !mwx_scene_quickjs_restore_owner_handles(owner, layer, scene, object)) result = MWX_SCENE_QUICKJS_EXCEPTION;
-    mwx_scene_quickjs_end_callback(owner);
-    JS_FreeValue(context, function);
-    return result;
-}
-
 void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit) {
     MWXSceneQuickJSPuppetAnimationRecord *record = source_record(owner);
     bool visible = record != NULL && current_state(owner, record).visible;
-    if (owner->puppet_animation_baseline != NULL) {
-        if (!commit) mwx_scene_quickjs_owner_timer_restore(owner, owner->puppet_animation_baseline);
-        mwx_scene_quickjs_owner_timer_snapshot_destroy(owner->puppet_animation_baseline, owner);
-        owner->puppet_animation_baseline = NULL;
-    }
     if (commit && record != NULL)
         owner->puppet_animation_visibility = (MWXSceneQuickJSPuppetVisibilityValue){ true, visible, 0 };
-    if (commit && owner->puppet_event_cursor != 0) {
-        size_t consumed = owner->puppet_event_cursor;
-        for (size_t i = 0; i < consumed; ++i) js_free_rt(owner->domain->runtime, owner->puppet_events[i].name);
-        owner->puppet_event_count -= consumed;
-        memmove(owner->puppet_events, owner->puppet_events + consumed,
-            owner->puppet_event_count * sizeof(*owner->puppet_events));
-        owner->puppet_event_cursor = 0;
-        if (owner->puppet_event_queue_epoch != UINT64_MAX) owner->puppet_event_queue_epoch++;
-    }
     owner->puppet_animation_command_count = 0;
     owner->puppet_animation_command_read_start = 0;
     owner->puppet_animation_registration_count = 0;
@@ -736,21 +568,11 @@ void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner 
 
 void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
-    clear_pending_events(owner);
-    MWXSceneQuickJSOwner **cursor = &owner->domain->puppet_animation_owners;
-    while (*cursor != NULL && *cursor != owner) cursor = &(*cursor)->puppet_animation_next;
-    if (*cursor == owner) *cursor = owner->puppet_animation_next;
     for (size_t i = 0; i < owner->puppet_animation_callback_count; i++)
         JS_FreeValue(owner->domain->context, owner->puppet_animation_callbacks[i]);
     owner->puppet_animation_callback_count = 0;
     owner->puppet_animation_configured = false;
     owner->puppet_animation_available = false;
-}
-
-size_t mwx_scene_quickjs_domain_puppet_animation_owner_count(const MWXSceneQuickJSDomain *domain) {
-    size_t count = 0;
-    if (domain != NULL) for (const MWXSceneQuickJSOwner *owner = domain->puppet_animation_owners; owner; owner = owner->puppet_animation_next) count++;
-    return count;
 }
 
 size_t mwx_scene_quickjs_owner_puppet_animation_registration_count(const MWXSceneQuickJSOwner *owner) {
