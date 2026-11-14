@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 /// Preserves the authored JSON kind of a shader wrapper's `user` member.
@@ -26,6 +27,40 @@ nonisolated enum SceneShaderUserValueKind: String, Codable, Sendable {
 
 nonisolated extension SceneDocument {
     nonisolated struct ShaderValue: Codable, Equatable {
+        nonisolated static func projection(
+            from value: Any
+        ) -> (rawValue: String, valueKind: String, components: [Double]?) {
+            if let number = value as? NSNumber {
+                guard CFGetTypeID(number) != CFBooleanGetTypeID() else {
+                    return ("\(value)", "unknown", nil)
+                }
+                let value = number.doubleValue
+                return (String(value), "number", [value])
+            }
+            if let string = value as? String {
+                let components = string
+                    .split(whereSeparator: { $0 == " " || $0 == "," || $0 == "\t" })
+                    .compactMap { Double($0) }
+                return (string, components.count > 1 ? "vector" : "string",
+                        components.isEmpty ? nil : components)
+            }
+            if let array = value as? [Any], !array.isEmpty {
+                var components: [Double] = []
+                components.reserveCapacity(array.count)
+                for member in array {
+                    guard let number = member as? NSNumber,
+                          CFGetTypeID(number) != CFBooleanGetTypeID(),
+                          number.doubleValue.isFinite else {
+                        return ("\(value)", "unknown", nil)
+                    }
+                    components.append(number.doubleValue)
+                }
+                return (components.map { String($0) }.joined(separator: " "),
+                        components.count == 1 ? "number" : "vector", components)
+            }
+            return ("\(value)", "unknown", nil)
+        }
+
         let rawValue: String
         let valueKind: String
         let userBinding: String?

@@ -411,41 +411,24 @@ nonisolated struct SceneAssetCatalogLoader {
     }
 
     nonisolated private func shaderValue(from value: Any) -> SceneDocument.ShaderValue {
-        if let double = value as? Double {
-            return SceneDocument.ShaderValue(rawValue: String(double), valueKind: "number", userBinding: nil, components: [double])
-        }
-        if let int = value as? Int {
-            return SceneDocument.ShaderValue(rawValue: String(int), valueKind: "number", userBinding: nil, components: [Double(int)])
-        }
-        if let string = value as? String {
-            let components = numericComponents(in: string)
-            return SceneDocument.ShaderValue(rawValue: string, valueKind: components.count > 1 ? "vector" : "string", userBinding: nil, components: components.isEmpty ? nil : components)
-        }
         if let keyed = value as? [String: Any] {
-            let rawValue: String
-            if let string = keyed["value"] as? String { rawValue = string }
-            else if let number = keyed["value"] as? Double {
-                rawValue = String(number)
-            } else if let number = keyed["value"] as? Int {
-                rawValue = String(number)
-            } else {
-                rawValue = "\(keyed)"
-            }
-            let components = numericComponents(in: rawValue)
+            let projection = keyed["value"].map(SceneDocument.ShaderValue.projection(from:))
             return SceneDocument.ShaderValue(
-                rawValue: rawValue,
+                rawValue: projection?.rawValue ?? "\(keyed)",
                 valueKind: "binding",
                 userBinding: keyed["user"] as? String,
                 userValueKind: keyed["user"].flatMap(
                     SceneShaderUserValueKind.init(jsonObject:)
                 ),
-                components: components.isEmpty ? nil : components,
+                components: projection?.components,
                 scriptSource: keyed["script"] as? String,
                 scriptProperties: scriptProperties(keyed["scriptproperties"]),
                 bindingKeys: SceneAssetCatalog.uniqueSorted(Array(keyed.keys))
             )
         }
-        return SceneDocument.ShaderValue(rawValue: "\(value)", valueKind: "unknown", userBinding: nil, components: nil)
+        let projection = SceneDocument.ShaderValue.projection(from: value)
+        return SceneDocument.ShaderValue(rawValue: projection.rawValue, valueKind: projection.valueKind,
+                                         userBinding: nil, components: projection.components)
     }
 
     nonisolated private func scriptProperties(
@@ -460,12 +443,6 @@ nonisolated struct SceneAssetCatalogLoader {
             result[key] = parsed
         }
         return result
-    }
-
-    nonisolated private func numericComponents(in string: String) -> [Double] {
-        string
-            .split(whereSeparator: { $0 == " " || $0 == "," || $0 == "\t" })
-            .compactMap { Double($0) }
     }
 
     nonisolated private func loadJSON(

@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 311,
-      "bytes": 60935
+      "lines": 320,
+      "bytes": 63001
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 587,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 192,
-      "bytes": 53205
+      "lines": 191,
+      "bytes": 52570
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 153,
-      "bytes": 43841
+      "lines": 165,
+      "bytes": 46658
     }
   },
   "archives": [
@@ -487,15 +487,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8473755822c2056a098d66b05c5b270af2b134bcd70d9e08cf915d78711f8369",
-      "after": "8611068d8d1129c118dd83551fe7385c99df1479629510f18ad48119a04b21ea",
-      "owner": "Scene shader interface and model material consumers",
-      "reason": "Record the shared cold implicit numeric varying contract, actual phase-mask-to-model qualification and newly proven uniform/name-shape boundaries; retire the solved phase queue entry and select the active material-mask gap.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#implicit-fragment-varying"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
       "after": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
@@ -523,21 +514,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "8611068d8d1129c118dd83551fe7385c99df1479629510f18ad48119a04b21ea",
+      "after": "c107611a9955f39a9c746ee4550f470b27f4974d11584aa82392bd2927798773",
+      "owner": "Existing Format ShaderValue ingress and model material consumers",
+      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "0025747f9428825accaff6ac572588a4a32a58d5f372f3df2c34ed251d26e908",
-      "after": "f86c8f5cecdfb5a16d9a383db27298a1f980a927a80e08df77d5d2c9cd9d70da",
-      "owner": "Existing typed Spot snapshot and shared surface radial response",
-      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
+      "before": "f86c8f5cecdfb5a16d9a383db27298a1f980a927a80e08df77d5d2c9cd9d70da",
+      "after": "9bb32c4405428b670d05171eea526ba894f57973533618207185d84f9addcf75",
+      "owner": "Existing Format ShaderValue ingress and model material consumers",
+      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "963655f562b86d994b4391afacc7b35ec2e73449ddb3838c05d3ddad4ab51b40",
-      "after": "4ff814a29cef42f0dc75a05cc3a67cdbf43345c3377f5f1e6a145d6ad799a97a",
-      "owner": "Existing typed Spot snapshot and shared surface radial response",
-      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
+      "before": "4ff814a29cef42f0dc75a05cc3a67cdbf43345c3377f5f1e6a145d6ad799a97a",
+      "after": "22ab6e1189f8525539ab066701b700d301b94303ddf8bc48f489a189389676be",
+      "owner": "Existing Format ShaderValue ingress and model material consumers",
+      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
     }
   ]
 }

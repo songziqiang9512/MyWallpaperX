@@ -14,6 +14,7 @@ fixture 的时间基与关键帧沿用真实作者数据的形状：`2998757800`
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -73,6 +74,53 @@ def keyframe(frame, value):
 
 
 TAU = 6.2831855
+
+SHADER_VALUE_NUMERIC_CASES = {
+    "arrayScalar": ([0.25], [0.25], "number"),
+    "arrayVector": ([0, 0.5, 1], [0, 0.5, 1], "vector"),
+    "renamedLongValue": ([0, -1, 0.25, 3, 4, 1e300], [0, -1, 0.25, 3, 4, 1e300], "vector"),
+    "matrix16": (list(range(16)), list(range(16)), "vector"),
+    "wrappedScalar": ({"value": [0.25]}, [0.25], "binding"),
+    "wrappedVector": ({"value": [0, 0.5, 1], "user": None}, [0, 0.5, 1], "binding"),
+    "wrappedLong": ({"value": [0, 1, 2, 3, 4]}, [0, 1, 2, 3, 4], "binding"),
+    "scriptArray": ({"value": [0, 0.5, 1], "script": "export function update(v) { return v; }",
+                     "scriptproperties": {"speed": 0.5}}, [0, 0.5, 1], "binding"),
+    "timelineArray": ({"value": [0.25], "animation": {
+        "c0": [keyframe(0, 0.25), keyframe(30, 0.75)],
+        "options": {"fps": 30, "length": 30, "mode": "loop"}}}, [0.25], "binding"),
+    "numberControl": (0.25, [0.25], "number"),
+    "stringControl": ("0 0.5 1", [0, 0.5, 1], "vector"),
+    "filteredStringControl": ("noise 0.25", [0.25], "string"),
+    "wrapperStringControl": ({"value": "0 0.5 1"}, [0, 0.5, 1], "binding"),
+    "emptyArray": ([], None, "unknown"),
+    "boolArray": ([0, True, 1], None, "unknown"),
+    "stringArray": ([0, "0.5", 1], None, "unknown"),
+    "nullArray": ([0, None, 1], None, "unknown"),
+    "objectArray": ([0, {"value": 0.5}, 1], None, "unknown"),
+    "wrappedBadArray": ({"value": [0, False, 1]}, None, "binding"),
+    "wrappedUnknown": ({"value": {"coordinates": "0 1 2 3 4"}}, None, "binding"),
+    "missingValue": ({"minimum": 0, "maximum": 1}, None, "binding"),
+    "boolValue": (True, None, "unknown"),
+    "wrappedBool": ({"value": False}, None, "binding"),
+}
+SHADER_VALUE_NESTED_CASES = {
+    "nestedNumber": {"value": {"value": {"value": 0.25}}},
+    "nestedString": {"value": {"value": "0 0.5 1"}},
+    "deepString": {"value": {"value": {"value": "0 0.5 1"}}},
+    "nestedArray": {"value": {"value": [0, 0.5, 1]}},
+    "nestedBool": {"value": {"value": True}},
+}
+
+
+def assert_numeric_shader_values(test, values):
+    for name, (_, expected, kind) in SHADER_VALUE_NUMERIC_CASES.items():
+        with test.subTest(constant=name):
+            value = values[name]
+            test.assertEqual(value["valueKind"], kind)
+            test.assertEqual(value["hasComponents"], expected is not None)
+            test.assertEqual(value["components"], expected or [])
+            if expected is not None and not isinstance(SHADER_VALUE_NUMERIC_CASES[name][0], str):
+                test.assertEqual([float(token) for token in value["rawValue"].split()], expected)
 
 SCENE_FIXTURE = {
     "version": 3,
@@ -219,6 +267,14 @@ SCENE_FIXTURE = {
     ],
 }
 
+SCENE_FIXTURE["objects"].append({
+    "id": 70, "image": "models/user/renamed.json", "effects": [{
+        "file": "effects/renamed/effect.json", "passes": [{
+            "constantshadervalues": {name: case[0] for name, case in SHADER_VALUE_NUMERIC_CASES.items()}
+        }]}]})
+SCENE_FIXTURE["objects"][-1]["effects"][0]["passes"][0]["constantshadervalues"].update(
+    SHADER_VALUE_NESTED_CASES)
+
 HARNESS_SOURCE = r'''
 import Foundation
 
@@ -308,6 +364,11 @@ enum Harness {
                     for (name, value) in pass.constantShaderValues {
                         constants[name] = [
                             "valueKind": value.valueKind,
+                            "rawValue": value.rawValue,
+                            "hasComponents": value.components != nil,
+                            "components": value.components ?? [],
+                            "bindingKeys": value.bindingKeys,
+                            "script": value.scriptSource ?? "-",
                             "userBinding": value.userBinding ?? "-",
                             "userValueKind": value.userValueKind?.rawValue ?? "-",
                             "hasTimeline": value.timeline != nil,
@@ -331,6 +392,8 @@ enum Harness {
             entry["constants"] = constants
             payload["\(id)"] = entry
         }
+        payload["nonfiniteArrayRejected"] =
+            SceneDocumentLoader.shaderValue(from: [Double.infinity]).components == nil
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -341,10 +404,13 @@ enum Harness {
 class SceneTimelineDocumentTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-scene-timeline-doc-"
-        )
-        directory = Path(cls.temporary_directory.name)
+        cls.temporary_directory = None
+        if evidence := os.environ.get("MWX_SCENE_DOCUMENT_EVIDENCE"):
+            Path(evidence).mkdir(parents=True, exist_ok=True)
+            directory = Path(tempfile.mkdtemp(prefix="scene-timeline-doc-", dir=evidence))
+        else:
+            cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-timeline-doc-")
+            directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         scene = directory / "scene.json"
@@ -361,16 +427,38 @@ class SceneTimelineDocumentTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+        (directory / "compile.stdout").write_text(compilation.stdout)
+        (directory / "compile.stderr").write_text(compilation.stderr)
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
             [str(binary), str(scene)], check=True, capture_output=True, text=True
         )
+        (directory / "run.stdout").write_text(completed.stdout)
+        (directory / "run.stderr").write_text(completed.stderr)
         cls.result = json.loads(completed.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        if cls.temporary_directory is not None:
+            cls.temporary_directory.cleanup()
+
+    def test_numeric_arrays_preserve_full_values_and_wrapper_metadata(self):
+        values = self.result["70"]["constants"]
+        assert_numeric_shader_values(self, values)
+        self.assertEqual(values["wrappedVector"]["userValueKind"], "null")
+        self.assertEqual(values["scriptArray"]["bindingKeys"], ["script", "scriptproperties", "value"])
+        self.assertIn("update", values["scriptArray"]["script"])
+        self.assertTrue(values["timelineArray"]["hasTimeline"])
+        self.assertEqual(values["timelineArray"]["mode"], "loop")
+        self.assertTrue(self.result["nonfiniteArrayRejected"])
+
+    def test_existing_document_nested_scalar_and_string_scope_stays_local(self):
+        values = self.result["70"]["constants"]
+        self.assertEqual(values["nestedNumber"]["components"], [0.25])
+        self.assertEqual(values["nestedString"]["components"], [0, 0.5, 1])
+        for name in ("deepString", "nestedArray", "nestedBool"):
+            self.assertFalse(values[name]["hasComponents"], name)
 
     def test_layer_alpha_timeline_is_retained(self) -> None:
         entry = self.result["10"]

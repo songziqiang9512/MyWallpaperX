@@ -17,6 +17,15 @@
 
 Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
 
+<a id="shader-value-numeric-arrays"></a>
+### 数值数组的单次输入归一
+
+目标是让同一作者数值以JSON数字数组或现有数字字符串表达时，模型材料及通用uniform收到等值分量。原SceneDocument与AssetCatalog两份值层投影由现Format的SceneDocument+ShaderValue承接一次；两caller保各自wrapper元数据及Timeline职责，Catalog不借此接入Timeline。Document原有nested scalar/string解包仍归原caller，Catalog不新增该形状，两者不接nested数组。两处重复数值/字符串投影退出，消费者不新增raw解码或数组分支，原完整scalar证明保留。
+
+裸数组与wrapper.value数组只接真实有限数值元素，保完整顺序与项数；布尔、字符串、对象或null混入时整项无components，不compactMap拼出错值。单项归number、多项归vector，wrapper仍binding，不新增array valueKind；raw以数字token空格连接，单项保现scalar完整证明。空/错型及未知wrapper.value可保诊断文本但不得从字典调试描述抽数字。既有数字字符串语义、user:null、script/scriptproperties/bindingKeys和Document Timeline保留，不放宽动态资格或消费者形状合同。
+
+只在原冷入口处理，无新owner/缓存/ABI/普通帧工作；原Format/Assets语义构建身份自然失效缓存，不加版本迁移或运行时清库。验收扩实际Document、Catalog及模型材料门，核裸/包装、1/3/5/16项完整分量及坏项的健康peer、元数据和相邻动态门；真实球资产固定相机/灯/几何仅color数组与等值字符串作旧新实际Metal/终端对照，独立作者保持。超过4项在入口完整保存，不借测试自行打包UBO授产品uniform供货；原消费者类型/维数合同保持，最小完成范围是两入口与实际模型颜色，不授一般uniform数组、新动态数组target、矩阵GPU、任意嵌套形状或官方像素。 两入口与真实模型颜色已闭合，当前资格见[模型运行证据](model-runtime-evidence.md#model-numeric-arrays)。
+
 <a id="script-timeline-uniform"></a>
 ### Script 与 Timeline 的材质值通道
 

@@ -410,9 +410,9 @@ class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
         support = STUBS.replace(swift_declaration(STUBS, "enum SceneShaderUserValueKind {"), "")
         support = support.replace(swift_declaration(support, "    struct ShaderValue {"), "")
         parser = "\nenum SceneDocumentLoader {\n" + "\n".join(swift_declaration(document, signature) for signature in [
-            "    nonisolated static func shaderValue(", "    nonisolated private static func doubleValue(",
-            "    nonisolated private static func stringValue(", "    nonisolated private static func scriptProperties(",
-            "    nonisolated private static func numericComponents(", "    nonisolated private static func uniqueSorted(",
+            "    nonisolated static func shaderValue(", "    nonisolated private static func scriptProperties(",
+            "    nonisolated private static func stringValue(",
+            "    nonisolated private static func uniqueSorted(",
         ]) + "\n}\n"
         surface = swift_declaration((SCENE_ROOT / "Rendering/Metal/SceneStaticModelMaterial.swift").read_text(),
                                     "struct SceneStaticModelSurfaceProfile:")
@@ -604,6 +604,49 @@ struct SceneResourceView {
 }
 '''
         self.run_surface_profile_probe(main, "chroma-surface-admission", "MWX_MODEL_CHROMA_EVIDENCE")
+
+    def test_real_numeric_arrays_reach_surface_and_complete_scalar_consumers(self):
+        main = r'''
+@main enum NumericArraySurfaceProbe {
+ static func main() {
+  func parsed(_ raw:Any)->SceneDocument.ShaderValue {SceneDocumentLoader.shaderValue(from:raw)}
+  let white=SIMD3<Float>(repeating:1), tint=SIMD3<Float>(0,0.5,1)
+  func makeProfile(_ constants:[String:SceneDocument.ShaderValue])->SceneStaticModelSurfaceProfile? {
+   let pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"renamed-surface",passIndex:0,
+       shaderPath:"chroma4",combos:["LIGHTING":1,"REFLECTION":1],constantShaderValues:constants)
+   return ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:.init())
+  }
+  for wrapped in [false,true] {
+   func input(_ value:Any)->Any {wrapped ? ["value":value,"user":NSNull()] : value}
+   let constants=["metallic":parsed(input([0.25])),"roughness":parsed(input([0.75])),
+                  "reflectivity":parsed(input([0.5])),"speculartint":parsed(input([0,0.5,1])),
+                  "color":parsed(input([0.25,0.5,1]))]
+   let pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"renamed-surface",passIndex:0,
+       shaderPath:"chroma4",combos:["LIGHTING":1,"REFLECTION":1],constantShaderValues:constants)
+   let profile=makeProfile(constants)!
+   precondition(profile.metallic == 0.25 && profile.roughness == 0.75 && profile.reflectivity == 0.5)
+   precondition(profile.specularTint == tint)
+   precondition(SceneMaterialPropertyBindingCompiler.staticComponents("metallic",instance:nil,
+       pass:pass,count:1,fallback:[0],requiresCompleteScalar:true) == [0.25])
+   precondition(SceneMaterialPropertyBindingCompiler.staticComponents("color",instance:nil,
+       pass:pass,count:3,fallback:[1,1,1]) == [0.25,0.5,1])
+   let bad:[Any] = [[0,0.5], [0,0.5,1,2], [0,true,1], [0,"0.5",1], [0,NSNull(),1],
+                   [0,Double.infinity,1], [0,Double.nan,1], ["coordinates":"0 0.5 1 2 3"]]
+   for raw in bad {
+    let fallback=makeProfile(constants.merging(["speculartint":parsed(input(raw))]) {_,new in new})!
+    precondition(fallback.metallic == 0.25 && fallback.specularTint == white)
+   }
+   precondition(makeProfile(constants.merging(["metallic":parsed(input([0.25,0.5]))]) {_,new in new}) == nil)
+   precondition(makeProfile(constants.merging(["metallic":parsed(input([true]))]) {_,new in new}) == nil)
+  }
+  let long=parsed([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+  precondition(long.components == (0..<16).map(Double.init))
+  precondition(long.rawValue.split(separator:" ").count == 16)
+  print("numeric-array-surface: OK")
+ }
+}
+'''
+        self.run_surface_profile_probe(main, "numeric-array-surface", "MWX_MODEL_ARRAY_EVIDENCE")
 
     def test_opt_in_complete_scalar_rejects_filtered_plain_and_wrapper_values(self):
         main=r'''

@@ -151,3 +151,15 @@
 原343五秒F141/request1/CB527375944320/main527370362368的112/114到主画布；84原typed指数.54、radius6000/I3、cone72.29/77.94与parent57已保，不据自然相位图单独归因。独立3453730450自然20s/after17，F780/request1/CB520733231744/main520724060416的53/77具体part/306/340/342绘制。两场源摘要=冻结matrix、App签名前后核同，终端地表/云/大气/星空/时钟与月面/轨道/标题完整，同capture seal/GPUcompleted/trunc0并排空。spot-light failed已定位为未请求volume时的诊断，不称surface失败，留队列归原owner。
 
 原作者报告/图/日志归`.artifacts/scene-evidence/runs/scene-spot-radial-20261115`；真实球指数控制、225模型/36Spot图像与原邻例、入口/最终finite门、局部失败、构建及独审归`.artifacts/scene-spot-radial-20261115`。
+
+## 模型材质的数值数组 <a id="model-numeric-arrays"></a>
+
+2026-11-15按[输入归一合同](render-graph-shader-coverage.md#shader-value-numeric-arrays)，现Format ShaderValue共享raw/kind/components投影退Document/Catalog重复数值解析。真数字数组保全量顺序，单项保number/raw单token，布尔/混型/空及未知包装不从调试文本抽数字；旧字符串和原scalar完整证明、Document-only Timeline/既有nested scalar/string、Catalog无nested及wrapper元数据保原。三产品净减13行，无新owner/cache/ABI/普通帧解析；原构建语义身份覆盖Format/Assets，不另清播放缓存。重复函数组103→102并由原门收紧基线。
+
+同23个数组/字符串/坏值载荷在旧两入口保26条失败子断言；最终Document/模型材料/vec2相邻19方法及Catalog12方法共31方法通过。实际parser核1/3/5/16项完整值、user:null/script/properties/Timeline及nested差异，模型真实prepared字段核颜色/单项scalar，无复刻解析或BRDF。首候选误删无关normalizedPath的编译失败已恢复并由最终门覆盖，保失败收据；不授一般uniform数组、矩阵GPU或新动态target。
+
+普通Debug41.627s，三产品/project/锁文件前后相同；签名/原helpers通过，execa839520a…7fbd0、dylibdf225e0c…76137a，metallib仍4957688f…83bf1。复用358原球几何/两TEX，自有无脚本scene的相机/world/spot/曝光/材料其余值冻结，只改color=[.2,.7,1]或等值字符串。四场均F94/request1，旧array/string的CB536677401472/517652005760，新array/string为533174240128/511699600256；456进入各自main/seal/GPU完成，零截断并排空。旧array typed颜色unknown、旧string及新两场vector[.2,.7,1]；新array、新string与旧string三PNG/RGBA逐字节相等。旧array→string有90370个RGB像素改变，固定32²ROI平均RGB[52.71,48.98,42.46]→[12.02,35.67,42.46]，终端alpha相同；这是颜色贡献，不授几何覆盖或model uniform GPU读回。
+
+原3437487219自然5s，F136/CB526867416832的112/114到main526816402304；独立3453730450自然20s/after17，F771/CB521702624768的53、77所选part及306/340/342到main521616583296。两原入口摘要匹配、同main/seal/GPU及排空，地表/云/大气/时钟和月面/轨道/标题/时钟完整；不认领原作者数组命中或自然钟严格A/B。首次benchmark多传一层Scene目录，输入缺失且未启动App，修正参数后才取得这些资格。
+
+自有输入/前后四图、31方法及保留失败、构建身份与独审归`.artifacts/scene-model-numeric-arrays-20261115`；原作者报告/必要图和日志归`.artifacts/scene-evidence/runs/scene-model-numeric-arrays-20261115`。旧最小数组复现解除未解决保护；官方像素、性能及更多shader消费者未授。

@@ -20,6 +20,9 @@ if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
 from scene_swift_source_sets import scene_swift_sources_by_basename
 from script.tests.test_scene_puppet_mesh import build_attachment_mdl
 from script.tests.test_scene_particle_assets import SWIFT_SOURCES as PARTICLE_GRAPH_SOURCES
+from script.tests.test_scene_timeline_document import (
+    SHADER_VALUE_NUMERIC_CASES, SHADER_VALUE_NESTED_CASES, assert_numeric_shader_values,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -124,6 +127,16 @@ enum Harness {
         let tint = catalog.materials.first {
             $0.relativePath == "materials/workshop/bar.json"
         }?.passes.first?.constantShaderValues["g_TintColor"]
+        let numericValues = catalog.materials.first {
+            $0.relativePath == "materials/workshop/bar.json"
+        }!.passes[0].constantShaderValues.mapValues { value -> [String: Any] in
+            ["valueKind": value.valueKind, "rawValue": value.rawValue,
+             "hasComponents": value.components != nil, "components": value.components ?? [],
+             "userValueKind": value.userValueKind?.rawValue ?? "-",
+             "hasTimeline": value.timeline != nil, "bindingKeys": value.bindingKeys,
+             "script": value.scriptSource ?? "-",
+             "speed": value.scriptProperties?["speed"]?.numberValue ?? -1]
+        }
         let puppetModel = catalog.models.first { $0.relativePath == "models/puppet-owner.json" }
         let brokenPuppetModel = catalog.models.first { $0.relativePath == "models/broken-puppet-owner.json" }
         let renamedPuppetModel = catalog.models.first { $0.relativePath == "models/renamed-owner.json" }
@@ -136,6 +149,7 @@ enum Harness {
             "materialCatalogPaths": catalog.materials.map(\.relativePath).sorted(),
             "shaderContractIdentities": catalog.shaderContracts.map(\.identity).sorted(),
             "tintScript": tint?.scriptSource ?? "missing",
+            "numericValues": numericValues,
             "tintBindingKeys": tint?.bindingKeys ?? [],
             "tintRainbow": tint?.scriptProperties?["rainbow"]?.boolValue
                 ?? false,
@@ -282,6 +296,8 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
                 "passes": [{
                     "shader": "workshop/tint",
                     "constantshadervalues": {
+                        **{name: case[0] for name, case in SHADER_VALUE_NUMERIC_CASES.items()},
+                        **SHADER_VALUE_NESTED_CASES,
                         "g_TintColor": {
                             "value": "1 1 1",
                             "script": "export function update(value) { return value; }",
@@ -540,6 +556,17 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         )
         self.assertTrue(self.result["tintRainbow"])
         self.assertEqual(self.result["tintSpeed"], 0.5)
+
+    def test_numeric_arrays_preserve_full_values_without_adding_material_timelines(self):
+        values = self.result["numericValues"]
+        assert_numeric_shader_values(self, values)
+        self.assertEqual(values["wrappedVector"]["userValueKind"], "null")
+        self.assertEqual(values["scriptArray"]["bindingKeys"], ["script", "scriptproperties", "value"])
+        self.assertIn("update", values["scriptArray"]["script"])
+        self.assertEqual(values["scriptArray"]["speed"], 0.5)
+        self.assertFalse(values["timelineArray"]["hasTimeline"])
+        for name in SHADER_VALUE_NESTED_CASES:
+            self.assertFalse(values[name]["hasComponents"], name)
 
     def test_real_attachment_reader_keeps_global_source_and_renamed_records(self) -> None:
         self.assertEqual(self.result["puppetNames"], ["hand", "orb"])
