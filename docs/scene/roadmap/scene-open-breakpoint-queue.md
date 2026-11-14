@@ -17,8 +17,8 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 世界模型轮廓光 · 3453730450/53 | 活动材质RIMLIGHTING=1，stock rimamount缺省2/rimexponent缺省4，原模型资源/Metal仍无消费者。沿原材质准备、扰动后world normal与view方向，在既有颜色/fog/alpha次序接入明确自有视角辐射，不另造LightSnapshot、BRDF或按最终RGB拟合月色。核开关0/任意非零、amount0、正面/侧面、无直接灯、normal/深度遮挡与独立作者；官方灯内rim尚未取得配对像素，不因其不足停工，也不冒称自有无灯rim为官方等价。 |
-| 模型lookup的typed用户纹理 | 渐变slot4沿静态文件链供货，明确userTextureInputs[4]而无文件时只局部缺lookup，不能由stock默认冒充；当前未接用户provider或完整user/file优先级。后续沿原候选/ready与typed资源/条件热更新消费者接入，不复制provider排序、不把本批静态正常图授为动态资格；尚无活动作者首错，不抢世界模型轮廓光。 |
+| Cloud Chroma世界受光 · 3437487219/114 | 原Cloud_Cover MDL→DefaultMaterial.json→stock chroma4，无stage覆盖，8192×4096云纹已实到main/GPU且完整，不是基础缺图。作者metallic .1/roughness0/speculartint(0,.7215686,1)/tintpigmentation .2未进入固定模型消费者；原SurfaceProfile只generic4，chroma4仍legacy Lambert/0.30灯能量。场景有活动57/84/150直接灯。先核共同MR进入原profile/shared权重的语义与等值标量像素，pigment另沿真实slot8 noise消费者，不复制BRDF/灯owner或把普通字段blind alias；roughness0不授有限高光，不把specularTint本身夸成已证可见收益。以冻结真实云球面同灯开关与独立作者核结果，不按旧参考亮侧调灯；旧精确受光、闪烁/collision仍待相应同条件ROI。 |
+| 模型lookup与rim的用户输入 | 渐变slot4沿静态文件链供货，明确userTextureInputs[4]而无文件时只局部缺lookup，不能由stock默认冒充；当前未接用户provider或完整user/file优先级。后续沿原候选/ready与typed资源/条件热更新消费者接入，不复制provider排序、不把本批静态正常图授为动态资格；rim动态值目前只局部关闭该项；用户provider/热更新尚无活动作者首错，不抢已证世界模型消费者。 |
 | 图像分量图的显式combo优先级 | 原图像 SceneBaseMaterialLightingProfile/SceneLitImageLayerPipeline 用header∩allowed且只接受0/1，会抹掉作者显式非零分量、PBRMASKS非零也被拒；原显式宏优先级与stock shader均无这条header许可。模型已按原整数宏零/非零和元数据仅作省略默认纠正；图像应沿同冷profile/typed map binding退该门，保总开关0、分量0、真实缺图/可选失败及标量响应。未得活动图像作者首错，不抢世界模型主线；按PNG无header显式1/2/-1与TEX省略对照真实像素验收。 |
 | Shader 双 stage 同名值边界 | 自有真实编译反例：vertex varying carried 与 fragment uniform carried 各自合法，但原 GenericSourceNormalizer 将统一 uniform block 注入 vertex，实际 strict link 为 redefinition；本批隐式 varying 链接保原声明，不授两后端健康。沿原 stage resource/ABI 投影区分作用域，保共享 uniform 的类型/布局合同，以 actual authored link 与 normalized/Metal 正反例纠正；未得活动作者命中，不抢世界模型可见缺口。合法声明与函数放同一行另触原 declarationUnsupported，不能将换行当语言许可；两项各由原声明/资源投影纠正。失败归 `.artifacts/scene-model-phase-20261114`。 |
 | REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
@@ -138,7 +138,6 @@
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
 | 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
-| 3437487219 | [本轮短窗](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)地表、云纹、昼夜界、大气与时钟完整，未得基础缺图首错。Cloud Chroma/MR/specular/pigment与精确受光、闪烁/collision仍须同条件ROI；不据旧参考亮侧差或默认PNG调灯。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |
 | 3768724269 /3287715210 | 前者的光束范围/根部/右上渐变仍需定位；后者旧眼周/横移细竖纹尚无同条件native差异。[328体积开关STOP](../capabilities/runtime-evidence-current.md#point-volume-328-stop)未给出明确可逆贡献，85不再列优先归因；不由旧反馈扩正交/阴影合同，不原样补跑，待新的明确ROI/贡献。 |

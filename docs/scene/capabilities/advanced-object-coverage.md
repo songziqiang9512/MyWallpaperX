@@ -70,9 +70,20 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 原Resource/TextureLoader按data用途与真实格式准备一份typed lookup binding：纹理、sampler、R8/RG88复制R或其它RGB，以及由原UV变换一次投影的水平中心采样线(origin+.5*yAxis,xAxis)。Entry→原Frame→Pipeline直接携带；新增一个16B uniform及texture8/sampler3，沿原lightCounts空分量编码禁用/R/RGB，不加varying、PSO、pass、池、cache或owner。普通帧不解析/取资源/重投影不变UV；无图仅保固定ABI与未采样占位绑定，不授零成本。
 
-本引擎明确算法：对实际normal-map扰动后的signed N·L映射u=(N·L+1)/2，沿采样线取得RGB漫反射cosine响应，替换原SurfaceResponse的漫反射cosine因子。共享owner仍唯一计算Fresnel/GGX/Smith，原正向NoL单独供specular；两个实际caller各算一次dot并显式交入两响应，图像仍交普通NoL，不加overload/sentinel或复制BRDF。模型三灯共用原response，radial/cone/light/color/真实shadow visibility继续各乘一次，不再把ramp乘NoL或最终RGB。ambient/skylight、emission、reflection、view tint、fog、覆盖与深度保原次序。没有官方像素对照时依此通用算法验收，不拟合月色；rim独立后续，不把本批授为完整stock风格光照。
+本引擎明确算法：对实际normal-map扰动后的signed N·L映射u=(N·L+1)/2，沿采样线取得RGB漫反射cosine响应，替换原SurfaceResponse的漫反射cosine因子。共享owner仍唯一计算Fresnel/GGX/Smith，原正向NoL单独供specular；两个实际caller各算一次dot并显式交入两响应，图像仍交普通NoL，不加overload/sentinel或复制BRDF。模型三灯共用原response，radial/cone/light/color/真实shadow visibility继续各乘一次，不再把ramp乘NoL或最终RGB。ambient/skylight、emission、reflection、view tint、fog、覆盖与深度保原次序。没有官方像素对照时依此通用算法验收，不拟合月色；轮廓响应沿[轮廓合同](#model-rim-lighting)独立准备，两项都不授完整stock风格光照。
 
 验收用原实际资源准备→Frame/Metal门的负/零/正signed夹角、常量/彩色ramp及等值灯色邻例，核R8复制R、非零整数、改名、normal扰动、独立有效域/sampler、禁用/unlit/缺图/覆盖shader、阴影/衰减/环境/HDR/alpha/depth；不抄BRDF进测试。冻结真实月球资产同钟前后及on/off输入核像素贡献，并核原月球活动53和77具体part的实际lookup供货与完整图，独立无gradient作者回归。共享SurfaceResponse变更按影响补图像与模型原行为门，既有同身份有效结果复用。当前结果见[运行证据](model-runtime-evidence.md#model-shading-gradient)。
+
+<a id="model-rim-lighting"></a>
+### 模型的轮廓漫反射
+
+活动stock generic4的RIMLIGHTING沿原直接光执行，不另造灯或视角发光owner。沿原SurfaceProfile资格与LIGHTING，明确任意非零combo才冷准备rimamount/rimexponent，省略默认2/4；0或省略开关关闭。复用原staticComponents的实际静态值合同，错型/动态/不完整值仅令rim amount为0，保原M/R/反射profile；不新增键名单、编辑器范围许可或热解析。数值在冷入口归一到非负GPU Float可表示域，负数归0，超出Float上限夹到其最大有限值；显式amount0与exponent0均合法；原typed ShaderValue尚未区分的错型动态声明仍交原helper的完整声明边界，不删有实际消费者的门。
+
+本引擎明确自有算法：扰动后的world normal与当前view在片元求一次rimWeight=amount×(1−saturate(abs(N·V)))^exponent；exponent0定义曲线恒1，包括正面边界。原model SurfaceResponse把正NoL×rimWeight加到已有diffuseCosine，再交同一shared BRDF，Fresnel/GGX、每灯color/intensity、radial/cone与真实shadow visibility保持原乘法与次序。abs使正背面轮廓对称；此项属于漫反射，metallic1无贡献，NoL0、无直接灯、纯ambient与完全阴影也无rim贡献，即使gradient照亮背半球。该语义比独立自发光更贴物体受光/遮挡目标；不据阅读的stock灯内结构宣称官方像素一致。
+
+在原SurfaceProfile加两值、原uniform末加16B参数，amount0表示关闭；没有新增enabled状态、texture、varying、PSO、pass、池、cache、Frame owner或共享BRDF API。amount0或没有直接灯时不求pow；所有实际灯复用同一片元视角权重。原normal、view、gradient、view tint、fog、PMA/alpha与depth沿当前链；旧‘已保存combo却无消费者’退出，不把rim用作最终RGB增亮、环境或阴影外补色。
+
+验收分静态准备和真实像素：原真实static helper及实际surfaceProfile调用核缺省/普通/user:null、动态/错型与raw/count/finite变体，只退rim而其它profile保持；不拿GPU载体的已类型化静态替身冒充入口验证。复用原Frame/Metal门，以同几何/相机事实的rim闭式权重和独立普通灯色控制核正面/侧面/背面、0/非零整数、exponent0、normal/gradient/金属、三灯/衰减/cone/真实shadow、无灯/ambient/发光/反射/HDR/alpha/depth及改名，不复制BRDF。复用冻结真实月球资产同钟RIM1/0与旧App，核实际像素贡献；原月球和独立作者补完整图。可复用同身份载体与已证输入，只补本批影响范围；rim用户provider/动态MR及官方像素不由静态正例外推。当前结果见[运行证据](model-runtime-evidence.md#model-rim-lighting)。
 
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射

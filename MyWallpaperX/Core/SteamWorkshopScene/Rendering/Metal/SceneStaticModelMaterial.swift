@@ -44,6 +44,8 @@ struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
     let metallic: Float
     let roughness: Float
     var reflectivity: Float = 0
+    var rimAmount: Float = 0
+    var rimExponent: Float = 4
 }
 
 struct SceneStaticModelViewTint {

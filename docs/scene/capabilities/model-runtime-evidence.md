@@ -85,3 +85,15 @@
 原3453730450自然20s/after17，F826/request1/CB515873867520的53、77一个实际part及306/340/342复用同一64×2 texture进入main515864339840/seal/GPU，终端月面、星空、轨道、标题与时钟完整，零截断并排空；不是77全部part资格。独立3437487219原包5秒PASS，F141/request1/CB530126540288的112/114无gradient，地表/云/大气/时钟完整并排空。算法为本引擎明示漫反射风格合同，未授官方像素、rim、用户provider/热更新或性能。
 
 当前原作者报告、必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-gradient-20261114`；实际资产开关与旧/中间/最终身份、56/60/36输入、局部失败/修正、相邻门、独审和构建收据归 `.artifacts/scene-model-gradient-20261114`。
+
+## 世界模型的轮廓漫反射 <a id="model-rim-lighting"></a>
+
+2026-11-14按[轮廓合同](advanced-object-coverage.md#model-rim-lighting)，原SurfaceProfile冷准备amount/exponent，原shader每片元一次view曲线只增强每灯diffuseCosine；保原Fresnel/GGX、radial/cone与真实shadow，shared BRDF API/Frame不改。metallic1、NoL0、无直接灯/纯ambient与完全阴影无rim，exponent0恒1，amount0跳pow。错型/动态值仅关rim不丢M/R/反射profile。四产品净+32行，只新增16B uniform，无texture、varying、PSO、pass、池、cache或enabled状态；关闭仍有固定ABI与统一片元管线成本，不授零成本/性能收益。
+
+同一Swift/Metal载体四payload的21方法通过，45 Rim、56 gradient、60分量、36 normal共197实际输入，source/support及binary/library逐次核复用身份。Rim闭式增益只转为独立普通灯色控制，roughness0排除有限specular；固定pixel的独立pinhole先核actual camera/world/normal事实，再验正面/侧面/背面、0/2/-1/省略、exponent0、normal/彩色gradient/NoL0/纯金属、三灯/径向/cone/真实caster阴影、无灯/ambient/emission/reflection、HDR/alpha0/depth与改名，不复制BRDF。真实ShaderValue/Timeline与原parser六声明、staticComponents及actual surfaceProfile的CPU门6.248s通过：含user:null、script:17/animation:17、有效timeline/script、坏raw/count/finite，MR/反射保持，仅rim0；该门的stock VFS只是输入边界，不授资源运行。三个相邻方法15.835s通过，保完整标量/typed wrapper，非零Rim与exponent0经两种动态材料copy均保持整profile。CPU门只锁实际动态声明和完整标量边界。
+
+普通Debug30.256s、四产品/project/锁文件前后字节一致，签名与原helpers通过；exec2c79cb11…a882、dylib4dd02626…c5a1、metallibb2053bb2…c80c。固定Date/SceneTime的同真实月球资产控制只改RIMLIGHTING一字节，gradient1、原MR/normal/几何/相机/单灯/world不变。旧on为F94；当前on/off均F95/request1，CB502327609088、522091135872的实际normalRG/MR3/gradient64×2 R数据到各自main/seal/GPU完成，零截断并排空；源、旧/新protocol、App与四产品SHA不变。off与旧on及上一梯度on逐PNG相同；1280×831全图比较、排除固定背景的颜色并集167198像素中67583（40.4209%）改变，平均绝对RGB差3.70457 byte、最大143，右上受光轮廓增强。颜色并集不授几何覆盖变化、原景严格A/B或官方像素。
+
+原3453730450自然20s/after17，F877/request1/CB536284483072的模型/normal/MR/gradient到main536336657024/seal/GPU，月面、轨道、星空、标题与时钟完整；独立3437487219原包5秒PASS，F158/request1/CB513468403200的112/114到main513518951296/seal/GPU，地表/云/大气/时钟完整，均零截断并排空。该独立云模型仍有chroma4表面参数缺口，不能把完整图授为完整材质受光；当前后续只归开放队列。源码、测试、实际图及最终身份独审无阻断。
+
+原作者报告/必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-rim-20261114`；真实月球开关、旧/新App输入身份、197输入与CPU/相邻门、审查及构建收据归 `.artifacts/scene-model-rim-20261114`。用户动态rim、其它材质族和官方像素仍未授；本批未改最终输出或照明owner。

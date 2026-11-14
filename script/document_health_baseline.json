@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 223,
-      "bytes": 44170
+      "lines": 234,
+      "bytes": 46994
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 190,
-      "bytes": 51774
+      "lines": 189,
+      "bytes": 51798
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 87,
-      "bytes": 24533
+      "lines": 99,
+      "bytes": 27905
     }
   },
   "archives": [
@@ -515,29 +515,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "7e2bb3dddee7f150b7830c421cdb4539a91a7e635c4ddabe83a9279dbab99245",
-      "after": "f6d41fcbedc6f8703a657f18b364020efec855c429e17e8f975df2c6347d79a6",
-      "owner": "Existing Scene model material and shared surface-response consumers",
-      "reason": "Define signed shading-gradient diffuse response with one typed data lookup and shared BRDF, preserve image arithmetic, qualify real lunar switches and author output. Retire solved gradient queue facts while retaining rim and typed-provider gaps; preserve concrete negative/default ownership boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shading-gradient"
+      "before": "f6d41fcbedc6f8703a657f18b364020efec855c429e17e8f975df2c6347d79a6",
+      "after": "23631c53607935a4ebfdd2d27ce381a0dbd78628699c27c7e578f107ba75035a",
+      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
+      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "b96796ddb0057741a17732fb773789a373cfcaaf1582b4a5b9e2888b3582ea61",
-      "after": "732372c52f1878ce6b2845139c1a5d560774b86800d9140456b6abcf40b65ece",
-      "owner": "Existing Scene model material and shared surface-response consumers",
-      "reason": "Define signed shading-gradient diffuse response with one typed data lookup and shared BRDF, preserve image arithmetic, qualify real lunar switches and author output. Retire solved gradient queue facts while retaining rim and typed-provider gaps; preserve concrete negative/default ownership boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shading-gradient"
+      "before": "732372c52f1878ce6b2845139c1a5d560774b86800d9140456b6abcf40b65ece",
+      "after": "f6ffe6d3e9186f784154e480b6dd4d1c8d49605e93cb8f82ad8e759cbfbcd695",
+      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
+      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "51fab4f05fbdbe972d25c7002a2fe01bc1bcc4c6e84926672cd56eafcac4c915",
-      "after": "448a7c6e486642a47be118c8e72c018d03f84748589bf17aaf308623545013e3",
-      "owner": "Existing Scene model material and shared surface-response consumers",
-      "reason": "Define signed shading-gradient diffuse response with one typed data lookup and shared BRDF, preserve image arithmetic, qualify real lunar switches and author output. Retire solved gradient queue facts while retaining rim and typed-provider gaps; preserve concrete negative/default ownership boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shading-gradient"
+      "before": "448a7c6e486642a47be118c8e72c018d03f84748589bf17aaf308623545013e3",
+      "after": "fdc112f78c04c135c7b3e63e4546018da924cf9ce6ee92fd9666484f702c43ad",
+      "owner": "Existing Scene static model diffuse/material and runtime-evidence consumers",
+      "reason": "Define and qualify direct-lamp diffuse rim with original shadow/BRDF ownership, zero/exponent and local cold-admission boundaries. Retire solved rim queue facts and promote the active Cloud Chroma consumer gap; keep typed-resource and dynamic-value limits explicit without a new authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-rim-lighting"
     }
   ]
 }

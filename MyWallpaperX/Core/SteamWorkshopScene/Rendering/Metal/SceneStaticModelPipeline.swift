@@ -118,6 +118,7 @@ private struct SceneStaticModelUniforms {
     var normalTextureFrame0: SIMD4<Float>
     var normalTextureFrame1: SIMD4<Float>
     var gradientTextureFrame: SIMD4<Float>
+    var rimParameters: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -556,7 +557,9 @@ struct SceneStaticModelPipeline {
             normalTextureFrame1: SIMD4(normalMap?.textureFrame.uniform1.x ?? 0,
                 normalMap?.textureFrame.uniform1.y ?? 0,
                 normalMap != nil && simd_determinant(normalMatrix) < 0 ? -1 : 1, 0),
-            gradientTextureFrame: gradient?.sampleLine ?? .zero
+            gradientTextureFrame: gradient?.sampleLine ?? .zero,
+            rimParameters: SIMD4(material.surfaceProfile?.rimAmount ?? 0,
+                material.surfaceProfile?.rimExponent ?? 4, 0, 0)
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -761,7 +764,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1408
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1424
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -780,6 +783,7 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalTextureFrame0) == 1360
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalTextureFrame1) == 1376
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.gradientTextureFrame) == 1392
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.rimParameters) == 1408
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128

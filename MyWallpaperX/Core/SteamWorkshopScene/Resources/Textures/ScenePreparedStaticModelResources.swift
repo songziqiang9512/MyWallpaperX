@@ -476,10 +476,27 @@ struct ScenePreparedStaticModelResources {
                 "reflectivity", instance: nil, pass: pass, count: 1, fallback: [1],
                 requiresCompleteScalar: true)?.first ?? 0
         } else { reflectivity = 0 }
+        var rimAmount: Float = 0
+        var rimExponent: Float = 4
+        if pass.combos["RIMLIGHTING"].map({ $0 != 0 }) == true,
+           pass.combos["LIGHTING"] != 0,
+           pass.userShaderValues["rimamount"] == nil,
+           pass.userShaderValues["rimexponent"] == nil,
+           let amount = SceneMaterialPropertyBindingCompiler.staticComponents(
+               "rimamount", instance: nil, pass: pass, count: 1, fallback: [2],
+               requiresCompleteScalar: true)?.first,
+           let exponent = SceneMaterialPropertyBindingCompiler.staticComponents(
+               "rimexponent", instance: nil, pass: pass, count: 1, fallback: [4],
+               requiresCompleteScalar: true)?.first {
+            let maximum = Double(Float.greatestFiniteMagnitude)
+            rimAmount = Float(min(maximum, max(0, amount)))
+            rimExponent = Float(min(maximum, max(0, exponent)))
+        }
         return .init(
             metallic: Float(min(1, max(0, metallic))),
             roughness: Float(min(1, max(0, roughness))),
-            reflectivity: Float(min(1, max(0, reflectivity)))
+            reflectivity: Float(min(1, max(0, reflectivity))),
+            rimAmount: rimAmount, rimExponent: rimExponent
         )
     }
 

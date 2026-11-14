@@ -52,6 +52,7 @@ struct SceneStaticModelUniforms {
     float4 normalTextureFrame0;
     float4 normalTextureFrame1; // UV y-axis.xy, model handedness.z
     float4 gradientTextureFrame; // center-line origin.xy, x-axis.zw
+    float4 rimParameters; // amount, exponent, unused, unused
 };
 
 struct SceneStaticModelRasterVertex {
@@ -353,7 +354,7 @@ float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
 static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
     float3 light, float signedNoL, float3 surfaceColor, float2 material,
     texture2d<float> gradientTexture, sampler gradientSampler,
-    float4 gradientFrame, uint gradientChannels) {
+    float4 gradientFrame, uint gradientChannels, float rimWeight) {
     const float noL = clamp(signedNoL, 0.0, 1.0);
     float3 diffuseCosine = float3(noL);
     if (gradientChannels != 0u) {
@@ -362,6 +363,7 @@ static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
         const float3 lookup = gradientTexture.sample(gradientSampler, uv, level(0.0)).rgb;
         diffuseCosine = gradientChannels == 1u ? float3(lookup.r) : lookup;
     }
+    diffuseCosine += noL * rimWeight;
     const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view,
         light, clamp(surfaceColor, 0.0, 1.0), material.x, material.y, true,
         SceneSurfaceAnalyticSchlick, noL, diffuseCosine);
@@ -465,6 +467,13 @@ fragment half4 sceneStaticModelFragment(
     float3 viewDirection = viewLengthSquared > 1e-8
         ? towardCamera * rsqrt(viewLengthSquared)
         : float3(0.0, 0.0, 1.0);
+    float rimWeight = 0.0;
+    if (uniforms.rimParameters.x > 0.0
+        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
+        const float edge = 1.0 - saturate(abs(dot(normal, viewDirection)));
+        const float curve = uniforms.rimParameters.y == 0.0 ? 1.0 : pow(edge, uniforms.rimParameters.y);
+        rimWeight = uniforms.rimParameters.x * curve;
+    }
     float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};
     float pointVisibility[4] = {1.0, 1.0, 1.0, 1.0};
@@ -492,7 +501,7 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 light.xyz, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
                 * uniforms.lightColor[lightIndex].xyz * light.w * visibility;
         } else {
             lighting += uniforms.lightColor[lightIndex].xyz * light.w * max(signedNoL, 0.0) * visibility;
@@ -519,7 +528,7 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * pointVisibility[lightIndex];
         } else {
@@ -553,7 +562,7 @@ fragment half4 sceneStaticModelFragment(
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
-                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w, rimWeight)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * cone * spotVisibility[lightIndex];
         } else {

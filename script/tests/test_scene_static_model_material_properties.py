@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import nullcontext
 import shutil
 import subprocess
 import tempfile
@@ -404,6 +405,108 @@ enum Harness {
 
 
 class SceneStaticModelMaterialPropertyTests(unittest.TestCase):
+    def test_real_shader_value_and_surface_profile_keep_rim_failures_local(self):
+        document = (SCENE_ROOT / "Format/SceneDocument.swift").read_text()
+        support = STUBS.replace(swift_declaration(STUBS, "enum SceneShaderUserValueKind {"), "")
+        support = support.replace(swift_declaration(support, "    struct ShaderValue {"), "")
+        parser = "\nenum SceneDocumentLoader {\n" + "\n".join(swift_declaration(document, signature) for signature in [
+            "    nonisolated static func shaderValue(", "    nonisolated private static func doubleValue(",
+            "    nonisolated private static func stringValue(", "    nonisolated private static func scriptProperties(",
+            "    nonisolated private static func numericComponents(", "    nonisolated private static func uniqueSorted(",
+        ]) + "\n}\n"
+        surface = swift_declaration((SCENE_ROOT / "Rendering/Metal/SceneStaticModelMaterial.swift").read_text(),
+                                    "struct SceneStaticModelSurfaceProfile:")
+        profile = swift_declaration((SCENE_ROOT / "Resources/Textures/ScenePreparedStaticModelResources.swift").read_text(),
+                                    "    static func surfaceProfile(")
+        boundary = r'''
+// This CPU probe supplies only an already stock-qualified namespace.
+// Real root/override selection is exercised by the native resource and App gates.
+struct SceneResourceView {
+ enum Source {case stock}
+ struct Resource {let source:Source}
+ func resolvedResource(relativePath:String)->Resource? {nil}
+}
+'''
+        main = r'''
+@main enum RimSurfaceAdmissionProbe {
+ static func main() {
+  func parsed(_ raw:Any)->SceneDocument.ShaderValue {SceneDocumentLoader.shaderValue(from:raw)}
+  func profile(_ amount:Any?=nil,_ exponent:Any?=nil,combo:Int?=1,lighting:Int=1,
+               users:[String:String]=[:])->SceneStaticModelSurfaceProfile {
+   var constants=["metallic":parsed(0.25),"roughness":parsed(0.75),"reflectivity":parsed(0.5)]
+   if let amount {constants["rimamount"]=parsed(amount)}
+   if let exponent {constants["rimexponent"]=parsed(exponent)}
+   var pass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"surface",passIndex:0,
+       shaderPath:"generic4",combos:["LIGHTING":lighting,"REFLECTION":1],constantShaderValues:constants)
+   if let combo {pass.combos["RIMLIGHTING"]=combo}
+   pass.userShaderValues=users
+   let result=ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:.init())!
+   precondition(result.metallic == 0.25 && result.roughness == 0.75 && result.reflectivity == 0.5,
+                "A bad rim unit must not retire the valid material profile")
+   return result
+  }
+  let valid:[Any] = [2.0,"2e0",["value":2.0],["value":"2","user":NSNull()]]
+  for raw in valid {
+   let result=profile(raw)
+   precondition(result.rimAmount == 2 && result.rimExponent == 4)
+  }
+  precondition(profile().rimAmount == 2 && profile().rimExponent == 4)
+  for combo in [2,-1] {precondition(profile(combo:combo).rimAmount == 2)}
+  let disabled:[Int?] = [nil,0]
+  for combo in disabled {precondition(profile(combo:combo).rimAmount == 0)}
+  precondition(profile(lighting:0).rimAmount == 0)
+  precondition(profile(0).rimAmount == 0)
+  precondition(profile(2,0).rimExponent == 0)
+  precondition(profile(-2).rimAmount == 0)
+  precondition(profile(2,-4).rimExponent == 0)
+  precondition(profile(1e300,1e300).rimAmount == Float.greatestFiniteMagnitude)
+  precondition(profile(1e300,1e300).rimExponent == Float.greatestFiniteMagnitude)
+  let timeline:[String:Any] = ["options":["fps":30,"length":30,"mode":"loop"],
+      "c0":[["frame":0,"value":2],["frame":30,"value":3]]]
+  precondition(parsed(["value":2,"animation":timeline]).timeline != nil)
+  let bad:[Any] = ["2 junk","2 3","inf","nan",NSNull(),[2,3],
+      ["value":2,"user":"gain"],["value":2,"user":17],
+      ["value":2,"script":"export function update(v){return v;}"],
+      ["value":2,"script":17],["value":2,"animation":17],
+      ["value":2,"animation":timeline]]
+  for raw in bad {
+   precondition(profile(raw).rimAmount == 0)
+   precondition(profile(2,raw).rimAmount == 0)
+  }
+  for key in ["rimamount","rimexponent"] {
+   precondition(profile(users:[key:"property"]).rimAmount == 0)
+  }
+  for key in ["script","animation"] {
+   let value=parsed(["value":2,key:17])
+   precondition(value.bindingKeys.contains(key) && value.scriptSource == nil && value.timeline == nil)
+  }
+  print("rim-surface-admission: OK")
+ }
+}
+'''
+        sources = [*SOURCES, SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+                   SCENE_ROOT / "Format/SceneTimelineAnimation.swift"]
+        parent = os.environ.get("MWX_MODEL_RIM_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        directory = (nullcontext(tempfile.mkdtemp(prefix="mwx-rim-admission-", dir=parent)) if parent
+                     else tempfile.TemporaryDirectory(prefix="mwx-rim-admission-"))
+        with directory as temporary:
+            work = Path(temporary)
+            source, binary = work / "Harness.swift", work / "probe"
+            source.write_text("import Foundation\n" + support + parser + boundary + surface
+                              + "\nenum ScenePreparedStaticModelResources {\n" + profile + "\n}\n" + main)
+            compiled = subprocess.run(["xcrun", "swiftc", *map(str, sources), str(source),
+                "-module-cache-path", str(work / "cache"), "-o", str(binary)], capture_output=True, text=True)
+            (work / "compile.stdout").write_text(compiled.stdout)
+            (work / "compile.stderr").write_text(compiled.stderr)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True)
+            (work / "run.stdout").write_text(result.stdout)
+            (work / "run.stderr").write_text(result.stderr)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("rim-surface-admission: OK", result.stdout)
+
     def test_opt_in_complete_scalar_rejects_filtered_plain_and_wrapper_values(self):
         main=r'''
 @main enum CompleteScalarProbe {

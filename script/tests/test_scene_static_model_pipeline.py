@@ -479,7 +479,8 @@ enum MaterialHarness {
         for mode: MTLCullMode in [.none, .back, .front] {
             var authoredCull = base
             authoredCull.cullMode = mode
-            authoredCull.surfaceProfile = .init(metallic: 0.25, roughness: 0.7)
+            authoredCull.surfaceProfile = .init(metallic: 0.25, roughness: 0.7,
+                reflectivity: 0.4, rimAmount: 2, rimExponent: 0)
             let dynamic = authoredCull.resolvingDynamicValues(
                 layerID: 7, snapshot: snapshot
             )

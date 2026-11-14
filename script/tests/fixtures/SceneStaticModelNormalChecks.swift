@@ -53,6 +53,7 @@
             primary.userTextureInputs = [nil, nil, nil, nil, .init(kind: .property, value: "fixture-ramp")]
         }
         primary.shaderPath = item["shader"] as? String
+        primary.userShaderValues = item["userShaderValues"] as? [String: String] ?? [:]
         primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
         var farPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/far.json",
             textureSlots: ["materials/blue.png"], combos: ["LIGHTING": 0], constantShaderValues: [:])
@@ -245,7 +246,7 @@
             output.getBytes(&bytes, bytesPerRow: 4, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0)
             return [Int(bytes[2]), Int(bytes[1]), Int(bytes[0]), Int(bytes[3])]
         }
-        return ["name": name, "rgba": rgba(32, 32), "outside": rgba(0, 0),
+        var result: [String: Any] = ["name": name, "rgba": rgba(32, 32), "outside": rgba(0, 0),
             "encoding": resources[7]!.first!.normalMap?.encoding.rawValue ?? 0,
             "components": resources[7]!.first!.materialMap?.components ?? 0,
             "emissionSeed": resources[7]!.first!.material.emissiveBrightness,
@@ -254,5 +255,19 @@
             "replicatesRed": resources[7]!.first!.gradient?.replicatesRed ?? false,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
+        if item["geometryFacts"] as? Bool == true {
+            func xyz(_ value: SIMD4<Float>) -> SIMD3<Float> { SIMD3(value.x, value.y, value.z) }
+            let world = renderer.staticModelWorld(for: near.id, worldFrames: worlds)
+            let eye = camera.perspectiveEyePosition
+            let unprojected = simd_inverse(camera.reverseDepthViewProjection(usesPerspective: true))
+                * SIMD4<Float>(2 * 32.5 / 64 - 1, 1 - 2 * 32.5 / 64, 0.01, 1)
+            let ray = xyz(unprojected) / unprojected.w - eye
+            let planeNormal = simd_cross(xyz(world.columns.0), xyz(world.columns.1))
+            let position = eye + ray * (simd_dot(planeNormal, xyz(world.columns.3) - eye) / simd_dot(planeNormal, ray))
+            let normal = simd_normalize(SceneStaticModelPipeline.normalMatrix(for: world)! * vector("geometryNormal"))
+            result["geometry"] = ["position": [position.x, position.y, position.z],
+                "eye": [eye.x, eye.y, eye.z], "normal": [normal.x, normal.y, normal.z]]
+        }
+        return result
     }
 }
