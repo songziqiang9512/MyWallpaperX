@@ -132,7 +132,7 @@
             let path = folder.appendingPathComponent(textureSlots[0]!).resolvingSymlinksInPath().path
             let uvScale = (item["albedoUVScale"] as? NSNumber)?.floatValue ?? 1
             loader.candidates[path] = .init(texture: texture, identity: .file(path: path),
-                generation: .immutable(revision: 1), purpose: .straightAlbedo, content: .data,
+                generation: .immutable(revision: 1), purpose: .straightAlbedo, content: .color(.resolved(.straightAlpha)),
                 physicalSize: CGSize(width: albedoWidth, height: 1), mappedSize: CGSize(width: albedoWidth, height: 1),
                 uvTransform: .init(origin: .zero, xAxis: SIMD2(uvScale, 0), yAxis: SIMD2(0, uvScale)),
                 sampling: .init(texFlags: 3))
@@ -224,11 +224,17 @@
             }
         }
         var sources = try prepareModelSources(descriptor, view: resourceView)
+        let materialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+            descriptor: descriptor, resourceView: resourceView, cancellationCheck: {})
+        let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: resourceView,
+            descriptor: descriptor, loader: loader, device: device)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: resourceView, device: device, textureLoader: loader,
+            materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
         precondition(resources[7]?.count == 1 && resources[9]?.count == 1, "Prepared geometry: " + name)
         let renderer = SceneMetalRenderer(device: device, resources: resources)
+        assets.publish(to: renderer.textureRegistry)
         renderer.renderDescriptor = descriptor
         let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor,
             byID: [7: near, 9: far])

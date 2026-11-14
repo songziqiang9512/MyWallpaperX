@@ -183,6 +183,7 @@ extension SceneDesktopWallpaperSession {
         guard !sources.isEmpty else { return [:] }
         let bindings = context.baseMaterialProviderBindings
         var independent = bindings.assetDemands
+            .union(context.preparedDeviceResources.staticModels.albedoAssetDemands)
         for profile in Array(bindings.lightingProfileByLayerID.values)
             + Array(bindings.dynamicLightingProfilesByModelPath.values) {
             if let normal = profile.normalAsset { independent.insert(normal) }

@@ -4,13 +4,16 @@ The actual task class is compiled with a controlled preparation backend. No
 Metal device, upload, texture decoder or draw is used by this gate.
 """
 from pathlib import Path
+import hashlib
 import json
+import os
 import subprocess
 import tempfile
 import unittest
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
+SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResourcesTask.swift"
 
 STUBS = r'''
 import Foundation
@@ -61,12 +64,18 @@ struct ScenePreparedBaseImageResources {
     }
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
+struct SceneAssetTextureIdentity: Hashable { let token: Int }
+enum SceneAssetTextureLaunchState: Equatable { case ready, preparedVideo, absent }
 struct ScenePreparedStaticModelResources {
+    struct MaterialPlan { let token: Int; static let empty = Self(token: 0) }
+    let planToken: Int
+    let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
         device: MTLDevice, textureLoader: Loader,
+        materialPlan: MaterialPlan, albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
         cancellationCheck: () throws -> Void) throws -> Self {
-        try cancellationCheck(); return .init()
+        try cancellationCheck(); return .init(planToken: materialPlan.token, states: albedoStates)
     }
 }
 struct ScenePreparedDeviceResources {
@@ -81,22 +90,29 @@ enum Backend { static var rejectPipeline = false; static let entered = DispatchS
 
 HARNESS = r'''
 @main enum Harness {
-    static func task(_ waiting: Bool = true, models: Set<String> = []) -> ScenePreparedDeviceResourcesTask {
+    static func task() -> ScenePreparedDeviceResourcesTask {
         .init(descriptor: .init(), resourceView: .init(), device: .init(), sceneGeneration: 1,
             cacheDirectory: URL(fileURLWithPath: "/unused-resource-task-cache", isDirectory: true),
-            dynamicImageModelPaths: models, awaitsScriptResourcePlanning: waiting, cancellationCheck: {})
+            cancellationCheck: {})
     }
     static func main() throws {
         var out: [String: Any] = [:]
         let t = task(); t.start()
         out["metadata"] = try t.preparedImageGeometry()[17] == [200,100]
         out["waitingReached"] = Backend.entered.wait(timeout: .now()+2) == .success
-        t.completeScriptResourcePlanning(["models/a.json", "models/b.json"])
-        out["plannedModels"] = try t.value().baseImages.models.sorted()
+        let states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
+            .init(token: 1): .ready, .init(token: 2): .preparedVideo, .init(token: 3): .absent]
+        t.completeResourcePlanning(.init(dynamicImageModelPaths: ["models/a.json", "models/b.json"],
+            modelMaterialPlan: .init(token: 73), modelAlbedoStates: states))
+        let prepared = try t.value()
+        out["plannedModels"] = prepared.baseImages.models.sorted()
+        out["samePlanningPayload"] = prepared.staticModels.planToken == 73 && prepared.staticModels.states == states
         let empty = task(); empty.start()
         _ = try empty.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)
-        empty.completeScriptResourcePlanning([])
-        out["emptyCompleted"] = try empty.value().baseImages.models.isEmpty
+        empty.completeResourcePlanning(.init(dynamicImageModelPaths: [], modelMaterialPlan: .empty, modelAlbedoStates: [:]))
+        let emptyResult = try empty.value()
+        out["emptyCompleted"] = emptyResult.baseImages.models.isEmpty
+            && emptyResult.staticModels.planToken == 0 && emptyResult.staticModels.states.isEmpty
         let failedProgram = task(); failedProgram.start()
         _ = try failedProgram.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)
         failedProgram.cancel()
@@ -108,9 +124,6 @@ HARNESS = r'''
         do { _ = try early.value(); out["earlyJoinFailure"] = false }
         catch { out["earlyJoinFailure"] = true }
         Backend.rejectPipeline = false
-        let legacy = task(false, models: ["models/legacy.json"]); legacy.start()
-        _ = try legacy.preparedImageGeometry(); _ = Backend.entered.wait(timeout: .now()+2)
-        out["existingPreplannedModels"] = try legacy.value().baseImages.models.sorted()
         print(String(decoding: try JSONSerialization.data(withJSONObject: out, options:[.sortedKeys]), as:UTF8.self))
     }
 }
@@ -122,14 +135,30 @@ class SceneScriptResourceTaskTests(unittest.TestCase):
         work = tempfile.TemporaryDirectory(prefix="mwx-resource-task-cpu-")
         cls.addClassCleanup(work.cleanup)
         root = Path(work.name)
-        task = SOURCE.read_text().split("final class ScenePreparedDeviceResourcesTask {",1)[1].split("/// Prepares exactly one surface-scoped",1)[0]
+        task = swift_declaration(SOURCE.read_text(), "final class ScenePreparedDeviceResourcesTask {")
         source = root / "Task.swift"
-        source.write_text(STUBS+"\nfinal class ScenePreparedDeviceResourcesTask {"+task+HARNESS)
+        source.write_text(STUBS+"\n"+task+HARNESS)
+        evidence = Path(os.environ["MWX_RESOURCE_TASK_EVIDENCE"]) if os.environ.get("MWX_RESOURCE_TASK_EVIDENCE") else None
+        identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in [SOURCE, Path(__file__), Path(swift_declaration.__code__.co_filename)]}
+        if evidence:
+            evidence.mkdir(parents=True, exist_ok=True)
+            (evidence / "Harness.swift").write_bytes(source.read_bytes())
+            (evidence / "identity.json").write_text(json.dumps({"sources": identity,
+                "harnessSHA256": hashlib.sha256(source.read_bytes()).hexdigest()}, indent=2))
         compile = subprocess.run(["xcrun","swiftc","-swift-version","5","-parse-as-library",str(source),"-o",str(root/"task")],
             capture_output=True,text=True,timeout=60)
+        if evidence:
+            (evidence / "compile.stderr").write_text(compile.stderr)
         if compile.returncode:
             raise AssertionError(compile.stdout+compile.stderr)
         run = subprocess.run([str(root/"task")],capture_output=True,text=True,timeout=10)
+        if evidence:
+            (evidence / "run.stdout").write_text(run.stdout)
+            (evidence / "run.stderr").write_text(run.stderr)
+            (evidence / "execution.json").write_text(json.dumps({"compileReturncode": compile.returncode,
+                "runReturncode": run.returncode, "immutable": identity == {str(path):
+                    hashlib.sha256(path.read_bytes()).hexdigest() for path in map(Path, identity)}}, indent=2))
         if run.returncode:
             raise AssertionError(run.stdout+run.stderr)
         cls.facts=json.loads(run.stdout)
@@ -138,7 +167,7 @@ class SceneScriptResourceTaskTests(unittest.TestCase):
         self.assertTrue(self.facts["metadata"])
         self.assertTrue(self.facts["waitingReached"])
         self.assertEqual(self.facts["plannedModels"],["models/a.json","models/b.json"])
-        self.assertEqual(self.facts["existingPreplannedModels"],["models/legacy.json"])
+        self.assertTrue(self.facts["samePlanningPayload"])
 
     def test_empty_final_program_demand_completes_without_waiting_forever(self):
         self.assertTrue(self.facts["emptyCompleted"])

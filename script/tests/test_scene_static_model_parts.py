@@ -276,7 +276,8 @@ def freeze_inputs(label, variants):
         manifest[name]={'expected':expected,'inputs':{p:sha(target/p) for p in entries}}
     sources=[Path(__file__),Path(reader.__file__),Path(frame.__file__),Path(native.__file__),
         REPO/'script/tests/fixtures/SceneStaticModelPartsNativeChecks.swift',
-        REPO/'script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift']
+        REPO/'script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift',
+        REPO/'script/tests/fixtures/SceneStaticModelPreparationSupport.swift']
     for p in sources:(root/('source-'+p.name)).write_bytes(p.read_bytes())
     manifest['testSources']={str(p):sha(p) for p in sources}
     (root/'protocol.json').write_text(json.dumps(manifest,indent=2))
@@ -425,69 +426,7 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
 
 # Native transport only. All material flags/extraction, reader, mesh upload and
 # partial allocation policy remain inside the production resource owner.
-RESOURCE_TRANSPORT=r'''
-enum SceneMaterialPropertyBindingCompiler {
- static func staticComponents(_ key:String,instance:Any?,pass:SceneRenderDescriptor.MaterialPassDescriptor,
-                              count:Int,fallback:[Double],requiresCompleteScalar:Bool=false)->[Double]? {
-  // Values here are typed transport inputs; full raw projection is tested
-  // against the actual shared compiler in the material property fixture.
-  return pass.constantShaderValues[key]?.components ?? fallback
- }
-}
-struct SceneDocument {
- struct ShaderValue {let components:[Double];var userBinding:String?=nil;var scriptSource:String?=nil}
- let objects:[SceneRenderDescriptor.Layer]
-}
-extension SceneResourceView {
- init(root:URL) {
-  self.init(projectRootURL:root,packageRootURL:nil,stockAssetsRootURL:nil)
- }
-}
-final class SceneTextureLoader {
- enum Result {case loaded(SceneTextureCandidate);case missing}
- var candidates:[String:SceneTextureCandidate]=[:]
- var requests:[[String:String]]=[]
- init(root:URL,device:MTLDevice)throws {
-  let paths=try FileManager.default.contentsOfDirectory(at:root.appendingPathComponent("materials"),includingPropertiesForKeys:nil)
-  for path in paths where path.pathExtension=="rgba" {
-   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
-   td.storageMode = .shared;td.usage = .shaderRead
-   let texture=device.makeSceneTexture(descriptor:td)!
-   let data=try Data(contentsOf:path)
-   data.withUnsafeBytes{texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
-   let png=path.deletingPathExtension().appendingPathExtension("png")
-   // Match the product's canonical file identity across /var and /tmp aliases.
-   candidates[png.resolvingSymlinksInPath().path] = .init(texture:texture,identity:.file(path:png.path),generation:.immutable(revision:1),purpose:.straightAlbedo,
-      content:.data,physicalSize:CGSize(width:1,height:1),mappedSize:CGSize(width:1,height:1),uvTransform:.identity,sampling:.directImageFallback)
-  }
- }
- func loadCandidate(from input:SceneResourceView.FileInput,purpose:SceneTextureLoadPurpose,device:MTLDevice,
-                    checkCancellation:(() throws -> Void)?=nil) throws -> Result {
-  try checkCancellation?()
-  let url=URL(fileURLWithPath:input.diagnosticPath)
-  requests.append(["path":url.lastPathComponent,"purpose":String(describing:purpose)])
-  guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
-  return .loaded(.init(texture:candidate.texture,identity:candidate.identity,generation:candidate.generation,
-      purpose:purpose,content:candidate.content,physicalSize:candidate.physicalSize,mappedSize:candidate.mappedSize,
-      uvTransform:candidate.uvTransform,sampling:candidate.sampling,authoredFormat:candidate.authoredFormat))
- }
-}
-extension SceneRenderDescriptor {
- struct ModelMaterialLink {let modelPath:String;let materialPath:String?}
- struct ColorTargetFormat {var metalPixelFormat:MTLPixelFormat { .bgra8Unorm }}
- struct MaterialPassDescriptor {
-  let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
-  var texturePaths:[String] {textureSlots.compactMap{$0}}
-  let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
-  var depthTest:String?=nil
-  var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
-  var staticModelDefaultAlbedoAssetPath:String?=nil;var shaderPath:String?=nil
-  var blending:String?=nil
-  var userShaderValues:[String:String]=[:]
-  var userTextureInputs:[SceneEffectTextureInput?]=[]
- }
-}
-'''
+RESOURCE_TRANSPORT=(REPO/'script/tests/fixtures/SceneStaticModelPreparationSupport.swift').read_text()
 
 
 def resource_support():
@@ -495,6 +434,9 @@ def resource_support():
     s=s.replace('var default2DOriginInputLayerID:Int? = nil',
         'var default2DOriginInputLayerID:Int? = nil;var clearEnabled=true')
     start=s.index('struct ScenePreparedStaticModelResources {');end=s.index('struct NamedAlbedo',start)
+    s=s[:start]+s[end:]
+    start=s.index('  for entry in resources.entries.values.flatMap({$0}) {')
+    end=s.index('\n }\n}',start)
     s=s[:start]+s[end:]
     s=s.replace('expectedReference:String','expectedReference:SceneNamedTextureReference')
     s=s.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil;var staticModelPath:String?=nil;'
@@ -596,6 +538,8 @@ class SceneStaticModelSurfaceAdmissionTests(unittest.TestCase):
                  "User MR must preserve the legacy profile with or without a parallel constant")
    }
   }
+  let materialChecks=try SceneStaticModelMaterialSelectionChecks.planChecks(view:view)
+  precondition(materialChecks.values.allSatisfy{$0}, "Material plan: " + String(describing:materialChecks))
   let domainPass=SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"material",textureSlots:[],
       combos:["LIGHTING":1],constantShaderValues:["metallic":.init(components:[-2]),
       "roughness":.init(components:[2])],shaderPath:"generic4")
@@ -643,7 +587,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         cls.basis=cls.report['basis']
 
     def test_material_pass_first_wins_and_local_failures(self):
-        self.assertEqual(len(self.report['selection']), 14)
+        self.assertEqual(len(self.report['selection']), 30)
         self.assertTrue(all(self.report['selection'].values()), self.report['selection'])
 
     def test_attachment_parse_failure_preserves_bind_geometry_and_peer(self):
@@ -777,8 +721,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertEqual(enabled['peerFrames'], [[0,0,0,255]]*2)
         self.assertEqual(enabled['overlapFrames'], [[0,0,0,255]]*2)
         for depths in enabled['shadowDepths']:
-            self.assertEqual(depths[1], 1)
-            self.assertTrue(all(depths[i] < 1 for i in [0, 2, 3, 4]), depths)
+            self.assertTrue(all(value < 1 for value in depths), depths)
         self.assertEqual(len(enabled['shadowDepths']), 3)
         self.assertEqual(disabled['shadowDepths'], [[1] * 5] * 3)
 

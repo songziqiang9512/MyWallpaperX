@@ -440,6 +440,19 @@ extension SceneMetalRenderer {
             case "project", "fullscreen":
                 break
             case "model":
+                if initialVideoPresentation != nil,
+                   let videoAlbedos = staticModelResources.videoAlbedoAssetsByLayerID[layer.id],
+                   SceneDynamicLayerValues.alpha(layerID: layer.id,
+                    authoredValue: layer.alpha, snapshot: frameContext.dynamicValues) > 0 {
+                    for identity in videoAlbedos {
+                        if case .pending = textureRegistry.lookup(.asset(identity)) {
+                            initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
+                            if layerMainPass === mainPass {
+                                initialVideoPresentation?.pendingSurfaceLayerIDs.insert(layer.id)
+                            }
+                        }
+                    }
+                }
                 let lit = drawStaticModel(layer: layer, state: modelFrame,
                     worldFrames: frameWorldFrames, frameContext: frameContext,
                     cameraFrame: cameraFrame, lighting: frameLightSnapshot,

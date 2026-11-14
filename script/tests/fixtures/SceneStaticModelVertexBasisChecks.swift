@@ -83,10 +83,16 @@ enum SceneStaticModelVertexBasisChecks {
             : SceneMatrix.translation(SIMD3(0, 128, 0)) * SceneMatrix.scale(SIMD3(1, -1, 1)) * authorWorld
         let loader = try SceneTextureLoader(root: root, device: device)
         var sources = try prepareModelSources(descriptor, view: .init(root: root))
+        let materialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+            descriptor: descriptor, resourceView: .init(root: root), cancellationCheck: {})
+        let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: .init(root: root),
+            descriptor: descriptor, loader: loader, device: device)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: .init(root: root), device: device, textureLoader: loader,
+            materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
         let renderer = SceneMetalRenderer(device: device, resources: resources)
+        assets.publish(to: renderer.textureRegistry)
         renderer.renderDescriptor = descriptor
         let draws = renderer.staticModelDraws(layer: child, worldFrames: worlds, snapshot: snapshot)!
         precondition(draws.count == 3)
@@ -212,10 +218,16 @@ enum SceneStaticModelVertexBasisChecks {
                 worldFramesByLayerID: worlds, dynamicSnapshot: snapshot)
             let loader = try SceneTextureLoader(root: root, device: device)
             var sources = try prepareModelSources(descriptor, view: .init(root: root))
+            let materialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+                descriptor: descriptor, resourceView: .init(root: root), cancellationCheck: {})
+            let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: .init(root: root),
+                descriptor: descriptor, loader: loader, device: device)
             let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
                 resourceView: .init(root: root), device: device, textureLoader: loader,
+                materialPlan: materialPlan, albedoStates: assets.launchStates,
                 preparedSources: &sources, cancellationCheck: {})
             let renderer = SceneMetalRenderer(device: device, resources: resources)
+            assets.publish(to: renderer.textureRegistry)
             renderer.renderDescriptor = descriptor
             let draws = renderer.staticModelDraws(layer: child, worldFrames: worlds, snapshot: snapshot)!
             precondition(draws.count == 1)

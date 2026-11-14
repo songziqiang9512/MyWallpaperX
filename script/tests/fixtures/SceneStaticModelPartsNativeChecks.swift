@@ -118,12 +118,18 @@ import simd
   let movedModels=root.appendingPathComponent("models-after-capture")
   if mode=="snapshot" {try FileManager.default.moveItem(at:modelDirectory,to:movedModels)}
   defer {if mode=="snapshot" {try! FileManager.default.moveItem(at:movedModels,to:modelDirectory)}}
+  let materialPlan=try ScenePreparedStaticModelResources.compileMaterialPlan(
+      descriptor:descriptor,resourceView:resourceView,cancellationCheck:{})
+  let assets=try SceneStaticModelAssetInputs(materialPlan:materialPlan,resourceView:resourceView,
+      descriptor:descriptor,loader:loader,device:device)
   let resources=try ScenePreparedStaticModelResources.prepare(descriptor:descriptor,resourceView:resourceView,device:device,
-      textureLoader:loader,preparedSources:&preparedSources,cancellationCheck:{})
+      textureLoader:loader,materialPlan:materialPlan,albedoStates:assets.launchStates,
+      preparedSources:&preparedSources,cancellationCheck:{})
   precondition(preparedSources.isEmpty,"GPU owner must consume the transient CPU inputs")
   let rejected=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionBefore
   if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
   let renderer=SceneMetalRenderer(device:device,resources:resources)
+  assets.publish(to:renderer.textureRegistry)
   renderer.renderDescriptor=descriptor
   let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
   let world=SceneLayerWorldFrameResolver.compute(descriptor:descriptor,
@@ -199,7 +205,10 @@ import simd
   let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
       "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
-      "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
+      "textureIDs":parts.map { entry in
+          guard case let .asset(identity)=entry.albedoSource else {return "named"}
+          return String(describing:renderer.textureRegistry.resource(for:.asset(identity))!.publication.candidate.identity)
+      },
       "materialMapComponents":parts.map{$0.materialMap?.components ?? 0},
       "emissionSeeds":parts.map{$0.material.emissiveBrightness},"textureRequests":loader.requests,
       "meshIndexCounts":parts.map{$0.mesh.indexCount},"peerParts":resources[1]?.count ?? 0,"rejections":rejected,

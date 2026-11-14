@@ -19,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PREPARATION = SCENE / "Runtime/Session/ScenePreparedDeviceResources.swift"
+TASKS = SCENE / "Runtime/Session/ScenePreparedDeviceResourcesTask.swift"
 SOURCE_MATERIALS = SCENE / "Runtime/Session/ScenePreparedDeviceResources+SourceMaterials.swift"
 RESOLVER = SCENE / "Resources/Textures/SceneTexturePathResolver.swift"
 BUILTIN = SCENE / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"
@@ -42,7 +43,7 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
              str(SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift"), str(SCENE / "Format/ScenePkgReader.swift"),
              str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"), str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
-             str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(SOURCE_MATERIALS),
+             str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(TASKS), str(SOURCE_MATERIALS),
              str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift"), str(RESOLVER),
              str(BUILTIN), str(RENDER_STATE), str(RENDER_STATE_COMPILATION),
              str(SCENE / "Format/SceneJSONValue.swift"),

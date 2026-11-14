@@ -20,6 +20,15 @@ final class SceneMetalRenderer {
   dependencyRuntime=SceneDependencyFrameRuntime(descriptor:descriptor,visibleLayerIDs:Set(descriptor.layers.filter{$0.visible != false}.map(\.id)),executableUtilityConsumerLayerIDs:[],device:device)
   layersByID=Dictionary(uniqueKeysWithValues:descriptor.layers.map{($0.id,$0)})
  }
+ func fixtureAssetStates()->[SceneAssetTextureIdentity:SceneTextureProviderState] {
+  var states:[SceneAssetTextureIdentity:SceneTextureProviderState]=[:]
+  for entry in staticModelResources.entries.values.flatMap({$0}) {
+   guard case let .asset(identity)=entry.albedoSource,let source=entry.fixtureAlbedo else {continue}
+   states[identity] = .ready(.init(requestIdentity:.asset(identity),
+    candidate:source.candidate(for:identity),contentGeneration:1))
+  }
+  return states
+ }
  static func effectExecutionOrigin(for kind:String)->SceneEffectExecutionOrigin {.init(rawValue:kind) ?? .image}
  func baseMaterialReadyProviderUsesAuthoredLayerColor(for layer:SceneRenderDescriptor.Layer,dynamicValues:SceneDynamicSnapshot)->Bool {true}
  func baseMaterialTextureSelection(for layer:SceneRenderDescriptor.Layer,imageTextures:SceneBaseImageTextureSnapshot,readyProviderUsesAuthoredLayerColor:Bool)->FixtureImageSelection {
@@ -113,7 +122,7 @@ final class SceneMetalRenderer {
    let output=texture(d,size,[0,0,0,255]),green=texture(d,size,[0,255,0,255]),cb=q.makeCommandBuffer()!
    let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
    let sources=SceneBaseImageTextureSnapshot(sources:partial ? [:]:[11:source(green)])
-   let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(size),layerSources:[:])
+   let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(size),layerSources:[:],assetStates:renderer.fixtureAssetStates())
    let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:UInt64(size),generation:1))
    let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
    let pressured=size==256 && mode != "cold-full"

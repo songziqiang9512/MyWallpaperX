@@ -64,6 +64,13 @@ class SceneStaticModelDepthPendingTests(unittest.TestCase):
                         'terminal-capacity-failure-keeps-healthy-color']:
                 self.assertTrue(report['checks'][key], report)
 
+    def test_asset_frame_binding_is_shared_and_missing_part_is_local(self):
+        for report in self.cases.values():
+            for key in ['asset-missing-is-part-local-not-named-failure',
+                        'asset-current-binding-carries-frame-sampler-content',
+                        'asset-prepared-draw-retains-original-frame-for-all-passes']:
+                self.assertTrue(report['checks'][key], report)
+
     def test_optional_source_depth_failure_is_qualified_before_graph_candidate(self):
         for report in self.cases.values():
             checks = {key: value for key, value in report['checks'].items()

@@ -5,6 +5,27 @@ import Metal
 /// Geometry production joins the existing renderer/main pass; this type owns
 /// no command queue, frame target, compositor, or mutable playback state.
 struct ScenePreparedStaticModelResources {
+    enum AlbedoSource: Equatable {
+        case asset(SceneAssetTextureIdentity)
+        case named(SceneNamedTextureReference)
+    }
+
+    struct MaterialPlan {
+        struct Item {
+            let pass: SceneRenderDescriptor.MaterialPassDescriptor
+            let material: SceneStaticModelMaterial
+            let albedoSource: AlbedoSource
+            let writesDepth: Bool
+            let testsDepth: Bool
+            let materialBlending: SceneMaterialRenderState.Blending?
+        }
+
+        let materialsByPath: [SceneVFSAssetPath: Item]
+        let assetDemands: Set<SceneAssetTextureIdentity>
+
+        static let empty = MaterialPlan(materialsByPath: [:], assetDemands: [])
+    }
+
     enum FutureVisibilityFailure: Equatable {
         case selection(ScenePuppetAnimationSelectionFailure)
         case evaluation(ScenePuppetAnimationEvaluationFailure)
@@ -32,8 +53,7 @@ struct ScenePreparedStaticModelResources {
         let materialPath: String
         let dynamicMaterialPath: String
         let mesh: SceneStaticModelMesh
-        let albedo: SceneTextureCandidate?
-        let namedAlbedo: SceneNamedTextureReference?
+        let albedoSource: AlbedoSource
         let materialMap: SceneStaticModelMaterialMap?
         let normalMap: SceneStaticModelNormalMap?
         let gradient: SceneStaticModelGradient?
@@ -46,8 +66,8 @@ struct ScenePreparedStaticModelResources {
 
         init(
             modelPath: String, materialPath: String, dynamicMaterialPath: String,
-            mesh: SceneStaticModelMesh, albedo: SceneTextureCandidate?,
-            namedAlbedo: SceneNamedTextureReference?, materialMap: SceneStaticModelMaterialMap?,
+            mesh: SceneStaticModelMesh, albedoSource: AlbedoSource,
+            materialMap: SceneStaticModelMaterialMap?,
             material: SceneStaticModelMaterial, writesDepth: Bool,
             materialBlending: SceneMaterialRenderState.Blending?,
             geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
@@ -60,8 +80,7 @@ struct ScenePreparedStaticModelResources {
             self.materialPath = materialPath
             self.dynamicMaterialPath = dynamicMaterialPath
             self.mesh = mesh
-            self.albedo = albedo
-            self.namedAlbedo = namedAlbedo
+            self.albedoSource = albedoSource
             self.materialMap = materialMap
             self.normalMap = normalMap
             self.gradient = gradient
@@ -79,16 +98,20 @@ struct ScenePreparedStaticModelResources {
     private let animationsByLayerID: [Int: Animation]
     let namedAlbedoLayerIDs: Set<Int>
     let reflectiveLayerIDs: Set<Int>
+    let videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>]
 
     private init(pipeline: SceneStaticModelPipeline?, entriesByLayerID: [Int: [Entry]],
-                 animationsByLayerID: [Int: Animation] = [:], reflectiveLayerIDs: Set<Int> = []) {
+                 animationsByLayerID: [Int: Animation] = [:], reflectiveLayerIDs: Set<Int> = [],
+                 videoAlbedoAssetsByLayerID: [Int: Set<SceneAssetTextureIdentity>] = [:]) {
         self.pipeline = pipeline
         self.entriesByLayerID = entriesByLayerID
         self.animationsByLayerID = animationsByLayerID
         namedAlbedoLayerIDs = Set(entriesByLayerID.compactMap {
-            $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil
+            $0.value.contains { if case .named = $0.albedoSource { true } else { false } }
+                ? $0.key : nil
         })
         self.reflectiveLayerIDs = reflectiveLayerIDs
+        self.videoAlbedoAssetsByLayerID = videoAlbedoAssetsByLayerID
     }
 
     static let empty = ScenePreparedStaticModelResources(
@@ -98,6 +121,11 @@ struct ScenePreparedStaticModelResources {
 
     var isEmpty: Bool { entriesByLayerID.isEmpty }
     var preparedLayerIDs: [Int] { entriesByLayerID.keys.sorted() }
+    var albedoAssetDemands: Set<SceneAssetTextureIdentity> {
+        Set(entriesByLayerID.values.joined().compactMap {
+            if case let .asset(identity) = $0.albedoSource { identity } else { nil }
+        })
+    }
     var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> {
         guard pipeline != nil else { return [] }
         return animationsByLayerID.reduce(into: []) { targets, entry in
@@ -113,11 +141,44 @@ struct ScenePreparedStaticModelResources {
 
     func animation(for layerID: Int) -> Animation? { animationsByLayerID[layerID] }
 
+    static func compileMaterialPlan(
+        descriptor: SceneRenderDescriptor,
+        resourceView: SceneResourceView,
+        cancellationCheck: () throws -> Void
+    ) throws -> MaterialPlan {
+        var seen: Set<SceneVFSAssetPath> = []
+        var materials: [SceneVFSAssetPath: MaterialPlan.Item] = [:]
+        var demands: Set<SceneAssetTextureIdentity> = []
+        for pass in descriptor.materialPasses where pass.passIndex == 0 {
+            try cancellationCheck()
+            guard let path = SceneVFSAssetPath(pass.materialPath),
+                  seen.insert(path).inserted,
+                  let bindings = pass.staticModelMaterialBindings,
+                  bindings.state != .rejected,
+                  let material = material(pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView),
+                  let texturePath = pass.textureSlots.first.flatMap({ $0 })
+                    ?? pass.staticModelDefaultAlbedoAssetPath else { continue }
+            let source: AlbedoSource
+            if let reference = SceneNamedTextureReference.parse(texturePath) {
+                source = .named(reference)
+            } else if let identity = SceneAssetTextureIdentity(virtualPath: texturePath, purpose: .straightAlbedo) {
+                source = .asset(identity)
+                demands.insert(identity)
+            } else { continue }
+            materials[path] = .init(pass: pass, material: material, albedoSource: source,
+                writesDepth: depthEnabled(pass.depthWrite), testsDepth: depthEnabled(pass.depthTest),
+                materialBlending: SceneMaterialRenderState.compileBlending(pass.blending))
+        }
+        return .init(materialsByPath: materials, assetDemands: demands)
+    }
+
     static func prepare(
         descriptor: SceneRenderDescriptor,
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
+        materialPlan: MaterialPlan,
+        albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
         cancellationCheck: () throws -> Void
     ) throws -> ScenePreparedStaticModelResources {
@@ -140,8 +201,7 @@ struct ScenePreparedStaticModelResources {
             var rejectedModelPaths: Set<String> = []
             var entries: [Int: [Entry]] = [:]
             var animations: [Int: Animation] = [:]
-            var materialPassesByPath: [SceneVFSAssetPath: SceneRenderDescriptor.MaterialPassDescriptor] = [:]
-            var materialPassCursor = descriptor.materialPasses.startIndex
+            var videoAlbedos: [Int: Set<SceneAssetTextureIdentity>] = [:]
             for layer in layers {
                 try cancellationCheck()
                 guard let modelPath = layer.staticModelPath else { continue }
@@ -198,19 +258,16 @@ struct ScenePreparedStaticModelResources {
                 for preparedGeometry in preparedGeometries {
                     guard let materialIdentity = SceneVFSAssetPath(
                         preparedGeometry.materialPath
-                    ) else { continue }
-                    // Keep the original first pass-zero match, stopping before
-                    // an unused suffix while retaining the scanned prefix.
-                    while materialPassesByPath[materialIdentity] == nil,
-                          materialPassCursor < descriptor.materialPasses.endIndex {
-                        let pass = descriptor.materialPasses[materialPassCursor]
-                        materialPassCursor += 1
-                        guard pass.passIndex == 0,
-                              let path = SceneVFSAssetPath(pass.materialPath),
-                              materialPassesByPath[path] == nil else { continue }
-                        materialPassesByPath[path] = pass
+                    ), let planned = materialPlan.materialsByPath[materialIdentity] else { continue }
+                    if case let .asset(identity) = planned.albedoSource {
+                        guard let state = albedoStates[identity] else { continue }
+                        switch state {
+                        case .ready, .preparedVideo: break
+                        default: continue
+                        }
                     }
-                    guard let pass = materialPassesByPath[materialIdentity] else { continue }
+                    let pass = planned.pass
+                    let modelMaterial = planned.material
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                        let bindings = pass.staticModelMaterialBindings {
@@ -218,28 +275,6 @@ struct ScenePreparedStaticModelResources {
                             layer.id, bindings.state.rawValue, bindings.rejectionReason ?? "none")
                     }
 #endif
-                    guard pass.staticModelMaterialBindings?.state != .rejected,
-                          let modelMaterial = material(
-                              pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView
-                          ),
-                          let texturePath = pass.textureSlots.first.flatMap({ $0 })
-                            ?? pass.staticModelDefaultAlbedoAssetPath else {
-                        continue
-                    }
-                    let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
-                    let albedo: SceneTextureCandidate?
-                    if namedAlbedo == nil {
-                        guard let textureURL = textureResolver.resolveTextureFile(
-                            named: texturePath
-                        ), case let .loaded(candidate) = try textureLoader.loadCandidate(
-                            from: textureURL,
-                            purpose: .straightAlbedo,
-                            device: device, checkCancellation: cancellationCheck
-                        ) else { continue }
-                        albedo = candidate
-                    } else {
-                        albedo = nil
-                    }
                     let materialMap = try Self.materialMap(pass, material: modelMaterial,
                         resolver: textureResolver, textureLoader: textureLoader,
                         device: device, checkCancellation: cancellationCheck)
@@ -259,17 +294,16 @@ struct ScenePreparedStaticModelResources {
                         materialPath: preparedGeometry.materialPath,
                         dynamicMaterialPath: identity(preparedGeometry.materialPath),
                         mesh: preparedGeometry.mesh,
-                        albedo: albedo,
-                        namedAlbedo: namedAlbedo,
+                        albedoSource: planned.albedoSource,
                         materialMap: materialMap,
                         material: modelMaterial,
-                        writesDepth: depthEnabled(pass.depthWrite),
-                        materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
+                        writesDepth: planned.writesDepth,
+                        materialBlending: planned.materialBlending,
                         geometryState: preparedGeometry.geometryState,
                         normalMap: normal.map { .init(texture: $0.texture,
                             textureFrame: $0.uvTransform, sampling: $0.sampling,
                             encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) },
-                        testsDepth: depthEnabled(pass.depthTest),
+                        testsDepth: planned.testsDepth,
                         gradient: try Self.gradient(pass, material: modelMaterial,
                             resolver: textureResolver, textureLoader: textureLoader,
                             device: device, checkCancellation: cancellationCheck),
@@ -277,6 +311,10 @@ struct ScenePreparedStaticModelResources {
                             resolver: textureResolver, textureLoader: textureLoader,
                             device: device, checkCancellation: cancellationCheck)
                     ))
+                    if case let .asset(identity) = planned.albedoSource,
+                       case .preparedVideo = albedoStates[identity] {
+                        videoAlbedos[layer.id, default: []].insert(identity)
+                    }
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                        preparedGeometry.geometryState == .bindOnlyAnimationUnqualified {
@@ -303,7 +341,8 @@ struct ScenePreparedStaticModelResources {
                 pipeline: pipeline,
                 entriesByLayerID: entries,
                 animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 },
-                reflectiveLayerIDs: pipeline.supportsReflection ? reflectiveLayerIDs : []
+                reflectiveLayerIDs: pipeline.supportsReflection ? reflectiveLayerIDs : [],
+                videoAlbedoAssetsByLayerID: videoAlbedos
             )
         }
     }

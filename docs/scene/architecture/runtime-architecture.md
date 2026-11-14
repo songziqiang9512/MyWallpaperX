@@ -65,6 +65,8 @@ Session cadence
 
 BindingProgram 在构造/解码入口验证并建立索引；普通属性求值只处理当前输入。自然尺寸回填只改 descriptor 几何，不重算既有准备计划。动态 topology 与 frame schema 分别按实际 revision 更新，同 revision 不回填完整活动树。parent、update 顺序和 render 依赖是三种关系，不能互相替代。
 
+Direct model 的冷 MaterialPlan 从 descriptor 已准备材料链接固定首个 pass0，一次投影材质并合并原 Catalog 资产需求；原 DeviceResourcesTask 在 geometry 发布后的唯一 resource-planning 交接接收计划、最小 readiness 和 Script 动态 image 需求。两个 Task 的实现归 `Runtime/Session/ScenePreparedDeviceResourcesTask.swift`，无第二等待。模型 Entry 只持 asset/named 身份；前者从当前 FrameTextureRegistry 取当帧 texture/UV/sampler/content，颜色和阴影复用冻结 draw，退出 slot0 冷加载与纹理驻留。视频只索引实际 preparedVideo 消费者，复用原 decoder、初供资格和暂停重试。详细边界归[模型资产合同](../capabilities/advanced-object-coverage.md#model-albedo-frames)。
+
 <a id="default-2d-general-zoom"></a>
 ### Default2D 的 general.zoom 输入合同
 

@@ -73,10 +73,16 @@
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
         let loader = try SceneTextureLoader(root: directory, device: device)
         var sources = try prepareModelSources(descriptor, view: .init(root: directory))
+        let materialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+            descriptor: descriptor, resourceView: .init(root: directory), cancellationCheck: {})
+        let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: .init(root: directory),
+            descriptor: descriptor, loader: loader, device: device)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: .init(root: directory), device: device, textureLoader: loader,
+            materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
         let renderer = SceneMetalRenderer(device: device, resources: resources)
+        assets.publish(to: renderer.textureRegistry)
         renderer.renderDescriptor = descriptor
         let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor,
             byID: Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) }))

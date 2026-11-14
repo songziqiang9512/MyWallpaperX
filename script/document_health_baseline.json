@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 237,
-      "bytes": 43656
+      "lines": 239,
+      "bytes": 44442
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 296,
-      "bytes": 63480
+      "lines": 307,
+      "bytes": 65175
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 195,
-      "bytes": 55445
+      "lines": 193,
+      "bytes": 54224
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 189,
-      "bytes": 54018
+      "lines": 201,
+      "bytes": 57998
     }
   },
   "archives": [
@@ -358,15 +358,6 @@
       "owner": "Scene material graph resource view",
       "reason": "Define consumer-scoped graph projection, record bounded identical-workload Debug CPU-frame evidence, and replace eye/late355 qualification with concrete producer and restart limits.",
       "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "3ec4017d341bd0c82b1d2c798b7d8d92c47a14e826cbae2b3008ead1b4fc0e0f",
-      "after": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
-      "owner": "Scene FrameDriver and material submissions",
-      "reason": "Record one-shot admission wake and measured playback results with the remaining GPU cost.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
     },
     {
       "section": "bodies",
@@ -514,24 +505,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
-      "after": "310891d94e7ccfaa77d3144913389f51c90e5fb2b777bbfad4091fb82b5e4134",
-      "owner": "Existing static TextureLoader candidate and model material consumers",
-      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "c0e9810f15909c28564788da3fa316ff8dc513430a90f50d1fa73f9e4748dac4",
-      "after": "759c6366e75dfec48f7ec6fbb24ba9f0dfe4436824200014a289bcf5582b2f4a",
-      "owner": "Existing static TextureLoader candidate and model material consumers",
-      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "3a606facace0bcaf3f0d7d97cb7d71f47da0d744d9d9508a21be5c567c2490f2",
       "after": "7b99ce14d10ec8c915bf3bdf00f1fa12284ad805700d82ab98c89a34fde461a2",
@@ -541,12 +514,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1b6e39c84d1746e4d506e53812c8ed3765f0b22fa4b93b893ecf2ff916c1a62a",
-      "after": "7ccea0291a2db1733d650b5a9d402520e3c549315ab4cb5103d813caffe61bbe",
-      "owner": "Original TextureLoader source preparation and Catalog asset handoff",
-      "reason": "Unify static and animated source-frame projection, retire duplicate Catalog admission and Reader checks/false Float duration gate; qualify same-input Catalog pixels and actual Generic companion consumers before model slot0 migration. Record separately proven effect-role failure without treating its absent Program as coordinate red.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-atlas-source-frames"
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
+      "after": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
+      "owner": "Existing model material plan, Catalog and frame registry consumers",
+      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "99e88c81f8e32f3b68920d5fa78e0e0057ed6834a9a36348a0dd24b1de83453c",
+      "after": "fd531f75e3d09dffcd2195d28c28425b25dd0c439e69bd4e9980f68046ba5a42",
+      "owner": "Existing model material plan, Catalog and frame registry consumers",
+      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "64096bdedf44cf449b5c37bdd3a4fd6f077f7d50f579054175035be253d8883a",
+      "after": "211ee8da92f477f319e61b5d0bcd550209ded6fc84ae29c77e221e9826f1f0df",
+      "owner": "Existing model material plan, Catalog and frame registry consumers",
+      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
     }
   ]
 }

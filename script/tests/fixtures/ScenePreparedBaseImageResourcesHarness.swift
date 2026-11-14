@@ -351,13 +351,17 @@ final class SceneImageEffectPipelineRepository {
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
+    struct MaterialPlan { static let empty = Self() }
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
                         device: MTLDevice, textureLoader: SceneTextureLoader,
+                        materialPlan: MaterialPlan,
+                        albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
                         preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
                         cancellationCheck: () throws -> Void) throws -> Self { .init() }
 }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {}
-struct SceneAssetTextureIdentity { let path: String; let purpose: String }
+struct SceneAssetTextureIdentity: Hashable { let path: String; let purpose: String }
+enum SceneAssetTextureLaunchState { case unavailable }
 enum TestProvider: Hashable { case sceneBackground(consumerLayerID: Int) }
 enum TestReference: Hashable { case asset(String), provider(TestProvider), unavailable }
 extension String { static let premultipliedColor = "premultipliedColor" }
@@ -783,6 +787,7 @@ enum Checks {
         }
         let staged = task(); staged.start()
         let stageGeometry = try staged.preparedImageGeometry()
+        staged.completeResourcePlanning(.init(dynamicImageModelPaths: [], modelMaterialPlan: .empty, modelAlbedoStates: [:]))
         let stageResources = try staged.value()
         staged.cancel()
         var cancelledGeometry = false

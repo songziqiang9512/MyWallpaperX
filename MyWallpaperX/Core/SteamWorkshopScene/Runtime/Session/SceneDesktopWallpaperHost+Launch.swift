@@ -266,7 +266,6 @@ extension SceneDesktopWallpaperHost {
             device: device,
             sceneGeneration: sceneScriptGeneration,
             cacheDirectory: privateMediaCacheDirectory,
-            awaitsScriptResourcePlanning: true,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             imageGeometryModels: model.assetCatalog.models,
             preparedStaticModels: preparedStaticModels,
@@ -496,11 +495,14 @@ extension SceneDesktopWallpaperHost {
                     .filter { loweredMaterialModelPaths.contains($0.key) },
                 provenBindings: provenMaterialBindings
             )
+        let modelMaterialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+            descriptor: runtimeInput.renderDescriptor, resourceView: model.resourceView,
+            cancellationCheck: { try cancellation?.check() })
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
         let materialAssetCatalog = try SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands.union(lightingDemands)
-                .union(baseMaterialProviderBindings.assetDemands),
+                .union(baseMaterialProviderBindings.assetDemands).union(modelMaterialPlan.assetDemands),
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,
@@ -651,9 +653,14 @@ extension SceneDesktopWallpaperHost {
                     "scenescript-family-candidate-publication"
                 )
         }
-        deviceResourcesPreparation.completeScriptResourcePlanning(
-            committedPrograms.domain?.dynamicImageRequestedModelPaths ?? []
-        )
+        let assetLaunchStates = materialAssetCatalog.launchStates
+        deviceResourcesPreparation.completeResourcePlanning(.init(
+            dynamicImageModelPaths: committedPrograms.domain?.dynamicImageRequestedModelPaths ?? [],
+            modelMaterialPlan: modelMaterialPlan,
+            modelAlbedoStates: modelMaterialPlan.assetDemands.reduce(into: [:]) {
+                $0[$1] = assetLaunchStates[$1]
+            }
+        ))
         guard let fallbackCatalog = SceneScriptFallbackCatalog(
             authoredDescriptor: authoredRenderDescriptor,
             runtimeDescriptor: runtimeInput.renderDescriptor,

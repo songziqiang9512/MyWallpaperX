@@ -362,7 +362,7 @@ def ordered_support():
     a=dep.index('final class SceneGraphRenderTargetResidencyPin');b=dep.index('extension SceneLayerFragmentUniforms',a)
     dep=dep[:a]+dep[b:]
     prepared=frame_fixture.SHELL.split('struct SceneFrameContext',1)[1].split('struct NamedAlbedo',1)[0]
-    prepared=('struct SceneFrameContext'+prepared).replace('var namedAlbedo:String? = nil','var namedAlbedo:SceneNamedTextureReference? = nil')
+    prepared=('struct SceneFrameContext'+prepared).replace('named(String)', 'named(SceneNamedTextureReference)').replace('namedAlbedo:String?=nil', 'namedAlbedo:SceneNamedTextureReference?=nil')
     group=frame_fixture.SHELL.split('struct SceneCompositionGroupFrameRuntime',1)[1].split('final class SceneMetalRenderer',1)[0]
     group=('struct SceneCompositionGroupFrameRuntime'+group).replace('struct SceneBaseImageTextureSnapshot {}','struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource]}')
     group=group.replace('struct FixtureImageSelection {let source:MTLTexture?}',
@@ -564,7 +564,7 @@ PUBLICATION_FUNCTIONS=r'''
    provider.alpha=alpha
    let cb=q.makeCommandBuffer()!,output=texture(d,64,[0,0,0,255])
    let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(index+1),layerSources:[:])
+   let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(index+1),layerSources:[:],assetStates:renderer.fixtureAssetStates())
    let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:UInt64(index+1),generation:1))
    let input=index==1 ? blue:green
    let sources=SceneBaseImageTextureSnapshot(sources:[11:source(input)])
@@ -611,7 +611,7 @@ PUBLICATION_FUNCTIONS=r'''
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
   var screen=matrix_identity_float4x4;screen.columns.0.x=2;screen.columns.1.y=2
   func paint(_ texture:MTLTexture) {let e=pass.encoder()!;image.bind(encoder:e);image.drawLayer(texture:texture,mvp:screen,uniforms:.neutral(),encoder:e)}
-  let epoch=renderer.textureRegistry.beginFrame(frameIndex:1,layerSources:[:]),ref=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
+  let epoch=renderer.textureRegistry.beginFrame(frameIndex:1,layerSources:[:],assetStates:renderer.fixtureAssetStates()),ref=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
   let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:1,generation:1)),sources=SceneBaseImageTextureSnapshot(sources:[:])
   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb),pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
   var leases:[SceneParticleDepthTargetLease]=[]
@@ -843,7 +843,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:1,generation:1))
   let green=texture(d,64,[0,255,0,255]),output=texture(d,64,[0,0,0,255])
   let sources=SceneBaseImageTextureSnapshot(sources:[11:source(green)])
-  let epoch=renderer.textureRegistry.beginFrame(frameIndex:1,layerSources:[:])
+  let epoch=renderer.textureRegistry.beginFrame(frameIndex:1,layerSources:[:],assetStates:renderer.fixtureAssetStates())
   let cb=q.makeCommandBuffer()!,event=d.makeSharedEvent()!
   if mode=="flight" {cb.encodeWaitForEvent(event,value:1)}
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
@@ -890,7 +890,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
    let size=128,newOutput=texture(d,size,[0,0,0,255]),blue=texture(d,size,[0,0,255,255])
    let cancelledCB=q.makeCommandBuffer()!
    let cancelledPass=SceneMainPassEncoder(commandBuffer:cancelledCB,target:newOutput,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let nextEpoch=renderer.textureRegistry.beginFrame(frameIndex:2,layerSources:[:])
+   let nextEpoch=renderer.textureRegistry.beginFrame(frameIndex:2,layerSources:[:],assetStates:renderer.fixtureAssetStates())
    let nextFrame=SceneFrameContext(dynamicValues:.empty(frameIndex:2,generation:1))
    let nextState=SceneMetalRenderer.StaticModelFrame(commandBuffer:cancelledCB);var nextLeases:[SceneParticleDepthTargetLease]=[]
    let nextSources=SceneBaseImageTextureSnapshot(sources:[11:source(blue)])

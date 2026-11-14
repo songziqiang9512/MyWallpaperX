@@ -30,9 +30,14 @@ enum SceneStaticModelAnimationAttachmentChecks {
                 renderOrderLayerIDs: [1, 2], materialPasses: passes)
             let loader = try SceneTextureLoader(root: directory, device: device)
             var sources = try prepareModelSources(descriptor, view: .init(root: directory))
+            let materialPlan = try ScenePreparedStaticModelResources.compileMaterialPlan(
+                descriptor: descriptor, resourceView: .init(root: directory), cancellationCheck: {})
+            let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: .init(root: directory),
+                descriptor: descriptor, loader: loader, device: device)
             let resources = try ScenePreparedStaticModelResources.prepare(
                 descriptor: descriptor, resourceView: .init(root: directory),
-                device: device, textureLoader: loader, preparedSources: &sources, cancellationCheck: {}
+                device: device, textureLoader: loader, materialPlan: materialPlan,
+                albedoStates: assets.launchStates, preparedSources: &sources, cancellationCheck: {}
             )
             let attachmentError: String
             switch parsed {

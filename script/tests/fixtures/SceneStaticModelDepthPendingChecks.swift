@@ -469,6 +469,27 @@ import Dispatch
    && partialLeases.count == 1 && partialDraws.count == 2
    && partialState.terminalDepthBinding(pass: partialPass, commandBuffer: partialCB) != nil
    && partialState.depthDeferralReason == nil
+  if case let .asset(identity) = partialDraws[0].entry.albedoSource {
+   let original = partialRenderer.textureRegistry.candidates.removeValue(forKey: identity)!
+   let remaining = partialRenderer.staticModelDraws(layer: .init(id: 1), worldFrames: world,
+    snapshot: dynamic, requiresCompleteNamedInputs: true)
+   checks["asset-missing-is-part-local-not-named-failure"] = remaining?.count == 1
+    && partialRenderer.dependencyRuntime.encoded[1] == nil
+   let moved = SceneTextureUVTransform(origin: SIMD2(0.5, 0),
+    xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5))
+   partialRenderer.textureRegistry.setCandidate(.init(texture: original.texture,
+    identity: original.identity, generation: original.generation, purpose: original.purpose,
+    content: .color(.resolved(.premultipliedAlpha)), physicalSize: original.physicalSize,
+    mappedSize: original.mappedSize, uvTransform: moved, sampling: .linearRepeat), for: identity)
+   let current = partialRenderer.staticModelDraws(layer: .init(id: 1), worldFrames: world,
+    snapshot: dynamic, requiresCompleteNamedInputs: true)!
+   checks["asset-current-binding-carries-frame-sampler-content"] = current.count == 2
+    && current[0].textureFrame == moved && current[0].sampling == .linearRepeat
+    && current[0].premultiplied
+   checks["asset-prepared-draw-retains-original-frame-for-all-passes"] =
+    partialState.prepared?[1]?.first?.textureFrame == original.uvTransform
+    && partialState.prepared?[1]?.first?.premultiplied == false
+  }
   partialState.cancel(); partialPass.closeForOffscreen(); partialLeases.forEach { $0.cancel() }
   var namedEntry = entry(SIMD3(1, 0, 0))
   namedEntry = .init(materialPath: namedEntry.materialPath, dynamicMaterialPath: "",

@@ -41,7 +41,7 @@ def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
 
 
-def fixture_entries(*, cast=True, all_nocull=False, texture_case=None):
+def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None):
     entries, parts, cases = {}, [], []
     states = STATES if texture_case is None else (("texture", "nocull"),)
     for column, (state, raw) in enumerate(states):
@@ -73,8 +73,11 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None):
                     "visible": all_nocull or not reverse or state == "nocull",
                     "shadowed": cast and (all_nocull or not reverse or state == "nocull")})
             else:
-                palette = ([200, 0, 0, 255], [0, 200, 0, 0],
-                           [0, 200, 0, 255], [0, 0, 200, 255])
+                palettes = (([200, 0, 0, 255], [0, 200, 0, 0],
+                             [0, 200, 0, 255], [0, 0, 200, 255]),
+                            ([0, 0, 200, 255], [200, 0, 0, 255],
+                             [200, 200, 0, 0], [0, 200, 0, 255]))
+                palette = palettes[frame_phase or 0]
                 for i, rgba in enumerate(palette):
                     px, py = x + (-1.5 if i % 2 == 0 else 1.5), y + (-2 if i < 2 else 2)
                     cases.append({"name": f"texel-{i}", "state": state, "reverse": False,
@@ -90,12 +93,22 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None):
                         pixels[offset:offset + 16] = crop[row * 16:(row + 1) * 16]
                 frames = [] if texture_case == "crop" else [(2, 2, 0 if texture_case == "zero" else 4, 0, 0, 4)]
                 if texture_case == "multi": frames *= 2
+                if texture_case == "animated":
+                    pixels = bytearray(bytes([255, 0, 255, 255]) * 64)
+                    frames = [(0, 0, 4, 0, 0, 4), (4, 4, 4, 0, 0, 4)]
+                    for index, (ox, oy, *_) in enumerate(frames):
+                        for row in range(4):
+                            for col in range(4):
+                                offset = ((row + oy) * 8 + ox + col) * 4
+                                pixels[offset:offset + 4] = bytes(palettes[index][(row // 2) * 2 + col // 2])
                 data = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 3 | (4 if frames else 0),
                     width, width, width, width, 0) + b"TEXB0002\0"
                     + struct.pack("<7I", 1, 1, width, width, 0, 0, len(pixels)) + pixels)
                 if frames:
                     data += b"TEXS0002\0" + struct.pack("<I", len(frames))
-                    for frame in frames: data += struct.pack("<If6f", 0, 2.5, *frame)
+                    for index, frame in enumerate(frames):
+                        duration = (2.0 if index == 0 else 3600.0) if texture_case == "animated" else 2.5
+                        data += struct.pack("<If6f", 0, duration, *frame)
                 entries["materials/model-surface.tex"] = data
     # Adjacent parts alternate authored states within one model; an independent
     # front-facing default material is drawn later in the same main encoder.
@@ -206,7 +219,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         cls.runs = {}
         print(f"static model cull evidence: {cls.root}", flush=True)
 
-    def run_case(self, name, **options):
+    def run_case(self, name, *, fixed_scene_time=None, **options):
         if name in self.runs:
             return self.runs[name]
         work = self.root / name
@@ -226,7 +239,9 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 if options.get("texture_case") else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
-            "evidenceBoundary": "owned static MDL cull cases, no official pixel parity"}))
+            "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
+            **({"fixedSceneTime": fixed_scene_time, "selectedFrame": options["frame_phase"]}
+               if fixed_scene_time is not None else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -236,6 +251,8 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                if not key.startswith(("MWX_SCENE_DEBUG_", "MYWALLPAPERX_SCENE_DEBUG_"))}
         env.update(HOME=str(work / "home"), CFFIXED_USER_HOME=str(work / "home"),
             MWX_SCENE_DEBUG_SURFACE_COUNT="1", MWX_SCENE_GENERIC_SHADER_CACHE=str(work / "cache"))
+        if fixed_scene_time is not None:
+            env["MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME"] = str(fixed_scene_time)
         with (work / "app.log").open("w") as output:
             result = subprocess.run(command, cwd=REPO, env=env, stdout=output,
                 stderr=subprocess.STDOUT, timeout=90)
@@ -256,8 +273,9 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         self.assertIn("gpuDrained=true", log)
         self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-(?:failed|rejected)|failure=exception")
         preview = (work / "evidence/scene-preview.log").read_text()
-        expected_prepared = "[1, 4]" if options.get("texture_case") in {"zero", "multi"} else "[1, 2, 4]"
-        self.assertIn("prepared static model layers: " + expected_prepared, preview)
+        if options.get("texture_case") != "animated":
+            expected_prepared = "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]"
+            self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
         for phase in ("ready", "after"):
             self.assert_rgb(pixels[phase]["pixels"]["healthy"], [0, 0, 255])
@@ -269,6 +287,18 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
     def assert_rgb(self, actual, expected):
         for value, wanted in zip(actual, expected):
             self.assertAlmostEqual(value, wanted, delta=TOLERANCE)
+
+    def assert_texture_coverage(self, result):
+        for phase in ("ready", "after"):
+            reference = result["pixels"][phase]["pixels"]
+            for case in result["cases"]:
+                color, shadow = f"{case['name']}-color", f"{case['name']}-shadow"
+                if case["visible"]:
+                    self.assert_rgb(reference[color], case["rgba"][:3])
+                    self.assertLess(max(reference[shadow]), 15)
+                else:
+                    self.assert_rgb(reference[color], reference["clear"])
+                    self.assert_rgb(reference[shadow], reference["clear"])
 
     def test_authored_cull_controls_color_and_shadow_per_material(self):
         on = self.run_case("authored-on")
@@ -300,26 +330,28 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
 
     def test_single_static_frame_matches_crop_with_color_holes_and_shadow(self):
         crop = self.run_case("texture-crop-control", texture_case="crop")
-        for phase in ("ready", "after"):
-            reference = crop["pixels"][phase]["pixels"]
-            for case in crop["cases"]:
-                color, shadow = f"{case['name']}-color", f"{case['name']}-shadow"
-                if case["visible"]:
-                    self.assert_rgb(reference[color], case["rgba"][:3])
-                    self.assertLess(max(reference[shadow]), 15)
-                else:
-                    self.assert_rgb(reference[color], reference["clear"])
-                    self.assert_rgb(reference[shadow], reference["clear"])
-        framed = self.run_case("texture-single-frame", texture_case="frame")
-        for phase in ("ready", "after"):
-            self.assertEqual(crop["pixels"][phase], framed["pixels"][phase])
-        for rejected in ("zero", "multi"):
-            result = self.run_case("texture-rejected-" + rejected, texture_case=rejected)
+        self.assert_texture_coverage(crop)
+        for texture_case in ("frame", "multi"):
+            name = "texture-single-frame" if texture_case == "frame" else "texture-multi-frame"
+            framed = self.run_case(name, texture_case=texture_case)
             for phase in ("ready", "after"):
-                pixels = result["pixels"][phase]["pixels"]
-                for case in result["cases"]:
-                    self.assert_rgb(pixels[f"{case['name']}-color"], pixels["clear"])
-                    self.assert_rgb(pixels[f"{case['name']}-shadow"], pixels["clear"])
+                self.assertEqual(crop["pixels"][phase], framed["pixels"][phase])
+        rejected = self.run_case("texture-rejected-zero", texture_case="zero")
+        for phase in ("ready", "after"):
+            pixels = rejected["pixels"][phase]["pixels"]
+            for case in rejected["cases"]:
+                self.assert_rgb(pixels[f"{case['name']}-color"], pixels["clear"])
+                self.assert_rgb(pixels[f"{case['name']}-shadow"], pixels["clear"])
+
+    def test_animated_albedo_frames_match_crops_with_color_holes_and_shadow(self):
+        for frame, scene_time in enumerate((.25, 2.25)):
+            crop = self.run_case(f"albedo-frame-{frame}-crop", texture_case="crop",
+                frame_phase=frame, fixed_scene_time=scene_time)
+            self.assert_texture_coverage(crop)
+            animated = self.run_case(f"albedo-frame-{frame}-animated", texture_case="animated",
+                frame_phase=frame, fixed_scene_time=scene_time)
+            for phase in ("ready", "after"):
+                self.assertEqual(crop["pixels"][phase], animated["pixels"][phase])
 
 
 if __name__ == "__main__":

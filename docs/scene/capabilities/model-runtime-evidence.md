@@ -186,4 +186,16 @@
 
 新四场均F96/request2：crop CB517404771200/main-seal517396785792，frame CB533879882624/main-seal533869718144，zero为531430687616/531420244608，multi为503345234816/503335217792；模型[1,2,4]或拒绝后的[1,4]到各自终端/GPUcompleted、零截断并排空。old/new同两输入pkg及各entry逐SHA同，MDL/scene/材料不变。shadow depth-written等首epoch日志另作事件证据，不伪称F96内部map行；当前终端投影像素已有上述严格等值。原Catalog多帧/0duration/事务邻门一方法通过；首次因既有载体三处缺try编译失败、零GPU，修调用后补验，产品/输入/断言未改。
 
-原3437487219 project/pkg匹配，自然5s的F123/request1/CB508680962944中112/114与135到main508687659520/seal/GPU并排空，地表/云/大气/时钟完整。限定五个星球包的117份TEX头均已解析且无sprite，不授活动作者单frame命中或原景缺图恢复。自有输入/红绿/整图/构建/独审归`.artifacts/scene-model-single-frame-texture-20261115`，原作者报告归`.artifacts/scene-evidence/runs/scene-model-single-frame-texture-20261115`。无多帧模型、仿射、官方像素/性能或线性atlas边缘等价资格；Catalog的embedded坐标及pigment像素密度另在[开放队列](../roadmap/scene-open-breakpoint-queue.md)，不加旁路许可。
+原3437487219 project/pkg匹配，自然5s的F123/request1/CB508680962944中112/114与135到main508687659520/seal/GPU并排空，地表/云/大气/时钟完整。限定五个星球包的117份TEX头均已解析且无sprite，不授活动作者单frame命中或原景缺图恢复。自有输入/红绿/整图/构建/独审归`.artifacts/scene-model-single-frame-texture-20261115`，原作者报告归`.artifacts/scene-evidence/runs/scene-model-single-frame-texture-20261115`。本节仅授当时静态入口；当前 albedo 多帧见[统一供货](#model-albedo-frames)，Catalog embedded 源帧见[共享准备](render-graph-shader-coverage.md#material-atlas-source-frame-evidence)。仿射、pigment 像素密度、官方像素/性能及线性边缘仍未获资格。
+
+## 模型 albedo 统一资产与多帧 <a id="model-albedo-frames"></a>
+
+2026-11-15按[统一供货合同](advanced-object-coverage.md#model-albedo-frames)，静态/单帧/多帧 slot0 全部沿原 Catalog→FrameProvider→Registry。冷 MaterialPlan 一次固定首 pass0、投影材质及需求，原 resource-planning 同时交接最小 readiness；Entry 退 direct loadCandidate/纹理驻留和双 nullable。普通帧只取当前 publication，颜色与 shadow 冻结同 draw；asset 缺供只丢 part，named 完整性独立。两 Task 整体归位、原免等待测试分支退出，无新时钟/worker/barrier/cache/Metal ABI。冷视频集合避免每帧重扫静态 Entry，并并入原独立需求与初供/暂停重试。
+
+自有真实 MDL/receiver/健康 peer、材质/相机/灯相同，8² TEX 两个4²帧的时间固定.25/2.25，颜色和透明孔由象限1移2，对应投影同移。旧 d2ae/2a5f 的 crop0 健康、animated0 在实际像素处失败（模型与阴影消失），非 prepared-ID 先验阻断。新8b85/1acb 的两方法8场通过：两时间各 crop/animated、原 crop/single/identical-multi/zero；12组完整 PNG 与 RGBA 严格等值，ready/after各同字节，单帧输入不变。两时终端变化30176 RGB像素，实际typed UV分别[0,0;.5,0;0,.5]与[.5,.5;.5,0;0,.5]；该观测不等于 GPU uniform 读回，也不授同一 Surface 连续转帧。每图同 request/CB 的模型→main/seal/GPU 完成，零截断并排空。
+
+TEX App运行对应首个不可变构建30.417s；其后仅资源/Ordered的冷视频索引收窄，最终Debug28.136s、产品/project/锁文件字节稳定，strict deep与原helpers验证通过；exe c74784a7…992c、dylib12daf356…f4c0，metallib4957688f…83bf1未变。复用未受影响TEX矩阵，不把首构建资格冒给最终源码。最终App真实TEXB视频albedo普通/启动即暂停两场分别15.281/14.803s：四处颜色[0,200,1]、投影[5,5,5]、peer蓝/未遮面97，模型[1,2,4]；暂停保持F0，首视频publication后才qualified并完成初帧GPU。初供前确有layer2 pending日志，未捕获其阶段图，不授无黑闪；不授模型媒体热换、隐藏effect共用视频像素、官方一致或性能。
+
+最终App另以同一 animated 包自然时钟运行8.423s，不设时间覆盖、after延3s；同 Surface531235655168 的 request1/F33→request2/F96，两次沿同 atlas texture531253118208 取上述两UV，颜色/孔洞/投影实际跨帧。两张3024×1964整PNG与RGB分别逐字节等原crop0/crop1参考，各自main/seal/GPU完成、零截断并排空。此场补授同 Surface 播放；未读回精确SceneClock/GPU时刻或全部中间帧。
+
+原四class Native32方法首次30过；新增缺图载体的两个part误共一纹理已改独立输入，原局部失败预期不动，Selection-only30checks全真。另以HEAD原产品/载体及同blends输入实读，三灯所有深度/像素与当前逐值相同，证明“translucent不投影”是旧oracle；退类别名单，保五个真实覆盖和cast=false反例，两个原失败方法用冻结GPU结果CPU补验通过。原失败和wrapper日志顺序误断言均保留，不把它们记成产品回退。Task3方法与SurfaceAdmission纯计划门通过；当前asset缺供/UV/sampler/PMA及冻结draw的6项正反检查全真，named原图回归保持。独立3437487219原project/pkg匹配，最终App自然5s、F140/request1/CB506203999744，模型112/114和图像135到同main506255019776/seal/GPU，零截断并排空；实际查看地表、云、大气、星空、时钟完整，非活动atlas作者命中。自有输入、完整红绿/图/身份、复用范围和独审归`.artifacts/scene-model-albedo-frames-20261115`，作者原报告与图归`.artifacts/scene-evidence/runs/scene-model-albedo-frames-20261115`。本批不授normal/map/lookup动画、跨image、仿射或全部atlas边缘等值。

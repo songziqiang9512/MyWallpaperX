@@ -19,13 +19,24 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 验收先在当前源取得明确引用的真实catalog/materialPass空失败；扩原catalog门核目录/文件/别名变体、普通先入队及后提升、同材料一次读取、未知JSON零读、真实坏输入与健康peer。原MDL reader→SourceFacts→catalog→materialPass门保多part/PKG及复用PreparedSource。复用本批已冻结的真实月球失败变体：同输入由material准备到实际model/main/seal/GPU并出现球面，另与materials/等价载体及独立原包核结果；不新增fixture算法或按路径选视觉结果。当前结果见[运行证据](model-runtime-evidence.md#model-material-role)。
 
 <a id="model-single-frame-texture"></a>
-### 模型静态材质的单帧TEX
+### 静态材质候选的单帧TEX
 
-静态模型的albedo及可选normal/map/lookup沿原TextureLoader typed candidate供货；一个物理image且恰好一个合法sprite frame没有随时间变化的内容，应按该frame的origin/双轴采样，不能因TEX的animated/sprite标志丢整个模型或静默退可选贴图。现有loadCandidate只接无sprite的整图，此处退该整类拒绝；多frame仍由原Catalog/provider和clock负责，不在静态资源准备中偷偷取第一帧。未接模型多帧资源前仍局部拒绝该类输入。
+原 TextureLoader.loadCandidate 对一个物理 image、恰一合法 sprite frame 返回带实际 origin/双轴和 isSpriteSheet 的 typed candidate，保 physical/mapped、revision、purpose、sampling/format；多帧不偷偷取 frame0。无帧和单帧都沿[共享源帧准备](render-graph-shader-coverage.md#material-atlas-source-frames)，Reader 在字节入口校验，异域只投影一次，时长沿原 Double 合同。正向 axis、实际源范围、非 volume 与各消费者几何合同仍各自成立。
 
-原Loader静态入口只接imageCount1、恰好一frame；带帧输入使用[共享源帧准备](render-graph-shader-coverage.md#material-atlas-source-frames)，不另作模型专属坐标投影。保正向axis/实际atlas范围与非volume结构，不借此扩大仿射或跨image播放；Reader只在字节入口校验数值，时长沿原Double播放合同。原private makeCandidate仅搬已准备UV并标isSpriteSheet，physical/mapped、来源revision、用途/色彩、sampling/format及上传缓存保持同一事实。Catalog多帧仍由同一准备结果和原provider负责。StaticModel原Entry/Frame/颜色/shadow直接消费同一候选，无新owner、时钟、字段、wrapper、重复上传或普通帧解析；比例/完整图消费者仍执行自己的原几何合同，不把一frame宣为identity。
+该静态入口继续供模型 normal/map/gradient/pigment 等现有可选数据图；slot0 albedo 已迁入下节统一资产链。原单帧实际模型颜色/孔/投影与Loader反例范围见[证据](model-runtime-evidence.md#model-single-frame-texture)，不授可选贴图多帧。pigment 像素密度、仿射及线性 atlas 边缘另按队列资格。
 
-验收从真实TEX/Loader与实际MDL准备开始：非零origin/非整图frame对照独立裁剪图，核候选元数据及实际模型颜色/遮挡/投影；改名、单帧duration0等价、真退化/非有限/越界及多帧拒绝，健康peer保留。原App用相同自有MDL、材质和相机比较旧缺模型与新frame/裁剪图完整像素，保遮挡/透明孔/健康peer；独立星球作者原包检查实际播放和合成。不靠candidate ready计数代像素，不授相机depth纹理数值读回、多帧热更新、全部静态消费者/仿射、官方像素或性能收益。pigment现pixelFrame以mapped atlas尺寸除frame轴，单帧与独立裁剪noise的像素密度未等值；线性atlas边缘也不等同独立图夹边，二者另按开放队列资格。 当前颜色/遮挡/投影及入口范围见[模型运行证据](model-runtime-evidence.md#model-single-frame-texture)。
+<a id="model-albedo-frames"></a>
+### 模型 albedo 的统一资产供货
+
+目标是使同一模型的静态、单帧与多帧 slot0 沿同一供货链正确着色、遮挡和投影。当前 Entry 自持冷加载 candidate，合法多帧因此缺整个 part；只给动画另开旁路会保留重复加载和不同生命周期。本批迁移全部资产 albedo，named 图输入保原依赖链；normal/map/gradient/pigment 的静态职责暂不扩大。
+
+`已准备 MDL 材料链接 → 原 descriptor 首个 pass0 → 冷 MaterialPlan → 原 Catalog demands → 原 FrameProvider(sceneTime) → 原 FrameTextureRegistry → 当帧 model draw → 颜色与 shadow`。计划只处理已标记的 direct model 材料，先固定首个 pass0（包括 rejected），不能用后项替换失败首项；material 数值投影一次。冷计划携原 pass 供现有可选贴图准备，Entry 只持 asset 或 named 身份，退出 slot0 的直接 resolve/loadCandidate、candidate 驻留与重复材料扫描。FrameProvider 是唯一推进者，颜色与阴影复用同一冻结 draw 的 texture/UV/sampler/content，普通帧不解析、不另推时钟或上传。
+
+Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先发布 geometry，之后由现有一次 Script resource-planning handoff 同时交动态 image 需求、model 计划和最小 launch readiness；不能提前 join 等待 Catalog。两既有 Task 类整体归位，去测试专属免交接模式，不增 condition、barrier、worker 或 cache。冷 missing/unavailable 只丢受影响 part，保原 prepared IDs/隐藏组合语义；ready/preparedVideo 保留 Entry，实际帧资产尚未 ready 时只跳该 part，不能冒充 named 依赖失败或扩大 requiresCompleteNamedInputs。
+
+视频声明不等于首帧 ready。模型实际资产需求并入原视频独立消费者集合，避免与隐藏 effect 共用时暂停；同 launch 的 albedo 身份不变，冷准备只索引实际视频 albedo 的 layer/asset，逐帧不重扫静态模型 Entry；可见模型的 pending 沿原 InitialVideoPresentation 等首个真实 publication 和 GPU 提交，主 pass 同时保暂停重试，group 输入只阻启动资格，不造 decoder、就绪 owner 或视频扩展名名单。仍消费当前 candidate.content，保原颜色表示；本批不增加模型媒体选择/热换身份能力。
+
+验收复用真实 Catalog/MDL/Frame 门：静态与单帧原输出不变，两帧纹理按原 sceneTime 对照独立裁剪图，颜色、移动透明孔与对应阴影同帧一致；包含改名、缺供局部失败、首 pass rejected/重复材料、取消/早失败/空交接和健康 peer。原 App 保旧像素红例及新两时间裁剪图等值，另用未参与修复的星球作者原包检查实际播放/合成；模型视频只按实际运行覆盖声明，不以静态 TEX 测试授视频解码或官方一致性。达到同链供货与实际像素验收后，队列退出该缺口；其它贴图动画、跨 image、仿射及 noise 像素密度仍分别资格。
 
 <a id="model-named-albedo"></a>
 模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](model-runtime-evidence.md#nested-model-albedo).

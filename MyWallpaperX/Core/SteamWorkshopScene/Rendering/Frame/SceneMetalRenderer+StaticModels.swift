@@ -193,19 +193,23 @@ extension SceneMetalRenderer {
             let frame: SceneTextureUVTransform
             let sampling: SceneTextureSampling
             let premultiplied: Bool
-            if let albedo = entry.albedo {
-                texture = albedo.texture; frame = albedo.uvTransform
-                sampling = albedo.sampling; premultiplied = false
-            } else if let reference = entry.namedAlbedo,
-                      let albedo = dependencyRuntime.staticModelNamedAlbedo(
-                        for: layer.id, materialPath: entry.materialPath,
-                        expectedReference: reference, textureRegistry: textureRegistry) {
+            switch entry.albedoSource {
+            case let .asset(identity):
+                guard let albedo = textureRegistry.resource(for: .asset(identity)) else { return nil }
+                let candidate = albedo.publication.candidate
+                texture = candidate.texture; frame = candidate.uvTransform
+                sampling = candidate.sampling
+                premultiplied = candidate.content == .color(.resolved(.premultipliedAlpha))
+            case let .named(reference):
+                guard let albedo = dependencyRuntime.staticModelNamedAlbedo(
+                    for: layer.id, materialPath: entry.materialPath,
+                    expectedReference: reference, textureRegistry: textureRegistry) else {
+                    hasMissingInput = true
+                    dependencyRuntime.recordStaticModelBindingFailure(for: layer.id)
+                    return nil
+                }
                 texture = albedo.texture; frame = albedo.textureFrame
                 sampling = albedo.sampling; premultiplied = albedo.isPremultiplied
-            } else {
-                hasMissingInput = true
-                dependencyRuntime.recordStaticModelBindingFailure(for: layer.id)
-                return nil
             }
             let material = entry.material.resolvingDynamicValues(
                 layerID: layer.id, materialPath: entry.dynamicMaterialPath, snapshot: snapshot
@@ -283,6 +287,9 @@ extension SceneMetalRenderer {
             if let trace = pass.compositionTrace, trace.isCompositionSelected {
                 var source = SceneCompositionTextureObservation(draw.texture, role: "model-color")
                 source.sampling = String(describing: draw.sampling)
+                source.uv = [draw.textureFrame.origin.x, draw.textureFrame.origin.y,
+                    draw.textureFrame.xAxis.x, draw.textureFrame.xAxis.y,
+                    draw.textureFrame.yAxis.x, draw.textureFrame.yAxis.y]
                 trace.recordComposition(.init(kind: "model", layerID: layer.id, slot: 0,
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",

@@ -69,6 +69,7 @@ struct SceneRenderDescriptor {
  struct Layer {
   let id:Int;var visible:Bool? = true;var pointLight:ScenePointLightDefinition? = nil
   var spotLight:SceneSpotLightDefinition? = nil;var directionalLight:SceneDirectionalLightDefinition? = nil
+  var dependencyLayerIDs:[Int]=[]
   var parentID:Int? = nil;var displayScriptOwnership:SceneLayerDisplayScriptOwnership? = nil
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
   // This shadow fixture has ordinary model/image receivers, no composition.
@@ -105,11 +106,20 @@ struct SceneParticlePerformanceObservation { let layerID:Int;let instanceCount:I
 struct PreparedTexture {
  let texture:MTLTexture;var uvTransform:SceneTextureUVTransform = .identity
  var sampling:SceneTextureSampling = .directImageFallback
+ func candidate(for identity:SceneAssetTextureIdentity)->SceneTextureCandidate {
+  let size=CGSize(width:texture.width,height:texture.height)
+  return .init(texture:texture,identity:.builtIn(name:identity.reportToken),
+   generation:.immutable(revision:1),purpose:.straightAlbedo,content:.color(.resolved(.straightAlpha)),
+   physicalSize:size,mappedSize:size,uvTransform:uvTransform,sampling:sampling)
+ }
 }
 struct ScenePreparedStaticModelResources {
+ enum AlbedoSource { case asset(SceneAssetTextureIdentity), named(String) }
  struct Entry {
   let materialPath:String;let dynamicMaterialPath:String;let mesh:SceneStaticModelMesh
-  let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var materialMap:SceneStaticModelMaterialMap? = nil
+  let albedoSource:AlbedoSource
+  let fixtureAlbedo:PreparedTexture?
+  var materialMap:SceneStaticModelMaterialMap? = nil
   var normalMap:SceneStaticModelNormalMap? = nil
   var gradient:SceneStaticModelGradient? = nil
   var pigment:SceneStaticModelPigment? = nil
@@ -117,6 +127,21 @@ struct ScenePreparedStaticModelResources {
   var testsDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil
   var geometryState:SceneMdlStaticModel.GeometryState = .authoredStatic
+  init(materialPath:String,dynamicMaterialPath:String,mesh:SceneStaticModelMesh,
+       albedo:PreparedTexture?,namedAlbedo:String?=nil,
+       materialMap:SceneStaticModelMaterialMap?=nil,normalMap:SceneStaticModelNormalMap?=nil,
+       gradient:SceneStaticModelGradient?=nil,pigment:SceneStaticModelPigment?=nil,
+       material:SceneStaticModelMaterial,writesDepth:Bool=true,testsDepth:Bool=true,
+       materialBlending:SceneMaterialRenderState.Blending?=nil,
+       geometryState:SceneMdlStaticModel.GeometryState = .authoredStatic) {
+   self.materialPath=materialPath;self.dynamicMaterialPath=dynamicMaterialPath;self.mesh=mesh
+   albedoSource=namedAlbedo.map(AlbedoSource.named)
+    ?? .asset(SceneAssetTextureIdentity(virtualPath:"fixture/"+UUID().uuidString,purpose:.straightAlbedo)!)
+   fixtureAlbedo=albedo;self.materialMap=materialMap;self.normalMap=normalMap
+   self.gradient=gradient;self.pigment=pigment;self.material=material
+   self.writesDepth=writesDepth;self.testsDepth=testsDepth
+   self.materialBlending=materialBlending;self.geometryState=geometryState
+  }
  }
  let pipeline:SceneStaticModelPipeline?;let entries:[Int:[Entry]]
  subscript(_ id:Int)->[Entry]? { entries[id] }
@@ -132,7 +157,23 @@ final class BindingObserver {
  func recordStaticModelBindingFailure(for id:Int) { encoded[id] = false }
  func recordStaticModelBindingIfRequired(for id:Int, encoded value:Bool, on cb:MTLCommandBuffer) { encoded[id] = value }
 }
-struct TextureRegistry { let frameEpoch:UInt64 = 1 }
+enum FixtureAssetRequest {case asset(SceneAssetTextureIdentity)}
+struct FixtureAssetPublication {let candidate:SceneTextureCandidate}
+struct FixtureAssetResource {let publication:FixtureAssetPublication}
+final class TextureRegistry {
+ let frameEpoch:UInt64 = 1
+ var candidates:[SceneAssetTextureIdentity:SceneTextureCandidate]=[:]
+ func setCandidate(_ candidate:SceneTextureCandidate,for identity:SceneAssetTextureIdentity) {
+  candidates[identity]=candidate
+ }
+ func resource(for request:FixtureAssetRequest)->FixtureAssetResource? {
+  guard case let .asset(identity)=request,let candidate=candidates[identity] else {return nil}
+  return .init(publication:.init(candidate:candidate))
+ }
+ func supply(_ source:PreparedTexture,for identity:SceneAssetTextureIdentity) {
+  setCandidate(source.candidate(for:identity),for:identity)
+ }
+}
 struct SceneCompositionGroupFrameRuntime {
  func renderPass(forLayerID:Int)->SceneMainPassEncoder? { nil }
  func closeAllGroupEncoders() {}
@@ -172,6 +213,11 @@ final class SceneMetalRenderer {
  let dependencyRuntime = BindingObserver();let textureRegistry = TextureRegistry()
  init(device:MTLDevice, resources:ScenePreparedStaticModelResources) {
   self.device=device;staticModelResources=resources
+  for entry in resources.entries.values.flatMap({$0}) {
+   if case let .asset(identity)=entry.albedoSource,let source=entry.fixtureAlbedo {
+    textureRegistry.supply(source,for:identity)
+   }
+  }
  }
 }
 '''
