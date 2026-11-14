@@ -292,13 +292,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 }
                 return .init(field: field, source: .staticValue(encoded))
             case let .dynamic(dynamic):
-                let contributor = try soleValueContributor(
-                    dynamic,
-                    name: field.name
-                )
+                guard let contributor = dynamic.primaryValueContributor else {
+                    throw failure(
+                        .uniform, .uniformContributorPolicyUnproven,
+                        details: [field.name]
+                    )
+                }
                 try validateScriptAttachments(
                     dynamic.scriptAttachments,
-                    contributor: contributor,
                     name: field.name
                 )
                 return .init(
@@ -603,24 +604,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         return fact
     }
 
-    private static func soleValueContributor(
-        _ dynamic: Template.DynamicUniform,
-        name: String
-    ) throws -> Template.DynamicUniformSource {
-        guard dynamic.valueContributors.count == 1,
-              let contributor = dynamic.valueContributors.first else {
-            throw failure(
-                .uniform,
-                .uniformContributorPolicyUnproven,
-                details: [name]
-            )
-        }
-        return contributor
-    }
-
     private static func validateScriptAttachments(
         _ attachments: [Template.DynamicUniformScriptAttachment],
-        contributor: Template.DynamicUniformSource,
         name: String
     ) throws {
         guard attachments.isEmpty else {

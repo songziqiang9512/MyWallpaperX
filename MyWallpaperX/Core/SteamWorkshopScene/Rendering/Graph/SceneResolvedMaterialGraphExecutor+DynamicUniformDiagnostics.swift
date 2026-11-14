@@ -30,19 +30,17 @@ extension SceneResolvedMaterialGraphExecutor {
             guard let resolved = frameInputs.dynamicValues[target],
                   resolved.source == resolvedSource else { continue }
             let channel: String
-            switch (dynamic.contributor, resolvedSource) {
-            case (.timeline, .timeline):
+            switch resolvedSource {
+            case .timeline:
                 channel = "timeline"
-            case (.sceneScript, .sceneScript):
+            case .sceneScript:
                 channel = "scene-script"
-            case (.userProperty, .authored):
+            case .authored:
                 channel = "authored-fallback"
-            case (.userProperty, .userProperty):
+            case .userProperty:
                 // Scalar and scalar-splat publications have their existing reader.
                 if case .scalar = resolved.value { continue }
                 channel = "user-property"
-            default:
-                continue
             }
             guard let expected = SceneResolvedMaterialUniformEncoder.encode(
                       resolved.value,

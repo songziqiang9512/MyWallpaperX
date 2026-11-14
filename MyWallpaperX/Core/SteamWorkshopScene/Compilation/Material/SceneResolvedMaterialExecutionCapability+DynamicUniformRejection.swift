@@ -54,7 +54,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
-            guard dynamic.valueContributors.count == 1 else {
+            guard dynamic.primaryValueContributor != nil else {
                 guard dynamic.scriptAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
@@ -65,7 +65,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 return rejection("material-dynamic-uniform-contributor-policy")
             }
-            if !hasValueSource(dynamic.valueContributors[0]) {
+            if !dynamic.valueContributors.allSatisfy(hasValueSource) {
                 guard dynamic.scriptAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }

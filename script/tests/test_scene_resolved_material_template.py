@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -21,7 +22,6 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SCENE_ROOT / "Compilation/Material/SceneAuthoredMaterialResolver.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
@@ -202,6 +202,15 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             prefix="mwx-resolved-material-template-"
         )
         temporary = Path(cls.temporary_directory.name)
+        evidence = os.environ.get("MWX_MATERIAL_TEMPLATE_EVIDENCE")
+        cls.evidence = Path(evidence) if evidence else None
+        inputs = list(dict.fromkeys([*SWIFT_SOURCES, PROGRAM_SOURCE, Path(__file__),
+            Path(__file__).parent / "fixtures/scene_resolved_material_template.swift"]))
+        before = {str(p.relative_to(REPOSITORY_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in inputs}
+        if cls.evidence:
+            cls.evidence.mkdir(parents=True, exist_ok=True)
+            (cls.evidence / "input-freeze.json").write_text(json.dumps(before, indent=2) + "\n")
         template_source = temporary / "SceneResolvedMaterialTemplate.swift"
         support = temporary / "Support.swift"
         harness = temporary / "Harness.swift"
@@ -211,6 +220,13 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
         )
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
+        if cls.evidence:
+            generated = [template_source, support, harness]
+            for source in generated:
+                (cls.evidence / source.name).write_bytes(source.read_bytes())
+            (cls.evidence / "generated-inputs.json").write_text(json.dumps({
+                source.name: hashlib.sha256(source.read_bytes()).hexdigest() for source in generated
+            }, indent=2) + "\n")
         binary = temporary / "resolved-material-template"
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(temporary / "clang-cache")
@@ -230,10 +246,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             text=True,
             env=environment,
         )
-        evidence = os.environ.get("MWX_MATERIAL_TEMPLATE_EVIDENCE")
-        cls.evidence = Path(evidence) if evidence else None
         if cls.evidence:
-            cls.evidence.mkdir(parents=True, exist_ok=True)
             (cls.evidence / "compile.json").write_text(json.dumps({
                 "command": compilation.args, "returncode": compilation.returncode,
                 "stdout": compilation.stdout, "stderr": compilation.stderr}, indent=2))
@@ -248,9 +261,20 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             env=environment,
         )
         cls.result = json.loads(completed.stdout)
+        after = {str(p.relative_to(REPOSITORY_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in inputs}
         if cls.evidence:
             (cls.evidence / "observations.json").write_text(json.dumps(cls.result, indent=2))
+            (cls.evidence / "observations.stdout").write_text(completed.stdout)
             (cls.evidence / "observations.stderr").write_text(completed.stderr)
+            (cls.evidence / "input-after.json").write_text(json.dumps(after, indent=2) + "\n")
+            (cls.evidence / "execution.json").write_text(json.dumps({
+                "exitCode": completed.returncode, "inputCount": len(before),
+                "sourceImmutable": before == after,
+                "binarySHA256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+                "gpuDispatches": 0, "appVMOperations": 0}, indent=2) + "\n")
+        if before != after:
+            raise AssertionError("template fixture source changed during execution")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -295,7 +319,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "malformedScalarProjectionRejected",
             "constantFallbackMergedWithDynamic",
             "multipleValueContributorsPreserved",
-            "timelineControlSeparated",
+            "scriptTimelinePreparedTargetProof",
             "unknownScriptTypedUnproven",
             "boundedScriptNeedsExactProof",
             "boundedScriptExactProofBecomesSoleValue",
@@ -307,6 +331,15 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "colorUserUnprovenRemainsAttached",
             "colorUserMalformedRejected",
         ])
+        rows = self.result["scriptTimelineDeclarations"]
+        self.assertEqual([row["case"] for row in rows],
+                         ["media", "cursor", "renamed", "init", "update", "opaque", "noTimeline"])
+        for row in rows:
+            self.assertEqual(row["contributors"],
+                             ["sceneScript"] if row["case"] == "noTimeline" else ["timeline", "sceneScript"])
+            self.assertEqual(row["primary"], "sceneScript")
+            self.assertEqual(row["attachments"], [])
+            self.assertEqual(row["fallback"], [0.25, 0.75])
 
     def test_named_user_scalar_proof_is_exact_and_single_writer(self) -> None:
         self.assert_contracts([

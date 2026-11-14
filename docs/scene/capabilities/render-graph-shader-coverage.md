@@ -17,6 +17,15 @@
 
 Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
 
+<a id="script-timeline-uniform"></a>
+### Script 与 Timeline 的材质值通道
+
+同一数值target上的Timeline是Script回调输入，也是Script本帧未产值时的合法来源；脚本被准入不等于每帧一定写值。原Template的`valueContributors`保留已声明且冷准备可供货的Timeline→SceneScript顺序，由原DynamicUniform给出单来源或该已证明组合的主身份；其他多来源/重复writer和未知Script附件仍沿原局部拒绝，不从源码中的回调名、数值相等或样本推断值角色。原producer catalog分别确认真实Timeline definition与Script target，不新增来源registry或值副本。
+
+Program仍准备一个数值binding，主身份供原ABI/语义身份、直user投影和pass Script实例化；本帧值与来源由原DynamicSnapshot按现有优先级唯一决定。原uniform消费者接纳该声明内的实际Timeline或Script来源，保精确target、类型/有限值/Float编码、authored fallback、direct-user范围及资源/变体边界，不把未知来源通放。原DEBUG读口只报告已成功消费的实际来源。冷期退出sole-contributor假设和材质classifier的media回调源码特判；scalar Program尚有独立的旧控制识别消费者，本批不改其生命周期或发布角色。无新clock、owner、缓存、逐帧解析或一般多writer合并。
+
+验收复用原TemplateCompiler/Classifier与prepared-query/Finalizer门，分别标明两fixture的handoff上限；核Timeline供值、Script真值、init后闲帧回Timeline、事件setter来源、变量/字段改名，保无Timeline却收到Timeline、未知附件、user冲突、错型/溢出/缺target和健康peer。真实QuickJS角色证据在输入源未变时复用；签名App以未改作者的同一成熟点击核实际uniform字节、material→main/seal/GPU及白块消除，再补独立真实交互。后续animationEvent供货与完整翻页各自验收，不借此授予。
+
 <a id="sampler-presence-zero"></a>
 ### 未绑定纹理的显式零 combo
 

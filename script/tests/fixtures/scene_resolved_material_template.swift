@@ -444,27 +444,32 @@ enum Harness {
             passIndex: 3,
             name: "g_Fade"
         )
-        let timelineControl = template(compile(
-            material(constants: [
-            "g_Fade": .init(
-                rawValue: "0.5",
-                valueKind: "binding",
-                components: [0.5],
-                timeline: true,
-                scriptSource: """
-                    export function mediaThumbnailChanged(event) {
-                        if (event.hasThumbnail) {
-                            var animation = thisObject.getAnimation();
-                            animation.stop();
-                            animation.play();
-                        }
-                    }
-                    """,
-                bindingKeys: ["animation", "script", "value"]
-            ),
-            ]),
-            provenSceneScriptValueTargets: [boundedScriptTarget]
-        ))
+        // Target proof is supplied by the producer; this gate does not execute these modules.
+        let scriptTimelineRows = [
+            ("media", "export function mediaThumbnailChanged(event){if(event.hasThumbnail){var animation=thisObject.getAnimation();animation.stop();animation.play();}}", true),
+            ("cursor", "export function cursorClick(){thisObject.getAnimation('turn').play();}", true),
+            ("renamed", "export function cursorClick(){const renamed=thisObject.getAnimation('other');renamed.play();}", true),
+            ("init", "export function init(v){return new Vec2(0.7,0.8);}", true),
+            ("update", "export function update(v){return v;}", true),
+            ("opaque", "producer-admitted runtime module", true),
+            ("noTimeline", "producer-admitted runtime module", false),
+        ].map { label, source, hasTimeline in
+            let key = label == "renamed" ? "otherCorner" : "g_Fade"
+            let target = SceneDynamicTarget.effectConstant(layerID: 42, effectIndex: 2, passIndex: 3, name: key)
+            let value = template(compile(material(constants: [key: .init(
+                rawValue: "0.25 0.75", valueKind: "binding", components: [0.25,0.75],
+                timeline: hasTimeline ? true : nil, scriptSource: source,
+                bindingKeys: hasTimeline ? ["animation","script","value"] : ["script","value"])]),
+                provenSceneScriptValueTargets: [target]))
+            return (label: label, target: target, hasTimeline: hasTimeline, value: value)
+        }
+        let scriptTimelineProof = scriptTimelineRows.allSatisfy { row in
+            guard case let .dynamic(value)? = row.value?.uniformDeclarations.first?.value else { return false }
+            return value.target == row.target && value.scriptAttachments.isEmpty
+                && value.valueContributors == (row.hasTimeline ? [.timeline,.sceneScript] : [.sceneScript])
+                && value.primaryValueContributor == .sceneScript
+                && value.authoredFallback?.componentBitPatterns == [Double(0.25).bitPattern,Double(0.75).bitPattern]
+        }
         let unknownTimelineScript = template(compile(material(constants: [
             "g_Time": .init(
                 rawValue: "0.5",
@@ -775,12 +780,7 @@ enum Harness {
                     ]
                         && value.scriptAttachments.isEmpty
                 } == true,
-            "timelineControlSeparated": timelineControl?
-                .uniformDeclarations.first.map { declaration in
-                    guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.timeline]
-                        && value.scriptAttachments.isEmpty
-                } == true,
+            "scriptTimelinePreparedTargetProof": scriptTimelineProof,
             "unknownScriptTypedUnproven": unknownTimelineScript?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
@@ -913,7 +913,19 @@ enum Harness {
         result.merge(sourceContracts()) { _, new in new }
         result.merge(declaredTextureInputChecks(shader: contract("images/renamed"))) { _, new in new }
         result.merge(declaredFramebufferBindingChecks(shader: contract("images/renamed"))) { _, new in new }
-        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        var payload: [String: Any] = result
+        payload["scriptTimelineDeclarations"] = scriptTimelineRows.map { row -> [String: Any] in
+            guard case let .dynamic(value)? = row.value?.uniformDeclarations.first?.value else {
+                return ["case":row.label,"missing":true]
+            }
+            return ["case":row.label,"target":String(describing:value.target),
+                "bindingKeys":value.authoredBindingKeys,"hasTimeline":row.hasTimeline,
+                "contributors":value.valueContributors.map { String(describing:$0) },
+                "attachments":value.scriptAttachments.map { String(describing:$0) },
+                "primary":value.primaryValueContributor.map { String(describing:$0) } ?? "nil",
+                "fallback":value.authoredFallback?.componentBitPatterns.map { Double(bitPattern:$0) } ?? []]
+        }
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
 }

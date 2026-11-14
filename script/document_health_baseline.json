@@ -125,12 +125,12 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 293,
-      "bytes": 57121
+      "lines": 302,
+      "bytes": 59078
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 267734
+      "bytes": 268381
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49569
+      "bytes": 49618
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -492,15 +492,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "57d783f70caaf4d53a46389a445e574dcd5f6a0e3d5dcad365fc05bfa789e945",
-      "after": "ebbbe557aaac07926228c9548ce87d144fada2486c81b15abc1f67b5518c6053",
-      "owner": "Existing Scene VariantResolver and sampler readiness",
-      "reason": "Retire the known-false explicit-zero macro rejection while preserving definedness and active resource requirements. Record frozen-input color recovery, bounded native counterexamples and one independently reviewed ready-mask author regression; component animation scope remains unqualified.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#sampler-presence-zero"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
       "after": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
@@ -510,21 +501,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2b23940c5f6b2f528a5d3e2326cb0a628d8785158d86bb015984964efbc265e2",
-      "after": "303f35273bbc302829198019bea78f3dfb6765e47741bccd46daedcb43542248",
-      "owner": "scene-runtime",
-      "reason": "Ready-relative pointer input design and qualified mature384 activity expose the active material-binding failure; replace obsolete acquisition STOP with observed scope and retain precise proof limits.",
-      "decision": "docs/scene/development/development-workflow.md#pointer-input-timing"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
       "after": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
       "owner": "scene-runtime",
       "reason": "Ready-relative pointer input design and qualified mature384 activity expose the active material-binding failure; replace obsolete acquisition STOP with observed scope and retain precise proof limits.",
       "decision": "docs/scene/development/development-workflow.md#pointer-input-timing"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "ebbbe557aaac07926228c9548ce87d144fada2486c81b15abc1f67b5518c6053",
+      "after": "8473755822c2056a098d66b05c5b270af2b134bcd70d9e08cf915d78711f8369",
+      "owner": "scene-material-runtime",
+      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "303f35273bbc302829198019bea78f3dfb6765e47741bccd46daedcb43542248",
+      "after": "e1b522d0a92917ca963f28772e8e4becfee79c80bc31dd985dfb4c14404eae4b",
+      "owner": "scene-material-runtime",
+      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "89b37f986e1042f4ef0ab919093df2d4633edf4cae787cd2e715ebc928b538dc",
+      "after": "4da7501b55d1eed995e1455a6534f0584c027a3d21e39c104eb5af09f2f3d438",
+      "owner": "scene-material-runtime",
+      "reason": "Prepared Script/Timeline numeric channel contract and actual author material recovery replace the obsolete sole-source assumption; keep independent remaining event and visibility limits.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#script-timeline-uniform"
     }
   ]
 }

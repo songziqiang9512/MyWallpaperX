@@ -33,23 +33,13 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
             authoredUserProperty = nil
         }
         let projection: Projection? = authored.flatMap {
-            if SceneScriptValueOwnership.isEventOnlyTimelineControl(
-                source: $0.scriptSource,
-                bindingKeys: $0.bindingKeys,
-                hasTimeline: $0.timeline != nil
-            ) {
-                return nil
-            }
-            return classify(
+            classify(
                 authored: $0,
                 target: target,
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             )
         }
-        if case .value = projection {
-            // The VM consumes Timeline as callback input and publishes the
-            // single SceneScript result channel for this target.
-        } else if authored?.timeline != nil {
+        if authored?.timeline != nil {
             sources.append(.timeline)
         }
         if let projection {

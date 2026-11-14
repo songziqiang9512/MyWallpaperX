@@ -318,7 +318,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     for material in materials.values {
                         for declaration in material.template.uniformDeclarations {
                             guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.valueContributors == [.sceneScript] else {
+                                  dynamic.primaryValueContributor == .sceneScript else {
                                 continue
                             }
                             targets.insert(dynamic.target)

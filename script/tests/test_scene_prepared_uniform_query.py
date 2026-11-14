@@ -75,13 +75,16 @@ class ScenePreparedUniformQueryTests(unittest.TestCase):
             raise AssertionError(compilation.stderr)
         completed = subprocess.run([str(temporary / "prepared-uniform-query")],
             cwd=temporary, env=environment, capture_output=True, text=True, timeout=60)
-        drift = [name for name, value in before.items() if digest(ROOT / name) != value]
+        after = {name: digest(ROOT / name) for name in before}
+        drift = [name for name, value in before.items() if after[name] != value]
         if cls.proof:
             (cls.proof / "stdout.json").write_text(completed.stdout)
             (cls.proof / "stderr.log").write_text(completed.stderr)
+            (cls.proof / "input-after.json").write_text(json.dumps(after, indent=2) + "\n")
             (cls.proof / "execution.json").write_text(json.dumps({
                 "exitCode": completed.returncode, "inputCount": len(before),
                 "inputDrift": drift, "createsMetalDevice": False,
+                "binarySHA256": digest(temporary / "prepared-uniform-query"),
                 "gpuDispatches": 0, "appVMOperations": 0,
             }, indent=2) + "\n")
         if drift:
@@ -100,6 +103,28 @@ class ScenePreparedUniformQueryTests(unittest.TestCase):
 
     def test_dynamic_sources_splat_range_and_live_value_preserve_existing_policy(self) -> None:
         self.check_group("dynamic")
+        rows = self.result["scriptTimelineReadback"]
+        for variant in ("original", "renamed"):
+            observed = [row for row in rows if row.get("kind") == "consumption" and row.get("variant") == variant]
+            self.assertEqual([row["case"] for row in observed], ["timeline", "init-payload",
+                "after-init-idle", "update-payload", "event-setter-payload", "equal-timeline"])
+            self.assertEqual([row["source"] for row in observed],
+                ["timeline", "sceneScript", "timeline", "sceneScript", "sceneScript", "timeline"])
+            for row in observed:
+                self.assertEqual(row["contributors"], ["timeline", "sceneScript"])
+                self.assertEqual(row["primary"], "sceneScript")
+                self.assertEqual(row["type"], "float2")
+                self.assertEqual(row["queryBytes"], row["programFieldBytes"])
+        rejected = [row for row in rows if row.get("kind") == "declaration-rejection"]
+        self.assertEqual([row["case"] for row in rejected], ["duplicate-Timeline", "duplicate-Script",
+            "reversed", "extra-writer", "user-conflict", "unknown-attachment"])
+        self.assertTrue(all(row["phase"] == "uniform" for row in rejected), rejected)
+        self.assertEqual([row["code"] for row in rejected],
+            ["uniformContributorPolicyUnproven"] * 5 + ["uniformScriptAttachmentUnproven"])
+        source_failures = [row for row in rows if row.get("kind") == "snapshot-rejection"]
+        self.assertEqual(len(source_failures), 9)
+        self.assertTrue(all(row["phase"] == "uniform" and row["code"] == "dynamicUniformBindingInvalid"
+                            for row in source_failures), source_failures)
 
     def test_query_and_finalizer_preserve_typed_failure_boundaries(self) -> None:
         self.check_group("failures")

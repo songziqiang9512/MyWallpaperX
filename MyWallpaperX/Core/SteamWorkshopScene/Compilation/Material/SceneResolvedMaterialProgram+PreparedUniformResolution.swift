@@ -31,12 +31,11 @@ nonisolated extension SceneResolvedMaterialProgram {
             return .init(encodedValue: encoded)
         case let .dynamic(prepared):
             let dynamic = prepared.declaration
-            let contributor = prepared.contributor
             let fallback = prepared.fallback
             guard let resolved = snapshot[dynamic.target],
                   valid(
                       resolved.source,
-                      contributor: contributor,
+                      contributors: dynamic.valueContributors,
                       fallback: fallback
                   ) else {
                 throw SceneResolvedMaterialFailure(
@@ -94,14 +93,16 @@ nonisolated extension SceneResolvedMaterialProgram {
 
     private static func valid(
         _ source: SceneDynamicSource,
-        contributor: Template.DynamicUniformSource,
+        contributors: [Template.DynamicUniformSource],
         fallback: Template.StaticUniformValue?
     ) -> Bool {
         if source == .authored { return fallback != nil }
-        return switch (contributor, source) {
-        case (.userProperty, .userProperty), (.timeline, .timeline),
-             (.sceneScript, .sceneScript): true
-        default: false
+        return contributors.contains { contributor in
+            switch (contributor, source) {
+            case (.userProperty, .userProperty), (.timeline, .timeline),
+                 (.sceneScript, .sceneScript): true
+            default: false
+            }
         }
     }
 

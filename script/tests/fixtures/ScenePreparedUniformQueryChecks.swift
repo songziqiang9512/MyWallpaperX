@@ -20,13 +20,16 @@ private enum ScenePreparedUniformQueryChecks {
     static func dynamicDeclaration(_ key: String,
         contributor: Template.DynamicUniformSource = .timeline,
         fallback: [Double]? = [0.25, 0.75],
-        direct: Bool = false
+        direct: Bool = false,
+        contributors: [Template.DynamicUniformSource]? = nil,
+        bindingKeys: [String]? = nil,
+        attachments: [Template.DynamicUniformScriptAttachment] = []
     ) -> Template.UniformDeclaration {
-        let keys = direct ? ["user", "value"] : ["value"]
+        let keys = bindingKeys ?? (direct ? ["user", "value"] : ["value"])
         let fallback = fallback.map { Template.StaticUniformValue(valueKind: "binding",
             componentBitPatterns: $0.map(\.bitPattern), authoredBindingKeys: keys) }
         return .init(name: key, value: .dynamic(.init(target: target(key),
-            valueContributors: [contributor], scriptAttachments: [],
+            valueContributors: contributors ?? [contributor], scriptAttachments: attachments,
             authoredFallback: fallback, authoredBindingKeys: keys)))
     }
 
@@ -136,7 +139,9 @@ private enum ScenePreparedUniformQueryChecks {
             && queried.resolvedSource == actual.1.resolvedSource
     }
 
-    static func failureMatches(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot) throws -> Bool {
+    static func failureMatches(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot,
+        observing: ((SceneResolvedMaterialFailure) -> Void)? = nil
+    ) throws -> Bool {
         guard let binding = prepared.bindings.first,
               Program.resolvePreparedPoint(binding, snapshot: snapshot) == nil,
               case let .failure(actual) = try finalize(prepared, snapshot) else { return false }
@@ -144,6 +149,7 @@ private enum ScenePreparedUniformQueryChecks {
             _ = try Program.resolvedAuthoredUniform(binding, snapshot: snapshot)
             return false
         } catch let queried as SceneResolvedMaterialFailure {
+            observing?(queried)
             return queried == actual && queried.phase == .uniform
                 && queried.code == .dynamicUniformBindingInvalid
         }
@@ -264,6 +270,121 @@ private enum ScenePreparedUniformQueryChecks {
             "infinity-resolver-rejects-before-query-and-keeps-authored": !infinity.diagnostics.isEmpty
                 && infinityFallback,
         ]
+    }
+
+    // Typed material payloads exercise the consumer only; QuickJS roles are covered by the owner gate.
+    static func scriptTimelineHandoff() throws -> (facts: [String: Bool], raw: [[String: Any]]) {
+        var facts: [String: Bool] = [:]
+        var raw: [[String: Any]] = []
+        let pair: [Template.DynamicUniformSource] = [.timeline, .sceneScript]
+        for renamed in [false, true] {
+            let key = renamed ? "otherCorner" : "anchor"
+            let prepared = try prepare("handoff-\(renamed)", keys: [key], declarations: [
+                dynamicDeclaration(key, contributors: pair, bindingKeys: ["animation","script","value"])], renamed: renamed)
+            guard let binding = prepared.bindings.first, case let .dynamic(route) = binding.source else {
+                throw FixtureError(message: "prepared Script/Timeline route missing")
+            }
+            facts["handoff-\(renamed)-one-binding-primary-and-declaration"] = prepared.bindings.count == 1
+                && route.declaration.valueContributors == pair && route.contributor == .sceneScript
+                && route.declaration.primaryValueContributor == .sceneScript
+                && binding.field.type == .float2 && binding.field.arrayCount == nil
+            let rows: [(String, SceneDynamicSource, SIMD2<Double>)] = [
+                ("timeline", .timeline, .init(0.25,0.75)),
+                ("init-payload", .sceneScript, .init(0.7,0.8)),
+                ("after-init-idle", .timeline, .init(0.5,0.125)),
+                ("update-payload", .sceneScript, .init(0.9,0.6)),
+                ("event-setter-payload", .sceneScript, .init(0.5,0.125)),
+                ("equal-timeline", .timeline, .init(0.5,0.125)),
+            ]
+            var programs: [String: Program] = [:]
+            for (index, row) in rows.enumerated() {
+                let (label, source, expected) = row
+                let snapshot = resolution(key, value: .vector2(expected.x,expected.y), source: source,
+                    frame: UInt64(40 + index), generation: UInt64(10 + index)).snapshot
+                let program = try finalize(prepared, snapshot).get()
+                let queried = try Program.resolvedAuthoredUniform(binding, snapshot: snapshot)
+                let point = Program.resolvePreparedPoint(binding, snapshot: snapshot)
+                let bytes = expectedBytes(expected.x,expected.y)
+                let actual = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms)
+                    .first { $0.0 == binding }?.1
+                let exact = program.exactIdentity.dynamicUniforms
+                facts["handoff-\(renamed)-\(label)-source-query-program-bytes"] = queried.resolvedSource == source
+                    && actual?.resolvedSource == source && queried.encodedValue == bytes && actual?.encodedValue == bytes
+                    && point == SIMD2(Float(expected.x),Float(expected.y))
+                    && program.uniformBytes.subdata(in: binding.field.offset ..< binding.field.offset + 8) == bytes
+                    && exact.count == 1 && exact[0].target == target(key)
+                    && exact[0].declaredSource == .sceneScript && exact[0].resolvedSource == source
+                raw.append(["kind":"consumption","variant":renamed ? "renamed" : "original", "case":label,
+                    "frame":snapshot.frameIndex,"generation":snapshot.generation,
+                    "target":String(describing:target(key)),"value":String(describing:snapshot[target(key)]?.value),
+                    "source":queried.resolvedSource.map { String(describing:$0) } ?? "nil",
+                    "snapshotSource":String(describing:snapshot[target(key)]?.source),
+                    "contributors":route.declaration.valueContributors.map { String(describing:$0) },
+                    "primary":String(describing:route.contributor),"field":binding.field.name,
+                    "type":String(describing:binding.field.type),"offset":binding.field.offset,
+                    "queryBytes":queried.encodedValue.base64EncodedString(),
+                    "programFieldBytes":program.uniformBytes.subdata(in: binding.field.offset ..< binding.field.offset + 8).base64EncodedString(),
+                    "exactDeclaredSource":String(describing:exact.first?.declaredSource),
+                    "exactResolvedSource":String(describing:exact.first?.resolvedSource)])
+                programs[label] = program
+            }
+            let setter = programs["event-setter-payload"]!, timeline = programs["equal-timeline"]!
+            facts["handoff-\(renamed)-equal-bytes-source-changes-only-exact-identity"] =
+                setter.uniformBytes == timeline.uniformBytes && setter.semanticIdentity == timeline.semanticIdentity
+                && setter.exactIdentity != timeline.exactIdentity
+            let selected = SceneDynamicSnapshotResolver().resolve(frameIndex: 60, generation: 20,
+                definitions: [.init(target: target(key), valueType: .vector2, authoredValue: .vector2(0.25,0.75))],
+                timelineValues: [target(key):.vector2(0.25,0.75)], sceneScriptValues: [target(key):.vector2(0.6,0.2)]).snapshot
+            facts["handoff-\(renamed)-snapshot-selects-one-script-value"] = try matches(prepared, selected,
+                expected: .init(0.6,0.2), resolvedSource: .sceneScript)
+            for (label, snapshot) in [
+                ("undeclared-user-source", resolution(key, source: .userProperty).snapshot),
+                ("wrong-ABI", resolution(key, value: .vector3(1,2,3), authored: .vector3(1,2,3)).snapshot),
+                ("Float-overflow", resolution(key, value: .vector2(Double.greatestFiniteMagnitude,0)).snapshot),
+                ("missing-target", resolution(key, missing: true).snapshot),
+            ] {
+                facts["handoff-\(renamed)-\(label)-rejected"] = try failureMatches(prepared, snapshot) { failure in
+                    raw.append(["kind":"snapshot-rejection","variant":renamed ? "renamed" : "original",
+                        "case":label,"source":String(describing:snapshot[target(key)]?.source),
+                        "value":String(describing:snapshot[target(key)]?.value),
+                        "phase":failure.phase.rawValue,"code":failure.code.rawValue,"details":failure.boundedDetails])
+                }
+            }
+            facts["handoff-\(renamed)-authored-fallback-exact"] = try matches(prepared,
+                resolution(key, source: .authored).snapshot, expected: .init(0.25,0.75), resolvedSource: .authored)
+        }
+        let scriptOnly = try prepare("no-Timeline", declarations: [dynamicDeclaration("anchor", contributor: .sceneScript)])
+        let noTimelineSnapshot = resolution().snapshot
+        facts["no-Timeline-does-not-accept-Timeline-source"] = try failureMatches(scriptOnly, noTimelineSnapshot) { failure in
+            raw.append(["kind":"snapshot-rejection","case":"no-Timeline","source":"timeline",
+                "value":String(describing:noTimelineSnapshot[target("anchor")]?.value),
+                "phase":failure.phase.rawValue,"code":failure.code.rawValue,"details":failure.boundedDetails])
+        }
+        facts["no-Timeline-preserves-Script-source"] = try matches(scriptOnly, resolution(source: .sceneScript).snapshot,
+            expected: .init(0.25,0.75), resolvedSource: .sceneScript)
+        let peer = try prepare("independent-peer", keys: ["peer"], declarations: [staticDeclaration("peer", components: [0.125,0.875])])
+        facts["rejected-owner-does-not-poison-independent-peer"] = try matches(peer,
+            resolution(value: .vector3(1,2,3), authored: .vector3(1,2,3)).snapshot, expected: .init(0.125,0.875))
+        let rejected: [(String,[Template.DynamicUniformSource],[Template.DynamicUniformScriptAttachment],SceneResolvedMaterialFailure.Code)] = [
+            ("duplicate-Timeline", [.timeline,.timeline], [], .uniformContributorPolicyUnproven),
+            ("duplicate-Script", [.sceneScript,.sceneScript], [], .uniformContributorPolicyUnproven),
+            ("reversed", [.sceneScript,.timeline], [], .uniformContributorPolicyUnproven),
+            ("extra-writer", [.timeline,.sceneScript,.sceneScript], [], .uniformContributorPolicyUnproven),
+            ("user-conflict", [.timeline,.userProperty("foreign")], [], .uniformContributorPolicyUnproven),
+            ("unknown-attachment", pair, [.unproven], .uniformScriptAttachmentUnproven),
+        ]
+        for (label, contributors, attachments, code) in rejected {
+            do {
+                _ = try prepare(label, declarations: [dynamicDeclaration("anchor", contributors: contributors, attachments: attachments)])
+                facts["handoff-\(label)-local-typed-failure"] = false
+                raw.append(["kind":"declaration-rejection","case":label,"outcome":"unexpected-success"])
+            } catch SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure.material(let failure) {
+                facts["handoff-\(label)-local-typed-failure"] = failure.phase == .uniform && failure.code == code
+                raw.append(["kind":"declaration-rejection","case":label,"phase":failure.phase.rawValue,"code":failure.code.rawValue,
+                    "contributors":contributors.map { String(describing:$0) },"details":failure.boundedDetails])
+            }
+        }
+        return (facts, raw)
     }
 
     static func neighbors() throws -> [String: Bool] {
@@ -422,8 +543,11 @@ private enum ScenePreparedUniformQueryChecks {
     }
 
     static func main() throws {
-        let result = ["fourPoints": try fourPoints(), "dynamic": try dynamicCases(),
-            "failures": try failureCases(), "neighbors": try neighbors()]
+        let handoff = try scriptTimelineHandoff()
+        var dynamic = try dynamicCases()
+        dynamic.merge(handoff.facts) { _,new in new }
+        let result: [String: Any] = ["fourPoints": try fourPoints(), "dynamic": dynamic,
+            "failures": try failureCases(), "neighbors": try neighbors(), "scriptTimelineReadback":handoff.raw]
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
             encoding: .utf8)!)
     }

@@ -234,6 +234,14 @@ nonisolated struct SceneResolvedMaterialTemplate {
         let scriptAttachments: [DynamicUniformScriptAttachment]
         let authoredFallback: StaticUniformValue?
         let authoredBindingKeys: [String]
+
+        var primaryValueContributor: DynamicUniformSource? {
+            if valueContributors.count == 1 { return valueContributors[0] }
+            if valueContributors.count == 2,
+               valueContributors[0] == .timeline,
+               valueContributors[1] == .sceneScript { return .sceneScript }
+            return nil
+        }
     }
 
     enum UniformValue: Hashable {
