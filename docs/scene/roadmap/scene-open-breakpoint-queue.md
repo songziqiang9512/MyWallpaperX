@@ -17,7 +17,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 体积使用的模型相机深度覆盖 | 原VolumeOccluder仅携mesh/clip/cull/test；drawCameraDepth是无fragment的几何深度重绘，未携实际albedo/frame/sampler及材质alpha含义。按normal/层alpha1收集不保证纹理没有透明孔，因而存在模型颜色已透过而point volume仍被整块mesh截止的具体输入域；尚未取得作者命中或当前GPU红例。优先沿原Frame/CameraDepth owner用非恒alpha模型、相同整图/独立crop和前后表面实读camera depth及volume像素，核模型颜色实际coverage（不能借用light shadow的>.5阈值）；复用原资源/生命周期，不新增深度域、并行compositor或按材质名白名单。 |
 | 数据贴图的仿射UV消费者许可 | 小帧面积许可已沿共享UV/SlotBinding与模型颜色/阴影入口修复，资格归[模型证据](../capabilities/model-runtime-evidence.md#small-atlas-frame-uv)。剩余LitCapture在SlotBinding后仍借materialProgramUVTransform限制轴对齐/正向/0…1，Metal却消费完整双轴。真实TEX六坐标可表达仿射frame，但Loader materialAtlasAdmission更早以同轴门拒，不能只删Lit门称TEX恢复；Generic companions可表达轴，是否实际消费另资格。无活动作者命中。后续用真实TEX/typed候选旋转、镜像、skew的逐格等值图闭合原consumer/loader链，退重复或错层关卡，不新造UV owner或路径许可。 |
 | 模型局部draw拒绝与整灯阴影发布 | 自有真实Frame raw UV zero/NaN令Pipeline.drawShadow拒绝，prepareModelShadow撤整张light map，健康peer也无可读shadow；未证明生产typed入口可达性。本批只修合法tiny误拒，真正坏raw输入的整map失败范围仍开放。沿原prepare/draw owner先区分可局部跳过与真实GPU/PSO失败，不无差别吞false或新增并行shadow状态。最小现Frame/输入/读回与代码身份独立保护于`.artifacts/scene-model-shadow-draw-rejection-gap-20261115`。 |
 | Catalog的embedded帧坐标域 | TEXS按首mip表归一，legacy内嵌图的decoded尺寸可不同；模型静态单帧已在Loader候选构造时按实际源像素一次投影，Catalog的animated definition仍直接保存原container.frames并在provider套到base纹理。8×4 mip/4×4实际图的x2,width2会在该旧路径取错像素；尚无活动作者命中。沿原Loader→AnimatedDefinition冷准备归一，保同一provider/clock与事务，不在帧内重算、不复制资源或新增UV owner；真实多帧/单帧/crop与源越界反例补该链资格。 |

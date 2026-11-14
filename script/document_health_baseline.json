@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 195,
-      "bytes": 55062
+      "lines": 194,
+      "bytes": 54367
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -222,7 +222,7 @@
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 189,
-      "bytes": 54045
+      "bytes": 54018
     }
   },
   "archives": [
