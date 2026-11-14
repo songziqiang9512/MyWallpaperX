@@ -8,6 +8,13 @@ struct SceneStaticModelGradient {
     let replicatesRed: Bool
 }
 
+struct SceneStaticModelPigment {
+    let texture: MTLTexture
+    let pixelFrame: SceneTextureUVTransform
+    let sampling: SceneTextureSampling
+    let replicatesRed: Bool
+}
+
 /// One slot-local data binding shared by the prepared material components.
 struct SceneStaticModelMaterialMap {
     let texture: MTLTexture
@@ -52,6 +59,7 @@ struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
     var rimExponent: Float = 4
     var kind: Kind = .generic4
     var specularTint: SIMD3<Float> = .init(repeating: 1)
+    var pigmentAmount: Float = 0
 }
 
 struct SceneStaticModelViewTint {

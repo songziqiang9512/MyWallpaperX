@@ -545,6 +545,23 @@ struct SceneResourceView {
    precondition(profile(raw)!.specularTint == tint)
    precondition(profile(raw,shader:"generic4")!.specularTint == white)
   }
+  for raw:Any in [0.2,"2e-1",["value":0.2],["value":0.2,"user":NSNull()]] {
+   precondition(profile(replacing:["tintpigmentation":raw])!.pigmentAmount == 0.2)
+   precondition(profile(lighting:0,replacing:["tintpigmentation":raw])!.pigmentAmount == 0)
+   precondition(profile(shader:"generic4",replacing:["tintpigmentation":raw])!.pigmentAmount == 0)
+  }
+  precondition(profile()!.pigmentAmount == 0)
+  precondition(profile(replacing:["tintpigmentation":-1])!.pigmentAmount == 0)
+  precondition(profile(replacing:["tintpigmentation":1e300])!.pigmentAmount == 1)
+  let invalidAmount:[Any] = [NSNull(),"bad","0.2 0.4","nan","inf",
+      ["value":0.2,"user":"amount"],["value":0.2,"user":17],
+      ["value":0.2,"script":"export function update(v){return v;}"],
+      ["value":0.2,"script":17],["value":0.2,"animation":17]]
+  for raw in invalidAmount {
+   precondition(profile(replacing:["tintpigmentation":raw])!.pigmentAmount == 0)
+  }
+  precondition(profile(users:["tintpigmentation":"property"],
+      replacing:["tintpigmentation":0.2])!.pigmentAmount == 0)
   precondition(profile("-1 2 1e300")!.specularTint == SIMD3(0,2,Float.greatestFiniteMagnitude))
   let timeline:[String:Any] = ["options":["fps":30,"length":30,"mode":"loop"],
       "c0":[["frame":0,"value":0],["frame":30,"value":1]],

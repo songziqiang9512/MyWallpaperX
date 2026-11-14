@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 249,
-      "bytes": 50970
+      "lines": 260,
+      "bytes": 53725
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 190,
-      "bytes": 52358
+      "lines": 192,
+      "bytes": 53047
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 111,
-      "bytes": 31422
+      "lines": 123,
+      "bytes": 35531
     }
   },
   "archives": [
@@ -515,29 +515,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "23631c53607935a4ebfdd2d27ce381a0dbd78628699c27c7e578f107ba75035a",
-      "after": "afd3bdfc300b2eef6741ef9733facda8ee4568aed4d9c1c92b92a938880cdcea",
-      "owner": "Scene static model surface preparation and Metal",
-      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
+      "before": "afd3bdfc300b2eef6741ef9733facda8ee4568aed4d9c1c92b92a938880cdcea",
+      "after": "90447a0bd6bd7109bd1bf1a34a7ed1888830864b5c4fa3149e8c75be6794fa33",
+      "owner": "Scene prepared model pigment and original direct radiance",
+      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "f6ffe6d3e9186f784154e480b6dd4d1c8d49605e93cb8f82ad8e759cbfbcd695",
-      "after": "70b44ff53667b7006d02743c7430a6bffd053dfac85d183c7be9527eb6d638b4",
-      "owner": "Scene static model surface preparation and Metal",
-      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
+      "before": "70b44ff53667b7006d02743c7430a6bffd053dfac85d183c7be9527eb6d638b4",
+      "after": "52c369a80a9266daceabdd667fe472f08112f8f119e45a38900b4490978e21d9",
+      "owner": "Scene prepared model pigment and original direct radiance",
+      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fdc112f78c04c135c7b3e63e4546018da924cf9ce6ee92fd9666484f702c43ad",
-      "after": "797e2e64573badc8bef1294ab1b51cfeed2a2bb1a4e31b838e2e03ecf64ff03e",
-      "owner": "Scene static model surface preparation and Metal",
-      "reason": "Qualify Chroma common MR/specularTint, color/HDR timing and actual Cloud control; retain pigment and original shared array-normalization counterexample as the only pending owners.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
+      "before": "797e2e64573badc8bef1294ab1b51cfeed2a2bb1a4e31b838e2e03ecf64ff03e",
+      "after": "f16dfe1aad10a55d5795d39800444b642059b974023ea377c48bbe01c0098049",
+      "owner": "Scene prepared model pigment and original direct radiance",
+      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
     }
   ]
 }

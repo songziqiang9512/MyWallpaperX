@@ -52,10 +52,20 @@
             textureSlots += Array(repeating: nil, count: 5 - textureSlots.count)
             textureSlots[4] = gradientRelative
         }
+        let noiseRelative = renamed ? "materials/alternate-grain.png" : "materials/noise.png"
+        if item["noisePixels"] != nil,
+           !(item["noiseDefault"] as? Bool ?? false) || (item["noiseExplicit"] as? Bool ?? false) {
+            textureSlots += Array(repeating: nil, count: 9 - textureSlots.count)
+            textureSlots[8] = noiseRelative
+        }
         var primary = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: materialPath,
             textureSlots: textureSlots, combos: combos, constantShaderValues: values)
         if item["gradientUser"] as? Bool == true {
             primary.userTextureInputs = [nil, nil, nil, nil, .init(kind: .property, value: "fixture-ramp")]
+        }
+        if item["noiseUser"] as? Bool == true {
+            primary.userTextureInputs += Array(repeating: nil, count: 9 - primary.userTextureInputs.count)
+            primary.userTextureInputs[8] = .init(kind: .property, value: "fixture-noise")
         }
         primary.shaderPath = item["shader"] as? String
         primary.userShaderValues = item["userShaderValues"] as? [String: String] ?? [:]
@@ -78,7 +88,8 @@
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
         let loader = try SceneTextureLoader(root: folder, device: device)
         let resourceView = SceneResourceView(projectRootURL: folder, packageRootURL: nil,
-            stockAssetsRootURL: item["gradientDefault"] as? Bool == true ? folder.appendingPathComponent("stock") : nil)
+            stockAssetsRootURL: item["gradientDefault"] as? Bool == true || item["noiseDefault"] as? Bool == true
+                ? folder.appendingPathComponent("stock") : nil)
         let width = Int(number("width")), storage = item["storage"] as! String
         let height = item["normalHeight"] as? Int ?? 1
         let normalLevels = item["normalLevels"] as? [[NSNumber]]
@@ -180,6 +191,38 @@
                     authoredFormat: format < 0 ? nil : SceneShaderTextureFormat(rawValue: UInt32(format)))
             }
         }
+        if let pixels = item["noisePixels"] as? [NSNumber] {
+            let width = item["noiseWidth"] as? Int ?? 1, height = item["noiseHeight"] as? Int ?? 1
+            let storage = item["noiseStorage"] as? String ?? "rgba"
+            let channels = storage == "r" ? 1 : storage == "rg" ? 2 : 4
+            let td = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: storage == "bc5" ? .bc5_rgSnorm
+                : storage == "r" ? .r8Unorm : storage == "rg" ? .rg8Unorm : .rgba8Unorm,
+                width: width, height: height, mipmapped: false)
+            td.storageMode = .shared; td.usage = .shaderRead
+            let texture = device.makeTexture(descriptor: td)!, bytes = pixels.map(\.uint8Value)
+            precondition(bytes.count == (storage == "bc5" ? 16 : width * height * channels))
+            bytes.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: storage == "bc5" ? 16 : width * channels) }
+            func pair(_ key: String, _ fallback: SIMD2<Float>) -> SIMD2<Float> {
+                guard let values = item[key] as? [NSNumber] else { return fallback }
+                return SIMD2(values[0].floatValue, values[1].floatValue)
+            }
+            for url in [folder.appendingPathComponent(noiseRelative),
+                        folder.appendingPathComponent("stock/materials/util/noise.tex")] {
+                let path = url.resolvingSymlinksInPath().path
+                let format = item["noiseFormat"] as? Int ?? (storage == "r" ? 9 : storage == "rg" ? 8 : 0)
+                let mapped = pair("noiseMappedSize", SIMD2(Float(width), Float(height)))
+                loader.candidates[path] = .init(texture: texture, identity: .file(path: path),
+                    generation: .immutable(revision: 1), purpose: .noise, content: .data,
+                    physicalSize: CGSize(width: width, height: height),
+                    mappedSize: CGSize(width: CGFloat(mapped.x), height: CGFloat(mapped.y)),
+                    uvTransform: .init(origin: pair("noiseOrigin", .zero),
+                        xAxis: pair("noiseXAxis", SIMD2(1, 0)), yAxis: pair("noiseYAxis", SIMD2(0, 1))),
+                    sampling: .init(texFlags: (item["noiseNearest"] as? Bool ?? true ? 1 : 0)
+                        | (item["noiseRepeat"] as? Bool ?? true ? 0 : 2)),
+                    authoredFormat: format < 0 ? nil : SceneShaderTextureFormat(rawValue: UInt32(format)))
+            }
+        }
         var sources = try prepareModelSources(descriptor, view: resourceView)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: resourceView, device: device, textureLoader: loader,
@@ -200,7 +243,7 @@
         let color = item["lightColor"] == nil ? SIMD3<Float>(repeating: 1) : vector("lightColor")
         let intensity = (item["lightIntensity"] as? NSNumber)?.floatValue ?? 2
         let radius = (item["lightRadius"] as? NSNumber)?.floatValue ?? 160
-        let direct = !ambient && !reflection
+        let direct = item["directLights"] as? Bool ?? (!ambient && !reflection)
         let lighting = SceneLightSnapshot(ambient: ambient ? SIMD3(repeating: 1) : .zero,
             skylight: .zero, directional: direct && kind == "directional" ? [.init(layerID: 11,
                 castsShadow: gradientShadow, directionTowardLight: vector("light"), color: color, intensity: intensity)] : [],
@@ -256,7 +299,7 @@
             let draw = renderer.staticModelDraws(layer: near, worldFrames: worlds, snapshot: snapshot)!.first!
             precondition(resources.pipeline!.draw(mesh: draw.mesh, texture: draw.texture,
                 colorTextureIsPremultiplied: false, materialMap: draw.entry.materialMap, normalMap: draw.entry.normalMap,
-                gradient: draw.entry.gradient, modelMatrix: draw.world,
+                gradient: draw.entry.gradient, pigment: draw.entry.pigment, modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix, viewProjection: camera.reverseDepthViewProjection(usesPerspective: true),
                 cameraPosition: camera.perspectiveEyePosition, textureFrame: draw.textureFrame,
                 sampling: draw.sampling, layerAlpha: draw.alpha, material: draw.material,
@@ -292,6 +335,8 @@
             "surfaceProfile": resources[7]!.first!.material.surfaceProfile != nil,
             "gradient": resources[7]!.first!.gradient != nil,
             "replicatesRed": resources[7]!.first!.gradient?.replicatesRed ?? false,
+            "pigment": resources[7]!.first!.pigment != nil,
+            "noiseReplicatesRed": resources[7]!.first!.pigment?.replicatesRed ?? false,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
         if let probes = item["probePixels"] as? [[Int]] {

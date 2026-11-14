@@ -3100,7 +3100,8 @@
         "script/tests/test_scene_static_model_material_map.py",
         "script/tests/test_scene_static_model_shading_gradient.py",
         "script/tests/test_scene_static_model_rim_lighting.py",
-        "script/tests/test_scene_static_model_chroma.py"
+        "script/tests/test_scene_static_model_chroma.py",
+        "script/tests/test_scene_static_model_pigment.py"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -3120,7 +3121,8 @@
         "test_scene_static_model_material_map",
         "test_scene_static_model_shading_gradient",
         "test_scene_static_model_rim_lighting",
-        "test_scene_static_model_chroma"
+        "test_scene_static_model_chroma",
+        "test_scene_static_model_pigment"
       ]
     },
     {

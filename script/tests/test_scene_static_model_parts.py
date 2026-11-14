@@ -465,7 +465,6 @@ final class SceneTextureLoader {
                     checkCancellation:(() throws -> Void)?=nil) throws -> Result {
   try checkCancellation?()
   let url=URL(fileURLWithPath:input.diagnosticPath)
-  precondition(purpose == .straightAlbedo || purpose == .mask || purpose == .normal)
   requests.append(["path":url.lastPathComponent,"purpose":String(describing:purpose)])
   guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
   return .loaded(.init(texture:candidate.texture,identity:candidate.identity,generation:candidate.generation,

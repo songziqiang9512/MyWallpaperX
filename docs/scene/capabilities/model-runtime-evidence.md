@@ -94,7 +94,7 @@
 
 普通Debug30.256s、四产品/project/锁文件前后字节一致，签名与原helpers通过；exec2c79cb11…a882、dylib4dd02626…c5a1、metallibb2053bb2…c80c。固定Date/SceneTime的同真实月球资产控制只改RIMLIGHTING一字节，gradient1、原MR/normal/几何/相机/单灯/world不变。旧on为F94；当前on/off均F95/request1，CB502327609088、522091135872的实际normalRG/MR3/gradient64×2 R数据到各自main/seal/GPU完成，零截断并排空；源、旧/新protocol、App与四产品SHA不变。off与旧on及上一梯度on逐PNG相同；1280×831全图比较、排除固定背景的颜色并集167198像素中67583（40.4209%）改变，平均绝对RGB差3.70457 byte、最大143，右上受光轮廓增强。颜色并集不授几何覆盖变化、原景严格A/B或官方像素。
 
-原3453730450自然20s/after17，F877/request1/CB536284483072的模型/normal/MR/gradient到main536336657024/seal/GPU，月面、轨道、星空、标题与时钟完整；独立3437487219原包5秒PASS，F158/request1/CB513468403200的112/114到main513518951296/seal/GPU，地表/云/大气/时钟完整，均零截断并排空。该独立云模型仍有chroma4表面参数缺口，不能把完整图授为完整材质受光；当前后续只归开放队列。源码、测试、实际图及最终身份独审无阻断。
+原3453730450自然20s/after17，F877/request1/CB536284483072的模型/normal/MR/gradient到main536336657024/seal/GPU，月面、轨道、星空、标题与时钟完整；独立3437487219原包5秒PASS，F158/request1/CB513468403200的112/114到main513518951296/seal/GPU，地表/云/大气/时钟完整，均零截断并排空。该运行不授完整Chroma材质受光；共同表面及noise的独立资格见[Chroma表面](#model-chroma-surface)与[颜料](#model-chroma-pigment)。源码、测试、实际图及最终身份独审无阻断。
 
 原作者报告/必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-rim-20261114`；真实月球开关、旧/新App输入身份、197输入与CPU/相邻门、审查及构建收据归 `.artifacts/scene-model-rim-20261114`。用户动态rim、其它材质族和官方像素仍未授；本批未改最终输出或照明owner。
 
@@ -106,6 +106,18 @@
 
 最终普通Debug25.047s、四产品/project/锁文件前后字节一致，签名与原helpers通过；executable ae4f46c9…75599、dylib0eebe5d9…c4e5e、metallibb5c35fdf…981c。前一候选构建不计最终运行资格。冻结真实3437487219/114的439270B MDL几何与原8192×4096云TEX/alpha，材料引用仅basename等长改名避免包内优先；同一相机/单点灯/world/采样、白front/back/pigment0，保M.1/R0与宿主translucent/test/write/cull。旧Rim App F95与当前F94/request1分别CB531967297280、504851170176，实际颜色到同次main/seal/GPU完成、零截断并排空；源/protocol/旧新App/SHA不变。1280×831全图排除背景的颜色并集157100像素中117325（74.6817%）改变，平均绝对RGB差3.25892 byte、最大33，云层按MR响应变暗；未调亮度拟合。此图只授真实M.1/R0的共同MR贡献，白tint/R0不授彩色view或有限specularTint，RGB颜色边缘不授数值alpha/depth、几何覆盖或原作者全景严格A/B。
 
-原3437487219五秒F149/request1/CB513567409024的112/114到main513629395840/seal/GPU；地表/云/大气/时钟完整。原script对114.color的typed动态back仍沿已有Frame消费，未另授原材质回调writer。独立3453730450自然20s/after17，F846/request1/CB513769885184的53/77具体part/306/340/342到main513829804288/seal/GPU，月面/星空/轨道/标题/时钟完整，均零截断并排空。产品/测试/实际图独审无阻断。pigment/noise、更多动态参数、官方像素及性能未授。
+原3437487219五秒F149/request1/CB513567409024的112/114到main513629395840/seal/GPU；地表/云/大气/时钟完整。原script对114.color的typed动态back仍沿已有Frame消费，未另授原材质回调writer。独立3453730450自然20s/after17，F846/request1/CB513769885184的53/77具体part/306/340/342到main513829804288/seal/GPU，月面/星空/轨道/标题/时钟完整，均零截断并排空。产品/测试/实际图独审无阻断。该MR对照不授pigment/noise，独立结果见[颜料](#model-chroma-pigment)；更多动态参数、官方像素及性能未授。
 
 原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-chroma-20261114`；真实云控制、旧新身份、273输入、原失败/定向补验、独审与构建收据归`.artifacts/scene-model-chroma-20261114`。
+
+## Chroma的颜料噪声 <a id="model-chroma-pigment"></a>
+
+2026-11-15按[颜料合同](advanced-object-coverage.md#model-chroma-pigment)，原SurfaceProfile冷准备静态amount，原Entry沿slot8/.noise准备当前目标pixel→UV的独立data绑定；三灯已遮挡directRadiance统一乘signed noise权重，保ambient/emission/reflection/HDR与原PMA/depth。采样均值的saturate是SNORM到有界signed响应的算法，不加格式许可或像素扫描；原gradient的默认所有权判断汇合到optionalTexture，退重复消费者检查。五产品净+77行，只新增32B uniform至1472B和texture9/sampler4，无varying/PSO/pass/时钟/池/cache/owner；关闭保固定ABI/占位绑定成本，不授零成本或性能收益。
+
+同一Swift/Metal载体四payload的分步有效21方法、35 pigment/76 Chroma/56 gradient/36 normal共203实际输入通过；source/support、binary/library与最终五产品身份核同。初始21方法31.632s全过，但独审指出两行mapped extent超过physical，只授受控数学、不授生产padding；改成真实有效4×1/mapped2×1/半宽UV及2×2旋转轴域，仅两行输入改变，沿原binary补受影响的一方法0.207s通过，不重编、不改产品/阈值，原输入/结果保留。新门以黑/白noise的.2对应普通灯色.8/1.2，彩noise实读RGB均值，R8/RG复制R、BC5 SNORM负均值饱和；三灯含point+normal、真实全影0、direct+ambient+emission+reflection/HDR/half等值控制及零alpha后的far/depth通过。实际屏幕物理坐标、mapped extent、UV origin/双轴、nearest/linear、repeat/clamp、meshUV与资源改名、stock默认、显式缺图/user缺file/有file、0/缺省/generic4/unlit只局部关闭。该transport不授TEX解码或动态raw；真实parser/helper/profile的Chroma CPU方法6.264s核静态/标量/负数/超界、user:null、script/animation错型与动态仅关amount，其它profile保持；动态材料整profile copy邻例6.820s通过。退载体旧purpose三值许可，不为noise再扩白名单。
+
+普通Debug29.006s、五产品/project/锁文件构建前后相同，签名与原helpers通过；executable eeb47aa0…fa0e1、dylib763bafa4…c6cf0、metallib5917c277…01900。沿上批单份owned Cloud包，独立于只读用户原件，冻结原几何、8192×4096 TEX/alpha、白front/back、M.1/R0、相机/点灯/world/宿主状态；仅amount0→.2，stock实际256² RGBA8 util/noise、linear/repeat/noMip。旧off、当前off/on均F94/request1，所有原输入/协议/App/source SHA不变，同次主目标/seal/GPUcompleted、零截断并排空。当前off与旧off及上批pigment0逐PNG完全相等（6b3c095f…3d9b2）；1280×831全图颜色前景并集156807像素中77611（49.4946%）改变，平均绝对RGB差.36387194 byte、最大10、P95=1/P99=3，有符号均差每通道约−.004，表现为细粒变化而非整体增亮。246个背景颜色量化成员改变不授几何覆盖，RGB图不读数值alpha/depth；数值覆盖/深度由原生门承担。该真实资产控制授本引擎screen-locked pigment贡献，不授原作者全景严格A/B、stock视距/世界相位或官方像素。
+
+原3437487219五秒F147/request1/CB524195710720、112/114到main524249013120；独立3453730450自然20s/after17，F804/request1/CB524860098304的53/77具体part/306/340/342到main524923355136。两场原project/pkg摘要等冻结matrix，签名前后核同当前App，模型与终端seal在同CB、GPUcompleted/trunc0并排空，地表/云/大气/星空/时钟及月面/轨道/标题完整。trace不观察模型内部材质绑定，不能由此声称slot9或逐part pigment像素；可见贡献归前述实际资产对照。
+
+原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-pigment-20261115`；自有Cloud开关/旧零基线、203输入、CPU/相邻门、构建与独审归`.artifacts/scene-model-pigment-20261115`。用户纹理provider、动态amount、world/object锚定、更多stock效果与官方像素仍未授。

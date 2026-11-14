@@ -94,11 +94,22 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 Chroma先形成有效surfaceColor再进BRDF/F0：无mask忽略全局color；有mask按原A混合luma/color，view tint另按同一A从白混合至front/back结果。无mask的view facing保原signed合同，指数只在mask读取；声明单侧front/back时另一侧缺省白，均无声明不准备无用view运算；当前已消费的动态tintback沿原typed copy，更多writer另行资格。generic4保原全局color与受光后view tint次序。原view公式只计算一次后按准备种类应用，退出Chroma通用晚染色职责；Pipeline已经投影的指数下限不再在Metal重复clamp。
 
-HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原HDR gain，随后fog/PMA；必须只对Chroma退原reflection内的gain，避免平方。generic4保原HDR算法，不借共同profile改它的已证像素。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；不照译参考的max/overbright发光。pigment/noise暂不准备，保独立未闭项，不宣完整Chroma或官方像素。
+HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原HDR gain，随后fog/PMA；必须只对Chroma退原reflection内的gain，避免平方。generic4保原HDR算法，不借共同profile改它的已证像素。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；不照译参考的max/overbright发光。pigment/noise沿[独立颜料合同](#model-chroma-pigment)消费，不宣完整Chroma或官方像素。
 
 只在原profile加种类/静态tint，原uniform末加一份16B（tint.xyz与颜色种类w），不新增flags位、纹理、varying、PSO、pass、Frame、池或状态owner。为前置view tint，原alpha/discard整体前移到albedo/component/normal隐式采样及world导数之后、shadow/灯/tint之前；后续gradient/reflection为显式LOD、shadow为无mip depth，不新增导数状态。普通帧不解析/重新资格或做资源查找；关闭/白默认仍有固定ABI/共享片元成本，不授零成本或性能收益。
 
 验收在原资源→Frame→Metal门用白tint/pigment0的Chroma与generic4等值M/R、三灯/normal/map/gradient/rim/遮挡，R0 tint无贡献、R>0零/白/彩tint从实际输出分离两瓣，反证改F0或最终RGB乘tint。核无mask color无效、单侧默认/动态back与先染albedo参考、mask0/半/1同时限制view/spec tint、HDR反射/发光只一次gain、宿主alpha/depth/坏图/覆盖与改名；含带mip normal的透明边界，确保discard迁移不改采样。复用真实parser/helper/profile CPU门与同身份载体。冻结实际Cloud几何/原TEX与alpha、白front/back、pigment0的同灯旧/新控制只授MR贡献；原作者完整图与独立generic4回归不代R0有限高光或pigment资格。当前结果见[模型证据](model-runtime-evidence.md#model-chroma-surface)。
+
+<a id="model-chroma-pigment"></a>
+### Chroma的颜料噪声
+
+实际Cloud的tintpigmentation .2已产生受光表面的细粒明暗，保真实几何遮挡、纹理覆盖与其它辐射来源。只在原已资格Chroma、receivesLighting及静态完整标量amount>0时冷准备slot8；缺省0，沿原staticComponents归一到[0,1]，动态/错型只关此项。明确文件按原静态链，文件与typed user输入都省略才用该stock声明的util/noise；显式坏图或无file的user仅退普通受光，不用默认冒充。将gradient的同一默认所有权判断并入原optionalTexture一次，退原消费者重复判断；不接新provider、cache或Program。
+
+本引擎自有算法：按当前目标物理片元坐标除noise mapped extent，再沿该资源独立UV变换及sampler取data noise，RGB均值先saturate至[0,1]再映射signed[-1,1]（R8/RG复制R）；该采样归一也承接SNORM数据，不按格式白名单拒图；directRadiance乘1+amount×signedNoise。amount≤1使权重非负且最多2，不叠加资源校验、视距/正弦/时间状态或view边缘拟合。此调制在三灯各自BRDF、衰减/cone及真实shadow累加之后执行一次，随后原ambient/skylight、项目追加发光、reflection、Chroma HDR/fog/PMA依原顺序合并；不改shared BRDF、F0或灯能量。全影/无直接光不能由noise补光，alpha、模型depth/caster不变；噪声锚定当前目标像素，物体移动或换target会改变纹理相位，不授world/object锚定；不宣stock空间相位、官方像素或能耗收益。
+
+原Entry新增一份可选不可变pigment binding，只携texture/sampler、预投影pixel→UV及通道事实，amount由原SurfaceProfile唯一保存；静态UV除法在冷准备一次。原Frame传给Pipeline，原uniform加32B、texture9/sampler4，没有新varying/PSO/pass/池/时钟/输出owner。amount0/无图不读noise，无直接灯记录时也不取样；固定ABI/占位绑定不称零成本。原‘已保存数值与slot8却无消费者’退出，不把noise乘最终RGB或albedo。
+
+验收沿现有资源→Frame→Metal：黑/白/彩noise .2与仅灯色.8/1.2的独立等值控制，核三灯、全影、混合ambient/emission/reflection、normal、HDR/half/zero alpha/depth、slot独立采样/空间与改名。缺省/0、generic4、unlit、坏图与明确user缺file不加载噪声；真实parser/helper的静态/动态边界另验。冻结原Cloud几何/TEX/alpha及相同相机/点灯，只切0/.2，核可见颜色贡献与原输入不可变；原Cloud与独立generic4保完整图。真实.2已有细粒颜色贡献，当前范围见[模型运行证据](model-runtime-evidence.md#model-chroma-pigment)；不以绑定或测试数代成果。
 
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射

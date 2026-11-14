@@ -54,6 +54,8 @@ struct SceneStaticModelUniforms {
     float4 gradientTextureFrame; // center-line origin.xy, x-axis.zw
     float4 rimParameters; // amount, exponent, unused, unused
     float4 specularTintAndColorMode; // specular RGB, Chroma surface-color policy
+    float4 pigmentTextureFrame0; // pixel UV origin.xy, x-axis.zw
+    float4 pigmentTextureFrame1; // pixel UV y-axis.xy, amount.z, replicate R.w
 };
 
 struct SceneStaticModelRasterVertex {
@@ -377,12 +379,14 @@ fragment half4 sceneStaticModelFragment(
     texture2d<half> componentTexture [[texture(1)]],
     texture2d<float> normalTexture [[texture(7)]],
     texture2d<float> gradientTexture [[texture(8)]],
+    texture2d<float> pigmentTexture [[texture(9)]],
     array<depth2d<float>, 4> shadowTextures [[texture(2)]],
     texture2d<float> reflectionTexture [[texture(6), function_constant(sceneStaticModelUsesReflection)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
     sampler normalSampler [[sampler(2)]],
     sampler gradientSampler [[sampler(3)]],
+    sampler pigmentSampler [[sampler(4)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     // Derivatives must be evaluated before distance/cone/material branches.
     float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
@@ -604,6 +608,17 @@ fragment half4 sceneStaticModelFragment(
             lighting += colorIntensity.xyz * colorIntensity.w
                 * radial * cone * max(signedNoL, 0.0) * spotVisibility[lightIndex];
         }
+    }
+    if (uniforms.pigmentTextureFrame1.z > 0.0
+        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
+        const float2 uv = uniforms.pigmentTextureFrame0.xy
+            + in.position.x * uniforms.pigmentTextureFrame0.zw
+            + in.position.y * uniforms.pigmentTextureFrame1.xy;
+        const float3 noise = pigmentTexture.sample(pigmentSampler, uv, level(0.0)).rgb;
+        const float neutral = saturate(uniforms.pigmentTextureFrame1.w > 0.5
+            ? noise.r : dot(noise, float3(1.0 / 3.0)));
+        // Modulate only shadowed direct radiance; ambient and emission follow.
+        surfaceRadiance *= 1.0 + uniforms.pigmentTextureFrame1.z * (2.0 * neutral - 1.0);
     }
     if (!chroma && hasViewTint) {
         surfaceColor *= viewTint;

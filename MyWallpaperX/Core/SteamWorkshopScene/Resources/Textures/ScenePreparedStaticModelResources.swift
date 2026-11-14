@@ -37,6 +37,7 @@ struct ScenePreparedStaticModelResources {
         let materialMap: SceneStaticModelMaterialMap?
         let normalMap: SceneStaticModelNormalMap?
         let gradient: SceneStaticModelGradient?
+        let pigment: SceneStaticModelPigment?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
         let testsDepth: Bool
@@ -52,7 +53,8 @@ struct ScenePreparedStaticModelResources {
             geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
             normalMap: SceneStaticModelNormalMap? = nil,
             testsDepth: Bool = true,
-            gradient: SceneStaticModelGradient? = nil
+            gradient: SceneStaticModelGradient? = nil,
+            pigment: SceneStaticModelPigment? = nil
         ) {
             self.modelPath = modelPath
             self.materialPath = materialPath
@@ -63,6 +65,7 @@ struct ScenePreparedStaticModelResources {
             self.materialMap = materialMap
             self.normalMap = normalMap
             self.gradient = gradient
+            self.pigment = pigment
             self.material = material
             self.writesDepth = writesDepth
             self.testsDepth = testsDepth
@@ -268,6 +271,9 @@ struct ScenePreparedStaticModelResources {
                             encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) },
                         testsDepth: depthEnabled(pass.depthTest),
                         gradient: try Self.gradient(pass, material: modelMaterial,
+                            resolver: textureResolver, textureLoader: textureLoader,
+                            device: device, checkCancellation: cancellationCheck),
+                        pigment: try Self.pigment(pass, material: modelMaterial,
                             resolver: textureResolver, textureLoader: textureLoader,
                             device: device, checkCancellation: cancellationCheck)
                     ))
@@ -500,18 +506,26 @@ struct ScenePreparedStaticModelResources {
             rimExponent = Float(min(maximum, max(0, exponent)))
         }
         var specularTint = SIMD3<Float>(repeating: 1)
+        var pigmentAmount: Float = 0
         if kind == .chroma4, pass.userShaderValues["speculartint"] == nil,
            let values = SceneMaterialPropertyBindingCompiler.staticComponents(
                "speculartint", instance: nil, pass: pass, count: 3, fallback: [1, 1, 1]) {
             specularTint = SIMD3(Float(min(maximum, max(0, values[0]))),
                 Float(min(maximum, max(0, values[1]))), Float(min(maximum, max(0, values[2]))))
         }
+        if kind == .chroma4, pass.combos["LIGHTING"] != 0,
+           pass.userShaderValues["tintpigmentation"] == nil,
+           let amount = SceneMaterialPropertyBindingCompiler.staticComponents(
+               "tintpigmentation", instance: nil, pass: pass, count: 1, fallback: [0],
+               requiresCompleteScalar: true)?.first {
+            pigmentAmount = Float(min(1, max(0, amount)))
+        }
         return .init(
             metallic: Float(min(1, max(0, metallic))),
             roughness: Float(min(1, max(0, roughness))),
             reflectivity: Float(min(1, max(0, reflectivity))),
             rimAmount: rimAmount, rimExponent: rimExponent, kind: kind,
-            specularTint: specularTint
+            specularTint: specularTint, pigmentAmount: pigmentAmount
         )
     }
 
@@ -565,12 +579,10 @@ struct ScenePreparedStaticModelResources {
         device: MTLDevice,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneStaticModelGradient? {
-        let defaultPath = pass.userTextureInputs.indices.contains(4) && pass.userTextureInputs[4] != nil
-            ? nil : "gradient/gradient_toon_smooth"
         guard material.surfaceProfile != nil, material.receivesLighting,
               pass.combos["SHADINGGRADIENT"].map({ $0 != 0 }) == true,
               let candidate = try optionalTexture(at: 4, in: pass, purpose: .mask,
-                  defaultPath: defaultPath,
+                  defaultPath: "gradient/gradient_toon_smooth",
                   resolver: resolver, textureLoader: textureLoader, device: device,
                   checkCancellation: checkCancellation) else { return nil }
         let frame = candidate.uvTransform
@@ -579,6 +591,29 @@ struct ScenePreparedStaticModelResources {
             || candidate.pixelFormat == .r8Unorm || candidate.pixelFormat == .rg8Unorm
         return .init(texture: candidate.texture,
             sampleLine: SIMD4(origin.x, origin.y, frame.xAxis.x, frame.xAxis.y),
+            sampling: candidate.sampling, replicatesRed: replicatesRed)
+    }
+
+    private static func pigment(
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        material: SceneStaticModelMaterial,
+        resolver: SceneTexturePathResolver,
+        textureLoader: SceneTextureLoader,
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneStaticModelPigment? {
+        guard (material.surfaceProfile?.pigmentAmount ?? 0) > 0,
+              let candidate = try optionalTexture(at: 8, in: pass, purpose: .noise,
+                  defaultPath: "util/noise", resolver: resolver,
+                  textureLoader: textureLoader, device: device,
+                  checkCancellation: checkCancellation) else { return nil }
+        let frame = candidate.uvTransform
+        let replicatesRed = candidate.authoredFormat == .r8 || candidate.authoredFormat == .rg88
+            || candidate.pixelFormat == .r8Unorm || candidate.pixelFormat == .rg8Unorm
+        return .init(texture: candidate.texture,
+            pixelFrame: .init(origin: frame.origin,
+                xAxis: frame.xAxis / Float(candidate.mappedSize.width),
+                yAxis: frame.yAxis / Float(candidate.mappedSize.height)),
             sampling: candidate.sampling, replicatesRed: replicatesRed)
     }
 
@@ -595,7 +630,9 @@ struct ScenePreparedStaticModelResources {
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidate? {
         let authoredPath = pass.textureSlots.indices.contains(slotIndex) ? pass.textureSlots[slotIndex] : nil
-        guard let path = authoredPath ?? defaultPath,
+        let hasUserInput = pass.userTextureInputs.indices.contains(slotIndex)
+            && pass.userTextureInputs[slotIndex] != nil
+        guard let path = authoredPath ?? (hasUserInput ? nil : defaultPath),
               let url = resolver.resolveTextureFile(named: path),
               case let .loaded(candidate) = try textureLoader.loadCandidate(
                   from: url,

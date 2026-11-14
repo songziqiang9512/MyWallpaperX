@@ -260,6 +260,7 @@ extension SceneMetalRenderer {
                 materialMap: draw.entry.materialMap,
                 normalMap: draw.entry.normalMap,
                 gradient: draw.entry.gradient,
+                pigment: draw.entry.pigment,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
                 viewProjection: viewProjection,
