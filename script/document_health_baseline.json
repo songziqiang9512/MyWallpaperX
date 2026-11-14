@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 278,
-      "bytes": 59064
+      "lines": 287,
+      "bytes": 61155
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 63001
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 587,
-      "bytes": 263874
+      "lines": 597,
+      "bytes": 266689
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 191,
-      "bytes": 52570
+      "bytes": 52795
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -505,15 +505,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "5eb619fc5db2c45ebeb7f20babb22f4fb416691fa3edcb43aed7254e41ae6417",
-      "after": "073016944f7a78f6cbfc53b9da1b9cb8ccd30c72524f5ee11679fd6c304cfe26",
-      "owner": "Existing typed Spot snapshot and shared surface radial response",
-      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "8611068d8d1129c118dd83551fe7385c99df1479629510f18ad48119a04b21ea",
       "after": "c107611a9955f39a9c746ee4550f470b27f4974d11584aa82392bd2927798773",
@@ -532,12 +523,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "073016944f7a78f6cbfc53b9da1b9cb8ccd30c72524f5ee11679fd6c304cfe26",
+      "after": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
+      "owner": "Existing image LightingProfile and LitCapture map consumers",
+      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "c07df033ab914069b74dfced6ddd9d376d4e5ec03e086729dfc7c0c86d484115",
+      "after": "2c4c48066b20b976e55061ba04a00adecb81e7a1a974681a357ce8c3a88a4a51",
+      "owner": "Existing image LightingProfile and LitCapture map consumers",
+      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4ff814a29cef42f0dc75a05cc3a67cdbf43345c3377f5f1e6a145d6ad799a97a",
-      "after": "22ab6e1189f8525539ab066701b700d301b94303ddf8bc48f489a189389676be",
-      "owner": "Existing Format ShaderValue ingress and model material consumers",
-      "reason": "Replace duplicate Document/Catalog value projection, preserve caller metadata/nested scope, qualify full numeric arrays and exact real model color equivalence; retire resolved array queue and preserve unqualified uniform/runtime boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#shader-value-numeric-arrays"
+      "before": "22ab6e1189f8525539ab066701b700d301b94303ddf8bc48f489a189389676be",
+      "after": "d04b757605afd4ded144cbea0fbccd767844c6f0218a6259c217798537bbb6f0",
+      "owner": "Existing image LightingProfile and LitCapture map consumers",
+      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
     }
   ]
 }

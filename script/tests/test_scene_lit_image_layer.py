@@ -29,6 +29,17 @@ def reflection_vectors():
     expected['radiance_tolerance'] = [2*reflection_oracle.half_ulp(x) for x in expected['half_rgba'][:3]]
     assert 39.9 < expected['half_rgba'][0] < 40.1
     vectors['gpu_numerical'].append(dict(input=vector, expected=expected))
+    references={row['input']['name']:row for row in vectors['gpu_numerical']}
+    for name,reference,header,required,allowed in [
+        ('forced-B-without-header','B-half',None,4,4),
+        ('forced-B-conflicting-header','B-half',1,4,4),
+        ('forced-B-zero-without-header','B-zero',None,4,4),
+        ('omitted-B-without-header','flat-dielectric',None,0,4),
+        ('disabled-B-with-header','flat-dielectric',4,0,0)]:
+        row=deepcopy(references[reference]);v=row['input']
+        v.update(name=name,map_header_bits=header,map_required=required,map_allowed=allowed)
+        if name in {'omitted-B-without-header','disabled-B-with-header'}:v['map_texel'][2]=128
+        vectors['gpu_numerical'].append(row)
     return vectors
 
 REFLECTION_HARNESS = r'''
@@ -73,14 +84,14 @@ import simd
         precondition(input.status == "ready")
         return input
     }
-    static func map(_ device:MTLDevice,_ rgba:[Int])->Capture.TextureInput {
+    static func map(_ device:MTLDevice,_ rgba:[Int],headerBits:UInt32? = 4)->Capture.TextureInput {
         let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
         d.storageMode = .shared;d.usage = .shaderRead
         let t=device.makeTexture(descriptor:d)!,bytes=rgba.map(UInt8.init)
         bytes.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
         let size=CGSize(width:1,height:1)
         let c=SceneTextureCandidate(texture:t,identity:.builtIn(name:"self-authored-f5-map"),generation:.immutable(revision:1),
-            purpose:.mask,content:.data,physicalSize:size,mappedSize:size,uvTransform:.identity,sampling:.init(texFlags:4<<20))
+            purpose:.mask,content:.data,physicalSize:size,mappedSize:size,uvTransform:.identity,sampling:headerBits.map { .init(texFlags:$0<<20) } ?? .directImageFallback)
         let input=Capture.TextureInput.resolve(c,kind:.materialMap)
         precondition(input.status == "ready")
         return input
@@ -151,7 +162,9 @@ import simd
             }
             var attempts=0
             let payload=Capture(pipeline:lit,lights:packed,normal:normal(device,v["normal_texel"] as! [String:Any]),
-                materialMap:map(device,v["map_texel"] as! [Int]),mapAllowedComponents:4,
+                materialMap:map(device,v["map_texel"] as! [Int],headerBits:(v["map_header_bits"] as? NSNumber)?.uint32Value),
+                mapAllowedComponents:UInt32(v["map_allowed"] as? Int ?? 4),
+                mapRequiredComponents:UInt32(v["map_required"] as? Int ?? 0),
                 environmentSource:{ _ in attempts+=1;return v["environment_ready"] as! Bool ?
                     .sameFrameEnvironment(frameEpoch:1,allocationGeneration:1,texture:environment,source:sourceReceipt) : nil })!
             let uniform=SceneLayerFragmentUniforms(time:0,alpha:number(v,"opacity"),dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,

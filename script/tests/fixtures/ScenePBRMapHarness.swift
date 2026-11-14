@@ -22,7 +22,7 @@ import simd
         let loader=SceneTextureLoader()
         func load(_ name:String,_ data:Data,purpose:SceneTextureLoadPurpose = .mask)->SceneTextureCandidate {
             let url=work.appendingPathComponent(name+".tex");try! data.write(to:url)
-            guard case let .loaded(candidate)=loader.loadCandidate(from:url,purpose:purpose,device:device) else { fatalError(name) }
+            guard case let .loaded(candidate)=try! loader.loadCandidate(from:url,purpose:purpose,device:device) else { fatalError(name) }
             return candidate
         }
         func target(_ value:[Float]? = nil)->MTLTexture {
@@ -32,13 +32,13 @@ import simd
             if let value { let raw=value.map(Float16.init);raw.withUnsafeBytes{t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:8)} }
             return t
         }
-        func render(_ map:Capture.TextureInput,allowed:UInt32=11,material:SIMD2<Float>? = SIMD2(0.2,0.8),
+        func render(_ map:Capture.TextureInput,allowed:UInt32=11,required:UInt32=0,material:SIMD2<Float>? = SIMD2(0.2,0.8),
                     emission:SIMD4<Float>? = SIMD4(0.25,0.5,1,2),source:[Float] = [0.5,0.25,0.125,1],
                     intensity:Float=0,light:SIMD3<Float> = SIMD3(0,0,1),normal:SIMD3<Float> = SIMD3(0,0,1),
                     tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false)->[Float] {
             let normalMatrix=simd_float4x4(diagonal:SIMD4(1,1,normal.z,1))
             let packed=Capture.packLights(pointLights:[.init(position:light,color:SIMD3(repeating:1),intensity:intensity,radius:1000)],spotLights:[],ambient:.zero,material:material,view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:normalMatrix)!
-            let payload=Capture(pipeline:lit,lights:packed,normal:.disabled,materialMap:map,mapAllowedComponents:allowed,emission:emission)!
+            let payload=Capture(pipeline:lit,lights:packed,normal:.disabled,materialMap:map,mapAllowedComponents:allowed,mapRequiredComponents:required,emission:emission)!
             let input=target(source),output=target(),command=queue.makeCommandBuffer()!
             let uniforms=SceneLayerFragmentUniforms(time:0,alpha:opacity,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:SIMD2<UInt32>(0,sourceIsStraight ? 1 : 0),tint:SIMD4(tint,1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
             precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:input,target:output,sourceUniforms:uniforms,pipeline:base,commandBuffer:command,sourceLighting:payload))
@@ -56,16 +56,22 @@ import simd
             let format=UInt32(v["format"] as? Int ?? 0)
             let block:[UInt8]=[0,248,0,248,0,0,0,0]
             let bytes:[UInt8]=format == 7 ? block : format == 6 ? Array(repeating:136,count:8)+block : format == 4 ? [128,128,0,0,0,0,0,0]+block : Array(repeating:rgba,count:16).flatMap{$0}
-            let c=load(v["name"] as! String,tex(bytes,flags:bits<<20,format:format))
+            let headerless=v["headerless"] as? Bool == true
+            let resourceName=headerless ? (v["headerlessPath"] as? String ?? "headerless.png") : (v["name"] as! String)+".tex"
+            let c:SceneTextureCandidate
+            if headerless {
+                guard case let .loaded(candidate)=try loader.loadCandidate(from:work.appendingPathComponent(resourceName),purpose:.mask,device:device) else { fatalError("PNG map") }
+                c=candidate
+            } else { c=load(v["name"] as! String,tex(bytes,flags:bits<<20,format:format)) }
             let m=floats("material"),l=floats("light"),n=floats("normal"),t=floats("tint")
             let emission:SIMD4<Float>? = v["emission"] is NSNull ? nil : SIMD4<Float>(floats("emission"))
-            let actual=render(.resolve(c,kind:.materialMap),allowed:UInt32(v["allowed"] as! Int),material:SIMD2(m),emission:emission,source:floats("source"),intensity:f("intensity"),light:SIMD3(l),normal:SIMD3(n),tint:SIMD3(t),opacity:f("opacity"))
+            let actual=render(.resolve(c,kind:.materialMap),allowed:UInt32(v["allowed"] as! Int),required:UInt32(v["required"] as? Int ?? 0),material:SIMD2(m),emission:emission,source:floats("source"),intensity:f("intensity"),light:SIMD3(l),normal:SIMD3(n),tint:SIMD3(t),opacity:f("opacity"))
             let expected=floats("expected")
             for channel in 0..<4 {
                 let half=Float16(expected[channel]), tolerance=Float(half.ulp)
                 precondition(actual[channel].isFinite && abs(actual[channel]-Float(half))<=tolerance,"\(v["name"]!) \(actual) != \(expected)")
             }
-            records.append(["name":v["name"]!,"actual":actual,"expected":expected,"pixelFormat":c.pixelFormat.rawValue])
+            records.append(["name":v["name"]!,"resource":resourceName,"actual":actual,"expected":expected,"pixelFormat":c.pixelFormat.rawValue,"rawFlags":c.sampling.rawFlags as Any? ?? NSNull(),"required":v["required"] as? Int ?? 0])
         }
         var contracts:[String:Bool]=[:]
         let zeroRoughTexel:[UInt8]=[192,0,77,128]
@@ -141,19 +147,44 @@ import simd
         registry.set(.init(requestIdentity:request,candidate:valid,contentGeneration:3),for:request)
         registry.set(.init(requestIdentity:request,candidate:invalid,contentGeneration:2),for:request)
         contracts["stalePublicationKeepsCurrent"]=Capture.TextureInput.resolve(registry.lookup(request),kind:.materialMap).status == "ready"
-        if case let .loaded(png)=loader.loadCandidate(from:work.appendingPathComponent("headerless.png"),purpose:.mask,device:device) {
-            contracts["headerlessDoesNotInventPresence"]=Capture.TextureInput.resolve(png,kind:.materialMap).status == "unsupported"
-        } else { contracts["headerlessDoesNotInventPresence"]=false }
+        guard case let .loaded(png)=try loader.loadCandidate(from:work.appendingPathComponent("headerless.png"),purpose:.mask,device:device) else { fatalError("PNG map") }
+        let pngInput=Capture.TextureInput.resolve(png,kind:.materialMap)
+        contracts["headerlessReadyWithoutMetadata"]=pngInput.status == "ready" && png.sampling.rawFlags == nil
+        contracts["headerlessOmittedKeepsScalar"]=render(pngInput,emission:nil,intensity:1)==render(.disabled,emission:nil,intensity:1)
+        let mappedRoughness=Float(128)/255
+        for bit:UInt32 in [1,2,3] {
+            let scalar=SIMD2<Float>(bit & 1 != 0 ? 1:0.2,bit & 2 != 0 ? mappedRoughness:0.8)
+            contracts["headerlessExplicit\(bit)MatchesScalar"]=render(pngInput,allowed:bit,required:bit,emission:nil,intensity:1)==render(.disabled,material:scalar,emission:nil,intensity:1)
+        }
+        let pngEmission=render(pngInput,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1])
+        let alphaHalf=Float(Float16(mappedRoughness))
+        contracts["headerlessExplicitEmissionLiteral"]=pngEmission == [alphaHalf,alphaHalf,alphaHalf,1]
+        contracts["headerlessExplicitWithoutEmissionKeepsScalar"]=render(pngInput,required:8,emission:nil,intensity:1)==render(.disabled,emission:nil,intensity:1)
+        let normalAlias=load("normal-alias",tex(Array(repeating:[UInt8(128),128,255,255],count:16).flatMap{$0},flags:0),purpose:.normal)
+        let dark=Capture.packLights(pointLights:[],spotLights:[],ambient:.zero,material:SIMD2(0.2,0.8),view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:matrix_identity_float4x4)!
+        let mixed=Capture(pipeline:aliasPipeline,lights:dark,normal:.resolve(normalAlias),materialMap:pngInput,mapAllowedComponents:8,mapRequiredComponents:8,emission:SIMD4(repeating:1))!
+        let mixedSafe=mixed.validated(for:normalAlias.texture)!
+        contracts["badNormalKeepsHeaderlessEffectiveBits"]=mixedSafe.normal.status == "invalid" && mixedSafe.materialMap.status == "ready" && mixedSafe.lights.mapSamplingComponents.y == 8
+        let rgbaOutput=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
+        rgbaOutput.storageMode = .shared;rgbaOutput.usage=[.shaderRead,.renderTarget]
+        let output=device.makeTexture(descriptor:rgbaOutput)!,command=queue.makeCommandBuffer()!
+        let sourceUniforms=SceneLayerFragmentUniforms(time:0,alpha:1,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:SIMD2<UInt32>(0,0),tint:SIMD4(repeating:1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
+        let rgbaBase=SceneImageLayerPipeline(device:device,pixelFormat:.rgba8Unorm,library:library)!
+        precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:target([1,1,1,1]),target:output,sourceUniforms:sourceUniforms,pipeline:rgbaBase,commandBuffer:command,sourceLighting:mixedSafe))
+        command.commit();command.waitUntilCompleted();precondition(command.status == .completed)
+        var rgbaPixel=[UInt8](repeating:0,count:4)
+        rgbaPixel.withUnsafeMutableBytes{output.getBytes($0.baseAddress!,bytesPerRow:4,from:MTLRegionMake2D(0,0,1,1),mipmapLevel:0)}
+        contracts["badNormalKeepsHeaderlessEmissionPixel"]=rgbaPixel == [128,128,128,255]
         let rg=load("unsupported-rg",tex(Array(repeating:[UInt8(255),128],count:16).flatMap{$0},flags:flags,format:8))
         contracts["partialDataFormatUnsupported"]=Capture.TextureInput.resolve(rg,kind:.materialMap).status == "unsupported"
-        guard case let .loaded(color)=loader.loadCandidate(from:work.appendingPathComponent("valid.tex"),purpose:.premultipliedColor,device:device) else { fatalError("color purpose") }
+        guard case let .loaded(color)=try loader.loadCandidate(from:work.appendingPathComponent("valid.tex"),purpose:.premultipliedColor,device:device) else { fatalError("color purpose") }
         contracts["samePathColorDataPurposeIsolation"]=valid.texture !== color.texture && valid.content != color.content
         var animated=tex(atlasBytes,flags:(UInt32(8)<<20)|4,width:8)
         animated.append(Data("TEXS0002\0".utf8));var count:UInt32=2;withUnsafeBytes(of:&count){animated.append(contentsOf:$0)}
         for x:Float in [0,4] { var index:UInt32=0;withUnsafeBytes(of:&index){animated.append(contentsOf:$0)};for value:Float in [0.1,x,0,4,0,0,4] { var f=value;withUnsafeBytes(of:&f){animated.append(contentsOf:$0)} } }
         try animated.write(to:work.appendingPathComponent("animated.tex"))
         let identity=SceneAssetTextureIdentity(virtualPath:"animated.tex",purpose:.mask)!
-        let catalog=SceneMaterialAssetTextureCatalog(demands:[identity],resourceView:.init(projectRootURL:work,packageRootURL:nil),descriptor:.init(),device:device)
+        let catalog=try SceneMaterialAssetTextureCatalog(demands:[identity],resourceView:.init(projectRootURL:work,packageRootURL:nil),descriptor:.init(),device:device)
         let provider=catalog.makeFrameProvider()
         func at(_ t:Double)->SceneTextureProviderPublication { guard case let .ready(p)=provider.states(sceneTime:t)[identity] else { fatalError("frame") };return p }
         let a=at(0);provider.commitFrame();let b=at(0.15);provider.discardFrame();let retry=at(0.15);provider.commitFrame()
@@ -169,7 +200,7 @@ import simd
         let budget=SceneTextureDecodeCacheBudget(maximumBytes:1)
         var uncached:SceneTextureLoader?=SceneTextureLoader(decodeCacheBudget:budget)
         let url=work.appendingPathComponent("valid.tex")
-        if case .loaded=uncached!.loadCandidate(from:url,purpose:.mask,device:device) {
+        if case .loaded=try uncached!.loadCandidate(from:url,purpose:.mask,device:device) {
             contracts["cacheDenialKeepsLoad"]=budget.rejectionCount > 0 && budget.residentBytes == 0
         } else { contracts["cacheDenialKeepsLoad"]=false }
         uncached=nil;contracts["cacheReleased"]=budget.residentBytes == 0
@@ -180,7 +211,7 @@ import simd
         do {
             defer { quota.release(reservation,kind:.gpu) }
             let fresh=SceneTextureLoader(decodeCacheBudget:SceneTextureDecodeCacheBudget(maximumBytes:1))
-            switch fresh.loadCandidate(from:url,purpose:.mask,device:device) {
+            switch try fresh.loadCandidate(from:url,purpose:.mask,device:device) {
             case let .loaded(candidate):failedInput = .resolve(candidate,kind:.materialMap);contracts["realBudgetDenial"]=false
             case .failed:failedInput = .unavailable;contracts["realBudgetDenial"]=quota.snapshot.rejectionCount > baseline.rejectionCount
             }
@@ -188,7 +219,7 @@ import simd
         contracts["budgetReleased"]=quota.snapshot.residentBytes == baseline.residentBytes
         contracts["budgetFailureKeepsScalar"]=render(failedInput,intensity:1)==fallback
         let retryLoader=SceneTextureLoader(decodeCacheBudget:SceneTextureDecodeCacheBudget(maximumBytes:1))
-        if case let .loaded(candidate)=retryLoader.loadCandidate(from:url,purpose:.mask,device:device) {
+        if case let .loaded(candidate)=try retryLoader.loadCandidate(from:url,purpose:.mask,device:device) {
             contracts["budgetReleaseRetriesSource"]=render(.resolve(candidate,kind:.materialMap),intensity:1) != fallback
         } else { contracts["budgetReleaseRetriesSource"]=false }
         print(String(decoding:try JSONSerialization.data(withJSONObject:["vectors":records,"contracts":contracts],options:[.sortedKeys]),as:UTF8.self))

@@ -21,7 +21,7 @@ nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
     }
     let normalSource: TextureSource
     var mapSource: TextureSource = .disabled
-    /// Bits match the authored component metadata, excluding reflection.
+    /// RGBA bits allowed by this material; required bits override texture defaults.
     var mapAllowedComponents: UInt32 = 0
     var mapRequiredComponents: UInt32 = 0
     enum Emission: Equatable, Sendable {
@@ -145,14 +145,10 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
             for (key, bit) in [("METALLIC_MAP", UInt32(1)), ("ROUGHNESS_MAP", 2), ("REFLECTION_MAP", 4), ("EMISSIVE_MAP", 8)] {
                 switch combo(key) {
                 case nil: profile.mapAllowedComponents |= bit
-                case 1:
-                    profile.mapAllowedComponents |= bit
-                    profile.mapRequiredComponents |= bit
                 case 0: break
                 default:
-#if DEBUG
-                    NSLog("MWX SCENE: schema=base-material-map component=%@ status=unsupported fallback=component-disabled", key)
-#endif
+                    profile.mapAllowedComponents |= bit
+                    profile.mapRequiredComponents |= bit
                 }
             }
             if builtinLighting, let rgb = SceneMaterialPropertyBindingCompiler.emissionColor(instance: materialInstance, pass: pass) {
@@ -184,8 +180,6 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
             }
             if combo("PBRMASKS") == 0 || profile.mapAllowedComponents == 0 {
                 profile.mapSource = .disabled
-            } else if combo("PBRMASKS") != nil && combo("PBRMASKS") != 1 {
-                profile.mapSource = .unsupported
             } else if hasMapProvider(pass.userTextureInputs)
                         || hasMapProvider(materialInstance?.userTextureInputs ?? []) {
                 profile.mapSource = .unsupported

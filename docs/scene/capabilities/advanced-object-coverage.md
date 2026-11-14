@@ -238,6 +238,15 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
 
+<a id="image-material-map-components"></a>
+### 图像分量图的显式通道
+
+图像材质沿原LightingProfile与LitCapture供货，分量combo省略取TEX bit20…23默认，显式0禁用、任意非零Int开启；PBRMASKS仅显式0关闭整图。header不是作者显式通道的播放许可，PNG/data候选无header仍可按实际RGBA通道采样。沿原allowed/required两mask：省略只allowed，非零同时allowed|required；原typed payload打包处一次决定(header|required)&allowed，沿现Frame动态emission保有效位。保原emission无效关A、无reflection关B、原receiver/family与标量/混合/HDR/alpha/depth次序，不改变着色算法或默认灯。
+
+退Profile的0/1整数限制、Pipeline对rawFlags缺席的拒绝、required必须存在header的诊断及header∩allowed错误覆盖。原TextureLoader/typed candidate继续保证真实用途、格式与UV/sampler；不加第二texture/map owner、ABI、Program、cache或帧内解析。validated原局部目标别名恢复仍只拒真正冲突的normal/map，重建payload必须保已经决定的有效分量，不能再被header抹掉；map缺失/损坏/禁用仅保标量，不造白图或无header默认通道。R8/RG及其它原格式不借此扩域。
+
+验收扩原PBR/profile/TextureLoader/Metal及既有App载体，先保同输入旧失败；核PNG显式1/2/-1、TEX缺位/冲突header、总开关和分量0/省略、instance优先与完整改名。R/G对等值标量、B对既有反射数值门、A对无灯字面颜色，保独立UV/sampler/alpha及坏normal重建仍保合法map；不复制BRDF。实际App用同图/相机/灯与材质控制取得可区分map贡献和effects同源消费，再以原343活动135按header默认作独立回归；现五星球样本未证受影响显式非零/无header作者consumer，不宣作者缺图修复或官方像素。完成只扩原数值宏语义，不接用户provider、动态分量或新格式。 当前显式通道已沿原消费者接通，实际读回与App范围见[运行证据](runtime-evidence-current.md#image-material-map-components)。
+
 <a id="spot-radial-falloff"></a>
 ### 聚光灯的表面径向衰减
 

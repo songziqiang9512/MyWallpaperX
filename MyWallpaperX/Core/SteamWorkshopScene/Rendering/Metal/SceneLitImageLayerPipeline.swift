@@ -44,7 +44,7 @@ struct SceneLitImageLayerLightPayload {
     var view = SIMD4<Float>(0, 0, 1, 0)
     var mapFrame0 = SIMD4<Float>(0, 0, 1, 0)
     var mapFrame1 = SIMD4<Float>(0, 1, 0, 0)
-    /// x = sampler; y = enabled component bits (metal/rough/emission).
+    /// x = sampler; y = enabled RGBA bits (metal/rough/reflection/emission).
     var mapSamplingComponents = SIMD4<UInt32>.zero
     var emission = SIMD4<Float>.zero
     var sceneViewProjection = matrix_identity_float4x4
@@ -112,7 +112,6 @@ struct SceneBaseMaterialLitCapturePayload {
             guard candidate.materialProgramUVTransform() != nil,
                   candidate.sampling.isResolvedForMaterialProgram,
                   !candidate.sampling.usesClampBorderFallback else { return .unsupported }
-            if kind == .materialMap && candidate.sampling.rawFlags == nil { return .unsupported }
             let encoding: UInt32
             switch binding.pixelFormat {
             case .rgba8Unorm, .bc1_rgba, .bc2_rgba, .bc3_rgba: encoding = 0
@@ -192,16 +191,11 @@ struct SceneBaseMaterialLitCapturePayload {
         packed.emission = emission ?? .zero
         if case let .ready(binding, _) = materialMap {
             let header = ((binding.sampling.rawFlags ?? 0) >> 20) & 15
-            let enabled = header & mapAllowedComponents & (emission == nil ? 7 : 15)
+            let enabled = (header | mapRequiredComponents) & mapAllowedComponents & (emission == nil ? 7 : 15)
             let uv = binding.uvTransform
             packed.mapFrame0 = SIMD4(uv.origin.x, uv.origin.y, uv.xAxis.x, uv.xAxis.y)
             packed.mapFrame1 = SIMD4(uv.yAxis.x, uv.yAxis.y, 0, 0)
             packed.mapSamplingComponents = SIMD4(binding.sampling.imageLayerUniformMode, enabled, 0, 0)
-            if mapRequiredComponents & ~header != 0 {
-#if DEBUG
-                Self.report(status: "component-unavailable", role: "map")
-#endif
-            }
         }
         self.lights = packed
 #if DEBUG
@@ -224,10 +218,12 @@ struct SceneBaseMaterialLitCapturePayload {
         let normalValid = compatible(normalTexture)
         let mapValid = compatible(materialMapTexture)
         if normalValid && mapValid { return self }
+        // Preserve the effective mask when only another texture conflicts.
         var value = Self(pipeline: pipeline, lights: lights,
             normal: normalValid ? normal : .invalid,
             materialMap: mapValid ? materialMap : .invalid,
             mapAllowedComponents: lights.mapSamplingComponents.y,
+            mapRequiredComponents: lights.mapSamplingComponents.y,
             emission: lights.emission, environmentSource: environmentSource)
         value?.environmentTexture = environmentTexture
         return value

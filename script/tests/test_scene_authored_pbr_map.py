@@ -37,6 +37,14 @@ def map_vectors():
     vectors=[dict(base,**changes,name=name) for name,changes in specs]
     for fmt,alpha in [(7,255),(6,136),(4,128)]:
         vectors.append(dict(base,name=f'tex-format-{fmt}-rg',format=fmt,rgba=[255,0,0,alpha],bits=3))
+    for name,changes in [
+        ('headerless-explicit-metal',dict(allowed=1,required=1,emission=None)),
+        ('headerless-explicit-rough',dict(allowed=2,required=2,material=[1,1],emission=None)),
+        ('headerless-explicit-emission',dict(allowed=8,required=8,intensity=0)),
+        ('renamed-headerless-forced-components',dict(allowed=3,required=3,emission=None,headerlessPath='independent/重命名-components.png')),
+        ('forced-emission-conflicting-header',dict(headerless=False,bits=1,allowed=9,required=8)),
+        ('explicit-cannot-enable-disallowed-component',dict(allowed=0,required=15))]:
+        vectors.append(dict(base,**(dict(headerless=True,bits=0,rgba=[255,128,0,128])|changes),name=name))
     return vectors
 
 def map_oracle(v):
@@ -45,7 +53,7 @@ def map_oracle(v):
     unit=lambda a:[x/math.sqrt(sum(y*y for y in a)) for x in a]
     n,l=unit(list(map(f,v['normal']))),unit(list(map(f,v['light'])))
     view=[0,0,1];dot=lambda a,b:sum(x*y for x,y in zip(a,b))
-    bits=v['bits']&v['allowed'];sample=[f(x/255) for x in v['rgba']]
+    bits=((0 if v.get('headerless') else v['bits'])|v.get('required',0))&v['allowed'];sample=[f(x/255) for x in v['rgba']]
     m=sample[0] if bits&1 else f(v['material'][0]);r=sample[1] if bits&2 else f(v['material'][1])
     source=[struct.unpack('e',struct.pack('e',x))[0] for x in v['source']]
     if source[3]<=0:return [0,0,0,0]
@@ -202,8 +210,8 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
         add('instance-map',instance={'textures':[None,None,'materials/other.tex']},source='materials/other.tex')
         add('whole-disabled',{'combos':{'LIGHTING':1,'PBRMASKS':0},'usertextures':[None,None,'u']},source='disabled')
         add('explicit-enable',{'combos':{'LIGHTING':1,'PBRMASKS':1,'METALLIC_MAP':1,'ROUGHNESS_MAP':0}},allowed=9,required=1)
-        add('bad-whole-combo',{'combos':{'LIGHTING':1,'PBRMASKS':2}},source='unsupported')
-        add('bad-component-combo',{'combos':{'LIGHTING':1,'EMISSIVE_MAP':2}},allowed=3)
+        add('nonzero-whole-combo',{'combos':{'LIGHTING':1,'PBRMASKS':2}})
+        add('nonzero-component-combo',{'combos':{'LIGHTING':1,'EMISSIVE_MAP':2}},required=8)
         add('material-provider',{'usertextures':[None,None,'u']},source='unsupported')
         add('empty-instance-retains-provider',{'usertextures':[None,None,'u']},{'usertextures':[]},source='unsupported')
         add('null-instance-retains-provider',{'usertextures':[None,None,'u']},{'usertextures':[None,None,None]},source='unsupported')
@@ -224,7 +232,21 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
         # Current numeric parser accepts these spellings; this is typed validation, not a stricter lexer.
         add('parser-word-compaction',{'constantshadervalues':{'emissivecolor':'1 junk 0 1'}},emission=(1,0,1,1))
         add('invalid-emission-only-no-demand',{'combos':{'LIGHTING':1,'METALLIC_MAP':0,'ROUGHNESS_MAP':0,'EMISSIVE_MAP':1},'constantshadervalues':{'emissivebrightness':None}},source='disabled',emission=None,allowed=0,required=8)
-        add('parser-bool-bridge',{'constantshadervalues':{'emissivebrightness':True}},emission=(1,1,1,1))
+        add('parser-bool-is-not-a-number',{'constantshadervalues':{'emissivebrightness':True}},emission=None)
+        for value in (1,2,-1):
+            combos={'LIGHTING':1,'REFLECTION':1,'PBRMASKS':value,
+                    **{key:value for key in ['METALLIC_MAP','ROUGHNESS_MAP','REFLECTION_MAP','EMISSIVE_MAP']}}
+            add(f'nonzero-all-{value}',{'combos':combos},allowed=15,required=15)
+            add(f'instance-nonzero-all-{value}',{'combos':{'LIGHTING':1,'PBRMASKS':0}},
+                instance={'combos':combos},allowed=15,required=15)
+        all_on={'LIGHTING':1,'REFLECTION':1,'PBRMASKS':1,
+                **{key:1 for key in ['METALLIC_MAP','ROUGHNESS_MAP','REFLECTION_MAP','EMISSIVE_MAP']}}
+        add('instance-whole-zero',{'combos':all_on},instance={'combos':{'PBRMASKS':0}},
+            source='disabled',allowed=15,required=15)
+        add('instance-components-zero',{'combos':all_on},
+            instance={'combos':{key:0 for key in ['METALLIC_MAP','ROUGHNESS_MAP','REFLECTION_MAP','EMISSIVE_MAP']}},
+            source='disabled',allowed=0)
+        add('nonzero-whole-negative',{'combos':{'LIGHTING':1,'PBRMASKS':-1}})
         with tempfile.TemporaryDirectory(prefix='mwx-map-profile-') as temporary:
             work=Path(temporary);objects=[]
             for i,(name,material,instance,_) in enumerate(cases):
@@ -243,13 +265,19 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             run=subprocess.run([str(binary),str(work)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stderr)
             result=json.loads(run.stdout);self.assertEqual(len(result),len(cases))
+            report=dict(cases=[c[0] for c in cases],actual=result,
+                        authored=[dict(name=c[0],material=c[1],instance=c[2],expected=c[3]) for c in cases])
+            print(json.dumps(report,sort_keys=True))
+            if destination:=os.environ.get('MWX_PBR_MAP_EVIDENCE'):
+                Path(destination).mkdir(parents=True,exist_ok=True)
+                (Path(destination)/'authored-profile.json').write_text(json.dumps(report,indent=2))
             for actual,(name,_,_,expected) in zip(result,cases):
-                for key,wanted in expected.items():
-                    if isinstance(wanted,list):
-                        self.assertIsNotNone(actual[key],(name,actual))
-                        for a,e in zip(actual[key],wanted):self.assertAlmostEqual(a,e,places=6,msg=str((name,actual)))
-                    else:self.assertEqual(actual[key],wanted,(name,actual))
-            print(json.dumps(dict(cases=[c[0] for c in cases],actual=result),sort_keys=True))
+                with self.subTest(case=name):
+                    for key,wanted in expected.items():
+                        if isinstance(wanted,list):
+                            self.assertIsNotNone(actual[key],(name,actual))
+                            for a,e in zip(actual[key],wanted):self.assertAlmostEqual(a,e,places=6,msg=str((name,actual)))
+                        else:self.assertEqual(actual[key],wanted,(name,actual))
 
     def test_loader_map_sampling_and_material_output(self):
         from script.tests import test_scene_texture_candidate as texture
@@ -260,7 +288,9 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
             (work/'vectors.json').write_text(json.dumps(vectors,indent=2))
             import zlib
             def chunk(k,v):return struct.pack('>I',len(v))+k+v+struct.pack('>I',zlib.crc32(k+v)&0xffffffff)
-            (work/'headerless.png').write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',4,4,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes([255,128,0,128])*4)*4))+chunk(b'IEND',b''))
+            png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',4,4,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes([255,128,0,128])*4)*4))+chunk(b'IEND',b'')
+            for relative in sorted({'headerless.png'}|{v['headerlessPath'] for v in vectors if 'headerlessPath' in v}):
+                path=work/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(png)
             if destination:=os.environ.get('MWX_PBR_MAP_EVIDENCE'):
                 Path(destination).mkdir(parents=True,exist_ok=True)
                 (Path(destination)/'vectors-prerun.json').write_text(json.dumps(vectors,indent=2))
@@ -323,14 +353,44 @@ class SceneAuthoredPBRMapIntegrationTests(unittest.TestCase):
         self.scenario_id='emission-effect'
         self.check_map(fixture_emission_rgb((.25,.5,.125),effect_gain=.5),effect=True,no_lights=True,scalar_values={'emissivecolor':'0.25 0.5 0.125'},pbr_map={'rgba':[0,0,0,255],'flags':1<<23})
 
-    def test_zero_and_header_conflict_do_not_invent_presence(self):
+    def test_zero_components_do_not_invent_presence(self):
         for name,values,combos,headerless in [
             ('brightness-zero',{'emissivebrightness':0},{},False),
             ('whole-zero',{}, {'PBRMASKS':0},False),
-            ('component-zero',{}, {'EMISSIVE_MAP':0},False),
-            ('headerless-explicit',{}, {'PBRMASKS':1,'EMISSIVE_MAP':1},True)]:
+            ('component-zero',{}, {'EMISSIVE_MAP':0},False)]:
             self.scenario_id=name
             self.check_map([0]*3,no_lights=True,scalar_values=values,pbr_map={'rgba':[255]*4,'flags':1<<23,'combos':combos,'headerless':headerless})
+
+    def test_headerless_nonzero_components_match_authored_header(self):
+        common=dict(no_normal=True,light_origin='80 48 100',intensity=.2,
+                    scalar_values={'metallic':0,'roughness':1,'emissivebrightness':0})
+        rgba=[255,128,0,255]
+        self.scenario_id='authored-header-control'
+        reference=self.run_normal(**common,pbr_map={'rgba':rgba,'flags':3<<20})
+        for value in (1,2,-1):
+            self.scenario_id=f'headerless-nonzero-{value}'
+            combos={'PBRMASKS':value,'METALLIC_MAP':value,'ROUGHNESS_MAP':value,
+                    'REFLECTION_MAP':0,'EMISSIVE_MAP':0}
+            actual=self.run_normal(**common,pbr_map={'rgba':rgba,'flags':0,'combos':combos,'headerless':True})
+            for frame in reference:
+                for channel in range(3):
+                    self.assertLessEqual(abs(actual[frame]['roiMean'][channel]-reference[frame]['roiMean'][channel]),2,
+                                         (value,frame,actual,reference))
+        expected=normal.pbr_expected(light=(0,0,100),metallic=0,roughness=1,intensity=.2)
+        for name,combos in [('omitted',{}),('explicit-zero',{'PBRMASKS':0,'METALLIC_MAP':0,'ROUGHNESS_MAP':0})]:
+            self.scenario_id=f'headerless-{name}'
+            actual=self.check_map([expected]*3,**common,
+                pbr_map={'rgba':rgba,'flags':0,'combos':combos,'headerless':True})
+            for frame in reference:
+                self.assertGreater(abs(reference[frame]['roiMean'][0]-actual[frame]['roiMean'][0]),10,
+                                   (frame,actual,reference))
+
+    def test_headerless_explicit_emission_reaches_effect_and_main(self):
+        self.scenario_id='headerless-emission-effect'
+        self.check_map(fixture_emission_rgb((.25,.5,.125),effect_gain=.5),effect=True,no_lights=True,
+            scalar_values={'emissivecolor':'0.25 0.5 0.125'},
+            pbr_map={'rgba':[0,0,0,255],'flags':0,'headerless':True,
+                     'combos':{'PBRMASKS':-1,'EMISSIVE_MAP':2,'METALLIC_MAP':0,'ROUGHNESS_MAP':0}})
 
     def test_missing_corrupt_map_preserves_actual_normal_and_scalar(self):
         expected=normal.pbr_expected((1,0,0),light=(100,0,100),metallic=.2,roughness=.8,intensity=1.5)

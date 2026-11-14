@@ -237,6 +237,16 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 17项最近原生方法通过；组件门Debug/Release各140事实一致，包含同sim健康emitter、静态/dynamic位置、错型object/bool/string、无value、metadata与被选位置、ID/lifetime/RNG，另保原World Force及角度行为。独立3742133044按预登记project/package摘要四秒通过，本次tree记在原报告；196雪花Sprite的258几何实例、746×731源实际到同main/seal/GPU，正常退出排空。它未消费CP位置/角度，只授健康作者邻例。原前后字节、输入、身份与独审保于 `.artifacts/scene-control-point-offset-20261107/`；未取得精确受影响作者恢复、App脚本dynamic CP、官方错型/角度位义、全部空间或性能资格。
 
+## 图像分量的显式开关 <a id="image-material-map-components"></a>
+
+2026-11-15按[图像分量合同](advanced-object-coverage.md#image-material-map-components)，原Profile允许任意非零分量/PBRMASKS，原LitCapture消费(header|required)&allowed；退出0/1许可、PNG缺header拒绝与错误缺位诊断。emission无效关A、无reflection关B保留，validated局部恢复携同一有效位，不被header重新抹掉。两产品净减10行，无新owner/cache/ABI/Metal或格式变化；合位沿原Frame打包，不称冷完成，也无新缓存或解析。
+
+旧Profile同输入36case有7处失败，最终同方法全过。旧Native首headerless显式M实际[.791016,.432129,.238770,1]与既定响应不符；最终37向量及42行为合同全过，R/G等值scalar、A无灯字面、UV/sampler/alpha/HDR与可选失败保持；后继PNG真实资源改名与原同SHA，不把仅label改名当资格。坏normal先在alias目标验证并恢复payload，再在另一合法RGBA8目标读回[128,128,128,255]，不称原alias纹理完成draw。反射原门29数值/9LOD/12spatial通过：headerless/冲突header强制B-half为[.204956,.152466,.101196,.5]，B0为[.199951,.150024,.099976,.5]，省略/显式0保scalar反射[.209839,.154907,.102417,.5]。未改BRDF或容差。
+
+普通Debug28.579s且两产品/project/锁文件前后相同，strict deep/原helpers通过；exe809f9f5b…80c1、dylibc746174f…bf02，metallib仍4957688f…83bf1。原App载体固定160×96自有scene、亮度/灯/相机/材质值，旧两新方法的三场运行中TEX正控通过、PNG MR与A effect失败，最终两方法七场通过；共同三份pkg逐字相同。旧PNG MR的中心RGB46恢复为186，新显式1/2/−1三PNG与新旧TEX正控PNG逐字相同；省略与0两PNG仍逐字等于旧scalar46。无灯A经同effect由黑恢复[16,32,8]；所选after均F96/request2、同CB/source→main/seal/GPU完成、零截断与排空。代表MR为CB509468377088/main509476481024，A effect为CB524832178176/main524844410880，A实际sourceCapture→material slot0→ordinary链完整。App只观察原材料/typed combos与终端贡献，不授cold Profile位或uniform GPU读回。
+
+独立3437487219原project/pkg摘要匹配、自然5s，F137/request1/CB515269970560的135从8192×2048源经2048×512 capture进入main515329006464/seal/GPU并排空，地表/云/大气/时钟完整。现五个星球源未见受影响显式非零/无header image，135按header默认的健康原路只授回归，不称作者缺图恢复、原景逐通道或官方像素/性能。当前自有旧新源/输入/20张App终端图/载体失败/实际读回/签名与独审归`.artifacts/scene-image-map-components-20261115`，原作者报告与必要图归`.artifacts/scene-evidence/runs/scene-image-map-components-20261115`。
+
 ## 模型运行证据
 
 [模型运行证据](model-runtime-evidence.md)：命名输入、材质、相机深度及局部合成的冻结范围。
