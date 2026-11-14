@@ -1,4 +1,125 @@
 extension Harness {
+    static func catalogFrameCases(device: MTLDevice, loader: SceneTextureLoader,
+                                  directory: URL, library: MTLLibrary) throws -> [String:Any] {
+        func write(_ name: String, _ data: Data) throws -> URL {
+            let url=directory.appendingPathComponent(name+".tex");try data.write(to:url)
+            if let evidence=ProcessInfo.processInfo.environment["MWX_TEXTURE_CANDIDATE_EVIDENCE"] {
+                let saved=URL(fileURLWithPath:evidence).appendingPathComponent("catalog-frame-inputs")
+                try FileManager.default.createDirectory(at:saved,withIntermediateDirectories:true)
+                try FileManager.default.copyItem(at:url,to:saved.appendingPathComponent(url.lastPathComponent))
+            }
+            return url
+        }
+        func frames(_ data: Data, _ coordinates: [[Float]], duration: Float=0.25) -> Data {
+            var result=data;result.removeLast(36);append(UInt32(coordinates.count),to:&result)
+            for frame in coordinates { appendSpriteFrame(imageIndex:0,duration:duration,coordinates:frame,to:&result) }
+            return result
+        }
+        let raw=try Data(contentsOf:directory.appendingPathComponent("single-frame.tex"))
+        let embedded=try Data(contentsOf:directory.appendingPathComponent("single-frame-legacy-embedded.tex"))
+        let rawFrames: [[Float]]=[[2,0,4,0,0,2],[0,2,4,0,0,2]]
+        let embeddedFrames: [[Float]]=[[0,0,2,0,0,4],[2,0,2,0,0,4]]
+        let rawURL=try write("catalog-raw",frames(raw,rawFrames))
+        let embeddedData=frames(embedded,embeddedFrames)
+        let embeddedURL=try write("catalog-embedded",embeddedData)
+        let renamedURL=try write("renamed-catalog-region",embeddedData)
+        let left=Array(repeating:[255,0,0,255,255,255,255,0] as [UInt8],count:4).flatMap{$0}
+        let leftURL=try write("catalog-independent-left",embeddedImageTex(textureWidth:2,textureHeight:4,
+            imageWidth:2,imageHeight:4,payload:Data(left),flags:3))
+        let red=Array(repeating:[255,0,0,255] as [UInt8],count:8).flatMap{$0}
+        let redURL=try write("catalog-independent-red",embeddedImageTex(textureWidth:4,textureHeight:2,
+            imageWidth:4,imageHeight:2,payload:Data(red),flags:3))
+        let row: [UInt8]=[255,0,255,255,255,0,0,255,0,255,0,255,0,0,255,255,255,255,0,255]
+        let pixels=Data(Array(repeating:row,count:3).flatMap{$0})
+        var non2=embeddedImageTex(textureWidth:8,textureHeight:4,imageWidth:5,imageHeight:3,
+            payload:try encodedImageData(width:5,height:3,type:"public.png" as CFString,pixels:pixels),flags:7)
+        non2.append(Data("TEXS0002\0".utf8));append(2,to:&non2)
+        for frame: [Float] in [[1,0,2,0,0,3],[3,0,2,0,0,3]] { appendSpriteFrame(imageIndex:0,duration:0.25,coordinates:frame,to:&non2) }
+        let non2URL=try write("catalog-non-two-ratio",non2)
+        let non2Left=Data(Array(repeating:Array(row[4..<12]),count:3).flatMap{$0})
+        let non2Right=Data(Array(repeating:Array(row[12..<20]),count:3).flatMap{$0})
+        let non2LeftURL=try write("catalog-non-two-left",embeddedImageTex(textureWidth:2,textureHeight:3,imageWidth:2,imageHeight:3,payload:non2Left,flags:3))
+        let non2RightURL=try write("catalog-non-two-right",embeddedImageTex(textureWidth:2,textureHeight:3,imageWidth:2,imageHeight:3,payload:non2Right,flags:3))
+        let longURL=try write("catalog-long-duration",frames(raw,rawFrames,duration:.greatestFiniteMagnitude))
+        let badSourceURL=try write("catalog-outside-decoded",frames(embedded,[embeddedFrames[0],[6,0,2,0,0,4]]))
+        let zeroURL=try write("catalog-zero-axis",frames(raw,[rawFrames[0],[2,0,0,0,0,2]]))
+        let invalidDurationURL=try write("catalog-negative-duration",frames(raw,rawFrames,duration:-1))
+        let crossURL=try write("catalog-cross-image",crossImageSpriteBC3Tex())
+        typealias Sample=(name:String,url:URL,purpose:SceneTextureLoadPurpose,references:[URL],uvs:[SceneTextureUVTransform],size:CGSize,mapped:CGSize)
+        var samples: [Sample]=[]
+        for purpose: SceneTextureLoadPurpose in [.straightAlbedo,.premultipliedColor,.normal,.mask] {
+            samples.append(("raw-"+purpose.reportToken,rawURL,purpose,
+                [directory.appendingPathComponent("single-frame-independent-crop.tex"),redURL],
+                [.init(origin:SIMD2(0.25,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,0.5)),.init(origin:SIMD2(0,0.5),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,0.5))],
+                CGSize(width:8,height:4),CGSize(width:6,height:4)))
+        }
+        for purpose: SceneTextureLoadPurpose in [.straightAlbedo,.premultipliedColor] {
+            for url in [embeddedURL,renamedURL] {
+                samples.append((url.deletingPathExtension().lastPathComponent+"-"+purpose.reportToken,url,purpose,
+                    [leftURL,directory.appendingPathComponent("single-frame-embedded-independent-crop.tex")],
+                    [.init(origin:.zero,xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,1)),.init(origin:SIMD2(0.5,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,1))],
+                    CGSize(width:4,height:4),CGSize(width:4,height:4)))
+            }
+            samples.append(("non-two-"+purpose.reportToken,non2URL,purpose,[non2LeftURL,non2RightURL],
+                [.init(origin:SIMD2(0.2,0),xAxis:SIMD2(0.4,0),yAxis:SIMD2(0,1)),.init(origin:SIMD2(0.6,0),xAxis:SIMD2(0.4,0),yAxis:SIMD2(0,1))],
+                CGSize(width:5,height:3),CGSize(width:5,height:3)))
+        }
+        let identities=samples.map{SceneAssetTextureIdentity(virtualPath:$0.url.lastPathComponent,purpose:$0.purpose)!}
+        let long=SceneAssetTextureIdentity(virtualPath:longURL.lastPathComponent,purpose:.mask)!
+        let bad=SceneAssetTextureIdentity(virtualPath:badSourceURL.lastPathComponent,purpose:.straightAlbedo)!
+        let zero=SceneAssetTextureIdentity(virtualPath:zeroURL.lastPathComponent,purpose:.mask)!
+        let negative=SceneAssetTextureIdentity(virtualPath:invalidDurationURL.lastPathComponent,purpose:.mask)!
+        let cross=SceneAssetTextureIdentity(virtualPath:crossURL.lastPathComponent,purpose:.straightAlbedo)!
+        let catalog=try SceneMaterialAssetTextureCatalog(demands:Set(identities+[long,bad,zero,negative,cross]),
+            resourceView:.init(projectRootURL:directory,packageRootURL:nil),descriptor:.init(),device:device)
+        let provider=catalog.makeFrameProvider();var contracts: [String:Bool]=[:];var rows: [[String:Any]]=[]
+        for (phase,time) in [0.0,0.375,0.5].enumerated() {
+            let states=provider.states(sceneTime:time);provider.commitFrame()
+            for (index,sample) in samples.enumerated() {
+                let expectedIndex=phase == 1 ? 1:0
+                let reference=try candidate(loader.loadCandidate(from:sample.references[expectedIndex],purpose:sample.purpose,device:device))
+                let expected=try renderCandidate(reference,library:library,device:device)
+                var row: [String:Any]=["name":sample.name,"phase":phase,"time":time,"expected":expected]
+                let key=sample.name+"-phase\(phase)"
+                if case let .ready(publication)=states[identities[index]] {
+                    let registry=SceneFrameTextureRegistry(),request=SceneFrameTextureIdentity.asset(identities[index])
+                    registry.set(publication,for:request)
+                    if case let .ready(resource)?=registry.lookup(request) {
+                        let c=resource.publication.candidate,actual=try renderCandidate(c,library:library,device:device)
+                        row["pixel"]=actual;row["generation"]=publication.contentGeneration
+                        row["uv"]=[c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]
+                        contracts[key]=publication.isComplete && c.isSpriteSheet && c.purpose == sample.purpose
+                            && c.physicalSize == sample.size && c.mappedSize == sample.mapped
+                            && c.uvTransform == sample.uvs[expectedIndex] && c.sampling.rawFlags == 7 && actual == expected
+                    } else { contracts[key]=false }
+                } else { contracts[key]=false }
+                rows.append(row)
+            }
+        }
+        let first=provider.states(sceneTime:0.375);provider.discardFrame()
+        let retry=provider.states(sceneTime:0.375);provider.commitFrame()
+        contracts["discardRetryKeepsFrameGeneration"]=identities.allSatisfy { identity in
+            guard case let .ready(a)=first[identity],case let .ready(b)=retry[identity] else { return false }
+            return a.isSameAtom(as:b)
+        }
+        let maximum=Double(Float.greatestFiniteMagnitude);var longRows: [[String:Any]]=[]
+        for (index,time) in [0,1.5*maximum,2*maximum].enumerated() {
+            var row: [String:Any]=["time":time]
+            let expected = index == 1 ? [255,0,0,255]:[32,64,128,255]
+            if case let .ready(publication)=provider.states(sceneTime:time)[long] {
+                let actual=try renderCandidate(publication.candidate,library:library,device:device)
+                row["pixel"]=actual;row["generation"]=publication.contentGeneration
+                contracts["longDurationPhase\(index)"]=actual == expected
+            } else { contracts["longDurationPhase\(index)"]=false }
+            provider.commitFrame();longRows.append(row)
+        }
+        contracts["decodedBoundsIsMetadataLocal"]=catalog.launchStates[bad] == .effectLocalUnavailable(.animatedFrameMetadataInvalid)
+        contracts["zeroAxisIsMetadataLocal"]=catalog.launchStates[zero] == .effectLocalUnavailable(.animatedFrameMetadataInvalid)
+        contracts["readerBadDurationRemainsHard"]=catalog.launchStates[negative] == .unavailable
+        contracts["crossImageRemainsUnsupported"]=catalog.launchStates[cross] == .unavailable
+        return ["contracts":contracts,"rows":rows,"longDuration":longRows]
+    }
+
     static func singleFrameCases(device: MTLDevice, loader: SceneTextureLoader,
                                  directory: URL, library: MTLLibrary) throws -> [String: Any] {
         let crop: [UInt8] = [0,255,0,255, 255,255,255,0, 200,100,50,255, 255,255,0,255,
@@ -28,21 +149,12 @@ extension Harness {
             }
             return url
         }
-        func pixel(_ candidate: SceneTextureCandidate) throws -> [Int] {
-            let uniforms = SceneImageLayerCompositor().makeFragmentUniforms(
-                values: .init(time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)),
-                textureFrame: candidate.uvTransform, tint: SIMD3(repeating: 1),
-                dependencyBlendMode: nil, sourceSampling: candidate.sampling,
-                sourceRepresentation: candidate.purpose == .premultipliedColor ? .premultipliedAlpha : .straightAlpha)
-            return try renderSample(texture: candidate.texture, uniforms: uniforms,
-                library: library, device: device)
-        }
         let referenceURL = try write("single-frame-independent-crop", embeddedImageTex(
             textureWidth: 4, textureHeight: 2, imageWidth: 4, imageHeight: 2,
             payload: Data(crop), flags: 3))
         let reference = try candidate(loader.loadCandidate(from: referenceURL,
             purpose: .straightAlbedo, device: device))
-        let referencePixel = try pixel(reference)
+        let referencePixel = try renderCandidate(reference,library:library,device:device)
         var contracts = ["independentCropLiteralPixel": referencePixel == [32,64,128,255],
                          "independentCropRemainsStatic": !reference.isSpriteSheet
                             && reference.uvTransform == .identity]
@@ -53,7 +165,7 @@ extension Harness {
             let outcome = try loader.loadCandidate(from: url, purpose: .straightAlbedo, device: device)
             var row: [String: Any] = ["path":url.lastPathComponent,"duration":duration,"frameCount":1]
             if case let .loaded(c) = outcome {
-                let actual = try pixel(c)
+                let actual = try renderCandidate(c,library:library,device:device)
                 row["status"] = "loaded"; row["pixel"] = actual
                 row["physical"] = [c.physicalSize.width,c.physicalSize.height]
                 row["mapped"] = [c.mappedSize.width,c.mappedSize.height]
@@ -78,7 +190,7 @@ extension Harness {
         for purpose: SceneTextureLoadPurpose in [.normal,.mask] {
             let label = purpose.reportToken
             if case let .loaded(c) = try loader.loadCandidate(from:singleURL,purpose:purpose,device:device) {
-                let actual = try pixel(c)
+                let actual = try renderCandidate(c,library:library,device:device)
                 contracts[label + "SingleFrameData"] = c.purpose == purpose && c.content == .data
                     && c.isSpriteSheet && c.uvTransform == .init(origin:SIMD2(0.25,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,0.5))
                     && c.physicalSize == CGSize(width:8,height:4) && c.mappedSize == CGSize(width:6,height:4)
@@ -108,10 +220,10 @@ extension Harness {
         for purpose: SceneTextureLoadPurpose in [.straightAlbedo,.premultipliedColor] {
             let key = purpose.reportToken
             let reference = try candidate(loader.loadCandidate(from:embeddedReferenceURL,purpose:purpose,device:device))
-            let expected = try pixel(reference)
+            let expected = try renderCandidate(reference,library:library,device:device)
             var row: [String:Any] = ["purpose":key,"referencePixel":expected]
             if case let .loaded(c) = try loader.loadCandidate(from:embeddedURL,purpose:purpose,device:device) {
-                let actual = try pixel(c)
+                let actual = try renderCandidate(c,library:library,device:device)
                 row["status"] = "loaded";row["pixel"] = actual
                 row["physical"] = [c.physicalSize.width,c.physicalSize.height]
                 row["uv"] = [c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]

@@ -54,10 +54,11 @@ import Metal
 private let firstPath = SceneVFSAssetPath("particle/fog/fog2-a")!
 private let secondPath = SceneVFSAssetPath("particle/fog/fog2-b")!
 private let zeroDurationPath = SceneVFSAssetPath("valid/zero-duration")!
+private let longDurationPath = SceneVFSAssetPath("valid/long-duration")!
 private let staticPath = SceneVFSAssetPath("valid/static")!
 private let invalidPaths = [
-    "rotated", "nonfinite", "out-of-range", "duration-overflow",
-    "empty", "multi-image", "decode",
+    "rotated", "nonfinite", "out-of-range", "empty", "multi-image", "decode",
+    "negative-duration",
 ].map { SceneVFSAssetPath("invalid/\($0)")! }
 
 private func publication(
@@ -90,6 +91,9 @@ private enum Main {
         let zeroDuration = SceneAssetTextureIdentity(
             path: zeroDurationPath, purpose: .preservedChannels
         )
+        let longDuration = SceneAssetTextureIdentity(
+            path: longDurationPath, purpose: .preservedChannels
+        )
         let staticIdentity = SceneAssetTextureIdentity(
             path: staticPath, purpose: .preservedChannels
         )
@@ -97,7 +101,7 @@ private enum Main {
             SceneAssetTextureIdentity(path: $0, purpose: .preservedChannels)
         }
         let catalog = try SceneMaterialAssetTextureCatalog(
-            demands: Set([first, second, zeroDuration, staticIdentity] + invalid),
+            demands: Set([first, second, zeroDuration, longDuration, staticIdentity] + invalid),
             resourceView: view,
             descriptor: SceneRenderDescriptor(),
             device: device
@@ -244,29 +248,23 @@ private enum Main {
             if case .unavailable? = frame0States[$0] { return true }
             return false
         }
-        let metadataInvalidVisual = [invalid[0], invalid[2], invalid[3]]
+        let metadataInvalidVisual = [invalid[0], invalid[2]]
             .allSatisfy {
             if case .effectLocalUnavailable(.animatedFrameMetadataInvalid)? =
                     catalog.launchStates[$0] { return true }
             return false
         }
-        let hardInvalidLaunch = [invalid[1], invalid[4], invalid[5], invalid[6]]
+        let hardInvalidLaunch = [invalid[1], invalid[3], invalid[4], invalid[5], invalid[6]]
             .allSatisfy {
             if case .unavailable? = catalog.launchStates[$0] { return true }
             return false
         }
-        let volume = SceneTexContainer(
-            format: parsed.format, flags: parsed.flags,
-            textureWidth: parsed.textureWidth,
-            textureHeight: parsed.textureHeight, textureDepth: 2,
-            imageWidth: parsed.imageWidth, imageHeight: parsed.imageHeight,
-            containerVersion: parsed.containerVersion,
-            freeImageFormat: parsed.freeImageFormat,
-            isVideoMp4: parsed.isVideoMp4, images: parsed.images,
-            spriteFrames: parsed.spriteFrames
-        )
-        let structuralHard = SceneTextureLoader()
-            .materialAtlasAdmission(volume) == .unsupportedStructure
+        let long0 = publication(provider.states(sceneTime: 0), longDuration)
+        provider.commitFrame()
+        let long1 = publication(provider.states(sceneTime: 1.5 * Double(Float.greatestFiniteMagnitude)), longDuration)
+        provider.commitFrame()
+        let longWrap = publication(provider.states(sceneTime: 2 * Double(Float.greatestFiniteMagnitude)), longDuration)
+        provider.commitFrame()
         let launchReady = catalog.launchStates[first]
             == .ready(.data)
             && catalog.launchFormatFacts[first.reportToken] == 8
@@ -325,7 +323,11 @@ private enum Main {
             "invalidUnavailable": invalidUnavailable,
             "metadataInvalidVisual": metadataInvalidVisual,
             "hardInvalidLaunch": hardInvalidLaunch,
-            "structuralHard": structuralHard,
+            "longDurationReady": catalog.launchStates[longDuration] == .ready(.data),
+            "longDurationUsesDoubleCycle": long0?.candidate.uvTransform.origin.x == 0
+                && long1?.candidate.uvTransform.origin.x == 0.5
+                && longWrap?.candidate.uvTransform.origin.x == 0
+                && long0?.texture === long1?.texture && long1?.texture === longWrap?.texture,
             "wrongPurposeIncomplete": !wrongPurposePublication.isComplete,
             "wrongRequestRejected": wrongRequestRegistry.lookup(.asset(second)) == nil,
             "wrongProviderGeneration": !wrongProviderGeneration.isComplete,
@@ -365,6 +367,11 @@ class SceneAnimatedMaterialAssetTests(unittest.TestCase):
                 (0, 0, (2, 0, 2, 0, 0, 4)),
             ])
         )
+        maximum_duration = float.fromhex('0x1.fffffep127')
+        (resources / "valid/long-duration.tex").write_bytes(animated_r8_tex([
+            (0, maximum_duration, (0, 0, 2, 0, 0, 4)),
+            (0, maximum_duration, (2, 0, 2, 0, 0, 4)),
+        ]))
         valid = (0, 0.1, (0, 0, 4, 0, 0, 4))
         fixtures = {
             "rotated": animated_r8_tex([(0, 0.1, (0, 0, 0, 4, 4, 0))]),
@@ -374,10 +381,7 @@ class SceneAnimatedMaterialAssetTests(unittest.TestCase):
             "out-of-range": animated_r8_tex([
                 (0, 0.1, (3, 0, 3, 0, 0, 4))
             ]),
-            "duration-overflow": animated_r8_tex([
-                (0, 3.4e38, (0, 0, 4, 0, 0, 4)),
-                (0, 3.4e38, (0, 0, 4, 0, 0, 4)),
-            ]),
+            "negative-duration": animated_r8_tex([(0, -1, (0, 0, 4, 0, 0, 4))]),
             "empty": animated_r8_tex([]),
             "multi-image": animated_r8_tex([valid], image_count=2),
             "decode": b"not-a-tex",

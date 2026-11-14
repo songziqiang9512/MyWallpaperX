@@ -1,3 +1,14 @@
+extension SceneRenderDescriptor {
+    struct ModelMaterialLink { let modelPath: String; let materialPath: String? }
+    struct MaterialPass { let materialPath: String; let texturePaths: [String] }
+    var modelMaterialLinks: [ModelMaterialLink] { [] }
+    var materialPasses: [MaterialPass] { [] }
+}
+extension SceneRenderDescriptor.Layer {
+    var imagePath: String? { nil }
+    var staticBaseTexturePath: String? { nil }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -220,10 +231,13 @@ enum Harness {
         )
         let singleFrame = try singleFrameCases(device: device, loader: loader,
             directory: directory, library: imageLayerLibrary)
+        let catalogFrames = try catalogFrameCases(device: device, loader: loader,
+            directory: directory, library: imageLayerLibrary)
         var result: [String: Any] = [
             "overflowingRawRejected": overflowingRawRejected,
             "available": true,
             "singleFrame": singleFrame,
+            "catalogFrames": catalogFrames,
             "directTransparentPixel": try readFirstPixel(
                 texture: directTransparent.texture, device: device),
         ]

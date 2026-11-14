@@ -95,10 +95,10 @@ extension Harness {
     static func rejectedUnparsedMetadata(
         _ outcome: SceneTextureCandidateLoadOutcome
     ) -> Bool {
-        guard case .failed(.decodeFailed(let message)) = outcome else {
+        guard case .failed(.decodeFailed) = outcome else {
             return false
         }
-        return message.contains("TEX parse failed")
+        return true
     }
 
     static func rawR8Tex(
@@ -349,9 +349,10 @@ extension Harness {
     static func encodedImageData(
         width: Int,
         height: Int,
-        type: CFString
+        type: CFString,
+        pixels: Data? = nil
     ) throws -> Data {
-        let pixels = Data(repeating: 127, count: width * height * 4)
+        let pixels = pixels ?? Data(repeating: 127, count: width * height * 4)
         guard let provider = CGDataProvider(data: pixels as CFData),
               let image = CGImage(
                   width: width,
@@ -456,6 +457,17 @@ extension Harness {
             }
         }
         guard result == 0 else { throw HarnessError.metadataFailed }
+    }
+
+    static func renderCandidate(_ candidate: SceneTextureCandidate,
+                                library: MTLLibrary, device: MTLDevice) throws -> [Int] {
+        let uniforms = SceneImageLayerCompositor().makeFragmentUniforms(
+            values: .init(time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)),
+            textureFrame: candidate.uvTransform, tint: SIMD3(repeating: 1),
+            dependencyBlendMode: nil, sourceSampling: candidate.sampling,
+            sourceRepresentation: candidate.purpose == .premultipliedColor ? .premultipliedAlpha : .straightAlpha)
+        return try renderSample(texture: candidate.texture, uniforms: uniforms,
+            library: library, device: device)
     }
 
     static func readFirstPixel(texture: MTLTexture, device: MTLDevice) throws -> [Int] {

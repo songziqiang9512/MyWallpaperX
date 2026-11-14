@@ -57,6 +57,10 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift",
 ]
+CATALOG_SOURCES = [
+    SCENE_ROOT / "Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+    SCENE_ROOT / "Resources/Textures/SceneTexturePathResolver.swift",
+]
 
 
 FIXTURE_ROOT = Path(__file__).with_name("fixtures")
@@ -87,7 +91,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
             # Parallel renderer work may update shared source files during
             # swiftc. Compile and execute one frozen set of input bytes.
             frozen_sources = []
-            for source in SWIFT_SOURCES:
+            sources = SWIFT_SOURCES + CATALOG_SOURCES
+            for source in sources:
                 frozen = root / source.name
                 shutil.copy2(source, frozen)
                 frozen_sources.append(frozen)
@@ -101,7 +106,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
             if evidence:
                 (evidence/'Harness.swift').write_text(harness.read_text())
-                (evidence/'source-identity.json').write_text(json.dumps({'compiledInputs':identity,'sourcePaths':list(map(str,SWIFT_SOURCES))},indent=2))
+                (evidence/'source-identity.json').write_text(json.dumps({'compiledInputs':identity,'sourcePaths':list(map(str,sources))},indent=2))
             compilation = subprocess.run(
                 [
                     "xcrun",
@@ -148,12 +153,14 @@ class SceneTextureCandidateTests(unittest.TestCase):
             (evidence/'input-files.json').write_text(json.dumps([
                 {'path':str(path.relative_to(evidence)),'bytes':path.stat().st_size,
                  'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
-                for path in sorted((evidence/'single-frame-inputs').glob('*'))],indent=2))
+                for name in ['single-frame-inputs','catalog-frame-inputs']
+                for path in sorted((evidence/name).glob('*'))],indent=2))
         self.assertTrue(result.pop("overflowingRawRejected"))
         if not result["available"]:
             self.skipTest("Metal is unavailable")
         assert_source_color_upload(self, result.pop("sourceContinuity"))
         single = result.pop('singleFrame')
+        catalog = result.pop('catalogFrames')
         self.assertEqual(
             result,
             {
@@ -304,6 +311,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
         self.assertEqual(len(single['rows']),3,single)
         self.assertEqual(len(single['embeddedRows']),2,single)
         self.assertTrue(all(single['contracts'].values()),single)
+        self.assertTrue(all(catalog['contracts'].values()),catalog)
 
 
 if __name__ == "__main__":

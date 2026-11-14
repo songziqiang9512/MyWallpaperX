@@ -134,6 +134,24 @@ typed slot的UV有效性按实际映射判断：现SlotBinding保有限origin/�
 
 验收在最近候选/材质门用真实4096² TEX与1² frame经过Loader→frame provider/publication→binding→实际Metal，和独立小图逐像素等值；保相邻正常frame、资源改名、零面积/非有限和健康peer。原模型Frame/Metal门另核相同tiny UV的颜色与三灯shadow、身份frame等值及真实退化拒绝，不能以image通过代替模型。App沿同自有输入做旧新贡献控制并复用有效同身份控制，独立作者保原播放；不以metadata ready代替实际采样，也不授活动作者命中、更多UV形状或性能。 共享小帧与模型颜色/投影已按此闭合，范围见[模型运行证据](model-runtime-evidence.md#small-atlas-frame-uv)。
 
+<a id="material-atlas-source-frames"></a>
+### 材质图集的源帧准备
+
+静态单帧与Catalog动画资产共用原Loader的preparedMaterialFrames源事实：原Admission三态在本文件内携valid([SpriteFrame])/metadataInvalid/unsupported，不新增owner/cache/clock/持久字段。Format container.spriteFrames保持按首mip表归一的原解析事实；Loader一次取首mip与已有embedded尺寸，同域直接复用原frame数组，异域一次比例、逐帧冷投影到实际decoded源并核实际范围。static只接恰一frame，animated接原N frames；makeCandidate退出单帧专属坐标计算，仅构造相同来源/geometry/用途/采样的候选。prepared animated frames由原Definition保存，Provider沿原time/commit-discard只选/搬值，不叠base padding UV，不逐帧解析/投影或以最终缩小后的GPU尺寸作分母。
+
+Reader已在真实字节入口保证imageIndex有效、duration有限非负及六坐标有限；原单image结构令index唯一，Loader不再重复这些检查。原Loader用Float累计duration并据溢出拒绝无实际消费者：原Catalog以Double生成同一durations/total，Reader最多65536帧且各duration为有限Float，正总时长在Double表示域内；0仍由原provider准备按1/60替代。不增新校验/长duration状态或时钟，退该虚假溢出门，以真实长duration两帧的选中/wrap验收；非法非有限/负duration仍由Reader拒。原image/animated/nonvolume/正尺寸、正向axis/atlas范围仍是Loader唯一准备边界，不顺带授仿射或跨image。
+
+Catalog退出先materialAtlasAdmission、再loadAnimated重复整帧扫描；原AnimatedLoadOutcome仅新增typed metadata失败分支，Catalog直接保原effectLocalUnavailable分类。结构不支持仍原unavailable；读取revision/取消/资源I/O失败沿原throw或failed传播，不过滤单个坏frame、吞实际读取失败或偷取frame0。实际源中不存在的frame按同一metadata失败局部拒整个asset，保持原时长/索引/健康peer。
+
+验收复用模型静态单帧的原输入/原输出；最近候选源shader门补真正Catalog两frame、mip8×4/decoded4²的straight/PMA与独立crop逐像素、资源改名、duration0/长duration、同域raw/压缩及实际源越界/坏frame/健康peer；原事务/修订门按影响补测。完整App沿已有companion-frame Generic owner显式消费Rotation/Translation，固定两sceneTime，各自产生非恒颜色/alpha图，与同过滤的独立crop严格等值并到同main/seal/GPU；不是metadata ready替代采样。另保独立原作者。此共享准备是模型slot0全迁既有Catalog的前置，当前不宣模型多帧已接、不新建动画owner；其余消费者资格仍逐域保留。
+
+<a id="material-atlas-source-frame-evidence"></a>
+当前核对（2026-11-15）：两产品净减16行，Format/Provider/Metal/ABI/clock/cache均未改。真实Catalog源shader门38合同与30采样全过：legacy TEXB0002的mip8×4/PNG4²、实际改名及PNG5×3非二倍比例，straight/PMA各三相位逐像素等独立crop；同域四用途12行保持，真实源越界保整个asset的metadata局部失败，坏duration仍Reader拒。0/1.5Float.max/2Float.max实际像素依次[32,64,128,255]、[255,0,0,255]、首图，generation1/2/3；旧22合同红，完整原生三十行与失效范围单列观察/推断，不把旧bad-source像素未知写成已读。前批模型单帧11份TEX字节/123原payload/23合同和本批old/new均逐值同；原Catalog生命周期门保留22项原行为，退1人工volume私有API断言，新增2合法长周期项后24项通过。首次载体空白语法失败零GPU，以及首次新版旧文案镜像误报均留原报告；文案helper改测实际decodeFailed，不改输入、产品或像素容差。
+
+普通Debug29.907s、两产品/project/锁文件前后一致，strict deep与原helpers通过；exed2ae6db3…920fb、dylib2a5ff8d9…ceefb、metallib仍4957688f…83bf1。既有Generic companion门的两个固定sceneTime .25/2.25，slot1 atlas显式消费Rotation/Translation，独立crop直UV，straight/PMA均由原输出transfer只归一一次；原22case输入/协议逐字保持。旧两scene的crop/peer literal均合格而atlas重复列/选错区域；新两scene每个atlas的完整面板RGBA（1,143,072B）等独立crop，old/new crop严格相同，8项比较全过。全3024×1964 PNG的RGB变化各288036/571536像素，仅在两atlas面板，外部/crop/peer保持；每新scene ready/after PNG相同。after request2/F94的CB523008492416与535222731648中61实际UV为[0,0,.5,0,0,.5]与[.5,0,.5,0,0,.5]，实际source绑定→Program/tail/ordinary→main/seal/GPU、零截断及排空闭合；不把typed UV当GPU uniform反读。旧App由同身份签名clone保留，并非拿新构建冒作基线。
+
+原3437487219自然5s、project/pkg摘要同矩阵，F142/request1/CB503145154304的112/114及135到main503154793344/seal/GPU并排空，完整地表/云/大气/时钟已看。没有活动作者embedded atlas命中、模型多帧、官方像素/性能或线性frame边缘等价资格。自有红绿/输入/源码/失败/整图/独审归`.artifacts/scene-material-atlas-source-frames-20261115`，原作者报告归`.artifacts/scene-evidence/runs/scene-material-atlas-source-frames-20261115`。最初非标准effect文件名未进入Program的独立角色断点，以及随后crop误用零sprite companion/重复PMA的载体失败均保留，不充作本坐标红例；前者另保最小未决包并列[队列](../roadmap/scene-open-breakpoint-queue.md)，本批合格App使用标准effect布局。
+
 <a id="graph-canvas-sampling"></a>
 ### 材质画布采样
 

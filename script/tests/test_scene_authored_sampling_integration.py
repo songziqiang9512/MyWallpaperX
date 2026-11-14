@@ -132,6 +132,73 @@ def solid_texture(rgb):
             + struct.pack("<5I", 16, 16, 0, len(pixels), len(pixels)) + pixels)
 
 
+def embedded_source_fixture(case):
+    frame = int(case.rsplit("-", 1)[1])
+    frames = (((255, 0, 0, 255), (0, 255, 0, 128), (0, 0, 255, 255), (255, 255, 0, 128)),
+              ((0, 0, 255, 128), (255, 255, 0, 255), (255, 0, 255, 255), (0, 255, 255, 128)))
+
+    def embedded(width, height, pixels, animated=False):
+        def chunk(name, data):
+            return struct.pack(">I", len(data)) + name + data + struct.pack(">I", zlib.crc32(name + data))
+        png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+               + chunk(b"IDAT", zlib.compress(b"".join(b"\0" + bytes(pixels[y * width * 4:(y + 1) * width * 4])
+                   for y in range(height)))) + chunk(b"IEND", b""))
+        table_width = width * 2 if animated else width
+        result = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 7 if animated else 3,
+                  table_width, height, width, height, 0) + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
+                  + struct.pack("<5I", table_width, height, 0, 0, len(png)) + png)
+        if animated:
+            result += b"TEXS0002\0" + struct.pack("<I", 2)
+            for x, duration in ((0, 2.0), (2, 3600.0)):
+                result += struct.pack("<if6f", 0, duration, x, 0, 2, 0, 0, 2)
+        return result
+
+    pixels = [component for y in range(4) for x in range(4)
+              for component in (frames[x // 2][y * 2 + x % 2] if y < 2 else (*SENTINEL, 255))]
+    crop = [component for pixel in frames[frame] for component in pixel]
+    panels = [(61, 64, 48, False), (62, 192, 48, False), (71, 64, 100, False),
+              (72, 192, 100, False), (81, 128, 152, False)]
+    entries = {"materials/embedded-atlas.tex": embedded(4, 4, pixels, True),
+               "materials/independent-crop.tex": embedded(2, 2, crop),
+               "materials/solid.tex": solid_texture((13, 29, 47)),
+               "materials/peer.tex": solid_texture((0, 255, 0))}
+    objects = []
+    for layer, x, y, _ in panels:
+        peer = layer == 81
+        obj = {"id": layer, "name": f"Owned source frame {layer}", "image": f"models/{'peer' if peer else 'solid'}.json",
+               "origin": f"{x} {CANVAS[1] - y} 0", "size": "64 32", "visible": True}
+        if not peer:
+            mode = "straight" if layer < 70 else "pma"
+            atlas = layer % 10 == 1
+            texture = "materials/embedded-atlas.tex" if atlas else "materials/independent-crop.tex"
+            material = f"materials/source-frame-{layer}.json"
+            effect = f"effects/source-frame-{layer}/effect.json"
+            entries[effect] = encoded({"passes": [{"material": material}]})
+            entries[material] = encoded({"passes": [{"shader": f"source_frame_{mode}_{'atlas' if atlas else 'crop'}", "textures": [None, texture],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+            obj["effects"] = [{"id": layer * 10, "file": effect, "visible": True}]
+        objects.append(obj)
+    for name in ("solid", "peer"):
+        entries[f"models/{name}.json"] = encoded({"material": f"materials/{name}.json"})
+        entries[f"materials/{name}.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{name}.tex"]}]})
+    for mode, role in (("straight", "albedo"), ("pma", "framebuffer")):
+        for mapping in ("atlas", "crop"):
+            name = f"source_frame_{mode}_{mapping}"
+            declarations = b"uniform vec4 g_Texture1Rotation;\nuniform vec2 g_Texture1Translation;\n" if mapping == "atlas" else b""
+            uv = (b"g_Texture1Translation+g_Texture1Rotation.xy*v_TexCoord.x"
+                  b"+g_Texture1Rotation.zw*v_TexCoord.y") if mapping == "atlas" else b"v_TexCoord"
+            entries[f"shaders/{name}.vert"] = VERTEX
+            entries[f"shaders/{name}.frag"] = (
+                f'uniform sampler2D g_Texture1; // {{"material":"{role}"}}\n'.encode()
+                + declarations + b"varying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture1,"
+                + uv + b");}\n")
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
+        "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    palette = tuple(tuple(round(c * a / 255) for c in (r, g, b)) for r, g, b, a in frames[frame])
+    return {"type": "scene", "file": "scene.json"}, entries, panels, {
+        str(layer): ((0, 255, 0),) * 4 if layer == 81 else palette for layer, *_ in panels}
+
+
 def data_layout_fixture(case):
     renamed, broken = case == "data-layout-renamed", case == "data-layout-bad-mask"
     prefix, word, shift = ("unseen_density", "amount", 1000) if renamed else ("own_channel_data", "density", 0)
@@ -304,6 +371,8 @@ def property_layout_fixture(case):
 
 
 def case_fixture(case):
+    if case.startswith("embedded-source-frame-"):
+        return embedded_source_fixture(case)[:3]
     if case.startswith("property-layout"):
         return property_layout_fixture(case)[:3]
     if case.startswith("timeline-layout"):
@@ -402,6 +471,13 @@ def preregistration(case="padding"):
                        "channelTolerance": 3, "outsideBoundaryOffsetCanvas": 2,
                        "outsideRGB": [0, 0, 0], "sentinelRGB": SENTINEL},
             "timingLimit": "ready/after PNG plus completed later frames; no strict adjacent-frame pixel binding"}
+    if case.startswith("embedded-source-frame-"):
+        protocol.update(paletteByLayer=embedded_source_fixture(case)[3],
+            fixedSceneTime=.25 if case.endswith("-0") else 2.25,
+            sourceFrame={"container": "TEXB0002", "table": [8, 4], "decoded": [4, 4],
+                         "framePixels": [int(case[-1]) * 2, 0, 2, 2], "filter": "nearest-clamp"})
+        for panel in protocol["panels"]:
+            panel["quadrantRGB"] = protocol["paletteByLayer"][str(panel["id"])]
     if case.startswith("data-layout"):
         protocol["paletteByLayer"] = data_layout_fixture(case)[3]
         protocol["maskSource"] = {"PNGColorTypes": [0, 4], "gray": [0, 85, 170, 255],
@@ -641,6 +717,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                     if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
                         del env[key]
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
+            if "fixedSceneTime" in protocol:
+                env["MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME"] = str(protocol["fixedSceneTime"])
             if case.startswith(("timeline-layout", "property-layout")):
                 env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps({
                     "layerIDs": [panel_specs[0][0]],
@@ -686,6 +764,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
+                if case.startswith("embedded-source-frame-"):
+                    effect_layers = (61, 62, 71, 72)
                 if case.startswith(("data-layout", "timeline-layout", "property-layout")):
                     effect_layers = ()
                 if case.startswith("invalid-companion-"):
@@ -736,6 +816,21 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                                              rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
                 elif case.startswith("property-layout"):
                     self.check_property_case(protocol, log, observations, captures, evidence)
+                elif case.startswith("embedded-source-frame-"):
+                    self.assertEqual(observations["parse_errors"], 0)
+                    for capture in captures:
+                        event = self.capture_event(capture, log, observations)
+                        seal = next(r for r in event["rows"] if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+                        for layer in effect_layers:
+                            rows = [r for r in event["rows"] if r.get("layerID") == layer]
+                            sample = next(r for r in rows if r["kind"] == "material" and r.get("slot") == 1
+                                          and r["outcome"] == "draw-encoded" and r["access"] == "texture-bind")
+                            self.assertEqual(sample["source"]["purpose"], "straightAlbedo" if layer < 70 else "premultipliedColor")
+                            tail = next(r for r in rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
+                            ordinary = next(r for r in rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
+                            self.assertEqual(sample["target"]["textureToken"], tail["source"]["textureToken"])
+                            self.assertEqual(tail["source"]["textureToken"], ordinary["source"]["textureToken"])
+                            self.assertEqual(ordinary["target"]["textureToken"], seal["target"]["textureToken"])
                 elif case == "raw-miss":
                     self.assertNotIn("phase=named-target-capture layer=12 status=succeeded", log)
                     self.assertNotIn("phase=named-target-binding layer=31 status=succeeded", log)
@@ -752,17 +847,33 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                     self.assertEqual(measurements["scene-resize-00-window.png"]["size"], [n // 2 for n in ready])
                     self.assertEqual(measurements["scene-resize-01-window.png"]["size"], ready)
                 for name, measurement in measurements.items():
-                    for panel in measurement["panels"]:
+                    checked_panels = measurement["panels"]
+                    if case.startswith("embedded-source-frame-"):
+                        checked_panels = sorted(checked_panels, key=lambda p: p["id"] in (61, 71))
+                    for panel in checked_panels:
                         for quadrant in panel["quadrants"]:
                             self.assertGreater(quadrant["total"], 0)
                             self.assertGreaterEqual(quadrant["correct"] / quadrant["total"], .99,
                                                     (name, panel["id"], quadrant))
                         for outside in panel["outside"]:
                             self.assertTrue(all(channel <= 3 for channel in outside), (name, panel["id"], outside))
+                if case.startswith("embedded-source-frame-"):
+                    for capture in captures:
+                        width, height, pixels = png_rgb_pixels(capture)
+                        scale = max(width / CANVAS[0], height / CANVAS[1])
+                        for cy in (48, 100):
+                            y0 = math.ceil((cy - 13 - CANVAS[1] / 2) * scale + height / 2)
+                            y1 = math.floor((cy + 13 - CANVAS[1] / 2) * scale + height / 2)
+                            regions = []
+                            for cx in (64, 192):
+                                x0 = math.ceil((cx - 29 - CANVAS[0] / 2) * scale + width / 2)
+                                x1 = math.floor((cx + 29 - CANVAS[0] / 2) * scale + width / 2)
+                                regions.append(b"".join(bytes(pixels[y][x0 * 3:x1 * 3]) for y in range(y0, y1)))
+                            self.assertEqual(regions[0], regions[1], (capture.name, cy, "atlas/crop RGB bytes"))
             finally:
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                     saved = Path(destination) / self._testMethodName
-                    if case.startswith(("data-layout", "timeline-layout", "property-layout")):
+                    if case.startswith(("data-layout", "timeline-layout", "property-layout", "embedded-source-frame-")):
                         saved /= case
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
@@ -798,6 +909,11 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
 
     def test_companion_tracks_actual_asset_frame_and_named_output(self):
         self.run_case("companion-frame")
+
+    def test_embedded_source_frames_match_independent_color_crops(self):
+        for frame in (0, 1):
+            with self.subTest(frame=frame):
+                self.run_case(f"embedded-source-frame-{frame}")
 
     def test_companion_wrong_type_default_cannot_bypass_host_abi(self):
         self.run_case("invalid-companion-type")

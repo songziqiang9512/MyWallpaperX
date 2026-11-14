@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 296,
-      "bytes": 63857
+      "bytes": 63480
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 329,
-      "bytes": 65191
+      "lines": 347,
+      "bytes": 70806
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 597,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 194,
-      "bytes": 54367
+      "lines": 195,
+      "bytes": 55445
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -514,15 +514,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "c107611a9955f39a9c746ee4550f470b27f4974d11584aa82392bd2927798773",
-      "after": "3a606facace0bcaf3f0d7d97cb7d71f47da0d744d9d9508a21be5c567c2490f2",
-      "owner": "Existing UV value type, slot binding and model draw inputs",
-      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
       "after": "310891d94e7ccfaa77d3144913389f51c90e5fb2b777bbfad4091fb82b5e4134",
@@ -541,12 +532,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "3a606facace0bcaf3f0d7d97cb7d71f47da0d744d9d9508a21be5c567c2490f2",
+      "after": "7b99ce14d10ec8c915bf3bdf00f1fa12284ad805700d82ab98c89a34fde461a2",
+      "owner": "Original TextureLoader source preparation and Catalog asset handoff",
+      "reason": "Unify static and animated source-frame projection, retire duplicate Catalog admission and Reader checks/false Float duration gate; qualify same-input Catalog pixels and actual Generic companion consumers before model slot0 migration. Record separately proven effect-role failure without treating its absent Program as coordinate red.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-atlas-source-frames"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a4e68f2d154556553ca97abcc1127182f3ae9af20be89fac68bda7cce434e304",
-      "after": "72dacadf9ddf35a5c8873b851a83f86533f36448c41d2e8786f55574cc1602c7",
-      "owner": "Existing static TextureLoader candidate and model material consumers",
-      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
+      "before": "1b6e39c84d1746e4d506e53812c8ed3765f0b22fa4b93b893ecf2ff916c1a62a",
+      "after": "7ccea0291a2db1733d650b5a9d402520e3c549315ab4cb5103d813caffe61bbe",
+      "owner": "Original TextureLoader source preparation and Catalog asset handoff",
+      "reason": "Unify static and animated source-frame projection, retire duplicate Catalog admission and Reader checks/false Float duration gate; qualify same-input Catalog pixels and actual Generic companion consumers before model slot0 migration. Record separately proven effect-role failure without treating its absent Program as coordinate red.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-atlas-source-frames"
     }
   ]
 }

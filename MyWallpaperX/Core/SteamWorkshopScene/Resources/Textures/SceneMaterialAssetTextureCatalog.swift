@@ -221,19 +221,14 @@ final class SceneMaterialAssetTextureCatalog {
             if let prepared, let container,
                container.isAnimated || !container.spriteFrames.isEmpty
                     || container.imageCount != 1 {
-                if loader.materialAtlasAdmission(container)
-                    == .invalidFrameMetadata {
-                    loaded[identity] = .unavailable
-                    launchStates[identity] = .effectLocalUnavailable(
-                        .animatedFrameMetadataInvalid
-                    )
-                    continue
-                }
                 switch try loader.loadAnimatedMaterialCandidate(
                     from: prepared,
                     purpose: identity.purpose,
                     device: device, checkCancellation: checkCancellation
                 ) {
+                case .invalidFrameMetadata:
+                    loaded[identity] = .unavailable
+                    launchStates[identity] = .effectLocalUnavailable(.animatedFrameMetadataInvalid)
                 case let .failed(failure):
                     try failure.rethrowResourceReadFailure()
                     loaded[identity] = .unavailable

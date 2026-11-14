@@ -15,11 +15,12 @@ nonisolated struct SceneAnimatedTextureCandidate {
 
 nonisolated enum SceneAnimatedTextureCandidateLoadOutcome {
     case loaded(SceneAnimatedTextureCandidate)
+    case invalidFrameMetadata
     case failed(SceneTextureLoadOutcome)
 }
 
-nonisolated enum SceneAnimatedMaterialAtlasAdmission {
-    case valid
+nonisolated private enum SceneAnimatedMaterialAtlasAdmission {
+    case valid([SceneTexContainer.SpriteFrame])
     case invalidFrameMetadata
     case unsupportedStructure
 }
@@ -125,31 +126,28 @@ nonisolated extension SceneTextureLoader {
         purpose: SceneTextureLoadPurpose, device: MTLDevice,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
-        let outcome = try load(from: input, source: source, purpose: purpose, device: device,
-            preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
-            checkCancellation: checkCancellation)
-        guard case .loaded(let texture) = outcome else { return .failed(outcome) }
-        guard texture.textureType == .type2D else {
-            return .failed(.decodeFailed("typed slot candidate requires a 2D texture"))
-        }
         let isTex = input.pathExtension.lowercased() == "tex"
         let container = prepared?.container
         guard !isTex || container != nil else {
             return .failed(.decodeFailed("typed slot candidate requires parsed TEX metadata"))
         }
         let spriteFrame: SceneTexContainer.SpriteFrame?
-        if let container, container.isAnimated || !container.spriteFrames.isEmpty {
+        if let prepared, let container, container.isAnimated || !container.spriteFrames.isEmpty {
             guard container.spriteFrames.count == 1,
-                  materialAtlasAdmission(container) == .valid else {
+                  case let .valid(frames) = preparedMaterialFrames(prepared.resource) else {
                 return .failed(.decodeFailed("typed slot candidate requires one valid constant sprite frame"))
             }
-            spriteFrame = container.spriteFrames[0]
+            spriteFrame = frames[0]
         } else {
             guard container?.imageCount ?? 1 == 1 else {
                 return .failed(.decodeFailed("typed slot candidate requires one static image"))
             }
             spriteFrame = nil
         }
+        let outcome = try load(from: input, source: source, purpose: purpose, device: device,
+            preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
+            checkCancellation: checkCancellation)
+        guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
             purpose: purpose, spriteFrame: spriteFrame, checkCancellation: checkCancellation)
     }
@@ -180,7 +178,11 @@ nonisolated extension SceneTextureLoader {
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneAnimatedTextureCandidateLoadOutcome {
         try checkCancellation?()
-        guard let container = prepared.container, materialAtlasAdmission(container) == .valid else {
+        let frames: [SceneTexContainer.SpriteFrame]
+        switch preparedMaterialFrames(prepared.resource) {
+        case let .valid(preparedFrames): frames = preparedFrames
+        case .invalidFrameMetadata: return .invalidFrameMetadata
+        case .unsupportedStructure:
             return .failed(.decodeFailed("animated material candidate requires one finite axis-aligned atlas"))
         }
         let outcome = try load(from: prepared.input, source: prepared.source, purpose: purpose,
@@ -191,7 +193,7 @@ nonisolated extension SceneTextureLoader {
             checkCancellation: checkCancellation) else {
             return .failed(.decodeFailed("animated material candidate has inconsistent texture geometry"))
         }
-        return .loaded(.init(candidate: candidate, frames: container.spriteFrames))
+        return .loaded(.init(candidate: candidate, frames: frames))
     }
 
     private func makeCandidate(
@@ -211,7 +213,6 @@ nonisolated extension SceneTextureLoader {
         let container = resource?.container
         let physicalSize: CGSize
         let mappedSize: CGSize
-        let spriteTransform: SceneTextureUVTransform?
         if let resource, let container {
             guard let firstMip = container.mips.first,
                   container.textureWidth > 0,
@@ -237,29 +238,9 @@ nonisolated extension SceneTextureLoader {
             }
             physicalSize = outputGeometry.physical
             mappedSize = outputGeometry.mapped
-            if let frame = spriteFrame {
-                // TEXS coordinates use the mip table; embedded pixels can have a different extent.
-                let sourceSize = resource.firstEmbeddedMipSize ?? sourcePhysicalSize
-                let scale = SIMD2(Float(firstMip.width) / Float(sourceSize.width),
-                    Float(firstMip.height) / Float(sourceSize.height))
-                let transform = SceneTextureUVTransform(origin: frame.origin * scale,
-                    xAxis: frame.xAxis * scale, yAxis: frame.yAxis * scale)
-                if sourceSize != CGSize(width: firstMip.width, height: firstMip.height) {
-                    let end = transform.origin + transform.xAxis + transform.yAxis
-                    let tolerance: Float = 0.000_001
-                    guard transform.origin.x >= -tolerance, transform.origin.y >= -tolerance,
-                          end.x <= 1 + tolerance, end.y <= 1 + tolerance else {
-                        return .failed(.decodeFailed("sprite frame exceeds decoded source pixels"))
-                    }
-                }
-                spriteTransform = transform
-            } else {
-                spriteTransform = nil
-            }
         } else {
             physicalSize = CGSize(width: texture.width, height: texture.height)
             mappedSize = physicalSize
-            spriteTransform = nil
         }
         try checkCancellation?()
         let content: SceneTextureContent
@@ -306,7 +287,9 @@ nonisolated extension SceneTextureLoader {
             content: content,
             physicalSize: physicalSize,
             mappedSize: mappedSize,
-            uvTransform: spriteTransform ?? SceneTextureUVTransform(
+            uvTransform: spriteFrame.map {
+                SceneTextureUVTransform(origin: $0.origin, xAxis: $0.xAxis, yAxis: $0.yAxis)
+            } ?? SceneTextureUVTransform(
                 origin: .zero,
                 xAxis: SIMD2(Float(mappedSize.width / physicalSize.width), 0),
                 yAxis: SIMD2(0, Float(mappedSize.height / physicalSize.height))
@@ -342,32 +325,39 @@ nonisolated extension SceneTextureLoader {
             && resource?.hasValidTexb3EmbeddedMipChain == true
     }
 
-    func materialAtlasAdmission(
-        _ container: SceneTexContainer
+    private func preparedMaterialFrames(
+        _ resource: TexResource
     ) -> SceneAnimatedMaterialAtlasAdmission {
         let tolerance: Float = 0.000_001
-        guard container.imageCount == 1,
+        guard let container = resource.container,
+              container.imageCount == 1,
               container.isAnimated,
               !container.isVolume,
               !container.spriteFrames.isEmpty,
               container.textureWidth > 0,
               container.textureHeight > 0,
               container.imageWidth > 0,
-              container.imageHeight > 0 else {
+              container.imageHeight > 0,
+              let firstMip = container.mips.first else {
             return .unsupportedStructure
         }
-        var duration: Float = 0
-        for frame in container.spriteFrames {
-            guard frame.imageIndex == 0,
-                  frame.duration.isFinite,
-                  frame.duration >= 0,
-                  frame.origin.x.isFinite,
-                  frame.origin.y.isFinite,
-                  frame.xAxis.x.isFinite,
-                  frame.xAxis.y.isFinite,
-                  frame.yAxis.x.isFinite,
-                  frame.yAxis.y.isFinite,
-                  abs(frame.xAxis.y) <= tolerance,
+        let mipSize = CGSize(width: firstMip.width, height: firstMip.height)
+        // TEXS uses mip-table coordinates, which can differ from legacy embedded pixels.
+        let sourceSize = resource.firstEmbeddedMipSize ?? mipSize
+        let projectsSource = sourceSize != mipSize
+        let scale = projectsSource
+            ? SIMD2(Float(firstMip.width) / Float(sourceSize.width),
+                    Float(firstMip.height) / Float(sourceSize.height))
+            : SIMD2<Float>(repeating: 1)
+        var frames = container.spriteFrames
+        for index in frames.indices {
+            var frame = frames[index]
+            if projectsSource {
+                frame = .init(imageIndex: frame.imageIndex, duration: frame.duration,
+                    origin: frame.origin * scale, xAxis: frame.xAxis * scale,
+                    yAxis: frame.yAxis * scale)
+            }
+            guard abs(frame.xAxis.y) <= tolerance,
                   abs(frame.yAxis.x) <= tolerance,
                   frame.origin.x >= -tolerance,
                   frame.origin.y >= -tolerance,
@@ -377,10 +367,9 @@ nonisolated extension SceneTextureLoader {
                   frame.origin.y + frame.yAxis.y <= 1 + tolerance else {
                 return .invalidFrameMetadata
             }
-            duration += frame.duration > 0 ? frame.duration : 1.0 / 60.0
-            guard duration.isFinite else { return .invalidFrameMetadata }
+            if projectsSource { frames[index] = frame }
         }
-        return duration > 0 ? .valid : .invalidFrameMetadata
+        return .valid(frames)
     }
 
     private func candidateSourcePhysicalSize(
