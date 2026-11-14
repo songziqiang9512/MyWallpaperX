@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 267151
+      "bytes": 267734
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -149,8 +149,8 @@
       "bytes": 32640
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 112,
-      "bytes": 15154
+      "lines": 115,
+      "bytes": 16116
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49717
+      "bytes": 49569
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -420,15 +420,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "8e4f919014d94636708503fb2cc307ae5f60c2f34d3cc55d373c9c977b0a6b45",
-      "after": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
-      "owner": "Scene Debug pointer evidence",
-      "reason": "Record existing click dispatch at the trajectory endpoint and bound synthetic evidence.",
-      "decision": "docs/scene/development/development-workflow.md#截图与时序"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "8bd91d0f2502e710022de98d16ce24348bd291494c2a41918fe3a6e6e4141493",
       "after": "8696d439829492cbc3ad93780b0c6e33296d9b114e45a472d676ead4b7072324",
@@ -510,21 +501,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3b6c9ad5f503a0a52f17398882930d40380fb15833853099ffd2e6f160af034f",
-      "after": "2b23940c5f6b2f528a5d3e2326cb0a628d8785158d86bb015984964efbc265e2",
-      "owner": "Existing Scene animation catalog and typed frame value owners",
-      "reason": "Replace planned component pass scope with current cold target/Combined/value-role implementation and bounded actual native/coordinator/App evidence. Retire solved queue responsibilities; keep author acquisition STOP and independent existing interaction regression. No new document or product owner.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
       "after": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
       "owner": "Existing Scene animation catalog and typed frame value owners",
       "reason": "Replace planned component pass scope with current cold target/Combined/value-role implementation and bounded actual native/coordinator/App evidence. Retire solved queue responsibilities; keep author acquisition STOP and independent existing interaction regression. No new document or product owner.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2b23940c5f6b2f528a5d3e2326cb0a628d8785158d86bb015984964efbc265e2",
+      "after": "303f35273bbc302829198019bea78f3dfb6765e47741bccd46daedcb43542248",
+      "owner": "scene-runtime",
+      "reason": "Ready-relative pointer input design and qualified mature384 activity expose the active material-binding failure; replace obsolete acquisition STOP with observed scope and retain precise proof limits.",
+      "decision": "docs/scene/development/development-workflow.md#pointer-input-timing"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "b509410183eafeb0e73f9ecba6ec950311049ba290b05e85f533e61a27e811f2",
+      "after": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
+      "owner": "scene-runtime",
+      "reason": "Ready-relative pointer input design and qualified mature384 activity expose the active material-binding failure; replace obsolete acquisition STOP with observed scope and retain precise proof limits.",
+      "decision": "docs/scene/development/development-workflow.md#pointer-input-timing"
     }
   ]
 }

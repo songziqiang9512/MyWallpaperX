@@ -341,6 +341,13 @@ def run_sample(
         )
     if execution_observations_enabled and (terminal_snapshot or pointer_trajectory is not None):
         environment["MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"] = "1"
+    if "cursor_start_delay" in sample and "cursor_start_second" in sample:
+        raise ValueError("cursor_start_delay and cursor_start_second are mutually exclusive")
+    if "cursor_start_delay" in sample:
+        delay = sample["cursor_start_delay"]
+        if type(delay) not in (int, float) or not math.isfinite(delay) or not 0 <= delay < duration:
+            raise ValueError("cursor_start_delay must be finite and in [0, duration)")
+        environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY"] = str(float(delay))
     if "cursor_start_second" in sample:
         second = float(sample["cursor_start_second"])
         if not math.isfinite(second) or not 0 <= second < 60:

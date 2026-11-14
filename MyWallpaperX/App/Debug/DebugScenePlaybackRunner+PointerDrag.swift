@@ -150,6 +150,13 @@ extension DebugScenePlaybackRunner {
         return .init(count: Int(count), pressSeconds: press, heldSeconds: held, betweenSeconds: between)
     }
 
+    private static let relativePointerStartDelay: TimeInterval? = {
+        guard let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY"],
+              let delay = Double(raw), delay.isFinite,
+              (0..<requestedDuration).contains(delay) else { return nil }
+        return delay
+    }()
+
     /// Validate the complete bounded plan before launching a Scene. A wall-clock
     /// alignment can wait up to one minute, so reserve that worst case here.
     static var pointerDragTimingPreconditionFailure: String? {
@@ -162,8 +169,9 @@ extension DebugScenePlaybackRunner {
               !arguments.contains("--mwx-debug-scene-pointer-trajectory-json") else {
             return "ambiguous-pointer-drag-timing"
         }
-        var maximumStartDelay = 1.0
-        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
+        var maximumStartDelay = relativePointerStartDelay ?? 1.0
+        if relativePointerStartDelay == nil,
+           let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
            let second = Double(raw), second.isFinite, (0..<60).contains(second) {
             maximumStartDelay = 60
         }
@@ -324,8 +332,9 @@ extension DebugScenePlaybackRunner {
         dragPointer: SIMD2<Float>?,
         pointerTrajectory: [SIMD2<Float>]?
     ) {
-        var startDelay = 1.0
-        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
+        var startDelay = relativePointerStartDelay ?? 1.0
+        if relativePointerStartDelay == nil,
+           let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
            let second = Double(raw), second.isFinite, (0..<60).contains(second) {
             let current = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
             startDelay = (second - current + 60).truncatingRemainder(dividingBy: 60)

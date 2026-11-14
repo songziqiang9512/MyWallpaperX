@@ -63,23 +63,34 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
             raise AssertionError(f"actual DEBUG extensions failed to compile:\n{result.stderr}")
 
     def run_schedule(self, scenario: str = "success", *, pointer: bool = True,
-                     extra: tuple[str, ...] = ()) -> dict:
+                     extra: tuple[str, ...] = (), environment: dict[str, str] | None = None) -> dict:
         args = [str(self.binary), scenario]
         if pointer:
             args.extend(["--mwx-debug-scene-hover-pointer-json", '{"x":0.25,"y":-0.5}'])
         args.extend(extra)
-        environment = dict(os.environ)
-        environment.pop("MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND", None)
+        child_environment = dict(os.environ)
+        timing_keys = ("MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND", "MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY")
+        for key in timing_keys:
+            child_environment.pop(key, None)
+        child_environment.update(environment or {})
         result = subprocess.run(args, capture_output=True, text=True, check=True,
-                                timeout=15, env=environment)
+                                timeout=15, env=child_environment)
         payload = json.loads(result.stdout)
         payload["modeLogs"] = [line for line in result.stderr.splitlines()
                                if "phase=evidence-mode" in line]
+        if proof := os.environ.get("MWX_POINTER_SCHEDULE_PROOF"):
+            root = Path(proof)
+            root.mkdir(parents=True, exist_ok=True)
+            inputs = {"arguments": args[1:], "timingEnvironment": {
+                key: child_environment[key] for key in timing_keys if key in child_environment}}
+            digest = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()[:12]
+            (root / f"{self._testMethodName}-{digest}.json").write_text(
+                json.dumps({**inputs, "payload": payload, "stderr": result.stderr}, indent=2) + "\n")
         return payload
 
     def assert_pointer_sequence(self, payload: dict, *, stationary: bool = False,
                                 click: bool = False, drag: bool = False,
-                                from_launch: bool = False) -> None:
+                                from_launch: bool = False, start_delay: float = 1) -> None:
         events = payload["events"]
         names = [row["event"] for row in events
                  if not row["event"].startswith("turn-after-")
@@ -100,6 +111,8 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assertEqual(launch["inside"], from_launch)
         self.assertEqual(launch["record"], "fixture-record")
         before = next(row for row in events if row["event"] == "capture:before")
+        ready = next(row for row in events if row["event"] == "ready")
+        self.assertGreaterEqual(before["time"], max(ready["time"], payload["scheduleTime"]) + start_delay - 0.01)
         after = next(row for row in events if row["event"] == "capture:after")
         hover = next(row for row in events if row["event"] == "capture:hover")
         self.assertFalse(before["inside"])
@@ -129,6 +142,32 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         payload = self.run_schedule(extra=("--mwx-debug-scene-after-snapshot-delay", "4"))
         self.assert_pointer_sequence(payload)
         self.assert_after_deadline(payload)
+
+    def test_ready_relative_pointer_delay_preserves_sequence_and_exit(self) -> None:
+        with mock.patch.dict(os.environ, {"MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "59",
+                                          "MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY": "6"}):
+            payload = self.run_schedule(environment={"MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY": "2"},
+                extra=("--mwx-debug-scene-after-snapshot-delay", "4"))
+        self.assertEqual([row["event"] for row in payload["suspendedEvents"]], ["pointer:outside", "launch"])
+        self.assert_pointer_sequence(payload, start_delay=2)
+        self.assert_after_deadline(payload)
+
+    def test_relative_pointer_delay_counts_in_explicit_drag_budget_without_running_drag(self) -> None:
+        timing = {"count": 1, "pressSeconds": 1, "heldSeconds": 3, "betweenSeconds": 0.28}
+        flags = ("--mwx-debug-scene-duration", "7", "--mwx-debug-scene-cursor-drag-to-json",
+                 '{"x":0.75,"y":0.25}', "--mwx-debug-scene-cursor-drag-timing-json", json.dumps(timing))
+        key = "MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY"
+        with mock.patch.dict(os.environ, {key: "6", "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "59"}):
+            for raw in ("0", "0.125", "2", "nan", "inf", "-1", "7", "bad", None):
+                with self.subTest(delay=raw):
+                    payload = self.run_schedule("arguments", extra=flags,
+                        environment={} if raw is None else {key: raw})
+                    expected = "pointer-drag-timing-exceeds-duration" if raw == "2" else None
+                    self.assertEqual(payload["dragTimingFailure"], expected)
+                    self.assertEqual(payload["events"], [])
+            wall_clock = self.run_schedule("arguments", extra=flags,
+                environment={"MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "12"})
+        self.assertEqual(wall_clock["dragTimingFailure"], "pointer-drag-timing-exceeds-duration")
 
     def test_trajectory_click_follows_unpressed_move_and_endpoint_capture(self) -> None:
         payload = self.run_schedule(extra=(

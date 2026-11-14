@@ -1186,7 +1186,7 @@
       "owner": "Existing corpus, signed Debug runner, sample lifecycle and diagnostic normalizer owners",
       "status": "approved",
       "designDoc": "docs/scene/development/development-workflow.md",
-      "design_notes": "Section corpus-runtime-measurement: preserve discovery/content/attempt identity and inventory scope; exact draw/capture receipts on selected DEBUG frames, component stages and local passthrough kept separate; aggregate ratios are leads. Existing trace/completion/output owners, bounded opt-in data, no Release calls or empty per-particle helper, honest unknowns; one PNG at original render extent and qualified isolated concurrency.",
+      "design_notes": "Section corpus-runtime-measurement: preserve discovery/content/attempt identity and inventory scope; exact draw/capture receipts on selected DEBUG frames, component stages and local passthrough kept separate; aggregate ratios are leads. Existing trace/completion/output owners, bounded opt-in data, no Release calls or empty per-particle helper, honest unknowns; one PNG at original render extent and qualified isolated concurrency. Pointer input timing uses DesignDoc#pointer-input-timing: Ready-relative cursor_start_delay and existing wall-clock cursor_start_second are mutually exclusive matrix inputs, consumed by the original DEBUG Dispatch schedule and drag duration plan. Reuse default/exit/capture ownership; no new clock, scheduling owner or release-frame work. Validate actual Ready-relative timing and authored hit before any animation claim.",
       "matchPatterns": [
         "script/scene_capability_census.py",
         "script/scene_capability_census_io.py",

@@ -88,6 +88,9 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 固定属性、时间、指针、音源、媒体状态、viewport 与随机条件后再比较画面。`--after-snapshot-delay` 约束 ready 后开始安排截图的单调时钟；指针交互还要完成退出和稳定步骤，after 取两者较晚时刻。请求时刻、实际 GPU 捕获和文件写出是不同阶段，比较时核对实际日志与捕获身份。
 
+<a id="pointer-input-timing"></a>
+`cursor_start_delay` 为实际Ready开始安排输入后的相对秒数，有限非负且小于声明观察时长；用于等待作者过场/延迟，不从host启动或准备前的墙钟推算。工具只向本轮隔离child传显式delay，原DEBUG指针调度在同一Dispatch时钟安排before→入场→click/drag→退出与after；默认仍Ready+1秒。`cursor_start_second`保原墙钟分钟相位，只用于与时刻关联的输入，两键不能同时声明。原显式drag完整时长门采用相对delay；after仍等待交互退出/稳定，无第二调度器、clock或逐帧状态。直接env非法相对值沿原缺省调度，不影响普通壁纸播放；matrix入口拒绝无效声明。验收用原生产调度harness的挂起launch/Ready、默认/相对延时、退出与拖拽预算反例，实际作者须另核成熟相位/同帧hit和目标执行，不能以延时参数或report PASS宣称触发。
+
 `pointer_trajectory_normalized` 的各点以抬键状态依次进入并取样；同一输入声明 `cursor_primary_click: true` 时，末点取样后在末点按下并释放，再取交互结果。单点点击仍用 `hover_pointer_normalized`；拖拽用独立的起点按压流程。合成指针结果只验证 Scene 交互消费，不能代验原生悬停和点击入口。
 
 benchmark 清除继承的 Scene DEBUG 配置；样本的 `timeline_frame_evidence` 显式携带原 `SceneTimelineFrameEvidence` 配置对象，并记入运行报告。默认选择已有layer TRS、颜色与context时间；可选`cameraZoom:true`附加原CameraTransforms zoom与General zoom两个typed输入的Program绑定及最终View snapshot值/来源，仅相机时`layerIDs`可为空。读口不推进Playback，不把typed值当最终相机矩阵或effect uniform；原时间、sample、stream与字节预算保持。样本显式整数数组 `puppet_interaction_layer_ids` 可在无 cursor 输入时选择原骨骼/geometry 读口。先核配置确实到达 App，再按 stream/frame/snapshot generation 关联实际 uniform 消费与捕获；窗口外或无记录保未知。log-only 不支持 periodic；短 Single 动画可先用 early terminal capture，按实际 sceneTime/elapsed frame 判活动相位。

@@ -496,6 +496,35 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
             self.assertNotIn("--mwx-debug-scene-cursor-drag-to-json", command)
             self.assertNotIn("--mwx-debug-scene-hover-pointer-json", command)
 
+    def test_cursor_start_delay_transport_and_timing_environment_isolation(self):
+        delay_key = "MYWALLPAPERX_SCENE_DEBUG_POINTER_DELAY"
+        second_key = "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"
+        inherited = {delay_key: "6", second_key: "59", "USER_TOOL_FIXTURE": "preserved"}
+        for declared in ({}, {"cursor_start_delay": 0}, {"cursor_start_delay": 0.125},
+                         {"cursor_start_second": 12}):
+            observed = {}
+            with self.subTest(declared=declared), mock.patch.dict(os.environ, inherited):
+                result, _ = run_sample_fixture(benchmark, sample_overrides=declared,
+                    control={"observed_environment": observed})
+            self.assertTrue(result["passed"], result["failures"])
+            self.assertEqual(observed["USER_TOOL_FIXTURE"], "preserved")
+            for field, key in (("cursor_start_delay", delay_key), ("cursor_start_second", second_key)):
+                if field in declared:
+                    self.assertEqual(observed[key], str(float(declared[field])))
+                else:
+                    self.assertNotIn(key, observed)
+
+    def test_cursor_start_delay_rejects_invalid_or_conflicting_requests_before_launch(self):
+        invalid = [{"cursor_start_delay": value}
+                   for value in (-1, 7, 8, float("nan"), float("inf"), True, "1", None, [])]
+        invalid.append({"cursor_start_delay": 0, "cursor_start_second": 12})
+        for declared in invalid:
+            observed = {}
+            with self.subTest(declared=declared), self.assertRaisesRegex(ValueError, "cursor_start_delay"):
+                run_sample_fixture(benchmark, sample_overrides=declared,
+                    control={"observed_environment": observed})
+            self.assertEqual(observed, {})
+
     def test_puppet_bone_targets_keep_cursor_requirement_and_reject_non_integer_before_launch(self):
         cursor = {"cursor_drag_response": "spring-return",
                   "hover_pointer_normalized": [0, 0], "cursor_drag_to_normalized": [0.25, 0]}
