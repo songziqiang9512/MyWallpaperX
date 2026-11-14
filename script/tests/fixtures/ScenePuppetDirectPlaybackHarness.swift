@@ -43,7 +43,7 @@ struct Subject {
     let evaluator: ScenePuppetAnimationEvaluator
 }
 func makeSubject(lateSingular: Bool = false, channel: String? = nil,
-             renamed: Bool = false,
+             renamed: Bool = false, mode: String = "loop",
              latePosition: SIMD3<Float>? = nil,
              physics: [SceneMdlPuppetRig.TranslationPhysics?] = [nil, nil]) throws -> Subject {
     let vertices = (0..<2).map { index in
@@ -58,7 +58,7 @@ func makeSubject(lateSingular: Bool = false, channel: String? = nil,
         .init(boneIndices: SIMD4(UInt32(index), 0, 0, 0), boneWeights: SIMD4(1, 0, 0, 0))
     })
     let animation = SceneMdlPuppetAnimation(id: 7, name: renamed ? "renamed-motion" : "motion",
-        mode: "loop", framesPerSecond: 1, frameCount: 1,
+        mode: mode, framesPerSecond: 1, frameCount: 1,
         transformsByBone: physics.indices.map { index in
             [transform(), transform(z: 4, scale: lateSingular && index == 1 ? 0 : 1)]
         })
@@ -197,9 +197,76 @@ func physicsSubsetChecks() throws -> Bool {
     return valid && ordinary.state.poseConfiguration(animationFrame: singleFrame(0))!.bones.localMatrices[30] == 0.75
 }
 
+func membershipChecks() throws -> [String: Any] {
+    let subject = try makeSubject(mode: "single")
+    let empty = ScenePuppetAnimationSelection(clips: [], composition: .layered)
+    func state(_ source: Subject) throws -> ScenePuppetPlaybackState {
+        try ScenePuppetPlaybackState.makeDirectModel(layerID: 42, vertices: source.vertices,
+            evaluator: source.evaluator, selection: empty).get()
+    }
+    let pose = try state(subject)
+    let rest = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [], selection: empty,
+        membershipRevision: 0)
+    pose.prepareFrame(animationFrame: rest)
+    let initial = pose.renderFrame!
+    let born = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [.init(frameA: 1, frameB: 1)],
+        selection: subject.selection, membershipRevision: 1)
+    let queried = pose.poseConfiguration(animationFrame: born)!
+    pose.prepareFrame(animationFrame: born)
+    let member = pose.renderFrame!
+    let memberValues = read(member)!
+    pose.prepareFrame(animationFrame: born)
+    let repeated = pose.renderFrame!
+    let removed = ScenePuppetAnimationPlaybackRuntime.LayerFrame(samples: [], selection: empty,
+        membershipRevision: 2)
+    let removedQuery = pose.poseConfiguration(animationFrame: removed)!
+    pose.prepareFrame(animationFrame: removed)
+    let cleared = pose.renderFrame!
+    let geometryFirst = try state(subject)
+    geometryFirst.prepareFrame(animationFrame: born)
+    let geometryQuery = geometryFirst.poseConfiguration(animationFrame: born)!
+
+    let physical = try makeSubject(mode: "single", physics: [
+        .init(spring: true, stiffness: 70, friction: 5, inertia: 5, maxDistance: 50), nil])
+    let physicsFirst = try state(physical)
+    var override = matrix_identity_float4x4
+    override.columns.3.z = 9
+    physicsFirst.apply(scriptBoneMutations: [.init(layerID: 42, boneIndex: 0,
+        matrix: columns(override).map(Double.init))])
+    physicsFirst.advanceBonePhysics(animationFrame: born, deltaTime: 0.05, frameIndex: 1)
+    let physicalQuery = physicsFirst.poseConfiguration(animationFrame: born)!
+    physicsFirst.prepareFrame(animationFrame: born)
+    let physicalFrame = physicsFirst.renderFrame!
+    physicsFirst.advanceBonePhysics(animationFrame: born, deltaTime: 0.05, frameIndex: 1)
+    physicsFirst.prepareFrame(animationFrame: born)
+    let physicalRepeated = physicsFirst.renderFrame!
+    let physicalZ = physicalQuery.bones.localMatrices[14]
+    let facts = [
+        "queryBeforeGeometryAdopts": queried.bones.localMatrices[14] == 4
+            && memberValues[0].position.z == 7,
+        "geometryBeforeQueryAdopts": read(geometryFirst.renderFrame) == memberValues
+            && geometryQuery.bones.localMatrices == queried.bones.localMatrices,
+        "sameRevisionReusesSignature": repeated.revision == member.revision,
+        "emptyMembershipClearsSelection": removedQuery.bones.localMatrices[14] == 0
+            && read(cleared) == subject.vertices && cleared.revision > member.revision,
+        "frozenMemberFrameKept": read(member) == memberValues && read(initial) == subject.vertices,
+        "physicsBeforeQueryAdopts": physicalQuery.queryLocalMatrices[14] == 4
+            && physicalZ > 4 && physicalZ < 9
+            && abs(Double(read(physicalFrame)![0].position.z) - (3 + physicalZ)) < 1e-6,
+        "sameCadenceDoesNotAdvancePhysics": physicalRepeated.revision == physicalFrame.revision
+            && read(physicalRepeated) == read(physicalFrame),
+    ]
+    return ["facts": facts, "queryZ": queried.bones.localMatrices[14],
+        "geometryZ": memberValues[0].position.z, "removedQueryZ": removedQuery.bones.localMatrices[14],
+        "physicsQueryZ": physicalQuery.queryLocalMatrices[14], "physicsRenderZ": physicalZ,
+        "initialRevision": initial.revision, "memberRevision": member.revision,
+        "repeatedRevision": repeated.revision, "clearedRevision": cleared.revision]
+}
+
 @main enum Main {
     static func main() throws {
-        var rows = try finiteOutputFallbackChecks()
+        var rows: [String: Any] = try finiteOutputFallbackChecks().mapValues { $0 as Any }
+        rows["membership"] = try membershipChecks()
         rows["multiplePhysicsBones"] = try physicsSubsetChecks()
         let subject = try makeSubject()
         rows["unpreparedHasNoFrame"] = subject.state.renderFrame == nil

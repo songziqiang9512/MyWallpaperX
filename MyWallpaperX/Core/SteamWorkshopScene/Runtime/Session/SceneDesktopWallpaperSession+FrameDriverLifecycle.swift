@@ -227,7 +227,9 @@ extension SceneDesktopWallpaperSession {
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 let controls = puppetAnimationCommands.map { command in
                     let identity = command.identity
-                    return "\(identity.layerID):\(identity.animationLayerIndex):"
+                    let index = identity.animationLayerIndex.map(String.init)
+                        ?? String(describing: identity.instance)
+                    return "\(identity.layerID):\(index):"
                         + "\(identity.animationLayerID.map(String.init) ?? "none")=\(command.action)"
                 }.joined(separator: ",")
                 NSLog("MWX DEBUG SCENE: puppetAnimationCommands=%d callback=committed frame=%llu nextFrame=true controls=%@",

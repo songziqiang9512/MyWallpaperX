@@ -41,6 +41,7 @@ HARNESS = r'''
             case let .setRate(v): "rate:\(v)"
             case let .setBlend(v): "blend:\(v)"
             case let .setVisible(v): "visible:\(v)"
+            case let .createSingle(id): "create:\(id)"
         }}
     }
     static let sibling = ScenePuppetAnimationIdentity(layerID:42,animationLayerIndex:1,animationLayerID:208)
@@ -319,12 +320,26 @@ HARNESS = r'''
                 let (recoveryDomain,recoveryOwner)=try lookupOwner("""
                 let own,peer;export function update(v){if(!own){own=thisLayer.getAnimationLayer(0);
                   peer=thisLayer.getAnimationLayer(1);}return own.getFrame()===engine.runtime
-                    &&peer.getFrame()===engine.runtime+26&&!peer.isPlaying();}
+                    &&peer.getFrame()===engine.runtime+26&&!peer.isPlaying()
+                    &&thisLayer.getAnimationLayerCount()===2
+                    &&thisLayer.getAnimationLayer(0).getFrame()===engine.runtime
+                    &&thisLayer.getAnimationLayer(1).getFrame()===engine.runtime+26;}
                 """)
                 let healthyIdentity = damage == "fps" ? identity : sibling
                 let healthyFrame = damage == "fps" ? 3 : 29
                 let healthy=try SceneScriptValueOwner(domain:recoveryDomain,
-                    source:"export function update(v){return thisObject.getFrame()===\(healthyFrame);}",
+                    source:"""
+                    export function update(v){
+                      if ('\(damage)' === 'finite') {
+                        let rejected=false;
+                        try { thisLayer.getAnimationLayer(0); } catch(e) { rejected=true; }
+                        return thisLayer.getAnimationLayerCount()===2 && rejected
+                          &&thisLayer.getAnimationLayer(1).getFrame()===29
+                          &&thisObject.getFrame()===29;
+                      }
+                      return thisObject.getFrame()===\(healthyFrame);
+                    }
+                    """,
                     target:ScenePuppetAnimationPropertyTarget.visibility(layerID:42,
                         animationLayerID:healthyIdentity.animationLayerID!),valueType:.bool,effectNames:[],
                     puppetAnimationIdentity:healthyIdentity,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
@@ -407,9 +422,9 @@ HARNESS = r'''
             "firstActions":actions(firstTimer.puppetAnimationCommands),
             "retryActions":actions(retryTimer.puppetAnimationCommands),
             "firstIdentities":firstTimer.puppetAnimationCommands.map{[$0.identity.layerID,
-                $0.identity.animationLayerIndex,$0.identity.animationLayerID ?? -1]},
+                $0.identity.animationLayerIndex ?? -1,$0.identity.animationLayerID ?? -1]},
             "retryIdentities":retryTimer.puppetAnimationCommands.map{[$0.identity.layerID,
-                $0.identity.animationLayerIndex,$0.identity.animationLayerID ?? -1]}] as [String:Any]
+                $0.identity.animationLayerIndex ?? -1,$0.identity.animationLayerID ?? -1]}] as [String:Any]
         timer.commitLayerMutations();timer.discardTimerFrame(saved)
 
         phase("lookup/swift-runtime-rejection")

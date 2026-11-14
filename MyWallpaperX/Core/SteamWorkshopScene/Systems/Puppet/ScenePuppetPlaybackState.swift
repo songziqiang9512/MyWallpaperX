@@ -62,7 +62,7 @@ final class ScenePuppetPlaybackState {
 
     final class ImagePose {
         let mesh: SceneMdlPuppetMesh
-        let hasBoneAlpha: Bool
+        var hasBoneAlpha: Bool
         var positionScratch: [SIMD2<Float>]
         var vertexScratch: [SceneQuadVertex]
         var coverageScratch: [Float]
@@ -89,8 +89,8 @@ final class ScenePuppetPlaybackState {
     }
 
     let layerID: Int
-    let animationIDs: [Int]
-    let selection: ScenePuppetAnimationSelection
+    private(set) var animationIDs: [Int]
+    private(set) var selection: ScenePuppetAnimationSelection
     let geometry: Geometry
     private let evaluator: ScenePuppetAnimationEvaluator
     private let attachments: [SceneMdlPuppetAttachment]
@@ -108,8 +108,8 @@ final class ScenePuppetPlaybackState {
     private var localMatrixScratch: [simd_float4x4]
     private var skinMatrixScratch: [simd_float4x4]
     private var worldMatrixScratch: [simd_float4x4]
-    /// Clip topology is launch-stable; reuse signatures while the launch-owned
-    /// playback runtime supplies the shared frame samples.
+    /// Membership changes resize signatures; ordinary frames reuse them.
+    private var membershipRevision: UInt64?
     private var signatureScratch: [FrameSignature]
     private var preparedFrameSignature: [FrameSignature]?
     private var preparedBoneRevision: UInt64?
@@ -161,6 +161,7 @@ final class ScenePuppetPlaybackState {
     func prepareFrame(
         animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
     ) -> [String: simd_float4x4] {
+        adoptMembership(animationFrame)
         let frameSamples = animationFrame.samples
         guard frameSamples.count == selection.clips.count else {
             if case let .direct(direct) = geometry {
@@ -281,6 +282,7 @@ final class ScenePuppetPlaybackState {
         animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
         meshToWorld: simd_float4x4 = matrix_identity_float4x4
     ) -> PoseConfiguration? {
+        adoptMembership(animationFrame)
         guard let transforms = try? evaluator.boneTransforms(
             selection: selection,
             frameSamples: animationFrame.samples,
@@ -320,6 +322,7 @@ final class ScenePuppetPlaybackState {
     func advanceBonePhysics(animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
                             deltaTime: Double, frameIndex: UInt64,
                             meshToWorld: simd_float4x4 = matrix_identity_float4x4) {
+        adoptMembership(animationFrame)
         if let lastBonePhysicsFrameIndex, frameIndex <= lastBonePhysicsFrameIndex { return }
 #if DEBUG
         boneWrittenInFrame = false
@@ -356,6 +359,26 @@ final class ScenePuppetPlaybackState {
                 }
             }
             worldMatrixScratch[index] = parent * pose
+        }
+    }
+
+    private func adoptMembership(_ frame: ScenePuppetAnimationPlaybackRuntime.LayerFrame) {
+        guard let next = frame.selection, membershipRevision != frame.membershipRevision else { return }
+        selection = next
+        membershipRevision = frame.membershipRevision
+        animationIDs = next.clips.map(\.animation.id)
+        signatureScratch = Array(repeating: FrameSignature(sample: nil, visible: false),
+            count: next.clips.count)
+        preparedFrameSignature = nil
+        if case let .image(image) = geometry {
+            let hasAlpha = next.clips.contains {
+                evaluator.hasAlphaContribution(animationID: $0.animation.id)
+            }
+            if image.hasBoneAlpha && !hasAlpha {
+                image.coverageScratch = Array(repeating: 1, count: image.coverageScratch.count)
+                image.boneAlphaScratch = Array(repeating: 1, count: image.boneAlphaScratch.count)
+            }
+            image.hasBoneAlpha = hasAlpha
         }
     }
 

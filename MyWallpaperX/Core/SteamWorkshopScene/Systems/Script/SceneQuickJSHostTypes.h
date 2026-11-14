@@ -28,11 +28,18 @@ typedef struct MWXSceneQuickJSCameraCommand {
     uint32_t ordinal;
 } MWXSceneQuickJSCameraCommand;
 
-typedef struct MWXSceneQuickJSPuppetAnimationSnapshot {
+typedef struct MWXSceneQuickJSPuppetAnimationIdentity {
     int64_t layer_id;
+    uint32_t kind;
     uint32_t animation_layer_index;
     int64_t animation_layer_id;
     uint32_t has_animation_layer_id;
+    uint64_t creation_epoch;
+    uint32_t creation_ordinal;
+} MWXSceneQuickJSPuppetAnimationIdentity;
+
+typedef struct MWXSceneQuickJSPuppetAnimationSnapshot {
+    MWXSceneQuickJSPuppetAnimationIdentity identity;
     int64_t animation_id;
     const char *name;
     double fps, frame_count, duration, current_frame, rate, blend;
@@ -53,15 +60,22 @@ typedef struct MWXSceneQuickJSAnimationEvent {
 } MWXSceneQuickJSAnimationEvent;
 
 typedef struct MWXSceneQuickJSPuppetAnimationCommand {
-    int64_t layer_id;
-    uint32_t animation_layer_index;
-    int64_t animation_layer_id;
-    uint32_t has_animation_layer_id;
-    uint32_t action; // play/pause/stop/frame/rate/blend/visible = 0...6
+    MWXSceneQuickJSPuppetAnimationIdentity identity;
+    uint32_t action; // play/pause/stop/frame/rate/blend/visible/createSingle = 0...7
     double value;
+    int64_t animation_id;
     uint64_t callback_epoch;
     uint32_t ordinal;
 } MWXSceneQuickJSPuppetAnimationCommand;
+
+typedef struct MWXSceneQuickJSPuppetAnimationSource {
+    int64_t animation_id;
+    double fps, frame_count, duration;
+} MWXSceneQuickJSPuppetAnimationSource;
+
+typedef uint32_t (*MWXSceneQuickJSPuppetAnimationSourceLookup)(
+    void *opaque, int64_t layer_id, const char *name, size_t name_length, int64_t animation_id,
+    MWXSceneQuickJSPuppetAnimationSource *source, char *source_name, size_t source_name_capacity);
 
 typedef int (*MWXSceneQuickJSCancellationCheck)(void *opaque);
 typedef enum MWXSceneQuickJSStorageReadResult {

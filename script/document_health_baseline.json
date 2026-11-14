@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 154,
-      "bytes": 28557
+      "lines": 165,
+      "bytes": 31273
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 269996
+      "bytes": 269782
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 197,
-      "bytes": 35654
+      "lines": 208,
+      "bytes": 38159
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49995
+      "bytes": 49499
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -420,15 +420,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b102426b1c04796b756441d3583df6f008bfad8930c528132a711c90b011de70",
-      "after": "a6e594b09e30cc9e604beee9de632483db333c37204b3e07947fdf42d14a0b69",
-      "owner": "Scene capability contract",
-      "reason": "Define authored text depth through the ordinary world terminal and record the real-sample enabled/disabled boundary.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "593c325e5e45c16dd02a2d072c9878b782f2bc4e7e97ae5a2191b65d33771897",
       "after": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
@@ -501,15 +492,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e1b522d0a92917ca963f28772e8e4becfee79c80bc31dd985dfb4c14404eae4b",
-      "after": "fb398a67012b51a8eeb06677661634448d7c40e5c5377b19eafd52da7d96198d",
-      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
-      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
       "after": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
@@ -519,21 +501,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
-      "after": "55db713002265b73f53950d4b4685781d995a108916ae7475511c085842752c7",
-      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
-      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#animation-events"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "ad1fca5a1c7f524aa27638499c17f69fb01b64913f1cce9a12e4f257d65893b5",
+      "after": "b5f8656738bfc9410c3e1665e365e407b3d478e83eb781d7641ccc9c7251db5b",
+      "owner": "Existing Scene Puppet preparation/playback and Script frame owners",
+      "reason": "Define bounded String Single instance creation and original Cursor command transport before implementation, with one resource preparation, identity/journal/pose/lifetime and explicit unsupported official-default boundaries. Current evidence and solved queue prose are consolidated rather than adding an authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-instances"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4da7501b55d1eed995e1455a6534f0584c027a3d21e39c104eb5af09f2f3d438",
-      "after": "2278170ff4abd3265811edd30810e452a5fadbce8cdb098f394399012b088d1a",
-      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
-      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "55db713002265b73f53950d4b4685781d995a108916ae7475511c085842752c7",
+      "after": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
+      "owner": "Existing Scene Puppet preparation/playback and Script frame owners",
+      "reason": "Define bounded String Single instance creation and original Cursor command transport before implementation, with one resource preparation, identity/journal/pose/lifetime and explicit unsupported official-default boundaries. Current evidence and solved queue prose are consolidated rather than adding an authority.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#image-single-animation"
     }
   ]
 }

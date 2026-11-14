@@ -15,6 +15,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
     MWXSceneQuickJSDomain *domain,
     const MWXSceneQuickJSPuppetAnimationSnapshot *snapshots, size_t count,
     char *diagnostic, size_t diagnostic_capacity);
+void mwx_scene_quickjs_domain_bind_puppet_animation_sources(MWXSceneQuickJSDomain *,
+    MWXSceneQuickJSPuppetAnimationSourceLookup, void *);
 size_t mwx_scene_quickjs_owner_puppet_animation_registration_count(const MWXSceneQuickJSOwner *owner);
 size_t mwx_scene_quickjs_domain_animation_owner_count(const MWXSceneQuickJSDomain *domain);
 size_t mwx_scene_quickjs_owner_puppet_animation_command_count(const MWXSceneQuickJSOwner *owner);

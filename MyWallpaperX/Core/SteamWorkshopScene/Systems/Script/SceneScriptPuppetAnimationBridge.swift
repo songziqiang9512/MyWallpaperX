@@ -42,7 +42,8 @@ nonisolated enum SceneScriptPuppetAnimationBridge {
     }
 
     static func configure(owner: OpaquePointer, identity: ScenePuppetAnimationIdentity) throws {
-        guard identity.layerID >= 0, let index = UInt32(exactly: identity.animationLayerIndex) else {
+        guard identity.layerID >= 0, let authoredIndex = identity.animationLayerIndex,
+              let index = UInt32(exactly: authoredIndex) else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet animation identity")
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -61,15 +62,8 @@ nonisolated enum SceneScriptPuppetAnimationBridge {
             var diagnostic = [CChar](repeating: 0, count: 512)
             let result = mwx_scene_quickjs_owner_puppet_animation_command_at(owner, index, &raw, &diagnostic, diagnostic.count)
             guard result == MWX_SCENE_QUICKJS_OK else { return .failure(failure(result, diagnostic)) }
-            guard let layerID = Int(exactly: raw.layer_id),
-                  let authoredIndex = Int(exactly: raw.animation_layer_index),
-                  raw.has_animation_layer_id <= 1, raw.callback_epoch > 0,
+            guard let target = identity(raw.identity), raw.callback_epoch > 0,
                   raw.value.isFinite else { return .failure(.invalidArgument("invalid Puppet animation command")) }
-            let animationLayerID: Int?
-            if raw.has_animation_layer_id == 1 {
-                guard let id = Int(exactly: raw.animation_layer_id) else { return .failure(.invalidArgument("invalid animation layer ID")) }
-                animationLayerID = id
-            } else { animationLayerID = nil }
             let action: ScenePuppetAnimationCommand.Action
             switch raw.action {
             case 0: action = .play
@@ -81,13 +75,49 @@ nonisolated enum SceneScriptPuppetAnimationBridge {
             case 6:
                 guard raw.value == 0 || raw.value == 1 else { return .failure(.invalidArgument("invalid animation visibility")) }
                 action = .setVisible(raw.value == 1)
+            case 7:
+                guard let animationID = Int(exactly: raw.animation_id) else {
+                    return .failure(.invalidArgument("invalid Single animation source ID"))
+                }
+                action = .createSingle(animationID: animationID)
             default: return .failure(.invalidArgument("unknown Puppet animation command"))
             }
-            commands.append(.init(identity: .init(layerID: layerID, animationLayerIndex: authoredIndex,
-                animationLayerID: animationLayerID), action: action,
+            commands.append(.init(identity: target, action: action,
                 callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
         }
         return .success(commands)
+    }
+
+    static func wireIdentity(_ identity: ScenePuppetAnimationIdentity) -> MWXSceneQuickJSPuppetAnimationIdentity? {
+        var raw = MWXSceneQuickJSPuppetAnimationIdentity()
+        raw.layer_id = Int64(identity.layerID)
+        switch identity.instance {
+        case let .authored(index, id):
+            guard let index = UInt32(exactly: index) else { return nil }
+            raw.animation_layer_index = index
+            raw.animation_layer_id = Int64(id ?? 0)
+            raw.has_animation_layer_id = id == nil ? 0 : 1
+        case let .created(epoch, ordinal):
+            raw.kind = 1
+            raw.creation_epoch = epoch
+            raw.creation_ordinal = ordinal
+        }
+        return raw
+    }
+
+    static func identity(_ raw: MWXSceneQuickJSPuppetAnimationIdentity) -> ScenePuppetAnimationIdentity? {
+        guard let layerID = Int(exactly: raw.layer_id) else { return nil }
+        switch raw.kind {
+        case 0:
+            guard raw.has_animation_layer_id <= 1,
+                  let index = Int(exactly: raw.animation_layer_index) else { return nil }
+            return .init(layerID: layerID, animationLayerIndex: index,
+                animationLayerID: raw.has_animation_layer_id == 1 ? Int(exactly: raw.animation_layer_id) : nil)
+        case 1:
+            guard raw.creation_epoch > 0 else { return nil }
+            return .init(layerID: layerID, creationEpoch: raw.creation_epoch, creationOrdinal: raw.creation_ordinal)
+        default: return nil
+        }
     }
 
     static func failure(_ raw: MWXSceneQuickJSResult, _ diagnostic: [CChar]) -> SceneScriptScalarRuntimeFailure {
@@ -103,6 +133,13 @@ nonisolated enum SceneScriptPuppetAnimationBridge {
 }
 
 extension SceneScriptQuickJSDomain {
+    func bindPuppetAnimationSources(_ runtime: ScenePuppetAnimationPlaybackRuntime) {
+        guard puppetAnimationSourceRuntime !== runtime else { return }
+        puppetAnimationSourceRuntime = runtime
+        mwx_scene_quickjs_domain_bind_puppet_animation_sources(handle,
+            sceneScriptPuppetAnimationSourceLookup, Unmanaged.passUnretained(runtime).toOpaque())
+    }
+
     /// Installed after owner construction and before init; ordinary frames
     /// replace only this mirror, never advance an independent native clock.
     func publishPuppetAnimationSnapshot(_ snapshots: [ScenePuppetAnimationSnapshot]) throws {
@@ -113,17 +150,14 @@ extension SceneScriptQuickJSDomain {
         var rawSnapshots: [MWXSceneQuickJSPuppetAnimationSnapshot] = []
         rawSnapshots.reserveCapacity(snapshots.count)
         for snapshot in snapshots {
-            guard let authoredIndex = UInt32(exactly: snapshot.identity.animationLayerIndex),
+            guard let identity = SceneScriptPuppetAnimationBridge.wireIdentity(snapshot.identity),
                   snapshot.name.utf8.count <= 1024, !snapshot.name.utf8.contains(0) else { continue }
             guard let name = strdup(snapshot.name) else {
                 throw SceneScriptScalarRuntimeFailure.memoryExceeded("Puppet animation snapshot names")
             }
             names.append(name)
             var raw = MWXSceneQuickJSPuppetAnimationSnapshot()
-            raw.layer_id = Int64(snapshot.identity.layerID)
-            raw.animation_layer_index = authoredIndex
-            raw.animation_layer_id = Int64(snapshot.identity.animationLayerID ?? 0)
-            raw.has_animation_layer_id = snapshot.identity.animationLayerID == nil ? 0 : 1
+            raw.identity = identity
             raw.animation_id = Int64(snapshot.animationID)
             raw.name = UnsafePointer(name)
             raw.fps = snapshot.framesPerSecond
@@ -145,4 +179,29 @@ extension SceneScriptQuickJSDomain {
         }
         guard result == MWX_SCENE_QUICKJS_OK else { throw SceneScriptPuppetAnimationBridge.failure(result, diagnostic) }
     }
+}
+
+private nonisolated func sceneScriptPuppetAnimationSourceLookup(
+    _ opaque: UnsafeMutableRawPointer?, _ layerID: Int64,
+    _ name: UnsafePointer<CChar>?, _ nameLength: Int, _ animationID: Int64,
+    _ source: UnsafeMutablePointer<MWXSceneQuickJSPuppetAnimationSource>?,
+    _ sourceName: UnsafeMutablePointer<CChar>?, _ sourceNameCapacity: Int
+) -> UInt32 {
+    guard let opaque, let source, let sourceName else { return 0 }
+    let runtime = Unmanaged<ScenePuppetAnimationPlaybackRuntime>.fromOpaque(opaque).takeUnretainedValue()
+    let metadata: ScenePuppetSingleAnimationSourceMetadata?
+    if let name {
+        let bytes = UnsafeRawPointer(name).assumingMemoryBound(to: UInt8.self)
+        metadata = runtime.singleAnimationSource(layerID: Int(layerID),
+            name: String(decoding: UnsafeBufferPointer(start: bytes, count: nameLength), as: UTF8.self))
+    } else {
+        metadata = runtime.singleAnimationSource(layerID: Int(layerID), animationID: Int(animationID))
+    }
+    guard let metadata, metadata.name.utf8.count < sourceNameCapacity else { return 0 }
+    source.pointee.animation_id = Int64(metadata.animationID)
+    source.pointee.fps = metadata.framesPerSecond
+    source.pointee.frame_count = Double(metadata.frameCount)
+    source.pointee.duration = metadata.duration
+    metadata.name.withCString { sourceName.update(from: $0, count: metadata.name.utf8.count + 1) }
+    return 1
 }

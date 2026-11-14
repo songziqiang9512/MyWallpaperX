@@ -54,6 +54,10 @@ SWIFT_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAnimationHandleBridge.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPuppetAnimationBridge.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationControl.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationSelection.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationEvaluator+FrameSampling.swift",
+    SCENE / "Format/SceneMdlPuppetAnimation.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAudioHost.swift",
@@ -530,6 +534,10 @@ def compile_vector_harness(
 
     swift_sources = list(dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources]))
     fixture = preamble + harness_source
+    evaluator_source = SCENE / "Systems/Puppet/ScenePuppetAnimationEvaluator.swift"
+    if evaluator_source.resolve() not in {source.resolve() for source in swift_sources}:
+        sample = swift_declaration(evaluator_source.read_text(encoding="utf-8"), "    struct FrameSample:")
+        fixture += f"\nnonisolated struct ScenePuppetAnimationEvaluator {{\n{sample}\n}}\n"
     text_descriptor = SCENE / "Systems/Text/SceneTextDescriptor.swift"
     if text_descriptor.resolve() not in {source.resolve() for source in swift_sources}:
         normalizer = swift_declaration(text_descriptor.read_text(encoding="utf-8"),

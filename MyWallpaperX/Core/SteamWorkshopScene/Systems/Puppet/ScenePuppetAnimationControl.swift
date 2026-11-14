@@ -1,10 +1,41 @@
 import Foundation
 
-/// Authored order is part of identity; an optional editor ID alone is not unique.
 nonisolated struct ScenePuppetAnimationIdentity: Hashable, Sendable {
+    enum Instance: Hashable, Sendable {
+        case authored(index: Int, id: Int?)
+        case created(epoch: UInt64, ordinal: UInt32)
+    }
+
     let layerID: Int
-    let animationLayerIndex: Int
-    let animationLayerID: Int?
+    let instance: Instance
+
+    init(layerID: Int, animationLayerIndex: Int, animationLayerID: Int?) {
+        self.layerID = layerID
+        instance = .authored(index: animationLayerIndex, id: animationLayerID)
+    }
+
+    init(layerID: Int, creationEpoch: UInt64, creationOrdinal: UInt32) {
+        self.layerID = layerID
+        instance = .created(epoch: creationEpoch, ordinal: creationOrdinal)
+    }
+
+    var animationLayerIndex: Int? {
+        if case let .authored(index, _) = instance { return index }
+        return nil
+    }
+
+    var animationLayerID: Int? {
+        if case let .authored(_, id) = instance { return id }
+        return nil
+    }
+}
+
+nonisolated struct ScenePuppetSingleAnimationSourceMetadata: Equatable, Sendable {
+    let animationID: Int
+    let name: String
+    let framesPerSecond: Double
+    let frameCount: Int
+    var duration: Double { Double(frameCount) / framesPerSecond }
 }
 
 nonisolated enum ScenePuppetAnimationEndedFailure: String, Error, Equatable, Sendable {
@@ -63,6 +94,7 @@ nonisolated struct ScenePuppetAnimationCommand: Equatable, Sendable {
         case setRate(Double)
         case setBlend(Double)
         case setVisible(Bool)
+        case createSingle(animationID: Int)
     }
 
     let identity: ScenePuppetAnimationIdentity

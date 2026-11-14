@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import SCENE, compile_vector_harness
 
 HARNESS = r'''
 @main enum Harness {
@@ -220,9 +220,181 @@ HARNESS = r'''
         p.finalizeLayerMutations(committing:true)
         return output
     }
+    static func puppetCursorCases() throws -> [String:Any] {
+        var out:[String:Any] = [:]
+        for mode in ["normal","twice","throw","late","rejected","whole"] {
+            let sourceName = "cursor motion " + mode
+            let clip = SceneMdlPuppetAnimation(id:812,name:sourceName,mode:"single",framesPerSecond:30,
+                frameCount:30,transformsByBone:[Array(repeating:.init(translation:.zero,rotation:.zero,
+                    scale:SIMD3<Float>(repeating:1)),count:31)])
+            let runtime = ScenePuppetAnimationPlaybackRuntime()
+            guard case .success = runtime.register(layerID:3,
+                selection:.init(clips:[],composition:.layered),authoredLayers:[],availableSingleAnimations:[clip])
+                else { fatalError("cursor source") }
+            let initial = runtime.advance(frameIndex:0,sceneTime:1,dynamicValues:.empty(frameIndex:0))
+            let descriptor = SceneRenderDescriptor(layers:(1...3).map { id in .init(id:id,layerIndex:id-1,
+                name:"cursor\(id)",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,
+                alpha:1,effects:[],sizeWH:[100,100]) })
+            func binding(_ id:Int,_ failed:Bool) -> SceneScriptBindingIR {
+                let tail = failed && mode == "throw" ? "throw Error('after Puppet create');" : ""
+                let update = failed && mode == "late" ? "export function update(v){throw Error('late update');}" : ""
+                let source = """
+                    export function animationEvent(event,value){return value;}
+                    export function cursorClick(event) {
+                        const image=thisScene.getLayerByID(3);
+                        const h=image.playSingleAnimation('\(sourceName)');
+                        h.pause();h.setFrame(15);
+                        if(h.getFrame()!==15||h.isPlaying())throw Error('cursor provisional');
+                        \(tail)
+                    }
+                    \(update)
+                    """
+                return .init(source:source,owner:.init(kind:.object,objectIndex:id-1,objectID:id,
+                    effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
+                    targetPath:[.key("objects"),.index(id-1),.key("visible")],properties:[:],
+                    authoredValue:.bool(true),valueType:.boolean,wrapperKeys:["script","value"])
+            }
+            let bindings = [binding(1,true),binding(2,false)]
+            let candidate = try SceneScriptQuickJSProgramCandidate.compile(authoredDescriptor:descriptor,
+                runtimeDescriptor:descriptor,scriptBindings:bindings,
+                vectorProjection:SceneScriptVectorProgram.project(descriptor:descriptor,scriptBindings:bindings),
+                userPropertyDefinitions:[],timelineTargets:[],scalarExcludedTargets:[],stringExcludedTargets:[],
+                admittedVectorPassTargets:[],generation:1)
+            guard let domain = candidate.domain else { fatalError("cursor domain") }
+            domain.bindPuppetAnimationSources(runtime)
+            try domain.publishPuppetAnimationSnapshot(initial.animationSnapshots)
+            try domain.publishLayerSnapshot(.empty(frameIndex:0),descriptor:descriptor)
+            let creator = target(.visibility,1), peer = target(.visibility,2)
+            let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram:candidate.vectorProgram,
+                stringProgram:candidate.stringProgram,scalarProgram:candidate.scalarProgram)
+            let inputs:[SceneDynamicTarget:SceneDynamicValue] = [creator:.bool(true),peer:.bool(true)]
+            _ = coordinator.initialize(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+                effectivePropertyValues:[:],frame:frame,userPropertiesJSON:"{}",audioSpectrum:.silent)
+            candidate.vectorProgram.finalizeLayerMutations(committing:true);coordinator.finalizeInitializations()
+            let cursor = candidate.cursorProgram
+            let callbackOnly = mode == "late" || cursor.bindings.allSatisfy { !$0.owner.requiresFrameEvaluation }
+            func input(_ down:Bool) -> SceneScriptCursorFrameSample {
+                .init(hits:Dictionary(uniqueKeysWithValues:(1...2).map { id in
+                    (id,SceneScriptCursorHit(layerID:id,worldPosition:.zero,localPosition:.zero)) }),
+                    pointerPosition:.zero,primaryButtonIsDown:down)
+            }
+            let clicks = [input(false),input(true),input(false)]
+                + (mode == "twice" ? [input(true),input(false)] : [])
+            let edge = cursor.edgeStateSnapshot()
+            let values = candidate.vectorProgram.frameStateSnapshot()
+            func evaluate(_ effects:[SceneScriptOwnerEffects]) -> SceneScriptMediaFrameCoordinatorResult {
+                coordinator.evaluate(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+                    effectivePropertyValues:[:],frame:frame,userPropertiesJSON:"{}",events:.empty,
+                    audioSpectrum:.silent,priorOwnerEffects:effects)
+            }
+            let layers = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[1,2,3])
+            func admit(_ effects:[SceneScriptOwnerEffects],_ rejected:Set<SceneDynamicTarget>,_ cadence:UInt64)
+                -> SceneScriptOwnerEffectsFixedPointAdmission {
+                layers.preflightOwnerEffectsToFixedPoint(effects,excludingOwners:rejected) { owners,_ in
+                    Set(owners.compactMap { owner in
+                        if case .failure = runtime.validate(owner.puppetAnimationCommands,frameIndex:cadence) {
+                            return owner.ownerTarget
+                        }
+                        return nil
+                    })
+                }
+            }
+            var events = cursor.dispatch(batch:.init(samples:clicks,overflowed:false),frame:frame,userPropertiesJSON:"{}")
+            var update = evaluate(events.ownerEffects)
+            let oldKeys = Set(events.ownerEffects.flatMap(\.puppetAnimationCommands).map(\.identity))
+            var droppedCleanly = true
+            if mode == "whole" {
+                cursor.restoreEdgeState(edge);cursor.finalizeLayerMutations(committing:false)
+                candidate.vectorProgram.restoreFrameState(values)
+                candidate.vectorProgram.finalizeLayerMutations(committing:false)
+                droppedCleanly = runtime.snapshots().isEmpty
+                events = cursor.dispatch(batch:.init(samples:clicks,overflowed:false),frame:frame,userPropertiesJSON:"{}")
+                update = evaluate(events.ownerEffects)
+            }
+            let failures = Set(events.failures.keys).union(update.vector.failures.keys)
+            let rejected = failures.union(mode == "rejected" ? [creator] : [])
+            let first = admit(events.ownerEffects + update.ownerEffects,rejected,0)
+            layers.commit(first.admission.layerPlan)
+            let commands = first.admission.admittedEffects.flatMap(\.puppetAnimationCommands)
+            let applied:Bool
+            if case .success = runtime.apply(commands,frameIndex:0) { applied=true } else { applied=false }
+            let partial = mode == "throw" || mode == "late" || mode == "rejected"
+            let expected = mode == "twice" ? 4 : partial ? 1 : 2
+            let births = runtime.snapshots()
+            cursor.finalizeLayerMutations(committing:true,rejectedOwnerTargets:first.externallyRejectedOwners)
+            candidate.vectorProgram.restoreFrameState(values,rejectedOwnerTargets:first.externallyRejectedOwners)
+            candidate.vectorProgram.finalizeLayerMutations(committing:true,rejectedOwnerTargets:first.externallyRejectedOwners)
+            var facts:[String:Bool] = [
+                "borrowedCallbackOnly":callbackOnly,
+                "twoBorrowedOwners":cursor.bindings.count == 2 && candidate.vectorProgram.bindings.count == 2
+                    && cursor.bindings.allSatisfy { binding in !binding.ownsOwner
+                        && candidate.vectorProgram.bindings.contains { $0.owner === binding.owner
+                            && $0.definition.target == binding.ownerTarget } },
+                "cursorTransport":events.ownerEffects.flatMap(\.puppetAnimationCommands).count == (mode == "twice" ? 12 : mode == "throw" ? 3 : 6),
+                "noUpdateReexport":update.ownerEffects.flatMap(\.puppetAnimationCommands).isEmpty,
+                "failureScope":events.failures[peer] == nil && update.vector.failures[peer] == nil
+                    && (events.failures[creator] != nil) == (mode == "throw")
+                    && (update.vector.failures[creator] != nil) == (mode == "late"),
+                "nativeApplied":applied && births.count == expected,
+                "sameCallbackControls":births.allSatisfy { !$0.isPlaying && $0.currentFrame == 15 },
+                "keysStayDistinct":Set(births.map(\.identity)).count == expected,
+                "wholeDiscard":droppedCleanly && (mode != "whole" || oldKeys.isDisjoint(with:births.map(\.identity)))
+            ]
+            _ = runtime.apply(commands,frameIndex:0)
+            facts["applyOnce"] = runtime.snapshots().count == expected
+            if mode == "rejected" {
+                let next = runtime.advance(frameIndex:1,sceneTime:2,dynamicValues:.empty(frameIndex:1))
+                try domain.publishPuppetAnimationSnapshot(next.animationSnapshots)
+                let retry = cursor.dispatch(batch:.init(samples:[input(false)],overflowed:false),frame:frame,userPropertiesJSON:"{}")
+                let retryUpdate = evaluate(retry.ownerEffects)
+                let accepted = admit(retry.ownerEffects + retryUpdate.ownerEffects,[],1)
+                let retryCommands = accepted.admission.admittedEffects.flatMap(\.puppetAnimationCommands)
+                _ = runtime.apply(retryCommands,frameIndex:1)
+                cursor.finalizeLayerMutations(committing:true)
+                candidate.vectorProgram.finalizeLayerMutations(committing:true)
+                let quiet = cursor.dispatch(batch:.init(samples:[input(false)],overflowed:false),frame:frame,userPropertiesJSON:"{}")
+                facts["retryOnlyRejected"] = retry.ownerEffects.count == 1 && retry.ownerEffects.first?.ownerTarget == creator
+                    && retryCommands.count == 3 && runtime.snapshots().count == 2 && quiet.ownerEffects.isEmpty
+                cursor.finalizeLayerMutations(committing:true);candidate.vectorProgram.finalizeLayerMutations(committing:true)
+            }
+            out[mode] = ["facts":facts,"vectorOwnerCount":candidate.vectorProgram.bindings.count,
+                "cursorOwnerCount":cursor.bindings.count,"standaloneFlags":cursor.bindings.map(\.ownsOwner),
+                "valueFailures":update.vector.failures.values.map(\.code)]
+        }
+        return out
+    }
+    static func puppetRegistrationDeltas() throws -> [Int] {
+        let descriptor = SceneRenderDescriptor(layers:[.init(id:1,layerIndex:0,name:"cursor",visible:true,
+            originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])])
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.publishLayerSnapshot(.empty(frameIndex:0),descriptor:descriptor)
+        let identity = ScenePuppetAnimationIdentity(layerID:1,animationLayerIndex:0,animationLayerID:89)
+        let snapshot = ScenePuppetAnimationSnapshot(identity:identity,animationID:812,name:"loop",
+            framesPerSecond:30,frameCount:30,duration:1,currentFrame:0,isPlaying:true,rate:1,blend:1,
+            visible:true,endedSequence:0,supportsEndedCallbacks:true,endedFailure:nil)
+        let owner = try SceneScriptValueOwner(domain:domain,
+            source:"export function cursorClick(){thisObject.addEndedCallback(()=>{});}",
+            target:ScenePuppetAnimationPropertyTarget.visibility(layerID:1,animationLayerID:89),
+            valueType:.bool,effectNames:[],puppetAnimationIdentity:identity,
+            allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+        try domain.publishPuppetAnimationSnapshot([snapshot])
+        let program = SceneScriptCursorProgram(bindings:[.init(layerID:1,authoredOrdinal:0,owner:owner,
+            events:owner.exportedCursorEvents,ownsOwner:false,scriptProperties:[:],ownerSeedValue:.bool(true))],generation:1)
+        let first = dispatch(program,click(1) + [sample(1,true),sample(1,false)])
+        let total = first.ownerEffects.reduce(0) { $0 + $1.puppetAnimationCallbackRegistrations }
+        let delta = Int(mwx_scene_quickjs_owner_puppet_animation_registration_count(owner.handle))
+        program.finalizeLayerMutations(committing:true);owner.commitLayerMutations()
+        let next = dispatch(program,[sample(1,true),sample(1,false)])
+        let nextDelta = next.ownerEffects.reduce(0) { $0 + $1.puppetAnimationCallbackRegistrations }
+        program.finalizeLayerMutations(committing:true);owner.commitLayerMutations()
+        return [first.failures.count,total,delta,next.failures.count,nextDelta]
+    }
     static func main() throws {
         var out:[String:Any] = [:]
         out["primaryButton"] = try primaryButtonCases()
+        out["puppetCursor"] = try puppetCursorCases()
+        out["puppetRegistrationDeltas"] = try puppetRegistrationDeltas()
         out["failedInitCursor"] = try failedInitCursorCases()
         out["boneOrder"] = try boneOrder()
         out["boneBurst"] = try boneOrder(burst:true)
@@ -356,7 +528,8 @@ class CursorOwnerTransactionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-cursor-owner-test-") as temp:
-            binary=compile_vector_harness(Path(temp),HARNESS,"cursor-owner")
+            binary=compile_vector_harness(Path(temp),HARNESS,"cursor-owner",
+                extra_swift_sources=(SCENE / "Systems/Script/SceneScriptMediaFrameCoordinator.swift",))
             run=subprocess.run([str(binary)],capture_output=True,text=True,check=True)
             cls.result=json.loads(run.stdout.strip().splitlines()[-1])
 
@@ -364,6 +537,19 @@ class CursorOwnerTransactionTests(unittest.TestCase):
         self.assertEqual(self.result["first"],[1,0,100]);self.assertEqual(self.result["firstPeer"],[1,0,100])
         self.assertEqual(self.result["retried"],[2,10,100]);self.assertEqual(self.result["retriedPeer"],[])
         self.assertTrue(self.result["confirmedQuiet"])
+
+    def test_callback_only_boolean_cursor_transports_puppet_commands_through_real_admission(self):
+        for mode in ("normal", "twice"):
+            with self.subTest(mode=mode):
+                self.assertTrue(all(self.result["puppetCursor"][mode]["facts"].values()), self.result["puppetCursor"][mode])
+
+    def test_cursor_puppet_commands_keep_throw_late_rejection_and_frame_rollback_local(self):
+        for mode in ("throw", "late", "rejected", "whole"):
+            with self.subTest(mode=mode):
+                self.assertTrue(all(self.result["puppetCursor"][mode]["facts"].values()), self.result["puppetCursor"][mode])
+
+    def test_cursor_puppet_registrations_count_callback_deltas(self):
+        self.assertEqual(self.result["puppetRegistrationDeltas"], [0, 2, 1, 0, 1])
 
     def test_init_failure_preserves_entire_press_release_sequence(self):
         self.assertEqual(self.result["earlyFailure"],"bad-return")

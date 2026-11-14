@@ -6,10 +6,15 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     struct LayerFrame {
         let samples: [ScenePuppetAnimationEvaluator.FrameSample?]
         let blends: [Double]?
+        let selection: ScenePuppetAnimationSelection?
+        let membershipRevision: UInt64
 
-        init(samples: [ScenePuppetAnimationEvaluator.FrameSample?], blends: [Double]? = nil) {
+        init(samples: [ScenePuppetAnimationEvaluator.FrameSample?], blends: [Double]? = nil,
+             selection: ScenePuppetAnimationSelection? = nil, membershipRevision: UInt64 = 0) {
             self.samples = samples
             self.blends = blends
+            self.selection = selection
+            self.membershipRevision = membershipRevision
         }
     }
 
@@ -35,6 +40,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         case commandBudgetExceeded
         case duplicateCommand
         case staleCommand
+        case unknownSingleAnimation(layerID: Int, animationID: Int)
     }
 
     private struct ClipDefinition: Equatable {
@@ -44,15 +50,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
 
         static func == (lhs: Self, rhs: Self) -> Bool {
             lhs.identity == rhs.identity && lhs.layer == rhs.layer
-                && lhs.animation.id == rhs.animation.id
-                && lhs.animation.name == rhs.animation.name
-                && lhs.animation.mode == rhs.animation.mode
-                && lhs.animation.framesPerSecond == rhs.animation.framesPerSecond
-                && lhs.animation.frameCount == rhs.animation.frameCount
-                && lhs.animation.transformsByBone == rhs.animation.transformsByBone
-                && lhs.animation.transformTrackStates == rhs.animation.transformTrackStates
-                && lhs.animation.alphaByBone == rhs.animation.alphaByBone
-                && lhs.animation.events == rhs.animation.events
+                && ScenePuppetAnimationPlaybackRuntime.sameAnimation(lhs.animation, rhs.animation)
         }
 
         var usesDynamicVisibility: Bool {
@@ -78,6 +76,14 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     private struct LayerDefinition: Equatable {
         let composition: String
         let clips: [ClipDefinition]
+        let availableSingleAnimations: [SceneMdlPuppetAnimation]
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.composition == rhs.composition && lhs.clips == rhs.clips
+                && lhs.availableSingleAnimations.count == rhs.availableSingleAnimations.count
+                && zip(lhs.availableSingleAnimations, rhs.availableSingleAnimations)
+                    .allSatisfy { ScenePuppetAnimationPlaybackRuntime.sameAnimation($0.0, $0.1) }
+        }
     }
 
     private struct ClipState {
@@ -113,6 +119,17 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         let fraction: Double
     }
 
+    private struct Member {
+        let clip: ClipDefinition
+        var state: ClipState
+    }
+
+    private struct LayerState {
+        var members: [Member]
+        var selection: ScenePuppetAnimationSelection
+        var membershipRevision: UInt64 = 0
+    }
+
     private struct CommandKey: Hashable, Comparable {
         let epoch: UInt64
         let ordinal: UInt32
@@ -124,7 +141,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     private let lock = NSLock()
     private var definitions: [Int: LayerDefinition] = [:]
     private var dynamicTopologyRevision: UInt64?
-    private var states: [Int: [ClipState]] = [:]
+    private var states: [Int: LayerState] = [:]
     private var lastSceneTime: Double?
     private var latestFrame: FrameSnapshot?
     private var appliedCommands: [CommandKey: ScenePuppetAnimationCommand] = [:]
@@ -139,7 +156,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     func register(
         layerID: Int,
         selection: ScenePuppetAnimationSelection,
-        authoredLayers: [ScenePuppetAnimationLayer]
+        authoredLayers: [ScenePuppetAnimationLayer],
+        availableSingleAnimations: [SceneMdlPuppetAnimation] = []
     ) -> Result<Void, Failure> {
         var clips: [ClipDefinition] = []
         var nextAuthoredPosition = 0
@@ -153,7 +171,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 animationLayerID: clip.layer.id), layer: clip.layer,
                 animation: clip.animation))
         }
-        let definition = LayerDefinition(composition: selection.composition.rawValue, clips: clips)
+        let definition = LayerDefinition(composition: selection.composition.rawValue, clips: clips,
+            availableSingleAnimations: availableSingleAnimations)
         lock.lock()
         defer { lock.unlock() }
         if let previous = definitions[layerID] {
@@ -161,12 +180,24 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 : .failure(.conflictingDefinition(layerID: layerID))
         }
         definitions[layerID] = definition
-        states[layerID] = clips.map { clip in
-            ClipState(rate: clip.layer.rate ?? 1, blend: clip.layer.blend ?? 1,
-                visible: clip.layer.visible == true,
-                eventFailure: Self.eventDefinitionFailure(clip))
-        }
+        states[layerID] = LayerState(members: clips.map { clip in
+            Member(clip: clip, state: ClipState(rate: clip.layer.rate ?? 1,
+                blend: clip.layer.blend ?? 1, visible: clip.layer.visible == true,
+                eventFailure: Self.eventDefinitionFailure(clip)))
+        }, selection: selection)
         return .success(())
+    }
+
+    func singleAnimationSource(layerID: Int, name: String) -> ScenePuppetSingleAnimationSourceMetadata? {
+        lock.lock()
+        defer { lock.unlock() }
+        return sourceMetadata(layerID: layerID) { $0.name == name }
+    }
+
+    func singleAnimationSource(layerID: Int, animationID: Int) -> ScenePuppetSingleAnimationSourceMetadata? {
+        lock.lock()
+        defer { lock.unlock() }
+        return sourceMetadata(layerID: layerID) { $0.id == animationID }
     }
 
     /// Consume cadence once, before any surface or GPU work. Hidden clips keep
@@ -190,7 +221,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         var animationEvents = sameCadence ? latestFrame!.animationEvents : []
         var eventFailures = sameCadence ? latestFrame!.eventFailures : [:]
         layers.reserveCapacity(definitions.count)
-        for (layerID, definition) in definitions {
+        for layerID in definitions.keys {
             // Paused surface rebuilding may register a newly prepared layer
             // after this cadence was consumed. Fill only that missing parent;
             // existing samples and their visibility decisions remain frozen.
@@ -200,16 +231,18 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
             var crossings: [EventCrossing] = []
             var eventSources: Set<Int> = []
             var eventBatchOverflowed = false
-            samples.reserveCapacity(definition.clips.count)
-            for index in definition.clips.indices {
-                let clip = definition.clips[index]
+            var retired: [Int] = []
+            samples.reserveCapacity(local.members.count)
+            for index in local.members.indices {
+                let clip = local.members[index].clip
+                var state = local.members[index].state
                 if clip.usesDynamicVisibility {
-                    local[index].visible = clip.isVisible(layerID: layerID, snapshot: dynamicValues)
+                    state.visible = clip.isVisible(layerID: layerID, snapshot: dynamicValues)
                 }
-                let startsNow = local[index].playbackTime == nil
+                let startsNow = state.playbackTime == nil
                 if startsNow {
                     // Preserve first-visible nonzero sceneTime compatibility.
-                    local[index].playbackTime = local[index].visible ? max(0, currentSceneTime) : 0
+                    state.playbackTime = state.visible ? max(0, currentSceneTime) : 0
                 }
                 if clip.layer.hasRateScript == true || clip.layer.rateTimeline != nil, let id = clip.layer.id,
                    let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.rate(
@@ -218,28 +251,34 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                     || (clip.layer.rateTimeline != nil && resolved.source == .timeline),
                    case let .scalar(rate) = resolved.value,
                    ScenePuppetAnimationCommand.acceptsScalarControl(rate) {
-                    local[index].setRate(rate, clip: clip)
+                    state.setRate(rate, clip: clip)
                 }
                 if clip.layer.blendTimeline != nil, let id = clip.layer.id,
                    let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.blend(
                        layerID: layerID, animationLayerID: id)],
                    resolved.source == .timeline, case let .scalar(blend) = resolved.value,
                    ScenePuppetAnimationCommand.acceptsScalarControl(blend) {
-                    local[index].blend = Double(Float(blend))
+                    state.blend = Double(Float(blend))
                 }
-                if !startsNow && local[index].visible && local[index].isPlaying {
-                    let previousPhase = local[index].explicitFrame ?? local[index].phase(clip)
-                    local[index].playbackTime! += elapsed
-                    if let explicit = local[index].explicitFrame, elapsed > 0, local[index].rate > 0 {
-                        local[index].phaseOffset = max(0, explicit)
-                            + elapsed * local[index].rate * Double(clip.animation.framesPerSecond)
-                            - local[index].playbackTime! * local[index].rate * Double(clip.animation.framesPerSecond)
-                        local[index].explicitFrame = nil
+                if !startsNow && state.visible && state.isPlaying {
+                    let previousPhase = state.explicitFrame ?? state.phase(clip)
+                    state.playbackTime! += elapsed
+                    if let explicit = state.explicitFrame, elapsed > 0, state.rate > 0 {
+                        state.phaseOffset = max(0, explicit)
+                            + elapsed * state.rate * Double(clip.animation.framesPerSecond)
+                            - state.playbackTime! * state.rate * Double(clip.animation.framesPerSecond)
+                        state.explicitFrame = nil
                     }
-                    if local[index].explicitFrame == nil {
-                        Self.recordEnded(clip: clip, previousPhase: previousPhase, state: &local[index])
+                    if case .created = clip.identity.instance,
+                       elapsed > 0, state.rate > 0, state.explicitFrame == nil,
+                       state.phase(clip) >= Double(clip.animation.frameCount) {
+                        retired.append(index)
+                        continue
+                    }
+                    if case .authored = clip.identity.instance, state.explicitFrame == nil {
+                        Self.recordEnded(clip: clip, previousPhase: previousPhase, state: &state)
                         switch Self.eventCrossings(clip: clip, clipIndex: index,
-                            previousPhase: previousPhase, state: local[index]) {
+                            previousPhase: previousPhase, state: state) {
                         case let .success(events):
                             if !events.isEmpty {
                                 eventSources.insert(index)
@@ -251,7 +290,7 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                                 }
                             }
                         case let .failure(failure):
-                            local[index].eventFailure = failure
+                            state.eventFailure = failure
                             if failure == .eventBudgetExceeded {
                                 eventSources.insert(index)
                                 eventBatchOverflowed = true
@@ -260,11 +299,12 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                         }
                     }
                 }
-                samples.append(local[index].visible ? Self.sample(clip: clip, state: local[index]) : nil)
-                animationSnapshots.append(Self.snapshot(clip: clip, state: local[index]))
+                local.members[index].state = state
+                samples.append(state.visible ? Self.sample(clip: clip, state: state) : nil)
+                animationSnapshots.append(Self.snapshot(clip: clip, state: state))
             }
             if eventBatchOverflowed {
-                for index in eventSources { local[index].eventFailure = .eventBudgetExceeded }
+                for index in eventSources { local.members[index].state.eventFailure = .eventBudgetExceeded }
             } else {
                 crossings.sort {
                     if $0.fraction != $1.fraction { return $0.fraction < $1.fraction }
@@ -273,20 +313,26 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                 }
                 for crossing in crossings {
                     let index = crossing.clipIndex
-                    let clip = definition.clips[index]
+                    let clip = local.members[index].clip
                     let event = clip.animation.events[crossing.eventIndex]
-                    local[index].eventSequence += 1
+                    local.members[index].state.eventSequence += 1
                     animationEvents.append(.init(identity: clip.identity,
-                        sequence: local[index].eventSequence, name: event.name, frame: event.frame))
+                        sequence: local.members[index].state.eventSequence, name: event.name, frame: event.frame))
                 }
             }
-            for index in definition.clips.indices {
-                if let failure = local[index].eventFailure {
-                    eventFailures[definition.clips[index].identity] = failure
+            for member in local.members {
+                if let failure = member.state.eventFailure {
+                    eventFailures[member.clip.identity] = failure
                 }
+            }
+            if !retired.isEmpty {
+                for index in retired.reversed() { local.members.remove(at: index) }
+                local.selection = Self.selection(for: local.members)
+                local.membershipRevision = frameIndex
             }
             states[layerID] = local
-            layers[layerID] = LayerFrame(samples: samples, blends: local.map(\.blend))
+            layers[layerID] = LayerFrame(samples: samples, blends: local.members.map(\.state.blend),
+                selection: local.selection, membershipRevision: local.membershipRevision)
         }
         let frame = FrameSnapshot(frameIndex: frameIndex, sceneTime: currentSceneTime, layers: layers,
             animationSnapshots: Self.sorted(animationSnapshots),
@@ -374,24 +420,11 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         defer { lock.unlock() }
         switch admission(commands, frameIndex: frameIndex) {
         case let .failure(failure): return .failure(failure)
-        case let .success(ordered):
-            for command in ordered {
+        case let .success(admitted):
+            for (layerID, layer) in admitted.layers { states[layerID] = layer }
+            for command in admitted.commands {
                 let key = CommandKey(epoch: command.callbackEpoch, ordinal: command.ordinal)
                 if appliedCommands[key] != nil { continue }
-                let clips = definitions[command.identity.layerID]!.clips
-                let index = clips.firstIndex { $0.identity == command.identity }!
-                let clip = clips[index]
-                var state = states[command.identity.layerID]![index]
-                switch command.action {
-                case .play: state.isPlaying = true
-                case .pause: state.isPlaying = false
-                case .stop: state.isPlaying = false; state.explicitFrame = 0
-                case let .setFrame(frame): state.explicitFrame = Double(Float(frame))
-                case let .setRate(rate): state.setRate(rate, clip: clip)
-                case let .setBlend(blend): state.blend = Double(Float(blend))
-                case let .setVisible(visible): state.visible = visible
-                }
-                states[command.identity.layerID]![index] = state
                 appliedCommands[key] = command
                 lastCommandKey = key
             }
@@ -402,15 +435,15 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     func snapshots() -> [ScenePuppetAnimationSnapshot] {
         lock.lock()
         defer { lock.unlock() }
-        return Self.sorted(definitions.flatMap { layerID, definition in
-            definition.clips.enumerated().map { index, clip in
-                Self.snapshot(clip: clip, state: states[layerID]![index])
+        return Self.sorted(states.flatMap { _, layer in
+            layer.members.map { member in
+                Self.snapshot(clip: member.clip, state: member.state)
             }
         })
     }
 
     private func admission(_ commands: [ScenePuppetAnimationCommand], frameIndex: UInt64)
-        -> Result<[ScenePuppetAnimationCommand], Failure> {
+        -> Result<(commands: [ScenePuppetAnimationCommand], layers: [Int: LayerState]), Failure> {
         guard latestFrame?.frameIndex == frameIndex else {
             return .failure(.unconsumedCadence(frameIndex: frameIndex))
         }
@@ -421,32 +454,105 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         }
         var keys: Set<CommandKey> = []
         var newCount = 0
+        var candidates: [Int: LayerState] = [:]
         for command in ordered {
-            guard definitions[command.identity.layerID]?.clips.contains(where: {
-                $0.identity == command.identity
-            }) == true else { return .failure(.unknownIdentity(command.identity)) }
-            switch command.action {
-            case let .setFrame(value):
-                guard value.isFinite, Float(value).isFinite else { return .failure(.invalidValue(command.identity)) }
-            case let .setRate(value), let .setBlend(value):
-                guard ScenePuppetAnimationCommand.acceptsScalarControl(value) else {
-                    return .failure(.invalidValue(command.identity))
-                }
-            default: break
-            }
             let key = CommandKey(epoch: command.callbackEpoch, ordinal: command.ordinal)
             guard keys.insert(key).inserted else { return .failure(.duplicateCommand) }
             if let applied = appliedCommands[key] {
                 guard applied == command else { return .failure(.duplicateCommand) }
-            } else {
-                guard lastCommandKey == nil || key > lastCommandKey! else { return .failure(.staleCommand) }
-                newCount += 1
+                continue
             }
+            guard lastCommandKey == nil || key > lastCommandKey! else { return .failure(.staleCommand) }
+            newCount += 1
+            let layerID = command.identity.layerID
+            guard var layer = candidates[layerID] ?? states[layerID] else {
+                return .failure(.unknownIdentity(command.identity))
+            }
+            if case let .createSingle(animationID) = command.action {
+                guard command.identity.instance == .created(epoch: command.callbackEpoch, ordinal: command.ordinal),
+                      !layer.members.contains(where: { $0.clip.identity == command.identity }) else {
+                    return .failure(.invalidControlTarget(command.identity))
+                }
+                guard let animation = definitions[layerID]?.availableSingleAnimations.first(where: {
+                    $0.id == animationID
+                }) else { return .failure(.unknownSingleAnimation(layerID: layerID, animationID: animationID)) }
+                let configuration = ScenePuppetAnimationLayer(id: nil, animationID: animationID,
+                    name: nil, additive: false, blend: 1, blendIn: nil, blendOut: nil,
+                    blendTime: nil, rate: 1, visible: true, visibilityBinding: nil)
+                let clip = ClipDefinition(identity: command.identity, layer: configuration, animation: animation)
+                layer.members.append(Member(clip: clip,
+                    state: ClipState(playbackTime: 0, rate: 1, blend: 1, visible: true)))
+                guard Self.acceptsComposition(layer.members) else {
+                    return .failure(.invalidControlTarget(command.identity))
+                }
+                layer.selection = Self.selection(for: layer.members)
+                layer.membershipRevision = frameIndex &+ 1
+            } else {
+                guard let index = layer.members.firstIndex(where: { $0.clip.identity == command.identity }) else {
+                    return .failure(.unknownIdentity(command.identity))
+                }
+                let clip = layer.members[index].clip
+                var state = layer.members[index].state
+                switch command.action {
+                case .play: state.isPlaying = true
+                case .pause: state.isPlaying = false
+                case .stop: state.isPlaying = false; state.explicitFrame = 0
+                case let .setFrame(value):
+                    guard value.isFinite, Float(value).isFinite else { return .failure(.invalidValue(command.identity)) }
+                    state.explicitFrame = Double(Float(value))
+                case let .setRate(value), let .setBlend(value):
+                    guard ScenePuppetAnimationCommand.acceptsScalarControl(value) else {
+                        return .failure(.invalidValue(command.identity))
+                    }
+                    if case .setRate = command.action { state.setRate(value, clip: clip) }
+                    else { state.blend = Double(Float(value)) }
+                case let .setVisible(visible):
+                    guard case .authored = command.identity.instance else {
+                        return .failure(.invalidControlTarget(command.identity))
+                    }
+                    state.visible = visible
+                case .createSingle: break
+                }
+                layer.members[index].state = state
+            }
+            candidates[layerID] = layer
         }
         guard appliedCommands.count + newCount <= Self.commandBudget else {
             return .failure(.commandBudgetExceeded)
         }
-        return .success(ordered)
+        return .success((commands: ordered, layers: candidates))
+    }
+
+    private func sourceMetadata(layerID: Int, matching: (SceneMdlPuppetAnimation) -> Bool)
+        -> ScenePuppetSingleAnimationSourceMetadata? {
+        var selected: SceneMdlPuppetAnimation?
+        for animation in definitions[layerID]?.availableSingleAnimations ?? [] where matching(animation) {
+            guard selected == nil else { return nil }
+            selected = animation
+        }
+        return selected.map { .init(animationID: $0.id, name: $0.name,
+            framesPerSecond: Double($0.framesPerSecond), frameCount: $0.frameCount) }
+    }
+
+    private static func sameAnimation(_ lhs: SceneMdlPuppetAnimation, _ rhs: SceneMdlPuppetAnimation) -> Bool {
+        lhs.id == rhs.id && lhs.name == rhs.name && lhs.mode == rhs.mode
+            && lhs.framesPerSecond == rhs.framesPerSecond && lhs.frameCount == rhs.frameCount
+            && lhs.transformsByBone == rhs.transformsByBone && lhs.transformTrackStates == rhs.transformTrackStates
+            && lhs.alphaByBone == rhs.alphaByBone && lhs.events == rhs.events
+    }
+
+    private static func selection(for members: [Member]) -> ScenePuppetAnimationSelection {
+        let clips = members.map { ScenePuppetAnimationSelection.Clip(layer: $0.clip.layer, animation: $0.clip.animation) }
+        return .init(clips: clips, composition: clips.count == 1 && clips[0].layer.additive == false
+            ? .singleAbsolute : .layered)
+    }
+
+    private static func acceptsComposition(_ members: [Member]) -> Bool {
+        let alphaCount = members.reduce(0) { $0 + ($1.clip.animation.hasAlphaContribution ? 1 : 0) }
+        let opaqueCount = members.reduce(0) { $0 + ($1.clip.layer.additive == false ? 1 : 0) }
+        return alphaCount <= 1 && (opaqueCount <= 1 || !members.contains {
+            $0.clip.animation.transformTrackStates.contains(.referenceCandidate)
+        })
     }
 
     private static func sample(clip: ClipDefinition, state: ClipState)
@@ -485,11 +591,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     }
 
     private static func sorted(_ snapshots: [ScenePuppetAnimationSnapshot]) -> [ScenePuppetAnimationSnapshot] {
-        snapshots.sorted {
-            $0.identity.layerID == $1.identity.layerID
-                ? $0.identity.animationLayerIndex < $1.identity.animationLayerIndex
-                : $0.identity.layerID < $1.identity.layerID
-        }
+        // Stable grouping retains the runtime's member order within a parent.
+        snapshots.sorted { $0.identity.layerID < $1.identity.layerID }
     }
 
     private static func recordEnded(clip: ClipDefinition, previousPhase: Double, state: inout ClipState) {

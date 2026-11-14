@@ -13,19 +13,19 @@ struct ScenePreparedPuppetResources {
         cancellationCheck: () throws -> Void
     ) throws -> Self {
         let layers = descriptor.layers.filter { $0.puppetMeshPath != nil }
-        var demands: [String: (path: String, animations: Bool)] = [:]
+        var demands: [String: (path: String, animationIDs: Set<Int>)] = [:]
         for layer in layers {
             guard let path = layer.puppetMeshPath else { continue }
             let key = path.lowercased()
             let previous = demands[key]
             demands[key] = (previous?.path ?? path,
-                previous?.animations == true || !layer.puppetAnimationLayers.isEmpty)
+                (previous?.animationIDs ?? []).union(layer.puppetAnimationLayers.compactMap(\.animationID)))
         }
         var assets: [String: ScenePuppetLayerLoad.AssetPreparation] = [:]
         for (key, demand) in demands {
             try cancellationCheck()
             assets[key] = try ScenePuppetLayerLoad.prepareAsset(meshPath: demand.path,
-                resourceView: resourceView, needsAnimations: demand.animations,
+                resourceView: resourceView, authoredAnimationIDs: demand.animationIDs,
                 cancellationCheck: cancellationCheck)
         }
         var poses: [Int: ScenePuppetLayerLoad.PreparedPose] = [:]

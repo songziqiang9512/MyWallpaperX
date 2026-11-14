@@ -72,7 +72,7 @@ MDLV0013 的 52 字节顶点布局与已有 position/UV bind mesh 消费者相�
 <a id="puppet"></a>
 ## Puppet 动画与当前 pose
 
-Reader 保 mesh/rig、weights、clips、TRS、alpha、events、reference 与 auxiliary presence；Selector/Evaluator 决定实际可执行通道。会话 AnimationPlaybackRuntime 唯一持 clip 位置、rate、blend、命令和事件；每屏 Surface 持 pose/physics、骨骼写入和成员。
+Reader 保 mesh/rig、weights、clips、TRS、alpha、events、reference 与 auxiliary presence；Selector/Evaluator 决定实际可执行通道。会话 AnimationPlaybackRuntime 唯一持当前有序实例、clip 位置、rate、blend、命令和事件；每屏 Surface 持派生 selection、pose/physics 与骨骼写入，不另定实例寿命。
 
 - 同 cadence 先同步 committed 成员、采样动画，准备 pre-script pose，执行 VM，应用骨骼写入，完成 skinning/attachment 并冻结。暂停、无 drawable 和 GPU retry 只消费该帧。
 - 新 rate 保当前 phase 后重锚，不按 `sceneTime × 新rate` 从头计算。已准备的合法参数 Timeline 与 String 条件选择使用原 typed producer，当前坏值不覆盖上一健康播放。
@@ -83,6 +83,17 @@ Reader 保 mesh/rig、weights、clips、TRS、alpha、events、reference 与 aux
 Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备模板与共享资产保留。Puppet geometry storage 与 paint/PSO 准备分开，出生只读准备结果，不重新读取 paint 或编译 clipping pipeline。
 
 源码：[Selection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)、[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)、[Surface 装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)。
+
+<a id="puppet-instances"></a>
+### 运行时 Single 实例
+
+目标是让图片的真实 Puppet 资源可在脚本调用后播放一次并自动退出；[公开 API 合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html)与本机桥接范围见[脚本合同](scenescript-api-coverage.md#image-single-animation)。沿原 prepared asset 的 animationSet 在冷准备期准备受支持的 Single 源，源表与当前实例分开；原 asset evaluator 的同一准备结果保各源成功/失败，同 mesh 的实际 authored ID 与可创建 Single 源只冷编译一次，各 pose 共享；必需源沿冷选择抛原失败原因，不编译无需求的其他源；没有作者 animationlayers 的有效图片也保可创建实例的 evaluator/geometry。必需 authored 源失败保原局部降级，可选源失败只失去该源，不重读资源、热 prepare 或制造假 authored 层。
+
+原 playback runtime 的有序实例承接作者和创建实例；作者身份保原 authored ordinal/editor ID，创建身份复用原 callback epoch/command ordinal。原 journal 按 create→control 顺序准入并一次 apply，失败沿原 owner bundle 回滚。出生从本地 phase0 开始，退出 authored first-visible 的绝对场景时间规则；普通作者播放不改。自然 Single 完成由原 cadence 移除一次，与 JS ended、drawable、GPU 和 Surface 数量无关；父/会话退休沿原链释放实例，共享准备资产不随单实例释放。
+
+同一 frozen LayerFrame 给出有序成员到源的投影、samples/blends 与成员 revision。Surface 只在成员变更时采用原 selection、调整原 signature/alpha 派生存储；骨查询、physics、挂点和 geometry 共同采用，保 rig/physics/GPU 寿命。原固定 authored 数量、public stack index 等于 authored identity index、零 authored 永久 bind-only 和 callback 热准备的假设退出；不新增时钟、实例 owner、源 catalog 或 pending 状态副本。重建消费当前成员，不复活已结束实例。
+
+首批只接真实资源名 String、受支持 Single、缺省 config，rate1/blend1/visible/playing 与无额外包络是本项目基本实现选择，尚非官方默认值资格。Object/config、Loop/Mirror 转一次、重叠排序/包络、Single JS ended 及过期句柄精确边界保未资格；原 authored 多源、Loop 事件和 bone 写入继续原规则。验收覆盖真实零 authored 资源的内点 pose、晚场景出生、暂停/定位/恢复/自然移除、同事务后继控制与回滚、成员重建及健康邻例，不以非黑/metadata 或末帧 bind pose 代替实际播放。
 
 <a id="puppet-attachments"></a>
 ### 有序挂点与名称绑定

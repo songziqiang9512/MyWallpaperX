@@ -120,7 +120,8 @@ nonisolated extension SceneScriptQuickJSDomain {
         defer { names.forEach { free($0) } }
         func record(_ identity: ScenePuppetAnimationIdentity) throws -> MWXSceneQuickJSAnimationEvent {
             guard identity.layerID >= 0,
-                  let index = UInt32(exactly: identity.animationLayerIndex) else {
+                  let authoredIndex = identity.animationLayerIndex,
+                  let index = UInt32(exactly: authoredIndex) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet event identity")
             }
             var raw = MWXSceneQuickJSAnimationEvent()
@@ -149,11 +150,12 @@ nonisolated extension SceneScriptQuickJSDomain {
             }
             records.append(raw)
         }
-        for (identity, failure) in failures.sorted(by: {
-            if $0.key.layerID != $1.key.layerID { return $0.key.layerID < $1.key.layerID }
-            return $0.key.animationLayerIndex < $1.key.animationLayerIndex
+        let failureRecords = try failures.map { (source: try record($0.key), failure: $0.value) }
+        for (source, failure) in failureRecords.sorted(by: {
+            if $0.source.layer_id != $1.source.layer_id { return $0.source.layer_id < $1.source.layer_id }
+            return $0.source.animation_layer_index < $1.source.animation_layer_index
         }) {
-            var raw = try record(identity)
+            var raw = source
             switch failure {
             case .unsupportedMode: raw.failure = 1
             case .invalidEvent: raw.failure = 2

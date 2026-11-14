@@ -18,15 +18,15 @@ typedef struct PuppetAnimationHandle {
 static MWXSceneQuickJSPuppetAnimationIdentity snapshot_identity(
     const MWXSceneQuickJSPuppetAnimationSnapshot *snapshot
 ) {
-    return (MWXSceneQuickJSPuppetAnimationIdentity){
-        snapshot->layer_id, snapshot->animation_layer_index,
-        snapshot->animation_layer_id, snapshot->has_animation_layer_id
-    };
+    return snapshot->identity;
 }
 
 static bool same_identity(MWXSceneQuickJSPuppetAnimationIdentity a,
     MWXSceneQuickJSPuppetAnimationIdentity b) {
-    return a.layer_id == b.layer_id && a.animation_layer_index == b.animation_layer_index &&
+    if (a.layer_id != b.layer_id || a.kind != b.kind) return false;
+    if (a.kind == 1)
+        return a.creation_epoch == b.creation_epoch && a.creation_ordinal == b.creation_ordinal;
+    return a.animation_layer_index == b.animation_layer_index &&
         a.has_animation_layer_id == b.has_animation_layer_id &&
         (!a.has_animation_layer_id || a.animation_layer_id == b.animation_layer_id);
 }
@@ -83,8 +83,27 @@ static MWXSceneQuickJSPuppetAnimationRecord *handle_record(
 ) {
     if (!parent_alive(owner, handle->target_layer_index, handle->target.layer_id)) return NULL;
     MWXSceneQuickJSPuppetAnimationRecord *record = mwx_scene_quickjs_puppet_animation_record_for_identity(owner->domain, handle->target);
-    return record != NULL && record->available && record->incarnation == handle->target_incarnation
+    return record != NULL && record->available && (handle->target.kind == 1 ||
+        record->incarnation == handle->target_incarnation)
         ? record : NULL;
+}
+
+static bool pending_record(MWXSceneQuickJSOwner *owner, MWXSceneQuickJSPuppetAnimationIdentity identity,
+    MWXSceneQuickJSPuppetAnimationRecord *record, char name[1025]) {
+    if (identity.kind != 1 || owner->domain->puppet_animation_source_lookup == NULL) return false;
+    for (size_t i = 0; i < owner->puppet_animation_command_count; ++i) {
+        const MWXSceneQuickJSPuppetAnimationCommand *command = &owner->puppet_animation_commands[i];
+        if (command->action != 7 || !same_identity(command->identity, identity)) continue;
+        MWXSceneQuickJSPuppetAnimationSource source;
+        if (!owner->domain->puppet_animation_source_lookup(owner->domain->puppet_animation_source_opaque,
+            identity.layer_id, NULL, 0, command->animation_id, &source, name, 1025)) return false;
+        *record = (MWXSceneQuickJSPuppetAnimationRecord){ .available = true,
+            .snapshot = { .identity = identity, .animation_id = source.animation_id, .name = name,
+                .fps = source.fps, .frame_count = source.frame_count, .duration = source.duration,
+                .is_playing = 1, .visible = 1, .rate = 1, .blend = 1, .ended_failure = 1 } };
+        return true;
+    }
+    return false;
 }
 
 static void apply_command(MWXSceneQuickJSPuppetAnimationSnapshot *state,
@@ -111,38 +130,37 @@ static MWXSceneQuickJSPuppetAnimationSnapshot current_state(MWXSceneQuickJSOwner
             state.visible = owner->puppet_animation_visibility.value;
         if (i == owner->puppet_animation_command_count) break;
         const MWXSceneQuickJSPuppetAnimationCommand *command = &owner->puppet_animation_commands[i];
-        MWXSceneQuickJSPuppetAnimationIdentity target = {
-            command->layer_id, command->animation_layer_index,
-            command->animation_layer_id, command->has_animation_layer_id
-        };
-        if (same_identity(identity, target)) apply_command(&state, command);
+        if (same_identity(identity, command->identity)) apply_command(&state, command);
     }
     return state;
 }
 
-static bool puppet_command(MWXSceneQuickJSOwner *owner,
-    const MWXSceneQuickJSPuppetAnimationRecord *record, uint32_t action, double value) {
+static MWXSceneQuickJSPuppetAnimationCommand *puppet_command(MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSPuppetAnimationIdentity identity, uint32_t action, double value, int64_t animation_id) {
     if (owner->puppet_animation_command_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS) {
         owner->puppet_animation_command_overflow = true;
-        return false;
+        return NULL;
     }
-    if (!mwx_scene_quickjs_animation_transaction(owner)) return false;
+    if (!mwx_scene_quickjs_animation_transaction(owner)) return NULL;
     uint32_t ordinal = 0;
     for (size_t i = owner->puppet_animation_command_count; i > 0; --i) {
         if (owner->puppet_animation_commands[i - 1].callback_epoch != owner->domain->callback_epoch) break;
         ordinal++;
     }
-    const MWXSceneQuickJSPuppetAnimationSnapshot *state = &record->snapshot;
-    owner->puppet_animation_commands[owner->puppet_animation_command_count++] =
+    if (action == 7) {
+        identity.kind = 1;
+        identity.creation_epoch = owner->domain->callback_epoch;
+        identity.creation_ordinal = ordinal;
+    }
+    MWXSceneQuickJSPuppetAnimationCommand *command =
+        &owner->puppet_animation_commands[owner->puppet_animation_command_count++];
+    *command =
         (MWXSceneQuickJSPuppetAnimationCommand) {
-            .layer_id = state->layer_id, .animation_layer_index = state->animation_layer_index,
-            .animation_layer_id = state->animation_layer_id,
-            .has_animation_layer_id = state->has_animation_layer_id,
-            .action = action, .value = value,
+            .identity = identity, .action = action, .value = value, .animation_id = animation_id,
             .callback_epoch = owner->domain->callback_epoch, .ordinal = ordinal
         };
     if (action == 6) owner->puppet_animation_visibility_staged = true;
-    return true;
+    return command;
 }
 
 static JSValue animation_call(JSContext *context, JSValueConst this_value,
@@ -151,6 +169,11 @@ static JSValue animation_call(JSContext *context, JSValueConst this_value,
     PuppetAnimationHandle *handle = opaque;
     MWXSceneQuickJSOwner *owner = handle_owner(handle);
     MWXSceneQuickJSPuppetAnimationRecord *record = owner == NULL ? NULL : handle_record(owner, handle);
+    MWXSceneQuickJSPuppetAnimationRecord pending;
+    char pending_name[1025];
+    if (record == NULL && owner != NULL &&
+        parent_alive(owner, handle->target_layer_index, handle->target.layer_id) &&
+        pending_record(owner, handle->target, &pending, pending_name)) record = &pending;
     if (record == NULL) return JS_ThrowTypeError(context, "Puppet animation target is unavailable or stale");
     bool is_self = source_record(owner) == record;
     int operation = handle->operation;
@@ -168,7 +191,7 @@ static JSValue animation_call(JSContext *context, JSValueConst this_value,
             JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value) || fabs(value) > FLT_MAX)) {
             return JS_ThrowTypeError(context, "animation command expects a finite Float");
         }
-        if (!puppet_command(owner, record, (uint32_t)operation, value))
+        if (!puppet_command(owner, record->snapshot.identity, (uint32_t)operation, value, 0))
             return JS_ThrowRangeError(context, "Puppet animation command or snapshot budget exceeded");
         return JS_UNDEFINED;
     }
@@ -254,9 +277,9 @@ JSValue mwx_scene_quickjs_puppet_animation_handle(MWXSceneQuickJSOwner *owner) {
     return target_handle(owner, record, owner->target_layer_configured ? owner->target_layer_index : UINT32_MAX);
 }
 
-static JSValue get_animation_layer(JSContext *context, JSValueConst this_value,
+static JSValue image_animation_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
-    (void)this_value; (void)magic;
+    (void)this_value;
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, handle, false);
     MWXSceneQuickJSLayerRecord *layer = mwx_scene_quickjs_layer_record_for_handle(
@@ -266,15 +289,53 @@ static JSValue get_animation_layer(JSContext *context, JSValueConst this_value,
     uint32_t layer_index = (uint32_t)(layer - owner->domain->layers);
     if (!parent_alive(owner, layer_index, layer->layer_id))
         return JS_ThrowTypeError(context, "getAnimationLayer receiver is unavailable or stale");
+    if (magic == 1) {
+        if (argc != 0) return JS_ThrowTypeError(context, "getAnimationLayerCount expects no argument");
+        size_t count = 0;
+        for (size_t i = 0; i < owner->domain->puppet_animation_count; ++i)
+            if (owner->domain->puppet_animations[i].snapshot.identity.layer_id == layer->layer_id) count++;
+        for (size_t i = 0; i < owner->puppet_animation_command_count; ++i) {
+            const MWXSceneQuickJSPuppetAnimationCommand *command = &owner->puppet_animation_commands[i];
+            if (command->action == 7 && command->identity.layer_id == layer->layer_id &&
+                mwx_scene_quickjs_puppet_animation_record_for_identity(owner->domain, command->identity) == NULL) count++;
+        }
+        return JS_NewInt64(context, (int64_t)count);
+    }
+    if (magic == 2) {
+        if (owner->value_only)
+            return JS_ThrowTypeError(context, "Puppet animation creation requires a stateful owner");
+        if ((argc != 1 && !(argc == 2 && JS_IsUndefined(argv[1]))) || !JS_IsString(argv[0]))
+            return JS_ThrowTypeError(context, "playSingleAnimation supports a source name and omitted config");
+        size_t length = 0;
+        const char *name = JS_ToCStringLen(context, &length, argv[0]);
+        if (name == NULL) return JS_EXCEPTION;
+        MWXSceneQuickJSPuppetAnimationSource source;
+        char source_name[1025];
+        bool found = length <= 1024 && memchr(name, '\0', length) == NULL &&
+            owner->domain->puppet_animation_source_lookup != NULL &&
+            owner->domain->puppet_animation_source_lookup(owner->domain->puppet_animation_source_opaque,
+                layer->layer_id, name, length, 0, &source, source_name, sizeof(source_name));
+        JS_FreeCString(context, name);
+        if (!found) return JS_ThrowRangeError(context, "Single animation source is unavailable or ambiguous");
+        MWXSceneQuickJSPuppetAnimationCommand *command = puppet_command(owner,
+            (MWXSceneQuickJSPuppetAnimationIdentity){ .layer_id = layer->layer_id }, 7, 0, source.animation_id);
+        if (command == NULL) return JS_ThrowRangeError(context, "Puppet animation command or snapshot budget exceeded");
+        MWXSceneQuickJSPuppetAnimationRecord record = { .available = true,
+            .snapshot = { .identity = command->identity, .animation_id = source.animation_id,
+                .name = source_name, .fps = source.fps, .frame_count = source.frame_count,
+                .duration = source.duration, .is_playing = 1, .visible = 1,
+                .rate = 1, .blend = 1, .ended_failure = 1 } };
+        return target_handle(owner, &record, layer_index);
+    }
     if (argc != 1 || (!JS_IsString(argv[0]) && !JS_IsNumber(argv[0])))
         return JS_ThrowTypeError(context, "getAnimationLayer expects one name or index");
-    double authored_index = 0;
+    double requested_index = 0;
     size_t name_length = 0;
     const char *name = NULL;
     if (JS_IsNumber(argv[0])) {
-        if (JS_ToFloat64(context, &authored_index, argv[0]) < 0) return JS_EXCEPTION;
-        if (!isfinite(authored_index) || authored_index < 0 || authored_index > UINT32_MAX ||
-            trunc(authored_index) != authored_index)
+        if (JS_ToFloat64(context, &requested_index, argv[0]) < 0) return JS_EXCEPTION;
+        if (!isfinite(requested_index) || requested_index < 0 || requested_index > UINT32_MAX ||
+            trunc(requested_index) != requested_index)
             return JS_ThrowRangeError(context, "animation layer index is invalid");
     } else {
         name = JS_ToCStringLen(context, &name_length, argv[0]);
@@ -285,34 +346,66 @@ static JSValue get_animation_layer(JSContext *context, JSValueConst this_value,
         }
     }
     size_t matches = 0;
+    uint32_t stack_index = 0;
     MWXSceneQuickJSPuppetAnimationRecord *target = NULL;
     for (size_t i = 0; i < owner->domain->puppet_animation_count; ++i) {
         MWXSceneQuickJSPuppetAnimationRecord *record = &owner->domain->puppet_animations[i];
         const MWXSceneQuickJSPuppetAnimationSnapshot *snapshot = &record->snapshot;
-        if (!record->available || snapshot->layer_id != layer->layer_id) continue;
-        if (name != NULL ? strlen(snapshot->name) == name_length &&
-            memcmp(snapshot->name, name, name_length) == 0 : snapshot->animation_layer_index == (uint32_t)authored_index) {
+        if (snapshot->identity.layer_id != layer->layer_id) continue;
+        if (name != NULL ? snapshot->name != NULL && strlen(snapshot->name) == name_length &&
+            memcmp(snapshot->name, name, name_length) == 0 : stack_index == (uint32_t)requested_index) {
             matches++; target = record;
         }
+        stack_index++;
+    }
+    MWXSceneQuickJSPuppetAnimationRecord pending_target;
+    char target_name[1025];
+    for (size_t i = 0; i < owner->puppet_animation_command_count; ++i) {
+        const MWXSceneQuickJSPuppetAnimationCommand *command = &owner->puppet_animation_commands[i];
+        if (command->action != 7 || command->identity.layer_id != layer->layer_id ||
+            mwx_scene_quickjs_puppet_animation_record_for_identity(owner->domain, command->identity) != NULL) continue;
+        MWXSceneQuickJSPuppetAnimationRecord pending;
+        char pending_name[1025];
+        if (!pending_record(owner, command->identity, &pending, pending_name)) continue;
+        if (name != NULL ? strlen(pending_name) == name_length && memcmp(pending_name, name, name_length) == 0
+            : stack_index == (uint32_t)requested_index) {
+            matches++;
+            strcpy(target_name, pending_name);
+            pending_target = pending;
+            pending_target.snapshot.name = target_name;
+            target = &pending_target;
+        }
+        stack_index++;
     }
     if (name != NULL) JS_FreeCString(context, name);
     if (matches != 1) return JS_ThrowRangeError(context, "animation layer does not exist or is ambiguous");
+    if (!target->available) return JS_ThrowTypeError(context, "animation layer is temporarily unavailable");
     return target_handle(owner, target, layer_index);
 }
 
 bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owner, JSValue layer,
     uint32_t layer_index, bool owner_target, bool persistent) {
-    MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
-    if (handle == NULL) return false;
-    *handle = (MWXSceneQuickJSLayerAccessHandle){ .domain = owner->domain,
-        .owner_identity = owner->identity, .layer_index = layer_index,
-        .expected_layer_id = owner_target ? 0 : owner->domain->layers[layer_index].layer_id,
-        .callback_epoch = owner->domain->callback_epoch,
-        .owner_target = owner_target, .persistent = persistent };
-    JSValue function = mwx_scene_quickjs_layer_access_closure(owner->domain->context,
-        get_animation_layer, "getAnimationLayer", 1, 0, handle);
-    return !JS_IsException(function) && JS_DefinePropertyValueStr(owner->domain->context,
-        layer, "getAnimationLayer", function, JS_PROP_ENUMERABLE) >= 0;
+    const char *names[] = { "getAnimationLayer", "getAnimationLayerCount", "playSingleAnimation" };
+    for (int operation = 0; operation < 3; ++operation) {
+        MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
+        if (handle == NULL) return false;
+        *handle = (MWXSceneQuickJSLayerAccessHandle){ .domain = owner->domain,
+            .owner_identity = owner->identity, .layer_index = layer_index,
+            .expected_layer_id = owner_target ? 0 : owner->domain->layers[layer_index].layer_id,
+            .callback_epoch = owner->domain->callback_epoch,
+            .owner_target = owner_target, .persistent = persistent };
+        JSValue function = mwx_scene_quickjs_layer_access_closure(owner->domain->context,
+            image_animation_call, names[operation], operation == 1 ? 0 : 1, operation, handle);
+        if (JS_IsException(function) || JS_DefinePropertyValueStr(owner->domain->context,
+            layer, names[operation], function, JS_PROP_ENUMERABLE) < 0) return false;
+    }
+    return true;
+}
+
+void mwx_scene_quickjs_domain_bind_puppet_animation_sources(MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSPuppetAnimationSourceLookup lookup, void *opaque) {
+    domain->puppet_animation_source_lookup = lookup;
+    domain->puppet_animation_source_opaque = opaque;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
@@ -328,14 +421,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     owner->puppet_animation_identity = (MWXSceneQuickJSPuppetAnimationIdentity){
-        layer_id, authored_index, animation_layer_id, has_animation_layer_id };
+        .layer_id = layer_id, .animation_layer_index = authored_index,
+        .animation_layer_id = animation_layer_id, .has_animation_layer_id = has_animation_layer_id };
     owner->puppet_animation_catalog_index = SIZE_MAX;
     owner->puppet_animation_configured = true;
     return MWX_SCENE_QUICKJS_OK;
 }
 
 static bool valid_snapshot(const MWXSceneQuickJSPuppetAnimationSnapshot *snapshot) {
-    return snapshot->layer_id >= 0 && snapshot->has_animation_layer_id <= 1 &&
+    return snapshot->identity.layer_id >= 0 && snapshot->identity.kind <= 1 &&
+        (snapshot->identity.kind == 1 ? snapshot->identity.creation_epoch != 0
+            : snapshot->identity.has_animation_layer_id <= 1) &&
         snapshot->name != NULL && strlen(snapshot->name) <= 1024 &&
         isfinite(snapshot->fps) && snapshot->fps > 0 &&
         isfinite(snapshot->frame_count) && snapshot->frame_count >= 0 &&
@@ -427,10 +523,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_puppet_animations(
     for (size_t i = 0; i < count; ++i) {
         const MWXSceneQuickJSPuppetAnimationSnapshot *snapshot = &snapshots[i];
         MWXSceneQuickJSPuppetAnimationIdentity identity = snapshot_identity(snapshot);
-        records[i].snapshot.layer_id = identity.layer_id;
-        records[i].snapshot.animation_layer_index = identity.animation_layer_index;
-        records[i].snapshot.animation_layer_id = identity.animation_layer_id;
-        records[i].snapshot.has_animation_layer_id = identity.has_animation_layer_id;
+        records[i].snapshot.identity = identity;
         bool unique = true, first = true;
         for (size_t j = 0; j < count; ++j)
             if (i != j && same_identity(identity, snapshot_identity(&snapshots[j]))) {

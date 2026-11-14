@@ -47,7 +47,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     private let referencePoses: [Pose]
     private let inverseBindWorldMatrices: [simd_float4x4]
     let hasAffineBindTransforms: Bool
-    private let preparedAnimationsByID: [Int: PreparedAnimation]
+    private let preparedAnimationsByID: [Int: Result<PreparedAnimation, Error>]
     private let preparedVertices: [PreparedVertex]
 
     /// Launch-stable skeleton size used by the playback owner's reusable
@@ -172,16 +172,17 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         }
         preparedVertices = vertexData
 
-        var preparedAnimations: [Int: PreparedAnimation] = [:]
+        var preparedAnimations: [Int: Result<PreparedAnimation, Error>] = [:]
         var sourceIDs: Set<Int> = []
         for animation in additiveAnimations {
             guard sourceIDs.insert(animation.id).inserted else {
                 throw ScenePuppetAnimationEvaluationFailure.duplicateAdditiveAnimation(animation.id)
             }
             do {
-                preparedAnimations[animation.id] = try Self.prepare(animation: animation, rig: rig)
+                preparedAnimations[animation.id] = .success(try Self.prepare(animation: animation, rig: rig))
             } catch {
                 if !optionalAnimationIDs.contains(animation.id) { throw error }
+                preparedAnimations[animation.id] = .failure(error)
             }
         }
         preparedAnimationsByID = preparedAnimations
@@ -193,18 +194,26 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     /// command encoding when scene time advances without any visual change.
     /// Unknown clips stay conservative and are treated as time-varying.
     func isTimeInvariant(animationID: Int) -> Bool {
-        guard let prepared = preparedAnimationsByID[animationID] else {
+        guard let prepared = try? preparedAnimationsByID[animationID]?.get() else {
             return false
         }
         return prepared.drivenBones.isEmpty && !prepared.alphaVaries
     }
 
     func hasAlphaContribution(animationID: Int) -> Bool {
-        preparedAnimationsByID[animationID]?.hasAlphaContribution == true
+        (try? preparedAnimationsByID[animationID]?.get().hasAlphaContribution) == true
     }
 
     func hasPreparedAnimation(animationID: Int) -> Bool {
-        preparedAnimationsByID[animationID] != nil
+        (try? preparedAnimationsByID[animationID]?.get()) != nil
+    }
+
+    /// Cold pose selection preserves the original compiler failure for required sources.
+    func requirePreparedAnimation(animationID: Int) throws {
+        guard let result = preparedAnimationsByID[animationID] else {
+            throw ScenePuppetAnimationEvaluationFailure.invalidFrame(animationID)
+        }
+        _ = try result.get()
     }
 
     /// MDLA alpha is already expressed per bone; applying parent opacity again
@@ -225,7 +234,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         for bone in boneScratch.indices { boneScratch[bone] = 1 }
         var contributor: (index: Int, tracks: [[Float]])?
         for (index, clip) in selection.clips.enumerated() {
-            guard let prepared = preparedAnimationsByID[clip.animation.id] else {
+            guard let prepared = try? preparedAnimationsByID[clip.animation.id]?.get() else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
             }
             if prepared.hasAlphaContribution, let tracks = prepared.alphaByBone {
@@ -283,7 +292,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         animation: SceneMdlPuppetAnimation,
         frameSample: FrameSample
     ) throws -> [SIMD2<Float>] {
-        if let prepared = preparedAnimationsByID[animation.id] {
+        if let prepared = try? preparedAnimationsByID[animation.id]?.get() {
             return try deformedPositions(
                 localMatrices: try prepared.posesByBone.indices.map { boneIndex in
                     let pose = try Self.sample(
@@ -494,10 +503,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         // legacy convenience entry points, which can supply an unregistered clip.
         var preparedAnimations = preparedAnimationsByID
         for clip in selection.clips where preparedAnimations[clip.animation.id] == nil {
-            preparedAnimations[clip.animation.id] = try Self.prepare(animation: clip.animation, rig: rig)
+            preparedAnimations[clip.animation.id] = .success(try Self.prepare(animation: clip.animation, rig: rig))
         }
         if selection.clips.contains(where: {
-            preparedAnimations[$0.animation.id]?.referenceBones.isEmpty == false
+            (try? preparedAnimations[$0.animation.id]?.get().referenceBones.isEmpty) == false
         }), selection.clips.reduce(0, { $0 + ($1.layer.additive == false ? 1 : 0) }) > 1 {
             throw ScenePuppetAnimationEvaluationFailure.unsupportedReferenceComposition
         }
@@ -514,7 +523,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 return
             }
             let animation = selection.clips[clipIndex].animation
-            guard let prepared = preparedAnimations[animation.id] else {
+            guard let prepared = try? preparedAnimations[animation.id]?.get() else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frameSample.frameA)
             }
             for boneIndex in rig.bones.indices {
@@ -550,9 +559,9 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 )
                 if let baseClipIndex,
                    let baseSample = frameSamples[baseClipIndex],
-                   let prepared = preparedAnimations[
+                   let prepared = try? preparedAnimations[
                        selection.clips[baseClipIndex].animation.id
-                   ],
+                   ]?.get(),
                    prepared.authoredBones.contains(boneIndex) {
                     pose = try Self.applying(
                         Self.sample(prepared.posesByBone[boneIndex], frameSample: baseSample),
@@ -562,7 +571,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 }
                 for (clipIndex, clip) in selection.clips.enumerated() {
                     guard let frameSample = frameSamples[clipIndex],
-                          let prepared = preparedAnimations[clip.animation.id],
+                          let prepared = try? preparedAnimations[clip.animation.id]?.get(),
                           prepared.posesByBone.indices.contains(boneIndex),
                           prepared.authoredBones.contains(boneIndex)
                     else { continue }
@@ -711,7 +720,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         boneIndex: Int,
         clips: [ScenePuppetAnimationSelection.Clip],
         frameSamples: [FrameSample?],
-        preparedAnimationsByID: [Int: PreparedAnimation]
+        preparedAnimationsByID: [Int: Result<PreparedAnimation, Error>]
     ) -> Int? {
         // A replacement (opaque) layer wins for a bone.  The authored layer
         // order is retained; later replacement layers do not silently replace
@@ -720,7 +729,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         for index in clips.indices {
             guard frameSamples[index] != nil,
                   clips[index].layer.additive == false,
-                  let prepared = preparedAnimationsByID[clips[index].animation.id],
+                  let prepared = try? preparedAnimationsByID[clips[index].animation.id]?.get(),
                   prepared.authoredBones.contains(boneIndex) else { continue }
             return index
         }

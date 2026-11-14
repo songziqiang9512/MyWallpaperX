@@ -121,6 +121,17 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 | Sound | 原声音定义与 voice registry，volume/播放命令消费既有 typed 值 |
 | Cursor/媒体/用户属性事件 | 原入口快照与 owner 回调；一次性事件不能因 GPU 重试重复派发 |
 
+<a id="image-single-animation"></a>
+### 图片创建一次性 Puppet 动画
+
+[公开 IImageLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html)规定 `playSingleAnimation` 创建新动画层、播放一次、自动移除并返回 IAnimationLayer；本批基本接入以真实准备资源名 String 和省略 config 为范围。`getAnimationLayer` 的数字参数按当前 stack ordinal 查询，count 读同一成员集合；具名查询使用当前实例显示名，创建只解析真实资源名，不以作者自定义层名兜底资源，不按样本/脚本文本分派。准备、pose 与退休归[原 Puppet 合同](advanced-object-coverage.md#puppet-instances)。
+
+原 image host → Puppet command journal → 原候选准入/apply → 会话 runtime → frozen Domain snapshot/Surface。Cursor 成功回调也必须把同一次提取的 Puppet commands/registrations 经原汇总传入同一 ownerEffects；失败/存储拒绝撤销同 owner 候选，原 finalize 一次消费，不增加 pending mirror。回调返回成功不能代替命令进入准入。返回句柄以原 epoch+ordinal 标识创建，未提交前从同一 journal 的 create 及后继命令投影读取，不另造 pending map；同 owner 可控制刚创建的句柄，失败整体回滚，跨 owner 只读原已发布成员。count 不设独立状态；新成员没有假 editor ID、属性 owner 或 ended owner。原句柄存活、重复消费、父退休和健康 peer 的失败范围保持。
+
+[公开 IAnimationLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IAnimationLayer.html)列出的 metadata、play/pause/stop/isPlaying/getFrame/setFrame 与 rate/blend/visible 沿原桥接承接可用部分。rate1/blend1、可见播放、无额外包络及创建实例沿原源名 fallback 的显示名只记本项目基本选择；官方默认 config/排序、精确出生/结束/过期边界仍 UNKNOWN。显式 Object/config、创建实例的 visible 写入与 Single JS ended 不由这次能力升级；官方窗口未获得有效 native 观察时保 STOP，不据 shader 产物或旧桌面调算法。
+
+验收走真实 VM→journal→coordinator→runtime→pose，核零 authored、改名/等价调用、create 后控制/计数、throw/非法后继回滚及自然移除，保原 authored/Loop/bone 邻例；实际签名 App 再核独立真实资源内点与原作者事件后继。不以 API 不抛错认定完整页面动画或官方视觉一致。
+
 <a id="component-animation-scope"></a>
 ### 组件属性动画的名称作用域与交接
 

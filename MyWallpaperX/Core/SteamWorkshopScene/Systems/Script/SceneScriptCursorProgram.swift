@@ -184,6 +184,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerTarget: SceneDynamicTarget,
             mutation: SceneScriptPuppetBoneMutation
         )] = []
+        var puppetAnimations: [(ownerTarget: SceneDynamicTarget, command: ScenePuppetAnimationCommand)] = []
+        var puppetRegistrations: [SceneDynamicTarget: Int] = [:]
         var particles: [(ownerTarget: SceneDynamicTarget, command: SceneScriptParticlePlaybackCommand)] = []
         var textureAnimations: [(
             ownerTarget: SceneDynamicTarget,
@@ -206,6 +208,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             animations.removeAll { $0.ownerTarget == ownerTarget }
             layers.removeAll { $0.ownerTarget == ownerTarget }
             puppetBones.removeAll { $0.ownerTarget == ownerTarget }
+            puppetAnimations.removeAll { $0.ownerTarget == ownerTarget }
+            puppetRegistrations.removeValue(forKey: ownerTarget)
             textureAnimations.removeAll { $0.ownerTarget == ownerTarget }
             videos.removeAll { $0.ownerTarget == ownerTarget }
             particles.removeAll { $0.ownerTarget == ownerTarget }
@@ -225,6 +229,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             animations ownerAnimations: [SceneTimelinePlaybackMutation],
             layers ownerLayers: [SceneScriptLayerMutation],
             puppetBones ownerPuppetBones: [SceneScriptPuppetBoneMutation],
+            puppetAnimations ownerPuppetAnimations: [ScenePuppetAnimationCommand],
+            puppetRegistrations ownerPuppetRegistrations: Int,
             videos ownerVideos: [SceneScriptMediaPlaybackCommand],
             textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand],
             particles ownerParticles: [SceneScriptParticlePlaybackCommand],
@@ -236,6 +242,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             puppetBones.append(contentsOf:
                 ownerPuppetBones.map { (ownerTarget, $0) }
             )
+            puppetAnimations.append(contentsOf: ownerPuppetAnimations.map { (ownerTarget, $0) })
+            if ownerPuppetRegistrations > 0 {
+                puppetRegistrations[ownerTarget, default: 0] += ownerPuppetRegistrations
+            }
             textureAnimations.append(contentsOf:
                 ownerTextureAnimations.map { (ownerTarget, $0) }
             )
@@ -311,6 +321,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: initialization.animationMutations,
                     layers: initialization.layerMutations,
                     puppetBones: initialization.puppetBoneMutations,
+                    puppetAnimations: initialization.puppetAnimationCommands,
+                    puppetRegistrations: initialization.puppetAnimationCallbackRegistrations,
                     videos: initialization.mediaPlaybackCommands,
                     textureAnimations: initialization.textureAnimationCommands,
                     particles: initialization.particlePlaybackCommands,
@@ -383,6 +395,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: mutations.animations,
                     layers: mutations.layers,
                     puppetBones: mutations.puppetBones,
+                    puppetAnimations: mutations.puppetAnimationCommands,
+                    puppetRegistrations: mutations.puppetAnimationCallbackRegistrations,
                     videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
                     particles: mutations.particlePlaybackCommands,
@@ -458,6 +472,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: mutations.animationMutations,
                     layers: mutations.layerMutations,
                     puppetBones: mutations.puppetBoneMutations,
+                    puppetAnimations: mutations.puppetAnimationCommands,
+                    puppetRegistrations: mutations.puppetAnimationCallbackRegistrations,
                     videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
                         particles: mutations.particlePlaybackCommands,
@@ -669,6 +685,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 particlePlaybackCommands: particles.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil
                 },
+                puppetAnimationCommands: puppetAnimations.compactMap {
+                    $0.ownerTarget == binding.ownerTarget ? $0.command : nil
+                },
+                puppetAnimationCallbackRegistrations: puppetRegistrations[binding.ownerTarget, default: 0],
                 layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity,
                 cameraCommands: cameras.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil

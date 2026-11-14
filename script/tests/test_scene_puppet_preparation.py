@@ -191,6 +191,17 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         def channels(end: float) -> dict[int, list[tuple[float, ...]]]:
             pose = lambda x: (x, 0, 0, 0, 0, 0, 1, 1, 1)
             return {0: [pose(4), pose(end)], 1: [pose(2), pose(2)]}
+        single_channels = {0: [(x, 0, 0, 0, 0, 0, 1, 1, 1) for x in (4, 17, 30)],
+                           1: [(2, 0, 0, 0, 0, 0, 1, 1, 1)] * 3}
+        single_records = [
+            animation_record(739, "Owned actual Single", 2, 2, fps=2, mode="single",
+                             track_samples=single_channels),
+            animation_record(740, "Unavailable optional Single", 2, 2, fps=2, mode="single",
+                             track_samples=single_channels, post_bounds_scalar=[[0] * 3] * 2),
+            animation_record(909, "Unrequested Loop", 1, 2, fps=1, track_samples=channels(12)),
+        ]
+        for name in ("cold-single.mdl", "cold-loop-demand.mdl"):
+            files[name] = fixture_mdl(animation_records=single_records)
         for name, offset in (("partial-additive", 0), ("renamed-partial-resource", 7000)):
             records = [
                 animation_record(101 + offset, "Moving base", 1, 2, fps=1,
@@ -246,7 +257,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(rows["unique"]["points"][0][0], [-10, -20])
         self.assertEqual(rows["unique"]["points"][1][0], [16, -20])
 
-    def test_shared_mesh_animation_demand_is_or_in_both_source_orders(self) -> None:
+    def test_shared_mesh_merges_real_authored_demand_in_both_source_orders(self) -> None:
         for key in ("plain-first", "animated-first", "renamed"):
             row = self.result["resource-orders"][key]
             self.assertEqual(row["assetCount"], 1, row)
@@ -370,7 +381,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertFalse(rows[key]["allowsTexture"], rows[key])
             self.assertIn(text, rows[key]["message"], rows[key])
         for key, text in (("rig", "animation rig rejected"), ("animation", "animation data rejected"),
-                          ("absent-animation", "MDLA is absent"), ("unprepared-animation", "not prepared"),
+                          ("absent-animation", "MDLA is absent"),
                           ("selector", "animation id 909 is absent"),
                           ("unsupported-selector", "outside the bounded playback profile"),
                           ("no-reference-script", "animation data rejected")):
@@ -383,10 +394,10 @@ class ScenePuppetPreparationTests(unittest.TestCase):
     def test_failed_animation_requests_keep_independent_reference_and_original_diagnostic(self) -> None:
         rows = self.result["reference-fallbacks"]
         original_failures = {"bad": "animation", "absent": "absent-animation",
-            "unprepared": "unprepared-animation", "unknown": "selector",
+            "unknown": "selector",
             "unsupported": "unsupported-selector"}
         for key, text in (("bad", "animation data rejected"),
-                          ("absent", "MDLA is absent"), ("unprepared", "not prepared"),
+                          ("absent", "MDLA is absent"),
                           ("unknown", "animation id 909 is absent"),
                           ("unsupported", "outside the bounded playback profile")):
             row = rows[key]
@@ -452,7 +463,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             [10, -20, 0, 0.5, 0.75], [0, 20, 0, 0.375, 0.25]], row)
         self.assertEqual(row["indices"], [0, 1, 2, 2, 1, 0], row)
         self.assertFalse(row["bonesAvailable"], row)
-        self.assertFalse(row["animationsPrepared"], row)
+        self.assertTrue(row["animationSetAbsent"], row)
         self.assertFalse(row["fileExists"], row)
         expected = {"kind": "bind", "fallback": "", "animationIDs": []}
         self.assertEqual(row["before"], expected, row)
@@ -466,6 +477,28 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(row["default-second"]["neutralRootX"], 90, row)
         self.assertFalse(row["missingLayerPresent"], row)
         self.assertFalse(row["missingMeshPresent"], row)
+
+    def test_zero_authored_single_is_cold_ready_after_source_removal_and_keeps_default_empty(self) -> None:
+        row = self.result["cold-single"]
+        self.assertEqual((row["assetCount"], row["loopAssetCount"]), (1, 1), row)
+        self.assertFalse(row["fileExists"], row)
+        self.assertEqual(row["availableSingleIDs"], [739], row)
+        self.assertFalse(row["unrequestedLoopPrepared"], row)
+        self.assertFalse(row["badSinglePrepared"], row)
+        self.assertTrue(row["requiredLoopPrepared"], row)
+        self.assertEqual(row["metadata"], {"id": 739, "name": "Owned actual Single",
+                                         "fps": 2, "frameCount": 2}, row)
+        for key in ("cold", "default", "loopDefault"):
+            self.assertEqual(row[key]["animationIDs"], [], row)
+            self.assertEqual(row[key]["neutralRootX"], 4, row)
+        self.assertEqual(row["selected"]["animationIDs"], [739], row)
+        self.assertEqual(row["selected"]["sampledRootX"], 17, row)
+        self.assertEqual(row["selected"]["points"], [[3, -20], [23, -20], [13, 20]], row)
+        self.assertEqual(row["afterRemoval"], row["selected"], row)
+        self.assertEqual(row["loopSource"]["animationIDs"], [909], row)
+        self.assertEqual(row["badRequired"]["kind"], "bind", row)
+        self.assertIn("unconsumed", row["badRequired"]["fallback"], row)
+        self.assertIn("740", row["badRequired"]["fallback"], row)
 
 
 if __name__ == "__main__":

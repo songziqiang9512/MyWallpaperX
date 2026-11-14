@@ -179,6 +179,139 @@ HARNESS = r'''
         }
         return out
     }
+    static func singleAnimations() throws -> [String: Any] {
+        var out: [String: Any] = [:]
+        for (mode, sourceName) in [("normal", "owned motion"), ("renamed", "另一动作"),
+                                   ("throw", "throw motion"), ("badargument", "finite motion"),
+                                   ("admission", "reference motion")] {
+            func animation(_ id: Int, _ name: String, reference: Bool = false) -> SceneMdlPuppetAnimation {
+                .init(id: id, name: name, mode: "single", framesPerSecond: 30, frameCount: 30,
+                    transformsByBone: [Array(repeating: .init(translation: .zero, rotation: .zero,
+                        scale: SIMD3<Float>(repeating: 1)), count: 31)],
+                    transformTrackStates: [reference ? .referenceCandidate : .sampled])
+            }
+            let dense = animation(812, mode == "admission" ? "peer motion" : sourceName)
+            let requested = mode == "admission" ? animation(813, sourceName, reference: true) : dense
+            let base = ScenePuppetAnimationLayer(id: 89, animationID: 812, name: "separate base",
+                additive: false, blend: 1, blendIn: nil, blendOut: nil, blendTime: nil,
+                rate: 1, visible: true, visibilityBinding: nil)
+            let authored = mode == "admission" ? [base] : []
+            let baseline = authored.count
+            let d = SceneRenderDescriptor(layers: (1...3).map { id in .init(id: id, layerIndex: id-1,
+                name: "layer\(id)", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
+                scaleHasScript: nil, alpha: 1, effects: [],
+                contentKind: id == 3 ? "image" : "text", text: id == 3 ? nil : "0",
+                textStyle: .init(fontPath: nil, colorRGB: nil, pointSize: 20), sizeWH: [100,100],
+                puppetAnimationLayers: id == 3 ? authored : []) })
+            let puppet = ScenePuppetAnimationPlaybackRuntime()
+            let selection = ScenePuppetAnimationSelection(clips: authored.map { .init(layer: $0, animation: dense) },
+                composition: .singleAbsolute)
+            guard case .success = puppet.register(layerID: 3, selection: selection, authoredLayers: authored,
+                availableSingleAnimations: mode == "admission" ? [dense, requested] : [dense]) else {
+                fatalError("prepared Single source")
+            }
+            let initialPuppet = puppet.advance(frameIndex: 1, sceneTime: 10, dynamicValues: .empty(frameIndex: 1))
+            func source(_ name: String, _ heldFrame: Int, _ tail: String, _ write: String) -> String {
+                """
+                let fired=false,held;
+                export function update(v) {
+                  if(fired){try{if(held.getFrame()!==\(heldFrame))throw Error('held');return .6;}
+                    catch(e){return .3;}}
+                  fired=true;
+                  const image=thisScene.getLayerByID(3);
+                  if(image.getAnimationLayerCount()!==\(baseline))throw Error('baseline');
+                  held=image.playSingleAnimation('\(name)');
+                  if(held.fps!==30||held.frameCount!==30||held.duration!==1||held.name!=='\(name)')throw Error('metadata');
+                  if(!held.isPlaying()||held.getFrame()!==0||!held.visible||held.rate!==1||held.blend!==1)throw Error('birth');
+                  if(image.getAnimationLayerCount()!==\(baseline+1))throw Error('birth count');
+                  held.pause();held.setFrame(\(heldFrame));
+                  if(held.isPlaying()||held.getFrame()!==\(heldFrame))throw Error('provisional controls');
+                  if(image.getAnimationLayer(\(baseline)).getFrame()!==\(heldFrame))throw Error('index lookup');
+                  if(image.getAnimationLayer('\(name)').getFrame()!==\(heldFrame))throw Error('name lookup');
+                  \(write)
+                  \(tail)
+                  return .25;
+                }
+                """
+            }
+            let tail = mode == "throw" ? "throw Error('after creation');" :
+                mode == "badargument" ? "held.setFrame(NaN);" : ""
+            let bindings = [binding(1, "alpha", source(sourceName, 15, tail,
+                "thisScene.getLayerByID(3).scale=new Vec3(2,3,4);")),
+                binding(2, "alpha", source(dense.name, 7, "",
+                "thisScene.getLayerByID(3).origin=new Vec3(7,8,9);"))]
+            let candidate = try SceneScriptQuickJSProgramCandidate.compile(
+                authoredDescriptor: d, runtimeDescriptor: d, scriptBindings: bindings,
+                vectorProjection: SceneScriptVectorProgram.project(descriptor: d, scriptBindings: bindings),
+                userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [],
+                stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 1)
+            guard let domain = candidate.domain else { fatalError("Single domain") }
+            domain.bindPuppetAnimationSources(puppet)
+            try domain.publishPuppetAnimationSnapshot(initialPuppet.animationSnapshots)
+            let creator = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+            let peer = SceneDynamicTarget.layer(layerID: 2, field: .alpha)
+            let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram: candidate.vectorProgram,
+                stringProgram: candidate.stringProgram, scalarProgram: candidate.scalarProgram)
+            let initial = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: candidate.scalarProgram.definitions).snapshot
+            try domain.publishLayerSnapshot(initial, descriptor: d)
+            _ = coordinator.initialize(vectorInputs: [:], stringInputs: [:],
+                scalarInputs: [creator: .scalar(1), peer: .scalar(1)], effectivePropertyValues: [:],
+                frame: frame, userPropertiesJSON: "{}", audioSpectrum: .silent)
+            candidate.scalarProgram.finalizeLayerMutations(committing: true)
+            coordinator.finalizeInitializations()
+            let checkpoint = candidate.scalarProgram.frameStateSnapshot()
+            func evaluate() -> SceneScriptMediaFrameCoordinatorResult {
+                coordinator.evaluate(vectorInputs: [:], stringInputs: [:],
+                    scalarInputs: [creator: .scalar(1), peer: .scalar(1)], effectivePropertyValues: [:],
+                    frame: frame, userPropertiesJSON: "{}", events: .empty, audioSpectrum: .silent)
+            }
+            let result = evaluate()
+            let layers = SceneScriptDynamicLayerRuntime(descriptor: d, authoredMutationLayerIDs: [1,2,3])
+            let admitted = layers.preflightOwnerEffectsToFixedPoint(result.ownerEffects,
+                excludingOwners: Set(result.scalar.failures.keys)) { owners, _ in
+                Set(owners.compactMap { owner in
+                    if case .failure = puppet.validate(owner.puppetAnimationCommands, frameIndex: 1) {
+                        return owner.ownerTarget
+                    }
+                    return nil
+                })
+            }
+            layers.commit(admitted.admission.layerPlan)
+            let commands = admitted.admission.admittedEffects.flatMap(\.puppetAnimationCommands)
+            let applied: Bool
+            if case .success = puppet.apply(commands, frameIndex: 1) { applied = true } else { applied = false }
+            let rejected = admitted.externallyRejectedOwners
+            candidate.scalarProgram.restoreFrameState(checkpoint, rejectedOwnerTargets: rejected)
+            candidate.scalarProgram.finalizeLayerMutations(committing: true, rejectedOwnerTargets: rejected)
+            let acceptedCreator = mode == "normal" || mode == "renamed"
+            let current = puppet.advance(frameIndex: 2, sceneTime: 10.25, dynamicValues: .empty(frameIndex: 2))
+            try domain.publishPuppetAnimationSnapshot(current.animationSnapshots)
+            let next = evaluate()
+            candidate.scalarProgram.finalizeLayerMutations(committing: true)
+            let created = current.animationSnapshots.filter {
+                if case .created = $0.identity.instance { return true }
+                return false
+            }
+            out[mode] = [
+                "facts": [
+                    "vmOutcome": (result.scalar.failures[creator] != nil) == (mode == "throw" || mode == "badargument"),
+                    "peerHealthy": result.scalar.failures[peer] == nil,
+                    "creatorAdmission": admitted.admission.admittedEffects.contains { $0.ownerTarget == creator } == acceptedCreator,
+                    "applied": applied,
+                    "count": current.animationSnapshots.count == baseline + (acceptedCreator ? 2 : 1),
+                    "independentBirths": Set(created.map(\.identity)).count == (acceptedCreator ? 2 : 1),
+                    "pausedFrames": created.allSatisfy { !$0.isPlaying }
+                        && created.map(\.currentFrame).sorted() == (acceptedCreator ? [7,15] : [7]),
+                    "creatorJournal": (layers.snapshot().authoredLayerValues[.layer(layerID: 3, field: .scale)] != nil) == acceptedCreator,
+                    "peerJournal": layers.snapshot().authoredLayerValues[.layer(layerID: 3, field: .origin)] == .vector3(7,8,9),
+                    "committedHandle": next.scalar.values[peer] == .scalar(0.6),
+                    "discardedHandle": mode != "admission" || next.scalar.values[creator] == .scalar(0.3),
+                    "sameCadenceFrozen": initialPuppet.animationSnapshots.count == baseline
+                ], "failures": result.scalar.failures.map { $0.value.code }]
+        }
+        return out
+    }
     static func exercise(
         targets: [SceneDynamicTarget],
         capture: () -> SceneScriptProgramFrameState,
@@ -219,6 +352,7 @@ HARNESS = r'''
     static func main() throws {
         var out: [String: Any] = [:]
         out["propertyEvents"] = try propertyEvents()
+        out["singleAnimations"] = try singleAnimations()
         let d = descriptor()
         for family in ["scalar", "string", "vector", "sameLayer"] {
             let field = family == "scalar" ? "alpha" : family == "string" ? "text" : "origin"
@@ -330,6 +464,11 @@ class OwnerEventTransactionTests(unittest.TestCase):
     def test_property_events_keep_real_return_domain_scope_and_owner_transactions(self):
         for label, result in self.result["propertyEvents"].items():
             with self.subTest(label=label):
+                self.assertTrue(all(result["facts"].values()), result)
+
+    def test_single_animation_uses_real_provisional_vm_journal_and_owner_admission(self):
+        for mode, result in self.result["singleAnimations"].items():
+            with self.subTest(mode=mode):
                 self.assertTrue(all(result["facts"].values()), result)
 
     def test_rejected_first_event_retries_without_replaying_peer(self):

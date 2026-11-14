@@ -124,7 +124,8 @@ extension SceneDesktopWallpaperSession.Surface {
                 let state = ScenePuppetPlaybackState.make(layerID: layer.id, mesh: asset.mesh,
                     evaluator: evaluator, selection: selection, attachments: asset.attachments)
                 if case let .failure(failure) = playbackRuntime.register(layerID: layer.id,
-                    selection: selection, authoredLayers: layer.puppetAnimationLayers) {
+                    selection: selection, authoredLayers: layer.puppetAnimationLayers,
+                    availableSingleAnimations: pose.availableSingleAnimations) {
 #if DEBUG
                     NSLog("MWX Puppet: layer=%d animation definition rejected: %@",
                         layer.id, String(describing: failure))

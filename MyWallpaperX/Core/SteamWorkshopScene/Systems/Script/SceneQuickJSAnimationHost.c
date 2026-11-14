@@ -69,8 +69,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_publish_animation_events(
     for (size_t i = 0; i < count; ++i) {
         const MWXSceneQuickJSAnimationEvent *event = &events[i];
         if (event->source_kind > 1) continue;
-        MWXSceneQuickJSPuppetAnimationIdentity identity = { event->layer_id,
-            event->animation_layer_index, event->animation_layer_id, event->has_animation_layer_id };
+        MWXSceneQuickJSPuppetAnimationIdentity identity = { .layer_id = event->layer_id,
+            .animation_layer_index = event->animation_layer_index, .animation_layer_id = event->animation_layer_id,
+            .has_animation_layer_id = event->has_animation_layer_id };
         MWXSceneQuickJSPuppetAnimationRecord *record = event->source_kind == 1
             ? mwx_scene_quickjs_puppet_animation_record_for_identity(domain, identity) : NULL;
         uint32_t failure = event->failure;

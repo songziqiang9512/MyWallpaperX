@@ -295,13 +295,6 @@ typedef struct MWXSceneQuickJSTimerRecord {
     bool active;
 } MWXSceneQuickJSTimerRecord;
 
-typedef struct MWXSceneQuickJSPuppetAnimationIdentity {
-    int64_t layer_id;
-    uint32_t animation_layer_index;
-    int64_t animation_layer_id;
-    uint32_t has_animation_layer_id;
-} MWXSceneQuickJSPuppetAnimationIdentity;
-
 typedef struct MWXSceneQuickJSPuppetAnimationRecord {
     MWXSceneQuickJSPuppetAnimationSnapshot snapshot;
     uint64_t incarnation;
@@ -475,6 +468,8 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSPuppetAnimationRecord *puppet_animations;
     size_t puppet_animation_count;
     uint64_t puppet_animation_incarnation_issuer;
+    MWXSceneQuickJSPuppetAnimationSourceLookup puppet_animation_source_lookup;
+    void *puppet_animation_source_opaque;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;

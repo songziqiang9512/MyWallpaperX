@@ -100,6 +100,15 @@ class ScenePuppetDirectPlaybackTests(unittest.TestCase):
         self.check("cpuInstanceIsolation")
         self.check("factoryCount")
 
+    def test_membership_revision_reaches_query_geometry_and_physics_without_new_state(self):
+        row = self.rows["membership"]
+        self.assertTrue(all(row["facts"].values()), row)
+        self.assertEqual((row["queryZ"], row["geometryZ"], row["removedQueryZ"]), (4, 7, 0), row)
+        self.assertEqual(row["physicsQueryZ"], 4, row)
+        self.assertGreater(row["memberRevision"], row["initialRevision"], row)
+        self.assertEqual(row["memberRevision"], row["repeatedRevision"], row)
+        self.assertGreater(row["clearedRevision"], row["memberRevision"], row)
+
 
 if __name__ == "__main__":
     unittest.main()
