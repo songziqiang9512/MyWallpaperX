@@ -443,12 +443,6 @@ extension SceneResourceView {
   self.init(projectRootURL:root,packageRootURL:nil,stockAssetsRootURL:nil)
  }
 }
-struct SceneTexturePathResolver {
- let resourceView:SceneResourceView;let descriptor:SceneRenderDescriptor
- func resolveTextureFile(named path:String)->SceneResourceView.FileInput? {
-  resourceView.resolvedResource(relativePath:path).map(SceneResourceView.FileInput.resource)
- }
-}
 final class SceneTextureLoader {
  enum Result {case loaded(SceneTextureCandidate);case missing}
  var candidates:[String:SceneTextureCandidate]=[:]
@@ -484,12 +478,14 @@ extension SceneRenderDescriptor {
  struct ColorTargetFormat {var metalPixelFormat:MTLPixelFormat { .bgra8Unorm }}
  struct MaterialPassDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
+  var texturePaths:[String] {textureSlots.compactMap{$0}}
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
   var depthTest:String?=nil
   var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
   var staticModelDefaultAlbedoAssetPath:String?=nil;var shaderPath:String?=nil
   var blending:String?=nil
   var userShaderValues:[String:String]=[:]
+  var userTextureInputs:[SceneEffectTextureInput?]=[]
  }
 }
 '''
@@ -502,9 +498,11 @@ def resource_support():
     start=s.index('struct ScenePreparedStaticModelResources {');end=s.index('struct NamedAlbedo',start)
     s=s[:start]+s[end:]
     s=s.replace('expectedReference:String','expectedReference:SceneNamedTextureReference')
-    s=s.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil;var staticModelPath:String?=nil')
+    s=s.replace('var colorBlendMode:Int? = nil','var colorBlendMode:Int? = nil;var staticModelPath:String?=nil;'
+                'var imagePath:String?=nil;var staticBaseTexturePath:String?=nil')
     s=s.replace(' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]',
-                ' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]\n var materialPasses:[MaterialPassDescriptor]=[];let colorTargetFormat=ColorTargetFormat();var hdrEnabled:Bool=false')
+                ' let lighting:LightingDescriptor?;let layers:[Layer];let renderOrderLayerIDs:[Int]\n var materialPasses:[MaterialPassDescriptor]=[];'
+                'var modelMaterialLinks:[ModelMaterialLink]=[];let colorTargetFormat=ColorTargetFormat();var hdrEnabled:Bool=false')
     # Pure transport additions; all matrices still come from production owners.
     s=s.replace('var anglesXYZ:[Float]? = nil', 'var anglesXYZ:[Float]? = nil;'
         'var originXYZ:[Float]?=nil;var scaleXYZ:[Float]?=nil;'
@@ -540,6 +538,7 @@ func prepareModelSources(_ descriptor:SceneRenderDescriptor, view:SceneResourceV
 NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,*puppet.SWIFT_SOURCES,RESOURCE_SOURCE,
     SCENE/'Resources/Assets/SceneResourceIndex.swift',
     SCENE/'Resources/Assets/SceneResourceView.swift',
+    SCENE/'Resources/Textures/SceneTexturePathResolver.swift',
     SCENE/'Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift',
     SCENE/'Systems/Properties/ScenePuppetAnimationPropertyTarget.swift',
     SCENE/'Format/SceneMdlPuppetAnimationReader.swift',
@@ -549,6 +548,8 @@ NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,*puppet.
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
     SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
+    SCENE/'Compilation/Material/SceneEffectTextureInput.swift',
+    SCENE/'Compilation/Material/SceneRenderTargetVocabulary.swift',
     SCENE/'Resources/Textures/SceneNamedTextureReference.swift',
     SCENE/'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
     SCENE/'Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift',

@@ -28,6 +28,7 @@
         let combo = Int(number("normalCombo"))
         var combos = ["LIGHTING": item["lighting"] as? Int ?? 1]
         combos.merge(item["mapCombos"] as? [String: Int] ?? [:], uniquingKeysWith: { _, value in value })
+        if let gradientCombo = item["gradientCombo"] as? Int { combos["SHADINGGRADIENT"] = gradientCombo }
         if combo >= 0 { combos["NORMALMAP"] = combo }
         let reflection = item["reflection"] as! Bool
         if reflection && combos["REFLECTION"] == nil { combos["REFLECTION"] = 1 }
@@ -40,8 +41,17 @@
         let componentRelative = renamed ? "materials/alternate-components.png" : "materials/components.png"
         var textureSlots: [String?] = [renamed ? "materials/alternate-color.png" : "materials/white.png", normalRelative]
         if item["materialPixels"] != nil { textureSlots.append(componentRelative) }
+        let gradientRelative = renamed ? "materials/alternate-ramp.png" : "materials/ramp.png"
+        if item["gradientPixels"] != nil,
+           !(item["gradientDefault"] as? Bool ?? false) || (item["gradientExplicit"] as? Bool ?? false) {
+            textureSlots += Array(repeating: nil, count: 5 - textureSlots.count)
+            textureSlots[4] = gradientRelative
+        }
         var primary = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: materialPath,
             textureSlots: textureSlots, combos: combos, constantShaderValues: values)
+        if item["gradientUser"] as? Bool == true {
+            primary.userTextureInputs = [nil, nil, nil, nil, .init(kind: .property, value: "fixture-ramp")]
+        }
         primary.shaderPath = item["shader"] as? String
         primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
         var farPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/far.json",
@@ -52,7 +62,8 @@
         near.scaleXYZ = [vector("scale").x, vector("scale").y, vector("scale").z]
         near.anglesXYZ = [0, 0, number("rotation")]
         var far = SceneRenderDescriptor.Layer(id: 9, staticModelPath: "models/far.mdl")
-        far.utilityLayer = nil; far.usesPerspective = true; far.originXYZ = [0, 0, 0]
+        let gradientShadow = item["gradientShadow"] as? Bool ?? false
+        far.utilityLayer = nil; far.usesPerspective = true; far.originXYZ = [0, 0, gradientShadow ? 20 : 0]
         var descriptor = SceneRenderDescriptor(lighting: nil, layers: [near, far],
             renderOrderLayerIDs: [7, 9], materialPasses: [primary, farPass])
         descriptor.hdrEnabled = item["hdr"] as? Bool ?? false
@@ -60,6 +71,8 @@
             orthoWidth: nil, orthoHeight: nil, fovDegrees: 60,
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
         let loader = try SceneTextureLoader(root: folder, device: device)
+        let resourceView = SceneResourceView(projectRootURL: folder, packageRootURL: nil,
+            stockAssetsRootURL: item["gradientDefault"] as? Bool == true ? folder.appendingPathComponent("stock") : nil)
         let width = Int(number("width")), storage = item["storage"] as! String
         let format: MTLPixelFormat = storage == "bc5" ? .bc5_rgSnorm
             : storage == "rg" ? .rg8Unorm : .rgba8Unorm
@@ -104,9 +117,41 @@
                     | (item["mapNearest"] as? Bool ?? true ? 1 : 0)
                     | (item["mapRepeat"] as? Bool ?? false ? 0 : 2)))
         }
-        var sources = try prepareModelSources(descriptor, view: .init(root: folder))
+        if let gradientPixels = item["gradientPixels"] as? [NSNumber] {
+            let gradientWidth = item["gradientWidth"] as? Int ?? 1
+            let gradientHeight = item["gradientHeight"] as? Int ?? 1
+            let storage = item["gradientStorage"] as? String ?? "rgba"
+            let channels = storage == "r" ? 1 : storage == "rg" ? 2 : 4
+            let gradientDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: storage == "r" ? .r8Unorm : storage == "rg" ? .rg8Unorm : .rgba8Unorm,
+                width: gradientWidth, height: gradientHeight, mipmapped: false)
+            gradientDescriptor.storageMode = .shared; gradientDescriptor.usage = .shaderRead
+            let gradientTexture = device.makeTexture(descriptor: gradientDescriptor)!
+            let bytes = gradientPixels.map(\.uint8Value)
+            precondition(bytes.count == gradientWidth * gradientHeight * channels)
+            bytes.withUnsafeBytes { gradientTexture.replace(region: MTLRegionMake2D(0, 0, gradientWidth, gradientHeight),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: gradientWidth * channels) }
+            func pair(_ key: String, _ fallback: SIMD2<Float>) -> SIMD2<Float> {
+                guard let values = item[key] as? [NSNumber] else { return fallback }
+                return SIMD2(values[0].floatValue, values[1].floatValue)
+            }
+            for url in [folder.appendingPathComponent(gradientRelative),
+                        folder.appendingPathComponent("stock/materials/gradient/gradient_toon_smooth.tex")] {
+                let path = url.resolvingSymlinksInPath().path
+                let format = item["gradientFormat"] as? Int ?? (storage == "r" ? 9 : storage == "rg" ? 8 : 0)
+                loader.candidates[path] = .init(texture: gradientTexture, identity: .file(path: path),
+                    generation: .immutable(revision: 1), purpose: .mask, content: .data,
+                    physicalSize: CGSize(width: gradientWidth, height: gradientHeight),
+                    mappedSize: CGSize(width: gradientWidth, height: gradientHeight),
+                    uvTransform: .init(origin: pair("gradientOrigin", .zero),
+                        xAxis: pair("gradientXAxis", SIMD2(1, 0)), yAxis: pair("gradientYAxis", SIMD2(0, 1))),
+                    sampling: .init(texFlags: item["gradientNearest"] as? Bool ?? true ? 3 : 2),
+                    authoredFormat: format < 0 ? nil : SceneShaderTextureFormat(rawValue: UInt32(format)))
+            }
+        }
+        var sources = try prepareModelSources(descriptor, view: resourceView)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
-            resourceView: .init(root: folder), device: device, textureLoader: loader,
+            resourceView: resourceView, device: device, textureLoader: loader,
             preparedSources: &sources, cancellationCheck: {})
         precondition(resources[7]?.count == 1 && resources[9]?.count == 1, "Prepared geometry: " + name)
         let renderer = SceneMetalRenderer(device: device, resources: resources)
@@ -120,9 +165,20 @@
         let center = camera.reverseDepthViewProjection(usesPerspective: true) * worlds[7]! * SIMD4<Float>(0, 0, 0, 1)
         precondition(abs(center.x / center.w) < 0.00001 && abs(center.y / center.w) < 0.00001)
         let ambient = item["ambient"] as! Bool
+        let kind = item["lightKind"] as? String ?? "directional"
+        let color = item["lightColor"] == nil ? SIMD3<Float>(repeating: 1) : vector("lightColor")
+        let intensity = (item["lightIntensity"] as? NSNumber)?.floatValue ?? 2
+        let radius = (item["lightRadius"] as? NSNumber)?.floatValue ?? 160
+        let direct = !ambient && !reflection
         let lighting = SceneLightSnapshot(ambient: ambient ? SIMD3(repeating: 1) : .zero,
-            skylight: .zero, directional: ambient || reflection ? [] : [.init(directionTowardLight: vector("light"),
-                color: SIMD3(repeating: 1), intensity: 2)], point: [], spot: [], overflowCount: 0)
+            skylight: .zero, directional: direct && kind == "directional" ? [.init(layerID: 11,
+                castsShadow: gradientShadow, directionTowardLight: vector("light"), color: color, intensity: intensity)] : [],
+            point: direct && kind == "point" ? [.init(layerID: 11, position: SIMD3(0, 0, 80),
+                color: color, intensity: intensity, radius: radius)] : [],
+            spot: direct && kind == "spot" ? [.init(layerID: 11, position: SIMD3(0, 0, 80),
+                directionFromLight: item["spotAway"] as? Bool == true ? SIMD3(0, 0, 1) : SIMD3(0, 0, -1),
+                color: color, intensity: intensity, radius: radius, innerConeCosine: cos(.pi/6),
+                outerConeCosine: cos(.pi/4), outerConeDegrees: 45)] : [], overflowCount: 0)
         let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
             width: 64, height: 64, mipmapped: false)
         outputDescriptor.storageMode = .shared; outputDescriptor.usage = [.renderTarget, .shaderRead]
@@ -132,6 +188,18 @@
         let state = SceneMetalRenderer.StaticModelFrame(commandBuffer: cb)
         var leases: [SceneParticleDepthTargetLease] = []
         let snapshot = SceneDynamicSnapshot.empty(frameIndex: 1, generation: 1)
+        let shadowPool = gradientShadow ? SceneOffscreenTexturePool(device: device,
+            pixelFormat: .bgra8Unorm, residentByteBudget: 64 * 1024 * 1024) : nil
+        if let pool = shadowPool {
+            let visible: Set<Int> = [7, 9]
+            let candidates = renderer.shadowDrawCandidates(orderedLayers: [near, far], visible: visible,
+                worldFrames: worlds, snapshot: snapshot, groups: nil)!
+            renderer.prepareModelShadow(state: state, candidates: candidates,
+                lights: [.directional(lighting.directional[0])], orderedLayers: [near, far], visible: visible,
+                batches: [:], particlePipeline: nil, mainPass: pass, groups: nil, pool: pool,
+                commandBuffer: cb, leases: &leases, mandatoryCapacity: { true }, recordsEvidence: false, cameraFrame: camera)
+            precondition(state.shadows.count == 1)
+        }
         if reflection {
             let reflectionDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
                 width: 64, height: 64, mipmapped: false)
@@ -147,7 +215,8 @@
             let encoder = state.sceneDepthEncoder(pass: pass, commandBuffer: cb)!
             let draw = renderer.staticModelDraws(layer: near, worldFrames: worlds, snapshot: snapshot)!.first!
             precondition(resources.pipeline!.draw(mesh: draw.mesh, texture: draw.texture,
-                colorTextureIsPremultiplied: false, materialMap: draw.entry.materialMap, normalMap: draw.entry.normalMap, modelMatrix: draw.world,
+                colorTextureIsPremultiplied: false, materialMap: draw.entry.materialMap, normalMap: draw.entry.normalMap,
+                gradient: draw.entry.gradient, modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix, viewProjection: camera.reverseDepthViewProjection(usesPerspective: true),
                 cameraPosition: camera.perspectiveEyePosition, textureFrame: draw.textureFrame,
                 sampling: draw.sampling, layerAlpha: draw.alpha, material: draw.material,
@@ -169,6 +238,7 @@
             to: readback, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256)
         blit.endEncoding(); leases.forEach { $0.arm(on: cb) }; state.arm(on: cb)
         cb.commit(); cb.waitUntilCompleted()
+        withExtendedLifetime(shadowPool) {}
         precondition(cb.status == .completed && cb.error == nil)
         func rgba(_ x: Int, _ y: Int) -> [Int] {
             var bytes = [UInt8](repeating: 0, count: 4)
@@ -180,6 +250,8 @@
             "components": resources[7]!.first!.materialMap?.components ?? 0,
             "emissionSeed": resources[7]!.first!.material.emissiveBrightness,
             "surfaceProfile": resources[7]!.first!.material.surfaceProfile != nil,
+            "gradient": resources[7]!.first!.gradient != nil,
+            "replicatesRed": resources[7]!.first!.gradient?.replicatesRed ?? false,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
     }

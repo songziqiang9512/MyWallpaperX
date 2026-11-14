@@ -3005,7 +3005,8 @@
         "test_scene_pbr_scalar",
         "test_scene_authored_normal",
         "test_scene_lit_image_layer",
-        "test_scene_static_model_emission"
+        "test_scene_static_model_emission",
+        "test_scene_static_model_shading_gradient"
       ]
     },
     {
@@ -3096,7 +3097,8 @@
         "script/tests/test_scene_static_model_normal_map.py",
         "script/tests/fixtures/SceneStaticModelNormalChecks.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
-        "script/tests/test_scene_static_model_material_map.py"
+        "script/tests/test_scene_static_model_material_map.py",
+        "script/tests/test_scene_static_model_shading_gradient.py"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -3113,7 +3115,8 @@
         "test_scene_static_model_normal_map",
         "test_scene_native_world_composition",
         "test_scene_point_volume",
-        "test_scene_static_model_material_map"
+        "test_scene_static_model_material_map",
+        "test_scene_static_model_shading_gradient"
       ]
     },
     {

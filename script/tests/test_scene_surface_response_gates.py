@@ -13,7 +13,8 @@ class SceneSurfaceResponseGateTests(unittest.TestCase):
     def test_shared_header_selects_only_existing_surface_consumer_gates(self):
         path = 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneSurfaceResponse.metalh'
         expected = {'test_scene_pbr_scalar', 'test_scene_authored_normal',
-                    'test_scene_lit_image_layer', 'test_scene_static_model_emission'}
+                    'test_scene_lit_image_layer', 'test_scene_static_model_emission',
+                    'test_scene_static_model_shading_gradient'}
         report = verify.product_test_mapping([path], self.registry, self.available)
         self.assertEqual(report['product_paths'], [path])
         self.assertEqual(report['mapped_paths'], [path])

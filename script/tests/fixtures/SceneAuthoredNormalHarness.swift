@@ -34,7 +34,7 @@ import simd
         let loader=SceneTextureLoader()
         func load(_ name:String,_ data:Data, purpose:SceneTextureLoadPurpose = .normal) throws -> SceneTextureCandidate {
             let url=directory.appendingPathComponent(name+".tex");try data.write(to:url)
-            guard case let .loaded(value)=loader.loadCandidate(from:url,purpose:purpose,device:device) else { fatalError("load \(name)") }
+            guard case let .loaded(value)=try loader.loadCandidate(from:url,purpose:purpose,device:device) else { fatalError("load \(name)") }
             return value
         }
         let pipeline=SceneImageLayerPipeline(device:device,pixelFormat:.rgba16Float,library:library)!
@@ -120,7 +120,7 @@ import simd
             let candidate=try load("bc\(format)",tex(format:format,bytes:block))
             precondition(candidate.pixelFormat == pixelFormat)
             check(render(.resolve(candidate)),simd_normalize(SIMD3<Float>(16.0/31*2-1,32.0/63*2-1,-1)))
-            let container=loader.texContainer(from:directory.appendingPathComponent("bc\(format).tex"))!
+            let container=try loader.texContainer(from:directory.appendingPathComponent("bc\(format).tex"))!
             guard case let .loaded(native)=SceneCompressedTextureUploader.uploadNativeImage(container.images[0],pixelFormat:pixelFormat,device:device) else { fatalError("native BC upload") }
             let value=sample(native),input=Capture.TextureInput.resolve(Harness.candidate(native))
             let pixels=render(input)
@@ -174,7 +174,7 @@ import simd
         }
         try animated.write(to:directory.appendingPathComponent("animation.tex"))
         let animatedIdentity=SceneAssetTextureIdentity(virtualPath:"animation.tex",purpose:.normal)!
-        let catalog=SceneMaterialAssetTextureCatalog(demands:[animatedIdentity],resourceView:
+        let catalog=try SceneMaterialAssetTextureCatalog(demands:[animatedIdentity],resourceView:
             SceneResourceView(projectRootURL:directory,packageRootURL:nil,stockAssetsRootURL:directory),
             descriptor:SceneRenderDescriptor(),device:device)
         let provider=catalog.makeFrameProvider()

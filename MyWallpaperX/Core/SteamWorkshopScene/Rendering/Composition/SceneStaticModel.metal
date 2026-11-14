@@ -51,6 +51,7 @@ struct SceneStaticModelUniforms {
     float4 pointFalloffExponents;
     float4 normalTextureFrame0;
     float4 normalTextureFrame1; // UV y-axis.xy, model handedness.z
+    float4 gradientTextureFrame; // center-line origin.xy, x-axis.zw
 };
 
 struct SceneStaticModelRasterVertex {
@@ -350,10 +351,20 @@ float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
 // The admitted material response is shared by all model lamp kinds. Callers
 // retain each lamp's attenuation and multiply visibility across both lobes.
 static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
-    float3 light, float3 surfaceColor, float2 material) {
+    float3 light, float signedNoL, float3 surfaceColor, float2 material,
+    texture2d<float> gradientTexture, sampler gradientSampler,
+    float4 gradientFrame, uint gradientChannels) {
+    const float noL = clamp(signedNoL, 0.0, 1.0);
+    float3 diffuseCosine = float3(noL);
+    if (gradientChannels != 0u) {
+        const float coordinate = clamp(0.5 + 0.5 * signedNoL, 0.0, 1.0);
+        const float2 uv = gradientFrame.xy + coordinate * gradientFrame.zw;
+        const float3 lookup = gradientTexture.sample(gradientSampler, uv, level(0.0)).rgb;
+        diffuseCosine = gradientChannels == 1u ? float3(lookup.r) : lookup;
+    }
     const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view,
         light, clamp(surfaceColor, 0.0, 1.0), material.x, material.y, true,
-        SceneSurfaceAnalyticSchlick);
+        SceneSurfaceAnalyticSchlick, noL, diffuseCosine);
     return (surfaceColor * weights.diffuse + weights.specular) / M_PI_F;
 }
 
@@ -362,11 +373,13 @@ fragment half4 sceneStaticModelFragment(
     texture2d<half> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
     texture2d<float> normalTexture [[texture(7)]],
+    texture2d<float> gradientTexture [[texture(8)]],
     array<depth2d<float>, 4> shadowTextures [[texture(2)]],
     texture2d<float> reflectionTexture [[texture(6), function_constant(sceneStaticModelUsesReflection)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
     sampler normalSampler [[sampler(2)]],
+    sampler gradientSampler [[sampler(3)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     // Derivatives must be evaluated before distance/cone/material branches.
     float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
@@ -474,14 +487,15 @@ fragment half4 sceneStaticModelFragment(
          receivesLighting && lightIndex < min(lightCount, 4u);
          ++lightIndex) {
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
-        float diffuse = max(dot(normal, light.xyz), 0.0);
+        float signedNoL = dot(normal, light.xyz);
         float visibility = directionalVisibility[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                light.xyz, surfaceColor, surfaceMaterial.xy)
+                light.xyz, signedNoL, surfaceColor, surfaceMaterial.xy,
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
                 * uniforms.lightColor[lightIndex].xyz * light.w * visibility;
         } else {
-            lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse * visibility;
+            lighting += uniforms.lightColor[lightIndex].xyz * light.w * max(signedNoL, 0.0) * visibility;
         }
     }
     uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
@@ -500,15 +514,16 @@ fragment half4 sceneStaticModelFragment(
             1.0
         );
         float radial = sceneRadialFalloff(remaining, uniforms.pointFalloffExponents[lightIndex]);
-        float diffuse = max(dot(normal, directionTowardLight), 0.0);
+        float signedNoL = dot(normal, directionTowardLight);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                directionTowardLight, surfaceColor, surfaceMaterial.xy)
+                directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * pointVisibility[lightIndex];
         } else {
-            lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse * pointVisibility[lightIndex];
+            lighting += colorIntensity.xyz * colorIntensity.w * radial * max(signedNoL, 0.0) * pointVisibility[lightIndex];
         }
     }
     uint spotCount = receivesLighting ? uniforms.lightCounts.z : 0u;
@@ -533,16 +548,17 @@ fragment half4 sceneStaticModelFragment(
         float cone = directionInner.w > outerCosine + 1e-5
             ? smoothstep(outerCosine, directionInner.w, coneDot)
             : step(outerCosine, coneDot);
-        float diffuse = max(dot(normal, directionTowardLight), 0.0);
+        float signedNoL = dot(normal, directionTowardLight);
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
-                directionTowardLight, surfaceColor, surfaceMaterial.xy)
+                directionTowardLight, signedNoL, surfaceColor, surfaceMaterial.xy,
+                gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w)
                 * colorIntensity.xyz * colorIntensity.w
                 * radial * cone * spotVisibility[lightIndex];
         } else {
             lighting += colorIntensity.xyz * colorIntensity.w
-                * radial * cone * diffuse * spotVisibility[lightIndex];
+                * radial * cone * max(signedNoL, 0.0) * spotVisibility[lightIndex];
         }
     }
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);

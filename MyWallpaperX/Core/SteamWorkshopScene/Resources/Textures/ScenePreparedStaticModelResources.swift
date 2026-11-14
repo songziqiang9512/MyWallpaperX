@@ -36,6 +36,7 @@ struct ScenePreparedStaticModelResources {
         let namedAlbedo: SceneNamedTextureReference?
         let materialMap: SceneStaticModelMaterialMap?
         let normalMap: SceneStaticModelNormalMap?
+        let gradient: SceneStaticModelGradient?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
         let testsDepth: Bool
@@ -50,7 +51,8 @@ struct ScenePreparedStaticModelResources {
             materialBlending: SceneMaterialRenderState.Blending?,
             geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
             normalMap: SceneStaticModelNormalMap? = nil,
-            testsDepth: Bool = true
+            testsDepth: Bool = true,
+            gradient: SceneStaticModelGradient? = nil
         ) {
             self.modelPath = modelPath
             self.materialPath = materialPath
@@ -60,6 +62,7 @@ struct ScenePreparedStaticModelResources {
             self.namedAlbedo = namedAlbedo
             self.materialMap = materialMap
             self.normalMap = normalMap
+            self.gradient = gradient
             self.material = material
             self.writesDepth = writesDepth
             self.testsDepth = testsDepth
@@ -260,7 +263,10 @@ struct ScenePreparedStaticModelResources {
                         normalMap: normal.map { .init(texture: $0.texture,
                             textureFrame: $0.uvTransform, sampling: $0.sampling,
                             encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) },
-                        testsDepth: depthEnabled(pass.depthTest)
+                        testsDepth: depthEnabled(pass.depthTest),
+                        gradient: try Self.gradient(pass, material: modelMaterial,
+                            resolver: textureResolver, textureLoader: textureLoader,
+                            device: device, checkCancellation: cancellationCheck)
                     ))
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
@@ -519,19 +525,45 @@ struct ScenePreparedStaticModelResources {
             sampling: candidate.sampling, components: components)
     }
 
+    private static func gradient(
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        material: SceneStaticModelMaterial,
+        resolver: SceneTexturePathResolver,
+        textureLoader: SceneTextureLoader,
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneStaticModelGradient? {
+        let defaultPath = pass.userTextureInputs.indices.contains(4) && pass.userTextureInputs[4] != nil
+            ? nil : "gradient/gradient_toon_smooth"
+        guard material.surfaceProfile != nil, material.receivesLighting,
+              pass.combos["SHADINGGRADIENT"].map({ $0 != 0 }) == true,
+              let candidate = try optionalTexture(at: 4, in: pass, purpose: .mask,
+                  defaultPath: defaultPath,
+                  resolver: resolver, textureLoader: textureLoader, device: device,
+                  checkCancellation: checkCancellation) else { return nil }
+        let frame = candidate.uvTransform
+        let origin = frame.origin + 0.5 * frame.yAxis
+        let replicatesRed = candidate.authoredFormat == .r8 || candidate.authoredFormat == .rg88
+            || candidate.pixelFormat == .r8Unorm || candidate.pixelFormat == .rg8Unorm
+        return .init(texture: candidate.texture,
+            sampleLine: SIMD4(origin.x, origin.y, frame.xAxis.x, frame.xAxis.y),
+            sampling: candidate.sampling, replicatesRed: replicatesRed)
+    }
+
     /// Optional packed material data fails soft, leaving the ordinary lit
     /// albedo intact. It is loaded as a typed mask rather than color.
     private static func optionalTexture(
         at slotIndex: Int,
         in pass: SceneRenderDescriptor.MaterialPassDescriptor,
         purpose: SceneTextureLoadPurpose,
+        defaultPath: String? = nil,
         resolver: SceneTexturePathResolver,
         textureLoader: SceneTextureLoader,
         device: MTLDevice,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidate? {
-        guard pass.textureSlots.indices.contains(slotIndex),
-              let path = pass.textureSlots[slotIndex],
+        let authoredPath = pass.textureSlots.indices.contains(slotIndex) ? pass.textureSlots[slotIndex] : nil
+        guard let path = authoredPath ?? defaultPath,
               let url = resolver.resolveTextureFile(named: path),
               case let .loaded(candidate) = try textureLoader.loadCandidate(
                   from: url,

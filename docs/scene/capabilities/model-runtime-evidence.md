@@ -73,3 +73,15 @@
 直接读取上一分量批冻结的真实月球资产失败变体及materials/等价载体，project/scene/pkg/材料与几何字节相同，仅MDL材质引用不同。相同固定Date/SceneTime、画幅与App，两场F94/request1分别CB517910315904、511535694720，layer53的albedo、RG normal与components3到各自main/seal/GPU完成、零截断并排空；输入、原protocol、App和Catalog前后SHA不变。旧外路径clear恢复167058月球像素；新外路径、新标准路径与上一构建标准路径三图均SHA7687586a…41f63，1280×831全部1063680像素零差异，无ROI裁剪或宽容阈值。资格为同真实资产自有scene的材料路由修复，不授作者整景或官方像素。独立3437487219原包5秒PASS，F120/request1/CB515864495872的112/114进入main515873918720/seal/GPU，地表、云、大气与时钟完整并排空。当前材料角色断点退出开放队列。
 
 自有输入身份、同输入红绿/单次读取、两场实际图与收据、独审和构建身份归 `.artifacts/scene-model-material-role-20261114`；独立作者原报告、必要图和日志归 `.artifacts/scene-evidence/runs/scene-model-material-role-20261114`。未知未引用文件、真实坏JSON不被此次角色放行；动态材料、其它shader/多pass及官方像素仍按原能力边界。
+
+## 世界模型的渐变漫反射 <a id="model-shading-gradient"></a>
+
+2026-11-14按[原渐变设计](advanced-object-coverage.md#model-shading-gradient)，stock generic4的活动slot4沿原Resource/Entry/Frame/Metal供货，省略取stock默认、明确坏图/无file的typed user局部退普通响应。原SurfaceResponse的diffuse cosine由signed N·L lookup替换，specular保持原正NoL/Fresnel/GGX，三灯继续独立一次衰减/阴影。image同一clamp(dot)移到caller后原乘法次序不变；模型旧重复dot退出。七产品净+72行；只新增16B uniform、texture8/sampler3与typed immutable binding，UV中心采样线冷准备一次，无新PSO/pass/池/cache/owner；无gradient的固定绑定成本不称零成本。
+
+最终同一Swift/Metal载体三个payload的16方法、56 gradient/60分量/36normal输入通过，source/support、binary/library身份及复用输入逐次核对。真实ResourceView/TexturePathResolver与原Frame/Metal消费分段RGB的负/零/正方向，分别得到[15,0,0]、[0,24,0]、[0,0,34]，与独立普通灯色等值；背半球全白lookup为[15,24,34]，实际caster阴影为[0,0,0]，alpha255且同depth。R8/RG复制R、RGB、2/-1/0/省略、normal翻转、有效域/中心行/采样、default/改名/缺图/custom/override/unlit与明确user缺file、三灯/cone/radius、ambient/emission/spec/reflection/HDR/alpha/depth边界保持。原图像31条scalar/half、19格式及world capture/family数值，与模型emission6和pipeline7方法的分步有效16方法通过。首个native只因过窄resolver替身丢stock默认而15/16，已退该替身、编入真实resolver并重编一次后全过；图像旧fixture三处缺try已按既有API修复，仅补受影响方法，未改产品/输入或阈值。
+
+最终普通Debug26.624s，七产品/project/锁文件前后相同，签名与原helpers通过；exec2ae29db2…3884、dylib240c0cef…512c、metallibaeb9d00a…6564。首轮33.035s构建及真实pair保作中间结果；最终增加typed用户输入的default所有权修订后，两场固定Date/SceneTime的真实月球资产控制完整重验。最终on/off的F94/request1分别CB531241337728、501344798464，原几何/world/相机/灯、源资产与protocol前后SHA不变，on实际64×2 R8 lookup、RG normal与MR3进入同main/seal/GPU完成、零截断并排空；off无gradient。off与旧构建逐PNG相同，on/off的1280×831全图中，颜色排除背景并集167107像素的159472（95.4311%）改变，平均绝对RGB差11.2111 byte、最大55；此并集是颜色测量，不授几何覆盖变化或原作者整景严格A/B。最终on与首轮on也逐PNG相同，未调参数拟合月色。
+
+原3453730450自然20s/after17，F826/request1/CB515873867520的53、77一个实际part及306/340/342复用同一64×2 texture进入main515864339840/seal/GPU，终端月面、星空、轨道、标题与时钟完整，零截断并排空；不是77全部part资格。独立3437487219原包5秒PASS，F141/request1/CB530126540288的112/114无gradient，地表/云/大气/时钟完整并排空。算法为本引擎明示漫反射风格合同，未授官方像素、rim、用户provider/热更新或性能。
+
+当前原作者报告、必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-gradient-20261114`；实际资产开关与旧/中间/最终身份、56/60/36输入、局部失败/修正、相邻门、独审和构建收据归 `.artifacts/scene-model-gradient-20261114`。

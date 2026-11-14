@@ -9,7 +9,8 @@ static float sceneRadialFalloff(float remaining, float exponent) {
 }
 
 // One project-owned surface composition; callers own lamp units, color
-// coverage and geometry. Weights include NoL once and omit the common 1/pi.
+// coverage and geometry. Diffuse cosine may be shaped by the caller; specular
+// uses the ordinary positive NoL. Both weights omit the common 1/pi.
 // Legacy image visibility is retained migration debt, not an official split.
 enum SceneSurfaceVisibility {
     SceneSurfaceCorrelatedSmith,
@@ -23,9 +24,9 @@ struct SceneSurfaceWeights {
 
 static SceneSurfaceWeights sceneSurfaceResponse(float3 normal, float3 view,
     float3 light, float3 reflectance, float metallic, float roughness,
-    bool materialEnabled, SceneSurfaceVisibility visibility) {
-    const float noL = clamp(dot(normal, light), 0.0, 1.0);
-    float3 diffuseWeight = float3(noL);
+    bool materialEnabled, SceneSurfaceVisibility visibility,
+    float noL, float3 diffuseCosine) {
+    float3 diffuseWeight = diffuseCosine;
     float3 specularWeight = float3(0.0);
     if (materialEnabled) {
         const float3 f0 = mix(float3(0.04), reflectance, metallic);
@@ -65,7 +66,7 @@ static SceneSurfaceWeights sceneSurfaceResponse(float3 normal, float3 view,
                 specularWeight = fresnel * (scaledDistribution * weightedVisibility);
             }
         }
-        diffuseWeight = (1.0-metallic) * (1.0-fresnel) * noL;
+        diffuseWeight = (1.0-metallic) * (1.0-fresnel) * diffuseCosine;
     }
     return {diffuseWeight, specularWeight};
 }

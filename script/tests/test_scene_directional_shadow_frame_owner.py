@@ -111,6 +111,7 @@ struct ScenePreparedStaticModelResources {
   let materialPath:String;let dynamicMaterialPath:String;let mesh:SceneStaticModelMesh
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var materialMap:SceneStaticModelMaterialMap? = nil
   var normalMap:SceneStaticModelNormalMap? = nil
+  var gradient:SceneStaticModelGradient? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
   var testsDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil

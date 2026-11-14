@@ -136,9 +136,11 @@ static float3 sceneLitDirect(float3 normal, float3 view, float3 light,
     float falloff, float3 tint, float opacity, bool usesLightingV1) {
     const float3 reflectance = material.z != 0.0
         ? clamp(source.rgb / source.a, 0.0, 1.0) : float3(0.0);
+    const float noL = clamp(dot(normal, light), 0.0, 1.0);
     SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view, light,
         reflectance, material.x, material.y, material.z != 0.0,
-        usesLightingV1 ? SceneSurfaceAnalyticSchlick : SceneSurfaceCorrelatedSmith);
+        usesLightingV1 ? SceneSurfaceAnalyticSchlick : SceneSurfaceCorrelatedSmith,
+        noL, float3(noL));
     if (usesLightingV1) {
         weights.diffuse /= M_PI_F;
         weights.specular /= M_PI_F;

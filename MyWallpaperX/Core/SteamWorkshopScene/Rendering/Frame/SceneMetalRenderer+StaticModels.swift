@@ -259,6 +259,7 @@ extension SceneMetalRenderer {
                 colorTextureIsPremultiplied: draw.premultiplied,
                 materialMap: draw.entry.materialMap,
                 normalMap: draw.entry.normalMap,
+                gradient: draw.entry.gradient,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
                 viewProjection: viewProjection,
@@ -298,6 +299,12 @@ extension SceneMetalRenderer {
                         source: .init(map.texture, role: "model-material-data"),
                         target: pass.compositionTarget,
                         details: ["components": String(map.components)]))
+                }
+                if encoded, let gradient = draw.entry.gradient {
+                    trace.recordComposition(.init(kind: "model-gradient", layerID: layer.id, slot: 8,
+                        source: .init(gradient.texture, role: "model-shading-gradient-data"),
+                        target: pass.compositionTarget,
+                        details: ["channels": gradient.replicatesRed ? "r" : "rgb"]))
                 }
                 if encoded, let environment,
                    case let .provider(.sceneEnvironment(_, _, producer)) = environment.publication.candidate.identity {

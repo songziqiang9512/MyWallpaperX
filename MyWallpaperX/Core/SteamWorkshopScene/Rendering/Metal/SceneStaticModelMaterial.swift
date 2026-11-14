@@ -1,6 +1,13 @@
 import Metal
 import simd
 
+struct SceneStaticModelGradient {
+    let texture: MTLTexture
+    let sampleLine: SIMD4<Float>
+    let sampling: SceneTextureSampling
+    let replicatesRed: Bool
+}
+
 /// One slot-local data binding shared by the prepared material components.
 struct SceneStaticModelMaterialMap {
     let texture: MTLTexture

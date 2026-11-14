@@ -63,6 +63,17 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 验收用真实准备→原Frame/Metal的分区map与相同M/R/B/A的纯标量/显式图邻例作等值像素对照，保省略位缺失/显式启用及禁位、总开关、非零整数变体、标量0、缺图、独立UV/sampler、完整改名、法线/反射共存、HDR/alpha/depth；既有发光及shadow门按影响补测。原月球53/77须实际绑定非恒定分量并取得完整作者画面；分量运算由等值标量门和隔离真实资产的固定球面开关对照归因，不能把作者供货直接升级为严格原景A/B或77逐part贡献。另用独立真实样本检查启用与无map邻例。未取得作者/官方分量像素配对时以明确的本引擎材质运算和等值标量正反例判定，不拟合亮度或宣全部官方像素/性能。
 
+<a id="model-shading-gradient"></a>
+### 模型的渐变漫反射
+
+已开启SHADINGGRADIENT的stock generic4模型沿原受光链消费真实slot4。只沿原SurfaceProfile资格、LIGHTING与明确非零combo准备；省略/0不读图。沿既有静态文件链消费slot4，文件与typed userTextureInputs[4]均省略时沿该stock材质族声明的默认gradient/gradient_toon_smooth供货；本批不接用户纹理provider，明确用户输入而无文件时只缺该lookup，不能用默认冒充；不授完整user/file优先级。显式坏图只退普通响应，不偷用默认、不拒整part。自定义/覆盖root shader不取得此固定材质语义，不准备整套generic Program来读取这个已资格stock默认。
+
+原Resource/TextureLoader按data用途与真实格式准备一份typed lookup binding：纹理、sampler、R8/RG88复制R或其它RGB，以及由原UV变换一次投影的水平中心采样线(origin+.5*yAxis,xAxis)。Entry→原Frame→Pipeline直接携带；新增一个16B uniform及texture8/sampler3，沿原lightCounts空分量编码禁用/R/RGB，不加varying、PSO、pass、池、cache或owner。普通帧不解析/取资源/重投影不变UV；无图仅保固定ABI与未采样占位绑定，不授零成本。
+
+本引擎明确算法：对实际normal-map扰动后的signed N·L映射u=(N·L+1)/2，沿采样线取得RGB漫反射cosine响应，替换原SurfaceResponse的漫反射cosine因子。共享owner仍唯一计算Fresnel/GGX/Smith，原正向NoL单独供specular；两个实际caller各算一次dot并显式交入两响应，图像仍交普通NoL，不加overload/sentinel或复制BRDF。模型三灯共用原response，radial/cone/light/color/真实shadow visibility继续各乘一次，不再把ramp乘NoL或最终RGB。ambient/skylight、emission、reflection、view tint、fog、覆盖与深度保原次序。没有官方像素对照时依此通用算法验收，不拟合月色；rim独立后续，不把本批授为完整stock风格光照。
+
+验收用原实际资源准备→Frame/Metal门的负/零/正signed夹角、常量/彩色ramp及等值灯色邻例，核R8复制R、非零整数、改名、normal扰动、独立有效域/sampler、禁用/unlit/缺图/覆盖shader、阴影/衰减/环境/HDR/alpha/depth；不抄BRDF进测试。冻结真实月球资产同钟前后及on/off输入核像素贡献，并核原月球活动53和77具体part的实际lookup供货与完整图，独立无gradient作者回归。共享SurfaceResponse变更按影响补图像与模型原行为门，既有同身份有效结果复用。当前结果见[运行证据](model-runtime-evidence.md#model-shading-gradient)。
+
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射
 

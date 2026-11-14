@@ -66,7 +66,8 @@ def prepare(root, rows):
         model = "alternate-body" if row["renamed"] else "input"
         material = "alternate-surface" if row["renamed"] else "input"
         normal = "surface-vectors" if row["renamed"] else "normal"
-        vertices = [((x, y, 0), (0., 0., 1.), (*row["tangent"], row["tangentSign"]), (row["uv"], .5))
+        vertices = [((x, y, 0), tuple(row.get("geometryNormal", [0., 0., 1.])),
+                     (*row["tangent"], row["tangentSign"]), (row["uv"], .5))
                     for x, y in [(-40., -40.), (40., -40.), (40., 40.), (-40., 40.)]]
         (folder / f"models/{model}.mdl").write_bytes(parts.reader.build_model(
             vertices=vertices, indices=(0, 2, 1, 0, 3, 2), bounds=(-40, -40, 0, 40, 40, 0),
@@ -76,12 +77,27 @@ def prepare(root, rows):
             combos["NORMALMAP"] = row["normalCombo"]
         if row["reflection"] and "REFLECTION" not in combos:
             combos["REFLECTION"] = 1
+        if "gradientCombo" in row:
+            combos["SHADINGGRADIENT"] = row["gradientCombo"]
         albedo = "alternate-color" if row["renamed"] else "white"
         textures = [f"materials/{albedo}.png", f"materials/{normal}.png"]
         if row.get("materialPixels") is not None:
             textures.append("materials/alternate-components.png" if row["renamed"] else "materials/components.png")
             if not row.get("mapMissing", False):
                 (folder / textures[-1]).write_bytes(parts.png([0, 0, 0, 255]))
+        if row.get("gradientPixels") is not None:
+            if row.get("gradientDefault", False):
+                stock = folder / "stock/materials/gradient/gradient_toon_smooth.tex"
+                stock.parent.mkdir(parents=True)
+                stock.write_bytes((parts.REPO / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/materials/gradient/gradient_toon_smooth.tex").read_bytes())
+            if not row.get("gradientDefault", False) or row.get("gradientExplicit", False):
+                textures += [None] * (5 - len(textures))
+                textures[4] = "materials/alternate-ramp.png" if row["renamed"] else "materials/ramp.png"
+                if not row.get("gradientMissing", False):
+                    (folder / textures[4]).write_bytes(parts.png([0, 0, 0, 255]))
+            if row.get("gradientUser", False) and not row.get("gradientExplicit", False):
+                textures += [None] * (5 - len(textures))
+                textures[4] = {"user": "fixture-ramp"}
         (folder / f"materials/{material}.json").write_text(json.dumps({"passes": [{"shader": row["shader"],
             "textures": textures, "combos": combos,
             "constantshadervalues": {"alpha": row["alpha"], "roughness": 1, **row.get("constants", {})}}]}))
