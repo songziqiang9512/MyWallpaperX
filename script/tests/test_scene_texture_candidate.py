@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -76,6 +77,8 @@ HARNESS = HARNESS_SUPPORT_SOURCE + "".join(
 class SceneTextureCandidateTests(unittest.TestCase):
     def test_candidate_keeps_texture_and_slot_metadata_atomic(self) -> None:
         self.maxDiff = None
+        evidence = Path(os.environ['MWX_TEXTURE_CANDIDATE_EVIDENCE']) if os.environ.get('MWX_TEXTURE_CANDIDATE_EVIDENCE') else None
+        if evidence: evidence.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="mwx-texture-candidate-") as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
@@ -96,6 +99,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 '#include "SceneDistanceFog.metalh"', frozen_header.read_text()), encoding="utf-8")
             identity_paths = [*frozen_sources, frozen_metal, frozen_header, harness]
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths}
+            if evidence:
+                (evidence/'Harness.swift').write_text(harness.read_text())
+                (evidence/'source-identity.json').write_text(json.dumps({'compiledInputs':identity,'sourcePaths':list(map(str,SWIFT_SOURCES))},indent=2))
             compilation = subprocess.run(
                 [
                     "xcrun",
@@ -120,21 +126,34 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
+            if evidence:
+                (evidence/'compile.stdout').write_text(compilation.stdout)
+                (evidence/'compile.stderr').write_text(compilation.stderr)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
                 [str(binary), str(frozen_metal)],
-                check=True,
                 capture_output=True,
                 text=True,
             )
+            if evidence:
+                (evidence/'run.stdout').write_text(completed.stdout)
+                (evidence/'run.stderr').write_text(completed.stderr)
+            self.assertEqual(completed.returncode,0,completed.stderr)
             self.assertEqual(identity, {
                 str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_paths
             }, "frozen candidate GPU inputs changed during gate")
         result = json.loads(completed.stdout)
+        if evidence:
+            (evidence/'gpu-report.json').write_text(json.dumps(result,indent=2))
+            (evidence/'input-files.json').write_text(json.dumps([
+                {'path':str(path.relative_to(evidence)),'bytes':path.stat().st_size,
+                 'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+                for path in sorted((evidence/'single-frame-inputs').glob('*'))],indent=2))
         self.assertTrue(result.pop("overflowingRawRejected"))
         if not result["available"]:
             self.skipTest("Metal is unavailable")
         assert_source_color_upload(self, result.pop("sourceContinuity"))
+        single = result.pop('singleFrame')
         self.assertEqual(
             result,
             {
@@ -282,6 +301,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "zeroMappedRejected": True,
             },
         )
+        self.assertEqual(len(single['rows']),3,single)
+        self.assertEqual(len(single['embeddedRows']),2,single)
+        self.assertTrue(all(single['contracts'].values()),single)
 
 
 if __name__ == "__main__":

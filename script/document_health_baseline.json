@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 287,
-      "bytes": 61155
+      "lines": 296,
+      "bytes": 63857
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 192,
-      "bytes": 53238
+      "lines": 195,
+      "bytes": 55062
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 177,
-      "bytes": 50376
+      "lines": 189,
+      "bytes": 54045
     }
   },
   "archives": [
@@ -505,15 +505,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "073016944f7a78f6cbfc53b9da1b9cb8ccd30c72524f5ee11679fd6c304cfe26",
-      "after": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
-      "owner": "Existing image LightingProfile and LitCapture map consumers",
-      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "c07df033ab914069b74dfced6ddd9d376d4e5ec03e086729dfc7c0c86d484115",
       "after": "2c4c48066b20b976e55061ba04a00adecb81e7a1a974681a357ce8c3a88a4a51",
@@ -532,21 +523,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "4eb477116bfc57ffab00f70f98400a4733dd99d3518b6ad53223ad9a3f54e569",
+      "after": "310891d94e7ccfaa77d3144913389f51c90e5fb2b777bbfad4091fb82b5e4134",
+      "owner": "Existing static TextureLoader candidate and model material consumers",
+      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "9bb32c4405428b670d05171eea526ba894f57973533618207185d84f9addcf75",
-      "after": "c0e9810f15909c28564788da3fa316ff8dc513430a90f50d1fa73f9e4748dac4",
-      "owner": "Existing UV value type, slot binding and model draw inputs",
-      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
+      "before": "c0e9810f15909c28564788da3fa316ff8dc513430a90f50d1fa73f9e4748dac4",
+      "after": "759c6366e75dfec48f7ec6fbb24ba9f0dfe4436824200014a289bcf5582b2f4a",
+      "owner": "Existing static TextureLoader candidate and model material consumers",
+      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d04b757605afd4ded144cbea0fbccd767844c6f0218a6259c217798537bbb6f0",
-      "after": "a4e68f2d154556553ca97abcc1127182f3ae9af20be89fac68bda7cce434e304",
-      "owner": "Existing UV value type, slot binding and model draw inputs",
-      "reason": "Replace duplicate normalized-area thresholds with one finite nonzero UV rule; qualify genuine atlas publication/pixels, actual model color/three shadow projections, same-input App and original author. Separate remaining affine and invalid-caster whole-map failure scope with protected minimal evidence.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#small-atlas-frame-uv"
+      "before": "a4e68f2d154556553ca97abcc1127182f3ae9af20be89fac68bda7cce434e304",
+      "after": "72dacadf9ddf35a5c8873b851a83f86533f36448c41d2e8786f55574cc1602c7",
+      "owner": "Existing static TextureLoader candidate and model material consumers",
+      "reason": "Admit a constant valid one-frame TEX through the original static candidate, projecting mip coordinates to actual embedded source only once; qualify real model color/holes/receiver shadows and same-input App, preserve original Catalog clock and adjacent consumer gaps.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-single-frame-texture"
     }
   ]
 }

@@ -96,7 +96,7 @@ private enum Main {
         let invalid = invalidPaths.map {
             SceneAssetTextureIdentity(path: $0, purpose: .preservedChannels)
         }
-        let catalog = SceneMaterialAssetTextureCatalog(
+        let catalog = try SceneMaterialAssetTextureCatalog(
             demands: Set([first, second, zeroDuration, staticIdentity] + invalid),
             resourceView: view,
             descriptor: SceneRenderDescriptor(),
@@ -176,7 +176,7 @@ private enum Main {
             [.modificationDate: oldDate.addingTimeInterval(2)],
             ofItemAtPath: firstURL.path
         )
-        let revisedCatalog = SceneMaterialAssetTextureCatalog(
+        let revisedCatalog = try SceneMaterialAssetTextureCatalog(
             demands: [first], resourceView: view,
             descriptor: SceneRenderDescriptor(), device: device
         )
@@ -222,7 +222,7 @@ private enum Main {
             contentGeneration: 5
         )
 
-        let parsed = SceneTextureLoader().texContainer(from: firstURL)!
+        let parsed = try SceneTextureLoader().texContainer(from: firstURL)!
         let totalDuration = parsed.spriteFrames.reduce(Float(0)) {
             $0 + ($1.duration > 0 ? $1.duration : 1 / 60)
         }

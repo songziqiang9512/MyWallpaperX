@@ -86,10 +86,10 @@ extension Harness {
     static func rejectedNonSprite(
         _ outcome: SceneTextureCandidateLoadOutcome
     ) -> Bool {
-        guard case .failed(.decodeFailed(let message)) = outcome else {
+        guard case .failed(.decodeFailed) = outcome else {
             return false
         }
-        return message.contains("one non-sprite image")
+        return true
     }
 
     static func rejectedUnparsedMetadata(

@@ -18,6 +18,15 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 验收先在当前源取得明确引用的真实catalog/materialPass空失败；扩原catalog门核目录/文件/别名变体、普通先入队及后提升、同材料一次读取、未知JSON零读、真实坏输入与健康peer。原MDL reader→SourceFacts→catalog→materialPass门保多part/PKG及复用PreparedSource。复用本批已冻结的真实月球失败变体：同输入由material准备到实际model/main/seal/GPU并出现球面，另与materials/等价载体及独立原包核结果；不新增fixture算法或按路径选视觉结果。当前结果见[运行证据](model-runtime-evidence.md#model-material-role)。
 
+<a id="model-single-frame-texture"></a>
+### 模型静态材质的单帧TEX
+
+静态模型的albedo及可选normal/map/lookup沿原TextureLoader typed candidate供货；一个物理image且恰好一个合法sprite frame没有随时间变化的内容，应按该frame的origin/双轴采样，不能因TEX的animated/sprite标志丢整个模型或静默退可选贴图。现有loadCandidate只接无sprite的整图，此处退该整类拒绝；多frame仍由原Catalog/provider和clock负责，不在静态资源准备中偷偷取第一帧。未接模型多帧资源前仍局部拒绝该类输入。
+
+只在原Loader入口保imageCount1，带动画/frame元数据时须恰好一frame且通过原materialAtlasAdmission。保原axis/正向/atlas范围、duration/imageIndex与非volume结构边界，不借本批扩大仿射或跨image播放。原private makeCandidate接可选已准入frame，在原构造处投影UV并标isSpriteSheet；TEXS按首mip表尺寸归一，而legacy embedded图的实际decoded源尺寸可不同，frame原点/双轴须一次乘首mip尺寸/原缓存的firstEmbeddedMipSize（无embedded则用sourcePhysicalSize），才落回同一源像素，不重读/解码。普通raw/BC比例为1，输出降采样沿同源归一坐标。首mip表与实际源尺寸不同才补投影后的实际图域检查，源中没有的帧像素须局部拒绝，不能用clamp/repeat伪造；相同域不重复验范围。physical/mapped、来源revision、用途/色彩、sampling/format及上传缓存保持同一事实，既有Catalog多帧路径照旧。StaticModel原Entry/Frame/颜色/shadow直接消费同一候选，无新owner、时钟、字段、wrapper、重复上传或普通帧解析；比例/完整图消费者仍执行自己的原几何合同，不把一frame宣为identity。
+
+验收从真实TEX/Loader与实际MDL准备开始：非零origin/非整图frame对照独立裁剪图，核候选元数据及实际模型颜色/遮挡/投影；改名、单帧duration0等价、真退化/非有限/越界及多帧拒绝，健康peer保留。原App用相同自有MDL、材质和相机比较旧缺模型与新frame/裁剪图完整像素，保遮挡/透明孔/健康peer；独立星球作者原包检查实际播放和合成。不靠candidate ready计数代像素，不授相机depth纹理数值读回、多帧热更新、全部静态消费者/仿射、官方像素或性能收益。pigment现pixelFrame以mapped atlas尺寸除frame轴，单帧与独立裁剪noise的像素密度未等值；线性atlas边缘也不等同独立图夹边，二者另按开放队列资格。 当前颜色/遮挡/投影及入口范围见[模型运行证据](model-runtime-evidence.md#model-single-frame-texture)。
+
 <a id="model-named-albedo"></a>
 模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](model-runtime-evidence.md#nested-model-albedo).
 

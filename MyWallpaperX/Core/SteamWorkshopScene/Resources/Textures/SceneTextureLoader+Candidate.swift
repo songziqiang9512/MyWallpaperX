@@ -137,12 +137,21 @@ nonisolated extension SceneTextureLoader {
         guard !isTex || container != nil else {
             return .failed(.decodeFailed("typed slot candidate requires parsed TEX metadata"))
         }
-        guard container?.imageCount ?? 1 == 1, !(container?.isAnimated ?? false),
-              container?.spriteFrames.isEmpty ?? true else {
-            return .failed(.decodeFailed("typed slot candidate requires one non-sprite image"))
+        let spriteFrame: SceneTexContainer.SpriteFrame?
+        if let container, container.isAnimated || !container.spriteFrames.isEmpty {
+            guard container.spriteFrames.count == 1,
+                  materialAtlasAdmission(container) == .valid else {
+                return .failed(.decodeFailed("typed slot candidate requires one valid constant sprite frame"))
+            }
+            spriteFrame = container.spriteFrames[0]
+        } else {
+            guard container?.imageCount ?? 1 == 1 else {
+                return .failed(.decodeFailed("typed slot candidate requires one static image"))
+            }
+            spriteFrame = nil
         }
         return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
-            purpose: purpose, checkCancellation: checkCancellation)
+            purpose: purpose, spriteFrame: spriteFrame, checkCancellation: checkCancellation)
     }
 
     /// Catalog-only admission shares the exact source/device cache and typed
@@ -191,6 +200,7 @@ nonisolated extension SceneTextureLoader {
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         decodedSourceImage: CGImage? = nil,
+        spriteFrame: SceneTexContainer.SpriteFrame? = nil,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         guard texture.textureType == .type2D else {
@@ -201,6 +211,7 @@ nonisolated extension SceneTextureLoader {
         let container = resource?.container
         let physicalSize: CGSize
         let mappedSize: CGSize
+        let spriteTransform: SceneTextureUVTransform?
         if let resource, let container {
             guard let firstMip = container.mips.first,
                   container.textureWidth > 0,
@@ -226,14 +237,30 @@ nonisolated extension SceneTextureLoader {
             }
             physicalSize = outputGeometry.physical
             mappedSize = outputGeometry.mapped
+            if let frame = spriteFrame {
+                // TEXS coordinates use the mip table; embedded pixels can have a different extent.
+                let sourceSize = resource.firstEmbeddedMipSize ?? sourcePhysicalSize
+                let scale = SIMD2(Float(firstMip.width) / Float(sourceSize.width),
+                    Float(firstMip.height) / Float(sourceSize.height))
+                let transform = SceneTextureUVTransform(origin: frame.origin * scale,
+                    xAxis: frame.xAxis * scale, yAxis: frame.yAxis * scale)
+                if sourceSize != CGSize(width: firstMip.width, height: firstMip.height) {
+                    let end = transform.origin + transform.xAxis + transform.yAxis
+                    let tolerance: Float = 0.000_001
+                    guard transform.origin.x >= -tolerance, transform.origin.y >= -tolerance,
+                          end.x <= 1 + tolerance, end.y <= 1 + tolerance else {
+                        return .failed(.decodeFailed("sprite frame exceeds decoded source pixels"))
+                    }
+                }
+                spriteTransform = transform
+            } else {
+                spriteTransform = nil
+            }
         } else {
             physicalSize = CGSize(width: texture.width, height: texture.height)
             mappedSize = physicalSize
+            spriteTransform = nil
         }
-        let uvScale = SIMD2<Float>(
-            Float(mappedSize.width / physicalSize.width),
-            Float(mappedSize.height / physicalSize.height)
-        )
         try checkCancellation?()
         let content: SceneTextureContent
         switch purpose {
@@ -279,11 +306,12 @@ nonisolated extension SceneTextureLoader {
             content: content,
             physicalSize: physicalSize,
             mappedSize: mappedSize,
-            uvTransform: SceneTextureUVTransform(
+            uvTransform: spriteTransform ?? SceneTextureUVTransform(
                 origin: .zero,
-                xAxis: SIMD2(uvScale.x, 0),
-                yAxis: SIMD2(0, uvScale.y)
+                xAxis: SIMD2(Float(mappedSize.width / physicalSize.width), 0),
+                yAxis: SIMD2(0, Float(mappedSize.height / physicalSize.height))
             ),
+            isSpriteSheet: spriteFrame != nil,
             sampling: container.map { SceneTextureSampling(texFlags: $0.flags) }
                 ?? .directImageFallback,
             authoredFormat: container.flatMap {

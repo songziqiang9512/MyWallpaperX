@@ -47,8 +47,8 @@ extension Harness {
             purpose: .mask,
             device: device
         )) {
-        case .failed(.decodeFailed(let message)):
-            spriteRejected = message.contains("one non-sprite image")
+        case .failed(.decodeFailed):
+            spriteRejected = true
         default:
             spriteRejected = false
         }

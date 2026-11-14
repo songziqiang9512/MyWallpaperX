@@ -218,9 +218,12 @@ enum Harness {
             url: url,
             first: first
         )
+        let singleFrame = try singleFrameCases(device: device, loader: loader,
+            directory: directory, library: imageLayerLibrary)
         var result: [String: Any] = [
             "overflowingRawRejected": overflowingRawRejected,
             "available": true,
+            "singleFrame": singleFrame,
             "directTransparentPixel": try readFirstPixel(
                 texture: directTransparent.texture, device: device),
         ]

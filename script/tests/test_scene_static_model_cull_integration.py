@@ -12,6 +12,7 @@ import math
 import os
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -40,12 +41,13 @@ def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
 
 
-def fixture_entries(*, cast=True, all_nocull=False):
+def fixture_entries(*, cast=True, all_nocull=False, texture_case=None):
     entries, parts, cases = {}, [], []
-    for column, (state, raw) in enumerate(STATES):
-        x = 30 + column * 35
-        for reverse in (False, True):
-            y = 32 if not reverse else 64
+    states = STATES if texture_case is None else (("texture", "nocull"),)
+    for column, (state, raw) in enumerate(states):
+        x = 30 + column * 35 if texture_case is None else 80
+        for reverse in ((False, True) if texture_case is None else (False,)):
+            y = (32 if not reverse else 64) if texture_case is None else 48
             name = f"{state}-{'reverse' if reverse else 'front'}"
             material = f"materials/{name}.json"
             model = quad(x - 3, x + 3, y - 4, y + 4, 20, material)
@@ -60,13 +62,41 @@ def fixture_entries(*, cast=True, all_nocull=False):
             render_pass = {"shader": "genericimage", "textures": ["materials/green.png"],
                 "combos": {"LIGHTING": 0}, "blending": "normal",
                 "depthtest": "enabled", "depthwrite": "enabled"}
+            if texture_case is not None:
+                render_pass.update(textures=["materials/model-surface.tex"], blending="translucent")
             if all_nocull or raw is not None:
                 render_pass["cullmode"] = "nocull" if all_nocull else raw
             entries[material] = encoded({"passes": [render_pass]})
-            cases.append({"name": name, "state": state, "reverse": reverse,
-                "material": material, "colorPoint": [x, y], "shadowPoint": [x - 12, y],
-                "visible": all_nocull or not reverse or state == "nocull",
-                "shadowed": cast and (all_nocull or not reverse or state == "nocull")})
+            if texture_case is None:
+                cases.append({"name": name, "state": state, "reverse": reverse,
+                    "material": material, "colorPoint": [x, y], "shadowPoint": [x - 12, y],
+                    "visible": all_nocull or not reverse or state == "nocull",
+                    "shadowed": cast and (all_nocull or not reverse or state == "nocull")})
+            else:
+                palette = ([200, 0, 0, 255], [0, 200, 0, 0],
+                           [0, 200, 0, 255], [0, 0, 200, 255])
+                for i, rgba in enumerate(palette):
+                    px, py = x + (-1.5 if i % 2 == 0 else 1.5), y + (-2 if i < 2 else 2)
+                    cases.append({"name": f"texel-{i}", "state": state, "reverse": False,
+                        "material": material, "colorPoint": [px, py], "shadowPoint": [px - 12, py],
+                        "rgba": rgba, "visible": rgba[3] != 0, "shadowed": cast and rgba[3] != 0})
+                crop = b"".join(bytes(palette[(row // 2) * 2 + col // 2])
+                                 for row in range(4) for col in range(4))
+                width = 4 if texture_case == "crop" else 8
+                pixels = bytearray(crop if texture_case == "crop" else bytes([255, 0, 255, 255]) * 64)
+                if width == 8:
+                    for row in range(4):
+                        offset = ((row + 2) * 8 + 2) * 4
+                        pixels[offset:offset + 16] = crop[row * 16:(row + 1) * 16]
+                frames = [] if texture_case == "crop" else [(2, 2, 0 if texture_case == "zero" else 4, 0, 0, 4)]
+                if texture_case == "multi": frames *= 2
+                data = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 3 | (4 if frames else 0),
+                    width, width, width, width, 0) + b"TEXB0002\0"
+                    + struct.pack("<7I", 1, 1, width, width, 0, 0, len(pixels)) + pixels)
+                if frames:
+                    data += b"TEXS0002\0" + struct.pack("<I", len(frames))
+                    for frame in frames: data += struct.pack("<If6f", 0, 2.5, *frame)
+                entries["materials/model-surface.tex"] = data
     # Adjacent parts alternate authored states within one model; an independent
     # front-facing default material is drawn later in the same main encoder.
     # Legacy directional energy is 0.30 * intensity. Intensity 2 gives the +Z
@@ -106,9 +136,9 @@ def fixture_entries(*, cast=True, all_nocull=False):
     # shadow ROI toward +X,+Z travels 20 in Z and 12 in X, hitting only its part.
     for case in cases:
         hit = [case["shadowPoint"][0] + 12, case["shadowPoint"][1]]
-        case["rayHitParts"] = [i for i, other in enumerate(cases)
+        case["rayHitParts"] = ([0] if texture_case is not None else [i for i, other in enumerate(cases)
             if abs(hit[0] - other["colorPoint"][0]) <= 3
-            and abs(hit[1] - other["colorPoint"][1]) <= 4]
+            and abs(hit[1] - other["colorPoint"][1]) <= 4])
     return scene, entries, cases
 
 
@@ -191,7 +221,9 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 key: hashlib.sha256(data).hexdigest() for key, data in entries.items()}}
         (work / "scene-input.json").write_bytes(encoded(scene))
         (work / "preregistration.json").write_bytes(encoded({"canvas": CANVAS, "cases": cases,
-            "tolerance": TOLERANCE, "colorVisibleRGB": [0, 200, 0], "healthyRGB": [0, 0, 255],
+            "tolerance": TOLERANCE,
+            "colorVisibleRGB": ({case["name"]: case["rgba"] for case in cases}
+                if options.get("texture_case") else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity"}))
@@ -224,7 +256,8 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         self.assertIn("gpuDrained=true", log)
         self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-(?:failed|rejected)|failure=exception")
         preview = (work / "evidence/scene-preview.log").read_text()
-        self.assertIn("prepared static model layers: [1, 2, 4]", preview)
+        expected_prepared = "[1, 4]" if options.get("texture_case") in {"zero", "multi"} else "[1, 2, 4]"
+        self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
         for phase in ("ready", "after"):
             self.assert_rgb(pixels[phase]["pixels"]["healthy"], [0, 0, 255])
@@ -263,6 +296,30 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                     self.assert_rgb(active[shadow], disabled[shadow])
                     for channel in range(3):
                         self.assertGreater(active[shadow][channel] - control[shadow][channel], 20, case)
+
+
+    def test_single_static_frame_matches_crop_with_color_holes_and_shadow(self):
+        crop = self.run_case("texture-crop-control", texture_case="crop")
+        for phase in ("ready", "after"):
+            reference = crop["pixels"][phase]["pixels"]
+            for case in crop["cases"]:
+                color, shadow = f"{case['name']}-color", f"{case['name']}-shadow"
+                if case["visible"]:
+                    self.assert_rgb(reference[color], case["rgba"][:3])
+                    self.assertLess(max(reference[shadow]), 15)
+                else:
+                    self.assert_rgb(reference[color], reference["clear"])
+                    self.assert_rgb(reference[shadow], reference["clear"])
+        framed = self.run_case("texture-single-frame", texture_case="frame")
+        for phase in ("ready", "after"):
+            self.assertEqual(crop["pixels"][phase], framed["pixels"][phase])
+        for rejected in ("zero", "multi"):
+            result = self.run_case("texture-rejected-" + rejected, texture_case=rejected)
+            for phase in ("ready", "after"):
+                pixels = result["pixels"][phase]["pixels"]
+                for case in result["cases"]:
+                    self.assert_rgb(pixels[f"{case['name']}-color"], pixels["clear"])
+                    self.assert_rgb(pixels[f"{case['name']}-shadow"], pixels["clear"])
 
 
 if __name__ == "__main__":

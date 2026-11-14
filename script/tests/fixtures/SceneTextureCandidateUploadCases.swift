@@ -1,4 +1,157 @@
 extension Harness {
+    static func singleFrameCases(device: MTLDevice, loader: SceneTextureLoader,
+                                 directory: URL, library: MTLLibrary) throws -> [String: Any] {
+        let crop: [UInt8] = [0,255,0,255, 255,255,255,0, 200,100,50,255, 255,255,0,255,
+                             0,0,255,255, 255,0,255,255, 64,128,255,128, 0,255,255,255]
+        var atlas = Array(repeating: [255,0,0,255] as [UInt8], count: 32).flatMap { $0 }
+        for y in 0..<2 {
+            atlas.replaceSubrange((y*8+2)*4..<(y*8+6)*4, with: crop[y*16..<(y+1)*16])
+        }
+        let frame: [Float] = [2,0,4,0,0,2]
+        func sheet(_ frames: [[Float]], duration: Float = 0.25) -> Data {
+            var data = embeddedImageTex(textureWidth: 8, textureHeight: 4,
+                imageWidth: 6, imageHeight: 4, payload: Data(atlas), flags: 7)
+            data.append(Data("TEXS0002\0".utf8)); append(UInt32(frames.count), to: &data)
+            for coordinates in frames {
+                appendSpriteFrame(imageIndex: 0, duration: duration,
+                    coordinates: coordinates, to: &data)
+            }
+            return data
+        }
+        func write(_ name: String, _ data: Data) throws -> URL {
+            let url = directory.appendingPathComponent(name + ".tex")
+            try data.write(to: url)
+            if let evidence = ProcessInfo.processInfo.environment["MWX_TEXTURE_CANDIDATE_EVIDENCE"] {
+                let saved = URL(fileURLWithPath: evidence).appendingPathComponent("single-frame-inputs")
+                try FileManager.default.createDirectory(at: saved, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: url, to: saved.appendingPathComponent(url.lastPathComponent))
+            }
+            return url
+        }
+        func pixel(_ candidate: SceneTextureCandidate) throws -> [Int] {
+            let uniforms = SceneImageLayerCompositor().makeFragmentUniforms(
+                values: .init(time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)),
+                textureFrame: candidate.uvTransform, tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil, sourceSampling: candidate.sampling,
+                sourceRepresentation: candidate.purpose == .premultipliedColor ? .premultipliedAlpha : .straightAlpha)
+            return try renderSample(texture: candidate.texture, uniforms: uniforms,
+                library: library, device: device)
+        }
+        let referenceURL = try write("single-frame-independent-crop", embeddedImageTex(
+            textureWidth: 4, textureHeight: 2, imageWidth: 4, imageHeight: 2,
+            payload: Data(crop), flags: 3))
+        let reference = try candidate(loader.loadCandidate(from: referenceURL,
+            purpose: .straightAlbedo, device: device))
+        let referencePixel = try pixel(reference)
+        var contracts = ["independentCropLiteralPixel": referencePixel == [32,64,128,255],
+                         "independentCropRemainsStatic": !reference.isSpriteSheet
+                            && reference.uvTransform == .identity]
+        var rows: [[String: Any]] = []
+        let positiveCases: [(String,Float)] = [("single-frame",0.25), ("renamed-constant-region",0.25), ("single-zero-duration",0)]
+        for (name, duration) in positiveCases {
+            let data = sheet([frame], duration: duration), url = try write(name, data)
+            let outcome = try loader.loadCandidate(from: url, purpose: .straightAlbedo, device: device)
+            var row: [String: Any] = ["path":url.lastPathComponent,"duration":duration,"frameCount":1]
+            if case let .loaded(c) = outcome {
+                let actual = try pixel(c)
+                row["status"] = "loaded"; row["pixel"] = actual
+                row["physical"] = [c.physicalSize.width,c.physicalSize.height]
+                row["mapped"] = [c.mappedSize.width,c.mappedSize.height]
+                row["uv"] = [c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]
+                contracts[name + "Ready"] = true
+                contracts[name + "Metadata"] = c.isSpriteSheet && c.purpose == .straightAlbedo
+                    && c.content == .color(.resolved(.straightAlpha))
+                    && c.physicalSize == CGSize(width:8,height:4) && c.mappedSize == CGSize(width:6,height:4)
+                    && c.uvTransform == .init(origin:SIMD2(0.25,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,0.5))
+                    && c.sampling.rawFlags == 7 && c.sampling.filter == .nearest
+                    && c.sampling.addressMode == .clampToEdge && c.authoredFormat?.rawValue == 0
+                    && filePath(c.identity) == url.resolvingSymlinksInPath().standardizedFileURL.path
+                    && generationByteCount(c.generation) == UInt64(data.count)
+                contracts[name + "PixelMatchesIndependent"] = actual == referencePixel
+            } else {
+                row["status"] = "failed"
+                for suffix in ["Ready","Metadata","PixelMatchesIndependent"] { contracts[name + suffix] = false }
+            }
+            rows.append(row)
+        }
+        let singleURL = directory.appendingPathComponent("single-frame.tex")
+        for purpose: SceneTextureLoadPurpose in [.normal,.mask] {
+            let label = purpose.reportToken
+            if case let .loaded(c) = try loader.loadCandidate(from:singleURL,purpose:purpose,device:device) {
+                let actual = try pixel(c)
+                contracts[label + "SingleFrameData"] = c.purpose == purpose && c.content == .data
+                    && c.isSpriteSheet && c.uvTransform == .init(origin:SIMD2(0.25,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,0.5))
+                    && c.physicalSize == CGSize(width:8,height:4) && c.mappedSize == CGSize(width:6,height:4)
+                    && c.sampling.rawFlags == 7 && actual == referencePixel
+            } else { contracts[label + "SingleFrameData"] = false }
+        }
+        func png(_ pixels: [UInt8], width: Int, height: Int) throws -> Data {
+            guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+                  let image = CGImage(width:width,height:height,bitsPerComponent:8,bitsPerPixel:32,
+                    bytesPerRow:width*4,space:CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo:.init(rawValue:CGImageAlphaInfo.last.rawValue),provider:provider,
+                    decode:nil,shouldInterpolate:false,intent:.defaultIntent) else { throw HarnessError.imageCreationFailed }
+            return try encodeImage(image,type:"public.png" as CFString)
+        }
+        let embeddedRow: [UInt8] = [255,0,0,255, 255,255,255,0, 0,0,255,255, 255,255,0,255]
+        let embeddedPixels = Array(repeating:embeddedRow,count:4).flatMap{$0}
+        let embeddedCrop = Array(repeating:Array(embeddedRow[8..<16]),count:4).flatMap{$0}
+        var embedded = embeddedImageTex(textureWidth:8,textureHeight:4,imageWidth:4,imageHeight:4,
+            payload:try png(embeddedPixels,width:4,height:4),flags:7)
+        embedded.append(Data("TEXS0002\0".utf8));append(1,to:&embedded)
+        appendSpriteFrame(imageIndex:0,duration:0.25,coordinates:[2,0,2,0,0,4],to:&embedded)
+        let embeddedURL = try write("single-frame-legacy-embedded",embedded)
+        let embeddedReferenceURL = try write("single-frame-embedded-independent-crop",embeddedImageTex(
+            textureWidth:2,textureHeight:4,imageWidth:2,imageHeight:4,
+            payload:try png(embeddedCrop,width:2,height:4),flags:3))
+        var embeddedRows: [[String:Any]] = []
+        for purpose: SceneTextureLoadPurpose in [.straightAlbedo,.premultipliedColor] {
+            let key = purpose.reportToken
+            let reference = try candidate(loader.loadCandidate(from:embeddedReferenceURL,purpose:purpose,device:device))
+            let expected = try pixel(reference)
+            var row: [String:Any] = ["purpose":key,"referencePixel":expected]
+            if case let .loaded(c) = try loader.loadCandidate(from:embeddedURL,purpose:purpose,device:device) {
+                let actual = try pixel(c)
+                row["status"] = "loaded";row["pixel"] = actual
+                row["physical"] = [c.physicalSize.width,c.physicalSize.height]
+                row["uv"] = [c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]
+                contracts[key + "EmbeddedFramePixels"] = actual == expected && expected == [255,255,0,255]
+                contracts[key + "EmbeddedFrameMetadata"] = c.isSpriteSheet && c.purpose == purpose
+                    && c.physicalSize == CGSize(width:4,height:4) && c.mappedSize == CGSize(width:4,height:4)
+                    && c.uvTransform == .init(origin:SIMD2(0.5,0),xAxis:SIMD2(0.5,0),yAxis:SIMD2(0,1))
+            } else {
+                row["status"] = "failed"
+                contracts[key + "EmbeddedFramePixels"] = false
+                contracts[key + "EmbeddedFrameMetadata"] = false
+            }
+            embeddedRows.append(row)
+        }
+        var outOfSource = embedded
+        outOfSource.removeLast(32)
+        appendSpriteFrame(imageIndex:0,duration:0.25,coordinates:[6,0,2,0,0,4],to:&outOfSource)
+        let outOfSourceURL = try write("single-frame-embedded-out-of-source",outOfSource)
+        for purpose: SceneTextureLoadPurpose in [.straightAlbedo,.premultipliedColor] {
+            let outcome = try loader.loadCandidate(from:outOfSourceURL,purpose:purpose,device:device)
+            if case .failed(.decodeFailed) = outcome {
+                contracts[purpose.reportToken + "EmbeddedActualSourceBounds"] = true
+            } else { contracts[purpose.reportToken + "EmbeddedActualSourceBounds"] = false }
+        }
+        let negativeCases: [(String,[[Float]])] = [("multi-frame",[frame,frame]),
+                               ("single-zero-area",[[Float(2),0,0,0,0,2]]),
+                               ("single-nonfinite",[[Float.nan,0,4,0,0,2]]),
+                               ("single-outbound",[[Float(7),0,4,0,0,2]])]
+        for (name, frames) in negativeCases {
+            let url = try write(name,sheet(frames))
+            let rejected: Bool
+            if case .failed(.decodeFailed) = try loader.loadCandidate(from:url,purpose:.straightAlbedo,device:device) {
+                rejected = true
+            } else { rejected = false }
+            contracts[name + "Rejected"] = rejected
+        }
+        return ["contracts":contracts,"rows":rows,"embeddedRows":embeddedRows,"referencePixel":referencePixel,
+                "scope":"Production Loader candidate and source shader frame sampling; no model or normal-lighting claim."]
+    }
+
     static func embeddedUploadCases(
         device: MTLDevice,
         loader: SceneTextureLoader,
