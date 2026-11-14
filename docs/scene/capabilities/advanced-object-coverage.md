@@ -232,11 +232,20 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 - base material 光照在 layer effects 之前完成，graph 捕获该真实 source。albedo/emissive 与 normal/PBR data 分用途读取；normal、radius、锥角与世界距离使用 canonical 坐标，不随 card 非均匀 scale 错变。
 - 2D image 与变形后 mesh 的 receiver mapping 不同；不能从 source atlas unit quad 推出 Puppet/模型的世界位置。未支持 receiver 局部保 unlit，并保原 alpha/geometry。
 - 模型 directional/spot/point 阴影沿现 typed light、真实 geometry、target 与 submission；可见光束、受光和投影是三种消费者，不能互作证明。
-- 现代点光 `lpoint` 的径向项由作者 `exponent` 决定。Format 保留有限非负的显式值，共享 light snapshot 将缺省解析为 2，StaticModel 和 LightingV1 图像消费同一世界距离衰减。平方保乘法，0 在半径内无衰减，半径外沿现有截止。各自现有 GPU 参数末尾追加一个四灯指数向量，保持颜色和强度分立以保浮点动态范围。退出两条现代点光的固定平方，保 legacy `point` 平面距离、spot 与阴影投影。固定官版字段与 stock shader 支持正指数和缺省值，零指数的官版半径外像素仍待核。
+- 现代点光 `lpoint` 的径向项由作者 `exponent` 决定。Format 保留有限非负的显式值，共享 light snapshot 将缺省解析为 2，StaticModel 和 LightingV1 图像消费同一世界距离衰减。平方保乘法，0 在半径内无衰减，半径外沿现有截止。各自现有 GPU 参数末尾追加一个四灯指数向量，保持颜色和强度分立以保浮点动态范围。退出两条现代点光的固定平方，保 legacy `point` 平面距离与阴影投影；与spot的共同闭半径及近距规则见[径向合同](#spot-radial-falloff)。固定官版字段与 stock shader 支持正指数和缺省值，零指数的官版半径外像素仍待核。
 - reflection 只在已有 profile 中取得合适的 scene/environment 输入；模型镜面、所有光源/遮挡与图依赖组合仍不完整。
 - HDR scene color/Bloom 与终端 SDR/EDR 映射分开；像素 PNG 不能证明显示器实际 EDR 高光。
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
+
+<a id="spot-radial-falloff"></a>
+### 聚光灯的表面径向衰减
+
+已解析的作者spot exponent已进入实际模型与图像受光，Snapshot丢值、模型固定平方及图像隐式缺省2的路径已退出。沿原SpotDefinition→共享SpotSnapshot→两表面payload/Metal，不加新light owner、资源、Program或逐帧解析；指数与独立intensity、inner/outer cone及shadow投影分别供货。原Spot入口只把有限非负数保为有效指数，缺省/无效取2、显式0合法；包装只保作者fallback，不授尚无typed target的动态指数热更新。旧2D体积束在原Plan另把exponent用于经验cone形状，已有负数拒绝保持，不借本批重解释或扩粒子/体积消费者。
+
+原sceneRadialFalloff改为消费已求出的worldDistance/radius，唯一owner先按distance≥radius截止，再求remaining=max(0,1−distance/radius)；半径内remaining^exponent，2保持原乘法快路；0在半径内为1，边界/外部为0。模型直接换spot径向因子，图像沿原sceneLitFalloff显式交指数，退出无人需要的默认参数；在除法前的世界距离截止避免fast division残留微正数被exponent0放大为满光；图像保原max-component缩放长度的抗溢出路径，只求一次稳定世界距离，模型复用求灯向量所需的现有距离，不新增重复length/距离计算。模型point/spot只跳真正distanceSquared==0，退有效近距被1e−8平方死区拒绝及radius的1e−4单位下限，直接消费入口已保证的正半径；两者共同保持归一距离语义，不加epsilon或第二距离计算。图像现代lpoint/spot沿原正半径无下限，旧legacy point平面算法本批不改；极端Float平方上溢/下溢不由普通尺度正例外推。各自cone、BRDF/legacy响应、三灯shadow/颜色/强度/alpha/depth与HDR次序保持。stock本地common_pbr_2与volumetricsfront把径向radius/exponent和cone/强度分开；未取得官方LightingV1 host参数接线时，此为明确自有世界距离算法，不宣官方曲线parity。
+
+旧remaining参数API与两模型重复remaining/半径floor退出，不加兼容overload。原SpotSnapshot只加一个default2 Float，两surface原ABI末各加四灯指数向量16B；原图像preflight/packer直传，只带消费者需要的值。图像packer退出首次整包finite扫描，唯一产品caller补scene VP/reflection后由原Capture.init作一次最终完整检查，也覆盖逆矩阵运算溢出；不为direct pack的NaN测试保留双扫或另加指数门。无新缓存/索引/纹理/PSO/光列表排序或重复非负检查。验收用真实parser/snapshot核缺省/0/.54/坏值及颜色/变换更新保值，模型与图像实际Metal核多归一距离、默认2逐像素不变、.54/0与等值入射控制、cone过渡/锥外/半径边界、shadow/alpha/depth和改名；不复制BRDF。复用真实球MDL/TEX、无脚本单spot固定相机/灯/半径/I/cone，仅指数.54/2，旧.54→新.54/2的终端贡献及新2旧图相等，原343与独立作者保完整播放。未参与渲染的单位、更多动态值和经验体积束不由此扩大资格。当前读回与真实资产资格见[运行证据](model-runtime-evidence.md#spot-radial-falloff)。
 
 <a id="point-light-volume"></a>
 ### 透视世界的无阴影点光体积

@@ -290,13 +290,13 @@ class SceneLitImageLayerTests(unittest.TestCase):
             result = subprocess.run([str(binary)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             report = json.loads(result.stdout)
-            self.assertEqual(len(report['checks']), 10)
+            self.assertEqual(len(report['checks']), 14)
             for name, passed in report['checks'].items():
                 with self.subTest(packing=name):
                     self.assertTrue(passed)
             # Append-only Swift/Metal payload contract. GPU sampling below
             # independently checks that these bytes reach the matching MSL ABI.
-            self.assertEqual(report['layout'], [352, 640, 704, 720, 784, 848, 864])
+            self.assertEqual(report['layout'], [352, 640, 704, 720, 784, 848, 864, 880])
             print(json.dumps(report, sort_keys=True))
 
     def test_independent_reflection_numbers_and_scene_projection(self):
@@ -388,6 +388,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
             self.assertTrue(report['mixedOverflowTruncates'])
             self.assertTrue(report['pointsOverflowKeepsAuthoredOrder'])
             self.assertTrue(report['mixedFamilySingleCommandCompleted'])
+            self.assertTrue(report['finalCaptureRejectsNonfinitePayload'])
             family = {row['name']: row['rgba'] for row in report['lightingFamilyPixels']}
             self.assertEqual(len(family), 13)
             half = lambda value: struct.unpack('e', struct.pack('e', value))[0]
@@ -408,6 +409,29 @@ class SceneLitImageLayerTests(unittest.TestCase):
                         self.assertAlmostEqual(family[name][channel], source * scale, delta=.0003)
             self.assertEqual(family['legacy-repeat'], family['legacy-near'])
             self.assertEqual(family['direction-flat-normal'], family['direction-forward'])
+            spot = {row['name']: row['rgba'] for row in report['spotRadialPixels']}
+            self.assertEqual(len(spot), 36)
+            self.assertEqual(spot['spot-default'], spot['spot-two'])
+            self.assertEqual(spot['legacy-spot-default'], spot['legacy-spot-two'])
+            for name in [f'spot-{distance}-{curve}' for distance in [25, 50, 75]
+                         for curve in ['gentle', 'zero', 'one']] + ['spot-cone-transition', 'spot-four-slots']:
+                with self.subTest(spot_radial=name):
+                    for actual, reference in zip(spot[name], spot[name+'-reference']):
+                        self.assertLessEqual(abs(actual-reference), 2*reflection_oracle.half_ulp(reference))
+            for actual, axis in zip(spot['spot-cone-transition'][:3], spot['spot-50-gentle'][:3]):
+                self.assertLessEqual(abs(actual-axis*.5), 2*reflection_oracle.half_ulp(actual))
+            for name in ['spot-cone-outside-zero', 'spot-zero-edge', 'spot-zero-near-outside',
+                         'spot-zero-outside', 'spot-gentle-outside', 'spot-oblique-zero-edge', 'spot-oblique-zero-outside']:
+                self.assertEqual(spot[name], [0, 0, 0, .5])
+            for name, reference in [('spot-zero-near-inside', 'spot-50-zero'),
+                                    ('spot-oblique-zero-inside', 'spot-oblique-zero-control')]:
+                for actual, expected in zip(spot[name], spot[reference]):
+                    self.assertLessEqual(abs(actual-expected), 2*reflection_oracle.half_ulp(expected))
+                self.assertGreater(spot[name][0], .01)
+            self.assertGreater(spot['spot-50-zero'][0], spot['spot-50-gentle'][0] + .01)
+            self.assertGreater(spot['spot-50-gentle'][0], spot['spot-two'][0] + .01)
+            for rgba in spot.values():
+                self.assertEqual(rgba[3], .5)
             print(json.dumps(report,sort_keys=True))
 
 if __name__ == '__main__': unittest.main()

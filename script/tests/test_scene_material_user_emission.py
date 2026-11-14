@@ -65,7 +65,7 @@ struct SceneBaseMaterialLitCapturePayload {
         static func resolve(_ lookup:Bool,kind:Kind?=nil)->Self { .ready }
     }
     struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;var falloffExponent:Float = 2 }
-    struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
+    struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var falloffExponent:Float = 2 }
     struct DirectionalLight { let directionTowardLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float }
     static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4,directionalLights:[DirectionalLight]=[],usesLightingV1:Bool=false)->PackedLights? {
         var result=PackedLights();result.ambient=ambient

@@ -31,7 +31,7 @@ struct SceneSpotLightDefinition: Codable, Equatable {
             innerConeDegrees: number(resolvedValue(root["innercone"])),
             outerConeDegrees: number(resolvedValue(root["outercone"])),
             density: number(resolvedValue(root["density"])),
-            exponent: number(resolvedValue(root["exponent"])),
+            exponent: number(resolvedValue(root["exponent"])).flatMap { $0 >= 0 ? $0 : nil },
             volumetricsExponent: number(resolvedValue(root["volumetricsexponent"])),
             castsVolumetrics: resolvedValue(root["castvolumetrics"]) as? Bool,
             castsShadow: {

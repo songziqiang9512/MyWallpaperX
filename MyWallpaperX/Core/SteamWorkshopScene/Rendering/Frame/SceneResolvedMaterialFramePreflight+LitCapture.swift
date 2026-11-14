@@ -128,7 +128,8 @@ SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
                     intensity: light.intensity,
                     radius: light.radius,
                     innerConeCosine: light.innerConeCosine,
-                    outerConeCosine: light.outerConeCosine
+                    outerConeCosine: light.outerConeCosine,
+                    falloffExponent: light.falloffExponent
                 )
             },
             // Preserve the existing bounded 2D response; model hemisphere weights

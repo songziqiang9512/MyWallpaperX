@@ -139,6 +139,39 @@ def surface_vectors() -> list[dict]:
                 expectedByte=None, equivalentIncidentEnergy=direction))
             rows.append(dict(point, name=direction, lamp="directional",
                 lightIntensity=2 * incident, expectedByte=None))
+    cone_midpoint = math.degrees(math.acos((math.cos(math.radians(20))
+        + math.cos(math.radians(40))) / 2))
+    for name, exponent, ratio, angle, cone in (
+        ("omitted", None, .5, 0, 1), ("two", 2, .5, 0, 1),
+        ("near", .54, .25, 0, 1), ("middle", .54, .5, 0, 1), ("far", .54, .75, 0, 1),
+        ("linear", 1, .5, 0, 1), ("zero-inside", 0, .5, 0, 1),
+        ("zero-edge", 0, 1, 0, 1), ("zero-outside", 0, 1.1, 0, 1),
+        ("cone-transition", .54, .5, cone_midpoint, .5), ("cone-outside", .54, .5, 50, 0),
+    ):
+        remaining = max(0, 1-ratio)
+        radial = remaining**(2 if exponent is None else exponent) if remaining > 0 else 0
+        incident = radial * cone
+        for profile in [None, [.14, 1]]:
+            label = f"spot-falloff-{name}-{'surface' if profile else 'legacy'}"
+            spot = dict(rows[0], name=label, lamp="spot", surface=profile,
+                lightPosition=[0, 0, .5+10*ratio], lightExponent=exponent,
+                spotDirection=[math.sin(math.radians(angle)), 0, -math.cos(math.radians(angle))],
+                equivalentIncidentEnergy=label+"-reference", expectedByte=None)
+            rows += [spot, dict(spot, name=label+"-reference", lamp="directional",
+                lightIntensity=2*incident, equivalentIncidentEnergy=None)]
+    for kind in ["point", "spot"]:
+        for name, z, radius, incident in (
+            ("nonzero-near", .50001, 10, 1),
+            ("small-radius-inside", .50001, .00002, 1),
+            ("small-radius-outside", .50001, .000005, 0),
+            ("coincident", .5, 10, 0), ("large-edge", 100.5, 100, 0),
+        ):
+            label = f"distance-domain-{kind}-{name}"
+            actual = dict(rows[0], name=label, lamp=kind, lightPosition=[0, 0, z],
+                lightRadius=radius, lightExponent=0, expectedByte=None,
+                equivalentIncidentEnergy=label+"-reference")
+            rows += [actual, dict(actual, name=label+"-reference", lamp="directional",
+                lightIntensity=2*incident, equivalentIncidentEnergy=None)]
     # The old directional preservation row inherited a surface profile while
     # asserting the legacy path. The official metallic single-variable probe
     # disproves that bypass; preserve the original 77 oracle on its nil domain.
@@ -376,6 +409,7 @@ PIXEL_MAIN = r'''
             )
             let lamp = input["lamp"] as? String
             let lightIntensity = Float(input["lightIntensity"] as? Double ?? 2)
+            let lightRadius = Float(input["lightRadius"] as? Double ?? 10)
             let lightPosition = vector(input["lightPosition"] as? [Double] ?? [0, 0, 2.5])
             var lighting = SceneLightSnapshot(
                 ambient: vector(input["ambient"] as! [Double]),
@@ -384,12 +418,14 @@ PIXEL_MAIN = r'''
                     directionTowardLight: SIMD3(0, 0, 1), color: SIMD3(repeating: 1), intensity: lightIntensity
                 )] : [],
                 point: lamp == "point" ? [.init(position: lightPosition,
-                    color: SIMD3(repeating: 1), intensity: lightIntensity, radius: 10,
+                    color: SIMD3(repeating: 1), intensity: lightIntensity, radius: lightRadius,
                     falloffExponent: Float(input["lightExponent"] as? Double ?? 2))] : [],
                 spot: lamp == "spot" ? [.init(position: lightPosition,
-                    directionFromLight: SIMD3(0, 0, -1), color: SIMD3(repeating: 1), intensity: lightIntensity,
-                    radius: 10, innerConeCosine: cos(Float.pi/9),
-                    outerConeCosine: cos(Float.pi*2/9), outerConeDegrees: 40)] : [],
+                    directionFromLight: vector(input["spotDirection"] as? [Double] ?? [0, 0, -1]),
+                    color: SIMD3(repeating: 1), intensity: lightIntensity,
+                    radius: lightRadius, innerConeCosine: cos(Float.pi/9),
+                    outerConeCosine: cos(Float.pi*2/9), outerConeDegrees: 40,
+                    falloffExponent: Float(input["lightExponent"] as? Double ?? 2))] : [],
                 overflowCount: 0
             )
             if let density = input["fogDensity"] as? Double {

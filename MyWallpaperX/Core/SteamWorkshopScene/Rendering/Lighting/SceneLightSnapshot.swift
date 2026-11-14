@@ -40,6 +40,7 @@ struct SceneLightSnapshot {
         let outerConeCosine: Float
         /// Authored off-axis angle, rather than the complete cone opening.
         let outerConeDegrees: Float
+        var falloffExponent: Float = 2
     }
 
     enum ShadowLight {
@@ -416,7 +417,8 @@ struct SceneLightSnapshot {
             radius: radius,
             innerConeCosine: cos(innerCone * degreesToRadians),
             outerConeCosine: cos(outerCone * degreesToRadians),
-            outerConeDegrees: outerCone
+            outerConeDegrees: outerCone,
+            falloffExponent: definition.exponent ?? 2
         )
     }
 

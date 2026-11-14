@@ -135,3 +135,19 @@
 当前on的depth-written只观测首epoch1–3、light259/casters1，旧on与当前off无该事件；F94的trace不含内部map绑定，不能声称终端帧全量阴影map执行观察。颜色/model状态/main/seal与GPU完成仍按同次capture闭合。原3589454154自然35s/after32的F870/request1/CB501301071360/main501198989952有24个模型含球456/环462实际绘制，已越过作者进场而非只看片头；独立3437487219五秒F140/request1/CB500997588736/main500942233088的112/114绘制。两场原project/pkg摘要等冻结matrix，App签名前后核同，终端图有土星/环/文字及地表/云/大气/星空/时钟，GPUcompleted/trunc0并排空。原场景相位、取景未配对，不授原景逐像素阴影归因或其它反馈关闭。
 
 原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-shadow-coverage-20261115`；真实双模型开关/旧基线、143行红绿、身份/构建与独审归`.artifacts/scene-model-shadow-coverage-20261115`。
+
+## 聚光灯指数与共享径向边界 <a id="spot-radial-falloff"></a>
+
+2026-11-15按[径向合同](advanced-object-coverage.md#spot-radial-falloff)，原Format一次保有限非负exponent，原SpotSnapshot/图像preflight与两payload把作者值交到实际Metal；缺省2/显式0，cone/强度/阴影各自独立，动态指数与旧经验volume不扩。共享sceneRadialFalloff改收已求worldDistance/radius，先截止再求曲线；旧remaining API、模型正距离1e−8平方死区与1e−4半径floor退出，原方向距离只求一次，radial0跳无能量BRDF。图像保max-component长度路径，去packer重复整包finite扫描，只保最终Capture.init（含VP/reflection、逆矩阵及point/spot尾向量）。八产品净+11行，模型1488B/Image880B各追加16B指数向量，无owner/PSO/资源/cache/光列表或热解析，不授整体性能收益。
+
+真实parser/snapshot CPU方法3.850s过缺省/0/.54/负/非finite/bool/错型及包装fallback，颜色/同帧世界变换更新保指数；无live指数target不授热更新。图像原CPU打包方法14项核四槽0/.54/1/5、混合配额、缺省与ABI，唯一final init在真实GPU载体拒point NaN/spot Inf、逆矩阵、补入的VP/reflection坏值且健康payload接纳。原preflight邻例42.726s通过；机械适配其typed Spot stub，未另造材质行为。首Image GPU因新增helper与旧变量同名未编译，改名只补该方法、复用有效CPU分支；其后真实edge100/r100/e0仍满光，未放宽断言，沿共享截止修正。
+
+最终模型六方法/225实际输入8.516s通过，含44条Spot的多归一距离/.54/0/1、cone过渡/外、legacy/stock等值入射，以及20条point/spot正近距、小radius、重合与大边界控制；保原发光、HDR/雾、view tint、alpha及frozen响应。图像最终一方法14.096s通过36条Spot及原12矩形/13family；默认2/legacy2逐像素等值，四彩灯槽、alpha.5、轴向100.nextDown/up及对齐center的3–4–5斜边界/内外均有真实读回。边界/外精确0，内保持正光，不需epsilon/e0特判/precise fallback。独立入射控制不复制BRDF，误差未放宽。旧同模型载体的d≈1e−5/e0/r10点灯与Spot均RGB0，对照directional=.33203125，保该反例；修后对应正例恢复。旧失败和中间结果不升级为最终资格，极端Float上下溢、legacy image point平面下限不由此扩大。
+
+唯一普通Debug32.510s，八产品/工程/锁文件前后字节一致；签名与原helpers通过。executable cb94d100…05f94、dylibba4ea20d…182a7、metallib4957688f…883bf1。复用真实Saturn sphere四原资产63.18MB，原world/材质/alpha与camera不变，无脚本单Spot同camera位置朝0，r16/I1/inner20/outer30且整球最大离轴角11.1°，shadow/volume/ambient/HDR关闭；只切作者343/84的.54000002与2。旧.54（原消费2）F94、当前.54 F95及当前2 F94/request1，CB535993140096/501210694528/534798386048，球456供同main/seal、GPUcompleted/trunc0并排空，所有输入/协议/App和world保持。
+
+新2与旧基线逐PNG/RGBA全等，0像素差；新.54对新2的1280×831前景颜色并集90953中90375（99.3645%）变化，平均绝对RGB差7.90573 byte、最大14。预定球内32²区域全1024像素改变、均差11.28874，RGB均值(10.998,10,8.75)→(23.307,21.692,18.615)，未调强度/纹理/曝光。背景与终端alpha相同；颜色并集不是几何覆盖，App未读模型数值depth/alpha或GPU lamp uniform。此为同真实资产的自有径向供货贡献，不冒充343原景逐灯像素或官方host曲线；typed/native门与App终端各授实际范围。
+
+原343五秒F141/request1/CB527375944320/main527370362368的112/114到主画布；84原typed指数.54、radius6000/I3、cone72.29/77.94与parent57已保，不据自然相位图单独归因。独立3453730450自然20s/after17，F780/request1/CB520733231744/main520724060416的53/77具体part/306/340/342绘制。两场源摘要=冻结matrix、App签名前后核同，终端地表/云/大气/星空/时钟与月面/轨道/标题完整，同capture seal/GPUcompleted/trunc0并排空。spot-light failed已定位为未请求volume时的诊断，不称surface失败，留队列归原owner。
+
+原作者报告/图/日志归`.artifacts/scene-evidence/runs/scene-spot-radial-20261115`；真实球指数控制、225模型/36Spot图像与原邻例、入口/最终finite门、局部失败、构建及独审归`.artifacts/scene-spot-radial-20261115`。

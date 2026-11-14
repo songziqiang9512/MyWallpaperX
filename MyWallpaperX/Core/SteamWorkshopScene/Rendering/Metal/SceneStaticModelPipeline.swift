@@ -122,6 +122,7 @@ private struct SceneStaticModelUniforms {
     var specularTintAndColorMode: SIMD4<Float>
     var pigmentTextureFrame0: SIMD4<Float>
     var pigmentTextureFrame1: SIMD4<Float>
+    var spotFalloffExponents: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -575,7 +576,9 @@ struct SceneStaticModelPipeline {
             pigmentTextureFrame1: pigment.map {
                 SIMD4($0.pixelFrame.yAxis.x, $0.pixelFrame.yAxis.y,
                     material.surfaceProfile?.pigmentAmount ?? 0, $0.replicatesRed ? 1 : 0)
-            } ?? .zero
+            } ?? .zero,
+            spotFalloffExponents: SIMD4(spots[0].falloffExponent, spots[1].falloffExponent,
+                spots[2].falloffExponent, spots[3].falloffExponent)
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -783,7 +786,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1472
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1488
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -806,6 +809,7 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.specularTintAndColorMode) == 1424
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pigmentTextureFrame0) == 1440
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pigmentTextureFrame1) == 1456
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotFalloffExponents) == 1472
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128
@@ -861,11 +865,12 @@ struct SceneStaticModelPipeline {
         positionRadius: SIMD4<Float>,
         directionInnerCosine: SIMD4<Float>,
         colorIntensity: SIMD4<Float>,
-        outerCosine: Float
+        outerCosine: Float,
+        falloffExponent: Float
     )] {
         (0..<SceneLightSnapshot.maximumLightCount).map { index in
             guard lights.indices.contains(index) else {
-                return (.zero, .zero, .zero, 0)
+                return (.zero, .zero, .zero, 0, 2)
             }
             let light = lights[index]
             return (
@@ -883,7 +888,8 @@ struct SceneStaticModelPipeline {
                     light.color.x, light.color.y, light.color.z,
                     light.intensity * energyScale
                 ),
-                light.outerConeCosine
+                light.outerConeCosine,
+                light.falloffExponent
             )
         }
     }

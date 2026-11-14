@@ -60,6 +60,7 @@ struct SceneLitImageLayerLightPayload {
     var directionalColor2 = SIMD4<Float>.zero
     var directionalColor3 = SIMD4<Float>.zero
     var pointFalloffExponents = SIMD4<Float>(repeating: 2)
+    var spotFalloffExponents = SIMD4<Float>(repeating: 2)
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -89,6 +90,7 @@ struct SceneBaseMaterialLitCapturePayload {
         let radius: Float
         let innerConeCosine: Float
         let outerConeCosine: Float
+        var falloffExponent: Float = 2
     }
 
     enum TextureInput {
@@ -311,6 +313,7 @@ struct SceneBaseMaterialLitCapturePayload {
             directions[index] = SIMD4(light.direction / length, light.innerConeCosine)
             colors[index] = SIMD4(simd_max(light.color, .zero), light.intensity)
             payload.spotOuterConeCosines[index] = light.outerConeCosine
+            payload.spotFalloffExponents[index] = light.falloffExponent
         }
         (payload.spotPositionRadius0, payload.spotPositionRadius1,
          payload.spotPositionRadius2, payload.spotPositionRadius3) =
@@ -340,7 +343,7 @@ struct SceneBaseMaterialLitCapturePayload {
         (payload.directionalColor0, payload.directionalColor1,
          payload.directionalColor2, payload.directionalColor3) =
             (colors[0], colors[1], colors[2], colors[3])
-        return payload.isFinite ? payload : nil
+        return payload
     }
 
 }
@@ -370,6 +373,7 @@ private extension SceneLitImageLayerLightPayload {
             directionalDirectionIntensity0, directionalDirectionIntensity1,
             directionalDirectionIntensity2, directionalDirectionIntensity3,
             directionalColor0, directionalColor1, directionalColor2, directionalColor3,
+            pointFalloffExponents, spotFalloffExponents,
             sceneViewProjection.columns.0, sceneViewProjection.columns.1,
             sceneViewProjection.columns.2, sceneViewProjection.columns.3,
         ].allSatisfy(sceneLitIsFinite)

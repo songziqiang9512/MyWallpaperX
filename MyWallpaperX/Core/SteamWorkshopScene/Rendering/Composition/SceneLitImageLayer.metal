@@ -74,6 +74,7 @@ struct SceneLitImageLayerLightPayload {
     float4 directionalColor2;
     float4 directionalColor3;
     float4 pointFalloffExponents;
+    float4 spotFalloffExponents;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -94,12 +95,11 @@ static float3 sceneLitDirection(float3 delta) {
     return normalize(delta / scale);
 }
 
-static float sceneLitFalloff(float3 delta, float radius, float exponent = 2.0) {
+static float sceneLitFalloff(float3 delta, float radius, float exponent) {
     const float scale = max(max(abs(delta.x), abs(delta.y)), abs(delta.z));
     if (!(scale > 0.0) || !isfinite(scale)) return 0.0;
-    const float distanceRatio = (scale / radius) * length(delta / scale);
-    const float remaining = max(0.0, 1.0 - distanceRatio);
-    return sceneRadialFalloff(remaining, exponent);
+    const float distance = scale * length(delta / scale);
+    return sceneRadialFalloff(distance, radius, exponent);
 }
 
 // Complete covered/tinted contribution, before the rgba16f store. Factoring
@@ -356,7 +356,8 @@ fragment float4 sceneLitImageLayerFrag(
         const float3 delta = spotPositionRadius[index].xyz - world;
         const float falloff = sceneLitFalloff(
             delta,
-            spotPositionRadius[index].w
+            spotPositionRadius[index].w,
+            payload.spotFalloffExponents[index]
         );
         if (falloff <= 0.0) {
             continue;

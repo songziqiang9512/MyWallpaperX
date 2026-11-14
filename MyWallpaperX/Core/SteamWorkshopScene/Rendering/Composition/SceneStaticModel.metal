@@ -56,6 +56,7 @@ struct SceneStaticModelUniforms {
     float4 specularTintAndColorMode; // specular RGB, Chroma surface-color policy
     float4 pigmentTextureFrame0; // pixel UV origin.xy, x-axis.zw
     float4 pigmentTextureFrame1; // pixel UV y-axis.xy, amount.z, replicate R.w
+    float4 spotFalloffExponents;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -549,17 +550,14 @@ fragment half4 sceneStaticModelFragment(
         float4 positionRadius = uniforms.pointPositionRadius[lightIndex];
         float3 toLight = positionRadius.xyz - in.worldPosition;
         float distanceSquared = dot(toLight, toLight);
-        if (distanceSquared <= 1e-8) {
+        if (distanceSquared == 0.0) {
             continue;
         }
         float distanceToLight = sqrt(distanceSquared);
         float3 directionTowardLight = toLight / distanceToLight;
-        float remaining = clamp(
-            1.0 - distanceToLight / max(positionRadius.w, 1e-4),
-            0.0,
-            1.0
-        );
-        float radial = sceneRadialFalloff(remaining, uniforms.pointFalloffExponents[lightIndex]);
+        float radial = sceneRadialFalloff(distanceToLight, positionRadius.w,
+            uniforms.pointFalloffExponents[lightIndex]);
+        if (radial <= 0.0) continue;
         float signedNoL = dot(normal, directionTowardLight);
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
@@ -578,17 +576,14 @@ fragment half4 sceneStaticModelFragment(
         float4 positionRadius = uniforms.spotPositionRadius[lightIndex];
         float3 toLight = positionRadius.xyz - in.worldPosition;
         float distanceSquared = dot(toLight, toLight);
-        if (distanceSquared <= 1e-8) {
+        if (distanceSquared == 0.0) {
             continue;
         }
         float distanceToLight = sqrt(distanceSquared);
         float3 directionTowardLight = toLight / distanceToLight;
-        float radial = clamp(
-            1.0 - distanceToLight / max(positionRadius.w, 1e-4),
-            0.0,
-            1.0
-        );
-        radial *= radial;
+        float radial = sceneRadialFalloff(distanceToLight, positionRadius.w,
+            uniforms.spotFalloffExponents[lightIndex]);
+        if (radial <= 0.0) continue;
         float4 directionInner = uniforms.spotDirectionInnerCosine[lightIndex];
         float coneDot = dot(directionInner.xyz, -directionTowardLight);
         float outerCosine = uniforms.spotOuterCosines[lightIndex];

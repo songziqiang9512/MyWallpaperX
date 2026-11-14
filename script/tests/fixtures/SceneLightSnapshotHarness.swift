@@ -1,8 +1,10 @@
+import Foundation
 import simd
 
 @main
 enum LightSnapshotHarness {
     static func main() {
+        checkSpotFalloff()
         let spot = SceneSpotLightDefinition(
             kind: "lspot", colorRGB: [1, 1, 1], intensity: 3,
             radius: 6000, innerConeDegrees: 60, outerConeDegrees: 90,
@@ -549,6 +551,47 @@ enum LightSnapshotHarness {
 
         checkPointVolume(layerID: 101, parentID: 90, name: "Beacon")
         checkPointVolume(layerID: 13, parentID: 27, name: "Renamed emitter")
+    }
+
+    static func checkSpotFalloff() {
+        func definition(_ value: Any?) -> SceneSpotLightDefinition {
+            var input: [String: Any] = ["light": "lspot", "color": "1 0.5 0.25",
+                "intensity": 3, "radius": 16, "innercone": 20, "outercone": 30]
+            if let value { input["exponent"] = value }
+            return SceneSpotLightDefinition.parse(input)!
+        }
+        func snapshot(_ light: SceneSpotLightDefinition, moved: Bool = false) -> SceneLightSnapshot.Spot {
+            let layer = SceneRenderDescriptor.Layer(id: 84, visible: true,
+                pointLight: nil, spotLight: light, directionalLight: nil)
+            let descriptor = SceneRenderDescriptor(lighting: .init(
+                ambientColorRGB: nil, skylightColorRGB: nil,
+                lightClasses: .init(directional: false, point: false, spot: true)), layers: [layer])
+            var frame = SceneMatrix.eulerXYZ(SIMD3(0, moved ? 1 : 0, 0))
+            frame.columns.3 = SIMD4(moved ? 3 : 0, 4, 7, 1)
+            return SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: [84: frame],
+                dynamicLayerColors: moved ? [84: SIMD3(0.25, 0.5, 1)] : [:]).spot[0]
+        }
+        let valid: [(Any, Float)] = [(0, 0), (0.54, 0.54), (2, 2), (5, 5),
+            (["value": 0.54], 0.54), (["value": 0.54, "user": "amount"], 0.54),
+            (["value": 0.54, "script": "export function update(v){return v;}"], 0.54)]
+        for (raw, expected) in valid {
+            let value = definition(raw)
+            precondition(value.exponent == expected)
+            let initial = snapshot(value), current = snapshot(value, moved: true)
+            precondition(initial.falloffExponent == expected && current.falloffExponent == expected)
+            precondition(initial.position == SIMD3(0, 4, 7) && current.position == SIMD3(3, 4, 7))
+            precondition(initial.color == SIMD3(1, 0.5, 0.25) && current.color == SIMD3(0.25, 0.5, 1))
+            precondition(initial.directionFromLight != current.directionFromLight)
+            precondition(current.intensity == 3 && current.radius == 16)
+            precondition(current.innerConeCosine == initial.innerConeCosine
+                && current.outerConeCosine == initial.outerConeCosine)
+        }
+        let bad: [Any?] = [nil, NSNull(), true, -1, Double.nan, Double.infinity,
+            Double.greatestFiniteMagnitude, "0.54", ["value": -1], ["value": true]]
+        for raw in bad {
+            let value = definition(raw)
+            precondition(value.exponent == nil && snapshot(value).falloffExponent == 2)
+        }
     }
 
     static func checkPointVolume(layerID: Int, parentID: Int, name: String) {

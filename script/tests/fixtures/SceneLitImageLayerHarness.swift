@@ -174,6 +174,13 @@ enum Harness {
         let zeroEnergy = pack([directional(SIMD3(0, 0, 1), 0)])!
         let mixed = pack([valid, valid], points: [point, point], spots: [spot])!
         let full = pack((1...5).map { directional(SIMD3(0, 0, 1), Float($0)) })!
+        let exponents: [Float] = [0, 0.54, 1, 5]
+        let spots = exponents.map { exponent -> Capture.SpotLight in
+            var value = spot; value.falloffExponent = exponent; return value
+        }
+        let fourSpots = pack([], spots: spots)!
+        let truncatedSpots = pack([], points: [point, point], spots: spots)!
+        let legacySpot = pack([], v1: false, spots: [spots[1]])!
         let invalid = [directional(.zero), directional(SIMD3(.nan, 0, 1)),
             directional(SIMD3(0, .infinity, 1)), directional(SIMD3(0, 0, 1), -1),
             directional(SIMD3(0, 0, 1), .nan),
@@ -204,6 +211,12 @@ enum Harness {
             "unusedDirectionalSlotsAreClear": one.directionalDirectionIntensity1 == .zero
                 && one.directionalDirectionIntensity2 == .zero && one.directionalDirectionIntensity3 == .zero
                 && one.directionalColor1 == .zero && one.directionalColor2 == .zero && one.directionalColor3 == .zero,
+            "spotExponentDefaultsAndUnusedWordsStayTwo": mixed.spotFalloffExponents == SIMD4(repeating: 2)
+                && one.spotFalloffExponents == SIMD4(repeating: 2),
+            "fourSpotExponentsPreserveZeroAndOrder": fourSpots.spotFalloffExponents == SIMD4(0, 0.54, 1, 5),
+            "combinedCapacityTruncatesSpotExponentWords": truncatedSpots.lightCounts == SIMD4(2, 2, 0, 1)
+                && truncatedSpots.spotFalloffExponents == SIMD4(0, 0.54, 2, 2),
+            "legacySpotCarriesItsAuthoredExponent": legacySpot.spotFalloffExponents == SIMD4(0.54, 2, 2, 2),
         ]
         typealias Payload = SceneLitImageLayerLightPayload
         return ["checks": checks, "layout": [
@@ -212,7 +225,8 @@ enum Harness {
             MemoryLayout<Payload>.offset(of: \.reflection)!,
             MemoryLayout<Payload>.offset(of: \.directionalDirectionIntensity0)!,
             MemoryLayout<Payload>.offset(of: \.directionalColor0)!,
-            MemoryLayout<Payload>.offset(of: \.pointFalloffExponents)!, MemoryLayout<Payload>.stride]]
+            MemoryLayout<Payload>.offset(of: \.pointFalloffExponents)!,
+            MemoryLayout<Payload>.offset(of: \.spotFalloffExponents)!, MemoryLayout<Payload>.stride]]
     }
 
     static func main() throws {
@@ -347,15 +361,100 @@ enum Harness {
             ("modern-zero", familyPayload(z: 50, falloffExponent: 0), nil),
             ("modern-zero-outside", familyPayload(z: 101, falloffExponent: 0), nil),
         ]
+        func makeSpotPayload(z: Float, position: SIMD3<Float>? = nil, exponent: Float? = nil, intensity: Float = 1,
+                         direction: SIMD3<Float> = SIMD3(0, 0, -1), modern: Bool = true)
+            -> SceneLitImageLayerLightPayload {
+            var light = Capture.SpotLight(position: position ?? SIMD3(0, 0, z), direction: direction,
+                color: SIMD3(repeating: 1), intensity: intensity, radius: 100,
+                innerConeCosine: 0.9, outerConeCosine: 0.7)
+            if let exponent { light.falloffExponent = exponent }
+            return Capture.packLights(pointLights: [], spotLights: [light], ambient: .zero,
+                material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0), layerModelMatrix: tinyCard,
+                normalModelMatrix: matrix_identity_float4x4, usesLightingV1: modern)!
+        }
+        var spotCases: [(String, SceneLitImageLayerLightPayload, MTLTexture?)] = [
+            ("spot-default", makeSpotPayload(z: 50), nil),
+            ("spot-two", makeSpotPayload(z: 50, exponent: 2), nil),
+            ("legacy-spot-default", makeSpotPayload(z: 50, modern: false), nil),
+            ("legacy-spot-two", makeSpotPayload(z: 50, exponent: 2, modern: false), nil),
+        ]
+        // Each independent intensity is remaining^(authoredExponent-2).
+        // Controls keep the already qualified squared radial path and BRDF.
+        let radialInputs: [(String, Float, Float, Float)] = [
+            ("25-gentle", 25, 0.54, 1.521985642037), ("25-zero", 25, 0, 1.777777777778),
+            ("25-one", 25, 1, 1.333333333333),
+            ("50-gentle", 50, 0.54, 2.751083636279), ("50-zero", 50, 0, 4), ("50-one", 50, 1, 2),
+            ("75-gentle", 75, 0.54, 7.568461173805), ("75-zero", 75, 0, 16), ("75-one", 75, 1, 4),
+        ]
+        for (name, z, exponent, referenceIntensity) in radialInputs {
+            spotCases.append(("spot-" + name, makeSpotPayload(z: z, exponent: exponent), nil))
+            spotCases.append(("spot-" + name + "-reference",
+                makeSpotPayload(z: z, exponent: 2, intensity: referenceIntensity), nil))
+        }
+        spotCases += [
+            ("spot-cone-transition", makeSpotPayload(z: 50, exponent: 0.54, direction: SIMD3(0.6, 0, -0.8)), nil),
+            ("spot-cone-transition-reference", makeSpotPayload(z: 50, exponent: 2,
+                intensity: 2.751083636279, direction: SIMD3(0.6, 0, -0.8)), nil),
+            ("spot-cone-outside-zero", makeSpotPayload(z: 50, exponent: 0, direction: SIMD3(0.8, 0, -0.6)), nil),
+            ("spot-zero-edge", makeSpotPayload(z: 100, exponent: 0), nil),
+            ("spot-zero-near-inside", makeSpotPayload(z: Float(100).nextDown, exponent: 0), nil),
+            ("spot-zero-near-outside", makeSpotPayload(z: Float(100).nextUp, exponent: 0), nil),
+            ("spot-zero-outside", makeSpotPayload(z: 125, exponent: 0), nil),
+            ("spot-gentle-outside", makeSpotPayload(z: 125, exponent: 0.54), nil),
+        ]
+        let centerLocal = SIMD4<Float>((Float(width / 2) + 0.5) / Float(width) - 0.5,
+            0.5 - (Float(height / 2) + 0.5) / Float(height), 0, 1)
+        let centerWorld = tinyCard * centerLocal
+        let receiver = SIMD3(centerWorld.x, centerWorld.y, centerWorld.z)
+        // The light offset is an exact 3-4-5 vector at the sampled pixel.
+        // Adjacent Float Z values fall strictly inside/outside radius 100.
+        for (name, delta) in [("edge", SIMD3<Float>(60, 0, 80)),
+                              ("inside", SIMD3<Float>(60, 0, Float(80).nextDown)),
+                              ("outside", SIMD3<Float>(60, 0, Float(80).nextUp)),
+                              ("control", SIMD3<Float>(30, 0, 40))] {
+            spotCases.append(("spot-oblique-zero-" + name,
+                makeSpotPayload(z: delta.z, position: receiver + delta, exponent: 0,
+                    direction: -simd_normalize(delta)), nil))
+        }
+        func fourSpotPayload(reference: Bool) -> SceneLitImageLayerLightPayload {
+            let slots: [(Float, Float, Float, SIMD3<Float>)] = [
+                (25, 0, 1.777777777778, SIMD3(1, 0, 0)), (50, 1, 2, SIMD3(0, 1, 0)),
+                (75, 0.54, 7.568461173805, SIMD3(0, 0, 1)), (50, 5, 0.125, SIMD3(repeating: 1)),
+            ]
+            return Capture.packLights(pointLights: [], spotLights: slots.map { z, exponent, intensity, color in
+                Capture.SpotLight(position: SIMD3(0, 0, z), direction: SIMD3(0, 0, -1),
+                    color: color, intensity: reference ? intensity : 1, radius: 100,
+                    innerConeCosine: 0.9, outerConeCosine: 0.7, falloffExponent: reference ? 2 : exponent)
+            }, ambient: .zero, material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0), layerModelMatrix: tinyCard,
+                normalModelMatrix: matrix_identity_float4x4, usesLightingV1: true)!
+        }
+        spotCases += [("spot-four-slots", fourSpotPayload(reference: false), nil),
+                      ("spot-four-slots-reference", fourSpotPayload(reference: true), nil)]
+        let invalidPoint = Capture.packLights(pointLights: [.init(position: SIMD3(0, 0, 50),
+            color: SIMD3(repeating: 1), intensity: 1, radius: 100, falloffExponent: .nan)],
+            spotLights: [], ambient: .zero, material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0),
+            layerModelMatrix: tinyCard, normalModelMatrix: matrix_identity_float4x4)!
+        let invalidSpot = makeSpotPayload(z: 50, exponent: .infinity)
+        let invalidInverse = Capture.packLights(pointLights: [], spotLights: [], ambient: .zero,
+            material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0), layerModelMatrix: tinyCard,
+            normalModelMatrix: simd_float4x4(diagonal: SIMD4(1, 1, 0, 1)))!
+        var invalidProjection = spotCases[0].1, invalidReflection = spotCases[0].1
+        invalidProjection.sceneViewProjection.columns.0.x = .infinity
+        invalidReflection.reflection.x = .nan
+        let rejectsInvalidFinalPayload = [invalidPoint, invalidSpot, invalidInverse, invalidProjection, invalidReflection]
+            .allSatisfy { Capture(pipeline: lit, lights: $0, normal: .disabled) == nil }
+        precondition(rejectsInvalidFinalPayload
+            && Capture(pipeline: lit, lights: spotCases[0].1, normal: .disabled) != nil)
+        let lightingCases = familyCases + spotCases
         let familyCommand = queue.makeCommandBuffer()!
-        let familyTargets = familyCases.map { row in
+        let familyTargets = lightingCases.map { row in
             encode(device, familyCommand, pipeline: pipeline, lit: lit, payload: row.1, normal: row.2)
         }
         familyCommand.commit()
         familyCommand.waitUntilCompleted()
         precondition(familyCommand.status == .completed && familyCommand.error == nil)
         let center = (height / 2 * width + width / 2) * 4
-        let familyPixels = zip(familyCases, familyTargets).map { row, target -> [String: Any] in
+        let lightingPixels = zip(lightingCases, familyTargets).map { row, target -> [String: Any] in
             let rgba = pixels(target)
             return ["name": row.0, "rgba": Array(rgba[center..<(center + 4)])]
         }
@@ -364,7 +463,10 @@ enum Harness {
             "spotAlongNegativeZ": true, "plainUnlitUnchanged": true,
             "gpuCompletion": true, "terminalSourceOver": true,
             "mixedOverflowTruncates": mixedTruncates, "pointsOverflowKeepsAuthoredOrder": pointsTruncate,
-            "mixedFamilySingleCommandCompleted": true, "lightingFamilyPixels": familyPixels]
+            "mixedFamilySingleCommandCompleted": true,
+            "finalCaptureRejectsNonfinitePayload": rejectsInvalidFinalPayload,
+            "lightingFamilyPixels": Array(lightingPixels.prefix(familyCases.count)),
+            "spotRadialPixels": Array(lightingPixels.dropFirst(familyCases.count))]
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
 #endif
     }

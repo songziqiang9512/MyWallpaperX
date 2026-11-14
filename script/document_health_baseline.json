@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 269,
-      "bytes": 55743
+      "lines": 278,
+      "bytes": 59064
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 52916
+      "bytes": 53205
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 137,
-      "bytes": 39360
+      "lines": 153,
+      "bytes": 43841
     }
   },
   "archives": [
@@ -515,20 +515,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "90447a0bd6bd7109bd1bf1a34a7ed1888830864b5c4fa3149e8c75be6794fa33",
-      "after": "5eb619fc5db2c45ebeb7f20babb22f4fb416691fa3edcb43aed7254e41ae6417",
-      "owner": "Existing Scene model shadow Frame and coverage shader",
-      "reason": "Retire translucent caster exclusion without new product structure; qualify same-input three-light map coverage and true ring shadow on/off, explicitly bound mixed foreground ROI and first-epoch observation, retain legacy tool gates for original owners.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
+      "before": "5eb619fc5db2c45ebeb7f20babb22f4fb416691fa3edcb43aed7254e41ae6417",
+      "after": "073016944f7a78f6cbfc53b9da1b9cb8ccd30c72524f5ee11679fd6c304cfe26",
+      "owner": "Existing typed Spot snapshot and shared surface radial response",
+      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "52c369a80a9266daceabdd667fe472f08112f8f119e45a38900b4490978e21d9",
-      "after": "0025747f9428825accaff6ac572588a4a32a58d5f372f3df2c34ed251d26e908",
-      "owner": "Existing Scene model shadow Frame and coverage shader",
-      "reason": "Retire translucent caster exclusion without new product structure; qualify same-input three-light map coverage and true ring shadow on/off, explicitly bound mixed foreground ROI and first-epoch observation, retain legacy tool gates for original owners.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
+      "before": "0025747f9428825accaff6ac572588a4a32a58d5f372f3df2c34ed251d26e908",
+      "after": "f86c8f5cecdfb5a16d9a383db27298a1f980a927a80e08df77d5d2c9cd9d70da",
+      "owner": "Existing typed Spot snapshot and shared surface radial response",
+      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "963655f562b86d994b4391afacc7b35ec2e73449ddb3838c05d3ddad4ab51b40",
+      "after": "4ff814a29cef42f0dc75a05cc3a67cdbf43345c3377f5f1e6a145d6ad799a97a",
+      "owner": "Existing typed Spot snapshot and shared surface radial response",
+      "reason": "Consume authored spot exponent in two surface paths, retire duplicated finite scan and remaining API, qualify closed-radius/near-distance variants and true-sphere contribution with actual-source limits; record disabled-volume diagnostic and reorder proven array entry gap.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
     }
   ]
 }
