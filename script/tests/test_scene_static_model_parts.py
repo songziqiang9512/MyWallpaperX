@@ -295,6 +295,7 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
     def test_posix_material_names_reach_actual_reader_vfs_and_material_passes(self):
         drive, renamed, peer = 'materials/C:/paint.json', 'materials/Alternate Name:blue/coat.json', 'materials/peer.json'
         escape = 'materials/C:/escape.json'
+        outside_material, no_suffix, bad = 'xaterials/coat.json', 'relocated/Surface Ω', 'xaterials/broken.payload'
         variants = [
             ('modern', reader.build_model(material=drive.encode()), [drive], False),
             ('legacy', reader.build_legacy_model(material=rb'materials\C:\paint.json'), [drive], False),
@@ -310,6 +311,16 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
                 reader.build_model(material=b'materials//./C:/paint.json')]), [peer, drive], False),
             ('symlink', join_parts([reader.build_model(material=peer.encode()),
                 reader.build_model(material=escape.encode())]), [peer, escape], False),
+            ('outside-directory', reader.build_model(material=outside_material.encode()), [outside_material], False),
+            ('outside-package', join_parts([reader.build_model(material=peer.encode()),
+                reader.build_model(material=outside_material.encode())]), [peer, outside_material], True),
+            ('no-suffix', reader.build_legacy_model(material=no_suffix.encode()), [no_suffix], False),
+            ('no-suffix-package', join_parts([reader.build_model(material=outside_material.encode()),
+                reader.build_model(material=no_suffix.encode())]), [outside_material, no_suffix], True),
+            ('renamed-directory-dots', reader.build_legacy_model(material=b'./xaterials//./coat.json'),
+                [outside_material], False),
+            ('bad-explicit-peer', join_parts([reader.build_model(material=bad.encode()),
+                reader.build_model(material=peer.encode())]), [bad, peer], False),
         ]
         main = r'''
 @main enum PosixMaterialDependencies {
@@ -318,7 +329,9 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
   let root=URL(fileURLWithPath:input["root"]!);var rows:[[String:Any]]=[]
   for name in input["names"]!.components(separatedBy:",") {
    let content=root.appendingPathComponent(name)
-   let model=try SceneRuntimeModelBuilder().build(rootURL:content)
+   var prepared:[String:SceneMdlStaticModel.PreparedSource]=[:]
+   let model=try SceneRuntimeModelBuilder().build(rootURL:content,
+       preparedStaticModel:{prepared[$0]=$1})
    let links=model.renderDescriptor.modelMaterialLinks.filter{$0.modelPath=="models/input.mdl"}.compactMap(\.materialPath)
    let passes=model.renderDescriptor.materialPasses.filter{links.contains($0.materialPath)}
    let textureBytes=try passes.flatMap(\.texturePaths).map { path in
@@ -333,6 +346,7 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
     }
    }
    rows.append(["name":name,"links":links,"escapeRejected":escapeRejected,"textureBytes":textureBytes,
+       "preparedMaterials":prepared["models/input.mdl"]?.parts.map(\.materialPath) ?? [],
        "passes":passes.map{["path":$0.materialPath,"textures":$0.textureSlots.map{$0 ?? ""},
            "alpha":$0.constantShaderValues["alpha"]?.components ?? []] as [String:Any]}])
   }
@@ -353,6 +367,8 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
                     {'width': 32, 'height': 32}}, 'objects': [{'id': 1, 'model': 'models/input.mdl'}]}).encode(),
                     'models/input.mdl': geometry, 'materials/color.png': png([64, 128, 192, 255])}
                 entries.update({path: material for path in paths if path != escape})
+                if name == 'bad-explicit-peer':
+                    entries[bad] = b'[not JSON'
                 (folder/'project.json').write_text(json.dumps({'type': 'scene', 'file': 'scene.json'}))
                 if packaged:
                     (folder/'scene.pkg').write_bytes(make_package(list(entries.items())))
@@ -363,14 +379,17 @@ class SceneModelPartsDependencyTests(unittest.TestCase):
                     target=folder/escape;target.parent.mkdir(parents=True,exist_ok=True);target.symlink_to(outside)
             support = builder.HARNESS_SOURCE.split('@main', 1)[0] + main
             sources = list(dict.fromkeys([*builder.SWIFT_SOURCES, *reader.SWIFT_SOURCES]))
+            if catalog := os.environ.get('MWX_SCENE_CATALOG_SOURCE'):
+                sources = [Path(catalog).resolve() if path.name == 'SceneAssetCatalog.swift' else path for path in sources]
             report = native.run_swift(sources, support, label='posix-mdl-materials', input_value={
                 'root': str(root), 'names': ','.join(row[0] for row in variants)})
             rows = {row['name']: row for row in report['rows']}
             self.assertEqual(set(rows), {row[0] for row in variants})
             for name, _, paths, _ in variants:
                 with self.subTest(name=name):
-                    row = rows[name];expected = [path for path in paths if path != escape]
+                    row = rows[name];expected = [path for path in paths if path not in (escape, bad)]
                     self.assertEqual(row['links'], paths)
+                    self.assertEqual(row['preparedMaterials'], paths)
                     self.assertEqual(row['textureBytes'], [list(png([64, 128, 192, 255])) for _ in expected])
                     self.assertEqual({p['path'] for p in row['passes']}, set(expected))
                     for item in row['passes']:

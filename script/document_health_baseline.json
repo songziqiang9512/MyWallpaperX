@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 203,
-      "bytes": 39564
+      "lines": 212,
+      "bytes": 41512
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 190,
-      "bytes": 52197
+      "lines": 189,
+      "bytes": 51395
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 65,
-      "bytes": 18348
+      "lines": 75,
+      "bytes": 21063
     }
   },
   "archives": [
@@ -514,30 +514,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "dd590a4766cd5a2f59f70605989682733f52664329de7786f5f18bd51ccaf602",
-      "after": "9762b20b9a364c861d32a56ab43aaca929861af614a58a7df48f8e808695c20d",
-      "owner": "Scene static model material and runtime evidence",
-      "reason": "Record the single packed material map and explicit integer combo contract, numeric/real author qualification and true remaining style/image boundaries. Retire solved model map and obsolete pending-reflection statements.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-map"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "80a2f03495a8fef06cd9d0973201c049a718e9c12c7d26f479636a5c23d16af3",
-      "after": "bb5ce0b9a2cfe095ea5d40309e306fa8e3451d12ce14216c206d8cda3b2e16f2",
-      "owner": "Scene static model material and runtime evidence",
-      "reason": "Record the single packed material map and explicit integer combo contract, numeric/real author qualification and true remaining style/image boundaries. Retire solved model map and obsolete pending-reflection statements.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-map"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "e03c134d97b53e7f0d92b6aff9623b454e0251a7d1b7b9721057335025cb8233",
       "after": "9b2561a5432d5425ad710f12cee95cb4ef64a89824260b28a8b25b8a2ba33a6f",
       "owner": "Scene static model material and runtime evidence",
       "reason": "Record the single packed material map and explicit integer combo contract, numeric/real author qualification and true remaining style/image boundaries. Retire solved model map and obsolete pending-reflection statements.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-map"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "9762b20b9a364c861d32a56ab43aaca929861af614a58a7df48f8e808695c20d",
+      "after": "7e2bb3dddee7f150b7830c421cdb4539a91a7e635c4ddabe83a9279dbab99245",
+      "owner": "Existing Scene AssetCatalog typed resource consumers",
+      "reason": "Define and verify explicit material roles across MDL, JSON model, particle and effect consumers; retain one cold parser, canonical dedup and local failure. Record exact full-frame lunar recovery and independent author regression, and retire solved queue prose.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-role"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "bb5ce0b9a2cfe095ea5d40309e306fa8e3451d12ce14216c206d8cda3b2e16f2",
+      "after": "b96796ddb0057741a17732fb773789a373cfcaaf1582b4a5b9e2888b3582ea61",
+      "owner": "Existing Scene AssetCatalog typed resource consumers",
+      "reason": "Define and verify explicit material roles across MDL, JSON model, particle and effect consumers; retain one cold parser, canonical dedup and local failure. Record exact full-frame lunar recovery and independent author regression, and retire solved queue prose.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-role"
     }
   ]
 }

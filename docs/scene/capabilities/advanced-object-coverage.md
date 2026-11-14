@@ -9,6 +9,15 @@ Direct MDL 与 Puppet 共用 typed 资源、canonical world/camera、材质、Ge
 
 Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 part/submesh/material/stream 只在实际 consumer 已接入时执行。
 
+<a id="model-material-role"></a>
+### 显式材质引用的准备角色
+
+MDL实际引用的合法材料由原catalog接纳，不因目录或后缀提示漏掉整个模型。原SourceFacts已一次解析MDL并传additionalMaterialPaths及同份PreparedSource；此链不改、不再次读网格。修正只在原Catalog的cold queue：明确material角色随引用入队，优先调用原loadMaterial；ResourceIndex.kind继续提供普通引用的快速提示，不成为已证消费者的许可名单。
+
+MDL附加材料、JSON model.material、粒子准备返回的材料及effect pass.material均有明确角色；普通effect dependencies仍用hint。原队列按规范资源身份归一，须保同路径先普通入队后明确提升、待处理/已处理两种情况，并保证同一材料至多读取解析一次；用原队列的索引与最小角色位替换仅按path的seen，不建第二parser、catalog、资源owner、持久状态或缓存。保package/loose/stock原来源优先级、取消及revision检查、排序、脚本与粒子交接。明确材料不再靠.json后缀授权，由原JSON材料解析器判断内容；坏材料只丢受影响part/消费者，身份失效沿原错误边界。未引用的合法/损坏.other JSON都不读，不扫描整库JSON，不加普通帧工作。
+
+验收先在当前源取得明确引用的真实catalog/materialPass空失败；扩原catalog门核目录/文件/别名变体、普通先入队及后提升、同材料一次读取、未知JSON零读、真实坏输入与健康peer。原MDL reader→SourceFacts→catalog→materialPass门保多part/PKG及复用PreparedSource。复用本批已冻结的真实月球失败变体：同输入由material准备到实际model/main/seal/GPU并出现球面，另与materials/等价载体及独立原包核结果；不新增fixture算法或按路径选视觉结果。当前结果见[运行证据](model-runtime-evidence.md#model-material-role)。
+
 <a id="model-named-albedo"></a>
 模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](model-runtime-evidence.md#nested-model-albedo).
 

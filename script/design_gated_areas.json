@@ -955,12 +955,13 @@
       "owner": "Scene Format / prepared model resources",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": "",
+      "design_notes": " model-material-role: original SourceFacts already supplies explicit material paths and the same cached PreparedSource. Carry the material role through the existing cold Catalog queue, reuse loadMaterial regardless of directory/suffix hints, replace path-only dedup with original queue index and smallest promotion bit, preserve one material parse, reference order, source precedence and local failure. No second MDL read/parser/catalog/cache/owner or hot analysis; qualify generic-first/late promotion, aliases, unreferenced zero-read negatives and real failed lunar-asset output.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlStaticModelReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
       ],
       "contentPatterns": []
     },

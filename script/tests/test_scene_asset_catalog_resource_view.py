@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import base64
+import os
 import shutil
 import subprocess
 import tempfile
@@ -210,6 +211,23 @@ enum Harness {
         result["optionalNormalDefinitionsReused"] = normalParses == ParticleParseProbe.calls
             && normalParses - parsesAfterCatalog == normalCases.count
         result["optionalNormalDefinitionReadsReused"] = normalReads == AssetReadProbe.calls
+        let roleReadsBefore = AssetReadProbe.calls
+        let roleCatalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: ["xaterials/late.json", "xaterials/generic-only.json",
+                "models/role-bridge.json", "models/role-no-suffix.json", "effects/role/effect.json",
+                "xaterials/coat.json", "materials/role-hint.json"],
+            additionalMaterialPaths: ["XATERIALS/coat.json", "xaterials/coat.json",
+                "relocated/Surface Ω", "relocated/SURFACE Ω", "xaterials/broken.payload",
+                "xaterials/missing.json", "MATERIALS/role-hint.json"],
+            particlePaths: ["particles/role.json"])
+        result["roleMaterialPaths"] = roleCatalog.materials.map(\.relativePath)
+        result["roleMaterials"] = Dictionary(uniqueKeysWithValues: roleCatalog.materials.map { material in
+            (material.relativePath, ["alpha": material.passes.first?.constantShaderValues["alpha"]?.components ?? [],
+                "textures": material.passes.first?.textureSlots.map { $0 ?? "" } ?? []] as [String: Any])
+        })
+        result["roleReads"] = Dictionary(uniqueKeysWithValues: AssetReadProbe.calls.map {
+            ($0.key, $0.value - (roleReadsBefore[$0.key] ?? 0))
+        })
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -222,10 +240,13 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
             raise unittest.SkipTest("swiftc is unavailable")
-        cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-scene-catalog-resource-view-"
-        )
-        root = Path(cls.temporary_directory.name)
+        cls.temporary_directory = None
+        if evidence := os.environ.get("MWX_SCENE_CATALOG_EVIDENCE"):
+            Path(evidence).mkdir(parents=True, exist_ok=True)
+            root = Path(tempfile.mkdtemp(prefix="catalog-resource-view-", dir=evidence))
+        else:
+            cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-catalog-resource-view-")
+            root = Path(cls.temporary_directory.name)
         project = root / "project"
         package = root / "package"
         stock = root / "stock-assets"
@@ -324,6 +345,23 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         author("particles/child.json", {"material": "materials/particle-child.json",
             "emitter": [{"name": "boxRandom"}], "children": [{"name": "Particles/Root.JSON"}]})
         author("particles/hidden.json", "{bad hidden")
+        role_material = {"passes": [{"shader": "flat", "textures": ["materials/role-color.png"],
+                                     "constantshadervalues": {"alpha": .375}}]}
+        for path in ["xaterials/coat.json", "xaterials/late.json", "relocated/Surface Ω",
+                     "xaterials/model-surface.data", "xaterials/effect-surface", "xaterials/particle-surface.bin",
+                     "materials/role-hint.json", "xaterials/generic-only.json",
+                     "xaterials/dependency-only.json", "xaterials/unreferenced.json"]:
+            author(path, role_material)
+        author("xaterials/unreferenced-bad.json", "[not JSON")
+        author("xaterials/broken.payload", "[not JSON")
+        author("xaterials/coat.json", {"passes": [{"shader": "wrong-lower",
+               "constantshadervalues": {"alpha": .125}}]}, project)
+        author("models/role-bridge.json", {"material": "xaterials/late.json"})
+        author("models/role-no-suffix.json", {"material": "xaterials/model-surface.data"})
+        author("effects/role/effect.json", {"passes": [{"material": "xaterials/effect-surface"}],
+                                          "dependencies": ["xaterials/dependency-only.json"]})
+        author("particles/role.json", {"material": "xaterials/particle-surface.bin",
+                                      "emitter": [{"name": "boxRandom"}]})
         color = "optional-normal/color"
         normal = "optional-normal/normal"
         normal_slots = {
@@ -409,30 +447,67 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             "func parse(data: Data) throws -> SceneParticleDefinition {\n        ParticleParseProbe.calls += 1", 1))
         sources = [counted_view if path == view_source else counted_parser if path == parser_source else path
                    for path in SWIFT_SOURCES]
+        if catalog := os.environ.get("MWX_SCENE_CATALOG_SOURCE"):
+            sources = [Path(catalog).resolve() if path.name == "SceneAssetCatalog.swift" else path for path in sources]
         cls.binary = root / "scene-catalog-resource-view-harness"
-        subprocess.run(
+        compiled = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc",
                 *(str(path) for path in sources),
                 str(harness), "-o", str(cls.binary),
             ],
             cwd=REPOSITORY_ROOT,
-            check=True,
             capture_output=True,
             text=True,
         )
+        (root / "compile.stdout").write_text(compiled.stdout)
+        (root / "compile.stderr").write_text(compiled.stderr)
+        if compiled.returncode:
+            raise RuntimeError(compiled.stdout + compiled.stderr)
         completed = subprocess.run(
             [str(cls.binary), str(project), str(package), str(stock)],
             cwd=REPOSITORY_ROOT,
-            check=True,
             capture_output=True,
             text=True,
         )
+        (root / "run.stdout").write_text(completed.stdout)
+        (root / "run.stderr").write_text(completed.stderr)
+        if completed.returncode:
+            raise RuntimeError(completed.stdout + completed.stderr)
         cls.result = json.loads(completed.stdout)
+        (root / "result.json").write_text(json.dumps(cls.result, indent=2))
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        if cls.temporary_directory is not None:
+            cls.temporary_directory.cleanup()
+
+    def test_explicit_material_roles_survive_directory_suffix_alias_and_root_selection(self) -> None:
+        expected = {"xaterials/coat.json", "xaterials/late.json", "relocated/Surface Ω",
+                    "xaterials/model-surface.data", "xaterials/effect-surface", "xaterials/particle-surface.bin",
+                    "materials/role-hint.json"}
+        self.assertEqual(set(self.result["roleMaterialPaths"]), expected)
+        self.assertEqual(len(self.result["roleMaterialPaths"]), len(expected))
+        for path in expected:
+            with self.subTest(material=path):
+                self.assertEqual(self.result["roleMaterials"][path],
+                                 {"alpha": [.375], "textures": ["materials/role-color.png"]})
+
+    def test_pending_and_processed_role_promotions_read_materials_once(self) -> None:
+        reads = {}
+        for path, count in self.result["roleReads"].items():
+            reads[path.casefold()] = reads.get(path.casefold(), 0) + count
+        for path in ["xaterials/coat.json", "xaterials/late.json", "relocated/surface ω",
+                     "xaterials/model-surface.data", "xaterials/effect-surface", "xaterials/particle-surface.bin",
+                     "materials/role-hint.json", "models/role-bridge.json", "models/role-no-suffix.json",
+                     "particles/role.json", "xaterials/broken.payload"]:
+            with self.subTest(material=path):
+                self.assertEqual(reads.get(path, 0), 1, self.result["roleReads"])
+        for path in ["xaterials/generic-only.json", "xaterials/dependency-only.json",
+                     "xaterials/unreferenced.json", "xaterials/unreferenced-bad.json", "xaterials/missing.json"]:
+            with self.subTest(unknown=path):
+                self.assertEqual(reads.get(path, 0), 0, self.result["roleReads"])
+        self.assertNotIn("xaterials/broken.payload", self.result["roleMaterialPaths"])
 
     def test_referenced_stock_solid_model_restores_type_without_global_catalog_churn(self) -> None:
         self.assertTrue(self.result["modelFound"])

@@ -17,7 +17,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 显式模型材质引用被目录分类忽略 | 自有真实月球资产变体只将MDL内材质路径materials/等长改为xaterials/、提供对应合法JSON，几何/源纹理不变；MDL解析已取到该路径，但ResourceIndex:206–224将JSON归.other，AssetCatalog:151–178只解析.material，runtimeInput.materialPasses空、模型无draw，仅clear/seal完成。不是相机/纹理缺失。沿真实MDL引用在原catalog/依赖准备汇合material角色，目录推断不能盖过已证显式消费者；保未知无消费者JSON、真实坏材质与健康peer，不扩大整库JSON扫描、不增第二parser/owner或热解析。最小失败在 `.artifacts/scene-model-material-map-20261114` 的real-asset-control；MR对照改用materials内文件名改名，不掩盖该断点。 |
 | 世界模型风格受光 · 3453730450/53、77 | 两活动模型SHADINGGRADIENT=1、53另RIMLIGHTING=1，原资源/Metal未消费。slot4省略的stock默认gradient/gradient_toon_smooth已存在且可由原resolver读取，R8 64×2、非线性ramp；不是缺包。原SurfaceResponse与图像fixed路径无gradient/rim消费者，沿原模型材质/灯响应接入，不在最终RGB乘gradient/NoL、复制BRDF或拟合月色。先用自有分段ramp的正/负半球、法线/阴影与禁用/unlit邻例给明确本引擎合同；rim单独收无直接灯及amount0边界，不并造光照owner。 |
 | 图像分量图的显式combo优先级 | 原图像 SceneBaseMaterialLightingProfile/SceneLitImageLayerPipeline 用header∩allowed且只接受0/1，会抹掉作者显式非零分量、PBRMASKS非零也被拒；原显式宏优先级与stock shader均无这条header许可。模型已按原整数宏零/非零和元数据仅作省略默认纠正；图像应沿同冷profile/typed map binding退该门，保总开关0、分量0、真实缺图/可选失败及标量响应。未得活动图像作者首错，不抢世界模型主线；按PNG无header显式1/2/-1与TEX省略对照真实像素验收。 |
 | Shader 双 stage 同名值边界 | 自有真实编译反例：vertex varying carried 与 fragment uniform carried 各自合法，但原 GenericSourceNormalizer 将统一 uniform block 注入 vertex，实际 strict link 为 redefinition；本批隐式 varying 链接保原声明，不授两后端健康。沿原 stage resource/ABI 投影区分作用域，保共享 uniform 的类型/布局合同，以 actual authored link 与 normalized/Metal 正反例纠正；未得活动作者命中，不抢世界模型可见缺口。合法声明与函数放同一行另触原 declarationUnsupported，不能将换行当语言许可；两项各由原声明/资源投影纠正。失败归 `.artifacts/scene-model-phase-20261114`。 |
