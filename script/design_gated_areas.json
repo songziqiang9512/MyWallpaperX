@@ -28,14 +28,17 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": " StaticModel local composition contract: docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster. The nearest MainPass maps only clip XY of reverse-depth VP and supplies its XY-map winding to model color culling, preserving Z/W and original world/normal/light/shadow plus existing pass-scoped depth lifetime. Retire the model type rejection only with its consumer; retain the separate cold-hidden parent visibility/preparation boundary. No extra renderer, depth/resource owner, cache or ABI.",
+      "design_notes": " StaticModel local composition contract: docs/scene/capabilities/advanced-object-coverage.md#model-subtree-raster. The nearest MainPass maps only clip XY of reverse-depth VP and supplies its XY-map winding to model color culling, preserving Z/W and original world/normal/light/shadow plus existing pass-scoped depth lifetime. Retire the model type rejection only with its consumer; retain the separate cold-hidden parent visibility/preparation boundary. No extra renderer, depth/resource owner, cache or ABI. Model normal-map design: designDoc#model-normal-map. Reuse the existing stock generic4 surface preparation, immutable normal texture/UV/sampling/typed encoding, current model tangent/normal and unique compositor. Standard orthonormal TBN preserves handedness under mirrored/nonuniform transforms; only direct lighting and reflection use the perturbation. Retire the missing-normal consumer and its reflection exclusion; missing optional input retains geometric lighting. No new resource/depth owner, cache, PSO family or frame parsing. Validate production GPU variants and two active author models; official exact pixels remain unverified.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelMaterial.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
       ],
       "contentPatterns": [
         "SceneLitMaterial",

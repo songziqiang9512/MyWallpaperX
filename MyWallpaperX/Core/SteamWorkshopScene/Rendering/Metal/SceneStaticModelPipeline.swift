@@ -115,6 +115,8 @@ private struct SceneStaticModelUniforms {
     var shadow3: SceneModelShadowUniforms
     var surfaceMaterial: SIMD4<Float>
     var pointFalloffExponents: SIMD4<Float>
+    var normalTextureFrame0: SIMD4<Float>
+    var normalTextureFrame1: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -344,6 +346,7 @@ struct SceneStaticModelPipeline {
         emissiveMask: MTLTexture?,
         emissiveMaskTextureFrame: SceneTextureUVTransform?,
         emissiveMaskSampling: SceneTextureSampling?,
+        normalMap: SceneStaticModelNormalMap? = nil,
         modelMatrix: simd_float4x4,
         // The renderer carries this from the same current world transform
         // admitted before depth/shadow preparation; standalone draws derive it.
@@ -470,7 +473,7 @@ struct SceneStaticModelPipeline {
                     | (colorTextureIsPremultiplied ? 2 : 0),
                 (emissiveMask == nil ? 0 : 1)
                     | (material.receivesLighting ? 0 : 2),
-                0,
+                normalMap?.encoding.rawValue ?? 0,
                 material.textureAlphaIsTintMask ? 1 : 0
             ),
             lightCounts: SIMD4(
@@ -524,7 +527,11 @@ struct SceneStaticModelPipeline {
             pointFalloffExponents: SIMD4(
                 points[0].falloffExponent, points[1].falloffExponent,
                 points[2].falloffExponent, points[3].falloffExponent
-            )
+            ),
+            normalTextureFrame0: normalMap?.textureFrame.uniform0 ?? .zero,
+            normalTextureFrame1: SIMD4(normalMap?.textureFrame.uniform1.x ?? 0,
+                normalMap?.textureFrame.uniform1.y ?? 0,
+                normalMap != nil && simd_determinant(normalMatrix) < 0 ? -1 : 1, 0)
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -561,6 +568,9 @@ struct SceneStaticModelPipeline {
         // Keep the fixed Metal ABI bound even when this optional channel is
         // absent; the material flag prevents the placeholder from sampling.
         encoder.setFragmentTexture(emissiveMask ?? texture, index: 1)
+        encoder.setFragmentTexture(normalMap?.texture ?? texture, index: 7)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: normalMap?.sampling ?? sampling), index: 2)
         encoder.setFragmentSamplerState(
             samplerStates.state(for: sampling),
             index: 0
@@ -722,7 +732,7 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1360
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1392
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -738,6 +748,8 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.shadow3) == 1216
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.surfaceMaterial) == 1328
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointFalloffExponents) == 1344
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalTextureFrame0) == 1360
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalTextureFrame1) == 1376
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
         && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128

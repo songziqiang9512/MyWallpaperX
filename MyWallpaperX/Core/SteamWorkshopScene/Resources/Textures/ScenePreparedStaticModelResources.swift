@@ -35,6 +35,7 @@ struct ScenePreparedStaticModelResources {
         let albedo: SceneTextureCandidate?
         let namedAlbedo: SceneNamedTextureReference?
         let emissiveMask: SceneTextureCandidate?
+        let normalMap: SceneStaticModelNormalMap?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
         let materialBlending: SceneMaterialRenderState.Blending?
@@ -46,7 +47,8 @@ struct ScenePreparedStaticModelResources {
             namedAlbedo: SceneNamedTextureReference?, emissiveMask: SceneTextureCandidate?,
             material: SceneStaticModelMaterial, writesDepth: Bool,
             materialBlending: SceneMaterialRenderState.Blending?,
-            geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic
+            geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
+            normalMap: SceneStaticModelNormalMap? = nil
         ) {
             self.modelPath = modelPath
             self.materialPath = materialPath
@@ -55,6 +57,7 @@ struct ScenePreparedStaticModelResources {
             self.albedo = albedo
             self.namedAlbedo = namedAlbedo
             self.emissiveMask = emissiveMask
+            self.normalMap = normalMap
             self.material = material
             self.writesDepth = writesDepth
             self.materialBlending = materialBlending
@@ -243,6 +246,11 @@ struct ScenePreparedStaticModelResources {
                             device: device, checkCancellation: cancellationCheck
                         )
                         : nil
+                    let normal = modelMaterial.surfaceProfile != nil && pass.combos["NORMALMAP"] != 0
+                        ? try optionalTexture(at: 1, in: pass, purpose: .normal,
+                            resolver: textureResolver, textureLoader: textureLoader,
+                            device: device, checkCancellation: cancellationCheck)
+                        : nil
                     entries[layer.id, default: []].append(Entry(
                         modelPath: modelPath,
                         materialPath: preparedGeometry.materialPath,
@@ -254,7 +262,10 @@ struct ScenePreparedStaticModelResources {
                         material: modelMaterial,
                         writesDepth: writesDepth(pass.depthWrite),
                         materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
-                        geometryState: preparedGeometry.geometryState
+                        geometryState: preparedGeometry.geometryState,
+                        normalMap: normal.map { .init(texture: $0.texture,
+                            textureFrame: $0.uvTransform, sampling: $0.sampling,
+                            encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) }
                     ))
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
@@ -456,8 +467,6 @@ struct ScenePreparedStaticModelResources {
         }
         let reflectivity: Double
         if authoredReflection,
-           pass.combos["NORMALMAP"] == 0 || (pass.combos["NORMALMAP"] == nil
-                && (pass.textureSlots.count < 2 || pass.textureSlots[1] == nil)),
            (pass.combos["METALLIC_MAP"] ?? 0) == 0, (pass.combos["ROUGHNESS_MAP"] ?? 0) == 0,
            (pass.combos["REFLECTION_MAP"] ?? 0) == 0,
            pass.textureSlots.count < 4 || pass.textureSlots[3] == nil

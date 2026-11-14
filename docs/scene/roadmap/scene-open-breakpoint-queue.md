@@ -8,6 +8,8 @@
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
+当前优先世界空间模型的深度、遮挡、受光与纹理完整性，从星空/星球输入闭合通用消费者。官方对照不足时采用明确说明的自有几何/光照算法，以可区分的生产像素正反例验收，不因缺少官方像素停止推进，也不宣称官方一致。
+
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
 <a id="implementation-gaps"></a>
@@ -15,6 +17,8 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 世界模型的 additive 材质 · 3477054430/68 | 活动 mc-stars 唯一材质明确 additive、depthtest/write enabled，原 Entry 已解析 additive，但模型 PSO 固定 source-over；真实旧 F191 已到 main/GPU。沿原冷管线准备接入 RGB 加法、保 alpha/深度/阴影独立，先用非黑背景、半 alpha、近遮挡与改名控制，再核原作者。八份定向星球输入无模型 A2C/CUTOUT 或 disabled depthtest 活动定位，不把透明云壳的显式写深度改为统一停写。 |
+| 地球局部 effect 编译 · 3557068717/424e0 | 2026-11-14 原包晚相位有实际地球/云壳 normal 与反射进入 main/GPU，完整画面可见；424e0 独立降级为 material-pass-preparation-library-compilation，生成 MSL 使用未声明 v_TexCoord，报告保两项 CHECK，不记全景 PASS。沿原 Program 的 varying/函数作用域找首错；模型法线接线不代替此 effect 恢复。原报告与日志在 `.artifacts/scene-evidence/runs/scene-model-normal-20261114/independent/`。 |
 | REFRACT直接光照 · 3590684440四层 | 392/526/809/830 的同帧两盏现代点灯已供，hidden534 不计活动分母；无模型 caster 需求不授官方无阴影。四层实际为正交 worldSpace SpriteTrail，shader eye/right 未资格；view 逆原点受裁剪深度影响，几何 across 也不等于已证 source right，故停止放行与 shader 迁移。Mirage 仅作线索；先取得可区分的官方 host/normal 基与直接光、shadow 供货，沿原 LightSnapshot/材质消费者接入，不重调旧四区灯/法线。已闭 ambient/CUTOUT 归[原证据](../capabilities/runtime-evidence-current.md#particle-cutout-coverage)，本次候选和停止线在 `.artifacts/scene-particle-lighting-next-20261108/`。 |
 | 启动仍慢 · 3808922316 | 90秒超时及死亡搬移、无消费者payload、无writer reset、算子重复工作、raw initializer热复制已退出待办。默认隐藏主题仍完整预热；现同输入优化诊断App预热18.12s、Ready24.05s，资格归[预热热路径](../capabilities/runtime-evidence-current.md#particle-prewarm-hotpath)。随机区间算术成本不足；raw Operator ordinal候选未过交错计时收益门；归一寿命bulk LazyMap候选在唯一编译中新增每步56B heap closure，按预定ASM门撤回，0计时/0测试/0App，原49输入及产品已恢复。三方向无新证据不续做，不以ASM/行数减少授收益。重启仅看当前优化机器码/阶段采样的新可移除完整工作或新官方活动创建事实，不跳隐藏/root、不减时长/步数或改RNG，不重开已退双链。 |
 | 通道与操作推导 | 完整向量输入已退次数许可，实际颜色采样/显隐见[运行证据](../capabilities/runtime-evidence-current.md#whole-vector-color-input)。剩余alpha-only/packed、有序signal和无typed颜色兼容仍有有界source事实。终端storage可继承未读data-FB声明，未注解资产raw意图未证，不能由output=data推输入解码。沿原冷准备汇合component/资源角色，保data、独立alpha与mixed-role反例，不追加效果名单。 |

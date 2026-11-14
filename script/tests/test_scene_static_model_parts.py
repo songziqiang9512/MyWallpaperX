@@ -450,12 +450,12 @@ final class SceneTextureLoader {
                     checkCancellation:(() throws -> Void)?=nil) throws -> Result {
   try checkCancellation?()
   let url=URL(fileURLWithPath:input.diagnosticPath)
-  precondition(purpose == .straightAlbedo || purpose == .mask)
+  precondition(purpose == .straightAlbedo || purpose == .mask || purpose == .normal)
   requests.append(["path":url.lastPathComponent,"purpose":String(describing:purpose)])
   guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
   return .loaded(.init(texture:candidate.texture,identity:candidate.identity,generation:candidate.generation,
       purpose:purpose,content:candidate.content,physicalSize:candidate.physicalSize,mappedSize:candidate.mappedSize,
-      uvTransform:candidate.uvTransform,sampling:candidate.sampling))
+      uvTransform:candidate.uvTransform,sampling:candidate.sampling,authoredFormat:candidate.authoredFormat))
  }
 }
 extension SceneRenderDescriptor {
@@ -475,6 +475,8 @@ extension SceneRenderDescriptor {
 
 def resource_support():
     s=frame.SHELL
+    s=s.replace('var default2DOriginInputLayerID:Int? = nil',
+        'var default2DOriginInputLayerID:Int? = nil;var clearEnabled=true')
     start=s.index('struct ScenePreparedStaticModelResources {');end=s.index('struct NamedAlbedo',start)
     s=s[:start]+s[end:]
     s=s.replace('expectedReference:String','expectedReference:SceneNamedTextureReference')

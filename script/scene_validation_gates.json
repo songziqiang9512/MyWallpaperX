@@ -3088,7 +3088,9 @@
         "script/tests/fixtures/SceneStaticModelUploadChecks.swift",
         "script/tests/fixtures/SceneStaticModelMaterialSelectionChecks.swift",
         "script/tests/fixtures/SceneStaticModelPartsNativeChecks.swift",
-        "script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift"
+        "script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift",
+        "script/tests/test_scene_static_model_normal_map.py",
+        "script/tests/fixtures/SceneStaticModelNormalChecks.swift"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -3101,7 +3103,8 @@
         "test_scene_static_model_depth_pending",
         "test_scene_directional_shadow",
         "test_scene_spot_model_shadow",
-        "test_scene_point_model_shadow"
+        "test_scene_point_model_shadow",
+        "test_scene_static_model_normal_map"
       ]
     },
     {

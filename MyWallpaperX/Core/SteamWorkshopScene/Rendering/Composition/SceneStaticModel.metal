@@ -49,6 +49,8 @@ struct SceneStaticModelUniforms {
     SceneModelShadowUniforms shadows[4];
     float4 surfaceMaterial;
     float4 pointFalloffExponents;
+    float4 normalTextureFrame0;
+    float4 normalTextureFrame1; // UV y-axis.xy, model handedness.z
 };
 
 struct SceneStaticModelRasterVertex {
@@ -57,6 +59,8 @@ struct SceneStaticModelRasterVertex {
     float3 normal;
     float2 uv;
     float2 componentUV;
+    float2 normalUV;
+    float4 tangent;
 };
 
 vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
@@ -79,6 +83,14 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     out.componentUV = uniforms.componentTextureFrame0.xy
         + modelVertex.uv.x * uniforms.componentTextureFrame0.zw
         + modelVertex.uv.y * uniforms.componentTextureFrame1.xy;
+    out.normalUV = uniforms.normalTextureFrame0.xy
+        + modelVertex.uv.x * uniforms.normalTextureFrame0.zw
+        + modelVertex.uv.y * uniforms.normalTextureFrame1.xy;
+    out.tangent = float4(0.0);
+    if (uniforms.materialFlags.z != 0u) {
+        out.tangent = float4((uniforms.modelMatrix * float4(modelVertex.tangent.xyz, 0.0)).xyz,
+            modelVertex.tangent.w * uniforms.normalTextureFrame1.z);
+    }
     return out;
 }
 
@@ -349,10 +361,12 @@ fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
+    texture2d<float> normalTexture [[texture(7)]],
     array<depth2d<float>, 4> shadowTextures [[texture(2)]],
     texture2d<float> reflectionTexture [[texture(6), function_constant(sceneStaticModelUsesReflection)]],
     sampler colorSampler [[sampler(0)]],
     sampler componentSampler [[sampler(1)]],
+    sampler normalSampler [[sampler(2)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     // Derivatives must be evaluated before distance/cone/material branches.
     float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
@@ -398,6 +412,31 @@ fragment half4 sceneStaticModelFragment(
         ? uniforms.ambientColor.xyz * ambientRamp
             + uniforms.skylightColor.xyz * (1.0 - ambientRamp)
         : float3(1.0);
+    if (uniforms.materialFlags.z != 0u) {
+        float4 sampled = normalTexture.sample(normalSampler, in.normalUV);
+        float3 tangentNormal;
+        switch (uniforms.materialFlags.z) {
+            case 1u: tangentNormal = sampled.xyz * 2.0 - 1.0; break;
+            default: {
+                float2 xy = uniforms.materialFlags.z == 2u ? sampled.rg * 2.0 - 1.0
+                    : uniforms.materialFlags.z == 5u ? sampled.rg
+                    : float2(sampled.a * 2.0 - 1.0,
+                        sampled.g * 2.0 - (uniforms.materialFlags.z == 4u ? 0.965 : 1.0));
+                tangentNormal = float3(xy, sqrt(saturate(1.0 - dot(xy, xy))));
+                break;
+            }
+        }
+        float3 tangent = in.tangent.xyz - normal * dot(normal, in.tangent.xyz);
+        float tangentLength = dot(tangent, tangent);
+        if (tangentLength > 1e-12) {
+            tangent *= rsqrt(tangentLength);
+            float3 bitangent = cross(normal, tangent) * in.tangent.w;
+            float3 perturbed = tangent * tangentNormal.x + bitangent * tangentNormal.y
+                + normal * tangentNormal.z;
+            float perturbedLength = dot(perturbed, perturbed);
+            if (perturbedLength > 1e-12) normal = perturbed * rsqrt(perturbedLength);
+        }
+    }
     float3 surfaceRadiance = float3(0.0);
     float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
     float viewLengthSquared = dot(towardCamera, towardCamera);

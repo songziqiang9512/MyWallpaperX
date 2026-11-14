@@ -1,6 +1,28 @@
 import Metal
 import simd
 
+/// Slot-local data prepared with the model material, independent of albedo.
+struct SceneStaticModelNormalMap {
+    enum Encoding: UInt32 {
+        case rgb = 1, rg, alphaGreen, compressedAlphaGreen, signedRG
+
+        init(authoredFormat: SceneShaderTextureFormat?, pixelFormat: MTLPixelFormat) {
+            if pixelFormat == .bc5_rgSnorm { self = .signedRG; return }
+            switch authoredFormat {
+            case .rg88: self = .rg
+            case .etc1, .dxt5, .etc2, .dxt3, .dxt1, .bc7: self = .compressedAlphaGreen
+            case .some: self = .alphaGreen
+            case nil: self = .rgb
+            }
+        }
+    }
+
+    let texture: MTLTexture
+    let textureFrame: SceneTextureUVTransform
+    let sampling: SceneTextureSampling
+    let encoding: Encoding
+}
+
 /// Static generic4 surface parameters, prepared once for all model light kinds.
 /// Materials without this admitted profile retain their legacy response.
 struct SceneStaticModelSurfaceProfile: Equatable, Sendable {

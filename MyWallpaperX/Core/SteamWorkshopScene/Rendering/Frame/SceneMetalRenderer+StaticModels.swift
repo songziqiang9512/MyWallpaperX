@@ -259,6 +259,7 @@ extension SceneMetalRenderer {
                 emissiveMask: draw.entry.emissiveMask?.texture,
                 emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform,
                 emissiveMaskSampling: draw.entry.emissiveMask?.sampling,
+                normalMap: draw.entry.normalMap,
                 modelMatrix: draw.world,
                 normalMatrix: draw.normalMatrix,
                 viewProjection: viewProjection,
@@ -283,6 +284,12 @@ extension SceneMetalRenderer {
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",
                     reason: "model-internal-material-bindings-not-observed"))
+                if encoded, let normal = draw.entry.normalMap {
+                    trace.recordComposition(.init(kind: "model-normal", layerID: layer.id, slot: 7,
+                        source: .init(normal.texture, role: "model-normal-data"),
+                        target: pass.compositionTarget,
+                        details: ["encoding": String(normal.encoding.rawValue)]))
+                }
                 if encoded, let environment,
                    case let .provider(.sceneEnvironment(_, _, producer)) = environment.publication.candidate.identity {
                     trace.recordComposition(.init(kind: "model-reflection", layerID: layer.id, slot: 6,

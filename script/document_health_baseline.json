@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 165,
-      "bytes": 31273
+      "lines": 176,
+      "bytes": 33420
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 271162
+      "bytes": 271270
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 184,
-      "bytes": 49163
+      "lines": 188,
+      "bytes": 50499
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -501,15 +501,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "ad1fca5a1c7f524aa27638499c17f69fb01b64913f1cce9a12e4f257d65893b5",
-      "after": "b5f8656738bfc9410c3e1665e365e407b3d478e83eb781d7641ccc9c7251db5b",
-      "owner": "Existing Scene Puppet preparation/playback and Script frame owners",
-      "reason": "Define bounded String Single instance creation and original Cursor command transport before implementation, with one resource preparation, identity/journal/pose/lifetime and explicit unsupported official-default boundaries. Current evidence and solved queue prose are consolidated rather than adding an authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-instances"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "55db713002265b73f53950d4b4685781d995a108916ae7475511c085842752c7",
       "after": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
@@ -519,12 +510,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "b5f8656738bfc9410c3e1665e365e407b3d478e83eb781d7641ccc9c7251db5b",
+      "after": "46ce00e6b2f5200ea77e85a690e3b55992ac923eaec10d1e4b07387eb663319c",
+      "owner": "Scene model materials",
+      "reason": "Existing model resource/Metal owners now consume normal maps with one documented TBN, typed format and failure contract; retire the prior reflection exclusion.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-normal-map"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e1c8cc4f8abd41a97ca8239594ee2d5fd9acecbb5eb34f76e08367dfecc830e0",
+      "after": "42d83e56378a658385f0c8d1b8199bff6d09bd2a6052b376b2fab78b0df2a0c8",
+      "owner": "Scene model materials",
+      "reason": "User prioritizes world-model composition; record the verified additive consumer gap and independent active Earth varying failure without losing existing open issues.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "35e9d5ef7af54fa719e941ef143575ce1d1f5b3071e2ec18278ecb829f20ccce",
-      "after": "5c4eb5feaae66c0e54260580b2bdb3ea1387a204a918f074b441c58b648360dc",
-      "owner": "Scene particle preparation and DEBUG component observation",
-      "reason": "Consolidate prior initializer and retired candidate evidence; record the qualified startup work stack, fixed DEBUG CPU comparison, equal original state/history digests and raw first-fact payloads, plus independent real sample while retaining the unresolved full-author timeout and all proof ceilings. No new authority.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#movement-first-fact-cost"
+      "before": "5c4eb5feaae66c0e54260580b2bdb3ea1387a204a918f074b441c58b648360dc",
+      "after": "9125fb5eb73b4c9a46f10e45bfb53c77355269efb31c10e5db9aa220790db547",
+      "owner": "Scene model materials",
+      "reason": "Replace redundant model parent-visibility implementation narrative with bounded evidence and add actual model normal GPU/App qualification.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-normal-map"
     }
   ]
 }
