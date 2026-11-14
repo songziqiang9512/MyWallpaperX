@@ -134,11 +134,18 @@ HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光
 
 实际Cloud的tintpigmentation .2已产生受光表面的细粒明暗，保真实几何遮挡、纹理覆盖与其它辐射来源。只在原已资格Chroma、receivesLighting及静态完整标量amount>0时冷准备slot8；缺省0，沿原staticComponents归一到[0,1]，动态/错型只关此项。明确文件按原静态链，文件与typed user输入都省略才用该stock声明的util/noise；显式坏图或无file的user仅退普通受光，不用默认冒充。将gradient的同一默认所有权判断并入原optionalTexture一次，退原消费者重复判断；不接新provider、cache或Program。
 
-本引擎自有算法：按当前目标物理片元坐标除noise mapped extent，再沿该资源独立UV变换及sampler取data noise，RGB均值先saturate至[0,1]再映射signed[-1,1]（R8/RG复制R）；该采样归一也承接SNORM数据，不按格式白名单拒图；directRadiance乘1+amount×signedNoise。amount≤1使权重非负且最多2，不叠加资源校验、视距/正弦/时间状态或view边缘拟合。此调制在三灯各自BRDF、衰减/cone及真实shadow累加之后执行一次，随后原ambient/skylight、项目追加发光、reflection、Chroma HDR/fog/PMA依原顺序合并；不改shared BRDF、F0或灯能量。全影/无直接光不能由noise补光，alpha、模型depth/caster不变；噪声锚定当前目标像素，物体移动或换target会改变纹理相位，不授world/object锚定；不宣stock空间相位、官方像素或能耗收益。
+本引擎自有算法：噪声锚定当前目标物理片元坐标。普通非sprite保原pixel→UV仿射（轴除mapped extent）与原sampler，真实padding时等于每屏幕像素走一physical texel；不全局改除数或加局部wrap。RGB均值先saturate至[0,1]再映射signed[-1,1]（R8/RG复制R）；该采样归一也承接SNORM数据，不按格式白名单拒图；directRadiance乘1+amount×signedNoise。amount≤1使权重非负且最多2，不叠加资源校验、视距/正弦/时间状态或view边缘拟合。此调制在三灯各自BRDF、衰减/cone及真实shadow累加之后执行一次，随后原ambient/skylight、项目追加发光、reflection、Chroma HDR/fog/PMA依原顺序合并；不改shared BRDF、F0或灯能量。全影/无直接光不能由noise补光，alpha、模型depth/caster不变；噪声锚定当前目标像素，物体移动或换target会改变纹理相位，不授world/object锚定；不宣stock空间相位、官方像素或能耗收益。
 
-原Entry新增一份可选不可变pigment binding，只携texture/sampler、预投影pixel→UV及通道事实，amount由原SurfaceProfile唯一保存；静态UV除法在冷准备一次。原Frame传给Pipeline，原uniform加32B、texture9/sampler4，没有新varying/PSO/pass/池/时钟/输出owner。amount0/无图不读noise，无直接灯记录时也不取样；固定ABI/占位绑定不称零成本。原‘已保存数值与slot8却无消费者’退出，不把noise乘最终RGB或albedo。
+原Entry的可选不可变pigment binding携texture/sampler、预投影pixel→UV、局部像素尺寸及通道事实，amount仍由原SurfaceProfile唯一保存；UV除法、尺寸和倒数只冷准备一次。原Frame传给Pipeline，保原32B noise参数、texture9/sampler4，另尾追加16B局部尺寸/倒数，ABI1488→1504B，原offset不动；不挤占rim等其它职责的空lane，没有新varying/PSO/pass/池/时钟/输出owner。amount0/无图不读noise，无直接灯记录时也不取样；固定ABI/占位绑定不称零成本。原‘已保存数值与slot8却无消费者’退出，不把noise乘最终RGB或albedo。
 
-验收沿现有资源→Frame→Metal：黑/白/彩noise .2与仅灯色.8/1.2的独立等值控制，核三灯、全影、混合ambient/emission/reflection、normal、HDR/half/zero alpha/depth、slot独立采样/空间与改名。缺省/0、generic4、unlit、坏图与明确user缺file不加载噪声；真实parser/helper的静态/动态边界另验。冻结原Cloud几何/TEX/alpha及相同相机/点灯，只切0/.2，核可见颜色贡献与原输入不可变；原Cloud与独立generic4保完整图。真实.2已有细粒颜色贡献，当前范围见[模型运行证据](model-runtime-evidence.md#model-chroma-pigment)；不以绑定或测试数代成果。
+<a id="model-pigment-frame-addressing"></a>
+图集源帧的自有域合同：一个sprite frame是独立noise域，不从crop比较反推官方规则。原Loader已供合法frame/isSpriteSheet；只在该分支以UV双轴乘实际physical尺寸的长度形成采样域宽高，每轴最小为1目标像素，再将pixelFrame双轴除该尺寸；整数frame是一屏幕像素前进一源纹素。小于一纹素的frame在目标像素中心退为固定局部中心，不以其亚像素宽度制造无限频率或不可表示倒数；不新增拒绝门或热校验。普通非sprite完整保原表达式、padding/轴交换与sampler行为。新增同binding的float4保存宽高/倒数，零向量表示无局部域；同pigment标记以bit0复制R、bit1局部repeat，普通原0/1不变，不造新资源、纹理副本或可变状态。
+
+Metal对有局部域者先在目标像素坐标做repeat或clamp，再用同pixelFrame；repeat用原typed addressMode决定周期回绕，clamp到该域首末texel中心[.5,extent-.5]；冷准备已保证域≥1，不再在fragment重验，不用saturate把nearest送到frame外。保level0取样；该规则约束采样中心，未宣称fractional origin/extent的线性footprint隔离或普遍crop等值，不为未知边界新增拒绝门或四采样重建。退出sprite沿整atlas mapped除法及跨frame重复的旧职责，不改普通UV/Loader准入/alpha、BRDF、灯、depth和最终输出。
+
+本批最小验收为真实raw TEX的非恒色整数frame/crop，nearest/linear level0、repeat/clamp、资源改名；相邻物理pixel及frame外洋红分开反证错密度、只改除数和错误末端clamp。复用原pigment Prepared/Frame/Metal门保padding、轴交换、关闭与混合辐射原输出，另以真实Loader与完整App的像素闭合，受控texture transport不冒充decoder。达到此独立域像素合同即退出队列；实际作者整图只作回归，不因Cloud原整图正常而宣称作者sprite缺陷已修复。
+
+验收沿现有资源→Frame→Metal：黑/白/彩noise .2与仅灯色.8/1.2的独立等值控制，核三灯、全影、混合ambient/emission/reflection、normal、HDR/half/zero alpha/depth、slot独立采样/空间与改名。缺省/0、generic4、unlit、坏图与明确user缺file不加载噪声；真实parser/helper的静态/动态边界另验。冻结原Cloud几何/TEX/alpha及相同相机/点灯，只切0/.2，核可见颜色贡献与原输入不可变；原Cloud与独立generic4保完整图。真实.2已有细粒颜色贡献，原贡献范围见[模型运行证据](model-runtime-evidence.md#model-chroma-pigment)，sprite像素域与完整App见[局部寻址证据](model-runtime-evidence.md#model-pigment-frame-addressing)；不以绑定或测试数代成果。
 
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射

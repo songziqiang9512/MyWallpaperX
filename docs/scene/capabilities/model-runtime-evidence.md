@@ -186,7 +186,7 @@
 
 新四场均F96/request2：crop CB517404771200/main-seal517396785792，frame CB533879882624/main-seal533869718144，zero为531430687616/531420244608，multi为503345234816/503335217792；模型[1,2,4]或拒绝后的[1,4]到各自终端/GPUcompleted、零截断并排空。old/new同两输入pkg及各entry逐SHA同，MDL/scene/材料不变。shadow depth-written等首epoch日志另作事件证据，不伪称F96内部map行；当前终端投影像素已有上述严格等值。原Catalog多帧/0duration/事务邻门一方法通过；首次因既有载体三处缺try编译失败、零GPU，修调用后补验，产品/输入/断言未改。
 
-原3437487219 project/pkg匹配，自然5s的F123/request1/CB508680962944中112/114与135到main508687659520/seal/GPU并排空，地表/云/大气/时钟完整。限定五个星球包的117份TEX头均已解析且无sprite，不授活动作者单frame命中或原景缺图恢复。自有输入/红绿/整图/构建/独审归`.artifacts/scene-model-single-frame-texture-20261115`，原作者报告归`.artifacts/scene-evidence/runs/scene-model-single-frame-texture-20261115`。本节仅授当时静态入口；当前 albedo 多帧见[统一供货](#model-albedo-frames)，Catalog embedded 源帧见[共享准备](render-graph-shader-coverage.md#material-atlas-source-frame-evidence)。仿射、pigment 像素密度、官方像素/性能及线性边缘仍未获资格。
+原3437487219 project/pkg匹配，自然5s的F123/request1/CB508680962944中112/114与135到main508687659520/seal/GPU并排空，地表/云/大气/时钟完整。限定五个星球包的117份TEX头均已解析且无sprite，不授活动作者单frame命中或原景缺图恢复。自有输入/红绿/整图/构建/独审归`.artifacts/scene-model-single-frame-texture-20261115`，原作者报告归`.artifacts/scene-evidence/runs/scene-model-single-frame-texture-20261115`。本节仅授当时静态入口；当前 albedo 多帧见[统一供货](#model-albedo-frames)，Catalog embedded 源帧见[共享准备](render-graph-shader-coverage.md#material-atlas-source-frame-evidence)。pigment图集像素域见[局部寻址](#model-pigment-frame-addressing)；仿射、官方像素/性能及任意线性边缘仍未获资格。
 
 ## 模型 albedo 统一资产与多帧 <a id="model-albedo-frames"></a>
 
@@ -199,3 +199,13 @@ TEX App运行对应首个不可变构建30.417s；其后仅资源/Ordered的冷�
 最终App另以同一 animated 包自然时钟运行8.423s，不设时间覆盖、after延3s；同 Surface531235655168 的 request1/F33→request2/F96，两次沿同 atlas texture531253118208 取上述两UV，颜色/孔洞/投影实际跨帧。两张3024×1964整PNG与RGB分别逐字节等原crop0/crop1参考，各自main/seal/GPU完成、零截断并排空。此场补授同 Surface 播放；未读回精确SceneClock/GPU时刻或全部中间帧。
 
 原四class Native32方法首次30过；新增缺图载体的两个part误共一纹理已改独立输入，原局部失败预期不动，Selection-only30checks全真。另以HEAD原产品/载体及同blends输入实读，三灯所有深度/像素与当前逐值相同，证明“translucent不投影”是旧oracle；退类别名单，保五个真实覆盖和cast=false反例，两个原失败方法用冻结GPU结果CPU补验通过。原失败和wrapper日志顺序误断言均保留，不把它们记成产品回退。Task3方法与SurfaceAdmission纯计划门通过；当前asset缺供/UV/sampler/PMA及冻结draw的6项正反检查全真，named原图回归保持。独立3437487219原project/pkg匹配，最终App自然5s、F140/request1/CB506203999744，模型112/114和图像135到同main506255019776/seal/GPU，零截断并排空；实际查看地表、云、大气、星空、时钟完整，非活动atlas作者命中。自有输入、完整红绿/图/身份、复用范围和独审归`.artifacts/scene-model-albedo-frames-20261115`，作者原报告与图归`.artifacts/scene-evidence/runs/scene-model-albedo-frames-20261115`。本批不授normal/map/lookup动画、跨image、仿射或全部atlas边缘等值。
+
+## Noise图集帧的像素密度与局部寻址 <a id="model-pigment-frame-addressing"></a>
+
+按[自有域合同](advanced-object-coverage.md#model-pigment-frame-addressing)，sprite noise从整atlas mapped除法改为frame实际源像素域，最小1目标像素；原typed sampler决定局部repeat或texel-center clamp。普通非sprite的完整UV、padding、采样和amount语义不变。原binding携冷尺寸/倒数，原uniform尾加16B至1504，旧offset不动；唯一UV仿射留在寻址后，未复制纹理、BRDF或资源/时钟owner。四产品净+32行，不授性能收益。
+
+真实Loader原单frame raw8×4/mapped6×4的data门补noise purpose，isSpriteSheet/UV/采样与独立crop实读通过，24单frame及38Catalog合同全真。原Prepared/Frame/Metal载体47行/426文件同输入，修后同Harness的旧代码真实像素红、新代码原4方法全绿；五组nearest/linear、repeat/clamp/改名的sprite/crop在RGBA、6邻像素、outside与depth严格相同。两个subpixel域的受测中心/探针均为[14,21,28,255]且等dark控制/同深度；不授fractional线性过滤隔离。原35行/318文件保持，原4方法全过，除冷Set请求顺序外全部字段逐值同，请求内容和次数同。首轮Native夹具复制候选漏isSpriteSheet已补一字段，初失败原报告及driver尾误断言均保留，未以此改产品/输入/像素预期。
+
+完整App真实slot8 raw8²、origin2²/frame2²黑白noise，对独立2²crop；Chroma/常灰albedo/方向灯/真实MDL/接收面/peer全部同字节，仅grain.tex不同。旧c747/12da的crop七个物理pixel交替54/80，atlas全72；新38010e6d…b1d5d、dc83a35b…380b7、metallib9062517f…0864d的两场恢复同54/80，ready/after完整PNG与RGB均逐字节等旧crop（PNG0d11389b…be90a00）。新旧atlas仅19370 RGB像素改变，bounds(1451,900,1573,1064)限模型surface；阴影全0、receiver93、蓝peer及外部不变。四图同request/CB的model→main/seal/GPU完成，尺寸等实际3024×1964，零截断并排空。旧31.820s/新31.496s两场是功能运行，不能当作性能对照；原11组fixture字节保持。
+
+普通Debug31.656s，四产品/project/锁文件前后稳定，strict deep与原helpers通过。独立3437487219原project/pkg与matrix/report三方匹配，最终App自然5s，F147/request1/CB520161054208的112/114模型及135图像层到同main520225414656/seal/GPU完成，零截断并排空；实际查看地表、云、大气蓝弧、银河与时钟完整，执行18.253s且App/四产品身份稳定；自有输入/红绿/完整图/身份/独审归`.artifacts/scene-model-pigment-frame-20261115`，作者原报告归`.artifacts/scene-evidence/runs/scene-model-pigment-frame-20261115`。真实作者原整图noise只作回归，非活动sprite作者缺陷恢复；不授官方像素、跨image或任意fractional/线性边界等值。

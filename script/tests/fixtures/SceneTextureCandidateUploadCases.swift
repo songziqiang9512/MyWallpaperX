@@ -187,7 +187,7 @@ extension Harness {
             rows.append(row)
         }
         let singleURL = directory.appendingPathComponent("single-frame.tex")
-        for purpose: SceneTextureLoadPurpose in [.normal,.mask] {
+        for purpose: SceneTextureLoadPurpose in [.normal,.mask,.noise] {
             let label = purpose.reportToken
             if case let .loaded(c) = try loader.loadCandidate(from:singleURL,purpose:purpose,device:device) {
                 let actual = try renderCandidate(c,library:library,device:device)

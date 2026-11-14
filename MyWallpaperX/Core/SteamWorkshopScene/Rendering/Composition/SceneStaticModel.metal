@@ -55,8 +55,9 @@ struct SceneStaticModelUniforms {
     float4 rimParameters; // amount, exponent, unused, unused
     float4 specularTintAndColorMode; // specular RGB, Chroma surface-color policy
     float4 pigmentTextureFrame0; // pixel UV origin.xy, x-axis.zw
-    float4 pigmentTextureFrame1; // pixel UV y-axis.xy, amount.z, replicate R.w
+    float4 pigmentTextureFrame1; // pixel UV y-axis.xy, amount.z, flags.w: R/local-repeat
     float4 spotFalloffExponents;
+    float4 pigmentFramePixels; // local width/height.xy and inverse.zw; zero for ordinary textures
 };
 
 struct SceneStaticModelRasterVertex {
@@ -606,11 +607,21 @@ fragment half4 sceneStaticModelFragment(
     }
     if (uniforms.pigmentTextureFrame1.z > 0.0
         && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
+        const uint pigmentFlags = uint(uniforms.pigmentTextureFrame1.w);
+        float2 pixel = in.position.xy;
+        if (uniforms.pigmentFramePixels.x > 0.0) {
+            const float2 extent = uniforms.pigmentFramePixels.xy;
+            if ((pigmentFlags & 2u) != 0u) {
+                pixel -= floor(pixel * uniforms.pigmentFramePixels.zw) * extent;
+            } else {
+                pixel = clamp(pixel, float2(0.5), extent - 0.5);
+            }
+        }
         const float2 uv = uniforms.pigmentTextureFrame0.xy
-            + in.position.x * uniforms.pigmentTextureFrame0.zw
-            + in.position.y * uniforms.pigmentTextureFrame1.xy;
+            + pixel.x * uniforms.pigmentTextureFrame0.zw
+            + pixel.y * uniforms.pigmentTextureFrame1.xy;
         const float3 noise = pigmentTexture.sample(pigmentSampler, uv, level(0.0)).rgb;
-        const float neutral = saturate(uniforms.pigmentTextureFrame1.w > 0.5
+        const float neutral = saturate((pigmentFlags & 1u) != 0u
             ? noise.r : dot(noise, float3(1.0 / 3.0)));
         // Modulate only shadowed direct radiance; ambient and emission follow.
         surfaceRadiance *= 1.0 + uniforms.pigmentTextureFrame1.z * (2.0 * neutral - 1.0);

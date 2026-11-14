@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 307,
-      "bytes": 65175
+      "lines": 314,
+      "bytes": 67528
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 193,
-      "bytes": 54224
+      "lines": 192,
+      "bytes": 53684
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 201,
-      "bytes": 57998
+      "lines": 211,
+      "bytes": 60937
     }
   },
   "archives": [
@@ -524,20 +524,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "99e88c81f8e32f3b68920d5fa78e0e0057ed6834a9a36348a0dd24b1de83453c",
-      "after": "fd531f75e3d09dffcd2195d28c28425b25dd0c439e69bd4e9980f68046ba5a42",
-      "owner": "Existing model material plan, Catalog and frame registry consumers",
-      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
+      "before": "fd531f75e3d09dffcd2195d28c28425b25dd0c439e69bd4e9980f68046ba5a42",
+      "after": "d053d079712402a667ac83d258496e7c3892200975a6de66411d902e537636bb",
+      "owner": "Existing model pigment preparation and pixel-to-UV Metal consumer",
+      "reason": "Define independent sprite noise sampling domain using actual frame extents floored at one target pixel, local typed repeat/clamp and dedicated16B tail; preserve ordinary padding and full affine behavior. Qualify real Loader plus same-input old/new GPU and complete model pixels, unchanged ordinary controls and author regression; retire the density queue item without broad fractional filtering claims.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-pigment-frame-addressing"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "64096bdedf44cf449b5c37bdd3a4fd6f077f7d50f579054175035be253d8883a",
-      "after": "211ee8da92f477f319e61b5d0bcd550209ded6fc84ae29c77e221e9826f1f0df",
-      "owner": "Existing model material plan, Catalog and frame registry consumers",
-      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
+      "before": "211ee8da92f477f319e61b5d0bcd550209ded6fc84ae29c77e221e9826f1f0df",
+      "after": "b14bf78f837f01bdfd7ce2085001e1849acfff7eb73e532d2f56d372a8d1afd9",
+      "owner": "Existing model pigment preparation and pixel-to-UV Metal consumer",
+      "reason": "Define independent sprite noise sampling domain using actual frame extents floored at one target pixel, local typed repeat/clamp and dedicated16B tail; preserve ordinary padding and full affine behavior. Qualify real Loader plus same-input old/new GPU and complete model pixels, unchanged ordinary controls and author regression; retire the density queue item without broad fractional filtering claims.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-pigment-frame-addressing"
     }
   ]
 }

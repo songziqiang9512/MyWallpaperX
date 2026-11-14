@@ -41,7 +41,9 @@ def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
 
 
-def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None):
+def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None):
+    if noise_case is not None:
+        texture_case = "crop"
     entries, parts, cases = {}, [], []
     states = STATES if texture_case is None else (("texture", "nocull"),)
     for column, (state, raw) in enumerate(states):
@@ -64,6 +66,11 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                 "depthtest": "enabled", "depthwrite": "enabled"}
             if texture_case is not None:
                 render_pass.update(textures=["materials/model-surface.tex"], blending="translucent")
+            if noise_case is not None:
+                render_pass.update(shader="chroma4", textures=["materials/model-surface.tex"] + [None] * 7
+                    + ["materials/pigment-grain.tex"], combos={"LIGHTING": 1, "NORMALMAP": 0,
+                        "REFLECTION": 0, "PBRMASKS": 0}, constantshadervalues={"metallic": 0,
+                        "roughness": 0, "reflectivity": 0, "emissivebrightness": 0, "tintpigmentation": .2})
             if all_nocull or raw is not None:
                 render_pass["cullmode"] = "nocull" if all_nocull else raw
             entries[material] = encoded({"passes": [render_pass]})
@@ -78,6 +85,8 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                             ([0, 0, 200, 255], [200, 0, 0, 255],
                              [200, 200, 0, 0], [0, 200, 0, 255]))
                 palette = palettes[frame_phase or 0]
+                if noise_case is not None:
+                    palette = ([128, 128, 128, 255],) * 4
                 for i, rgba in enumerate(palette):
                     px, py = x + (-1.5 if i % 2 == 0 else 1.5), y + (-2 if i < 2 else 2)
                     cases.append({"name": f"texel-{i}", "state": state, "reverse": False,
@@ -110,6 +119,20 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                         duration = (2.0 if index == 0 else 3600.0) if texture_case == "animated" else 2.5
                         data += struct.pack("<If6f", 0, duration, *frame)
                 entries["materials/model-surface.tex"] = data
+    if noise_case is not None:
+        width = 8 if noise_case == "atlas" else 2
+        pixels = bytearray(bytes([255, 0, 255, 255]) * (width * width))
+        origin = 2 if noise_case == "atlas" else 0
+        for y in range(2):
+            for x in range(2):
+                offset = ((y + origin) * width + x + origin) * 4
+                pixels[offset:offset + 4] = bytes([255 if (x + y) % 2 else 0] * 3 + [255])
+        data = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 5 if noise_case == "atlas" else 1,
+            width, width, width, width, 0) + b"TEXB0002\0"
+            + struct.pack("<7I", 1, 1, width, width, 0, 0, len(pixels)) + pixels)
+        if noise_case == "atlas":
+            data += b"TEXS0002\0" + struct.pack("<IIf6f", 1, 0, 2.5, 2, 2, 2, 0, 0, 2)
+        entries["materials/pigment-grain.tex"] = data
     # Adjacent parts alternate authored states within one model; an independent
     # front-facing default material is drawn later in the same main encoder.
     # Legacy directional energy is 0.30 * intensity. Intensity 2 gives the +Z
@@ -128,6 +151,8 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
              "color": "1 1 1", "intensity": 2, "castshadow": True},
             {"id": 4, "model": "models/healthy.mdl", "origin": "0 96 0",
              "perspective": False, "castshadow": False}]}
+    if noise_case is not None:
+        scene["general"]["ambientcolor"] = "0 0 0"
     # This older ROI carrier writes canonical-down vertices. Make that author
     # reflection explicit; the positive-Y-up basis gate uses separate geometry.
     for obj in scene["objects"]:
@@ -241,7 +266,12 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
             **({"fixedSceneTime": fixed_scene_time, "selectedFrame": options["frame_phase"]}
-               if fixed_scene_time is not None else {})}))
+               if fixed_scene_time is not None else {}),
+            **({"colorVisibleRGB": None, "noise": {"case": options["noise_case"],
+                "sampling": "nearest-repeat", "physicalProbeRule": "PNG/main center + X0..3 and Y1..3; dark iff (x+y) even",
+                "expectedMinimumDarkBrightChannelGap": 4,
+                "fullImageOracle": "atlas equals independent crop, no snapshot scaling"}}
+               if options.get("noise_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -263,6 +293,18 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             "shadowEvents": [line for line in log.splitlines() if "shadow phase=" in line],
             "appAfter": app_hashes(self.exe), "sourcesAfter": file_hashes(SOURCES),
             "inputsAfter": file_hashes(inputs)}
+        if options.get("noise_case"):
+            report["noiseProbes"] = {}
+            for phase in ("ready", "after"):
+                width, height, rows = png_rgb_pixels(work / f"evidence/scene-{phase}-window.png")
+                request = re.search(rf"phase=snapshot reason={phase} request=(\d+) source=metal ", log)
+                extent = re.search(rf"phase=snapshot-encoded request={request[1]} [^\n]* width=(\d+) height=(\d+)", log)
+                self.assertEqual((width, height), tuple(map(int, extent.groups())))
+                # Averaging the ordinary ROI would hide the two-pixel noise period.
+                x, y = width // 2, height // 2
+                points = [(x + i, y) for i in range(4)] + [(x, y + i) for i in range(1, 4)]
+                report["noiseProbes"][phase] = [{"pixel": [px, py], "dark": (px + py) % 2 == 0,
+                    "rgb": list(rows[py][px * 3:px * 3 + 3])} for px, py in points]
         (work / "result.json").write_bytes(encoded(report))
         self.assertEqual(result.returncode, 0, log[-6000:])
         for key, expected in (("appAfter", self.app_identity), ("sourcesAfter", self.source_identity),
@@ -352,6 +394,22 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 frame_phase=frame, fixed_scene_time=scene_time)
             for phase in ("ready", "after"):
                 self.assertEqual(crop["pixels"][phase], animated["pixels"][phase])
+
+    def test_noise_atlas_frame_matches_crop_at_adjacent_physical_pixels(self):
+        crop = self.run_case("noise-crop-control", noise_case="crop")
+        for phase in ("ready", "after"):
+            probes = crop["noiseProbes"][phase]
+            dark, bright = [[p["rgb"] for p in probes if p["dark"] == value] for value in (True, False)]
+            for channel in range(3):
+                self.assertGreater(min(p[channel] for p in bright) - max(p[channel] for p in dark), 3)
+            for case in crop["cases"]:
+                self.assertLess(max(crop["pixels"][phase]["pixels"][f"{case['name']}-shadow"]), 15)
+        atlas = self.run_case("noise-atlas-frame", noise_case="atlas")
+        self.assertEqual(crop["noiseProbes"], atlas["noiseProbes"])
+        for phase in ("ready", "after"):
+            name = f"evidence/scene-{phase}-window.png"
+            self.assertEqual((self.root / "noise-crop-control" / name).read_bytes(),
+                             (self.root / "noise-atlas-frame" / name).read_bytes())
 
 
 if __name__ == "__main__":

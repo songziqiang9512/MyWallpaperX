@@ -218,6 +218,7 @@
                     mappedSize: CGSize(width: CGFloat(mapped.x), height: CGFloat(mapped.y)),
                     uvTransform: .init(origin: pair("noiseOrigin", .zero),
                         xAxis: pair("noiseXAxis", SIMD2(1, 0)), yAxis: pair("noiseYAxis", SIMD2(0, 1))),
+                    isSpriteSheet: item["noiseSprite"] as? Bool ?? false,
                     sampling: .init(texFlags: (item["noiseNearest"] as? Bool ?? true ? 1 : 0)
                         | (item["noiseRepeat"] as? Bool ?? true ? 0 : 2)),
                     authoredFormat: format < 0 ? nil : SceneShaderTextureFormat(rawValue: UInt32(format)))

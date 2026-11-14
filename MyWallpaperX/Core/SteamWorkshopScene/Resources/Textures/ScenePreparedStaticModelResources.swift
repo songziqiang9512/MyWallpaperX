@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 /// Immutable launch-prepared resources for direct `objects[].model` layers.
 /// Geometry production joins the existing renderer/main pass; this type owns
@@ -649,10 +650,24 @@ struct ScenePreparedStaticModelResources {
         let frame = candidate.uvTransform
         let replicatesRed = candidate.authoredFormat == .r8 || candidate.authoredFormat == .rg88
             || candidate.pixelFormat == .r8Unorm || candidate.pixelFormat == .rg8Unorm
-        return .init(texture: candidate.texture,
-            pixelFrame: .init(origin: frame.origin,
+        let pixelFrame: SceneTextureUVTransform
+        let framePixels: SIMD4<Float>
+        if candidate.isSpriteSheet {
+            let physical = SIMD2(Float(candidate.physicalSize.width), Float(candidate.physicalSize.height))
+            // Subpixel frames occupy one target-pixel sampling cell.
+            let width = max(1, simd_length(frame.xAxis * physical))
+            let height = max(1, simd_length(frame.yAxis * physical))
+            pixelFrame = .init(origin: frame.origin,
+                xAxis: frame.xAxis / width, yAxis: frame.yAxis / height)
+            framePixels = SIMD4(width, height, 1 / width, 1 / height)
+        } else {
+            pixelFrame = .init(origin: frame.origin,
                 xAxis: frame.xAxis / Float(candidate.mappedSize.width),
-                yAxis: frame.yAxis / Float(candidate.mappedSize.height)),
+                yAxis: frame.yAxis / Float(candidate.mappedSize.height))
+            framePixels = .zero
+        }
+        return .init(texture: candidate.texture,
+            pixelFrame: pixelFrame, framePixels: framePixels,
             sampling: candidate.sampling, replicatesRed: replicatesRed)
     }
 

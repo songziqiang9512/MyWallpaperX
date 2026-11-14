@@ -41,7 +41,7 @@ final class SceneTextureLoader {
   guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
   return .loaded(.init(texture:candidate.texture,identity:candidate.identity,generation:candidate.generation,
       purpose:purpose,content:candidate.content,physicalSize:candidate.physicalSize,mappedSize:candidate.mappedSize,
-      uvTransform:candidate.uvTransform,sampling:candidate.sampling,authoredFormat:candidate.authoredFormat))
+      uvTransform:candidate.uvTransform,isSpriteSheet:candidate.isSpriteSheet,sampling:candidate.sampling,authoredFormat:candidate.authoredFormat))
  }
 }
 extension SceneRenderDescriptor {

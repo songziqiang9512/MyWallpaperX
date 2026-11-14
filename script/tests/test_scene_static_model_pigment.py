@@ -73,6 +73,27 @@ def cases():
                  noiseMappedSize=[2, 2], noiseOrigin=[.5, 0],
                  noiseXAxis=[0, 1], noiseYAxis=[1, 0]),
              row("renamed-mesh-uv-independent", **striped, renamed=True, uv=4)]
+    # The wider mesh reaches literal fragment positions 2.5/3.5/4.5 without
+    # changing the existing center-pixel lighting or the empty outside probe.
+    probes = [[2, 32], [3, 32], [4, 32], [5, 32], [32, 32], [33, 32]]
+    crop = striped["noisePixels"] * 2
+    atlas = [255, 0, 255, 255] * 64
+    for y in [2, 3]:
+        atlas[(y * 8 + 2) * 4:(y * 8 + 4) * 4] = striped["noisePixels"]
+    for variant, repeat, nearest, renamed in [
+            ("nearest-repeat", True, True, False), ("nearest-clamp", False, True, False),
+            ("renamed-repeat", True, True, True), ("linear-repeat", True, False, False),
+            ("linear-clamp", False, False, False)]:
+        shared = dict(scale=[4, 1, 1], probePixels=probes, noiseRepeat=repeat,
+                      noiseNearest=nearest, renamed=renamed)
+        rows.append(row("sprite-" + variant, **shared, noiseWidth=8, noiseHeight=8,
+            noisePixels=atlas, noiseOrigin=[.25, .25], noiseXAxis=[.25, 0],
+            noiseYAxis=[0, .25], noiseSprite=True))
+        rows.append(row("crop-" + variant, **shared, noiseWidth=2, noiseHeight=2, noisePixels=crop))
+    for repeat in [True, False]:
+        rows.append(row("sprite-subpixel-" + ("repeat" if repeat else "clamp"),
+            noiseWidth=8, noiseHeight=8, noisePixels=atlas, noiseOrigin=[.25, .25],
+            noiseXAxis=[.03125, 0], noiseYAxis=[0, .03125], noiseSprite=True, noiseRepeat=repeat))
     return rows
 
 
@@ -188,6 +209,24 @@ class SceneStaticModelPigmentTests(unittest.TestCase):
         self.same("renamed-mesh-uv-independent", "screen-repeat", exact=True)
         self.assertEqual(self.rows["renamed-mesh-uv-independent"]["probes"], self.rows["screen-repeat"]["probes"])
         self.assertIn({"path": "alternate-grain.png", "purpose": "noise"}, self.rows["renamed-mesh-uv-independent"]["requests"])
+        for variant in ["nearest-repeat", "nearest-clamp", "renamed-repeat", "linear-repeat", "linear-clamp"]:
+            self.same("sprite-" + variant, "crop-" + variant, exact=True)
+            self.assertEqual(self.rows["sprite-" + variant]["probes"], self.rows["crop-" + variant]["probes"])
+        repeated = self.rows["crop-nearest-repeat"]["probes"]
+        clamped = self.rows["crop-nearest-clamp"]["probes"]
+        self.assertGreater(repeated[1][2] - repeated[0][2], 3)
+        self.assertGreater(clamped[0][2] - repeated[0][2], 3)
+        self.assertLessEqual(abs(repeated[0][2] - repeated[2][2]), 1)
+        for variant in ["renamed-repeat", "linear-repeat"]:
+            self.same("sprite-" + variant, "sprite-nearest-repeat", exact=True)
+            self.assertEqual(self.rows["sprite-" + variant]["probes"], self.rows["sprite-nearest-repeat"]["probes"])
+        self.same("sprite-linear-clamp", "sprite-nearest-clamp", exact=True)
+        for name in ["sprite-subpixel-repeat", "sprite-subpixel-clamp"]:
+            # Both legal subpixel domains resolve to their black center. The
+            # ordinary light-color control supplies the independent finite output.
+            self.same(name, "dark-reference")
+            for index in range(len(PROBES)):
+                self.probe(name, index, "dark-reference")
         for row in self.rows.values():
             self.assertTrue(row["completed"], row)
             self.assertEqual(row["outside"], [0, 0, 0, 0], row)

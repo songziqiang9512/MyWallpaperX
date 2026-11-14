@@ -11,6 +11,7 @@ struct SceneStaticModelGradient {
 struct SceneStaticModelPigment {
     let texture: MTLTexture
     let pixelFrame: SceneTextureUVTransform
+    let framePixels: SIMD4<Float>
     let sampling: SceneTextureSampling
     let replicatesRed: Bool
 }
