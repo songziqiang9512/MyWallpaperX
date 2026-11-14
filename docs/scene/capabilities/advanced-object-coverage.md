@@ -41,6 +41,15 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 
 验收先用生产资源/Frame/Metal 的近红→远蓝四组合及实际深度，保 alias/未知/改名、alpha0、后继绘制状态与原混合邻例；自有完整 App 用中间绿色表面区分写入，再核 transparent image→no-test模型的排序屏障、同模型开启测试的合法重排邻例，以及真实实体收集到体积深度的近远顺序。独立作者启用深度只授原路径回归，不充作 disabled 正例。模型/图像共享原逆深度域，不扩为文字 disabled 排序、任意半透明体积或官方像素一致。
 
+<a id="model-shadow-coverage"></a>
+### 模型阴影的实际覆盖
+
+具有可见覆盖的半透明材质网格（如星环）已能遮挡其它模型的直接光，Frame按translucent整类拒绝caster的旧门已退出。颜色blending不充作灯域投影许可；唯一作者cast intent与原prepared可见draw决定候选，normal/缺省/additive现有结果保持。阴影与camera depth test/write独立，不按混合、写深度或材质名建立新白名单；明确不投影、hidden/父隐藏与无prepared几何仍沿原路径退出。
+
+复用drawShadow已有自有二值覆盖合同：clamp(material.opacity×layerAlpha,0,1)，只有原textureAlphaIsOpacity才乘实际albedo A，最终coverage>.5写灯空间深度，≤.5/透明孔保持原深度；tint-mask A不误当洞。三灯共用原shader/cull/当前同帧mesh/world/UV/sampler，原定向bounds本已包含有cast intent的半透明几何，不新建范围计算、PSO、map类型或caster状态。新增caster会沿原有每灯map/同提交增加实际绘制，首个caster也可能触发原map申请，不授零成本或性能收益。这里只恢复该既有覆盖消费者的可达性，不宣半透明透射/有色阴影/官方阈值；原additive既可按作者intent投影，未获新反例不另加类别禁令。
+
+验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
+
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 

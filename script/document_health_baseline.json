@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 260,
-      "bytes": 53725
+      "lines": 269,
+      "bytes": 55743
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 53047
+      "bytes": 52916
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 123,
-      "bytes": 35531
+      "lines": 137,
+      "bytes": 39360
     }
   },
   "archives": [
@@ -515,29 +515,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "afd3bdfc300b2eef6741ef9733facda8ee4568aed4d9c1c92b92a938880cdcea",
-      "after": "90447a0bd6bd7109bd1bf1a34a7ed1888830864b5c4fa3149e8c75be6794fa33",
-      "owner": "Scene prepared model pigment and original direct radiance",
-      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
+      "before": "90447a0bd6bd7109bd1bf1a34a7ed1888830864b5c4fa3149e8c75be6794fa33",
+      "after": "5eb619fc5db2c45ebeb7f20babb22f4fb416691fa3edcb43aed7254e41ae6417",
+      "owner": "Existing Scene model shadow Frame and coverage shader",
+      "reason": "Retire translucent caster exclusion without new product structure; qualify same-input three-light map coverage and true ring shadow on/off, explicitly bound mixed foreground ROI and first-epoch observation, retain legacy tool gates for original owners.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "70b44ff53667b7006d02743c7430a6bffd053dfac85d183c7be9527eb6d638b4",
-      "after": "52c369a80a9266daceabdd667fe472f08112f8f119e45a38900b4490978e21d9",
-      "owner": "Scene prepared model pigment and original direct radiance",
-      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "797e2e64573badc8bef1294ab1b51cfeed2a2bb1a4e31b838e2e03ecf64ff03e",
-      "after": "f16dfe1aad10a55d5795d39800444b642059b974023ea377c48bbe01c0098049",
-      "owner": "Scene prepared model pigment and original direct radiance",
-      "reason": "Define bounded screen-pixel data noise on shadowed direct radiance, retire missing Cloud pigment consumer and duplicate default ownership, qualify valid mapped-domain native controls and actual Cloud contribution; retain ring coverage/spot exponent gaps for followup.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-pigment"
+      "before": "52c369a80a9266daceabdd667fe472f08112f8f119e45a38900b4490978e21d9",
+      "after": "0025747f9428825accaff6ac572588a4a32a58d5f372f3df2c34ed251d26e908",
+      "owner": "Existing Scene model shadow Frame and coverage shader",
+      "reason": "Retire translucent caster exclusion without new product structure; qualify same-input three-light map coverage and true ring shadow on/off, explicitly bound mixed foreground ROI and first-epoch observation, retain legacy tool gates for original owners.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
     }
   ]
 }

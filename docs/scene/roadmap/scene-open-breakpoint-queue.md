@@ -17,7 +17,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 半透明材质模型的覆盖阴影 · 3589454154/462 | 活动土星环462及父链458→452→459均无隐藏，实际generic4/translucent/test+write/alpha1，同域259 directional castshadow/intensity5且场景启用directionalshadow。原prepareModelShadow按translucent整类排除，但既有drawShadow已按实际opacity×textureA作>.5覆盖裁剪；下一批沿原caster所有者核该门的必要性，以冻结真实星环→土星投影及纹理孔洞控制确认收益，保additive/零覆盖/非caster反例，不新建shadow owner或暗授半透明透射。尚未证明原景/官方星环投影，不先宣恢复。 |
 | Spot径向指数 · 3437487219/84 | 作者spot exponent .54已解析，现SpotSnapshot不携带该值且模型Metal固定radial平方；只证明存储→consumer缺口，尚未授字段/距离单位、官方曲线或原景贡献。先核与已证point exponent的共享径向语义和可区分真实灯控制，再沿原LightSnapshot/三renderer职责决定接入；不由字段存在直接扩能力或按旧亮侧调灯。 |
 | 模型lookup与rim的用户输入 | 渐变slot4沿静态文件链供货，明确userTextureInputs[4]而无文件时只局部缺lookup，不能由stock默认冒充；当前未接用户provider或完整user/file优先级。后续沿原候选/ready与typed资源/条件热更新消费者接入，不复制provider排序、不把本批静态正常图授为动态资格；rim动态值目前只局部关闭该项；用户provider/热更新尚无活动作者首错，不抢已证世界模型消费者。 |
 | 图像分量图的显式combo优先级 | 原图像 SceneBaseMaterialLightingProfile/SceneLitImageLayerPipeline 用header∩allowed且只接受0/1，会抹掉作者显式非零分量、PBRMASKS非零也被拒；原显式宏优先级与stock shader均无这条header许可。模型已按原整数宏零/非零和元数据仅作省略默认纠正；图像应沿同冷profile/typed map binding退该门，保总开关0、分量0、真实缺图/可选失败及标量响应。未得活动图像作者首错，不抢世界模型主线；按PNG无header显式1/2/-1与TEX省略对照真实像素验收。 |
@@ -184,6 +183,7 @@
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 3292370168普通Debug准备与505资格 | 观测误判已归[原合同](../capabilities/runtime-evidence-current.md#execution-observation-history)。实际Popen/Python3.12及3秒栈解除旧PID未知STOP，准备窗口确在粒子warmUp（Vortex/Movement含诊断），不是主线程卡死。Movement重复首事实已退役，[单root DEBUG成本](../capabilities/runtime-evidence-current.md#movement-first-fact-cost)下降；原作者普通Debug在同4+60监督下仍无Ready/PNG、11条缺证据为同超时后果，505实际消费仍未知。后续只查有资格的优化配置实际预热工作或明确无消费者计算；不原样重跑/延长Debug预算、不跳预热，不用空Rope历史或未闭动态初值的harness推全App收益。 |
+| 依赖与文档登记门的既有断点 | 依赖门仍报Rendering的SceneResolvedMaterialUniformProjection→SceneResolvedMaterialDirectUserBindingContract未获基线接纳；文档登记仍报docs/architecture/Scene-Engine-Architecture-Design.md未登记。两项不是本批播放失败，原日志归`.artifacts/scene-model-pigment-20261115`；先按真实owner核依赖方向与唯一设计正文去留/登记，不能直接放宽预算或盲注册旧文档，不抢世界模型画面修复。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 官方原生采集 | [原作者窗](../capabilities/runtime-evidence-current.md#beam-contribution)已复核刷新，当前仅定性。量测仍须沿[采集方法](../../../.agents/skills/mywallpaperx-maintainer/references/parallels-official-oracle.md)取得有效同窗像素或实际draw数值；黑图和相机getter不能授几何资格。 |

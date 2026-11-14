@@ -112,6 +112,7 @@ struct ScenePreparedStaticModelResources {
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var materialMap:SceneStaticModelMaterialMap? = nil
   var normalMap:SceneStaticModelNormalMap? = nil
   var gradient:SceneStaticModelGradient? = nil
+  var pigment:SceneStaticModelPigment? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
   var testsDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil
@@ -376,6 +377,32 @@ MAIN = r'''
 HARNESS = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + MAIN
 
 
+def model_shadow_coverage_cases():
+    def row(name, light="directional", expected=(True, True), **changes):
+        return dict(name=name, light=light, expected=list(expected), blending="translucent", **changes)
+
+    rows = []
+    for light in ["directional", "spot", "point"]:
+        rows += [dict(row(light + "-normal", light), blending="normal"),
+                 row(light + "-translucent", light),
+                 row(light + "-holes", light, (False, True), textureAlpha=[0, 1])]
+    rows += [dict(row("additive-covered"), blending="additive"),
+             dict(row("additive-cast-false", expected=(False, False), castFalse=True), blending="additive"),
+             row("texture-half", expected=(False, False), textureAlpha=[.5, .5]),
+             row("texture-above-half", textureAlpha=[.50048828125, .50048828125]),
+             row("alpha-product-covered", opacity=.75, layerAlpha=.75),
+             row("alpha-product-hole", expected=(False, False), opacity=.75, layerAlpha=.75, textureAlpha=[.75, .75]),
+             row("tint-mask-zero", textureAlpha=[0, 0], tintMask=True),
+             row("camera-test-off", testsDepth=False),
+             row("camera-write-off", writesDepth=False),
+             row("camera-test-write-off", testsDepth=False, writesDepth=False),
+             row("renamed-transformed", renamed=True, transformed=True),
+             row("reverse-culled", expected=(False, False), reverse=True),
+             row("reverse-nocull", reverse=True, noCull=True),
+             row("hidden-covered", expected=(False, False), hidden=True)]
+    return rows
+
+
 
 # Prepared geometry inputs only: the real camera, frame producer, all three
 # shadow projections and the unique drawShadow encode remain unchanged.
@@ -396,38 +423,66 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     }
    }
   }
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows],options:[.sortedKeys]),as:UTF8.self))
+  var coverageRows:[[String:Any]]=[]
+  if CommandLine.arguments.count > 1 {
+   let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:Any]
+   for item in input["coverageCases"] as! [[String:Any]] {
+    coverageRows.append(try run("native",item["light"] as! String,item["transformed"] as? Bool ?? false,
+      item["reverse"] as? Bool ?? false,item["noCull"] as? Bool ?? false,device,queue,coverage:item))
+   }
+  }
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"coverageRows":coverageRows],options:[.sortedKeys]),as:UTF8.self))
  }
  static func run(_ family:String,_ type:String,_ transformed:Bool,_ reverse:Bool,_ noCull:Bool,
-                 _ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
+                 _ device:MTLDevice,_ queue:MTLCommandQueue,coverage:[String:Any]?=nil)throws->[String:Any] {
   let pipeline=SceneStaticModelPipeline(device:device)!
   let native=family.hasPrefix("native")
   let cameraDescriptor=SceneRenderDescriptor.CameraDescriptor(eye:[0,0,5],center:[0,0,0],up:[0,1,0],
    orthoWidth:native ? nil:8,orthoHeight:native ? nil:8,fovDegrees:native ? 60:nil,
    perspectiveOverrideFOVDegrees:family=="fitted" ? 60:nil,nearZ:0.01,farZ:100)
   let camera=SceneParticleCameraFrame(camera:cameraDescriptor,viewportSize:CGSize(width:64,height:64))
-  let layer=SceneRenderDescriptor.Layer(id:1,utilityLayer:family=="native-utility" ? true:nil,
+  var layer=SceneRenderDescriptor.Layer(id:1,utilityLayer:family=="native-utility" ? true:nil,
     usesPerspective:family=="canvas" || family=="native-ortho" ? false:true)
+  layer.alpha=coverage?["layerAlpha"] as? Double ?? 1
+  if coverage?["castFalse"] as? Bool == true {layer.modelShadowCastIntent = .disabled}
+  if coverage?["hidden"] as? Bool == true {layer.visible=false}
   let positions:[SIMD3<Float>]=[SIMD3(-1,-1,0),SIMD3(1,-1,0),SIMD3(1,1,0),SIMD3(-1,1,0)]
-  let vertices=positions.map{SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))}
+  let vertices=positions.map{SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),
+    uv:coverage == nil ? SIMD2(repeating:0.5):SIMD2(($0.x+1)*0.5,($0.y+1)*0.5))}
   let mesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:reverse ? [0,2,1,0,3,2]:[0,1,2,0,2,3]))!
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
   td.storageMode = .shared;td.usage = .shaderRead
   let white=device.makeTexture(descriptor:td)!,pixel:[UInt8]=[255,255,255,255]
   pixel.withUnsafeBytes{white.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4)}
-  var material=SceneStaticModelMaterial(color:SIMD3(repeating:1),opacity:1,receivesLighting:true,
-   textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,
-   brightness:1,usesHDRBrightness:false,viewTint:nil)
+  var casterTexture=white
+  if let coverage {
+   let alpha=coverage["textureAlpha"] as? [Double] ?? [1,1]
+   let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba32Float,width:2,height:1,mipmapped:false)
+   descriptor.storageMode = .shared;descriptor.usage = .shaderRead
+   casterTexture=device.makeTexture(descriptor:descriptor)!
+   let values:[Float]=[1,1,1,Float(alpha[0]),1,1,1,Float(alpha[1])]
+   values.withUnsafeBytes{casterTexture.replace(region:MTLRegionMake2D(0,0,2,1),mipmapLevel:0,
+     withBytes:$0.baseAddress!,bytesPerRow:32)}
+  }
+  func makeMaterial(_ opacity:Float=1,_ mask:Bool=false)->SceneStaticModelMaterial {
+   .init(color:SIMD3(repeating:1),opacity:opacity,receivesLighting:true,
+    textureAlphaIsOpacity:!mask,textureAlphaIsTintMask:mask,emissiveColor:.zero,emissiveBrightness:0,
+    brightness:1,usesHDRBrightness:false,viewTint:nil)
+  }
+  var material=makeMaterial(Float(coverage?["opacity"] as? Double ?? 1),coverage?["tintMask"] as? Bool ?? false)
   material.cullMode=noCull ? .none:.back
-  let entry=ScenePreparedStaticModelResources.Entry(materialPath:"own-cull",dynamicMaterialPath:"",
-   mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
+  let entry=ScenePreparedStaticModelResources.Entry(
+   materialPath:coverage?["renamed"] as? Bool == true ? "surfaces/Φ renamed finish":"own-cull",dynamicMaterialPath:"",
+   mesh:mesh,albedo:PreparedTexture(texture:casterTexture),material:material,
+   writesDepth:coverage?["writesDepth"] as? Bool ?? true,testsDepth:coverage?["testsDepth"] as? Bool ?? true,
+   materialBlending:(coverage?["blending"] as? String).flatMap(SceneMaterialRenderState.Blending.init(rawValue:)))
   var entries=[1:[entry]]
   var layers=[layer]
   if family=="native" {
    // Native, explicit canvas and utility casters share one encoder/map. Peers
    // use authored canvas front winding; reverse changes submission order too.
    let peerMesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
-   var peerMaterial=material;peerMaterial.cullMode = .back
+   var peerMaterial=makeMaterial();peerMaterial.cullMode = .back
    for id in [2,3] {
     entries[id]=[.init(materialPath:"own-peer",dynamicMaterialPath:"",
       mesh:peerMesh,albedo:PreparedTexture(texture:white),material:peerMaterial)]
@@ -456,7 +511,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   for (id,x) in [(2,Float(3)),(3,Float(-3))] where entries[id] != nil {
    worlds[id]=world*SceneMatrix.translation(SIMD3(x,0,0))
   }
-  let visible=Set(layers.map(\.id))
+  let visible=Set(layers.filter{$0.visible != false}.map(\.id))
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)!
   var leases:[SceneParticleDepthTargetLease]=[]
   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
@@ -465,8 +520,10 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let shadow=state.shadows.first!,map=shadow.texture
   let blit=cb.makeBlitCommandEncoder()!
   var buffers:[MTLBuffer]=[]
-  for id in worlds.keys.sorted() {
-   let point=worlds[id]!.columns.3.xyz
+  let points:[SIMD3<Float>] = coverage == nil ? worlds.keys.sorted().map{worlds[$0]!.columns.3.xyz}
+    : [(world*SIMD4(-0.5,0,0,1)).xyz,(world*SIMD4(0.5,0,0,1)).xyz]
+      + worlds.keys.sorted().filter{$0 != 1}.map{worlds[$0]!.columns.3.xyz}
+  for point in points {
    let clip:SIMD3<Float>,face:Int
    switch shadow.projection {
    case .directional(let p):clip=(p.worldToClip*SIMD4(point,1)).xyz;face=0
@@ -488,21 +545,28 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   blit.endEncoding();leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
   precondition(cb.status == .completed && cb.error == nil)
   let depths=buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee}
-  return ["family":family,"light":type,"transformed":transformed,"reverse":reverse,"noCull":noCull,
+  var result:[String:Any] = ["family":family,"light":type,"transformed":transformed,"reverse":reverse,"noCull":noCull,
    "nativeCamera":camera.defaultsToPerspective,"perspectiveLayer":camera.resolvesPerspective(for:layer),
-   "depth":depths[0],"peerDepth":Array(depths.dropFirst()),"completed":true]
+   "depth":depths[0],"peerDepth":Array(depths.dropFirst(coverage == nil ? 1:2)),"completed":true]
+  if let coverage {result["name"]=coverage["name"]!;result["coverageDepth"]=Array(depths.prefix(2))}
+  return result
  }
 }
 '''
 
 
 class SceneModelShadowCameraFamilyTests(unittest.TestCase):
-    def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
+    @classmethod
+    def setUpClass(cls):
         support = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + CULL_MAIN
-        report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
-                    metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
-        self.assertEqual(len(report['rows']), 120)
-        for row in report['rows']:
+        cls.coverageCases = model_shadow_coverage_cases()
+        cls.report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
+                    metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],
+                    input_value={'coverageCases': cls.coverageCases})
+
+    def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
+        self.assertEqual(len(self.report['rows']), 120)
+        for row in self.report['rows']:
             native = row['family'] == 'native'
             # Canvas/fitted geometry has the authored-Y reflection. It pairs
             # with CCW admission just as native geometry pairs with CW.
@@ -520,6 +584,30 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
                 self.assertGreaterEqual(row['depth'], 0, row)
             else:
                 self.assertEqual(row['depth'], 1, row)
+
+    def test_real_frame_blended_casters_keep_binary_coverage_and_light_depth_independent(self):
+        rows = {row['name']: row for row in self.report['coverageRows']}
+        self.assertEqual(set(rows), {case['name'] for case in self.coverageCases})
+        for case in self.coverageCases:
+            row = rows[case['name']]
+            self.assertTrue(row['completed'], row)
+            self.assertTrue(row['nativeCamera'] and row['perspectiveLayer'], row)
+            self.assertEqual(row['light'], case['light'])
+            self.assertEqual(len(row['peerDepth']), 2, row)
+            for depth in row['peerDepth']:
+                self.assertGreaterEqual(depth, 0, row)
+                self.assertLess(depth, .99, row)
+            for covered, depth in zip(case['expected'], row['coverageDepth']):
+                if covered:
+                    self.assertGreaterEqual(depth, 0, row)
+                    self.assertLess(depth, .99, row)
+                else:
+                    self.assertEqual(depth, 1, row)
+        for light in ['directional', 'spot', 'point']:
+            self.assertEqual(rows[light+'-normal']['coverageDepth'], rows[light+'-translucent']['coverageDepth'])
+            self.assertEqual(rows[light+'-normal']['coverageDepth'][1], rows[light+'-holes']['coverageDepth'][1])
+        for name in ['camera-test-off', 'camera-write-off', 'camera-test-write-off', 'additive-covered']:
+            self.assertEqual(rows[name]['coverageDepth'], rows['directional-translucent']['coverageDepth'])
 
 
 def typecheck():

@@ -759,9 +759,7 @@ extension SceneMetalRenderer {
                 && cameraFrame.resolvesPerspective(for: layer) ? .clockwise : .counterClockwise
             for draw in state.prepared?[layer.id] ?? [] {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
-                // Alpha-blended model parts do not contribute the depth-only
-                // caster pass. Preserve color, receivers and existing bounds.
-                if casts && draw.entry.materialBlending != .translucent {
+                if casts {
                     casters.append((draw, frontFacing))
                 }
                 if includesDirectional && (casts || draw.material.receivesLighting) {

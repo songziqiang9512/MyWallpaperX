@@ -121,3 +121,17 @@
 原3437487219五秒F147/request1/CB524195710720、112/114到main524249013120；独立3453730450自然20s/after17，F804/request1/CB524860098304的53/77具体part/306/340/342到main524923355136。两场原project/pkg摘要等冻结matrix，签名前后核同当前App，模型与终端seal在同CB、GPUcompleted/trunc0并排空，地表/云/大气/星空/时钟及月面/轨道/标题完整。trace不观察模型内部材质绑定，不能由此声称slot9或逐part pigment像素；可见贡献归前述实际资产对照。
 
 原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-pigment-20261115`；自有Cloud开关/旧零基线、203输入、CPU/相邻门、构建与独审归`.artifacts/scene-model-pigment-20261115`。用户纹理provider、动态amount、world/object锚定、更多stock效果与官方像素仍未授。
+
+## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
+
+2026-11-15按[实际覆盖合同](advanced-object-coverage.md#model-shadow-coverage)，只撤原Frame的translucent caster类别门，保原cast intent、可见prepared、三灯>.5 material×layer×实际albedoA覆盖、cull与camera depth独立；additive原行为不另设禁令。唯一产品Frame净−2行，无新资源/PSO/ABI/owner/状态或普通帧解析；恢复的caster会增加原有每灯map绘制/必要申请，不授零成本或性能收益。
+
+同一测试/输入的旧源两方法为原120 cull行通过、coverage方法在translucent的[1,1]失败，健康peer仍[.5,.5]。当前两个方法26.397s通过：原120行逐值不变，新增23行经过真实Frame筛选/三灯map读回，normal与translucent的两点深度完全一致；孔洞为clear1/covered，directional covered=.5，spot=.400000006，point两点约.40316/.40306。alpha恰.5不写/下一个half值写，material×layer×texture乘积、maskA0不挖孔、castfalse/hidden、additive、反面cull/nocull、camera test/write独立与改名变换均有结果；健康opaque peer使反例仍有有效map。旧新Harness/输入字节同，源identity仅Frame一项改变；不复制shader或BRDF。测试shell只补上批新增的可空pigment传参，不增加材质行为替身。
+
+普通Debug28.794s、Frame/project/锁文件前后相同，签名/原helpers验证通过；executable840105de…8d304、dylib076accad…8aa47，metallib仍5917c277…01900，与旧App逐字节同。真实3589454154的ring462/planet456所需七份原资产64.9MB在owned目录共享只读硬链，原用户pkg/媒体不链接不写；原ring1024² BC3/9mip/linear-repeat，首mip覆盖>.5占43.53%，不是实心环。保原MDL/TEX/材料/MR/alpha，固定模型/相机/单directional且sphere castfalse，on/off仅ring.castshadow切换。弧度角经原Definition的−worldX列核光向量，世界矩阵三场逐值一致；源/协议/App SHA前后不变。
+
+旧on、当前on/off均F94/request1，CB502016033664/507002143616/531765379968分别把456/462供同次main/seal，GPUcompleted/trunc0并排空。off与旧on逐PNG/RGBA完全相等；on出现清晰弧形暗带。1280×831全图6061像素改变，均在预先固定的球面保守矩形内；前景颜色并集263162中变化2.3031%，平均绝对RGB差1.04903 byte、最大135。该矩形包含前景星环，6061不能全授为排除ring自阴影后的纯接收球面像素数。独立几何在读取新App像素前选定的alpha-hole与无遮挡受光两个5×5区域均逐RGB零差；未取得covered 5×5，不称三类ROI全部通过。二值map的数值覆盖由前述Frame门承担，可见弧带及可逆终端颜色由此真实资产配对承担；不授半透明透射、原作者全景严格A/B或官方阈值。
+
+当前on的depth-written只观测首epoch1–3、light259/casters1，旧on与当前off无该事件；F94的trace不含内部map绑定，不能声称终端帧全量阴影map执行观察。颜色/model状态/main/seal与GPU完成仍按同次capture闭合。原3589454154自然35s/after32的F870/request1/CB501301071360/main501198989952有24个模型含球456/环462实际绘制，已越过作者进场而非只看片头；独立3437487219五秒F140/request1/CB500997588736/main500942233088的112/114绘制。两场原project/pkg摘要等冻结matrix，App签名前后核同，终端图有土星/环/文字及地表/云/大气/星空/时钟，GPUcompleted/trunc0并排空。原场景相位、取景未配对，不授原景逐像素阴影归因或其它反馈关闭。
+
+原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-shadow-coverage-20261115`；真实双模型开关/旧基线、143行红绿、身份/构建与独审归`.artifacts/scene-model-shadow-coverage-20261115`。
