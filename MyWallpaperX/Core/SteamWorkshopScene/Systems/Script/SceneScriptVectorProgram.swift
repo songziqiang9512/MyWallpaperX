@@ -349,6 +349,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 kinds: userPropertyKinds
             )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        var timelineInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
@@ -417,18 +418,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     > frameLedger.consumedMediaTimelineGenerations[target, default: 0]
                     ? event : nil
             }
-            // Event-only owners (no `init`/`update`) mirror the scalar/string
-            // quiescence contract: with no pending event and no value hook or
-            // timer there is nothing to run, so the binding stays idle instead
-            // of entering a C update that would only pass through.
+            // Idle event owners keep their callback lifetime without entering a passthrough update.
             if changedUserPropertiesJSON == nil,
                pendingPlaybackEvent == nil, pendingMediaEvent == nil,
                pendingPropertiesEvent == nil, pendingTimelineEvent == nil,
                !binding.owner.requiresFrameEvaluation {
                 continue
             }
-            // Every callback in this evaluation observes the same current audio
-            // generation, including init and applyUserProperties.
+            // Init and callbacks share this evaluation's audio generation.
             if binding.owner.hasAudioRegistration {
                 switch binding.owner.refreshAudio(audioSpectrum) {
                 case .success:
@@ -479,6 +476,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
             var evaluationInput = input
+            let initializesValue = binding.owner.needsInitialization
             if changedUserPropertiesJSON != nil || pendingPlaybackEvent != nil
                 || pendingMediaEvent != nil || pendingPropertiesEvent != nil
                 || pendingTimelineEvent != nil {
@@ -810,6 +808,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value
+                if binding.hasCurrentAnimation, evaluation.valueFollowsInput, !initializesValue {
+                    timelineInputTargets.insert(target)
+                }
                 materialFunctionMutations.append(
                     contentsOf: callbackMaterialMutations
                 )
@@ -924,11 +925,10 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             videoCommandTargets: videoCommandTargets,
             ownerEffects: ownerEffects,
             puppetBoneMutations: puppetBoneMutations,
-            puppetAnimationCommands: puppetAnimationCommands
+            puppetAnimationCommands: puppetAnimationCommands,
+            timelineInputTargets: timelineInputTargets
         )
     }
-
-
     func userPropertiesJSON(
         effectiveValues: [String: SceneUserPropertyValue],
         revision: UInt64

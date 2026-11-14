@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 266302
+      "bytes": 267151
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 150,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 186,
-      "bytes": 32191
+      "bytes": 32640
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 112,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 185,
-      "bytes": 49752
+      "bytes": 49717
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -511,28 +511,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "829ba472b34d7c02c53d5709ab3f965efa74c1b344fc0966d67162ae9f178dd3",
-      "after": "3b6c9ad5f503a0a52f17398882930d40380fb15833853099ffd2e6f160af034f",
-      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
-      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
+      "before": "3b6c9ad5f503a0a52f17398882930d40380fb15833853099ffd2e6f160af034f",
+      "after": "2b23940c5f6b2f528a5d3e2326cb0a628d8785158d86bb015984964efbc265e2",
+      "owner": "Existing Scene animation catalog and typed frame value owners",
+      "reason": "Replace planned component pass scope with current cold target/Combined/value-role implementation and bounded actual native/coordinator/App evidence. Retire solved queue responsibilities; keep author acquisition STOP and independent existing interaction regression. No new document or product owner.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "fde1016c2d836c4f1647ca5c2aa4dabf9281f1d82617b6e4553b34bfa74e14b4",
-      "after": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
-      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
-      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "01466b05f939d348fa5e3fd1c269f91d72e2418d89fe611d48685700fac41137",
-      "after": "2fdf3b0ff31418e23acadd31c098a16c906a79476362a727fb474b39ef2bf947",
-      "owner": "Existing Scene animation handles, catalog and Timeline value owners",
-      "reason": "Record one qualified fixed official pass-scope oracle and the existing-owner handoff design. Replace the former unqualified namespace note; implementation, authored click path and playback remain pending. No product changes or repeated native matrix.",
+      "before": "b731f4360f930878536e375ec6113540e443e4356d562031ddeeff2698015cb6",
+      "after": "6d177ec34c909ae64c7ebbbcb8a4a9c2f1c5fcfef891e2af2064109f999c71a0",
+      "owner": "Existing Scene animation catalog and typed frame value owners",
+      "reason": "Replace planned component pass scope with current cold target/Combined/value-role implementation and bounded actual native/coordinator/App evidence. Retire solved queue responsibilities; keep author acquisition STOP and independent existing interaction regression. No new document or product owner.",
       "decision": "docs/scene/capabilities/scenescript-api-coverage.md#component-animation-scope"
     }
   ]

@@ -645,7 +645,8 @@ extension SceneDesktopWallpaperSession {
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
             values.merge(sceneScriptResult.valuesForAdmission(
                 timelineValues: timelineValues, excluding: rejected)) { _, current in current }
-            values.merge(sceneScriptVectorResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
+            values.merge(sceneScriptVectorResult.valuesForAdmission(
+                timelineValues: timelineValues, excluding: rejected)) { _, current in current }
             return values
         }
         var settledTimelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]

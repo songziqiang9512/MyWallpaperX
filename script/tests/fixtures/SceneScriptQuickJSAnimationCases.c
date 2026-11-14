@@ -51,8 +51,8 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
     failures += mwx_fixture_check(mwx_scene_quickjs_owner_set_property_object_scope(
         owner, property_object_is_layer, diagnostic, sizeof(diagnostic))
         == MWX_SCENE_QUICKJS_OK, "retained animation object scope", diagnostic);
-    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_current_animation(
-        owner, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_animation_target(
+        owner, 1, UINT32_MAX, UINT32_MAX, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "retained animation configure", diagnostic);
     failures += mwx_fixture_update(owner, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
         "init captures current property animation");
@@ -105,8 +105,8 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
     MWXSceneQuickJSOwner *peer = mwx_scene_quickjs_owner_create(
         domain, peer_source, strlen(peer_source), 901, diagnostic, sizeof(diagnostic));
     failures += mwx_fixture_check(peer != NULL, "animation peer same generation", diagnostic);
-    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_current_animation(
-        peer, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_animation_target(
+        peer, 1, UINT32_MAX, UINT32_MAX, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "animation peer configure", diagnostic);
     failures += mwx_fixture_update(peer, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
         "live foreign owner handle rejected without disabling healthy peer");
@@ -132,8 +132,8 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
     MWXSceneQuickJSOwner *rebuilt = mwx_scene_quickjs_owner_create(
         domain, peer_source, strlen(peer_source), 901, diagnostic, sizeof(diagnostic));
     failures += mwx_fixture_check(rebuilt != NULL, "same-generation owner rebuilt after destroy", diagnostic);
-    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_current_animation(
-        rebuilt, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_animation_target(
+        rebuilt, 1, UINT32_MAX, UINT32_MAX, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "rebuilt animation configure", diagnostic);
     failures += mwx_fixture_update(rebuilt, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
         "same-generation rebuild rejects freed owner's capability");
@@ -160,8 +160,8 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
         "a.play();return {};}a.stop();return v;}";
     MWXSceneQuickJSOwner *retry = mwx_scene_quickjs_owner_create(
         domain, retry_source, strlen(retry_source), 901, diagnostic, sizeof(diagnostic));
-    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_current_animation(
-        retry, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_animation_target(
+        retry, 1, UINT32_MAX, UINT32_MAX, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "init retry configure", diagnostic);
     failures += mwx_fixture_update(retry, 901, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0,
         "invalid init return rejects animation bundle");
@@ -179,8 +179,8 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
         "export function mediaThumbnailChanged(e){a.play();throw new Error('late');}";
     MWXSceneQuickJSOwner *thrower = mwx_scene_quickjs_owner_create(
         domain, throw_source, strlen(throw_source), 901, diagnostic, sizeof(diagnostic));
-    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_current_animation(
-        thrower, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_configure_animation_target(
+        thrower, 1, UINT32_MAX, UINT32_MAX, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "throwing retained animation configure", diagnostic);
     failures += mwx_fixture_update(thrower, 901, 1, MWX_SCENE_QUICKJS_OK, 1,
         "throwing retained handle initialized");
@@ -497,8 +497,8 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     fixture->failures += mwx_fixture_check(fixture->animation_owner != NULL, "animation handle compile", fixture->diagnostic);
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_configure_current_animation(
-            fixture->animation_owner, 1, fixture->diagnostic, sizeof(fixture->diagnostic)
+        mwx_scene_quickjs_owner_configure_animation_target(
+            fixture->animation_owner, 1, UINT32_MAX, UINT32_MAX, fixture->diagnostic, sizeof(fixture->diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "animation handle configure", fixture->diagnostic
     );
@@ -525,8 +525,8 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     fixture->failures += mwx_fixture_check(fixture->stale_animation != NULL, "stale animation compile", fixture->diagnostic);
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_configure_current_animation(
-            fixture->stale_animation, 1, fixture->diagnostic, sizeof(fixture->diagnostic)
+        mwx_scene_quickjs_owner_configure_animation_target(
+            fixture->stale_animation, 1, UINT32_MAX, UINT32_MAX, fixture->diagnostic, sizeof(fixture->diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "stale animation configure", fixture->diagnostic
     );
@@ -551,8 +551,8 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     fixture->failures += mwx_fixture_check(fixture->named_animation != NULL, "named animation compile", fixture->diagnostic);
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_configure_current_animation(
-            fixture->named_animation, 1, fixture->diagnostic, sizeof(fixture->diagnostic)
+        mwx_scene_quickjs_owner_configure_animation_target(
+            fixture->named_animation, 1, UINT32_MAX, UINT32_MAX, fixture->diagnostic, sizeof(fixture->diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "named animation configure", fixture->diagnostic
     );
@@ -571,8 +571,8 @@ void mwx_fixture_effect_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     );
     fixture->failures += mwx_fixture_check(fixture->media_animation != NULL, "media animation compile", fixture->diagnostic);
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_configure_current_animation(
-            fixture->media_animation, 1, fixture->diagnostic, sizeof(fixture->diagnostic)
+        mwx_scene_quickjs_owner_configure_animation_target(
+            fixture->media_animation, 1, UINT32_MAX, UINT32_MAX, fixture->diagnostic, sizeof(fixture->diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "media animation configure", fixture->diagnostic
     );

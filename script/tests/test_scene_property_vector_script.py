@@ -316,11 +316,12 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def result(self) -> dict[str, object]:
         completed = subprocess.run(
-            [str(self.binary)], check=True, capture_output=True, text=True
+            [str(self.binary)], capture_output=True, text=True
         )
         if self.proof:
             (self.proof / "observations.json").write_text(completed.stdout)
             (self.proof / "runtime.stderr").write_text(completed.stderr)
+        completed.check_returncode()
         return json.loads(completed.stdout)
 
     def test_layer_raw_color_uses_the_real_dynamic_bridge_and_preserves_rollback(self) -> None:
@@ -402,6 +403,22 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passVectorFailures"], 0)
         self.assertTrue(value["passVectorWrongWrapperRejected"])
         self.assertTrue(value["passVectorUserProviderRejected"])
+
+    def test_combined_pass_vectors_require_the_exact_prepared_timeline(self) -> None:
+        observations = self.result()["passCombinedAdmission"]
+        self.assertEqual(set(observations), {"scale", "color"})
+        for name, expected in (("scale", [2, 4]), ("color", [2, 4, 6])):
+            with self.subTest(name=name):
+                value = observations[name]
+                self.assertEqual(value["constructionFailures"], [], value)
+                self.assertEqual(value["bindings"], 1, value)
+                self.assertEqual(value["failures"], 0, value)
+                self.assertEqual(value["value"], expected, value)
+                for key in ("hasCurrentAnimation", "commandTargets", "commands",
+                            "fieldWithoutPreparedTrackRejected", "wrongPreparedTargetRejected",
+                            "wrongWrapperRejected", "duplicateRejected", "badReturnUnpublished",
+                            "eventExportAdmitted"):
+                    self.assertTrue(value[key], (name, key, value))
 
     def test_pass_color_user_input_reaches_one_script_owner_before_update(self) -> None:
         value = self.result()

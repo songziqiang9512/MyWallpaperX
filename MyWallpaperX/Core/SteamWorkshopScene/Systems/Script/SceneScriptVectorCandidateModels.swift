@@ -2,9 +2,9 @@ import Foundation
 
 nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
-    /// A no-update scalar adopted its input, rather than an active callback or
-    /// finite bound property. Admission may rebase it onto the same Timeline preview.
-    let scalarValueFollowsInput: Bool
+    /// A no-update evaluation adopted its input rather than an authored value.
+    /// Admission may rebase it onto the same Timeline preview.
+    let valueFollowsInput: Bool
     let layerTopologyOwnerIdentity: UInt64?
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
@@ -30,7 +30,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
         puppetAnimationCallbackRegistrations: Int = 0,
-        scalarValueFollowsInput: Bool = false,
+        valueFollowsInput: Bool = false,
         layerTopologyOwnerIdentity: UInt64? = nil,
         cameraCommands: [SceneScriptCameraCommand] = []
     ) {
@@ -40,7 +40,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.particlePlaybackCommands = particlePlaybackCommands
         self.value = value
-        self.scalarValueFollowsInput = scalarValueFollowsInput
+        self.valueFollowsInput = valueFollowsInput
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations

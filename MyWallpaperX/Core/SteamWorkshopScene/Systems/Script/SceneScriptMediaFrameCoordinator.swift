@@ -342,6 +342,7 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
 
 private nonisolated struct VectorAccumulator {
     var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    var timelineInputTargets: Set<SceneDynamicTarget> = []
     var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
     var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
     var animations: [SceneTimelinePlaybackMutation] = []
@@ -352,6 +353,7 @@ private nonisolated struct VectorAccumulator {
 
     mutating func merge(_ frame: SceneScriptVectorFrameResult) {
         values.merge(frame.values) { _, new in new }
+        timelineInputTargets.formUnion(frame.timelineInputTargets)
         failures.merge(frame.failures) { _, new in new }
         materialFunctions.append(contentsOf: frame.materialFunctionMutations)
         animations.append(contentsOf: frame.animationMutations)
@@ -370,7 +372,8 @@ private nonisolated struct VectorAccumulator {
             layerMutations: layers,
             mediaPlaybackCommands: mediaPlaybackCommands,
             videoCommandTargets: videoCommandTargets,
-            ownerEffects: ownerEffects
+            ownerEffects: ownerEffects,
+            timelineInputTargets: timelineInputTargets
         )
     }
 }

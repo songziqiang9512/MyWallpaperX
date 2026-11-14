@@ -603,9 +603,12 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_effect_name(
     size_t diagnostic_capacity
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
+// Non-component targets use UINT32_MAX for both component ordinals.
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_animation_target(
     MWXSceneQuickJSOwner *owner,
     uint32_t available,
+    uint32_t effect_index,
+    uint32_t pass_index,
     char *diagnostic,
     size_t diagnostic_capacity
 );

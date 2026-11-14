@@ -237,7 +237,7 @@ extension Harness {
                 expectedGeneration: generation, interruptBudget: nil).get()
             let value = SceneScriptScalarFrameResult(values: [target: output.value], failures: [:],
                 materialFunctionMutations: [], animationMutations: [], layerMutations: [],
-                timelineInputTargets: output.scalarValueFollowsInput ? [target] : [])
+                timelineInputTargets: output.valueFollowsInput ? [target] : [])
             let animation = SceneTimelineAnimation(lanes: [[
                 .init(frame: 0, value: firstValue, back: nil, front: nil, locksAngle: nil, locksLength: nil),
                 .init(frame: 1, value: 1, back: nil, front: nil, locksAngle: nil, locksLength: nil)

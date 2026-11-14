@@ -11,6 +11,8 @@ TIMELINE_SOURCES = [SCENE / path for path in [
     "Systems/Timeline/SceneTimelineEvaluator.swift",
     "Systems/Timeline/SceneTimelineRuntime.swift",
     "Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+    "Systems/Properties/SceneEvaluationTransaction.swift",
+    "Systems/Script/SceneScriptMediaFrameCoordinator.swift",
 ]]
 TIMELINE_DECLARATIONS = SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift"
 
@@ -521,6 +523,138 @@ HARNESS = r'''
         return facts
     }
 
+    static func valueAdmission() throws -> [String:Any] {
+        let target = SceneDynamicTarget.layer(layerID:2,field:.origin)
+        let member = SceneDynamicTarget.layer(layerID:2,field:.scale)
+        let peer = SceneDynamicTarget.layer(layerID:3,field:.origin)
+        func frame(_ time:Double, _ delta:Double = 0.016) -> SceneScriptFrameInput {
+            .init(timing:.init(wallDate:Date(),simulationFrameTime:delta,sceneTime:time))
+        }
+        func vector(_ value:SceneDynamicValue?) -> [Double] {
+            guard case let .vector3(x,y,z)? = value else { return [] }; return [x,y,z]
+        }
+        func setup(_ source:String, timeline:Bool = true)
+            throws -> (SceneScriptVectorProgram,SceneTimelinePlaybackRuntime) {
+            let descriptor = SceneRenderDescriptor(layers:(2...3).enumerated().map { index,id in
+                .init(id:id,layerIndex:index,name:"value\(id)",visible:true,
+                    originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])
+            })
+            let bindings = [target,member,peer].map { current in
+                let start:[Double] = current == member ? [1,1,1] : [0,0,0]
+                let end:[Double] = current == target ? [20,40,60] : current == member ? [3,5,7] : [40,0,0]
+                return SceneTimelineBinding(definition:.init(target:current,valueType:.vector3,
+                    authoredValue:.vector3(start[0],start[1],start[2])),animation:.init(
+                    lanes:zip(start,end).map { a,b in [
+                        .init(frame:0,value:a,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                        .init(frame:20,value:b,back:nil,front:nil,locksAngle:nil,locksLength:nil)] },
+                    options:.init(fps:10,length:20,mode:.single,startsPaused:current != peer,wrapsLoop:false,
+                        smoothing:nil,stiffness:nil,parent:nil,children:[],name:current == target ? "motion" : nil),
+                    isRelative:false,previewValue:nil),composition:.absolute,
+                    playbackOwner:current == member ? target : current)
+            }
+            let domain = try SceneScriptQuickJSDomain()
+            try domain.configureLayerCatalog(descriptor)
+            try domain.configureNamedAnimations([(target,"motion")])
+            let binding = SceneScriptBindingIR(source:source,owner:.init(kind:.object,
+                objectIndex:0,objectID:2,effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
+                targetPath:[.key("objects"),.index(0),.key("origin")],properties:[:],
+                authoredValue:.string("0 0 0"),valueType:.string,
+                wrapperKeys:timeline ? ["animation","script","value"] : ["script","value"])
+            return (SceneScriptVectorProgram.compile(domain:domain,descriptor:descriptor,
+                scriptBindings:[binding],userPropertyDefinitions:[],timelineTargets:timeline ? [target] : [],
+                generation:1),SceneTimelinePlaybackRuntime(program:.init(bindings:bindings,diagnostics:[])))
+        }
+        func evaluate(_ program:SceneScriptVectorProgram, _ input:SceneDynamicValue, _ time:Double,
+                      frameTime:Double = 0.016, events:SceneScriptMediaFrameEvents = .empty)
+            -> SceneScriptVectorFrameResult {
+            let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram:program,
+                stringProgram:.compile(domain:program.domain,descriptor:program.descriptor,
+                    scriptBindings:[],generation:1),
+                scalarProgram:.compile(domain:program.domain,descriptor:program.descriptor,
+                    scriptBindings:[]))
+            return coordinator.evaluate(vectorInputs:[target:input],stringInputs:[:],scalarInputs:[:],
+                effectivePropertyValues:[:],frame:frame(time,frameTime),userPropertiesJSON:"{}",
+                events:events,audioSpectrum:.silent).vector
+        }
+        func timelinePreview(_ runtime:SceneTimelinePlaybackRuntime,
+                     _ mutations:[SceneTimelinePlaybackMutation], _ time:Double)
+            throws -> [SceneDynamicTarget:SceneDynamicValue] {
+            var values = runtime.values(sceneTime:time)
+            values.merge(try runtime.preview(mutations,sceneTime:time).get()) { _,new in new }
+            return values
+        }
+        func observation(_ result:SceneScriptVectorFrameResult,
+                         _ timeline:[SceneDynamicTarget:SceneDynamicValue]) -> [String:Any] {
+            ["scriptValue":vector(result.values[target]),
+             "followsTimelineInput":result.timelineInputTargets.contains(target),
+             "admittedValue":vector(result.valuesForAdmission(timelineValues:timeline,excluding:[])[target]),
+             "timelineOwn":vector(timeline[target]),"timelineMember":vector(timeline[member]),
+             "timelinePeer":vector(timeline[peer]),
+             "commands":result.animationMutations.map { String(describing:$0.command) },
+             "commandTargets":result.animationMutations.map { String(describing:$0.target) },
+             "failures":result.failures.map { "\($0.key): \($0.value)" }.sorted()]
+        }
+        var facts:[String:Bool] = [:]
+        var observations:[String:Any] = [:]
+        let (event,playback) = try setup("export function mediaThumbnailChanged(){thisObject.getAnimation().setFrame(10);thisObject.getAnimation().pause();}")
+        let eventOwner = event.bindings[0].owner
+        let result = evaluate(event,.vector3(0,0,0),1,events:.init(
+            playback:nil,properties:nil,thumbnail:.init(hasThumbnail:true,generation:1),timeline:nil))
+        let preview = try timelinePreview(playback,result.animationMutations,1)
+        observations["eventOnly"] = observation(result,preview)
+        facts["eventOnlyRebasesSameFrame"] = result.timelineInputTargets == [target]
+            && vector(result.valuesForAdmission(timelineValues:preview,excluding:[])[target]) == [10,20,30]
+        facts["combinedAndHealthyPeer"] = vector(preview[member]) == [2,3,4] && vector(preview[peer]) == [20,0,0]
+        facts["previewDoesNotCommit"] = vector(playback.values(sceneTime:1)[target]) == [0,0,0]
+        try playback.apply(result.animationMutations,sceneTime:1).get(); eventOwner.commitLayerMutations()
+        facts["commitUsesSameJournal"] = vector(playback.values(sceneTime:1)[target]) == [10,20,30]
+        facts["rejectedValueExcluded"] = result.valuesForAdmission(timelineValues:preview,excluding:[target]).isEmpty
+        for (name,body,expected) in [("updateWriter","new Vec3(90,80,70)",[90.0,80,70]),
+                                     ("equalInputIsStillWriter","v",[0.0,0,0])] {
+            let (program,runtime) = try setup("export function update(v){thisObject.getAnimation().setFrame(10);return \(body);}")
+            let output = evaluate(program,.vector3(0,0,0),1)
+            let seek = try timelinePreview(runtime,output.animationMutations,1)
+            observations[name] = observation(output,seek)
+            facts[name] = output.timelineInputTargets.isEmpty
+                && vector(output.valuesForAdmission(timelineValues:seek,excluding:[])[target]) == expected
+        }
+        for separated in [false,true] {
+            let (program,runtime) = try setup("export function init(v){engine.setTimeout(()=>thisObject.getAnimation().setFrame(15),1000);return new Vec3(7,8,9);}")
+            let owner = program.bindings[0].owner
+            if separated { _ = try owner.initializeIfNeeded(input:.vector3(0,0,0),frame:frame(0),
+                scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,
+                interruptBudget:nil,retainsValueForNextUpdate:true).get() }
+            let first = evaluate(program,.vector3(0,0,0),0)
+            observations["initOwnValue\(separated)"] = observation(first,runtime.values(sceneTime:0))
+            facts["initOwnValue\(separated)"] = first.timelineInputTargets.isEmpty && vector(first.values[target]) == [7,8,9]
+            owner.commitLayerMutations()
+            let later = evaluate(program,.vector3(0,0,0),2,frameTime:2)
+            let seek = try timelinePreview(runtime,later.animationMutations,2)
+            observations["initThenTimeline\(separated)"] = observation(later,seek)
+            facts["initThenTimeline\(separated)"] = later.timelineInputTargets == [target]
+                && vector(later.valuesForAdmission(timelineValues:seek,excluding:[])[target]) == [15,30,45]
+        }
+        let (initOnly,_) = try setup("export function init(v){return new Vec3(7,8,9);}",timeline:false)
+        let initial = evaluate(initOnly,.vector3(0,0,0),0); initOnly.bindings[0].owner.commitLayerMutations()
+        var transaction = SceneEvaluationTransaction()
+        _ = transaction.evaluate(frameIndex:0,definitions:initOnly.definitions,sceneScriptValues:initial.values)
+        let carried = transaction.previousValues(for:initOnly.inputTargets)
+        let resting = evaluate(initOnly,carried[target]!,1)
+        observations["initOnlyCarry"] = ["committedValue":vector(carried[target]),
+            "restingScriptValue":vector(resting.values[target]),
+            "requiresFrameEvaluation":initOnly.bindings[0].owner.requiresFrameEvaluation]
+        facts["initOnlyUsesCommittedTransaction"] = resting.values.isEmpty
+            && vector(carried[target]) == [7,8,9] && !initOnly.bindings[0].owner.requiresFrameEvaluation
+        let (failed,runtime) = try setup("export function init(v){thisObject.getAnimation().setFrame(10);throw new Error('reject init');}")
+        let failure = evaluate(failed,.vector3(0,0,0),1)
+        let afterFailure = try timelinePreview(runtime,failure.animationMutations,1)
+        observations["initFailure"] = observation(failure,afterFailure)
+        facts["initFailureRollsBackAndPeerContinues"] = failure.failures[target] != nil
+            && failure.animationMutations.isEmpty && failure.values.isEmpty
+            && vector(afterFailure[target]) == [0,0,0] && vector(afterFailure[peer]) == [20,0,0]
+        return ["facts":facts,"observations":observations]
+    }
+
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
             .init(id:id,layerIndex:id-1,name:"layer\(id)",visible:true,
@@ -584,6 +718,7 @@ HARNESS = r'''
             timerCommands += result.animationMutations
         }
         let out:[String:Any] = [
+            "valueAdmission":try valueAdmission(),
             "retirement":try retirement(renamed:false),
             "renamedRetirement":try retirement(renamed:true),
             "commandOwnerOrder":try commandOwnerOrder(),
@@ -618,6 +753,8 @@ class NamedTimelineTests(unittest.TestCase):
                 extra_swift_sources=TIMELINE_SOURCES,preamble=playback_preamble())
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             actual = json.loads(run.stdout.strip().splitlines()[-1])
+            admission = actual.pop("valueAdmission")
+            self.assertTrue(all(admission["facts"].values()), admission)
             for key in ["retirement", "renamedRetirement"]:
                 result = actual.pop(key)
                 self.assertTrue(all(result.values()), result)

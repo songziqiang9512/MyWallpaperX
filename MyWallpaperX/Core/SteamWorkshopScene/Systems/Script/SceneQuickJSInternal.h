@@ -69,6 +69,7 @@ typedef struct MWXSceneQuickJSNamedAnimationRecord {
     size_t name_length;
     char name[MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME + 1];
     uint32_t scene_only;
+    uint32_t effect_index, pass_index;
 } MWXSceneQuickJSNamedAnimationRecord;
 
 enum LayerProperty {
@@ -553,6 +554,8 @@ struct MWXSceneQuickJSOwner {
     size_t video_ended_callback_count;
     size_t committed_video_ended_callback_count;
     bool current_animation_available;
+    bool animation_target_configured;
+    uint32_t animation_effect_index, animation_pass_index;
     bool puppet_animation_configured, puppet_animation_available;
     bool puppet_handles_events;
     uint32_t puppet_event_failure;

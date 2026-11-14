@@ -13,7 +13,7 @@ typedef struct MWXSceneQuickJSAnimationHandle {
     uint32_t catalog_index;
     uint32_t layer_index;
     int64_t layer_id;
-    bool named_lookup;
+    bool component_lookup;
     bool current_property;
     bool scene_lookup;
 } MWXSceneQuickJSAnimationHandle;
@@ -167,8 +167,12 @@ static JSValue get_animation(
             return JS_ThrowRangeError(context, "current property animation does not exist");
         }
     } else {
-        if (argc != 1 || !handle->named_lookup || !JS_IsString(argv[0])) {
+        if (argc != 1 || !JS_IsString(argv[0])) {
             return JS_ThrowTypeError(context, "named animation lookup expects one String name");
+        }
+        if (handle->component_lookup &&
+            (!owner->animation_target_configured || owner->animation_effect_index == UINT32_MAX)) {
+            return JS_ThrowTypeError(context, "animation component is unavailable");
         }
         MWXSceneQuickJSDomain *domain = owner->domain;
         uint32_t layer_index = handle->layer_index;
@@ -199,7 +203,11 @@ static JSValue get_animation(
         for (size_t i = 0; i < domain->named_animation_count; ++i) {
             const MWXSceneQuickJSNamedAnimationRecord *candidate = &domain->named_animations[i];
             const bool scope_matches = handle->scene_lookup ||
-                (!candidate->scene_only && candidate->layer_index == layer_index);
+                (candidate->layer_index == layer_index && (handle->component_lookup
+                    ? candidate->scene_only &&
+                        candidate->effect_index == owner->animation_effect_index &&
+                        candidate->pass_index == owner->animation_pass_index
+                    : !candidate->scene_only));
             if (scope_matches && candidate->name_length == length &&
                 memcmp(candidate->name, name, length) == 0 &&
                 named_animation_layer_alive(owner, candidate)) {
@@ -238,7 +246,9 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner) {
     JSContext *context = owner->domain->context;
     JSValue object = JS_NewObject(context);
     if (JS_IsException(object)) return false;
-    const MWXSceneQuickJSAnimationHandle target = {.current_property = true};
+    const MWXSceneQuickJSAnimationHandle target = {
+        .layer_index = UINT32_MAX, .current_property = true, .component_lookup = true,
+    };
     JSValue animation = animation_closure(
         owner, get_animation, "getAnimation", 0, &target
     );
@@ -280,7 +290,6 @@ bool mwx_scene_quickjs_define_layer_animation_accessor(
     const MWXSceneQuickJSAnimationHandle target = {
         .layer_index = layer_index,
         .layer_id = layer_index == UINT32_MAX ? 0 : owner->domain->layers[layer_index].layer_id,
-        .named_lookup = true,
         .current_property = current_property,
     };
     JSValue animation = animation_closure(owner, get_animation, "getAnimation", 0, &target);
@@ -295,7 +304,6 @@ bool mwx_scene_quickjs_define_scene_animation_accessor(
 ) {
     if (owner == NULL || owner->domain == NULL || !JS_IsObject(scene)) return false;
     const MWXSceneQuickJSAnimationHandle target = {
-        .named_lookup = true,
         .scene_lookup = true,
     };
     JSValue animation = animation_closure(owner, get_animation, "getAnimation", 0, &target);
@@ -393,20 +401,26 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_animation_target(
     MWXSceneQuickJSOwner *owner,
     uint32_t available,
+    uint32_t effect_index,
+    uint32_t pass_index,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || available != 1 || owner->current_animation_available) {
+    if (owner == NULL || available > 1 || owner->animation_target_configured ||
+        (effect_index == UINT32_MAX) != (pass_index == UINT32_MAX)) {
         mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity, "invalid current animation configuration"
+            diagnostic, diagnostic_capacity, "invalid animation target configuration"
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    owner->current_animation_available = true;
+    owner->current_animation_available = available != 0;
+    owner->animation_effect_index = effect_index;
+    owner->animation_pass_index = pass_index;
+    owner->animation_target_configured = true;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -452,6 +466,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_named_animations(
         catalog[i].layer_id = input->layer_id;
         catalog[i].name_length = input->name_length;
         catalog[i].scene_only = input->scene_only;
+        catalog[i].effect_index = input->effect_index;
+        catalog[i].pass_index = input->pass_index;
         memcpy(catalog[i].name, input->name, input->name_length);
     }
     domain->named_animations = catalog;

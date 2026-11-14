@@ -146,7 +146,7 @@ static void retained_and_scopes(void) {
         "export function update(v){if(v===2)shared.getter('same').play();"
         "if(v===3){a.stop();throw new Error('late');}return v;}";
     MWXSceneQuickJSOwner *o = owner(d, source, 1);
-    check(mwx_scene_quickjs_owner_configure_current_animation(o, 1,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "current animation compatible");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 5, "one mixed journal");
@@ -322,6 +322,93 @@ static void scene_scopes(void) {
     mwx_scene_quickjs_domain_destroy(d);
 }
 
+static void component_scopes(void) {
+    MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return;
+    MWXSceneQuickJSNamedAnimation entries[] = {
+        {41, 42, "foreign-layer", 13, 1, 3, 5},
+        {51, 17, "other-pass", 10, 1, 3, 6},
+        {61, 17, "other-effect", 12, 1, 4, 5},
+        {77, 17, "renamed-current", 15, 1, 3, 5},
+        {83, 17, "renamed-peer", 12, 1, 3, 5},
+        {89, 17, "cross-duplicate", 15, 1, 3, 6},
+        {97, 17, "cross-duplicate", 15, 1, 3, 5},
+        {101, 17, "local-duplicate", 15, 1, 3, 5},
+        {103, 17, "local-duplicate", 15, 1, 3, 5},
+        {107, 17, "layer-only", 10, 0},
+        {109, 42, "scene-only", 10, 1, 4, 6},
+    };
+    check(mwx_scene_quickjs_domain_configure_named_animations(d, entries,
+        sizeof(entries) / sizeof(entries[0]), diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "component catalog accepts complete target scope");
+    MWXSceneQuickJSOwner *o = owner(d,
+        "let peer,getter;export function init(v){"
+        "peer=thisObject.getAnimation('renamed-peer');getter=thisObject.getAnimation;"
+        "shared.componentAnimation=peer;shared.componentGetter=getter;"
+        "thisObject.getAnimation().pause();"
+        "thisObject.getAnimation('renamed-current').setFrame(4.25);"
+        "peer.setFrame(8.5);getter('cross-duplicate').play();"
+        "let rejected=0;for(const name of ['other-pass','other-effect','foreign-layer',"
+        "'layer-only','local-duplicate','missing']){try{getter(name);}"
+        "catch(e){if(e instanceof RangeError)rejected++;}}"
+        "if(rejected!==6)throw new Error('component scope');"
+        "thisLayer.getAnimation('layer-only').stop();"
+        "thisScene.getAnimation('scene-only').pause();return v;}"
+        "export function update(v){if(v===2){peer.pause();getter('renamed-peer').stop();}"
+        "if(v===3){peer.play();throw new Error('rollback');}return v;}", 0);
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 5,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "component target configures");
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, 3, 6,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "component target cannot change under retained handles");
+    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 6,
+        "current component and legacy lookups share one journal");
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, UINT32_MAX, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 77, 4.25);
+    command(o, 2, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 83, 8.5);
+    command(o, 3, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 97, 0);
+    command(o, 4, MWX_SCENE_QUICKJS_ANIMATION_STOP, 107, 0);
+    command(o, 5, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 109, 0);
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    update(o, 2, 0.1, MWX_SCENE_QUICKJS_OK);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 83, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_STOP, 83, 0);
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    update(o, 1, 0.2, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 0,
+        "discarded component commands are not replayed");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    MWXSceneQuickJSOwner *without_current = owner(d,
+        "export function update(v){let rejected=false;try{thisObject.getAnimation();}"
+        "catch(e){rejected=e instanceof RangeError;}if(!rejected)throw new Error('current');"
+        "thisObject.getAnimation('renamed-peer').play();return v;}", 0);
+    check(mwx_scene_quickjs_owner_configure_animation_target(without_current, 0, 3, 5,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "component names do not require a current-property Timeline");
+    update(without_current, 1, 0.2, MWX_SCENE_QUICKJS_OK);
+    command(without_current, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 83, 0);
+    mwx_scene_quickjs_owner_commit_layer_mutations(without_current);
+    MWXSceneQuickJSOwner *foreign = owner(d,
+        "export function update(v){let rejected=0;"
+        "for(const f of [()=>shared.componentAnimation.play(),"
+        "()=>shared.componentGetter('renamed-peer').play()]){try{f();}"
+        "catch(e){if(e instanceof TypeError)rejected++;}}"
+        "if(rejected!==2)throw new Error('foreign component handle');return v;}", 0);
+    update(foreign, 1, 0.2, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(foreign) == 0,
+        "foreign owner cannot borrow component target or getter");
+    mwx_scene_quickjs_owner_commit_layer_mutations(foreign);
+    update(o, 3, 0.3, MWX_SCENE_QUICKJS_EXCEPTION);
+    update(o, 1, 0.4, MWX_SCENE_QUICKJS_DISABLED);
+    mwx_scene_quickjs_owner_destroy(o);
+    update(foreign, 1, 0.4, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(foreign) == 0,
+        "retired component owner is not dereferenced");
+    mwx_scene_quickjs_owner_destroy(foreign);
+    mwx_scene_quickjs_owner_destroy(without_current);
+    mwx_scene_quickjs_domain_destroy(d);
+}
+
 static void seek_frames(void) {
     MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return; catalog(d);
     MWXSceneQuickJSOwner *o = owner(d,
@@ -334,7 +421,7 @@ static void seek_frames(void) {
         "thisScene.getLayer('B').getAnimation('same').setFrame(1e100);return v;}"
         "export function update(v){if(v===2)a.setFrame(-7.125);"
         "if(v===3){a.setFrame(9);a.setFrame(Infinity);}return v;}", 0);
-    check(mwx_scene_quickjs_owner_configure_current_animation(o, 1,
+    check(mwx_scene_quickjs_owner_configure_animation_target(o, 1, UINT32_MAX, UINT32_MAX,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "seek current target");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 3,
@@ -404,7 +491,7 @@ static void readonly_and_budget(void) {
 
 int main(void) {
     invalid_catalogs(); retained_and_scopes(); rejection_and_deletion();
-    scene_scopes(); seek_frames(); readonly_and_budget();
+    scene_scopes(); component_scopes(); seek_frames(); readonly_and_budget();
     return failures == 0 ? 0 : 1;
 }
 '''

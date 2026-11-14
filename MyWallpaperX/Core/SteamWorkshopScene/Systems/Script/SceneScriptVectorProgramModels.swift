@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
+    let timelineInputTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
@@ -22,9 +23,11 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
         videoCommandTargets: Set<SceneDynamicTarget>,
         ownerEffects: [SceneScriptOwnerEffects] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
+        puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
+        timelineInputTargets: Set<SceneDynamicTarget> = []
     ) {
         self.values = values
+        self.timelineInputTargets = timelineInputTargets
         self.failures = failures
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
@@ -34,6 +37,18 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
         self.mediaPlaybackCommands = mediaPlaybackCommands
         self.videoCommandTargets = videoCommandTargets
         self.ownerEffects = ownerEffects
+    }
+
+    func valuesForAdmission(
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue],
+        excluding rejected: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        var admitted = values.filter { !rejected.contains($0.key) }
+        for target in timelineInputTargets where admitted[target] != nil {
+            guard let value = timelineValues[target] else { continue }
+            admitted[target] = value
+        }
+        return admitted
     }
 }
 

@@ -307,7 +307,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
-        var scalarValueFollowsInput = false
+        var valueFollowsInput = false
         switch scriptInput {
         case let .scalar(value):
             var output = 0.0
@@ -325,7 +325,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 switch scalarValueWithoutUpdate(input: output, expectedGeneration: expectedGeneration) {
                 case let .success(projection):
                     output = projection.value
-                    scalarValueFollowsInput = projection.followsInput
+                    valueFollowsInput = projection.followsInput
                         && !initializesValue && pendingValue == nil
                 case let .failure(failure):
                     discardLayerMutations()
@@ -392,6 +392,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                     ? .vector2(output[0], output[1])
                     : .vector3(output[0], output[1], output[2])
             )
+            valueFollowsInput = !handlesUpdate && !initializesValue && pendingValue == nil
         default:
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }
@@ -413,7 +414,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         return validatedEvaluation(
             value: publishedValue,
             mutations: callbackMutations,
-            scalarValueFollowsInput: scalarValueFollowsInput
+            valueFollowsInput: valueFollowsInput
         )
     }
 
@@ -440,7 +441,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private func validatedEvaluation(
         value publishedValue: SceneDynamicValue,
         mutations: SceneScriptMediaEventMutations,
-        scalarValueFollowsInput: Bool = false
+        valueFollowsInput: Bool = false
     ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         guard Self.acceptsScriptScalarValue(publishedValue, for: target) else {
             discardLayerMutations()
@@ -492,7 +493,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             particlePlaybackCommands: mutations.particlePlaybackCommands,
             puppetAnimationCommands: mutations.puppetAnimationCommands,
             puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations,
-            scalarValueFollowsInput: scalarValueFollowsInput,
+            valueFollowsInput: valueFollowsInput,
             layerTopologyOwnerIdentity: pendingLayerTopologyIdentity,
             cameraCommands: mutations.cameraCommands
         ))

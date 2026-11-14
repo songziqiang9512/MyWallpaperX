@@ -346,7 +346,8 @@ nonisolated extension SceneScriptVectorProgram {
         if let candidate = passVectorProjection(
             binding,
             authoredOrdinal: authoredOrdinal,
-            descriptor: descriptor
+            descriptor: descriptor,
+            timelineTargets: timelineTargets
         ) {
             return candidate
         }
@@ -756,7 +757,8 @@ nonisolated extension SceneScriptVectorProgram {
     private static func passVectorProjection(
         _ binding: SceneScriptBindingIR,
         authoredOrdinal: Int,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        timelineTargets: Set<SceneDynamicTarget>
     ) -> SceneScriptVectorCandidate? {
         guard binding.owner.kind == .pass,
               binding.valueType == .string,
@@ -826,8 +828,13 @@ nonisolated extension SceneScriptVectorProgram {
         } else {
             return nil
         }
+        let hasCurrentAnimation = timelineTargets.contains(definition.target)
         let validWrapper =
-            (binding.wrapperKeys == ["script", "value"]
+            (binding.wrapperKeys == ["animation", "script", "value"]
+                && binding.properties.isEmpty
+                && descriptorValue.userValueKind == nil
+                && hasCurrentAnimation)
+            || (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty
                 && descriptorValue.userValueKind == nil)
             || (SceneScriptDynamicProviderHostContract
@@ -860,7 +867,7 @@ nonisolated extension SceneScriptVectorProgram {
                     binding: binding,
                     inputs: properties
                 ),
-            hasCurrentAnimation: false,
+            hasCurrentAnimation: hasCurrentAnimation,
             dynamicImageReferences: [],
             requiresStatefulOwner: false,
             evaluatesAfterSharedProviders: false,

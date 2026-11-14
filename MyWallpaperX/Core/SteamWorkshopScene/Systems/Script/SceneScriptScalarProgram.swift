@@ -34,9 +34,8 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
         excluding rejected: Set<SceneDynamicTarget>
     ) -> [SceneDynamicTarget: SceneDynamicValue] {
         var admitted = values.filter { !rejected.contains($0.key) }
-        for (target, value) in timelineValues
-            where timelineInputTargets.contains(target) && admitted[target] != nil {
-            guard case let .scalar(number) = value,
+        for target in timelineInputTargets where admitted[target] != nil {
+            guard let value = timelineValues[target], case let .scalar(number) = value,
                   SceneScriptValueOwner.acceptsScalar(number, for: target) else { continue }
             admitted[target] = value
         }
@@ -752,7 +751,7 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                 if valuePublishingTargets.contains(binding.target) {
                     values[binding.target] = evaluation.value
                     if idleTimelinePublishingTargets.contains(binding.target),
-                       evaluation.scalarValueFollowsInput, !hasActiveInitializationValue {
+                       evaluation.valueFollowsInput, !hasActiveInitializationValue {
                         timelineInputTargets.insert(binding.target)
                     }
                 }

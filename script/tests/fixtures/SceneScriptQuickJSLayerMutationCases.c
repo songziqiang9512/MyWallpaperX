@@ -372,8 +372,8 @@ void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fix
         "property object scope", scope_diagnostic
     );
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_configure_current_animation(
-            fixture->property_object, 1, scope_diagnostic, sizeof(scope_diagnostic)
+        mwx_scene_quickjs_owner_configure_animation_target(
+            fixture->property_object, 1, UINT32_MAX, UINT32_MAX, scope_diagnostic, sizeof(scope_diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "property object animation configure", scope_diagnostic
     );

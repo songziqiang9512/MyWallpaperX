@@ -186,7 +186,7 @@ extension Harness {
         return ["initializedScalars": { ["cases": observations, "counterexamples": counterexamples] as [String: Any] }]
     }
 
-    static func passCases(_ fixture: PropertyVectorFixture) -> PropertyVectorObservations {
+    static func passCases(_ fixture: PropertyVectorFixture) throws -> PropertyVectorObservations {
         let descriptor = fixture.descriptor
         let domain = fixture.domain
         let program = fixture.program
@@ -346,8 +346,71 @@ extension Harness {
             effectivePropertyValues: [:],
             frame: frame
         )
+        var combinedAdmission: [String: Any] = [:]
+        for (key, components) in [("scale", [1.0, 2.0]), ("color", [1.0, 2.0, 3.0])] {
+            let target = SceneDynamicTarget.effectConstant(layerID: 10,
+                effectIndex: 0, passIndex: 0, name: key)
+            let source = animationSource + "\nexport function update(value){return value.multiply(2);}"
+            var constructionFailures: [String] = []
+            func compiled(_ tracks: Set<SceneDynamicTarget>,
+                          keys: [String] = ["animation", "script", "value"],
+                          script: String? = nil, copies: Int = 1) throws -> SceneScriptVectorProgram {
+                let sceneDomain = try SceneScriptQuickJSDomain()
+                let selected = script ?? source
+                let descriptor = SceneRenderDescriptor(layers: [.init(id: 10, layerIndex: 0,
+                    name: "anchor", visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    scaleHasScript: nil, alpha: 1, effects: [.init(name: "history", effectID: 100,
+                        passes: [.init(passIndex: 0, id: 200, constantShaderValues: [key: .init(
+                            scriptSource: selected, components: components, timeline: true)])])])])
+                let binding = passVectorBinding(key: key, source: selected,
+                    value: components.map(String.init(describing:)).joined(separator: " "), wrapperKeys: keys)
+                let projection = SceneScriptVectorProgram.project(descriptor: descriptor,
+                    scriptBindings: Array(repeating: binding, count: copies), timelineTargets: tracks)
+                let construction = SceneScriptVectorProgram.compileNonPassCandidate(domain: sceneDomain,
+                    descriptor: descriptor, projection: projection, userPropertyDefinitions: [],
+                    rejectedTargets: [], generation: 240)
+                let value = construction.program
+                let pass = value.instantiatePassOwners(projection: projection,
+                    admittedTargets: projection.passTargets)
+                constructionFailures += (Array(construction.failures.values) + Array(pass.failures.values))
+                    .map { String(describing: $0) }
+                fixture.retained.append(value)
+                return value
+            }
+            let input: SceneDynamicValue = components.count == 2
+                ? .vector2(1, 2) : .vector3(1, 2, 3)
+            let admitted = try compiled([target])
+            let result = admitted.evaluate(inputs: [target: input], effectivePropertyValues: [:], frame: frame)
+            let wrongTarget = SceneDynamicTarget.effectConstant(layerID: 10,
+                effectIndex: 0, passIndex: 1, name: key)
+            let bad = try compiled([target], script: "export function update(value){return 'bad';}")
+            let badResult = bad.evaluate(inputs: [target: input], effectivePropertyValues: [:], frame: frame)
+            let event = try compiled([target], script: mediaAnimationSource)
+            let withoutTrack = try compiled([])
+            let wrongTrack = try compiled([wrongTarget])
+            let wrongWrapper = try compiled([target], keys: ["animation", "extra", "script", "value"])
+            let duplicate = try compiled([target], copies: 2)
+            combinedAdmission[key] = [
+                "constructionFailures": constructionFailures,
+                "bindings": admitted.bindings.count,
+                "hasCurrentAnimation": admitted.bindings.first?.hasCurrentAnimation == true,
+                "value": components.count == 2 ? vector2(result.values[target]) : vector(result.values[target]),
+                "commandTargets": result.animationMutations.map(\.target) == [target],
+                "commands": result.animationMutations.map(\.command) == [.play],
+                "failures": result.failures.count,
+                "fieldWithoutPreparedTrackRejected": withoutTrack.bindings.isEmpty,
+                "wrongPreparedTargetRejected": wrongTrack.bindings.isEmpty,
+                "wrongWrapperRejected": wrongWrapper.bindings.isEmpty,
+                "duplicateRejected": duplicate.bindings.isEmpty,
+                "badReturnUnpublished": badResult.values[target] == nil
+                    && badResult.failures[target]?.code == "bad-return",
+                "eventExportAdmitted": event.bindings.count == 1
+                    && event.bindings.first?.handlesMediaThumbnail == true,
+            ]
+        }
         defer { fixture.retained += [passVectorProgram, rejectedPassVectorProgram, userBoundPassVectorProgram, userColorProgram, passColorProgram, partitionedPassProgram] }
         return [
+            "passCombinedAdmission": { combinedAdmission },
             "passVectorBindings": { passVectorProgram.bindings.count },
             "passVectorValue": { vector2(passVectorResult.values[passVectorTarget]) },
             "passVectorFailures": { passVectorResult.failures.count },

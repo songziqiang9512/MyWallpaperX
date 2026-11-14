@@ -122,15 +122,15 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 | Cursor/媒体/用户属性事件 | 原入口快照与 owner 回调；一次性事件不能因 GPU 重试重复派发 |
 
 <a id="component-animation-scope"></a>
-### 组件属性动画的名称作用域与交接设计
+### 组件属性动画的名称作用域与交接
 
-[公开接口](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)允许省略name取得当前属性动画。固定官方2.8.0.42的合格自有pass控制支持按名字查同一pass的其他属性、拒跨pass/effect/layer；本机component named lookup、pass Combined和事件控制的值交接仍未实现，实际资格见[运行证据](runtime-evidence-current.md#component-animation-scope)。观察只覆盖该pass场景，不由此扩大其他组件或ILayer的查询范围。
+[公开接口](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)允许省略name取得当前属性动画。本机effect pass的当前/具名查询沿原动画句柄执行，同pass其他属性可查，跨pass/effect/layer不兜底；固定官方2.8.0.42和同输入App的九卡资格见[运行证据](runtime-evidence-current.md#component-animation-scope)。观察只覆盖该pass场景，不扩大其他组件或原ILayer/scene查询范围；本pass歧义仍保原局部拒绝，不据跨pass重名卡推一般first-match。
 
-目标沿已编译Timeline bindings→原冷catalog→C handle→原有序animation journal→同PlaybackRuntime preview/commit→typed snapshot，不新增registry、clock或播放状态。原完整target已经有layer/effect/pass，冷配置只投影查找所需最小subject坐标；保target index与压缩catalog index各自身份及current-property sentinel。退component无条件拒named的旧限制，保原ILayer/scene查询和缺失/歧义/退休的实际错误；不按名字或作者路径特判。
+已编译Timeline bindings→原冷catalog→C handle→原有序animation journal→同PlaybackRuntime preview/commit→typed snapshot保持唯一链。原完整target的layer/effect/pass只在冷配置投影，target index与压缩catalog index、current-property sentinel各保身份。一个C动画target配置入口取代旧current-only ABI，原named许可位退为component scope身份；不新增registry、clock、播放状态或逐帧作者树查询，保原目标存活、句柄/owner寿命和事务失败范围。
 
-pass wrapper准入复用原timelineTargets的精确目标，供hasCurrentAnimation，不以animation字段存在冒充已编译轨。事件only owner保原命令与寿命，默认input passthrough不能成为覆盖同帧seek的vector writer；真实init/update的返回按原值角色交接，使用原preview/commit和失败owner回滚，不追加持久输入副本或值相等推断。
+pass Combined wrapper依原timelineTargets精确匹配已编译目标，供hasCurrentAnimation，不把animation字段当已准备轨。原ValueOwner用真实exports和当次init/pending消费区分值返回与无update的input转发；原coordinator保同一角色，vector与scalar沿原preview在admission回接真实Timeline输入。事件/idle owner不造值writer；真实init本次返回和真实update（包括return input）仍是值writer。已提交无Timeline值归原EvaluationTransaction，pending初始化寿命不延长，无持久输入副本或值相等猜测。两lane只遍历本帧实际转发target集合，退出无关Timeline全表扫描，保原scalar合法域和拒绝过滤。
 
-验收先核同pass/改名、跨pass/effect/layer、missing/duplicate、current无参/同名、保留句柄/退休与原有序journal反例；再核实际Combined、event-only与真正update writer的同帧值及回滚。复用冻结九卡App和官方oracle，补作者真实触发→原typed Timeline/Program→最终页与独立已有交互回归；未达此链不宣称288翻页、播放推进或全部component API恢复。
+最近真实C/VM与共享coordinator/Playback/Transaction核同pass/改名、current无参/同名、跨域/missing/duplicate、保留句柄/退休/回滚、精确冷目标、Vec2/Vec3、init/事件/timer及真正update角色；App复用冻结九卡和既有官方oracle。作者288翻页尚缺成熟相位的真实命中，其余活动输入、其他组件和持续播放不由静态九卡升级；后继只补队列记录的触发资格及同subject Program→最终页，不强制显隐或重复旧矩阵。
 
 <a id="particle-instance-scalars"></a>
 ### Particle instance 数值

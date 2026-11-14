@@ -13,12 +13,25 @@ nonisolated enum SceneScriptAnimationHandleBridge {
         }
     }
 
-    static func configure(owner: OpaquePointer, hasCurrentAnimation: Bool) throws {
-        guard hasCurrentAnimation else { return }
+    static func configure(
+        owner: OpaquePointer, target: SceneDynamicTarget, hasCurrentAnimation: Bool
+    ) throws {
+        let effectIndex: UInt32
+        let passIndex: UInt32
+        if case let .effectConstant(_, effect, pass, _) = target {
+            effectIndex = UInt32(effect)
+            passIndex = UInt32(pass)
+        } else {
+            guard hasCurrentAnimation else { return }
+            effectIndex = .max
+            passIndex = .max
+        }
         var diagnostic = [CChar](repeating: 0, count: 256)
-        let raw = mwx_scene_quickjs_owner_configure_current_animation(
+        let raw = mwx_scene_quickjs_owner_configure_animation_target(
             owner,
-            1,
+            hasCurrentAnimation ? 1 : 0,
+            effectIndex,
+            passIndex,
             &diagnostic,
             diagnostic.count
         )
@@ -108,13 +121,19 @@ nonisolated extension SceneScriptQuickJSDomain {
         for (index, binding) in bindings.enumerated() {
             let layerID: Int
             let sceneOnly: UInt32
+            let effectIndex: UInt32
+            let passIndex: UInt32
             switch binding.target {
             case let .layer(id, _), let .text(id, _):
                 layerID = id
                 sceneOnly = 0
-            case let .effectConstant(id, _, _, _):
+                effectIndex = 0
+                passIndex = 0
+            case let .effectConstant(id, effect, pass, _):
                 layerID = id
                 sceneOnly = 1
+                effectIndex = UInt32(effect)
+                passIndex = UInt32(pass)
             default: continue
             }
             let name = binding.name
@@ -126,7 +145,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             names.append(copied)
             records.append(.init(target_index: targetIndex, layer_id: Int64(layerID),
                 name: UnsafePointer(copied), name_length: name.utf8.count,
-                scene_only: sceneOnly))
+                scene_only: sceneOnly, effect_index: effectIndex, pass_index: passIndex))
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = records.withUnsafeBufferPointer {

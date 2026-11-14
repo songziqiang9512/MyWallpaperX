@@ -177,6 +177,7 @@ nonisolated extension SceneScriptValueOwner {
                 )
                 try SceneScriptAnimationHandleBridge.configure(
                     owner: created,
+                    target: target,
                     hasCurrentAnimation: hasCurrentAnimation
                 )
                 if let puppetAnimationIdentity {
