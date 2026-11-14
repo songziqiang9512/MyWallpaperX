@@ -38,6 +38,7 @@ struct ScenePreparedStaticModelResources {
         let normalMap: SceneStaticModelNormalMap?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
+        let testsDepth: Bool
         let materialBlending: SceneMaterialRenderState.Blending?
         let geometryState: SceneMdlStaticModel.GeometryState
 
@@ -48,7 +49,8 @@ struct ScenePreparedStaticModelResources {
             material: SceneStaticModelMaterial, writesDepth: Bool,
             materialBlending: SceneMaterialRenderState.Blending?,
             geometryState: SceneMdlStaticModel.GeometryState = .authoredStatic,
-            normalMap: SceneStaticModelNormalMap? = nil
+            normalMap: SceneStaticModelNormalMap? = nil,
+            testsDepth: Bool = true
         ) {
             self.modelPath = modelPath
             self.materialPath = materialPath
@@ -60,6 +62,7 @@ struct ScenePreparedStaticModelResources {
             self.normalMap = normalMap
             self.material = material
             self.writesDepth = writesDepth
+            self.testsDepth = testsDepth
             self.materialBlending = materialBlending
             self.geometryState = geometryState
         }
@@ -260,12 +263,13 @@ struct ScenePreparedStaticModelResources {
                         namedAlbedo: namedAlbedo,
                         emissiveMask: emissiveMask,
                         material: modelMaterial,
-                        writesDepth: writesDepth(pass.depthWrite),
+                        writesDepth: depthEnabled(pass.depthWrite),
                         materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
                         geometryState: preparedGeometry.geometryState,
                         normalMap: normal.map { .init(texture: $0.texture,
                             textureFrame: $0.uvTransform, sampling: $0.sampling,
-                            encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) }
+                            encoding: .init(authoredFormat: $0.authoredFormat, pixelFormat: $0.pixelFormat)) },
+                        testsDepth: depthEnabled(pass.depthTest)
                     ))
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
@@ -349,7 +353,7 @@ struct ScenePreparedStaticModelResources {
             .localizedLowercase
     }
 
-    private static func writesDepth(_ value: String?) -> Bool {
+    private static func depthEnabled(_ value: String?) -> Bool {
         guard let normalized = value?.trimmingCharacters(
             in: .whitespacesAndNewlines
         ).localizedLowercase else {

@@ -34,6 +34,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
 
         func render(
             _ lights: [SceneLightSnapshot.Point], planes: [Float] = [],
+            planeDepthTests: [Bool] = [],
             frontFacing: MTLWinding = .counterClockwise, cullMode: MTLCullMode = .none,
             near: Float = 0.25, far: Float = 20,
             format: MTLPixelFormat = .bgra8Unorm, pipeline: ScenePointVolumePipeline
@@ -57,10 +58,12 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             let writer = command.makeRenderCommandEncoder(descriptor: depthPass)!
             let projection = SceneMatrix.reversingDepth(SceneMatrix.perspectiveRHMetal(
                 fovYRadians: .pi / 2, aspect: 1, near: near, far: far))
-            for distance in planes {
+            for (index, distance) in planes.enumerated() {
                 precondition(modelPipeline.drawCameraDepth(mesh: mesh,
                     modelToClip: projection * SceneMatrix.scale(SIMD3(repeating: distance)),
-                    frontFacing: frontFacing, cullMode: cullMode, encoder: writer))
+                    frontFacing: frontFacing, cullMode: cullMode,
+                    testsDepth: planeDepthTests.indices.contains(index) ? planeDepthTests[index] : true,
+                    encoder: writer))
             }
             writer.endEncoding()
 
@@ -97,6 +100,8 @@ final class SceneGraphRenderTargetResidencyPin { func release() {} }
             "farPlane": render([red], planes: [8], pipeline: ldr),
             "nearThenFar": render([red], planes: [2, 8], pipeline: ldr),
             "farThenNear": render([red], planes: [8, 2], pipeline: ldr),
+            "nearThenFarNoTest": render([red], planes: [2, 8], planeDepthTests: [true, false], pipeline: ldr),
+            "farThenNearNoTest": render([red], planes: [8, 2], planeDepthTests: [true, false], pipeline: ldr),
             "counterClockwise": render([red], planes: [2], cullMode: .back, pipeline: ldr),
             "clockwise": render([red], planes: [2], frontFacing: .clockwise, cullMode: .back, pipeline: ldr),
             "cameraInside": render([point(SIMD3(0, 0, -0.7), radius: 2)], pipeline: ldr),

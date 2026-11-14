@@ -112,6 +112,7 @@ struct ScenePreparedStaticModelResources {
   let albedo:PreparedTexture?;var namedAlbedo:String? = nil;var emissiveMask:PreparedTexture? = nil
   var normalMap:SceneStaticModelNormalMap? = nil
   let material:SceneStaticModelMaterial;var writesDepth:Bool = true
+  var testsDepth:Bool = true
   var materialBlending:SceneMaterialRenderState.Blending? = nil
   var geometryState:SceneMdlStaticModel.GeometryState = .authoredStatic
  }

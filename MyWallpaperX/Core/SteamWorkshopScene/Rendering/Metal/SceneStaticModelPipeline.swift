@@ -135,6 +135,7 @@ struct SceneStaticModelPipeline {
     private let writingDepthState: MTLDepthStencilState
     private let nonwritingDepthState: MTLDepthStencilState
     private let disabledDepthState: MTLDepthStencilState
+    private let writeOnlyDepthState: MTLDepthStencilState?
     private let samplerStates: SceneTextureSamplerStateSet
     private let shadowState: MTLRenderPipelineState?
     private let spotShadowState: MTLRenderPipelineState?
@@ -232,6 +233,11 @@ struct SceneStaticModelPipeline {
         self.writingDepthState = writingDepthState
         self.nonwritingDepthState = nonwritingDepthState
         self.disabledDepthState = disabledDepthState
+        let writeOnlyDepthDescriptor = MTLDepthStencilDescriptor()
+        writeOnlyDepthDescriptor.label = "Scene static model write-only depth"
+        writeOnlyDepthDescriptor.depthCompareFunction = .always
+        writeOnlyDepthDescriptor.isDepthWriteEnabled = true
+        writeOnlyDepthState = device.makeDepthStencilState(descriptor: writeOnlyDepthDescriptor)
         self.samplerStates = samplerStates
         if preparesCameraDepth,
            let vertex = library.makeFunction(name: "sceneStaticModelCameraDepthVertex") {
@@ -380,6 +386,7 @@ struct SceneStaticModelPipeline {
         additiveRGB: Bool = false,
         lighting: SceneLightSnapshot,
         writesDepth: Bool,
+        testsDepth: Bool = true,
         shadows: [SceneStaticModelShadow] = [],
         reflectionTexture: MTLTexture? = nil,
         frameEpoch: UInt64 = 0,
@@ -416,6 +423,10 @@ struct SceneStaticModelPipeline {
         }
         let colorState: MTLRenderPipelineState? = additiveRGB ? additiveState : state
         guard let colorState else { return false }
+        let depthState: MTLDepthStencilState? = testsDepth
+            ? (writesDepth ? writingDepthState : nonwritingDepthState)
+            : (writesDepth ? writeOnlyDepthState : disabledDepthState)
+        guard let depthState else { return false }
         let reflectiveState = additiveRGB ? additiveReflectionState : reflectionState
         // Official `lpoint` lights static models; `point` lights only 2D lit
         // images (own-fixture black-box, 2026-10-06). Shadow slots and the
@@ -564,9 +575,7 @@ struct SceneStaticModelPipeline {
         } else {
             encoder.setRenderPipelineState(colorState)
         }
-        encoder.setDepthStencilState(
-            writesDepth ? writingDepthState : nonwritingDepthState
-        )
+        encoder.setDepthStencilState(depthState)
         encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(material.cullMode)
         defer {
@@ -623,12 +632,15 @@ struct SceneStaticModelPipeline {
     @discardableResult
     func drawCameraDepth(
         mesh: SceneStaticModelMesh, modelToClip: simd_float4x4,
-        frontFacing: MTLWinding, cullMode: MTLCullMode, encoder: MTLRenderCommandEncoder
+        frontFacing: MTLWinding, cullMode: MTLCullMode,
+        testsDepth: Bool = true, encoder: MTLRenderCommandEncoder
     ) -> Bool {
         guard let cameraDepthState else { return false }
+        let depthState: MTLDepthStencilState? = testsDepth ? writingDepthState : writeOnlyDepthState
+        guard let depthState else { return false }
         var transform = modelToClip
         encoder.setRenderPipelineState(cameraDepthState)
-        encoder.setDepthStencilState(writingDepthState)
+        encoder.setDepthStencilState(depthState)
         encoder.setFrontFacing(frontFacing)
         encoder.setCullMode(cullMode)
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)

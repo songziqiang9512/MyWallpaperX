@@ -868,6 +868,12 @@
       "purpose": "视频与声音运行边界"
     },
     {
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/runtime-evidence-current.md",
+      "purpose": "模型材质、命名输入、相机深度与局部合成运行证据"
+    },
+    {
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",

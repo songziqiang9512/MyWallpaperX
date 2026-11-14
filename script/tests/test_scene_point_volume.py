@@ -46,6 +46,8 @@ class ScenePointVolumeTests(unittest.TestCase):
         self.assertNotEqual(blocked, clear)
         self.assertEqual(pixels["nearThenFar"]["covered"], blocked)
         self.assertEqual(pixels["farThenNear"]["covered"], blocked)
+        self.assertEqual(pixels["nearThenFarNoTest"]["covered"], pixels["farPlane"]["covered"])
+        self.assertEqual(pixels["farThenNearNoTest"]["covered"], blocked)
         # Toggling which winding is front-facing makes the same plane eligible
         # in exactly one of these otherwise identical back-face-culling draws.
         self.assertCountEqual(

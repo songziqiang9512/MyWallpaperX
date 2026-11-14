@@ -23,6 +23,7 @@ extension SceneMetalRenderer {
             let mesh: SceneStaticModelMesh
             let modelToClip: simd_float4x4
             let cullMode: MTLCullMode
+            let testsDepth: Bool
         }
 
         struct Depth {
@@ -269,13 +270,14 @@ extension SceneMetalRenderer {
                 layerAlpha: draw.alpha, material: draw.material,
                 materialColorIsOpaque: draw.entry.materialBlending == .normal,
                 additiveRGB: draw.entry.materialBlending == .additive, lighting: lighting,
-                writesDepth: draw.entry.writesDepth, shadows: state.shadows,
+                writesDepth: draw.entry.writesDepth, testsDepth: draw.entry.testsDepth, shadows: state.shadows,
                 reflectionTexture: environment?.publication.texture,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
             if encoded && state.collectsVolumeOccluders && usesPerspective && pass.isSceneRoot
                 && draw.entry.writesDepth && draw.entry.materialBlending == .normal && draw.alpha == 1 {
                 state.volumeOccluders.append(.init(mesh: draw.mesh,
-                    modelToClip: viewProjection * draw.world, cullMode: draw.material.cullMode))
+                    modelToClip: viewProjection * draw.world, cullMode: draw.material.cullMode,
+                    testsDepth: draw.entry.testsDepth))
             }
 #if DEBUG
             if let trace = pass.compositionTrace, trace.isCompositionSelected {
@@ -285,7 +287,8 @@ extension SceneMetalRenderer {
                     source: source, target: pass.compositionTarget,
                     outcome: encoded ? "draw-encoded" : "failed",
                     reason: "model-internal-material-bindings-not-observed",
-                    details: ["blending": draw.entry.materialBlending?.rawValue ?? "legacy"]))
+                    details: ["blending": draw.entry.materialBlending?.rawValue ?? "legacy",
+                        "depthTest": String(draw.entry.testsDepth), "depthWrite": String(draw.entry.writesDepth)]))
                 if encoded, let normal = draw.entry.normalMap {
                     trace.recordComposition(.init(kind: "model-normal", layerID: layer.id, slot: 7,
                         source: .init(normal.texture, role: "model-normal-data"),
@@ -356,7 +359,8 @@ extension SceneMetalRenderer {
             let winding = pass.rasterFrontFacing
             for occluder in state.volumeOccluders {
                 pipeline.drawCameraDepth(mesh: occluder.mesh, modelToClip: occluder.modelToClip,
-                    frontFacing: winding, cullMode: occluder.cullMode, encoder: encoder)
+                    frontFacing: winding, cullMode: occluder.cullMode,
+                    testsDepth: occluder.testsDepth, encoder: encoder)
             }
             encoder.endEncoding()
 #if DEBUG

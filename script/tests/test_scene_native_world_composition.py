@@ -21,6 +21,7 @@ import zlib
 
 from script.tests import test_scene_reflection_history_integration as app_runner
 from script.tests.test_scene_static_model_reader import build_model
+from script.tests.test_scene_static_model_parts import join_parts
 from script.web_benchmark_capture import png_rgb_pixels
 from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
@@ -320,6 +321,88 @@ def perspective_image_depth_regions(sorting):
     )}
 
 
+MODEL_DEPTH_STATES = (
+    ("tested-writer", "enabled", "enabled", (255, 0, 0)),
+    ("untested-writer", "disabled", "enabled", (0, 255, 0)),
+    ("untested-reader", "disabled", "disabled", (0, 0, 255)),
+    ("tested-reader", "enabled", "disabled", (255, 0, 0)),
+)
+MODEL_DEPTH_ROIS = {name: (32 + 64 * index, 128)
+                    for index, (name, _, _, _) in enumerate(MODEL_DEPTH_STATES)}
+
+
+def model_depth_state_entries(renamed=False):
+    folder = "retitled-surfaces" if renamed else "depth-state"
+    ids = (1701, 1802, 1903) if renamed else (401, 402, 403)
+    stems = ("foreground", "distant", "between") if renamed else ("near", "far", "middle")
+    entries, objects = {}, []
+    for layer, stem, z, rgb in zip(ids, stems, (10, -10, 0),
+                                  ((255, 0, 0), (0, 0, 255), (0, 255, 0)), strict=True):
+        texture = f"materials/{folder}/{stem}.png"
+        entries[texture] = png(4, 4, lambda _x, _y, color=rgb: color)
+        parts = []
+        for index, (name, test, write, _) in enumerate(MODEL_DEPTH_STATES):
+            material = f"materials/{folder}/{stem}-{name}.json"
+            render_pass = json.loads(model_material(texture))["passes"][0]
+            if z == -10:
+                render_pass.update(depthtest=test, depthwrite=write)
+            entries[material] = encoded({"passes": [render_pass]})
+            x = 32 + 64 * index
+            parts.append(mdl_quad(x - 22, x + 22, 106, 150, z, material))
+        model = f"models/{folder}/{stem}.mdl"
+        entries[model] = join_parts(parts)
+        objects.append({"id": layer, "model": model, "origin": "0 256 0", "scale": "1 -1 1",
+                        "perspective": False, "castshadow": False})
+    entries["scene.json"] = encoded({"version": 3, "objects": objects, "general": {
+        "orthogonalprojection": {"width": 256, "height": 256}, "nearz": .1, "farz": 100,
+        "clearenabled": True, "clearcolor": "0 0 0", "hdr": False, "bloom": False,
+        "ambientcolor": "0 0 0", "skylightcolor": "0 0 0", "cameraparallax": False,
+        "camerashake": False, "transparentsorting": False}})
+    return entries
+
+
+def model_depth_sort_barrier_entries(tested):
+    entries, objects = {}, []
+    vertex = EFFECT_VERTEX.replace(b"varying vec2 v_TexCoord;",
+        b"uniform mat4 g_ModelViewProjectionMatrix;\nvarying vec2 v_TexCoord;").replace(
+        b"gl_Position = vec4", b"gl_Position = g_ModelViewProjectionMatrix * vec4")
+    for layer, stem, z, color in ((511, "red", .2, (255, 0, 0)),
+                                  (512, "blue", 0, (0, 0, 255)), (513, "green", .1, (0, 255, 0))):
+        material = f"materials/order-barrier/{stem}.json"
+        texture = f"materials/order-barrier/{stem}.png"
+        entries[texture] = png(4, 4, lambda _x, _y, rgb=color: rgb)
+        if stem == "blue":
+            model = "models/order-barrier/occluder.mdl"
+            entries[model] = mdl_quad(-1, 1, -.8, .8, 0, material)
+            render_pass = json.loads(model_material(texture))["passes"][0]
+            render_pass["depthtest"] = "enabled" if tested else "disabled"
+            entries[material] = encoded({"passes": [render_pass]})
+            objects.append({"id": layer, "model": model, "perspective": True, "castshadow": False})
+        else:
+            model = f"models/order-barrier/{stem}.json"
+            effect = f"effects/order-barrier/{stem}/effect.json"
+            effect_material = f"materials/order-barrier/{stem}-effect.json"
+            entries[model] = encoded({"material": material})
+            entries[material] = encoded({"passes": [{"shader": "genericimage4", "textures": [texture],
+                "combos": {"LIGHTING": 0, "REFLECTION": 0, "NORMALMAP": 0}, "blending": "translucent",
+                "depthtest": "enabled", "depthwrite": "enabled", "cullmode": "nocull"}]})
+            entries[effect] = encoded({"passes": [{"material": effect_material}]})
+            entries[effect_material] = encoded({"passes": [{"shader": "owned_barrier_copy", "textures": [None],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+            objects.append({"id": layer, "image": model, "origin": f"0 0 {z}", "size": "128 96",
+                "scale": "0.015625 0.016666666666666666 1", "alpha": .5, "perspective": True,
+                "effects": [{"id": layer + 1000, "file": effect, "visible": True}]})
+    entries["shaders/owned_barrier_copy.vert"] = vertex
+    entries["shaders/owned_barrier_copy.frag"] = b'''uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
+'''
+    scene = native_world_scene(objects)
+    scene["general"]["transparentsorting"] = True
+    entries["scene.json"] = encoded(scene)
+    return entries
+
+
 TEXT_DEPTH_CASES = (
     (71, "direct-far", -1.8, -.8, "enabled", None),
     (72, "effect-far", -.6, -.8, "enabled", "owned_ink"),
@@ -486,6 +569,7 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="native-world-source-", dir=parent))
         sources = [Path(__file__), Path(app_runner.__file__),
                    REPO / "script/tests/test_scene_static_model_reader.py",
+                   REPO / "script/tests/test_scene_static_model_parts.py",
                    REPO / "script/tests/scene_pkg_fixture.py",
                    REPO / "script/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
@@ -533,6 +617,63 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
 
     def test_perspective_image_effect_preserves_legacy_order_without_sorting(self):
         self.run_perspective_image_depth_case(sorting=False)
+
+    def test_model_depth_test_write_combinations_and_complete_resource_rename(self):
+        expected = {name: rgb for name, _, _, rgb in MODEL_DEPTH_STATES}
+        for renamed in (False, True):
+            name = "model-depth-state-renamed" if renamed else "model-depth-state"
+            entries = model_depth_state_entries(renamed)
+            folder, stem = ("retitled-surfaces", "distant") if renamed else ("depth-state", "far")
+            ids = (1701, 1802, 1903) if renamed else (401, 402, 403)
+            (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
+                "states": MODEL_DEPTH_STATES, "ROIs": MODEL_DEPTH_ROIS, "canvas": [256, 256],
+                "expectedRGB": expected, "tolerance": TOLERANCE, "renamed": renamed,
+                "drawOrder": [[layer, 4] for layer in ids],
+                "ROITransform": "viewportCenter+(world-128)*max(W/256,H/256); center horizontal row",
+                "entries": {path: hashlib.sha256(data).hexdigest() for path, data in entries.items()}}))
+            with patch.object(app_runner, "CANVAS", (256, 256)):
+                result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, 0, capture=True,
+                    name=name, entries=entries, rois=MODEL_DEPTH_ROIS,
+                    material_input_path=f"materials/{folder}/{stem}-tested-writer.json")
+            work = self.evidence_root / name
+            for path, event in self.composition_captures(work, (work / "app.log").read_text()):
+                models = [r for r in event["rows"] if r["kind"] == "model" and r.get("outcome") == "draw-encoded"]
+                self.assertEqual([r["layerID"] for r in models], [layer for layer in ids for _ in range(4)])
+                self.assertEqual(len({r["target"]["textureToken"] for r in models}), 1)
+                for region, rgb in expected.items():
+                    measurement = result["pixels"][path.name][region]
+                    self.assertGreater(measurement["count"], 0)
+                    for statistic in ("minimum", "maximum"):
+                        for actual, reference in zip(measurement[statistic], rgb, strict=True):
+                            self.assertAlmostEqual(actual, reference, delta=TOLERANCE,
+                                msg=str((name, path.name, region, measurement)))
+
+    def test_untested_opaque_model_is_a_transparent_sorting_barrier(self):
+        for tested in (False, True):
+            name = "model-depth-sorting-tested" if tested else "model-depth-sorting-untested"
+            entries = model_depth_sort_barrier_entries(tested)
+            regions = {"overlap": {"world": [0, 0, 0],
+                "expectedRGB": (128, 64, 64) if tested else (0, 128, 128)},
+                "outside": {"world": [2, 1.5, 0], "expectedRGB": (0, 0, 0)}}
+            order = (512, 513, 511) if tested else (511, 512, 513)
+            (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
+                "test": tested, "write": True, "sorting": True, "terminalOrder": order,
+                "regions": regions, "tolerance": TOLERANCE,
+                "entries": {path: hashlib.sha256(data).hexdigest() for path, data in entries.items()}}))
+            with patch.object(app_runner, "measure_capture", measure_capture):
+                result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, 0, capture=True,
+                    name=name, entries=entries, rois=regions, material_input_path="materials/order-barrier/blue.json")
+            work = self.evidence_root / name
+            for path, event in self.composition_captures(work, (work / "app.log").read_text()):
+                terminals = [r for r in event["rows"] if r.get("outcome") == "draw-encoded"
+                    and r["kind"] in ("ordinary", "model") and r.get("layerID") in (511, 512, 513)]
+                self.assertEqual([r["layerID"] for r in terminals], list(order))
+                self.assertEqual(len({r["target"]["textureToken"] for r in terminals}), 1)
+                for region, details in regions.items():
+                    measurement = result["pixels"][path.name][region]
+                    for actual, expected in zip(measurement["mean"], details["expectedRGB"], strict=True):
+                        self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
+                            msg=str((name, path.name, region, measurement)))
 
     def test_perspective_text_preserves_covered_depth_through_direct_and_effect_draws(self):
         entries = perspective_text_depth_entries()

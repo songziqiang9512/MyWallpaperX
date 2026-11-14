@@ -464,6 +464,7 @@ extension SceneRenderDescriptor {
  struct MaterialPassDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
   let constantShaderValues:[String:SceneDocument.ShaderValue];var passIndex:Int=0;var depthWrite:String?=nil
+  var depthTest:String?=nil
   var staticModelMaterialBindings:SceneStaticModelMaterialBindings?=nil;var cullMode:String?=nil
   var staticModelDefaultAlbedoAssetPath:String?=nil;var shaderPath:String?=nil
   var blending:String?=nil

@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 183,
-      "bytes": 34635
+      "lines": 192,
+      "bytes": 36607
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 59078
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 600,
-      "bytes": 272856
+      "lines": 587,
+      "bytes": 263874
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 50539
+      "lines": 187,
+      "bytes": 50247
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -219,6 +219,10 @@
     "docs/development/immersive-ui-execution-plan.md": {
       "lines": 107,
       "bytes": 14476
+    },
+    "docs/scene/capabilities/model-runtime-evidence.md": {
+      "lines": 43,
+      "bytes": 12002
     }
   },
   "archives": [
@@ -510,30 +514,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9125fb5eb73b4c9a46f10e45bfb53c77355269efb31c10e5db9aa220790db547",
-      "after": "0c28523ed44c9503ffc9b2da211c065afeec5729297d3491864e17ba652ee21c",
-      "owner": "Scene model materials",
-      "reason": "Add qualified old/new literal GPU differences and signed original-author output; merge the existing parent-visibility evidence paragraph to stay within 600 lines.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#model-additive-blend"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "46ce00e6b2f5200ea77e85a690e3b55992ac923eaec10d1e4b07387eb663319c",
-      "after": "acf346a0c1ffc78a9f9144adcc04fdd5d93a6e5809063b96024bbc39648c3b94",
-      "owner": "Scene model materials",
-      "reason": "Define the actual additive RGB consumer and retirement of fixed source-over; preserve existing independent depth/cull ownership without claiming disabled depth-test support.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-additive-blend"
+      "before": "acf346a0c1ffc78a9f9144adcc04fdd5d93a6e5809063b96024bbc39648c3b94",
+      "after": "dd590a4766cd5a2f59f70605989682733f52664329de7786f5f18bd51ccaf602",
+      "owner": "Scene model materials and evidence",
+      "reason": "Add the actual independent model test/write design and shared volume/reorder consumers; route model evidence directly to its unique topic.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-depth-state"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "42d83e56378a658385f0c8d1b8199bff6d09bd2a6052b376b2fab78b0df2a0c8",
-      "after": "80783e4110f9dd17bd589c8fa67d0e6c8aa4bc33f99870d53c83dbee4e9bf372",
-      "owner": "Scene model materials",
-      "reason": "Retire additive, record the remaining depth-test consumer and qualify the independent hidden Earth effect input instead of claiming a lost authored declaration.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "3f68d4b3c6c0ae9f229ff45559f0edbdbda7a10fa578e9768b3e5658179c755a",
+      "owner": "Scene model materials and evidence",
+      "reason": "One stable model evidence topic owns named albedo, material, local composition and camera-depth qualification; extracted bodies are retired from the index and the actual depth result is added.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#scope"
     }
   ]
 }

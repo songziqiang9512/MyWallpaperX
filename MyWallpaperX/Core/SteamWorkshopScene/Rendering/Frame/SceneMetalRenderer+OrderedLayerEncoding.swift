@@ -42,7 +42,7 @@ extension SceneMetalRenderer {
                     && SceneDynamicLayerValues.alpha(layerID: layer.id,
                         authoredValue: layer.alpha, snapshot: snapshot) == 1
                     && staticModelResources[layer.id]?.allSatisfy {
-                        $0.writesDepth && $0.materialBlending == .normal
+                        $0.testsDepth && $0.writesDepth && $0.materialBlending == .normal
                     } == true
                 if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility)
                     || !(nonDrawing || opaqueModel) {

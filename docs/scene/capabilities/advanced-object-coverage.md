@@ -10,7 +10,7 @@ Direct MDL 与 Puppet 共用 typed 资源、canonical world/camera、材质、Ge
 Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 part/submesh/material/stream 只在实际 consumer 已接入时执行。
 
 <a id="model-named-albedo"></a>
-模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](runtime-evidence-current.md#nested-model-albedo).
+模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](model-runtime-evidence.md#nested-model-albedo).
 
 动态骨骼输出由原 mesh owner 提供按 layer/surface 隔离的有界 vertex slots；index/material 可共享，可写 pose stream 不按 path 共享。color 与 shadow 消费同一 frame binding；编码开始后不能偷偷更换 pose。未准备、lease/encode 失败跳过受影响 draw，不能读取未持有旧 buffer。
 
@@ -23,6 +23,15 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 保持现有深度测试、写入、cull、caster 和光照职责，不从加法或透明度推导统一停写深度，也不另建排序/深度域。原 Frame 直接把已解析混合事实交给原 Pipeline，退已保存 additive 却固定 source-over 的断点，无热解析、附加 pass、资源或输出 owner。生产 GPU 门以非黑背景检验 full/half/zero alpha、改名、深度写开关与近遮挡，保 normal/translucent 邻例；真实星星模型另验同帧颜色/主画布/GPU，独立无加法作者保持原画面。该 RGB 合成是本引擎明确的通用算法，不授全部官方材质语义。
 
+<a id="model-depth-state"></a>
+### 模型的测试与写深度
+
+原模型 Entry 将 `depthtest` 与 `depthwrite` 分别准备成布尔事实，Frame 和原 Pipeline 消费同一对值。沿本引擎已有 image 逆深度合同：测试开启用 greaterEqual，关闭用 always，写入独立；复用现有三个 stencil，只补一份 always/write。关闭测试的后绘模型按作者顺序覆盖，是否改写深度只由写入控制，透明零覆盖仍不写。原冷解析同时归一两字段，沿既有模型策略保 nil/空/未知为开启，仅 disabled/false/off/0 关闭；这是项目默认，不宣官方未知值语义。不用完整材质准入牵连其它字段，也不加普通帧字符串解析。
+
+测试关闭的模型是原透明 image 重排的顺序屏障，退出只凭 normal+写深度即可归入 opaque cohort 的旧判断。实际根域 opaque/alpha1/写深度模型仍由原 VolumeOccluder 收集；它携带相同测试值，原 camera-depth draw 依实际颜色绘制顺序使用比较或无条件写入，避免画面选了远表面、体积仍被旧近表面截止。保持既有实体覆盖资格、mesh/变换/cull、同池同提交，不新增资源、排序器或深度 owner。阴影的灯空间比较、castshadow 与透明资格独立，不跟随 camera test。新增 stencil 不可用时仅跳对应模型绘制；无需改旧比较深度路径。
+
+验收先用生产资源/Frame/Metal 的近红→远蓝四组合及实际深度，保 alias/未知/改名、alpha0、后继绘制状态与原混合邻例；自有完整 App 用中间绿色表面区分写入，再核 transparent image→no-test模型的排序屏障、同模型开启测试的合法重排邻例，以及真实实体收集到体积深度的近远顺序。独立作者启用深度只授原路径回归，不充作 disabled 正例。模型/图像共享原逆深度域，不扩为文字 disabled 排序、任意半透明体积或官方像素一致。
+
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 
@@ -32,7 +41,7 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 无图、显式关闭或可选资源失败保几何法线和原颜色；零切线/退化采样局部保几何法线，不拒整模型。仅启用的图增加一次片元采样；不加逐帧资源解析、缓存、状态树、深度 target 或 PSO 家族。环境的几何方向渐变、阴影的实际接收平面和 caster、alpha/深度继续原合同；直接光与已有反射消费扰动法线。原反射的“有 normal 即拒绝”限制随消费者退出，分量图及外部反射图仍不由此放行。
 
-验收沿原模型资源和 production Metal 门，覆盖平法线、相反切向扰动、tangent.w、旋转/镜像/非均匀变换、独立 UV/采样、原格式与普通图片、显式关闭/缺图和健康 peer；另核原 alpha/深度及反射邻例。真实月球和独立楼体使用原包取得实际 normal binding、同帧 main/GPU 与画面，不以 slot 声明代贡献。实现及运行资格由本节与[运行证据](runtime-evidence-current.md)分别维护。
+验收沿原模型资源和 production Metal 门，覆盖平法线、相反切向扰动、tangent.w、旋转/镜像/非均匀变换、独立 UV/采样、原格式与普通图片、显式关闭/缺图和健康 peer；另核原 alpha/深度及反射邻例。真实月球和独立楼体使用原包取得实际 normal binding、同帧 main/GPU 与画面，不以 slot 声明代贡献。实现及运行资格由本节与[模型证据](model-runtime-evidence.md#model-normal-map)分别维护。
 
 <a id="static-model-screen-reflection"></a>
 ### 静态模型的屏幕反射
