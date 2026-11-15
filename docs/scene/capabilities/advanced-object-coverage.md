@@ -70,6 +70,17 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
+<a id="model-normal-consumers"></a>
+### 模型法线的实际消费者
+
+目标是让有限世界变换中仍有面积的无光照平面正常显示、遮挡与投影；旧Frame在part之前求逆，任一零轴使整层退出，即使材质输出不用法线。材质的真实法线需求只有receivesLighting、存在viewTint或潜在reflectivity>0；以原Material的纯计算属性供Frame和独立Pipeline共用，不保存状态，不从几何、路径、rank或样本猜许可。原可选normal纹理的stock/Chroma非常色准备资格保持，不能因几何需求复用而扩大加载范围。
+
+数据流仍为`prepared Material/mesh → 同一typed world → part draw → 原颜色/depth/shadow/volume → unique compositor`。Frame在世界入口核完整4×4有限性一次；有实际需求才至多求一次layer线性3×3逆转置，并在每part、albedo及named完整性需求之前局部决定供货。无需求用既有identity normal载体，跳过求逆；需要法线且线性不可逆的part局部退出，不能带走健康unlit part。独立Pipeline沿同一需求选择prepared normal或原数学计算，无需求忽略未消费的prepared normal。退整层求逆许可及数学函数内重复world有限性，原数学函数保签名并直接提取前三轴作Double非零det、归一逆转置和输出有限性；不为无内置构造的类型转换另加helper或重复坐标提取。prepared normal唯一来自已验证不可变draw，Pipeline不再重验该同步产物；独立nil分支仍由原数学函数判输出。两真实world入口各守各自提交域，不加wrapper、缓存、flag、PSO或ABI。
+
+有限性不能随求逆退出：父矩阵乘积可能溢出，坏world须在caster bounds与三灯map之前局部退出，避免污染健康投影。零面积/线/全零几何由原光栅器给出无覆盖，不新造rank判定或cofactor替代法线。原受光、tint、反射的非均匀/镜像/小非零缩放与光照公式保持；geometry、cull、albedo/alpha、深度test/write、cast intent、camera-depth及volume仍消费同份world/draw，不另建许可链。
+
+验收沿原Frame/Metal门，先保旧源码/旧App红例，再核XY scaleZ0与YZ scaleX0对各自有面积控制的颜色/实际深度/三灯投影等值，父旋转/镜像和改名；混part中unlit继续而lit/view/reflection局部拒，named未消费不牵连完整性，非finite world整层局部退、全零不覆盖健康peer。保原小非零/非均匀/负det的normal数值与有光照像素。完整App只用可区分遮挡/投影控制闭合main/seal/GPU，独立真实星球保原运行；未证作者rank2命中或官方对应语义时，以上述自有消费者算法验收，不以绑定计数代像素或宣性能收益。最小结果达此合同后退出该断点，剩余真正normal需求不借本批放宽。
+
 <a id="model-normal-map"></a>
 ### 模型法线贴图
 

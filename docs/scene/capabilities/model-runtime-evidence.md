@@ -217,3 +217,14 @@ TEX App运行对应首个不可变构建30.417s；其后仅资源/Ordered的冷�
 skew用O(1,1.5),X(4,0),Y(2,4)，只授四个字面probe：源texel(2,2)/(3,4)/(5,4)的RGB精确为[60,70,76]/[80,110,110]/[120,110,114]且对应影5；(4,2)透明孔的颜色与投影均97，peer蓝。它不宣整个skew等于矩形crop。实际typed source UV分别[.75,.25;0,.5;-.5,0]、[.25,.75;.5,0;0,-.5]、[.125,.1875;.5,0;.25,.5]，属于draw输入观测，不当GPU uniform读回。各图同request/CB model→main/seal/GPU完成、零截断并排空，原13组model输入不变。
 
 独立3437487219原project/pkg与matrix/report匹配，最终App自然5s，F140/request1/CB503923197696中112/114模型与135图像到同main503972617728/seal/GPU，零截断并排空，18.383s执行且App/六产品身份稳定；实际查看地球、云、大气、银河星点与时钟完整。作者报告归`.artifacts/scene-evidence/runs/scene-model-affine-frame-20261115`；本节只授上述自有整数nearest/clamp帧，cross-image、任意线性边缘或官方像素不由此推导。详细原始输入、完整图、失败与独审归`.artifacts/scene-model-affine-frame-20261115`。
+
+<a id="model-normal-consumers"></a>
+### 模型法线需求与保有面积的零轴平面
+
+按[实际消费者合同](advanced-object-coverage.md#model-normal-consumers)，原Material纯需求供Frame/独立Pipeline共用；有限world中无lighting/viewTint/潜在reflection的part用identity法线载体，不求逆，仍沿同draw参与颜色/depth/shadow/volume。Frame只在有需求时至多求一次原Double逆转置，singular只退对应part且先于named查询；原world有限性前移到Frame实际入口，Pipeline已有入口继续守其提交域，退数学内与prepared产物的重复重验。三产品净+7行，无新shader/ABI/PSO/资源owner/状态/cache，normal纹理原准备资格未扩；原数学签名和线性计算保持，不为SDK无内置矩阵转换再加helper。该几何算法不宣官方一致或活动作者rank2命中。
+
+普通Debug29.753s通过，三产品/project/锁文件构建前后同；strict-deep与原trusted helpers通过，exe521462eb…7a69、dylib9171e7cf…7e20、metallib仍9062517f…0864d。旧App两场31.509s中XY正常控制先通过，仅subject scaleZ1→0后红200位置实际露后绘蓝200，原模型丢失；新同输入四场60.318s全过。XY及经父Ry90/镜像、实际MDL/material/TEX改名的YZ scaleX1→0两对，ready/after完整PNG全部同c7559ada…5476，并等旧XY正常控制。非恒红/绿/蓝200表面、透明孔露后绘蓝面、实体影5/孔影97、蓝peer255保持；日志核subject2先于far5，后绘远面启用test/write，故遮挡对照可区分。每对除scene单个scale分量外全部输入同，原18变体字节不变；六场12捕获逐一同request/CB/main/seal/GPUcompleted、trunc0及排空。运行时长是功能验收，未授性能对照。
+
+原Frame载体的原120程序循环及31 JSON观察共151行完整结果逐值同，新增41项，共192行同输入实际GPU读回；旧二进制新两方法24个子断言红、无执行错误，新五方法全过。两版复用同一Harness/JSON，无API适配；有面积XY/YZ、组合旋转/镜像/改名world的unlit恢复实际白色/相机depth与三灯map深度，mixed的lit/view/reflection只退其part，unused named不查询，零面积/非finite world保独立peer。原NormalMap六方法36输入32.111s通过，原动态材质/normal数学7.717s通过，保小非零、非均匀、负det与原方向/手性/alpha/depth/反射断言；不是把测试业务逻辑重写一份。原CULL Swift169行完整归位fixture再扩原class，两份测试674/251行，未新建suite或renderer；初两处载体构造/必需参数编译失败为零GPU，原日志保留。产品未因载体失败改变，未增加普通帧诊断或缓存；此Native载体不授实际parent resolver、named provider readiness、volume replay或normal uniform反读，父层级只由前述完整App实际变体资格。
+
+独立原3437487219自然五秒18.593s运行，F138/request1/CB527020903936的112/114模型及135图像到main526972165632，终端封口/GPUcompleted、trunc0/parse0并排空；原project/pkg摘要等冻结matrix与运行副本。完整地表、云层、蓝边、暗半球、星空银河及钟/日期可见，仅授普通作者回归；未冒称全树运行后哈希或作者使用零轴平面。必要原报告/日志/终端已按14天/32MiB晋升`.artifacts/scene-evidence/runs/scene-model-normal-consumers-20261115`；生产输入、原生结果及独审归`.artifacts/scene-model-normal-consumers-20261115`。

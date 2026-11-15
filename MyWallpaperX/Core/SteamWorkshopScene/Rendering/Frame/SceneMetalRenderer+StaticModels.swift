@@ -178,12 +178,13 @@ extension SceneMetalRenderer {
                          requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
         guard let parts = staticModelResources[layer.id] else { return [] }
         let world = staticModelWorld(for: layer.id, worldFrames: worldFrames)
-        // Authored zero scale can leave planar geometry while the color draw
-        // rejects its singular normal transform. Apply that same admission before
-        // collecting depth leases, shadow bounds or casters for this layer.
-        guard let normalMatrix = SceneStaticModelPipeline.normalMatrix(for: world) else { return [] }
+        guard SceneStaticModelPipeline.isFinite(world) else { return [] }
+        let normalMatrix = parts.contains { $0.material.requiresSurfaceNormal }
+            ? SceneStaticModelPipeline.normalMatrix(for: world) : nil
         var hasMissingInput = false
         let draws: [StaticModelDraw] = parts.compactMap { entry in
+            guard let partNormalMatrix = entry.material.requiresSurfaceNormal
+                ? normalMatrix : matrix_identity_float3x3 else { return nil }
             let mesh: SceneStaticModelMesh
             if let state {
                 guard let current = state.mesh(for: layer.id, bind: entry.mesh) else { return nil }
@@ -219,7 +220,7 @@ extension SceneMetalRenderer {
                 snapshot: snapshot))
             return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,
-                world: world, normalMatrix: normalMatrix, material: material,
+                world: world, normalMatrix: partNormalMatrix, material: material,
                 alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
                     authoredValue: layer.alpha, snapshot: snapshot)))
         }

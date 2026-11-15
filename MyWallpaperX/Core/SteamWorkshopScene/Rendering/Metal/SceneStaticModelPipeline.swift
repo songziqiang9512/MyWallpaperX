@@ -419,8 +419,9 @@ struct SceneStaticModelPipeline {
               cameraPosition.y.isFinite,
               cameraPosition.z.isFinite,
               Self.isValid(material.viewTint),
-              let normalMatrix = preparedNormalMatrix ?? Self.normalMatrix(for: modelMatrix),
-              Self.isFinite(normalMatrix) else {
+              let normalMatrix = material.requiresSurfaceNormal
+                ? (preparedNormalMatrix ?? Self.normalMatrix(for: modelMatrix))
+                : matrix_identity_float3x3 else {
             return false
         }
         let colorState: MTLRenderPipelineState? = additiveRGB ? additiveState : state
@@ -744,7 +745,8 @@ struct SceneStaticModelPipeline {
     static func normalMatrix(
         for modelMatrix: simd_float4x4
     ) -> simd_float3x3? {
-        guard isFinite(modelMatrix) else { return nil }
+        // The world entry checks the complete matrix once; normals consume
+        // only its linear axes. Prepared frame draws retain this finite result.
         // Absolute determinant thresholds reject small, nonsingular authored
         // models (uniform scale 0.001 has determinant 1e-9). Compute in Double
         // so Float-scale products cannot underflow, then retain direction only:
@@ -925,7 +927,7 @@ struct SceneStaticModelPipeline {
         }
     }
 
-    private static func isFinite(_ matrix: simd_float4x4) -> Bool {
+    static func isFinite(_ matrix: simd_float4x4) -> Bool {
         matrix.columns.0.x.isFinite && matrix.columns.0.y.isFinite
             && matrix.columns.0.z.isFinite && matrix.columns.0.w.isFinite
             && matrix.columns.1.x.isFinite && matrix.columns.1.y.isFinite

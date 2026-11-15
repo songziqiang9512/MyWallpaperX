@@ -42,8 +42,8 @@ def encoded(value):
 
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
-                    affine_case=None):
-    if noise_case is not None:
+                    affine_case=None, normal_case=None):
+    if noise_case is not None or normal_case is not None:
         texture_case = "crop"
     if affine_case is not None:
         texture_case = "crop" if affine_case.endswith("-crop") else "frame"
@@ -54,8 +54,16 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
         for reverse in ((False, True) if texture_case is None else (False,)):
             y = (32 if not reverse else 64) if texture_case is None else 48
             name = f"{state}-{'reverse' if reverse else 'front'}"
-            material = f"materials/{name}.json"
-            model = quad(x - 3, x + 3, y - 4, y + 4, 20, material)
+            material = ("materials/independent-side.json" if normal_case and normal_case.startswith("yz")
+                        else f"materials/{name}.json")
+            if normal_case and normal_case.startswith("yz"):
+                vertices = [((0., py, 160 - px), (-1., 0., 0.), (0., 0., -1., 1.), uv)
+                            for px, py, uv in ((x - 3, y - 4, (0., 0.)), (x + 3, y - 4, (1., 0.)),
+                                (x + 3, y + 4, (1., 1.)), (x - 3, y + 4, (0., 1.)))]
+                model = reader.build_model(vertices=vertices, indices=(0, 2, 1, 0, 3, 2),
+                    bounds=(0, y - 4, 160 - x - 3, 0, y + 4, 160 - x + 3), material=material.encode())
+            else:
+                model = quad(x - 3, x + 3, y - 4, y + 4, 0 if normal_case else 20, material)
             if reverse:
                 vertices = [((px, py, 20.), (0., 0., 1.), (1., 0., 0., 1.), uv)
                             for px, py, uv in ((x - 3, y - 4, (0., 0.)),
@@ -187,6 +195,28 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
         "materials/healthy.json": encoded({"passes": [{"shader": "genericimage",
             "textures": ["materials/blue.png"], "combos": {"LIGHTING": 0},
             "blending": "normal", "depthwrite": "enabled"}]})})
+    if normal_case is not None:
+        subject = next(obj for obj in scene["objects"] if obj["id"] == 2)
+        singular = normal_case.endswith("singular")
+        subject.update(origin="0 96 20", scale="1 -1 0" if singular else "1 -1 1")
+        if normal_case.startswith("yz"):
+            subject.update(origin="0 96 0", parent=6, scale="0 -1 1" if singular else "1 -1 1",
+                model="models/independent-side-plane.mdl")
+            scene["objects"].insert(0, {"id": 6, "name": "Owned rotated mirrored parent",
+                "origin": "160 0 20", "angles": f"0 {math.pi / 2} 0", "scale": "1 1 -1"})
+            entries[subject["model"]] = entries.pop("models/cases.mdl")
+            entries["materials/independent-surface.tex"] = entries.pop("materials/model-surface.tex")
+            value = json.loads(entries["materials/independent-side.json"])
+            value["passes"][0]["textures"] = ["materials/independent-surface.tex"]
+            entries["materials/independent-side.json"] = encoded(value)
+        scene["objects"].append({"id": 5, "model": "models/behind.mdl", "origin": "0 96 0",
+            "scale": "1 -1 1", "perspective": False, "castshadow": False})
+        entries.update({"models/behind.mdl": quad(77, 83, 44, 52, 10, "materials/behind.json"),
+            "materials/behind.png": png([0, 0, 200, 255]),
+            "materials/behind.json": encoded({"passes": [{"shader": "genericimage",
+                "textures": ["materials/behind.png"], "combos": {"LIGHTING": 0}, "cullmode": "nocull",
+                "blending": "normal", "depthtest": "enabled", "depthwrite": "enabled"}]}),
+            "scene.json": encoded(scene)})
     # This geometric oracle is fixed before GPU execution. A ray from each
     # shadow ROI toward +X,+Z travels 20 in Z and 12 in X, hitting only its part.
     for case in cases:
@@ -278,7 +308,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "preregistration.json").write_bytes(encoded({"canvas": CANVAS, "cases": cases,
             "tolerance": TOLERANCE,
             "colorVisibleRGB": ({case["name"]: case["rgba"] for case in cases}
-                if options.get("texture_case") or options.get("affine_case") else [0, 200, 0]), "healthyRGB": [0, 0, 255],
+                if any(options.get(key) for key in ("texture_case", "affine_case", "normal_case")) else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
@@ -293,7 +323,13 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "skewProbeSourceTexels": ([[2, 2], [4, 2], [3, 4], [5, 4]]
                     if options["affine_case"] == "skew" else None),
                 "scope": "skew literal color/hole/shadow probes only; rot90/mirror compare independent crops"}}
-               if options.get("affine_case") else {})}))
+               if options.get("affine_case") else {}),
+            **({"normalConsumer": {"case": options["normal_case"], "receivesLighting": False,
+                "viewTint": None, "reflectivity": 0, "holeRGB": [0, 0, 200],
+                "depthOracle": "later far z10 blue remains behind opaque z20 subject and appears through its hole",
+                "shadowOracle": "opaque source darkens x-12 receiver; alpha hole preserves lit receiver",
+                "wholeImageOracle": "singular plane equals nonsingular control within the same axis/parent pair"}}
+               if options.get("normal_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -337,7 +373,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         self.assertIn("gpuDrained=true", log)
         self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-(?:failed|rejected)|failure=exception")
         preview = (work / "evidence/scene-preview.log").read_text()
-        if options.get("texture_case") != "animated" and not options.get("affine_case"):
+        if options.get("texture_case") != "animated" and not (options.get("affine_case") or options.get("normal_case")):
             expected_prepared = "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]"
             self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
@@ -352,7 +388,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         for value, wanted in zip(actual, expected):
             self.assertAlmostEqual(value, wanted, delta=TOLERANCE)
 
-    def assert_texture_coverage(self, result):
+    def assert_texture_coverage(self, result, *, hole_rgb=None):
         for phase in ("ready", "after"):
             reference = result["pixels"][phase]["pixels"]
             for case in result["cases"]:
@@ -361,7 +397,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                     self.assert_rgb(reference[color], case["rgba"][:3])
                     self.assertLess(max(reference[shadow]), 15)
                 else:
-                    self.assert_rgb(reference[color], reference["clear"])
+                    self.assert_rgb(reference[color], hole_rgb if hole_rgb is not None else reference["clear"])
                     self.assert_rgb(reference[shadow], reference["clear"])
 
     def test_authored_cull_controls_color_and_shadow_per_material(self):
@@ -446,6 +482,19 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 self.assertEqual((self.root / crop_name / name).read_bytes(),
                                  (self.root / frame_name / name).read_bytes())
         self.assert_texture_coverage(self.run_case("skew-frame", affine_case="skew"))
+
+
+    def test_unused_normal_singular_planes_preserve_color_depth_and_shadow(self):
+        for axis in ("xy", "yz"):
+            control_name, singular_name = f"{axis}-control", f"{axis}-singular"
+            control = self.run_case(control_name, normal_case=control_name)
+            self.assert_texture_coverage(control, hole_rgb=[0, 0, 200])
+            singular = self.run_case(singular_name, normal_case=singular_name)
+            self.assert_texture_coverage(singular, hole_rgb=[0, 0, 200])
+            for phase in ("ready", "after"):
+                name = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / control_name / name).read_bytes(),
+                                 (self.root / singular_name / name).read_bytes())
 
 
 if __name__ == "__main__":

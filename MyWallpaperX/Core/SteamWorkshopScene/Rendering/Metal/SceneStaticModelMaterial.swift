@@ -98,6 +98,10 @@ struct SceneStaticModelMaterial {
     var surfaceProfile: SceneStaticModelSurfaceProfile? = nil
     var cullMode: MTLCullMode = .back
 
+    var requiresSurfaceNormal: Bool {
+        receivesLighting || viewTint != nil || (surfaceProfile?.reflectivity ?? 0) > 0
+    }
+
     func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
         .init(
             color: self.color,
