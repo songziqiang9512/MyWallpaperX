@@ -58,6 +58,8 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 卫星输入、12原图/原行摘录与独审归`.artifacts/scene-solar-moons-20261115/first6.zip`（15,382,045B，SHA236e0914…6db0），全成员校验后清理两轮运行目录和两个pkg副本；保重建配方与未解决UI最小原图。另见钟和右面板缺片，尚未证明与模型或既有文字排序同因，问题只归[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
 
+同7159签名App补沿原3秒请求的Saturn→Titan→Iapetus→Uranus→Neptune→Saturn，原847对象、project及1174非scene条目保持；只替换私有驱动的两处原字节跨度。109.819s整轮PASS、22原PNG无截图失败，6×5条请求/移动/匹配/READY/END实际记录闭合。6个HOLD均有同request/PID/CB/main/seal/GPUcompleted、trunc0及排空，5个不同球体未见新纹理/外缘缺口；移动候选仅小Saturn在画幅内，其余5体没有可辨轮廓，不授黄色/蓝色完整3秒同步或全部镜头正常。独审a32c6b57…c8944无该范围新阻断。8必要原PNG、30状态记录、12候选帧原事件和输入重建/身份归`.artifacts/scene-solar-atmosphere-views-20261115/evidence.zip`；未留569MB包或全日志。按用户最新顺序先转347水滴，余15卫星B及航天器继续留队列，不再作转向硬前置。
+
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
 按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal增量供后继update入参/自身getter，准入TRS的canonical值进入本帧唯一world snapshot；init/主动返回归原journal，退出重复TRS返回map、pending初始化副本和angles诊断字符串吞错。passive Timeline保原投影，当前真实写入不被它盖回。十产品净+160行，无新owner/持久状态/cache；原Bool read scope收敛复用，不授性能收益。首次未声明TRS定义及C init getter的阶段仍未闭。

@@ -190,11 +190,11 @@ import Dispatch
   // Read actual depth attachment bytes. A color encoder interruption must
   // preserve a prior successful depth clear; each pass has its own first clear.
   func snapshotDepth(_ texture: MTLTexture, _ pass: SceneMainPassEncoder,
-                     _ cb: MTLCommandBuffer) -> MTLBuffer {
+                     _ cb: MTLCommandBuffer, at origin: MTLOrigin = .init(x: 0, y: 0, z: 0)) -> MTLBuffer {
    pass.closeForOffscreen()
    let buffer = device.makeBuffer(length: 256, options: .storageModeShared)!
    let blit = cb.makeBlitCommandEncoder()!
-   blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0,y: 0,z: 0),
+   blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: origin,
     sourceSize: .init(width: 1,height: 1,depth: 1), to: buffer, destinationOffset: 0,
     destinationBytesPerRow: 256, destinationBytesPerImage: 256)
    blit.endEncoding(); return buffer
@@ -502,15 +502,39 @@ import Dispatch
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
   let lateState = SceneMetalRenderer.StaticModelFrame(commandBuffer: lateCB)
   var lateLeases: [SceneParticleDepthTargetLease] = []
+  let sourceOnlyExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: lateState,
+   orderedLayers: [.init(id: 1), .init(id: 2)], visible: [1, 2, 20], worldFrames: world,
+   snapshot: dynamic, batches: [:], particlePipeline: nil, mainPass: latePass, groups: nil,
+   commandBuffer: lateCB, leases: &lateLeases)
+  checks["source-late-named-still-excludes-optional-framebuffer"] = sourceOnlyExclusion == [20]
+   && lateState.prepared == nil && lateLeases.isEmpty
   let lateExclusion = lateRenderer.unavailableSharedTerminalDepthLayers([20], state: lateState,
    orderedLayers: [.init(id: 1), .init(id: 2)], ordinaryLayerIDs: [21],
    visible: [1, 2, 20, 21], worldFrames: world, snapshot: dynamic,
    batches: [:], particlePipeline: nil, mainPass: latePass, groups: nil,
    commandBuffer: lateCB, leases: &lateLeases)
-  checks["source-unknown-late-input-keeps-original-chain"] = lateExclusion == [20, 21]
-   && lateState.prepared == nil && lateLeases.isEmpty && lateState.depthDeferralReason == nil
-   && lateRenderer.staticModelDepthTargetPool.residentByteCost == 0
-  lateState.cancel(); latePass.closeForOffscreen()
+  let lateBinding = lateState.terminalDepthBinding(pass: latePass, commandBuffer: lateCB)
+  checks["source-late-named-keeps-independent-ordinary-depth"] = lateExclusion == [20]
+   && lateState.prepared == nil && lateLeases.count == 1 && lateBinding != nil
+   && lateState.depthDeferralReason == nil
+  let lateDepth = lateLeases.first?.texture
+  _ = lateRenderer.drawStaticModel(layer: .init(id: 2), state: lateState, worldFrames: world,
+   frameContext: .init(dynamicValues: dynamic), cameraFrame: camera, lighting: lighting,
+   pass: latePass, commandBuffer: lateCB, leases: &lateLeases)
+  let lateTerminalOpened = lateBinding?.encoder(latePass) != nil
+  let laterDepth = lateState.sharedDepth(pass: latePass, pool: lateRenderer.staticModelDepthTargetPool,
+   device: device, commandBuffer: lateCB, leases: &lateLeases)
+  let lateReadback = laterDepth.lease.map {
+   snapshotDepth($0.texture, latePass, lateCB, at: .init(x: 32, y: 32, z: 0))
+  }
+  precondition(latePass.finishEnsuringClear())
+  lateLeases.forEach { $0.arm(on: lateCB) }; lateState.arm(on: lateCB)
+  lateCB.commit(); lateCB.waitUntilCompleted()
+  checks["source-late-named-ordinary-and-later-model-reuse-one-domain"] = lateTerminalOpened
+   && lateDepth === laterDepth.lease?.texture && lateLeases.count == 1
+   && lateRenderer.dependencyRuntime.encoded[2] == true
+   && lateCB.status == .completed && lateCB.error == nil && rgb(first) == [0, 255, 0, 255]
+  checks["source-late-named-domain-keeps-written-depth"] = lateReadback.map { depthValue($0) > 0 } == true
   let prefixCB = queue.makeCommandBuffer()!
   let prefixPass = SceneMainPassEncoder(commandBuffer: prefixCB, target: first.output,
    clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: true)

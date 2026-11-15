@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 362,
-      "bytes": 82485
+      "bytes": 83078
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -129,8 +129,8 @@
       "bytes": 77171
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 597,
-      "bytes": 266607
+      "lines": 598,
+      "bytes": 268207
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 197,
-      "bytes": 57977
+      "lines": 198,
+      "bytes": 59356
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 331,
-      "bytes": 96116
+      "lines": 333,
+      "bytes": 96994
     }
   },
   "archives": [
@@ -506,20 +506,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d4918d4c889c88a68702b015825aa74e8483da184f4d02465ef55b79fa76515e",
-      "after": "0412e760875e5d2769d754326baf09db866500ba922159ec2381203d92e6c755",
-      "owner": "Shared surface radial falloff and qualified author-view evidence",
-      "reason": "Define the shared zero exponent as unit radial attenuation at any distance, retire the contradicted point cutoff and preserve positive exponent/cone/shadow/volume responsibilities.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-radial-falloff"
+      "before": "0412e760875e5d2769d754326baf09db866500ba922159ec2381203d92e6c755",
+      "after": "65d97ed0fa6897ae2d6175653a8314928c2a6b80c51cb95d1cb3257b531afdef",
+      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
+      "reason": "Separate original pass depth availability from first model albedo readiness without new resource owners; keep source/group/mandatory allocation semantics.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6bf04727de6d332dbfff25cea2685edb34586b6311066ceb82aed1518d22b81c",
-      "after": "ab3483bcaa2ffcf2d9ba1dce128995023c7fde1abd6efbb322cdf3adbd2ed67a",
-      "owner": "Shared surface radial falloff and qualified author-view evidence",
-      "reason": "Retire the obsolete pending official zero-exponent claim and point to the unique current radial evidence owner.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#point-falloff"
+      "before": "ab3483bcaa2ffcf2d9ba1dce128995023c7fde1abd6efbb322cdf3adbd2ed67a",
+      "after": "569390cbb0ed2d038d645becbe4b77e70fe5582715901feb2678054a04d8606b",
+      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
+      "reason": "Record actual named-first ordinary depth red/green controls, unchanged writer semantics, stable waterdrop date/formula recovery and independent Earth with explicit resize/old-readback limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ordinary-named-depth"
     },
     {
       "section": "bodies",
@@ -533,19 +533,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "eb4704ec57d4e1447ec4ee2acc9589651607b48229caa8b484e396ea40f7b45b",
-      "after": "0df0f0533d600a13de0311257ea286d6e13321f8f51582ed57bbfe37906b426b",
-      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
-      "reason": "Qualify first6 moon views and bounded current transform red/green controls, native callback cases, visible blue movement and independent Earth; retain yellow offscreen and official/all-view limitations.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#current-authored-transforms"
+      "before": "0df0f0533d600a13de0311257ea286d6e13321f8f51582ed57bbfe37906b426b",
+      "after": "78c1728b5b15c665aecd9c10e2308ffc4b867b4b7ae5b15ae187e8063c3f340d",
+      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
+      "reason": "Qualify six bounded solar HOLD views and one visible small-Saturn transition; keep offscreen and all-view limits while following the user priority to waterdrop.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-model-views"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f9d4504366f157703be6c410dab6ef34cc17d068c918724940e31185863eeab0",
-      "after": "87f39eaa1e166f2e7b077c9814a2305fe9f27d3b5dfc110c99e40b049d326525",
-      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
-      "reason": "Replace duplicate completed process prose with the current solar-view order and precisely queued yellow/other transitions, first TRS definition, init getter and observed UI/capture gaps. Preserve an unchanged HEAD proposal and queue its preexisting registry membership gap instead of changing authority to silence the audit.",
+      "before": "87f39eaa1e166f2e7b077c9814a2305fe9f27d3b5dfc110c99e40b049d326525",
+      "after": "7b39719bea6f971c21705e548b460c060b933ca2c2b8d191fdcb933d31febd56",
+      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
+      "reason": "Replace the solar next-step with current bounded coverage and the active waterdrop text/background/HDR first faults; retain resize validator and prior unresolved boundaries.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

@@ -566,8 +566,8 @@ extension SceneMetalRenderer {
 
     /// Qualify optional terminal consumers before they own graph candidates.
     /// Complete real draws keep their original mandatory allocation order. A
-    /// pending named model keeps its late path. Only ordinary terminals may
-    /// borrow a domain established by the ready mandatory prefix.
+    /// pending named model keeps its late path. Ordinary terminals establish
+    /// the same pass domain even when no model color is ready yet.
     func unavailableSharedTerminalDepthLayers(
         _ layerIDs: Set<Int>, state: StaticModelFrame,
         orderedLayers: [SceneRenderDescriptor.Layer], ordinaryLayerIDs: Set<Int> = [],
@@ -604,12 +604,12 @@ extension SceneMetalRenderer {
         if complete {
             prefixCount = nil
         } else {
-            guard !eligible.isEmpty, staticModelResources.pipeline != nil,
-                  let firstMain = orderedLayers.prefix(prefix.count).firstIndex(where: { layer in
-                      prefix.draws[layer.id]?.isEmpty == false
-                          && (groups == nil || groups?.renderPass(forLayerID: layer.id) === mainPass)
-                  }) else { return consumers }
-            prefixCount = firstMain + 1
+            guard !eligible.isEmpty else { return consumers }
+            let firstMain = orderedLayers.prefix(prefix.count).firstIndex { layer in
+                prefix.draws[layer.id]?.isEmpty == false
+                    && (groups == nil || groups?.renderPass(forLayerID: layer.id) === mainPass)
+            }
+            prefixCount = firstMain.map { $0 + 1 } ?? prefix.count
         }
         // Ordinary failed model parts keep their existing local failure. Once
         // their allocation attempts have priority; a valid scene-domain lease
@@ -619,7 +619,7 @@ extension SceneMetalRenderer {
             mainPass: mainPass, groups: groups, commandBuffer: commandBuffer, leases: &leases,
             prefixCount: prefixCount)
         if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return consumers }
-        if complete {
+        if !eligible.isEmpty {
             _ = state.sharedDepth(pass: mainPass, pool: staticModelDepthTargetPool,
                 device: device, commandBuffer: commandBuffer, leases: &leases)
         }

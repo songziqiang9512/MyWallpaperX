@@ -415,7 +415,7 @@ TEXT_DEPTH_CASES = (
 )
 
 
-def perspective_text_depth_entries():
+def perspective_text_depth_entries(*, named_first=False, renamed=False):
     objects = [{"id": 2, "model": "models/near.mdl", "castshadow": False}]
     entries = {
         "models/near.mdl": mdl_quad(-5, 5, .38, 1.18, 1, "materials/orange.json"),
@@ -459,6 +459,22 @@ void main() {{
     objects.append({"id": 30, "model": "models/far.mdl", "castshadow": False})
     scene = native_world_scene(objects)
     scene["general"]["transparentsorting"] = True
+    if named_first:
+        provider = 901 if renamed else 11
+        stem = "retitled_depth_feed" if renamed else "depth_feed"
+        model, material, texture = (f"{folder}/{stem}.{suffix}" for folder, suffix in
+                                    (("models", "json"), ("materials", "json"), ("materials", "png")))
+        scene["objects"][0]["dependencies"] = [provider]
+        named = json.loads(entries["materials/orange.json"])
+        named["passes"][0]["textures"] = [f"_rt_imageLayerComposite_{provider}_a"]
+        entries["materials/orange.json"] = encoded(named)
+        entries[model] = encoded({"material": material})
+        entries[material] = encoded({"passes": [{"shader": "genericimage", "textures": [texture]}]})
+        entries[texture] = entries["materials/orange.png"]
+        # The first model cannot resolve this hidden source in depth preflight.
+        # The real provider schedule must publish it before the model encodes.
+        scene["objects"].append({"id": provider, "image": model, "origin": "0 0 0",
+                                 "size": "4 4", "visible": False})
     entries["scene.json"] = encoded(scene)
     return entries
 
@@ -678,15 +694,35 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                             msg=str((name, path.name, region, measurement)))
 
     def test_perspective_text_preserves_covered_depth_through_direct_and_effect_draws(self):
-        entries = perspective_text_depth_entries()
+        self.run_perspective_text_depth_case()
+
+    def test_late_named_first_model_preserves_direct_and_effect_text_depth(self):
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                self.run_perspective_text_depth_case(named_first=True, renamed=renamed)
+
+    def run_perspective_text_depth_case(self, *, named_first=False, renamed=False):
+        entries = perspective_text_depth_entries(named_first=named_first, renamed=renamed)
+        name = ("late-named-text-renamed" if renamed else "late-named-text") if named_first else None
+        if name:
+            (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
+                "entries": {k: hashlib.sha256(v).hexdigest() for k, v in entries.items()},
+                "firstModel": 2, "lateHiddenProvider": 901 if renamed else 11,
+                "textCases": TEXT_DEPTH_CASES, "renamedProviderResources": renamed,
+                "oracle": "Original direct/effect HH pixel masks and near/far coverage, unchanged.",
+                "scope": "Real named provider publication/model binding plus actual model/text draw and pixels; no inferred intermediate named-copy token."}))
         with patch.object(app_runner, "measure_capture", measure_perspective_text_depth):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(
-                self, 8, capture=True, entries=entries, material_input_path="materials/owned_ink.json")
-        work = self.evidence_root / "Ref8-capture-on"
+                self, 8, capture=True, entries=entries, name=name, material_input_path="materials/owned_ink.json")
+        work = self.evidence_root / (name or "Ref8-capture-on")
+        log = (work / "app.log").read_text()
+        if named_first:
+            self.assertIn(f"phase=named-target-capture layer={901 if renamed else 11} status=succeeded", log)
+            self.assertIn("phase=named-target-binding layer=2 status=succeeded", log)
         identity = json.loads((work / "identity.json").read_text())
         self.assertEqual(app_runner.sha256(work / "content/scene.pkg"), identity["package"])
         self.assertEqual(app_runner.sha256(work / "content/project.json"), identity["project"])
-        for path, event in self.composition_captures(work, (work / "app.log").read_text()):
+        for path, event in self.composition_captures(work, log):
             with self.subTest(capture=path.name):
                 rows = event["rows"]
                 terminals = [row for row in rows if row["kind"] in ("ordinary", "model")
