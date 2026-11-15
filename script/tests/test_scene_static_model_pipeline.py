@@ -23,6 +23,7 @@ BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.s
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
 LIGHTING_INPUT_SOURCE = SCENE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift"
+TUBE_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneTubeLightDefinition.swift"
 MODEL_SUPPORT_SOURCES = [SCENE_ROOT / "Format" / name for name in [
     "SceneMdlPuppetMeshReader.swift", "SceneMdlPuppetRigReader.swift",
 ]] + [
@@ -65,6 +66,7 @@ struct SceneRenderDescriptor {
             var directional: Bool = true
             var point: Bool = true
             var spot: Bool = true
+            var tube: Bool = true
         }
         let ambientColorRGB: [Float]?
         let skylightColorRGB: [Float]?
@@ -82,6 +84,7 @@ struct SceneRenderDescriptor {
         let visible: Bool?
         var anglesXYZ: [Float]? = nil
         var pointLight: ScenePointLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
         let spotLight: SceneSpotLightDefinition?
         let directionalLight: SceneDirectionalLightDefinition?
         var parentID: Int? = nil
@@ -120,7 +123,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES,
                    SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift",
                    SAMPLING_SOURCE, UV_TRANSFORM_SOURCE, DIRECTIONAL_LIGHT_SOURCE,
-                   POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE, LIGHT_SOURCE, VISIBILITY_SOURCE,
+                   POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE, LIGHT_SOURCE, VISIBILITY_SOURCE,
                    DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE, PERFORMANCE_COUNTER_SOURCE,
                    BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
                    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
@@ -321,7 +324,7 @@ fragment half4 sceneStaticModelFragment(
 '''
             probe_shader.write_text(source, encoding="utf-8")
             sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
-                       DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
+                       DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
                        LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
                        PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
                        SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
@@ -344,7 +347,7 @@ fragment half4 sceneStaticModelFragment(
                        maskAlpha=0, emissiveColor=[0, 0, 0], brightness=0, receivesLighting=False)
                   for name, hdr, value, _ in variants]
         sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
-                   DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
+                   DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
                    LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
                    PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
                    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
@@ -406,6 +409,7 @@ fragment half4 sceneStaticModelFragment(
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
                     str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
@@ -664,6 +668,7 @@ enum MaterialHarness {
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
                     str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
@@ -710,6 +715,7 @@ enum MaterialHarness {
                     "-parse-as-library",
                     str(DIRECTIONAL_LIGHT_SOURCE),
                     str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(DYNAMIC_SNAPSHOT_SOURCE),

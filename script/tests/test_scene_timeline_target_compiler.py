@@ -48,6 +48,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/ScenePointLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneTubeLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",

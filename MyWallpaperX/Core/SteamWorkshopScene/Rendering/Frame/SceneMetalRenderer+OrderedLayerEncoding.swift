@@ -36,7 +36,7 @@ extension SceneMetalRenderer {
             if !transparent.isEmpty {
                 let kind = layer.contentKind
                 let nonDrawing = !visible.contains(layer.id) || kind == "container"
-                    || kind == "pointLight" || kind == "directionalLight"
+                    || kind == "pointLight" || kind == "directionalLight" || kind == "tubeLight"
                 let opaqueModel = !nonDrawing && kind == "model"
                     && cameraFrame.resolvesPerspective(for: layer)
                     && SceneDynamicLayerValues.alpha(layerID: layer.id,

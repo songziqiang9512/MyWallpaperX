@@ -227,6 +227,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     pointLight: object.pointLight,
                     spotLight: object.spotLight,
                     directionalLight: object.directionalLight,
+                    tubeLight: object.tubeLight,
                     particleInstanceOverride: object.particleInstanceOverride,
                     utilityLayer: utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
@@ -572,6 +573,9 @@ nonisolated struct SceneRenderDescriptorBuilder {
         }
         if object.directionalLight != nil {
             return "directionalLight"
+        }
+        if object.tubeLight != nil {
+            return "tubeLight"
         }
         if object.text != nil {
             return "text"

@@ -226,6 +226,7 @@ nonisolated struct SceneDocumentLoader {
             pointLight: ScenePointLightDefinition.parse(root),
             spotLight: SceneSpotLightDefinition.parse(root),
             directionalLight: SceneDirectionalLightDefinition.parse(root),
+            tubeLight: SceneTubeLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]
             ),

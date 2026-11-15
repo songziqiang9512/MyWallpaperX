@@ -43,6 +43,17 @@ struct SceneLightSnapshot {
         var falloffExponent: Float = 2
     }
 
+    struct Tube {
+        var layerID: Int? = nil
+        let position: SIMD3<Float>
+        let direction: SIMD3<Float>
+        let length: Float
+        let color: SIMD3<Float>
+        let intensity: Float
+        let radius: Float
+        var falloffExponent: Float = 2
+    }
+
     enum ShadowLight {
         case directional(Directional)
         case spot(Spot)
@@ -76,6 +87,7 @@ struct SceneLightSnapshot {
     let directional: [Directional]
     let point: [Point]
     let spot: [Spot]
+    var tube: [Tube] = []
     let overflowCount: Int
     var distanceFogColor: SIMD4<Float> = .zero
     var distanceFogRange: SIMD4<Float> = .zero
@@ -106,6 +118,7 @@ struct SceneLightSnapshot {
         var directionalLights: [Directional] = []
         var pointLights: [Point] = []
         var spotLights: [Spot] = []
+        var tubeLights: [Tube] = []
         var acceptedCount = 0
         var overflowCount = 0
         var authoredLighting = SceneAuthoredShaderLightingInputs.Builder(
@@ -117,8 +130,9 @@ struct SceneLightSnapshot {
             // shadow publication and the model-light budget. Launch candidates
             // remain complete so a later show can use its prepared producers.
             guard visibleLayerIDs.contains(layer.id) else { continue }
+            let isTubeLight = layer.tubeLight != nil
             guard let frame = worldFramesByLayerID[layer.id] else {
-                authoredLighting.rejectUnsupportedLight()
+                if !isTubeLight { authoredLighting.rejectUnsupportedLight() }
                 continue
             }
             // general.lightconfig gates the modern light classes per
@@ -132,7 +146,8 @@ struct SceneLightSnapshot {
             // stays owned by model lights. The 2D packer truncates its own
             // point+spot payload to the four ABI slots in authored order.
             let isImageOnlyPointLight = layer.pointLight?.kind == "point"
-            if !isImageOnlyPointLight {
+            // Tube does not participate in the separate legacy point ABI.
+            if !isImageOnlyPointLight && !isTubeLight {
                 authoredLighting.rejectUnsupportedLight()
             }
             let admitted: Bool
@@ -144,6 +159,8 @@ struct SceneLightSnapshot {
                 admitted = descriptor.lighting?.lightClasses.directional ?? false
             } else if layer.spotLight != nil {
                 admitted = descriptor.lighting?.lightClasses.spot ?? false
+            } else if isTubeLight {
+                admitted = descriptor.lighting?.lightClasses.tube ?? false
             } else {
                 admitted = true
             }
@@ -156,14 +173,14 @@ struct SceneLightSnapshot {
                     snapshot: $0
                 )
             } ?? authoredIntensity(layer)
-            let radius = layer.pointLight.flatMap { definition in
-                dynamicSnapshot.flatMap {
+            let authoredRadius = layer.pointLight?.radius ?? layer.tubeLight?.radius
+            let radius = layer.pointLight != nil || isTubeLight
+                ? dynamicSnapshot.flatMap {
                     SceneDynamicLayerValues.lightRadius(
-                        layerID: layer.id, authoredValue: definition.radius,
+                        layerID: layer.id, authoredValue: authoredRadius,
                         snapshot: $0
                     )
-                } ?? definition.radius
-            }
+                } ?? authoredRadius : nil
             if isImageOnlyPointLight {
                 // Native colors above retain their normalized contract. The
                 // ordinary ABI validates the same frame's raw typed value;
@@ -227,6 +244,16 @@ struct SceneLightSnapshot {
                 } else {
                     overflowCount += 1
                 }
+            } else if let light = tube(
+                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                intensity: intensity, radius: radius
+            ) {
+                if acceptedCount < maximumLightCount {
+                    tubeLights.append(light)
+                    acceptedCount += 1
+                } else {
+                    overflowCount += 1
+                }
             }
         }
         #if DEBUG
@@ -253,6 +280,12 @@ struct SceneLightSnapshot {
                         light.position.x, light.position.y, light.position.z,
                         light.radius, light.intensity)
                 }
+                for light in tubeLights {
+                    NSLog("MWX DEBUG LIGHT TRACE: kind=tube layer=%d position=%.4f %.4f %.4f direction=%.4f %.4f %.4f length=%.4f radius=%.3f intensity=%.3f",
+                        light.layerID ?? -1, light.position.x, light.position.y, light.position.z,
+                        light.direction.x, light.direction.y, light.direction.z,
+                        light.length, light.radius, light.intensity)
+                }
             }
         }
         #endif
@@ -275,6 +308,7 @@ struct SceneLightSnapshot {
             directional: directionalLights,
             point: pointLights,
             spot: spotLights,
+            tube: tubeLights,
             overflowCount: overflowCount,
             distanceFogColor: fog.map { SIMD4($0.color[0], $0.color[1], $0.color[2], 1) } ?? .zero,
             distanceFogRange: fog.map { SIMD4($0.start, $0.end, $0.startDensity, $0.endDensity) } ?? .zero,
@@ -291,7 +325,7 @@ struct SceneLightSnapshot {
         descriptor.renderOrderLayerIDs.compactMap { layerID in
             guard let layer = layersByID[layerID],
                   layer.pointLight != nil || layer.spotLight != nil
-                    || layer.directionalLight != nil else { return nil }
+                    || layer.directionalLight != nil || layer.tubeLight != nil else { return nil }
             return layerID
         }
     }
@@ -319,6 +353,9 @@ struct SceneLightSnapshot {
             if let point = layer.pointLight,
                point.kind == "point" || point.kind == "lpoint",
                point.radius != nil {
+                targets.insert(.layer(layerID: layerID, field: .radius))
+            }
+            if layer.tubeLight?.radius != nil {
                 targets.insert(.layer(layerID: layerID, field: .radius))
             }
         }
@@ -355,6 +392,30 @@ struct SceneLightSnapshot {
         layer.pointLight?.intensity
             ?? layer.spotLight?.intensity
             ?? layer.directionalLight?.intensity
+            ?? layer.tubeLight?.intensity
+    }
+
+    private static func tube(
+        layer: SceneRenderDescriptor.Layer,
+        frame: simd_float4x4,
+        dynamicColor: SIMD3<Float>?,
+        intensity: Float?, radius: Float?
+    ) -> Tube? {
+        guard let definition = layer.tubeLight,
+              let intensity, intensity.isFinite, intensity >= 0,
+              let radius, radius.isFinite, radius > 0,
+              let position = position(of: frame) else { return nil }
+        let vector = frame * SIMD4(definition.controlPoint, 0)
+        let segment = SIMD3(vector.x, vector.y, vector.z)
+        let length = simd_length(segment)
+        guard length.isFinite else { return nil }
+        return Tube(
+            layerID: layer.id, position: position,
+            direction: length > 0 ? segment / length : .zero, length: length,
+            color: dynamicColor ?? color(definition.colorRGB, fallback: SIMD3(repeating: 1)),
+            intensity: intensity, radius: radius,
+            falloffExponent: definition.exponent ?? 2
+        )
     }
 
     private static func point(

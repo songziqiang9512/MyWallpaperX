@@ -81,6 +81,7 @@
 
 | 定位 | 下一步 |
 |---|---|
+| 管状灯的扩域与官方CP | 真实361罐体的stock g4/c4直接受光已由[实际像素](../capabilities/model-runtime-evidence.md#tube-light)闭合；当前局部CP有限线段是自有算法。官方仅Point正控即崩溃且无合格can画面，重启先修输入计数/包头资格及有效相机，不重跑原黑帧或据源helper授坐标。Tube阴影/体积/旧材质/Generic/image需各自真实消费者证据，不是本次直接光的硬前置。 |
 | hidden/forward父graph named输出 | 可见、已可满足的普通image graph-final已有transform children时可复用原graph发布；hidden FX父仍在image来源谓词保leaf范围，forward可见来源仍受原执行期限准入。hidden claim/execute/named-only消费者已存在，需独立父子/多reader及生命周期对照；forward沿实际source独立性与作者位main期限核，不能由新visible正例裸开utility/Puppet或用raw替身。当前最新静态parent筛选无精确作者命中，保能力边界，不造默认缺图归因。 |
 | source material · 3616476797/113、3679907516/71/74/83、3141464346 | 367原R0三层冷拒但TEX已到ordinary/effect→main，静态cover推算在左侧外、无当帧MVP/非等价ROI；重启须可见source及拖动/media相位错配，不由VERSION2/translucent推语义，原STOP在`.artifacts/scene-source-material-367-next-20261109/`。361/113为静态Media Area，不能混作130 thumbnail；314的277/719已有TEX→main、416/420已有source/effect→tail，232/321/386/481 authored隐藏。九层source state拒绝不授缺图；重启须对应活动pass/source与可见ROI非等价，不先放state或新跑，薄事实在`.artifacts/scene-source-material-next-20261109/`。 |
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。限定343/345/3477054430/355/358的44模型实例、25MDL、35实际引用材质均单pass，未证first-pass gate漏绘；多材质段已有逐段consumer，不把它作多pass缺图，也不重开已闭additive/透明caster。 |

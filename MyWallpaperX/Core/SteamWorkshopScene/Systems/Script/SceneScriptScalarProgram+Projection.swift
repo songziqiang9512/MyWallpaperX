@@ -156,9 +156,7 @@ nonisolated extension SceneScriptScalarProgram {
                 guard binding.targetKey == "radius", validWrapper,
                       binding.userPropertyKey == nil,
                       !timelineTargets.contains(target),
-                      let point = layer.pointLight,
-                      point.kind == "point" || point.kind == "lpoint",
-                      let radius = point.radius,
+                      let radius = layer.pointLight?.radius ?? layer.tubeLight?.radius,
                       SceneDynamicLayerField.acceptsLightRadius(authored),
                       Float(authored).bitPattern == radius.bitPattern else { return nil }
                 return target

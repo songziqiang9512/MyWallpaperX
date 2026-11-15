@@ -385,7 +385,7 @@ PIXEL_MAIN = r'''
 class SceneDirectionalShadowPixelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']] + [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
+        sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'TUBE_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']] + [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
         sources += model_fixture.MODEL_SUPPORT_SOURCES
         sources.append(SCENE/'Resources/Textures/SceneResourceBudget.swift')
         cls.vectors = freeze_vectors()
@@ -689,7 +689,7 @@ class SceneDirectionalShadowCasterPlaneTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.vectors=skinny_plane_vectors()
-        sources=[getattr(model_fixture,name) for name in ['MODEL_SOURCE','SAMPLING_SOURCE','UV_TRANSFORM_SOURCE','DIRECTIONAL_LIGHT_SOURCE','POINT_LIGHT_SOURCE','SPOT_LIGHT_SOURCE','LIGHT_SOURCE','VISIBILITY_SOURCE','DYNAMIC_SNAPSHOT_SOURCE','DYNAMIC_LAYER_VALUES_SOURCE','PERFORMANCE_COUNTER_SOURCE','MATERIAL_SOURCE','PIPELINE_SOURCE','SHADOW_SOURCE']]
+        sources=[getattr(model_fixture,name) for name in ['MODEL_SOURCE','SAMPLING_SOURCE','UV_TRANSFORM_SOURCE','DIRECTIONAL_LIGHT_SOURCE','POINT_LIGHT_SOURCE', 'TUBE_LIGHT_SOURCE','SPOT_LIGHT_SOURCE','LIGHT_SOURCE','VISIBILITY_SOURCE','DYNAMIC_SNAPSHOT_SOURCE','DYNAMIC_LAYER_VALUES_SOURCE','PERFORMANCE_COUNTER_SOURCE','MATERIAL_SOURCE','PIPELINE_SOURCE','SHADOW_SOURCE']]
         sources += [*model_fixture.MODEL_SUPPORT_SOURCES, SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',SCENE/'Resources/Textures/SceneResourceBudget.swift']
         cls.report=run_swift(sources,'import Foundation\nimport Metal\nimport simd\n'+model_fixture.LIGHTING_STUB+skinny_plane_main(),label='skinny-caster-plane',metal_sources=[model_fixture.METAL_SOURCE],input_value=cls.vectors)
 
@@ -733,10 +733,144 @@ PARSER_MAIN = r'''
   checks["snapshot-budget-four"] = lights.directional.count == 4
   checks["snapshot-intent-not-default-true"] = lights.directional.map(\.castsShadow) == [false,true,false,false]
   checks["snapshot-preserves-layer-identity"] = lights.directional.compactMap(\.layerID) == [200,201,202,203]
+  func close(_ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Bool { simd_length(a - b) < 0.0001 }
+  var legacy: SceneAuthoredShaderLightingInputs?
+  for name in ["transformed", "renamed", "bound", "disabled", "omitted", "nonzero", "bad-cp", "bad-number", "bad-radius", "zero", "budget", "legacy-only", "legacy-tube"] {
+   let value = try SceneRuntimeModelBuilder().build(rootURL: URL(fileURLWithPath: root).appendingPathComponent("tube-" + name))
+   let descriptor = value.renderDescriptor
+   let index = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+   let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: index)
+   let snapshot = SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: worlds)
+   let base = name == "renamed" ? 1000 : 0
+   let prefix = "tube-" + name
+   if name == "budget" {
+    checks[prefix + "-budget"] = snapshot.tube.compactMap(\.layerID) == [7]
+        && snapshot.point.compactMap(\.layerID) == [8] && snapshot.directional.compactMap(\.layerID) == [9]
+        && snapshot.spot.compactMap(\.layerID) == [10] && snapshot.overflowCount == 2
+    checks[prefix + "-no-tube-shadow"] = snapshot.shadowLights.count == 3
+    continue
+   }
+   if name.hasPrefix("legacy-") {
+    if name == "legacy-only" { legacy = snapshot.authoredShaderLighting }
+    else {
+     checks[prefix + "-host-positions"] = legacy?.positions != nil
+         && legacy?.positions == snapshot.authoredShaderLighting.positions
+     checks[prefix + "-host-colors"] = legacy?.colorsPremultiplied != nil
+         && legacy?.colorsPremultiplied == snapshot.authoredShaderLighting.colorsPremultiplied
+     checks[prefix + "-separate-model-light"] = snapshot.tube.count == 1
+         && snapshot.point.count == 1 && !snapshot.point[0].illuminatesStaticModels
+    }
+    continue
+   }
+   let rejected = ["disabled", "omitted", "bad-cp", "bad-number", "bad-radius"].contains(name)
+   checks[prefix + "-local-peer"] = snapshot.point.compactMap(\.layerID) == [base + 8]
+   checks[prefix + "-admission"] = snapshot.tube.count == (rejected ? 0 : 1)
+   checks[prefix + "-class"] = descriptor.layers.first { $0.id == base + 7 }?.contentKind
+       == (name == "bad-cp" ? "container" : "tubeLight")
+   guard let tube = snapshot.tube.first else { continue }
+   checks[prefix + "-typed-controlpoint"] = value.sceneDocument.objects.first { $0.id == base + 7 }?.tubeLight?.controlPoint
+       == (name == "zero" ? .zero : SIMD3(2, 0, 0))
+   checks[prefix + "-full-world"] = close(tube.position, SIMD3(4, 22, 42))
+   checks[prefix + "-segment"] = name == "zero" ? tube.length == 0 && tube.direction == .zero
+       : abs(tube.length - 8) < 0.0001 && close(tube.direction, SIMD3(0, 1, 0))
+   checks[prefix + "-static-scalars"] = tube.intensity == 4 && tube.radius == 80
+       && tube.falloffExponent == 0.5 && tube.color == SIMD3(0.25, 0.5, 0.75)
+   if name == "bound" {
+    let program = value.runtimeInput.propertyBindingProgram
+    let targets = SceneLightSnapshot.liveConsumerTargets(descriptor: descriptor)
+    var live = ScenePropertyLiveUpdateState(program: program,
+        effectiveValues: value.runtimeInput.effectivePropertyValues, activeConsumerTargets: targets)
+    checks[prefix + "-live-accept"] = live.apply(.number(6), forPropertyKey: "lampIntensity")
+        && live.apply(.number(120), forPropertyKey: "lampRadius")
+        && live.apply(.string("0.5 0.25 1"), forPropertyKey: "lampColor")
+    let current = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 1,
+        definitions: program.definitions, userValues: live.userValues).snapshot
+    let colorTarget = SceneDynamicTarget.layer(layerID: 7, field: .color)
+    let changedColor: SIMD3<Float>?
+    if case let .vector3(x,y,z)? = current[colorTarget]?.value { changedColor = SIMD3(Float(x),Float(y),Float(z)) }
+    else { changedColor = nil }
+    let changed = SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: worlds,
+        dynamicLayerColors: changedColor.map { [7:$0] } ?? [:], dynamicSnapshot: current).tube.first!
+    checks[prefix + "-live-values"] = changedColor == SIMD3(0.5,0.25,1)
+        && changed.color == SIMD3(0.5,0.25,1) && changed.intensity == 6 && changed.radius == 120
+    let before = live.userValues
+    checks[prefix + "-wrong-kind-local"] = !live.apply(.string("bad"), forPropertyKey: "lampIntensity")
+        && live.userValues == before
+   }
+   if name == "transformed" {
+    let parent = SceneDynamicTarget.layer(layerID: 90, field: .origin)
+    let color = SceneDynamicTarget.layer(layerID: 7, field: .color)
+    let intensity = SceneDynamicTarget.layer(layerID: 7, field: .intensity)
+    let radius = SceneDynamicTarget.layer(layerID: 7, field: .radius)
+    let current = SceneDynamicSnapshotResolver().resolve(frameIndex: 3, generation: 1,
+        definitions: [.init(target: parent, valueType: .vector3, authoredValue: .vector3(10,20,30)),
+         .init(target: color, valueType: .vector3, authoredValue: .vector3(0.25,0.5,0.75)),
+         .init(target: intensity, valueType: .scalar, authoredValue: .scalar(4)),
+         .init(target: radius, valueType: .scalar, authoredValue: .scalar(80))],
+        sceneScriptValues: [parent:.vector3(100,200,300), color:.vector3(0.5,0.25,1),
+            intensity:.scalar(6), radius:.scalar(120)]).snapshot
+    let dynamicWorlds = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: descriptor, byID: index,
+        snapshot: current, staticFrames: worlds)
+    let dynamic = SceneLightSnapshot.make(descriptor: descriptor, worldFramesByLayerID: dynamicWorlds,
+        dynamicLayerColors: [7:SIMD3(0.5,0.25,1)], dynamicSnapshot: current).tube.first!
+    checks[prefix + "-current-parent"] = close(dynamic.position, SIMD3(94,202,312))
+        && close(dynamic.direction, SIMD3(0,1,0)) && abs(dynamic.length - 8) < 0.0001
+    checks[prefix + "-typed-update"] = dynamic.color == SIMD3(0.5,0.25,1)
+        && dynamic.intensity == 6 && dynamic.radius == 120
+    let targets = SceneLightSnapshot.liveConsumerTargets(descriptor: descriptor)
+    checks[prefix + "-launch-targets"] = targets.contains(color) && targets.contains(intensity) && targets.contains(radius)
+   }
+  }
   print(String(decoding:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),as:UTF8.self))
  }
 }
 '''
+
+def tube_scene_cases():
+    parent = {'id': 90, 'origin': '10 20 30', 'scale': '2 3 4',
+              'angles': '0 0 1.5707963267948966'}
+    tube = {'id': 7, 'name': 'actual tube', 'light': 'ltube', 'parent': 90,
+            'origin': '1 2 3', 'scale': '2 1 1', 'controlpoint': '2 0 0',
+            'color': '0.25 0.5 0.75', 'intensity': 4, 'radius': 80, 'exponent': .5}
+    point = {'id': 8, 'light': 'lpoint', 'origin': '4 5 6', 'color': '1 1 1',
+             'intensity': 1, 'radius': 100, 'castshadow': False}
+    base = {'version': 3, 'general': {'ambientcolor': '0 0 0', 'skylightcolor': '0 0 0',
+            'lightconfig': {'tube': 1, 'point': 1, 'directional': 1, 'spot': 1}},
+            'objects': [parent, tube, point]}
+    names = ['transformed', 'renamed', 'bound', 'disabled', 'omitted', 'nonzero', 'bad-cp',
+             'bad-number', 'bad-radius', 'zero', 'budget', 'legacy-only', 'legacy-tube']
+    result = {name: copy.deepcopy(base) for name in names}
+    renamed = result['renamed']
+    for obj in renamed['objects']:
+        obj['id'] += 1000
+        if 'parent' in obj:
+            obj['parent'] += 1000
+        obj['name'] = 'Independent renamed Ω'
+    renamed['objects'][1]['light'] = 'LTUBE'
+    renamed['objects'][1]['controlpoint'] = {'value': '2,\t0 0'}
+    for field, key in [('color', 'lampColor'), ('intensity', 'lampIntensity'), ('radius', 'lampRadius')]:
+        result['bound']['objects'][1][field] = {'user': key, 'value': tube[field]}
+    result['disabled']['general']['lightconfig']['tube'] = 0
+    del result['omitted']['general']['lightconfig']['tube']
+    result['nonzero']['general']['lightconfig']['tube'] = 2
+    result['bad-cp']['objects'][1]['controlpoint'] = '2 0'
+    result['bad-number']['objects'][1]['intensity'] = True
+    result['bad-radius']['objects'][1]['radius'] = 0
+    result['zero']['objects'][1]['controlpoint'] = '0 0 0'
+    budget = result['budget']['objects']
+    budget[2]['castshadow'] = True
+    budget += [{'id': 9, 'light': 'ldirectional', 'intensity': 1, 'color': '1 1 1', 'castshadow': True},
+               {'id': 10, 'light': 'lspot', 'intensity': 1, 'radius': 100, 'innercone': 20,
+                'outercone': 30, 'color': '1 1 1', 'castshadow': True},
+               {**tube, 'id': 11}, {**point, 'id': 12}]
+    for name in ['legacy-only', 'legacy-tube']:
+        value = result[name]
+        value['general']['orthogonalprojection'] = {'width': 64, 'height': 64}
+        value['objects'][2]['light'] = 'point'
+        if name == 'legacy-only':
+            value['objects'] = [value['objects'][0], value['objects'][2]]
+    return result
+
 
 class SceneDirectionalShadowAuthoredTests(unittest.TestCase):
     @classmethod
@@ -763,14 +897,33 @@ class SceneDirectionalShadowAuthoredTests(unittest.TestCase):
         (root/'project.json').write_text(json.dumps({'type':'scene','file':'scene.json'}))
         for name, content in entries.items():
             path = root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(content)
+        for name, value in tube_scene_cases().items():
+            target = root/('tube-'+name); target.mkdir()
+            project = {'type':'scene','file':'scene.json'}
+            if name == 'bound':
+                project['general'] = {'properties': {
+                    'lampIntensity': {'type':'slider','text':'I','value':4,'min':0,'max':200},
+                    'lampRadius': {'type':'slider','text':'R','value':80,'min':0,'max':200},
+                    'lampColor': {'type':'color','text':'C','value':'0.25 0.5 0.75'}}}
+            (target/'project.json').write_text(json.dumps(project))
+            (target/'scene.json').write_text(json.dumps(value))
         sources = list(builder.SWIFT_SOURCES)
-        for path in [model_fixture.LIGHT_SOURCE, model_fixture.LIGHTING_INPUT_SOURCE, model_fixture.DYNAMIC_LAYER_VALUES_SOURCE]:
+        for path in [model_fixture.LIGHT_SOURCE, model_fixture.LIGHTING_INPUT_SOURCE,
+                     model_fixture.DYNAMIC_LAYER_VALUES_SOURCE,
+                     SCENE/'Systems/Properties/ScenePropertyLiveUpdateState.swift']:
             if path not in sources: sources.append(path)
         cls.report = run_swift(sources, 'import simd\n'+builder.HARNESS_SOURCE.split('@main',1)[0]+PARSER_MAIN, label='authored', input_value=str(root))
 
     def test_actual_parser_descriptor_and_light_budget(self):
         for key, value in self.report.items():
-            if not key.startswith('old-'): self.assertTrue(value, key)
+            if not key.startswith(('old-', 'tube-')): self.assertTrue(value, key)
+
+    def test_tube_actual_parse_world_config_current_values_and_shared_budget(self):
+        checks = {key: value for key, value in self.report.items() if key.startswith('tube-')}
+        self.assertGreater(len(checks), 25)
+        self.assertIn('tube-bound-live-values', checks)
+        for key, value in checks.items():
+            self.assertTrue(value, key)
 
     def test_old_codable_missing_shadow_keys(self):
         self.assertTrue(self.report['old-layer-decode-missing-shadow-key'])

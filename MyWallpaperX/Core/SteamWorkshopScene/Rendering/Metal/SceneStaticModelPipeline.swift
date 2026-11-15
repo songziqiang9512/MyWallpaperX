@@ -61,6 +61,12 @@ private struct SceneModelShadowUniforms {
     }
 }
 
+private struct SceneModelTubeUniforms {
+    var positionRadius: SIMD4<Float>
+    var directionLength: SIMD4<Float>
+    var colorIntensity: SIMD4<Float>
+}
+
 private struct SceneStaticModelUniforms {
     var modelMatrix: simd_float4x4
     var viewProjectionMatrix: simd_float4x4
@@ -124,6 +130,12 @@ private struct SceneStaticModelUniforms {
     var pigmentTextureFrame1: SIMD4<Float>
     var spotFalloffExponents: SIMD4<Float>
     var pigmentFramePixels: SIMD4<Float>
+    var tube0: SceneModelTubeUniforms
+    var tube1: SceneModelTubeUniforms
+    var tube2: SceneModelTubeUniforms
+    var tube3: SceneModelTubeUniforms
+    var tubeFalloffExponents: SIMD4<Float>
+    var tubeCount: UInt32
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -457,6 +469,11 @@ struct SceneStaticModelPipeline {
         let lights = Self.encodedLights(lighting.directional, energyScale: lightEnergyScale)
         let points = Self.encodedPoints(staticModelPoints, energyScale: lightEnergyScale)
         let spots = Self.encodedSpots(lighting.spot, energyScale: lightEnergyScale)
+        let tubes = material.surfaceProfile == nil ? [] : lighting.tube
+        let tube0 = Self.encodedTube(tubes, at: 0)
+        let tube1 = Self.encodedTube(tubes, at: 1)
+        let tube2 = Self.encodedTube(tubes, at: 2)
+        let tube3 = Self.encodedTube(tubes, at: 3)
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
             : 1
@@ -585,7 +602,11 @@ struct SceneStaticModelPipeline {
             } ?? .zero,
             spotFalloffExponents: SIMD4(spots[0].falloffExponent, spots[1].falloffExponent,
                 spots[2].falloffExponent, spots[3].falloffExponent),
-            pigmentFramePixels: pigment?.framePixels ?? .zero
+            pigmentFramePixels: pigment?.framePixels ?? .zero,
+            tube0: tube0.parameters, tube1: tube1.parameters,
+            tube2: tube2.parameters, tube3: tube3.parameters,
+            tubeFalloffExponents: SIMD4(tube0.exponent, tube1.exponent, tube2.exponent, tube3.exponent),
+            tubeCount: UInt32(tubes.count)
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -794,7 +815,14 @@ struct SceneStaticModelPipeline {
     /// same test that executes this gate; host-side drift rejects pipeline
     /// preparation before any draw can be encoded.
     static let hasExpectedUniformABI =
-        MemoryLayout<SceneStaticModelUniforms>.stride == 1504
+        MemoryLayout<SceneStaticModelUniforms>.stride == 1728
+        && MemoryLayout<SceneModelTubeUniforms>.stride == 48
+        && MemoryLayout<SceneModelTubeUniforms>.offset(of: \.directionLength) == 16
+        && MemoryLayout<SceneModelTubeUniforms>.offset(of: \.colorIntensity) == 32
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tube0) == 1504
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tube3) == 1648
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tubeFalloffExponents) == 1696
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.tubeCount) == 1712
         && MemoryLayout<SceneModelShadowUniforms>.stride == 112
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.positionRadius) == 64
         && MemoryLayout<SceneModelShadowUniforms>.offset(of: \.parameters) == 80
@@ -857,13 +885,8 @@ struct SceneStaticModelPipeline {
             }
             let light = lights[index]
             return (
-                SIMD4(
-                    light.directionTowardLight.x,
-                    light.directionTowardLight.y,
-                    light.directionTowardLight.z,
-                    max(light.intensity, 0) * energyScale
-                ),
-                SIMD4(light.color.x, light.color.y, light.color.z, 0)
+                SIMD4(light.directionTowardLight, max(light.intensity, 0) * energyScale),
+                SIMD4(light.color, 0)
             )
         }
     }
@@ -883,20 +906,9 @@ struct SceneStaticModelPipeline {
             }
             let light = lights[index]
             return (
-                SIMD4(
-                    light.position.x, light.position.y, light.position.z,
-                    light.radius
-                ),
-                SIMD4(
-                    light.directionFromLight.x,
-                    light.directionFromLight.y,
-                    light.directionFromLight.z,
-                    light.innerConeCosine
-                ),
-                SIMD4(
-                    light.color.x, light.color.y, light.color.z,
-                    light.intensity * energyScale
-                ),
+                SIMD4(light.position, light.radius),
+                SIMD4(light.directionFromLight, light.innerConeCosine),
+                SIMD4(light.color, light.intensity * energyScale),
                 light.outerConeCosine,
                 light.falloffExponent
             )
@@ -916,17 +928,26 @@ struct SceneStaticModelPipeline {
             }
             let light = lights[index]
             return (
-                SIMD4(
-                    light.position.x, light.position.y, light.position.z,
-                    light.radius
-                ),
-                SIMD4(
-                    light.color.x, light.color.y, light.color.z,
-                    light.intensity * energyScale
-                ),
+                SIMD4(light.position, light.radius),
+                SIMD4(light.color, light.intensity * energyScale),
                 light.falloffExponent
             )
         }
+    }
+
+    private static func encodedTube(
+        _ lights: [SceneLightSnapshot.Tube], at index: Int
+    ) -> (parameters: SceneModelTubeUniforms, exponent: Float) {
+        guard lights.indices.contains(index) else {
+            return (SceneModelTubeUniforms(positionRadius: .zero,
+                directionLength: .zero, colorIntensity: .zero), 2)
+        }
+        let light = lights[index]
+        return (SceneModelTubeUniforms(
+            positionRadius: SIMD4(light.position, light.radius),
+            directionLength: SIMD4(light.direction, light.length),
+            colorIntensity: SIMD4(light.color, light.intensity)
+        ), light.falloffExponent)
     }
 
     static func isFinite(_ matrix: simd_float4x4) -> Bool {

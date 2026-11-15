@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 377,
-      "bytes": 87836
+      "lines": 388,
+      "bytes": 90452
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 198,
-      "bytes": 58729
+      "lines": 199,
+      "bytes": 59197
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 357,
-      "bytes": 104677
+      "lines": 370,
+      "bytes": 108317
     }
   },
   "archives": [
@@ -514,24 +514,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "c8c77bd049b66c1bea15a69642347a2a30c13c2e0b2136b7bb573c20db5a0929",
-      "after": "cc3a79f568d2e21e4fe70677a3963d708754f89034243919d22f2a44f20796e1",
-      "owner": "Existing static model material/Pipeline/Metal owners",
-      "reason": "Replace generic4 pre-B/F0 and reflection-only gain with the qualified-surface post-lighting brightness contract, including B0 black-metal and half-mask controls; no new owner or implementation state.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "a777ce9801631fff47199cc5bb0a6bcd371aea38c107fecf861aafa78a1a652a",
-      "after": "a8a7857adc16eafa91837cfc8e43cd9e737f2936ebeccb487783e16369b80b5c",
-      "owner": "Scene current issue queue and model runtime evidence owners",
-      "reason": "Apply user visual acceptance of waterdrop, retire it as current task, retain independent unresolved semantics and four resize-observation failures, and resume other evidence-backed world-model issues.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "af1496fae4fa0b220a741a47c8220bd4f68f4929fcc22071c15ef59517ab533b",
       "after": "da9a4f24a0b63d4188408f4d1226567b33dc6720638ee76162d7dfa3f3eb630f",
@@ -541,12 +523,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "cc3a79f568d2e21e4fe70677a3963d708754f89034243919d22f2a44f20796e1",
+      "after": "a90952c0f9d2ea4c2c6e9293c2216aecf3877249651b82d6361d4fe8bb342aec",
+      "owner": "Existing Scene Format / shared LightSnapshot / static-model SurfaceResponse owners",
+      "reason": "Add distinct finite Tube direct-light capability and measured real-can contribution, same-binary old Metal negatives, typed visibility/property and four-slot coverage; retain explicit official-coordinate/tiers limits and failed carrier evidence without a new runtime owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#tube-light"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "a8a7857adc16eafa91837cfc8e43cd9e737f2936ebeccb487783e16369b80b5c",
+      "after": "a6087f02136bf2c967140567f17a0ff77073fc14d5fb3b39cb0669d3368dff4e",
+      "owner": "Existing Scene Format / shared LightSnapshot / static-model SurfaceResponse owners",
+      "reason": "Add distinct finite Tube direct-light capability and measured real-can contribution, same-binary old Metal negatives, typed visibility/property and four-slot coverage; retain explicit official-coordinate/tiers limits and failed carrier evidence without a new runtime owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#tube-light"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6c4dbf896c34f1b7b306fccea7d8d5d2cdf361ccb6ba25303897b3805a244bc3",
-      "after": "cda5faa011efc3d31cfaf9d6dd2bd32148dd652e593570755d6945b3ef517ae9",
-      "owner": "Scene current issue queue and model runtime evidence owners",
-      "reason": "Apply user visual acceptance of waterdrop, retire it as current task, retain independent unresolved semantics and four resize-observation failures, and resume other evidence-backed world-model issues.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "cda5faa011efc3d31cfaf9d6dd2bd32148dd652e593570755d6945b3ef517ae9",
+      "after": "5fd1c5f048f431358306a232632d2bb1460397aa3d6422d756d1e9bb45dd27c7",
+      "owner": "Existing Scene Format / shared LightSnapshot / static-model SurfaceResponse owners",
+      "reason": "Add distinct finite Tube direct-light capability and measured real-can contribution, same-binary old Metal negatives, typed visibility/property and four-slot coverage; retain explicit official-coordinate/tiers limits and failed carrier evidence without a new runtime owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#tube-light"
     }
   ]
 }

@@ -355,3 +355,16 @@ Frame原192项加24项线性RGBA8 A127/128边界、三灯与资源改名，共21
 Catalog真实CPU门旧17方法11.424s有8个新增subfail/0error，新17方法10.789s全过；原15方法AST/语义及两版结果保持，原46输出字段严格同。124份自有fixture逐SHA同，归档原115文件不变、只增9份。两版generic引用/explicit数组相同；旧Harness只机械省未知imageModelPaths label，不改产品、不以编译失败冒红。目录外Unicode后缀/无后缀/大小写、material/effect hint冲突均model parser1/相反parser0/read1；pending/processed真实双consumer各model/material1、read2，缺失/other0、坏模型尝试/读1且健康peer保持。临时transport只记录原DynamicReferenceAnalysis真实return，实际包含已显式解析的providers/scene Ω.payload和processed名，不复制算法；不据此授Script-only全部模板或MDL。
 
 普通Debug28.519s、两产品/project/锁文件前后同，strict-deep及原trusted helpers通过，exe71e933b5…7dd8、dylib617bbef4…5198、metallib仍17c2ed96…b3da。独立原3477054430自然5s、12.345s执行，原project/pkg等matrix/report；F187/request1/CB533847163776，14×2、23×1、47×2、68×1到main533850286080，同封口/GPUcompleted、trunc0/parse0并停机排空。实际月球、星点、楼体、猫及耳机完整，只授普通原包播放，不授同相位A/B、逐part贡献、官方像素或性能。作者原报告/图归.artifacts/scene-evidence/runs/scene-model-image-role-20261115；自有输入、旧红/新绿、身份与独审归.artifacts/scene-model-image-role-20261115。
+
+<a id="tube-light"></a>
+## 管状灯的模型受光
+
+2026-11-16补通`ltube`的Format→原Layer→同帧LightSnapshot→stock generic4/chroma4 SurfaceResponse。按[线段合同](advanced-object-coverage.md#tube-light)使用局部CP与完整world，CPU每灯准备单位轴/长度，片元取有限最近点及原径向项；退原类型丢失，不伪装Point、不增pass/纹理/PSO/缓存或输出owner。15产品文件净增164行（含42行typed定义），原Pipeline972行；GPU尾增224B至1728B，旧字段偏移不变。原General/可见性与共享四灯预算接纳Tube，legacy authored point ABI不被Tube失效；阴影、体积、旧材质和Generic/image仍不在此资格。
+
+真实3617056047的默认罐体70使用stock generic4与原MDL/TEX，静态白管灯86的I6.6/r1033.98/e2.65未进入旧消费者。固定原资产/相机和70/107姿态，清空ambient/sky及其它灯，只改86强度0/6.6；旧off/on终端PNG完全相同，原点灯83正控能照亮罐体。当前同三输入全PASS，1280×831中点灯正控与关灯画面分别逐RGB与旧图相同；Tube-on改变20158像素、最大通道差85，差异界[586,344,759,563]位于可见罐体下侧。该控制隔离直接贡献，不授原包全景严格A/B或官方曝光一致。
+
+真实Builder/World/Snapshot与用户属性门93项全true，包含局部坏CP/强度/radius不带走健康Point、General缺省/关/非零、资源及ID改名、父TRS与当前typed值、共享四灯顺序和legacy ABI邻例。模型GPU六方法/37输入通过零长点极限、两端整图Point等值、内点线长不变及离轴光差、零指数半径外、零强度/无灯/unlit、normal/MR/Chroma/rim/pigment、alpha/深度和改名；四份I1与单份I4整图等值，实际遍历四Tube槽。相同Swift probe与payload仅换共目录旧Metal，37输入新执行中Point各行RGBA/depth全等，Tube黑；直接CPU调用原断言得五红、一零能量邻例绿，证明门能检出缺消费者。脚本VM/父隐藏与live property两方法另在四类灯实际执行通过，Tube显隐计数0/1/0/0/1，父隐藏撤光、property显隐0/1/0且launch/color/I需求保持；11方法合计通过。最初两夹具未编译的失败保留，修支持DTO/显式数组表达式后只补受影响门。
+
+Debug增量33.905秒、产品输入不漂移，实际App strict/deep签名通过；exe `3203f653…5f822`、dylib `65c79a02…ec523`、Metal `bfb78133…e89aa`，两编译工具仍为既有签名身份。原361与未参与修复的3437487219均取得完整终端、model/main/seal/GPU与排空且整轮PASS，实际罐体与独立星球纹理/完整图已观察。一次错误的TestSuite断言重放触发多余current setup，覆盖了内存rows，错误绿收据已作废并保留；正确旧断言直接读取原old GPU结果。该重复执行与作者代表运行重叠，作者运行仅授画面/播放，不授时耗性能比较；不重跑无变化产品来制造新结论。
+
+独立设计/产品/测试审查未见阻断。官方VM恢复后，完整运输并核对6输入文件，但仅point正控装载即触发官方0xc0000005错误框，尚无有效罐体像素，未试Tube off/on；已请求恢复客户端，性能设置未改。保留的Point计数与删灯后数量不符、PKGV头版本差异只是未决输入风险，不定崩溃因果；原平移计划的相机通道无效，未生成变体。CP坐标域与官方数值受光仍未知，本批按明确自有几何算法交付。必要原图、原报告与source/readback/审查保在`.artifacts/scene-model-tube-light-20261116/`及同名formal run，构建沿原单一DerivedData复用。

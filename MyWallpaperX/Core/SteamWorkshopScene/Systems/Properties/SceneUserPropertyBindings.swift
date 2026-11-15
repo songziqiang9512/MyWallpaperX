@@ -364,13 +364,13 @@ nonisolated struct SceneUserPropertyBindingParser {
         if components.count == 3,
            Self.key(components[2]) == "intensity",
            let light = (object["light"] as? String)?.localizedLowercase,
-           ["ldirectional", "lpoint", "point", "lspot"].contains(light) {
+           ["ldirectional", "lpoint", "point", "lspot", "ltube"].contains(light) {
             return .lightIntensity(layerID: layerID)
         }
         if components.count == 3,
            Self.key(components[2]) == "radius",
            let light = (object["light"] as? String)?.localizedLowercase,
-           ["lpoint", "point"].contains(light) {
+           ["lpoint", "point", "ltube"].contains(light) {
             return .lightRadius(layerID: layerID)
         }
         if components.count == 3,
@@ -651,7 +651,7 @@ nonisolated struct SceneUserPropertyBindingParser {
             case "alpha", "brightness", "fov": return .objectScalar
             case "radius":
                 guard let light = (object["light"] as? String)?.localizedLowercase,
-                      ["lpoint", "point"].contains(light) else { return nil }
+                      ["lpoint", "point", "ltube"].contains(light) else { return nil }
                 return .objectScalar
             case "volume": return object["sound"] != nil ? .soundVolume : .objectScalar
             case "angles", "origin", "scale", "color": return .objectVector

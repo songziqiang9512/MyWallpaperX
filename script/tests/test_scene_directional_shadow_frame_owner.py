@@ -29,7 +29,7 @@ SOURCES = list(dict.fromkeys([
     *model_fixture.MODEL_SUPPORT_SOURCES,
     *(p for p in particle_fixture.SWIFT_SOURCES if p.parent.name != 'fixtures'),
     *(getattr(model_fixture, name) for name in [
-        'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE',
+        'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'TUBE_LIGHT_SOURCE',
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
@@ -63,11 +63,12 @@ struct SceneLayerDisplayScriptOwnership {
 struct SceneRenderDescriptor {
  struct LightingDescriptor {
   struct DistanceFog { let color:[Float]; let start:Float; let end:Float; let startDensity:Float; let endDensity:Float }
-  struct LightClassesDescriptor { var directional:Bool = true; var point:Bool = true; var spot:Bool = true }
+  struct LightClassesDescriptor { var directional:Bool = true; var point:Bool = true; var spot:Bool = true; var tube:Bool = true }
   let ambientColorRGB:[Float]?;let skylightColorRGB:[Float]?;var lightClasses:LightClassesDescriptor = .init();var distanceFog:DistanceFog? = nil
  }
  struct Layer {
   let id:Int;var visible:Bool? = true;var pointLight:ScenePointLightDefinition? = nil
+  var tubeLight:SceneTubeLightDefinition? = nil
   var spotLight:SceneSpotLightDefinition? = nil;var directionalLight:SceneDirectionalLightDefinition? = nil
   var dependencyLayerIDs:[Int]=[]
   var parentID:Int? = nil;var displayScriptOwnership:SceneLayerDisplayScriptOwnership? = nil

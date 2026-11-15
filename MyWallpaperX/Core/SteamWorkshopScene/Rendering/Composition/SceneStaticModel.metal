@@ -19,6 +19,12 @@ struct SceneModelShadowUniforms {
     uint4 identity; // projection kind, current light index, enabled, unused
 };
 
+struct SceneModelTubeUniforms {
+    float4 positionRadius;
+    float4 directionLength;
+    float4 colorIntensity;
+};
+
 struct SceneStaticModelUniforms {
     float4x4 modelMatrix;
     float4x4 viewProjectionMatrix;
@@ -58,6 +64,9 @@ struct SceneStaticModelUniforms {
     float4 pigmentTextureFrame1; // pixel UV y-axis.xy, amount.z, flags.w: R/local-repeat
     float4 spotFalloffExponents;
     float4 pigmentFramePixels; // local width/height.xy and inverse.zw; zero for ordinary textures
+    SceneModelTubeUniforms tubes[4];
+    float4 tubeFalloffExponents;
+    uint tubeCount;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -489,7 +498,7 @@ fragment half4 sceneStaticModelFragment(
     }
     float rimWeight = 0.0;
     if (uniforms.rimParameters.x > 0.0
-        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
+        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z | uniforms.tubeCount) != 0u) {
         const float edge = 1.0 - saturate(abs(dot(normal, viewDirection)));
         const float curve = uniforms.rimParameters.y == 0.0 ? 1.0 : pow(edge, uniforms.rimParameters.y);
         rimWeight = uniforms.rimParameters.x * curve;
@@ -587,8 +596,27 @@ fragment half4 sceneStaticModelFragment(
                 * radial * cone * max(signedNoL, 0.0) * spotVisibility[lightIndex];
         }
     }
+    const uint tubeCount = receivesLighting && surfaceEnabled ? uniforms.tubeCount : 0u;
+    for (uint lightIndex = 0; lightIndex < min(tubeCount, 4u); ++lightIndex) {
+        constant SceneModelTubeUniforms &tube = uniforms.tubes[lightIndex];
+        const float along = clamp(dot(in.worldPosition - tube.positionRadius.xyz,
+            tube.directionLength.xyz), 0.0, tube.directionLength.w);
+        const float3 toLight = tube.positionRadius.xyz
+            + tube.directionLength.xyz * along - in.worldPosition;
+        const float distanceSquared = dot(toLight, toLight);
+        if (distanceSquared == 0.0) continue;
+        const float distanceToLight = sqrt(distanceSquared);
+        const float radial = sceneRadialFalloff(distanceToLight, tube.positionRadius.w,
+            uniforms.tubeFalloffExponents[lightIndex]);
+        if (radial <= 0.0) continue;
+        const float3 directionTowardLight = toLight / distanceToLight;
+        surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
+            directionTowardLight, dot(normal, directionTowardLight), surfaceColor, surfaceMaterial.xy,
+            gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
+            rimWeight, specularTint) * tube.colorIntensity.xyz * tube.colorIntensity.w * radial;
+    }
     if (uniforms.pigmentTextureFrame1.z > 0.0
-        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z) != 0u) {
+        && (uniforms.lightCounts.x | uniforms.lightCounts.y | uniforms.lightCounts.z | uniforms.tubeCount) != 0u) {
         const uint pigmentFlags = uint(uniforms.pigmentTextureFrame1.w);
         float2 pixel = in.position.xy;
         if (uniforms.pigmentFramePixels.x > 0.0) {

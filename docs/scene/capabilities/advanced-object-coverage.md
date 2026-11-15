@@ -314,7 +314,7 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 <a id="lighting"></a>
 ## 光照、材质与显示
 
-`SceneLightSnapshot` 从当前 topology/world/typed 值准备 point、spot、directional，按当前预算接纳最多四灯；tube 不能伪装为 point。所有 receiver 消费同帧 light/camera，而不是各自解另一份场景。
+`SceneLightSnapshot` 从当前 topology/world/typed 值准备 point、spot、directional、tube，按当前预算接纳最多四灯；tube 保独立有限线段语义。所有 receiver 消费同帧 light/camera，而不是各自解另一份场景。
 
 - 只有实际启用 lighting/reflection 的材质参与对应 producer；plain image 不因场景有灯而自动受光。
 - base material 光照在 layer effects 之前完成，graph 捕获该真实 source。albedo/emissive 与 normal/PBR data 分用途读取；normal、radius、锥角与世界距离使用 canonical 坐标，不随 card 非均匀 scale 错变。
@@ -325,6 +325,17 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 - HDR scene color/Bloom 与终端 SDR/EDR 映射分开；像素 PNG 不能证明显示器实际 EDR 高光。
 
 源码：[LightSnapshot](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift)、[2D lit material](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal)。采样/颜色合同见[Shader/Graph](render-graph-shader-coverage.md#color)。
+
+<a id="tube-light"></a>
+### 管状光源的线段受光
+
+本切片补真实`ltube`到stock generic4/chroma4模型的直接受光。原Format未保留该类，灯86未进入3617056047罐体的共享灯快照；旧App固定实际MDL/TEX的管灯开关无像素贡献；现已闭合[管灯实际受光](model-runtime-evidence.md#tube-light)。沿现Format/Layer descriptor保controlpoint、颜色、强度、半径和指数，原General.lightconfig保tube资格；使用既有当前world/visibility和typed color/intensity/radius，按作者顺序与directional/lpoint/spot共用四灯预算。新增真实Tube数据，不借Point记录或另建灯、世界变换、clock、缓存与compositor owner。原scene每launch从原字节重新解析，现持久缓存不保存这两份解析DTO；shader缓存继续沿原构建source语义身份，不新增revision或目录认证。
+
+项目线段语义先以灯自身局部controlpoint为另一端，复用完整当前world变换；端点世界坐标、单位轴和长度每帧每灯准备一次，片元不重复变换或求线段长度。零长线段保其数学点源极限；无效灯只影响自身。该坐标选择及下述响应是本项目有界算法，官方host的controlpoint坐标域尚需合格平移/旋转对照，不能从stock最近点函数或本地几何推为官方合同；若实际反例否定，修正同一语义入口后再验。
+
+模型片元把表面投影到有限线段最近点，以该入射方向、距离和原径向exponent消费同一SurfaceResponse；强度与颜色仍分立，不按样本、截图或线长添加补偿。原normal/MR/gradient/rim/pigment、HDR、fog、alpha及depth继续现合同；有灯判定同时包含Tube。GPU参数仅在原ModelUniform末尾追加固定四灯小记录、指数和计数，保旧字段偏移，以Swift/Metal实际读回核ABI；每个活动Tube只求一次原表面响应，不增加纹理、pass或PSO。原Pipeline承接且保持1000行以内，不为行数拆wrapper。
+
+首批覆盖实际不投影的管灯：tube阴影、体积、旧材质及Generic/图像LightingV1不由模型结果授予，已有shadowLights及其预算不伪造tube map。验收包括真实Format/General准入、父变换/当前typed值、隐藏/四灯顺序、退化点源等值、线段内部与两端夹取、半径/指数0、无灯/零强度、PBR/Chroma/normal/rim/alpha/depth和改名；保非tube灯的既有行为。用冻结罐体灯开关/点光正控闭合实际像素，原作者与独立星球补代表运行和一次独审；最终贡献、坐标域与官方精确一致分别授予。
 
 <a id="image-material-map-components"></a>
 ### 图像分量图的显式通道

@@ -454,7 +454,7 @@ class OrdinaryEffectLightingTests(unittest.TestCase):
             "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
             "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
             "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
-            "Format/SceneDirectionalLightDefinition.swift", "Format/ScenePointLightDefinition.swift",
+            "Format/SceneDirectionalLightDefinition.swift", "Format/ScenePointLightDefinition.swift", "Format/SceneTubeLightDefinition.swift",
             "Format/SceneSpotLightDefinition.swift", "Rendering/Geometry/SceneMatrix.swift",
             "Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
             "Rendering/Geometry/SceneLayerVisibility.swift",

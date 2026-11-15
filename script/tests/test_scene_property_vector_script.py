@@ -38,6 +38,7 @@ SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneDirectionalLightDefinition.swift",
     SCENE / "Format/ScenePointLightDefinition.swift",
+    SCENE / "Format/SceneTubeLightDefinition.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",

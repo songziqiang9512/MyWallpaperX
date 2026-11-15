@@ -286,6 +286,7 @@ nonisolated extension SceneDocument {
         var pointLight: ScenePointLightDefinition? = nil
         var spotLight: SceneSpotLightDefinition? = nil
         var directionalLight: SceneDirectionalLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let materialInstance: SceneLayerMaterialInstance?
         let utilityLayer: SceneUtilityLayer?

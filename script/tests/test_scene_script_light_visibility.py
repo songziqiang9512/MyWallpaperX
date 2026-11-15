@@ -19,6 +19,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 # function, leaf admission, property state, visibility and light snapshot are
 # compiled from production sources. Unrelated graph/audio branches stay empty.
 STUBS = r'''
+enum SceneDependencyRenderPlan { struct Binding {} }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Claim { let token: Int }
     struct Capability {
@@ -29,7 +30,7 @@ struct SceneResolvedMaterialExecutionCapabilityCatalog {
         let materials: [Int]
     }
     var executionLayerIDs: Set<Int> = []
-    var admittedResolvedMaterialReferences: [Int] = []
+    var preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
     var liveConsumerTargets: Set<SceneDynamicTarget> = []
     func claim(layerID: Int) -> Claim? { nil }
     func resolve(_ token: Int) -> Capability? { nil }
@@ -38,7 +39,7 @@ enum SceneUtilityLayerRuntimePlanner {
     enum Kind { case fullscreen }
     struct Plan { let kind: Kind; let requiresNamedTarget: Bool; let shouldCapture: Bool }
     static func plans(in descriptor: SceneRenderDescriptor, resolvedMaterialLayerIDs: Set<Int>,
-        admittedResolvedMaterialReferences: [Int]) -> [Int: Plan] { [:] }
+        preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]]) -> [Int: Plan] { [:] }
 }
 enum SceneDependencyGraphAnalysis {
     struct Reference { let providerLayerID: Int }
@@ -60,7 +61,7 @@ HARNESS = r'''
     }
     static func main() throws {
         var rows: [[String: Any]] = []
-        for (ordinal, kind) in ["pointLight", "spotLight", "directionalLight"].enumerated() {
+        for (ordinal, kind) in ["pointLight", "spotLight", "directionalLight", "tubeLight"].enumerated() {
             var light = SceneRenderDescriptor.Layer(id: 7, layerIndex: 0, name: "lamp",
                 visible: false, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1,
                 effects: [], contentKind: kind, parentID: 90)
@@ -72,6 +73,9 @@ HARNESS = r'''
                     radius: 100, innerConeDegrees: 20, outerConeDegrees: 30,
                     density: nil, exponent: nil, volumetricsExponent: nil,
                     castsVolumetrics: false, castsShadow: true, isSolid: true)
+            } else if kind == "tubeLight" {
+                light.tubeLight = .init(controlPoint: SIMD3(0, 0, 8), colorRGB: [1, 1, 1],
+                    intensity: 1, radius: 100)
             } else {
                 light.directionalLight = .init(colorRGB: [1, 1, 1], intensity: 1,
                                               shadowCastIntent: .enabled)
@@ -103,7 +107,7 @@ HARNESS = r'''
                                         dynamicSnapshot: snapshot)
             }
             func count(_ value: SceneLightSnapshot) -> Int {
-                value.directional.count + value.point.count + value.spot.count
+                value.directional.count + value.point.count + value.spot.count + value.tube.count
             }
             var visible: [Bool] = [], childValues: [Bool] = [], parentValues: [Bool] = []
             var counts: [Int] = [], shadows: [Int] = [], failures = 0
@@ -180,6 +184,7 @@ def lighting_fixture(work: Path) -> tuple[str, tuple[Path, ...]]:
                                     "var directionalLight: SceneDirectionalLightDefinition? = nil")
     preamble = preamble.replace("var particleInstanceOverride:",
             "var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil\n"
+            "        var renderSizeWH: [Float]? = nil\n"
             "        var particlePath: String? = nil\n"
             "        var supportsDirectLayerColorConsumer: Bool { false }\n"
             "        var supportsUserPropertyLayerColorConsumer: Bool { false }\n"
@@ -194,7 +199,7 @@ def lighting_fixture(work: Path) -> tuple[str, tuple[Path, ...]]:
     host += "\n" + method_body(host_source, "static func activeLiveConsumerTargets(")
     preamble += STUBS.replace("__HOST_CONSUMERS__", host)
     extra = tuple(SCENE / path for path in [
-            "Format/SceneDirectionalLightDefinition.swift", "Format/ScenePointLightDefinition.swift",
+            "Format/SceneDirectionalLightDefinition.swift", "Format/ScenePointLightDefinition.swift", "Format/SceneTubeLightDefinition.swift",
             "Format/SceneSpotLightDefinition.swift", "Rendering/Lighting/SceneLightSnapshot.swift",
             "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
             "Rendering/Geometry/SceneLayerVisibility.swift", "Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
@@ -230,7 +235,8 @@ class SceneScriptLightVisibilityTests(unittest.TestCase):
                 self.assertEqual(row["parentValues"], [True, True, False, True, True], row)
                 self.assertEqual(row["visible"], [False, True, False, False, True], row)
                 self.assertEqual(row["counts"], [0, 1, 0, 0, 1], row)
-                self.assertEqual(row["shadows"], [0, 1, 0, 0, 1], row)
+                self.assertEqual(row["shadows"], [0, 0, 0, 0, 0]
+                                 if row["kind"] == "tubeLight" else [0, 1, 0, 0, 1], row)
 
     def test_real_host_live_property_consumer_publishes_and_preserves_launch_targets(self):
         for row in self.rows:

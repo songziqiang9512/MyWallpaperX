@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneDirectionalLightDefinition.swift",
     SCENE / "Format/ScenePointLightDefinition.swift",
+    SCENE / "Format/SceneTubeLightDefinition.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
@@ -435,6 +436,7 @@ struct SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var puppetMeshPath: String? = nil
         var pointLight: ScenePointLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
         var spotLight: Int? = nil
         var directionalLight: Int? = nil
         var authoredLightIntensity: Float? = nil

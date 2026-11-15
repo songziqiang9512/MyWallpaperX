@@ -204,7 +204,8 @@ struct SceneRuntimeModelBuilder {
                         && layer.textStyle != nil)
                     || (hasStaticModelColorConsumer
                         && (layer.spotLight != nil
-                            || layer.directionalLight != nil))
+                            || layer.directionalLight != nil
+                            || layer.tubeLight != nil))
                 guard hasConsumer,
                       colorConsumerLayerIDs.contains(layer.id)
                         || hasVolumetricConeConsumer

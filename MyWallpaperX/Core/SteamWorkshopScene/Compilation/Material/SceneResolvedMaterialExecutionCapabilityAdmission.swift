@@ -196,7 +196,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 // Light leaves need no display resource preparation. They
                 // retain the same authored hierarchy and Boolean publication
                 // rules as the supported container that can reveal them.
-                let lightLeaf = ["pointLight", "spotLight", "directionalLight"].contains(layer.contentKind)
+                let lightLeaf = ["pointLight", "spotLight", "directionalLight", "tubeLight"].contains(layer.contentKind)
                     && layer.effects.isEmpty && layer.authoredDependencies.isEmpty
                     && layer.dependencyLayerIDs.isEmpty
                     && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty

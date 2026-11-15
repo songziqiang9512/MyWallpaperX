@@ -489,6 +489,9 @@ nonisolated extension SceneScriptVectorProgram {
         case "directionalLight":
             guard layer.directionalLight != nil else { return nil }
             target = .layer(layerID: layerID, field: .color)
+        case "tubeLight":
+            guard layer.tubeLight != nil else { return nil }
+            target = .layer(layerID: layerID, field: .color)
         default:
             return nil
         }

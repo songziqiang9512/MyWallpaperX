@@ -71,7 +71,8 @@
         }
         primary.shaderPath = item["shader"] as? String
         primary.userShaderValues = item["userShaderValues"] as? [String: String] ?? [:]
-        primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
+        primary.cullMode = "nocull"
+        primary.blending = item["blending"] as? String ?? (item["additive"] as! Bool ? "additive" : "translucent")
         if let producer = opacityPass {
             let constants = (producer["constantDoubles"] as! [String: [String]]).mapValues {
                 SceneDocument.ShaderValue(components: $0.map { Double($0)! })
@@ -269,8 +270,9 @@
         renderer.renderDescriptor = descriptor
         let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor,
             byID: [7: near, 9: far])
+        let renderSize = item["renderSize"] as? Int ?? 64
         let camera = SceneParticleCameraFrame(camera: descriptor.camera,
-            viewportSize: CGSize(width: 64, height: 64))
+            viewportSize: CGSize(width: renderSize, height: renderSize))
         precondition(camera.defaultsToPerspective && camera.resolvesPerspective(for: near)
             && camera.resolvesPerspective(for: far))
         let center = camera.reverseDepthViewProjection(usesPerspective: true) * worlds[7]! * SIMD4<Float>(0, 0, 0, 1)
@@ -281,18 +283,28 @@
         let intensity = (item["lightIntensity"] as? NSNumber)?.floatValue ?? 2
         let radius = (item["lightRadius"] as? NSNumber)?.floatValue ?? 160
         let direct = item["directLights"] as? Bool ?? (!ambient && !reflection)
-        let position: SIMD3<Float> = opacityPass == nil ? SIMD3(0, 0, 80) : SIMD3(48, 0, 80)
+        let position: SIMD3<Float> = item["lightPosition"] != nil ? vector("lightPosition")
+            : opacityPass == nil ? SIMD3(0, 0, 80) : SIMD3(48, 0, 80)
+        let exponent = (item["lightExponent"] as? NSNumber)?.floatValue ?? 2
+        let tubes: [SceneLightSnapshot.Tube]
+        if direct && kind == "tube" {
+            let tube = SceneLightSnapshot.Tube(layerID: 11, position: vector("tubePosition"),
+                direction: vector("tubeDirection"), length: number("tubeLength"), color: color,
+                intensity: intensity, radius: radius, falloffExponent: exponent)
+            tubes = Array(repeating: tube, count: item["tubeCopies"] as? Int ?? 1)
+        } else { tubes = [] }
         let lighting = SceneLightSnapshot(ambient: ambient ? SIMD3(repeating: 1) : .zero,
             skylight: .zero, directional: direct && kind == "directional" ? [.init(layerID: 11,
                 castsShadow: gradientShadow, directionTowardLight: vector("light"), color: color, intensity: intensity)] : [],
             point: direct && kind == "point" ? [.init(layerID: 11, castsShadow: gradientShadow, position: position,
-                color: color, intensity: intensity, radius: radius)] : [],
+                color: color, intensity: intensity, radius: radius, falloffExponent: exponent)] : [],
             spot: direct && kind == "spot" ? [.init(layerID: 11, castsShadow: gradientShadow, position: position,
                 directionFromLight: item["spotAway"] as? Bool == true ? SIMD3(0, 0, 1) : SIMD3(0, 0, -1),
                 color: color, intensity: intensity, radius: radius, innerConeCosine: cos(.pi/6),
-                outerConeCosine: cos(.pi/4), outerConeDegrees: 45)] : [], overflowCount: 0)
+                outerConeCosine: cos(.pi/4), outerConeDegrees: 45)] : [],
+            tube: tubes, overflowCount: 0)
         let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
-            width: 64, height: 64, mipmapped: false)
+            width: renderSize, height: renderSize, mipmapped: false)
         outputDescriptor.storageMode = .shared; outputDescriptor.usage = [.renderTarget, .shaderRead]
         let output = device.makeTexture(descriptor: outputDescriptor)!, cb = queue.makeCommandBuffer()!
         let pass = SceneMainPassEncoder(commandBuffer: cb, target: output,
@@ -419,12 +431,28 @@
             result["probes"] = probes.map { rgba($0[0], $0[1]) }
             result["normalMipCount"] = normalTexture.mipmapLevelCount
         }
+        if item["fullPixels"] as? Bool == true {
+            var bytes = [UInt8](repeating: 0, count: renderSize * renderSize * 4)
+            output.getBytes(&bytes, bytesPerRow: renderSize * 4,
+                from: MTLRegionMake2D(0, 0, renderSize, renderSize), mipmapLevel: 0)
+            var rgbaPixels: [Int] = []
+            rgbaPixels.reserveCapacity(bytes.count)
+            for offset in stride(from: 0, to: bytes.count, by: 4) {
+                rgbaPixels.append(Int(bytes[offset + 2]))
+                rgbaPixels.append(Int(bytes[offset + 1]))
+                rgbaPixels.append(Int(bytes[offset]))
+                rgbaPixels.append(Int(bytes[offset + 3]))
+            }
+            result["pixels"] = rgbaPixels
+            result["size"] = renderSize
+        }
         if item["geometryFacts"] as? Bool == true {
             func xyz(_ value: SIMD4<Float>) -> SIMD3<Float> { SIMD3(value.x, value.y, value.z) }
             let world = renderer.staticModelWorld(for: near.id, worldFrames: worlds)
             let eye = camera.perspectiveEyePosition
             let unprojected = simd_inverse(camera.reverseDepthViewProjection(usesPerspective: true))
-                * SIMD4<Float>(2 * 32.5 / 64 - 1, 1 - 2 * 32.5 / 64, 0.01, 1)
+                * SIMD4<Float>(2 * 32.5 / Float(renderSize) - 1,
+                    1 - 2 * 32.5 / Float(renderSize), 0.01, 1)
             let ray = xyz(unprojected) / unprojected.w - eye
             let planeNormal = simd_cross(xyz(world.columns.0), xyz(world.columns.1))
             let position = eye + ray * (simd_dot(planeNormal, xyz(world.columns.3) - eye) / simd_dot(planeNormal, ray))

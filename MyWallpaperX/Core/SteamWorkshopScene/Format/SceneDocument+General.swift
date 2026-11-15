@@ -44,6 +44,7 @@ extension SceneDocument {
             var directional: Bool = false
             var point: Bool = false
             var spot: Bool = false
+            var tube: Bool = false
         }
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
@@ -117,7 +118,8 @@ extension SceneDocumentLoader {
         return .init(
             directional: enabled("directional"),
             point: enabled("point"),
-            spot: enabled("spot")
+            spot: enabled("spot"),
+            tube: enabled("tube")
         )
     }
 

@@ -23,6 +23,7 @@ nonisolated extension SceneRenderDescriptor {
         var pointLight: ScenePointLightDefinition? = nil
         var spotLight: SceneSpotLightDefinition? = nil
         var directionalLight: SceneDirectionalLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
         var particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
@@ -129,6 +130,7 @@ nonisolated extension SceneRenderDescriptor {
             pointLight?.intensity
                 ?? spotLight?.intensity
                 ?? directionalLight?.intensity
+                ?? tubeLight?.intensity
         }
 
     }
