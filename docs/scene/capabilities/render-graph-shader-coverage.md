@@ -310,7 +310,7 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 <a id="hdr-bloom-extraction"></a>
 HDR Bloom 的亮度阈值作用于已完成 source 的物理像素，随后才做空间降采样；同一峰值不能因高光变窄或移动一个像素而先被均值降到阈值下。输入保持当前项目颜色域，不插入未经验证的 gamma 转换。首级半尺寸 pass 按每个目标像素覆盖的源像素面积，平均逐源像素的 soft-threshold 贡献；常规尺寸为2×2，奇数尺寸最多3×3，完整覆盖末行列。它替换旧的先 tent 均值再提取，不叠加补偿增益；后续金字塔、重建权重、作者 threshold/feather/strength/scatter/iterations、alpha 与唯一终端保持原职责。
 
-该修正留在现有 `SceneBloomPostProcess`/Metal 首级 pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量 owner。中间 pass 失败仍不写回 source，零 strength 不编码，非 HDR 路径保持原算法。验收扩展现有[真实 Bloom GPU 门](../../../script/tests/test_scene_bloom_post_process.py)：宽块/细线、单像素相位、奇偶尺寸边界、阈值/软阈值、零贡献及浮点/alpha，再保固定官方均匀场与局部失败反例；实际水滴和独立样本检查可见结果。均匀场、合成 fixture 或单幅截图均不授官方 Ultra 空间一致性，尚未取得的同输入官方资格留在队列。
+该修正留在现有 `SceneBloomPostProcess`/Metal 首级pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量owner。中间失败不写回source，零strength不编码，非HDR保原算法。原[真实Bloom门](../../../script/tests/test_scene_bloom_post_process.py)保宽块/细线、相位、奇数边界、软阈值、alpha及局部失败；13项旧均匀场原始采集质量仍unknown，仅作历史回归，不授整组Ultra身份或限制默认Ultra目标。新6组明确Ultra控制中，5个已有对应量化点与Native相同，另一个低亮关闭正控单列；不是给旧13补造身份。当前Ultra宽块off/on/off-repeat的近中远轮廓与Native接近，细线/单点受JPEG低码与串光限制，未给改变当前空间重建的明显反证。总响应仍不能唯一确定各层权重/核；替代空间重建提案已撤回且无产品实现，现有owner/算法不变，不继续靠泛光调参补偿水滴。后继沿模型反射、辐射与分辨率的真实消费者取得可区分证据；未授官方精确HDR浮点、空间核、全水滴或性能一致。
 
 <a id="history"></a>
 ## Target、copy 与 history

@@ -871,10 +871,13 @@ class SceneBloomPostProcessTests(unittest.TestCase):
     def test_edr_output_matches_public_colorsync_transfer_and_current_headroom(self):
         self.assertTrue(self.result["edrColorSyncTransferAndHeadroom"])
 
-    def test_hdr_uniform_field_matches_fixed_official_behavior(self):
+    # Original capture quality is unknown; a new Ultra run confirms only the five labeled points.
+    def test_hdr_uniform_field_keeps_legacy_quality_unknown_observations(self):
         expected = [25, 51, 64, 127, 85, 6, 13, 5, 13, 159, 121, 51, 28]
         for index, (actual, target) in enumerate(zip(self.result["hdrUniformOfficial"], expected, strict=True)):
-            self.assertLessEqual(abs(actual - target), 1, (index, actual, target))
+            scope = "current-ultra-subset" if index in (0, 2, 3, 4, 6) else "legacy-quality-unknown"
+            with self.subTest(scope=scope, index=index):
+                self.assertLessEqual(abs(actual - target), 1, (index, actual, target))
 
     def test_hdr_superwhite_stays_finite_and_retired_capacity_can_be_replaced(self):
         self.assertTrue(self.result["hdrFiniteSuperwhite"])

@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 382,
-      "bytes": 79769
+      "bytes": 80208
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 269851
+      "bytes": 270189
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59791
+      "bytes": 59878
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -479,10 +479,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "569390cbb0ed2d038d645becbe4b77e70fe5582715901feb2678054a04d8606b",
-      "after": "ecc81cb5b673bb1bee06810e83a6d61fa43348c149367f217195de4fa9b9c515",
-      "owner": "Existing Scene Bloom post-process and runtime evidence owners",
-      "reason": "Record the same-binary old/new spatial-threshold discrimination and actual Bloom stage draws; keep waterdrop halo, source radiance, resize and official-parity limits open.",
+      "before": "ecc81cb5b673bb1bee06810e83a6d61fa43348c149367f217195de4fa9b9c515",
+      "after": "eed9660bb2efab4495360073bea4a11370a4ad8e2b82326c5005ed017b37cab8",
+      "owner": "Existing Scene Bloom, terminal readback and runtime evidence owners",
+      "reason": "Merge qualified current-Ultra five corresponding responses and bounded spatial comparison with same-CB HDR16/real-replay evidence and restored ordinary identities; do not grant full halo, formula or performance parity.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#hdr-bloom-extraction"
     },
     {
@@ -497,10 +497,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8d8c6a0ffb42d426352d103ecdef046da731343dd58e634ae6d2fac873ae821a",
-      "after": "bd9247a60b7e768dc5a9e6650fd0066e91e5c38e79ce96108fb87fd2f78678c0",
+      "before": "bd9247a60b7e768dc5a9e6650fd0066e91e5c38e79ce96108fb87fd2f78678c0",
+      "after": "91ee58d7b12a12aa7676878b4cb4d410bc4b3c5f353bbd12532f76cd06e2ad2c",
       "owner": "Existing Scene Bloom post-process and graph design owners",
-      "reason": "Define source-pixel threshold extraction before area downsampling, replacing weighted-average-first semantics in the existing pass without adding resources or a quality owner.",
+      "reason": "Record bounded current-Ultra uniform/spatial observations, retain unknown provenance of the original13, withdraw an unsupported reconstruction proposal before implementation, and continue actual model reflection/radiance/resolution research.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#hdr-bloom-extraction"
     },
     {
@@ -542,10 +542,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4c3182cf5649dab560aedff9010e1986de458f89ec216743cada2a75f55f99df",
-      "after": "526e88bf09aa0329c816704a8a9c725738d9111c80397d858e8f17e303e09e5a",
+      "before": "526e88bf09aa0329c816704a8a9c725738d9111c80397d858e8f17e303e09e5a",
+      "after": "7ea0b37c1ea0b92b8e1dbfb4f4f9c25d5050fbfdf6d61aeb14b7d38fbbb58a49",
       "owner": "Existing Scene Bloom post-process and runtime evidence owners",
-      "reason": "Retire the unexecuted-Bloom hypothesis after actual draws and spatial extraction qualification; retain the visible halo/fine-structure gap and next preBloom consumer investigation.",
+      "reason": "Replace superseded Bloom reconstruction investigation with evidence-led model reflection/radiance/resolution, preserve source-only MipMapInfo debt and unqualified frozen official-window limitation without claiming a shader failure.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
