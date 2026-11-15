@@ -248,6 +248,8 @@ Box无关方向字段复验基于`63e7a4a955aaec2851303d5d21c0dded05e646ed`及2�
 
 独立3437487219原project/pkg摘要匹配、自然5s，F137/request1/CB515269970560的135从8192×2048源经2048×512 capture进入main515329006464/seal/GPU并排空，地表/云/大气/时钟完整。现五个星球源未见受影响显式非零/无header image，135按header默认的健康原路只授回归，不称作者缺图恢复、原景逐通道或官方像素/性能。当前自有旧新源/输入/20张App终端图/载体失败/实际读回/签名与独审归`.artifacts/scene-image-map-components-20261115`，原作者报告与必要图归`.artifacts/scene-evidence/runs/scene-image-map-components-20261115`。
 
+**HDR Bloom 的空间提取** <a id="hdr-bloom-extraction"></a>：按[现役合同](render-graph-shader-coverage.md#hdr-bloom-extraction)，首级半尺寸pass先逐物理源像素提取阈值贡献，再按覆盖面积降采样，退先均值后提取；不加补偿增益、颜色域转换、全尺寸纹理或新pass。真实22方法通过，同binary/Harness换旧Metal仅空间方法失败：细线阈值贡献比约.175，最终四组宽窄/相位为.74937… .74991，预期.75；奇数边界、alpha、零strength不编码、局部失败与均匀场保持。Debug13.637s/签名通过，构建输入及运行前后5项App身份稳定，exe ab7679fa…5fe8e3、metallib4fa40d52…a0ca23。347默认/作者hdr属性0各18s/after15s，GeneralHDR均true，稳态保亮边/尖端、黑心、文字及2048×1024源；额外F683/CB505814043264阶段观测实际绘制15次bloom-quad、HDR combine及display mapping，覆盖完整、failures为空，与晚期PNG不是同帧，不授该PNG的逐pass像素贡献。347三轮均保各4条resize失败，不改报整轮PASS；独立3437487219原输入5s回归PASS。当前端点未辨出较前版更宽/强的外晕，官方Ultra较宽外晕/细纹仍[开放](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，下一核实际preBloom辐射与细纹首消费者；不再猜Bloom未执行，也不由fixture、阶段时间或不同相位/编码截图授真实halo、官方精确RGB或性能收益。红绿读回/必要原图/身份与独审归`.artifacts/scene-hdr-bloom-extraction-20261116`，原作者运行归`.artifacts/scene-evidence/runs/scene-hdr-bloom-extraction-20261116`。
+
 ## 模型运行证据
 
 [模型运行证据](model-runtime-evidence.md)：命名输入、材质、相机深度及局部合成的冻结范围。

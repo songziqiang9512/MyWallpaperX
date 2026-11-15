@@ -125,12 +125,12 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 377,
-      "bytes": 78417
+      "lines": 382,
+      "bytes": 79769
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 598,
-      "bytes": 268207
+      "lines": 600,
+      "bytes": 269851
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59617
+      "bytes": 59791
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -479,11 +479,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ab3483bcaa2ffcf2d9ba1dce128995023c7fde1abd6efbb322cdf3adbd2ed67a",
-      "after": "569390cbb0ed2d038d645becbe4b77e70fe5582715901feb2678054a04d8606b",
-      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
-      "reason": "Record actual named-first ordinary depth red/green controls, unchanged writer semantics, stable waterdrop date/formula recovery and independent Earth with explicit resize/old-readback limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ordinary-named-depth"
+      "before": "569390cbb0ed2d038d645becbe4b77e70fe5582715901feb2678054a04d8606b",
+      "after": "ecc81cb5b673bb1bee06810e83a6d61fa43348c149367f217195de4fa9b9c515",
+      "owner": "Existing Scene Bloom post-process and runtime evidence owners",
+      "reason": "Record the same-binary old/new spatial-threshold discrimination and actual Bloom stage draws; keep waterdrop halo, source radiance, resize and official-parity limits open.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hdr-bloom-extraction"
     },
     {
       "section": "bodies",
@@ -497,11 +497,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "b5f871f4b84ad8cf16527a17df821cceafd4e3f07c5ea57d3bbc1aa8c764b5be",
-      "after": "8d8c6a0ffb42d426352d103ecdef046da731343dd58e634ae6d2fac873ae821a",
-      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
-      "reason": "Extend original named local-raster ownership to ordinary non-solid graph source extent; preserve nonnamed display density, coordinates and resource lifecycle.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-geometry-local-raster"
+      "before": "8d8c6a0ffb42d426352d103ecdef046da731343dd58e634ae6d2fac873ae821a",
+      "after": "bd9247a60b7e768dc5a9e6650fd0066e91e5c38e79ce96108fb87fd2f78678c0",
+      "owner": "Existing Scene Bloom post-process and graph design owners",
+      "reason": "Define source-pixel threshold extraction before area downsampling, replacing weighted-average-first semantics in the existing pass without adding resources or a quality owner.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#hdr-bloom-extraction"
     },
     {
       "section": "bodies",
@@ -542,10 +542,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "09713d76935f7b426d9af4358ba41c18e944b91df07546cfbd02f3f2562446e7",
-      "after": "4c3182cf5649dab560aedff9010e1986de458f89ec216743cada2a75f55f99df",
-      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
-      "reason": "Replace obsolete glow status with delivered material response and remaining HDR Bloom/material-override boundaries; merge the duplicate proposal registration debt into its original owner row.",
+      "before": "4c3182cf5649dab560aedff9010e1986de458f89ec216743cada2a75f55f99df",
+      "after": "526e88bf09aa0329c816704a8a9c725738d9111c80397d858e8f17e303e09e5a",
+      "owner": "Existing Scene Bloom post-process and runtime evidence owners",
+      "reason": "Retire the unexecuted-Bloom hypothesis after actual draws and spatial extraction qualification; retain the visible halo/fine-structure gap and next preBloom consumer investigation.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

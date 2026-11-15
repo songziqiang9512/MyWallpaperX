@@ -447,14 +447,20 @@ enum SceneGPUCensus {
     // GPU output before display clipping; this is behavior, not a CPU oracle.
     let hdrBloom = SceneBloomPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true)!
     func renderHDR(_ config: SceneBloomConfiguration.HDR, tint: SIMD3<Float> = SIMD3(1, 1, 1),
-                   failEncoder: Int = 0) -> [String: Any] {
-      let w = 640, h = 256
-      let brightness: [Float16] = [0.25, 0.5, 1, 2, 4]
+                   failEncoder: Int = 0, width: Int = 24, phase: Int = 0,
+                   size: SIMD2<Int> = SIMD2(640, 256), edge: Bool = false, peak: Float16? = nil) -> [String: Any] {
+      let w = size.x, h = size.y
+      let brightness: [Float16] = peak.map { [$0] } ?? [0.25, 0.5, 1, 2, 4]
       var input = [[Float16]](repeating: [0, 0, 0, 0.375], count: w * h)
-      for block in 0..<5 {
-        for y in 116..<140 { for x in (64 + block * 128 - 12)..<(64 + block * 128 + 12) {
-          input[y * w + x] = [brightness[block], brightness[block], brightness[block], 0.75]
-        } }
+      if edge {
+        input[w * h - 1] = [4, 4, 4, 0.75]
+      } else {
+        for block in brightness.indices {
+          let left = 64 + block * 128 - width / 2 + phase
+          for y in 116..<140 { for x in left..<(left + width) {
+            input[y * w + x] = [brightness[block], brightness[block], brightness[block], 0.75]
+          } }
+        }
       }
       let source = float16Texture(w, h, input)
       let configuration = SceneBloomConfiguration(enabled: true, strength: 0, threshold: 9, tint: tint, hdr: config)
@@ -475,9 +481,11 @@ enum SceneGPUCensus {
         "unchanged": output == source.bytes, "attempts": MWXEncoderAttempts(),
         "alpha": stride(from: 3, to: output.count, by: 4).allSatisfy { output[$0] == source.bytes[$0] },
         "finite": output.allSatisfy { $0.isFinite },
-        "near": (0..<5).map { roi($0, 104..<112) },
-        "far": (0..<5).map { roi($0, 64..<80) },
-        "green": (0..<5).map { roi($0, 104..<112, 1) }]
+        "excess": stride(from: 0, to: output.count, by: 4).reduce(0.0) {
+          $0 + Double(output[$1]) - Double(source.bytes[$1]) },
+        "near": edge ? [] : brightness.indices.map { roi($0, 104..<112) },
+        "far": edge ? [] : brightness.indices.map { roi($0, 64..<80) },
+        "green": edge ? [] : brightness.indices.map { roi($0, 104..<112, 1) }]
     }
     func hdrConfig(_ strength: Float = 1, _ threshold: Float = 1, _ scatter: Float = 1,
                    _ feather: Float = 0, _ iterations: Float = 3) -> SceneBloomConfiguration.HDR {
@@ -492,6 +500,15 @@ enum SceneGPUCensus {
                           ("unsupportedOneLevel", hdrConfig(1, 1, 1, 0, 1)),
                           ("invalid", hdrConfig(1, 1, .nan)), ("baseAgain", hdrConfig())] {
       results["hdrGPU" + key] = renderHDR(config)
+    }
+    for width in [1, 24] { for phase in 0...1 { for threshold: Float in [0, 1] {
+      results["hdrShape\(width)-\(phase)-\(Int(threshold))"] = renderHDR(
+        hdrConfig(0.3, threshold, 2, 1, 8), width: width, phase: phase, peak: 4)
+    } } }
+    results["hdrShapeHard"] = renderHDR(hdrConfig(0.3, 1, 2, 0, 8), width: 1, peak: 4)
+    results["hdrShapeBelow"] = renderHDR(hdrConfig(0.3, 1, 2, 0, 8), width: 1, peak: 0.5)
+    for size in [SIMD2(640, 256), SIMD2(641, 257), SIMD2(1, 3), SIMD2(3, 1), SIMD2(3, 3), SIMD2(7, 5), SIMD2(1, 5)] {
+      results["hdrEdge\(size.x)x\(size.y)"] = renderHDR(hdrConfig(0.3, 1, 2, 0, 8), size: size, edge: true)
     }
     results["hdrGPUtint"] = renderHDR(hdrConfig(), tint: SIMD3(1, 0, 0))
     // Three down levels + two reconstruction levels + the sole combine.
@@ -819,6 +836,25 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         self.assertEqual(self.result["hdrGPUtint"]["green"], [0] * 5)
         self.assertEqual(self.result["hdrGPUtint"]["near"], base["near"])
         self.assertEqual(self.result["hdrGPUbaseAgain"]["near"], base["near"])
+
+    def test_hdr_threshold_preserves_thin_peaks_across_phase_and_odd_edges(self):
+        ratios = []
+        for width in (1, 24):
+            for phase in (0, 1):
+                pair = [self.result[f"hdrShape{width}-{phase}-{threshold}"] for threshold in (0, 1)]
+                for row in pair:
+                    for key in ("prepared", "encoded", "completed", "alpha", "finite"):
+                        self.assertTrue(row[key], (width, phase, key))
+                    self.assertGreater(row["excess"], 0)
+                ratios.append(pair[1]["excess"] / pair[0]["excess"])
+        for ratio in ratios:
+            self.assertAlmostEqual(ratio, 0.75, delta=0.02)
+        self.assertLess(max(ratios) - min(ratios), 0.02)
+        self.assertTrue(self.result["hdrShapeBelow"]["unchanged"])
+        for name in ("hdrShapeHard", "hdrEdge640x256", "hdrEdge641x257", "hdrEdge1x3", "hdrEdge3x1", "hdrEdge3x3", "hdrEdge7x5", "hdrEdge1x5"):
+            row = self.result[name]
+            self.assertTrue(row["encoded"] and row["completed"] and row["alpha"] and row["finite"], name)
+            self.assertGreater(row["excess"], 0, name)
 
     def test_hdr_gpu_failure_is_local_and_next_frame_recovers(self):
         for key in ("zero", "invalid", "unsupportedZeroLevels", "unsupportedOneLevel"):

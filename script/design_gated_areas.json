@@ -13,7 +13,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "HDR Bloom extraction contract: designDoc#hdr-bloom-extraction. In the existing first half-resolution pass, apply the authored soft threshold to completed-source physical pixels before area-normalized reduction; cover odd last rows/columns with at most3x3 loads. Retire pre-threshold tent averaging. Preserve subsequent pyramid/reconstruction, raw color domain, author controls, alpha and local optional failure; no full-size target, extra pass/PSO/ABI/cache/quality owner. Validate thin/wide and phase/odd-edge GPU controls, fixed uniform-field and failure gates, actual waterdrop and independent content; official Ultra spatial parity remains bounded.",
       "matchPatterns": [],
       "contentPatterns": [
         "wantsExtendedDynamicRange",

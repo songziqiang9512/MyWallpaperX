@@ -121,8 +121,8 @@ static float3 sceneBloomHDRFinite(float3 value) {
     return clamp(select(float3(0.0), value, isfinite(value)), 0.0, 65504.0);
 }
 
-static float3 sceneBloomHDRTent(texture2d<float> source, float2 uv, float radius = 1.0) {
-    float2 texel = radius / float2(source.get_width(), source.get_height());
+static float3 sceneBloomHDRTent(texture2d<float> source, float2 uv) {
+    float2 texel = 1.0 / float2(source.get_width(), source.get_height());
     float3 sum = 0.0;
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
@@ -134,19 +134,39 @@ static float3 sceneBloomHDRTent(texture2d<float> source, float2 uv, float radius
     return sum;
 }
 
+static float3 sceneBloomHDRExtract(float3 color, float threshold, float knee) {
+    float brightness = max(color.r, max(color.g, color.b));
+    float soft = clamp(brightness - threshold + knee, 0.0, 2.0 * knee);
+    soft = knee > 0.0 ? soft * soft / (4.0 * knee) : 0.0;
+    float contribution = max(brightness - threshold, soft);
+    return color * (max(0.0, contribution) / max(brightness, 0.00001));
+}
+
 fragment float4 sceneBloomHDRBrightFragment(
     SceneBloomVaryings input [[stage_in]], texture2d<float> source [[texture(0)]],
     constant SceneBloomHDRUniforms &uniforms [[buffer(0)]]
 ) {
-    // Cover the two-source-texel footprint before thresholding the half-size target.
-    float3 color = sceneBloomHDRTent(source, input.texcoord, 2.0);
-    float brightness = max(color.r, max(color.g, color.b));
     float threshold = max(0.0, uniforms.threshold);
     float knee = threshold * clamp(uniforms.feather, 0.0, 1.0);
-    float soft = clamp(brightness - threshold + knee, 0.0, 2.0 * knee);
-    soft = knee > 0.0 ? soft * soft / (4.0 * knee) : 0.0;
-    float contribution = max(brightness - threshold, soft);
-    return float4(color * (max(0.0, contribution) / max(brightness, 0.00001)), 1.0);
+    uint2 sourceSize = uint2(source.get_width(), source.get_height());
+    uint2 targetSize = max(sourceSize / 2, uint2(1));
+    uint2 lower = uint2(input.position.xy) * sourceSize;
+    uint2 upper = lower + sourceSize;
+    uint2 first = lower / targetSize, end = (upper + targetSize - 1) / targetSize;
+    float3 sum = 0.0;
+    // Extract before averaging so a thin HDR peak survives. Area weights also
+    // include the last source row/column when the half-size target rounds down.
+    for (uint y = first.y; y < end.y; ++y) {
+        float weightY = float(min(upper.y, (y + 1) * targetSize.y) - max(lower.y, y * targetSize.y))
+            / float(sourceSize.y);
+        for (uint x = first.x; x < end.x; ++x) {
+            float weightX = float(min(upper.x, (x + 1) * targetSize.x) - max(lower.x, x * targetSize.x))
+                / float(sourceSize.x);
+            float3 color = sceneBloomHDRFinite(source.read(uint2(x, y)).rgb);
+            sum += sceneBloomHDRExtract(color, threshold, knee) * (weightX * weightY);
+        }
+    }
+    return float4(sum, 1.0);
 }
 
 fragment float4 sceneBloomHDRDownsampleFragment(

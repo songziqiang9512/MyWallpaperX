@@ -307,6 +307,11 @@ Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原�
 
 HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一终端进行 SDR 裁剪或当前显示 headroom 映射。normal/roughness 不做显示变换。截图导出是普通预览，不能证明物理 EDR 高光。当前 light/receiver 范围见[光照](advanced-object-coverage.md#lighting)。
 
+<a id="hdr-bloom-extraction"></a>
+HDR Bloom 的亮度阈值作用于已完成 source 的物理像素，随后才做空间降采样；同一峰值不能因高光变窄或移动一个像素而先被均值降到阈值下。输入保持当前项目颜色域，不插入未经验证的 gamma 转换。首级半尺寸 pass 按每个目标像素覆盖的源像素面积，平均逐源像素的 soft-threshold 贡献；常规尺寸为2×2，奇数尺寸最多3×3，完整覆盖末行列。它替换旧的先 tent 均值再提取，不叠加补偿增益；后续金字塔、重建权重、作者 threshold/feather/strength/scatter/iterations、alpha 与唯一终端保持原职责。
+
+该修正留在现有 `SceneBloomPostProcess`/Metal 首级 pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量 owner。中间 pass 失败仍不写回 source，零 strength 不编码，非 HDR 路径保持原算法。验收扩展现有[真实 Bloom GPU 门](../../../script/tests/test_scene_bloom_post_process.py)：宽块/细线、单像素相位、奇偶尺寸边界、阈值/软阈值、零贡献及浮点/alpha，再保固定官方均匀场与局部失败反例；实际水滴和独立样本检查可见结果。均匀场、合成 fixture 或单幅截图均不授官方 Ultra 空间一致性，尚未取得的同输入官方资格留在队列。
+
 <a id="history"></a>
 ## Target、copy 与 history
 
