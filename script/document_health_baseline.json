@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 355,
-      "bytes": 79300
+      "lines": 360,
+      "bytes": 80795
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 192,
-      "bytes": 53802
+      "lines": 191,
+      "bytes": 53211
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 284,
-      "bytes": 82631
+      "lines": 295,
+      "bytes": 85944
     }
   },
   "archives": [
@@ -524,20 +524,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "4d2a96996706c131a6ba40797ca943d5622c486a6d42c7349ae259bbe0074f51",
-      "after": "0401b1679f1602824b60cffffdd85782cb749d23292c000ce95cbfb00fad0ce6",
-      "owner": "Existing SourceFacts and Catalog explicit JSON consumers",
-      "reason": "Extend original material roles to explicit effect paths; defer hints until actual parsing without a consumer, retire filename permission and duplicate role replay without new state. Qualify actual model pixels and conflicting-hint negatives.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-effect-role"
+      "before": "0401b1679f1602824b60cffffdd85782cb749d23292c000ce95cbfb00fad0ce6",
+      "after": "ac8db53cd86ad25a2fad04e55b85a61da1beb0876b5eea7d5ab5d3bbc533b2a9",
+      "owner": "Existing SourceFacts image JSON demand and Catalog model/material closure",
+      "reason": "Make declared image JSON a third parser role, retire independent model-hint permission, reuse failure isolation and existing candidate array; preserve MDL and frame ownership.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-model-role"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "a25521fd31ddbca48930eb2e10adb3ddc746b2ab852b59c62d67ceb2931cfe27",
-      "after": "e6907558273d8fc81be8c55ac4448a7aac1013ca28f4d58d220ac2cb3e7a24d2",
-      "owner": "Existing model named-albedo, Catalog and bounded native/App evidence",
-      "reason": "Record real dim-to-raw model failure, exact whole-App controls and deferred-hint counterexamples with precise initial/final identities. Reuse unaffected runs, disclose API/fixture qualification fixes and diagnostic order variance, and bind final independent author.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-effect-role"
+      "before": "e6907558273d8fc81be8c55ac4448a7aac1013ca28f4d58d220ac2cb3e7a24d2",
+      "after": "a5f3d9b332417ff253b581e93a0b8e0becc3fe6ac21f73133bd997e32cc8b031",
+      "owner": "Original named-model source closure and Catalog/native/App evidence",
+      "reason": "Bind restored model colour/shadow to exact old packages and renamed variants, unchanged parser/read regressions and independent real content; disclose Script candidate and token observation limits.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#image-model-role"
     }
   ]
 }

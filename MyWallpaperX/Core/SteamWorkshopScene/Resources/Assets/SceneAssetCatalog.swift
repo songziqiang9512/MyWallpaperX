@@ -89,6 +89,7 @@ nonisolated struct SceneAssetCatalogLoader {
         let rawValue: UInt8
         static let material = Self(rawValue: 1)
         static let effect = Self(rawValue: 2)
+        static let imageModel = Self(rawValue: 4)
     }
 
     nonisolated func load(
@@ -98,6 +99,7 @@ nonisolated struct SceneAssetCatalogLoader {
         scriptSources: [String] = [],
         additionalModelPaths: [String] = [],
         additionalMaterialPaths: [String] = [],
+        imageModelPaths: [String] = [],
         effectPaths: [String] = [],
         particlePaths: [String] = [],
         preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in },
@@ -147,6 +149,7 @@ nonisolated struct SceneAssetCatalogLoader {
         for source in scriptSources { addSource(source) }
         for path in referencedResourcePaths { enqueue(path) }
         for path in additionalMaterialPaths { enqueue(path, reference: false, roles: .material) }
+        for path in imageModelPaths { enqueue(path, roles: .imageModel) }
         for path in effectPaths { enqueue(path, roles: .effect) }
         let particleMaterials = try SceneParticleAssetGraphLoader(resourceView: resourceView,
             stockTextureBundleURL: nil).prepareDefinitions(rootPaths: particlePaths,
@@ -164,11 +167,14 @@ nonisolated struct SceneAssetCatalogLoader {
                 try checkCancellation?()
                 var entry = queue[next]
                 if entry.roles.isEmpty {
-                    if entry.resource.kind == .material
-                        && entry.resource.relativePath.localizedLowercase.hasSuffix(".json") {
+                    switch entry.resource.kind {
+                    case .material where entry.resource.relativePath.localizedLowercase.hasSuffix(".json"):
                         entry.roles = .material
-                    } else if entry.resource.kind == .effectDefinition {
+                    case .effectDefinition:
                         entry.roles = .effect
+                    case .model where entry.resource.relativePath.localizedLowercase.hasSuffix(".json"):
+                        entry.roles = .imageModel
+                    default: break
                     }
                     queue[next].roles = entry.roles
                 }
@@ -190,21 +196,19 @@ nonisolated struct SceneAssetCatalogLoader {
                         for path in definition.dependencies { enqueue(path) }
                     }
                 }
-                if !entry.roles.isEmpty { continue }
-                switch resource.kind {
-                case .model where resource.relativePath.localizedLowercase.hasSuffix(".json"):
-                    guard let model = try loadModel(resource, resourceView: resourceView,
-                        checkCancellation: checkCancellation) else {
+                if entry.roles.contains(.imageModel) {
+                    if let model = try loadModel(resource, resourceView: resourceView,
+                        checkCancellation: checkCancellation) {
+                        models.append(model)
+                        if resource.kind != .model { modelNames.append(model.relativePath) }
+                        if !Self.isUtilityModelPath(model.relativePath), let path = model.materialPath {
+                            enqueue(path, reference: false, roles: .material)
+                        }
+                    } else {
                         let key = SceneResourceView.identity(resource.relativePath)
                         failedModels.insert(key)
                         pendingSources.formUnion(sourcesByModel[key] ?? [])
-                        continue
                     }
-                    models.append(model)
-                    if !Self.isUtilityModelPath(model.relativePath), let path = model.materialPath {
-                        enqueue(path, reference: false, roles: .material)
-                    }
-                default: break
                 }
             }
             let available = modelNames.filter { !failedModels.contains(SceneResourceView.identity($0)) }

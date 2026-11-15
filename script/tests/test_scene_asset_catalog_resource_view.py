@@ -87,7 +87,9 @@ enum ParticleParseProbe { static var calls = 0 }
 enum CatalogRoleParseProbe {
     static var materials: [String: Int] = [:]
     static var effects: [String: Int] = [:]
+    static var models: [String: Int] = [:]
 }
+enum ModelReferenceProbe { static var resolved: [String] = [] }
 enum CatalogFixtureCancellation: Error { case requested }
 
 struct SceneTimelineAnimation: Codable, Equatable {}
@@ -305,6 +307,38 @@ enum Harness {
                 ($0.key, $0.value - (before[$0.key] ?? 0))
             })
         }
+        let imageReadsBefore = AssetReadProbe.calls
+        let imageModelsBefore = CatalogRoleParseProbe.models
+        let imageMaterialsBefore = CatalogRoleParseProbe.materials
+        let imageEffectsBefore = CatalogRoleParseProbe.effects
+        let imageReferencesBefore = ModelReferenceProbe.resolved.count
+        let explicitImages = ["providers/scene Ω.payload", "providers/NoSuffix", "providers/UPPER.JSON",
+            "PROVIDERS/upper.json", "materials/image-role.json", "effects/image-role/effect.json",
+            "models/image-pending.json", "models/image-processed.json", "models/role-bridge.json",
+            "providers/broken.payload", "providers/missing.json"]
+        let imageReferences = ["models/image-pending.json", "models/image-processed.json"]
+            + explicitImages + ["effects/image-promoter/effect.json", "xffects/generic-only.json"]
+        let imageCatalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: imageReferences,
+            scriptSources: ["thisScene.createLayer('providers/scene Ω.payload'); thisScene.createLayer('models/image-processed.json');"],
+            additionalMaterialPaths: ["models/image-pending.json"],
+            imageModelPaths: explicitImages)
+        result["imageRoleInputs"] = explicitImages; result["imageRoleReferences"] = imageReferences
+        result["imageRoleModels"] = Dictionary(uniqueKeysWithValues: imageCatalog.models.map {
+            ($0.relativePath, ["material": $0.materialPath ?? "", "size": $0.declaredSizeWH ?? []] as [String: Any])
+        })
+        result["imageRoleMaterials"] = imageCatalog.materials.map(\.relativePath)
+        result["imageRoleEffects"] = imageCatalog.effectDefinitions.map(\.relativePath)
+        result["imageRoleResolved"] = Array(ModelReferenceProbe.resolved.dropFirst(imageReferencesBefore))
+        for (key, values, before) in [
+            ("imageRoleReads", AssetReadProbe.calls, imageReadsBefore),
+            ("imageRoleModelParses", CatalogRoleParseProbe.models, imageModelsBefore),
+            ("imageRoleMaterialParses", CatalogRoleParseProbe.materials, imageMaterialsBefore),
+            ("imageRoleEffectParses", CatalogRoleParseProbe.effects, imageEffectsBefore)] {
+            result[key] = Dictionary(uniqueKeysWithValues: values.map {
+                ($0.key, $0.value - (before[$0.key] ?? 0))
+            })
+        }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -467,6 +501,14 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             author(path, {"material": "effects/dual-processed/effect.json"})
         author("materials/explicit-effect-conflict.json", {"passes": []})
         author("effects/explicit-material-conflict/effect.json", {"passes": [{"shader": "flat"}]})
+        image_model = {"material": "xaterials/effect-role-material.json", "width": 320, "height": 180}
+        for path in ["providers/scene Ω.payload", "providers/NoSuffix", "providers/UPPER.JSON",
+                     "materials/image-role.json", "effects/image-role/effect.json"]:
+            author(path, image_model)
+        for path in ["models/image-pending.json", "models/image-processed.json"]:
+            author(path, {**image_model, "passes": [{"shader": "flat"}]})
+        author("providers/broken.payload", "[not JSON")
+        author("effects/image-promoter/effect.json", {"passes": [{"material": "models/image-processed.json"}]})
         color = "optional-normal/color"
         normal = "optional-normal/normal"
         normal_slots = {
@@ -539,10 +581,14 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
                               SCENE_ROOT / "Resources/Assets/SceneAssetCatalog.swift")).resolve()
         catalog_text = catalog_source.read_text()
         supports_effect_role = "effectPaths: [String]" in catalog_text
+        supports_image_role = "imageModelPaths: [String]" in catalog_text
         harness = root / "Harness.swift"
-        harness.write_text(HARNESS if supports_effect_role else HARNESS.replace(
+        harness_text = HARNESS if supports_effect_role else HARNESS.replace(
             ",\n            effectPaths: explicitEffects", "").replace(
-            ",\n            effectPaths: conflictEffects", ""), encoding="utf-8")
+            ",\n            effectPaths: conflictEffects", "")
+        if not supports_image_role:
+            harness_text = harness_text.replace(",\n            imageModelPaths: explicitImages", "")
+        harness.write_text(harness_text, encoding="utf-8")
         view_source = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView.swift"]
         counted_view = root / "SceneResourceView.swift"
         original_read = """        ) throws -> Data {
@@ -558,8 +604,16 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             "func parse(data: Data) throws -> SceneParticleDefinition {\n        ParticleParseProbe.calls += 1", 1))
         sources = [counted_view if path == view_source else counted_parser if path == parser_source else path
                    for path in SWIFT_SOURCES]
+        dynamic_source = SCENE_ROOT / "Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift"
+        counted_dynamic = root / dynamic_source.name
+        dynamic_text = dynamic_source.read_text()
+        assert dynamic_text.count("        return references\n") == 1
+        counted_dynamic.write_text(dynamic_text.replace("        return references\n",
+            "        ModelReferenceProbe.resolved += references.map(\\.modelPath)\n        return references\n", 1))
+        sources = [counted_dynamic if path == dynamic_source else path for path in sources]
         counted_catalog = root / "SceneAssetCatalog.swift"
-        for marker, field in [(") throws -> SceneAssetCatalog.MaterialAsset? {", "materials"),
+        for marker, field in [(") throws -> SceneAssetCatalog.ModelAsset? {", "models"),
+                              (") throws -> SceneAssetCatalog.MaterialAsset? {", "materials"),
                               ("""    nonisolated private func loadEffectDefinition(
         _ resource: SceneResourceView.Handle,
         checkCancellation: (() throws -> Void)?
@@ -571,7 +625,8 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         sources = [counted_catalog if path.name == "SceneAssetCatalog.swift" else path for path in sources]
         (root / "catalog-api-adaptation.json").write_text(json.dumps({
             "catalogSource": str(catalog_source), "supportsEffectRole": supports_effect_role,
-            "oldAdaptation": "Only omit unknown effectPaths label; referencedResourcePaths already contains the same explicit paths in both versions.",
+            "supportsImageRole": supports_image_role,
+            "oldAdaptation": "Only omit unsupported role labels; referencedResourcePaths already contains the same explicit paths in both versions.",
             "scope": "Parser-entry counters observe the original loaders; dual role means two schema invocations and two readBytes calls, not one global JSON parse.",
         }, indent=2))
         cls.binary = root / "scene-catalog-resource-view-harness"
@@ -619,6 +674,42 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             with self.subTest(material=path):
                 self.assertEqual(self.result["roleMaterials"][path],
                                  {"alpha": [.375], "textures": ["materials/role-color.png"]})
+
+    def test_explicit_image_models_preserve_metadata_material_closure_and_dynamic_names(self):
+        paths = {"providers/scene Ω.payload", "providers/NoSuffix", "providers/UPPER.JSON",
+                 "materials/image-role.json", "effects/image-role/effect.json",
+                 "models/image-pending.json", "models/image-processed.json", "models/role-bridge.json"}
+        self.assertEqual(set(self.result["imageRoleModels"]), paths)
+        for path in paths - {"models/role-bridge.json"}:
+            with self.subTest(image_model=path):
+                self.assertEqual(self.result["imageRoleModels"][path],
+                                 {"material": "xaterials/effect-role-material.json", "size": [320, 180]})
+        self.assertEqual(set(self.result["imageRoleMaterials"]), {
+            "xaterials/effect-role-material.json", "xaterials/late.json",
+            "models/image-pending.json", "models/image-processed.json"})
+        self.assertEqual(self.result["imageRoleEffects"], ["effects/image-promoter/effect.json"])
+        self.assertEqual(self.result["imageRoleResolved"],
+                         ["providers/scene Ω.payload", "models/image-processed.json"])
+
+    def test_image_model_roles_parse_only_real_consumers_and_keep_bad_inputs_local(self):
+        duals = {"models/image-pending.json", "models/image-processed.json"}
+        pure = {"providers/scene Ω.payload", "providers/NoSuffix", "providers/UPPER.JSON",
+                "materials/image-role.json", "effects/image-role/effect.json", "models/role-bridge.json"}
+        for path in pure | duals | {"providers/broken.payload"}:
+            with self.subTest(image_role=path):
+                self.assertEqual(self.result["imageRoleModelParses"].get(path, 0), 1)
+                self.assertEqual(self.result["imageRoleReads"].get(path, 0), 2 if path in duals else 1)
+                self.assertEqual(self.result["imageRoleMaterialParses"].get(path, 0), int(path in duals))
+                self.assertEqual(self.result["imageRoleEffectParses"].get(path, 0), 0)
+        for path in ["providers/missing.json", "xffects/generic-only.json", "xffects/unreferenced.json"]:
+            with self.subTest(unused_image=path):
+                self.assertEqual(self.result["imageRoleReads"].get(path, 0), 0)
+                self.assertEqual(self.result["imageRoleModelParses"].get(path, 0), 0)
+        self.assertNotIn("providers/broken.payload", self.result["imageRoleModels"])
+        self.assertNotIn("providers/missing.json", self.result["imageRoleModels"])
+        for path in ["xaterials/effect-role-material.json", "xaterials/late.json"]:
+            self.assertEqual(self.result["imageRoleMaterialParses"].get(path, 0), 1)
+            self.assertEqual(self.result["imageRoleReads"].get(path, 0), 1)
 
     def test_explicit_effect_roles_keep_actual_paths_and_skip_model_hints(self):
         paths = self.result["effectRoleDefinitions"]

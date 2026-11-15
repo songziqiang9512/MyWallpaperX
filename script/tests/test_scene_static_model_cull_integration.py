@@ -44,7 +44,9 @@ def encoded(value):
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
                     affine_case=None, normal_case=None, opacity_case=None, hdr_case=None, brightness_case=None,
-                    effect_role_case=None):
+                    effect_role_case=None, image_model_case=None):
+    if image_model_case is not None:
+        return image_model_entries(image_model_case)
     if effect_role_case is not None:
         return effect_role_entries(effect_role_case)
     if any(value is not None for value in (noise_case, normal_case, opacity_case, hdr_case, brightness_case)):
@@ -348,6 +350,24 @@ def effect_role_entries(case):
     return scene, entries, cases
 
 
+def image_model_entries(case):
+    renamed = case == "image-model-renamed"
+    scene, entries, cases = effect_role_entries("role-renamed" if renamed else "role-standard")
+    provider = next(obj for obj in scene["objects"] if obj["id"] == 11)
+    if renamed:
+        entries["effects/own_dim/effect.json"] = entries.pop(provider["effects"][0]["file"])
+        provider["effects"][0]["file"] = "effects/own_dim/effect.json"
+        path = "providers/Relocated provider.json"
+        entries[path] = entries.pop(provider["image"])
+        provider["image"] = path
+    else:
+        entries["providers/provider.json"] = entries["models/provider.json"]
+        provider["image"] = "models/provider.json" if case == "image-model-standard" else "providers/provider.json"
+    entries["scene.json"] = json.dumps(scene).encode()
+    cases[0].update(effectPath="effects/own_dim/effect.json", imageModelPath=provider["image"])
+    return scene, entries, cases
+
+
 def measure(path, cases, probe_points=None):
     decoded = png_rgb_pixels(path)
     if decoded is None:
@@ -419,9 +439,10 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "content").mkdir(parents=True)
         (work / "home").mkdir()
         scene, entries, cases = fixture_entries(**options)
+        named_model_case = options.get("effect_role_case") or options.get("image_model_case")
         project = {"type": "scene", "file": "scene.json"}
         (work / "content/project.json").write_bytes(
-            json.dumps(project).encode() if options.get("effect_role_case") else encoded(project))
+            json.dumps(project).encode() if named_model_case else encoded(project))
         (work / "content/scene.pkg").write_bytes(make_package(list(entries.items())))
         inputs = tuple((work / "content").iterdir())
         identity = {"app": self.app_identity, "sources": self.source_identity,
@@ -477,13 +498,14 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "receiverRGB": cases[0]["receiverRGB"],
                 "oracle": "model at80,48 consumes dim provider; its shadow is60,48; independent receiver is140,48",
                 "evidenceBoundary": "owned effectful named provider and MDL colour/shadow; no official parity",
-                "effectRole": {
-                    "case": options["effect_role_case"], "effectPath": cases[0]["effectPath"],
+                "effectRole" if options.get("effect_role_case") else "imageModel": {
+                    "case": named_model_case, "effectPath": cases[0]["effectPath"],
                     "provider": 11, "model": 2, "slot0": "_rt_imageLayerComposite_11_a",
+                    "providerImagePath": cases[0].get("imageModelPath"),
                     "oracle": "same effect result reaches model colour; receiver/shadow unchanged",
                     "publication": "actual Program material -> named-publication-only -> model binding; no raw-capture log requirement",
                     "identityLimit": "model source token may differ after named publication; no unobserved copy or uniform readback claim"}}
-               if options.get("effect_role_case") else {})}))
+               if named_model_case else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -499,14 +521,14 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             result = subprocess.run(command, cwd=REPO, env=env, stdout=output,
                 stderr=subprocess.STDOUT, timeout=90)
         log = (work / "app.log").read_text()
-        probes = {"receiver": [140, 48]} if options.get("effect_role_case") else None
+        probes = {"receiver": [140, 48]} if named_model_case else None
         pixels = {phase: measure(work / f"evidence/scene-{phase}-window.png", cases, probes)
                   for phase in ("ready", "after")}
         report = {"exit": result.returncode, "pixels": pixels, "cases": cases,
             "shadowEvents": [line for line in log.splitlines() if "shadow phase=" in line],
             "appAfter": app_hashes(self.exe), "sourcesAfter": file_hashes(SOURCES),
             "inputsAfter": file_hashes(inputs)}
-        if options.get("effect_role_case"):
+        if named_model_case:
             report["effectRoleCaptures"] = [json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1])
                 for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line]
         if options.get("noise_case"):
@@ -533,19 +555,19 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         preview = (work / "evidence/scene-preview.log").read_text()
         if options.get("texture_case") != "animated" and not any(
                 options.get(key) for key in ("affine_case", "normal_case", "opacity_case", "hdr_case")):
-            expected_prepared = ("[1, 2]" if options.get("effect_role_case") else
+            expected_prepared = ("[1, 2]" if named_model_case else
                 "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]")
             self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
         for phase in ("ready", "after"):
-            if options.get("effect_role_case"):
+            if named_model_case:
                 self.assert_rgb(pixels[phase]["pixels"]["receiver"], cases[0]["receiverRGB"],
                     delta=cases[0]["tolerance"])
             else:
                 self.assert_rgb(pixels[phase]["pixels"]["healthy"], [0, 0, 255])
                 self.assertGreater(min(pixels[phase]["pixels"]["clear"]), 50)
             self.assertRegex(log, rf"phase=snapshot reason={phase} request=\d+ source=metal ")
-        if options.get("effect_role_case"):
+        if named_model_case:
             self.assertIn("phase=named-target-binding layer=2 status=succeeded", log)
         self.runs[name] = report
         return report
@@ -722,6 +744,15 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
     def test_explicit_effect_in_material_directory_reaches_named_model_albedo(self):
         result = self.run_case("role-material-directory", effect_role_case="role-material-directory")
         self.assert_effect_role_result(result)
+
+    def test_explicit_image_model_role_reaches_named_model_albedo(self):
+        for name in ("image-model-standard", "image-model-outside", "image-model-renamed"):
+            result = self.run_case(name, image_model_case=name)
+            self.assert_effect_role_result(result)
+            for phase in ("ready", "after"):
+                png = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / "image-model-standard" / png).read_bytes(),
+                                 (self.root / name / png).read_bytes())
 
     def assert_effect_role_result(self, result):
         case = result["cases"][0]
