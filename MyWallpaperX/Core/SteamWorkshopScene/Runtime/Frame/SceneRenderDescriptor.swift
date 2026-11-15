@@ -390,8 +390,10 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 && pass.constantShaderValues.isEmpty && pass.userShaderValues.isEmpty
             facts[identity] = (
                 state.flatMap {
-                    ($0.blending == .translucent && $0.alphaWriting == .unspecified)
-                        || (additiveImage && $0.supportsImageAdditiveRGB) ? $0 : nil
+                    if $0.blending == .translucent, $0.alphaWriting == .unspecified {
+                        return $0.withoutDepthWrite
+                    }
+                    return additiveImage && $0.supportsImageAdditiveRGB ? $0 : nil
                 },
                 neutral ? .neutral : nil)
         }

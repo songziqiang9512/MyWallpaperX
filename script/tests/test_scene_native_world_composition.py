@@ -289,8 +289,10 @@ void main() {
         entries.update({
             model: encoded({"material": base}),
             base: encoded({"passes": [{"shader": "genericimage4", "textures": [texture],
-                "blending": "translucent", "depthtest": depth_test, "depthwrite": depth_write,
-                "cullmode": "nocull"}]}),
+                "blending": " TrAnSlUcEnT \t" if layer == 21 else "translucent",
+                "depthtest": " EnAbLeD \t" if layer == 21 else depth_test,
+                "depthwrite": " ENABLED " if layer == 21 else depth_write,
+                "cullmode": " NoCull " if layer == 21 else "nocull"}]}),
             texture: png(4, 4, lambda _x, _y: rgb),
             effect: encoded({"passes": [{"material": material}]}),
             material: encoded({"passes": [{"shader": shader, "textures": [None],
@@ -309,10 +311,10 @@ void main() {
 def perspective_image_depth_regions(sorting):
     left, center, right = [rgb[::-1] for rgb in DEPTH_CARD_COLORS]
     return {label: {"world": [x, y, 0], "expectedRGB": color} for label, x, y, color in (
-        ("read-only-overlap", -1.05, .16, ORANGE if sorting else left),
+        ("read-only-overlap", -1.05, .16, ORANGE),
         ("read-only-exposed", -1.05, -.58, left),
         ("read-only-later-opaque", -1.05, -.35, left if sorting else GREEN),
-        ("renamed-overlap", .30, .16, ORANGE if sorting else center),
+        ("renamed-overlap", .30, .16, ORANGE),
         ("renamed-exposed", .30, -.58, center),
         ("renamed-over-later-opaque", .30, -.35, center if sorting else GREEN),
         ("renamed-transparent-hole", 0, -.35, GREEN),
@@ -615,7 +617,7 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
     def test_perspective_image_effect_uses_authored_terminal_depth(self):
         self.run_perspective_image_depth_case(sorting=True)
 
-    def test_perspective_image_effect_preserves_legacy_order_without_sorting(self):
+    def test_perspective_image_effect_keeps_authored_order_without_sorting(self):
         self.run_perspective_image_depth_case(sorting=False)
 
     def test_model_depth_test_write_combinations_and_complete_resource_rename(self):

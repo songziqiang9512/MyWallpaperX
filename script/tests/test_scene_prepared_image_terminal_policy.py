@@ -47,6 +47,12 @@ HARNESS = r'''
                      "depth": String($0.requiresDepthAttachment)]
                 } ?? [:])
             })
+            checks["rawStates"] = Dictionary(uniqueKeysWithValues: descriptor.layers.map {
+                (String($0.id), $0.imageMaterialRenderState.map {
+                    ["test": $0.rawValues.depthTest ?? "omitted",
+                     "write": $0.rawValues.depthWrite ?? "omitted"]
+                } ?? [:])
+            })
             checks["neutral"] = descriptor.layers.filter {
                 $0.proceduralSolidSource == .neutral
             }.map(\.id)
@@ -130,6 +136,9 @@ def fixture(base: Path) -> None:
             target.write_text("void main() {}\n")
     write_json(base / "stock", "materials/solid-state.json", {"passes": [
         {key: value for key, value in {**state, "shader": "flat"}.items() if key != "textures"}]})
+    write_json(base / "stock", "materials/solid-writer.json", {"passes": [
+        {key: value for key, value in {**state, "shader": "flat",
+         "depthtest": " EnAbLeD \t", "depthwrite": " ENABLED "}.items() if key != "textures"}]})
     variants = {
         "enabled": state, "disabled": {**state, "depthtest": "disabled"},
         "write": {**state, "depthtest": "disabled", "depthwrite": "enabled"},
@@ -141,7 +150,8 @@ def fixture(base: Path) -> None:
         "missing-cull": {key: value for key, value in state.items() if key != "cullmode"},
         "unknown-cull": {**state, "cullmode": "front"},
         "renamed": {**state, "shader": "GeNeRiCiMaGe4", "textures": ["textures/renamed"],
-                    "blending": " TRANSLUCENT ", "depthtest": " ENABLED ", "cullmode": "NoCull"},
+                    "blending": " TRANSLUCENT ", "depthtest": " ENABLED ",
+                    "depthwrite": " ENABLED ", "cullmode": "NoCull"},
         "author": {**state, "shader": "shaders/my-source"},
     }
     additive = {**state, "blending": "additive", "depthtest": "disabled",
@@ -199,6 +209,7 @@ def fixture(base: Path) -> None:
             (21, "plain-solid", {"solidlayer": True}),
             (22, "other-stock", {"solidlayer": True, "material": "materials/other-stock.json"}),
             (23, "authored-solid", {"solidlayer": True, "material": "materials/author.json"}),
+            (24, "stock-solid-writer", {"solidlayer": True, "material": "materials/solid-writer.json"}),
         ]:
             write_json(root, f"models/{name}.json", model)
             objects.append({"id": layer_id, "image": f"models/{name}.json", "size": "4 3"})
@@ -257,18 +268,27 @@ class ScenePreparedImageTerminalPolicyTests(unittest.TestCase):
         self.assertEqual(states["1"]["depth"], "true")
         self.assertEqual(states["2"]["test"], "disabled")
         self.assertEqual(states["2"]["depth"], "false")
-        self.assertEqual(states["3"]["write"], "enabled")
+        self.assertEqual(states["3"]["write"], "disabled")
+        self.assertEqual(states["3"]["depth"], "false")
         self.assertEqual(states["11"], states["1"])
+        raw = self.result["native"]["rawStates"]
+        self.assertEqual(raw["1"], {"test": "enabled", "write": "disabled"})
+        self.assertEqual(raw["3"], {"test": "disabled", "write": "enabled"})
+        self.assertEqual(raw["11"], {"test": " ENABLED ", "write": " ENABLED "})
         for layer_id in (4, 5, 6, 7, 8, 9, 10, 12, 22, 23, 30, 31, 32):
             self.assertEqual(states[str(layer_id)], {}, layer_id)
 
     def test_stock_neutral_role_and_authored_override(self) -> None:
         native = self.result["native"]
         self.assertTrue(native["materialCatalogPreservedSolid"])
-        self.assertEqual(native["neutral"], [20, 21])
+        self.assertEqual(native["neutral"], [20, 21, 24])
         self.assertEqual(native["states"]["20"]["test"], "enabled")
+        self.assertEqual(native["states"]["20"]["write"], "disabled")
+        self.assertEqual(native["states"]["24"], native["states"]["20"])
+        self.assertEqual(native["rawStates"]["24"], {"test": " EnAbLeD \t", "write": " ENABLED "})
         self.assertEqual(self.result["override"]["neutral"], [21])
         self.assertEqual(self.result["override"]["states"]["20"], {})
+        self.assertEqual(self.result["override"]["states"]["24"], {})
 
     def test_additive_profile_reaches_real_builder_and_manual_template_projection(self) -> None:
         for mode in ("native", "ortho", "override"):

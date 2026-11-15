@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 360,
-      "bytes": 81042
+      "bytes": 81580
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 597,
-      "bytes": 266689
+      "bytes": 266556
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 192,
-      "bytes": 54414
+      "lines": 193,
+      "bytes": 55231
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,15 +496,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c07df033ab914069b74dfced6ddd9d376d4e5ec03e086729dfc7c0c86d484115",
-      "after": "2c4c48066b20b976e55061ba04a00adecb81e7a1a974681a357ce8c3a88a4a51",
-      "owner": "Existing image LightingProfile and LitCapture map consumers",
-      "reason": "Retire explicit-component header/0-1 permission and qualify real native/App map and effect contribution with independent default-header author playback. Preserve source/proof limits; retire completed map row and record adjacent loader/UV false rejections for next batch.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-material-map-components"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
       "after": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
@@ -523,15 +514,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "ac8db53cd86ad25a2fad04e55b85a61da1beb0876b5eea7d5ab5d3bbc533b2a9",
-      "after": "c87f3c08fab846a29d35660e633802114412d4035ede9141a8c5d7d0f2f956c2",
-      "owner": "Original compileMaterialPlan model camera-depth preparation",
-      "reason": "Replace the old translucent storage-bit projection with one effective nonwriter state while preserving authored test/order, normal/additive, caster and original owners; qualified official six-case design and actual Earth benefit.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-depth-state"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
       "before": "a5f3d9b332417ff253b581e93a0b8e0becc3fe6ac21f73133bd997e32cc8b031",
       "after": "0ff060be1e8bd4a8efdf4b440faa3a09edaddbe29b49bfe7801eb4b720d260b1",
@@ -541,11 +523,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "c87f3c08fab846a29d35660e633802114412d4035ede9141a8c5d7d0f2f956c2",
+      "after": "d4918d4c889c88a68702b015825aa74e8483da184f4d02465ef55b79fa76515e",
+      "owner": "Ordinary image prepared terminal depth and existing text writer owner",
+      "reason": "Replace per-frame depth copying and capability-only replay skip with one cold image state; preserve real text writer consumers until prefix-aware sorting has a design.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "2c4c48066b20b976e55061ba04a00adecb81e7a1a974681a357ce8c3a88a4a51",
+      "after": "6bf04727de6d332dbfff25cea2685edb34586b6311066ceb82aed1518d22b81c",
+      "owner": "Current signed image-only App and bounded author/GPU evidence",
+      "reason": "Replace obsolete ordinary-image writer grants with image-only final title, clock and independent Earth evidence; keep qualified glyph sorting gap and failure boundaries.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#world-terminal-depth"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "54eededfe905a77feb9661cd3efba0c25af67c12a91a1049379b66e02ed5e621",
-      "after": "495bcd418d7a37c8df2a6de1e2fe797d7618669cd4423ddc4c1fb901acf16330",
-      "owner": "User-directed solar-system and waterdrop order",
-      "reason": "Keep user366→347 order and intro timing, close only proven Earth shell depth defect and retain all-view/Sun/title and original interaction obligations.",
+      "before": "495bcd418d7a37c8df2a6de1e2fe797d7618669cd4423ddc4c1fb901acf16330",
+      "after": "2cd40b4b0910ec7ea261f75efc57ec3bd89f8368895294d314ddad1c3d5bdfc3",
+      "owner": "User solar-system views and actual prefix-aware text ordering gap",
+      "reason": "Close the original second title using image-only behavior while retaining all model-view priorities and the independently proved text/prefix migration boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

@@ -155,7 +155,7 @@ extension SceneMetalRenderer {
         if let imagePipeline {
             for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
                 guard let layer = frameLayersByID[id],
-                      var state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
+                      let state = layer.imageMaterialRenderState, layer.utilityLayer == nil,
                       imageTextures.geometryProducts[id] == nil,
                       (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
                         || compositionGroupRuntime == nil) else { continue }
@@ -181,9 +181,8 @@ extension SceneMetalRenderer {
                         let origin = world.columns.3
                         let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
                         guard depth.isFinite else { continue }
-                        state = state.withoutDepthWrite
                         sortDepth = depth
-                    } else if claim?.supportsTerminalMaterialReplay == true {
+                    } else if layer.contentKind != "image", claim?.supportsTerminalMaterialReplay == true {
                         continue
                     }
                 }
