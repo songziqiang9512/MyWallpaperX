@@ -256,3 +256,14 @@ Frame原192项加24项线性RGBA8 A127/128边界、三灯与资源改名，共21
 完整App沿真实genericimage2、MDL/TEX和同opacity1/1024，对照white255×tint514与texel1×tint131072，经原RGBA16存储后的片元PMA均257/512。旧244a/f909两场40.477s中控制主体225灰、high255白；新bbf6/f909/17c2三场62.222s中control/high及真实MDL/material/TEX改名的6份ready/after完整PNG，全部逐字等旧control的两图（SHA da8b8355…f5bc5f）。receiver97、蓝peer255及不投影控制不变；原26变体字节保持。10捕获逐一同request/CB/main/seal/GPUcompleted、零截断及排空，输入、App五件和产品源稳定；时长仅为功能验收，不授性能或活动作者HDR命中。
 
 最终Debug12.051s、产品/project/锁文件前后同，strict-deep与原trusted helpers通过，exebbf6dfbb…55d9、dylibf909c0e4…4662、metallib17c2ed96…b3da。独立原3437487219自然5秒、23.629s运行，F126/request1/CB505517278080，模型112/114和图135到main505505897344，同封口/GPU完成、零截断并停机排空；原project/pkg等冻结matrix及report。实际地表、云层、蓝色大气弧、暗半球、银河与钟日完整，只授普通作者回归。必要作者原报告/图归`.artifacts/scene-evidence/runs/scene-model-hdr-surface-20261115`，自有输入、旧红/新绿、错误oracle及初MSL构造编译失败的零GPU日志、独审归`.artifacts/scene-model-hdr-surface-20261115`。剩余raw HDR缩窄及property/script seed仍归队列，不授官方像素或任意数值健康。
+
+<a id="model-hdr-disabled-brightness"></a>
+### HDR 关闭时的材质亮度需求
+
+按[实际消费合同](advanced-object-coverage.md#model-hdr-disabled-brightness)，原Pipeline亮度finite许可只在usesHDRBrightness开启时生效；HDR关闭继续沿原编码取实际gain1，raw大值不进入uniform，不再使模型隐形而留影。产品只替换原guard一行、净增长0，无新字段、状态、helper、shader或资源owner；HDR开启的finite拒绝、非负投影与其它材质检查保持，authored Float接口的超域准入也未变。
+
+完整App的同genericimage2、MDL、4² TEX和general.hdr=false两包，只将同材质brightness1改为有限Double1e300。旧bbf6/f909两场30.273s：三处原200红/绿/蓝主体变receiver97，model2实际failed，三处实体影仍5、孔与孔影97、peer蓝255；不是元数据或准备失败。新9690/244e三场51.012s通过，high及真实MDL/material/TEX改名、字符串"1e300"变体的6份ready/after完整PNG全部逐字等旧control两图（e38865c7…9daa0），原三色、孔洞与投影严格断言保持。两个原包与旧执行pkg/entries字节完全同，原29变体字节保持；10捕获逐一同request/CB/main/seal/GPUcompleted、零截断及停机排空，输入/App五件/源码稳定。此为真实冷Catalog→Material→draw边界，不授作者活动巨brightness命中或全部数值域。
+
+最近Pipeline门复用原emission GPU载体，只加opt-in实际Bool/2像素peer/depth传输，不新建renderer或suite。旧/新同7行分别.554/.387s完成；旧仅HDRoff大值一条像素子断言红、无执行错误，新方法全过。off1/off1e300同RGBA[.25,.5,.75,1]、depth.5与实际draw=true；HDRon正常1/2确实增益，on±inf/NaN仍draw=false、颜色/depth清0，全部健康peer同蓝[0,0,1,1]/depth.5。仅替换冻结before Pipeline单源，原其它六行逐值保持；直构Float坏值只授draw边界，冷可达由前述实际App证明。原244输入序列化不变、默认输出仍name/pixel/completed，这只是载体/输入核对，未重复执行244或冒称本批新资格。
+
+普通Debug33.898s、产品/project/锁文件前后同，strict-deep与原trusted helpers通过，exe96900e78…a1d3、dylib244ec71c…6f3a，metallib仍17c2ed96…b3da。独立原3437487219自然5秒、21.522s运行，F136/request1/CB527121220480，112/114模型及135图到main527137987456，同封口/GPUcompleted、trunc0/parse0并停机排空；原project/pkg等冻结matrix及report。实际地表、云、大气蓝弧、暗半球、银河星点、时钟日期完整，仅授普通作者回归，不授同相位、官方像素或性能。作者原报告/图归`.artifacts/scene-evidence/runs/scene-model-unused-brightness-20261115`；自有原输入/红绿、严格边界、身份及独审归`.artifacts/scene-model-unused-brightness-20261115`。

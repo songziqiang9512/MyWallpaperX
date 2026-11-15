@@ -42,8 +42,8 @@ def encoded(value):
 
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
-                    affine_case=None, normal_case=None, opacity_case=None, hdr_case=None):
-    if any(value is not None for value in (noise_case, normal_case, opacity_case, hdr_case)):
+                    affine_case=None, normal_case=None, opacity_case=None, hdr_case=None, brightness_case=None):
+    if any(value is not None for value in (noise_case, normal_case, opacity_case, hdr_case, brightness_case)):
         texture_case = "crop"
     if affine_case is not None:
         texture_case = "crop" if affine_case.endswith("-crop") else "frame"
@@ -83,6 +83,10 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
             if hdr_case is not None:
                 render_pass.update(shader="genericimage2", constantshadervalues={
                     "color": [514 if hdr_case == "hdr-control" else 131072]*3, "alpha": 1/1024})
+            if brightness_case is not None:
+                render_pass.update(shader="genericimage2", constantshadervalues={"color": [1, 1, 1],
+                    "alpha": 1, "brightness": (1 if brightness_case == "brightness-one" else
+                        "1e300" if brightness_case == "brightness-renamed" else 1e300)})
             if noise_case is not None:
                 render_pass.update(shader="chroma4", textures=["materials/model-surface.tex"] + [None] * 7
                     + ["materials/pigment-grain.tex"], combos={"LIGHTING": 1, "NORMALMAP": 0,
@@ -267,6 +271,20 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
             entries[subject["model"]] = quad(77, 83, 44, 52, 20, material)
             for case in cases: case["material"] = material
         entries["scene.json"] = encoded(scene)
+    if brightness_case is not None:
+        scene["general"]["hdr"] = False
+        if brightness_case == "brightness-renamed":
+            material, texture = "materials/Unused gain coat.json", "materials/Unused gain color.tex"
+            value = json.loads(entries.pop("materials/texture-front.json"))
+            value["passes"][0]["textures"] = [texture]
+            entries[material] = encoded(value)
+            entries[texture] = entries.pop("materials/model-surface.tex")
+            subject = next(obj for obj in scene["objects"] if obj["id"] == 2)
+            del entries["models/cases.mdl"]
+            subject["model"] = "models/Unused gain plane.mdl"
+            entries[subject["model"]] = quad(77, 83, 44, 52, 20, material)
+            for case in cases: case["material"] = material
+        entries["scene.json"] = encoded(scene)
     # This geometric oracle is fixed before GPU execution. A ray from each
     # shadow ROI toward +X,+Z travels 20 in Z and 12 in X, hitting only its part.
     for case in cases:
@@ -358,7 +376,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "preregistration.json").write_bytes(encoded({"canvas": CANVAS, "cases": cases,
             "tolerance": TOLERANCE,
             "colorVisibleRGB": ({case["name"]: case["rgba"] for case in cases}
-                if any(options.get(key) for key in ("texture_case", "affine_case", "normal_case", "opacity_case", "hdr_case")) else [0, 200, 0]), "healthyRGB": [0, 0, 255],
+                if any(options.get(key) for key in ("texture_case", "affine_case", "normal_case", "opacity_case", "hdr_case", "brightness_case")) else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
@@ -392,7 +410,13 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "fragmentPMA": [257/512]*3, "storedAlpha": 1/1024,
                 "wholeImageOracle": "high color/low texel and actual renamed variant equal safe color/white texel",
                 "compositeBoundary": "same opacity/background; no PMA versus different-alpha comparison"}}
-               if options.get("hdr_case") else {})}))
+               if options.get("hdr_case") else {}),
+            **({"brightness": {"case": options["brightness_case"], "hdr": False,
+                "value": (1 if options["brightness_case"] == "brightness-one" else
+                    "1e300" if options["brightness_case"] == "brightness-renamed" else 1e300),
+                "wholeImageOracle": "unused brightness preserves colour, alpha holes, shadow and peer",
+                "numericProducerVariant": "renamed resources use an authored numeric string"}}
+               if options.get("brightness_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -594,6 +618,18 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             for phase in ("ready", "after"):
                 png = f"evidence/scene-{phase}-window.png"
                 self.assertEqual((self.root / "hdr-control" / png).read_bytes(),
+                                 (self.root / name / png).read_bytes())
+
+
+    def test_hdr_disabled_brightness_preserves_color_holes_and_shadow(self):
+        control = self.run_case("brightness-one", brightness_case="brightness-one")
+        self.assert_texture_coverage(control)
+        for name in ("brightness-huge", "brightness-renamed"):
+            result = self.run_case(name, brightness_case=name)
+            self.assert_texture_coverage(result)
+            for phase in ("ready", "after"):
+                png = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / "brightness-one" / png).read_bytes(),
                                  (self.root / name / png).read_bytes())
 
 

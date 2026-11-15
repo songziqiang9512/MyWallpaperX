@@ -331,6 +331,38 @@ fragment half4 sceneStaticModelFragment(
             report = run_swift(sources, support, label="light-count", metal_sources=[probe_shader])
             self.assertEqual(report["counts"], [[0, count, 0] for count in range(5)])
 
+    def test_hdr_brightness_requires_finite_value_only_when_consumed(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.test_scene_static_model_emission import PIXEL_MAIN
+
+        variants = [("off-one", False, 1, True), ("off-wide", False, 1e300, True),
+                    ("on-one", True, 1, True), ("on-two", True, 2, True),
+                    ("on-inf", True, "inf", False), ("on-negative-inf", True, "-inf", False),
+                    ("on-nan", True, "nan", False)]
+        inputs = [dict(name=name, usesHDR=hdr, materialBrightness=value, drawBoundary=True,
+                       albedo=[.25, .5, .75], opacity=1, ambient=[0, 0, 0], hasMask=False,
+                       maskAlpha=0, emissiveColor=[0, 0, 0], brightness=0, receivesLighting=False)
+                  for name, hdr, value, _ in variants]
+        sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
+                   DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
+                   LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
+                   PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                   SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
+        report = run_swift(sources, "import Foundation\nimport Metal\nimport simd\n" + LIGHTING_STUB + PIXEL_MAIN,
+                           label="unused-brightness", metal_sources=[METAL_SOURCE], input_value=inputs)
+        rows = {row["name"]: row for row in report["rows"]}
+        self.assertEqual(set(rows), {case[0] for case in variants})
+        for name, hdr, value, expected in variants:
+            row = rows[name]
+            with self.subTest(case=name):
+                self.assertTrue(row["completed"] and row["peerEncoded"], row)
+                self.assertEqual(row["peerPixel"], [0, 0, 1, 1], row)
+                self.assertEqual(row["peerDepth"], .5, row)
+                gain = value if hdr and expected else 1
+                self.assertEqual(row["pixel"], [.25*gain, .5*gain, .75*gain, 1] if expected else [0]*4, row)
+                self.assertEqual(row["depth"], .5 if expected else 0, row)
+                self.assertEqual(row["encoded"], expected, row)
+
     def test_fixed_metal_shader_compiles(self) -> None:
         metal = subprocess.run(
             ["xcrun", "--sdk", "macosx", "--find", "metal"],

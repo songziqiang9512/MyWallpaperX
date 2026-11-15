@@ -411,7 +411,10 @@ PIXEL_MAIN = r'''
         ]
         let commandBuffer = queue.makeCommandBuffer()!
         var buffers: [MTLBuffer] = []
+        var boundaries: [String: (encoded: Bool, peer: Bool, depth: MTLBuffer)] = [:]
         for input in inputs {
+            let drawBoundary = input["drawBoundary"] as? Bool ?? false
+            let width = drawBoundary ? 2 : 1
             let vertices = positions.map {
                 SceneMdlStaticModel.Vertex(position: $0, normal: vector(input["normal"] as? [Double] ?? [0, 0, 1]),
                     tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
@@ -422,13 +425,13 @@ PIXEL_MAIN = r'''
             let mask: MTLTexture? = (input["hasMask"] as! Bool)
                 ? texture([0, 0, 0], alpha: Float(input["maskAlpha"] as! Double)) : nil
             let colorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .rgba16Float, width: 1, height: 1, mipmapped: false
+                pixelFormat: .rgba16Float, width: width, height: 1, mipmapped: false
             )
             colorDescriptor.storageMode = .private
             colorDescriptor.usage = .renderTarget
             let output = device.makeTexture(descriptor: colorDescriptor)!
             let depthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .depth32Float, width: 1, height: 1, mipmapped: false
+                pixelFormat: .depth32Float, width: width, height: 1, mipmapped: false
             )
             depthDescriptor.storageMode = .private
             depthDescriptor.usage = .renderTarget
@@ -439,9 +442,12 @@ PIXEL_MAIN = r'''
             pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
             pass.depthAttachment.texture = device.makeTexture(descriptor: depthDescriptor)!
             pass.depthAttachment.loadAction = .clear
-            pass.depthAttachment.storeAction = .dontCare
+            pass.depthAttachment.storeAction = drawBoundary ? .store : .dontCare
             pass.depthAttachment.clearDepth = 0
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass)!
+            if drawBoundary { encoder.setScissorRect(.init(x: 0, y: 0, width: 1, height: 1)) }
+            let rawBrightness = input["materialBrightness"] as? Double
+                ?? (input["materialBrightness"] as? String).flatMap(Double.init) ?? 1
             let material = SceneStaticModelMaterial(
                 color: vector(input["tint"] as? [Double] ?? [1, 1, 1]), opacity: Float(input["opacity"] as! Double),
                 receivesLighting: input["receivesLighting"] as? Bool ?? true,
@@ -449,7 +455,7 @@ PIXEL_MAIN = r'''
                 textureAlphaIsTintMask: input["tintMask"] as? Bool ?? false,
                 emissiveColor: vector(input["emissiveColor"] as! [Double]),
                 emissiveBrightness: Float(input["brightness"] as! Double),
-                brightness: Float(input["materialBrightness"] as? Double ?? 1),
+                brightness: Float(rawBrightness),
                 usesHDRBrightness: input["usesHDR"] as? Bool ?? false,
                 viewTint: (input["viewTint"] as? [Double]).map {
                     .init(front: SIMD3(repeating: Float($0[0])),
@@ -491,7 +497,7 @@ PIXEL_MAIN = r'''
                 lighting.distanceFogColor = SIMD4(vector(input["fogColor"] as! [Double]), 1)
                 lighting.distanceFogRange = SIMD4(Float(range[0]), Float(range[1]), Float(range[2]), Float(range[3]))
             }
-            precondition(pipeline.draw(
+            let encoded = pipeline.draw(
                 mesh: mesh, texture: albedo,
                 colorTextureIsPremultiplied: input["colorPremultiplied"] as? Bool ?? false,
                 materialMap: mask.map { .init(texture: $0, textureFrame: .identity, sampling: .linearClamp, components: 8) }, modelMatrix: matrix_identity_float4x4,
@@ -501,13 +507,34 @@ PIXEL_MAIN = r'''
                 layerAlpha: Float(input["layerAlpha"] as? Double ?? 1),
                 material: material, lighting: lighting, writesDepth: true, frameEpoch: 1,
                 commandBuffer: commandBuffer, encoder: encoder
-            ))
+            )
+            if !drawBoundary { precondition(encoded) }
+            var peerEncoded = false
+            if drawBoundary {
+                encoder.setScissorRect(.init(x: 1, y: 0, width: 1, height: 1))
+                let peer = SceneStaticModelMaterial(color: SIMD3(repeating: 1), opacity: 1,
+                    receivesLighting: false, textureAlphaIsOpacity: false, textureAlphaIsTintMask: false,
+                    emissiveColor: .zero, emissiveBrightness: 0, brightness: 1,
+                    usesHDRBrightness: false, viewTint: nil, cullMode: .none)
+                peerEncoded = pipeline.draw(mesh: mesh, texture: texture([0, 0, 1], alpha: 1),
+                    colorTextureIsPremultiplied: false, modelMatrix: matrix_identity_float4x4,
+                    viewProjection: matrix_identity_float4x4, cameraPosition: SIMD3(0, 0, 10),
+                    textureFrame: .identity, sampling: .linearClamp, layerAlpha: 1,
+                    material: peer, lighting: lighting, writesDepth: true, encoder: encoder)
+            }
             encoder.endEncoding()
             let buffer = device.makeBuffer(length: 256, options: .storageModeShared)!
             let blit = commandBuffer.makeBlitCommandEncoder()!
             blit.copy(from: output, sourceSlice: 0, sourceLevel: 0,
-                sourceOrigin: .init(x: 0, y: 0, z: 0), sourceSize: .init(width: 1, height: 1, depth: 1),
+                sourceOrigin: .init(x: 0, y: 0, z: 0), sourceSize: .init(width: width, height: 1, depth: 1),
                 to: buffer, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+            if drawBoundary {
+                let depthBuffer = device.makeBuffer(length: 256, options: .storageModeShared)!
+                blit.copy(from: pass.depthAttachment.texture!, sourceSlice: 0, sourceLevel: 0,
+                    sourceOrigin: .init(x: 0, y: 0, z: 0), sourceSize: .init(width: 2, height: 1, depth: 1),
+                    to: depthBuffer, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+                boundaries[input["name"] as! String] = (encoded, peerEncoded, depthBuffer)
+            }
             blit.endEncoding()
             buffers.append(buffer)
         }
@@ -515,13 +542,20 @@ PIXEL_MAIN = r'''
         commandBuffer.waitUntilCompleted()
         let completed = commandBuffer.status == .completed && commandBuffer.error == nil
         let rows = zip(inputs, buffers).map { input, buffer -> [String: Any] in
-            let pixel = buffer.contents().bindMemory(to: UInt16.self, capacity: 4)
+            let pixel = buffer.contents().bindMemory(to: UInt16.self, capacity: 8)
             let channels = (0..<4).map {
                 Float(Float16(bitPattern: pixel[$0]))
             }
-            return ["name": input["name"]!, "pixel": channels.map {
+            var result: [String: Any] = ["name": input["name"]!, "pixel": channels.map {
                 $0.isFinite ? $0 as Any : String(describing: $0) as Any
             }, "completed": completed]
+            if let boundary = boundaries[input["name"] as! String] {
+                result["encoded"] = boundary.encoded; result["peerEncoded"] = boundary.peer
+                result["peerPixel"] = (4..<8).map { Float(Float16(bitPattern: pixel[$0])) }
+                let depths = boundary.depth.contents().bindMemory(to: Float.self, capacity: 2)
+                result["depth"] = depths[0]; result["peerDepth"] = depths[1]
+            }
+            return result
         }
         print(String(decoding: try JSONSerialization.data(
             withJSONObject: ["rows": rows], options: [.sortedKeys]

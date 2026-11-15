@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 347,
-      "bytes": 76788
+      "lines": 352,
+      "bytes": 77943
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 53930
+      "bytes": 53985
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 258,
-      "bytes": 74724
+      "lines": 269,
+      "bytes": 77582
     }
   },
   "archives": [
@@ -524,28 +524,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "925ddcfb17c9c8bb437403c72901ef4e916deaf77d898dad16edcd628fe4d94d",
-      "after": "f5b2abb72be33e16aed74b10a057242cce67ba642ecf7d50ddf2bb3e93a63045",
-      "owner": "Existing StaticModel shader colour, coverage and output projection",
-      "reason": "Single Float colour chain and final Half storage; retire premature precision loss and duplicate legacy arithmetic without new state/resources. Actual pixel and shadow qualifications remain separately bounded.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-color-intermediates"
+      "before": "f5b2abb72be33e16aed74b10a057242cce67ba642ecf7d50ddf2bb3e93a63045",
+      "after": "4d2a96996706c131a6ba40797ca943d5622c486a6d42c7349ae259bbe0074f51",
+      "owner": "Existing StaticModel HDR value consumer",
+      "reason": "Define raw brightness admission by original HDR consumer demand before implementation; retain active HDR and authored Float boundaries without a new material state.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-disabled-brightness"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "33b068c4e5dfa5bb8009b85c926211a4e2b96b99a414ba442c3ecc3aed69796a",
-      "after": "8bbf14d20e62fc4d05281d9258c612c6d564bd2ffb0905b2ef5536a0bc1b79c6",
-      "owner": "Existing StaticModel production renderer and bounded native/App evidence",
-      "reason": "Record actual HDR16 red/green, exact whole-App factorization and ordinary author regression; preserve healthy shadow/late-fog boundaries, invalid-oracle history and storage limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-color-intermediates"
+      "before": "8bbf14d20e62fc4d05281d9258c612c6d564bd2ffb0905b2ef5536a0bc1b79c6",
+      "after": "a25521fd31ddbca48930eb2e10adb3ddc746b2ab852b59c62d67ceb2931cfe27",
+      "owner": "Existing StaticModel draw boundary and real App/author evidence",
+      "reason": "Bind actual missing-colour/preserved-shadow red-green to unchanged whole-App controls, bounded active/inactive HDR draw cases and independent Earth; separate default244 source checks from new execution.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-disabled-brightness"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8f0eb5756f434bb7c160cd1442001df8fccbf9b294ab076fa3af3f4b882fc136",
-      "after": "e0577d574b18e280310d8415cc4a35bf29a46cd3b0a278897ee5c371beaa4b5c",
-      "owner": "Original model material preparation and consumer demand",
-      "reason": "Retire qualified Half-intermediate failures, preserve raw narrowing/property limits and identify unused-channel admission only as a source candidate requiring actual consumer evidence.",
+      "before": "e0577d574b18e280310d8415cc4a35bf29a46cd3b0a278897ee5c371beaa4b5c",
+      "after": "b9d193bfbb24996ab0bff31d23b541681aa52d721e2c6a40adb11f77df4b10e4",
+      "owner": "Existing material numeric and explicit resource consumers",
+      "reason": "Retire qualified unused brightness failure, retain remaining raw numeric boundaries only as source facts and distinguish the proven image-only effect-role case from a proposed existing model consumer.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

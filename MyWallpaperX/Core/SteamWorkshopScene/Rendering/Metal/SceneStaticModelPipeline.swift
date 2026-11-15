@@ -407,7 +407,7 @@ struct SceneStaticModelPipeline {
               !sampling.usesClampBorderFallback,
               layerAlpha.isFinite,
               material.emissiveBrightness.isFinite,
-              material.brightness.isFinite,
+              (!material.usesHDRBrightness || material.brightness.isFinite),
               material.color.x.isFinite,
               material.color.y.isFinite,
               material.color.z.isFinite,

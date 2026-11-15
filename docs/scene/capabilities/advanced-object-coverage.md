@@ -92,6 +92,11 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收扩既有emission的真实RGBA16Float/Float16读回：finite高色×低tex与安全色×white同opacity的存储等值、mask、PMA小正A/零A与straight A0反例、viewTint后再fog使最终有限的晚cast反例，含资源/producer改名及合法等值载体；近期普通emission/ambient/alpha/depth/反射与Chroma按影响复用或补测。另在原Frame三灯门用线性RGBA8或Float输入的有效A略高于.5、=.5、略低于.5，按实际format/UV推导并区分真实采样精度和既有cutoff，不用emission固定忽略textureAlpha的结果代证。完整App沿真实TEX/材料用相同几何/背景/opacity，低纹理+高color对安全control与改名核整图；原星球只授独立回归。达到生产像素正反、实际旧新贡献和独审后退相应队列部分；不宣官方parity或全部HDR输入健康。
 
+<a id="model-hdr-disabled-brightness"></a>
+HDR关闭时，原usesHDRBrightness使实际亮度统一取1；原始brightness即使超出Float范围，也不参与颜色、反射或Chroma末端增益，不得因其finite检查拒整draw。该flag由原general.hdr冷供、Material与动态Self重建保留，无热setter或新状态。仅令原Pipeline亮度finite许可跟随这个实际消费条件，保HDR开启的非有限拒绝和原非负投影；不截HDR为1、不改变其余字段或shader。hostBuiltin的有限Double大值可由真实Catalog到达这条边界；authored Float接口仍由原Compiler先拒超域，不藉此放宽类型、property/script seed或动态范围。
+
+实际App先用general.hdr=false、genericimage2的同MDL/纹理/材质对照，只将brightness1改为1e300；旧主体缺色而原投影/孔洞/peer保持。验收在同输入恢复后，以整PNG等控制及真实资源/数值载体改名为准，另核HDR开启的正常亮度确有消费、活跃非有限值继续局部拒和健康邻物。扩原最近行为门、保独立星球播放与一次独审，不新增fallback、normal/shadow许可或资源owner。
+
 <a id="model-normal-consumers"></a>
 ### 模型法线的实际消费者
 
