@@ -59,6 +59,17 @@ def cases():
         case("near-no-write-far-additive", far_blend="additive", near_writes_depth=False),
         case("normal-after-background", far_first=True),
         case("translucent-after-background", blend="translucent", alpha=.5, far_first=True),
+        case("translucent-before-background", blend="translucent", alpha=.5),
+        case("translucent-before-background-write-disabled", blend="translucent", alpha=.5,
+             near_writes_depth=False),
+        case("translucent-after-background-write-disabled", blend="translucent", alpha=.5,
+             far_first=True, near_writes_depth=False),
+        case("near-opaque-far-translucent", far_blend="translucent", far_layer_alpha=.5,
+             far_depth_test="enabled"),
+        case("near-opaque-far-translucent-no-test", far_blend="translucent", far_layer_alpha=.5,
+             far_depth_test="disabled"),
+        case("translucent-before-background-renamed", blend=" TrAnSlUcEnT \t", alpha=.5,
+             renamed=True),
         case("additive-renamed", blend=" Additive ", alpha=.5, far_first=True, renamed=True),
         case("depth-read-write", far_depth_test="enabled"),
         case("depth-read-only", far_depth_test="enabled", far_writes_depth=False),
@@ -152,9 +163,33 @@ class SceneStaticModelBlendingTests(unittest.TestCase):
                 self.assertAlmostEqual(self.rows[name]["depth"], far, delta=.000001)
         for name in ["normal-layer-half", "translucent-half"]:
             self.assert_pixel(self.rows[name], [128, 0, 0, 128])
-            self.assertAlmostEqual(self.rows[name]["depth"], self.rows["near-only"]["depth"], delta=.000001)
+        self.assertAlmostEqual(self.rows["normal-layer-half"]["depth"],
+                               self.rows["near-only"]["depth"], delta=.000001)
+        self.assertEqual(self.rows["translucent-half"]["depth"], 0)
         self.assert_pixel(self.rows["clear-only"], [0, 0, 0, 0])
         self.assertEqual(self.rows["clear-only"]["depth"], 0)
+
+    def test_translucent_camera_depth_write_stays_inactive_while_depth_test_stays_active(self):
+        near, far = self.rows["near-only"]["depth"], self.rows["far-only"]["depth"]
+        for name, rgba, depth, writes in [
+            ("translucent-before-background", [0, 0, 255, 255], far, [False, True]),
+            ("translucent-before-background-write-disabled", [0, 0, 255, 255], far, [False, True]),
+            ("translucent-after-background", [128, 0, 128, 255], far, [False, True]),
+            ("translucent-after-background-write-disabled", [128, 0, 128, 255], far, [False, True]),
+            ("near-opaque-far-translucent", [255, 0, 0, 255], near, [True, False]),
+            ("near-opaque-far-translucent-no-test", [128, 0, 128, 255], near, [True, False]),
+            ("translucent-before-background-renamed", [0, 0, 255, 255], far, [False, True]),
+        ]:
+            with self.subTest(name=name):
+                row = self.rows[name]
+                self.assert_pixel(row, rgba)
+                self.assertEqual(row["depth"], depth)
+                self.assertEqual(row["preparedWritesDepth"], writes)
+        for name in ["near-opaque-far-translucent", "near-opaque-far-translucent-no-test"]:
+            self.assertEqual(self.rows[name]["preparedFarBlend"], "translucent")
+        renamed = self.rows["translucent-before-background-renamed"]
+        self.assertEqual(renamed["preparedBlend"], "translucent")
+        self.assertEqual(renamed["rgba"], self.rows["translucent-before-background"]["rgba"])
 
     def test_disabled_near_writer_keeps_color_but_allows_later_far_model(self):
         alone = self.rows["normal-write-disabled-alone"]

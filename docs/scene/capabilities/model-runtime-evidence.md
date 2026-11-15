@@ -36,11 +36,19 @@
 
 ## 模型的测试与写深度 <a id="model-depth-state"></a>
 
-2026-11-14按[原深度设计](advanced-object-coverage.md#model-depth-state)，Entry 冷准备独立 test/write，原 Frame/四 stencil 消费，no-test 模型截断透明 image 重排；真实 opaque 的体积 camera-depth 按颜色绘制顺序复用相同测试状态。四产品净+20行，仅新增一份 always/write stencil，不增 PSO、池、owner 或热解析；默认与旧 disabled/false/off/0 别名保留。旧同输入原生48行触发8条子断言失败；当前48行的9方法及 point-volume21行/6方法均通过。far write-only由红/nearDepth .51000011 变蓝/farDepth .48999989，no-test/no-write为蓝且保 nearDepth；alpha0、空/未知、改名及原混合邻例保持。真实 Frame 收集与 encodeVolumeOccluderDepth 的近/远原生相机控制中，远 no-test writer 的 color/camera depth 同为 .0000809322737；不写时两者保近 .000101142461，1e-7容差，非复制比较算法。PointVolume 的两新顺序控制同时验证实际散射截止，阴影灯空间比较不变。
+模型沿[深度设计](advanced-object-coverage.md#model-depth-state)冷准备有效 test/write，原 Frame/四 stencil 消费，no-test 模型截断透明 image 重排；真实 opaque 的体积 camera-depth 按颜色绘制顺序复用相同测试状态。2026-11-14四产品净+20行，仅新增一份 always/write stencil，不增 PSO、池、owner 或热解析；默认与 disabled/false/off/0 别名保留。原48行/9方法及 point-volume21行/6方法的 normal 四态、alias/未知、改名、alpha0、加法及体积结果仍有效，原 translucent 写入预期由[当前对照](#model-translucent-camera-depth)替换。normal far write-only由红/nearDepth .51000011 变蓝/farDepth .48999989，no-test/no-write为蓝且保 nearDepth。真实 Frame 收集与 encodeVolumeOccluderDepth 的近/远原生相机控制中，远 no-test writer 的 color/camera depth 同为 .0000809322737；不写时两者保近 .000101142461，1e-7容差，非复制比较算法。PointVolume 的两新顺序控制同时验证实际散射截止，阴影灯空间比较不变。
 
 旧 App 的两新方法分别因四区全红和错误重排而失败；候选两方法、四场实际 App 及8PNG通过。近红→四材质远蓝→中绿的四组合为 R/G/B/R，完整 model/material/texture/ID 改名相同；排序只切 model test，off 按511/512/513为[0,128,127]，on保合法512/513/511为[128,64,63]，均在事前 delta4 内。输入、源码与 App 身份固定，ready/after像素一致，同 request/CB/主目标/seal/GPU完成与排空逐图核对。普通 Debug 28.045s、四产品/project/锁文件前后一致，签名/原helpers验证通过；exec4525130e…c5a0、dylib907d2e01…9c5a，metallib仍e451f575…2848。作者3453730450/3437487219各5秒PASS，F165/CB532952090368和F156/CB533511734144的模型保持test/write=true、主景与同帧main/seal/GPU完整，零截断并排空，只授enabled原路径回归。独立产品/测试/图像审查无阻断；官方disabled语义、文字disabled排序、任意透明体积与性能未授。
 
 自有输入、失败、原生/App像素、构建身份与独审保于 `.artifacts/scene-model-depth-state-20261114`；真实作者原报告、必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-depth-state-20261114`。
+
+### 半透明模型的相机深度 <a id="model-translucent-camera-depth"></a>
+
+2026-11-15，3662790108同原资源、仅作者初始聚焦3的地球近景，旧App亮半球有密集斜纹，官方2.8.0.42实际窗口及独立观察无此纹。1665夜灯真实关闭仍有斜纹，分别关云1877或模型大气1881则消失；两者相同几何/半径，首错是透明面互写深度。以两份未改原MDL、自有近红透明/远蓝实体及健康peer构成六场，完整取景资格后，官方两顺序×写入存储位及后透明测试开关的颜色为蓝/蓝/混/混/蓝/混；旧Mac首场为红，其余相同。首版相机不一致导致裁剪的六场已排除，不作语义依据。官方记录为原生窗口人工观察，无本地截图文件，不授逐字节官方像素。
+
+原 compileMaterialPlan 一次准备 translucent 有效 writesDepth=false，保 authored test、顺序、normal/additive 与独立灯空间coverage；唯一产品净+1行，无新热工作、状态、ABI、PSO或资源。最终同一原生门10方法/54输入，旧源6失败→新源全过；原48输入未改，只替换错误透明写深度预期并补六个变体。近红透明先画后实体蓝的实际RGBA从[128,0,0,128]→[0,0,255,255]，深度.51000011→.48999989；后透明开启测试仍被前实体挡住，关闭则混合。其余normal四态、改名/大小写空白、未知、alpha0、加法与volume邻例保持；本批不重授三灯map运行。
+
+普通Debug25.151s输入稳定、签名及原helpers通过，exec `fbca5138…7256`、dylib `3fcdbcc8…13aa`，metallib与旧App相同。新App同六输入RGBA符合上述类别，首场逐像素等于旧关闭写入场，其余五场逐像素不变。相同作者地球输入5秒终端图斜纹消失，保连续地形/云及暗面城市灯；土星保完整受光球面与星环，独立原3477054430保猫、楼体、月球。各场同capture主目标/seal/CB与GPU完成、零截断并排空。前后自然相位未严格配对，不授原景精确像素差；太阳穿透、全部镜头、第二次标题及366整体官方一致仍开放。必要输入、旧红/新绿、实际图、身份与独审归 `.artifacts/scene-model-translucent-depth-20261115`；独立原作者报告归 `.artifacts/scene-evidence/runs/scene-model-translucent-depth-20261115`。
 
 ## 夜光遮罩的相位供货 <a id="model-mask-phase"></a>
 

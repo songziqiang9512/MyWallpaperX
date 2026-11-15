@@ -58,16 +58,16 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 原材质准备已经解析的 `blending=additive` 直接决定模型颜色管线：片元保持原 PMA，RGB 以 `one/one` 加到已有画布，alpha 沿唯一 compositor 的 source-over 合同；普通/半透明及缺省材质保原策略。层、材质和纹理透明度只乘一次。模型资源准备仅在存在该材质时创建相应原 PSO；反射与加法可组合，复用同一 fragment/资源，不按资源名或模型形状分派。缺失的加法 PSO 只拒对应 draw，不能悄悄按覆盖混合绘制。
 
-保持现有深度测试、写入、cull、caster 和光照职责，不从加法或透明度推导统一停写深度，也不另建排序/深度域。原 Frame 直接把已解析混合事实交给原 Pipeline，退已保存 additive 却固定 source-over 的断点，无热解析、附加 pass、资源或输出 owner。生产 GPU 门以非黑背景检验 full/half/zero alpha、改名、深度写开关与近遮挡，保 normal/translucent 邻例；真实星星模型另验同帧颜色/主画布/GPU，独立无加法作者保持原画面。该 RGB 合成是本引擎明确的通用算法，不授全部官方材质语义。
+加法保原相机深度、cull、caster 和光照职责，半透明模型深度另遵下节，不另建排序/深度域。原 Frame 直接把已解析混合事实交给原 Pipeline，退已保存 additive 却固定 source-over 的断点，无热解析、附加 pass、资源或输出 owner。生产 GPU 门以非黑背景检验 full/half/zero alpha、改名、深度写开关与近遮挡，保 normal/translucent 邻例；真实星星模型另验同帧颜色/主画布/GPU，独立无加法作者保持原画面。该 RGB 合成是本引擎明确的通用算法，不授全部官方材质语义。
 
 <a id="model-depth-state"></a>
 ### 模型的测试与写深度
 
-原模型 Entry 将 `depthtest` 与 `depthwrite` 分别准备成布尔事实，Frame 和原 Pipeline 消费同一对值。沿本引擎已有 image 逆深度合同：测试开启用 greaterEqual，关闭用 always，写入独立；复用现有三个 stencil，只补一份 always/write。关闭测试的后绘模型按作者顺序覆盖，是否改写深度只由写入控制，透明零覆盖仍不写。原冷解析同时归一两字段，沿既有模型策略保 nil/空/未知为开启，仅 disabled/false/off/0 关闭；这是项目默认，不宣官方未知值语义。不用完整材质准入牵连其它字段，也不加普通帧字符串解析。
+原 `compileMaterialPlan` 将相机测试、有效写入和混合方式一次准备给 Entry，Frame 与 Pipeline 只消费这组事实。`translucent` 模型不写相机深度，即使保存的 `depthwrite=enabled`；其深度测试仍消费原声明，后方透明面不能穿过前方实体。这样同半径云层/大气可按作者顺序混合，不由互写深度形成斜纹。退役半透明材质按存储位写深度的旧投影，不改资源、壳层半径、投影、排序、ABI 或 PSO；normal/additive 保原策略，灯空间 caster 与 coverage 独立。测试开启用 greaterEqual，关闭用 always，透明零覆盖仍不写。原冷解析保 nil/空/未知为开启，仅 disabled/false/off/0 关闭；此缺省是项目策略，不外推官方未知值或其他混合方式。
 
 测试关闭的模型是原透明 image 重排的顺序屏障，退出只凭 normal+写深度即可归入 opaque cohort 的旧判断。实际根域 opaque/alpha1/写深度模型仍由原 VolumeOccluder 收集；它携带相同测试值，原 camera-depth draw 依实际颜色绘制顺序使用比较或无条件写入，避免画面选了远表面、体积仍被旧近表面截止。保持既有实体覆盖资格、mesh/变换/cull、同池同提交，不新增资源、排序器或深度 owner。阴影的灯空间比较、castshadow 与透明资格独立，不跟随 camera test。新增 stencil 不可用时仅跳对应模型绘制；无需改旧比较深度路径。
 
-验收先用生产资源/Frame/Metal 的近红→远蓝四组合及实际深度，保 alias/未知/改名、alpha0、后继绘制状态与原混合邻例；自有完整 App 用中间绿色表面区分写入，再核 transparent image→no-test模型的排序屏障、同模型开启测试的合法重排邻例，以及真实实体收集到体积深度的近远顺序。独立作者启用深度只授原路径回归，不充作 disabled 正例。模型/图像共享原逆深度域，不扩为文字 disabled 排序、任意半透明体积或官方像素一致。
+验收复用生产资源→Frame→Metal 门，核近透明红/远实体蓝的两顺序×写入声明，另以实体前/透明后的一对测试开关保遮挡，先资格完整模型与独立健康peer，再比官方颜色类别；相机不一致的裁剪输入不得定语义。保原normal四态、alias/未知/改名、alpha0、后继状态、加法、排序屏障、volume与三灯shadow；按影响面复用已验证范围。真实地球核原包资源、云/大气相互分离与合成后的无斜纹，另核土星及独立作者。[实际范围](model-runtime-evidence.md#model-translucent-camera-depth)不授文字 disabled 排序、任意半透明体积或整样本官方一致。
 
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖

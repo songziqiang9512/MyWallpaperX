@@ -8,7 +8,7 @@
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
-当前优先世界空间模型的深度、遮挡、受光与纹理完整性，从星空/星球输入闭合通用消费者。官方对照不足时采用明确说明的自有几何/光照算法，以可区分的生产像素正反例验收，不因缺少官方像素停止推进，也不宣称官方一致。
+当前按用户指定顺序先核 `3662790108` 实时太阳系的全部模型、受光及其他画面/交互错误，正常后再核 `3470948192` 水滴的背景样式、发光及其他表现，以目录截图和实际官方客户端对照一致为目标。太阳系默认开场以 `Date.now()` 推进，主镜头过渡20秒，部分开场元素到25秒才结束；先自然播放至少30秒，再分别核远景与行星近景，不能将短窗黑幕或过渡误作缺图。世界模型的深度、遮挡、受光与纹理完整性仍优先；其余边界暂后排。官方对照不足不停止研究，可采用明确说明的自有算法取得可区分的生产像素收益，但不能由此宣称官方一致或该样本全面正常。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -17,6 +17,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 3662790108 全镜头与开场 | 自然开场后已取得实际太阳系远景；地球云/大气互写深度产生的斜纹已按[透明模型对照](../capabilities/model-runtime-evidence.md#model-translucent-camera-depth)修复，保完整地形、云及夜灯；土星近景与独立作者保持。不改资产/bias/相机。继续逐作者可请求的行星、矮行星、卫星、航天器及太阳近景，核暗半球实体覆盖、太阳遮挡、受光与纹理；73个MDL不等于同帧73个可见对象。用户补报第二段标题黑挡尚未闭合，须同开场阶段比较1191/1192与文字1156/1161。私有初始聚焦副本不授原双击交互；不同extent会触作者UI缩放，不能直接判DPI错误。此样本正常前不转3470948192。 |
 | 模型HDR数值与属性种子的剩余域 | opacity冷归一及健康caster、Float颜色/PMA/coverage和[HDR关闭的无用亮度许可](../capabilities/model-runtime-evidence.md#model-hdr-disabled-brightness)均已按各自实际读回闭合；三灯采样边界旧已健康，不列假缺口。HDR开启及其余hostBuiltin emission/color/tint仍有raw Double→Float缩窄路线，只属剩余源码边界；不按字段续加guard或重跑已闭输入。重启须新的真实consumer红例，再按原需求/运算域决定，不统截HDR为1、不以maxFloat声称一般代数健康。RGBA16动态范围/极小alpha、一般Float32乘积及property/script巨seed回流未解，不授任意静动态等价。原raw UV zero/NaN仅属故障夹具，无生产typed可达证据，Spot/Point保实际失败生命周期，不当作待通放许可。 |
 | 模型纹理border采样 | 源码确认TEX flag8被Loader/Catalog/publication/SlotBinding保留，但共享knownmask仍排8，模型颜色/shadow随后重复拒fallback；共享sampler只有edge/repeat四态，尚无border消费者，不能只删门把edge冒border。定向五星球包383个TEX header未命中8，只读index/首64B不授stock/loose/活动作者命中；当前不按这些样本继续重跑。若后续补通用能力，先按原owner准备明确透明黑border采样，核真实TEX/改名与相邻edge/repeat反例，并分别资格atlas局部边缘与fixed-image compact ABI，不新建PSO/fragment fallback或资源owner。 |
 | 模型lookup与rim的用户输入 | 渐变slot4沿静态文件链供货，明确userTextureInputs[4]而无文件时只局部缺lookup，不能由stock默认冒充；当前未接用户provider或完整user/file优先级。后续沿原候选/ready与typed资源/条件热更新消费者接入，不复制provider排序、不把本批静态正常图授为动态资格；rim动态值目前只局部关闭该项；用户provider/热更新尚无活动作者首错，不抢已证世界模型消费者。 |

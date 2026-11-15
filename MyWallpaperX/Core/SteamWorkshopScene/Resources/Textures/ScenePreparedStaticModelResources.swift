@@ -166,9 +166,10 @@ struct ScenePreparedStaticModelResources {
                 source = .asset(identity)
                 demands.insert(identity)
             } else { continue }
+            let blending = SceneMaterialRenderState.compileBlending(pass.blending)
             materials[path] = .init(pass: pass, material: material, albedoSource: source,
-                writesDepth: depthEnabled(pass.depthWrite), testsDepth: depthEnabled(pass.depthTest),
-                materialBlending: SceneMaterialRenderState.compileBlending(pass.blending))
+                writesDepth: blending != .translucent && depthEnabled(pass.depthWrite),
+                testsDepth: depthEnabled(pass.depthTest), materialBlending: blending)
         }
         return .init(materialsByPath: materials, assetDemands: demands)
     }

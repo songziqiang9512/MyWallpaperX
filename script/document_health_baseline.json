@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 360,
-      "bytes": 80795
+      "bytes": 81042
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 191,
-      "bytes": 53211
+      "lines": 192,
+      "bytes": 54414
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 295,
-      "bytes": 85944
+      "lines": 303,
+      "bytes": 88324
     }
   },
   "archives": [
@@ -524,20 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "0401b1679f1602824b60cffffdd85782cb749d23292c000ce95cbfb00fad0ce6",
-      "after": "ac8db53cd86ad25a2fad04e55b85a61da1beb0876b5eea7d5ab5d3bbc533b2a9",
-      "owner": "Existing SourceFacts image JSON demand and Catalog model/material closure",
-      "reason": "Make declared image JSON a third parser role, retire independent model-hint permission, reuse failure isolation and existing candidate array; preserve MDL and frame ownership.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#image-model-role"
+      "before": "ac8db53cd86ad25a2fad04e55b85a61da1beb0876b5eea7d5ab5d3bbc533b2a9",
+      "after": "c87f3c08fab846a29d35660e633802114412d4035ede9141a8c5d7d0f2f956c2",
+      "owner": "Original compileMaterialPlan model camera-depth preparation",
+      "reason": "Replace the old translucent storage-bit projection with one effective nonwriter state while preserving authored test/order, normal/additive, caster and original owners; qualified official six-case design and actual Earth benefit.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-depth-state"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "e6907558273d8fc81be8c55ac4448a7aac1013ca28f4d58d220ac2cb3e7a24d2",
-      "after": "a5f3d9b332417ff253b581e93a0b8e0becc3fe6ac21f73133bd997e32cc8b031",
-      "owner": "Original named-model source closure and Catalog/native/App evidence",
-      "reason": "Bind restored model colour/shadow to exact old packages and renamed variants, unchanged parser/read regressions and independent real content; disclose Script candidate and token observation limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#image-model-role"
+      "before": "a5f3d9b332417ff253b581e93a0b8e0becc3fe6ac21f73133bd997e32cc8b031",
+      "after": "0ff060be1e8bd4a8efdf4b440faa3a09edaddbe29b49bfe7801eb4b720d260b1",
+      "owner": "Native model GPU and qualified official/App evidence",
+      "reason": "Retire the obsolete translucent depth assertion, preserve normal/volume qualification and record exact old-red/new-green GPU, six qualified official observations, Earth stripe removal and independent author; all-view/title parity remains open.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-translucent-camera-depth"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "54eededfe905a77feb9661cd3efba0c25af67c12a91a1049379b66e02ed5e621",
+      "after": "495bcd418d7a37c8df2a6de1e2fe797d7618669cd4423ddc4c1fb901acf16330",
+      "owner": "User-directed solar-system and waterdrop order",
+      "reason": "Keep user366→347 order and intro timing, close only proven Earth shell depth defect and retain all-view/Sun/title and original interaction obligations.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }
