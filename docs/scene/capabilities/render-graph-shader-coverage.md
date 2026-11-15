@@ -243,13 +243,17 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
 <a id="named-geometry-local-raster"></a>
-### Geometry named 的局部色图
+### Named 来源的局部色图
 
 Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图：当前 pose/mesh 采原 graph-final 色源，在 `authoredSize` 居中的矩形内沿原 Y 方向和覆盖规则绘制，透明区保留。world、camera、parallax 与 consumer placement 不进入这张共享图；provider 与 consumer 的作者位主合成仍各自消费原变换。作者 Program 用自身 UV、纹理 Resolution 及作者 offset/scale 等参数采样，不隐式要求两层世界矩阵相等，也不自动做世界重投影。
+
+普通非solid图层的 graph-final named 来源同样按已解析的 layer-local source extent 准备效果目标。原 FramePreflight 用已有 requiresGraphOutputCapture 事实区分共享供货与普通显示：前者不把 world 矩阵列长、camera 或 parent 缩放混入纹理长宽；后者保原量化向上取整的显示密度，避免已有可见字符放大后模糊。保原 source extent/Resolution、captured matrix、Program、唯一 graph/named 发布与最终 compositor placement，2048等比限额不变。不新增每消费者纹理或缓存；退出命名图像先按世界尺寸拉宽再等比压成薄条的旧目标选择。真实分配失败仍走原局部失败，坏epoch/来源不放行。
 
 预约与实际 publication 复用原 provider/epoch 唯一 target。沿既有 named 资源约定，physical 与 mapped 均为实际 raster 像素尺寸，UV 为 identity；超过 pool 的2048边长时等比缩小 target，投影仍用 authoredSize，不能用 target 像素重新缩放 mesh。所选 candidate 在预约和发布时提供相同 metadata；本条不改变全局 Resolution、reduction 或作者参数单位，也不把 raw atlas 冒充已执行 geometry/FX 的色图。
 
 原 GeometryProduct、FrameRuntime、Program 与唯一 compositor 分别承接 source/pose、预约发布、取样和作者位输出，不新增坐标 owner、consumer 专属 target 或缓存。退役仅供旧 exact-placement 准入使用的两套世界 MVP 比较及传递/计算；owner、安装 generation/atlas、有效 authored extent、当前 pose、frame epoch、graph 色源尺寸与真实 encode/资源寿命边界保留。缺源或普通视觉失败沿原局部降级；错误身份不能借此通放。
+
+普通graph供货另用真实隐藏provider→effect→named→模型的非恒条带，核直接缩放与等价父层缩放/ID/资源/变量改名后，纹理extent及模型像素保持；健康后缀/阴影和raw无效果供货不变，非named普通图层仍保原显示密度。实际水滴93必须由3840×1920源得到2048×1024 graph/named并供115恢复细线；不改作者scale、素材、调色或算法参数。独立作者另核主合成与GPU，不由尺寸恢复自动授官方RGB一致或尖端发光已修。
 
 验收复用原 native/Metal 门，核局部 raster 的 within/over-cap 尺寸、共享 target、可区分 graph 与 atlas 的像素及不同 consumer placement，保坏 owner/source/generation/extent、过期帧与 pose/encode 失败反例。签名 App 必须看到真实 provider publication→所选 Program sampler→主合成/GPU/PNG/排空，另核资源/变量改名与独立作者；Ready 或退掉消费层不算该链恢复。任意世界重投影、局部范围外几何及官方逐像素一致不由本条授予。
 

@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 373,
-      "bytes": 77171
+      "lines": 377,
+      "bytes": 78417
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 598,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59356
+      "bytes": 59392
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 333,
-      "bytes": 96994
+      "lines": 341,
+      "bytes": 99112
     }
   },
   "archives": [
@@ -496,15 +496,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "7b99ce14d10ec8c915bf3bdf00f1fa12284ad805700d82ab98c89a34fde461a2",
-      "after": "b5f871f4b84ad8cf16527a17df821cceafd4e3f07c5ea57d3bbc1aa8c764b5be",
-      "owner": "Original Loader source-frame preparation, fixed Lit and authored Generic consumers",
-      "reason": "General finite/nonzero affine source bounds replace false positive-axis permission; retire Generic/Lit gates and duplicate same-operation SlotBinding, keep actual source/exactscale domain under a renamed helper. Qualify true Loader/Catalog, fixed Lit and both Generic backends, full model color/holes/shadow and raw-author controls with independent author. Record the separate proven unused-normal admission candidate for later design.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-affine-frames"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "0412e760875e5d2769d754326baf09db866500ba922159ec2381203d92e6c755",
       "after": "65d97ed0fa6897ae2d6175653a8314928c2a6b80c51cb95d1cb3257b531afdef",
@@ -532,20 +523,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "b5f871f4b84ad8cf16527a17df821cceafd4e3f07c5ea57d3bbc1aa8c764b5be",
+      "after": "8d8c6a0ffb42d426352d103ecdef046da731343dd58e634ae6d2fac873ae821a",
+      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
+      "reason": "Extend original named local-raster ownership to ordinary non-solid graph source extent; preserve nonnamed display density, coordinates and resource lifecycle.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-geometry-local-raster"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "0df0f0533d600a13de0311257ea286d6e13321f8f51582ed57bbfe37906b426b",
-      "after": "78c1728b5b15c665aecd9c10e2308ffc4b867b4b7ae5b15ae187e8063c3f340d",
-      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
-      "reason": "Qualify six bounded solar HOLD views and one visible small-Saturn transition; keep offscreen and all-view limits while following the user priority to waterdrop.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-model-views"
+      "before": "78c1728b5b15c665aecd9c10e2308ffc4b867b4b7ae5b15ae187e8063c3f340d",
+      "after": "bb7c09a2712cca9b2556c3a37e2a60e2c6b0db3bd78e7d5248b6eb6aac1ff75b",
+      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
+      "reason": "Qualify real waterdrop background detail recovery, stripe scale/parent/rename pixels, ordinary and visible shared graph neighbors, plus independent Earth without official RGB/full scene claims.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#named-background-source-extent"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "87f39eaa1e166f2e7b077c9814a2305fe9f27d3b5dfc110c99e40b049d326525",
-      "after": "7b39719bea6f971c21705e548b460c060b933ca2c2b8d191fdcb933d31febd56",
-      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
-      "reason": "Replace the solar next-step with current bounded coverage and the active waterdrop text/background/HDR first faults; retain resize validator and prior unresolved boundaries.",
+      "before": "7b39719bea6f971c21705e548b460c060b933ca2c2b8d191fdcb933d31febd56",
+      "after": "09713d76935f7b426d9af4358ba41c18e944b91df07546cfbd02f3f2562446e7",
+      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
+      "reason": "Retire fixed provider sizing from the active fault list and continue material HDR/tip response with original resize-validator and phase limits.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

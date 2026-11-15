@@ -19,6 +19,7 @@ import unittest
 
 from script.tests import test_scene_static_model_reader as reader
 from script.tests.test_scene_directional_shadow_integration import png, quad
+from script.tests.test_scene_native_world_composition import png as grid_png
 from script.tests.test_scene_static_model_parts import join_parts
 from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
@@ -34,7 +35,8 @@ SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_static_model_cull_integration.py", "test_scene_static_model_reader.py",
     "test_scene_static_model_parts.py", "test_scene_directional_shadow_integration.py",
     "scene_pkg_fixture.py", "test_scene_fullscreen_visibility_integration.py",
-    "test_scene_named_model_shadow.py", "scene_color_blend_capture_test_support.py"
+    "test_scene_named_model_shadow.py", "scene_color_blend_capture_test_support.py",
+    "test_scene_native_world_composition.py"
 )) + (REPO / "script/web_benchmark_capture.py",)
 
 
@@ -44,7 +46,9 @@ def encoded(value):
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
                     affine_case=None, normal_case=None, opacity_case=None, hdr_case=None, brightness_case=None,
-                    effect_role_case=None, image_model_case=None):
+                    effect_role_case=None, image_model_case=None, named_extent_case=None):
+    if named_extent_case is not None:
+        return named_extent_entries(named_extent_case)
     if image_model_case is not None:
         return image_model_entries(image_model_case)
     if effect_role_case is not None:
@@ -350,6 +354,39 @@ def effect_role_entries(case):
     return scene, entries, cases
 
 
+def named_extent_entries(case):
+    renamed = case == "extent-parent-renamed"
+    scene, entries, cases = effect_role_entries("role-renamed" if renamed else "role-standard")
+    provider = next(obj for obj in scene["objects"] if obj["id"] == 11)
+    provider["size"] = "384 192"
+    model = json.loads(entries[provider["image"]])
+    material_path = model["material"]
+    material = json.loads(entries[material_path])
+    texture = material["passes"][0]["textures"][0]
+    entries[texture] = grid_png(384, 192,
+        lambda x, y: (200, 0, 0) if (y // 12) % 2 == 0 else (0, 200, 0))
+    caster = next(obj for obj in scene["objects"] if obj["id"] == 2)
+    caster_path = "materials/Relocated caster.json" if renamed else "materials/caster.json"
+    caster_material = json.loads(entries[caster_path])
+    caster_material["passes"][0]["combos"]["LIGHTING"] = 0
+    if case == "extent-scaled":
+        provider["scale"] = "100 0.007 0.01"
+    if renamed:
+        scene["objects"].insert(0, {"id": 601, "name": "Equivalent parent scale",
+            "origin": "80 48 0", "scale": "100 0.007 0.01"})
+        provider.update(id=411, name="Relocated stripe source", parent=601, origin="0 0 0")
+        provider["effects"][0]["id"] = 4110
+        caster["dependencies"] = [411]
+        caster_material["passes"][0]["textures"] = ["_rt_imageLayerComposite_411_a"]
+    entries[caster_path] = json.dumps(caster_material).encode()
+    entries["scene.json"] = json.dumps(scene).encode()
+    cases[0].update(expectedRGB=None, providerID=provider["id"],
+        sourceExtent=[384, 192], namedExtentCase=case,
+        bandPoints=[[80, 38 + (i + .5) * 20 / 16] for i in range(16)],
+        bandRGB=[[100, 0, 0] if i % 2 == 0 else [0, 100, 0] for i in range(16)])
+    return scene, entries, cases
+
+
 def image_model_entries(case):
     renamed = case == "image-model-renamed"
     scene, entries, cases = effect_role_entries("role-renamed" if renamed else "role-standard")
@@ -439,7 +476,8 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "content").mkdir(parents=True)
         (work / "home").mkdir()
         scene, entries, cases = fixture_entries(**options)
-        named_model_case = options.get("effect_role_case") or options.get("image_model_case")
+        named_model_case = (options.get("effect_role_case") or options.get("image_model_case")
+                            or options.get("named_extent_case"))
         project = {"type": "scene", "file": "scene.json"}
         (work / "content/project.json").write_bytes(
             json.dumps(project).encode() if named_model_case else encoded(project))
@@ -498,9 +536,11 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "receiverRGB": cases[0]["receiverRGB"],
                 "oracle": "model at80,48 consumes dim provider; its shadow is60,48; independent receiver is140,48",
                 "evidenceBoundary": "owned effectful named provider and MDL colour/shadow; no official parity",
-                "effectRole" if options.get("effect_role_case") else "imageModel": {
+                ("namedExtent" if options.get("named_extent_case") else
+                    "effectRole" if options.get("effect_role_case") else "imageModel"): {
                     "case": named_model_case, "effectPath": cases[0]["effectPath"],
-                    "provider": 11, "model": 2, "slot0": "_rt_imageLayerComposite_11_a",
+                    "provider": cases[0].get("providerID", 11), "model": 2,
+                    "slot0": f"_rt_imageLayerComposite_{cases[0].get('providerID', 11)}_a",
                     "providerImagePath": cases[0].get("imageModelPath"),
                     "oracle": "same effect result reaches model colour; receiver/shadow unchanged",
                     "publication": "actual Program material -> named-publication-only -> model binding; no raw-capture log requirement",
@@ -531,6 +571,14 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         if named_model_case:
             report["effectRoleCaptures"] = [json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1])
                 for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line]
+        if options.get("named_extent_case"):
+            report["bandProbes"] = {}
+            for phase in ("ready", "after"):
+                width, height, rows = png_rgb_pixels(work / f"evidence/scene-{phase}-window.png")
+                scale = max(width / CANVAS[0], height / CANVAS[1])
+                points = [(round(width / 2 + (x - 80) * scale),
+                           round(height / 2 + (y - 48) * scale)) for x, y in cases[0]["bandPoints"]]
+                report["bandProbes"][phase] = [list(rows[y][x * 3:x * 3 + 3]) for x, y in points]
         if options.get("noise_case"):
             report["noiseProbes"] = {}
             for phase in ("ready", "after"):
@@ -753,6 +801,39 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 png = f"evidence/scene-{phase}-window.png"
                 self.assertEqual((self.root / "image-model-standard" / png).read_bytes(),
                                  (self.root / name / png).read_bytes())
+
+    def test_named_graph_raster_is_independent_of_provider_world_scale(self):
+        results = {}
+        for name in ("extent-local", "extent-scaled", "extent-parent-renamed"):
+            result = self.run_case(name, named_extent_case=name)
+            results[name] = result
+            for phase in ("ready", "after"):
+                for actual, expected in zip(result["bandProbes"][phase], result["cases"][0]["bandRGB"], strict=True):
+                    self.assert_rgb(actual, expected)
+                self.assert_rgb(result["pixels"][phase]["pixels"]["caster-shadow"],
+                    result["cases"][0]["expectedShadowRGB"], delta=result["cases"][0]["tolerance"])
+                path = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / "extent-local" / path).read_bytes(),
+                                 (self.root / name / path).read_bytes())
+        # Check the actual texture product only after old scaled pixels can falsify the change.
+        for result in results.values():
+            provider = result["cases"][0]["providerID"]
+            self.assertEqual({p["captureRequestID"] for p in result["effectRoleCaptures"]}, {1, 2})
+            for packet in result["effectRoleCaptures"]:
+                self.assertEqual((packet["gpuStatus"], packet["truncatedRows"]), ("completed", 0))
+                rows = packet["rows"]
+                capture = next(r for r in rows if r["kind"] == "sourceCapture" and r.get("layerID") == provider)
+                material = next(r for r in rows if r["kind"] == "material" and r.get("layerID") == provider)
+                published = next(r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == provider)
+                model = next(r for r in rows if r["kind"] == "model" and r.get("layerID") == 2)
+                seal = next(r for r in rows if r["kind"] == "frame-seal")
+                for texture in (capture["source"], capture["target"], material["target"],
+                                published["source"], model["source"]):
+                    self.assertEqual([texture["width"], texture["height"]], [384, 192])
+                self.assertEqual((material["outcome"], published["access"], model["outcome"], seal["outcome"]),
+                    ("draw-encoded", "named-publication-only", "draw-encoded", "sealed"))
+                self.assertEqual(material["target"]["textureToken"], published["source"]["textureToken"])
+                self.assertEqual(model["target"]["textureToken"], seal["target"]["textureToken"])
 
     def assert_effect_role_result(self, result):
         case = result["cases"][0]

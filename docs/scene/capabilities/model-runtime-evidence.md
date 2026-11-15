@@ -17,6 +17,14 @@
 
 [材质及历史合同](advanced-object-coverage.md#static-model-screen-reflection)。3470948192原包、同画幅3024×1964及固定墙钟，签名exe `a7b5879d…2f04`→`316b1116…6959`，新metallib `5dac46d7…f8a2`。自然场景时间F970→F960，93先供115，模型14在同一主画布读取F959完成的环境颜色，GPU完成、零截断并排空。1280×831终端图上沿luma 0→20.56、尖端0.06→112.11、暗心0→2.42，星线仍被遮挡。独立3455121165 F972双跑，84反射强度为零且保持绘制，太阳397保持。原生开关、零强度、改名、尺寸切换首帧与稳定帧、模型深度和原图像历史邻例通过。官版2.8.0.42在原设置的一字节开→关→开证实灰紫轮廓随反射改变，输入相位和尖端强度未配对。收据归`.artifacts/scene-world-followup-20261109/evidence.zip`。
 
+## 命名背景图的局部尺寸 <a id="named-background-source-extent"></a>
+
+按[局部供货合同](render-graph-shader-coverage.md#named-geometry-local-raster)，原FramePreflight非solid分支用已准备的graph-output provider角色选择layer-local source extent；只有普通非named终端继续按原world列长量化显示密度。原captured matrix/Resolution、source raster、2048等比上限、graph/named发布及主合成不变；退出共享纹理按世界缩放膨胀的目标选择，无新owner/状态/缓存，唯一产品净−4行。
+
+旧同App控制的384×192红绿16条带原位健康，加X100/Y.007后中心混成70/30及约50/50，实际像素红；首失败后未运行旧父层变体。当前3场（原位、缩放、等价父层+ID/资源/变量改名）47.713s通过，6完整PNG逐字节相同、条带为字面100/0交替，实际source/effect/publication/model皆384×192，同main/seal/GPUcompleted/trunc0与健康阴影。另普通canonical/fragment-raster及visible parent的一图供主合成/child/external三方法53.613s通过；raw无效果、Geometry前分支未改，复用其原有效资格，不冒本批新跑。当前build28.259s且源/project/锁不变、签名与原helpers通过；execcc41f51…db99/dylib1c90195e…eff4，metallib仍cd47906e…30b4。
+
+原347同project/pkg及固定控制、实际1512×982稳定帧，93的3840×1920源从2048×10恢复为2048×1024 graph/named并供115，画面由稀疏宽软变细密线条，水滴和钟日/公式保留。201=.2、模型14原环境反射与主画布/seal/GPU完成、零截断并排空；resize仍保原4fail，仅授成功终端。自然相位和ICC未严格配对，不将全图RGB差、官方截图或现在的反射外观冒成全水滴一致；尖端HDR响应另在队列。独立原343原三摘要、五秒PASS，地表/云/暗面/大气/星空与钟日完整；不授原全视角或所有visible provider锐度。控制/源/构建及独审归`.artifacts/scene-named-background-extent-20261116/evidence.zip`，真实终端归`.artifacts/scene-evidence/runs/scene-named-background-extent-20261116`。
+
 ## <a id="model-startup-366"></a>静态模型接口冷准备 · 3662790108
 
 原三摘要，签名优化App `b00688c6…384d7d`→`95c835c6…d3dca0`，metallib字节相同。旧准备线程采样743栈点中560在静态模型材质绑定编译（539在接口证明），顶点读取13。相同原包351个模型pass只用1份合同与8组完整combos。两对串行无采样实测，默认model-build 7.039→2.736秒、首GPU（从accepted）10.998→6.861秒、Ready 11.670→7.566秒。关闭作者片头的同设置对照分别7.493→2.690、11.540→6.687、12.202→7.348秒。四次570条material pass描述完全相同，含341接纳、10回退与8个默认slot0。原生绑定11项和取消门通过。相同SceneTime3，四次捕获均实际编码相同10个模型层，片头RGBA一致，正文仅右侧控件一条窄区不同。独立3589454154同原三摘要，11个模型材质接纳，土星环462与陨石479到main。五次按各自请求/Surface/CB核封口、GPU完成、零截断与排空。原采样在`.artifacts/scene-model-startup-3662790108-20261109/evidence.zip`，无采样、截图与绑定收据在`.artifacts/scene-model-interface-reuse-20261109/evidence.zip`。未测长稳FPS、能耗或交互。

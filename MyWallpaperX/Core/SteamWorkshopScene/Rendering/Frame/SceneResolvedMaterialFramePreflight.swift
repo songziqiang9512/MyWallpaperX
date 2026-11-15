@@ -252,18 +252,14 @@ extension SceneMetalRenderer {
                         )
                     }
                     effectSourceExtent = extent
-                    // The effect chain rasterizes this source once and the
-                    // compositor draws the capture with the layer transform:
-                    // when the authored scale enlarges the layer on canvas,
-                    // capturing at the authored surface size would upscale
-                    // the whole chain (maintainer-observed character blur).
-                    // The world model matrix column lengths are the layer's
-                    // on-canvas pixel extent of the unit quad and are
-                    // invariant to parallax translation, so they give a
-                    // stable per-layer size; quantize upward to absorb
-                    // script-animated scale jitter without pool churn.
                     let model = imageModel(layer, imageTextures.layerSourceRenderSize(for: layer.id))
                     capturedUnitModelMatrix = model
+                    if dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
+                        desiredSize = extent.pixelSize
+                        break
+                    }
+                    // Ordinary terminals retain placement density; shared named
+                    // textures above retain layer-local sampling dimensions.
                     let onCanvasWidth = simd_length(model.columns.0)
                     let onCanvasHeight = simd_length(model.columns.1)
                     func quantizedUp(_ value: CGFloat) -> CGFloat {
