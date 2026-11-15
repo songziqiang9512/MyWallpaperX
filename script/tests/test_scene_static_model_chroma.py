@@ -240,7 +240,10 @@ class SceneStaticModelChromaTests(unittest.TestCase):
         self.same("mask-zero-is-coverage", "white-directional", exact=True)
         self.same("renamed", "white-directional", exact=True)
         self.assertEqual(self.rows["zero-over-far"]["rgba"], [0, 0, 255, 255])
-        self.assertLess(self.rows["zero-over-far"]["depth"], self.rows["white-directional"]["depth"])
+        # Ordinary fixture draws are translucent; reflection rows explicitly write near depth.
+        self.assertEqual(self.rows["white-directional"]["depth"], 0)
+        self.assertGreater(self.rows["zero-over-far"]["depth"], 0)
+        self.assertLess(self.rows["zero-over-far"]["depth"], self.rows["hdr-reflection-1"]["depth"])
         opaque, edge, base = [self.rows[name] for name in ["mip-opaque", "mip-transparent-edge", "mip-base-control"]]
         self.assertEqual(edge["normalMipCount"], 5)
         self.assertEqual(edge["probes"][0], [0, 0, 0, 0])

@@ -614,8 +614,9 @@ fragment half4 sceneStaticModelFragment(
     }
     float3 litColor = surfaceColor * lighting;
     if (surfaceEnabled) litColor += surfaceRadiance;
+    const float emissiveMask = saturate(componentMaps.a);
     if ((components & 8u) != 0u) {
-        float emissive = saturate(componentMaps.a) * uniforms.emissiveColorAndBrightness.w;
+        float emissive = emissiveMask * uniforms.emissiveColorAndBrightness.w;
         // The mask scales additional radiance; brightness is not a mix weight.
         // Keep finite HDR energy through fog and coverage before half storage.
         float3 emittedColor = min(
@@ -642,6 +643,12 @@ fragment half4 sceneStaticModelFragment(
         litColor += saturate(reflected) * (chroma ? 1.0 : uniforms.cameraPosition.w);
     }
     if (chroma) litColor *= uniforms.cameraPosition.w;
+    if ((uniforms.materialFlags.x & 4u) != 0u && (components & 8u) != 0u) {
+        const float excessEmission = emissiveMask * max(0.0, uniforms.emissiveColorAndBrightness.w - 1.0);
+        if (excessEmission > 0.0) {
+            litColor += (litColor * uniforms.emissiveColorAndBrightness.xyz) * excessEmission;
+        }
+    }
     litColor = sceneDistanceFog(litColor,
         towardCamera,
         uniforms.distanceFogColor, uniforms.distanceFogRange);

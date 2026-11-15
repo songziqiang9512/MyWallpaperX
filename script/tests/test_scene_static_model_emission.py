@@ -211,6 +211,24 @@ def surface_vectors() -> list[dict]:
             albedo=ALBEDO, tint=[1, 1, 1], opacity=OPACITY, lightIntensity=100,
             ambient=[20, 30, 40], expectedByte=None,
             expectedUnlitPixel=[0.15, 0.225, 0.3, OPACITY]))
+    # Scale only the actual lamp and emissive color inversely; black albedo
+    # removes additive emission so their common finite pixel needs no BRDF oracle.
+    for name, color, intensity, reference in (
+        ("hdr-gain-factor-overflow", 3e38, 1e-34, "hdr-gain-factor-safe-control"),
+        ("hdr-gain-factor-safe-control", 3e37, 1e-33, None),
+    ):
+        rows.append(dict(rows[0], name=name, lamp="directional", surface=[0, .7],
+            albedo=[0, 0, 0], tint=[1, 1, 1], opacity=1, ambient=[0, 0, 0],
+            hasMask=True, maskAlpha=1, brightness=3, usesHDR=True,
+            emissiveColor=[color, 0, 0], lightIntensity=intensity, expectedByte=None,
+            equivalentIncidentEnergy=reference))
+    for name, color, reference in (
+        ("hdr-gain-zero-excess-large-color", 3e38, "hdr-gain-zero-excess-control"),
+        ("hdr-gain-zero-excess-control", 0, None),
+    ):
+        rows.append(dict(rows[-1], name=name, brightness=1,
+            emissiveColor=[color, 0, 0], lightIntensity=100,
+            equivalentIncidentEnergy=reference))
     return rows
 
 
@@ -636,6 +654,10 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
         for actual, reference in zip(metallic[:3], neutral[:3]):
             self.assertGreater(float(actual), 0)
             self.assertLess(float(actual), float(reference))
+        for name in ["hdr-gain-factor-safe-control", "hdr-gain-zero-excess-control"]:
+            safe_gain = float(by_name[name]["pixel"][0])
+            self.assertGreater(safe_gain, 1)
+            self.assertLess(safe_gain, MAX_HALF)
 
     def test_finite_surface_storage_profile_and_legacy_boundaries(self):
         # The unmasked center has facing .5: front=100000/back=1 gives

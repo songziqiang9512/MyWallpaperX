@@ -105,6 +105,19 @@ HDR关闭时，原usesHDRBrightness使实际亮度统一取1；原始brightness�
 
 实际App先用general.hdr=false、genericimage2的同MDL/纹理/材质对照，只将brightness1改为1e300；旧主体缺色而原投影/孔洞/peer保持。验收在同输入恢复后，以整PNG等控制及真实资源/数值载体改名为准，另核HDR开启的正常亮度确有消费、活跃非有限值继续局部拒和健康邻物。扩原最近行为门、保独立星球播放与一次独审，不新增fallback、normal/shadow许可或资源owner。
 
+<a id="model-hdr-emissive-gain"></a>
+### 默认完整的 HDR 发光
+
+默认播放以完整作者发光能力为目标，包含官方后处理超高档所需的效果，不等将来增加档位界面才接入。作者General HDR、Bloom各自的开关、strength与材质分量声明仍决定对应贡献；默认能力不能强开作者关闭的项、改写强度或按样本补光。普通“启用”档的官版观察不能否定超高目标；当前有界运行及显式材质HDR组合的未覆盖边界见[模型证据](model-runtime-evidence.md#model-hdr-emissive-gain)和[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。未来质量选择的职责归[准备期策略](../architecture/runtime-architecture.md#effective-quality-policy)。
+
+已资格stock generic4/chroma4共用原Float颜色链：直接光、ambient、原A追加发光与reflection完成，各族brightness仍只乘一次；随后在fog、coverage/PMA和Half存储之前，对当前RGB施加彩色增益`1 + emissiveColor × max(0, A × (E−1))`。只有有效HDR、真实A分量及作者LIGHTING或REFLECTION非零时启用；A0、E≤1、HDR关闭、两功能均关闭或legacy材质保原输出。该项可增强黑albedo已有的反射，不把A只当albedo自发光。 仅正的额外强度进入新增贡献，先用当前RGB乘emissiveColor，再乘额外强度并回加RGB，避免先构造巨大独立增益因子，使最终可存颜色因中间Float溢出被截亮；E≤1或A0直接保原RGB，不为零贡献做可能溢出的乘加。该分支表达发光消费，不增加数值许可、截断或逐片元finite校验。前置A的max与现有add、ambient归属差异仍是独立问题，不在此迁移整个发光算法。
+
+原Resources.surfaceProfile已解析的authoredReflection随SurfaceProfile保留为reflectionEnabled，与最终reflectivity分立；标量0、B0、首帧无history不抹作者REFLECTION语义。原Pipeline把`profile存在 && usesHDRBrightness && (receivesLighting || reflectionEnabled)`投影为materialFlags.x的bit2（值4），Metal结合原components的A位执行上述增益，复用现有componentMaps一次采样和E/color。该bit不是质量档位、反射纹理存在或PSO状态；不从brightness1、实际灯数或反射强度猜条件。实际normal/reflection需求仍按原真实消费者决定，不因保留该Bool增加求逆、history或贴图准备。退出冷准备丢失REFLECTION语义及片元缺少后反射HDR增益的职责；无新owner、cache、pass、PSO、ABI扩容、采样或普通帧解析。
+
+原ReflectionFrame仍取前一完成的完整raw主画布，包含模型自身及后续全屏效果/UI；raw复制在最终Bloom/display mapping之前，显示晕光不回流history。新增增益会提高已有自反馈环的增益，可能改变收敛和亮斑持续；当前反射子项已有saturate上限，不能据增益推断无限发散，也不能用峰后亮图认定反馈因果。只有实际固定输入出现持续增亮、闪烁或拖影，才沿原history owner分离捕获/采样原因；未见异常不加逐模型history副本、抑制状态、任意衰减或低于作者能量的截断。首帧/容量不足保原局部缺反射，不关闭其余材质颜色或改变作者增益条件。
+
+验收先扩原material-map/reflection门：黑albedo的A1/E4/B1与A0/E1/B4实际反射颜色等值，覆盖generic4、Chroma与彩色emissiveColor；核HDRoff、A禁用/0、E≤1、legacy、LIGHTING0/REFLECTION0，以及REFLECTION非零但强度0/无history和LIGHTING非零但无灯的条件边界，保原alpha/depth/caster及资源/变量改名。再在确认超高已应用的官方窗口与本地默认能力下，按实际viewport、作者控制及当前201/入场相位核真实水滴边缘/尖端与稳定播放，另保独立作者。draw、配置或一次强亮图不代替完整效果，普通启用档、不同相位和导出色域也不授超高精确RGB一致；只有相应生产像素与独审闭合才退出队列。
+
 <a id="model-normal-consumers"></a>
 ### 模型法线的实际消费者
 
@@ -169,7 +182,7 @@ HDR关闭时，原usesHDRBrightness使实际亮度统一取1；原始brightness�
 
 Chroma先形成有效surfaceColor再进BRDF/F0：无mask忽略全局color；有mask按原A混合luma/color，view tint另按同一A从白混合至front/back结果。无mask的view facing保原signed合同，指数只在mask读取；声明单侧front/back时另一侧缺省白，均无声明不准备无用view运算；当前已消费的动态tintback沿原typed copy，更多writer另行资格。generic4保原全局color与受光后view tint次序。原view公式只计算一次后按准备种类应用，退出Chroma通用晚染色职责；Pipeline已经投影的指数下限不再在Metal重复clamp。
 
-HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原HDR gain，随后fog/PMA；必须只对Chroma退原reflection内的gain，避免平方。generic4保原HDR算法，不借共同profile改它的已证像素。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；不照译参考的max/overbright发光。pigment/noise沿[独立颜料合同](#model-chroma-pigment)消费，不宣完整Chroma或官方像素。
+HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原brightness，随后fog/PMA；只对Chroma退原reflection内的brightness，避免平方。generic4保原brightness时序，两族共同的后反射HDR/A增益归[默认完整发光](#model-hdr-emissive-gain)，不能再重复乘brightness。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；前置A的max与项目add差异仍独立。pigment/noise沿[独立颜料合同](#model-chroma-pigment)消费，不宣完整Chroma或官方像素。
 
 只在原profile加种类/静态tint，原uniform末加一份16B（tint.xyz与颜色种类w），不新增flags位、纹理、varying、PSO、pass、Frame、池或状态owner。为前置view tint，原alpha/discard整体前移到albedo/component/normal隐式采样及world导数之后、shadow/灯/tint之前；后续gradient/reflection为显式LOD、shadow为无mip depth，不新增导数状态。普通帧不解析/重新资格或做资源查找；关闭/白默认仍有固定ABI/共享片元成本，不授零成本或性能收益。
 

@@ -23,7 +23,7 @@
 
 旧同App控制的384×192红绿16条带原位健康，加X100/Y.007后中心混成70/30及约50/50，实际像素红；首失败后未运行旧父层变体。当前3场（原位、缩放、等价父层+ID/资源/变量改名）47.713s通过，6完整PNG逐字节相同、条带为字面100/0交替，实际source/effect/publication/model皆384×192，同main/seal/GPUcompleted/trunc0与健康阴影。另普通canonical/fragment-raster及visible parent的一图供主合成/child/external三方法53.613s通过；raw无效果、Geometry前分支未改，复用其原有效资格，不冒本批新跑。当前build28.259s且源/project/锁不变、签名与原helpers通过；execcc41f51…db99/dylib1c90195e…eff4，metallib仍cd47906e…30b4。
 
-原347同project/pkg及固定控制、实际1512×982稳定帧，93的3840×1920源从2048×10恢复为2048×1024 graph/named并供115，画面由稀疏宽软变细密线条，水滴和钟日/公式保留。201=.2、模型14原环境反射与主画布/seal/GPU完成、零截断并排空；resize仍保原4fail，仅授成功终端。自然相位和ICC未严格配对，不将全图RGB差、官方截图或现在的反射外观冒成全水滴一致；尖端HDR响应另在队列。独立原343原三摘要、五秒PASS，地表/云/暗面/大气/星空与钟日完整；不授原全视角或所有visible provider锐度。控制/源/构建及独审归`.artifacts/scene-named-background-extent-20261116/evidence.zip`，真实终端归`.artifacts/scene-evidence/runs/scene-named-background-extent-20261116`。
+原347同project/pkg及固定控制、实际1512×982稳定帧，93的3840×1920源从2048×10恢复为2048×1024 graph/named并供115，画面由稀疏宽软变细密线条，水滴和钟日/公式保留。201=.2、模型14原环境反射与主画布/seal/GPU完成、零截断并排空；resize仍保原4fail，仅授成功终端。自然相位和ICC未严格配对，不将全图RGB差、官方截图或现在的反射外观冒成全水滴一致；后续默认HDR响应见[模型发光](#model-hdr-emissive-gain)，外晕与细纹仍归队列。独立原343原三摘要、五秒PASS，地表/云/暗面/大气/星空与钟日完整；不授原全视角或所有visible provider锐度。控制/源/构建及独审归`.artifacts/scene-named-background-extent-20261116/evidence.zip`，真实终端归`.artifacts/scene-evidence/runs/scene-named-background-extent-20261116`。
 
 ## <a id="model-startup-366"></a>静态模型接口冷准备 · 3662790108
 
@@ -92,13 +92,25 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 2026-11-14按[模型分量设计](advanced-object-coverage.md#model-material-map)，原Entry的emissiveMask/三nullable draw参数退出，以单一typed数据binding消费slot2。原TEX位只供省略默认，显式0关/任意非零开、PBRMASKS0仅关map；M/R替换原响应标量、B乘反射、A乘发光，stock静态数值材质在unlit仍保profile及gain缺省1，legacy原缺省0/A路径保留。B0按实际有效reflectivity停止反射，避免既有pow floor在HDR下残留。五产品净+38行，无新owner、PSO、池、缓存或ABI字节；原data loader/UV/sampling只在准备消费，draw重复可空map校验退役。可选图无有效位时会先沿原加载链取得metadata再局部丢弃，不授冷准备零成本或性能收益。
 
-当前5个map方法/60实际输入与6个原normal方法/36输入通过，同一编译Swift/Metal载体分两payload执行并逐次核source/support及binary/library身份。分区map与独立等值标量得到同RGBA/depth，覆盖四分量、0/1/2/-1、总开关、TEX省略/显式无header PNG、缺图、UV/filter/address/改名、normal/反射/HDR/alpha与legacy。B0/M1/brightness16与scalar0均严格[0,0,0,255]，同环境B1为[4,4,255,255]。当前五产品与NormalChecks匹配实际执行载体输入；共享测试transport中其它入口的修订未进入该96项调用链，不扩大其覆盖。 相邻发光6方法、编译/ABI/点灯计数/来源资格及资源分段6方法、点光/聚光阴影4方法的分步有效16方法通过；退役三段纯源码包含/排序镜像，保真实编译/读回并把断言信号基线148收紧至142。
+该分量切片的5个map方法/60实际输入与6个原normal方法/36输入通过；当前扩展及最终载体见[HDR发光](#model-hdr-emissive-gain)。同一编译Swift/Metal载体分两payload执行并逐次核source/support及binary/library身份。分区map与独立等值标量得到同RGBA/depth，覆盖四分量、0/1/2/-1、总开关、TEX省略/显式无header PNG、缺图、UV/filter/address/改名、normal/反射/HDR/alpha与legacy。B0/M1/brightness16与scalar0均严格[0,0,0,255]，同环境B1为[4,4,255,255]。当前五产品与NormalChecks匹配实际执行载体输入；共享测试transport中其它入口的修订未进入该96项调用链，不扩大其覆盖。 相邻发光6方法、编译/ABI/点灯计数/来源资格及资源分段6方法、点光/聚光阴影4方法的分步有效16方法通过；退役三段纯源码包含/排序镜像，保真实编译/读回并把断言信号基线148收紧至142。
 
 普通Debug 24.862s、五产品/project/锁文件前后一致，签名/原helpers通过；exec7c89dd96…bc98、dylibc0cbfb1d…7348、metallibe4726416…6b48。原3453730450自然20s/after17，F853/request1/CB503263185536的53实际4096×2048 components3、77实际1024² components1到main503207287040/seal/GPU完成、零截断并排空；1280×831终端图有完整受光月面、轨道、星空与时钟。两场预启动固定SceneTime/Date只取得前后同灰幕，已撤出可见资格，不声称严格作者A/B像素或77逐part贡献。独立3437487219原包5秒PASS，F159的112取8192×4096 A图components8，同主目标/GPU并排空，完整地表/云/大气/时钟；3557068717原包5秒PASS仅授片头，F117的182取2560×1440 A图components8、亮星/远星体与GPU完整，不授后期地球夜光全貌。官方像素、任意动态MR/外部反射/命名map与性能未授。
 
 另用真实53的原MDL几何与三张4096×2048 TEX组成无脚本自有scene，保相同相机、点灯、世界矩阵、源资产/App/场景SHA，仅四分量combo从省略切0。两场F94/request1均同次main/seal/GPU完成、零截断并排空，on绑components3及RG normal，off仅退map。整球颜色/背景排除并集167063像素中87539（52.3988%）改变，平均绝对RGB差.6481 byte、最大116；6个量化边缘像素改变排除mask归属，不授几何覆盖变化。此图R恒0等于标量，差异具体归因G粗糙度50…255替代scalar1；不授真实77金属逐part贡献或作者原景/官方像素。首次等长改材质目录导致catalog漏读的clear-only失败与该批内改basename的对照保留；此断点已沿[明确材质角色](#model-material-role)纠正，未调几何/灯/相机或纹理。
 
 作者报告/必要图与日志归 `.artifacts/scene-evidence/runs/scene-model-material-map-20261114`；自有数据、源码/载体身份、边界、灰幕与退役断言失败、审查及构建收据归 `.artifacts/scene-model-material-map-20261114`。
+
+## 默认模型 HDR 发光 <a id="model-hdr-emissive-gain"></a>
+
+按[材质合同](advanced-object-coverage.md#model-hdr-emissive-gain)，原SurfaceProfile保作者REFLECTION非零声明，原Pipeline以既有HDR/光照资格投影materialFlags.x的bit2；高级材质在反射、brightness之后、fog/PMA之前追加当前RGB的正HDR/A贡献。沿原分量图单次采样，零贡献不做新增乘加，legacy及原前置A路径不变。四产品净+12行，没有ABI字节扩张、资源、pass、PSO、cache或新owner；旧的REFLECTION语义丢失和后反射增益缺口退出。当前HDR资格仍由原General flag供给，显式材质HDR combo边界另在队列，不授全部作者HDR覆盖。
+
+最终8个map/6个Chroma/6个normal/7个emission共27方法、442实际输入通过；原60 map、76 Chroma、36 normal及244 emission输入保留。两份同字节Swift probe复用源/Harness/flags，四payload均真实执行，只重编一次Metal；probe和所选库按[库选择规则](../development/development-workflow.md#metal-probe-reuse)同目录，以旧无增益与新库的可分辨读回闭合实际载入。旧的只换cwd结果不计新Metal资格。黑albedo反射A1/E4与独立B4同RGBA/depth（蓝18→71，对照71），含半A、颜色、改名、两族、HDR关闭、E≤1、A禁用及作者RF为非零但强度0/无history、LIGHTING非零但无灯等反例。RGBA16Float原因子先溢出的65504对安全控制795.5已恢复等值；零增益的大颜色反例原展开式红0对控制1.32617，最终同为1.32617。只保已有两个数值控制，不授全部Float代数。三门旧深度预期同步固定translucent非writer与显式near writer/far正深度；没有改生产深度、输入、夹具或容差。
+
+最终Debug构建12.441s，产品/project/锁身份不变，strict/deep与原compiler helpers通过；exe0b51f6a9…e5cc、dylib2d4f5e0a…69bc、metallibc187b79a…b6b9。原347固定intro/cursor/audio/rgb关闭、hdr属性.3，35s的1512×982原16bit PNG晚段F933/1413/1768/1868均有连续白紫亮边/尖端、黑心及钟日/公式；未见这些采样帧持续白化、壳层分离或双像拖影。after为request6/CB503599254144/main503623581696，201实际.2、14读取F1767环境，113终端、export/seal/GPUcompleted、零截断并排空；原93→115仍为2048×1024。整轮仍FAIL原4项resize诊断/epoch验证，仅授恢复后端点和上述采样帧，不授连续全时段。
+
+官方2.8.0.42后处理ultra、reflection开启的固定输入E4→E1→E4，原Display ICC JPEG在冻结body/tip ROI内从白紫亮边/外晕→细暗缘→亮态返回；原enabled档三暗图不作全质量零响应。窗口右侧遮挡不覆盖两ROI，场景相位未完全配对，不授精确4倍或跨平台RGB。原生相对官方Ultra的外晕仍窄弱、内纹更平滑；背景软线差异也未建立同相位首错。作者hdr属性0的独立14s控制保持GeneralHDR=true，F701/request1/CB534938978944的201=.2与14环境/主输出/GPU排空健康，但和.3不同相位图尚未辨出外晕贡献，不授精确零或属性可见贡献。独立3437487219原包5s PASS，F159/request1/CB501785510784见完整地表/云/暗面/大气和文字，输出1280×831来自3024×1964；无model-reflection行，不授该分支或全视角。
+
+源、门、数值反例、官方有界对照、两张晚期原PNG及独审归`.artifacts/scene-model-hdr-emissive-gain-20261116/evidence.zip`；三次真实运行报告/必要原图归`.artifacts/scene-evidence/runs/scene-model-hdr-emissive-gain-20261116`。外晕、细纹及相邻材质语义继续[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，不宣水滴全面或官方精确一致，也未取得性能收益。
 
 ## 明确材质引用不受目录提示限制 <a id="model-material-role"></a>
 

@@ -137,6 +137,48 @@ def cases():
         row("b-one-hdr-metal", hdr=True, materialPixels=[0, 0, 255, 255], mapHeader=4,
             constants=dict(metallic=1, brightness=16, reflectivity=1), **reflective),
     ]
+    def glow(name, constants=None, **changes):
+        values = dict(metallic=1, roughness=.6, reflectivity=1, color=[0, 0, 0],
+                      emissivebrightness=1, emissivecolor=[1, 1, 1], brightness=1)
+        values.update(constants or {})
+        inputs = dict(hdr=True, lighting=0, reflection=True, directLights=False,
+                      normalCombo=1, pixels=[185, 128, 242, 255], albedo=[0, 0, 0, 255],
+                      materialPixels=[0, 0, 0, 0], mapHeader=8)
+        return row(name, constants=values, **{**inputs, **changes})
+
+    opaque_a = dict(materialPixels=[0, 0, 0, 255])
+    no_history = dict(reflection=False, normalCombo=0, albedo=[4, 8, 12, 255],
+                      **opaque_a)
+    unlit = dict(color=[1, 1, 1], reflectivity=0, emissivebrightness=4)
+    rows += [
+        glow("hdr-e-one", **opaque_a),
+        glow("hdr-reflection-gain", constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-brightness-control", constants=dict(brightness=4)),
+        glow("hdr-a-half", constants=dict(emissivebrightness=4), materialPixels=[0, 0, 0, 128]),
+        glow("hdr-a-half-control", constants=dict(brightness=1 + 3 * sampled_component(128))),
+        glow("hdr-chroma-gain", shader="chroma4", constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-chroma-control", shader="chroma4", constants=dict(brightness=4)),
+        glow("hdr-gain-renamed", renamed=True, constants=dict(emissivebrightness=4.0), **opaque_a),
+        glow("hdr-off", hdr=False, constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-e-half", constants=dict(emissivebrightness=.5), **opaque_a),
+        glow("hdr-a-zero", constants=dict(emissivebrightness=4)),
+        glow("hdr-map-disabled", mapCombos=dict(EMISSIVE_MAP=0),
+             constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-red-emissive", constants=dict(emissivebrightness=4, emissivecolor=[1, 0, 0]), **opaque_a),
+        glow("hdr-half", alpha=.5, constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-zero", alpha=0, constants=dict(emissivebrightness=4), **opaque_a),
+        glow("hdr-neither", mapCombos=dict(REFLECTION=0), constants=unlit, **no_history),
+        glow("hdr-neither-control", mapCombos=dict(REFLECTION=0),
+             constants={**unlit, "brightness": 4}, **no_history),
+        glow("hdr-author-reflection-zero", mapCombos=dict(REFLECTION=2), constants=unlit, **no_history),
+        glow("hdr-author-reflection-missing", mapCombos=dict(REFLECTION=-1),
+             constants={**unlit, "reflectivity": 1}, **no_history),
+        glow("hdr-light-no-lamps", lighting=2, mapCombos=dict(REFLECTION=0), constants=unlit, **no_history),
+        glow("hdr-light-control", lighting=2, mapCombos=dict(REFLECTION=0),
+             constants={**unlit, "brightness": 16, "emissivebrightness": 1}, **no_history),
+        glow("hdr-legacy", shader="genericimage", mapCombos=dict(REFLECTION=0),
+             constants=unlit, **no_history),
+    ]
     return rows
 
 
@@ -225,10 +267,50 @@ class SceneStaticModelMaterialMapTests(unittest.TestCase):
     def test_hdr_opacity_and_depth_stay_in_the_original_terminal(self):
         self.same("mr-half-hdr", "scalar-half-hdr")
         self.assertEqual(self.rows["mr-zero-over-far"]["rgba"], [0, 0, 255, 255])
-        self.assertLess(self.rows["mr-zero-over-far"]["depth"], self.rows["mr-first"]["depth"])
+        self.assertEqual(self.rows["mr-first"]["depth"], 0)
+        self.assertGreater(self.rows["mr-zero-over-far"]["depth"], 0)
+        self.assertLess(self.rows["mr-zero-over-far"]["depth"], self.rows["b-one"]["depth"])
         for row in self.rows.values():
             self.assertTrue(row["completed"], row)
             self.assertEqual(row["outside"], [0, 0, 0, 0], row)
+
+    def test_hdr_emission_gains_reflected_radiance_against_real_brightness(self):
+        for actual, control in [("hdr-reflection-gain", "hdr-brightness-control"),
+                                ("hdr-a-half", "hdr-a-half-control"),
+                                ("hdr-chroma-gain", "hdr-chroma-control"),
+                                ("hdr-gain-renamed", "hdr-reflection-gain")]:
+            self.same(actual, control)
+        self.assertGreater(self.rows["hdr-brightness-control"]["rgba"][2],
+                           self.rows["hdr-e-one"]["rgba"][2] + 5)
+        self.assertIn({"path": "alternate-components.png", "purpose": "mask"},
+                      self.rows["hdr-gain-renamed"]["requests"])
+        for name in ["hdr-reflection-gain", "hdr-chroma-gain"]:
+            self.assertEqual(self.rows[name]["components"], 8)
+            self.assertEqual(self.rows[name]["encoding"], 1)
+
+    def test_hdr_emission_uses_author_features_without_history_or_lamps(self):
+        for name in ["hdr-author-reflection-zero", "hdr-author-reflection-missing"]:
+            self.same(name, "hdr-neither-control")
+        self.same("hdr-light-no-lamps", "hdr-light-control")
+        self.same("hdr-legacy", "hdr-neither")
+        for name, wanted in [("hdr-neither", [20, 40, 60, 255]),
+                             ("hdr-neither-control", [80, 160, 240, 255]),
+                             ("hdr-light-control", [64, 128, 192, 255])]:
+            for actual, expected in zip(self.rows[name]["rgba"], wanted):
+                self.assertLessEqual(abs(actual - expected), 1, (name, self.rows[name]))
+        self.assertFalse(self.rows["hdr-legacy"]["surfaceProfile"])
+
+    def test_hdr_emission_disabled_inputs_and_coverage_keep_original_contract(self):
+        for name in ["hdr-off", "hdr-e-half", "hdr-a-zero", "hdr-map-disabled", "hdr-red-emissive"]:
+            self.same(name, "hdr-e-one")
+        self.assertEqual(self.rows["hdr-map-disabled"]["components"], 0)
+        full, half, zero = [self.rows[name] for name in ["hdr-reflection-gain", "hdr-half", "hdr-zero"]]
+        for faded, opaque in zip(half["rgba"], full["rgba"]):
+            self.assertLessEqual(abs(faded * 2 - opaque), 2, (half, full))
+        self.assertGreater(full["depth"], 0)
+        self.assertAlmostEqual(half["depth"], full["depth"], places=7)
+        self.assertEqual(zero["rgba"], [0, 0, 0, 0])
+        self.assertEqual(zero["depth"], 0)
 
 
 if __name__ == "__main__":

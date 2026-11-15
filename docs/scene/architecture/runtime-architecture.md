@@ -127,6 +127,13 @@ MTLLibrary/PSO 在 graph/source 准备入口 warmup；PassEncoder 是其正/负�
 
 Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成版本。Surface 实际采用 destroyed 成员时清其 committed 与 pending final tails；在途 pin 沿原 terminal 释放，晚 completion 不能复活 dead tail。跨层 named 是独立 reservation/copy/publication，不连带清健康 consumer 自有 history。隐藏活 provider 仍可因真实 demand 执行。
 
+<a id="effective-quality-policy"></a>
+### 默认能力与未来质量策略
+
+默认播放以完整作者能力为基准；水滴所需的官方后处理超高发光属于当前兼容目标，不等待档位UI。作者General HDR/Bloom开关、各自strength与材质声明继续控制实际贡献，默认不能覆盖关闭或零贡献。材质语义及验收归[HDR发光合同](../capabilities/advanced-object-coverage.md#model-hdr-emissive-gain)，未验证效果仍由开放队列维护，不把目标写成已获官方画面资格。
+
+未来确需性能档位时，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
+
 <a id="submission-cancellation"></a>
 ### 提交与生命周期取消
 

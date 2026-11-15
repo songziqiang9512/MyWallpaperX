@@ -462,6 +462,8 @@ struct SceneStaticModelPipeline {
             : 1
         let chroma = material.surfaceProfile?.kind == .chroma4
         let colorBrightness: Float = chroma ? 1 : brightness
+        let hdrEmissiveGain = material.usesHDRBrightness && material.surfaceProfile != nil
+            && (material.receivesLighting || material.surfaceProfile?.reflectionEnabled == true)
         // Opaque material RGB is independent of its authored fragment alpha.
         // Project it into the existing PMA target using geometric coverage;
         // keep the layer fade separate from material/texture opacity.
@@ -503,7 +505,8 @@ struct SceneStaticModelPipeline {
             ),
             materialFlags: SIMD4(
                 (!materialColorIsOpaque && material.textureAlphaIsOpacity ? 1 : 0)
-                    | (colorTextureIsPremultiplied ? 2 : 0),
+                    | (colorTextureIsPremultiplied ? 2 : 0)
+                    | (hdrEmissiveGain ? 4 : 0),
                 ((materialMap?.components ?? 0) << 2)
                     | (material.receivesLighting ? 0 : 2),
                 normalMap?.encoding.rawValue ?? 0,

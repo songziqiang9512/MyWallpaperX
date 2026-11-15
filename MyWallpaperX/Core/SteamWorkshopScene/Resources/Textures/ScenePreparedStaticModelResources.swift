@@ -567,6 +567,7 @@ struct ScenePreparedStaticModelResources {
             metallic: Float(min(1, max(0, metallic))),
             roughness: Float(min(1, max(0, roughness))),
             reflectivity: Float(min(1, max(0, reflectivity))),
+            reflectionEnabled: authoredReflection,
             rimAmount: rimAmount, rimExponent: rimExponent, kind: kind,
             specularTint: specularTint, pigmentAmount: pigmentAmount
         )

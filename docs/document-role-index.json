@@ -930,13 +930,13 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-14",
+      "lastReviewed": "2026-11-16",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e9f862a58434cd4aa99f2737d01c4a38a06b600695e18ec2c8bee9952c24bcf",
+        "sourceSHA256": "5d60d811882c283d324782f40e856bc79050a36ee31ff69f18128708c66abe8e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对原benchmark/捕获入口与Movement组件首witness的原Source/State/循环、失败/截断及rollback职责；仅本文与相对链接的有界审查。",
-        "limitations": "收据只核合同与源码/工具入口，不授App、GPU或官方行为；全仓未登记Scene架构文档的既有registry失败保持。"
+        "scope": "保原导航、捕获/时序与组件观察职责，新增复用Metal探针的main-bundle库选择约束；以实际源/Harness/flags及可分辨旧新库读回核该段。",
+        "limitations": "仅本文与其协议/源码入口的有界审查，不授全仓App、GPU或官方一致；未登记架构文档的既有registry失败保持。"
       }
     },
     {

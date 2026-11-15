@@ -84,6 +84,9 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 验收先覆盖坏/非对象 project、loose、内容漂移、多 attempt、无终端或跨层拼接反例，以及真实改名输入、replay/attachment-read、纯普通层和粒子、取样关闭与截断。冻结源码/构建/运行身份后再全量；缺读口、未触发、作者错误、实际不支持、错误拒绝与视觉疑点分别归队。PNG本身不要求每个包内闲置或未选资源出画；需要可见贡献裁决的未决项用实际时间/输入及局部差分复核。测量完成后按当前证据替换开放队列，不以日志无错关闭未取得资格的能力。
 
+<a id="metal-probe-reuse"></a>
+独立Metal探针复用前，核实际Swift源、完整Harness与编译flags未变，再核库选择者。`makeDefaultLibrary()`读取main bundle：将同字节probe与所选`default.metallib`置于同一独占目录并执行该本地probe，仅改cwd或记录新库hash不证明载入。以可分辨的新旧库实际GPU输出核选择，保每payload的输入、执行路径及binary/library/source身份；原report不能代替重新执行。只改Metal时复用原Swift构建，只改断言时可重评保留raw，但不得把后者称新GPU运行。
+
 ## 截图与时序
 
 固定属性、时间、指针、音源、媒体状态、viewport 与随机条件后再比较画面。`--after-snapshot-delay` 约束 ready 后开始安排截图的单调时钟；指针交互还要完成退出和稳定步骤，after 取两者较晚时刻。请求时刻、实际 GPU 捕获和文件写出是不同阶段，比较时核对实际日志与捕获身份。

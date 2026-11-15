@@ -153,7 +153,7 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
             row = self.rows[name]
             self.assertEqual(row["encoding"], 0, row)
             self.assertEqual(row["rgba"], [0, 0, 0, 255], row)
-            self.assertGreater(row["depth"], 0, row)
+            self.assertEqual(row["depth"], 0, row)
             self.assertNotIn({"path": "normal.png", "purpose": "normal"}, row["requests"])
         for actual, wanted in zip(self.rows["flat"]["rgba"], self.rows["geometric"]["rgba"]):
             self.assertLessEqual(abs(actual - wanted), 1)
@@ -168,9 +168,13 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
     def test_geometric_ambient_and_existing_alpha_depth_contract(self):
         self.assertEqual(self.rows["ambient-flat"]["rgba"], [128, 128, 128, 255])
         self.assertEqual(self.rows["ambient-tilted"]["rgba"], [128, 128, 128, 255])
+        # The later opaque far draw covers the translucent nonwriter in author order.
+        self.assertEqual(self.rows["rgb-positive"]["depth"], 0)
         self.assertEqual(self.rows["zero-over-far"]["rgba"], [0, 0, 255, 255])
-        self.assertEqual(self.rows["near-over-far"]["rgba"], self.rows["rgb-positive"]["rgba"])
-        self.assertLess(self.rows["zero-over-far"]["depth"], self.rows["near-over-far"]["depth"])
+        self.assertEqual(self.rows["near-over-far"]["rgba"], [0, 0, 255, 255])
+        self.assertEqual(self.rows["near-over-far"]["depth"], self.rows["zero-over-far"]["depth"])
+        self.assertGreater(self.rows["zero-over-far"]["depth"], 0)
+        self.assertLess(self.rows["zero-over-far"]["depth"], self.rows["reflection-right"]["depth"])
         for actual, full in zip(self.rows["half"]["rgba"], self.rows["rgb-positive"]["rgba"]):
             self.assertLessEqual(abs(actual * 2 - full), 2)
         for row in self.rows.values():

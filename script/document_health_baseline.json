@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 239,
-      "bytes": 44442
+      "lines": 246,
+      "bytes": 45701
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 362,
-      "bytes": 83078
+      "lines": 375,
+      "bytes": 87188
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -149,8 +149,8 @@
       "bytes": 41662
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 115,
-      "bytes": 16201
+      "lines": 118,
+      "bytes": 16788
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59392
+      "bytes": 59617
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 341,
-      "bytes": 99112
+      "lines": 353,
+      "bytes": 103012
     }
   },
   "archives": [
@@ -469,39 +469,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "7b2c92243fa6bc7554f8ef116eb083ce3b5b207cacddf8af13fdaef483cf812a",
-      "after": "af1496fae4fa0b220a741a47c8220bd4f68f4929fcc22071c15ef59517ab533b",
-      "owner": "Scene diagnostic component first-fact consumer",
-      "reason": "Define the profiled redundant Movement success-observation retirement while preserving immediate first-witness ordering, local rejection/truncation, rollback and zero Release work; no new observation owner or persistent state.",
-      "decision": "docs/scene/development/development-workflow.md#声明扫描与运行诊断"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
       "after": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
       "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
       "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
-      "after": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
-      "owner": "Existing model material plan, Catalog and frame registry consumers",
-      "reason": "Retire direct model slot0 cold loading; unify static and animated albedo in the original Catalog/provider/registry and resource-planning handoff, with actual-video-only readiness. Record same-input full model pixels/shadows, exact old-HEAD stale-oracle proof, final video/paused and independent author bounds; remove the closed queue item and duplicate debt entry.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-albedo-frames"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "0412e760875e5d2769d754326baf09db866500ba922159ec2381203d92e6c755",
-      "after": "65d97ed0fa6897ae2d6175653a8314928c2a6b80c51cb95d1cb3257b531afdef",
-      "owner": "Existing Scene frame depth, texture preflight and runtime evidence owners",
-      "reason": "Separate original pass depth availability from first model albedo readiness without new resource owners; keep source/group/mandatory allocation semantics.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
@@ -532,20 +505,47 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
+      "after": "951e123c4cba12904385d4e9e815126e1b64feecd70a4ca7d2234d2cfa197598",
+      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
+      "reason": "Specify default full author capability and future prepared quality ownership without adding UI, unused state or a second output.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "65d97ed0fa6897ae2d6175653a8314928c2a6b80c51cb95d1cb3257b531afdef",
+      "after": "c8c77bd049b66c1bea15a69642347a2a30c13c2e0b2136b7bb573c20db5a0929",
+      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
+      "reason": "Define default advanced HDR emission response and neutral arithmetic in the existing material owner; keep General HDR scope and explicit-material override boundary separate.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-emissive-gain"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "78c1728b5b15c665aecd9c10e2308ffc4b867b4b7ae5b15ae187e8063c3f340d",
-      "after": "bb7c09a2712cca9b2556c3a37e2a60e2c6b0db3bd78e7d5248b6eb6aac1ff75b",
-      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
-      "reason": "Qualify real waterdrop background detail recovery, stripe scale/parent/rename pixels, ordinary and visible shared graph neighbors, plus independent Earth without official RGB/full scene claims.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#named-background-source-extent"
+      "before": "bb7c09a2712cca9b2556c3a37e2a60e2c6b0db3bd78e7d5248b6eb6aac1ff75b",
+      "after": "cf11a1283645981f41e3575db30db0300df672528b58fa32fdd9eb73b2a9504f",
+      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
+      "reason": "Record qualified HDR pixel controls, main-bundle library selection, real waterdrop stable edge recovery and independent Earth; retain halo, phase, explicit HDR and resize-validator limits.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-emissive-gain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "af1496fae4fa0b220a741a47c8220bd4f68f4929fcc22071c15ef59517ab533b",
+      "after": "da9a4f24a0b63d4188408f4d1226567b33dc6720638ee76162d7dfa3f3eb630f",
+      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
+      "reason": "Require actual main-bundle library selection for reused Metal probes; preserve effective Swift builds and distinguish fresh GPU execution from raw assertion replay.",
+      "decision": "docs/scene/development/development-workflow.md#metal-probe-reuse"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7b39719bea6f971c21705e548b460c060b933ca2c2b8d191fdcb933d31febd56",
-      "after": "09713d76935f7b426d9af4358ba41c18e944b91df07546cfbd02f3f2562446e7",
-      "owner": "Existing Scene source extent, graph preflight and runtime evidence owners",
-      "reason": "Retire fixed provider sizing from the active fault list and continue material HDR/tip response with original resize-validator and phase limits.",
+      "before": "09713d76935f7b426d9af4358ba41c18e944b91df07546cfbd02f3f2562446e7",
+      "after": "4c3182cf5649dab560aedff9010e1986de458f89ec216743cada2a75f55f99df",
+      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
+      "reason": "Replace obsolete glow status with delivered material response and remaining HDR Bloom/material-override boundaries; merge the duplicate proposal registration debt into its original owner row.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

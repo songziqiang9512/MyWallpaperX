@@ -56,6 +56,7 @@ struct SceneStaticModelSurfaceProfile: Equatable, Sendable {
     let metallic: Float
     let roughness: Float
     var reflectivity: Float = 0
+    var reflectionEnabled: Bool = false
     var rimAmount: Float = 0
     var rimExponent: Float = 4
     var kind: Kind = .generic4
