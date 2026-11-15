@@ -81,6 +81,17 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收复用有效before CPU/App及最近资源→Frame→Metal门：同冻结输入旧源红、新源绿，hostBuiltin与authored有限巨alpha对1、数字/字符串/数组及合法别名/资源改名、冷2与layer.5的先后、0/负值/.5阈值、builtin非有限fallback及authored拒绝/健康peer；相邻RGB/brightness巨大输入保原局部拒绝。实际MDL/材质准备到三灯map深度与receiver像素，不用手造Entry代冷入口；原合规opacity输出保持。完整App以独立健康caster的影辨别整map发布，alpha1控制、巨alpha castfalse归因、巨alpha及改名严格图对照；另保独立星球原包播放。只在真实投影/颜色及独立审查闭合后退该队列部分，其它数值与raw UV失败边界继续记录，不加新名单或合成路径。
 
+<a id="model-hdr-color-intermediates"></a>
+### 模型颜色的 Float 中间态与唯一存储投影
+
+目标是让有限、最终可存储的HDR颜色经过低纹理值、view tint、雾和透明度后正确进入主画布。原未资格surface profile的legacy分支先将Float材质色转Half，再在后段把surfaceColor/lighting转Half；实际旧GPU与App中，合法131072×低U8纹理×1/1024在PMA前溢出，末端65504 clamp不能恢复应有半亮色。PMA采样的Half除法与1e-5阈值也会丢小正A；实际范围归[运行证据](model-runtime-evidence.md#model-hdr-color-intermediates)，不宣所有作者HDR错误。
+
+沿`prepared material/当前纹理与typed frame → 原StaticModel Metal采样 → Float颜色/光照/反射/雾/coverage/PMA → 原Half存储与唯一compositor`。颜色texture用float采样，albedo立即为float4；仅在原PMA标志内对A>0除、非正清RGB，退无必要1e-5而不全局抹straight A0的合法opaque/tint-mask RGB。统一原mask/普通Float surface合成，保Chroma无mask忽略全局color与各自BRDF/radiance资格；legacy Half分支、后段Half往返及其旧舍入职责退出。coverage在Float算、保持原≤0 discard，fog后一次PMA与既有[0,65504]颜色存储投影、最终half4量化；不提前按maxFloat/1截HDR输入。shadow的albedo A也用float采样再沿原>.5阈值，与颜色消费同一源A；阈值、cast intent、世界/normal/cull/test/write不改。
+
+本批不加精度开关、shader分支族、PSO、ABI、纹理副本、采样次数、状态/cache/owner或每像素有限性防线。原RGBA16存储动态范围和极小Alpha量化、一般Float32乘积/除法/灯和溢出不由此解决；不按样本/路径/数值特例选算法。普通精度变化由最近行为门及独立Float/Half存储oracle核对，不能为了保存旧Half中间舍入保无用路径，也不为过门随意扩大容差。surfaceEnabled只拥有原PBR radiance资格，不给legacy增加无消费者的求和。
+
+验收扩既有emission的真实RGBA16Float/Float16读回：finite高色×低tex与安全色×white同opacity的存储等值、mask、PMA小正A/零A与straight A0反例、viewTint后再fog使最终有限的晚cast反例，含资源/producer改名及合法等值载体；近期普通emission/ambient/alpha/depth/反射与Chroma按影响复用或补测。另在原Frame三灯门用线性RGBA8或Float输入的有效A略高于.5、=.5、略低于.5，按实际format/UV推导并区分真实采样精度和既有cutoff，不用emission固定忽略textureAlpha的结果代证。完整App沿真实TEX/材料用相同几何/背景/opacity，低纹理+高color对安全control与改名核整图；原星球只授独立回归。达到生产像素正反、实际旧新贡献和独审后退相应队列部分；不宣官方parity或全部HDR输入健康。
+
 <a id="model-normal-consumers"></a>
 ### 模型法线的实际消费者
 

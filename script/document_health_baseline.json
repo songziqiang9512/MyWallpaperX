@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 336,
-      "bytes": 73939
+      "lines": 347,
+      "bytes": 76788
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 53765
+      "bytes": 53930
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 245,
-      "bytes": 71075
+      "lines": 258,
+      "bytes": 74724
     }
   },
   "archives": [
@@ -524,28 +524,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d5c5e6f84495ed5f038c66e63abd9fab247417b267012f022fe405fd13498b06",
-      "after": "925ddcfb17c9c8bb437403c72901ef4e916deaf77d898dad16edcd628fe4d94d",
-      "owner": "Original StaticModel alpha binding, cold material projection and Pipeline consumers",
-      "reason": "Retire completed CPU-only uncertainty and bind the current opacity contract to its qualified runtime owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-opacity"
+      "before": "925ddcfb17c9c8bb437403c72901ef4e916deaf77d898dad16edcd628fe4d94d",
+      "after": "f5b2abb72be33e16aed74b10a057242cce67ba642ecf7d50ddf2bb3e93a63045",
+      "owner": "Existing StaticModel shader colour, coverage and output projection",
+      "reason": "Single Float colour chain and final Half storage; retire premature precision loss and duplicate legacy arithmetic without new state/resources. Actual pixel and shadow qualifications remain separately bounded.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-color-intermediates"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "1819f62f1916a2a1adaeb022d918cc8cf52d57026de6c1ae4071290178575fc5",
-      "after": "33b068c4e5dfa5bb8009b85c926211a4e2b96b99a414ba442c3ecc3aed69796a",
-      "owner": "Original StaticModel material/frame/Metal runtime evidence",
-      "reason": "Record actual cold preparation, two native payloads, whole-App healthy shadow restoration, independent Moon and preserved failed-draw lifetimes with precise nonclaims.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-opacity"
+      "before": "33b068c4e5dfa5bb8009b85c926211a4e2b96b99a414ba442c3ecc3aed69796a",
+      "after": "8bbf14d20e62fc4d05281d9258c612c6d564bd2ffb0905b2ef5536a0bc1b79c6",
+      "owner": "Existing StaticModel production renderer and bounded native/App evidence",
+      "reason": "Record actual HDR16 red/green, exact whole-App factorization and ordinary author regression; preserve healthy shadow/late-fog boundaries, invalid-oracle history and storage limits.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-color-intermediates"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b9be564aaf789b53c02a0bf1939337128c581ae367d0ea7c34db704e72eb9f82",
-      "after": "8f0eb5756f434bb7c160cd1442001df8fccbf9b294ab076fa3af3f4b882fc136",
-      "owner": "Original model material and sampler owners",
-      "reason": "Retire qualified opacity gap, preserve the narrower HDR/property source boundaries and bounded border-sampler census without inventing an active author hit.",
+      "before": "8f0eb5756f434bb7c160cd1442001df8fccbf9b294ab076fa3af3f4b882fc136",
+      "after": "e0577d574b18e280310d8415cc4a35bf29a46cd3b0a278897ee5c371beaa4b5c",
+      "owner": "Original model material preparation and consumer demand",
+      "reason": "Retire qualified Half-intermediate failures, preserve raw narrowing/property limits and identify unused-channel admission only as a source candidate requiring actual consumer evidence.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

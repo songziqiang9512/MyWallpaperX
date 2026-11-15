@@ -243,3 +243,16 @@ skew用O(1,1.5),X(4,0),Y(2,4)，只授四个字面probe：源texel(2,2)/(3,4)/(5
 两旧Spot/Point门的手工Float坏opacity不能代表新冷入口，已退该伪handoff与重复CPUproducer，保独立失败生命周期门：raw fixture退化UV使第二draw真实失败，map不发，首draw仍有65536/14337覆盖像素；pending/reset后pin1分别保4MiB/24MiB，GPU完成后resident0。两门54.287s通过且源码稳定，不宣该raw UV生产可达或拿它代opacity证明；初旧载体锚点已过时造成的零GPU异常与修正保于证据，未改产品失败处理。
 
 最终Debug26.401s、三产品/project/锁文件构建前后同，strict-deep与原trusted helpers通过，exe244a827c…770f、dylibf909c0e4…4662、metallib仍9062517f…0864d。初共同finite表达式已收至legacy入口后重锁最终身份，早先成功构建/作者只作迭代，不授最终。独立原3453730450自然20s/after17运行36.596s，F784/request1/CB521233747456：53×1、77×4及306/340/342各1到main521241927808，同封口/GPUcompleted、trunc0/parse0并停机排空；原project/pkg当前=冻结matrix=运行副本。完整月面、亮暗半球、轨迹/星野、标题钟日可见，只授普通作者回归，不授作者巨alpha命中、内部opacity反读或同相位A/B。正式作者包归`.artifacts/scene-evidence/runs/scene-model-material-opacity-20261115`；其余实际输入/源码/原始读回及独审归`.artifacts/scene-model-material-opacity-20261115`。其它HDR缩窄、Float乘积/half域与属性/script巨seed边界仍在队列，不宣一般数值健康。
+
+<a id="model-hdr-color-intermediates"></a>
+### 模型 HDR 颜色的中间精度
+
+按[唯一存储投影合同](advanced-object-coverage.md#model-hdr-color-intermediates)，颜色采样、PMA解码、surface/lighting、coverage、雾与最终PMA保Float，只在原RGBA16输出投Half；PMA只对正A除、零A清RGB，straight A0的opaque/mask颜色保留。退legacy重复Half运算与1e-5清零，Chroma无mask仍忽略global color，legacy不新增PBR radiance。shadow同源A用Float采样，原>.5阈值不变。产品仅原Metal净减18行，无新PSO、ABI、纹理、状态、owner或finite重验；不据采样类型变更声称三灯此前有精度故障。
+
+同一冻结244行输入、RGBA32Float纹理→实际Pipeline/Metal→RGBA16Float/Float16读回，旧8.336s完成但新增8项像素红，新8.963s七方法全过，19新增均精确符合独立安全控制与字面存储值。高纹理经低tint由.249878→.5，高tint/brightness/mask由65504→257/512；小正PMA原0→1/16384、除法原65504→1.5，极小coverage原0→1，masked A0原0→.25。普通、straight A0、PMA A0及7个等值控制保持；late-view/fog旧已健康，只授回归。原225输入JSON逐字相同，156项完整RGBA不变、69项因退出Half中间舍入改变（如22480→22496），原六方法的业务断言和容差未放宽。极小coverage的最终Half alpha仍量化0，不宣任意多次合成、Float32代数或RGBA16范围已解。
+
+Frame原192项加24项线性RGBA8 A127/128边界、三灯与资源改名，共216行的新旧原始结果逐字段相同；实际shadow map在略低/等于.5不写，略高与A1同深度，独立peer/camera不变。两份GPU结果以最终六方法CPU重评通过，未重GPU。最初below颜色被错误限定127，实际两版均128；有效A的纹理凸包及Half→U8存储只保证RGB整数[127,128]，现仅修此oracle，exact/above仍128、A1仍255，所有shadow/peer/camera严格预期保持。两次6条错误点值失败保留，不把测试资格纠正当作产品修复。共享shader另补原normal/reflection六方法36行，34.699s通过，方向/手性、alpha/depth、slot与环境反射原断言未改。
+
+完整App沿真实genericimage2、MDL/TEX和同opacity1/1024，对照white255×tint514与texel1×tint131072，经原RGBA16存储后的片元PMA均257/512。旧244a/f909两场40.477s中控制主体225灰、high255白；新bbf6/f909/17c2三场62.222s中control/high及真实MDL/material/TEX改名的6份ready/after完整PNG，全部逐字等旧control的两图（SHA da8b8355…f5bc5f）。receiver97、蓝peer255及不投影控制不变；原26变体字节保持。10捕获逐一同request/CB/main/seal/GPUcompleted、零截断及排空，输入、App五件和产品源稳定；时长仅为功能验收，不授性能或活动作者HDR命中。
+
+最终Debug12.051s、产品/project/锁文件前后同，strict-deep与原trusted helpers通过，exebbf6dfbb…55d9、dylibf909c0e4…4662、metallib17c2ed96…b3da。独立原3437487219自然5秒、23.629s运行，F126/request1/CB505517278080，模型112/114和图135到main505505897344，同封口/GPU完成、零截断并停机排空；原project/pkg等冻结matrix及report。实际地表、云层、蓝色大气弧、暗半球、银河与钟日完整，只授普通作者回归。必要作者原报告/图归`.artifacts/scene-evidence/runs/scene-model-hdr-surface-20261115`，自有输入、旧红/新绿、错误oracle及初MSL构造编译失败的零GPU日志、独审归`.artifacts/scene-model-hdr-surface-20261115`。剩余raw HDR缩窄及property/script seed仍归队列，不授官方像素或任意数值健康。

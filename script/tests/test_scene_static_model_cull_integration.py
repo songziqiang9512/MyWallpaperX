@@ -42,8 +42,8 @@ def encoded(value):
 
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
-                    affine_case=None, normal_case=None, opacity_case=None):
-    if noise_case is not None or normal_case is not None or opacity_case is not None:
+                    affine_case=None, normal_case=None, opacity_case=None, hdr_case=None):
+    if any(value is not None for value in (noise_case, normal_case, opacity_case, hdr_case)):
         texture_case = "crop"
     if affine_case is not None:
         texture_case = "crop" if affine_case.endswith("-crop") else "frame"
@@ -80,6 +80,9 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
             if opacity_case is not None:
                 render_pass.update(shader="genericimage2",
                     constantshadervalues={"alpha": 1 if opacity_case == "opacity-control" else 1e300})
+            if hdr_case is not None:
+                render_pass.update(shader="genericimage2", constantshadervalues={
+                    "color": [514 if hdr_case == "hdr-control" else 131072]*3, "alpha": 1/1024})
             if noise_case is not None:
                 render_pass.update(shader="chroma4", textures=["materials/model-surface.tex"] + [None] * 7
                     + ["materials/pigment-grain.tex"], combos={"LIGHTING": 1, "NORMALMAP": 0,
@@ -107,6 +110,8 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                                    [80, 110, 110, 255], [120, 110, 114, 255])
                 if noise_case is not None:
                     palette = ([128, 128, 128, 255],) * 4
+                if hdr_case is not None:
+                    palette = ([255 if hdr_case == "hdr-control" else 1]*3 + [255],) * 4
                 for i, rgba in enumerate(palette):
                     px, py = x + (-1.5 if i % 2 == 0 else 1.5), y + (-2 if i < 2 else 2)
                     cases.append({"name": f"texel-{i}", "state": state, "reverse": False,
@@ -246,6 +251,22 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
         cases.append({"name": "independent-caster", "state": "nocull", "reverse": False,
             "material": "materials/caster-peer.json", "layerID": 5, "colorPoint": [110, 48],
             "shadowPoint": [98, 48], "rgba": [0, 200, 0, 255], "visible": True, "shadowed": True})
+    if hdr_case is not None:
+        scene["general"]["hdr"] = True
+        subject = next(obj for obj in scene["objects"] if obj["id"] == 2)
+        subject["castshadow"] = False
+        for case in cases: case["shadowed"] = False
+        if hdr_case == "hdr-renamed":
+            material, texture = "materials/HDR alternate coat.json", "materials/HDR alternate texel.tex"
+            value = json.loads(entries.pop("materials/texture-front.json"))
+            value["passes"][0]["textures"] = [texture]
+            entries[material] = encoded(value)
+            entries[texture] = entries.pop("materials/model-surface.tex")
+            del entries["models/cases.mdl"]
+            subject["model"] = "models/HDR alternate plane.mdl"
+            entries[subject["model"]] = quad(77, 83, 44, 52, 20, material)
+            for case in cases: case["material"] = material
+        entries["scene.json"] = encoded(scene)
     # This geometric oracle is fixed before GPU execution. A ray from each
     # shadow ROI toward +X,+Z travels 20 in Z and 12 in X, hitting only its part.
     for case in cases:
@@ -337,7 +358,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "preregistration.json").write_bytes(encoded({"canvas": CANVAS, "cases": cases,
             "tolerance": TOLERANCE,
             "colorVisibleRGB": ({case["name"]: case["rgba"] for case in cases}
-                if any(options.get(key) for key in ("texture_case", "affine_case", "normal_case", "opacity_case")) else [0, 200, 0]), "healthyRGB": [0, 0, 255],
+                if any(options.get(key) for key in ("texture_case", "affine_case", "normal_case", "opacity_case", "hdr_case")) else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
@@ -364,7 +385,14 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "independentCaster": {"layer": 5, "color": [110, 48], "receiver": [98, 48]},
                 "noCastScope": "only independent caster color/shadow and blue peer; no subject restoration claim",
                 "wholeImageOracle": "huge and renamed huge equal alpha1 control after projection"}}
-               if options.get("opacity_case") else {})}))
+               if options.get("opacity_case") else {}),
+            **({"colorVisibleRGB": None, "hdr": {"case": options["hdr_case"], "opacity": 1/1024,
+                "sourceByte": 255 if options["hdr_case"] == "hdr-control" else 1,
+                "materialColor": 514 if options["hdr_case"] == "hdr-control" else 131072,
+                "fragmentPMA": [257/512]*3, "storedAlpha": 1/1024,
+                "wholeImageOracle": "high color/low texel and actual renamed variant equal safe color/white texel",
+                "compositeBoundary": "same opacity/background; no PMA versus different-alpha comparison"}}
+               if options.get("hdr_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -409,7 +437,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-(?:failed|rejected)|failure=exception")
         preview = (work / "evidence/scene-preview.log").read_text()
         if options.get("texture_case") != "animated" and not any(
-                options.get(key) for key in ("affine_case", "normal_case", "opacity_case")):
+                options.get(key) for key in ("affine_case", "normal_case", "opacity_case", "hdr_case")):
             expected_prepared = "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]"
             self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
@@ -548,6 +576,24 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             for phase in ("ready", "after"):
                 png = f"evidence/scene-{phase}-window.png"
                 self.assertEqual((self.root / "opacity-control" / png).read_bytes(),
+                                 (self.root / name / png).read_bytes())
+
+
+    def test_hdr_color_intermediates_match_safe_texture_control(self):
+        control = self.run_case("hdr-control", hdr_case="hdr-control")
+        for phase in ("ready", "after"):
+            pixels = control["pixels"][phase]["pixels"]
+            for case in control["cases"]:
+                rgb = pixels[f"{case['name']}-color"]
+                self.assertGreater(min(rgb) - max(pixels["clear"]), 100)
+                self.assertLess(max(rgb), 250)
+                self.assertLess(max(rgb)-min(rgb), TOLERANCE)
+                self.assert_rgb(pixels[f"{case['name']}-shadow"], pixels["clear"])
+        for name in ("hdr-high", "hdr-renamed"):
+            self.run_case(name, hdr_case=name)
+            for phase in ("ready", "after"):
+                png = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / "hdr-control" / png).read_bytes(),
                                  (self.root / name / png).read_bytes())
 
 

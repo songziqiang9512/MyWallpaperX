@@ -377,7 +377,7 @@ static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
 
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
-    texture2d<half> colorTexture [[texture(0)]],
+    texture2d<float> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
     texture2d<float> normalTexture [[texture(7)]],
     texture2d<float> gradientTexture [[texture(8)]],
@@ -392,11 +392,11 @@ fragment half4 sceneStaticModelFragment(
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     // Derivatives must be evaluated before distance/cone/material branches.
     float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
-    half4 albedo = colorTexture.sample(colorSampler, in.uv);
+    float4 albedo = colorTexture.sample(colorSampler, in.uv);
     if ((uniforms.materialFlags.x & 2u) != 0u) {
-        albedo.rgb = albedo.a > half(1e-5)
+        albedo.rgb = albedo.a > 0.0
             ? albedo.rgb / albedo.a
-            : half3(0.0);
+            : float3(0.0);
     }
     float4 surfaceMaterial = uniforms.surfaceMaterial;
     const uint components = uniforms.materialFlags.y >> 2u;
@@ -409,30 +409,13 @@ fragment half4 sceneStaticModelFragment(
     }
     bool surfaceEnabled = surfaceMaterial.z != 0.0;
     const bool chroma = uniforms.specularTintAndColorMode.w > 0.5;
-    float3 surfaceColor;
-    if (surfaceEnabled) {
-        // The prepared HDR tint is Float. Keep it finite through surface
-        // composition; half conversion here can produce inf*0 in both lanes.
-        if (uniforms.materialFlags.w != 0) {
-            float luminancePeak = float(max(albedo.r, max(albedo.g, albedo.b)));
-            float3 tinted = luminancePeak * uniforms.materialColorAndOpacity.xyz;
-            surfaceColor = mix(float3(albedo.rgb), tinted, float(albedo.a));
-        } else if (chroma) {
-            surfaceColor = float3(albedo.rgb);
-        } else {
-            surfaceColor = float3(albedo.rgb) * uniforms.materialColorAndOpacity.xyz;
-        }
-    } else {
-        // Preserve the old material path's arithmetic and half rounding.
-        half3 legacySurfaceColor;
-        if (uniforms.materialFlags.w != 0) {
-            half luminancePeak = max(albedo.r, max(albedo.g, albedo.b));
-            half3 tinted = luminancePeak * half3(uniforms.materialColorAndOpacity.xyz);
-            legacySurfaceColor = mix(albedo.rgb, tinted, albedo.a);
-        } else {
-            legacySurfaceColor = albedo.rgb * half3(uniforms.materialColorAndOpacity.xyz);
-        }
-        surfaceColor = float3(legacySurfaceColor);
+    float3 surfaceColor = albedo.rgb;
+    if (uniforms.materialFlags.w != 0) {
+        float luminancePeak = max(albedo.r, max(albedo.g, albedo.b));
+        float3 tinted = luminancePeak * uniforms.materialColorAndOpacity.xyz;
+        surfaceColor = mix(albedo.rgb, tinted, albedo.a);
+    } else if (!chroma) {
+        surfaceColor *= uniforms.materialColorAndOpacity.xyz;
     }
     float normalLengthSquared = dot(in.normal, in.normal);
     float3 normal = normalLengthSquared > 1e-12
@@ -471,13 +454,12 @@ fragment half4 sceneStaticModelFragment(
             if (perturbedLength > 1e-12) normal = perturbed * rsqrt(perturbedLength);
         }
     }
-    half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
-    half outputAlpha = authoredOpacity * (
-        (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : half(1.0)
+    float outputAlpha = uniforms.materialColorAndOpacity.w * (
+        (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : 1.0
     );
     // Keep implicit texture samples and receiver-plane derivatives before
     // coverage rejection; uncovered texels need no light or shadow work.
-    if (outputAlpha <= half(0.0)) {
+    if (outputAlpha <= 0.0) {
         discard_fragment();
     }
     float3 surfaceRadiance = float3(0.0);
@@ -630,8 +612,8 @@ fragment half4 sceneStaticModelFragment(
         surfaceColor *= viewTint;
         surfaceRadiance *= viewTint;
     }
-    float3 litColor = surfaceEnabled ? surfaceColor * lighting + surfaceRadiance
-        : float3(half3(surfaceColor) * half3(lighting));
+    float3 litColor = surfaceColor * lighting;
+    if (surfaceEnabled) litColor += surfaceRadiance;
     if ((components & 8u) != 0u) {
         float emissive = saturate(componentMaps.a) * uniforms.emissiveColorAndBrightness.w;
         // The mask scales additional radiance; brightness is not a mix weight.
@@ -665,7 +647,7 @@ fragment half4 sceneStaticModelFragment(
         uniforms.distanceFogColor, uniforms.distanceFogRange);
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
-    return half4(half3(clamp(litColor * float(outputAlpha), 0.0, 65504.0)), outputAlpha);
+    return half4(half3(clamp(litColor * outputAlpha, 0.0, 65504.0)), half(outputAlpha));
 }
 
 struct SceneStaticModelShadowUniforms {
@@ -701,16 +683,16 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
         + modelVertex.uv.y * uniforms.textureFrame1.xy;
     return out;
 }
-void sceneStaticModelShadowCoverage(float2 uv, texture2d<half> albedo,
+void sceneStaticModelShadowCoverage(float2 uv, texture2d<float> albedo,
     sampler albedoSampler, constant SceneStaticModelShadowUniforms &uniforms) {
     float coverage = uniforms.coverage.x;
-    if (uniforms.coverage.y != 0.0) coverage *= float(albedo.sample(albedoSampler, uv).a);
+    if (uniforms.coverage.y != 0.0) coverage *= albedo.sample(albedoSampler, uv).a;
     if (coverage <= 0.5) discard_fragment();
 }
 struct SceneStaticModelShadowDepth { float depth [[depth(any)]]; };
 fragment SceneStaticModelShadowDepth sceneStaticModelShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
-    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    texture2d<float> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     // Reconstruct the authored triangle plane at the actual texel center;
     // interpolated clip coordinates follow the snapped raster triangle.
@@ -738,7 +720,7 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelSpotShadowVertex(
     return out;
 }
 float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelShadowVertexOut in,
-    texture2d<half> albedo, sampler albedoSampler,
+    texture2d<float> albedo, sampler albedoSampler,
     constant SceneStaticModelShadowUniforms &uniforms) {
     // Interpolated q stays on the triangle plane, but raster snapping shifts
     // its ray. Derivatives precede every branch and coverage discard.
@@ -757,13 +739,13 @@ float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelShadowVertexOut in
 }
 fragment SceneStaticModelShadowDepth sceneStaticModelSpotShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
-    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    texture2d<float> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).x};
 }
 fragment SceneStaticModelShadowDepth sceneStaticModelPointShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
-    texture2d<half> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    texture2d<float> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     return {sceneStaticModelPerspectiveShadowDepth(in, albedo, albedoSampler, uniforms).y};
 }

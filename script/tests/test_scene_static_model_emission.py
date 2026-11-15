@@ -252,6 +252,60 @@ def view_tint_vectors() -> list[dict]:
     return rows
 
 
+def hdr_intermediate_vectors() -> list[dict]:
+    base = dict(surface=None, receivesLighting=False, albedo=[1/255]*3,
+        tint=[131072]*3, opacity=1/1024, ambient=[0, 0, 0], hasMask=False,
+        maskAlpha=0, emissiveColor=[1, 1, 1], brightness=0)
+    half_gray = [257/512]*3
+    pairs = [
+        ("texture", dict(albedo=[131072]*3, tint=[1/256]*3),
+         dict(albedo=[1]*3, tint=[512]*3), [.5]*3, False),
+        ("tint", {}, dict(albedo=[1]*3, tint=[514]*3), half_gray, False),
+        ("masked-tint", dict(tintMask=True),
+         dict(albedo=[1]*3, tint=[514]*3, tintMask=True), half_gray, False),
+        ("late-view-fog", dict(tint=[32768]*3, viewTint=[1024, 1024], opacity=1/256,
+            fogDensity=1023/1024, fogColor=[0, 0, 0]),
+         dict(albedo=[1]*3, tint=[128.5]*3, viewTint=[1, 1], opacity=1/256,
+            fogDensity=0, fogColor=[0, 0, 0]), half_gray, False),
+        ("pma-small-positive", dict(albedo=[1/16384]*3, albedoAlpha=1/1048576,
+            tint=[1]*3, opacity=1, colorPremultiplied=True, textureAlphaIsOpacity=True),
+         dict(albedo=[64]*3, albedoAlpha=1/1048576, tint=[1]*3, opacity=1,
+            textureAlphaIsOpacity=True), [1/16384]*3, False),
+        ("pma-division", dict(albedo=[1.5]*3, albedoAlpha=1/65536, tint=[1]*3,
+            opacity=1, colorPremultiplied=True, textureAlphaIsOpacity=True),
+         dict(albedo=[1.5]*3, albedoAlpha=1/65536, tint=[1]*3, opacity=1,
+            textureAlphaIsOpacity=True, hasMask=True, maskAlpha=1, brightness=65535), [1.5]*3, False),
+        ("small-coverage", dict(albedo=[1]*3, tint=[67108864]*3, opacity=1/67108864),
+         dict(albedo=[1]*3, tint=[1]*3, opacity=1), [1]*3, True),
+    ]
+    rows = []
+    for name, actual, control, rgb, rgb_only in pairs:
+        reference = f"hdr16-{name}-control"
+        for suffix, changes in (("actual", actual), ("control", control)):
+            row = dict(base)
+            row.update(changes, name=f"hdr16-{name}-{suffix}", hdrIntermediate=True)
+            alpha = row["opacity"] * (row.get("albedoAlpha", 1) if row.get("textureAlphaIsOpacity") else 1)
+            row["expectedStoredAlpha"] = 0 if name == "small-coverage" and suffix == "actual" else alpha
+            row["expectedUnlitPixel"] = [*rgb, row["expectedStoredAlpha"]]
+            if suffix == "actual":
+                row.update(hdrReference=reference, hdrCompareRGBOnly=rgb_only)
+            rows.append(row)
+    for name, changes, pixel in [
+        ("straight-zero-alpha", dict(albedo=[.25]*3, albedoAlpha=0, tint=[1]*3, opacity=1), [.25]*3+[1]),
+        ("masked-zero-alpha", dict(albedo=[.25]*3, albedoAlpha=0, tintMask=True,
+            tint=[131072]*3, opacity=1), [.25]*3+[1]),
+        ("pma-zero", dict(albedo=[1.5]*3, albedoAlpha=0, colorPremultiplied=True,
+            textureAlphaIsOpacity=True, tint=[1]*3, opacity=1), [0]*4),
+        ("ordinary", dict(albedo=[.25, .5, 1], tint=[2, 1, .5], opacity=.5), [.25]*3+[.5]),
+        ("brightness-producer", dict(tint=[1]*3, materialBrightness=131072, usesHDR=True), half_gray+[1/1024]),
+    ]:
+        row = {**base, **changes, "name": "hdr16-"+name, "hdrIntermediate": True,
+               "expectedUnlitPixel": pixel, "expectedStoredAlpha": pixel[3]}
+        if name == "brightness-producer": row["hdrReference"] = "hdr16-tint-control"
+        rows.append(row)
+    return rows
+
+
 def zero_surface_vectors() -> list[dict]:
     # Exact-zero direct specular is a delta, not a finite raster lobe. The
     # remaining expectation uses only independent Fresnel, diffuse and lamp
@@ -391,7 +445,7 @@ PIXEL_MAIN = r'''
             let material = SceneStaticModelMaterial(
                 color: vector(input["tint"] as? [Double] ?? [1, 1, 1]), opacity: Float(input["opacity"] as! Double),
                 receivesLighting: input["receivesLighting"] as? Bool ?? true,
-                textureAlphaIsOpacity: false,
+                textureAlphaIsOpacity: input["textureAlphaIsOpacity"] as? Bool ?? false,
                 textureAlphaIsTintMask: input["tintMask"] as? Bool ?? false,
                 emissiveColor: vector(input["emissiveColor"] as! [Double]),
                 emissiveBrightness: Float(input["brightness"] as! Double),
@@ -492,7 +546,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
         ]
         cls.vectors = (emission_vectors() + ambient_vectors() + distance_fog_vectors()
                        + surface_vectors() + surface_storage_vectors() + zero_surface_vectors()
-                       + view_tint_vectors())
+                       + view_tint_vectors() + hdr_intermediate_vectors())
         cls.report = run_swift(
             sources, "import Foundation\nimport Metal\nimport simd\n" + model_fixture.LIGHTING_STUB + PIXEL_MAIN,
             label="model-emission", metal_sources=[model_fixture.METAL_SOURCE], input_value=cls.vectors,
@@ -507,7 +561,8 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
                 self.assertTrue(row["completed"])
                 self.assertEqual(len(row["pixel"]), 4)
                 self.assertTrue(all(math.isfinite(float(value)) for value in row["pixel"]))
-                self.assertEqual(row["pixel"][3], vector["opacity"]*vector.get("layerAlpha", 1))
+                self.assertEqual(row["pixel"][3], vector.get("expectedStoredAlpha",
+                    vector["opacity"]*vector.get("layerAlpha", 1)))
 
     def test_additive_emission_pixels_match_numeric_contract(self):
         for vector, row in zip(self.vectors, self.report["rows"]):
@@ -574,3 +629,15 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
         self.assertEqual(pixels["view-tint-neutral-2"], pixels["view-tint-neutral-4"])
         self.assertLess(pixels["view-tint-back-facing"][0], linear[0])
         self.assertEqual(pixels["view-tint-layer-fade"], [value*.5 for value in linear])
+
+    def test_hdr_intermediates_match_independent_safe_controls(self):
+        pixels = {row["name"]: row["pixel"] for row in self.report["rows"]}
+        for vector in self.vectors:
+            if not vector.get("hdrIntermediate"):
+                continue
+            actual = pixels[vector["name"]]
+            self.assertTrue(all(math.isfinite(float(value)) for value in actual), vector["name"])
+            self.assertEqual(actual, vector["expectedUnlitPixel"], vector["name"])
+            if reference := vector.get("hdrReference"):
+                count = 3 if vector.get("hdrCompareRGBOnly") else 4
+                self.assertEqual(actual[:count], pixels[reference][:count], vector["name"])

@@ -484,15 +484,29 @@ def model_normal_consumer_cases():
     return rows
 
 
+def model_alpha_sampling_cases():
+    rows=[]
+    for light in ('directional','spot','point'):
+        for renamed in (False,True):
+            for label,u,alpha in [('below',.5-1/64,[127,128]),('exact',.5,[127,128]),
+                                  ('above',.5+1/64,[127,128]),('one',.5,[255,255])]:
+                rows.append(dict(name=f'linear-alpha-{light}-{renamed}-{label}',light=light,
+                    renamed=renamed,blending='translucent',linearRGBA8UV=u,textureAlphaBytes=alpha,
+                    boundary=label,reference=f'linear-alpha-{light}-{renamed}-one'))
+    return rows
+
+
 class SceneModelShadowCameraFamilyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         support = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + CULL_MAIN
         cls.coverageCases = model_shadow_coverage_cases()
         cls.normalCases = model_normal_consumer_cases()
+        cls.alphaCases = model_alpha_sampling_cases()
         cls.report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
                     metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],
-                    input_value={'coverageCases': cls.coverageCases,'normalCases':cls.normalCases})
+                    input_value={'coverageCases': cls.coverageCases,'normalCases':cls.normalCases,
+                                 'alphaSamplingCases':cls.alphaCases})
 
     def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
         self.assertEqual(len(self.report['rows']), 120)
@@ -562,6 +576,34 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             self.assertFalse(row['shadowPublished'], row)
             self.assertEqual(row['coverageDepth'], [])
             self.assertEqual(row['peerDepth'], [])
+
+    def test_linear_rgba8_alpha_keeps_sampled_shadow_cutoff_and_camera_coverage(self):
+        rows={row['name']:row for row in self.report['alphaRows']}
+        self.assertEqual(set(rows),{case['name'] for case in self.alphaCases})
+        for case in self.alphaCases:
+            row,control=rows[case['name']],rows[case['reference']]
+            with self.subTest(case=case['name']):
+                self.assertTrue(row['completed'] and row['shadowPublished'],row)
+                if case['boundary'] in ('above','one'):
+                    self.assertEqual(row['coverageDepth'],control['coverageDepth'],row)
+                    self.assertTrue(all(0<=value<.99 for value in row['coverageDepth']),row)
+                else:self.assertEqual(row['coverageDepth'],[1,1],row)
+                self.assertEqual(row['peerDepth'],control['peerDepth'],row)
+                self.assertTrue(all(0<=value<.99 for value in row['peerDepth']),row)
+                self.assertEqual(row['peerColorRGBA'],[[255,255,255,255]]*2,row)
+                self.assertEqual(row['cameraDepth'],control['cameraDepth'],row)
+                self.assertTrue(all(value>0 for value in row['cameraDepth']),row)
+                if case['boundary']=='below':
+                    self.assertEqual(row['colorRGBA'][3],255,row)
+                    for value in row['colorRGBA'][:3]:
+                        self.assertGreaterEqual(value,127,row)
+                        self.assertLessEqual(value,128,row)
+                else:
+                    value={'exact':128,'above':128,'one':255}[case['boundary']]
+                    self.assertEqual(row['colorRGBA'],[value,value,value,255],row)
+                ordinary=rows[case['name'].replace('-True-','-False-')]
+                for field in ('coverageDepth','peerDepth','colorRGBA','cameraDepth','peerColorRGBA'):
+                    self.assertEqual(row[field],ordinary[field],field)
 
     def test_rank_two_unlit_planes_keep_actual_color_camera_depth_and_three_shadows(self):
         rows={row['name']:row for row in self.report['normalRows']}
