@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59988
+      "bytes": 58729
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 355,
-      "bytes": 104409
+      "lines": 357,
+      "bytes": 104677
     }
   },
   "archives": [
@@ -524,11 +524,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "cf11a1283645981f41e3575db30db0300df672528b58fa32fdd9eb73b2a9504f",
-      "after": "a777ce9801631fff47199cc5bb0a6bcd371aea38c107fecf861aafa78a1a652a",
-      "owner": "Existing static model material/Pipeline/Metal and model evidence owners",
-      "reason": "Record actual same-input old/new radiance controls, unchanged Chroma/legacy neighbors, Debug/sign and bounded waterdrop plus independent Earth completion; preserve resize and halo limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-brightness-order"
+      "before": "a777ce9801631fff47199cc5bb0a6bcd371aea38c107fecf861aafa78a1a652a",
+      "after": "a8a7857adc16eafa91837cfc8e43cd9e737f2936ebeccb487783e16369b80b5c",
+      "owner": "Scene current issue queue and model runtime evidence owners",
+      "reason": "Apply user visual acceptance of waterdrop, retire it as current task, retain independent unresolved semantics and four resize-observation failures, and resume other evidence-backed world-model issues.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
@@ -542,10 +542,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7ea0b37c1ea0b92b8e1dbfb4f4f9c25d5050fbfdf6d61aeb14b7d38fbbb58a49",
-      "after": "6c4dbf896c34f1b7b306fccea7d8d5d2cdf361ccb6ba25303897b3805a244bc3",
-      "owner": "Existing static model material/Pipeline/Metal and model evidence owners",
-      "reason": "Retire only the proven generic4 brightness ordering and zero-gain highlight error; keep explicit HDR override, emission composition and generic2 direct response open.",
+      "before": "6c4dbf896c34f1b7b306fccea7d8d5d2cdf361ccb6ba25303897b3805a244bc3",
+      "after": "cda5faa011efc3d31cfaf9d6dd2bd32148dd652e593570755d6945b3ef517ae9",
+      "owner": "Scene current issue queue and model runtime evidence owners",
+      "reason": "Apply user visual acceptance of waterdrop, retire it as current task, retain independent unresolved semantics and four resize-observation failures, and resume other evidence-backed world-model issues.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

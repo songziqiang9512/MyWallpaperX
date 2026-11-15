@@ -112,6 +112,8 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 源、门、数值反例、官方有界对照、两张晚期原PNG及独审归`.artifacts/scene-model-hdr-emissive-gain-20261116/evidence.zip`；三次真实运行报告/必要原图归`.artifacts/scene-evidence/runs/scene-model-hdr-emissive-gain-20261116`。外晕、细纹及相邻材质语义继续[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，不宣水滴全面或官方精确一致，也未取得性能收益。
 
+2026-11-16用户观察当前水滴视觉已与官方接近，确认转查其它已知断点或样本；该画面完成当前视觉验收。上述异相位差异和未取得的反射元数据语义不升级为当前阻断，精确RGB/所有属性与时相仍未授。
+
 **表面亮度的正确次序** <a id="model-hdr-brightness-order"></a>：按[表面合同](advanced-object-coverage.md#model-chroma-surface)，generic4与Chroma在材质受光/反射合并后统一乘HDR brightness；退generic4把brightness混入albedo/F0及反射另乘的旧职责，两产品仅三行替换、净零增长，无新flag/ABI/资源/owner。真实同104输入/Harness旧新读回中，generic4的B0直接高光[5,5,5]、黑金属斜入射[12,12,12]均恢复0，后者B1/B2为12/24；有色材质B2从[61,94,122]恢复[68,105,139]，半mask也随完整颜色增益。70条authored-Chroma输入的RGBA/depth逐值不变，legacy/custom/override邻例保持；14方法104+82实际输入通过，含B0/1/2、HDR关闭、反射/混合发光、改名及alpha/depth。新Debug28.253s/签名通过，exe efc96420…a56d5、dylib17cf3c20…f648、Metal c3d50762…f20c；347原包及固定控制14s/after12，R3/F701/CB530917590784的14/115/113/main/export/seal/GPU完成、零截断排空，亮缘/黑心/内亮瓣/文字与细线完整，整轮仍保4resize失败。独立343原包5s PASS，R2/F142/CB508871558912见完整地表/云/大气/钟日。异相位图不授精确RGB或外晕改善，未改反射history/LOD语义；源/旧新读回/身份与独审归`.artifacts/scene-model-hdr-brightness-order-20261116/evidence.zip`，两真实运行归`.artifacts/scene-evidence/runs/scene-model-hdr-brightness-order-20261116`。
 
 ## 明确材质引用不受目录提示限制 <a id="model-material-role"></a>
