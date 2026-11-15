@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 208,
-      "bytes": 38159
+      "lines": 223,
+      "bytes": 41662
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 115,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 194,
-      "bytes": 55953
+      "lines": 197,
+      "bytes": 57977
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 313,
-      "bytes": 91375
+      "lines": 331,
+      "bytes": 96116
     }
   },
   "archives": [
@@ -487,15 +487,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "55db713002265b73f53950d4b4685781d995a108916ae7475511c085842752c7",
-      "after": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
-      "owner": "Existing Scene Puppet preparation/playback and Script frame owners",
-      "reason": "Define bounded String Single instance creation and original Cursor command transport before implementation, with one resource preparation, identity/journal/pose/lifetime and explicit unsupported official-default boundaries. Current evidence and solved queue prose are consolidated rather than adding an authority.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#image-single-animation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
       "after": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
@@ -523,15 +514,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "0ff060be1e8bd4a8efdf4b440faa3a09edaddbe29b49bfe7801eb4b720d260b1",
-      "after": "eb4704ec57d4e1447ec4ee2acc9589651607b48229caa8b484e396ea40f7b45b",
-      "owner": "Shared surface radial falloff and qualified author-view evidence",
-      "reason": "Replace invalid zero cutoff grants and qualify one-line old-red/new-green surface correction, four official categorical controls, exact unchanged positive controls, eight real dwarf captures and independent Earth; preserve whole collector failure and all-view/official limitations.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#spot-radial-falloff"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "6bf04727de6d332dbfff25cea2685edb34586b6311066ceb82aed1518d22b81c",
       "after": "ab3483bcaa2ffcf2d9ba1dce128995023c7fde1abd6efbb322cdf3adbd2ed67a",
@@ -541,11 +523,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
+      "after": "a3ed5f57ff7ef2bf8d04f5412b1843af03e7052df1fad9630aa13ba0d9edbe1a",
+      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
+      "reason": "Define current admitted authored TRS callback inputs, raw init/return journal ownership, passive Timeline and explicit retirement; keep init getter and first-definition limits.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#current-frame-authored-transforms"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "eb4704ec57d4e1447ec4ee2acc9589651607b48229caa8b484e396ea40f7b45b",
+      "after": "0df0f0533d600a13de0311257ea286d6e13321f8f51582ed57bbfe37906b426b",
+      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
+      "reason": "Qualify first6 moon views and bounded current transform red/green controls, native callback cases, visible blue movement and independent Earth; retain yellow offscreen and official/all-view limitations.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#current-authored-transforms"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2cd40b4b0910ec7ea261f75efc57ec3bd89f8368895294d314ddad1c3d5bdfc3",
-      "after": "f9d4504366f157703be6c410dab6ef34cc17d068c918724940e31185863eeab0",
-      "owner": "Shared surface radial falloff and qualified author-view evidence",
-      "reason": "Close only the proven far-dwarf radial cutoff, keep remaining authored moons/craft/Sun and interaction priorities, and register actual periodic capture teardown/superseding and invalid official scaled-camera carriers.",
+      "before": "f9d4504366f157703be6c410dab6ef34cc17d068c918724940e31185863eeab0",
+      "after": "87f39eaa1e166f2e7b077c9814a2305fe9f27d3b5dfc110c99e40b049d326525",
+      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
+      "reason": "Replace duplicate completed process prose with the current solar-view order and precisely queued yellow/other transitions, first TRS definition, init getter and observed UI/capture gaps. Preserve an unchanged HEAD proposal and queue its preexisting registry membership gap instead of changing authority to silence the audit.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

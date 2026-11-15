@@ -33,9 +33,11 @@ extension SceneRenderDescriptor.Layer {
     }
 }
 '''
+PREAMBLE += SWIFT_PREAMBLE[SWIFT_PREAMBLE.index("nonisolated struct SceneTimelineAnimationEventOccurrence:"):]
 SCENE_ROOT = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
 EXTRA_SOURCES = (
     SCENE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
+    SCENE_ROOT / "Systems/Script/SceneScriptMediaFrameCoordinator.swift",
 )
 
 
@@ -46,11 +48,13 @@ enum SceneDocumentLoader {
     static func floatVector(_ value: Any?) -> [Float]? { (value as? [NSNumber])?.map(\.floatValue) }
 }
 @main enum Harness {
-    static func setup(_ path: String, labels: [String] = ["A","B","C"]) throws -> (SceneRenderDescriptor,SceneScriptQuickJSDomain,SceneScriptDynamicLayerRuntime) {
+    static func setup(_ path: String, labels: [String] = ["A","B","C"], firstID: Int = 101, transformFields: Bool = false) throws -> (SceneRenderDescriptor,SceneScriptQuickJSDomain,SceneScriptDynamicLayerRuntime) {
         var descriptor = SceneRenderDescriptor(layers: labels.indices.map { index in
-            let id = 101 + index
-            return .init(id:id,layerIndex:index,name:labels[index],visible:true,
+            let id = firstID + index
+            var layer = SceneRenderDescriptor.Layer(id:id,layerIndex:index,name:labels[index],visible:true,
                   originXYZ:[0,0,0],scaleXYZ:[1,1,1],alpha:1,effects:[])
+            if transformFields { layer.anglesXYZ = [0,0,0] }
+            return layer
         })
         descriptor.modelMaterialLinks = [.init(modelPath:path,materialPath:"material")]
         let catalog: [String:SceneScriptPreparedResourceLayerTemplate] = [path:.init(modelPath:path,renderSizeWH:[200,100])]
@@ -59,7 +63,7 @@ enum SceneDocumentLoader {
         try domain.configurePreparedResourceLayerCatalog(catalog)
         try domain.publishLayerSnapshot(.empty(frameIndex:1),descriptor:descriptor)
         let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,
-            authoredMutationLayerIDs:[101,102,103],preparedResourceLayerTemplates:catalog,
+            authoredMutationLayerIDs:Set(labels.indices.map { firstID + $0 }),preparedResourceLayerTemplates:catalog,
             layerOrderProjection:{ domain.projectPendingLayerOrder(accepting:$0) })
         return (descriptor,domain,runtime)
     }
@@ -464,11 +468,171 @@ enum SceneDocumentLoader {
             "schemaRevisionDelta":runtime.authoredDefinitionRevision - revision,
             "c":try cOrder(domain)]
     }
+    static func transformCadence(_ mode: String, renamed: Bool = false) throws -> [String:Any] {
+        let base = renamed ? 2001 : 101
+        let names = renamed ? ["控制", "主体", "环", "旁例"] : ["A", "B", "C", "D"]
+        let (descriptor,domain,runtime) = try setup(renamed ? "models/renamed-phase.json" : "models/order.json",
+            labels:names, firstID:base, transformFields:true)
+        func binding(_ index: Int, _ field: String, _ source: String) -> SceneScriptBindingIR {
+            let vector = field != "visible"
+            return .init(source:source,owner:.init(kind:.object,objectIndex:index,objectID:base+index,
+                effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
+                targetPath:[.key("objects"),.index(index),.key(field)],properties:[:],
+                authoredValue:vector ? .string(field == "scale" ? "1 1 1" : "0 0 0") : .bool(true),
+                valueType:vector ? .string : .boolean,wrapperKeys:["script","value"])
+        }
+        let expression = renamed ? "new Vec3(2*2,10/2,3+3)" : "new Vec3(4,5,6)"
+        let writes = "const body=thisScene.getLayer('\(names[1])');body.origin=\(expression);body.scale=new Vec3(2,3,4);body.angles=new Vec3(10,20,30);"
+        let update: String
+        switch mode {
+        case "throw": update = "export function update(v){\(writes)throw Error('phase-owner-failed');}"
+        case "badReturn": update = "export function update(v){return 'not-a-vector';}"
+        case "media": update = "export function mediaPlaybackChanged(e){\(writes)}export function update(v){return v;}"
+        case "init": update = "export function init(v){\(writes)return v;}export function update(v){return v;}"
+        default: update = "export function update(v){\(writes)return true;}"
+        }
+        let laterReturn = mode == "laterReturn" ? "new Vec3(7,8,9)" : "value"
+        let laterSetter = mode == "laterSetter" ? "thisScene.getLayer('\(names[1])').origin=new Vec3(11,12,13);" : ""
+        let originExport = mode == "getter" ? "thisScene.getLayer('\(names[1])').origin" : "value"
+        let scaleExport = mode == "getter" ? "thisLayer.scale" : "value"
+        let anglesExport = mode == "getter" ? "thisLayer.angles" : "value"
+        let mainField: SceneDynamicLayerField = mode == "badReturn" ? .origin : .visibility
+        let scripts = [binding(0,mode == "badReturn" ? "origin" : "visible",update),
+            binding(1,"origin","export function update(value){shared.phaseOrigin=\(originExport);return \(laterReturn);}"),
+            binding(1,"scale","export function update(value){shared.phaseScale=\(scaleExport);return value;}"),
+            binding(1,"angles","export function update(value){shared.phaseAngles=\(anglesExport);return value;}"),
+            binding(2,"origin","export function update(value){return new Vec3(shared.phaseOrigin);}"),
+            binding(2,"scale","export function update(value){return new Vec3(shared.phaseScale);}"),
+            binding(2,"angles","export function update(value){return new Vec3(shared.phaseAngles);}"),
+            binding(3,"visible","export function update(value){\(laterSetter)thisLayer.origin=new Vec3(9,8,7);return true;}")]
+        let program = SceneScriptVectorProgram.compile(domain:domain,descriptor:descriptor,
+            scriptBindings:scripts,userPropertyDefinitions:[],generation:1)
+        let strings = SceneScriptStringProgram.compile(domain:domain,descriptor:descriptor,
+            scriptBindings:[],generation:1)
+        let scalars = SceneScriptScalarProgram.compile(domain:domain,descriptor:descriptor,
+            scriptBindings:[],generation:1)
+        let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram:program,
+            stringProgram:strings,scalarProgram:scalars)
+        let inputs = Dictionary(uniqueKeysWithValues:program.definitions.map { ($0.target,$0.authoredValue) })
+        let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:123),
+            simulationFrameTime:1/60,sceneTime:1))
+        let initial = coordinator.initialize(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+            effectivePropertyValues:[:],frame:frame,userPropertiesJSON:"{}",audioSpectrum:.silent)
+        let result = coordinator.evaluate(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+            effectivePropertyValues:[:],frame:frame,userPropertiesJSON:"{}",
+            events:mode == "media" ? .init(playback:.init(state:1,generation:1),properties:nil,thumbnail:nil,timeline:nil) : .empty,
+            audioSpectrum:.silent,initializationFailures:initial.failures,priorOwnerEffects:initial.effects)
+        let admission = runtime.preflightOwnerEffects(initial.effects + result.ownerEffects)
+        runtime.commit(admission.layerPlan)
+        func vector(_ layer: Int, _ field: SceneDynamicLayerField) -> Any {
+            guard case let .vector3(x,y,z)? = runtime.snapshot().authoredLayerValues[.layer(layerID:base+layer,field:field)] else { return NSNull() }
+            return [x,y,z]
+        }
+        let observer = try SceneScriptValueOwner(domain:domain,source:"""
+            export function update(v){return JSON.stringify({origin:shared.phaseOrigin,scale:shared.phaseScale,angles:shared.phaseAngles});}
+            """,target:.text(layerID:base,field:.content),valueType:.string,effectNames:[],generation:1,budget:.default)
+        let observation = try observer.evaluate(input:.string(""),frame:frame,scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
+        guard case let .string(observed) = observation.value else { fatalError("phase observer") }
+        let report: [String:Any] = ["mode":mode,"renamed":renamed,"bindingCount":program.definitions.count,
+            "bodyOrigin":vector(1,.origin),"bodyScale":vector(1,.scale),"bodyAngles":vector(1,.angles),
+            "ringOrigin":vector(2,.origin),"ringScale":vector(2,.scale),"ringAngles":vector(2,.angles),
+            "peerOrigin":vector(3,.origin),"shared":try JSONSerialization.jsonObject(with:Data(observed.utf8)),
+            "programFailures":result.vector.failures.count,"admissionFailures":admission.rejectedOwners.count,
+            "mainRejected":result.vector.failures[.layer(layerID:base,field:mainField)] != nil,
+            "transformValuesRemain":result.vector.values.keys.contains { target in
+                if case let .layer(_,field) = target { return [.origin,.scale,.angles].contains(field) };return false
+            }]
+        program.finalizeLayerMutations(committing:true)
+        return report
+    }
+    static func passiveTransform(_ mode: String) throws -> [String:Any] {
+        let (descriptor,domain,runtime) = try setup("models/passive-transform.json",transformFields:true)
+        let target = SceneDynamicTarget.layer(layerID:102,field:mode.contains("angle") ? .angles : .origin)
+        func binding(_ index: Int, _ field: String, _ source: String) -> SceneScriptBindingIR {
+            .init(source:source,owner:.init(kind:.object,objectIndex:index,objectID:101+index,
+                effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
+                targetPath:[.key("objects"),.index(index),.key(field)],properties:[:],
+                authoredValue:field == "visible" ? .bool(true) : .string("0 0 0"),
+                valueType:field == "visible" ? .boolean : .string,
+                wrapperKeys:mode == "timeline" && index == 1 ? ["animation","script","value"] : ["script","value"])
+        }
+        let body: String
+        switch mode {
+        case "init-order": body = "export function init(v){shared.initInput=v;return v;}"
+        case "angle-write": body = "export function init(v){thisLayer.angles=new Vec3(10,20,30);return 'bad-vector';}"
+        case "angle-bad": body = "export function init(v){return 'bad-vector';}"
+        case "timer": body = "export function init(v){engine.setTimeout(()=>{thisLayer.origin=new Vec3(6,7,8);},10);return v;}"
+        default: body = "export function init(v){return new Vec3(1,2,3);}"
+        }
+        var scripts: [SceneScriptBindingIR] = []
+        if mode == "init-order" {
+            scripts.append(binding(0,"visible","export function init(v){thisScene.getLayer('B').origin=new Vec3(4,5,6);return v;}"))
+        }
+        scripts.append(binding(1,mode.contains("angle") ? "angles" : "origin",body))
+        let late = mode == "late-main" ? "thisScene.getLayer('B').origin=new Vec3(8,9,10);" : ""
+        scripts.append(binding(2,"visible","export function update(v){\(late)thisLayer.origin=new Vec3(9,8,7);return true;}"))
+        let program = SceneScriptVectorProgram.compile(domain:domain,descriptor:descriptor,
+            scriptBindings:scripts,userPropertyDefinitions:[],timelineTargets:mode == "timeline" ? [target] : [],generation:1)
+        let coordinator = SceneScriptMediaFrameCoordinator(vectorProgram:program,
+            stringProgram:.compile(domain:domain,descriptor:descriptor,scriptBindings:[],generation:1),
+            scalarProgram:.compile(domain:domain,descriptor:descriptor,scriptBindings:[],generation:1))
+        let inputs = Dictionary(uniqueKeysWithValues:program.definitions.map { ($0.target,$0.authoredValue) })
+        func frame(_ time: Double) -> SceneScriptFrameInput { .init(timing:.init(
+            wallDate:Date(timeIntervalSince1970:123+time),simulationFrameTime:1,sceneTime:time)) }
+        let initial = coordinator.initialize(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+            effectivePropertyValues:[:],frame:frame(0),userPropertiesJSON:"{}",audioSpectrum:.silent)
+        let first = coordinator.evaluate(vectorInputs:inputs,stringInputs:[:],scalarInputs:[:],
+            effectivePropertyValues:[:],frame:frame(0),userPropertiesJSON:"{}",events:.empty,
+            audioSpectrum:.silent,initializationFailures:initial.failures,priorOwnerEffects:initial.effects)
+        let firstPlan = runtime.preflightOwnerEffects(initial.effects + first.ownerEffects)
+        runtime.commit(firstPlan.layerPlan)
+        func vector(_ value: SceneDynamicValue?) -> Any {
+            guard case let .vector3(x,y,z)? = value else { return NSNull() };return [x,y,z]
+        }
+        let firstValue = vector(runtime.snapshot().authoredLayerValues[target])
+        program.finalizeLayerMutations(committing:true);coordinator.finalizeInitializations()
+        let timeline: [SceneDynamicTarget:SceneDynamicValue] = mode == "timeline" ? [target:.vector3(5,6,7)] : [:]
+        let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex:2,generation:1,
+            definitions:runtime.authoredLayerDefinitions,timelineValues:timeline,
+            sceneScriptValues:runtime.snapshot().authoredLayerValues.filter { mode != "timeline" || $0.key != target }).snapshot
+        try domain.publishLayerSnapshot(snapshot,descriptor:descriptor)
+        let nextInputs = snapshot.values(for:program.inputTargets)
+        let next = coordinator.evaluate(vectorInputs:nextInputs,stringInputs:[:],scalarInputs:[:],
+            effectivePropertyValues:[:],frame:frame(1),userPropertiesJSON:"{}",events:.empty,audioSpectrum:.silent)
+        let nextPlan = runtime.preflightOwnerEffects(next.ownerEffects)
+        runtime.commit(nextPlan.layerPlan)
+        let laterTimeline: [SceneDynamicTarget:SceneDynamicValue] = mode == "timeline" ? [target:.vector3(8,9,10)] : [:]
+        let observer = try SceneScriptValueOwner(domain:domain,source:
+            "export function update(v){return JSON.stringify(shared.initInput ?? null);}",
+            target:.text(layerID:101,field:.content),valueType:.string,effectNames:[],generation:1,budget:.default)
+        let observed = try observer.evaluate(input:.string(""),frame:frame(1),scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
+        guard case let .string(raw) = observed.value else { fatalError("init input observer") }
+        let report: [String:Any] = ["mode":mode,"bindingCount":program.definitions.count,
+            "initialFailures":initial.failures.count,"firstFailures":first.vector.failures.count,
+            "nextFailures":next.vector.failures.count,"admissionFailures":firstPlan.rejectedOwners.count+nextPlan.rejectedOwners.count,
+            "first":firstValue,"next":vector(runtime.snapshot().authoredLayerValues[target]),
+            "peer":vector(runtime.snapshot().authoredLayerValues[.layer(layerID:103,field:.origin)]),
+            "initInput":try JSONSerialization.jsonObject(with:Data(raw.utf8),options:[.fragmentsAllowed]),
+            "scriptValue":vector(next.vector.values[target]),
+            "followsTimeline":next.vector.timelineInputTargets.contains(target),
+            "timelineAdmission":vector(next.vector.valuesForAdmission(timelineValues:laterTimeline,excluding:[])[target])]
+        program.finalizeLayerMutations(committing:true)
+        return report
+    }
     static func main() throws {
+        if CommandLine.arguments.contains("--passive-transforms") {
+            print(String(decoding:try JSONSerialization.data(withJSONObject:["passiveTransforms":
+                try ["init-order","late-main","angle-write","angle-bad","timer","timeline"].map { try passiveTransform($0) }],options:[.sortedKeys]),as:UTF8.self));return
+        }
         print(String(decoding:try JSONSerialization.data(withJSONObject:[
             "authored":[sortAndField("thisScene.sortLayer(thisLayer,0);thisLayer.alpha=0.5"),
                 sortAndField("thisLayer.alpha=0.5;thisScene.sortLayer(thisLayer,0)"),
                 sortAndField("thisScene.sortLayer(thisScene.getLayer('B'),1-1);thisLayer.alpha=0.5")],
+            "passiveTransforms":try ["init-order","late-main","angle-write","angle-bad","timer","timeline"].map { try passiveTransform($0) },
+            "transformCadence":try ["base","getter","media","init","laterReturn","laterSetter","throw","badReturn"].map { try transformCadence($0) }
+                + [transformCadence("base",renamed:true)],
             "sortOnly":sortAndField("thisScene.sortLayer(thisLayer,0)"),
             "alphaOnly":sortAndField("thisLayer.alpha=0.5"),
             "creates":[twoCreates(false,"models/order.json","newLayer"),twoCreates(false,"models/renamed.json","renamedCopy")],
@@ -505,6 +669,75 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertIs(result["alpha"], True)
             self.assertEqual(result["failures"], 0)
             self.assertEqual(result["mutationCount"], 1)
+
+    def test_current_transform_input_reaches_shared_projection_and_ring(self) -> None:
+        for row in self.result["transformCadence"]:
+            if row["mode"] not in ("base", "getter", "media", "init"):
+                continue
+            with self.subTest(mode=row["mode"], renamed=row["renamed"]):
+                self.assertEqual(row["bindingCount"], 8)
+                self.assertEqual(row["programFailures"], 0)
+                self.assertEqual(row["admissionFailures"], 0)
+                self.assertEqual(row["shared"]["origin"], {"x": 4, "y": 5, "z": 6})
+                self.assertEqual(row["shared"]["scale"], {"x": 2, "y": 3, "z": 4})
+                for axis, expected in zip(("x", "y", "z"), (10, 20, 30)):
+                    self.assertAlmostEqual(row["shared"]["angles"][axis], expected, places=12)
+                for part in ("body", "ring"):
+                    self.assertEqual(row[part + "Origin"], [4, 5, 6])
+                    self.assertEqual(row[part + "Scale"], [2, 3, 4])
+                    for actual, expected in zip(row[part + "Angles"],
+                                                [0.17453292519943295, 0.3490658503988659, 0.5235987755982988]):
+                        self.assertAlmostEqual(actual, expected, places=12)
+                self.assertIs(row["transformValuesRemain"], False)
+                self.assertEqual(row["peerOrigin"], [9, 8, 7])
+
+    def test_later_transform_return_and_setter_keep_real_callback_order(self) -> None:
+        for row in self.result["transformCadence"]:
+            if row["mode"] not in ("laterReturn", "laterSetter"):
+                continue
+            with self.subTest(mode=row["mode"]):
+                self.assertEqual(row["bodyOrigin"], [7, 8, 9] if row["mode"] == "laterReturn" else [11, 12, 13])
+                self.assertEqual(row["ringOrigin"], [4, 5, 6])
+                self.assertEqual(row["shared"]["origin"], {"x": 4, "y": 5, "z": 6})
+                self.assertEqual(row["programFailures"], 0)
+                self.assertEqual(row["admissionFailures"], 0)
+                self.assertEqual(row["peerOrigin"], [9, 8, 7])
+
+    def test_failed_transform_owner_does_not_feed_followers_or_healthy_peer(self) -> None:
+        for row in self.result["transformCadence"]:
+            if row["mode"] not in ("throw", "badReturn"):
+                continue
+            with self.subTest(mode=row["mode"]):
+                self.assertEqual(row["programFailures"], 1)
+                self.assertIs(row["mainRejected"], True)
+                self.assertEqual(row["admissionFailures"], 0)
+                self.assertEqual(row["shared"]["origin"], {"x": 0, "y": 0, "z": 0})
+                self.assertEqual(row["shared"]["scale"], {"x": 1, "y": 1, "z": 1})
+                self.assertEqual(row["shared"]["angles"], {"x": 0, "y": 0, "z": 0})
+                self.assertEqual(row["peerOrigin"], [9, 8, 7])
+
+    def test_passive_transform_init_timer_and_timeline_keep_one_current_owner(self) -> None:
+        rows = {row["mode"]: row for row in self.result["passiveTransforms"]}
+        for mode, row in rows.items():
+            with self.subTest(mode=mode):
+                self.assertEqual(row["initialFailures"], 1 if mode == "angle-bad" else 0)
+                self.assertEqual(row["firstFailures"], 1 if mode == "angle-bad" else 0)
+                self.assertEqual(row["nextFailures"], 1 if mode == "angle-bad" else 0)
+                self.assertEqual(row["admissionFailures"], 0)
+                self.assertEqual(row["peer"], [9, 8, 7])
+                self.assertIs(row["followsTimeline"], mode == "timeline")
+                if mode != "timeline":
+                    self.assertIsNone(row["scriptValue"])
+        self.assertEqual(rows["init-order"]["initInput"], {"x": 4, "y": 5, "z": 6})
+        self.assertEqual(rows["init-order"]["next"], [4, 5, 6])
+        self.assertEqual(rows["late-main"]["first"], [8, 9, 10])
+        self.assertEqual(rows["late-main"]["next"], [8, 9, 10])
+        self.assertEqual(rows["timer"]["next"], [6, 7, 8])
+        self.assertEqual(rows["timeline"]["scriptValue"], [5, 6, 7])
+        self.assertEqual(rows["timeline"]["timelineAdmission"], [8, 9, 10])
+        for actual, expected in zip(rows["angle-write"]["next"],
+                [0.17453292519943295, 0.3490658503988659, 0.5235987755982988]):
+            self.assertAlmostEqual(actual, expected, places=12)
 
     def test_later_callback_creation_preserves_earlier_shifted_layer_order(self) -> None:
         for result in self.result["creates"]:

@@ -828,6 +828,23 @@ bool mwx_scene_quickjs_assign_script_properties(
 
 
 // Internal layer responsibilities share the existing Domain/Owner state and ABI.
+typedef struct MWXSceneQuickJSLayerValueReadScope {
+    size_t slot;
+    size_t original_count;
+    uint32_t field;
+    uint32_t original_fields;
+    bool original_visible;
+    double original_vector[3];
+} MWXSceneQuickJSLayerValueReadScope;
+
+MWXSceneQuickJSResult mwx_scene_quickjs_advance_layer_value_input(
+    MWXSceneQuickJSOwner *, MWXSceneQuickJSLayerValueReadScope *,
+    double *, const double *, char *, size_t
+);
+void mwx_scene_quickjs_restore_layer_value_read_scope(
+    MWXSceneQuickJSOwner *, const MWXSceneQuickJSLayerValueReadScope *
+);
+
 void *mwx_scene_quickjs_layer_grow_journal_buffer(
     void *buffer, size_t *capacity, size_t entry_size
 );

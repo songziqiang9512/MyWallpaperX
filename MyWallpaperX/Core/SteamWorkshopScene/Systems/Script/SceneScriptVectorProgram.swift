@@ -342,6 +342,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         userPropertiesJSON: String? = nil,
         priorVisibilityValues: [SceneDynamicTarget: Bool] = [:]
     ) -> SceneScriptVectorFrameResult {
+        var currentInputs = inputs
         let observedMediaEvent = observedMediaEvents?.thumbnail ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlaybackEvent = observedMediaEvents?.playback ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedPropertiesEvent = observedMediaEvents?.properties ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimelineEvent = observedMediaEvents?.timeline ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent)
         let userJSON = userPropertiesJSON ?? SceneScriptPropertyInputCodec
             .userPropertiesJSON(
@@ -375,7 +376,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             if retryingUserProperties {
                 guard binding.owner.canRetryUserPropertyCallback(at: propertyRevision) else { continue }
             }
-            guard let input = inputs[target],
+            guard let input = currentInputs[target],
                   input.valueType == binding.definition.valueType,
                   let propertiesJSON = scriptPropertiesJSONCache.value(
                       for: target,
@@ -422,7 +423,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             if changedUserPropertiesJSON == nil,
                pendingPlaybackEvent == nil, pendingMediaEvent == nil,
                pendingPropertiesEvent == nil, pendingTimelineEvent == nil,
-               !binding.owner.requiresFrameEvaluation {
+               !binding.owner.requiresFrameEvaluation && !binding.hasCurrentAnimation {
                 continue
             }
             // Init and callbacks share this evaluation's audio generation.
@@ -807,7 +808,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     cameraCommands: callbackCameraCommands
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
-                values[target] = value
+                let isLayerTransform: Bool = switch target {
+                case .layer(_, .origin), .layer(_, .scale), .layer(_, .angles): true
+                default: false
+                }
+                if !isLayerTransform || (binding.hasCurrentAnimation && evaluation.valueFollowsInput && !initializesValue) { values[target] = value }
+                if targetFilter == nil {
+                    SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(callbackLayerMutations,
+                        into: &currentInputs,
+                        cameraOriginInputLayerID: descriptor.camera.default2DOriginInputLayerID)
+                }
                 if binding.hasCurrentAnimation, evaluation.valueFollowsInput, !initializesValue {
                     timelineInputTargets.insert(target)
                 }
@@ -946,11 +956,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         return encoded
     }
 
-    func invalidate() {
-        bindings.forEach { $0.owner.invalidate() }
-    }
-
-    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { frameLedger.observeMediaEvents(events) }
     /// Retirement is permanent and follows the accepted topology commit.
     func retire(
         layerIDs: Set<Int>,
@@ -971,12 +976,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             disabledTargets: &disabledTargets, retiredTargets: &retiredTargets
         )
     }
-
-    func frameStateSnapshot() -> SceneScriptProgramFrameState { frameLedger.snapshot() }
-    func restoreFrameState(
-        _ state: SceneScriptProgramFrameState,
-        rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
-    ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
     func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { if !retiredTargets.contains($0.0.definition.target) { $0.0.owner.restoreTimerFrame($0.1) } } }

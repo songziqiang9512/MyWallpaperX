@@ -30,6 +30,15 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private(set) var retryUserPropertyValues: [String: SceneUserPropertyValue]?
     private(set) var pendingUserPropertyRecoveryKeys: Set<String> = []
 
+    private var authoredTransformField: UInt32 {
+        switch target {
+        case .layer(_, .origin): SceneScriptLayerMutation.Fields.origin.rawValue
+        case .layer(_, .scale): SceneScriptLayerMutation.Fields.scale.rawValue
+        case .layer(_, .angles): SceneScriptLayerMutation.Fields.angles.rawValue
+        default: 0
+        }
+    }
+
     func noteSystemInputConsumersChanged() {
         domain.systemInputConsumersChanged = true
     }
@@ -221,9 +230,12 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                     }
                 }
             }
-            guard output.allSatisfy(\.isFinite) else {
-                discardLayerMutations()
-                return .failure(.badReturn("invalid initialized vector output"))
+            let transformField = authoredTransformField
+            if result == MWX_SCENE_QUICKJS_OK, didInitialize != 0, transformField != 0 {
+                result = output.withUnsafeMutableBufferPointer { value in
+                    mwx_scene_quickjs_owner_record_transform_return(
+                        handle, transformField, value.baseAddress, &diagnostic, diagnostic.count)
+                }
             }
             publishedValue = runtimeValue(
                 valueType == .vector2
@@ -232,13 +244,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             )
         default:
             return .failure(.invalidArgument("invalid typed initialization input"))
-        }
-        if result != MWX_SCENE_QUICKJS_OK,
-           case .layer(_, .angles) = target,
-           String(cString: diagnostic).contains("invalid Vec3") {
-            // Some authored update callbacks return their text payload while
-            // publishing the angle through thisLayer.angles mutation.
-            result = MWX_SCENE_QUICKJS_OK
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
             discardLayerMutations()
@@ -262,7 +267,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         )
         // A route that ran this `init` ahead of the frame evaluation (cursor)
         // carries its value across, so the first `update` still receives it.
-        if retainsValueForNextUpdate, case let .success(value) = evaluation {
+        if retainsValueForNextUpdate, authoredTransformField == 0,
+           case let .success(value) = evaluation {
             pendingInitializationValue = value.value
         }
         return evaluation.map(Optional.some)
@@ -305,7 +311,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result: MWXSceneQuickJSResult
+        var result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
         var valueFollowsInput = false
         var eventValueProduced: UInt32 = 0
@@ -365,6 +371,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 didInitialize: &didInitialize, diagnostic: &diagnostic
             )
         case .vector2, .vector3:
+            let transformField = authoredTransformField
             let source: [Double]
             switch scriptInput {
             case let .vector2(x, y): source = [x, y]
@@ -378,7 +385,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                         userPropertiesJSON.withCString { userProperties in
                             mwx_scene_quickjs_owner_update_vector(
                                 handle, expectedGeneration, sourceBuffer.baseAddress,
-                                UInt32(source.count), &frameInput,
+                                UInt32(source.count), transformField, &frameInput,
                                 properties, scriptPropertiesJSON.utf8.count,
                                 userProperties, userPropertiesJSON.utf8.count,
                                 outputBuffer.baseAddress,
@@ -388,16 +395,18 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                     }
                 }
             }
-            guard output.allSatisfy(\.isFinite) else {
-                discardLayerMutations()
-                return .failure(.badReturn("non-finite vector output"))
+            valueFollowsInput = !handlesUpdate && !initializesValue && pendingValue == nil && eventValueProduced == 0
+            if result == MWX_SCENE_QUICKJS_OK, transformField != 0, !valueFollowsInput {
+                result = output.withUnsafeMutableBufferPointer { value in
+                    mwx_scene_quickjs_owner_record_transform_return(
+                        handle, transformField, value.baseAddress, &diagnostic, diagnostic.count)
+                }
             }
             publishedValue = runtimeValue(
                 valueType == .vector2
                     ? .vector2(output[0], output[1])
                     : .vector3(output[0], output[1], output[2])
             )
-            valueFollowsInput = !handlesUpdate && !initializesValue && pendingValue == nil && eventValueProduced == 0
         default:
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }

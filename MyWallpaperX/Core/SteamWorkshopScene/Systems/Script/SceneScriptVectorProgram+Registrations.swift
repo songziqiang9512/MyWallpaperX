@@ -1,6 +1,18 @@
 import Foundation
 
 nonisolated extension SceneScriptVectorProgram {
+    func invalidate() {
+        bindings.forEach { $0.owner.invalidate() }
+    }
+
+    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { frameLedger.observeMediaEvents(events) }
+
+    func frameStateSnapshot() -> SceneScriptProgramFrameState { frameLedger.snapshot() }
+    func restoreFrameState(
+        _ state: SceneScriptProgramFrameState,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
+    ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
+
     var hasAudioConsumers: Bool {
         bindings.contains { !disabledTargets.contains($0.definition.target) && $0.owner.hasAudioRegistration }
     }

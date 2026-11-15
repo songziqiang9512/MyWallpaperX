@@ -176,7 +176,7 @@ int mwx_fixture_update_vec3(
         .runtime = 2.0,
     };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_vector(
-        owner, generation, input, 3, &frame,
+        owner, generation, input, 3, 0, &frame,
         script_properties, strlen(script_properties),
         mwx_fixture_user_properties, strlen(mwx_fixture_user_properties),
         output, diagnostic, sizeof(diagnostic)
@@ -211,7 +211,7 @@ int mwx_fixture_update_vec3_diagnostic_contains(
         .runtime = 2.0,
     };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_vector(
-        owner, generation, input, 3, &frame, "", 0, "{}", 2,
+        owner, generation, input, 3, 0, &frame, "", 0, "{}", 2,
         output, diagnostic, sizeof(diagnostic)
     , NULL);
     return mwx_fixture_check(

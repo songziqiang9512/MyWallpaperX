@@ -760,11 +760,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_effectful_bool_with_propert
     size_t diagnostic_capacity
 );
 
+// Uses the configured layer owner and validated raw output of a successful vector value call.
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_record_transform_return(
+    MWXSceneQuickJSOwner *, uint32_t field, double value[3], char *, size_t
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const double *input,
     uint32_t dimensions,
+    uint32_t authored_transform_field,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,

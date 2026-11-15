@@ -624,16 +624,31 @@ extension SceneDesktopWallpaperSession {
             .union(sceneScriptStringResult.failures.keys)
             .union(sceneScriptResult.failures.keys)
             .union(unpreparedParticleVisibilityOwners)
-        // Visibility, instance scalars and explicit emission consume the admitted frame values.
-        // Other authored setters retain their existing next-cadence contract.
+        // Authored transforms and visibility consume the admitted callback order
+        // before the one frame hierarchy is resolved for every surface.
         func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
                                layerPlan: SceneScriptLayerMutationPlan,
                                excluding rejected: Set<SceneDynamicTarget>,
                                timelineValues: [SceneDynamicTarget: SceneDynamicValue])
             -> [SceneDynamicTarget: SceneDynamicValue] {
             var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
-            for mutation in admitted.filter({ !rejected.contains($0.ownerTarget) }).flatMap(\.layerMutations)
+            let layerMutations = admitted.filter({ !rejected.contains($0.ownerTarget) }).flatMap(\.layerMutations)
+            for mutation in layerMutations
                 where !mutation.isDynamic && mutation.kind == .upsert {
+                if mutation.fields.contains(.origin) {
+                    let target = SceneScriptDynamicLayerRuntime.authoredTransformTarget(
+                        layerID: mutation.layerID, field: .origin,
+                        cameraOriginInputLayerID: launchContext.runtimeInput.renderDescriptor.camera.default2DOriginInputLayerID)
+                    values[target] = layerPlan.authoredLayerValues[target]
+                }
+                if mutation.fields.contains(.scale) {
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .scale)
+                    values[target] = layerPlan.authoredLayerValues[target]
+                }
+                if mutation.fields.contains(.angles) {
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .angles)
+                    values[target] = layerPlan.authoredLayerValues[target]
+                }
                 if mutation.fields.contains(.visibility) {
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .visibility)
                     values[target] = layerPlan.authoredLayerValues[target]
@@ -651,8 +666,13 @@ extension SceneDesktopWallpaperSession {
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
             values.merge(sceneScriptResult.valuesForAdmission(
                 timelineValues: timelineValues, excluding: rejected)) { _, current in current }
-            values.merge(sceneScriptVectorResult.valuesForAdmission(
-                timelineValues: timelineValues, excluding: rejected)) { _, current in current }
+            for (target, value) in sceneScriptVectorResult.valuesForAdmission(
+                timelineValues: timelineValues, excluding: rejected) {
+                if sceneScriptVectorResult.timelineInputTargets.contains(target),
+                   case let .layer(_, field) = target,
+                   (field == .origin || field == .scale || field == .angles), values[target] != nil { continue }
+                values[target] = value
+            }
             return values
         }
         var settledTimelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]

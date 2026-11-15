@@ -2,6 +2,25 @@ import Foundation
 
 /// Typed definitions and value projection for the existing topology transaction.
 nonisolated extension SceneScriptDynamicLayerRuntime {
+    static func overlayAuthoredTransforms(
+        _ mutations: [SceneScriptLayerMutation],
+        into values: inout [SceneDynamicTarget: SceneDynamicValue],
+        cameraOriginInputLayerID: Int?
+    ) {
+        for mutation in mutations where !mutation.isDynamic && mutation.kind == .upsert {
+            if mutation.fields.contains(.origin) {
+                values[authoredTransformTarget(layerID: mutation.layerID, field: .origin,
+                    cameraOriginInputLayerID: cameraOriginInputLayerID)] = .vector3(mutation.origin.x, mutation.origin.y, mutation.origin.z)
+            }
+            if mutation.fields.contains(.scale) {
+                values[.layer(layerID: mutation.layerID, field: .scale)] = .vector3(mutation.scale.x, mutation.scale.y, mutation.scale.z)
+            }
+            if mutation.fields.contains(.angles) {
+                values[.layer(layerID: mutation.layerID, field: .angles)] = .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)
+            }
+        }
+    }
+
     static func dynamicValues(
         from mutation: SceneScriptLayerMutation,
         isText: Bool,

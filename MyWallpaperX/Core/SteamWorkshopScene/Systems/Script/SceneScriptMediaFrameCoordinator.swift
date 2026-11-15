@@ -91,13 +91,14 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
         frame: SceneScriptFrameInput, userPropertiesJSON: String,
         audioSpectrum: SceneAudioSpectrumSnapshot
     ) -> (failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure], effects: [SceneScriptOwnerEffects]) {
+        var currentVectorInputs = vectorInputs
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var effects: [SceneScriptOwnerEffects] = []
         for entry in pendingInitializations where entry.owner.needsInitialization {
             let target = entry.registration.target
             let inputs: [SceneDynamicTarget: SceneDynamicValue]
             switch entry.registration.family {
-            case .vector: inputs = vectorInputs
+            case .vector: inputs = currentVectorInputs
             case .string: inputs = stringInputs
             case .scalar: inputs = scalarInputs
             }
@@ -117,6 +118,9 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                         materialFunctionMutations: [], animationMutations: [], layerMutations: [], mediaPlaybackCommands: [])
                     effect.append(value)
                     if !effect.isEmpty { effects.append(effect) }
+                    SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(effect.layerMutations,
+                        into: &currentVectorInputs,
+                        cameraOriginInputLayerID: vectorProgram.descriptor.camera.default2DOriginInputLayerID)
                 }
             case let .failure(failure):
                 failures[target] = failure
@@ -159,6 +163,12 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
         initializationFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:],
         priorOwnerEffects: [SceneScriptOwnerEffects] = []
     ) -> SceneScriptMediaFrameCoordinatorResult {
+        var currentVectorInputs = vectorInputs
+        for effect in priorOwnerEffects {
+            SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(effect.layerMutations,
+                into: &currentVectorInputs,
+                cameraOriginInputLayerID: vectorProgram.descriptor.camera.default2DOriginInputLayerID)
+        }
         var vector = VectorAccumulator()
         var string = StringAccumulator()
         var scalar = ScalarAccumulator()
@@ -200,7 +210,7 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
             switch registration.family {
             case .vector:
                 let frameResult = vectorProgram.evaluate(
-                    inputs: vectorInputs,
+                    inputs: currentVectorInputs,
                     effectivePropertyValues: effectivePropertyValues,
                     frame: frame,
                     propertyRevision: propertyRevision,
@@ -222,6 +232,9 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                 )
                 mediaPlaybackCommands.append(contentsOf: frameResult.mediaPlaybackCommands)
                 vector.merge(frameResult)
+                SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(frameResult.layerMutations,
+                    into: &currentVectorInputs,
+                    cameraOriginInputLayerID: vectorProgram.descriptor.camera.default2DOriginInputLayerID)
             case .string:
                 let frameResult = stringProgram.evaluate(
                     inputs: stringInputs,
@@ -245,6 +258,9 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                     ownedBy: frameResult.ownerEffects
                 )
                 string.merge(frameResult)
+                SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(frameResult.layerMutations,
+                    into: &currentVectorInputs,
+                    cameraOriginInputLayerID: vectorProgram.descriptor.camera.default2DOriginInputLayerID)
             case .scalar:
                 let frameResult = scalarProgram.evaluate(
                     inputs: scalarInputs,
@@ -268,11 +284,14 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                     ownedBy: frameResult.ownerEffects
                 )
                 scalar.merge(frameResult)
+                SceneScriptDynamicLayerRuntime.overlayAuthoredTransforms(frameResult.layerMutations,
+                    into: &currentVectorInputs,
+                    cameraOriginInputLayerID: vectorProgram.descriptor.camera.default2DOriginInputLayerID)
             }
         }
 
         let remainingVector = vectorProgram.evaluate(
-            inputs: vectorInputs,
+            inputs: currentVectorInputs,
             effectivePropertyValues: effectivePropertyValues,
             frame: frame,
             propertyRevision: propertyRevision,

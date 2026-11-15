@@ -5,7 +5,7 @@
 <a id="contract"></a>
 ## 作者合同与运行模型
 
-SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方三列/六色 alpha 探针已验证数值标量的取值行为：仅 Number 生效，字符串 `'0.5'`、`false`、`null`、`[]` 返回均保留 alpha；Number 的 NaN 与 `-Infinity` 渲染不可见（alpha 0），`+Infinity` 与 1.0 不透明（alpha 1））：数值标量只接受 Number；字符串、Bool、`null`、数组/对象（含 Vec3）保留当前值并报 typed bad-return，不做 JS 强转（`[]` 不再变成 0）；`undefined`/无返回保留当前值；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。非有限 Number 只经 SceneScript 来源进入 typed snapshot，渲染 alpha（`SceneDynamicLayerValues`）按上述官方映射；粒子 alpha/rate/count 与亮度等 domain 目标保持严格有限，`thisLayer.alpha` getter/runtime field 仍按有限回退；上一帧值原样供 update；authored/user/Timeline 入口仍严格有限。诊断、布尔及非 alpha 目标为项目合同，官方探针未覆盖。`update` 可选；init-only/休眠沿同一脚本数值域投影，仅导出的 update 逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
+SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。返回值按属性类型校验（本项目合同；官方三列/六色 alpha 探针已验证数值标量的取值行为：仅 Number 生效，字符串 `'0.5'`、`false`、`null`、`[]` 返回均保留 alpha；Number 的 NaN 与 `-Infinity` 渲染不可见（alpha 0），`+Infinity` 与 1.0 不透明（alpha 1））：数值标量只接受 Number；字符串、Bool、`null`、数组/对象（含 Vec3）保留当前值并报 typed bad-return，不做 JS 强转（`[]` 不再变成 0）；`undefined`/无返回保留当前值；布尔属性只接受 Bool，其他返回保留当前值且不报 bad-return。非有限 Number 只经 SceneScript 来源进入 typed snapshot，渲染 alpha（`SceneDynamicLayerValues`）按上述官方映射；粒子 alpha/rate/count 与亮度等 domain 目标保持严格有限，`thisLayer.alpha` getter/runtime field 仍按有限回退；非TRS目标上一帧值原样供 update；authored TRS沿下述当前值交接，authored/user/Timeline 入口仍严格有限。诊断、布尔及非 alpha 目标为项目合同，官方探针未覆盖。`update` 可选；init-only/休眠沿同一脚本数值域投影，仅导出的 update 逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
 
 当前使用真实 QuickJS-NG、模块解析和同一 domain 的 heap；不以源码形状、小解释器或 Swift 字典复制 JS 对象。绑定记录 source、owner、target、作者初值及值类型；模块、shared、闭包和脚本 owner 是不同寿命对象。
 
@@ -48,7 +48,22 @@ Layer `color` setter接受有限三分量原值；[公开颜色教程](https://d
 
 验收核红/白255赋值后的真实文本返回、普通归一值与改名等价表达、authored/dynamic text/image的立即getter及次帧原值、同帧baseline与后续写入、非有限/缺分量/String拒绝和失败owner回滚；极大有限值在现text/image显示消费者中仍须有限；灯的独立raw/非负能量ABI保原局部不可用边界。真实作者按各自显隐和实际raster/末合成验收，不以少一条异常授全部画面、HDR或官方单位parity。
 
-普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
+普通命令在既有 commit/下一 cadence 可见；camera、authored TRS、visibility、particle 的当帧投影各沿已实现消费者，不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
+
+<a id="current-frame-authored-transforms"></a>
+### 作者变换与派生画面的同帧设计
+
+同一次脚本更新的authored origin/scale/angles与派生投影、环或大气须消费同一帧。旧FrameDriver将变换留到下一cadence，Main写变换与shared后，后继投影却已读当前shared；不能以改作者quad投影、父级或材质补偿此错相。
+
+继续沿原回调顺序、owner journal/准入、typed snapshot及唯一world resolver执行。后继变换回调的update(value)应读它开始时的当前值；同一目标的局部TRS getter与该入参一致，pre-script getTransformMatrix/骨骼观察保原阶段。前一回调setter与后一回调主动返回按真实先后写入同一变换职责，同次值回调中新setter仍保原优先规则；不能在末端无条件令setter覆盖后来主动返回，也不能按return value的源码形状识别passthrough。最终准入后的变换进入本帧世界/相机与原渲染消费者，原下一cadence仍保已提交状态；退出变换的额外一帧延迟及其旧冻结入参。不能另加时钟、模型/大气同步缓存、名称派发、shader延时或改作者层级；现pre-script骨骼/getTransformMatrix观察和其它命令的阶段各自保持，不统一改成全部立即可见。
+
+原Coordinator/VectorProgram仅增量折入成功TRS journal，供后继callback的当前入参。有效init/值返回归同owner journal，退出重复返回map和TRS pending初始化值，避免早init盖过晚setter。无新值不伪造setter；passive Timeline仍投影原动画当前值，有当帧已准入TRS写入时以原layerPlan canonical值为准。最终snapshot复用plan已算值，不再次解码journal。首次未声明TRS定义的当帧消费仍归[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，暖态资格不能覆盖它。
+
+原vector C入口只追加已准备target的field选择值，在实际update前消费timer/事件前缀并统一自身getter；Bool读值作用域收敛到LayerValueHost，Core旧副本退出。raw vector返回进入既有journal，angles只沿原bridge转换一次，不做Swift完整mutation镜像。explicit init返回也入journal并推进当前入参，C init getter未接此read scope。其它field、pre-script骨骼/getTransformMatrix及owner寿命保原阶段。不新增持久状态、仲裁表、时钟、图重建或逐回调全journal重扫。
+
+当前callback抛错/bad-return或本地提交失败的写入不折入后继输入；最终沿原owner原子拒绝、依赖拒绝和commit/discard，健康peer及重绘重试保持。前序成功回调输入只是本cadence候选，不新增跨owner回放或全局反事实事务，shared堆副作用也不冒充typed回滚。旧按诊断字符串吞掉angles坏返回的分支退出；真实write-only合法setter由原C入口处理。
+
+验收先保旧源可区分失败：直接变换setter与共享投影同帧、同target回传并发布shared、后来主动返回的先后、同owner多次写入和拒绝反例；覆盖改名与等价表达，不复制调度逻辑进测试。真实Titan及蓝色母体须看过渡序列而非只看HOLD，保稳定帧、独立真实作者与原camera/显隐/owner事务最近门。当前红绿、实际画面和未闭范围只归[模型运行证据](model-runtime-evidence.md#current-authored-transforms)，不外推完整官方同步或全部镜头。
 
 <a id="initialization-current-value"></a>
 初始化与当前值交接：分离调用的 `init` 对本属性的合法 setter 已归一为 typed 值时，下一次值求值/update 中的 `thisLayer.visible` 必须能读到它，不能只有 `update(value)` 的入参保留该值、getter 却退回作者初值。复用原 ValueOwner、pending 初始化值和 owner 读值入口；初始化结果只是读值基线，不再次作为本次 setter 发布。后来的合法 setter 或 update 返回仍可改变初始可见性，不把初始化隐藏钉住，也不补造媒体 STOPPED 事件。

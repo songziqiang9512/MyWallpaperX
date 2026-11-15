@@ -50,6 +50,24 @@
 
 普通Debug25.151s输入稳定、签名及原helpers通过，exec `fbca5138…7256`、dylib `3fcdbcc8…13aa`，metallib与旧App相同。新App同六输入RGBA符合上述类别，首场逐像素等于旧关闭写入场，其余五场逐像素不变。相同作者地球输入5秒终端图斜纹消失，保连续地形/云及暗面城市灯；土星保完整受光球面与星环，独立原3477054430保猫、楼体、月球。各场同capture主目标/seal/CB与GPU完成、零截断并排空。前后自然相位未严格配对，不授原景精确像素差；太阳穿透、全部镜头、第二次标题及366整体官方一致仍开放。必要输入、旧红/新绿、实际图、身份与独审归 `.artifacts/scene-model-translucent-depth-20261115`；独立原作者报告归 `.artifacts/scene-evidence/runs/scene-model-translucent-depth-20261115`。
 
+## 366逐焦点模型核对 <a id="solar-model-views"></a>
+
+作者69个可请求视图包括总览、太阳、8行星、5矮行星、22卫星及32航天器，其中9个航天器没有作者MDL；73个模型对象不是同帧可见数。首15目标（含月球）两相反姿态均有15个实际稳定选帧，绑定当时faf7208/56558eed及metallib17c2ed96；A整轮因8次superseded截图FAIL，B采集PASS，不能将选中成功改记整轮A通过。原图/源身份及实际encoded后继main/seal/GPU摘录归`.artifacts/scene-solar-first15-audit-20261115`两份独立run包；A有独立模型审查，B未授完整独审。四矮行星的当前修正另归[径向证据](#spot-radial-falloff)，不沿用旧黑图授正常。
+
+a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有驱动沿原请求核火卫一/二及木卫一至四的135°/315°相反姿态，原847作者对象、1174非scene条目和project不变；intro/spin关闭且只冻结作者simulation，Date/原runtime继续。两轮采集均PASS，12目标各有strict实际focus/key/transition完成、READY→END HOLD、实际纹理model draw→同request/PID/CB/Surface/main/seal/GPUcompleted/trunc0及排空；四次父route单独收据不冒父模型可见资格。B六体地形/坑纹/裂纹连续，Phobos前景不规则岩体遮住后方巨大Mars；A为薄亮缘或完整遮星夜面，不将暗面判缺图。12原PNG与查看副本逐RGBA相同，独立实际审查f6fce8f3…3852b无新模型缺陷；未改产品、未补构建，不授全表面/全部视角/实际双击或官方逐像素一致。
+
+卫星输入、12原图/原行摘录与独审归`.artifacts/scene-solar-moons-20261115/first6.zip`（15,382,045B，SHA236e0914…6db0），全成员校验后清理两轮运行目录和两个pkg副本；保重建配方与未解决UI最小原图。另见钟和右面板缺片，尚未证明与模型或既有文字排序同因，问题只归[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
+
+## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
+
+按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal增量供后继update入参/自身getter，准入TRS的canonical值进入本帧唯一world snapshot；init/主动返回归原journal，退出重复TRS返回map、pending初始化副本和angles诊断字符串吞错。passive Timeline保原投影，当前真实写入不被它盖回。十产品净+160行，无新owner/持久状态/cache；原Bool read scope收敛复用，不授性能收益。首次未声明TRS定义及C init getter的阶段仍未闭。
+
+当前原生4方法的9回调顺序变体与6个init/timer/Timeline邻例通过，覆盖改名、当前input/getter、后返回/后setter、无update、坏返回/失败peer；旧同输入7项红保留。原20组实际输出严格不变，未将其冒为当前完整18方法重跑；C/Bool/返回诊断/timer最近门保实际原身份。Debug67.578s，十产品/project/锁文件前后相同，签名及原helpers验证通过；exe115ef63a…a2b0、dylibed363a0c…5ba4，metallib仍cd47906e…30b4。四同输入App控制各F77/request1完整到main/seal/GPUcompleted、trunc0并排空，红体与青标记质心距离从359.5–479.54降至0.539–0.542 PNG像素，低于事前1.5门限；绿色peer完整，未改输入/阈值或按相位拟合。
+
+366私有同输入沿原Titan→Iapetus→Uranus母体→Miranda请求，intro/spin关闭、simulation冻结，原Date/runtime与实际transitionDuration=3秒继续；1.5只是脚本默认。低频两轮各5原图、零截图失败、wholePASS及App/input不变。早期请求后+.160/.158s的Titan F100/R3与Uranus F188/R5，3067/3180、1396/2908分别model/material/tail到同main/seal/GPU；后移窗口蓝体在实际+1.104s显著向左上移动并变大、顶部出画幅，可见外弧单一连续，未见旧双弧分离。黄色+.635s已出画幅，不能以draw提交授黄色移动同步。标记文字仍有原cadence延迟，不替代实际storage请求窗；不是密集序列、量速、完整过渡或官方像素对照，也未取得Miranda的5秒HOLD end。
+
+独立原3437487219无覆盖值，当前F165/R1的112/114到同main/seal/GPU完成、trunc0并排空；1280×831原图见连续地表、云、暗面、大气、银河与time/date。必要控制、作者原图/实际行摘录、身份、失败分类及独审归`.artifacts/scene-current-authored-transforms-20261115`，独立原作者报告归`.artifacts/scene-evidence/runs/scene-current-authored-transforms-20261115`。黄色及其它星体的完整移动、余镜头和官方一致仍沿队列继续，不由本批局部通过关闭366。
+
 ## 夜光遮罩的相位供货 <a id="model-mask-phase"></a>
 
 2026-11-14按[共享stage输入设计](render-graph-shader-coverage.md#implicit-fragment-varying)，原canonicalizer用顶点唯一数值型varying的完整类型/固定长度和片元精确函数体自由值引用补声明。顶层类型与局部类型在原binding facts区分，callee、uniform/全局值/函数冲突、显式接口及未知生产者保原结果；两backend共用准备输入，原诊断源码与缓存身份不变。两产品净+40行，新增的双stage词法分析只在冷准备，无新owner、Program、纹理或普通帧工作，不授准备期零成本。

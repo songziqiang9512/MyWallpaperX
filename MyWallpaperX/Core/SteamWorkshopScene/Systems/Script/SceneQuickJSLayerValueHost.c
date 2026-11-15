@@ -8,6 +8,120 @@
 #include <string.h>
 #include <strings.h>
 
+static double *transform_mutation_value(
+    MWXSceneQuickJSAuthoredLayerMutationRecord *mutation, uint32_t field
+) {
+    if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN) return mutation->origin;
+    if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE) return mutation->scale;
+    return mutation->angles;
+}
+
+static const double *transform_layer_value(MWXSceneQuickJSLayerRecord *layer, uint32_t field) {
+    if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN) return layer->current_origin;
+    if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE) return layer->scale;
+    return layer->angles;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_advance_layer_value_input(
+    MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerValueReadScope *scope,
+    double *input, const double *returned_input, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (scope == NULL) return MWX_SCENE_QUICKJS_OK;
+    const uint32_t field = scope->field;
+    const bool visible_field = field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY;
+    const size_t count = visible_field ? 1 : 3;
+    MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+        mwx_scene_quickjs_authored_mutation_for_layer(owner, owner->target_layer_index);
+    double value[3] = {0};
+    if (mutation != NULL && mutation->destroyed && visible_field) value[0] = 0;
+    else if (mutation != NULL && (mutation->fields & field) != 0) {
+        if (visible_field) value[0] = mutation->visible ? 1 : 0;
+        else memcpy(value, transform_mutation_value(mutation, field), sizeof(value));
+    } else if (returned_input != NULL) memcpy(value, returned_input, sizeof(double) * count);
+    else if (!visible_field) memcpy(value, input, sizeof(value));
+    else return MWX_SCENE_QUICKJS_OK;
+
+    MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
+        mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, owner->target_layer_index);
+    MWXSceneQuickJSLayerRecord *layer = &owner->domain->layers[owner->target_layer_index];
+    const bool has_baseline = baseline != NULL && (baseline->fields & field) != 0;
+    const double *current = visible_field ? NULL : has_baseline
+        ? transform_mutation_value(baseline, field) : transform_layer_value(layer, field);
+    const bool changed = visible_field
+        ? (has_baseline ? baseline->visible : layer->visible) != (value[0] != 0)
+        : current[0] != value[0] || current[1] != value[1] || current[2] != value[2];
+    if (changed) {
+        if (baseline == NULL) {
+            if (owner->authored_layer_mutation_baseline_count == owner->authored_layer_mutation_baseline_capacity) {
+                void *buffer = mwx_scene_quickjs_layer_grow_journal_buffer(
+                    owner->authored_layer_mutation_baselines,
+                    &owner->authored_layer_mutation_baseline_capacity,
+                    sizeof(*owner->authored_layer_mutation_baselines));
+                if (buffer == NULL) {
+                    if (diagnostic != NULL && diagnostic_capacity > 0)
+                        snprintf(diagnostic, diagnostic_capacity, "SceneScript value read baseline allocation failed");
+                    return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+                }
+                owner->authored_layer_mutation_baselines = buffer;
+            }
+            scope->slot = owner->authored_layer_mutation_baseline_count++;
+            baseline = &owner->authored_layer_mutation_baselines[scope->slot];
+            *baseline = (MWXSceneQuickJSAuthoredLayerMutationRecord){.layer_index = owner->target_layer_index};
+        } else if (scope->slot == SIZE_MAX) {
+            scope->slot = (size_t)(baseline - owner->authored_layer_mutation_baselines);
+            scope->original_fields = baseline->fields;
+            if (visible_field) scope->original_visible = baseline->visible;
+            else memcpy(scope->original_vector, transform_mutation_value(baseline, field), sizeof(scope->original_vector));
+        }
+        baseline->fields |= field;
+        if (visible_field) baseline->visible = value[0] != 0;
+        else memcpy(transform_mutation_value(baseline, field), value, sizeof(value));
+    }
+    memcpy(input, value, sizeof(double) * count);
+    if (mutation != NULL && !mutation->destroyed && (mutation->fields & field) != 0)
+        mwx_scene_quickjs_consume_authored_mutation_field(owner, mutation, field);
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+void mwx_scene_quickjs_restore_layer_value_read_scope(
+    MWXSceneQuickJSOwner *owner, const MWXSceneQuickJSLayerValueReadScope *scope
+) {
+    if (scope->slot == SIZE_MAX) return;
+    MWXSceneQuickJSAuthoredLayerMutationRecord *baseline = &owner->authored_layer_mutation_baselines[scope->slot];
+    if (scope->slot < scope->original_count) {
+        baseline->fields = scope->original_fields;
+        if (scope->field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY)
+            baseline->visible = scope->original_visible;
+        else memcpy(transform_mutation_value(baseline, scope->field), scope->original_vector, sizeof(scope->original_vector));
+    } else {
+        *baseline = (MWXSceneQuickJSAuthoredLayerMutationRecord){0};
+        owner->authored_layer_mutation_baseline_count = scope->original_count;
+    }
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_record_transform_return(
+    MWXSceneQuickJSOwner *owner, uint32_t field, double value[3],
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+        mwx_scene_quickjs_authored_mutation_for_layer(owner, owner->target_layer_index);
+    if (mutation != NULL && mutation->destroyed) return MWX_SCENE_QUICKJS_OK;
+    // A setter produced by this value callback keeps its original precedence.
+    if (mutation != NULL && (mutation->fields & field) != 0) {
+        memcpy(value, transform_mutation_value(mutation, field), sizeof(double) * 3);
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    mutation = mwx_scene_quickjs_stage_authored_mutation(owner, owner->target_layer_index);
+    if (mutation == NULL) {
+        if (diagnostic != NULL && diagnostic_capacity > 0)
+            snprintf(diagnostic, diagnostic_capacity, "SceneScript transform return journal allocation failed");
+        return owner->layer_mutation_overflow ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    memcpy(transform_mutation_value(mutation, field), value, sizeof(double) * 3);
+    mutation->fields |= field;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 JSValue mwx_scene_quickjs_layer_make_vec3(JSContext *context, MWXSceneQuickJSDomain *domain, const double v[3]) {
     JSValue arguments[3] = {
         JS_NewFloat64(context, v[0]), JS_NewFloat64(context, v[1]),
