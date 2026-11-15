@@ -130,7 +130,7 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 
 typed slot的UV有效性按实际映射判断：现SlotBinding保有限origin/两轴与有限非零行列式，不用归一化面积的任意下限决定播放。4096² atlas中的1² frame两轴为1/4096、面积约5.96e−8，仍是完整一个源像素；阈值1e−7会在共享binding入口因图集分辨率误拒，实际依赖该binding的发布与绘制随之局部失去纹理。同一阈值也在StaticModel颜色/阴影的raw textureFrame入口拒绝整次draw。本批一并退这两条同源面积许可，保原尺寸/用途/纹理兼容及真实零面积/非有限值的拒绝，不改抽样、geometry或物理资源额度。原模型Frame在真正坏raw frame使drawShadow拒绝时撤整map，现失败范围另列队，不借本批宣单caster局部隔离。
 
-原UV数据继续由Loader/同candidate/frame provider传播，现纯数据SceneTextureUVTransform拥有一份有限/非退化谓词，原SlotBinding与模型颜色/阴影入口共用；SlotBinding的private UV/area helpers与模型private isValid同批退出。两入口各自仍可收到raw frame，保各自原检查次数，不新增owner、字段、cache、wrapper或帧内额外运算。当前Loader与MaterialProgram的轴对齐范围保持，旋转/skew另按队列的完整链资格；本修复不据该局部放行宣任意仿射TEX支持。Textures已属原构建语义身份，不新建缓存版本或播放清库。
+原UV数据继续由Loader/同candidate/frame provider传播，现纯数据SceneTextureUVTransform拥有一份有限/非退化谓词，原SlotBinding与模型颜色/阴影入口共用；SlotBinding的private UV/area helpers与模型private isValid同批退出。两入口各自仍可收到raw frame，保各自原检查次数，不新增owner、字段、cache、wrapper或帧内额外运算。本小帧验收当时未包含仿射；当前几何与消费者边界由[完整源帧合同](#material-affine-frames)定义，不能由本节的面积修复单独推导所有输入已获资格。Textures已属原构建语义身份，不新建缓存版本或播放清库。
 
 验收在最近候选/材质门用真实4096² TEX与1² frame经过Loader→frame provider/publication→binding→实际Metal，和独立小图逐像素等值；保相邻正常frame、资源改名、零面积/非有限和健康peer。原模型Frame/Metal门另核相同tiny UV的颜色与三灯shadow、身份frame等值及真实退化拒绝，不能以image通过代替模型。App沿同自有输入做旧新贡献控制并复用有效同身份控制，独立作者保原播放；不以metadata ready代替实际采样，也不授活动作者命中、更多UV形状或性能。 共享小帧与模型颜色/投影已按此闭合，范围见[模型运行证据](model-runtime-evidence.md#small-atlas-frame-uv)。
 
@@ -139,11 +139,24 @@ typed slot的UV有效性按实际映射判断：现SlotBinding保有限origin/�
 
 静态单帧与Catalog动画资产共用原Loader的preparedMaterialFrames源事实：原Admission三态在本文件内携valid([SpriteFrame])/metadataInvalid/unsupported，不新增owner/cache/clock/持久字段。Format container.spriteFrames保持按首mip表归一的原解析事实；Loader一次取首mip与已有embedded尺寸，同域直接复用原frame数组，异域一次比例、逐帧冷投影到实际decoded源并核实际范围。static只接恰一frame，animated接原N frames；makeCandidate退出单帧专属坐标计算，仅构造相同来源/geometry/用途/采样的候选。prepared animated frames由原Definition保存，Provider沿原time/commit-discard只选/搬值，不叠base padding UV，不逐帧解析/投影或以最终缩小后的GPU尺寸作分母。
 
-Reader已在真实字节入口保证imageIndex有效、duration有限非负及六坐标有限；原单image结构令index唯一，Loader不再重复这些检查。原Loader用Float累计duration并据溢出拒绝无实际消费者：原Catalog以Double生成同一durations/total，Reader最多65536帧且各duration为有限Float，正总时长在Double表示域内；0仍由原provider准备按1/60替代。不增新校验/长duration状态或时钟，退该虚假溢出门，以真实长duration两帧的选中/wrap验收；非法非有限/负duration仍由Reader拒。原image/animated/nonvolume/正尺寸、正向axis/atlas范围仍是Loader唯一准备边界，不顺带授仿射或跨image。
+Reader已在真实字节入口保证imageIndex有效、duration有限非负及六坐标有限；原单image结构令index唯一，Loader不再重复这些检查。原Loader用Float累计duration并据溢出拒绝无实际消费者：原Catalog以Double生成同一durations/total，Reader最多65536帧且各duration为有限Float，正总时长在Double表示域内；0仍由原provider准备按1/60替代。不增新校验/长duration状态或时钟，退该虚假溢出门，以真实长duration两帧的选中/wrap验收；非法非有限/负duration仍由Reader拒。原image/animated/nonvolume/正尺寸仍是Loader结构边界；frame几何见下节四角与非退化合同，跨image不扩大。
 
 Catalog退出先materialAtlasAdmission、再loadAnimated重复整帧扫描；原AnimatedLoadOutcome仅新增typed metadata失败分支，Catalog直接保原effectLocalUnavailable分类。结构不支持仍原unavailable；读取revision/取消/资源I/O失败沿原throw或failed传播，不过滤单个坏frame、吞实际读取失败或偷取frame0。实际源中不存在的frame按同一metadata失败局部拒整个asset，保持原时长/索引/健康peer。
 
-验收复用模型静态单帧的原输入/原输出；最近候选源shader门补真正Catalog两frame、mip8×4/decoded4²的straight/PMA与独立crop逐像素、资源改名、duration0/长duration、同域raw/压缩及实际源越界/坏frame/健康peer；原事务/修订门按影响补测。完整App沿已有companion-frame Generic owner显式消费Rotation/Translation，固定两sceneTime，各自产生非恒颜色/alpha图，与同过滤的独立crop严格等值并到同main/seal/GPU；不是metadata ready替代采样。另保独立原作者。此共享准备是模型slot0全迁既有Catalog的前置，当前不宣模型多帧已接、不新建动画owner；其余消费者资格仍逐域保留。
+验收复用模型静态单帧的原输入/原输出；最近候选源shader门补真正Catalog两frame、mip8×4/decoded4²的straight/PMA与独立crop逐像素、资源改名、duration0/长duration、同域raw/压缩及实际源越界/坏frame/健康peer；原事务/修订门按影响补测。完整App沿已有companion-frame Generic owner显式消费Rotation/Translation，固定两sceneTime，各自产生非恒颜色/alpha图，与同过滤的独立crop严格等值并到同main/seal/GPU；不是metadata ready替代采样。另保独立原作者。模型slot0当前沿[统一资产链](advanced-object-coverage.md#model-albedo-frames)，不新建动画owner；其余消费者资格仍逐域保留。
+
+<a id="material-affine-frames"></a>
+### 完整仿射源帧与真实消费者
+
+目标是让合法旋转、镜像和skew frame沿原Loader/Catalog供给世界模型及固定Lit shader，颜色、alpha孔与阴影共享原双轴；同时允许作者Generic shader表达完整矩阵采样。原Loader用正轴许可误拒资源，原LitInput重复限制六坐标；原Generic Derivation也把正轴当assembly许可而无后续数学依赖，若只放宽Loader将把合法ready资源变成invariant整Frame drop，不能留下这个退出半径。
+
+原preparedMaterialFrames保持image/animated/nonvolume结构与embedded源投影，在投影后的实际source域以既有SceneTextureUVTransform有限/非零det谓词及完整四角bounds代替正轴/双端点检查；四角用origin+每轴分量min/max计算，不分配临时数组，保原1e-6边界容差，不clamp坐标。Reader只在字节入口校验raw index/duration/六坐标finite；消费处核投影后的几何，不再重解原字段。不引面积阈值、purpose/path许可、源纹理副本或新帧状态。
+
+Lit TextureInput在原SlotBinding已准备完整双轴后仅保原sampler/format边界，退错位正轴门。Generic两backend按作者raw UV sample，宿主不偷偷应用frame；原UniformEncoder已给sprite完整Rotation4/Translation2以及原physical/mapped Resolution，exact identity也携六坐标。Derivation的正轴检查仅当布尔许可使用，直接退役，不搬到Resolver或新增fallback分类；同guard中publication.isComplete已验证同candidate，activeSlots已证0…7，因此重复SlotBinding重验也退出。身份、用途、发布完整性、sampler、graphInput及其它真实assembly invariant继续各自原合同，不普遍软化invariant。
+
+剩余SourceMaterial/DependencyGeometry实际有矩形或exactscale消费者，原axis限制继续在其消费处；BaseImage sprite走独立specialized loader，不把其健康当本共享链证明，refraction/背景原精确mapping也不放宽。原materialProgramUVTransform改名axisAlignedSourceUVTransform并换两处来源调用，不留兼容alias，避免把局部来源域重新当Generic许可；这三处是职责更名，几何行为不变。无新shader、ABI、PSO、clock、cache或owner。
+
+验收沿原Candidate/Catalog真实TEX单/多帧：90°、mirror、skew、改名及legacy实际源投影，对零det/NaN/第四角越界局部拒绝和健康peer。原PBR固定Lit门核多色MR/A或normal实际采样；真实model对独立像素排列的颜色/孔/投影结果，不以ready/profile代画面。Generic同时验显式companion矩阵采样与故意raw UV的完整atlas控制，证明未自动改坐标、未整Frame drop；原wrong publication/purpose/identity等invariant仍硬失败。另保真实作者回归。无活动作者affine命中，不授所有作者shader自动映射、任意fractional线性footprint隔离或padding等价；达到上述输入/消费者实际像素合同即退出该队列。
 
 <a id="material-atlas-source-frame-evidence"></a>
 当前核对（2026-11-15）：两产品净减16行，Format/Provider/Metal/ABI/clock/cache均未改。真实Catalog源shader门38合同与30采样全过：legacy TEXB0002的mip8×4/PNG4²、实际改名及PNG5×3非二倍比例，straight/PMA各三相位逐像素等独立crop；同域四用途12行保持，真实源越界保整个asset的metadata局部失败，坏duration仍Reader拒。0/1.5Float.max/2Float.max实际像素依次[32,64,128,255]、[255,0,0,255]、首图，generation1/2/3；旧22合同红，完整原生三十行与失效范围单列观察/推断，不把旧bad-source像素未知写成已读。前批模型单帧11份TEX字节/123原payload/23合同和本批old/new均逐值同；原Catalog生命周期门保留22项原行为，退1人工volume私有API断言，新增2合法长周期项后24项通过。首次载体空白语法失败零GPU，以及首次新版旧文案镜像误报均留原报告；文案helper改测实际decodeFailed，不改输入、产品或像素容差。
@@ -345,3 +358,16 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 任意 Shader 方言、所有数组/动态控制流、全部 sampler/provider/颜色组合、LUT 材质 consumer 与完整 HDR/官方像素等价未覆盖。具体未闭项归[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 最近行为入口：[PassEncoder/GPU](../../../script/tests/test_scene_resolved_material_pass_encoder.py)、[copy/history](../../../script/tests/test_scene_material_copy_history_rendering.py)、[准备取消](../../../script/tests/test_scene_source_preparation_cancellation.py)。这些门分别验证其真实输入，不能相互代验全部语言或画面。
+
+<a id="material-affine-frame-evidence"></a>
+### 完整仿射源帧的运行范围
+
+2026-11-15按[完整源帧合同](#material-affine-frames)，Loader对源投影后full basis用原有限/非零det与四角bounds，退正轴许可；Lit及Generic Derivation退无数学需求的轴门，Derivation同guard里publication已涵盖的SlotBinding重复重验退出。Source捕获的轴域helper整体更名、两处调用行为不变，无alias。六产品净−9行，无新shader/ABI/PSO/owner/clock/cache或fallback类型。Generic仍按作者UV采样，宿主只送完整companion，不偷偷改坐标；真正publication/purpose/identity及其它invariant不降级。
+
+真实Candidate/Catalog同36份TEX，新增14个合法single/phase中心观察与8个失败分类（rot/mirror/skew、改名、legacy非等比源投影、共线det/NaN Reader/第四角及实际源越界）全部通过；方向不由1×1中心代证。原Candidate完整字段/旧源帧合同与像素逐值同。固定Lit的37原vectors/67份输入/56保留独立合同及smallAtlas保持，退原skew禁令；8组2×2 mapA/normal的实际RGBA与独立排列纹理严格等值。两backend各6个新增Generic观察完成GPU，显式companion与raw取样符合作者表达；旧组、MSL及schema逐值/逐字同。standalone既有process-private UUID使request/artifact字节跨进程不同，原值与30组差异已保，不宣这些artifact字节复用。
+
+最近原Finalizer同class五方法96.065s通过、源码稳定：保持purpose/semantic/exact/real assembly/mapped-resolution；六个分类断言中五个invariant、一个texture/resourceSnapshotUnresolved，不一概称assembly错误。Native原十方法的before实际旧功能红，after十方法116.201s全过。最初before系统Python3.9不支持原helper zip(strict)、旧program-rejected后附带KeyError及literal half精度过严均原样保留；CPU以既有Python3.12复评、literal沿原1 half-ULP合同，实际affine==independentCrop仍严格相等，未改TEX/UV/原像素oracle或产品。
+
+普通Debug31.689s、六产品/project/锁文件前后稳定，strict deep/原helpers通过；exe ec6f311e…ddb7d、dylib33e5211f…9f5b2，metallib仍9062517f…0864d。完整Generic App两场，每场四effect panel及健康peer，比较显式Rotation/Translation的affine、独立crop、故意不声明companion的raw affine与无frame完整atlas参考。旧独立控制健康、affine为真实entry copy基底[13,29,47]，在预声明[0,128,0]处像素红；新版所有literal颜色/alpha、panel范围与两对完整像素等值通过，raw与crop明显不同。每次4层实际Generic→material/tail/main/seal/GPU完成、零截断并排空。原24组Generic fixture/协议与原测量输出不变；原13组model fixture也不变。模型实际颜色/孔/投影及独立作者归[模型证据](model-runtime-evidence.md#model-affine-frames)，不在此重复。
+
+原生与App输入/红绿/失败/源码及范围、独审归`.artifacts/scene-model-affine-frame-20261115`；作者原报告归`.artifacts/scene-evidence/runs/scene-model-affine-frame-20261115`。没有活动作者affine命中；不授所有shader自动应用frame、任意fractional线性footprint隔离或source padding域扩大。BaseImage独立sprite路径及refraction/exactscale本地合同继续各自原边界。

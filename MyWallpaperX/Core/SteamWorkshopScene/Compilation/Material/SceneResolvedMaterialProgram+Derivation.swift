@@ -388,12 +388,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   slot.resource.publication.isComplete,
                   slot.resource.publication.candidate.sampling
                       .isResolvedForMaterialProgram,
-                  SceneTextureSlotBinding(
-                      slotIndex: index,
-                      candidate: slot.resource.publication.candidate
-                  ) != nil,
-                  slot.resource.publication.candidate
-                      .materialProgramUVTransform() != nil,
                   graphInputSourceFactMatches(slot),
                   let referenceKind = SceneResolvedMaterialProgramIdentity
                       .textureReferenceKind(slot.reference),

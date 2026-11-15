@@ -313,9 +313,20 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
                 report['smallAtlasInputFiles']=[dict(path=relative,bytes=(work/relative).stat().st_size,
                     sha256=hashlib.sha256((work/relative).read_bytes()).hexdigest())
                     for relative in sorted({row['path'] for row in report['smallAtlasFrames']})]
+            report['affineInputFiles']=[dict(path=relative,bytes=(work/relative).stat().st_size,
+                sha256=hashlib.sha256((work/relative).read_bytes()).hexdigest())
+                for relative in sorted({row[key] for row in report['affineFrames'] for key in ('path','referencePath')})]
             print(json.dumps(report,sort_keys=True))
             if destination:(Path(destination)/'gpu-report.json').write_text(json.dumps(report,indent=2))
             self.assertEqual(len(report['vectors']),len(vectors));self.assertTrue(all(report['contracts'].values()),report)
+            self.assertEqual(len(report['affineFrames']),8,report)
+            for row in report['affineFrames']:
+                with self.subTest(kind=row['kind'],name=row['name']):
+                    self.assertEqual(row['status'],'ready',row)
+                    self.assertEqual(row['pixels'],row['referencePixels'],row)
+                    self.assertEqual(len(row['pixels']),16,row)
+                    self.assertTrue(all(math.isfinite(value) for value in row['pixels']),row)
+                    self.assertGreater(len({tuple(row['referencePixels'][i:i+4]) for i in range(0,16,4)}),1,row)
 
 def fixture_emission_rgb(color, *, brightness=1, map_alpha=255, effect_gain=1):
     # run_normal authors materials/albedo.png as opaque (128,128,128).

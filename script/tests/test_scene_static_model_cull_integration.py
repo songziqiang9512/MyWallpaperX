@@ -41,9 +41,12 @@ def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
 
 
-def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None):
+def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
+                    affine_case=None):
     if noise_case is not None:
         texture_case = "crop"
+    if affine_case is not None:
+        texture_case = "crop" if affine_case.endswith("-crop") else "frame"
     entries, parts, cases = {}, [], []
     states = STATES if texture_case is None else (("texture", "nocull"),)
     for column, (state, raw) in enumerate(states):
@@ -85,6 +88,12 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                             ([0, 0, 200, 255], [200, 0, 0, 255],
                              [200, 200, 0, 0], [0, 200, 0, 255]))
                 palette = palettes[frame_phase or 0]
+                if affine_case is not None:
+                    order = (1, 3, 0, 2) if affine_case.startswith("rot90") else (2, 3, 0, 1)
+                    palette = tuple(palettes[0][i] for i in order)
+                    if affine_case == "skew":
+                        palette = ([60, 70, 76, 255], [100, 70, 80, 0],
+                                   [80, 110, 110, 255], [120, 110, 114, 255])
                 if noise_case is not None:
                     palette = ([128, 128, 128, 255],) * 4
                 for i, rgba in enumerate(palette):
@@ -92,7 +101,8 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                     cases.append({"name": f"texel-{i}", "state": state, "reverse": False,
                         "material": material, "colorPoint": [px, py], "shadowPoint": [px - 12, py],
                         "rgba": rgba, "visible": rgba[3] != 0, "shadowed": cast and rgba[3] != 0})
-                crop = b"".join(bytes(palette[(row // 2) * 2 + col // 2])
+                source_palette = palettes[0] if affine_case and texture_case != "crop" else palette
+                crop = b"".join(bytes(source_palette[(row // 2) * 2 + col // 2])
                                  for row in range(4) for col in range(4))
                 width = 4 if texture_case == "crop" else 8
                 pixels = bytearray(crop if texture_case == "crop" else bytes([255, 0, 255, 255]) * 64)
@@ -102,6 +112,13 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
                         pixels[offset:offset + 16] = crop[row * 16:(row + 1) * 16]
                 frames = [] if texture_case == "crop" else [(2, 2, 0 if texture_case == "zero" else 4, 0, 0, 4)]
                 if texture_case == "multi": frames *= 2
+                if affine_case and texture_case != "crop":
+                    frames = [(6, 2, 0, 4, -4, 0) if affine_case.startswith("rot90") else (2, 6, 4, 0, 0, -4)]
+                    if affine_case == "skew":
+                        frames = [(1, 1.5, 4, 0, 2, 4)]
+                        pixels = bytearray(c for py in range(8) for px in range(8)
+                            for c in (20 + px * 20, 30 + py * 20, 40 + (px + 8 * py) * 2,
+                                      0 if (px, py) == (4, 2) else 255))
                 if texture_case == "animated":
                     pixels = bytearray(bytes([255, 0, 255, 255]) * 64)
                     frames = [(0, 0, 4, 0, 0, 4), (4, 4, 4, 0, 0, 4)]
@@ -261,7 +278,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "preregistration.json").write_bytes(encoded({"canvas": CANVAS, "cases": cases,
             "tolerance": TOLERANCE,
             "colorVisibleRGB": ({case["name"]: case["rgba"] for case in cases}
-                if options.get("texture_case") else [0, 200, 0]), "healthyRGB": [0, 0, 255],
+                if options.get("texture_case") or options.get("affine_case") else [0, 200, 0]), "healthyRGB": [0, 0, 255],
             "shadowDarkeningMinimum": 20, "unoccludedReceiverMinimum": 50,
             "oracle": "each z20 quad shadows only its x-12 receiver point; cull closes both color and shadow",
             "evidenceBoundary": "owned static MDL cull cases, no official pixel parity",
@@ -271,7 +288,12 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 "sampling": "nearest-repeat", "physicalProbeRule": "PNG/main center + X0..3 and Y1..3; dark iff (x+y) even",
                 "expectedMinimumDarkBrightChannelGap": 4,
                 "fullImageOracle": "atlas equals independent crop, no snapshot scaling"}}
-               if options.get("noise_case") else {})}))
+               if options.get("noise_case") else {}),
+            **({"affine": {"case": options["affine_case"], "filter": "nearest-clamp",
+                "skewProbeSourceTexels": ([[2, 2], [4, 2], [3, 4], [5, 4]]
+                    if options["affine_case"] == "skew" else None),
+                "scope": "skew literal color/hole/shadow probes only; rot90/mirror compare independent crops"}}
+               if options.get("affine_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -315,7 +337,7 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         self.assertIn("gpuDrained=true", log)
         self.assertNotRegex(log, r"phase=launch-failed|phase=snapshot-(?:failed|rejected)|failure=exception")
         preview = (work / "evidence/scene-preview.log").read_text()
-        if options.get("texture_case") != "animated":
+        if options.get("texture_case") != "animated" and not options.get("affine_case"):
             expected_prepared = "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]"
             self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
@@ -410,6 +432,20 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             name = f"evidence/scene-{phase}-window.png"
             self.assertEqual((self.root / "noise-crop-control" / name).read_bytes(),
                              (self.root / "noise-atlas-frame" / name).read_bytes())
+
+
+    def test_affine_albedo_frames_preserve_color_holes_and_shadow(self):
+        for transform in ("rot90", "mirror"):
+            crop_name, frame_name = f"{transform}-crop", f"{transform}-frame"
+            crop = self.run_case(crop_name, affine_case=crop_name)
+            self.assert_texture_coverage(crop)
+            atlas = self.run_case(frame_name, affine_case=frame_name)
+            self.assert_texture_coverage(atlas)
+            for phase in ("ready", "after"):
+                name = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / crop_name / name).read_bytes(),
+                                 (self.root / frame_name / name).read_bytes())
+        self.assert_texture_coverage(self.run_case("skew-frame", affine_case="skew"))
 
 
 if __name__ == "__main__":

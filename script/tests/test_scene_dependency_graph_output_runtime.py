@@ -324,7 +324,7 @@ struct SceneTextureCandidate {
     // Actual metadata admission is exercised by the native-owner gate below.
     var physicalSize: CGSize { CGSize(width: texture.width, height: texture.height) }
     var mappedSize: CGSize { physicalSize }
-    func materialProgramUVTransform() -> SceneTextureUVTransform? { uvTransform }
+    func axisAlignedSourceUVTransform() -> SceneTextureUVTransform? { uvTransform }
 
     func axisAlignedMappedUVScale(
         expectedPurpose: SceneTexturePurpose

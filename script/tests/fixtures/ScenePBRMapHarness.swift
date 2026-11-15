@@ -41,10 +41,11 @@ import simd
         func render(_ map:Capture.TextureInput,allowed:UInt32=11,required:UInt32=0,material:SIMD2<Float>? = SIMD2(0.2,0.8),
                     emission:SIMD4<Float>? = SIMD4(0.25,0.5,1,2),source:[Float] = [0.5,0.25,0.125,1],
                     intensity:Float=0,light:SIMD3<Float> = SIMD3(0,0,1),normal:SIMD3<Float> = SIMD3(0,0,1),
-                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false,size:Int=1)->[Float] {
+                    tint:SIMD3<Float> = SIMD3(repeating:1),opacity:Float=1,sourceIsStraight:Bool=false,size:Int=1,
+                    normalInput:Capture.TextureInput = .disabled)->[Float] {
             let normalMatrix=simd_float4x4(diagonal:SIMD4(1,1,normal.z,1))
             let packed=Capture.packLights(pointLights:[.init(position:light,color:SIMD3(repeating:1),intensity:intensity,radius:1000)],spotLights:[],ambient:.zero,material:material,view:SIMD4(0,0,1,0),layerModelMatrix:matrix_identity_float4x4,normalModelMatrix:normalMatrix)!
-            let payload=Capture(pipeline:lit,lights:packed,normal:.disabled,materialMap:map,mapAllowedComponents:allowed,mapRequiredComponents:required,emission:emission)!
+            let payload=Capture(pipeline:lit,lights:packed,normal:normalInput,materialMap:map,mapAllowedComponents:allowed,mapRequiredComponents:required,emission:emission)!
             let input=target(source),output=target(size:size),command=queue.makeCommandBuffer()!
             let uniforms=SceneLayerFragmentUniforms(time:0,alpha:opacity,dependencyBlendMode:0,usesDependencyBlend:0,cursorUV:.zero,sourceSampling:SIMD2<UInt32>(0,sourceIsStraight ? 1 : 0),tint:SIMD4(tint,1),textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
             precondition(SceneOffscreenEffectRenderer.captureSource(sourceTexture:input,target:output,sourceUniforms:uniforms,pipeline:base,commandBuffer:command,sourceLighting:payload))
@@ -260,8 +261,61 @@ import simd
         let metadataOnly=SceneTextureCandidate(texture:a.texture,identity:a.candidate.identity,generation:a.candidate.generation,purpose:a.candidate.purpose,content:a.candidate.content,physicalSize:a.candidate.physicalSize,mappedSize:a.candidate.mappedSize,uvTransform:a.candidate.uvTransform,sampling:.init(texFlags:4))
         let changed=SceneTextureProviderPublication(requestIdentity:a.requestIdentity,candidate:metadataOnly,contentGeneration:a.contentGeneration)
         contracts["metadataChangesPublicationAtom"] = !a.isSameAtom(as:changed)
-        let skew=frame(.init(origin:.zero,xAxis:SIMD2(0.5,0.1),yAxis:SIMD2(0,0.5)))
-        contracts["skewRemainsUnsupported"]=Capture.TextureInput.resolve(skew,kind:.materialMap).status == "unsupported"
+        // Literal atlas texel indices are independent of the consumer's affine arithmetic.
+        let affineProfiles:[(String,[Float],[Int])]=[
+            ("rotate",[6.5,0.5,0,4,-4,0],[13,29,11,27]),
+            ("mirror",[6.5,0.5,-4,0,0,4],[13,11,29,27]),
+            ("skew",[0,0.5,4,0,2,4],[9,11,26,28]),
+            ("renamed",[6.5,0.5,-4,0,0,4],[13,11,29,27])]
+        let normalTexels:[[UInt8]]=[[255,128,128,255],[128,255,128,255],[128,128,255,255],[0,128,128,255]]
+        var affineFrames:[[String:Any]]=[]
+        for kind in ["map","normal"] {
+            let grid:(Int)->[UInt8]={ index in
+                kind == "map" ? [0,0,0,UInt8(20+3*(index%8)+24*(index/8))]
+                    : normalTexels[(index%8+2*(index/8))%4]
+            }
+            let pixels=(0..<64).flatMap(grid)
+            for (name,coordinates,indices) in affineProfiles {
+                let path="affine-\(kind)-\(name).tex",referencePath="affine-\(kind)-\(name)-reference.tex"
+                let bytes=tex(pixels,flags:(UInt32(8)<<20)|3,width:8,height:8,frames:[coordinates])
+                let crop=indices.flatMap(grid)
+                try bytes.write(to:work.appendingPathComponent(path))
+                let purpose:SceneTextureLoadPurpose=kind == "map" ? .mask:.normal
+                let reference=load("affine-\(kind)-\(name)-reference",tex(crop,flags:(UInt32(8)<<20)|3,width:2,height:2),purpose:purpose)
+                let referenceInput=Capture.TextureInput.resolve(reference,kind:kind == "map" ? .materialMap:.normal)
+                var actualInput:Capture.TextureInput = .unavailable
+                var row:[String:Any]=["name":name,"kind":kind,"path":path,"referencePath":referencePath,
+                    "texelIndices":indices,"referenceTexels":crop,"status":"load-failed"]
+                if case let .loaded(candidate)=try loader.loadCandidate(from:work.appendingPathComponent(path),purpose:purpose,device:device) {
+                    actualInput = .resolve(candidate,kind:kind == "map" ? .materialMap:.normal)
+                    row["status"]=actualInput.status
+                    let uv=candidate.uvTransform
+                    row["uv"]=[uv.origin.x,uv.origin.y,uv.xAxis.x,uv.xAxis.y,uv.yAxis.x,uv.yAxis.y]
+                }
+                let actual:[Float],expected:[Float]
+                if kind == "map" {
+                    actual=render(actualInput,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:2)
+                    expected=render(referenceInput,allowed:8,required:8,emission:SIMD4(repeating:1),source:[1,1,1,1],size:2)
+                    let literal=indices.flatMap { index -> [Float] in
+                        let alpha=Float(Float16(Float(20+3*(index%8)+24*(index/8))/255))
+                        return [alpha,alpha,alpha,1]
+                    }
+                    row["literal"]=literal
+                    contracts["affineMap\(name)Literal"]=zip(expected,literal).allSatisfy {
+                        abs($0.0-$0.1) <= Float(Float16($0.1).ulp)
+                    }
+                } else {
+                    actual=render(.disabled,emission:nil,source:[0.25,0.5,0.75,1],intensity:0.4,
+                        light:SIMD3(2,0,1),size:2,normalInput:actualInput)
+                    expected=render(.disabled,emission:nil,source:[0.25,0.5,0.75,1],intensity:0.4,
+                        light:SIMD3(2,0,1),size:2,normalInput:referenceInput)
+                }
+                row["pixels"]=actual;row["referencePixels"]=expected
+                contracts["affine\(kind)\(name)ReadyAndPixels"]=actualInput.status == "ready"
+                    && referenceInput.status == "ready" && actual == expected
+                affineFrames.append(row)
+            }
+        }
         let budget=SceneTextureDecodeCacheBudget(maximumBytes:1)
         var uncached:SceneTextureLoader?=SceneTextureLoader(decodeCacheBudget:budget)
         let url=work.appendingPathComponent("valid.tex")
@@ -287,6 +341,6 @@ import simd
         if case let .loaded(candidate)=try retryLoader.loadCandidate(from:url,purpose:.mask,device:device) {
             contracts["budgetReleaseRetriesSource"]=render(.resolve(candidate,kind:.materialMap),intensity:1) != fallback
         } else { contracts["budgetReleaseRetriesSource"]=false }
-        print(String(decoding:try JSONSerialization.data(withJSONObject:["vectors":records,"contracts":contracts,"smallAtlasFrames":smallAtlasFrames],options:[.sortedKeys]),as:UTF8.self))
+        print(String(decoding:try JSONSerialization.data(withJSONObject:["vectors":records,"contracts":contracts,"smallAtlasFrames":smallAtlasFrames,"affineFrames":affineFrames],options:[.sortedKeys]),as:UTF8.self))
     }
 }

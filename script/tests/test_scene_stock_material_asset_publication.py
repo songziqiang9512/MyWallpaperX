@@ -116,7 +116,7 @@ private enum Main {
                 && $0.candidate.physicalSize.height > 0
                 && $0.candidate.mappedSize.width > 0
                 && $0.candidate.mappedSize.height > 0
-                && $0.candidate.materialProgramUVTransform() != nil
+                && $0.candidate.axisAlignedSourceUVTransform() != nil
                 && !$0.candidate.sampling.usesClampBorderFallback
                 && $0.isComplete
         } ?? false

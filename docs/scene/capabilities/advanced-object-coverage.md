@@ -7,7 +7,7 @@
 
 Direct MDL 与 Puppet 共用 typed 资源、canonical world/camera、材质、GeometryProduct、依赖发布及唯一 compositor；不能以图片 atlas quad 代替无法读取的真实 mesh。
 
-Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 part/submesh/material/stream 只在实际 consumer 已接入时执行。
+Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 part/submesh/material/stream 只在实际 consumer 已接入时执行。 资产albedo及固定normal/map沿[完整源帧合同](render-graph-shader-coverage.md#material-affine-frames)消费原双轴；已验真实TEX旋转/镜像的颜色/alpha孔/投影与skew字面采样，范围归[模型证据](model-runtime-evidence.md#model-affine-frames)，不等同所有作者shader自动应用frame。
 
 <a id="model-material-role"></a>
 ### 显式材质引用的准备角色
@@ -21,9 +21,9 @@ MDL附加材料、JSON model.material、粒子准备返回的材料及effect pas
 <a id="model-single-frame-texture"></a>
 ### 静态材质候选的单帧TEX
 
-原 TextureLoader.loadCandidate 对一个物理 image、恰一合法 sprite frame 返回带实际 origin/双轴和 isSpriteSheet 的 typed candidate，保 physical/mapped、revision、purpose、sampling/format；多帧不偷偷取 frame0。无帧和单帧都沿[共享源帧准备](render-graph-shader-coverage.md#material-atlas-source-frames)，Reader 在字节入口校验，异域只投影一次，时长沿原 Double 合同。正向 axis、实际源范围、非 volume 与各消费者几何合同仍各自成立。
+原 TextureLoader.loadCandidate 对一个物理 image、恰一合法 sprite frame 返回带实际 origin/双轴和 isSpriteSheet 的 typed candidate，保 physical/mapped、revision、purpose、sampling/format；多帧不偷偷取 frame0。无帧和单帧都沿[共享源帧准备](render-graph-shader-coverage.md#material-atlas-source-frames)，Reader 在字节入口校验，异域只投影一次，时长沿原 Double 合同。有限非退化双轴、实际源范围、非 volume 与各消费者几何合同仍各自成立。
 
-该静态入口继续供模型 normal/map/gradient/pigment 等现有可选数据图；slot0 albedo 已迁入下节统一资产链。原单帧实际模型颜色/孔/投影与Loader反例范围见[证据](model-runtime-evidence.md#model-single-frame-texture)，不授可选贴图多帧。pigment 像素密度、仿射及线性 atlas 边缘另按队列资格。
+该静态入口继续供模型 normal/map/gradient/pigment 等现有可选数据图；slot0 albedo 已迁入下节统一资产链。原单帧实际模型颜色/孔/投影与Loader反例范围见[证据](model-runtime-evidence.md#model-single-frame-texture)，不授可选贴图多帧。pigment 像素域见[局部寻址](#model-pigment-frame-addressing)，仿射按[完整源帧合同](render-graph-shader-coverage.md#material-affine-frames)；线性 atlas 边缘仍只授已验范围。
 
 <a id="model-albedo-frames"></a>
 ### 模型 albedo 的统一资产供货
@@ -36,7 +36,7 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 视频声明不等于首帧 ready。模型实际资产需求并入原视频独立消费者集合，避免与隐藏 effect 共用时暂停；同 launch 的 albedo 身份不变，冷准备只索引实际视频 albedo 的 layer/asset，逐帧不重扫静态模型 Entry；可见模型的 pending 沿原 InitialVideoPresentation 等首个真实 publication 和 GPU 提交，主 pass 同时保暂停重试，group 输入只阻启动资格，不造 decoder、就绪 owner 或视频扩展名名单。仍消费当前 candidate.content，保原颜色表示；本批不增加模型媒体选择/热换身份能力。
 
-验收复用真实 Catalog/MDL/Frame 门：静态与单帧原输出不变，两帧纹理按原 sceneTime 对照独立裁剪图，颜色、移动透明孔与对应阴影同帧一致；包含改名、缺供局部失败、首 pass rejected/重复材料、取消/早失败/空交接和健康 peer。原 App 保旧像素红例及新两时间裁剪图等值，另用未参与修复的星球作者原包检查实际播放/合成；模型视频只按实际运行覆盖声明，不以静态 TEX 测试授视频解码或官方一致性。达到同链供货与实际像素验收后，队列退出该缺口；其它贴图动画、跨 image、仿射及 noise 像素密度仍分别资格。
+验收复用真实 Catalog/MDL/Frame 门：静态与单帧原输出不变，两帧纹理按原 sceneTime 对照独立裁剪图，颜色、移动透明孔与对应阴影同帧一致；包含改名、缺供局部失败、首 pass rejected/重复材料、取消/早失败/空交接和健康 peer。原 App 保旧像素红例及新两时间裁剪图等值，另用未参与修复的星球作者原包检查实际播放/合成；模型视频只按实际运行覆盖声明，不以静态 TEX 测试授视频解码或官方一致性。达到同链供货与实际像素验收后，队列退出该缺口；其它贴图动画、跨 image 与一般 atlas 线性边缘仍分别资格。
 
 <a id="model-named-albedo"></a>
 模型材质的 named albedo 由原 dependency plan 准备。隐藏 raw source 须独立供货，隐藏 effect 可消费同一计划排在前面的 primary named 输出。模型的有效需求沿准备好的图边激活上游，依序发布当帧纹理，沿现有 pin 交给原 StaticModel draw。缺失、循环、未准备或要求作者位背景的输入按原图合同隔离。模型专用供货层因缺直接上游而旁路失败时，沿原 ticket 结束发布，不能把入口颜色供给模型。退休模型入口对合格 effect 上游的整类拒绝，普通帧沿现有颜色、采样域与纹理生命周期。实际颜色、改名、上游退出和独立作者模型见[验证](model-runtime-evidence.md#nested-model-albedo).

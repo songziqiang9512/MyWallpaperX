@@ -397,7 +397,7 @@ extension SceneDependencyFrameRuntime {
               mapped.height.rounded() == mapped.height,
               mapped.width <= physical.width,
               mapped.height <= physical.height,
-              candidate.materialProgramUVTransform() != nil,
+              candidate.axisAlignedSourceUVTransform() != nil,
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.usage.contains(.shaderRead) else {

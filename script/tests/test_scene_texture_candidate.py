@@ -312,6 +312,10 @@ class SceneTextureCandidateTests(unittest.TestCase):
         self.assertEqual(len(single['embeddedRows']),2,single)
         self.assertTrue(all(single['contracts'].values()),single)
         self.assertTrue(all(catalog['contracts'].values()),catalog)
+        affine=single['affine']
+        self.assertEqual(len(affine['singleRows']),5,affine)
+        self.assertEqual(len(affine['catalogRows']),9,affine)
+        self.assertTrue(all(affine['contracts'].values()),affine)
 
 
 if __name__ == "__main__":

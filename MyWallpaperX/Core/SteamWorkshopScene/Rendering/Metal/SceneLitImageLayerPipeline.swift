@@ -109,8 +109,7 @@ struct SceneBaseMaterialLitCapturePayload {
         static func resolve(_ candidate: SceneTextureCandidate, kind: Kind = .normal) -> Self {
             guard let binding = SceneTextureSlotBinding(slotIndex: kind == .normal ? 1 : 2, candidate: candidate)
             else { return .invalid }
-            guard candidate.materialProgramUVTransform() != nil,
-                  candidate.sampling.isResolvedForMaterialProgram,
+            guard candidate.sampling.isResolvedForMaterialProgram,
                   !candidate.sampling.usesClampBorderFallback else { return .unsupported }
             let encoding: UInt32
             switch binding.pixelFormat {

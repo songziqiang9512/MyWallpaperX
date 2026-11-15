@@ -18,6 +18,7 @@ from script.tests.test_scene_material_texture_transform import (
     SUPPORT,
     SWIFT_SOURCES,
     assert_companion_pixels,
+    assert_affine_pixels,
     assert_companion_rejections,
     assert_coordinate_pixels,
     fixture_environment,
@@ -79,6 +80,7 @@ HARNESS = COORDINATE_HARNESS + r'''
         }
         var result = try runCoordinates(generic: true, frontend: compileFixture)
         result["companions"] = try runCompanions(generic: true, frontend: compileFixture)
+        result["affine"] = try runAffine(generic: true, frontend: compileFixture)
         result["artifacts"] = artifacts
         result["compiler"] = "SceneGenericShaderCompiler.compile"
         FileHandle.standardOutput.write(
@@ -137,7 +139,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
     def test_actual_swift_compiler_artifact_preserves_authored_coordinates_on_gpu(self) -> None:
         assert_coordinate_pixels(self, self.result, "genericCompilerArtifact")
         self.assertEqual(self.result["compiler"], "SceneGenericShaderCompiler.compile")
-        all_fixtures = self.result["fixtures"] | self.result["companions"]["fixtures"]
+        all_fixtures = self.result["fixtures"] | self.result["companions"]["fixtures"] | self.result["affine"]["fixtures"]
         self.assertEqual(set(self.result["artifacts"]), set(all_fixtures))
         for name, artifact in self.result["artifacts"].items():
             with self.subTest(fixture=name):
@@ -150,6 +152,9 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
 
     def test_compiled_companion_shape_binding_and_program_boundaries_fail_closed(self) -> None:
         assert_companion_rejections(self, self.result)
+
+    def test_actual_compiler_affine_companions_and_raw_coordinates_on_gpu(self) -> None:
+        assert_affine_pixels(self, self.result, "genericCompilerArtifact")
 
 
 if __name__ == "__main__":

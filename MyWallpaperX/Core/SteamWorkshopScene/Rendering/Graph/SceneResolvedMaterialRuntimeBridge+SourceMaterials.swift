@@ -123,7 +123,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                 continue // Its source exists only at the authored layer-loop boundary.
             }
             guard let sourceCandidate,
-                  sourceCandidate.materialProgramUVTransform() != nil,
+                  sourceCandidate.axisAlignedSourceUVTransform() != nil,
                   !sourceCandidate.isSpriteSheet,
                   let target = pool.reserveSourceMaterial(layerID: layerID,
                     width: sourceCandidate.texture.width, height: sourceCandidate.texture.height,

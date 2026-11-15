@@ -28,6 +28,7 @@ from .fixtures.scene_timeline_combined_cases import linked_effect_constants
 CANVAS = (256, 192)
 COLORS = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0))
 SENTINEL = (32, 96, 160)
+SOURCE_FRAME_CASES = ("embedded-source-frame-", "affine-source-frame-")
 PANELS = ((11, 64, 48, False), (12, 192, 48, True),
           (21, 64, 100, False), (22, 192, 100, True),
           (31, 128, 152, True))
@@ -133,9 +134,15 @@ def solid_texture(rgb):
 
 
 def embedded_source_fixture(case):
-    frame = int(case.rsplit("-", 1)[1])
+    affine = case.startswith("affine-source-frame-")
+    frame = 0 if affine else int(case.rsplit("-", 1)[1])
     frames = (((255, 0, 0, 255), (0, 255, 0, 128), (0, 0, 255, 255), (255, 255, 0, 128)),
               ((0, 0, 255, 128), (255, 255, 0, 255), (255, 0, 255, 255), (0, 255, 255, 128)))
+    axes = (2, 0, 0, 2, -2, 0) if case.endswith("rot90") else (0, 2, 2, 0, 0, -2)
+    selected = frames[frame]
+    if affine:
+        order = (1, 3, 0, 2) if case.endswith("rot90") else (2, 3, 0, 1)
+        selected = tuple(frames[0][i] for i in order)
 
     def embedded(width, height, pixels, animated=False):
         def chunk(name, data):
@@ -143,25 +150,28 @@ def embedded_source_fixture(case):
         png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
                + chunk(b"IDAT", zlib.compress(b"".join(b"\0" + bytes(pixels[y * width * 4:(y + 1) * width * 4])
                    for y in range(height)))) + chunk(b"IEND", b""))
-        table_width = width * 2 if animated else width
+        table_width = width * 2 if animated and not affine else width
         result = (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 7 if animated else 3,
                   table_width, height, width, height, 0) + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
                   + struct.pack("<5I", table_width, height, 0, 0, len(png)) + png)
         if animated:
-            result += b"TEXS0002\0" + struct.pack("<I", 2)
-            for x, duration in ((0, 2.0), (2, 3600.0)):
-                result += struct.pack("<if6f", 0, duration, x, 0, 2, 0, 0, 2)
+            source_frames = [axes] if affine else [(0, 0, 2, 0, 0, 2), (2, 0, 2, 0, 0, 2)]
+            result += b"TEXS0002\0" + struct.pack("<I", len(source_frames))
+            for index, source_frame in enumerate(source_frames):
+                result += struct.pack("<if6f", 0, 2.0 if index == 0 else 3600.0, *source_frame)
         return result
 
     pixels = [component for y in range(4) for x in range(4)
               for component in (frames[x // 2][y * 2 + x % 2] if y < 2 else (*SENTINEL, 255))]
-    crop = [component for pixel in frames[frame] for component in pixel]
+    crop = [component for pixel in selected for component in pixel]
     panels = [(61, 64, 48, False), (62, 192, 48, False), (71, 64, 100, False),
               (72, 192, 100, False), (81, 128, 152, False)]
     entries = {"materials/embedded-atlas.tex": embedded(4, 4, pixels, True),
                "materials/independent-crop.tex": embedded(2, 2, crop),
                "materials/solid.tex": solid_texture((13, 29, 47)),
                "materials/peer.tex": solid_texture((0, 255, 0))}
+    if affine:
+        entries["materials/full-atlas-reference.tex"] = embedded(4, 4, pixels)
     objects = []
     for layer, x, y, _ in panels:
         peer = layer == 81
@@ -171,10 +181,13 @@ def embedded_source_fixture(case):
             mode = "straight" if layer < 70 else "pma"
             atlas = layer % 10 == 1
             texture = "materials/embedded-atlas.tex" if atlas else "materials/independent-crop.tex"
+            if affine and layer >= 70:
+                texture = "materials/embedded-atlas.tex" if atlas else "materials/full-atlas-reference.tex"
+            mapping = "atlas" if atlas and not (affine and layer >= 70) else "crop"
             material = f"materials/source-frame-{layer}.json"
             effect = f"effects/source-frame-{layer}/effect.json"
             entries[effect] = encoded({"passes": [{"material": material}]})
-            entries[material] = encoded({"passes": [{"shader": f"source_frame_{mode}_{'atlas' if atlas else 'crop'}", "textures": [None, texture],
+            entries[material] = encoded({"passes": [{"shader": f"source_frame_{mode}_{mapping}", "textures": [None, texture],
                 "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
             obj["effects"] = [{"id": layer * 10, "file": effect, "visible": True}]
         objects.append(obj)
@@ -194,9 +207,12 @@ def embedded_source_fixture(case):
                 + uv + b");}\n")
     entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
         "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
-    palette = tuple(tuple(round(c * a / 255) for c in (r, g, b)) for r, g, b, a in frames[frame])
+    palette = tuple(tuple(round(c * a / 255) for c in (r, g, b)) for r, g, b, a in selected)
+    full_palette = tuple(tuple(round(c * pixels[i + 3] / 255) for c in pixels[i:i + 3])
+                         for i in range(0, len(pixels), 4))
     return {"type": "scene", "file": "scene.json"}, entries, panels, {
-        str(layer): ((0, 255, 0),) * 4 if layer == 81 else palette for layer, *_ in panels}
+        str(layer): ((0, 255, 0),) * 4 if layer == 81 else full_palette if affine and layer >= 70 else palette
+        for layer, *_ in panels}
 
 
 def data_layout_fixture(case):
@@ -371,7 +387,7 @@ def property_layout_fixture(case):
 
 
 def case_fixture(case):
-    if case.startswith("embedded-source-frame-"):
+    if case.startswith(SOURCE_FRAME_CASES):
         return embedded_source_fixture(case)[:3]
     if case.startswith("property-layout"):
         return property_layout_fixture(case)[:3]
@@ -471,11 +487,16 @@ def preregistration(case="padding"):
                        "channelTolerance": 3, "outsideBoundaryOffsetCanvas": 2,
                        "outsideRGB": [0, 0, 0], "sentinelRGB": SENTINEL},
             "timingLimit": "ready/after PNG plus completed later frames; no strict adjacent-frame pixel binding"}
-    if case.startswith("embedded-source-frame-"):
+    if case.startswith(SOURCE_FRAME_CASES):
+        affine = case.startswith("affine-source-frame-")
         protocol.update(paletteByLayer=embedded_source_fixture(case)[3],
             fixedSceneTime=.25 if case.endswith("-0") else 2.25,
-            sourceFrame={"container": "TEXB0002", "table": [8, 4], "decoded": [4, 4],
-                         "framePixels": [int(case[-1]) * 2, 0, 2, 2], "filter": "nearest-clamp"})
+            sourceFrame={"container": "TEXB0002", "table": [4 if affine else 8, 4], "decoded": [4, 4],
+                         "framePixels": (([2, 0, 0, 2, -2, 0] if case.endswith("rot90") else [0, 2, 2, 0, 0, -2])
+                             if affine else [int(case[-1]) * 2, 0, 2, 2]), "filter": "nearest-clamp"})
+        if affine:
+            protocol["genericMapping"] = {"61": "explicit Rotation/Translation", "62": "independent crop",
+                "71": "raw UV, companions undeclared", "72": "same full atlas without frame", "81": "peer"}
         for panel in protocol["panels"]:
             panel["quadrantRGB"] = protocol["paletteByLayer"][str(panel["id"])]
     if case.startswith("data-layout"):
@@ -515,11 +536,13 @@ def measure_capture(path, panel_specs=PANELS, second_frame=False, palettes=None)
         quadrants = []
         palette = palettes[str(layer)] if palettes is not None else (
             SECOND_COLORS if second_frame and layer in (11, 12, 31) else COLORS)
+        grid = math.isqrt(len(palette))
+        cell_width, cell_height = 64 / grid, 32 / grid
         for q, color in enumerate(palette):
             expected = (color[1], color[2], color[0]) if effect else color
-            left, top = cx - 32 + (q % 2) * 32, cy - 16 + (q // 2) * 16
+            left, top = cx - 32 + (q % grid) * cell_width, cy - 16 + (q // grid) * cell_height
             x0, y0 = point(left + 3, top + 3)
-            x1, y1 = point(left + 29, top + 13)
+            x1, y1 = point(left + cell_width - 3, top + cell_height - 3)
             if not (0 <= x0 < x1 < width and 0 <= y0 < y1 < height):
                 raise AssertionError("preregistered quadrant cropped")
             correct = total = 0
@@ -528,7 +551,7 @@ def measure_capture(path, panel_specs=PANELS, second_frame=False, palettes=None)
                     rgb = rows[y][x * 3:x * 3 + 3]
                     correct += all(abs(a - b) <= 3 for a, b in zip(rgb, expected))
                     total += 1
-            quadrants.append({"expected": expected, "center": pixel(left + 16, top + 8),
+            quadrants.append({"expected": expected, "center": pixel(left + cell_width / 2, top + cell_height / 2),
                               "correct": correct, "total": total})
         outside = [pixel(cx + dx, cy + dy) for dx, dy in ((-34, 0), (34, 0), (0, -18), (0, 18))]
         panels.append({"id": layer, "quadrants": quadrants, "outside": outside})
@@ -763,8 +786,19 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertGreaterEqual(len(captures), 2)
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
+                for name, measurement in measurements.items():
+                    checked_panels = measurement["panels"]
+                    if case.startswith(SOURCE_FRAME_CASES):
+                        checked_panels = sorted(checked_panels, key=lambda p: p["id"] in (61, 71))
+                    for panel in checked_panels:
+                        for quadrant in panel["quadrants"]:
+                            self.assertGreater(quadrant["total"], 0)
+                            self.assertGreaterEqual(quadrant["correct"] / quadrant["total"], .99,
+                                                    (name, panel["id"], quadrant))
+                        for outside in panel["outside"]:
+                            self.assertTrue(all(channel <= 3 for channel in outside), (name, panel["id"], outside))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
-                if case.startswith("embedded-source-frame-"):
+                if case.startswith(SOURCE_FRAME_CASES):
                     effect_layers = (61, 62, 71, 72)
                 if case.startswith(("data-layout", "timeline-layout", "property-layout")):
                     effect_layers = ()
@@ -816,7 +850,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                                              rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
                 elif case.startswith("property-layout"):
                     self.check_property_case(protocol, log, observations, captures, evidence)
-                elif case.startswith("embedded-source-frame-"):
+                elif case.startswith(SOURCE_FRAME_CASES):
                     self.assertEqual(observations["parse_errors"], 0)
                     for capture in captures:
                         event = self.capture_event(capture, log, observations)
@@ -846,18 +880,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                     ready = measurements["scene-ready-window.png"]["size"]
                     self.assertEqual(measurements["scene-resize-00-window.png"]["size"], [n // 2 for n in ready])
                     self.assertEqual(measurements["scene-resize-01-window.png"]["size"], ready)
-                for name, measurement in measurements.items():
-                    checked_panels = measurement["panels"]
-                    if case.startswith("embedded-source-frame-"):
-                        checked_panels = sorted(checked_panels, key=lambda p: p["id"] in (61, 71))
-                    for panel in checked_panels:
-                        for quadrant in panel["quadrants"]:
-                            self.assertGreater(quadrant["total"], 0)
-                            self.assertGreaterEqual(quadrant["correct"] / quadrant["total"], .99,
-                                                    (name, panel["id"], quadrant))
-                        for outside in panel["outside"]:
-                            self.assertTrue(all(channel <= 3 for channel in outside), (name, panel["id"], outside))
-                if case.startswith("embedded-source-frame-"):
+                if case.startswith(SOURCE_FRAME_CASES):
                     for capture in captures:
                         width, height, pixels = png_rgb_pixels(capture)
                         scale = max(width / CANVAS[0], height / CANVAS[1])
@@ -873,7 +896,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             finally:
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                     saved = Path(destination) / self._testMethodName
-                    if case.startswith(("data-layout", "timeline-layout", "property-layout", "embedded-source-frame-")):
+                    if case.startswith(("data-layout", "timeline-layout", "property-layout") + SOURCE_FRAME_CASES):
                         saved /= case
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
@@ -914,6 +937,10 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
         for frame in (0, 1):
             with self.subTest(frame=frame):
                 self.run_case(f"embedded-source-frame-{frame}")
+
+    def test_affine_companions_and_raw_atlas_remain_distinct(self):
+        for transform in ("rot90", "mirror"):
+            self.run_case(f"affine-source-frame-{transform}")
 
     def test_companion_wrong_type_default_cannot_bypass_host_abi(self):
         self.run_case("invalid-companion-type")

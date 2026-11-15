@@ -216,10 +216,9 @@ nonisolated struct SceneTextureCandidate {
 
     var pixelFormat: MTLPixelFormat { texture.pixelFormat }
 
-    /// MaterialProgram samples only finite, positive, axis-aligned regions of
-    /// the published 2D texture. Identity and padded static mappings use the
-    /// same contract as animated atlas frames.
-    func materialProgramUVTransform() -> SceneTextureUVTransform? {
+    /// Rectangular source producers retain their positive, axis-aligned domain;
+    /// shader-owned sampling consumes the candidate's complete UV instead.
+    func axisAlignedSourceUVTransform() -> SceneTextureUVTransform? {
         let value = uvTransform
         let tolerance: Float = 0.000_001
         guard finite(value.origin), finite(value.xAxis), finite(value.yAxis),

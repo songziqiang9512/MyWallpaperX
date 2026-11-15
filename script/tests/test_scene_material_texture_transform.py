@@ -511,6 +511,54 @@ private func runCompanions(
     return result
 }
 
+private func runAffine(
+    generic: Bool, frontend: (CoordinateFixture) throws -> SceneAuthoredShaderProgram
+) throws -> [String: Any] {
+    guard let device=MTLCreateSystemDefaultDevice(),let queue=device.makeCommandQueue(),
+          let encoder=SceneResolvedMaterialPassEncoder(device:device) else {
+        return ["metalAvailable":false]
+    }
+    let source=texture(device)
+    let samples=[fixture("affine-raw",output:"gl_FragColor = texSample2D(g_Texture1, \(point));"),
+        fixture("affine-companion",output:"""
+            vec2 region = g_Texture1Translation
+                + \(point).x * g_Texture1Rotation.xy
+                + \(point).y * g_Texture1Rotation.zw;
+            vec4 sampled = texSample2D(g_Texture1, region);
+            gl_FragColor = vec4(sampled.rgb, 1.0);
+            """,helper:"uniform vec4 g_Texture1Rotation;\nuniform vec2 g_Texture1Translation;")]
+    let profiles:[(String,SceneTextureUVTransform)]=[
+        ("rotate",.init(origin:SIMD2(0.75,0.125),xAxis:SIMD2(0,0.5),yAxis:SIMD2(-0.5,0))),
+        ("mirror",.init(origin:SIMD2(0.75,0.125),xAxis:SIMD2(-0.5,0),yAxis:SIMD2(0,0.5))),
+        ("skew",.init(origin:SIMD2(0.125,0.125),xAxis:SIMD2(0.375,0.125),yAxis:SIMD2(0.125,0.375)))]
+    var results:[String:Any]=[:]
+    for sample in samples {
+        let compiled=try frontend(sample);var observations:[[String:Any]]=[];var previous:Program?
+        for (index,profile) in profiles.enumerated() {
+            let generation=UInt64(index+1)
+            let selected=selectedSlot(index:sample.slot,texture:source,transform:profile.1,
+                generation:generation,isSpriteSheet:true)
+            var row:[String:Any]=["profile":profile.0,"status":"pending","generation":generation]
+            if let input=assembly(fixture:sample,frontend:compiled,selected:selected,
+                    generation:generation,outputStorage:.preservedRGBAUnorm,
+                    failure:{ status,field in row["status"]=status;row["field"]=field }) {
+                if let program=Program.assemblePrepared(input.frame,prepared:input.prepared,
+                    routeDecision:.init(profile:"ordinary-shader",state:generic ? "generic":"bounded",fallbackOwner:"none")) {
+                    row.merge(try render(program,encoder:encoder,queue:queue,device:device)) { _,new in new }
+                    row["status"]="assembled"
+                    row["exactIdentityChanged"]=previous.map{$0.exactIdentity != program.exactIdentity} ?? true
+                    row["semanticIdentityStable"]=previous.map{$0.semanticIdentity == program.semanticIdentity} ?? true
+                    previous=program
+                } else { row["status"]="program-rejected" }
+            }
+            observations.append(row)
+        }
+        results[sample.name]=["backend":String(describing:compiled.backend),"observations":observations,
+            "metalSHA256":SceneGenericShaderProgramArtifact.sha256(Data(compiled.metalSource.utf8))]
+    }
+    return ["metalAvailable":true,"fixtures":results]
+}
+
 private func companionRejections(
     fixture: CoordinateFixture, frontend: SceneAuthoredShaderProgram,
     selected: Program.TextureSlot, generic: Bool
@@ -592,6 +640,7 @@ HARNESS = COORDINATE_HARNESS + r'''
         }
         var result = try runCoordinates(generic: false, frontend: compileFixture)
         result["companions"] = try runCompanions(generic: false, frontend: compileFixture)
+        result["affine"] = try runAffine(generic: false, frontend: compileFixture)
         FileHandle.standardOutput.write(
             try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }
@@ -730,6 +779,26 @@ def assert_companion_pixels(test: unittest.TestCase, result: dict, backend: str)
                              1, fixture)
 
 
+def assert_affine_pixels(test: unittest.TestCase, result: dict, backend: str) -> None:
+    # Fixed nearest texels of the existing authored atlas at the off-center point.
+    expected={'rotate':[100,30,95,255],'mirror':[170,58,172,255],'skew':[58,58,116,255]}
+    fixtures=result['affine']['fixtures']
+    test.assertEqual(set(fixtures),{'affine-raw','affine-companion'},fixtures)
+    for name,fixture in fixtures.items():
+        test.assertEqual(fixture['backend'],backend)
+        test.assertEqual([row['profile'] for row in fixture['observations']],list(expected))
+        for row in fixture['observations']:
+            with test.subTest(fixture=name,profile=row['profile']):
+                test.assertEqual(row['status'],'assembled',row)
+                test.assertTrue(row['completed'],row)
+                test.assertTrue(row['exactIdentityChanged'],row)
+                test.assertTrue(row['semanticIdentityStable'],row)
+                pixel=[30,86,144,255] if name=='affine-raw' else expected[row['profile']]
+                test.assertEqual(row['pixels'],pixel*4,row)
+        if all(row['status']=='assembled' for row in fixture['observations']):
+            test.assertEqual(len({row['pipelineAttempts'] for row in fixture['observations']}),1,fixture)
+
+
 def assert_companion_rejections(test: unittest.TestCase, result: dict) -> None:
     validation = result["companions"]["validation"]
     test.assertEqual(set(validation), {"companion-rotation-xyz", "companion-translation"})
@@ -796,6 +865,9 @@ class SceneMaterialTextureTransformTests(unittest.TestCase):
 
     def test_companion_shape_binding_and_program_boundaries_fail_closed(self) -> None:
         assert_companion_rejections(self, self.result)
+
+    def test_affine_companions_and_unmodified_raw_coordinates_on_gpu(self) -> None:
+        assert_affine_pixels(self, self.result, "boundedSwift")
 
 
 if __name__ == "__main__":

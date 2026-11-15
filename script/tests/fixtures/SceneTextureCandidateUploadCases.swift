@@ -260,8 +260,111 @@ extension Harness {
             } else { rejected = false }
             contracts[name + "Rejected"] = rejected
         }
-        return ["contracts":contracts,"rows":rows,"embeddedRows":embeddedRows,"referencePixel":referencePixel,
+        let affine = try affineFrameCases(device:device,loader:loader,directory:directory,library:library)
+        return ["contracts":contracts,"rows":rows,"embeddedRows":embeddedRows,"referencePixel":referencePixel,"affine":affine,
                 "scope":"Production Loader candidate and source shader frame sampling; no model or normal-lighting claim."]
+    }
+
+    static func affineFrameCases(device: MTLDevice, loader: SceneTextureLoader,
+                                 directory: URL, library: MTLLibrary) throws -> [String:Any] {
+        func write(_ name: String, _ data: Data) throws -> URL {
+            let url=directory.appendingPathComponent(name+".tex");try data.write(to:url)
+            if let evidence=ProcessInfo.processInfo.environment["MWX_TEXTURE_CANDIDATE_EVIDENCE"] {
+                let saved=URL(fileURLWithPath:evidence).appendingPathComponent("single-frame-inputs")
+                try FileManager.default.createDirectory(at:saved,withIntermediateDirectories:true)
+                try FileManager.default.copyItem(at:url,to:saved.appendingPathComponent(url.lastPathComponent))
+            }
+            return url
+        }
+        var pixels:[UInt8]=[]
+        for y in 0..<8 { for x in 0..<8 { pixels += [UInt8(20+3*x),UInt8(30+5*y),UInt8(40+x+7*y),255] } }
+        let coordinates:[[Float]]=[[6.5,0.5,0,4,-4,0],[6.5,0.5,-4,0,0,4],[0.5,0.5,4,0,2,4]]
+        let names=["rotate","mirror","skew"]
+        let expectedUV:[[Float]]=[[0.8125,0.0625,0,0.5,-0.5,0],[0.8125,0.0625,-0.5,0,0,0.5],[0.0625,0.0625,0.5,0,0.25,0.5]]
+        let expectedPixels=[[32,40,58,255],[32,40,58,255],[29,40,57,255]]
+        func sheet(_ frames:[[Float]], embedded:Bool=false) throws -> Data {
+            var data:Data
+            if embedded {
+                let image=try encodedImageData(width:4,height:4,type:"public.png" as CFString,
+                    pixels:Data(Array(repeating:[UInt8(33),66,99,255],count:16).flatMap{$0}))
+                data=embeddedImageTex(textureWidth:8,textureHeight:4,imageWidth:4,imageHeight:4,payload:image,flags:7)
+            } else {
+                data=embeddedImageTex(textureWidth:8,textureHeight:8,imageWidth:8,imageHeight:8,payload:Data(pixels),flags:7)
+            }
+            data.append(Data("TEXS0002\0".utf8));append(UInt32(frames.count),to:&data)
+            for frame in frames { appendSpriteFrame(imageIndex:0,duration:0.25,coordinates:frame,to:&data) }
+            return data
+        }
+        var contracts:[String:Bool]=[:],rows:[[String:Any]]=[]
+        func observe(_ name:String,_ url:URL,_ expected:[Float],_ pixel:[Int],_ extent:Int) throws {
+            var row:[String:Any]=["name":name,"path":url.lastPathComponent,"expectedUV":expected,"expectedPixel":pixel]
+            if case let .loaded(c)=try loader.loadCandidate(from:url,purpose:.straightAlbedo,device:device) {
+                let actual=try renderCandidate(c,library:library,device:device)
+                let uv=[c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]
+                row["status"]="loaded";row["uv"]=uv;row["pixel"]=actual
+                contracts[name]=uv == expected && actual == pixel && c.isSpriteSheet
+                    && c.physicalSize == CGSize(width:extent,height:extent) && c.sampling.rawFlags == 7
+            } else { row["status"]="failed";contracts[name]=false }
+            rows.append(row)
+        }
+        for index in names.indices {
+            let url=try write("affine-single-"+names[index],sheet([coordinates[index]]))
+            try observe(names[index],url,expectedUV[index],expectedPixels[index],8)
+        }
+        let renamed=try write("independent-affine-resource",sheet([coordinates[1]]))
+        try observe("renamed",renamed,expectedUV[1],expectedPixels[1],8)
+        let legacyFrames:[[Float]]=[[3.5,0.5,0,2,-2,0],[3.5,0.5,-2,0,0,2],[0.5,0.5,2,0,1,2]]
+        let legacyUV:[[Float]]=[[0.875,0.125,0,0.5,-0.5,0],[0.875,0.125,-0.5,0,0,0.5],[0.125,0.125,0.5,0,0.25,0.5]]
+        let legacy=try write("affine-single-legacy",sheet([legacyFrames[0]],embedded:true))
+        try observe("legacy",legacy,legacyUV[0],[33,66,99,255],4)
+        let multi=try write("affine-catalog",sheet(coordinates))
+        let multiRename=try write("renamed-affine-catalog",sheet(coordinates))
+        let multiLegacy=try write("affine-catalog-legacy",sheet(legacyFrames,embedded:true))
+        let badFrames:[(String,[Float])]=[("zero-det",[0,0,2,2,4,4]),
+            ("nan",[Float.nan,0,2,0,0,2]),("fourth-corner",[1,1,6,2,2,6])]
+        var negatives:[(String,URL)]=[]
+        for (name,frame) in badFrames {
+            let url=try write("affine-bad-"+name,sheet([frame]));negatives.append((name,url))
+            if case .failed(.decodeFailed)=try loader.loadCandidate(from:url,purpose:.straightAlbedo,device:device) {
+                contracts[name+"SingleRejected"]=true
+            } else { contracts[name+"SingleRejected"]=false }
+        }
+        let outsideLegacy=try write("affine-bad-source",sheet([[4.5,0.5,0,2,-2,0]],embedded:true))
+        negatives.append(("actual-source",outsideLegacy))
+        if case .failed(.decodeFailed)=try loader.loadCandidate(from:outsideLegacy,purpose:.straightAlbedo,device:device) {
+            contracts["actual-sourceSingleRejected"]=true
+        } else { contracts["actual-sourceSingleRejected"]=false }
+        let urls=[multi,multiRename,multiLegacy]+negatives.map{$0.1}
+        let identities=urls.map{SceneAssetTextureIdentity(virtualPath:$0.lastPathComponent,purpose:.straightAlbedo)!}
+        let catalog=try SceneMaterialAssetTextureCatalog(demands:Set(identities),
+            resourceView:.init(projectRootURL:directory,packageRootURL:nil),descriptor:.init(),device:device)
+        for (offset,bad) in negatives.enumerated() {
+            let state=catalog.launchStates[identities[offset+3]]
+            contracts[bad.0+"CatalogClassification"]=bad.0 == "nan"
+                ? state == .unavailable : state == .effectLocalUnavailable(.animatedFrameMetadataInvalid)
+        }
+        let provider=catalog.makeFrameProvider();var catalogRows:[[String:Any]]=[]
+        for (phase,time) in [0.0,0.375,0.625].enumerated() {
+            let states=provider.states(sceneTime:time)
+            for index in 0..<3 {
+                let expected=index == 2 ? legacyUV[phase]:expectedUV[phase]
+                let pixel=index == 2 ? [33,66,99,255]:expectedPixels[phase]
+                var row:[String:Any]=["asset":urls[index].lastPathComponent,"phase":phase,"time":time,
+                    "expectedUV":expected,"expectedPixel":pixel]
+                let key="catalog\(index)-phase\(phase)"
+                if case let .ready(publication)=states[identities[index]] {
+                    let c=publication.candidate
+                    let uv=[c.uvTransform.origin.x,c.uvTransform.origin.y,c.uvTransform.xAxis.x,c.uvTransform.xAxis.y,c.uvTransform.yAxis.x,c.uvTransform.yAxis.y]
+                    let actual=try renderCandidate(c,library:library,device:device)
+                    row["status"]="ready";row["uv"]=uv;row["pixel"]=actual;row["generation"]=publication.contentGeneration
+                    contracts[key]=publication.isComplete && c.isSpriteSheet && uv == expected && actual == pixel
+                } else { row["status"]="not-ready";contracts[key]=false }
+                catalogRows.append(row)
+            }
+            provider.commitFrame()
+        }
+        return ["contracts":contracts,"singleRows":rows,"catalogRows":catalogRows,
+            "scope":"Full UV and center samples only; center pixels do not distinguish orientation. NaN is a Reader failure."]
     }
 
     static func embeddedUploadCases(

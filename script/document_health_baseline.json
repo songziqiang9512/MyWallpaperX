@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 314,
-      "bytes": 67528
+      "bytes": 67989
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -125,8 +125,8 @@
       "bytes": 63706
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 347,
-      "bytes": 70806
+      "lines": 373,
+      "bytes": 77171
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 597,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 53684
+      "bytes": 53566
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 211,
-      "bytes": 60937
+      "lines": 219,
+      "bytes": 62730
     }
   },
   "archives": [
@@ -505,15 +505,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "3a606facace0bcaf3f0d7d97cb7d71f47da0d744d9d9508a21be5c567c2490f2",
-      "after": "7b99ce14d10ec8c915bf3bdf00f1fa12284ad805700d82ab98c89a34fde461a2",
-      "owner": "Original TextureLoader source preparation and Catalog asset handoff",
-      "reason": "Unify static and animated source-frame projection, retire duplicate Catalog admission and Reader checks/false Float duration gate; qualify same-input Catalog pixels and actual Generic companion consumers before model slot0 migration. Record separately proven effect-role failure without treating its absent Program as coordinate red.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-atlas-source-frames"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "6296d43da025c0805927cc9657da528bb2f092a937f45a880d3b2ef9d6376dc6",
       "after": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
@@ -524,20 +515,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "fd531f75e3d09dffcd2195d28c28425b25dd0c439e69bd4e9980f68046ba5a42",
-      "after": "d053d079712402a667ac83d258496e7c3892200975a6de66411d902e537636bb",
-      "owner": "Existing model pigment preparation and pixel-to-UV Metal consumer",
-      "reason": "Define independent sprite noise sampling domain using actual frame extents floored at one target pixel, local typed repeat/clamp and dedicated16B tail; preserve ordinary padding and full affine behavior. Qualify real Loader plus same-input old/new GPU and complete model pixels, unchanged ordinary controls and author regression; retire the density queue item without broad fractional filtering claims.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-pigment-frame-addressing"
+      "before": "d053d079712402a667ac83d258496e7c3892200975a6de66411d902e537636bb",
+      "after": "358bea3ef18bf2060c2f2b2e3e5f377a0c64b37de9caf3571304548d983598d2",
+      "owner": "Original Loader source-frame preparation, fixed Lit and authored Generic consumers",
+      "reason": "General finite/nonzero affine source bounds replace false positive-axis permission; retire Generic/Lit gates and duplicate same-operation SlotBinding, keep actual source/exactscale domain under a renamed helper. Qualify true Loader/Catalog, fixed Lit and both Generic backends, full model color/holes/shadow and raw-author controls with independent author. Record the separate proven unused-normal admission candidate for later design.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-affine-frames"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "211ee8da92f477f319e61b5d0bcd550209ded6fc84ae29c77e221e9826f1f0df",
-      "after": "b14bf78f837f01bdfd7ce2085001e1849acfff7eb73e532d2f56d372a8d1afd9",
-      "owner": "Existing model pigment preparation and pixel-to-UV Metal consumer",
-      "reason": "Define independent sprite noise sampling domain using actual frame extents floored at one target pixel, local typed repeat/clamp and dedicated16B tail; preserve ordinary padding and full affine behavior. Qualify real Loader plus same-input old/new GPU and complete model pixels, unchanged ordinary controls and author regression; retire the density queue item without broad fractional filtering claims.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-pigment-frame-addressing"
+      "before": "b14bf78f837f01bdfd7ce2085001e1849acfff7eb73e532d2f56d372a8d1afd9",
+      "after": "2d2566817d249ac230071f82168ad3a7490eeeb6ae445325ea9f7e6de7090442",
+      "owner": "Original Loader source-frame preparation, fixed Lit and authored Generic consumers",
+      "reason": "General finite/nonzero affine source bounds replace false positive-axis permission; retire Generic/Lit gates and duplicate same-operation SlotBinding, keep actual source/exactscale domain under a renamed helper. Qualify true Loader/Catalog, fixed Lit and both Generic backends, full model color/holes/shadow and raw-author controls with independent author. Record the separate proven unused-normal admission candidate for later design.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-affine-frames"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "7b99ce14d10ec8c915bf3bdf00f1fa12284ad805700d82ab98c89a34fde461a2",
+      "after": "b5f871f4b84ad8cf16527a17df821cceafd4e3f07c5ea57d3bbc1aa8c764b5be",
+      "owner": "Original Loader source-frame preparation, fixed Lit and authored Generic consumers",
+      "reason": "General finite/nonzero affine source bounds replace false positive-axis permission; retire Generic/Lit gates and duplicate same-operation SlotBinding, keep actual source/exactscale domain under a renamed helper. Qualify true Loader/Catalog, fixed Lit and both Generic backends, full model color/holes/shadow and raw-author controls with independent author. Record the separate proven unused-normal admission candidate for later design.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#material-affine-frames"
     }
   ]
 }

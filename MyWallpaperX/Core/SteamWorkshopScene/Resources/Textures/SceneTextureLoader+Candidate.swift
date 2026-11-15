@@ -159,7 +159,7 @@ nonisolated extension SceneTextureLoader {
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneAnimatedTextureCandidateLoadOutcome {
         guard let prepared = try prepareTexSource(from: input, checkCancellation: checkCancellation) else {
-            return .failed(.decodeFailed("animated material candidate requires one finite axis-aligned atlas"))
+            return .failed(.decodeFailed("animated material candidate requires one 2D atlas"))
         }
         return try loadAnimatedMaterialCandidate(from: prepared, purpose: purpose, device: device,
                                                  checkCancellation: checkCancellation)
@@ -183,7 +183,7 @@ nonisolated extension SceneTextureLoader {
         case let .valid(preparedFrames): frames = preparedFrames
         case .invalidFrameMetadata: return .invalidFrameMetadata
         case .unsupportedStructure:
-            return .failed(.decodeFailed("animated material candidate requires one finite axis-aligned atlas"))
+            return .failed(.decodeFailed("animated material candidate requires one 2D atlas"))
         }
         let outcome = try load(from: prepared.input, source: prepared.source, purpose: purpose,
             device: device, preparedTexSource: prepared, checkCancellation: checkCancellation)
@@ -357,14 +357,13 @@ nonisolated extension SceneTextureLoader {
                     origin: frame.origin * scale, xAxis: frame.xAxis * scale,
                     yAxis: frame.yAxis * scale)
             }
-            guard abs(frame.xAxis.y) <= tolerance,
-                  abs(frame.yAxis.x) <= tolerance,
-                  frame.origin.x >= -tolerance,
-                  frame.origin.y >= -tolerance,
-                  frame.xAxis.x > 0,
-                  frame.yAxis.y > 0,
-                  frame.origin.x + frame.xAxis.x <= 1 + tolerance,
-                  frame.origin.y + frame.yAxis.y <= 1 + tolerance else {
+            let transform = SceneTextureUVTransform(origin: frame.origin,
+                xAxis: frame.xAxis, yAxis: frame.yAxis)
+            let lower = frame.origin + simd_min(frame.xAxis, .zero) + simd_min(frame.yAxis, .zero)
+            let upper = frame.origin + simd_max(frame.xAxis, .zero) + simd_max(frame.yAxis, .zero)
+            guard transform.isFiniteAndNondegenerate,
+                  lower.x >= -tolerance, lower.y >= -tolerance,
+                  upper.x <= 1 + tolerance, upper.y <= 1 + tolerance else {
                 return .invalidFrameMetadata
             }
             if projectsSource { frames[index] = frame }

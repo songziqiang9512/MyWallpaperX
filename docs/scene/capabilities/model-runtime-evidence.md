@@ -209,3 +209,11 @@ TEX App运行对应首个不可变构建30.417s；其后仅资源/Ordered的冷�
 完整App真实slot8 raw8²、origin2²/frame2²黑白noise，对独立2²crop；Chroma/常灰albedo/方向灯/真实MDL/接收面/peer全部同字节，仅grain.tex不同。旧c747/12da的crop七个物理pixel交替54/80，atlas全72；新38010e6d…b1d5d、dc83a35b…380b7、metallib9062517f…0864d的两场恢复同54/80，ready/after完整PNG与RGB均逐字节等旧crop（PNG0d11389b…be90a00）。新旧atlas仅19370 RGB像素改变，bounds(1451,900,1573,1064)限模型surface；阴影全0、receiver93、蓝peer及外部不变。四图同request/CB的model→main/seal/GPU完成，尺寸等实际3024×1964，零截断并排空。旧31.820s/新31.496s两场是功能运行，不能当作性能对照；原11组fixture字节保持。
 
 普通Debug31.656s，四产品/project/锁文件前后稳定，strict deep与原helpers通过。独立3437487219原project/pkg与matrix/report三方匹配，最终App自然5s，F147/request1/CB520161054208的112/114模型及135图像层到同main520225414656/seal/GPU完成，零截断并排空；实际查看地表、云、大气蓝弧、银河与时钟完整，执行18.253s且App/四产品身份稳定；自有输入/红绿/完整图/身份/独审归`.artifacts/scene-model-pigment-frame-20261115`，作者原报告归`.artifacts/scene-evidence/runs/scene-model-pigment-frame-20261115`。真实作者原整图noise只作回归，非活动sprite作者缺陷恢复；不授官方像素、跨image或任意fractional/线性边界等值。
+
+## 模型仿射TEX的颜色、孔洞与投影 <a id="model-affine-frames"></a>
+
+同[源帧构建/输入资格](render-graph-shader-coverage.md#material-affine-frame-evidence)，真实MDL/albedo/receiver/方向灯/蓝peer不变，8² atlas原4²彩色/透明孔区域只变TEXS轴。rot90原像素域O(6,2),X(0,4),Y(-4,0)，mirrorY为O(2,6),X(4,0),Y(0,-4)；两者分别对独立排列的4²crop。旧38010e6d/dc83a35b的crop颜色/孔/影健康，rotframe丢model2，在应蓝200处仅receiver97；未被prepared-ID先截断。最终App五场75.551s通过，rot四张完整PNG同2383aee9…6b7037，mirror四张同1381ba1a…07fe5，各自crop/frame ready/after完整像素相等，非只profile命中。
+
+skew用O(1,1.5),X(4,0),Y(2,4)，只授四个字面probe：源texel(2,2)/(3,4)/(5,4)的RGB精确为[60,70,76]/[80,110,110]/[120,110,114]且对应影5；(4,2)透明孔的颜色与投影均97，peer蓝。它不宣整个skew等于矩形crop。实际typed source UV分别[.75,.25;0,.5;-.5,0]、[.25,.75;.5,0;0,-.5]、[.125,.1875;.5,0;.25,.5]，属于draw输入观测，不当GPU uniform读回。各图同request/CB model→main/seal/GPU完成、零截断并排空，原13组model输入不变。
+
+独立3437487219原project/pkg与matrix/report匹配，最终App自然5s，F140/request1/CB503923197696中112/114模型与135图像到同main503972617728/seal/GPU，零截断并排空，18.383s执行且App/六产品身份稳定；实际查看地球、云、大气、银河星点与时钟完整。作者报告归`.artifacts/scene-evidence/runs/scene-model-affine-frame-20261115`；本节只授上述自有整数nearest/clamp帧，cross-image、任意线性边缘或官方像素不由此推导。详细原始输入、完整图、失败与独审归`.artifacts/scene-model-affine-frame-20261115`。
