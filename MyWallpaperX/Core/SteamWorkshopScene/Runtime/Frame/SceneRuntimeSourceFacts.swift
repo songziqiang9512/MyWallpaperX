@@ -166,6 +166,7 @@ nonisolated struct SceneRuntimeSourceFactsBuilder {
                 scriptSources: sceneDocument?.scriptBindings.map(\.source) ?? [],
                 additionalModelPaths: directMaterialLinks.map(\.modelPath),
                 additionalMaterialPaths: directMaterialLinks.compactMap(\.materialPath),
+                effectPaths: sceneDocument?.objects.flatMap(\.effectFiles) ?? [],
                 particlePaths: sceneDocument?.objects.compactMap(\.particlePath) ?? [],
                 preparedParticleDefinition: preparedParticleDefinition,
                 checkCancellation: checkCancellation

@@ -10,13 +10,16 @@ Direct MDL 与 Puppet 共用 typed 资源、canonical world/camera、材质、Ge
 Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 part/submesh/material/stream 只在实际 consumer 已接入时执行。 资产albedo及固定normal/map沿[完整源帧合同](render-graph-shader-coverage.md#material-affine-frames)消费原双轴；已验真实TEX旋转/镜像的颜色/alpha孔/投影与skew字面采样，范围归[模型证据](model-runtime-evidence.md#model-affine-frames)，不等同所有作者shader自动应用frame。
 
 <a id="model-material-role"></a>
-### 显式材质引用的准备角色
+### 显式材质与效果引用的准备角色
 
-MDL实际引用的合法材料由原catalog接纳，不因目录或后缀提示漏掉整个模型。原SourceFacts已一次解析MDL并传additionalMaterialPaths及同份PreparedSource；此链不改、不再次读网格。修正只在原Catalog的cold queue：明确material角色随引用入队，优先调用原loadMaterial；ResourceIndex.kind继续提供普通引用的快速提示，不成为已证消费者的许可名单。
+MDL实际引用的材料、对象明确引用的effect均由原Catalog按消费者角色接纳，不以目录或后缀提示决定许可。原SourceFacts一次解析MDL并传additionalMaterialPaths及同份PreparedSource；另只把原objects.effectFiles的路径数组传入Catalog，不耦合完整Document或再读网格。ResourceIndex.kind继续提供普通引用的快速提示；明确material/effect角色分别调用原loadMaterial/loadEffectDefinition，由各自内容解析器判定，不要求文件名为effect.json。
 
-MDL附加材料、JSON model.material、粒子准备返回的材料及effect pass.material均有明确角色；普通effect dependencies仍用hint。原队列按规范资源身份归一，须保同路径先普通入队后明确提升、待处理/已处理两种情况，并保证同一材料至多读取解析一次；用原队列的索引与最小角色位替换仅按path的seen，不建第二parser、catalog、资源owner、持久状态或缓存。保package/loose/stock原来源优先级、取消及revision检查、排序、脚本与粒子交接。明确材料不再靠.json后缀授权，由原JSON材料解析器判断内容；坏材料只丢受影响part/消费者，身份失效沿原错误边界。未引用的合法/损坏.other JSON都不读，不扫描整库JSON，不加普通帧工作。
+MDL附加材料、JSON model.material、粒子准备返回的材料及effect pass.material保持明确material角色；对象effectFiles新增明确effect角色，普通effect dependencies仍是hint。原cold queue用同一规范身份/queueIndex和两位值类型角色集，退单material Bool；待处理项原位汇合，已处理项只追加尚未执行的角色差额，避免重复loadEffect或旧角色重放。路径hint不在入队时并为角色，仅实际处理仍无明确角色的项时选择原hint parser并记入已选择集合；因此materials目录的effect和名为effect.json的material不会多跑无消费者schema。同一身份每个实际解析角色至多执行一次；同文件若有两种真实消费者，只做各自一次解析，不另建缓存。保package/loose/stock原来源、取消/revision、顺序、脚本与粒子交接。局部坏effect保原诊断及其消费者失败，不带走健康peer；身份失效沿原错误边界。未被任何消费者选中的合法/损坏.other JSON都不读，不扫描整库JSON，不加普通帧工作、第二parser/catalog、资源owner或持久状态。
 
 验收先在当前源取得明确引用的真实catalog/materialPass空失败；扩原catalog门核目录/文件/别名变体、普通先入队及后提升、同材料一次读取、未知JSON零读、真实坏输入与健康peer。原MDL reader→SourceFacts→catalog→materialPass门保多part/PKG及复用PreparedSource。复用本批已冻结的真实月球失败变体：同输入由material准备到实际model/main/seal/GPU并出现球面，另与materials/等价载体及独立原包核结果；不新增fixture算法或按路径选视觉结果。当前结果见[运行证据](model-runtime-evidence.md#model-material-role)。
+
+<a id="model-effect-role"></a>
+明确effect角色扩原Catalog/readProbe门，核标准路径、改目录/后缀/大小写、hint先入队后提升、角色差额、未引用JSON零读取、损坏/缺失及原material/来源/取消反例。真实模型验收复用原named-late的一跳隐藏image provider11→caster2与现有own_dim着色；同包同时保两个相同effect别名，只改显式引用，旧标准模型G45、非标准无Program而取raw G90，影保持5。修后须复用两包使非标准整图等健康控制，并加模型/资源/变量及等值表达式变体，补独立原作者播放。graph provider的实际发布与模型binding/最终像素负责资格，不强求不存在的raw capture事件；现日志未暴露中间named copy完整token链，不虚构直接纹理同一。旧image-only路径报告不冒充模型恢复；只在本链生产像素及独审闭合后退队列。
 
 <a id="model-single-frame-texture"></a>
 ### 静态材质候选的单帧TEX

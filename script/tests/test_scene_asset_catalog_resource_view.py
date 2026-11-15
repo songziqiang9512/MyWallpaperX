@@ -84,6 +84,11 @@ struct SceneRenderDescriptor {
 
 enum AssetReadProbe { static var calls: [String: Int] = [:] }
 enum ParticleParseProbe { static var calls = 0 }
+enum CatalogRoleParseProbe {
+    static var materials: [String: Int] = [:]
+    static var effects: [String: Int] = [:]
+}
+enum CatalogFixtureCancellation: Error { case requested }
 
 struct SceneTimelineAnimation: Codable, Equatable {}
 
@@ -242,6 +247,64 @@ enum Harness {
         result["roleReads"] = Dictionary(uniqueKeysWithValues: AssetReadProbe.calls.map {
             ($0.key, $0.value - (roleReadsBefore[$0.key] ?? 0))
         })
+        let effectReadsBefore = AssetReadProbe.calls
+        let effectParsesBefore = CatalogRoleParseProbe.effects
+        let materialParsesBefore = CatalogRoleParseProbe.materials
+        let explicitEffects = ["effects/explicit-role/effect.json", "relocated/Phase Ω.data",
+            "relocated/NoSuffix", "Renamed/UPPER.JSON", "RENAMED/upper.json",
+            "relocated-caps/EFFECT.JSON", "models/looks-effect.json", "xffects/pending.json",
+            "xffects/broken.payload", "xffects/missing.json", "effects/dual-pending/effect.json"]
+        let effectReferences = ["effects/dual-processed/effect.json", "models/effect-role-bridge.json",
+            "models/effect-role-peer.json", "effects/dual-pending/effect.json"]
+            + explicitEffects + ["xffects/generic-only.json"]
+        let effectCatalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: effectReferences,
+            additionalMaterialPaths: ["effects/dual-pending/effect.json"],
+            effectPaths: explicitEffects)
+        result["effectRoleInputs"] = explicitEffects; result["effectRoleReferences"] = effectReferences
+        result["effectRoleDefinitions"] = effectCatalog.effectDefinitions.map(\.relativePath)
+        result["effectRoleModels"] = effectCatalog.models.map(\.relativePath)
+        result["effectRoleMaterials"] = effectCatalog.materials.map(\.relativePath)
+        result["effectRoleMaterialAlpha"] = effectCatalog.materials.first {
+            $0.relativePath == "xaterials/effect-role-material.json"
+        }?.passes.first?.constantShaderValues["alpha"]?.components ?? []
+        result["effectRoleReads"] = Dictionary(uniqueKeysWithValues: AssetReadProbe.calls.map {
+            ($0.key, $0.value - (effectReadsBefore[$0.key] ?? 0))
+        })
+        result["effectRoleParses"] = Dictionary(uniqueKeysWithValues: CatalogRoleParseProbe.effects.map {
+            ($0.key, $0.value - (effectParsesBefore[$0.key] ?? 0))
+        })
+        result["effectMaterialParses"] = Dictionary(uniqueKeysWithValues: CatalogRoleParseProbe.materials.map {
+            ($0.key, $0.value - (materialParsesBefore[$0.key] ?? 0))
+        })
+        let cancelReads = AssetReadProbe.calls
+        var cancelled = false
+        do {
+            _ = try SceneAssetCatalogLoader().load(resourceView: view,
+                referencedResourcePaths: effectReferences,
+                checkCancellation: { throw CatalogFixtureCancellation.requested })
+        } catch CatalogFixtureCancellation.requested { cancelled = true }
+        result["effectRoleCancellationPropagated"] = cancelled
+        result["effectRoleCancellationDidNotRead"] = cancelReads == AssetReadProbe.calls
+        let conflictReadsBefore = AssetReadProbe.calls
+        let conflictEffectsBefore = CatalogRoleParseProbe.effects
+        let conflictMaterialsBefore = CatalogRoleParseProbe.materials
+        let conflictEffects = ["materials/explicit-effect-conflict.json"]
+        let conflictMaterial = "effects/explicit-material-conflict/effect.json"
+        let conflictCatalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: conflictEffects + [conflictMaterial],
+            additionalMaterialPaths: [conflictMaterial],
+            effectPaths: conflictEffects)
+        result["hintConflictDefinitions"] = conflictCatalog.effectDefinitions.map(\.relativePath)
+        result["hintConflictMaterials"] = conflictCatalog.materials.map(\.relativePath)
+        for (key, values, before) in [
+            ("hintConflictReads", AssetReadProbe.calls, conflictReadsBefore),
+            ("hintConflictEffects", CatalogRoleParseProbe.effects, conflictEffectsBefore),
+            ("hintConflictMaterialParses", CatalogRoleParseProbe.materials, conflictMaterialsBefore)] {
+            result[key] = Dictionary(uniqueKeysWithValues: values.map {
+                ($0.key, $0.value - (before[$0.key] ?? 0))
+            })
+        }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -250,6 +313,12 @@ enum Harness {
 
 
 class SceneAssetCatalogResourceViewTests(unittest.TestCase):
+    EFFECT_ROLE_DEFINITIONS = {
+        "effects/explicit-role/effect.json", "relocated/Phase Ω.data", "relocated/NoSuffix",
+        "Renamed/UPPER.JSON", "relocated-caps/EFFECT.JSON", "models/looks-effect.json",
+        "xffects/pending.json", "effects/dual-pending/effect.json", "effects/dual-processed/effect.json",
+    }
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
@@ -378,6 +447,26 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
                                           "dependencies": ["xaterials/dependency-only.json"]})
         author("particles/role.json", {"material": "xaterials/particle-surface.bin",
                                       "emitter": [{"name": "boxRandom"}]})
+        effect_role = {"passes": [{"material": "xaterials/effect-role-material.json"}],
+                       "dependencies": ["xffects/dependency-only.json"]}
+        for path in ["effects/explicit-role/effect.json", "relocated/Phase Ω.data", "relocated/NoSuffix",
+                     "Renamed/UPPER.JSON", "relocated-caps/EFFECT.JSON", "models/looks-effect.json",
+                     "xffects/pending.json", "xffects/generic-only.json", "xffects/dependency-only.json",
+                     "xffects/unreferenced.json"]:
+            author(path, effect_role)
+        author("xffects/unreferenced-bad.json", "[not JSON")
+        author("xffects/broken.payload", "[not JSON")
+        author("xaterials/effect-role-material.json", {"passes": [{"shader": "flat",
+               "constantshadervalues": {"alpha": .625}}]})
+        author("effects/explicit-role/effect.json", {"passes": [{"material": "xaterials/wrong-effect-role.json"}]}, project)
+        author("xaterials/wrong-effect-role.json", {"passes": [{"shader": "flat"}]})
+        dual_role = {"passes": [{"shader": "flat", "textures": ["materials/role-color.png"]}]}
+        for path in ["effects/dual-processed/effect.json", "effects/dual-pending/effect.json"]:
+            author(path, dual_role)
+        for path in ["models/effect-role-bridge.json", "models/effect-role-peer.json"]:
+            author(path, {"material": "effects/dual-processed/effect.json"})
+        author("materials/explicit-effect-conflict.json", {"passes": []})
+        author("effects/explicit-material-conflict/effect.json", {"passes": [{"shader": "flat"}]})
         color = "optional-normal/color"
         normal = "optional-normal/normal"
         normal_slots = {
@@ -446,8 +535,14 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         for suffix in ("vert", "frag"):
             (stock / f"shaders/spurious.{suffix}").write_text("void main() {}")
 
+        catalog_source = Path(os.environ.get("MWX_SCENE_CATALOG_SOURCE",
+                              SCENE_ROOT / "Resources/Assets/SceneAssetCatalog.swift")).resolve()
+        catalog_text = catalog_source.read_text()
+        supports_effect_role = "effectPaths: [String]" in catalog_text
         harness = root / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
+        harness.write_text(HARNESS if supports_effect_role else HARNESS.replace(
+            ",\n            effectPaths: explicitEffects", "").replace(
+            ",\n            effectPaths: conflictEffects", ""), encoding="utf-8")
         view_source = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView.swift"]
         counted_view = root / "SceneResourceView.swift"
         original_read = """        ) throws -> Data {
@@ -463,15 +558,31 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             "func parse(data: Data) throws -> SceneParticleDefinition {\n        ParticleParseProbe.calls += 1", 1))
         sources = [counted_view if path == view_source else counted_parser if path == parser_source else path
                    for path in SWIFT_SOURCES]
-        if catalog := os.environ.get("MWX_SCENE_CATALOG_SOURCE"):
-            sources = [Path(catalog).resolve() if path.name == "SceneAssetCatalog.swift" else path for path in sources]
+        counted_catalog = root / "SceneAssetCatalog.swift"
+        for marker, field in [(") throws -> SceneAssetCatalog.MaterialAsset? {", "materials"),
+                              ("""    nonisolated private func loadEffectDefinition(
+        _ resource: SceneResourceView.Handle,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> (definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?) {""", "effects")]:
+            assert catalog_text.count(marker) == 1
+            catalog_text = catalog_text.replace(marker, marker +
+                f"\n        CatalogRoleParseProbe.{field}[resource.relativePath, default: 0] += 1", 1)
+        counted_catalog.write_text(catalog_text)
+        sources = [counted_catalog if path.name == "SceneAssetCatalog.swift" else path for path in sources]
+        (root / "catalog-api-adaptation.json").write_text(json.dumps({
+            "catalogSource": str(catalog_source), "supportsEffectRole": supports_effect_role,
+            "oldAdaptation": "Only omit unknown effectPaths label; referencedResourcePaths already contains the same explicit paths in both versions.",
+            "scope": "Parser-entry counters observe the original loaders; dual role means two schema invocations and two readBytes calls, not one global JSON parse.",
+        }, indent=2))
         cls.binary = root / "scene-catalog-resource-view-harness"
-        compiled = subprocess.run(
-            [
+        command = [
                 "xcrun", "--sdk", "macosx", "swiftc",
                 *(str(path) for path in sources),
                 str(harness), "-o", str(cls.binary),
-            ],
+            ]
+        (root / "compile-command.json").write_text(json.dumps(command, indent=2))
+        compiled = subprocess.run(
+            command,
             cwd=REPOSITORY_ROOT,
             capture_output=True,
             text=True,
@@ -508,6 +619,59 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             with self.subTest(material=path):
                 self.assertEqual(self.result["roleMaterials"][path],
                                  {"alpha": [.375], "textures": ["materials/role-color.png"]})
+
+    def test_explicit_effect_roles_keep_actual_paths_and_skip_model_hints(self):
+        paths = self.result["effectRoleDefinitions"]
+        self.assertEqual(set(paths), self.EFFECT_ROLE_DEFINITIONS)
+        self.assertEqual(len(paths), len(self.EFFECT_ROLE_DEFINITIONS))
+        self.assertNotIn("models/looks-effect.json", self.result["effectRoleModels"])
+        self.assertEqual(set(self.result["effectRoleMaterials"]), {
+            "xaterials/effect-role-material.json", "effects/dual-pending/effect.json",
+            "effects/dual-processed/effect.json"})
+        self.assertEqual(self.result["effectRoleMaterialAlpha"], [.625])
+
+    def test_pending_and_processed_effect_promotions_parse_only_added_roles(self):
+        def counts(key):
+            values = {}
+            for path, count in self.result[key].items():
+                values[path.casefold()] = values.get(path.casefold(), 0) + count
+            return values
+        reads, effects, materials = [counts(key) for key in
+            ("effectRoleReads", "effectRoleParses", "effectMaterialParses")]
+        duals = {"effects/dual-pending/effect.json", "effects/dual-processed/effect.json"}
+        for path in self.EFFECT_ROLE_DEFINITIONS | {"xffects/broken.payload"}:
+            with self.subTest(effect=path):
+                self.assertEqual(effects.get(path.casefold(), 0), 1)
+                self.assertEqual(reads.get(path.casefold(), 0), 2 if path in duals else 1)
+        for path in duals | {"xaterials/effect-role-material.json"}:
+            with self.subTest(material=path):
+                self.assertEqual(materials.get(path, 0), 1)
+        self.assertEqual(reads.get("xaterials/effect-role-material.json", 0), 1)
+        for path in ["models/effect-role-bridge.json", "models/effect-role-peer.json"]:
+            self.assertEqual(reads.get(path, 0), 1)
+        for path, effect, material in [
+            ("materials/explicit-effect-conflict.json", 1, 0),
+            ("effects/explicit-material-conflict/effect.json", 0, 1),
+        ]:
+            with self.subTest(explicit_role_over_hint=path):
+                self.assertEqual(self.result["hintConflictReads"].get(path, 0), 1)
+                self.assertEqual(self.result["hintConflictEffects"].get(path, 0), effect)
+                self.assertEqual(self.result["hintConflictMaterialParses"].get(path, 0), material)
+                self.assertEqual(path in self.result["hintConflictDefinitions"], bool(effect))
+                self.assertEqual(path in self.result["hintConflictMaterials"], bool(material))
+
+    def test_effect_role_failures_and_cancellation_preserve_healthy_peers(self):
+        paths = self.result["effectRoleDefinitions"]
+        self.assertNotIn("xffects/broken.payload", paths)
+        self.assertNotIn("xffects/missing.json", paths)
+        self.assertIn("effects/explicit-role/effect.json", paths)
+        reads = self.result["effectRoleReads"]
+        for path in ["xffects/generic-only.json", "xffects/dependency-only.json", "xffects/missing.json",
+                     "xffects/unreferenced.json", "xffects/unreferenced-bad.json", "xaterials/wrong-effect-role.json"]:
+            with self.subTest(unused=path):
+                self.assertEqual(sum(count for name, count in reads.items() if name.casefold()==path.casefold()), 0)
+        self.assertTrue(self.result["effectRoleCancellationPropagated"])
+        self.assertTrue(self.result["effectRoleCancellationDidNotRead"])
 
     def test_pending_and_processed_role_promotions_read_materials_once(self) -> None:
         reads = {}

@@ -33,7 +33,8 @@ STATES = (("nocull", "  NoCull \n"), ("normal", "normal"),
 SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_static_model_cull_integration.py", "test_scene_static_model_reader.py",
     "test_scene_static_model_parts.py", "test_scene_directional_shadow_integration.py",
-    "scene_pkg_fixture.py", "test_scene_fullscreen_visibility_integration.py"
+    "scene_pkg_fixture.py", "test_scene_fullscreen_visibility_integration.py",
+    "test_scene_named_model_shadow.py", "scene_color_blend_capture_test_support.py"
 )) + (REPO / "script/web_benchmark_capture.py",)
 
 
@@ -42,7 +43,10 @@ def encoded(value):
 
 
 def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_phase=None, noise_case=None,
-                    affine_case=None, normal_case=None, opacity_case=None, hdr_case=None, brightness_case=None):
+                    affine_case=None, normal_case=None, opacity_case=None, hdr_case=None, brightness_case=None,
+                    effect_role_case=None):
+    if effect_role_case is not None:
+        return effect_role_entries(effect_role_case)
     if any(value is not None for value in (noise_case, normal_case, opacity_case, hdr_case, brightness_case)):
         texture_case = "crop"
     if affine_case is not None:
@@ -295,7 +299,56 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
     return scene, entries, cases
 
 
-def measure(path, cases):
+def effect_role_entries(case):
+    from script.tests import test_scene_named_model_shadow as named
+    scene, entries = named.named_fixture("named-late")
+    _, donor = named.named_fixture("forward-graph-neighbor")
+    standard, explicit = "effects/own_dim/effect.json", "effects/selected-model-dim.json"
+    for key in (standard, "materials/own_dim.json", "shaders/own_dim.vert", "shaders/own_dim.frag"):
+        entries[key] = donor[key]
+    entries[explicit] = entries[standard]
+    selected = standard if case == "role-standard" else explicit
+    if case == "role-material-directory":
+        selected = "materials/selected-effect.json"
+        entries[selected] = entries[standard]
+    provider = next(obj for obj in scene["objects"] if obj["id"] == 11)
+    provider["effects"] = [{"id": 110, "file": selected, "visible": True}]
+    if case == "role-renamed":
+        selected, effect_material = "definitions/Relocated dim.fx", "materials/Relocated dim.json"
+        shader = "relocated_dim"
+        entries[selected] = json.dumps({"passes": [{"material": effect_material}]}).encode()
+        material = json.loads(entries.pop("materials/own_dim.json"))
+        material["passes"][0]["shader"] = shader
+        entries[effect_material] = json.dumps(material).encode()
+        for stage in ("vert", "frag"):
+            source = entries.pop(f"shaders/own_dim.{stage}").replace(b"v_TexCoord", b"lookupCoord")
+            if stage == "frag":
+                source = source.replace(b"vec4 c=", b"vec4 texelValue=").replace(
+                    b"c.rgb*=0.5", b"texelValue.rgb=(texelValue.rgb+texelValue.rgb)*0.25").replace(
+                    b"gl_FragColor=c;", b"gl_FragColor=texelValue;")
+            entries[f"shaders/{shader}.{stage}"] = source
+        del entries[standard], entries[explicit], entries["models/caster.mdl"]
+        caster = next(obj for obj in scene["objects"] if obj["id"] == 2)
+        caster["model"] = "models/Relocated caster.mdl"
+        entries["materials/Relocated caster.json"] = entries.pop("materials/caster.json")
+        entries[caster["model"]] = quad(70, 90, 38, 58, 20, "materials/Relocated caster.json")
+        provider["image"] = "models/Relocated provider.json"
+        del entries["models/provider.json"]
+        entries[provider["image"]] = json.dumps({"material": "materials/Relocated provider.json"}).encode()
+        material = json.loads(entries.pop("materials/provider.json"))
+        material["passes"][0]["textures"] = ["materials/Relocated green.png"]
+        entries["materials/Relocated provider.json"] = json.dumps(material).encode()
+        entries["materials/Relocated green.png"] = entries.pop("materials/green.png")
+        provider["effects"][0]["file"] = selected
+    entries["scene.json"] = json.dumps(scene).encode()
+    cases = [{"name": "caster", "colorPoint": [80, 48], "shadowPoint": [60, 48],
+        "expectedRGB": [0, named.EXPECTED["caster"][1] * .5, 0],
+        "expectedShadowRGB": named.EXPECTED["shadow"], "receiverRGB": named.EXPECTED["control"],
+        "effectPath": selected, "tolerance": named.TOLERANCE}]
+    return scene, entries, cases
+
+
+def measure(path, cases, probe_points=None):
     decoded = png_rgb_pixels(path)
     if decoded is None:
         raise AssertionError(f"invalid PNG: {path}")
@@ -303,7 +356,7 @@ def measure(path, cases):
     scale = max(width / CANVAS[0], height / CANVAS[1])
     points = {f"{case['name']}-{kind}": case[f"{kind}Point"]
               for case in cases for kind in ("color", "shadow")}
-    points.update(healthy=[145, 80], clear=[80, 16])
+    points.update(probe_points if probe_points is not None else {"healthy": [145, 80], "clear": [80, 16]})
     result = {"dimensions": [width, height], "pixels": {}}
     for name, (x, y) in points.items():
         cx, cy = width / 2 + (x - 80) * scale, height / 2 + (y - 48) * scale
@@ -366,7 +419,9 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         (work / "content").mkdir(parents=True)
         (work / "home").mkdir()
         scene, entries, cases = fixture_entries(**options)
-        (work / "content/project.json").write_bytes(encoded({"type": "scene", "file": "scene.json"}))
+        project = {"type": "scene", "file": "scene.json"}
+        (work / "content/project.json").write_bytes(
+            json.dumps(project).encode() if options.get("effect_role_case") else encoded(project))
         (work / "content/scene.pkg").write_bytes(make_package(list(entries.items())))
         inputs = tuple((work / "content").iterdir())
         identity = {"app": self.app_identity, "sources": self.source_identity,
@@ -416,7 +471,19 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                     "1e300" if options["brightness_case"] == "brightness-renamed" else 1e300),
                 "wholeImageOracle": "unused brightness preserves colour, alpha holes, shadow and peer",
                 "numericProducerVariant": "renamed resources use an authored numeric string"}}
-               if options.get("brightness_case") else {})}))
+               if options.get("brightness_case") else {}),
+            **({"colorVisibleRGB": cases[0]["expectedRGB"], "healthyRGB": None,
+                "tolerance": cases[0]["tolerance"], "receiverProbe": [140, 48],
+                "receiverRGB": cases[0]["receiverRGB"],
+                "oracle": "model at80,48 consumes dim provider; its shadow is60,48; independent receiver is140,48",
+                "evidenceBoundary": "owned effectful named provider and MDL colour/shadow; no official parity",
+                "effectRole": {
+                    "case": options["effect_role_case"], "effectPath": cases[0]["effectPath"],
+                    "provider": 11, "model": 2, "slot0": "_rt_imageLayerComposite_11_a",
+                    "oracle": "same effect result reaches model colour; receiver/shadow unchanged",
+                    "publication": "actual Program material -> named-publication-only -> model binding; no raw-capture log requirement",
+                    "identityLimit": "model source token may differ after named publication; no unobserved copy or uniform readback claim"}}
+               if options.get("effect_role_case") else {})}))
         command = [str(self.exe), "--mwx-debug-scene-root", str(work / "content"),
             "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(work / "evidence")]
         (work / "prerun.json").write_bytes(encoded({**identity, "command": command}))
@@ -432,12 +499,16 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
             result = subprocess.run(command, cwd=REPO, env=env, stdout=output,
                 stderr=subprocess.STDOUT, timeout=90)
         log = (work / "app.log").read_text()
-        pixels = {phase: measure(work / f"evidence/scene-{phase}-window.png", cases)
+        probes = {"receiver": [140, 48]} if options.get("effect_role_case") else None
+        pixels = {phase: measure(work / f"evidence/scene-{phase}-window.png", cases, probes)
                   for phase in ("ready", "after")}
         report = {"exit": result.returncode, "pixels": pixels, "cases": cases,
             "shadowEvents": [line for line in log.splitlines() if "shadow phase=" in line],
             "appAfter": app_hashes(self.exe), "sourcesAfter": file_hashes(SOURCES),
             "inputsAfter": file_hashes(inputs)}
+        if options.get("effect_role_case"):
+            report["effectRoleCaptures"] = [json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1])
+                for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line]
         if options.get("noise_case"):
             report["noiseProbes"] = {}
             for phase in ("ready", "after"):
@@ -462,19 +533,26 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
         preview = (work / "evidence/scene-preview.log").read_text()
         if options.get("texture_case") != "animated" and not any(
                 options.get(key) for key in ("affine_case", "normal_case", "opacity_case", "hdr_case")):
-            expected_prepared = "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]"
+            expected_prepared = ("[1, 2]" if options.get("effect_role_case") else
+                "[1, 4]" if options.get("texture_case") == "zero" else "[1, 2, 4]")
             self.assertIn("prepared static model layers: " + expected_prepared, preview)
         self.assertEqual(pixels["ready"], pixels["after"])
         for phase in ("ready", "after"):
-            self.assert_rgb(pixels[phase]["pixels"]["healthy"], [0, 0, 255])
-            self.assertGreater(min(pixels[phase]["pixels"]["clear"]), 50)
+            if options.get("effect_role_case"):
+                self.assert_rgb(pixels[phase]["pixels"]["receiver"], cases[0]["receiverRGB"],
+                    delta=cases[0]["tolerance"])
+            else:
+                self.assert_rgb(pixels[phase]["pixels"]["healthy"], [0, 0, 255])
+                self.assertGreater(min(pixels[phase]["pixels"]["clear"]), 50)
             self.assertRegex(log, rf"phase=snapshot reason={phase} request=\d+ source=metal ")
+        if options.get("effect_role_case"):
+            self.assertIn("phase=named-target-binding layer=2 status=succeeded", log)
         self.runs[name] = report
         return report
 
-    def assert_rgb(self, actual, expected):
+    def assert_rgb(self, actual, expected, *, delta=TOLERANCE):
         for value, wanted in zip(actual, expected):
-            self.assertAlmostEqual(value, wanted, delta=TOLERANCE)
+            self.assertAlmostEqual(value, wanted, delta=delta)
 
     def assert_texture_coverage(self, result, *, hole_rgb=None):
         for phase in ("ready", "after"):
@@ -631,6 +709,39 @@ class SceneStaticModelCullAppTests(unittest.TestCase):
                 png = f"evidence/scene-{phase}-window.png"
                 self.assertEqual((self.root / "brightness-one" / png).read_bytes(),
                                  (self.root / name / png).read_bytes())
+
+
+    def test_explicit_effect_role_reaches_named_model_albedo(self):
+        for name in ("role-standard", "role-explicit", "role-renamed"):
+            result = self.run_case(name, effect_role_case=name)
+            self.assert_effect_role_result(result)
+            for phase in ("ready", "after"):
+                png = f"evidence/scene-{phase}-window.png"
+                self.assertEqual((self.root / "role-standard" / png).read_bytes(), (self.root / name / png).read_bytes())
+
+    def test_explicit_effect_in_material_directory_reaches_named_model_albedo(self):
+        result = self.run_case("role-material-directory", effect_role_case="role-material-directory")
+        self.assert_effect_role_result(result)
+
+    def assert_effect_role_result(self, result):
+        case = result["cases"][0]
+        for phase in ("ready", "after"):
+            pixels = result["pixels"][phase]["pixels"]
+            self.assert_rgb(pixels["caster-color"], case["expectedRGB"], delta=case["tolerance"])
+            self.assert_rgb(pixels["caster-shadow"], case["expectedShadowRGB"], delta=case["tolerance"])
+        self.assertEqual({p["captureRequestID"] for p in result["effectRoleCaptures"]}, {1, 2})
+        for packet in result["effectRoleCaptures"]:
+            self.assertEqual(packet["gpuStatus"], "completed")
+            self.assertEqual(packet["truncatedRows"], 0)
+            rows = packet["rows"]
+            material = next(row for row in rows if row["kind"] == "material" and row.get("layerID") == 11)
+            publication = next(row for row in rows if row["kind"] == "tail-consume" and row.get("layerID") == 11)
+            model = next(row for row in rows if row["kind"] == "model" and row.get("layerID") == 2)
+            seal = next(row for row in rows if row["kind"] == "frame-seal")
+            self.assertEqual((material["outcome"], publication["access"], model["outcome"], seal["outcome"]),
+                ("draw-encoded", "named-publication-only", "draw-encoded", "sealed"))
+            self.assertEqual(material["target"]["textureToken"], publication["source"]["textureToken"])
+            self.assertEqual(model["target"]["textureToken"], seal["target"]["textureToken"])
 
 
 if __name__ == "__main__":

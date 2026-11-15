@@ -85,6 +85,12 @@ struct SceneAssetCatalog {
 }
 
 nonisolated struct SceneAssetCatalogLoader {
+    private struct ParseRoles: OptionSet {
+        let rawValue: UInt8
+        static let material = Self(rawValue: 1)
+        static let effect = Self(rawValue: 2)
+    }
+
     nonisolated func load(
         resourceView: SceneResourceView,
         referencedResourcePaths: [String],
@@ -92,6 +98,7 @@ nonisolated struct SceneAssetCatalogLoader {
         scriptSources: [String] = [],
         additionalModelPaths: [String] = [],
         additionalMaterialPaths: [String] = [],
+        effectPaths: [String] = [],
         particlePaths: [String] = [],
         preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in },
         checkCancellation: (() throws -> Void)? = nil
@@ -105,27 +112,26 @@ nonisolated struct SceneAssetCatalogLoader {
         var order = Dictionary(uniqueKeysWithValues: authorNames.enumerated().map {
             (SceneResourceView.identity($0.element.relativePath), $0.offset)
         })
-        var queue: [(resource: SceneResourceView.Handle, material: Bool)] = []
+        var queue: [(resource: SceneResourceView.Handle, roles: ParseRoles)] = []
         var queueIndex: [String: Int] = [:]
         var next = 0
-        func enqueue(_ path: String, reference: Bool = true, material: Bool = false) {
+        func enqueue(_ path: String, reference: Bool = true, roles: ParseRoles = []) {
             let selected = reference ? resourceView.resolvedResource(forReference: path)
                 : resourceView.resolvedResource(relativePath: path)
             guard let resource = selected else { return }
             let key = SceneResourceView.identity(resource.relativePath)
-            let isMaterial = material || (resource.kind == .material
-                && resource.relativePath.localizedLowercase.hasSuffix(".json"))
             if let index = queueIndex[key] {
-                if isMaterial && !queue[index].material {
-                    queue[index].material = true
-                    if index < next { queue.append(queue[index]) }
+                let added = roles.subtracting(queue[index].roles)
+                if !added.isEmpty {
+                    queue[index].roles.formUnion(added)
+                    if index < next { queue.append((queue[index].resource, added)) }
                 }
                 return
             }
             queueIndex[key] = queue.count
             if order[key] == nil { order[key] = order.count }
             if resource.kind == .model && resource.source == .stock { modelNames.append(resource.relativePath) }
-            queue.append((resource, isMaterial))
+            queue.append((resource, roles))
         }
         var sources: [String] = []
         var sourceIDs: [String: Int] = [:]
@@ -140,13 +146,14 @@ nonisolated struct SceneAssetCatalogLoader {
         }
         for source in scriptSources { addSource(source) }
         for path in referencedResourcePaths { enqueue(path) }
-        for path in additionalMaterialPaths { enqueue(path, reference: false, material: true) }
+        for path in additionalMaterialPaths { enqueue(path, reference: false, roles: .material) }
+        for path in effectPaths { enqueue(path, roles: .effect) }
         let particleMaterials = try SceneParticleAssetGraphLoader(resourceView: resourceView,
             stockTextureBundleURL: nil).prepareDefinitions(rootPaths: particlePaths,
                 checkCancellation: checkCancellation) { path, value in
                     preparedParticleDefinition(path, value)
                 }
-        for path in particleMaterials { enqueue(path, reference: false, material: true) }
+        for path in particleMaterials { enqueue(path, reference: false, roles: .material) }
         let declaredTexturePropertyKeys = Set(propertyCatalog.definitions
             .filter { $0.kind == .sceneTexture }.map(\.key))
         var models: [SceneAssetCatalog.ModelAsset] = []
@@ -155,19 +162,35 @@ nonisolated struct SceneAssetCatalogLoader {
         while next < queue.count || !pendingSources.isEmpty {
             while next < queue.count {
                 try checkCancellation?()
-                let entry = queue[next]
+                var entry = queue[next]
+                if entry.roles.isEmpty {
+                    if entry.resource.kind == .material
+                        && entry.resource.relativePath.localizedLowercase.hasSuffix(".json") {
+                        entry.roles = .material
+                    } else if entry.resource.kind == .effectDefinition {
+                        entry.roles = .effect
+                    }
+                    queue[next].roles = entry.roles
+                }
                 next += 1
                 let resource = entry.resource
-                if entry.material {
-                    if let material = try loadMaterial(resource, declaredTexturePropertyKeys: declaredTexturePropertyKeys,
+                if entry.roles.contains(.material),
+                   let material = try loadMaterial(resource, declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                         checkCancellation: checkCancellation) {
-                        materials.append(material)
-                        for source in material.passes.flatMap({ $0.constantShaderValues.values.compactMap(\.scriptSource) }) {
-                            addSource(source)
-                        }
+                    materials.append(material)
+                    for source in material.passes.flatMap({ $0.constantShaderValues.values.compactMap(\.scriptSource) }) {
+                        addSource(source)
                     }
-                    continue
                 }
+                if entry.roles.contains(.effect) {
+                    let result = try loadEffectDefinition(resource, checkCancellation: checkCancellation)
+                    effectResults.append(result)
+                    if let definition = result.definition {
+                        for path in definition.passes.compactMap(\.materialPath) { enqueue(path, roles: .material) }
+                        for path in definition.dependencies { enqueue(path) }
+                    }
+                }
+                if !entry.roles.isEmpty { continue }
                 switch resource.kind {
                 case .model where resource.relativePath.localizedLowercase.hasSuffix(".json"):
                     guard let model = try loadModel(resource, resourceView: resourceView,
@@ -179,14 +202,7 @@ nonisolated struct SceneAssetCatalogLoader {
                     }
                     models.append(model)
                     if !Self.isUtilityModelPath(model.relativePath), let path = model.materialPath {
-                        enqueue(path, reference: false, material: true)
-                    }
-                case .effectDefinition:
-                    let result = try loadEffectDefinition(resource, checkCancellation: checkCancellation)
-                    effectResults.append(result)
-                    if let definition = result.definition {
-                        for path in definition.passes.compactMap(\.materialPath) { enqueue(path, material: true) }
-                        for path in definition.dependencies { enqueue(path) }
+                        enqueue(path, reference: false, roles: .material)
                     }
                 default: break
                 }

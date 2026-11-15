@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 352,
-      "bytes": 77943
+      "lines": 355,
+      "bytes": 79300
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 192,
-      "bytes": 53985
+      "bytes": 53802
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 269,
-      "bytes": 77582
+      "lines": 284,
+      "bytes": 82631
     }
   },
   "archives": [
@@ -524,29 +524,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "f5b2abb72be33e16aed74b10a057242cce67ba642ecf7d50ddf2bb3e93a63045",
-      "after": "4d2a96996706c131a6ba40797ca943d5622c486a6d42c7349ae259bbe0074f51",
-      "owner": "Existing StaticModel HDR value consumer",
-      "reason": "Define raw brightness admission by original HDR consumer demand before implementation; retain active HDR and authored Float boundaries without a new material state.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-disabled-brightness"
+      "before": "4d2a96996706c131a6ba40797ca943d5622c486a6d42c7349ae259bbe0074f51",
+      "after": "0401b1679f1602824b60cffffdd85782cb749d23292c000ce95cbfb00fad0ce6",
+      "owner": "Existing SourceFacts and Catalog explicit JSON consumers",
+      "reason": "Extend original material roles to explicit effect paths; defer hints until actual parsing without a consumer, retire filename permission and duplicate role replay without new state. Qualify actual model pixels and conflicting-hint negatives.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-effect-role"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "8bbf14d20e62fc4d05281d9258c612c6d564bd2ffb0905b2ef5536a0bc1b79c6",
-      "after": "a25521fd31ddbca48930eb2e10adb3ddc746b2ab852b59c62d67ceb2931cfe27",
-      "owner": "Existing StaticModel draw boundary and real App/author evidence",
-      "reason": "Bind actual missing-colour/preserved-shadow red-green to unchanged whole-App controls, bounded active/inactive HDR draw cases and independent Earth; separate default244 source checks from new execution.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-disabled-brightness"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e0577d574b18e280310d8415cc4a35bf29a46cd3b0a278897ee5c371beaa4b5c",
-      "after": "b9d193bfbb24996ab0bff31d23b541681aa52d721e2c6a40adb11f77df4b10e4",
-      "owner": "Existing material numeric and explicit resource consumers",
-      "reason": "Retire qualified unused brightness failure, retain remaining raw numeric boundaries only as source facts and distinguish the proven image-only effect-role case from a proposed existing model consumer.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "a25521fd31ddbca48930eb2e10adb3ddc746b2ab852b59c62d67ceb2931cfe27",
+      "after": "e6907558273d8fc81be8c55ac4448a7aac1013ca28f4d58d220ac2cb3e7a24d2",
+      "owner": "Existing model named-albedo, Catalog and bounded native/App evidence",
+      "reason": "Record real dim-to-raw model failure, exact whole-App controls and deferred-hint counterexamples with precise initial/final identities. Reuse unaffected runs, disclose API/fixture qualification fixes and diagnostic order variance, and bind final independent author.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-effect-role"
     }
   ]
 }
