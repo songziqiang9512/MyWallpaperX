@@ -182,7 +182,9 @@ HDR关闭时，原usesHDRBrightness使实际亮度统一取1；原始brightness�
 
 Chroma先形成有效surfaceColor再进BRDF/F0：无mask忽略全局color；有mask按原A混合luma/color，view tint另按同一A从白混合至front/back结果。无mask的view facing保原signed合同，指数只在mask读取；声明单侧front/back时另一侧缺省白，均无声明不准备无用view运算；当前已消费的动态tintback沿原typed copy，更多writer另行资格。generic4保原全局color与受光后view tint次序。原view公式只计算一次后按准备种类应用，退出Chroma通用晚染色职责；Pipeline已经投影的指数下限不再在Metal重复clamp。
 
-HDR时Chroma的raw颜色先不乘brightness，直接光、项目原A追加发光、ambient与reflection合并后统一乘原brightness，随后fog/PMA；只对Chroma退原reflection内的brightness，避免平方。generic4保原brightness时序，两族共同的后反射HDR/A增益归[默认完整发光](#model-hdr-emissive-gain)，不能再重复乘brightness。宿主material/layer alpha、mask覆盖、depth/cull与最终合成继续项目合同，不能由参考片元未读g_TintAlpha推断宿主透明度失效；前置A的max与项目add差异仍独立。pigment/noise沿[独立颜料合同](#model-chroma-pigment)消费，不宣完整Chroma或官方像素。
+两种stock profile的HDR brightness均属于受光完成后的颜色增益，不是材质反射率：Pipeline先保raw颜色，BRDF/F0、直接光、项目原A追加发光、ambient与reflection合并后统一乘brightness一次，再进入[后反射HDR/A增益](#model-hdr-emissive-gain)、fog/PMA。generic4旧的前乘会改变有色金属F0，并漏增亮黑色金属的非零Fresnel高光；退这条前乘和reflection单独乘亮度，复用原surfaceMaterial.z判定，不增flag、ABI、owner、pass或采样。无profile的legacy保原前乘；HDR关闭取1，alpha、mask、depth/cull及反射缺失的局部语义保持。前置A的max与项目add差异仍独立；pigment/noise沿[独立颜料合同](#model-chroma-pigment)消费，不宣完整Chroma或官方像素。
+
+此亮度修正先以实际prepared资源→Frame→Metal验证：两族白tint同材质等值、B1/B2的直接光/反射/混合发光成比例，有色M/R和黑色金属斜入射区分F0变化与漏增益；保B0、HDR关闭、资源改名、无灯、alpha/depth及legacy反例。真实水滴原输入核直接高光与完整画面，独立作者核回归；同输入旧实现须被新断言拒绝。黑albedo不能代替零高光控制，不以shader公式或测试数授外晕改善；当前实际资格仍由运行证据维护。
 
 只在原profile加种类/静态tint，原uniform末加一份16B（tint.xyz与颜色种类w），不新增flags位、纹理、varying、PSO、pass、Frame、池或状态owner。为前置view tint，原alpha/discard整体前移到albedo/component/normal隐式采样及world导数之后、shadow/灯/tint之前；后续gradient/reflection为显式LOD、shadow为无mip depth，不新增导数状态。普通帧不解析/重新资格或做资源查找；关闭/白默认仍有固定ABI/共享片元成本，不授零成本或性能收益。
 

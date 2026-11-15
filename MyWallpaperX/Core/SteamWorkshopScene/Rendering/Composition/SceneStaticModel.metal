@@ -640,9 +640,9 @@ fragment half4 sceneStaticModelFragment(
         const float3 incident = reflectionTexture.sample(reflectionSampler, uv, level(mip)).rgb;
         const float weight = edge.x * edge.y * (1.0 - facing) * surfaceMaterial.w;
         const float3 reflected = pow(max(float3(0.001), incident * weight), 2.0 - surfaceMaterial.x);
-        litColor += saturate(reflected) * (chroma ? 1.0 : uniforms.cameraPosition.w);
+        litColor += saturate(reflected);
     }
-    if (chroma) litColor *= uniforms.cameraPosition.w;
+    if (surfaceEnabled) litColor *= uniforms.cameraPosition.w;
     if ((uniforms.materialFlags.x & 4u) != 0u && (components & 8u) != 0u) {
         const float excessEmission = emissiveMask * max(0.0, uniforms.emissiveColorAndBrightness.w - 1.0);
         if (excessEmission > 0.0) {

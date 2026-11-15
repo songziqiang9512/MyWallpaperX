@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 375,
-      "bytes": 87188
+      "lines": 377,
+      "bytes": 87836
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59878
+      "bytes": 59988
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 353,
-      "bytes": 103012
+      "lines": 355,
+      "bytes": 104409
     }
   },
   "archives": [
@@ -515,20 +515,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "65d97ed0fa6897ae2d6175653a8314928c2a6b80c51cb95d1cb3257b531afdef",
-      "after": "c8c77bd049b66c1bea15a69642347a2a30c13c2e0b2136b7bb573c20db5a0929",
-      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
-      "reason": "Define default advanced HDR emission response and neutral arithmetic in the existing material owner; keep General HDR scope and explicit-material override boundary separate.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hdr-emissive-gain"
+      "before": "c8c77bd049b66c1bea15a69642347a2a30c13c2e0b2136b7bb573c20db5a0929",
+      "after": "cc3a79f568d2e21e4fe70677a3963d708754f89034243919d22f2a44f20796e1",
+      "owner": "Existing static model material/Pipeline/Metal owners",
+      "reason": "Replace generic4 pre-B/F0 and reflection-only gain with the qualified-surface post-lighting brightness contract, including B0 black-metal and half-mask controls; no new owner or implementation state.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-chroma-surface"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "bb7c09a2712cca9b2556c3a37e2a60e2c6b0db3bd78e7d5248b6eb6aac1ff75b",
-      "after": "cf11a1283645981f41e3575db30db0300df672528b58fa32fdd9eb73b2a9504f",
-      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
-      "reason": "Record qualified HDR pixel controls, main-bundle library selection, real waterdrop stable edge recovery and independent Earth; retain halo, phase, explicit HDR and resize-validator limits.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-emissive-gain"
+      "before": "cf11a1283645981f41e3575db30db0300df672528b58fa32fdd9eb73b2a9504f",
+      "after": "a777ce9801631fff47199cc5bb0a6bcd371aea38c107fecf861aafa78a1a652a",
+      "owner": "Existing static model material/Pipeline/Metal and model evidence owners",
+      "reason": "Record actual same-input old/new radiance controls, unchanged Chroma/legacy neighbors, Debug/sign and bounded waterdrop plus independent Earth completion; preserve resize and halo limits.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-hdr-brightness-order"
     },
     {
       "section": "bodies",
@@ -542,10 +542,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "526e88bf09aa0329c816704a8a9c725738d9111c80397d858e8f17e303e09e5a",
-      "after": "7ea0b37c1ea0b92b8e1dbfb4f4f9c25d5050fbfdf6d61aeb14b7d38fbbb58a49",
-      "owner": "Existing Scene Bloom post-process and runtime evidence owners",
-      "reason": "Replace superseded Bloom reconstruction investigation with evidence-led model reflection/radiance/resolution, preserve source-only MipMapInfo debt and unqualified frozen official-window limitation without claiming a shader failure.",
+      "before": "7ea0b37c1ea0b92b8e1dbfb4f4f9c25d5050fbfdf6d61aeb14b7d38fbbb58a49",
+      "after": "6c4dbf896c34f1b7b306fccea7d8d5d2cdf361ccb6ba25303897b3805a244bc3",
+      "owner": "Existing static model material/Pipeline/Metal and model evidence owners",
+      "reason": "Retire only the proven generic4 brightness ordering and zero-gain highlight error; keep explicit HDR override, emission composition and generic2 direct response open.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

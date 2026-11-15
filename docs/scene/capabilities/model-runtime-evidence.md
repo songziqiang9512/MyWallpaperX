@@ -112,6 +112,8 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 源、门、数值反例、官方有界对照、两张晚期原PNG及独审归`.artifacts/scene-model-hdr-emissive-gain-20261116/evidence.zip`；三次真实运行报告/必要原图归`.artifacts/scene-evidence/runs/scene-model-hdr-emissive-gain-20261116`。外晕、细纹及相邻材质语义继续[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，不宣水滴全面或官方精确一致，也未取得性能收益。
 
+**表面亮度的正确次序** <a id="model-hdr-brightness-order"></a>：按[表面合同](advanced-object-coverage.md#model-chroma-surface)，generic4与Chroma在材质受光/反射合并后统一乘HDR brightness；退generic4把brightness混入albedo/F0及反射另乘的旧职责，两产品仅三行替换、净零增长，无新flag/ABI/资源/owner。真实同104输入/Harness旧新读回中，generic4的B0直接高光[5,5,5]、黑金属斜入射[12,12,12]均恢复0，后者B1/B2为12/24；有色材质B2从[61,94,122]恢复[68,105,139]，半mask也随完整颜色增益。70条authored-Chroma输入的RGBA/depth逐值不变，legacy/custom/override邻例保持；14方法104+82实际输入通过，含B0/1/2、HDR关闭、反射/混合发光、改名及alpha/depth。新Debug28.253s/签名通过，exe efc96420…a56d5、dylib17cf3c20…f648、Metal c3d50762…f20c；347原包及固定控制14s/after12，R3/F701/CB530917590784的14/115/113/main/export/seal/GPU完成、零截断排空，亮缘/黑心/内亮瓣/文字与细线完整，整轮仍保4resize失败。独立343原包5s PASS，R2/F142/CB508871558912见完整地表/云/大气/钟日。异相位图不授精确RGB或外晕改善，未改反射history/LOD语义；源/旧新读回/身份与独审归`.artifacts/scene-model-hdr-brightness-order-20261116/evidence.zip`，两真实运行归`.artifacts/scene-evidence/runs/scene-model-hdr-brightness-order-20261116`。
+
 ## 明确材质引用不受目录提示限制 <a id="model-material-role"></a>
 
 2026-11-14按[准备角色合同](advanced-object-coverage.md#model-material-role)，原Catalog用同一规范身份的queue索引与material位替换seen；MDL附加材料、JSON model.material、particle及effect pass的明确消费者调用同一loadMaterial，待处理hint原位提升、已处理hint只补一次。普通effect dependency仍为hint，未消费.other不读；保原来源选择、脚本、排序、取消/revision和局部坏材料。产品仅Catalog净+13行，无新parser、MDL读取、资源owner、持久cache或普通帧工作。
@@ -148,7 +150,7 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 ## Chroma的共同表面与颜色次序 <a id="model-chroma-surface"></a>
 
-2026-11-14按[原Chroma合同](advanced-object-coverage.md#model-chroma-surface)，原SurfaceProfile承接stock chroma4及静态specularTint，三灯共用原MR/shared权重；view tint先形成有效albedo再进BRDF/F0，spec tint只乘specular瓣，mask按原albedo A分别限制两项。Chroma合并直接光/ambient/项目原A追加发光/reflection后只乘一次HDR gain；退出该种类的晚view染色与reflection内重复gain，generic4保原次序。无灯/反射但非常色view tint仍可预载normal，静态相等色不读图。四产品净+45行；只加16B uniform至1440B，无新纹理/varying/PSO/Frame/缓存/owner，不授零成本或性能收益。
+2026-11-14按[原Chroma合同](advanced-object-coverage.md#model-chroma-surface)，原SurfaceProfile承接stock chroma4及静态specularTint，三灯共用原MR/shared权重；view tint先形成有效albedo再进BRDF/F0，spec tint只乘specular瓣，mask按原albedo A分别限制两项。退出该种类的晚view染色与reflection内重复gain；两族当前HDR次序见[表面亮度](#model-hdr-brightness-order)。无灯/反射但非常色view tint仍可预载normal，静态相等色不读图。四产品净+45行；只加16B uniform至1440B，无新纹理/varying/PSO/Frame/缓存/owner，不授零成本或性能收益。
 
 同一Swift/Metal载体五payload有效27方法、76 Chroma/45 Rim/56 gradient/60 map/36 normal共273输入通过；Chroma白tint等值generic4的MR/三灯/normal/map/gradient/rim/遮挡、R0 tint无贡献、有限粗糙度两瓣分离、无mask color无效、单侧默认与动态back、mask0/半/1、unlit view法线需求、mip normal透明边缘、HDR/alpha/depth及改名均有实际像素。首轮仅HDR反射发光控制gain2饱和而一方法失败；只把两行albedo降至非饱和区，沿同份source/support/binary/library补Chroma6方法，gain1[16,24,63]→gain2[32,48,126]，未放宽断言、重编或改产品，原失败保留。真实parser/helper/profile CPU的Chroma方法8.368s通过，原Rim方法复用同一执行的有效结果，整profile动态copy邻例7.493s通过。首CPU错误用共享入口尚不支持的数组充正例，改为实际支持的字符串后重跑受影响方法；数组/包装错维度独立复现并留队列，不在消费者重复解析raw掩盖。
 

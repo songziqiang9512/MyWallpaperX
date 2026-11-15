@@ -97,14 +97,21 @@ def cases():
                  constants={"tintfront": [1, 1, 1], "tintback": TINT}),
              row("unlit-constant-tint", lighting=0, normalCombo=1,
                  constants={"tintfront": TINT, "tintback": TINT})]
-    for brightness in [1, 2]:
-        rows.append(row(f"hdr-direct-{brightness}", hdr=True, constants={"brightness": brightness}))
-        rows.append(row(f"hdr-reflection-{brightness}", hdr=True, reflection=True, normalCombo=1,
-            pixels=[218, 128, 218, 255], albedo=[0, 0, 0, 255], constants={"brightness": brightness}))
-        rows.append(row(f"hdr-emission-reflection-{brightness}", hdr=True, reflection=True, normalCombo=1,
+    for brightness in [0, 1, 2]:
+        rows += shared(f"hdr-direct-{brightness}", hdr=True, constants={"brightness": brightness})
+        rows += shared(f"hdr-reflection-{brightness}", hdr=True, reflection=True, normalCombo=1,
+            pixels=[218, 128, 218, 255], albedo=[0, 0, 0, 255], constants={"brightness": brightness})
+        rows += shared(f"hdr-emission-reflection-{brightness}", hdr=True, reflection=True, normalCombo=1,
             pixels=[218, 128, 218, 255], albedo=[16, 24, 32, 255],
             materialPixels=[0, 0, 0, 255], mapHeader=8,
-            constants={"brightness": brightness, "emissivebrightness": 1}))
+            constants={"brightness": brightness, "emissivebrightness": 1})
+        rows += shared(f"hdr-black-grazing-{brightness}", hdr=True,
+            geometryNormal=side, light=[side[0], 0, -side[2]], albedo=[0, 0, 0, 255],
+            constants={"brightness": brightness, "metallic": 1, "roughness": .6})
+        rows += shared(f"hdr-mask-{brightness}", hdr=True, albedo=[48, 80, 112, 128],
+            mapCombos={"TINTMASKALPHA": 1}, constants={"brightness": brightness})
+    rows += shared("hdr-disabled-brightness", hdr=False, constants={"brightness": 2})
+    rows += shared("hdr-renamed", hdr=True, renamed=True, constants={"brightness": 2})
     rows += shared("host-half", alpha=.5)
     rows += shared("texture-half", albedo=[48, 80, 112, 128])
     rows += [row("zero-over-far", alpha=0, far=True),
@@ -224,13 +231,20 @@ class SceneStaticModelChromaTests(unittest.TestCase):
         self.assertNotIn({"path": "normal.png", "purpose": "normal"}, constant["requests"])
 
     def test_hdr_gain_scales_composed_radiance_once_including_reflection(self):
-        for prefix in ["hdr-direct", "hdr-reflection", "hdr-emission-reflection"]:
-            one, two = [self.rows[prefix + "-" + str(gain)]["rgba"] for gain in [1, 2]]
-            self.assertGreater(max(one[:3]), 2, prefix)
-            self.assertLess(max(two[:3]), 250, prefix)
-            for a, b in zip(one[:3], two[:3]):
-                self.assertLessEqual(abs(2*a-b), 1, (prefix, one, two))
-            self.assertEqual(one[3], two[3])
+        for prefix in ["hdr-direct", "hdr-reflection", "hdr-emission-reflection", "hdr-black-grazing", "hdr-mask"]:
+            for suffix in ["", "-generic"]:
+                zero, one, two = [self.rows[f"{prefix}-{gain}{suffix}"]["rgba"] for gain in [0, 1, 2]]
+                self.assertEqual(zero, [0, 0, 0, 255], (prefix, suffix, zero))
+                self.assertGreater(max(one[:3]), 2, (prefix, suffix))
+                self.assertLess(max(two[:3]), 250, (prefix, suffix))
+                for a, b in zip(one[:3], two[:3]):
+                    self.assertLessEqual(abs(2*a-b), 1, (prefix, suffix, one, two))
+                self.assertEqual(one[3], two[3])
+            for gain in [0, 1, 2]:
+                self.same(f"{prefix}-{gain}", f"{prefix}-{gain}-generic")
+        for suffix in ["", "-generic"]:
+            self.same("hdr-disabled-brightness" + suffix, "hdr-direct-1" + suffix)
+            self.same("hdr-renamed" + suffix, "hdr-direct-2" + suffix, exact=True)
         self.assertGreater(self.rows["hdr-emission-reflection-1"]["rgba"][2],
                            self.rows["hdr-reflection-1"]["rgba"][2] + 5)
 

@@ -461,7 +461,7 @@ struct SceneStaticModelPipeline {
             ? max(material.brightness, 0)
             : 1
         let chroma = material.surfaceProfile?.kind == .chroma4
-        let colorBrightness: Float = chroma ? 1 : brightness
+        let colorBrightness: Float = material.surfaceProfile == nil ? brightness : 1
         let hdrEmissiveGain = material.usesHDRBrightness && material.surfaceProfile != nil
             && (material.receivesLighting || material.surfaceProfile?.reflectionEnabled == true)
         // Opaque material RGB is independent of its authored fragment alpha.
