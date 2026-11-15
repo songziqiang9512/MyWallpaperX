@@ -7,6 +7,7 @@ import Foundation
         let input = try JSONSerialization.jsonObject(with: Data(contentsOf:
             URL(fileURLWithPath: CommandLine.arguments[1]))) as! [String: String]
         let root = URL(fileURLWithPath: input["root"]!)
+        let losslessNumbers = input["numericTransport"] == "losslessDouble"
         let names = input["names"]?.components(separatedBy: ",") ?? ["parts5", "parts8", "parts64", "bad8"]
         var rows: [[String: Any]] = []
         for name in names {
@@ -19,14 +20,29 @@ import Foundation
                 let textureBytes = try pass.texturePaths.map { path in
                     [UInt8](try model.resourceView.resolvedResource(relativePath: path)!.readBytes())
                 }
-                return ["material": pass.materialPath, "passIndex": pass.passIndex,
+                var result: [String: Any] = ["material": pass.materialPath, "passIndex": pass.passIndex,
                     "textures": pass.textureSlots.map { value -> Any in value.map { $0 as Any } ?? NSNull() },
-                    "combos": pass.combos, "constants": pass.constantShaderValues.mapValues(\.components),
+                    "combos": pass.combos,
                     "shaderPath": pass.shaderPath ?? "", "cullMode": pass.cullMode ?? "",
                     "depthWrite": pass.depthWrite ?? "", "blending": pass.blending ?? "",
                     "defaultAlbedo": pass.staticModelDefaultAlbedoAssetPath ?? "",
                     "bindingState": pass.staticModelMaterialBindings?.state.rawValue ?? "none",
                     "materialBytes": [UInt8](material), "textureBytes": textureBytes]
+                if losslessNumbers {
+                    // This is CPU producer output, not a GPU uniform readback.
+                    result["constantDoubles"] = pass.constantShaderValues.mapValues {
+                        $0.components?.map { String($0) } ?? []
+                    }
+                    if let bindings = pass.staticModelMaterialBindings {
+                        result["bindings"] = bindings.bindings.map { binding -> [String: Any] in
+                            ["channel": binding.channel.rawValue, "uniformName": binding.uniformName,
+                             "materialKey": binding.materialKey.map { $0 as Any } ?? NSNull(),
+                             "components": binding.components.map { String($0) }]
+                        }
+                        result["bindingReason"] = bindings.rejectionReason ?? ""
+                    }
+                } else { result["constants"] = pass.constantShaderValues.mapValues(\.components) }
+                return result
             }
             let layers = descriptor.layers.compactMap { layer -> [String: Any]? in
                 guard let path = layer.staticModelPath else { return nil }

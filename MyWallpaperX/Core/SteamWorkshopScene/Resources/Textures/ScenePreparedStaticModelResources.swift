@@ -428,8 +428,9 @@ struct ScenePreparedStaticModelResources {
         } else {
             color = components(named: "color", in: pass)
                 ?? components(named: "Color", in: pass) ?? [1, 1, 1]
-            opacity = components(named: "alpha", in: pass)?.first
+            let rawOpacity = components(named: "alpha", in: pass)?.first
                 ?? components(named: "Alpha", in: pass)?.first ?? 1
+            opacity = rawOpacity.isFinite ? rawOpacity : 1
             brightness = components(named: "brightness", in: pass)?.first ?? 1
         }
         let emissiveColor = components(named: "emissivecolor", in: pass)
@@ -471,7 +472,8 @@ struct ScenePreparedStaticModelResources {
                 component(color, at: 1, default: 1),
                 component(color, at: 2, default: 1)
             ),
-            opacity: Float(opacity),
+            // Clamp before narrowing: finite authored alpha can exceed Float.
+            opacity: Float(min(max(opacity, 0), 1)),
             receivesLighting: pass.combos["LIGHTING"] != 0,
             textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1,
             textureAlphaIsTintMask: pass.combos["TINTMASKALPHA"] == 1,

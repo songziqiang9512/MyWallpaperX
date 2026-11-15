@@ -15,7 +15,9 @@
 
     static func run(_ item: [String: Any], root: URL, device: MTLDevice,
                     queue: MTLCommandQueue) throws -> [String: Any] {
-        let name = item["name"] as! String, folder = root.appendingPathComponent(name)
+        let name = item["name"] as! String
+        let folder = root.appendingPathComponent(item["producerCase"] as? String ?? name)
+        let opacityPass = item["opacityPass"] as? [String: Any]
         func number(_ key: String) -> Float { (item[key] as! NSNumber).floatValue }
         func vector(_ key: String) -> SIMD3<Float> {
             let values = item[key] as! [NSNumber]
@@ -70,16 +72,43 @@
         primary.shaderPath = item["shader"] as? String
         primary.userShaderValues = item["userShaderValues"] as? [String: String] ?? [:]
         primary.cullMode = "nocull"; primary.blending = item["additive"] as! Bool ? "additive" : "translucent"
+        if let producer = opacityPass {
+            let constants = (producer["constantDoubles"] as! [String: [String]]).mapValues {
+                SceneDocument.ShaderValue(components: $0.map { Double($0)! })
+            }
+            primary = .init(materialPath: producer["material"] as! String,
+                textureSlots: (producer["textures"] as! [Any]).map { $0 as? String },
+                combos: producer["combos"] as! [String: Int], constantShaderValues: constants)
+            primary.shaderPath = producer["shaderPath"] as? String
+            primary.cullMode = producer["cullMode"] as? String
+            primary.blending = producer["blending"] as? String
+            primary.depthWrite = producer["depthWrite"] as? String
+            primary.staticModelMaterialBindings = .init(
+                state: .init(rawValue: producer["bindingState"] as! String)!,
+                bindings: (producer["bindings"] as! [[String: Any]]).map {
+                    .init(channel: .init(rawValue: $0["channel"] as! String)!,
+                        uniformName: $0["uniformName"] as! String, materialKey: $0["materialKey"] as? String,
+                        components: ($0["components"] as! [String]).map { Double($0)! })
+                }, rejectionReason: producer["bindingReason"] as? String)
+        }
         var farPass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/far.json",
             textureSlots: ["materials/blue.png"], combos: ["LIGHTING": 0], constantShaderValues: [:])
         farPass.shaderPath = "generic4"; farPass.cullMode = "nocull"; farPass.blending = "normal"
+        if opacityPass != nil {
+            farPass = .init(materialPath: "materials/far.json", textureSlots: ["materials/blue.png"],
+                combos: ["LIGHTING": 1], constantShaderValues: ["roughness": .init(components: [0])])
+            farPass.shaderPath = "generic4"; farPass.cullMode = "nocull"; farPass.blending = "normal"
+        }
         var near = SceneRenderDescriptor.Layer(id: 7, staticModelPath: modelPath)
         near.utilityLayer = nil; near.usesPerspective = true; near.originXYZ = [0, 0, 0]
+        near.alpha = item["layerAlpha"] as? Double ?? 1
         near.scaleXYZ = [vector("scale").x, vector("scale").y, vector("scale").z]
         near.anglesXYZ = [0, 0, number("rotation")]
         var far = SceneRenderDescriptor.Layer(id: 9, staticModelPath: "models/far.mdl")
-        let gradientShadow = item["gradientShadow"] as? Bool ?? false
-        far.utilityLayer = nil; far.usesPerspective = true; far.originXYZ = [0, 0, gradientShadow ? 20 : 0]
+        let gradientShadow = (item["gradientShadow"] as? Bool ?? false) || opacityPass != nil
+        far.utilityLayer = nil; far.usesPerspective = true
+        far.originXYZ = [0, 0, opacityPass == nil && gradientShadow ? 20 : 0]
+        if opacityPass != nil { far.modelShadowCastIntent = .disabled }
         var descriptor = SceneRenderDescriptor(lighting: nil, layers: [near, far],
             renderOrderLayerIDs: [7, 9], materialPasses: [primary, farPass])
         descriptor.hdrEnabled = item["hdr"] as? Bool ?? false
@@ -233,7 +262,8 @@
             resourceView: resourceView, device: device, textureLoader: loader,
             materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
-        precondition(resources[7]?.count == 1 && resources[9]?.count == 1, "Prepared geometry: " + name)
+        precondition((opacityPass != nil || resources[7]?.count == 1) && resources[9]?.count == 1,
+            "Prepared geometry: " + name)
         let renderer = SceneMetalRenderer(device: device, resources: resources)
         assets.publish(to: renderer.textureRegistry)
         renderer.renderDescriptor = descriptor
@@ -251,12 +281,13 @@
         let intensity = (item["lightIntensity"] as? NSNumber)?.floatValue ?? 2
         let radius = (item["lightRadius"] as? NSNumber)?.floatValue ?? 160
         let direct = item["directLights"] as? Bool ?? (!ambient && !reflection)
+        let position: SIMD3<Float> = opacityPass == nil ? SIMD3(0, 0, 80) : SIMD3(48, 0, 80)
         let lighting = SceneLightSnapshot(ambient: ambient ? SIMD3(repeating: 1) : .zero,
             skylight: .zero, directional: direct && kind == "directional" ? [.init(layerID: 11,
                 castsShadow: gradientShadow, directionTowardLight: vector("light"), color: color, intensity: intensity)] : [],
-            point: direct && kind == "point" ? [.init(layerID: 11, position: SIMD3(0, 0, 80),
+            point: direct && kind == "point" ? [.init(layerID: 11, castsShadow: gradientShadow, position: position,
                 color: color, intensity: intensity, radius: radius)] : [],
-            spot: direct && kind == "spot" ? [.init(layerID: 11, position: SIMD3(0, 0, 80),
+            spot: direct && kind == "spot" ? [.init(layerID: 11, castsShadow: gradientShadow, position: position,
                 directionFromLight: item["spotAway"] as? Bool == true ? SIMD3(0, 0, 1) : SIMD3(0, 0, -1),
                 color: color, intensity: intensity, radius: radius, innerConeCosine: cos(.pi/6),
                 outerConeCosine: cos(.pi/4), outerConeDegrees: 45)] : [], overflowCount: 0)
@@ -284,11 +315,14 @@
             let visible: Set<Int> = [7, 9]
             let candidates = renderer.shadowDrawCandidates(orderedLayers: [near, far], visible: visible,
                 worldFrames: worlds, snapshot: snapshot, groups: nil)!
+            let lights: [SceneLightSnapshot.ShadowLight] = kind == "directional"
+                ? [.directional(lighting.directional[0])] : kind == "point"
+                ? [.point(lighting.point[0])] : [.spot(lighting.spot[0])]
             renderer.prepareModelShadow(state: state, candidates: candidates,
-                lights: [.directional(lighting.directional[0])], orderedLayers: [near, far], visible: visible,
+                lights: lights, orderedLayers: [near, far], visible: visible,
                 batches: [:], particlePipeline: nil, mainPass: pass, groups: nil, pool: pool,
                 commandBuffer: cb, leases: &leases, mandatoryCapacity: { true }, recordsEvidence: false, cameraFrame: camera)
-            precondition(state.shadows.count == 1)
+            precondition(opacityPass != nil || state.shadows.count == 1)
         }
         if reflection {
             let reflectionDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
@@ -313,7 +347,7 @@
                 additiveRGB: item["additive"] as! Bool,
                 lighting: lighting, writesDepth: true, reflectionTexture: colorBands,
                 commandBuffer: cb, encoder: encoder))
-        } else { for layer in item["far"] as! Bool ? [near, far] : [near] {
+        } else { for layer in opacityPass != nil ? [far, near] : item["far"] as! Bool ? [near, far] : [near] {
             _ = renderer.drawStaticModel(layer: layer, state: state, worldFrames: worlds,
                 frameContext: .init(dynamicValues: snapshot), cameraFrame: camera, lighting: lighting,
                 pass: pass, commandBuffer: cb, leases: &leases)
@@ -326,6 +360,30 @@
         blit.copy(from: depth, sourceSlice: 0, sourceLevel: 0,
             sourceOrigin: .init(x: 32, y: 32, z: 0), sourceSize: .init(width: 1, height: 1, depth: 1),
             to: readback, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+        var shadowReadback: MTLBuffer?
+        if opacityPass != nil, let shadow = state.shadows.first {
+            let clip: SIMD3<Float>, face: Int
+            switch shadow.projection {
+            case .directional(let projection):
+                let q = projection.worldToClip * SIMD4<Float>(0, 0, 0, 1)
+                clip = SIMD3(q.x, q.y, q.z); face = 0
+            case .spot(let projection):
+                let q = projection.worldToLight * SIMD4(-projection.position, 0)
+                clip = SIMD3(q.x / (q.z * projection.tanHalfAngle), q.y / (q.z * projection.tanHalfAngle), 0); face = 0
+            case .point(let projection):
+                face = 5
+                let q = ScenePointShadowProjection.worldToFaces[face] * SIMD4(-projection.position, 0)
+                clip = SIMD3(q.x / q.z, q.y / q.z, 0)
+            }
+            let map = shadow.texture, viewport = shadow.projection.viewport(face: face, width: map.width, height: map.height)
+            let x = Int(viewport.originX + (Double(clip.x) + 1) * viewport.width * 0.5)
+            let y = Int(viewport.originY + (1 - Double(clip.y)) * viewport.height * 0.5)
+            shadowReadback = device.makeBuffer(length: 256, options: .storageModeShared)!
+            blit.copy(from: map, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: x, y: y, z: 0),
+                sourceSize: .init(width: 1, height: 1, depth: 1), to: shadowReadback!, destinationOffset: 0,
+                destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+        }
+        let shadowPublished = !state.shadows.isEmpty
         blit.endEncoding(); leases.forEach { $0.arm(on: cb) }; state.arm(on: cb)
         cb.commit(); cb.waitUntilCompleted()
         withExtendedLifetime(shadowPool) {}
@@ -334,6 +392,17 @@
             var bytes = [UInt8](repeating: 0, count: 4)
             output.getBytes(&bytes, bytesPerRow: 4, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0)
             return [Int(bytes[2]), Int(bytes[1]), Int(bytes[0]), Int(bytes[3])]
+        }
+        if opacityPass != nil {
+            let material = resources[7]?.first?.material
+            return ["name": name, "parts": resources[7]?.count ?? 0,
+                "opacity": material.map { String($0.opacity) } ?? "absent",
+                "opacityBits": material?.opacity.bitPattern ?? 0,
+                "rgba": rgba(32, 32), "receiver": rgba(28, 32), "clearReceiver": rgba(38, 32),
+                "outside": rgba(0, 0), "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
+                "shadowPublished": shadowPublished,
+                "shadowDepth": shadowReadback?.contents().bindMemory(to: Float.self, capacity: 1).pointee ?? 1,
+                "completed": true]
         }
         var result: [String: Any] = ["name": name, "rgba": rgba(32, 32), "outside": rgba(0, 0),
             "encoding": resources[7]!.first!.normalMap?.encoding.rawValue ?? 0,

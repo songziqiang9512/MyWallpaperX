@@ -451,6 +451,149 @@ struct SceneResourceView {
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(label + ": OK", result.stdout)
 
+    def test_real_catalog_alpha_domain_reaches_prepared_color_depth_and_three_shadows(self):
+        import hashlib
+        import json
+        from . import test_scene_static_model_parts as parts
+        from . import test_scene_static_model_normal_map as normal
+        from . import test_scene_static_model_material_bindings as bindings
+
+        parent = os.environ.get("MWX_MODEL_OPACITY_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        root = Path(tempfile.mkdtemp(prefix="model-opacity-input-", dir=parent))
+        base = normal.cases()[0]
+        producers = [
+            ("builtin-one", False, "alpha", 1, None),
+            ("builtin-huge", False, "alpha", 1e300, None),
+            ("builtin-nan", False, "alpha", "nan", None),
+            ("builtin-zero", False, "alpha", 0, None),
+            ("builtin-negative", False, "alpha", "-10e299", None),
+            ("builtin-half", False, "alpha", .5, None),
+            ("authored-one", True, "alpha", 1, None),
+            ("authored-huge", True, "alpha", "10e299", None),
+            ("authored-zero", True, "alpha", 0, None),
+            ("authored-negative", True, "alpha", [-1e300], None),
+            ("authored-nan", True, "alpha", "nan", None),
+            ("authored-wide-color", True, "alpha", 1, ("color", "1e300 1 1")),
+            ("authored-wide-brightness", True, "alpha", 1, ("brightness", 1e300)),
+            ("builtin-renamed", False, "Alpha", [1e300], None),
+            ("authored-renamed", True, "opacity_strength", {"value": 1e300}, None),
+            ("builtin-layer-one", False, "alpha", 1, None),
+            ("builtin-layer-two", False, "alpha", 2, None),
+        ]
+        rows = [dict(base, name=name, lighting=0, normalCombo=0, light=[.6, 0, 1],
+                     lightRadius=500, spotAway=False, far=True, renamed=name.endswith("renamed"))
+                for name, *_ in producers]
+        for row in rows:
+            if row["name"].startswith("builtin-layer-"):
+                row["layerAlpha"] = .5
+        normal.prepare(root, rows)
+        for row, (_, authored, key, alpha, extra) in zip(rows, producers, strict=True):
+            folder = root / row["name"]
+            material = "materials/alternate-surface.json" if row["renamed"] else "materials/input.json"
+            model = "models/alternate-body.mdl" if row["renamed"] else "models/input.mdl"
+            albedo = "materials/alternate-color.png" if row["renamed"] else "materials/white.png"
+            vertices = [((x, y, 0), (0., 0., 1.), (1., 0., 0., 1.), (.5, .5))
+                        for x, y in [(-8., -8.), (8., -8.), (8., 8.), (-8., 8.)]]
+            (folder / model).write_bytes(parts.reader.build_model(vertices=vertices,
+                indices=(0, 2, 1, 0, 3, 2), bounds=(-8, -8, 0, 8, 8, 0), material=material.encode()))
+            (folder / "models/far.mdl").write_bytes(parts.quad(-40, 40, -40, 40, -20, "materials/far.json"))
+            for stem, rgba in [(Path(albedo).stem, [255, 0, 0, 255]), ("blue", [128, 128, 128, 255])]:
+                (folder / f"materials/{stem}.rgba").write_bytes(bytes(rgba))
+                (folder / f"materials/{stem}.png").write_bytes(parts.png(rgba))
+            constants = {key: alpha}
+            if extra:
+                constants[extra[0]] = extra[1]
+            shader = "fixture/renamed-opacity" if row["renamed"] else "fixture/opacity"
+            shader = shader if authored else "genericimage2"
+            (folder / material).write_text(json.dumps({"passes": [{"shader": shader,
+                "textures": [albedo], "combos": {"LIGHTING": 0}, "cullmode": "nocull",
+                "blending": "translucent", "depthwrite": "enabled", "constantshadervalues": constants}]}))
+            (folder / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+            (folder / "scene.json").write_text(json.dumps({"version": 3, "objects": [
+                {"id": 2, "model": model, "origin": "0 0 0", "perspective": True}]}))
+            if authored:
+                stage = folder / f"shaders/{shader}"
+                stage.parent.mkdir(parents=True, exist_ok=True)
+                stage.with_suffix(".vert").write_text("void main() { gl_Position = vec4(0.0); }\n")
+                stage.with_suffix(".frag").write_text(
+                    f'uniform float g_TintAlpha; // {{"material":"{key}","default":1}}\n'
+                    'uniform vec3 g_TintColor; // {"material":"color","default":[1,1,1]}\n'
+                    'uniform float g_Brightness; // {"material":"brightness","default":1}\n'
+                    'void main() { gl_FragColor = vec4(1.0); }\n')
+        authored_inputs = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                           for path in sorted(root.rglob("*")) if path.is_file()}
+        (root / "authored-inputs.json").write_text(json.dumps(authored_inputs, indent=2))
+        cpu_sources = list(dict.fromkeys([*(path for path in parts.builder.SWIFT_SOURCES
+            if path.name != "SceneStaticModelMaterialBindingUnavailableStub.swift"),
+            *parts.reader.SWIFT_SOURCES, *bindings.SOURCES]))
+        producer = parts.native.run_swift(cpu_sources, bindings.SUPPORT + parts.builder_support(),
+            label="opacity-producer", input_value={"root": str(root),
+                "names": ",".join(row["name"] for row in rows), "numericTransport": "losslessDouble"})
+        handoff = {row["name"]: row["passes"][0] for row in producer["rows"]}
+        gpu_rows = [dict(row, name=row["name"] + "-" + kind, producerCase=row["name"],
+                         opacityPass=handoff[row["name"]], lightKind=kind)
+                    for row in rows for kind in ["directional", "point", "spot"]]
+        input_value = {"root": str(root), "cases": gpu_rows}
+        (root / "native-input.json").write_text(json.dumps(input_value, indent=2))
+        report = parts.native.run_swift(parts.NATIVE_SOURCES,
+            parts.resource_support() + normal.HARNESS.read_text(), label="opacity-prepared",
+            metal_sources=[parts.MODEL_METAL], input_value=input_value)
+        actual = {row["name"]: row for row in report["rows"]}
+        self.assertEqual(len(actual), 51)
+        for name, authored, *_ in producers:
+            selected = handoff[name]
+            rejected = name in {"authored-nan", "authored-wide-color", "authored-wide-brightness"}
+            with self.subTest(producer=name):
+                self.assertEqual(selected["bindingState"], "rejected" if rejected else "authored" if authored else "hostBuiltin")
+                if name == "authored-nan":
+                    self.assertEqual(selected["bindingReason"], "alpha-numeric-input")
+                for kind in ["directional", "point", "spot"]:
+                    row = actual[name + "-" + kind]
+                    self.assertTrue(row["completed"], row)
+                    self.assertEqual(row["parts"], 0 if rejected else 1, row)
+                    self.assertGreater(row["clearReceiver"][0], 0, row)
+                    if rejected:
+                        self.assertEqual(row["opacity"], "absent", row)
+                        self.assertFalse(row["shadowPublished"], row)
+        for kind in ["directional", "point", "spot"]:
+            for name, value in [("builtin-layer-one", "1.0"), ("builtin-layer-two", "2.0")]:
+                self.assertEqual(handoff[name]["constantDoubles"]["alpha"], [value])
+            faded = actual["builtin-layer-one-" + kind]
+            with self.subTest(layerAlpha=.5, light=kind):
+                for field in ["rgba", "receiver", "shadowDepth", "clearReceiver", "depth",
+                              "shadowPublished", "outside", "opacity", "opacityBits"]:
+                    self.assertEqual(actual["builtin-layer-two-" + kind][field], faded[field], field)
+            one, zero = actual["builtin-one-" + kind], actual["builtin-zero-" + kind]
+            self.assertGreater(one["rgba"][0], one["rgba"][1], one)
+            self.assertTrue(one["shadowPublished"], one)
+            self.assertLess(one["shadowDepth"], 1, one)
+            self.assertEqual(zero["shadowDepth"], 1, zero)
+            self.assertLess(one["receiver"][0], zero["receiver"][0], (one, zero))
+            self.assertGreater(one["depth"], zero["depth"], (one, zero))
+            half = actual["builtin-half-" + kind]
+            self.assertEqual(half["opacity"], "0.5")
+            self.assertEqual(half["shadowDepth"], 1, half)
+            self.assertEqual(half["receiver"], zero["receiver"], half)
+            self.assertEqual(half["depth"], one["depth"], half)
+            self.assertGreater(half["rgba"][0], zero["rgba"][0], half)
+            self.assertLess(half["rgba"][0], one["rgba"][0], half)
+            for field in ["rgba", "receiver", "clearReceiver", "depth", "shadowPublished", "shadowDepth", "outside"]:
+                self.assertEqual(faded[field], half[field], field)
+            for name, control in [("builtin-huge", one), ("builtin-nan", one),
+                                  ("builtin-renamed", one), ("authored-one", one),
+                                  ("authored-huge", one), ("authored-renamed", one),
+                                  ("builtin-negative", zero), ("authored-zero", zero),
+                                  ("authored-negative", zero)]:
+                row = actual[name + "-" + kind]
+                with self.subTest(producer=name, light=kind):
+                    for field in ["opacity", "opacityBits", "rgba", "receiver", "clearReceiver", "depth",
+                                  "shadowPublished", "shadowDepth", "outside"]:
+                        self.assertEqual(row[field], control[field], (field, row, control))
+        self.assertEqual(authored_inputs, {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(root.rglob("*")) if path.is_file() and str(path.relative_to(root)) in authored_inputs})
+
     def test_real_shader_value_and_surface_profile_keep_rim_failures_local(self):
         main = r'''
 @main enum RimSurfaceAdmissionProbe {

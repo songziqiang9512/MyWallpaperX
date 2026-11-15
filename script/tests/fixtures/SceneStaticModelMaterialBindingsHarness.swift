@@ -199,6 +199,10 @@ private func defaults() -> [String: Any] {
         "wrongAuthoredShape": summary(compile(pass(constants: ["Alpha": constant([0.2, 0.4])]))),
         "nonFiniteAuthored": summary(compile(pass(constants: ["Alpha": constant([.infinity])]))),
         "floatOverflowAuthored": summary(compile(pass(constants: ["Alpha": constant([1e100])]))),
+        "floatOverflowColorDefault": summary(compile(noValues, shader(colorDefault: "[1e100,0.5,0.75]"))),
+        "floatOverflowColorAuthored": summary(compile(pass(constants: ["Color": constant([1e100, 0.5, 0.75])]))),
+        "floatOverflowBrightnessDefault": summary(compile(noValues, shader(brightnessDefault: "1e100"))),
+        "floatOverflowBrightnessAuthored": summary(compile(pass(constants: ["Brigtness": constant([1e100])]))),
     ]
 }
 

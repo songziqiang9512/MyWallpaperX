@@ -122,8 +122,10 @@ nonisolated struct SceneStaticModelMaterialBindingCompiler {
                 key = nil
                 components = fallback.componentBitPatterns.map { Double(bitPattern: $0) }
             }
+            // Alpha is narrowed only after the material normalizes opacity.
             guard components.count == interface.componentCount,
-                  components.allSatisfy({ $0.isFinite && Float($0).isFinite }) else {
+                  components.allSatisfy({ $0.isFinite
+                      && (interface.channel == .alpha || Float($0).isFinite) }) else {
                 return rejected("\(interface.channel.rawValue)-components")
             }
             bindings.append(.init(

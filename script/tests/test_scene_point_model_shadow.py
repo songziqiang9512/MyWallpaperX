@@ -485,10 +485,10 @@ class ScenePointModelShadowFrameOwnerTests(unittest.TestCase):
   assert_point_frame_rows(self,report['rows'])
 
 
-def partial_point_harness(alpha):
-    s=spot.partial_frame_harness(alpha)
+def partial_point_harness():
+    s=spot.partial_frame_harness()
     # First actual face is +X: place the authored light so the finite first
-    # XY mesh has real footprint there before the later material rejects.
+    # XY mesh has real footprint there before the later draw rejects.
     s=s.replace('SIMD4(32,32,40,1)','SIMD4(-40,32,20,1)')
     s=s.replace('SceneSpotLightDefinition.parse(["light":"lspot"','ScenePointLightDefinition.parse(["light":"lpoint"')
     s=s.replace('spotLight:spotDefinition','pointLight:spotDefinition')
@@ -501,8 +501,8 @@ def partial_point_harness(alpha):
 def assert_partial_point_report(test,report):
     r=report['rows'][0]
     test.assertFalse(r['published']);test.assertEqual(r['pinCount'],1)
-    for k in ['pending','completed','finiteDepth','model1','preparedFirstFinite']:test.assertTrue(r[k],k)
-    for k in ['model2','preparedSecondFinite']:test.assertFalse(r[k],k)
+    for k in ['pending','completed','finiteDepth','model1']:test.assertTrue(r[k],k)
+    for k in ['model2','secondUVIsValid']:test.assertFalse(r[k],k)
     test.assertGreater(r['coveredDepthPixels'],0)
     test.assertEqual(r['retainedAfterReset'],24*1024*1024)
     test.assertEqual(r['residentAfterCompletion'],0)
@@ -510,39 +510,9 @@ def assert_partial_point_report(test,report):
 
 
 class ScenePointModelShadowPartialFailureTests(unittest.TestCase):
-    def test_actual_authored_overflow_partial_map_retains_pin_until_completion(self):
-        import tempfile
-        from script.tests import test_scene_alpha_display_builder_fixture as builder
-        from script.tests.test_scene_directional_shadow_integration import fixture_entries
-        parent=Path(os.environ.get('MWX_POINT_SHADOW_EVIDENCE','/private/tmp/mwx-rf15'))
-        parent.mkdir(parents=True,exist_ok=True)
-        root=Path(tempfile.mkdtemp(prefix='point-overflow-input-',dir=parent))
-        scene,entries=fixture_entries()
-        material=json.loads(entries['materials/caster.json'])
-        material['passes'][0]['constantshadervalues']={'alpha':1e100}
-        entries['materials/caster.json']=json.dumps(material).encode()
-        entries['project.json']=json.dumps({'type':'scene','file':'scene.json'}).encode()
-        for name,data in entries.items():
-            path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
-        (root/'input-identity.json').write_text(json.dumps({name:hashlib.sha256(data).hexdigest() for name,data in entries.items()},indent=2))
-        main=r'''
-@main enum AlphaProducerProbe {
- static func main() throws {
-  let root=try JSONDecoder().decode(String.self,from:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1])))
-  let model=try SceneRuntimeModelBuilder().build(rootURL:URL(fileURLWithPath:root))
-  let pass=model.renderDescriptor.materialPasses.first{$0.materialPath == "materials/caster.json"}!
-  let alpha=pass.constantShaderValues["alpha"]!.components!.first!
-  print(String(data:try JSONSerialization.data(withJSONObject:["descriptorAlpha":alpha,"doubleFinite":alpha.isFinite,"floatFinite":Float(alpha).isFinite]),encoding:.utf8)!)
- }
-}
-'''
-        producer=run_point(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
-                          label='point-overflow-producer',input_value=str(root))
-        self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
-        # Real CPU builder -> typed descriptor value -> prepared material boundary.
-        # The GPU resource builder itself is outside this harness, not duplicated.
-        report=run_point(spot.f.SOURCES,partial_point_harness(producer['descriptorAlpha']),label='point-partial-map',
-                        metal_sources=[model.METAL_SOURCE],input_value=producer,swift_flags=('-DDEBUG',))
+    def test_failed_second_draw_retains_partial_map_pin_until_completion(self):
+        report=run_point(spot.f.SOURCES,partial_point_harness(),label='point-partial-map-invalid-uv',
+            metal_sources=[model.METAL_SOURCE],input_value={'fault':'fixture-invalid-uv'},swift_flags=('-DDEBUG',))
         assert_partial_point_report(self,report)
 
 

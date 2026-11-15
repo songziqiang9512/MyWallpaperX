@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 325,
-      "bytes": 70841
+      "lines": 336,
+      "bytes": 73939
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 191,
-      "bytes": 53230
+      "lines": 192,
+      "bytes": 53765
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 230,
-      "bytes": 66208
+      "lines": 245,
+      "bytes": 71075
     }
   },
   "archives": [
@@ -524,28 +524,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "358bea3ef18bf2060c2f2b2e3e5f377a0c64b37de9caf3571304548d983598d2",
-      "after": "d5c5e6f84495ed5f038c66e63abd9fab247417b267012f022fe405fd13498b06",
-      "owner": "Original Material, StaticModel frame and Metal world entries",
-      "reason": "Document actual normal consumers and position-only planar admission before implementation; retain true finite-world and inverse-transpose boundaries, retire unused inverse work and whole-layer rejection without new state.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-normal-consumers"
+      "before": "d5c5e6f84495ed5f038c66e63abd9fab247417b267012f022fe405fd13498b06",
+      "after": "925ddcfb17c9c8bb437403c72901ef4e916deaf77d898dad16edcd628fe4d94d",
+      "owner": "Original StaticModel alpha binding, cold material projection and Pipeline consumers",
+      "reason": "Retire completed CPU-only uncertainty and bind the current opacity contract to its qualified runtime owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-opacity"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "2d2566817d249ac230071f82168ad3a7490eeeb6ae445325ea9f7e6de7090442",
-      "after": "1819f62f1916a2a1adaeb022d918cc8cf52d57026de6c1ae4071290178575fc5",
-      "owner": "Original StaticModel world/normal consumers and runtime evidence",
-      "reason": "Own the actual old/new surviving-plane color, depth-occlusion and shadow App qualification and ordinary independent author; preserve exact frozen identities and distinguish no official/rank-two author or performance claim.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-normal-consumers"
+      "before": "1819f62f1916a2a1adaeb022d918cc8cf52d57026de6c1ae4071290178575fc5",
+      "after": "33b068c4e5dfa5bb8009b85c926211a4e2b96b99a414ba442c3ecc3aed69796a",
+      "owner": "Original StaticModel material/frame/Metal runtime evidence",
+      "reason": "Record actual cold preparation, two native payloads, whole-App healthy shadow restoration, independent Moon and preserved failed-draw lifetimes with precise nonclaims.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-material-opacity"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fa3977fc437b702fb281df72a1a6c20a5927e39d3b99c66df71dd5c384da0c8e",
-      "after": "b9be564aaf789b53c02a0bf1939337128c581ae367d0ea7c34db704e72eb9f82",
-      "owner": "Original StaticModel world/normal consumers",
-      "reason": "Retire qualified unused-normal whole-layer rejection and record actual CPU material-alpha narrowing with explicit source-only shadow/HDR limits at the original issue owner; protect unique unresolved input/evidence.",
+      "before": "b9be564aaf789b53c02a0bf1939337128c581ae367d0ea7c34db704e72eb9f82",
+      "after": "8f0eb5756f434bb7c160cd1442001df8fccbf9b294ab076fa3af3f4b882fc136",
+      "owner": "Original model material and sampler owners",
+      "reason": "Retire qualified opacity gap, preserve the narrower HDR/property source boundaries and bounded border-sampler census without inventing an active author hit.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

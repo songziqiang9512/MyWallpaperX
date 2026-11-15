@@ -70,6 +70,17 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
+<a id="model-material-opacity"></a>
+### 模型材质 opacity 的单一归一入口
+
+目标是避免一个可归一的作者alpha使自身消失或撤掉整灯阴影。原material投影会把hostBuiltin genericimage2的有限Double alpha1e300变Float inf，实际旧App中独立健康caster随之失影；真实供货与像素范围归[运行证据](model-runtime-evidence.md#model-material-opacity)。原authored binding则在同消费者之前以Float范围拒绝有限alpha，造成两入口不一致。opacity是覆盖比例，其冷值在乘layerAlpha之前取[0,1]；例如冷2×layer.5应为.5，原shadow末端只clamp乘积得到1不是该域合同。HDR颜色、亮度与opacity不共用范围。
+
+沿`原Catalog/ShaderValue → 原StaticModelBindingCompiler → 原MaterialPlan/Resources.material → immutable Entry/dynamic material → 同Frame color/shadow → unique output`。Compiler保数量、完整numeric原文证明和Double有限性，仅对已证alpha角色退Float范围许可；原始Double仍交Resources，不在两层重复clamp，其它颜色/亮度的现Float域不扩大。Resources在原legacy/builtin入口仅对尚未资格的raw opacity作非有限回既有缺省1；authored分支直接消费Compiler已证的有限Double，不重验。两者在构造opacity那一处唯一clamp0…1后再Float，不拒整material或创造备用材质。authored非有限输入若先被原完整numeric证明拒绝继续局部拒，不宣所有材质族的坏输入处理相同。
+
+产品只有这一raw Material构造及原两个Self重建者；dynamic scalar先保Double/Float有限再clamp，viewTintBack只复制opacity，Entry/Plan/Draw不改此let值，纹理/几何/动画不重新供alpha。因此退Pipeline颜色和drawShadow的两处opacity.isFinite同步重验；保原layerAlpha/矩阵/资源及实际GPU失败边界，不吞drawShadow false、不另建shadow状态。shadow仍读同opacity×layerAlpha及原TEX A/二值阈值；normal颜色的opaque策略、材质/层alpha分立、test/write与cast intent不变。无新helper、owner、cache、状态、ABI、shader或普通帧解析。Script/property仍有各自raw seed/Float边界，巨大动态值继续回冷值；本批不冒称巨值属性回流、全静动态数值等价或一般HDR/half域已解。
+
+验收复用有效before CPU/App及最近资源→Frame→Metal门：同冻结输入旧源红、新源绿，hostBuiltin与authored有限巨alpha对1、数字/字符串/数组及合法别名/资源改名、冷2与layer.5的先后、0/负值/.5阈值、builtin非有限fallback及authored拒绝/健康peer；相邻RGB/brightness巨大输入保原局部拒绝。实际MDL/材质准备到三灯map深度与receiver像素，不用手造Entry代冷入口；原合规opacity输出保持。完整App以独立健康caster的影辨别整map发布，alpha1控制、巨alpha castfalse归因、巨alpha及改名严格图对照；另保独立星球原包播放。只在真实投影/颜色及独立审查闭合后退该队列部分，其它数值与raw UV失败边界继续记录，不加新名单或合成路径。
+
 <a id="model-normal-consumers"></a>
 ### 模型法线的实际消费者
 

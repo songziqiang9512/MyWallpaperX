@@ -711,7 +711,7 @@ def frame_owner_main():
     s=s.replace('["original", "prepared", "optional-quota", "mandatory-quota"]',
         '["original","full","four-spots","quota0","quota1","quota2","gap","flight"]')
     s=s.replace('try run(mode,device,queue)','try autoreleasepool {try run(mode,device,queue)}')
-    a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let instances=',a)
+    a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let batch=',a)
     s=s[:a]+FRAME_LIGHT_INPUTS+s[b:]
     s=s.replace('  let cb=queue.makeCommandBuffer()!',
         '  let cb=queue.makeCommandBuffer()!,event=device.makeSharedEvent()!\n  if mode=="flight" {cb.encodeWaitForEvent(event,value:1)}')
@@ -810,15 +810,16 @@ class SceneSpotModelShadowNamedTests(unittest.TestCase):
         named.assert_named_receiver_rows(self,report['rows'])
 
 
-def partial_frame_harness(alpha):
+def partial_frame_harness():
     s=f.MAIN.replace('["original", "prepared", "optional-quota", "mandatory-quota"]','["partial"]')
-    s=s.replace('func material(_ color:SIMD3<Float>)->SceneStaticModelMaterial {','func material(_ color:SIMD3<Float>,_ opacity:Float = 1)->SceneStaticModelMaterial {')
-    s=s.replace('.init(color:color,opacity:1,receivesLighting:true','.init(color:color,opacity:opacity,receivesLighting:true')
-    s=s.replace('func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {','func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>,_ opacity:Float = 1)->ScenePreparedStaticModelResources.Entry {')
-    s=s.replace('material:material(color))','material:material(color,opacity))')
-    s=s.replace('2:[entry(meshA,SIMD3(0,1,0))]',f'2:[entry(meshA,SIMD3(0,1,0),Float(Double({alpha!r})))]')
+    s=s.replace('func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>)->ScenePreparedStaticModelResources.Entry {',
+        'func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>,_ frame:SceneTextureUVTransform = .identity)->ScenePreparedStaticModelResources.Entry {')
+    s=s.replace('albedo:PreparedTexture(texture:white),material:material(color))',
+        'albedo:PreparedTexture(texture:white,uvTransform:frame),material:material(color))')
+    s=s.replace('2:[entry(meshA,SIMD3(0,1,0))]',
+        '2:[entry(meshA,SIMD3(0,1,0),.init(origin:.zero,xAxis:.zero,yAxis:SIMD2(0,1)))]')
     s=s.replace('.init(id:3),.init(id:4,contentKind:"particle")','.init(id:4,contentKind:"particle")')
-    a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let instances=',a)
+    a=s.index('  let light=SceneLightSnapshot.Directional');b=s.index('  let batch=',a)
     s=s[:a]+r'''
   let spotDefinition=SceneSpotLightDefinition.parse(["light":"lspot","color":"1 1 1","intensity":0,"radius":100,"innercone":45,"outercone":45,"castshadow":true])!
   let lamp=SceneRenderDescriptor.Layer(id:7,spotLight:spotDefinition,contentKind:"light")
@@ -858,53 +859,23 @@ def partial_frame_harness(alpha):
   return ["mode":mode,"published":published,"pinCount":pinCount,"pending":pending,"retainedAfterReset":retained,
    "residentAfterCompletion":pool.residentByteCost,"completed":cb.status == .completed,
    "coveredDepthPixels":covered,"finiteDepth":finite,"model1":renderer.dependencyRuntime.encoded[1] ?? false,
-   "model2":renderer.dependencyRuntime.encoded[2] ?? true,"preparedFirstFinite":state.prepared?[1]?.first?.material.opacity.isFinite ?? false,
-   "preparedSecondFinite":state.prepared?[2]?.first?.material.opacity.isFinite ?? true]
+   "model2":renderer.dependencyRuntime.encoded[2] ?? true,
+   "secondUVIsValid":state.prepared?[2]?.first?.textureFrame.isFiniteAndNondegenerate ?? true]
 '''+s[end:]
     return f.pool_fixture.HARNESS.split('@main',1)[0]+f.SHELL+f.UNUSED_ORDERED_SUPPORT+s
 
 def assert_partial_frame_report(test,report):
     r=report['rows'][0]
     test.assertFalse(r['published']);test.assertEqual(r['pinCount'],1)
-    for k in ['pending','completed','finiteDepth','model1','preparedFirstFinite']:test.assertTrue(r[k],k)
-    for k in ['model2','preparedSecondFinite']:test.assertFalse(r[k],k)
+    for k in ['pending','completed','finiteDepth','model1']:test.assertTrue(r[k],k)
+    for k in ['model2','secondUVIsValid']:test.assertFalse(r[k],k)
     test.assertGreater(r['coveredDepthPixels'],0)
     test.assertEqual(r['retainedAfterReset'],4*1024*1024)
     test.assertEqual(r['residentAfterCompletion'],0)
 
 
 class SceneSpotModelShadowPartialFailureTests(unittest.TestCase):
-    def test_actual_authored_overflow_partial_map_retains_pin_until_completion(self):
-        import tempfile
-        from script.tests import test_scene_alpha_display_builder_fixture as builder
-        from script.tests.test_scene_directional_shadow_integration import fixture_entries
-        parent=Path(os.environ.get('MWX_DIRECTIONAL_SHADOW_EVIDENCE','/private/tmp/mwx-rf14'))
-        parent.mkdir(parents=True,exist_ok=True)
-        root=Path(tempfile.mkdtemp(prefix='spot-overflow-input-',dir=parent))
-        scene,entries=fixture_entries()
-        material=json.loads(entries['materials/caster.json'])
-        material['passes'][0]['constantshadervalues']={'alpha':1e100}
-        entries['materials/caster.json']=json.dumps(material).encode()
-        entries['project.json']=json.dumps({'type':'scene','file':'scene.json'}).encode()
-        for name,data in entries.items():
-            path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
-        (root/'input-identity.json').write_text(json.dumps({name:hashlib.sha256(data).hexdigest() for name,data in entries.items()},indent=2))
-        main=r'''
-@main enum AlphaProducerProbe {
- static func main() throws {
-  let root=try JSONDecoder().decode(String.self,from:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1])))
-  let model=try SceneRuntimeModelBuilder().build(rootURL:URL(fileURLWithPath:root))
-  let pass=model.renderDescriptor.materialPasses.first{$0.materialPath == "materials/caster.json"}!
-  let alpha=pass.constantShaderValues["alpha"]!.components!.first!
-  print(String(data:try JSONSerialization.data(withJSONObject:["descriptorAlpha":alpha,"doubleFinite":alpha.isFinite,"floatFinite":Float(alpha).isFinite]),encoding:.utf8)!)
- }
-}
-'''
-        producer=run_spot(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
-                          label='spot-overflow-producer',input_value=str(root))
-        self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
-        # Real CPU builder -> typed descriptor value -> prepared material boundary.
-        # The GPU resource builder itself is outside this harness, not duplicated.
-        report=run_spot(f.SOURCES,partial_frame_harness(producer['descriptorAlpha']),label='spot-partial-map',
-                        metal_sources=[model.METAL_SOURCE],input_value=producer,swift_flags=('-DDEBUG',))
+    def test_failed_second_draw_retains_partial_map_pin_until_completion(self):
+        report=run_spot(f.SOURCES,partial_frame_harness(),label='spot-partial-map-invalid-uv',
+            metal_sources=[model.METAL_SOURCE],input_value={'fault':'fixture-invalid-uv'},swift_flags=('-DDEBUG',))
         assert_partial_frame_report(self,report)

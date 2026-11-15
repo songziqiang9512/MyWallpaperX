@@ -166,8 +166,15 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
         self.assertEqual(result["annotation"]["components"], [[0.125], [0.25, 0.5, 0.75], [1.75]])
         self.assertEqual(result["directUniform"]["keys"], ["g_TintAlpha", "g_TintColor", "g_Brightness"])
         self.assertEqual(result["directUniform"]["components"], [[0.4], [0.9, 0.2, 0.1], [2.5]])
+        for name in ["floatOverflowDefault", "floatOverflowAuthored"]:
+            with self.subTest(name=name):
+                self.assertEqual(result[name]["state"], "authored")
+                self.assertGreater(result[name]["components"][0][0], 3.4028234663852886e38)
+                self.assertLess(result[name]["components"][0][0], float("inf"))
+                self.assertEqual(result[name]["components"][1:], [[0.25, 0.5, 0.75], [1.75]])
+        self.assertEqual(result["floatOverflowAuthored"]["components"][0], [1e100])
         for name, value in result.items():
-            if name in {"annotation", "directUniform"}:
+            if name in {"annotation", "directUniform", "floatOverflowDefault", "floatOverflowAuthored"}:
                 continue
             with self.subTest(name=name):
                 expected = "unavailable" if name in {"emptyDefault", "nonFiniteDefault"} else "rejected"

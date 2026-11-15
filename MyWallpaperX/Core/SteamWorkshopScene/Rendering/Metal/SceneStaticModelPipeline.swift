@@ -406,7 +406,6 @@ struct SceneStaticModelPipeline {
               sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback,
               layerAlpha.isFinite,
-              material.opacity.isFinite,
               material.emissiveBrightness.isFinite,
               material.brightness.isFinite,
               material.color.x.isFinite,
@@ -713,7 +712,7 @@ struct SceneStaticModelPipeline {
               Self.isFinite(modelMatrix), Self.isFinite(clip),
               textureFrame.isFiniteAndNondegenerate, sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback, layerAlpha.isFinite,
-              material.opacity.isFinite, texture.device === device else { return false }
+              texture.device === device else { return false }
         var uniforms = SceneStaticModelShadowUniforms(
             modelToLightClip: clip, modelMatrix: modelMatrix, worldToLight: light,
             positionRadius: positionRadius, projectionParameters: parameters,
