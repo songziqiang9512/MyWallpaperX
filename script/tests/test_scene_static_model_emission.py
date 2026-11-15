@@ -127,8 +127,8 @@ def surface_vectors() -> list[dict]:
     for name, exponent, z, incident in (
         ("omitted", None, 5.5, .25), ("two", 2, 5.5, .25),
         ("gentle", .1, 5.5, .9330329915), ("steep", 5, 5.5, .03125),
-        ("zero-inside", 0, 5.5, 1), ("zero-edge", 0, 10.5, 0),
-        ("zero-outside", 0, 11.5, 0), ("gentle-outside", .1, 11.5, 0),
+        ("zero-inside", 0, 5.5, 1), ("zero-edge", 0, 10.5, 1),
+        ("zero-outside", 0, 11.5, 1), ("gentle-outside", .1, 11.5, 0),
     ):
         point = dict(rows[0], lightPosition=[0, 0, z], lightExponent=exponent)
         rows.append(dict(point, name=f"point-falloff-{name}", surface=None,
@@ -149,7 +149,8 @@ def surface_vectors() -> list[dict]:
         ("cone-transition", .54, .5, cone_midpoint, .5), ("cone-outside", .54, .5, 50, 0),
     ):
         remaining = max(0, 1-ratio)
-        radial = remaining**(2 if exponent is None else exponent) if remaining > 0 else 0
+        radial = 1 if exponent == 0 else (
+            remaining**(2 if exponent is None else exponent) if remaining > 0 else 0)
         incident = radial * cone
         for profile in [None, [.14, 1]]:
             label = f"spot-falloff-{name}-{'surface' if profile else 'legacy'}"
@@ -163,8 +164,8 @@ def surface_vectors() -> list[dict]:
         for name, z, radius, incident in (
             ("nonzero-near", .50001, 10, 1),
             ("small-radius-inside", .50001, .00002, 1),
-            ("small-radius-outside", .50001, .000005, 0),
-            ("coincident", .5, 10, 0), ("large-edge", 100.5, 100, 0),
+            ("small-radius-outside", .50001, .000005, 1),
+            ("coincident", .5, 10, 0), ("large-edge", 100.5, 100, 1),
         ):
             label = f"distance-domain-{kind}-{name}"
             actual = dict(rows[0], name=label, lamp=kind, lightPosition=[0, 0, z],

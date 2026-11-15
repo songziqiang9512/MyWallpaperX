@@ -4,6 +4,7 @@
 using namespace metal;
 
 static float sceneRadialFalloff(float distance, float radius, float exponent) {
+    if (exponent == 0.0) return 1.0;
     if (distance >= radius) return 0.0;
     const float remaining = max(0.0, 1.0 - distance / radius);
     if (exponent == 2.0) return remaining * remaining;

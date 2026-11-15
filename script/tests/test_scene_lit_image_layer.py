@@ -412,7 +412,7 @@ class SceneLitImageLayerTests(unittest.TestCase):
             scales = {'legacy-near': 1.85, 'legacy-far': 1.85, 'legacy-repeat': 1.85,
                 'modern-near': .75 ** 2 / math.pi, 'modern-far': .5 ** 2 / math.pi,
                 'modern-gentle': .9330329915 / math.pi, 'modern-steep': .03125 / math.pi,
-                'modern-zero': 1 / math.pi, 'modern-zero-outside': 0,
+                'modern-zero': 1 / math.pi, 'modern-zero-outside': 1 / math.pi,
                 'direction-forward': 1 / math.pi, 'direction-flat-normal': 1 / math.pi,
                 'direction-backward': 0, 'direction-tilted-normal': 0}
             for name, scale in scales.items():
@@ -433,11 +433,15 @@ class SceneLitImageLayerTests(unittest.TestCase):
                         self.assertLessEqual(abs(actual-reference), 2*reflection_oracle.half_ulp(reference))
             for actual, axis in zip(spot['spot-cone-transition'][:3], spot['spot-50-gentle'][:3]):
                 self.assertLessEqual(abs(actual-axis*.5), 2*reflection_oracle.half_ulp(actual))
-            for name in ['spot-cone-outside-zero', 'spot-zero-edge', 'spot-zero-near-outside',
-                         'spot-zero-outside', 'spot-gentle-outside', 'spot-oblique-zero-edge', 'spot-oblique-zero-outside']:
+            for name in ['spot-cone-outside-zero', 'spot-gentle-outside']:
                 self.assertEqual(spot[name], [0, 0, 0, .5])
             for name, reference in [('spot-zero-near-inside', 'spot-50-zero'),
-                                    ('spot-oblique-zero-inside', 'spot-oblique-zero-control')]:
+                                    ('spot-zero-edge', 'spot-50-zero'),
+                                    ('spot-zero-near-outside', 'spot-50-zero'),
+                                    ('spot-zero-outside', 'spot-50-zero'),
+                                    ('spot-oblique-zero-inside', 'spot-oblique-zero-control'),
+                                    ('spot-oblique-zero-edge', 'spot-oblique-zero-control'),
+                                    ('spot-oblique-zero-outside', 'spot-oblique-zero-control')]:
                 for actual, expected in zip(spot[name], spot[reference]):
                     self.assertLessEqual(abs(actual-expected), 2*reflection_oracle.half_ulp(expected))
                 self.assertGreater(spot[name][0], .01)

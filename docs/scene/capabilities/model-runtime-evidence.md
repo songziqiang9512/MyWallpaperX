@@ -146,11 +146,11 @@
 
 ## 聚光灯指数与共享径向边界 <a id="spot-radial-falloff"></a>
 
-2026-11-15按[径向合同](advanced-object-coverage.md#spot-radial-falloff)，原Format一次保有限非负exponent，原SpotSnapshot/图像preflight与两payload把作者值交到实际Metal；缺省2/显式0，cone/强度/阴影各自独立，动态指数与旧经验volume不扩。共享sceneRadialFalloff改收已求worldDistance/radius，先截止再求曲线；旧remaining API、模型正距离1e−8平方死区与1e−4半径floor退出，原方向距离只求一次，radial0跳无能量BRDF。图像保max-component长度路径，去packer重复整包finite扫描，只保最终Capture.init（含VP/reflection、逆矩阵及point/spot尾向量）。八产品净+11行，模型1488B/Image880B各追加16B指数向量，无owner/PSO/资源/cache/光列表或热解析，不授整体性能收益。
+2026-11-15按[径向合同](advanced-object-coverage.md#spot-radial-falloff)，原Format一次保有限非负exponent，原SpotSnapshot/图像preflight与两payload把作者值交到实际Metal；缺省2/显式0，cone/强度/阴影各自独立，动态指数与旧经验volume不扩。共享sceneRadialFalloff消费已求worldDistance/radius；正指数先截止再求曲线，零指数规则见下文当前修正。旧remaining API、模型正距离1e−8平方死区与1e−4半径floor退出，原方向距离只求一次，radial0跳无能量BRDF。图像保max-component长度路径，去packer重复整包finite扫描，只保最终Capture.init（含VP/reflection、逆矩阵及point/spot尾向量）。八产品净+11行，模型1488B/Image880B各追加16B指数向量，无owner/PSO/资源/cache/光列表或热解析，不授整体性能收益。
 
-真实parser/snapshot CPU方法3.850s过缺省/0/.54/负/非finite/bool/错型及包装fallback，颜色/同帧世界变换更新保指数；无live指数target不授热更新。图像原CPU打包方法14项核四槽0/.54/1/5、混合配额、缺省与ABI，唯一final init在真实GPU载体拒point NaN/spot Inf、逆矩阵、补入的VP/reflection坏值且健康payload接纳。原preflight邻例42.726s通过；机械适配其typed Spot stub，未另造材质行为。首Image GPU因新增helper与旧变量同名未编译，改名只补该方法、复用有效CPU分支；其后真实edge100/r100/e0仍满光，未放宽断言，沿共享截止修正。
+真实parser/snapshot CPU方法3.850s过缺省/0/.54/负/非finite/bool/错型及包装fallback，颜色/同帧世界变换更新保指数；无live指数target不授热更新。图像原CPU打包方法14项核四槽0/.54/1/5、混合配额、缺省与ABI，唯一final init在真实GPU载体拒point NaN/spot Inf、逆矩阵、补入的VP/reflection坏值且健康payload接纳。原preflight邻例42.726s通过；机械适配其typed Spot stub，未另造材质行为。首Image GPU因新增helper与旧变量同名未编译，改名只补该方法、复用有效CPU分支；该批沿共享截止的零指数预期已由下文实际官方控制和新字面预期替换。
 
-最终模型六方法/225实际输入8.516s通过，含44条Spot的多归一距离/.54/0/1、cone过渡/外、legacy/stock等值入射，以及20条point/spot正近距、小radius、重合与大边界控制；保原发光、HDR/雾、view tint、alpha及frozen响应。图像最终一方法14.096s通过36条Spot及原12矩形/13family；默认2/legacy2逐像素等值，四彩灯槽、alpha.5、轴向100.nextDown/up及对齐center的3–4–5斜边界/内外均有真实读回。边界/外精确0，内保持正光，不需epsilon/e0特判/precise fallback。独立入射控制不复制BRDF，误差未放宽。旧同模型载体的d≈1e−5/e0/r10点灯与Spot均RGB0，对照directional=.33203125，保该反例；修后对应正例恢复。旧失败和中间结果不升级为最终资格，极端Float上下溢、legacy image point平面下限不由此扩大。
+该批模型六方法/225实际输入8.516s通过，含44条Spot的多归一距离/.54/0/1、cone过渡/外、legacy/stock等值入射，以及20条point/spot正近距、小radius、重合与大边界控制；保原发光、HDR/雾、view tint、alpha及frozen响应。图像最终一方法14.096s通过36条Spot及原12矩形/13family；默认2/legacy2逐像素等值，四彩灯槽、alpha.5、轴向100.nextDown/up及对齐center的3–4–5斜边界/内外均有真实读回。正指数边界/外精确0、内保持正光；当时零指数的截止断言已退出，不再作为当前边界资格。独立入射控制不复制BRDF，误差未放宽。旧同模型载体的d≈1e−5/e0/r10点灯与Spot均RGB0，对照directional=.33203125，保该反例；修后对应正例恢复。旧失败和中间结果不升级为最终资格，极端Float上下溢、legacy image point平面下限不由此扩大。
 
 唯一普通Debug32.510s，八产品/工程/锁文件前后字节一致；签名与原helpers通过。executable cb94d100…05f94、dylibba4ea20d…182a7、metallib4957688f…883bf1。复用真实Saturn sphere四原资产63.18MB，原world/材质/alpha与camera不变，无脚本单Spot同camera位置朝0，r16/I1/inner20/outer30且整球最大离轴角11.1°，shadow/volume/ambient/HDR关闭；只切作者343/84的.54000002与2。旧.54（原消费2）F94、当前.54 F95及当前2 F94/request1，CB535993140096/501210694528/534798386048，球456供同main/seal、GPUcompleted/trunc0并排空，所有输入/协议/App和world保持。
 
@@ -159,6 +159,16 @@
 原343五秒F141/request1/CB527375944320/main527370362368的112/114到主画布；84原typed指数.54、radius6000/I3、cone72.29/77.94与parent57已保，不据自然相位图单独归因。独立3453730450自然20s/after17，F780/request1/CB520733231744/main520724060416的53/77具体part/306/340/342绘制。两场源摘要=冻结matrix、App签名前后核同，终端地表/云/大气/星空/时钟与月面/轨道/标题完整，同capture seal/GPUcompleted/trunc0并排空。spot-light failed已定位为未请求volume时的诊断，不称surface失败，留队列归原owner。
 
 原作者报告/图/日志归`.artifacts/scene-evidence/runs/scene-spot-radial-20261115`；真实球指数控制、225模型/36Spot图像与原邻例、入口/最终finite门、局部失败、构建及独审归`.artifacts/scene-spot-radial-20261115`。
+
+### 零指数不限制表面光半径
+
+2026-11-15，3662790108的Pluto/Makemake/Haumea/Eris在首15目标两相反视角均近黑；同原作者847对象/材质/纹理/灯及实际焦点的官方Eris A可见右侧灰色受光纹理。太阳3692声明radius100000/exponent0/I6，原脚本同写世界位置与共享记录，Eris A距离约120万；该源链不冒作GPU灯uniform读回。官方2.8.0.42（PE daac1ea7…bda07）的真实Eris几何/TEX、单point、无ambient/volume/shadow小控制中，e0范围外与同尺寸全资源/ID改名均完整受光，e2范围外为黑实体、e2范围内有纹理，独立蓝peer保持。×10尺度控制官方填满窗口，退出官方取景资格；本地尺度变体仍有效。以上为实际原生窗口人工定性观察，无本地官方PNG或逐RGB/完整BRDF资格。
+
+原共享sceneRadialFalloff只增一行e0返回1，正指数的截止/乘方字节不变；无新owner/状态/ABI/资源/重复距离，保持cone、有限阴影投影、重合点无方向、旧2D point及volume。先保旧源在新字面预期下模型7方法10失败、图像1方法2失败，再用同载体当前源：模型7方法/244输入8.019s、图像1方法12.431s全部通过且Metal validation实际启用。模型只10条e0边界/外侧RGB改变，234整行逐值不变；图像13family+36spot仅6条改变、其余43及12rectangle汇总逐值保持。所有原alpha相等，HDR/coverage颜色保持；这些门不含新shadow/depth数值读回，相关源码不变，不能冒作三灯map新资格。
+
+普通Debug12.643s输入稳定，签名/原helpers通过；exe453a90b9…8fb1、dylib8ebc6f49…73df、metallibcd47906e…30b4。五个小型控制同输入旧新App串行，三个e0范围外/尺度/纯改名各115830个RGB像素改变，e2范围内与范围外全图逐RGB相同、五peer核心不变。先前两wrapper短暂重叠的两轮已排除验收。真实作者四矮行星A/B仅私有驱动startIndex/count缩小，原847对象、1174非scene条目与原project保持；八个实际选帧分别有strict READY→END HOLD、encoded后继同request/CB/main/seal/GPUcompleted及RGBA无损查看资格。A已见Pluto地形、Make左新月、Haumea扁球薄受光及Eris右亮半球，保暗侧实体；自然时钟与相位未锁，不授作者逐像素A/B。A整轮通过；B末次series0011/request14在teardown失败，整轮保FAIL而八个目标选帧独立有效。独立343原包五秒F167/request1/CB526007027456，112/114到main/seal/GPUcompleted、零截断并排空，地表/云/大气/星空/钟日完整，保其正指数spot路径，不单独归因逐灯像素。
+
+自有输入/旧红新绿、实际选图、官方观察、源与构建身份、独审归`.artifacts/scene-radial-zero-20261115`；独立原作者收据归`.artifacts/scene-evidence/runs/scene-radial-zero-20261115`。半径外阴影、全部卫星/航天器/镜头、实际双击交互与366整体官方一致仍开放。
 
 ## 模型材质的数值数组 <a id="model-numeric-arrays"></a>
 
