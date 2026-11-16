@@ -78,7 +78,18 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 每灯XY取可见接收区与caster灯域覆盖的保守交集；仅灯域XY相交的caster扩展深度。屏外caster仍沿原cast intent绘制，能投到可见接收者的物体不能因未上屏被删。XY padding只由XY尺度/分辨率决定，深度padding独立；退全世界caster拟合及Z驱动的XY放大。保持每灯单图与四灯预算，实际尺寸归[输出密度](#model-directional-shadow-density)。二值材质/层/纹理覆盖、当前pose/UV/cull和三灯生命周期继续原合同，拟合不新增map、纹理、ABI、历史、缓存或资源owner。稳定化和滤波只在修正范围后仍有可归属残余时另立输入，不凭单图扩大PCF成本。
 
-验收先用生产数学的相机内/外、擦边长盒、相机在盒内、相反视角及混合投影正反例，核远处无关caster不再稀释近处投影，屏外但灯域相交caster仍在深度域；含改名、等价TRS和退化clip域保守回退。沿真实Frame/Metal补屏外合法影、group/named及阴影覆盖邻例，用冻结真实球/环/陨石/远卫星输入核旧/新可见投影、成熟原景连续帧和独立作者。若范围修正不能带来明确像素收益，退候选并重排；不能把map尺寸、caster计数或构建通过当修复。实际范围归[模型运行证据](model-runtime-evidence.md#model-directional-shadow-fit)。
+验收先用生产数学的相机内/外、擦边长盒、相机在盒内、相反视角及混合投影正反例，核远处无关caster不再稀释近处投影，屏外但灯域相交caster仍在深度域；含改名、同一world几何的等价TRS表达和退化clip域保守回退；共同平移后的采样相位遵下节固定网格合同。沿真实Frame/Metal补屏外合法影、group/named及阴影覆盖邻例，用冻结真实球/环/陨石/远卫星输入核旧/新可见投影、成熟原景连续帧和独立作者。若范围修正不能带来明确像素收益，退候选并重排；不能把map尺寸、caster计数或构建通过当修复。实际范围归[模型运行证据](model-runtime-evidence.md#model-directional-shadow-fit)。
+
+<a id="model-directional-shadow-grid"></a>
+### 定向阴影的固定世界采样网格
+
+受控真实479 caster/462 BC3 receiver/456 cameraDepth探针已资格：只微移远lit noncaster时，近面alpha/PID/颜色几何固定，重拟合仍改变近影；完整覆盖且滤波余量充分的held-fit及shadowoff均逐bit稳定。这只证独立fit依赖，不授自然闪烁首因或作者完整BRDF，实际记录归模型证据。当前候选在原`SceneDirectionalShadowProjection.make`找到相关bounds后替换XY，不改凸裁剪、合法屏外caster、Z、depthBias、map/分配和原N3比较；无历史、持久状态、层名单或第二fitter。
+
+每轴原跨度S、中心C及原XY padding p复用；R沿真实输入（产品唯一producer以1024拟合，物理图1024/2048/4096）。最小跨度M=max(S+2p,S/(1−6/R))，再E=2^(ceil(16·log2(M))/16)，世界格距q=E/R，C按q就近取整。正负取整规则固定；输出直接由E及格中心构造一次矩阵，不先建旧矩阵再反解。E≥S/(1−6/R)保证取整前至少3格余量，中心最大移动.5格后保≥2.5格N3保守footprint；原退化轴正padding仍保。不另造小分辨率许可/分配fallback，当前产品R固定1024，现有实际低分辨率数学载体单独核其消费者范围。物理密图是coarse格的整数倍，中心移动整coarse格不改变理想采样相位。
+
+尺度向上分档自身最多扩4.427%，补足原padding后相对旧连续跨度最坏约4.634%，不能只报前一个数。跨档可pop，光向旋转/相机裁剪成员变化及实际几何/无shadow颜色欠采样仍可能闪；不以本算法授全部稳定。明确选择固定world原点：任意共同平移可改变采样相位，旧连续fit的逐UV平移不变要求退出，几何/深度/完整覆盖不退出。同一world几何的等价parent表达及改名保持；任意平移核≤一coarse格的相位差与覆盖，整格平移核原等价，不选第一caster/物体名作锚。普通帧只新增两轴log2/ceil/exp2与round，不重做bounds/clip、不添GPU工作或资源；实际成本仍须观测。
+
+先在原CPU fit门核clip/屏外/退化域及真实变换，补正负/镜像/非uniform、跨度档边界、网格格边界和2.5格余量，按新采样合同修订上述旧UV断言而不放宽几何判定。GPU对比必须直接复用旧探针已执行的四个receiverWorld Float32矩阵，不按新texel重新生成位移；原点位、caster/相机/BC3、held/off及完整主影均保持。候选未带来可归属像素稳定或损坏主影时撤回，不继续加迟滞/缓存；通过后再核成熟原景、独立作者与同输入成本。
 
 <a id="model-directional-shadow-density"></a>
 ### 定向阴影的输出密度与共同预约

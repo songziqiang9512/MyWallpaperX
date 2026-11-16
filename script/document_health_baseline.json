@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 443,
-      "bytes": 102152
+      "lines": 454,
+      "bytes": 104901
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 62021
+      "bytes": 61770
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 464,
-      "bytes": 136292
+      "lines": 480,
+      "bytes": 141012
     }
   },
   "archives": [
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "8603c3ed341c5daee509150c908fdd91fbac2bd743aa5a6d1b413060e89ea34c",
-      "after": "2cbfb420ef55cf6c8832a37051c22a4eeb4214d8c1ffd17260245bc64f17d0a1",
-      "owner": "Scene model shadow demand and coverage evidence",
-      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
+      "before": "2cbfb420ef55cf6c8832a37051c22a4eeb4214d8c1ffd17260245bc64f17d0a1",
+      "after": "215947d0795bc93335f44313706996b43affa8265217cd7332c523e88eb8b079",
+      "owner": "Scene directional shadow projection and bounded runtime evidence",
+      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "6b6eed03c9a7328a2c3017fbcee18fd8d3694351c3019114e6c9f9f6cf4704f2",
-      "after": "d11c3ae15ecc327cd0a8c001cf6420bb9b421b7dd34e4752b7ab881aff63db26",
-      "owner": "Scene model shadow demand and coverage evidence",
-      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
+      "before": "d11c3ae15ecc327cd0a8c001cf6420bb9b421b7dd34e4752b7ab881aff63db26",
+      "after": "7d9163a56ce28044332488bc49bd57e87b0382d50b754890171876251c801d58",
+      "owner": "Scene directional shadow projection and bounded runtime evidence",
+      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0bcf8c807e2e8f4aa8d18d73becc0e47c8c04af19b41c182b909cbce9f112174",
-      "after": "2cb536e2ca599f91228a62c90e09918469629d407b093d96caec707b552e42d4",
-      "owner": "Scene model shadow demand and coverage evidence",
-      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
+      "before": "2cb536e2ca599f91228a62c90e09918469629d407b093d96caec707b552e42d4",
+      "after": "3023444552e8f74231528ec9ecb42932f8196b13b144f61cf8d0c85bdc472260",
+      "owner": "Scene directional shadow projection and bounded runtime evidence",
+      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
     }
   ]
 }

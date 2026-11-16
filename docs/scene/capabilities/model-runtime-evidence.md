@@ -254,6 +254,22 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 自有夹具、同输入旧红、当前结果/身份/独审与冻结原图归`.artifacts/scene-model-shadow-demand-20261117/evidence.zip`；原作者载荷归`.artifacts/scene-evidence/runs/scene-model-shadow-demand-20261117`。后者为保四张原PNG沿单包96MiB明确例外（两张Earth即超过32MiB），14天/总5GiB不变；正式包不含全部周期PNG，不把九个实际capture等同九张已晋升图。
 
+## 定向阴影的固定世界网格 <a id="model-directional-shadow-grid"></a>
+
+2026-11-17固定真实479 caster、462 BC3接收面、456 camera-depth前缀和近处相机/世界，只移动自有远处lit noncaster接收物；其配对unlit caster与近面灯域X间隔扣除N3 footprint后仍>20.44世界单位。旧生产fit在四个原4096物理texel相位−.25/0/.25/.5下，登记近点(971,710)的visibility range为.03930670023、诊断Half返回R range为.00421142578125；完整余量的held-fit及shadowoff、近面alpha/PID均逐bit稳定，Z行相同。该控制证实独立XY拟合相位影响，未把合法477判为错误caster，也不授自然闪烁首因或完整作者BRDF。
+
+按[固定网格设计](advanced-object-coverage.md#model-directional-shadow-grid)，原Projection只替换连续XY跨度/中心，复用相关bounds和传入1024 coarse分辨率，以向上尺度分档及世界格中心直接构造一次矩阵；旧Z、凸裁剪、caster、bias、map/分配与N3消费保持。两个轴复用一个私有函数，产品净+14行，无新状态、资源、缓存或owner；新增两轴log2/ceil/exp2和round，不称零成本。任意共同平移的旧逐UV合同退出，同world表达、几何与深度覆盖保持；跨尺度档和旋转仍可能跳变。
+
+候选直接重用旧实际执行的四份receiverWorld Float32矩阵，未按新texel重造位移。新编译/GPU 8.933秒、单CB完成，原点位/BC3/诊断N3材质/固定near查询及shadowoff与旧逐bit同；四相位production矩阵、全Float visibility和完整Half返回RGBA分别全逐bit稳定，前述两个range归0。heldXY最小30.930物理格、Z余量.000997987，原held/off/t0、远接收物实际覆盖、alpha/PID与原世界矩阵控制全通过；shadowoff颜色与旧输入逐bit同，不把四点稳定外推全景。
+
+CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增网格方法红；原21固定输入字典保持。五个metamorphic位移由各版真实返回矩阵反推，实际worldShift不同，不能称同world因果对照。整体world+camera平移的原XY等值断言按新合同修订，Z/尺度/覆盖仍核；同world镜像非uniform、正负整格、中心格边界与尺度档边界另核，临界角点Float32滤波余量2.501007格。最近实际Frame/颜色深度/三灯覆盖与生产make像素门共8方法通过29.421秒；其他固定矩阵内核和独立Spot/Point不重跑。CPU门与产品/carrier/实际读回分别经独立审查；存量依赖门仍报队列已登记的5边；结构15方法为14绿/原目录命名方法红，含Tube与PreparedTask两项，登记门仍报原架构文档未登记，相关源/布局/登记均同HEAD；开放队列已保留，不冒全门绿。
+
+普通Debug26.293秒，产品/project/锁文件前后同，strict-deep及trusted helpers通过；exe c7ebc838…4f608、dylib30bc27f2…3f5cc、metallib仍7c94461a…c2cbb7。冻结33/2268×1474、原358自然40秒/after32、独立343五秒分别有3/7/2次capture；实际模型→main/display→export/seal→同request/CB/texture snapshot completed、trunc0/parse0并排空。after分别F238/R3、F939/R6和F175/R2；根与独审核完整球/环/主影，以及地表/云/暗面/大气/银河/钟日。原景相位未配对、7秒采图不授高频闪烁关闭或官方逐像素一致。
+
+同frozen33/3024×1964、目标60、warm30/duration45，候选→独立035基线各实测13.502/13.505秒、0failed：FPS59.843/59.978，CPU P50/P95为2.706/2.958与2.685/3.018ms，GPU为13.568/14.362与13.618/14.141ms。逐帧pass/copy census同；pool采样峰166329344/213842432B、GPU allocated701415424/750436352B、footprint1536591504/1584973504B，不能把在途/暖驻留差授为固定减内存。短窗、背景与热状态未完全控制，不授稳态、能耗或严格因果；本批停止加迟滞/缓存，残余真实微模型颜色欠采样沿下一节和开放队列继续。
+
+控制输入、旧/新原读回、源身份与独审归`.artifacts/scene-model-shadow-grid-20261117/evidence.zip`（9,706,573B，SHA3f47c3b1…6db7a9，392条逻辑记录/236份唯一原字节逐SHA核验，14天）；原作者运行载荷归`.artifacts/scene-evidence/runs/scene-model-shadow-grid-20261117`（92,437,863B，保四张原PNG沿96MiB单包例外，14天/总5GiB不变；周期PNG仅保原报告记录，不冒全部已晋升）。唯一连续DD及当前有效1×App保留；31项测试运行副本、临时HOME/App和可重建native缓存经归档覆盖、fresh PS/lsof及原inventory一致后已精确清理（19,785项、逻辑2,727,130,599B，不冒物理释放量）；035对照App待下次基线交接、未解决真实几何输入继续保留。
+
 ## 世界模型的亚像素颜色覆盖 <a id="model-raster-coverage"></a>
 
 2026-11-17在原2268×1474视口、真实456 cameraDepth前缀→462/479颜色链中清空shadow，保原BC3九级块、PMA、back-cull与非writer，以受控ambient .08/方向灯1观察四个相机对角相位0/.25/.5/.75px。真实片元body逐字相同；RGBA32Float附件保生产Half返回的量化，不授Float32着色或完整作者RGB。四CB/384记录GPU完成、全部源/mesh/18级纹理块执行前后同，实际alpha/PID另pass查询，不冒透明色唯一winner。
@@ -266,7 +282,7 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 同frozen33/3024×1964/目标60FPS、warm30/duration45的近时三场为2×→原476b→相同2×，各实际测量13.501/13.503/13.496s、0failed：FPS52.812/59.467/54.387，GPU P50/P95为22.228/30.678、14.486/17.883、21.552/29.584ms；CPU P50/P95为2.775/3.245、2.673/3.048、2.589/2.900ms。两次2×pool峰均518516736B，对原280951296增加237565440B（226.56MiB）；GPU allocated均1062453248B，对原818069504增加244383744B。时间接近仍非同背景/热状态控制，短窗不授稳态/能耗或严格因果；足以触发本候选停止线，不以静态软化换正常播放回退。
 
-默认2×产品、无消费者容量API及其专用回归全部精确撤回到b1fd3ac3f，已验证的N3阴影滤波保留。早最低深度未真实保住、暖2×公平及旧尺寸AA颜色回收三问题仍未闭；没有继续叠约150–200行预算协调。479真实MDL是单mesh/material/顶点/index块，文件精确到尾，不是误合全部LOD；作者无距离/密度声明，停止LOD假设，不删合法碎石。原研究、候选源码/patch、输入/旧中间门、构建红绿、真实图/日志/成本及独审归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292个成员逐SHA复验，14天）；16个原Float32面积读回与原图未改写，未伪造Workshop身份作schema晋升。四场已停止运行的12个精确样本/Home/App目录15320项、逻辑2135705764B已清理，不冒物理释放量；唯一连续DD、有效476b基线和未解决原始输入保留。重启须新的低成本可见收益或可比成本改善；环闪仍为队列首项，不能把此探索写成已上线AA。
+默认2×产品、无消费者容量API及其专用回归全部精确撤回到b1fd3ac3f，已验证的N3阴影滤波保留。早最低深度未真实保住、暖2×公平及旧尺寸AA颜色回收三问题仍未闭；没有继续叠约150–200行预算协调。479真实MDL是单mesh/material/顶点/index块，文件精确到尾，不是误合全部LOD；作者无距离/密度声明，停止LOD假设，不删合法碎石。原研究、候选源码/patch、输入/旧中间门、构建红绿、真实图/日志/成本及独审归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292个成员逐SHA复验，14天）；16个原Float32面积读回与原图未改写，未伪造Workshop身份作schema晋升。四场已停止运行的12个精确样本/Home/App目录15320项、逻辑2135705764B已清理，不冒物理释放量；唯一连续DD、有效当前1×基线和未解决原始输入保留。重启须新的低成本可见收益或可比成本改善；环闪仍为队列首项，不能把此探索写成已上线AA。
 
 ## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
 

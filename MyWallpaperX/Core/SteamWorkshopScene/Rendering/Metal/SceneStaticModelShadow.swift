@@ -46,15 +46,19 @@ struct SceneDirectionalShadowProjection {
         minimum.z = min(minimum.z, receiverMinimum.z)
         let span = maximum - minimum
         let xyScale = max(span.x, span.y, 0.0001)
-        let xyPadding = max(xyScale * 2 / Double(resolution), xyScale * 0.001)
+        let rasterResolution = Double(resolution)
+        let xyPadding = max(xyScale * 2 / rasterResolution, xyScale * 0.001)
+        let fitX = stabilizedAxis(span: span.x, center: (maximum.x + minimum.x) * 0.5,
+            padding: xyPadding, resolution: rasterResolution)
+        let fitY = stabilizedAxis(span: span.y, center: (maximum.y + minimum.y) * 0.5,
+            padding: xyPadding, resolution: rasterResolution)
         let zPadding = max(span.z, 0.0001) * 0.001
-        let padding = SIMD3(xyPadding, xyPadding, zPadding)
-        minimum -= padding
-        maximum += padding
-        let extent = maximum - minimum
-        let rowX = SIMD4<Double>(x * (2 / extent.x), -(maximum.x + minimum.x) / extent.x)
-        let rowY = SIMD4<Double>(y * (2 / extent.y), -(maximum.y + minimum.y) / extent.y)
-        let rowZ = SIMD4<Double>(z / extent.z, -minimum.z / extent.z)
+        minimum.z -= zPadding
+        maximum.z += zPadding
+        let depthExtent = maximum.z - minimum.z
+        let rowX = SIMD4<Double>(x * (2 / fitX.extent), -2 * fitX.center / fitX.extent)
+        let rowY = SIMD4<Double>(y * (2 / fitY.extent), -2 * fitY.center / fitY.extent)
+        let rowZ = SIMD4<Double>(z / depthExtent, -minimum.z / depthExtent)
         let matrix = simd_double4x4(rows: [rowX, rowY, rowZ, SIMD4(0, 0, 0, 1)])
         let result = simd_float4x4(columns: (SIMD4<Float>(matrix.columns.0),
             SIMD4<Float>(matrix.columns.1), SIMD4<Float>(matrix.columns.2), SIMD4<Float>(matrix.columns.3)))
@@ -65,6 +69,16 @@ struct SceneDirectionalShadowProjection {
         // Float32 transform/interpolation/compare rounding tolerance, scaled
         // by the fragment's depth arithmetic magnitude in the shader.
         return Self(worldToClip: result, depthBias: 8 * Float.ulpOfOne)
+    }
+
+    private static func stabilizedAxis(span: Double, center: Double, padding: Double,
+        resolution: Double
+    ) -> (extent: Double, center: Double) {
+        // Three texels leave the filter's 2.5-texel border after center rounding.
+        let minimumExtent = max(span + 2 * padding, span / (1 - 6 / resolution))
+        let extent = exp2(ceil(log2(minimumExtent) * 16) / 16)
+        let texel = extent / resolution
+        return (extent, (center / texel).rounded() * texel)
     }
 
     private static func fullRegion(minimum: SIMD3<Float>, maximum: SIMD3<Float>,
