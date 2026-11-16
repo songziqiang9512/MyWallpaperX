@@ -136,6 +136,7 @@ private struct SceneStaticModelUniforms {
     var tube3: SceneModelTubeUniforms
     var tubeFalloffExponents: SIMD4<Float>
     var tubeCount: UInt32
+    var meshIndexElementSize: UInt32
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -607,7 +608,8 @@ struct SceneStaticModelPipeline {
             tube0: tube0.parameters, tube1: tube1.parameters,
             tube2: tube2.parameters, tube3: tube3.parameters,
             tubeFalloffExponents: SIMD4(tube0.exponent, tube1.exponent, tube2.exponent, tube3.exponent),
-            tubeCount: UInt32(tubes.count)
+            tubeCount: UInt32(tubes.count),
+            meshIndexElementSize: mesh.indexType == .uint32 ? 4 : 2
         )
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
@@ -626,6 +628,8 @@ struct SceneStaticModelPipeline {
             encoder.setDepthStencilState(disabledDepthState)
         }
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        encoder.setFragmentBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        encoder.setFragmentBuffer(mesh.indexBuffer, offset: 0, index: 2)
         encoder.setVertexBytes(
             &uniforms,
             length: MemoryLayout<SceneStaticModelUniforms>.stride,

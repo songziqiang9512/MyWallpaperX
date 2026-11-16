@@ -67,6 +67,7 @@ struct SceneStaticModelUniforms {
     SceneModelTubeUniforms tubes[4];
     float4 tubeFalloffExponents;
     uint tubeCount;
+    uint meshIndexElementSize;
 };
 
 struct SceneStaticModelRasterVertex {
@@ -126,20 +127,18 @@ SceneShadowFilterTap sceneShadowFilterTap(float2 uv, float2 extent, uint index) 
     return { (base + offset + 0.5) / extent, weight.x * weight.y };
 }
 
-float sceneDirectionalVisibility(float3 position, float3 worldDX, float3 worldDY,
+float sceneDirectionalVisibility(float3 position, float3 worldEdge0, float3 worldEdge1,
     depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
     float4 projected = uniforms.transform * float4(position, 1.0);
     float3 clip = projected.xyz / projected.w;
     float2 uv = float2(clip.x * 0.5 + 0.5, 0.5 - clip.y * 0.5);
-    // The directional light projection is orthographic. Differentiate world
-    // position before its affine projection so small geometry does not lose
-    // its UV/depth slope by subtracting separately rounded translated values.
-    float3 lightDX = (uniforms.transform * float4(worldDX, 0.0)).xyz;
-    float3 lightDY = (uniforms.transform * float4(worldDY, 0.0)).xyz;
-    float3 plane = cross(float3(lightDX.x * 0.5, -lightDX.y * 0.5, lightDX.z),
-                         float3(lightDY.x * 0.5, -lightDY.y * 0.5, lightDY.z));
+    // Project local edge differences without the light map translation.
+    float3 lightEdge0 = (uniforms.transform * float4(worldEdge0, 0.0)).xyz;
+    float3 lightEdge1 = (uniforms.transform * float4(worldEdge1, 0.0)).xyz;
+    float3 plane = cross(float3(lightEdge0.x * 0.5, -lightEdge0.y * 0.5, lightEdge0.z),
+                         float3(lightEdge1.x * 0.5, -lightEdge1.y * 0.5, lightEdge1.z));
     // A triangle tangent to the light direction has no finite depth over light
-    // UV; screen-degenerate helper quads can also produce a zero Jacobian.
+    // UV; degenerate triangles can also produce a zero Jacobian.
     // Keep this optional visibility local to the receiver fragment.
     if (plane.z == 0.0) return 1.0;
     float2 depthGradient = -plane.xy / plane.z;
@@ -194,15 +193,15 @@ struct SceneShadowReceiverPlane {
 };
 
 SceneShadowReceiverPlane sceneShadowReceiverPlane(float3 position, float3 origin,
-    float3x3 basis, float3 worldDX, float3 worldDY) {
+    float3x3 basis, float3 worldEdge0, float3 worldEdge1) {
     SceneShadowReceiverPlane result = {};
     float3 relative = position - origin;
     float3 q = basis * relative;
     result.position = q;
-    float3 a = basis * worldDX, b = basis * worldDY;
+    float3 a = basis * worldEdge0, b = basis * worldEdge1;
     float aScale = max(max(abs(a.x), abs(a.y)), abs(a.z));
     float bScale = max(max(abs(b.x), abs(b.y)), abs(b.z));
-    // Real edge-on/helper-quad geometry may have no usable screen-plane area.
+    // Degenerate mesh edges cannot define a receiver plane.
     if (aScale == 0.0 || bScale == 0.0) return result;
     a /= aScale; b /= bScale;
     float3 n = cross(a, b);
@@ -215,8 +214,8 @@ SceneShadowReceiverPlane sceneShadowReceiverPlane(float3 position, float3 origin
     // Eight epsilons is a conservative project margin, not an interpolation
     // error theorem. The paired near-contact controls constrain its usefulness.
     float3 qMagnitude = absoluteBasis * (abs(position) + abs(origin) + abs(relative));
-    float3 aMagnitude = absoluteBasis * abs(worldDX) / aScale + abs(a);
-    float3 bMagnitude = absoluteBasis * abs(worldDY) / bScale + abs(b);
+    float3 aMagnitude = absoluteBasis * abs(worldEdge0) / aScale + abs(a);
+    float3 bMagnitude = absoluteBasis * abs(worldEdge1) / bScale + abs(b);
     float3 nMagnitude = (sceneShadowCrossMagnitude(a, b)
         + sceneShadowCrossMagnitude(aMagnitude, b)
         + sceneShadowCrossMagnitude(a, bMagnitude)) / nScale + abs(n);
@@ -229,7 +228,7 @@ SceneShadowReceiverPlane sceneShadowReceiverPlane(float3 position, float3 origin
     return result;
 }
 
-float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
+float sceneSpotVisibility(float3 position, float3 worldEdge0, float3 worldEdge1,
     depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
     float3x3 basis(uniforms.transform[0].xyz, uniforms.transform[1].xyz, uniforms.transform[2].xyz);
     float3 relative = position - uniforms.positionRadius.xyz;
@@ -241,7 +240,7 @@ float sceneSpotVisibility(float3 position, float3 worldDX, float3 worldDY,
                       0.5 - q.y / (2.0 * tangent * q.z));
     if (any(uv < 0.0) || any(uv > 1.0)) return 1.0;
     SceneShadowReceiverPlane plane = sceneShadowReceiverPlane(position,
-        uniforms.positionRadius.xyz, basis, worldDX, worldDY);
+        uniforms.positionRadius.xyz, basis, worldEdge0, worldEdge1);
     if (!plane.valid) return 1.0;
     float3 n = plane.normal, nMagnitude = plane.normalMagnitude;
     float h = plane.height, hMagnitude = plane.heightMagnitude;
@@ -302,10 +301,10 @@ float2 scenePointShadowUV(float3 local) {
     return fma(float2(0.5, -0.5), ratio, float2(0.5));
 }
 
-float scenePointVisibility(float3 position, float3 worldDX, float3 worldDY,
+float scenePointVisibility(float3 position, float3 worldEdge0, float3 worldEdge1,
     depth2d<float> shadow, constant SceneModelShadowUniforms &uniforms) {
     SceneShadowReceiverPlane plane = sceneShadowReceiverPlane(position,
-        uniforms.positionRadius.xyz, float3x3(1.0), worldDX, worldDY);
+        uniforms.positionRadius.xyz, float3x3(1.0), worldEdge0, worldEdge1);
     float3 q = plane.position;
     float radialDistance = length(q), radius = uniforms.positionRadius.w;
     // A coincident light has zero direct contribution; finite authored/world
@@ -386,6 +385,9 @@ static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
 
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
+    uint primitiveID [[primitive_id]],
+    device const SceneStaticModelVertex *vertices [[buffer(0)]],
+    device const ushort *indices [[buffer(2)]],
     texture2d<float> colorTexture [[texture(0)]],
     texture2d<half> componentTexture [[texture(1)]],
     texture2d<float> normalTexture [[texture(7)]],
@@ -399,8 +401,19 @@ fragment half4 sceneStaticModelFragment(
     sampler gradientSampler [[sampler(3)]],
     sampler pigmentSampler [[sampler(4)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
-    // Derivatives must be evaluated before distance/cone/material branches.
-    float3 worldDX = dfdx(in.worldPosition), worldDY = dfdy(in.worldPosition);
+    bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
+    float3 worldEdge0 = float3(0.0), worldEdge1 = float3(0.0);
+    if (receivesLighting && uniforms.shadows[0].identity.z != 0u) {
+        uint base = primitiveID * 3u;
+        device const uint *wide = reinterpret_cast<device const uint *>(indices);
+        uint3 face = uniforms.meshIndexElementSize == 4u
+            ? uint3(wide[base], wide[base + 1u], wide[base + 2u])
+            : uint3(indices[base], indices[base + 1u], indices[base + 2u]);
+        float3 anchor = vertices[face.x].position;
+        // Subpixel screen derivatives need not preserve the drawn face plane.
+        worldEdge0 = (uniforms.modelMatrix * float4(vertices[face.y].position - anchor, 0.0)).xyz;
+        worldEdge1 = (uniforms.modelMatrix * float4(vertices[face.z].position - anchor, 0.0)).xyz;
+    }
     float4 albedo = colorTexture.sample(colorSampler, in.uv);
     if ((uniforms.materialFlags.x & 2u) != 0u) {
         albedo.rgb = albedo.a > 0.0
@@ -430,7 +443,6 @@ fragment half4 sceneStaticModelFragment(
     float3 normal = normalLengthSquared > 1e-12
         ? in.normal * rsqrt(normalLengthSquared)
         : float3(0.0, 0.0, 1.0);
-    bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
     // Fixed unit-normal official probes give 0, .25, .5, .75, 1 as
     // normal Y goes from -1 to +1 (2026-10-09); no interior floor or cap.
     float ambientRamp = 0.5 + 0.5 * normal.y;
@@ -511,13 +523,13 @@ fragment half4 sceneStaticModelFragment(
         if (map.identity.z == 0u) continue;
         if (map.identity.x == 0u) {
             directionalVisibility[map.identity.y] = sceneDirectionalVisibility(
-                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
         } else if (map.identity.x == 1u) {
             spotVisibility[map.identity.y] = sceneSpotVisibility(
-                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
         } else {
             pointVisibility[map.identity.y] = scenePointVisibility(
-                in.worldPosition, worldDX, worldDY, shadowTextures[slot], map);
+                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
         }
     }
     uint lightCount = uniforms.lightCounts.x;

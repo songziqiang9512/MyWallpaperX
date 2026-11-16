@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 417,
-      "bytes": 97564
+      "lines": 424,
+      "bytes": 98774
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 202,
-      "bytes": 60653
+      "lines": 203,
+      "bytes": 61012
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 412,
-      "bytes": 122185
+      "lines": 426,
+      "bytes": 126574
     }
   },
   "archives": [
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "8287223e08844071e6534c8e5685a3bc9302134ed56711206540d774b679894e",
-      "after": "d249029c72371a6895ab9f91e4ac467a762e2c9200717b44188324322c8f9706",
-      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
-      "reason": "Register the bounded physical-pass directional density policy and shared atomic reservation contract, including actual warm fallback protection during failed allocation recovery. Preserve the existing single projection/map/pool owners and successful-stage eviction without granting unmeasured steady-state or hardware performance.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
+      "before": "d249029c72371a6895ab9f91e4ac467a762e2c9200717b44188324322c8f9706",
+      "after": "10d455c0797b163c251c417e78a605bf80e5de262671dcefca69661a25b95d61",
+      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
+      "reason": "Define the actual indexed receiver-face plane as the shared shadow comparison authority, reuse existing mesh buffers/index width and keep BRDF normals, original bias/filter/coverage and resource owners separate.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "0f344909ab965a28ed6bd76cdc5db2a723a3e30b47f90e9f7bd43ead4ae2eaca",
-      "after": "11d102cc6ff42b816c0a0fd96055dba1032198357c3ca72a30147a886e8eb052",
-      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
-      "reason": "Register the same-world 1024-to-4096 visible quality comparison, short diagnostic resource/GPU cost limits, atomic cohort and warm-map failure regression, and final original/independent runtime identities. Residual micro-model colour/coverage and rapid flicker remain open; no general performance or energy result is granted.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
+      "before": "11d102cc6ff42b816c0a0fd96055dba1032198357c3ca72a30147a886e8eb052",
+      "after": "4241cc96966c401a49354d00b68d31a2b00eec989b4174606f43895f511ed19e",
+      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
+      "reason": "Record genuine curved-neighborhood old-red/current-green, actual Float32 diagnostic and fixed-view sphere dark-dip repair, final author/independent closure and bounded short-window cost. Preserve source/build identities and leave ring flicker unclosed.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cde1b58a723ac1781572843e7da63e556e5a5fe964b50ce36ac20468eaa5e8d7",
-      "after": "6142698456cca514a88dec5fc31cbbf908515fdcf2b2c5fc8255185852e6022c",
-      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
-      "reason": "Reconcile the remaining Saturn shadow/colour/flicker work after visible density gains and record the zero-coverage preparation candidate as source-only. Preserve the requirement for independent visible/cost evidence before changing that owner and do not close the unmeasured temporal or surface-response domains.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
+      "before": "6142698456cca514a88dec5fc31cbbf908515fdcf2b2c5fc8255185852e6022c",
+      "after": "d2efc720b8072deca8f85380627911bea8834edb2f8e7f4373e4495b54d71d8a",
+      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
+      "reason": "Keep user-confirmed Saturn ring dark dots and rapid flicker as the first open item after the bounded sphere receiver repair; retain the sky-point difference as observation only and do not infer official cast-field consumption.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
     }
   ]
 }
