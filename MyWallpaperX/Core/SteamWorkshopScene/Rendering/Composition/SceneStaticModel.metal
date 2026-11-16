@@ -725,19 +725,45 @@ void sceneStaticModelShadowCoverage(float2 uv, texture2d<float> albedo,
     if (coverage <= 0.5) discard_fragment();
 }
 struct SceneStaticModelShadowDepth { float depth [[depth(any)]]; };
+SceneStaticModelShadowDepth sceneStaticModelDirectionalShadowDepth(
+    SceneStaticModelShadowVertexOut in, float3 barycentric, bool correctCoverage,
+    texture2d<float> albedo, sampler albedoSampler,
+    constant SceneStaticModelShadowUniforms &uniforms) {
+    // Reconstruct the authored triangle plane at the actual texel center;
+    // interpolated clip coordinates follow the snapped raster triangle.
+    float3 dx = dfdx(in.lightPosition), dy = dfdy(in.lightPosition);
+    float3 plane = cross(dx, dy);
+    float2 uv = (in.position.xy - uniforms.viewport.xy) / uniforms.viewport.zw;
+    float2 clipXY = float2(2.0 * uv.x - 1.0, 1.0 - 2.0 * uv.y);
+    float depth = in.lightPosition.z - dot(plane.xy / plane.z, clipXY - in.lightPosition.xy);
+    float3 baryDX = dfdx(barycentric), baryDY = dfdy(barycentric);
+    sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
+    if (correctCoverage) {
+        float2 delta = clipXY - in.lightPosition.xy;
+        float2 screenDelta = float2(delta.x * dy.y - delta.y * dy.x,
+            dx.x * delta.y - dx.y * delta.x) / plane.z;
+        float3 correctionX = baryDX * screenDelta.x, correctionY = baryDY * screenDelta.y;
+        float3 corrected = barycentric + correctionX + correctionY;
+        // Raster snapping can cover a texel outside the original triangle.
+        // Its infinite plane must not become an occluder there.
+        float3 margin = 8.0 * 1.1920928955078125e-7
+            * (1.0 + abs(barycentric) + abs(correctionX) + abs(correctionY));
+        if (any(corrected < -margin)) discard_fragment();
+    }
+    if (plane.z == 0.0 || !isfinite(depth) || depth < 0.0 || depth > 1.0) discard_fragment();
+    return {depth};
+}
 fragment SceneStaticModelShadowDepth sceneStaticModelShadowFragment(
     SceneStaticModelShadowVertexOut in [[stage_in]],
     texture2d<float> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
-    // Reconstruct the authored triangle plane at the actual texel center;
-    // interpolated clip coordinates follow the snapped raster triangle.
-    float3 plane = cross(dfdx(in.lightPosition), dfdy(in.lightPosition));
-    float2 uv = (in.position.xy - uniforms.viewport.xy) / uniforms.viewport.zw;
-    float2 clipXY = float2(2.0 * uv.x - 1.0, 1.0 - 2.0 * uv.y);
-    float depth = in.lightPosition.z - dot(plane.xy / plane.z, clipXY - in.lightPosition.xy);
-    sceneStaticModelShadowCoverage(in.uv, albedo, albedoSampler, uniforms);
-    if (plane.z == 0.0 || !isfinite(depth) || depth < 0.0 || depth > 1.0) discard_fragment();
-    return {depth};
+    return sceneStaticModelDirectionalShadowDepth(in, float3(0.0), false, albedo, albedoSampler, uniforms);
+}
+fragment SceneStaticModelShadowDepth sceneStaticModelCoveredShadowFragment(
+    SceneStaticModelShadowVertexOut in [[stage_in]], float3 barycentric [[barycentric_coord]],
+    texture2d<float> albedo [[texture(0)]], sampler albedoSampler [[sampler(0)]],
+    constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
+    return sceneStaticModelDirectionalShadowDepth(in, barycentric, true, albedo, albedoSampler, uniforms);
 }
 vertex SceneStaticModelShadowVertexOut sceneStaticModelSpotShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],

@@ -269,7 +269,8 @@ struct SceneStaticModelPipeline {
         let shadowDescriptor = MTLRenderPipelineDescriptor()
         shadowDescriptor.label = "Scene directional model shadow"
         shadowDescriptor.vertexFunction = library.makeFunction(name: "sceneStaticModelShadowVertex")
-        shadowDescriptor.fragmentFunction = library.makeFunction(name: "sceneStaticModelShadowFragment")
+        shadowDescriptor.fragmentFunction = library.makeFunction(name: device.supportsShaderBarycentricCoordinates
+            ? "sceneStaticModelCoveredShadowFragment" : "sceneStaticModelShadowFragment")
         shadowDescriptor.depthAttachmentPixelFormat = .depth32Float
         // Metal permits a nil fragment for depth-only pipelines. Each model
         // shadow requires its fragment for coverage and the chosen depth domain.
