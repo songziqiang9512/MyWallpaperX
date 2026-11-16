@@ -85,8 +85,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 246,
-      "bytes": 45701
+      "lines": 259,
+      "bytes": 48191
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 431,
-      "bytes": 100336
+      "lines": 443,
+      "bytes": 102152
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 60941
+      "bytes": 62021
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 438,
-      "bytes": 128582
+      "lines": 464,
+      "bytes": 136292
     }
   },
   "archives": [
@@ -506,11 +506,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "6421f586d965cb1893f602ff3d0eced15c4722a273de509c501faefa4874ba73",
-      "after": "951e123c4cba12904385d4e9e815126e1b64feecd70a4ca7d2234d2cfa197598",
-      "owner": "Existing Scene material, Metal, runtime evidence and verification owners",
-      "reason": "Specify default full author capability and future prepared quality ownership without adding UI, unused state or a second output.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#effective-quality-policy"
+      "before": "951e123c4cba12904385d4e9e815126e1b64feecd70a4ca7d2234d2cfa197598",
+      "after": "9659e9ddef345be96b091bb9cae2ae167cb00f34ec22eda5875523e4c6425220",
+      "owner": "Scene model shadow demand and coverage evidence",
+      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
     },
     {
       "section": "bodies",
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "10d455c0797b163c251c417e78a605bf80e5de262671dcefca69661a25b95d61",
-      "after": "8603c3ed341c5daee509150c908fdd91fbac2bd743aa5a6d1b413060e89ea34c",
-      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
-      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
+      "before": "8603c3ed341c5daee509150c908fdd91fbac2bd743aa5a6d1b413060e89ea34c",
+      "after": "2cbfb420ef55cf6c8832a37051c22a4eeb4214d8c1ffd17260245bc64f17d0a1",
+      "owner": "Scene model shadow demand and coverage evidence",
+      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "4241cc96966c401a49354d00b68d31a2b00eec989b4174606f43895f511ed19e",
-      "after": "6b6eed03c9a7328a2c3017fbcee18fd8d3694351c3019114e6c9f9f6cf4704f2",
-      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
-      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
+      "before": "6b6eed03c9a7328a2c3017fbcee18fd8d3694351c3019114e6c9f9f6cf4704f2",
+      "after": "d11c3ae15ecc327cd0a8c001cf6420bb9b421b7dd34e4752b7ab881aff63db26",
+      "owner": "Scene model shadow demand and coverage evidence",
+      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d2efc720b8072deca8f85380627911bea8834edb2f8e7f4373e4495b54d71d8a",
-      "after": "0bcf8c807e2e8f4aa8d18d73becc0e47c8c04af19b41c182b909cbce9f112174",
-      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
-      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
+      "before": "0bcf8c807e2e8f4aa8d18d73becc0e47c8c04af19b41c182b909cbce9f112174",
+      "after": "2cb536e2ca599f91228a62c90e09918469629d407b093d96caec707b552e42d4",
+      "owner": "Scene model shadow demand and coverage evidence",
+      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
     }
   ]
 }

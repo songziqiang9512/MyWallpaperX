@@ -242,6 +242,32 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 本批只减轻已证微影欠采样，剩余颜色/几何覆盖及快速闪烁继续列首项，不称官方滤波公式或完整一致。原图、GPU正反例/变体、身份与独审归`.artifacts/scene-model-directional-shadow-filter-20261117/evidence.zip`；正式原作者载荷归`.artifacts/scene-evidence/runs/scene-model-directional-shadow-filter-20261117`。
 
+## 实际直接光贡献后的阴影需求 <a id="model-shadow-demand"></a>
+
+2026-11-17按[需求合同](advanced-object-coverage.md#model-shadow-demand)，在原fragment实际normal/灯贡献成立后才查同kind/index灯影，退三个visibility数组与前置全图遍历；reverse查找保原最后匹配语义。无surface或无gradient的NoL≤0、point原重合/radial0、spot cone0不再取影；背光gradient、法线扰动、零指数半径外的实际能量和Tube原链保留。indexed世界边读取移到coverage discard之后，不需要quad导数；纹理隐式采样仍在前。唯一Metal+43/−36净7行，无CPU/ABI、资源、PSO、缓存或owner增加，六个原visibility/filter/response/coverage函数及Tube至PMA尾部逐字相同。
+
+最近九方法实际7过、2条旧depth期望红；同旧973f Metal重跑这两条仍相同红，56行RGBA/depth及其它非requests字段逐值相同，requests内容/次数相同而次序有差。不放宽或改写原断言，也不称14全绿。新增五个原邻门27.876s全过，包括238行point实际轴/边/角/有符号间隙、四map/零map/混合灯、Spot过渡及径向零指数/legacy/surface；gradient背光/NoL0、改名、normal、rim、ambient/emission/alpha都沿原实际资源→Frame→Metal。独审核当前产品与读回身份，不以profile或源码命中代像素。
+
+普通Debug33.816s、输入/project/lock前后同，strict deep与原helper校验通过；App0353fd1e…a8d6f、dylib1b2718d6…7a608、Metal7c94461a…2cbb7。frozen33/2268×1474的三次capture各28模型→原1×main/display→export/seal→同CB snapshot，completed/trunc0并排空；after PNG与原476b逐字节同，SHAcd7a9c67…2940a。原358的40秒/after32有七个capture，343独立作者有两个；实际模型/单输出/完成与停排空均闭，根与独审看过球/环/主影/文字及地表/云/暗侧/蓝大气/银河完整图。原景未锁相，7秒采图不授高频环闪关闭或官方逐像素一致。
+
+同frozen33/3024×1964、60FPS、warm30/duration45的相邻候选→原476b→候选，各实际13.504/13.529/13.500秒、0failed：GPU P50/P95为13.948/17.119、14.325/15.488、13.540/13.990ms，FPS59.686/59.871/59.924，CPU P50/P95为2.724/3.221、2.632/2.922、2.712/2.955ms。候选首次pool280951296B/GPU allocated818069504B与原相同，重跑为166329344B/701415424B；实际在途/暖驻留有变，不能从无新增资源推出固定减内存。这是本固定输入的小幅成本观察，背景/热状态未完全控制，不授稳定提速、一般能耗或严格因果；停止继续微调此分支，环闪仍为首项。
+
+自有夹具、同输入旧红、当前结果/身份/独审与冻结原图归`.artifacts/scene-model-shadow-demand-20261117/evidence.zip`；原作者载荷归`.artifacts/scene-evidence/runs/scene-model-shadow-demand-20261117`。后者为保四张原PNG沿单包96MiB明确例外（两张Earth即超过32MiB），14天/总5GiB不变；正式包不含全部周期PNG，不把九个实际capture等同九张已晋升图。
+
+## 世界模型的亚像素颜色覆盖 <a id="model-raster-coverage"></a>
+
+2026-11-17在原2268×1474视口、真实456 cameraDepth前缀→462/479颜色链中清空shadow，保原BC3九级块、PMA、back-cull与非writer，以受控ambient .08/方向灯1观察四个相机对角相位0/.25/.5/.75px。真实片元body逐字相同；RGBA32Float附件保生产Half返回的量化，不授Float32着色或完整作者RGB。四CB/384记录GPU完成、全部源/mesh/18级纹理块执行前后同，实际alpha/PID另pass查询，不冒透明色唯一winner。
+
+(663,888)在前三相位无479片元，.75相位被真实PID684958覆盖。该face源indices[2015086,2015087,2015088]，屏幕面积约.3199px²；前三中心严格在外，.75重心最小.09382、距边.03949px，控制灯下N·L约−.042。其实际alpha1将合成R从约.174换成.0639，证明这一点有无shadow均存在几何颜色跳变，不外推全部环闪。模型覆盖与接收影的后续职责遵[光栅域设计](../architecture/runtime-architecture.md#raster-sample-domain)。
+
+同输入实际2×/4×颜色与456 depth附件/PSO采样数一致，462→479完整pass后仅一次硬件resolve；PID各走独立1×前缀，从不resolve标签。三组各384记录，2×/4×各192条PID均与1×逐bit同、所有metallib同字节。关键点四相位R range为.110046/.055328/.062988；16坐标中2×缩4/增5/同7，4×缩6/增5/同5，不能授全局或单调闪烁改善。固定ROI[650,700,1000,900]再走同几何/相机四相位的1×/2×/4×与4倍viewport单采样，负origin裁到350×200或1400×800；16个实际CB均完成、31,360,000B原读回完整，既有64个alpha登记点逐bit同。4×4网格均值只作有限面积参考，alpha MSE为.024313504/.011507701/.003736049，MAE为.051915179/.040383929/.023878125；不混RGB LOD差、不授连续真面积/官方公式或自然闪烁。原MainPass/实际Frame探索版的共享2×色深、重叠opaque/半透明及读取后resume三方法23.781s通过，actual域2/2、publication1；只属当时七行中间身份。独审补入先读far再画near的第八行，尚未执行；不冒原结果覆盖它或最终预算版。两次Swift overlay探针编译失败均0GPU，不冒产品红。
+
+中间默认2× App4d6bf1dc…ca683/dylib79d8f8eb…68f2、Metal仍d3036e9e…2d6，Debug29.116s且全输入前后同，strict deep/原helpers验证通过；此前9.886s产品构建因Repository误查ColorBlend wrapper接口而红，改用prepared state原selector后重建。原frozen33全景2268×1474的F56/R1、F57/R2、F234/R3各有28个实际模型绘制→2×resolve→原单main/export/seal→同CB snapshot，GPUcompleted/trunc0并排空。环固定ROI的70000像素中30197个RGB变化、平均绝对差2.93697 byte，球面ROI最大1byte、最终A均255，原四个微影暗点几乎不变；这是静态覆盖差异，不是自然闪烁或官方一致资格。普通image/text、clear=false、预算退路与独立作者未作最终App验收。
+
+同frozen33/3024×1964/目标60FPS、warm30/duration45的近时三场为2×→原476b→相同2×，各实际测量13.501/13.503/13.496s、0failed：FPS52.812/59.467/54.387，GPU P50/P95为22.228/30.678、14.486/17.883、21.552/29.584ms；CPU P50/P95为2.775/3.245、2.673/3.048、2.589/2.900ms。两次2×pool峰均518516736B，对原280951296增加237565440B（226.56MiB）；GPU allocated均1062453248B，对原818069504增加244383744B。时间接近仍非同背景/热状态控制，短窗不授稳态/能耗或严格因果；足以触发本候选停止线，不以静态软化换正常播放回退。
+
+默认2×产品、无消费者容量API及其专用回归全部精确撤回到b1fd3ac3f，已验证的N3阴影滤波保留。早最低深度未真实保住、暖2×公平及旧尺寸AA颜色回收三问题仍未闭；没有继续叠约150–200行预算协调。479真实MDL是单mesh/material/顶点/index块，文件精确到尾，不是误合全部LOD；作者无距离/密度声明，停止LOD假设，不删合法碎石。原研究、候选源码/patch、输入/旧中间门、构建红绿、真实图/日志/成本及独审归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292个成员逐SHA复验，14天）；16个原Float32面积读回与原图未改写，未伪造Workshop身份作schema晋升。四场已停止运行的12个精确样本/Home/App目录15320项、逻辑2135705764B已清理，不冒物理释放量；唯一连续DD、有效476b基线和未解决原始输入保留。重启须新的低成本可见收益或可比成本改善；环闪仍为队列首项，不能把此探索写成已上线AA。
+
 ## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
 
 2026-11-15按[实际覆盖合同](advanced-object-coverage.md#model-shadow-coverage)，只撤原Frame的translucent caster类别门，保原cast intent、可见prepared、三灯>.5 material×layer×实际albedoA覆盖、cull与camera depth独立；additive原行为不另设禁令。唯一产品Frame净−2行，无新资源/PSO/ABI/owner/状态或普通帧解析；恢复的caster会增加原有每灯map绘制/必要申请，不授零成本或性能收益。

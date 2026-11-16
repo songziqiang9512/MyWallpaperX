@@ -112,6 +112,18 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 这是明确的自有抗欠采样方案，不授官方滤波公式或全闪烁因果。代价是每个活动定向receiver多12次比较及更宽的影边；先用同输入原型核孤立微影跨亚texel相位的权重连续、全明/全暗、倾斜接收面/接触间隙和原point/spot不变，再核同姿态原图、成熟原景连续帧、主影及独立作者，补相同App身份/输入的成本观测。真实环粒/闪动无可见收益、主影过糊或成本不可接受时撤候选并重排，不保留并列旧算法/样本分支，也不改caster平面来拟合已正确的深度。
 
+<a id="model-shadow-demand"></a>
+### 实际直接光贡献之后的阴影读取
+
+原fragment先求所有灯影，再求实际材质/灯贡献，会为确定零贡献片元做多次比较。候选沿原fragment将visibility消费移入原灯循环，退三个预计算数组及前置遍历，不改shader ABI、灯/图身份、滤波公式、caster/资源/owner或原材质响应。用法线贴图后的实际normal；无surface或无gradient的signedNoL≤0时diffuse/specular/rim都为零，可在查影前退出。背光gradient仍可能有光必须保留；point保原重合/radial0，spot保原cone0，零指数半径外仍按原非零径向贡献。四张图只沿原kind/index查找，不新增映射缓存；indexed边读取不依赖quad导数，可在coverage discard后执行，纹理隐式采样仍在前。
+
+验收沿原真实Metal三灯/多灯、gradient背光/NoL0、normal扰动、零指数、ambient/emission/健康peer与改名变体，再核同frozen33原图/1×App成本和独立作者。当前实际小幅成本及原图保持归[模型证据](model-runtime-evidence.md#model-shadow-demand)，不授稳定提速或环闪关闭；不继续为此分支增加状态。
+
+<a id="model-raster-coverage"></a>
+### 世界模型的亚像素颜色覆盖
+
+真实479碎石在关闭全部阴影后仍可随相机亚像素移动，突然以alpha1覆盖亮环面；这与微影滤波是两个职责。保原网格、BC3、受光、cast与深度，不以删碎石、放大bias或更亮的ambient掩盖。采样与resolve统一遵[光栅域合同](../architecture/runtime-architecture.md#raster-sample-domain)；受控1×/2×/4×已取得覆盖证据，默认2×实际候选因播放/驻留成本撤回，产品保原1×。结果与重启条件归[模型证据](model-runtime-evidence.md#model-raster-coverage)。
+
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖
 

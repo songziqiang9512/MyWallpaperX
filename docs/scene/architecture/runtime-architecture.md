@@ -134,6 +134,19 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 未来确需性能档位时，先以可比CPU/GPU、内存、启动或能耗证据确定取舍，再在原prepare入口形成被真实Program/资源/后处理消费者使用的有效策略，质量只控制对应能力和采样/分辨率等实际成本。当前不先建空enum、仅透传对象、第二配置owner/cache或无消费者的uniform位；普通帧不重读UI、不重编或重复判档位。策略改变沿原受影响资源/Program准备与提交寿命更新，不分叉作者时钟、材质算法或最终输出。每项降档须说明具体画面代价，保作者控制、遮挡和健康peer，并退出被替代的旧决策；不能把缺功能、采集过载或未归因暗图称为性能优化。
 
+<a id="raster-sample-domain"></a>
+### 光栅采样域与单一可读输出
+
+当前产品保持1×。默认2×候选因实际播放/驻留成本撤回；收益与停止线归[模型证据](../capabilities/model-runtime-evidence.md#model-raster-coverage)，不保无消费者PSO、采样参数、准备状态或测试API。后续重启须先有更低成本的可见收益，不能仅重跑原矩阵。
+
+若重新引入多采样，最小正确单元是同一`SceneMainPassEncoder`的颜色及共享cameraDepth域，包含所有实际模型与image/text终端；PSO和附件的实际采样数一致。连续几何保同一份逐sample颜色/depth，中断读取只resolve到原单采样2D可读target，续画保原sample内容。不能逐模型resolve后叠透明小图、广播resolved深度或重开clear；clear=false只从原raw sceneColor种入一次。原MainPass/Program/pool及completion/pin承接职责，发布、历史、Bloom、display mapping仍只有原可读输出，无第二合成器、AA历史或独立分配器。屏幕后滤波不能冒真几何覆盖。
+
+光空间shadow、VolumeOccluder独立深度重放、真正离屏图保持原域。非线性attachment-read仍限1×；多采样沿既有resolved前缀→完整graph→普通终端，不把`f(mean(c))`冒作`mean(f(c))`。选择依据真实prepared消费者/设备能力，不按样本或材质名许可；PSO只为实际消费者冷准备，普通帧不编译或解析。
+
+原必需资源顺序和最小失败半径必须保留。可选采样不能先占账号使graph/source/snapshot或原1×深度失败；也不能仅记需求就当成真实容量、常规先造1×再重造2×、清暖缓存后每帧重建，或改账面lease却仍持物理纹理。已有在途/发布资源不回收，未编码可选资源沿原owner真实退账；不得为此无限扩张回收/重试协调层。域确定后不换采样数，无法取得原必需资源仍沿原局部失败/延期。
+
+验收须能区分相关覆盖丢失：同半像素边缘近红/远蓝任意绘序均等于近红solo，远蓝加近红alpha.5等于purple；先读取远蓝再续近红仍须等于红solo，不能把resolved蓝广播回未覆盖sample。再核普通深度终端、offscreen/named/readback、attachment-read原graph、clear=false、取消及真实冷/暖/resize小预算反例。原景连续画面、主影/健康peer、独立作者与实际CPU/GPU/在途驻留共同决定取舍；小相位/非黑/编译成功不能替代这些结果。
+
 <a id="submission-cancellation"></a>
 ### 提交与生命周期取消
 

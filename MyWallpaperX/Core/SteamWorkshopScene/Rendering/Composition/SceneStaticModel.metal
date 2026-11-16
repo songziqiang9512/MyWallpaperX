@@ -394,6 +394,15 @@ static float3 sceneStaticModelSurfaceResponse(float3 normal, float3 view,
     return (surfaceColor * weights.diffuse + weights.specular * specularTint) / M_PI_F;
 }
 
+uint sceneStaticModelShadowSlot(uint kind, uint lightIndex,
+    constant SceneModelShadowUniforms *maps) {
+    for (int slot = 3; slot >= 0; --slot) {
+        if (maps[slot].identity.z != 0u && maps[slot].identity.x == kind
+            && maps[slot].identity.y == lightIndex) return uint(slot);
+    }
+    return 4u;
+}
+
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     uint primitiveID [[primitive_id]],
@@ -413,18 +422,6 @@ fragment half4 sceneStaticModelFragment(
     sampler pigmentSampler [[sampler(4)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
-    float3 worldEdge0 = float3(0.0), worldEdge1 = float3(0.0);
-    if (receivesLighting && uniforms.shadows[0].identity.z != 0u) {
-        uint base = primitiveID * 3u;
-        device const uint *wide = reinterpret_cast<device const uint *>(indices);
-        uint3 face = uniforms.meshIndexElementSize == 4u
-            ? uint3(wide[base], wide[base + 1u], wide[base + 2u])
-            : uint3(indices[base], indices[base + 1u], indices[base + 2u]);
-        float3 anchor = vertices[face.x].position;
-        // Subpixel screen derivatives need not preserve the drawn face plane.
-        worldEdge0 = (uniforms.modelMatrix * float4(vertices[face.y].position - anchor, 0.0)).xyz;
-        worldEdge1 = (uniforms.modelMatrix * float4(vertices[face.z].position - anchor, 0.0)).xyz;
-    }
     float4 albedo = colorTexture.sample(colorSampler, in.uv);
     if ((uniforms.materialFlags.x & 2u) != 0u) {
         albedo.rgb = albedo.a > 0.0
@@ -489,10 +486,21 @@ fragment half4 sceneStaticModelFragment(
     float outputAlpha = uniforms.materialColorAndOpacity.w * (
         (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : 1.0
     );
-    // Keep implicit texture samples and receiver-plane derivatives before
-    // coverage rejection; uncovered texels need no light or shadow work.
+    // Keep implicit texture samples before coverage rejection.
     if (outputAlpha <= 0.0) {
         discard_fragment();
+    }
+    float3 worldEdge0 = float3(0.0), worldEdge1 = float3(0.0);
+    if (receivesLighting && uniforms.shadows[0].identity.z != 0u) {
+        uint base = primitiveID * 3u;
+        device const uint *wide = reinterpret_cast<device const uint *>(indices);
+        uint3 face = uniforms.meshIndexElementSize == 4u
+            ? uint3(wide[base], wide[base + 1u], wide[base + 2u])
+            : uint3(indices[base], indices[base + 1u], indices[base + 2u]);
+        float3 anchor = vertices[face.x].position;
+        // Subpixel screen derivatives need not preserve the drawn face plane.
+        worldEdge0 = (uniforms.modelMatrix * float4(vertices[face.y].position - anchor, 0.0)).xyz;
+        worldEdge1 = (uniforms.modelMatrix * float4(vertices[face.z].position - anchor, 0.0)).xyz;
     }
     float3 surfaceRadiance = float3(0.0);
     float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
@@ -526,30 +534,18 @@ fragment half4 sceneStaticModelFragment(
         const float curve = uniforms.rimParameters.y == 0.0 ? 1.0 : pow(edge, uniforms.rimParameters.y);
         rimWeight = uniforms.rimParameters.x * curve;
     }
-    float directionalVisibility[4] = {1.0, 1.0, 1.0, 1.0};
-    float spotVisibility[4] = {1.0, 1.0, 1.0, 1.0};
-    float pointVisibility[4] = {1.0, 1.0, 1.0, 1.0};
-    for (uint slot = 0; receivesLighting && slot < 4; ++slot) {
-        constant SceneModelShadowUniforms &map = uniforms.shadows[slot];
-        if (map.identity.z == 0u) continue;
-        if (map.identity.x == 0u) {
-            directionalVisibility[map.identity.y] = sceneDirectionalVisibility(
-                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
-        } else if (map.identity.x == 1u) {
-            spotVisibility[map.identity.y] = sceneSpotVisibility(
-                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
-        } else {
-            pointVisibility[map.identity.y] = scenePointVisibility(
-                in.worldPosition, worldEdge0, worldEdge1, shadowTextures[slot], map);
-        }
-    }
+    const bool usesSignedDiffuse = surfaceEnabled && uniforms.lightCounts.w != 0u;
     uint lightCount = uniforms.lightCounts.x;
     for (uint lightIndex = 0;
          receivesLighting && lightIndex < min(lightCount, 4u);
          ++lightIndex) {
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
         float signedNoL = dot(normal, light.xyz);
-        float visibility = directionalVisibility[lightIndex];
+        if (!usesSignedDiffuse && signedNoL <= 0.0) continue;
+        const uint shadowSlot = sceneStaticModelShadowSlot(0u, lightIndex, uniforms.shadows);
+        const float visibility = shadowSlot < 4u ? sceneDirectionalVisibility(
+            in.worldPosition, worldEdge0, worldEdge1, shadowTextures[shadowSlot],
+            uniforms.shadows[shadowSlot]) : 1.0;
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
                 light.xyz, signedNoL, surfaceColor, surfaceMaterial.xy,
@@ -574,6 +570,11 @@ fragment half4 sceneStaticModelFragment(
             uniforms.pointFalloffExponents[lightIndex]);
         if (radial <= 0.0) continue;
         float signedNoL = dot(normal, directionTowardLight);
+        if (!usesSignedDiffuse && signedNoL <= 0.0) continue;
+        const uint shadowSlot = sceneStaticModelShadowSlot(2u, lightIndex, uniforms.shadows);
+        const float visibility = shadowSlot < 4u ? scenePointVisibility(
+            in.worldPosition, worldEdge0, worldEdge1, shadowTextures[shadowSlot],
+            uniforms.shadows[shadowSlot]) : 1.0;
         float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
@@ -581,9 +582,9 @@ fragment half4 sceneStaticModelFragment(
                 gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
                 rimWeight, specularTint)
                 * colorIntensity.xyz * colorIntensity.w
-                * radial * pointVisibility[lightIndex];
+                * radial * visibility;
         } else {
-            lighting += colorIntensity.xyz * colorIntensity.w * radial * max(signedNoL, 0.0) * pointVisibility[lightIndex];
+            lighting += colorIntensity.xyz * colorIntensity.w * radial * max(signedNoL, 0.0) * visibility;
         }
     }
     uint spotCount = receivesLighting ? uniforms.lightCounts.z : 0u;
@@ -605,7 +606,13 @@ fragment half4 sceneStaticModelFragment(
         float cone = directionInner.w > outerCosine + 1e-5
             ? smoothstep(outerCosine, directionInner.w, coneDot)
             : step(outerCosine, coneDot);
+        if (cone <= 0.0) continue;
         float signedNoL = dot(normal, directionTowardLight);
+        if (!usesSignedDiffuse && signedNoL <= 0.0) continue;
+        const uint shadowSlot = sceneStaticModelShadowSlot(1u, lightIndex, uniforms.shadows);
+        const float visibility = shadowSlot < 4u ? sceneSpotVisibility(
+            in.worldPosition, worldEdge0, worldEdge1, shadowTextures[shadowSlot],
+            uniforms.shadows[shadowSlot]) : 1.0;
         float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
         if (surfaceEnabled) {
             surfaceRadiance += sceneStaticModelSurfaceResponse(normal, viewDirection,
@@ -613,10 +620,10 @@ fragment half4 sceneStaticModelFragment(
                 gradientTexture, gradientSampler, uniforms.gradientTextureFrame, uniforms.lightCounts.w,
                 rimWeight, specularTint)
                 * colorIntensity.xyz * colorIntensity.w
-                * radial * cone * spotVisibility[lightIndex];
+                * radial * cone * visibility;
         } else {
             lighting += colorIntensity.xyz * colorIntensity.w
-                * radial * cone * max(signedNoL, 0.0) * spotVisibility[lightIndex];
+                * radial * cone * max(signedNoL, 0.0) * visibility;
         }
     }
     const uint tubeCount = receivesLighting && surfaceEnabled ? uniforms.tubeCount : 0u;
