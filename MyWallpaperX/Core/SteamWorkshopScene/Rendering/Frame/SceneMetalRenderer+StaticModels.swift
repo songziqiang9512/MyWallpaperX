@@ -177,6 +177,9 @@ extension SceneMetalRenderer {
                          state: StaticModelFrame? = nil,
                          requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
         guard let parts = staticModelResources[layer.id] else { return [] }
+        let alpha = SceneDynamicLayerValues.alpha(layerID: layer.id,
+            authoredValue: layer.alpha, snapshot: snapshot)
+        guard alpha > 0 else { return [] }
         let world = staticModelWorld(for: layer.id, worldFrames: worldFrames)
         guard SceneStaticModelPipeline.isFinite(world) else { return [] }
         let normalMatrix = parts.contains { $0.material.requiresSurfaceNormal }
@@ -220,9 +223,7 @@ extension SceneMetalRenderer {
                 snapshot: snapshot))
             return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,
-                world: world, normalMatrix: partNormalMatrix, material: material,
-                alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
-                    authoredValue: layer.alpha, snapshot: snapshot)))
+                world: world, normalMatrix: partNormalMatrix, material: material, alpha: alpha)
         }
         return requiresCompleteNamedInputs && hasMissingInput ? nil : draws
     }
@@ -779,7 +780,7 @@ extension SceneMetalRenderer {
                 }
             } else { receiverClip = nil }
             for draw in draws {
-                let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
+                let casts = (layer.modelShadowCastIntent?.modelCastsShadow ?? true) && draw.material.opacity > 0
                 if casts {
                     casters.append((draw, frontFacing))
                 }

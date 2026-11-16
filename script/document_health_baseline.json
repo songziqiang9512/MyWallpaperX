@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 454,
-      "bytes": 104901
+      "lines": 463,
+      "bytes": 106644
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 61770
+      "bytes": 62056
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 480,
-      "bytes": 141012
+      "lines": 496,
+      "bytes": 145001
     }
   },
   "archives": [
@@ -230,10 +230,10 @@
       "source": "docs/development/repository-improvement.md",
       "archive": "docs/history/cross-topic/repository-improvement-completion-2026-10-03.md",
       "anchors": [
-        "m1m8复评",
-        "仓库改良执行路线",
-        "原案逐项落实",
-        "等价裁决与持续维护"
+        "m1m8\u590d\u8bc4",
+        "\u4ed3\u5e93\u6539\u826f\u6267\u884c\u8def\u7ebf",
+        "\u539f\u6848\u9010\u9879\u843d\u5b9e",
+        "\u7b49\u4ef7\u88c1\u51b3\u4e0e\u6301\u7eed\u7ef4\u62a4"
       ],
       "preservedBodySHA256": "1a89e18f8fbf4cfb8c7e2d77975c2c9ca78ee34e62e08f2377406c649d5177e3",
       "originalBodySHA256": "3e29700c4a8d3a8c88486aa8edc6169cc6aa044419746fc6ff3fe258208e7a34",
@@ -244,13 +244,13 @@
       "source": "docs/development/main-window-playlists-redesign.md",
       "archive": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
       "anchors": [
-        "22-2026-10-24-源码核对结果",
-        "持续执行工作卡唯一完成状态",
-        "已验收b1-视频方形卡与共享呈现",
-        "基础实施记录b2-关系基础与-b3-呈现铺开2026-10-25",
-        "基础实施记录b4-启动准入与页面目录接线基础",
-        "基础交付记录b5-统一网格来源播放与主窗口装配尚未最终验收",
-        "74-提取-steam-卡片的具体方法"
+        "22-2026-10-24-\u6e90\u7801\u6838\u5bf9\u7ed3\u679c",
+        "\u6301\u7eed\u6267\u884c\u5de5\u4f5c\u5361\u552f\u4e00\u5b8c\u6210\u72b6\u6001",
+        "\u5df2\u9a8c\u6536b1-\u89c6\u9891\u65b9\u5f62\u5361\u4e0e\u5171\u4eab\u5448\u73b0",
+        "\u57fa\u7840\u5b9e\u65bd\u8bb0\u5f55b2-\u5173\u7cfb\u57fa\u7840\u4e0e-b3-\u5448\u73b0\u94fa\u5f002026-10-25",
+        "\u57fa\u7840\u5b9e\u65bd\u8bb0\u5f55b4-\u542f\u52a8\u51c6\u5165\u4e0e\u9875\u9762\u76ee\u5f55\u63a5\u7ebf\u57fa\u7840",
+        "\u57fa\u7840\u4ea4\u4ed8\u8bb0\u5f55b5-\u7edf\u4e00\u7f51\u683c\u6765\u6e90\u64ad\u653e\u4e0e\u4e3b\u7a97\u53e3\u88c5\u914d\u5c1a\u672a\u6700\u7ec8\u9a8c\u6536",
+        "74-\u63d0\u53d6-steam-\u5361\u7247\u7684\u5177\u4f53\u65b9\u6cd5"
       ],
       "preservedBodySHA256": "6ca8f86d19bae96326bb1764d2ee7162100fd31388fefc92c60d7f277b785257",
       "originalBodySHA256": "180ec813275c27b185af098dac4f1e649e4dac7ee2520fb3b6ed6ef035c4d92a",
@@ -288,9 +288,9 @@
       "source": "docs/development/main-window-playlists-redesign.md",
       "archive": "docs/history/development/main-window-playlists-q01-q09-integration-2026-10-26.md",
       "anchors": [
-        "151-前轮断点与证据边界",
-        "153-前轮验证与当前停止条件",
-        "154-上一候选交付未提交",
+        "151-\u524d\u8f6e\u65ad\u70b9\u4e0e\u8bc1\u636e\u8fb9\u754c",
+        "153-\u524d\u8f6e\u9a8c\u8bc1\u4e0e\u5f53\u524d\u505c\u6b62\u6761\u4ef6",
+        "154-\u4e0a\u4e00\u5019\u9009\u4ea4\u4ed8\u672a\u63d0\u4ea4",
         "q01-q09-integration-record"
       ],
       "preservedBodySHA256": "604105489667d5db3e4427851c57b14a247597e7dace442178249ac8e186f076"
@@ -340,7 +340,7 @@
       "source": "docs/development/status-bar-panel-redesign.md",
       "archive": "docs/history/cross-topic/status-bar-panel-integration-2026-10-26.md",
       "anchors": [
-        "执行记录"
+        "\u6267\u884c\u8bb0\u5f55"
       ],
       "preservedBodySHA256": "0f26212552d320397f7fdd2e10a01f1056f4fff5331c07902a8b415c0d96d104",
       "originalBodySHA256": "0f26212552d320397f7fdd2e10a01f1056f4fff5331c07902a8b415c0d96d104",
@@ -366,7 +366,7 @@
       "after": "e466901bdb6c416ac81021e07435a2fdab21d669e77fe9aa674ccfa3bd29ec12",
       "owner": "Scene audio input verification",
       "reason": "Record the official prepared-band comparison and the bounded design decision before implementation.",
-      "decision": "docs/architecture/system-audio-spectrum-design.md#验收与边界"
+      "decision": "docs/architecture/system-audio-spectrum-design.md#\u9a8c\u6536\u4e0e\u8fb9\u754c"
     },
     {
       "section": "bodies",
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2cbfb420ef55cf6c8832a37051c22a4eeb4214d8c1ffd17260245bc64f17d0a1",
-      "after": "215947d0795bc93335f44313706996b43affa8265217cd7332c523e88eb8b079",
-      "owner": "Scene directional shadow projection and bounded runtime evidence",
-      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
+      "before": "215947d0795bc93335f44313706996b43affa8265217cd7332c523e88eb8b079",
+      "after": "196a64e7890c14f73decf5cf3b85a05dad9c581d8c80018de4beed031ced3a9b",
+      "owner": "Scene known-zero model work",
+      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "d11c3ae15ecc327cd0a8c001cf6420bb9b421b7dd34e4752b7ab881aff63db26",
-      "after": "7d9163a56ce28044332488bc49bd57e87b0382d50b754890171876251c801d58",
-      "owner": "Scene directional shadow projection and bounded runtime evidence",
-      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
+      "before": "7d9163a56ce28044332488bc49bd57e87b0382d50b754890171876251c801d58",
+      "after": "d7db4f54b56121adeb3ce8a2c1daf9870639e45d55d7a73e4b2060d91fe836ce",
+      "owner": "Scene known-zero model work",
+      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2cb536e2ca599f91228a62c90e09918469629d407b093d96caec707b552e42d4",
-      "after": "3023444552e8f74231528ec9ecb42932f8196b13b144f61cf8d0c85bdc472260",
-      "owner": "Scene directional shadow projection and bounded runtime evidence",
-      "reason": "Record stateless XY grid design, actual same-world phase stability and independent controls/review while preserving Z and legitimate offscreen shadows. Replace the completed discriminator next step with remaining real color coverage; retain measured short costs and explicit evidence limits in the owning model evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-grid"
+      "before": "3023444552e8f74231528ec9ecb42932f8196b13b144f61cf8d0c85bdc472260",
+      "after": "473325404ec51cfa9735e85dbcdee61a473e693ddd1ee0032cb58471eb8d09e6",
+      "owner": "Scene known-zero model work",
+      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
     }
   ]
 }

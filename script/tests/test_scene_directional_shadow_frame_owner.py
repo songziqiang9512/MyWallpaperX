@@ -500,6 +500,15 @@ def model_alpha_sampling_cases():
     return rows
 
 
+def model_layer_alpha_cases():
+    return [dict(name=name, light='directional', normalConsumer=True, normalMode='control',
+                 layerAlphaCase=True, noncasterPeers=True, noCull=True, blending='normal',
+                 layerAlpha=alpha, opacity=opacity)
+            for name, alpha, opacity in [('layer-alpha-zero', 0, 1),
+                                         ('layer-alpha-restored', 1, 1),
+                                         ('material-opacity-zero-normal', 1, 0)]]
+
+
 class SceneModelShadowCameraFamilyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -507,10 +516,11 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         cls.coverageCases = model_shadow_coverage_cases()
         cls.normalCases = model_normal_consumer_cases()
         cls.alphaCases = model_alpha_sampling_cases()
+        cls.layerAlphaCases = model_layer_alpha_cases()
         cls.report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
                     metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],
                     input_value={'coverageCases': cls.coverageCases,'normalCases':cls.normalCases,
-                                 'alphaSamplingCases':cls.alphaCases})
+                                 'alphaSamplingCases':cls.alphaCases,'layerAlphaCases':cls.layerAlphaCases})
 
     def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
         self.assertEqual(len(self.report['rows']), 120)
@@ -622,6 +632,48 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
                 for field in ('coverageDepth','peerDepth','colorRGBA','cameraDepth','peerColorRGBA'):
                     self.assertEqual(row[field],ordinary[field],field)
 
+    def test_zero_layer_alpha_empties_draws_before_shadow_resources_but_not_normal_opacity(self):
+        rows = {row['name']: row for row in self.report['layerAlphaRows']}
+        self.assertEqual(set(rows), {case['name'] for case in self.layerAlphaCases})
+        control = rows['layer-alpha-restored']
+        for case in self.layerAlphaCases:
+            row = rows[case['name']]
+            with self.subTest(case=case['name']):
+                self.assertTrue(row['completed'] and row['shadowSamplesInBounds'], row)
+                self.assertTrue(row['receiverColorEncoded'], row)
+                self.assertEqual(row['peerColorRGBA'], [[255,255,255,255]] * 2, row)
+                self.assertEqual(row['cameraDepth'][1:], control['cameraDepth'][1:], row)
+                self.assertTrue(all(value > 0 for value in row['cameraDepth'][1:]), row)
+                self.assertGreater(row['cameraDepthResidentAfterPrepare'], 0, row)
+                self.assertEqual(row['peerDepth'], [], row)
+                self.assertEqual(row['namedQueries'], [], row)
+                count = 0 if case['layerAlpha'] == 0 else 1
+                self.assertEqual(row['candidateSubjectDrawCount'], count, row)
+                self.assertEqual(row['preparedSubjectDrawCount'], count, row)
+                self.assertEqual(row['subjectDrawAlphas'], [1] * count, row)
+                self.assertEqual(row['subjectMaterialOpacities'], [case['opacity']] * count, row)
+                if not count:
+                    self.assertFalse(row['shadowPublished'], row)
+                    self.assertEqual(row['shadowResidentAfterPrepare'], 0, row)
+                    self.assertEqual(row['drawMaterialPaths'], [], row)
+                    self.assertEqual(row['colorRGBA'], [0,0,0,255], row)
+                    self.assertEqual(row['cameraDepth'][0], 0, row)
+                    self.assertEqual(row['coverageDepth'], [], row)
+                else:
+                    self.assertEqual(row['drawMaterialPaths'], [row['unlitMaterialPath']], row)
+                    self.assertEqual(row['colorRGBA'], [255,255,255,255], row)
+                    self.assertEqual(row['cameraDepth'], control['cameraDepth'], row)
+                    self.assertGreater(row['cameraDepth'][0], 0, row)
+                    if case['opacity'] == 0:
+                        self.assertFalse(row['shadowPublished'], row)
+                        self.assertEqual(row['shadowResidentAfterPrepare'], 0, row)
+                        self.assertEqual(row['coverageDepth'], [], row)
+                    else:
+                        self.assertTrue(row['shadowPublished'], row)
+                        self.assertGreater(row['shadowResidentAfterPrepare'], 0, row)
+                        self.assertEqual(len(row['coverageDepth']), 2, row)
+                        self.assertTrue(all(0 <= value < .99 for value in row['coverageDepth']), row)
+
     def test_rank_two_unlit_planes_keep_actual_color_camera_depth_and_three_shadows(self):
         rows={row['name']:row for row in self.report['normalRows']}
         self.assertEqual(set(rows),{case['name'] for case in self.normalCases})
@@ -676,6 +728,41 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
                     self.assertEqual(row['cameraDepth'][0],0,row)
                     self.assertEqual(row['coverageDepth'],[1,1],row)
                     if mode=='nan-world':self.assertEqual(row['drawMaterialPaths'],[],row)
+
+
+class SceneZeroOpacityReceiverRoleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        main = (Path(__file__).with_name('fixtures') / 'SceneZeroOpacityReceiverRoleChecks.swift').read_text()
+        support = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + main
+        cls.report = shadow_fixture.run_swift(SOURCES, support, label='zero-opacity-receiver-role',
+                         metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
+        if cls.report.get('metalUnavailable'):
+            raise unittest.SkipTest('Metal device or command queue unavailable')
+
+    def test_zero_opacity_normal_remains_lit_depth_receiver_for_offscreen_caster(self):
+        rows = {row['shadowEnabled']: row for row in self.report['rows']}
+        self.assertEqual(set(rows), {False, True})
+        off, on = rows[False], rows[True]
+        for row in rows.values():
+            self.assertTrue(row['completed'] and row['casterOutsideCamera'], row)
+            self.assertEqual(row['receiverPreparedCount'], 1, row)
+            self.assertTrue(row['receiverReceivesLighting'] and row['receiverEncodedLit'], row)
+            self.assertEqual(row['receiverMaterialOpacity'], 0, row)
+            self.assertEqual(row['receiverLayerAlpha'], 1, row)
+            self.assertGreater(row['cameraDepth'], 0, row)
+        self.assertEqual(off['RGBA'], [56,56,56,255], off)
+        self.assertEqual(on['RGBA'], [32,32,32,255], on)
+        self.assertEqual(on['cameraDepth'], off['cameraDepth'])
+        self.assertFalse(off['shadowPublished'], off)
+        self.assertEqual(off['shadowPoolBytes'], 0, off)
+        self.assertEqual(off['shadowPinsBeforeArm'], 0, off)
+        self.assertIsNone(off['actualCasterShadowDepth'], off)
+        self.assertTrue(on['shadowPublished'], on)
+        self.assertGreater(on['shadowPoolBytes'], 0, on)
+        self.assertEqual(on['shadowPinsBeforeArm'], 1, on)
+        self.assertGreaterEqual(on['actualCasterShadowDepth'], 0, on)
+        self.assertLess(on['actualCasterShadowDepth'], 1, on)
 
 
 def typecheck():

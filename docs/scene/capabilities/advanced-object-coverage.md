@@ -144,6 +144,15 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
+<a id="model-zero-coverage-work"></a>
+### 确定零覆盖的模型工作
+
+目标是让确定不可见的模型不稀释健康接收者阴影，也跳过该draw的albedo绑定、姿态网格/法线准备和无消费者色深预约。原`SceneDynamicLayerValues.alpha`是层alpha归一权威，输出已在[0,1]；`staticModelDraws`在已有parts入口每层读取一次，严格零返回原空draw集合，再由原Frame消费者自然跳过。正值沿原world/pose、资源、材质和cast链；退逐part重复读取，不另添shadow过滤器、有效性许可、状态、缓存或隐显owner。
+
+每cadence直接消费当前snapshot，0→1→0恢复时重新沿原资源与姿态入口，不缓存零态；Script、Timeline、动画和provider的生命周期不由draw裁剪接管。只据层alpha证明全层无覆盖；材质opacity为零只在原caster收集处结合cast intent排除，不产生无贡献的caster/bounds/map。`.normal`模型的颜色覆盖独立于材质alpha，draw及receivesLighting接收区保留，仍可接受其它合法caster的阴影。不扫描纹理A或推导其上界，不扩大正值门槛；原逐texel二值覆盖继续上节合同。
+
+先用真实Frame的absent/层alpha0/1及同renderer往返、改名、只剩零受光接收者的正反例，核零态与absent的生产fit/近像素一致、无消费者不预约map，恢复态仍有合法影；保normal材质opacity0但层alpha1的实际颜色与camera depth，并以镜头外正caster的shadow on/off证实它仍接受真实投影；原217行及合法正值影不变。另补原模型/透明覆盖/命名输入邻例和独立作者；新像素与成本必须由实际运行资格，不能只据空候选数量授修复或自然环闪关闭。
+
 <a id="model-material-opacity"></a>
 ### 模型材质 opacity 的单一归一入口
 

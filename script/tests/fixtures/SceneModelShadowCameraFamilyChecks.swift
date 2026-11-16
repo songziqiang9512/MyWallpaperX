@@ -15,7 +15,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     }
    }
   }
-  var coverageRows:[[String:Any]]=[],normalRows:[[String:Any]]=[],alphaRows:[[String:Any]]=[]
+  var coverageRows:[[String:Any]]=[],normalRows:[[String:Any]]=[],alphaRows:[[String:Any]]=[],layerAlphaRows:[[String:Any]]=[]
   if CommandLine.arguments.count > 1 {
    let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:Any]
    for item in input["coverageCases"] as! [[String:Any]] {
@@ -29,14 +29,18 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    for item in input["alphaSamplingCases"] as? [[String:Any]] ?? [] {
     alphaRows.append(try run("native",item["light"] as! String,false,false,true,device,queue,coverage:item))
    }
+   for item in input["layerAlphaCases"] as? [[String:Any]] ?? [] {
+    layerAlphaRows.append(try run("native","directional",false,false,true,device,queue,coverage:item))
+   }
   }
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"coverageRows":coverageRows,"normalRows":normalRows,"alphaRows":alphaRows],options:[.sortedKeys]),as:UTF8.self))
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"coverageRows":coverageRows,"normalRows":normalRows,"alphaRows":alphaRows,"layerAlphaRows":layerAlphaRows],options:[.sortedKeys]),as:UTF8.self))
  }
  static func run(_ family:String,_ type:String,_ transformed:Bool,_ reverse:Bool,_ noCull:Bool,
                  _ device:MTLDevice,_ queue:MTLCommandQueue,coverage:[String:Any]?=nil)throws->[String:Any] {
   let pipeline=SceneStaticModelPipeline(device:device)!
   let native=family.hasPrefix("native")
   let normalConsumer=coverage?["normalConsumer"] as? Bool ?? false
+  let noncasterPeers=coverage?["noncasterPeers"] as? Bool ?? false
   let linearRGBA8UV=(coverage?["linearRGBA8UV"] as? NSNumber)?.floatValue
   let pixelReadback=normalConsumer || linearRGBA8UV != nil
   let hasReceiver=type=="directional" && !(coverage?["noLitReceiver"] as? Bool ?? false)
@@ -123,6 +127,11 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    layers += pixelReadback
     ? [.init(id:2,utilityLayer:nil,usesPerspective:true),.init(id:3,utilityLayer:nil,usesPerspective:true)]
     : [.init(id:2,utilityLayer:nil,usesPerspective:false),.init(id:3,utilityLayer:true,usesPerspective:true)]
+   if noncasterPeers {
+    for index in layers.indices where layers[index].id == 2 || layers[index].id == 3 {
+     layers[index].modelShadowCastIntent = .disabled
+    }
+   }
    if reverse {layers.reverse()}
   }
   if hasReceiver {
@@ -179,6 +188,8 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
    mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
   let shadow=state.shadows.first
+  let shadowResidentAfterPrepare=pool.residentByteCost
+  let cameraDepthResidentAfterPrepare=renderer.staticModelDepthTargetPool.residentByteCost
   var colorEncoded:Bool?=nil
   var leafEncoded:Bool?=nil,normalDraws:[SceneMetalRenderer.StaticModelDraw]=[]
   var cameraDepthBuffers:[MTLBuffer]=[]
@@ -232,7 +243,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let points:[SIMD3<Float>] = coverage == nil ? [1,2,3].compactMap{worlds[$0]?.columns.3.xyz}
     : [-Float(0.5),Float(0.5)].map { x in
         ((normalConsumer ? controlWorld:world)*(yz ? SIMD4(0,0,x,1):SIMD4(x,0,0,1))).xyz }
-      + [2,3].compactMap{worlds[$0]?.columns.3.xyz}
+      + (noncasterPeers ? []:[2,3].compactMap{worlds[$0]?.columns.3.xyz})
   for point in points {
    let clip:SIMD3<Float>,face:Int
    switch shadow.projection {
@@ -285,6 +296,14 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    result["peerColorRGBA"]=peerColors;result["namedQueries"]=renderer.dependencyRuntime.namedQueries
    result["drawMaterialPaths"]=normalDraws.map{$0.entry.materialPath};result["unlitMaterialPath"]=entry.materialPath
    result["normalMatrices"]=normalDraws.map{ d in (0..<3).flatMap { i in [d.normalMatrix[i].x,d.normalMatrix[i].y,d.normalMatrix[i].z] } }
+   if coverage?["layerAlphaCase"] as? Bool == true {
+    result["candidateSubjectDrawCount"]=candidates[1]?.count ?? 0
+    result["preparedSubjectDrawCount"]=state.prepared?[1]?.count ?? 0
+    result["subjectDrawAlphas"]=normalDraws.map(\.alpha)
+    result["subjectMaterialOpacities"]=normalDraws.map{ $0.material.opacity }
+    result["shadowResidentAfterPrepare"]=shadowResidentAfterPrepare
+    result["cameraDepthResidentAfterPrepare"]=cameraDepthResidentAfterPrepare
+   }
    if let leafEncoded {result["leafEncoded"]=leafEncoded}
   }
   return result
