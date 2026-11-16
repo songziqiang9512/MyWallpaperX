@@ -3111,6 +3111,7 @@
         "script/tests/test_scene_model_shadow_receiver_plane.py",
         "script/tests/fixtures/scene_model_shadow_receiver_plane_cases.json",
         "script/tests/fixtures/SceneDirectionalShadowPrimitiveCoverageChecks.swift",
+        "script/tests/fixtures/SceneShadowFilterChecks.swift",
         "script/tests/fixtures/SceneDirectionalShadowDensityChecks.swift"
       ],
       "modules": [

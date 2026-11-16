@@ -486,66 +486,40 @@ kernel void shadowFilterProbe(constant float4 *points [[buffer(0)]],
 }
 '''
 
-FILTER_MAIN = r'''
-struct FilterUniforms {
-    var transform:simd_float4x4 = matrix_identity_float4x4
-    var positionRadius=SIMD4<Float>(0,0,0,2)
-    var parameters=SIMD4<Float>(1,0,0,0)
-    var identity=SIMD4<UInt32>(0,0,1,0)
-}
-@main enum FilterProbe {
- static func main() throws {
-    let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [[String:Any]]
-    let d=MTLCreateSystemDefaultDevice()!,q=d.makeCommandQueue()!
-    let lib=try d.makeLibrary(URL:URL(fileURLWithPath:"default.metallib"))
-    let p=try d.makeComputePipelineState(function:lib.makeFunction(name:"shadowFilterProbe")!)
-    let points=input.map { row -> SIMD4<Float> in let uv=row["uv"] as! [Double];return SIMD4(Float(uv[0]),Float(uv[1]),0,0) }
-    let pointBuffer=d.makeBuffer(bytes:points,length:MemoryLayout<SIMD4<Float>>.stride*points.count)!
-    let uniforms=[FilterUniforms(),FilterUniforms(),FilterUniforms()]
-    let uniformBuffer=d.makeBuffer(bytes:uniforms,length:MemoryLayout<FilterUniforms>.stride*3)!
-    var rows:[[String:Any]]=[]
-    for pattern in ["step","checker","blocked"] {
-        let cb=q.makeCommandBuffer()!
-        func map(_ width:Int,_ height:Int)->MTLTexture {
-            let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:width,height:height,mipmapped:false)
-            td.storageMode = .private;td.usage = .shaderRead
-            let t=d.makeTexture(descriptor:td)!,stride=256
-            let b=d.makeBuffer(length:stride*height,options:.storageModeShared)!
-            for y in 0..<height { for x in 0..<width {
-                let xx=x%4,yy=y%4
-                let value:Float=pattern=="blocked" ? 0 : (pattern=="step" ? (xx>=2 ? 1:0) : ((xx+yy)%2==1 ? 1:0))
-                b.contents().advanced(by:y*stride+x*4).storeBytes(of:value,as:Float.self)
-            }}
-            let e=cb.makeBlitCommandEncoder()!
-            e.copy(from:b,sourceOffset:0,sourceBytesPerRow:stride,sourceBytesPerImage:stride*height,sourceSize:.init(width:width,height:height,depth:1),to:t,destinationSlice:0,destinationLevel:0,destinationOrigin:.init(x:0,y:0,z:0));e.endEncoding()
-            return t
-        }
-        let depth=map(4,4),atlas=map(12,8),out=d.makeBuffer(length:16*points.count,options:.storageModeShared)!
-        let e=cb.makeComputeCommandEncoder()!;e.setComputePipelineState(p)
-        e.setBuffer(pointBuffer,offset:0,index:0);e.setBuffer(uniformBuffer,offset:0,index:1);e.setBuffer(out,offset:0,index:2)
-        e.setTexture(depth,index:0);e.setTexture(atlas,index:1)
-        e.dispatchThreads(.init(width:points.count,height:1,depth:1),threadsPerThreadgroup:.init(width:1,height:1,depth:1));e.endEncoding()
-        cb.commit();cb.waitUntilCompleted()
-        let ptr=out.contents().bindMemory(to:SIMD4<Float>.self,capacity:points.count)
-        rows.append(["pattern":pattern,"completed":cb.status == .completed && cb.error == nil,
-            "values":(0..<points.count).map{[ptr[$0].x,ptr[$0].y,ptr[$0].z,ptr[$0].w]}])
-    }
-    print(String(data:try JSONSerialization.data(withJSONObject:["rows":rows]),encoding:.utf8)!)
- }
-}
-'''
+FILTER_FIXTURE = Path(__file__).with_name('fixtures') / 'SceneShadowFilterChecks.swift'
 
 class SceneShadowFilterFootprintTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Frozen 4x4 depth maps: central checker cells [0,1;1,0] and a vertical
-        # step. These exact dyadic phase expectations precede GPU execution.
         cls.vectors = [
             {'name':'first-center','uv':[.375,.375],'step':0,'checker':0},
             {'name':'quarter','uv':[.4375,.4375],'step':.25,'checker':.375},
             {'name':'half','uv':[.5,.5],'step':.5,'checker':.5},
             {'name':'three-quarters','uv':[.5625,.5625],'step':.75,'checker':.375},
             {'name':'second-center','uv':[.625,.375],'step':1,'checker':1}]
+        # Area intersections of a three-texel square with one dark texel.
+        # The shoulder spans one texel; these fractions are geometry, not BRDF.
+        cls.phases = [
+            (-2-1/64, 0, 0), (-2, 0, 0), (-2+1/64, 0, 1/576),
+            (-1.5, 0, 1/18), (-1, 0, 1/9), (-.5, 0, 1/9), (0, 0, 1/9),
+            (.5, 0, 1/9), (1, 0, 1/9), (1.5, 0, 1/18),
+            (2-1/64, 0, 1/576), (2, 0, 0), (2+1/64, 0, 0),
+            (0, 1.5, 1/18), (1.5, 1.5, 1/36)]
+        maps = [('step',4,None), ('checker',4,None), ('blocked',4,0)]
+        maps += [(f'{kind}-{size}',size,depth) for size in (8,16)
+                 for kind,depth in [('clear',1),('blocked',0)]]
+        maps += [('single-8',8,(4,4)), ('single-16',16,(8,8)), ('shifted-16',16,(9,7))]
+        maps += [('gap-front',8,.5-1/64), ('contact',8,.5), ('gap-behind',8,.5+1/64)]
+        cls.inputs = []
+        for name,size,pattern in maps:
+            cell = pattern if isinstance(pattern,tuple) else (size//2,size//2)
+            depths = [float((x,y)!=cell) if isinstance(pattern,tuple) else
+                      float(x>=2) if name=='step' else float((x+y)%2==1) if name=='checker'
+                      else pattern for y in range(size) for x in range(size)]
+            points = [v['uv'] for v in cls.vectors]
+            if size>4:
+                points += [[(cell[0]+.5+x)/size,(cell[1]+.5+y)/size] for x,y,_ in cls.phases]
+            cls.inputs.append({'name':name,'size':size,'depths':depths,'points':points})
         parent=REPO/'.artifacts/tmp'
         parent.mkdir(parents=True,exist_ok=True)
         root=Path(tempfile.mkdtemp(prefix='shadow-filter-source-',dir=parent))
@@ -557,28 +531,57 @@ class SceneShadowFilterFootprintTests(unittest.TestCase):
         for name in ['SceneDistanceFog.metalh','SceneSurfaceResponse.metalh']:
             (root/name).write_bytes((product.parent/name).read_bytes())
         (root/'product-identity.json').write_text(json.dumps({str(product):before},indent=2))
-        layout,main=FILTER_MAIN.split('@main',1)
-        layout_source=root/'FilterUniforms.swift';layout_source.write_text('import simd\n'+layout)
-        cls.report=run_swift([layout_source], 'import Foundation\nimport Metal\nimport simd\n@main'+main,
-            label='shared-filter',metal_sources=[source],input_value=cls.vectors)
+        cls.report=run_swift([FILTER_FIXTURE], '', label='shared-filter',
+            metal_sources=[source],input_value=cls.inputs)
         if hashlib.sha256(product.read_bytes()).hexdigest()!=before: raise AssertionError('product drift')
 
-    def test_exact_centers_quarter_and_half_phase_for_all_three_lights(self):
-        self.assertEqual({row['pattern'] for row in self.report['rows']},{'step','checker','blocked'})
+    def test_directional_area_and_unchanged_point_spot_dyadic_phases(self):
+        self.assertEqual({r['pattern'] for r in self.report['rows']},{r['name'] for r in self.inputs})
+        directional = {'step':[1/3,5/12,1/2,7/12,2/3],
+                       'checker':[4/9,35/72,1/2,35/72,5/9]}
         for row in self.report['rows']:
             self.assertTrue(row['completed'])
-            self.assertEqual(len(row['values']),len(self.vectors))
-            for vector,values in zip(self.vectors,row['values']):
-                want=0 if row['pattern']=='blocked' else vector[row['pattern']]
-                with self.subTest(pattern=row['pattern'],phase=vector['name']):
-                    for value in values[:3]: self.assertAlmostEqual(value,want,delta=2**-20)
+            spec=next(r for r in self.inputs if r['name']==row['pattern'])
+            self.assertEqual(len(row['values']),len(spec['points']))
+            if row['pattern'] in directional:
+                for index,vector in enumerate(self.vectors):
+                    with self.subTest(pattern=row['pattern'],phase=vector['name']):
+                        values=row['values'][index]
+                        self.assertAlmostEqual(values[0],directional[row['pattern']][index],delta=2**-20)
+                        for value in values[1:3]:
+                            self.assertAlmostEqual(value,vector[row['pattern']],delta=2**-20)
+            elif row['pattern'].startswith(('blocked','clear','gap')) or row['pattern']=='contact':
+                want=0 if row['pattern'].startswith('blocked') or row['pattern']=='gap-front' else 1
+                for values in row['values']: self.assertAlmostEqual(values[0],want,delta=2**-20)
+                if row['pattern']=='blocked':
+                    for values in row['values'][:len(self.vectors)]: self.assertEqual(values[1:3],[0,0])
 
     def test_invalid_directional_taps_keep_only_their_own_weight(self):
         row=next(r for r in self.report['rows'] if r['pattern']=='blocked')
-        # The plane is z=.9+2*dx: right taps at the three interior phases leave
-        # [0,1], left taps remain behind a zero-depth occluder. No renormalizing.
-        for index,want in [(1,.25),(2,.5),(3,.75)]:
-            self.assertAlmostEqual(row['values'][index][3],want,delta=2**-20)
+        # This sloped plane leaves one third of the footprint in the depth
+        # domain. The other two thirds stay clear, without renormalization.
+        for index in (1,2,3):
+            self.assertAlmostEqual(row['values'][index][3],2/3,delta=2**-20)
+
+    def test_single_texel_phase_extent_and_grid_translation(self):
+        rows=[r for r in self.report['rows'] if r['pattern'] in ('single-8','single-16','shifted-16')]
+        self.assertEqual(len(rows),3)
+        curves=[]
+        for row in rows:
+            dark=[1-v[0] for v in row['values'][len(self.vectors):]]
+            curves.append(dark)
+            for (x,y,want),actual in zip(self.phases,dark,strict=True):
+                with self.subTest(map=row['pattern'],x=x,y=y):
+                    self.assertGreaterEqual(actual,-2**-20)
+                    self.assertLessEqual(actual,1/9+2**-20)
+                    self.assertAlmostEqual(actual,want,delta=2**-20)
+            for index in range(12):
+                dx=self.phases[index+1][0]-self.phases[index][0]
+                self.assertLessEqual(abs(dark[index+1]-dark[index]),dx/9+2**-20)
+            for index in range(6): self.assertAlmostEqual(dark[index],dark[12-index],delta=2**-20)
+        for curve in curves[1:]:
+            for actual,want in zip(curve,curves[0],strict=True):
+                self.assertAlmostEqual(actual,want,delta=2**-20)
 
 
 
@@ -670,6 +673,17 @@ def skinny_plane_vectors():
             triangles=[[[p[i]+gap*base['local_gap_axis'][i] for i in range(3)] for p in tri] for tri in base['caster_triangles']]
             if reverse: triangles=[[tri[0],tri[2],tri[1]] for tri in triangles]
             row['casters'].append({'triangles':triangles,'nocull':nocull})
+        row['expected_visibility']=wanted
+        row['expected_filtered_visibility']=5/9 if name in ('positive-gap','thin-nocull') else wanted
+        result.append(row)
+    wide=copy.deepcopy(base)
+    wide.update(name='skinny-wide-positive-gap',expected_visibility=0,expected_filtered_visibility=0,
+                casters=[{'nocull':False,'triangles':[[
+                    [-2.497077226638794,-4.010270595550537,8.747337341308594],
+                    [-2.8283820152282715,-3.0889675617218018,5.828847408294678],
+                    [-13.221284866333008,-6.203466892242432,4.182071208953857]]]}])
+    result.append(wide)
+    for row in result:
         # Independent physical ray plus declared normal/nocull admission.
         blocked=False;m=base['model_matrix']
         for caster in row['casters']:
@@ -678,8 +692,7 @@ def skinny_plane_vectors():
                 normal=cross(sub(world[1],world[0]),sub(world[2],world[0]))
                 if not caster['nocull'] and dot(normal,base['toward_light'])<=0: continue
                 blocked |= ray_triangle(base['receiver'],base['toward_light'],world) is not None
-        assert (0 if blocked else 1)==wanted,(name,blocked)
-        row['expected_visibility']=wanted;result.append(row)
+        assert (0 if blocked else 1)==row['expected_visibility'],(row['name'],blocked)
     return result
 
 
@@ -719,7 +732,7 @@ class SceneDirectionalShadowCasterPlaneTests(unittest.TestCase):
                 a,full,actual,stale,_,_,_,wrong,other=row['pixels']
                 for channel in range(3):
                     self.assertGreater(full[channel]-a[channel],.01)
-                    want=a[channel]+vector['expected_visibility']*(full[channel]-a[channel])
+                    want=a[channel]+vector['expected_filtered_visibility']*(full[channel]-a[channel])
                     tolerance=2*max(2**-24,2**(math.floor(math.log2(abs(want)))-10)) if want else 2**-23
                     self.assertLessEqual(abs(actual[channel]-want),tolerance)
                 self.assertEqual([p[3] for p in row['pixels']],[.75]*9)

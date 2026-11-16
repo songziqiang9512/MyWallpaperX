@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 424,
-      "bytes": 98774
+      "lines": 431,
+      "bytes": 100336
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 61012
+      "bytes": 60941
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 426,
-      "bytes": 126574
+      "lines": 438,
+      "bytes": 128582
     }
   },
   "archives": [
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d249029c72371a6895ab9f91e4ac467a762e2c9200717b44188324322c8f9706",
-      "after": "10d455c0797b163c251c417e78a605bf80e5de262671dcefca69661a25b95d61",
-      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
-      "reason": "Define the actual indexed receiver-face plane as the shared shadow comparison authority, reuse existing mesh buffers/index width and keep BRDF normals, original bias/filter/coverage and resource owners separate.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
+      "before": "10d455c0797b163c251c417e78a605bf80e5de262671dcefca69661a25b95d61",
+      "after": "8603c3ed341c5daee509150c908fdd91fbac2bd743aa5a6d1b413060e89ea34c",
+      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
+      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "11d102cc6ff42b816c0a0fd96055dba1032198357c3ca72a30147a886e8eb052",
-      "after": "4241cc96966c401a49354d00b68d31a2b00eec989b4174606f43895f511ed19e",
-      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
-      "reason": "Record genuine curved-neighborhood old-red/current-green, actual Float32 diagnostic and fixed-view sphere dark-dip repair, final author/independent closure and bounded short-window cost. Preserve source/build identities and leave ring flicker unclosed.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
+      "before": "4241cc96966c401a49354d00b68d31a2b00eec989b4174606f43895f511ed19e",
+      "after": "6b6eed03c9a7328a2c3017fbcee18fd8d3694351c3019114e6c9f9f6cf4704f2",
+      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
+      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6142698456cca514a88dec5fc31cbbf908515fdcf2b2c5fc8255185852e6022c",
-      "after": "d2efc720b8072deca8f85380627911bea8834edb2f8e7f4373e4495b54d71d8a",
-      "owner": "StaticModelPipeline / indexed shadow receiver plane and Scene evidence owners",
-      "reason": "Keep user-confirmed Saturn ring dark dots and rapid flicker as the first open item after the bounded sphere receiver repair; retain the sky-point difference as observation only and do not infer official cast-field consumption.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-receiver-plane"
+      "before": "d2efc720b8072deca8f85380627911bea8834edb2f8e7f4373e4495b54d71d8a",
+      "after": "0bcf8c807e2e8f4aa8d18d73becc0e47c8c04af19b41c182b909cbce9f112174",
+      "owner": "Existing StaticModel shadow filter, actual receiver and Scene evidence owners",
+      "reason": "Replace directional bilinear reconstruction with bounded16-tap coverage convolution using four streamed gathers; bind real tap/caster evidence, old-red/final-seven-green, visible gain and measured cost; retain remaining ring flicker and next color/geometry discriminator. Condense superseded receiver closeout instead of accumulating parallel history.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-filter"
     }
   ]
 }

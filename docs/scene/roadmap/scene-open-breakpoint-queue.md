@@ -17,7 +17,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 3589454154 环黑点/快速闪烁（当前首项） | [接收区](../capabilities/model-runtime-evidence.md#model-directional-shadow-fit)、[三角覆盖](../capabilities/model-runtime-evidence.md#model-shadow-primitive-coverage)与[物理密度](../capabilities/model-runtime-evidence.md#model-directional-shadow-density)已处理世界域稀释、三角外写影及主影台阶/粗痕；本轮[真实receiver平面](../capabilities/model-runtime-evidence.md#model-shadow-receiver-plane)仅将冻结球面ROI暗点17/12降至0/0。用户在新App自然播放中仍确认环闪，不能关闭本行。479关cast仍有几何颜色粒、隐藏后退；下一步针对实际环上颜色/覆盖及时间消费取可区分证据，保合法cast，不用球面静图或官方479 on/off同图推断字段消费。作者cascade单位未知，不盲套，不关479或改风格掩盖；不授所有视角、官方精确RGB或闪烁频率一致。 |
+| 3589454154 环黑点/快速闪烁（当前首项） | [真实receiver平面](../capabilities/model-runtime-evidence.md#model-shadow-receiver-plane)闭球面暗点；[有限微影滤波](../capabilities/model-runtime-evidence.md#model-directional-shadow-filter)使冻结四暗点R15–18→92–135、环ROI暗差3381→2331，主影保持，原景/独立作者通过；短成本GPU P50/P95由13.470/14.230→14.742/18.238ms，有增量，不授稳态或全闪烁关闭。实际479 tap深度均有碎石遮挡，不再改caster面；关cast会改map Y相位，只能作候选。下一步用空shadow、原BC3及456→462→479真实颜色链的相机亚像素相位分离颜色/几何覆盖欠采样，再定抗锯齿职责；不关合法cast、扩大bias或改风格。省略cast仍按官方缺省开启，utilwhite alpha1对照不外推BC3；cascade单位未知。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | Direct模型的用户albedo | 3617056047的Can70材料slot0=123且声明usertextures[0]=newproperty5；既有用户文件加载/publication链可用，但冷AlbedoSource和Frame只选择asset/named，尚不消费模型user输入。默认空值不属故障。下一步用真实选文件与热换像素建立红例，再沿原MaterialPlan/Registry接线并保straight隐藏RGB；本批先处理用户新指定土星阴影。 |
 | 零覆盖模型的阴影准备 | 源码候选：当前Frame按receivesLighting收receiver、按cast intent收caster，alpha/opacity严格0仍会扩fit/请求图并送GPU后丢弃。先以实际零覆盖远receiver/健康peer及切换反例核可见稀释与成本，再在原owner清除无消费者工作；未做独立画面或性能归因，不泛化到半透明/纹理alpha上界。 |

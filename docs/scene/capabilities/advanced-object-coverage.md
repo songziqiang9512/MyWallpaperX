@@ -101,9 +101,16 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 <a id="model-shadow-receiver-plane"></a>
 ### 模型阴影的实际接收平面
 
-接收面由当前绘制三角形决定。真实细面已出现屏幕导数偏离该面、把本应受光的PCF taps判暗；不能靠统一加大bias抹掉接触遮挡。沿原`prepared mesh → Pipeline绑定 → model fragment → 原三灯比较`，片元以primitive ID从当前同一顶点/索引缓冲读取三角形，在模型局部先做两条边之差，再以同world矩阵的线性部分变换。原定向及point/spot接收面数学消费这两条边，退出用屏幕相邻差充当几何平面的职责；BRDF仍用原插值/normal-map法线，纹理、世界位置、相机、cast、4tap与数值余量不改。
+接收面由当前绘制三角形决定。真实细面已出现屏幕导数偏离该面、把本应受光的PCF taps判暗；不能靠统一加大bias抹掉接触遮挡。沿原`prepared mesh → Pipeline绑定 → model fragment → 原三灯比较`，片元以primitive ID从当前同一顶点/索引缓冲读取三角形，在模型局部先做两条边之差，再以同world矩阵的线性部分变换。原定向及point/spot接收面数学消费这两条边，退出用屏幕相邻差充当几何平面的职责；BRDF仍用原插值/normal-map法线，纹理、世界位置、相机、cast与数值余量不改；定向有限滤波另归下节，point/spot保4tap。
 
 复用现有缓冲及提交寿命，无网格展开、缓存、附加资源或新owner；Pipeline只增加片元绑定及由现indexType提供的索引宽度。16/32bit沿原上传者的已证范围读取，不在像素中重验索引。没有实际受光阴影时不取三角形；新增读取及边变换的成本须随真实画面核对。验收保小三角原GPU红例、真实face/ray oracle、宽窄索引及改名/等价变体，有间隙遮挡与无阴影/未受光反例、三灯邻例和独立作者。若不能消除真实暗点或破坏原遮挡，撤候选并保断点，不追加第二套接收面或bias分支。
+
+<a id="model-directional-shadow-filter"></a>
+### 定向微阴影的有限覆盖滤波
+
+四组真实环面采样已核实caster覆盖及深度正确；二值map的单个微影texel却可占双线性权重约.95。沿原shadow tap/receiver-plane比较采用三texel方盒与双线性重建的有限卷积：每轴保N+1点，端点权重(1−f)/N、f/N，内部1/N，二维相乘；定向N=3共16比较，point/spot保N=1的原4比较。同一tap helper直接承接参数化权重，定向旧2×2重建退出；每tap仍在真实接收面上算reference与原bias，不改合法caster、map/fit/density、材质、光照强度或最终输出。同16个深度按四个2×2块逐组gather读取，不保跨组深度数组；逐lane仍保独立reference/bias与原比较语义；不能用共用reference的硬件linear PCF取代面校正。无随机抖动、历史、缓存、额外纹理/PSO/ABI或预铺性能档位。
+
+这是明确的自有抗欠采样方案，不授官方滤波公式或全闪烁因果。代价是每个活动定向receiver多12次比较及更宽的影边；先用同输入原型核孤立微影跨亚texel相位的权重连续、全明/全暗、倾斜接收面/接触间隙和原point/spot不变，再核同姿态原图、成熟原景连续帧、主影及独立作者，补相同App身份/输入的成本观测。真实环粒/闪动无可见收益、主影过糊或成本不可接受时撤候选并重排，不保留并列旧算法/样本分支，也不改caster平面来拟合已正确的深度。
 
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖

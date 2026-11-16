@@ -218,17 +218,29 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 ## 模型阴影的实际接收平面 <a id="model-shadow-receiver-plane"></a>
 
-本批只闭合3589454154冻结视图的受光球面暗点，环上黑点与快速闪烁仍是当前首项，用户在新App自然播放中仍可见。原149c App的同33对象、2268×1474输入中，预先固定球面ROI有17处局部暗差>8、其中12处>16；关闭259阴影或仅关闭456自身cast均归0，生产projection的16个Float与bias保持。官方同冻结输入及实际client尺寸的主体边界差约1像素，上部对应暗点统计为原生17/官方0；这是有界画面对照，不授精确RGB或官方算法。官方479 on/off窗口client RGB完全相同，也不证明该cast字段已被官方消费。
+3589454154冻结33对象、2268×1474输入中，原149c App预先固定球面ROI有17处局部暗差>8、其中12处>16；关闭259阴影或仅关闭456自身cast均归0，生产projection与bias保持。官方同冻结输入/client尺寸主体边界差约1像素、对应暗点原生17/官方0；这是有界画面对照，不授精确RGB或官方算法。官方479 on/off client RGB相同，不证明该字段已被消费。
 
-真实百万三角sphere、完整viewport和2×2 scissor的GPU诊断保原vertex、矩阵、caster/receiver winding与同CB map。Float32数据逐bit核对，实际primitive ID匹配源索引；旧两点visibility为.2824707/.661377，恰等左列两tap权重和，右列减原bias后仍判暗。GPU接收面梯度偏离实际face；以真实face梯度锚在同GPU clip后，四tap reference都低于实际stored depth，不需放大bias。四tap来自不同caster三角，不能要求它们共面；此证据不判硬件故障，也不把CPU理论当作原App uniform反读。
+真实百万三角sphere、完整viewport/2×2 scissor诊断保原vertex、矩阵、winding与同CB map；Float32逐bit核对且primitive ID匹配源索引。旧两点visibility .2824707/.661377恰等左列tap权重，右列减原bias仍判暗；GPU屏幕导数梯度偏离实际face。用真实face梯度锚在同GPU clip，四tap reference均低于stored depth，不需放大bias；不同tap来自不同caster面，不要求共面，也不判硬件故障。
 
-按[实际接收平面合同](advanced-object-coverage.md#model-shadow-receiver-plane)，原Pipeline把同一mesh的顶点/索引缓冲供片元，以primitive ID及原16/32bit宽度取真实三角边；局部相减后用当前world线性部分变换，三灯原比较消费该平面。退出屏幕相邻差充当几何face的职责，BRDF/normal-map仍用原法线，原bias、4tap、caster覆盖与相机不动；没有新网格、资源或owner。两组64/80-face真实曲面邻域各走16/32bit，独立ray/face深度给出字面受光预期；同输入正式旧3方法有4条visibility失败、0error，8.460s。当前三方法及Point seam/transform、Spot cone共8方法32.932s通过（进程wall33.052s），有间隙遮挡、索引宽度及原三灯邻例保持；实际整sphere两旧暗点的visibility均恢复1。孤立平面和15个footprint研究没有替代这些正式曲面正反例。
+按[接收面合同](advanced-object-coverage.md#model-shadow-receiver-plane)，Pipeline复用同mesh顶点/索引缓冲，以primitive ID及16/32bit宽度取三角边，局部相减再用world线性部分变换；三灯比较消费真实平面，退出屏幕相邻差的几何职责。BRDF/normal-map保原法线，bias/caster/相机不变，无新网格/资源/owner；定向当前滤波见[下一节](#model-directional-shadow-filter)。两组64/80-face曲面走两种索引，独立ray给字面预期；同输入旧3方法4条visibility失败/0error，最终8方法含Point seam/transform、Spot cone通过32.932s，保间隙遮挡和邻例。
 
-最终Shader6ceb/Pipeline313ec与实际执行输入锁定；此前3091执行体到6ceb只改同一注释，不合并构建身份。Debug25.423s与末次注释构建14.160s分别保收据，strict-deep及trusted helpers通过；最终App为e6ad/6704/67bc。同冻结75%原图对照PASS32.114s，固定ROI的17/12降至0/0，全图RGBA8仅350处RGB像素改变、alpha逐位相同，原16bit PNG保持原字节。不是全球/全视角无自影，亦不是环闪已经修完。
+该批Shader6ceb/Pipeline313ec，3091→6ceb只改注释；Debug25.423s及注释构建14.160s各保身份，strict-deep/helpers通过，App e6ad/6704/67bc。同冻结75% PASS32.114s，球面ROI 17/12→0/0，全图仅350处RGB8像素改变、alpha完全相同。原149c/最终e6ad完整3024×1964、45秒/warm30短测实际仅13.496/13.469秒：GPU P50/P95 13.759/14.170→13.470/14.230ms，CPU 2.987/3.333→3.053/3.293ms；GPU/RT池采样峰同750436352/213842432B。背景/VM未控制，不授稳态性能或零开销。
 
-同冻结33对象与完整3024×1964颜色域，原149c与最终e6ad各45秒、warmup30秒的短成本对照，实际测量窗仅13.496/13.469秒，不是整轮60.51秒。GPU帧P50为13.759→13.470ms、P95为14.170→14.230ms，CPU帧P50为2.987→3.053ms、P95为3.333→3.293ms；GPU分配与RT池采样峰分别同750,436,352B/213,842,432B。原report/result/app.log指标吻合，App5及固定输入已核；关闭heavy execution observations不提供新增model事件资格。VM与背景负载未控制，测量不足60秒稳态门，只授本对观测，不称性能收益、零开销或能耗结论。
+原130对象自然40秒/after32/每7秒采样78.607s PASS，主影/内容完整，但用户仍确认环闪；独立3437487219自然5秒36.927s PASS，112/114模型与135图像到main/seal/GPUcompleted，零截断并停止释放/排空，地表/云/蓝大气/暗面/银河/钟日完整。此批只闭球面暗点；原图、实际GPU读回、输入/身份归`.artifacts/scene-model-shadow-receiver-plane-20261116/evidence.zip`，正式原作者载荷归`.artifacts/scene-evidence/runs/scene-model-shadow-receiver-plane-20261116`。不授全球/全视角无自影、环闪已修完或官方完整一致。
 
-最终App原130对象自然40秒、after32/每7秒采样，78.607s整轮PASS，成熟图保主影与场景内容；用户现场仍报告环闪，后续须回到其实际颜色/覆盖与时间消费，不以球面统计代替。独立原3437487219自然5秒、36.927s整轮PASS；原project/pkg匹配输入，F176/request2/CB516623745920的112/114模型与135图像到main516602098176/seal/GPUcompleted，零截断并停止释放/排空。实际终端地表、云、蓝大气、暗面、银河星点与钟日连续完整；只授普通作者回归，不授其未请求的定向影贡献。本批原图、输入、实际GPU读回与身份的归档目标为`.artifacts/scene-model-shadow-receiver-plane-20261116/evidence.zip`，正式原作者运行使用`.artifacts/scene-evidence/runs/scene-model-shadow-receiver-plane-20261116`；不授稳态性能、所有硬件或官方完整一致。
+## 定向微阴影的有限覆盖滤波 <a id="model-directional-shadow-filter"></a>
+
+3589454154四组环上暗/健康邻点用实际462片元、原BC3、4096固定on-fit及479 caster取证：5个有限存深均有真实碎石ray遮挡，最大深度差7.48e−8，32tap分类全同；不支持继续改caster面或放大bias。原双线性单tap权重可约.95，微影欠采样随相位变化很大；479关cast同时改变map Y相位，差图只作候选。模型省略cast按官方缺省开启；utilwhite alpha1三种深度控的官方blue/blue/red仅支持该材质非writer，不外推BC3。
+
+按[有限滤波合同](advanced-object-coverage.md#model-directional-shadow-filter)，同tap helper以三texel方盒与双线性重建卷积替换定向2×2，16个独立receiver-plane reference/bias比较分四组gather，不保跨组数组。Point/Spot仍4tap；无新资源/PSO/ABI/owner、历史或缓存。逐组dot改变Float32累加次序：860合成通道最大差1.79e−7，真实8点×4相位/128通道最大1.20e−7，均在原2^-20容差内，alpha/PID/status逐位同；不称浮点逐位一致。
+
+正式旧源FilterFootprint3方法21失败/0error；最终受影响Filter3、ReceiverPlane3及CasterPlane1共7方法17.188s通过。原6个skinny几何/中心ray意图不变，两条窄正间隙仅覆盖16tap中的4条，有限覆盖期望应为5/9；独立oracle核后修期望并加全覆盖正间隙0反例，未放宽容差。Point seam/transform与Spot cone的5方法（4项GPU行为、1项CPU投影）在scalar-N3载体通过后按未变消费闭包复用，不称同次最终12方法运行。
+
+最终Shader973f36c4，Debug12.334s且产品/project/锁文件前后同，strict-deep/helpers通过；App 476b/6704/d303。同冻结33对象/2268×1474 PASS31.269s，完整RGBA8与scalar-N3一致；对原e6ad四个暗点R为15/18/18/17→92/135/134/134，sphere ROI仍0/0。预注册环ROI局部暗差>16为3381→2331，含真实纹理，不能当作全部错误黑点或闪烁计数；主影和合法遮挡保留。最终原130对象自然40秒/after32/每7秒采样77.646s与独立343自然5秒36.422s均PASS，停止释放/排空；根已看原图，主影、模型/环、UI及独立地表/云/蓝大气/暗面/银河/钟日完整。捕获资格随原事件保留，不以rc0代替画面。
+
+相同冻结输入、3024×1964/target60/warm30/duration45的短成本观测：原e6ad与最终476b实际测量13.469/13.502秒，GPU P50/P95 13.470/14.230→14.742/18.238ms，CPU 3.053/3.293→2.792/3.121ms，completed 59.916→59.101FPS、GPU失败0，RT池采样峰213842432→280951296B（+64MiB），峰值原因未获逐key事件证明；RT池采样峰213842432→280951296B，进程footprint 1049281904→1150698864B。每帧pass/copy census同，但无逐key分配事件，不能因shader未建资源就称无峰值增长。顺序运行/背景/VM未控制，均不足60秒稳态门，不授能耗或普适加速。原始逐次16比较与跨组数组原型分别观测15.960/17.762、13.999/14.604ms，最终停止微调并保真实成本。
+
+本批只减轻已证微影欠采样，剩余颜色/几何覆盖及快速闪烁继续列首项，不称官方滤波公式或完整一致。原图、GPU正反例/变体、身份与独审归`.artifacts/scene-model-directional-shadow-filter-20261117/evidence.zip`；正式原作者载荷归`.artifacts/scene-evidence/runs/scene-model-directional-shadow-filter-20261117`。
 
 ## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
 

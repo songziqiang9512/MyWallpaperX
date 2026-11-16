@@ -111,20 +111,23 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     return out;
 }
 
-// One texel-centered bilinear footprint is shared by all model shadow maps.
+// Box width one retains the texel-centered bilinear footprint; width three
+// averages neighbouring micro-shadow samples before reconstruction.
 // Each caller keeps its geometric receiver-depth correction. The UV remains
 // unclamped here so a point-light tap can select its adjacent cube face.
 struct SceneShadowFilterTap {
     float2 uv;
     float weight;
 };
-SceneShadowFilterTap sceneShadowFilterTap(float2 uv, float2 extent, uint index) {
+SceneShadowFilterTap sceneShadowFilterTap(float2 uv, float2 extent, uint index, uint kernelWidth = 1u) {
     float2 pixel = uv * extent - 0.5;
     float2 base = floor(pixel);
     float2 fraction = pixel - base;
-    float2 offset = float2(index & 1u, index >> 1u);
-    float2 weight = mix(1.0 - fraction, fraction, offset);
-    return { (base + offset + 0.5) / extent, weight.x * weight.y };
+    uint axisCount = kernelWidth + 1u;
+    uint2 offset(index % axisCount, index / axisCount);
+    float2 weight = select(float2(1.0), 1.0 - fraction, offset == uint2(0u));
+    weight = select(weight, fraction, offset == uint2(kernelWidth)) / float(kernelWidth);
+    return { (base - float(kernelWidth / 2u) + float2(offset) + 0.5) / extent, weight.x * weight.y };
 }
 
 float sceneDirectionalVisibility(float3 position, float3 worldEdge0, float3 worldEdge1,
@@ -157,22 +160,30 @@ float sceneDirectionalVisibility(float3 position, float3 worldEdge0, float3 worl
         + abs(uniforms.transform[3].xyz);
     float depthMagnitude = projectionMagnitude.z
         + dot(abs(depthGradient), (projectionMagnitude.xy + 1.0) * 0.5);
+    float2 gatherBase = floor(uv * extent - 0.5) - 1.0;
     float visibility = 0.0;
-    for (uint index = 0; index < 4; ++index) {
-        SceneShadowFilterTap tap = sceneShadowFilterTap(uv, extent, index);
-        float2 sampleUV = clamp(tap.uv, 0.5 / extent, 1.0 - 0.5 / extent);
-        float2 correction = depthGradient * (sampleUV - uv);
-        float referenceDepth = clip.z + correction.x + correction.y;
-        // Near-tangent receiver planes can leave the map's depth domain
-        // within this finite filter footprint. Clear depth is not an
-        // occluder beyond that domain; retain this tap's unoccluded weight.
-        if (referenceDepth < 0.0 || referenceDepth > 1.0) {
-            visibility += tap.weight;
-            continue;
-        }
-        float precisionBias = uniforms.parameters.z
-            * max(1.0, depthMagnitude + abs(correction.x) + abs(correction.y));
-        visibility += tap.weight * shadow.sample_compare(shadowSampler, sampleUV, referenceDepth - precisionBias);
+    for (uint group = 0; group < 4; ++group) {
+        uint index = (group & 1u) * 2u + (group >> 1u) * 8u;
+        SceneShadowFilterTap tap0 = sceneShadowFilterTap(uv, extent, index, 3u);
+        SceneShadowFilterTap tap1 = sceneShadowFilterTap(uv, extent, index + 1u, 3u);
+        SceneShadowFilterTap tap2 = sceneShadowFilterTap(uv, extent, index + 4u, 3u);
+        SceneShadowFilterTap tap3 = sceneShadowFilterTap(uv, extent, index + 5u, 3u);
+        float4 sampleU = clamp(float4(tap0.uv.x, tap1.uv.x, tap2.uv.x, tap3.uv.x),
+            0.5 / extent.x, 1.0 - 0.5 / extent.x);
+        float4 sampleV = clamp(float4(tap0.uv.y, tap1.uv.y, tap2.uv.y, tap3.uv.y),
+            0.5 / extent.y, 1.0 - 0.5 / extent.y);
+        float4 correctionX = depthGradient.x * (sampleU - uv.x);
+        float4 correctionY = depthGradient.y * (sampleV - uv.y);
+        float4 referenceDepth = clip.z + correctionX + correctionY;
+        float4 precisionBias = uniforms.parameters.z
+            * max(float4(1.0), depthMagnitude + abs(correctionX) + abs(correctionY));
+        float2 offset = float2((group & 1u) * 2u, (group >> 1u) * 2u);
+        // Gather's wzxy order matches row-major offsets in each 2x2 block.
+        float4 sampledDepth = shadow.gather(shadowSampler, (gatherBase + offset + 1.0) / extent).wzxy;
+        float4 lit = float4(referenceDepth - precisionBias <= sampledDepth);
+        // Taps outside the receiver depth domain retain their unoccluded weight.
+        lit = select(lit, float4(1.0), (referenceDepth < 0.0) | (referenceDepth > 1.0));
+        visibility += dot(float4(tap0.weight, tap1.weight, tap2.weight, tap3.weight), lit);
     }
     return visibility;
 }
