@@ -68,6 +68,10 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 同7159签名App补沿原3秒请求的Saturn→Titan→Iapetus→Uranus→Neptune→Saturn，原847对象、project及1174非scene条目保持；只替换私有驱动的两处原字节跨度。109.819s整轮PASS、22原PNG无截图失败，6×5条请求/移动/匹配/READY/END实际记录闭合。6个HOLD均有同request/PID/CB/main/seal/GPUcompleted、trunc0及排空，5个不同球体未见新纹理/外缘缺口；移动候选仅小Saturn在画幅内，其余5体没有可辨轮廓，不授黄色/蓝色完整3秒同步或全部镜头正常。独审a32c6b57…c8944无该范围新阻断。8必要原PNG、30状态记录、12候选帧原事件和输入重建/身份归`.artifacts/scene-solar-atmosphere-views-20261115/evidence.zip`；未留569MB包或全日志。按用户最新顺序先转347水滴，余15卫星B及航天器继续留队列，不再作转向硬前置。
 
+2026-11-16同15e4291c0签名App（exe3203f653/dylib65c79a02/metallibbfb78133）核六个航天器：TDRS-9、JWST、ISS、Tiangong、Hubble、LRO。原847对象、project和1174非scene条目不变，只在既有私有驱动的固定跨度送原作者焦点请求；近景沿原scalenum输入，实际type=spacecraft/globalsize=5持续6更新与1秒后再HOLD至少5秒。默认1×A、原生3024×1964的5×A(135°)/B(315°)各六帧均闭合实际模型→同request/CB/main/seal/GPUcompleted、trunc0及排空；默认场有5次superseded、1次teardown截图失败，两个近景场均PASS。默认小图只授模型出现，A/B细节与独审未见明确缺片或错误纹理；Hubble A高光饱和、JWST B暗镜面的受光仍未知。两近景JD相差571.801秒，不授纯角度/RGB因果、所有210条draw各自完整贡献、余17航天器或官方一致，9作者占位仍非MDL缺图。
+
+18原PNG与3原report保于`.artifacts/scene-spacecraft-first6-20261116/evidence.zip`（177,569,361B，SHAb072461e…7158082），最终B正式原报告/必要载荷归`.artifacts/scene-evidence/runs/scene-spacecraft-first6-20261116`，四项同SHA别名不重复存储。封包后只删核过完整清单及无句柄的121个精确路径，5.62GB为逻辑大小，274个保留文件逐SHA未变；当前App/唯一DerivedData和用户媒体不在清单。该轮未建立新模型缺陷，按收益转向新的明确阴影反馈。
+
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
 按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal增量供后继update入参/自身getter，准入TRS的canonical值进入本帧唯一world snapshot；init/主动返回归原journal，退出重复TRS返回map、pending初始化副本和angles诊断字符串吞错。passive Timeline保原投影，当前真实写入不被它盖回。十产品净+160行，无新owner/持久状态/cache；原Bool read scope收敛复用，不授性能收益。首次未声明TRS定义及C init getter的阶段仍未闭。
@@ -173,6 +177,20 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 原3437487219五秒F147/request1/CB524195710720、112/114到main524249013120；独立3453730450自然20s/after17，F804/request1/CB524860098304的53/77具体part/306/340/342到main524923355136。两场原project/pkg摘要等冻结matrix，签名前后核同当前App，模型与终端seal在同CB、GPUcompleted/trunc0并排空，地表/云/大气/星空/时钟及月面/轨道/标题完整。trace不观察模型内部材质绑定，不能由此声称slot9或逐part pigment像素；可见贡献归前述实际资产对照。
 
 原作者报告、必要图与日志归`.artifacts/scene-evidence/runs/scene-model-pigment-20261115`；自有Cloud开关/旧零基线、203输入、CPU/相邻门、构建与独审归`.artifacts/scene-model-pigment-20261115`。用户纹理provider、动态amount、world/object锚定、更多stock效果与官方像素仍未授。
+
+## 定向阴影的可见接收区 <a id="model-directional-shadow-fit"></a>
+
+2026-11-16，用户报告3589454154土星向星环投影锯齿及球/环黑物闪烁。原15e App自然40秒中，32秒以后原生图有右上粗暗带；15个成功捕获均到同request/CB/main/seal/GPUcompleted、trunc0并排空，但全场另有5次superseded、1次teardown截图失败。保所有物体显示，只保球456/环462投影时粗带消失；单关近环479时仍有粗带；球/环/479投影时另有细长影痕。三组和后续两组控制均完整PASS，不将两种现象合并为同一故障。
+
+一次回调前缀的真实390项TRS经原WorldResolver和旧Projection纯CPU重建，全部25个caster使灯域达146.48×104.09，球/环/近环仅9.31×6.33；远482/483占XY两端且与主环不相交。原MDLReader实际解码逐顶点bounds与测量用header逐Float相同。该前缀在Main后、725角度更新前，不能冒GPU最终矩阵；两份最初误用getLayer(id)的空getter记录已排除，getLayerByID修正后130层全部实际取值。source默认casttrue保留，符合[官方模型默认投影](https://docs.wallpaperengine.io/en/scene/models/lighting.html)，不以关远卫星或陨石修产品。
+
+按[接收区合同](advanced-object-coverage.md#model-directional-shadow-fit)，原Projection双向裁剪实际颜色域的box/frustum边，XY只拟合可见受光接收区与caster覆盖交集，相关caster扩Z，XY/Z留边分离。Frame仅实际受光prepared层求pass/clip，退无消费者预约与正常域完整bounds重复计算；没有新增map、ABI、PSO、纹理、时钟、历史或缓存。普通帧仍有范围数学，未实测性能收益。原4tap双线性PCF、1024图、全部合法cast及coverage/cull保持，未宣一般大场景密度或稳定化已解。
+
+生产CPU门8方法/21同输入，旧源8个几何子断言红，新源全绿；独审删两处无用计算后再验，输入/Harness/21行结果逐byte不变。含无关远XY/Z、灯域相交的屏外caster、擦边长盒/包含clip体/无角内的交叉、native/canvas/反向深度、nil/奇异域保守回退及等价TRS；数学API无资源身份，不拿label改名授资源消费者。真实Frame6与DirectionalPixel2方法通过；首轮13子失败来自旧夹具全unlit仍要求map、及无消费屏外位置读回，已保首失败。现增加实际绘制的独立lit黑色非caster receiver，原主体/peer颜色、camera depth和三灯coverage阈值不放宽；217行均完成且采样坐标有效，另有无lit receiver不建定向图的反例。黑receiver的颜色snapshot仅ambient，真实可见direct影由DirectionalPixel门另授。named生命周期/阻塞提交/resize/cancel与原前缀容量4方法通过。
+
+最终普通Debug21.525秒，两个产品/工程/锁文件前后SHA一致，原helpers及strict/deep签名通过；exe c3e7a0eb/dylib90b4a71e，metallib仍bfb78133。固定33个模型、灯及祖先对象的TRS与原静态camera、原MDL/TEX/材料，退脚本且不含作者cameraPath；它不冒成熟原景镜头或作者动画。旧→fit原图RGBA8有411,657像素变化、最大185、alpha不变，星环粗条退出且主影保留。最终v2与v1冻结原PNG逐byte相同；原作者自然40秒/12捕获全PASS是v1，未冒最终v2原场景重跑。独立3437487219最终v2自然5秒PASS，地表/云/大气/星空/时钟完整，未授其未请求的定向影贡献。最终独审fb05fda9…de312无本范围阻断。
+
+细长影仍未闭：当前fit控制单关479即退密集细痕，关259则连主影一起退；两个场均保持输入/二进制且PASS。纯CPU解码479有267,216个四三角组件，中位世界直径.00416；冻结控制仍有477接收候选扩X域，当前texel为X .02888/Y .00589，不能沿用近环-only的.009作当前全场尺度。组件多数嵌在环薄层内，不能称所有长影正确或全部可见。继续核作者cascade距离与raster子texel覆盖/输出密度，保真实几何投影，不以更大map或无闪烁静图授时间稳定。其余Bloom/细线微颗粒/轮廓反馈仍未知；原图、失败、原报告/事件、生产源与独审归`.artifacts/scene-model-directional-shadow-fit-20261116/evidence.zip`（121,172,837B，SHA17c12296…d09bb）；正式载荷归`.artifacts/scene-evidence/runs/scene-model-directional-shadow-fit-20261116`的original-v1/independent-v2两独立run，按真实App5分立并以同SHA别名去重。
 
 ## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
 

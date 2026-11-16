@@ -36,7 +36,7 @@ imagePath语义所需的JSON模型由真实consumer选择loadModel，不再靠mo
 <a id="model-albedo-frames"></a>
 ### 模型 albedo 的统一资产供货
 
-目标是使同一模型的静态、单帧与多帧 slot0 沿同一供货链正确着色、遮挡和投影。当前 Entry 自持冷加载 candidate，合法多帧因此缺整个 part；只给动画另开旁路会保留重复加载和不同生命周期。本批迁移全部资产 albedo，named 图输入保原依赖链；normal/map/gradient/pigment 的静态职责暂不扩大。
+目标是使同一模型的静态、单帧与多帧 slot0 沿同一供货链正确着色、遮挡和投影。Entry只携asset或named身份，不自持冷加载candidate；全部资产albedo共用原播放生命周期，named图输入保原依赖链。normal/map/gradient/pigment的静态职责暂不扩大。
 
 `已准备 MDL 材料链接 → 原 descriptor 首个 pass0 → 冷 MaterialPlan → 原 Catalog demands → 原 FrameProvider(sceneTime) → 原 FrameTextureRegistry → 当帧 model draw → 颜色与 shadow`。计划只处理已标记的 direct model 材料，先固定首个 pass0（包括 rejected），不能用后项替换失败首项；material 数值投影一次。冷计划携原 pass 供现有可选贴图准备，Entry 只持 asset 或 named 身份，退出 slot0 的直接 resolve/loadCandidate、candidate 驻留与重复材料扫描。FrameProvider 是唯一推进者，颜色与阴影复用同一冻结 draw 的 texture/UV/sampler/content，普通帧不解析、不另推时钟或上传。
 
@@ -68,6 +68,17 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 测试关闭的模型是原透明 image 重排的顺序屏障，退出只凭 normal+写深度即可归入 opaque cohort 的旧判断。实际根域 opaque/alpha1/写深度模型仍由原 VolumeOccluder 收集；它携带相同测试值，原 camera-depth draw 依实际颜色绘制顺序使用比较或无条件写入，避免画面选了远表面、体积仍被旧近表面截止。保持既有实体覆盖资格、mesh/变换/cull、同池同提交，不新增资源、排序器或深度 owner。阴影的灯空间比较、castshadow 与透明资格独立，不跟随 camera test。新增 stencil 不可用时仅跳对应模型绘制；无需改旧比较深度路径。
 
 验收复用生产资源→Frame→Metal 门，核近透明红/远实体蓝的两顺序×写入声明，另以实体前/透明后的一对测试开关保遮挡，先资格完整模型与独立健康peer，再比官方颜色类别；相机不一致的裁剪输入不得定语义。保原normal四态、alias/未知/改名、alpha0、后继状态、加法、排序屏障、volume与三灯shadow；按影响面复用已验证范围。真实地球核原包资源、云/大气相互分离与合成后的无斜纹，另核土星及独立作者。[实际范围](model-runtime-evidence.md#model-translucent-camera-depth)不授文字 disabled 排序、任意半透明体积或整样本官方一致。
+
+<a id="model-directional-shadow-fit"></a>
+### 定向阴影的可见接收区
+
+目标是让远处天体仍可正确投影，同时不把当前可见球面和星环压缩到整张世界阴影图的少数像素。原单图以全部caster的灯域XY拟合，远caster/receiver的Z跨度又参与XY padding；真实3589454154只保球/环投影后粗暗带消失，单关近环陨石仍存在。该对照尚不授全部黑点来源，近环微几何的采样另行归因，不能以关闭其它物体投影修产品。
+
+沿`当帧prepared draw/world → 原颜色pass的rasterClipProjection与逐层相机 → 原DirectionalShadowProjection → 原灯map/比较 → 原compositor`修正范围。接收区只收实际受光draw，在每个真实颜色域将模型包围盒与齐次clip体求交；双向裁剪box和frustum的12条边，直接归约端点，不存多面体或去重顶点。使用原Float world/clip系数提升Double做交点/逆矩阵；无法形成有限clip体的域保其原完整bounds，不扩成整灯/帧拒绝。group/named/canvas/perspective均消费各自实际pass投影，不能只用主相机筛接收者。只有当前确有受光prepared draw的层才求pass/clip，不为其它层预约pass；完整receiver bounds只在无clip或退化域的保守回退时计算。
+
+每灯XY取可见接收区与caster灯域覆盖的保守交集；仅灯域XY相交的caster扩展深度。屏外caster仍沿原cast intent绘制，能投到可见接收者的物体不能因未上屏被删。XY padding只由XY尺度/分辨率决定，深度padding独立；退全世界caster拟合及Z驱动的XY放大。保持当前1024单图、四灯预算、二值材质/层/纹理覆盖、当前pose/UV/cull和三灯生命周期，不新增map、纹理、ABI、历史、缓存或资源owner。稳定化和滤波只在修正范围后仍有可归属残余时另立输入，不凭单图扩大PCF成本。
+
+验收先用生产数学的相机内/外、擦边长盒、相机在盒内、相反视角及混合投影正反例，核远处无关caster不再稀释近处投影，屏外但灯域相交caster仍在深度域；含改名、等价TRS和退化clip域保守回退。沿真实Frame/Metal补屏外合法影、group/named及阴影覆盖邻例，用冻结真实球/环/陨石/远卫星输入核旧/新可见投影、成熟原景连续帧和独立作者。若范围修正不能带来明确像素收益，退候选并重排；不能把map尺寸、caster计数或构建通过当修复。当前原始对照位于任务隔离目录，闭合后只在模型运行证据登记实得范围。
 
 <a id="model-shadow-coverage"></a>
 ### 模型阴影的实际覆盖

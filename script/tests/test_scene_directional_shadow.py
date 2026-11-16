@@ -326,7 +326,7 @@ PIXEL_MAIN = r'''
    }
    let projection = SceneDirectionalShadowProjection.make(
     bounds: meshes.map { (minimum:$0.boundsMinimum,maximum:$0.boundsMaximum,world:casterWorld) },
-    receiverBounds: [(minimum:receiver.boundsMinimum,maximum:receiver.boundsMaximum,world:receiverWorld)],
+    receiverBounds: [(minimum:receiver.boundsMinimum,maximum:receiver.boundsMaximum,world:receiverWorld,clip:nil)],
     directionTowardLight:toward,resolution:1024)
    let cb = queue.makeCommandBuffer()!
    let depthDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false)

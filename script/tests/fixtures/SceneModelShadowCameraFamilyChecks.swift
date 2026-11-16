@@ -39,6 +39,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let normalConsumer=coverage?["normalConsumer"] as? Bool ?? false
   let linearRGBA8UV=(coverage?["linearRGBA8UV"] as? NSNumber)?.floatValue
   let pixelReadback=normalConsumer || linearRGBA8UV != nil
+  let hasReceiver=type=="directional" && !(coverage?["noLitReceiver"] as? Bool ?? false)
   let yz=coverage?["plane"] as? String == "yz"
   let mode=coverage?["normalMode"] as? String ?? ""
   let cameraDescriptor=SceneRenderDescriptor.CameraDescriptor(eye:yz ? [5,0,0]:[0,0,5],center:[0,0,0],up:[0,1,0],
@@ -124,6 +125,23 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     : [.init(id:2,utilityLayer:nil,usesPerspective:false),.init(id:3,utilityLayer:true,usesPerspective:true)]
    if reverse {layers.reverse()}
   }
+  if hasReceiver {
+   let receiverVertices=basePositions.map { p -> SceneMdlStaticModel.Vertex in
+    let q=p*12
+    return .init(position:yz ? SIMD3(0,q.y,q.x):q,normal:yz ? SIMD3(1,0,0):SIMD3(0,0,1),
+      tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))
+   }
+   let receiverMesh=pipeline.makeMesh(model:SceneStaticModelFixture.model(vertices:receiverVertices,indices:[0,1,2,0,2,3]))!
+   var receiverMaterial=SceneStaticModelMaterial(color:.zero,opacity:1,receivesLighting:true,
+     textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,
+     brightness:1,usesHDRBrightness:false,viewTint:nil)
+   receiverMaterial.cullMode = .none
+   entries[99]=[.init(materialPath:"independent-lit-receiver",dynamicMaterialPath:"",mesh:receiverMesh,
+     albedo:PreparedTexture(texture:white),material:receiverMaterial,writesDepth:false,materialBlending:.normal)]
+   var receiverLayer=SceneRenderDescriptor.Layer(id:99,utilityLayer:nil,usesPerspective:true)
+   receiverLayer.modelShadowCastIntent = .disabled
+   layers.append(receiverLayer)
+  }
   let renderer=SceneMetalRenderer(device:device,resources:.init(pipeline:pipeline,entries:entries))
   renderer.renderDescriptor.camera=cameraDescriptor
   var world=transformed ? SceneMatrix.eulerXYZ(SIMD3(0.2,-0.3,0.1))*SceneMatrix.scale(SIMD3(1.1,0.8,1.2)):matrix_identity_float4x4
@@ -153,6 +171,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    let offset=pixelReadback ? x*0.6:x
    worlds[id]=(normalConsumer ? controlWorld:world)*SceneMatrix.translation(yz ? SIMD3(0,0,offset):SIMD3(offset,0,0))
   }
+  if hasReceiver {worlds[99]=controlWorld*SceneMatrix.translation(yz ? SIMD3(-40,0,0):SIMD3(0,0,-40))}
   let visible=Set(layers.filter{$0.visible != false}.map(\.id))
   let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)!
   var leases:[SceneParticleDepthTargetLease]=[]
@@ -163,8 +182,14 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   var colorEncoded:Bool?=nil
   var leafEncoded:Bool?=nil,normalDraws:[SceneMetalRenderer.StaticModelDraw]=[]
   var cameraDepthBuffers:[MTLBuffer]=[]
+  let ambient=SceneLightSnapshot(ambient:SIMD3(repeating:0.25),skylight:.zero,directional:[],point:[],spot:[],overflowCount:0)
+  var receiverEncoded=false
+  if let receiver=layers.first(where:{$0.id==99}) {
+   receiverEncoded=renderer.drawStaticModel(layer:receiver,state:state,worldFrames:worlds,
+     frameContext:.init(dynamicValues:dynamic),cameraFrame:camera,lighting:ambient,
+     pass:pass,commandBuffer:cb,leases:&leases)
+  }
   if coverage?["frameScale"] != nil || pixelReadback {
-   let ambient=SceneLightSnapshot(ambient:SIMD3(repeating:0.25),skylight:.zero,directional:[],point:[],spot:[],overflowCount:0)
    if normalConsumer {normalDraws=renderer.staticModelDraws(layer:layer,worldFrames:worlds,snapshot:dynamic) ?? []}
    if coverage?["leaf"] as? Bool == true {
     _=state.sharedDepth(pass:pass,pool:renderer.staticModelDepthTargetPool,device:device,commandBuffer:cb,leases:&leases)
@@ -180,7 +205,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
      pass:pass,commandBuffer:cb,leases:&leases)
    }
    if pixelReadback {
-    for peer in layers where peer.id != 1 {
+    for peer in layers where peer.id == 2 || peer.id == 3 {
      _=renderer.drawStaticModel(layer:peer,state:state,worldFrames:worlds,
        frameContext:.init(dynamicValues:dynamic),cameraFrame:camera,lighting:ambient,
        pass:pass,commandBuffer:cb,leases:&leases)
@@ -200,13 +225,14 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     blit.endEncoding()
    }
   }
-  var buffers:[MTLBuffer]=[]
+  if hasReceiver {precondition(pass.finishEnsuringClear())}
+  var buffers:[MTLBuffer?]=[],samplePixels:[[Int]]=[]
   if let shadow {
   let map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
-  let points:[SIMD3<Float>] = coverage == nil ? worlds.keys.sorted().map{worlds[$0]!.columns.3.xyz}
+  let points:[SIMD3<Float>] = coverage == nil ? [1,2,3].compactMap{worlds[$0]?.columns.3.xyz}
     : [-Float(0.5),Float(0.5)].map { x in
         ((normalConsumer ? controlWorld:world)*(yz ? SIMD4(0,0,x,1):SIMD4(x,0,0,1))).xyz }
-      + worlds.keys.sorted().filter{$0 != 1}.map{worlds[$0]!.columns.3.xyz}
+      + [2,3].compactMap{worlds[$0]?.columns.3.xyz}
   for point in points {
    let clip:SIMD3<Float>,face:Int
    switch shadow.projection {
@@ -221,6 +247,8 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    let viewport=shadow.projection.viewport(face:face,width:map.width,height:map.height)
    let x=Int(viewport.originX+(Double(clip.x)+1)*viewport.width*0.5)
    let y=Int(viewport.originY+(1-Double(clip.y))*viewport.height*0.5)
+   samplePixels.append([x,y,map.width,map.height])
+   guard x>=0,y>=0,x<map.width,y<map.height else {buffers.append(nil);continue}
    let buffer=device.makeBuffer(length:256,options:.storageModeShared)!
    blit.copy(from:map,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:x,y:y,z:0),sourceSize:.init(width:1,height:1,depth:1),
     to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
@@ -230,11 +258,12 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   }
   leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
   precondition(cb.status == .completed && cb.error == nil)
-  let depths=buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee}
+  let depths:[Any]=buffers.map{buffer in buffer.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee as Any} ?? NSNull()}
   var result:[String:Any] = ["family":family,"light":type,"transformed":transformed,"reverse":reverse,"noCull":noCull,
    "nativeCamera":camera.defaultsToPerspective,"perspectiveLayer":camera.resolvesPerspective(for:layer),
-   "depth":depths.first.map{$0 as Any} ?? NSNull(),"peerDepth":Array(depths.dropFirst(coverage == nil ? 1:2)),
-   "shadowPublished":shadow != nil,"completed":true]
+   "depth":depths.first ?? NSNull(),"peerDepth":Array(depths.dropFirst(coverage == nil ? 1:2)),
+   "shadowPublished":shadow != nil,"completed":true,"receiverColorEncoded":receiverEncoded,
+   "shadowSamplePixels":samplePixels,"shadowSamplesInBounds":buffers.allSatisfy{$0 != nil}]
   if let coverage {result["name"]=coverage["name"]!;result["coverageDepth"]=Array(depths.prefix(2))}
   if colorEncoded != nil || pixelReadback {
    var pixel=[UInt8](repeating:0,count:4)

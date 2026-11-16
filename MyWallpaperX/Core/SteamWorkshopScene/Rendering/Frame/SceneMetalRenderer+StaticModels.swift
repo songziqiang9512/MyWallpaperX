@@ -759,21 +759,32 @@ extension SceneMetalRenderer {
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
         var casters: [(draw: StaticModelDraw, frontFacing: MTLWinding)] = []
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
-        var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
+        var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4,
+                              clip: simd_float4x4?)] = []
         for layer in orderedLayers {
+            let draws = state.prepared?[layer.id] ?? []
+            if draws.isEmpty { continue }
             // Native models use Y-up world winding. Canvas and fitted cameras
             // retain their reflected authored convention in the same light map.
             let frontFacing: MTLWinding = cameraFrame.defaultsToPerspective
                 && cameraFrame.resolvesPerspective(for: layer) ? .clockwise : .counterClockwise
-            for draw in state.prepared?[layer.id] ?? [] {
+            let receiverClip: simd_float4x4?
+            if includesDirectional && draws.contains(where: { $0.material.receivesLighting }) {
+                let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
+                receiverClip = pass?.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)))
+            } else { receiverClip = nil }
+            for draw in draws {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
                 if casts {
                     casters.append((draw, frontFacing))
                 }
-                if includesDirectional && (casts || draw.material.receivesLighting) {
+                if includesDirectional {
                     let item = (draw.mesh.boundsMinimum, draw.mesh.boundsMaximum, draw.world)
                     if casts { bounds.append(item) }
-                    receiverBounds.append(item)
+                    if draw.material.receivesLighting {
+                        receiverBounds.append((item.0, item.1, item.2, receiverClip))
+                    }
                 }
             }
         }

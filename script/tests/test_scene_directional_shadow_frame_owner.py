@@ -494,6 +494,9 @@ def model_alpha_sampling_cases():
                 rows.append(dict(name=f'linear-alpha-{light}-{renamed}-{label}',light=light,
                     renamed=renamed,blending='translucent',linearRGBA8UV=u,textureAlphaBytes=alpha,
                     boundary=label,reference=f'linear-alpha-{light}-{renamed}-one'))
+    rows.append(dict(name='linear-alpha-directional-no-receiver',light='directional',
+        blending='translucent',linearRGBA8UV=.5,textureAlphaBytes=[255,255],boundary='one',
+        noLitReceiver=True,reference='linear-alpha-directional-False-one'))
     return rows
 
 
@@ -518,6 +521,8 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             front_indices = row['family'] in ('native', 'canvas', 'fitted')
             expected = row['noCull'] or (not row['reverse'] if front_indices else row['reverse'])
             self.assertTrue(row['completed'], row)
+            self.assertTrue(row['shadowSamplesInBounds'], row)
+            if row['light'] == 'directional': self.assertTrue(row['receiverColorEncoded'], row)
             self.assertEqual(len(row['peerDepth']), 2 if native else 0, row)
             for depth in row['peerDepth']:
                 self.assertGreaterEqual(depth, 0, row)
@@ -536,6 +541,8 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         for case in self.coverageCases:
             row = rows[case['name']]
             self.assertTrue(row['completed'], row)
+            self.assertTrue(row['shadowSamplesInBounds'], row)
+            if row['light'] == 'directional': self.assertTrue(row['receiverColorEncoded'], row)
             self.assertTrue(row['nativeCamera'] and row['perspectiveLayer'], row)
             self.assertEqual(row['light'], case['light'])
             self.assertEqual(row['shadowPublished'], case.get('expectedShadow', True), row)
@@ -564,6 +571,7 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         rows = {row['name']: row for row in self.report['coverageRows']}
         for light in ['directional', 'spot', 'point']:
             reference, tiny = [rows[light+suffix] for suffix in ['-uv-reference', '-uv-tiny']]
+            self.assertTrue(reference['shadowSamplesInBounds'] and tiny['shadowSamplesInBounds'])
             self.assertTrue(reference['colorEncoded'] and tiny['colorEncoded'], (reference, tiny))
             self.assertGreater(min(reference['colorRGBA'][:3]), 0, reference)
             self.assertEqual(tiny['colorRGBA'], reference['colorRGBA'])
@@ -584,13 +592,21 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         for case in self.alphaCases:
             row,control=rows[case['name']],rows[case['reference']]
             with self.subTest(case=case['name']):
-                self.assertTrue(row['completed'] and row['shadowPublished'],row)
-                if case['boundary'] in ('above','one'):
-                    self.assertEqual(row['coverageDepth'],control['coverageDepth'],row)
-                    self.assertTrue(all(0<=value<.99 for value in row['coverageDepth']),row)
-                else:self.assertEqual(row['coverageDepth'],[1,1],row)
-                self.assertEqual(row['peerDepth'],control['peerDepth'],row)
-                self.assertTrue(all(0<=value<.99 for value in row['peerDepth']),row)
+                self.assertTrue(row['completed'] and row['shadowSamplesInBounds'],row)
+                if case.get('noLitReceiver'):
+                    self.assertFalse(row['receiverColorEncoded'],row)
+                    self.assertFalse(row['shadowPublished'],row)
+                    self.assertEqual(row['coverageDepth'],[],row)
+                    self.assertEqual(row['peerDepth'],[],row)
+                else:
+                    self.assertTrue(row['shadowPublished'],row)
+                    if row['light']=='directional':self.assertTrue(row['receiverColorEncoded'],row)
+                    if case['boundary'] in ('above','one'):
+                        self.assertEqual(row['coverageDepth'],control['coverageDepth'],row)
+                        self.assertTrue(all(0<=value<.99 for value in row['coverageDepth']),row)
+                    else:self.assertEqual(row['coverageDepth'],[1,1],row)
+                    self.assertEqual(row['peerDepth'],control['peerDepth'],row)
+                    self.assertTrue(all(0<=value<.99 for value in row['peerDepth']),row)
                 self.assertEqual(row['peerColorRGBA'],[[255,255,255,255]]*2,row)
                 self.assertEqual(row['cameraDepth'],control['cameraDepth'],row)
                 self.assertTrue(all(value>0 for value in row['cameraDepth']),row)
@@ -614,6 +630,8 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             row,reference=rows[case['name']],rows[case['reference']]
             with self.subTest(case=case['name']):
                 self.assertTrue(row['completed'],row)
+                self.assertTrue(row['shadowSamplesInBounds'],row)
+                if row['light']=='directional':self.assertTrue(row['receiverColorEncoded'],row)
                 self.assertEqual(row['colorRGBA'],[255,255,255,255],row)
                 self.assertEqual(row['colorRGBA'],reference['colorRGBA'])
                 self.assertGreater(row['cameraDepth'][0],0,row)
@@ -635,6 +653,8 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
             row,reference=rows[case['name']],rows[case['reference']]
             with self.subTest(case=case['name']):
                 self.assertTrue(row['completed'],row)
+                self.assertTrue(row['shadowSamplesInBounds'],row)
+                if row['light']=='directional':self.assertTrue(row['receiverColorEncoded'],row)
                 self.assertEqual(row['peerColorRGBA'],[[255,255,255,255]]*2,row)
                 self.assertTrue(all(value>0 for value in row['cameraDepth'][1:]),row)
                 self.assertTrue(all(0<=value<.99 for value in row['peerDepth']),row)

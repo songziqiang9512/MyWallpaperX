@@ -503,7 +503,7 @@ MULTI_MAIN = r'''
    var records:[SceneStaticModelShadow]=[]
    for i in 0..<4 {
     let projection:SceneStaticModelShadowProjection
-    if mixed && i==0 { projection = .directional(SceneDirectionalShadowProjection.make(bounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)]+(casters.map{[($0.boundsMinimum,$0.boundsMaximum,matrix_identity_float4x4)]} ?? []),receiverBounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)],directionTowardLight:SIMD3(0,0,1),resolution:1024)!) }
+    if mixed && i==0 { projection = .directional(SceneDirectionalShadowProjection.make(bounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4)]+(casters.map{[($0.boundsMinimum,$0.boundsMaximum,matrix_identity_float4x4)]} ?? []),receiverBounds:[(receiver.boundsMinimum,receiver.boundsMaximum,matrix_identity_float4x4,nil)],directionTowardLight:SIMD3(0,0,1),resolution:1024)!) }
     else { projection = .spot(SceneSpotShadowProjection.make(light:spot(i,1))!) }
     let mapDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false);mapDesc.storageMode = .private;mapDesc.usage = [.renderTarget,.shaderRead]
     let map=d.makeTexture(descriptor:mapDesc)!,rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=map;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
