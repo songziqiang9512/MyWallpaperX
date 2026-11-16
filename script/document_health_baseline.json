@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 408,
-      "bytes": 95211
+      "lines": 417,
+      "bytes": 97564
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 201,
-      "bytes": 60327
+      "lines": 202,
+      "bytes": 60653
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 400,
-      "bytes": 117817
+      "lines": 412,
+      "bytes": 122185
     }
   },
   "archives": [
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "6ebdd67a5293a358e18b64c876287be46e8e8c3f130ab663b38ae16a38601190",
-      "after": "8287223e08844071e6534c8e5685a3bc9302134ed56711206540d774b679894e",
-      "owner": "SceneStaticModelPipeline / directional shadow fragment and Scene model evidence owners",
-      "reason": "Register the original-triangle coverage contract for directional plane reconstruction, including one cold hardware capability selection and the bounded legacy fallback. The design separates false infinite-plane occlusion from unresolved binary subtexel coverage without adding another render owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-primitive-coverage"
+      "before": "8287223e08844071e6534c8e5685a3bc9302134ed56711206540d774b679894e",
+      "after": "d249029c72371a6895ab9f91e4ac467a762e2c9200717b44188324322c8f9706",
+      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
+      "reason": "Register the bounded physical-pass directional density policy and shared atomic reservation contract, including actual warm fallback protection during failed allocation recovery. Preserve the existing single projection/map/pool owners and successful-stage eviction without granting unmeasured steady-state or hardware performance.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "20952a83af8fc41fc00b13fa11c6c5752e3861df2a7b0516c481d9719dd01d1c",
-      "after": "0f344909ab965a28ed6bd76cdc5db2a723a3e30b47f90e9f7bd43ead4ae2eaca",
-      "owner": "SceneStaticModelPipeline / directional shadow fragment and Scene model evidence owners",
-      "reason": "Register independently checked ray-miss coverage, the necessary 63-input production indexed-draw gate and the frozen real-scene gain of 43,402 brighter pixels. Preserve the original 40-second CHECK, final frozen/independent build identities and the unresolved micro-shadow and temporal limits.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-primitive-coverage"
+      "before": "0f344909ab965a28ed6bd76cdc5db2a723a3e30b47f90e9f7bd43ead4ae2eaca",
+      "after": "11d102cc6ff42b816c0a0fd96055dba1032198357c3ca72a30147a886e8eb052",
+      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
+      "reason": "Register the same-world 1024-to-4096 visible quality comparison, short diagnostic resource/GPU cost limits, atomic cohort and warm-map failure regression, and final original/independent runtime identities. Residual micro-model colour/coverage and rapid flicker remain open; no general performance or energy result is granted.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b44885d571765877d539959d3f6bc4bd750b3cb952300274343ac2c497d3bc2a",
-      "after": "cde1b58a723ac1781572843e7da63e556e5a5fe964b50ce36ac20468eaa5e8d7",
-      "owner": "SceneStaticModelPipeline / directional shadow fragment and Scene model evidence owners",
-      "reason": "Record the visible removal of original-triangle exterior false occlusion while keeping dense micro-shadow, temporal alias and main-shadow edge jaggies actionable. Preserve all legitimate casters and the bounded next output-density/coverage investigation rather than granting the whole shadow report closed.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-primitive-coverage"
+      "before": "cde1b58a723ac1781572843e7da63e556e5a5fe964b50ce36ac20468eaa5e8d7",
+      "after": "6142698456cca514a88dec5fc31cbbf908515fdcf2b2c5fc8255185852e6022c",
+      "owner": "StaticModelFrame / SceneOffscreenTexturePool and Scene model evidence owners",
+      "reason": "Reconcile the remaining Saturn shadow/colour/flicker work after visible density gains and record the zero-coverage preparation candidate as source-only. Preserve the requirement for independent visible/cost evidence before changing that owner and do not close the unmeasured temporal or surface-response domains.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-directional-shadow-density"
     }
   ]
 }

@@ -16,6 +16,7 @@ from script.tests.fixtures.scene_directional_shadow_oracle import freeze_vectors
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'
+COHORT_FIXTURE = Path(__file__).with_name('fixtures') / 'SceneShadowCohortResourceChecks.swift'
 
 POOL_MAIN = r'''
 @main enum ShadowPoolProbe {
@@ -85,6 +86,9 @@ POOL_MAIN = r'''
         checks["reset-retains-other-pin"] = exact.residentByteCost == 256
         same.pin.release()
         checks["last-cancel-releases"] = exact.residentByteCost == 0
+
+        checks.merge(SceneShadowCohortResourceChecks.run(device: device, queue: queue,
+            clear: clear, readback: readback)) { _, current in current }
 
         let lifecycle = SceneOffscreenTexturePool(device: device, pixelFormat: .rgba16Float, residentByteBudget: 396)
         let cb = queue.makeCommandBuffer()!
@@ -247,11 +251,25 @@ def run_swift(sources, support, *, label, metal_sources=(), input_value=None, sw
 class SceneDirectionalShadowResourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.report = run_swift([*pool_fixture.SWIFT_SOURCES, model_fixture.DYNAMIC_SNAPSHOT_SOURCE, SCENE/'Rendering/Composition/SceneBloomPostProcess.swift', SCENE/'Rendering/Particles/SceneParticleDepthTargetPool.swift'],
-                              pool_fixture.HARNESS.split('@main', 1)[0] + POOL_MAIN, label='pool', metal_sources=[SCENE/'Rendering/Composition/SceneBloomPostProcess.metal'])
+        flags = ('-D', 'MWX_SHADOW_COHORT_OLD_API') if os.environ.get('MWX_SHADOW_COHORT_OLD_API') == '1' else ()
+        cls.report = run_swift([*pool_fixture.SWIFT_SOURCES, model_fixture.DYNAMIC_SNAPSHOT_SOURCE, SCENE/'Rendering/Composition/SceneBloomPostProcess.swift', SCENE/'Rendering/Particles/SceneParticleDepthTargetPool.swift', COHORT_FIXTURE],
+                              pool_fixture.HARNESS.split('@main', 1)[0] + POOL_MAIN, label='pool', metal_sources=[SCENE/'Rendering/Composition/SceneBloomPostProcess.metal'], swift_flags=flags)
 
     def test_format_budget_and_real_factory_failure(self):
         for key in ['budget-refuses-before-factory', 'actual-factory-nil-no-residency', 'same-pool-recovers-after-factory-failure', 'depth32-exact-cost-and-usage', 'global-physical-quota-rejection', 'global-physical-lease-retained-by-pin', 'global-physical-retry-cancel-releases']:
+            self.assertTrue(self.report[key], self.report)
+
+    def test_shadow_cohort_is_atomic_keyed_and_submission_pinned(self):
+        for key in ['cohort-mixed-slots-and-extents', 'cohort-other-cb-cannot-overwrite',
+                    'cohort-reset-retains-inflight', 'cohort-completion-keeps-keyed-depths',
+                    'cohort-factory-failure-rolls-back', 'cohort-staged-physical-lease-released',
+                    'cohort-budget-denies-without-publication', 'cohort-denial-preserves-four-baseline-slots',
+                    'cohort-cancel-releases-baseline-pins', 'cohort-warm-baseline-completed',
+                    'cohort-warm-idle-retained', 'cohort-warm-high-failure-not-published',
+                    'cohort-warm-fallback-residency-preserved',
+                    'cohort-warm-fallback-zero-allocation-same-textures',
+                    'cohort-warm-fallback-depth-content-preserved',
+                    'cohort-warm-final-logical-physical-release']:
             self.assertTrue(self.report[key], self.report)
 
     def test_submission_lifecycle_and_actual_depth_readback(self):

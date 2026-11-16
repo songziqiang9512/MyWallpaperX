@@ -761,6 +761,7 @@ extension SceneMetalRenderer {
         var bounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4)] = []
         var receiverBounds: [(minimum: SIMD3<Float>, maximum: SIMD3<Float>, world: simd_float4x4,
                               clip: simd_float4x4?)] = []
+        var receiverExtent = 0
         for layer in orderedLayers {
             let draws = state.prepared?[layer.id] ?? []
             if draws.isEmpty { continue }
@@ -773,6 +774,9 @@ extension SceneMetalRenderer {
                 let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
                 receiverClip = pass?.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer)))
+                if let extent = pass?.targetExtent {
+                    receiverExtent = max(receiverExtent, extent.width, extent.height)
+                }
             } else { receiverClip = nil }
             for draw in draws {
                 let casts = layer.modelShadowCastIntent?.modelCastsShadow ?? true
@@ -789,24 +793,53 @@ extension SceneMetalRenderer {
             }
         }
         guard !casters.isEmpty, mandatoryCapacity() else { return }
+        let directionalResolution: Int
+        if receiverExtent > 2048 { directionalResolution = 4096 }
+        else if receiverExtent > 1024 { directionalResolution = 2048 }
+        else { directionalResolution = 1024 }
+        var plans: [(slot: Int, lightID: Int, projection: SceneStaticModelShadowProjection,
+                     resolution: Int)] = []
         for (slot, light) in lights.enumerated() {
             guard let lightID = light.layerID else { continue }
             let projection: SceneStaticModelShadowProjection
+            var resolution = 1024
             switch light {
             case .directional(let value):
+                // The conservative base-map border also covers denser maps,
+                // so allocation fallback reuses this fit without clipping again.
                 guard let value = SceneDirectionalShadowProjection.make(bounds: bounds,
                     receiverBounds: receiverBounds,
                     directionTowardLight: value.directionTowardLight, resolution: 1024) else { continue }
                 projection = .directional(value)
+                resolution = directionalResolution
             case .spot(let value):
                 guard let value = SceneSpotShadowProjection.make(light: value) else { continue }
                 projection = .spot(value)
             case .point(let value):
                 projection = .point(ScenePointShadowProjection(light: value))
             }
-            guard let target = pool.reserveModelShadow(slot: slot,
-                width: 1024 * projection.atlasColumns, height: 1024 * projection.atlasRows,
-                commandBuffer: commandBuffer) else { continue }
+            plans.append((slot, lightID, projection, resolution))
+        }
+        let targets: [Int: SceneOffscreenTexturePool.PinnedTexture]?
+        if plans.contains(where: { $0.resolution > 1024 }) {
+            targets = pool.reserveModelShadows(dimensions: plans.map { plan in
+                (plan.slot, plan.resolution * plan.projection.atlasColumns,
+                    plan.resolution * plan.projection.atlasRows)
+            }, fallbackDimensions: plans.map { plan in
+                (plan.slot, 1024 * plan.projection.atlasColumns, 1024 * plan.projection.atlasRows)
+            }, commandBuffer: commandBuffer)
+        } else { targets = nil }
+        // Upgrade the complete light set atomically; one large map must not
+        // consume the smaller maps that the original allocation could retain.
+        for (slot, lightID, projection, _) in plans {
+            let target: SceneOffscreenTexturePool.PinnedTexture?
+            if let targets { target = targets[slot] }
+            else {
+                target = pool.reserveModelShadow(slot: slot,
+                    width: 1024 * projection.atlasColumns, height: 1024 * projection.atlasRows,
+                    commandBuffer: commandBuffer)
+            }
+            guard let target else { continue }
             state.pins.append(target.pin)
             mainPass.closeForOffscreen(); groups?.closeAllGroupEncoders()
             let descriptor = MTLRenderPassDescriptor()

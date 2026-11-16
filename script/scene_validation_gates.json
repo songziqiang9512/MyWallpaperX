@@ -1205,12 +1205,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureFramePreflight.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidentBudgetPolicy.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneLayerGraphTargetPlan.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneLayerGraphTargetPlan.swift",
+        "script/tests/fixtures/SceneShadowCohortResourceChecks.swift"
       ],
       "modules": [
         "test_scene_graph_render_target_table",
         "test_scene_offscreen_texture_pool",
-        "test_scene_offscreen_texture_resident_budget"
+        "test_scene_offscreen_texture_resident_budget",
+        "test_scene_directional_shadow"
       ]
     },
     {
@@ -3106,7 +3108,8 @@
         "script/tests/test_scene_directional_shadow_fit.py",
         "script/tests/fixtures/SceneDirectionalShadowFitChecks.swift",
         "script/tests/test_scene_directional_shadow_primitive_coverage.py",
-        "script/tests/fixtures/SceneDirectionalShadowPrimitiveCoverageChecks.swift"
+        "script/tests/fixtures/SceneDirectionalShadowPrimitiveCoverageChecks.swift",
+        "script/tests/fixtures/SceneDirectionalShadowDensityChecks.swift"
       ],
       "modules": [
         "test_scene_static_model_reader",

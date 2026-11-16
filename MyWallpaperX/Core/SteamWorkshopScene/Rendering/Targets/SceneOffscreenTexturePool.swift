@@ -141,29 +141,49 @@ final class SceneOffscreenTexturePool {
         dimensions: [(width: Int, height: Int)], commandBuffer: MTLCommandBuffer,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> [PinnedTexture]? {
-        reserveFrameTextures(dimensions: dimensions, kind: .composition,
-            commandBuffer: commandBuffer, textureFactory: textureFactory)
+        reserveFrameTextures(requests: dimensions.lazy.map { (.composition, $0.width, $0.height) },
+            commandBuffer: commandBuffer, textureFactory: textureFactory).map { Array($0.values) }
     }
 
     func reserveEnvironment(
         width: Int, height: Int, commandBuffer: MTLCommandBuffer,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)], kind: .environment,
-            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+        reserveFrameTextures(requests: [(.environment, width, height)],
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.values.first
     }
 
     func reserveModelShadow(slot: Int, width: Int, height: Int, commandBuffer: MTLCommandBuffer,
                             textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)], kind: .shadow(slot),
-            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+        reserveFrameTextures(requests: [(.shadow(slot), width, height)],
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.values.first
+    }
+
+    /// Preserve fallback storage during recovery; successful desired cohorts
+    /// still follow the normal residency budget and eviction policy.
+    func reserveModelShadows(
+        dimensions: [(slot: Int, width: Int, height: Int)],
+        fallbackDimensions: [(slot: Int, width: Int, height: Int)] = [], commandBuffer: MTLCommandBuffer,
+        textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
+    ) -> [Int: PinnedTexture]? {
+        guard let targets = reserveFrameTextures(
+            requests: dimensions.lazy.map { (.shadow($0.slot), $0.width, $0.height) },
+            commandBuffer: commandBuffer, textureFactory: textureFactory,
+            recoveryProtectedKeys: Set(fallbackDimensions.lazy.map {
+                CacheKey.modelShadow(slot: $0.slot, width: $0.width, height: $0.height)
+            })) else { return nil }
+        var result: [Int: PinnedTexture] = [:]
+        for (slot, width, height) in dimensions {
+            result[slot] = targets[.modelShadow(slot: slot, width: width, height: height)]
+        }
+        return result
     }
 
     func reserveModelCameraDepth(
         width: Int, height: Int, commandBuffer: MTLCommandBuffer
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)], kind: .modelCameraDepth,
-            commandBuffer: commandBuffer, textureFactory: nil)?.first
+        reserveFrameTextures(requests: [(.modelCameraDepth, width, height)],
+            commandBuffer: commandBuffer, textureFactory: nil)?.values.first
     }
 
     /// Coverage storage remains isolated across parts and sampling domains.
@@ -174,25 +194,23 @@ final class SceneOffscreenTexturePool {
         commandBuffer: MTLCommandBuffer,
         textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)],
-            kind: .puppetClipping(layerID: layerID, clipID: clipID, domain: domain),
-            commandBuffer: commandBuffer, textureFactory: textureFactory)?.first
+        reserveFrameTextures(requests: [(.puppetClipping(layerID: layerID, clipID: clipID, domain: domain), width, height)],
+            commandBuffer: commandBuffer, textureFactory: textureFactory)?.values.first
     }
 
     func reserveSourceMaterial(
         layerID: Int, width: Int, height: Int, commandBuffer: MTLCommandBuffer
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)], kind: .sourceMaterial(layerID),
-            commandBuffer: commandBuffer, textureFactory: nil)?.first
+        reserveFrameTextures(requests: [(.sourceMaterial(layerID), width, height)],
+            commandBuffer: commandBuffer, textureFactory: nil)?.values.first
     }
 
     func reserveTerminalInput(
         layerID: Int, slot: Int, width: Int, height: Int,
         commandBuffer: MTLCommandBuffer
     ) -> PinnedTexture? {
-        reserveFrameTextures(dimensions: [(width, height)],
-            kind: .terminalInput(layerID: layerID, slot: slot),
-            commandBuffer: commandBuffer, textureFactory: nil)?.first
+        reserveFrameTextures(requests: [(.terminalInput(layerID: layerID, slot: slot), width, height)],
+            commandBuffer: commandBuffer, textureFactory: nil)?.values.first
     }
 
     private enum FrameTextureKind {
@@ -202,24 +220,25 @@ final class SceneOffscreenTexturePool {
     }
 
     private func reserveFrameTextures(
-        dimensions: [(width: Int, height: Int)], kind: FrameTextureKind,
-        commandBuffer: MTLCommandBuffer, textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?
-    ) -> [PinnedTexture]? {
-        if dimensions.isEmpty { return [] }
-        let format: MTLPixelFormat, bytesPerPixel: Int, mipmapped: Bool
-        switch kind {
-        case .shadow, .modelCameraDepth:
-            format = .depth32Float; bytesPerPixel = 4; mipmapped = false
-        case .environment:
-            format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
-        case .composition, .sourceMaterial, .terminalInput:
-            format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
-        case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
-        }
+        requests: some Collection<(kind: FrameTextureKind, width: Int, height: Int)>,
+        commandBuffer: MTLCommandBuffer, textureFactory: ((MTLTextureDescriptor) -> MTLTexture?)?,
+        recoveryProtectedKeys: Set<CacheKey> = []
+    ) -> [CacheKey: PinnedTexture]? {
+        if requests.isEmpty { return [:] }
         var keys: Set<CacheKey> = []
         var descriptors: [CacheKey: MTLTextureDescriptor] = [:]
         var costs: [CacheKey: Int] = [:]
-        for (width, height) in dimensions {
+        for (kind, width, height) in requests {
+            let format: MTLPixelFormat, bytesPerPixel: Int, mipmapped: Bool
+            switch kind {
+            case .shadow, .modelCameraDepth:
+                format = .depth32Float; bytesPerPixel = 4; mipmapped = false
+            case .environment:
+                format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = true
+            case .composition, .sourceMaterial, .terminalInput:
+                format = pixelFormat; bytesPerPixel = backbufferFormat.logicalBytesPerPixel; mipmapped = false
+            case .puppetClipping: format = .r8Unorm; bytesPerPixel = 1; mipmapped = false
+            }
             let key: CacheKey = switch kind {
             case .composition: .composition(width: width, height: height)
             case let .sourceMaterial(layerID): .sourceMaterial(layerID: layerID, width: width, height: height)
@@ -281,7 +300,7 @@ final class SceneOffscreenTexturePool {
             if texture == nil, !reclaimedIdle {
                 reclaimedIdle = true
                 guard let revision = allocationCache.reclaimIdleAllocations(
-                    expectedRevision: planned.revision, protectedKeys: keys)
+                    expectedRevision: planned.revision, protectedKeys: keys.union(recoveryProtectedKeys))
                 else { return nil }
                 planned.revision = revision
                 texture = allocate(descriptor)
@@ -300,15 +319,15 @@ final class SceneOffscreenTexturePool {
                 staged = value
             }
             var values = staged.values
-            var result: [PinnedTexture] = []
+            var result: [CacheKey: PinnedTexture] = [:]
             for key in keys {
                 guard var entry = values[.current(key)],
                       case let .composition(texture, identity) = entry.allocation else { return nil }
                 let id = UUID()
                 entry.submissionPins[id] = .init(orderingContext: .init(commandBuffer: commandBuffer))
                 values[.current(key)] = entry
-                result.append(.init(texture: texture, pin: .init(identity: id, purpose: .submission,
-                    generation: identity.generation, cache: allocationCache)))
+                result[key] = .init(texture: texture, pin: .init(identity: id, purpose: .submission,
+                    generation: identity.generation, cache: allocationCache))
             }
             allocationCache.apply((values, staged.access))
             return result

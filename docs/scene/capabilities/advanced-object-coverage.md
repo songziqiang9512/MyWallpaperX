@@ -76,9 +76,18 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 沿`当帧prepared draw/world → 原颜色pass的rasterClipProjection与逐层相机 → 原DirectionalShadowProjection → 原灯map/比较 → 原compositor`修正范围。接收区只收实际受光draw，在每个真实颜色域将模型包围盒与齐次clip体求交；双向裁剪box和frustum的12条边，直接归约端点，不存多面体或去重顶点。使用原Float world/clip系数提升Double做交点/逆矩阵；无法形成有限clip体的域保其原完整bounds，不扩成整灯/帧拒绝。group/named/canvas/perspective均消费各自实际pass投影，不能只用主相机筛接收者。只有当前确有受光prepared draw的层才求pass/clip，不为其它层预约pass；完整receiver bounds只在无clip或退化域的保守回退时计算。
 
-每灯XY取可见接收区与caster灯域覆盖的保守交集；仅灯域XY相交的caster扩展深度。屏外caster仍沿原cast intent绘制，能投到可见接收者的物体不能因未上屏被删。XY padding只由XY尺度/分辨率决定，深度padding独立；退全世界caster拟合及Z驱动的XY放大。保持当前1024单图、四灯预算、二值材质/层/纹理覆盖、当前pose/UV/cull和三灯生命周期，不新增map、纹理、ABI、历史、缓存或资源owner。稳定化和滤波只在修正范围后仍有可归属残余时另立输入，不凭单图扩大PCF成本。
+每灯XY取可见接收区与caster灯域覆盖的保守交集；仅灯域XY相交的caster扩展深度。屏外caster仍沿原cast intent绘制，能投到可见接收者的物体不能因未上屏被删。XY padding只由XY尺度/分辨率决定，深度padding独立；退全世界caster拟合及Z驱动的XY放大。保持每灯单图与四灯预算，实际尺寸归[输出密度](#model-directional-shadow-density)。二值材质/层/纹理覆盖、当前pose/UV/cull和三灯生命周期继续原合同，拟合不新增map、纹理、ABI、历史、缓存或资源owner。稳定化和滤波只在修正范围后仍有可归属残余时另立输入，不凭单图扩大PCF成本。
 
-验收先用生产数学的相机内/外、擦边长盒、相机在盒内、相反视角及混合投影正反例，核远处无关caster不再稀释近处投影，屏外但灯域相交caster仍在深度域；含改名、等价TRS和退化clip域保守回退。沿真实Frame/Metal补屏外合法影、group/named及阴影覆盖邻例，用冻结真实球/环/陨石/远卫星输入核旧/新可见投影、成熟原景连续帧和独立作者。若范围修正不能带来明确像素收益，退候选并重排；不能把map尺寸、caster计数或构建通过当修复。当前原始对照位于任务隔离目录，闭合后只在模型运行证据登记实得范围。
+验收先用生产数学的相机内/外、擦边长盒、相机在盒内、相反视角及混合投影正反例，核远处无关caster不再稀释近处投影，屏外但灯域相交caster仍在深度域；含改名、等价TRS和退化clip域保守回退。沿真实Frame/Metal补屏外合法影、group/named及阴影覆盖邻例，用冻结真实球/环/陨石/远卫星输入核旧/新可见投影、成熟原景连续帧和独立作者。若范围修正不能带来明确像素收益，退候选并重排；不能把map尺寸、caster计数或构建通过当修复。实际范围归[模型运行证据](model-runtime-evidence.md#model-directional-shadow-fit)。
+
+<a id="model-directional-shadow-density"></a>
+### 定向阴影的输出密度与共同预约
+
+目标是降低主投影台阶与微几何二值采样形成的粗黑痕。Frame沿已有受光prepared draw收集其实际颜色pass物理extent，最长边≤1024用1024、≤2048用2048，其余用4096；未受光层不参与。退固定全部方向光1024选择，point/spot仍保1024单face与原atlas。每灯只拟合一次原1024 guard-band矩阵，密图和回退图复用同一保守世界域，不因预约失败重做凸裁剪；每帧至多四个短期plan只带消费者所需的slot、lightID、projection、resolution。该自有默认质量策略不映射未证的官方cascade字段，也不新增性能档位UI。
+
+确有高图plan才升级整组已资格灯：唯一pool事务一次stage所有各自desired尺寸，全部成功后才发布pins和编码。失败退原逐灯1024局部成功链，保原灯序与无效projection空slot；不能让前灯高图挤掉本可保留的后灯。Frame只传实际fallback slot/extent，pool仅在真实allocation失败的reclaim阶段保护这些暖图；成功stage仍可沿原预算退出闲置低图，不预占双份pin或另造回滚。原私有事务接收混合kind/extent并按CacheKey返回，旧公开adapter沿同一core，单kind-only core退出；Collection惰性映射避免转换请求数组，预算、物理identity、revision、stage、submission pin、reset/cancel继续唯一原owner。缓存受原预算及有界尺寸控制，没有新cache/历史/资源owner、shader、PSO或ABI。
+
+更密图会增加depth带宽、驻留和在途图成本，不能把放大map当成零代价修复。按[实际运行证据](model-runtime-evidence.md#model-directional-shadow-density)保冻结同世界域/资源的质量对照、原作者成熟播放与独立作者；生产门核尺寸边界、高度主导、四灯紧预算/原partial、混合灯与无效spot空slot、无受光接收者，以及高图失败后暖低图零分配复用/原内容和在途生命周期。高图收益不足时收敛尺寸或转覆盖积分；不能用圆形大模糊掩盖真实各向异性，也不据未知cascade参数删远caster。快速闪烁的频率、一般大场景稳定化及所有硬件成本仍须独立资格。
 
 <a id="model-shadow-primitive-coverage"></a>
 ### 定向阴影深度重建的三角覆盖

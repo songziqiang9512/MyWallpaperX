@@ -184,7 +184,7 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 一次回调前缀的真实390项TRS经原WorldResolver和旧Projection纯CPU重建，全部25个caster使灯域达146.48×104.09，球/环/近环仅9.31×6.33；远482/483占XY两端且与主环不相交。原MDLReader实际解码逐顶点bounds与测量用header逐Float相同。该前缀在Main后、725角度更新前，不能冒GPU最终矩阵；两份最初误用getLayer(id)的空getter记录已排除，getLayerByID修正后130层全部实际取值。source默认casttrue保留，符合[官方模型默认投影](https://docs.wallpaperengine.io/en/scene/models/lighting.html)，不以关远卫星或陨石修产品。
 
-按[接收区合同](advanced-object-coverage.md#model-directional-shadow-fit)，原Projection双向裁剪实际颜色域的box/frustum边，XY只拟合可见受光接收区与caster覆盖交集，相关caster扩Z，XY/Z留边分离。Frame仅实际受光prepared层求pass/clip，退无消费者预约与正常域完整bounds重复计算；没有新增map、ABI、PSO、纹理、时钟、历史或缓存。普通帧仍有范围数学，未实测性能收益。原4tap双线性PCF、1024图、全部合法cast及coverage/cull保持，未宣一般大场景密度或稳定化已解。
+按[接收区合同](advanced-object-coverage.md#model-directional-shadow-fit)，原Projection双向裁剪实际颜色域的box/frustum边，XY只拟合可见受光接收区与caster覆盖交集，相关caster扩Z，XY/Z留边分离。Frame仅实际受光prepared层求pass/clip，退无消费者预约与正常域完整bounds重复计算；没有新增map、ABI、PSO、纹理、时钟、历史或缓存。普通帧仍有范围数学，未实测性能收益。这组接收区对照保4tap双线性PCF与1024图、全部合法cast及coverage/cull；当前图尺寸另归[输出密度](#model-directional-shadow-density)，一般大场景稳定化未解。
 
 生产CPU门8方法/21同输入，旧源8个几何子断言红，新源全绿；独审删两处无用计算后再验，输入/Harness/21行结果逐byte不变。含无关远XY/Z、灯域相交的屏外caster、擦边长盒/包含clip体/无角内的交叉、native/canvas/反向深度、nil/奇异域保守回退及等价TRS；数学API无资源身份，不拿label改名授资源消费者。真实Frame6与DirectionalPixel2方法通过；首轮13子失败来自旧夹具全unlit仍要求map、及无消费屏外位置读回，已保首失败。现增加实际绘制的独立lit黑色非caster receiver，原主体/peer颜色、camera depth和三灯coverage阈值不放宽；217行均完成且采样坐标有效，另有无lit receiver不建定向图的反例。黑receiver的颜色snapshot仅ambient，真实可见direct影由DirectionalPixel门另授。named生命周期/阻塞提交/resize/cancel与原前缀容量4方法通过。
 
@@ -192,11 +192,23 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 细长影仍未全闭，原三角外的虚假写深度另由[覆盖修正](#model-shadow-primitive-coverage)处理：当前fit控制单关479即退密集细痕，关259则连主影一起退；两个场均保持输入/二进制且PASS。纯CPU解码479有267,216个四三角组件，中位世界直径.00416；冻结控制仍有477接收候选扩X域，当前texel为X .02888/Y .00589，不能沿用近环-only的.009作当前全场尺度。组件多数嵌在环薄层内，不能称所有长影正确或全部可见。继续核作者cascade距离与raster子texel覆盖/输出密度，保真实几何投影，不以更大map或无闪烁静图授时间稳定。其余Bloom/细线微颗粒/轮廓反馈仍未知；原图、失败、原报告/事件、生产源与独审归`.artifacts/scene-model-directional-shadow-fit-20261116/evidence.zip`（121,172,837B，SHA17c12296…d09bb）；正式载荷归`.artifacts/scene-evidence/runs/scene-model-directional-shadow-fit-20261116`的original-v1/independent-v2两独立run，按真实App5分立并以同SHA别名去重。
 
+## 定向阴影的物理输出密度 <a id="model-directional-shadow-density"></a>
+
+2026-11-16按[密度与共同预约合同](advanced-object-coverage.md#model-directional-shadow-density)，Frame从实际受光prepared颜色pass最长物理边选1024/2048/4096，point/spot保原face尺寸；复用一次1024 guard-band fit、现有三角覆盖/4tap、全部合法cast及唯一pool。高图整组stage后才编码，失败退原逐灯1024局部成功；实际fallback keys只保护失败reclaim中的暖低图，成功stage仍可退出旧闲置图。退单kind-only私有事务，旧adapter复用mixed Collection/keyed core，无新预算/资源/缓存/历史owner、shader、PSO或ABI。产品Frame/Pool净+52行，新增短期plan与slot/extent输入只供这条质量/回退链。
+
+复用[接收区控制](#model-directional-shadow-fit)的冻结33对象，先只变定向target1024→4096，原世界域/矩阵、材质、资源及颜色算法同。3024×1964原16bitPNG从3a87aeab…bbc2变bcdd1440…2f95；RGBA8量化198,867个RGB像素改变（132,294变亮、66,573变暗），alpha全同。根域主影边缘与密集长黑痕在同尺寸观察中明显改善，不把所有变化像素授为真值。最终实际pass/cohort策略的原PNG逐字节同4096隔离控制，固定4096实验不充正式选择。额外479仅castfalse的包精确复现83f45fb3…01c7；另一包只改visiblefalse，场景外字节/原project均同。两个实际运行68.757s PASS，单关cast仍有细粒、隐藏模型后退，说明残余还含真实微几何颜色/覆盖，不应全部归为阴影；该对照不授MSAA或官方表面响应已一致。
+
+成本是1024深度单图4MiB→4096的64MiB载荷；实际cache/在途成本另量。原1024与固定4096同冻结输入、目标60FPS、warmup30s、关闭execution observations的一对诊断各PASS，测量窗仅8.501/8.474s，低于60s稳态门。GPU帧P50 20.354→23.417ms、P95 28.963→32.765ms，CPU帧P50 2.785→2.745ms；完成FPS57.991→51.571、pool采样峰150,927,872→276,756,992B（+120MiB，两个在途图）。这限定为该隔离控制的短测成本，不授能耗、一般回归或最终cohort CPU等价；不能称提高密度没有开销。4218个可见ring三角centroid的独立CPU footprint呈显著各向异性，未模拟实际alpha/遮挡，不据此采用圆形大模糊。
+
+生产门核13个实际Frame输入：物理尺寸阈值/高度主导/改名、四dir在16/12MiB保四张/原前三张1024、充裕预算高图、混合point/spot尺寸与无效spot空slot、无受光receiver主颜色/零dir图，4方法通过；原mandatory depth/particle3方法保持。新pool原子/生命周期门先有一条空缓存重试次数的fixture误断，原始失败保留；修订保所有失败回滚断言。独审又定位真实warm低图被失败高图reclaim的问题：精确旧Pool8dab的同门11.614s真实失败，身份/驻留/内容三项为false、无执行错误；最终809c的Resource4方法10.539s全绿，Frame6507的7方法52.513s全绿。旧公开target kind的33方法在首mixed core通过；最终只增失败reclaim保护集合。独审无新增阻断，原预算/stage/revision/pin主体保持；不授所有闲置缓存绝无副作用或group伪造pass资格。
+
+最终Debug25.237s、两产品/project/锁文件前后同、strict-deep与trusted helpers通过，exe149c8a3f…248d/dylib2d3196be…beaa/Metal仍4415ad9f…8814。最终冻结36.129s、原130对象40秒/after32的77.200s、独立原3437487219自然5秒/38.020s均PASS；分别2/7/2个model→main/seal/GPUcompleted捕获、trunc0/parse0，停止/释放/排空完成。独立地表、云、大气、暗面、星点和钟日完整；原作者7秒采样与旧3.5秒及Date不同，不授逐像素或快速闪烁频率配对。质量/成本对照、真实失败与暖图反例、原报告/PNG/输入、源码及独审归`.artifacts/scene-model-directional-shadow-density-20261116/evidence.zip`；正式运行按真实App5分立于`.artifacts/scene-evidence/runs/scene-model-directional-shadow-density-20261116`。残余微模型颜色/覆盖、快速闪烁与官方同姿态对照仍开放；不靠关闭479或改作者风格掩盖。
+
 ## 定向投影面重建的真实三角覆盖 <a id="model-shadow-primitive-coverage"></a>
 
 2026-11-16按[三角覆盖合同](advanced-object-coverage.md#model-shadow-primitive-coverage)修原caster深度重建：raster吸附后的覆盖不能直接授权在原三角之外写无限平面的深度。Apple M4旧实际178输入有44处严格ray miss仍写图，其中22处越过三顶点自身Z范围；精确有向边/轴向ray独立复核，最小外部距离.0002texel量级，非边界舍入分类。原106个已写内部/边缘命中保持，26个旧漏采样不由此恢复。首严格零扩边原型丢一个共边点，按实际重心加减项的8ulp余量后恢复；此余量是有限工程边界，不授全部Float几何零扩张。
 
-原Pipeline仅冷选一份定向PSO，具有shader barycentric能力时沿原plane/Jacobian校正texel中心重心覆盖；不支持的设备保原fragment，该硬件路径未新实机执行。两入口共享原材质覆盖和平面算法，导数放在材质coverage之前，隐式采样仍先于新增discard；此调度收整未取得当前Metal2.4的alpha失败反例，不宣修复已证LOD错误。无网格展开、附加buffer、map、ABI、cache或owner；1024、4tap及point/spot保持。新增ALU/重心输入只在定向深度片元，未取得可比性能或能耗收益。
+原Pipeline仅冷选一份定向PSO，具有shader barycentric能力时沿原plane/Jacobian校正texel中心重心覆盖；不支持的设备保原fragment，该硬件路径未新实机执行。两入口共享原材质覆盖和平面算法，导数放在材质coverage之前，隐式采样仍先于新增discard；此调度收整未取得当前Metal2.4的alpha失败反例，不宣修复已证LOD错误。无网格展开、附加buffer、map、ABI、cache或owner；该coverage对照采用1024与原4tap，当前尺寸归[输出密度](#model-directional-shadow-density)，point/spot语义保持。新增ALU/重心输入只在定向深度片元，未取得可比性能或能耗收益。
 
 冻结同33对象（模型/灯/祖先）、实际TRS和原静态相机，旧fit原PNG SHA c88d7c77…b440，对新coverage原PNG 3a87aeab…bbc2；全3024×1964图按RGBA8量化有43,402个RGB像素只变亮、0变暗、alpha全同，原16bit文件保留，主影仍在。该控制未含作者243镜头脚本，不能称32秒原景逐像素相位对齐。首版shader6191/Pipelinecd535自然原130对象40秒有12个实际model→main/seal/GPUcompleted捕获、trunc0/parse0，末request13在teardown失败使整场CHECK，停止/释放/排空均完成。成熟图仍有明显微投影细痕；此次只退原三角外虚假遮挡，不宣闪烁全部解决。
 
