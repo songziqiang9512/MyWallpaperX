@@ -1,6 +1,7 @@
 """Real Metal independent display submission and coordinator cancellation behavior."""
 import json
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -319,7 +320,8 @@ class SceneSurfaceSubmissionTests(unittest.TestCase):
         sources=[
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",*SUBMISSION_SWIFT_SOURCES,scene/"Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift",
                  scene/"Rendering/Frame/SceneSourceUpdateTransaction.swift",
-                 scene/"Rendering/Particles/SceneParticleDepthTargetPool.swift"]
+                 scene/"Rendering/Particles/SceneParticleDepthTargetPool.swift",
+                 scene/"Rendering/Targets/SceneCommandBufferOrdering.swift"]
         built=subprocess.run(["xcrun","--sdk","macosx","swiftc","-parse-as-library","-D","DEBUG",*map(str,sources),
                               str(source),"-framework","Metal","-module-cache-path",str(root/"cache"),"-o",str(binary)],capture_output=True,text=True)
         if built.returncode:raise AssertionError(built.stdout+built.stderr)
@@ -334,3 +336,90 @@ class SceneSurfaceSubmissionTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"],"This gate requires real Metal")
         for name,passed in self.result["results"].items():
             with self.subTest(name=name):self.assertTrue(passed,name)
+
+
+class SceneDepthTargetOrderingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp=tempfile.TemporaryDirectory(prefix="scene-depth-target-ordering-")
+        cls.addClassCleanup(cls.temp.cleanup)
+        root=Path(cls.temp.name);source=root/"Main.swift";binary=root/"depth-ordering"
+        source.write_text(r'''import Foundation
+import Metal
+@main enum Main {
+ static func main() throws {
+  guard let device=MTLCreateSystemDefaultDevice() else {
+   print("{\"metalAvailable\":false}");return
+  }
+  let rows=try SceneDepthTargetOrderingChecks.run(device:device)
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["metalAvailable":true,
+   "depthOrdering":rows]),as:UTF8.self))
+ }
+}
+''')
+        scene=REPOSITORY_ROOT/"MyWallpaperX/Core/SteamWorkshopScene"
+        sources=[scene/"Resources/Textures/SceneResourceBudget.swift",
+                 scene/"Rendering/Particles/SceneParticleDepthTargetPool.swift",
+                 scene/"Rendering/Targets/SceneCommandBufferOrdering.swift",
+                 Path(__file__).with_name("fixtures")/"SceneDepthTargetOrderingChecks.swift"]
+        built=subprocess.run(["xcrun","--sdk","macosx","swiftc","-parse-as-library","-D","DEBUG",
+            *map(str,sources),str(source),"-framework","Metal","-module-cache-path",str(root/"cache"),
+            "-o",str(binary)],capture_output=True,text=True)
+        if built.returncode:raise AssertionError(built.stdout+built.stderr)
+        run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=30)
+        if run.returncode:raise AssertionError(run.stdout+run.stderr)
+        cls.result=json.loads(run.stdout.strip().splitlines()[-1])
+        if not cls.result["metalAvailable"]:raise unittest.SkipTest("Metal is unavailable")
+
+    def test_tracked_depth_reuses_queue_order_without_merging_live_passes(self):
+        rows={row["name"]:row for row in self.result["depthOrdering"]}
+        literals={
+            "ordered":[.75,.25], "same-buffer-pass-isolation":[.625,.375],
+            "cross-queue-isolation":[.75,.25], "not-enqueued-predecessor":[.75,.25],
+            "cancel-new-preserves-old":[.75,.25],
+            "old-completion-preserves-pending":[.75,.25,.5,.875],
+            "global-three-reservations":[.125,.5,.875], "resize-and-warm":[.75,.25,.5],
+        }
+        self.assertEqual(set(rows),set(literals)|{"three-buffers-three-passes","invalid-extent"})
+        self.assertEqual(sum(row["completedCBs"] for row in rows.values()),24)
+        for name,row in rows.items():
+            with self.subTest(case=name):
+                self.assertEqual(row["completedCBs"],row["commandBuffers"])
+                self.assertTrue(row["allTracked"])
+                self.assertTrue(row["allDepth32PrivateRenderTarget"])
+                if name in literals:
+                    self.assertEqual([v["value"] for v in row["readbacks"]],literals[name])
+                    self.assertEqual([v["bits"] for v in row["readbacks"]],
+                                     [struct.unpack("<I",struct.pack("<f",v))[0] for v in literals[name]])
+        for name in ["ordered","global-three-reservations"]:
+            self.assertEqual(rows[name]["uniqueTextureCount"],1)
+            self.assertEqual(rows[name]["logicalResidentBytes"],64*64*4)
+        self.assertEqual(rows["ordered"]["beforeCommitStatuses"],[1,0])
+        self.assertEqual(rows["ordered"]["commitOrder"],[2,1])
+        for name in ["same-buffer-pass-isolation","cross-queue-isolation","not-enqueued-predecessor"]:
+            self.assertEqual(rows[name]["uniqueTextureCount"],2)
+            self.assertEqual(rows[name]["logicalResidentBytes"],2*64*64*4)
+        self.assertTrue(rows["cancel-new-preserves-old"]["oldAndCrossQueueDistinct"])
+        self.assertTrue(rows["cancel-new-preserves-old"]["cancelledStatusWasNotEnqueued"])
+        completed=rows["old-completion-preserves-pending"]
+        self.assertEqual(completed["uniqueTextureCount"],3)
+        self.assertEqual(completed["fourthSameBuffer"],"currentFrameCapacityExceeded")
+        self.assertEqual(rows["global-three-reservations"]["fourthOtherBuffer"],"busyOtherFrame")
+        mixed=rows["three-buffers-three-passes"]
+        self.assertEqual(mixed["acquisitionOutcomes"],[["acquired"]*3]*3)
+        self.assertEqual(mixed["leasesByBuffer"],[3,3,3])
+        self.assertEqual([len(set(group)) for group in mixed["passTextureGroups"]],[3,3,3])
+        self.assertEqual(mixed["uniqueTextureCount"],3)
+        self.assertEqual(mixed["logicalResidentBytes"],3*64*64*4)
+        expected=[[.125,.25,.375],[.5,.625,.75],[.875,.25,.5]]
+        self.assertEqual([[v["value"] for v in group] for group in mixed["readbackGroups"]],expected)
+        self.assertEqual(mixed["fourthSameBuffer"],"currentFrameCapacityExceeded")
+        self.assertEqual(mixed["fourthOtherBuffer"],"busyOtherFrame")
+        invalid=rows["invalid-extent"]
+        self.assertEqual(invalid["outcomes"],["invalidExtent"]*4)
+        self.assertEqual((invalid["logicalResidentBytes"],invalid["uniqueTextureCount"]),(0,0))
+        resize=rows["resize-and-warm"]
+        self.assertTrue(resize["inflightDifferentExtentDistinct"])
+        self.assertTrue(resize["warmMatchingTextureReused"])
+        self.assertEqual(resize["dimensions"],[[64,64],[128,64],[128,64]])
+        self.assertEqual(resize["logicalResidentBytes"],64*64*4+128*64*4)

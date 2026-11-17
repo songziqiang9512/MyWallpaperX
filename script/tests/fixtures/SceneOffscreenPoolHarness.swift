@@ -857,6 +857,15 @@ enum Harness {
 
         // Reflection A -> ordinary B -> reflection C share the same scratch
         // owner. B is held on a real GPU event while C requests that extent.
+        func pendingPixel(_ texture: MTLTexture, on buffer: MTLCommandBuffer) -> MTLBuffer {
+            let bytes = device.makeBuffer(length: 256, options: .storageModeShared)!
+            let blit = buffer.makeBlitCommandEncoder()!
+            blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: .init(x: 0, y: 0, z: 0),
+                sourceSize: .init(width: 1, height: 1, depth: 1), to: bytes, destinationOffset: 0,
+                destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+            blit.endEncoding()
+            return bytes
+        }
         let interleaved = SceneOffscreenTexturePool(device: device, residentByteBudget: 512)
         let frameA = queue.makeCommandBuffer()!
         let reservedA = interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameA)!.first!
@@ -869,19 +878,29 @@ enum Harness {
             clearColor: MTLClearColorMake(0,0,0,0), clearEnabled: false, submissionOwner: root)
         child.retainCompositionPin(ordinary.pin)
         precondition(root.finishEnsuringClear()); root.armCompositionPins()
+        let green = pendingPixel(ordinary.texture, on: frameB)
+        checks["ordinary-between-reflections-keeps-pin"] = frameA.status == .notEnqueued
+            && ordinary.texture !== reservedA.texture && interleaved.residentByteCost == 512
         let completedB = DispatchSemaphore(value: 0)
         frameB.addCompletedHandler { _ in completedB.signal() }; frameB.commit()
         let frameC = queue.makeCommandBuffer()!
-        checks["ordinary-between-reflections-keeps-pin"] = ordinary.texture !== reservedA.texture
-            && interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameC) == nil
-            && interleaved.residentByteCost == 512
-        reservedA.pin.release()
         let reservedC = interleaved.reserveCompositionTargets(dimensions: [(8,8)], commandBuffer: frameC)!.first!
-        checks["pending-ordinary-never-reused"] = reservedC.texture !== ordinary.texture
-            && interleaved.residentByteCost == 512
+        checks["queued-ordinary-reuses-with-independent-pin"] = reservedC.texture === ordinary.texture
+            && reservedC.pin !== ordinary.pin && interleaved.residentByteCost == 512
+        precondition(clear(reservedC.texture, color: MTLClearColorMake(1,0,0,1), device: device, commandBuffer: frameC))
+        let red = pendingPixel(reservedC.texture, on: frameC)
+        frameC.commit()
+        reservedA.pin.release()
+        checks["unqueued-reflection-release-keeps-queued-storage"] = interleaved.residentByteCost == 256
         event.signaledValue = 1; frameB.waitUntilCompleted(); completedB.wait()
-        checks["ordinary-completion-retires-generation"] = frameB.status == .completed && frameB.error == nil
+        interleaved.reset()
+        checks["ordinary-completion-retains-successor-pin"] = frameB.status == .completed && frameB.error == nil
             && interleaved.residentByteCost == 256
+        frameC.waitUntilCompleted()
+        checks["queued-ordinary-keeps-own-green-pixel"] = Array(UnsafeBufferPointer(
+            start: green.contents().assumingMemoryBound(to: UInt8.self), count: 4)) == [0,255,0,255]
+        checks["successor-keeps-own-red-pixel"] = frameC.status == .completed && frameC.error == nil
+            && Array(UnsafeBufferPointer(start: red.contents().assumingMemoryBound(to: UInt8.self), count: 4)) == [0,0,255,255]
         reservedC.pin.release(); interleaved.reset()
         checks["interleaved-cancel-releases"] = interleaved.residentByteCost == 0
         return checks
@@ -941,6 +960,7 @@ enum Harness {
             "metalUnavailable": false,
             "formatAccounting": formatAccounting(device),
             "reflectionResidency": reflectionResidency(device),
+            "frameScratchOrdering": try frameScratchOrderingChecks(device),
             "standardMaximumDimension": SceneOffscreenResolutionPolicy.maximumDimension(
                 hardLimit: 4096, includesAuthoredShader: false
             ),

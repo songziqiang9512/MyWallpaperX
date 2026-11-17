@@ -22,6 +22,17 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 
 源码：[texture/buffer 分配与预算入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift)、[离屏池](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift)、[allocation cache](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift)。
 
+<a id="depth-submission-order"></a>
+### 深度与帧临时附件的提交时序
+
+同MTLCommandQueue中，前驱已enqueue、后继仍pending且资源为直接绑定的tracked纹理时，可复用同尺寸临时附件；不依靠CPU等待，不恢复默认MSAA。依据[Metal资源同步](https://developer.apple.com/documentation/metal/resource-synchronization)与[命令缓冲顺序](https://developer.apple.com/documentation/metal/mtlcommandbuffer)。跨queue、未enqueue前驱、改尺寸和额外history/preparation/sceneColor持有不借此覆盖。
+
+深度池保原pool/lease、三个物理slot及每CB独立预约，最多三个CB×三个slot记录；同CB不同pass仍隔离。取消/完成只释放自己的预约，退出每在途CB独占相同附件的旧条件。工厂和pass准入已确定format/sample/extent，不逐part重验；保真实CB/pass域与不可用租约结果，Frame/history/publication不迁移。
+
+原frame scratch事务沿既有Entry/submission pin判断，`reserveFrameTextures`与`compositionTarget`共同消费，不加状态、缓存或预算owner。保同帧同key及untracked的原同CB许可；跨CB必须逐pin满足同queue已enqueue且实际纹理tracked，不按影图名字或样本选择。nil观察只复用无pin对象。队列事实沿一个Metal小谓词；`Context.accepts`仍为精确CB身份，不能放宽已准备资源/请求归属。compositionGroup独立入口尚未授此扩展。
+
+验收先证旧跨CB副本，再核共享对象及各CB内编码的.75/.25或红/蓝原读回；补同CB、跨queue、未enqueue、untracked、取消/完成、容量和resize。现役graph/history与相机深度门保持，完整星环及独立作者保画面/排空，并以同场景实际pool/设备采样裁决。小载体或算术节省不能代完整App峰值、稳态、能耗；未获益就停止该候选，资源构成未知不作影图归因。
+
 <a id="framebuffer-snapshot"></a>
 ## 背景快照容量
 

@@ -17,7 +17,7 @@ final class SceneParticleDepthTargetLease: @unchecked Sendable {
         case released
     }
 
-    init(texture: MTLTexture, slotIndex: Int, commandBuffer: MTLCommandBuffer,
+    fileprivate init(texture: MTLTexture, slotIndex: Int, commandBuffer: MTLCommandBuffer,
          pool: SceneParticleDepthTargetPool) {
         self.texture = texture
         self.slotIndex = slotIndex
@@ -71,7 +71,7 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
     private struct Slot {
         var texture: MTLTexture
         var byteCost: Int
-        var reservationOwner: ObjectIdentifier?
+        var reservations: [ObjectIdentifier: MTLCommandBuffer] = [:]
     }
 
     private let lock = NSLock()
@@ -86,16 +86,23 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
 
     func acquire(device: MTLDevice, width: Int, height: Int,
                  on commandBuffer: MTLCommandBuffer) -> Acquisition {
-        guard width > 0, height > 0, Self.byteCost(width: width, height: height) != nil
+        guard width > 0, height > 0, let byteCost = Self.byteCost(width: width, height: height)
         else { return .invalidExtent }
         let owner = ObjectIdentifier(commandBuffer)
         return withLock {
+            let owners = Set(slots.flatMap { $0.reservations.keys })
+            guard owners.contains(owner) || owners.count < maximumSlots else { return .busyOtherFrame }
+            let pending = commandBuffer.status == .notEnqueued
+            let queue = commandBuffer.commandQueue
             let matching = slots.indices.first {
-                slots[$0].reservationOwner == nil
-                    && slots[$0].texture.width == width
+                slots[$0].texture.width == width
                     && slots[$0].texture.height == height
+                    && (slots[$0].reservations.isEmpty || pending
+                        && slots[$0].reservations.values.allSatisfy {
+                            SceneCommandBufferOrdering.isEnqueued($0, on: queue)
+                        })
             }
-            let reusable = matching ?? slots.indices.first { slots[$0].reservationOwner == nil }
+            let reusable = matching ?? slots.indices.first { slots[$0].reservations.isEmpty }
             let index: Int
             if let reusable {
                 if matching == nil {
@@ -106,15 +113,12 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
                         slot: reusable
                     ) else { return .allocationFailed }
                     slots[reusable].texture = texture
-                    slots[reusable].byteCost = Self.byteCost(
-                        width: width,
-                        height: height
-                    ) ?? 0
+                    slots[reusable].byteCost = byteCost
                 }
                 index = reusable
             } else {
                 guard slots.count < maximumSlots else {
-                    return slots.allSatisfy { $0.reservationOwner == owner }
+                    return slots.allSatisfy { $0.reservations[owner] != nil }
                         ? .currentFrameCapacityExceeded : .busyOtherFrame
                 }
                 guard let texture = makeTexture(
@@ -126,11 +130,10 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
                 index = slots.count
                 slots.append(Slot(
                     texture: texture,
-                    byteCost: Self.byteCost(width: width, height: height) ?? 0,
-                    reservationOwner: nil
+                    byteCost: byteCost
                 ))
             }
-            slots[index].reservationOwner = owner
+            slots[index].reservations[owner] = commandBuffer
             return .acquired(SceneParticleDepthTargetLease(
                 texture: slots[index].texture,
                 slotIndex: index,
@@ -142,8 +145,7 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
 
     fileprivate func release(_ index: Int, owner: ObjectIdentifier) {
         withLock {
-            guard slots.indices.contains(index), slots[index].reservationOwner == owner else { return }
-            slots[index].reservationOwner = nil
+            _ = slots[index].reservations.removeValue(forKey: owner)
         }
     }
 

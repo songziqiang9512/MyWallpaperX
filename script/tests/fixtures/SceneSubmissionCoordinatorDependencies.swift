@@ -420,6 +420,12 @@ enum SceneNamedTextureReference {
     }
 }
 struct SceneDependencyRenderPlan {
+    struct PreparationSchedule: Equatable {
+        let preparationLayerIDs: [Int]
+        let prepassProviderLayerIDs: [Int]
+        let providersBeforeLayerID: [Int: [Int]]
+        let scheduledGraphProviderLayerIDs: Set<Int>
+    }
     struct Reference: Hashable {
         let consumerLayerID: Int
         let providerLayerID: Int

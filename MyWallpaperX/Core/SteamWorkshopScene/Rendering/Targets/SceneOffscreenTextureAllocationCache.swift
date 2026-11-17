@@ -404,7 +404,7 @@ extension SceneOffscreenTextureAllocationCache {
             for plan: SceneLayerGraphTargetPlan,
             orderingContext: SceneGraphCommandQueueOrderingContext?
         ) -> Bool {
-            guard let orderingContext,
+            guard let orderingContext, orderingContext.isPending,
                   preparationPins.isEmpty, !isResetInvalidated,
                   !submissionPins.isEmpty,
                   submissionPins.count
@@ -424,11 +424,7 @@ extension SceneOffscreenTextureAllocationCache {
                 guard let prior = pin.orderingContext else { return false }
                 let current = orderingContext.commandBuffer
                 let previous = prior.commandBuffer
-                return current.status == .notEnqueued
-                    && current !== previous
-                    && ObjectIdentifier(current.commandQueue)
-                        == ObjectIdentifier(previous.commandQueue)
-                    && previous.status != .notEnqueued
+                return SceneCommandBufferOrdering.isEnqueued(previous, on: current.commandQueue)
             }
         }
 

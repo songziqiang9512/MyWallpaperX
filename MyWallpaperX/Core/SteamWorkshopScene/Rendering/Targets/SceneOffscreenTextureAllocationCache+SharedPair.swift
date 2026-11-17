@@ -8,8 +8,6 @@ struct SceneGraphCommandQueueOrderingContext {
     func accepts(_ actual: MTLCommandBuffer?) -> Bool {
         guard let actual else { return false }
         return actual === commandBuffer && isPending
-            && ObjectIdentifier(actual.commandQueue)
-                == ObjectIdentifier(commandBuffer.commandQueue)
     }
 }
 
@@ -149,6 +147,21 @@ extension SceneOffscreenTextureAllocationCache {
 }
 
 extension SceneOffscreenTextureAllocationCache.Entry {
+    func permitsFrameTextureReuse(on commandBuffer: MTLCommandBuffer?) -> Bool {
+        guard case .composition(let texture, _) = allocation,
+              !isResetInvalidated, preparationPins.isEmpty,
+              historyPins.isEmpty, sceneColorPins.isEmpty else { return false }
+        guard !submissionPins.isEmpty else { return true }
+        guard let commandBuffer, commandBuffer.status == .notEnqueued else { return false }
+        let queue = commandBuffer.commandQueue
+        let tracked = texture.hazardTrackingMode == .tracked
+        return submissionPins.values.allSatisfy { pin in
+            guard let previous = pin.orderingContext?.commandBuffer else { return false }
+            return previous === commandBuffer
+                || tracked && SceneCommandBufferOrdering.isEnqueued(previous, on: queue)
+        }
+    }
+
     func permitsSharedPairReuse(
         orderingContext: SceneGraphCommandQueueOrderingContext?
     ) -> Bool {
@@ -161,9 +174,7 @@ extension SceneOffscreenTextureAllocationCache.Entry {
             guard let prior = pin.orderingContext else { return false }
             let previous = prior.commandBuffer
             if current === previous { return true }
-            return ObjectIdentifier(current.commandQueue)
-                    == ObjectIdentifier(previous.commandQueue)
-                && previous.status != .notEnqueued
+            return SceneCommandBufferOrdering.isEnqueued(previous, on: current.commandQueue)
         }
     }
 }

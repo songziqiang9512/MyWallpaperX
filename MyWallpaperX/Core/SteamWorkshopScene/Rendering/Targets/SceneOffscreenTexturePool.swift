@@ -108,8 +108,7 @@ final class SceneOffscreenTexturePool {
         func pinCurrent() -> CompositionTarget? {
             allocationCache.locked {
                 guard var entry = allocationCache.residents[.current(key)],
-                      !entry.isResetInvalidated,
-                      entry.submissionPins.values.allSatisfy({ $0.orderingContext?.accepts(commandBuffer) == true }),
+                      entry.permitsFrameTextureReuse(on: commandBuffer),
                       case .composition(let texture, let identity) = entry.allocation else { return nil }
                 var pin: SceneGraphRenderTargetResidencyPin?
                 if let commandBuffer {
@@ -273,8 +272,8 @@ final class SceneOffscreenTexturePool {
             var missing: Set<CacheKey> = []
             var incoming = 0
             for key in keys {
-                if let entry = proposed[.current(key)], !entry.isResetInvalidated,
-                   entry.submissionPins.values.allSatisfy({ $0.orderingContext?.accepts(commandBuffer) == true }) {
+                if let entry = proposed[.current(key)],
+                   entry.permitsFrameTextureReuse(on: commandBuffer) {
                     continue
                 }
                 missing.insert(key)

@@ -278,13 +278,27 @@ CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增
 
 同输入实际2×/4×MSAA颜色与456 depth附件/PSO采样数一致，462→479完整pass后仅一次硬件resolve；PID各走独立1×前缀，从不resolve标签。三组各384记录，2×/4×各192条PID均与1×逐bit同、所有metallib同字节。关键点四相位R range为.110046/.055328/.062988；16坐标中2×缩4/增5/同7，4×缩6/增5/同5，不能授全局或单调闪烁改善。固定ROI[650,700,1000,900]再走同几何/相机四相位的1×/2×/4×与4倍viewport单采样，负origin裁到350×200或1400×800；16个实际CB均完成、31,360,000B原读回完整，既有64个alpha登记点逐bit同。4×4网格均值只作有限面积参考，alpha MSE为.024313504/.011507701/.003736049，MAE为.051915179/.040383929/.023878125；不混RGB LOD差、不授连续真面积/官方公式或自然闪烁。原MainPass/实际Frame探索版的共享2×色深、重叠opaque/半透明及读取后resume三方法23.781s通过，actual域2/2、publication1；只属当时七行中间身份。独审补入先读far再画near的第八行，尚未执行；不冒原结果覆盖它或最终预算版。两次Swift overlay探针编译失败均0GPU，不冒产品红。
 
-中间默认2× App4d6bf1dc…ca683/dylib79d8f8eb…68f2、Metal仍d3036e9e…2d6，Debug29.116s且全输入前后同，strict deep/原helpers验证通过；此前9.886s产品构建因Repository误查ColorBlend wrapper接口而红，改用prepared state原selector后重建。原frozen33全景2268×1474的F56/R1、F57/R2、F234/R3各有28个实际模型绘制→2×resolve→原单main/export/seal→同CB snapshot，GPUcompleted/trunc0并排空。环固定ROI的70000像素中30197个RGB变化、平均绝对差2.93697 byte，球面ROI最大1byte、最终A均255，原四个微影暗点几乎不变；这是静态覆盖差异，不是自然闪烁或官方一致资格。普通image/text、clear=false、预算退路与独立作者未作最终App验收。
+中间2×实际28模型到同CB硬件resolve和终端捕获，固定环ROI有静态软化，球面与四个微影暗点几乎不变；普通image/text、clear=false、独立作者及最终预算版未取得完整资格。原Frame/MainPass三方法仅属当时中间身份，独审新增的早深度第八行未执行，不外推最终方案。
 
-同frozen33/3024×1964/目标60FPS、warm30/duration45的近时三场为2×→原476b→相同2×，各实际测量13.501/13.503/13.496s、0failed：FPS52.812/59.467/54.387，GPU P50/P95为22.228/30.678、14.486/17.883、21.552/29.584ms；CPU P50/P95为2.775/3.245、2.673/3.048、2.589/2.900ms。两次2×pool峰均518516736B，对原280951296增加237565440B（226.56MiB）；GPU allocated均1062453248B，对原818069504增加244383744B。时间接近仍非同背景/热状态控制，短窗不授稳态/能耗或严格因果；足以触发本候选停止线，不以静态软化换正常播放回退。
+同frozen33/3024×1964/60FPS、warm30/duration45近时三场为2×→原476b→同2×，各约13.5秒、0failed：FPS52.812/59.467/54.387，GPU P50为22.228/14.486/21.552ms。两次2×池峰均518516736B，对原280951296增加237565440B；GPU allocated增加244383744B。短窗不授稳态/能耗或严格计时因果，足以触发停止线，退出以静态软化换正常播放回退的候选。
 
-默认2×产品、无消费者容量API及其专用回归全部精确撤回到b1fd3ac3f，已验证的N3阴影滤波保留。早最低深度未真实保住、暖2×公平及旧尺寸AA颜色回收三问题仍未闭；没有继续叠约150–200行预算协调。479真实MDL是单mesh/material/顶点/index块，文件精确到尾，不是误合全部LOD；作者无距离/密度声明，停止LOD假设，不删合法碎石。原研究、候选源码/patch、输入/旧中间门、构建红绿、真实图/日志/成本及独审归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292个成员逐SHA复验，14天）；16个原Float32面积读回与原图未改写，未伪造Workshop身份作schema晋升。四场已停止运行的12个精确样本/Home/App目录15320项、逻辑2135705764B已清理，不冒物理释放量；唯一连续DD、有效当前1×基线和未解决原始输入保留。重启须新的低成本可见收益或可比成本改善；环闪仍为队列首项，不能把此探索写成已上线AA。
+默认2×、无消费者容量API及专用回归已撤回b1fd3ac3f，保N3滤波。早最低深度、暖2×公平及旧尺寸颜色回收仍未闭；不叠预算协调。479真实MDL为单mesh/material/顶点/index块，不是误合LOD；无作者距离/密度声明，不删合法碎石。原研究、输入/候选源码、完整成本/图像/独审与16份原Float32读回归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292成员逐SHA核验，14天）；已停止的运行副本已清理，原始输入保留。重启须新低成本覆盖或可比成本收益；环闪未闭。
 
 固定五点CPU显示重建仅在既有479透明黑诊断域筛选：权重只读RGB，alpha用相同权重作离线覆盖评分，不进产品。四相位内圈MSE/MAE虽略降，前三相位总覆盖绝对误差58.125→177.827、1.75→110.589、17.5625→102.066；±45°单像素线本体虽保持，各向28个邻点扩散、最大+.25。按预登记停止线淘汰，不调参、不出处理截图或shader。该数据缺reference RGB、halo和完整终端合成，既不授显示RGB收益，也不支持靠全景模糊关闭环闪；下一步需新的低成本覆盖证据，不能重跑默认2×或继续微调此滤镜。
+
+## 深度与帧临时纹理复用 <a id="depth-submission-order"></a>
+
+按[资源使用期合同](../architecture/scene-resource-admission.md#depth-submission-order)，原深度pool以每CB独立预约替代single owner，原frame scratch Entry沿既有pin判断同queue已enqueue顺序；退役每在途CB独占相同附件及每part重复shape重验。六产品净增10行，无新资源/预算/输出owner，记录有界。Context.accepts仍保精确准备身份；history、SceneColor与compositionGroup原入口不放宽。
+
+真实旧/新深度门各10例24CB、23个可比Float32读回逐bit同；frame scratch各8例17CB、13深度值及2个BGRA像素同，两个入口均两纹理→一纹理。长期Graph34及相机深度/提交八方法通过，补B/C各自CB内绿/红读回与取消/完成/reset，跨queue、未enqueue、untracked仍隔离。首42门的旧排他golden及Surface stub漂移分别由原例真实像素和Git75原编译复现核正，保失败记录；未变八方法复用有效实际结果。
+
+Debug24.067s、六产品/project/锁前后同，strict deep及原helpers通过；execb8b2b89a…082ff1b/dylib2f977262…ec8f562，Metal仍7c94461a…0c2cbb7。同frozen33/3024×1964/45秒/warm30的旧75与新App，四张16bit原PNG均5356293B、SHAb10fa13f…10d8628；28model到main/export/seal同CB捕获/GPUcompleted/trunc0，原几何、影图尺寸/滤波和每帧census保持。
+
+本次短窗13.498→13.500秒：池峰213842432→138378496B，GPU allocated750436352→672546816B；FPS59.933→59.927、0failed。GPU P50/P9512.563/12.949→11.338/12.376ms，CPU P50/P952.666/3.359→3.090/3.343ms。只认同条件采样的池峰减少75463936B及像素保持；CPU中位增加.424ms，未授CPU、持续FPS、稳态或能耗改善。先前depth-only方案池峰反增43352320B已按停止线拒绝，原证据保独立候选包；任何尺寸算术均不代逐资源分配清单。
+
+独立347用既有intro/cursor/audio/rgb关闭、HDR.3控制自然30秒/after25，原生视口的1512整景图见白紫亮边/尖端、黑心、背景线及钟日公式。F1169/R2实际3model、material-map/gradient/reflection各1、3graph事务到CB528950134528/main=export=seal528909014016，GPUcompleted/trunc0；首5/3场仅SYKM开场不作成熟画面资格。七类是源码使用期范围，不授一个样本全部命中、连续全时段或官方一致。三App PID25328/27435/32636已退出并排空，前台已归还UI会话。
+
+最终实际源/读回/独审归`.artifacts/scene-frame-scratch-order-20261117`，成熟作者载荷归同名formal run，14天/总5GiB；初depth-only失败包为`.artifacts/scene-depth-ordering-candidate-20261117`，其14项停止产物已清理（10513文件/逻辑1760887642B，不冒物理释放）。保一份连续DD及75对照App供后续辨因，不恢复默认MSAA，不关闭自然环闪。
 
 ## 确定零覆盖的模型工作 <a id="model-zero-coverage-work"></a>
 

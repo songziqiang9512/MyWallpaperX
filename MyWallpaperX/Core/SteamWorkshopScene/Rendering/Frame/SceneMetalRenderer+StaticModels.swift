@@ -37,6 +37,7 @@ extension SceneMetalRenderer {
             }
         }
         private final class SceneDepthDomain {
+            // Keep the pass alive while its ObjectIdentifier is a domain key.
             let pass: SceneMainPassEncoder
             let acquisition: SceneParticleDepthTargetPool.Acquisition
             var wasCleared = false
@@ -120,15 +121,7 @@ extension SceneMetalRenderer {
                 return nil
             }
             guard let domain = sceneDepthByPass[ObjectIdentifier(pass)],
-                  let lease = domain.lease else { return nil }
-            let texture = lease.texture
-            let extent = pass.targetExtent
-            guard domain.pass === pass, texture.pixelFormat == .depth32Float,
-                  texture.sampleCount == 1, texture.width == extent.width,
-                  texture.height == extent.height else {
-                sceneDepthFailureReason = "scene-depth-domain-identity-mismatch"
-                return nil
-            }
+                  domain.lease != nil else { return nil }
             return domain
         }
 

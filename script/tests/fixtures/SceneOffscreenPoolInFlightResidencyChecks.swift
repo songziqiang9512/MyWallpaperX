@@ -792,4 +792,182 @@ extension Harness {
         ]
         return checks
     }
+
+    static func frameScratchOrderingChecks(_ device: MTLDevice) throws -> [[String: Any]] {
+        enum ProbeFailure: Error { case failed(String) }
+        typealias Target = SceneOffscreenTexturePool.PinnedTexture
+
+        func queue(_ device: MTLDevice) throws -> MTLCommandQueue {
+            guard let queue = device.makeCommandQueue() else { throw ProbeFailure.failed("queue") }
+            return queue
+        }
+        func buffer(_ queue: MTLCommandQueue, _ buffers: inout [MTLCommandBuffer]) throws -> MTLCommandBuffer {
+            guard let buffer = queue.makeCommandBuffer() else { throw ProbeFailure.failed("buffer") }
+            buffers.append(buffer)
+            return buffer
+        }
+        func drain(_ buffers: [MTLCommandBuffer]) {
+            for buffer in buffers where buffer.status == .notEnqueued || buffer.status == .enqueued { buffer.commit() }
+            for buffer in buffers { buffer.waitUntilCompleted() }
+        }
+        func complete(_ buffers: [MTLCommandBuffer]) throws {
+            for buffer in buffers { buffer.waitUntilCompleted() }
+            guard buffers.allSatisfy({ $0.status == .completed && $0.error == nil }) else {
+                throw ProbeFailure.failed("GPU completion: \(buffers.map { String(describing: $0.error) })")
+            }
+        }
+        func reserve(_ pool: SceneOffscreenTexturePool, _ buffer: MTLCommandBuffer,
+                            factory: ((MTLTextureDescriptor) -> MTLTexture?)? = nil, composition: Bool = false) throws -> Target {
+            if composition {
+                guard let target = pool.compositionTarget(width: 64, height: 64, commandBuffer: buffer),
+                      let pin = target.pin else { throw ProbeFailure.failed("compositionTarget") }
+                return Target(texture: target.texture, pin: pin)
+            }
+            guard let target = pool.reserveModelShadow(slot: 0, width: 64, height: 64,
+                commandBuffer: buffer, textureFactory: factory) else { throw ProbeFailure.failed("reserveModelShadow") }
+            return target
+        }
+        func clearAndRead(_ target: Target, value: Double, buffer: MTLCommandBuffer,
+                                 device: MTLDevice, color: MTLClearColor? = nil) throws -> MTLBuffer {
+            let descriptor = MTLRenderPassDescriptor()
+            if let color {
+                descriptor.colorAttachments[0].texture = target.texture
+                descriptor.colorAttachments[0].loadAction = .clear
+                descriptor.colorAttachments[0].storeAction = .store
+                descriptor.colorAttachments[0].clearColor = color
+            } else {
+                descriptor.depthAttachment.texture = target.texture
+                descriptor.depthAttachment.loadAction = .clear
+                descriptor.depthAttachment.storeAction = .store
+                descriptor.depthAttachment.clearDepth = value
+            }
+            guard let encoder = buffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+                throw ProbeFailure.failed("depth encoder")
+            }
+            encoder.endEncoding()
+            guard let bytes = device.makeBuffer(length: 256, options: .storageModeShared),
+                  let blit = buffer.makeBlitCommandEncoder() else { throw ProbeFailure.failed("readback") }
+            bytes.contents().initializeMemory(as: UInt8.self, repeating: 0xA5, count: 256)
+            blit.copy(from: target.texture, sourceSlice: 0, sourceLevel: 0,
+                sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0), sourceSize: MTLSize(width: 1, height: 1, depth: 1),
+                to: bytes, destinationOffset: 0, destinationBytesPerRow: 256, destinationBytesPerImage: 256)
+            blit.endEncoding()
+            buffer.addCompletedHandler { _ in target.pin.release() }
+            return bytes
+        }
+        func bits(_ bytes: MTLBuffer) -> [String: Any] {
+            let value = bytes.contents().load(as: Float.self)
+            return ["value": Double(value), "bits": UInt64(value.bitPattern)]
+        }
+        func observation(_ pool: SceneOffscreenTexturePool, _ targets: [Target]) -> [String: Any] {
+            ["logicalResidentBytes": pool.residentByteCost, "residentTextures": pool.residentTextureCount,
+             "residentAllocations": pool.residentAllocationCount,
+             "textureTokens": targets.map { String(UInt(bitPattern: ObjectIdentifier($0.texture))) },
+             "uniqueTextureCount": Set(targets.map { ObjectIdentifier($0.texture) }).count,
+             "tracked": targets.map { $0.texture.hazardTrackingMode == .tracked },
+             "pixelFormats": targets.map { $0.texture.pixelFormat.rawValue },
+             "privateRT64Single": targets.allSatisfy { $0.texture.storageMode == .private
+                 && $0.texture.sampleCount == 1 && $0.texture.usage.contains(.renderTarget)
+                 && $0.texture.width == 64 && $0.texture.height == 64 },
+             "depth32PrivateRT": targets.allSatisfy {
+                 $0.texture.pixelFormat == .depth32Float && $0.texture.storageMode == .private
+                     && $0.texture.sampleCount == 1 && $0.texture.usage.contains(.renderTarget)
+             }]
+        }
+        func finish(_ name: String, pool: SceneOffscreenTexturePool, targets: [Target],
+                           buffers: [MTLCommandBuffer], reads: [MTLBuffer], before: [String: Any], color: Bool = false) -> [String: Any] {
+            let readbacks: [[String: Any]]
+            if color {
+                readbacks = reads.map { ["bgra8": Array(UnsafeBufferPointer(start:
+                    $0.contents().assumingMemoryBound(to: UInt8.self), count: 4))] }
+            } else { readbacks = reads.map(bits) }
+            return ["name": name, "beforeCommit": before, "afterCompletion": observation(pool, targets),
+             "readbacks": readbacks,
+             "completedCBs": buffers.filter { $0.status == .completed && $0.error == nil }.count,
+             "commandBuffers": buffers.count]
+        }
+        func pair(_ device: MTLDevice, mode: String) throws -> [String: Any] {
+            let firstQueue = try queue(device)
+            let secondQueue: MTLCommandQueue
+            if mode == "cross-queue" { secondQueue = try queue(device) } else { secondQueue = firstQueue }
+            let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 64 * 64 * 4)
+            var buffers: [MTLCommandBuffer] = []; defer { drain(buffers) }
+            let a = try buffer(firstQueue, &buffers)
+            if mode != "prior-not-enqueued" { a.enqueue() }
+            let factory: ((MTLTextureDescriptor) -> MTLTexture?)? = mode == "untracked-factory" ? { descriptor in
+                descriptor.hazardTrackingMode = .untracked
+                return device.makeTexture(descriptor: descriptor)
+            } : nil
+            let composition = mode == "composition-ordered"
+            let x = try reserve(pool, a, factory: factory, composition: composition)
+            var reads: [MTLBuffer] = []
+            if mode != "untracked-factory" { reads.append(try clearAndRead(x, value: 0.75, buffer: a, device: device,
+                color: composition ? MTLClearColorMake(1, 0, 0, 1) : nil)) }
+            let b = try buffer(secondQueue, &buffers)
+            let y = try reserve(pool, b, factory: factory, composition: composition)
+            if mode != "untracked-factory" { reads.append(try clearAndRead(y, value: 0.25, buffer: b, device: device,
+                color: composition ? MTLClearColorMake(0, 0, 1, 1) : nil)) }
+            else {
+                a.addCompletedHandler { _ in x.pin.release() }
+                b.addCompletedHandler { _ in y.pin.release() }
+            }
+            var before = observation(pool, [x, y])
+            before["statuses"] = [a.status.rawValue, b.status.rawValue]
+            before["sameQueue"] = firstQueue === secondQueue
+            before["sameBuffer"] = a === b
+            b.commit(); a.commit()
+            try complete(buffers)
+            var row = finish(mode, pool: pool, targets: [x, y], buffers: buffers, reads: reads, before: before, color: composition)
+            row["untrackedScope"] = mode == "untracked-factory"
+                ? "Allocation identity and pin ownership only; no untracked GPU read/write or inferred hazard synchronization."
+                : (composition ? "Default BGRA8 literal red/blue clear/store/blit." : "Tracked literal depth clear/store/blit.")
+            return row
+        }
+        func cancelNew(_ device: MTLDevice) throws -> [String: Any] {
+            let q = try queue(device), other = try queue(device)
+            let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 64 * 64 * 4)
+            var buffers: [MTLCommandBuffer] = []; defer { drain(buffers) }
+            let a = try buffer(q, &buffers); a.enqueue()
+            let x = try reserve(pool, a)
+            let rx = try clearAndRead(x, value: 0.75, buffer: a, device: device)
+            let b = try buffer(q, &buffers), cancelled = try reserve(pool, b)
+            cancelled.pin.release()
+            let c = try buffer(other, &buffers), z = try reserve(pool, c)
+            let rz = try clearAndRead(z, value: 0.25, buffer: c, device: device)
+            var before = observation(pool, [x, cancelled, z])
+            before["oldAndCrossQueueDistinct"] = x.texture !== z.texture
+            before["cancelledStatus"] = b.status.rawValue
+            c.commit(); b.commit(); a.commit(); try complete(buffers)
+            return finish("cancel-new-preserves-old", pool: pool, targets: [x, cancelled, z],
+                buffers: buffers, reads: [rx, rz], before: before)
+        }
+        func completionKeepsPending(_ device: MTLDevice) throws -> [String: Any] {
+            let q = try queue(device), other = try queue(device)
+            let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 4 * 64 * 64 * 4)
+            var buffers: [MTLCommandBuffer] = []; defer { drain(buffers) }
+            let a = try buffer(q, &buffers); a.enqueue()
+            let x = try reserve(pool, a)
+            let rx = try clearAndRead(x, value: 0.75, buffer: a, device: device)
+            let b = try buffer(q, &buffers), pending = try reserve(pool, b)
+            a.commit(); try complete([a])
+            let rb = try clearAndRead(pending, value: 0.25, buffer: b, device: device)
+            let c = try buffer(other, &buffers), z = try reserve(pool, c)
+            let rz = try clearAndRead(z, value: 0.5, buffer: c, device: device)
+            var before = observation(pool, [x, pending, z])
+            before["pendingAndCrossQueueDistinct"] = pending.texture !== z.texture
+            before["oldCompleted"] = a.status == .completed
+            before["pendingStatus"] = b.status.rawValue
+            c.commit(); b.commit(); try complete(buffers)
+            return finish("old-completion-preserves-pending", pool: pool, targets: [x, pending, z],
+                buffers: buffers, reads: [rx, rb, rz], before: before)
+        }
+
+        var rows: [[String: Any]] = []
+        for mode in ["ordered-tracked", "cross-queue", "prior-not-enqueued", "untracked-factory", "composition-ordered"] {
+            rows.append(try autoreleasepool { try pair(device, mode: mode) })
+        }
+        rows.append(try autoreleasepool { try cancelNew(device) })
+        rows.append(try autoreleasepool { try completionKeepsPending(device) })
+        return rows
+    }
 }

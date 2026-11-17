@@ -97,8 +97,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 68,
-      "bytes": 8178
+      "lines": 79,
+      "bytes": 10076
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 203,
-      "bytes": 62015
+      "lines": 204,
+      "bytes": 62647
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 496,
-      "bytes": 145272
+      "lines": 510,
+      "bytes": 147069
     }
   },
   "archives": [
@@ -350,15 +350,6 @@
   ],
   "snapshots": [],
   "adjustments": [
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
-      "after": "703fc03f70034848f6c9e0db40c927cdaccfea70343da0cc75ce0da2a46d1231",
-      "owner": "Scene material graph resource view",
-      "reason": "Define consumer-scoped graph projection, record bounded identical-workload Debug CPU-frame evidence, and replace eye/late355 qualification with concrete producer and restart limits.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
-    },
     {
       "section": "bodies",
       "path": "docs/architecture/system-audio-spectrum-design.md",
@@ -532,12 +523,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "703fc03f70034848f6c9e0db40c927cdaccfea70343da0cc75ce0da2a46d1231",
+      "after": "f9bb7795fc9849f705576c404216c32489804c23373fa13203902d0d7ad4d2fb",
+      "owner": "Scene frame resource lifetime",
+      "reason": "Document queue-ordered reuse in existing depth pool and scratch Entry before implementation, preserving exact preparation identity and all history/pin exits.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#depth-submission-order"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "d7db4f54b56121adeb3ce8a2c1daf9870639e45d55d7a73e4b2060d91fe836ce",
-      "after": "d00a284d1eaeba9e1ad48fc992f6c9694a8ebc5f3958eb8b7afb7be010ace25b",
-      "owner": "Scene per-part zero coverage",
-      "reason": "Define and qualify resolved non-normal zero-opacity pruning before pose/albedo, preserve normal-zero receiver and pending named semantics, and record the separate ordered named failure domain without locking it as a golden. Replace current facts on the existing authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
+      "before": "d00a284d1eaeba9e1ad48fc992f6c9694a8ebc5f3958eb8b7afb7be010ace25b",
+      "after": "e1ff5706831ce67fb97ab220703390bbf3e7ffb3607217fc27c39fd560d539bd",
+      "owner": "Scene model resource evidence",
+      "reason": "Replace withdrawn-MSAA process detail with bounded same-input resource and pixel evidence, preserving the measured CPU median increase and failed depth-only stop line.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#depth-submission-order"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "7d67c5dd292cb5e9d5da5e1e7ad97b826b992057d35a0ab371112559fd147eff",
+      "after": "963e06d6116d67e6484f4f84138b31aaa65d422c893e044687409a6b768cd3fa",
+      "owner": "Scene model breakpoint queue",
+      "reason": "Retire qualified scratch cost work and retain the independently found group-target isolation and multi-material named admission boundaries.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }

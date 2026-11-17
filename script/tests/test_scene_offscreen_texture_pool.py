@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -37,6 +38,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetLease.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetLease+Publication.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidency.swift",
+    SOURCE_ROOT / "Rendering/Targets/SceneCommandBufferOrdering.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+Batch.swift",
@@ -444,6 +446,48 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["standardMaximumDimension"], 2048)
         self.assertEqual(self.result["authoredShaderMaximumDimension"], 4096)
 
+
+    def test_frame_scratch_reuse_keeps_queue_and_pin_boundaries(self) -> None:
+        rows = {row["name"]: row for row in self.result["frameScratchOrdering"]}
+        depths = {"ordered-tracked": [.75, .25], "cross-queue": [.75, .25],
+                  "prior-not-enqueued": [.75, .25], "untracked-factory": [],
+                  "cancel-new-preserves-old": [.75, .25],
+                  "old-completion-preserves-pending": [.75, .25, .5]}
+        self.assertEqual(set(rows), set(depths) | {"composition-ordered"})
+        self.assertEqual(sum(row["completedCBs"] for row in rows.values()), 16)
+        for name, row in rows.items():
+            with self.subTest(case=name):
+                before = row["beforeCommit"]
+                self.assertEqual(row["completedCBs"], row["commandBuffers"])
+                self.assertTrue(before["privateRT64Single"])
+                self.assertEqual(before["tracked"], [name != "untracked-factory"] * len(before["textureTokens"]))
+                if name in depths:
+                    expected = depths[name]
+                    self.assertTrue(before["depth32PrivateRT"])
+                    self.assertEqual([value["value"] for value in row["readbacks"]], expected)
+                    self.assertEqual([value["bits"] for value in row["readbacks"]],
+                                     [struct.unpack("<I", struct.pack("<f", value))[0] for value in expected])
+        for name in ["ordered-tracked", "composition-ordered"]:
+            before = rows[name]["beforeCommit"]
+            self.assertEqual(before["statuses"], [1, 0])
+            self.assertTrue(before["sameQueue"])
+            self.assertFalse(before["sameBuffer"])
+            self.assertEqual(before["uniqueTextureCount"], 1)
+            self.assertEqual(before["logicalResidentBytes"], 64 * 64 * 4)
+        composition = rows["composition-ordered"]
+        self.assertEqual(composition["beforeCommit"]["pixelFormats"], [80, 80])
+        self.assertEqual(composition["readbacks"], [{"bgra8": [0, 0, 255, 255]}, {"bgra8": [255, 0, 0, 255]}])
+        for name in ["cross-queue", "prior-not-enqueued", "untracked-factory"]:
+            self.assertEqual(rows[name]["beforeCommit"]["uniqueTextureCount"], 2)
+        self.assertFalse(rows["cross-queue"]["beforeCommit"]["sameQueue"])
+        self.assertEqual(rows["prior-not-enqueued"]["beforeCommit"]["statuses"], [0, 0])
+        cancelled = rows["cancel-new-preserves-old"]["beforeCommit"]
+        self.assertTrue(cancelled["oldAndCrossQueueDistinct"])
+        self.assertEqual(cancelled["cancelledStatus"], 0)
+        completed = rows["old-completion-preserves-pending"]["beforeCommit"]
+        self.assertTrue(completed["oldCompleted"])
+        self.assertTrue(completed["pendingAndCrossQueueDistinct"])
+        self.assertEqual(completed["pendingStatus"], 0)
 
 if __name__ == "__main__":
     unittest.main()
