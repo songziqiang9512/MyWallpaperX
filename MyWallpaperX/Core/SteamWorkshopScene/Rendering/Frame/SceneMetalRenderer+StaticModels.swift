@@ -186,6 +186,13 @@ extension SceneMetalRenderer {
             ? SceneStaticModelPipeline.normalMatrix(for: world) : nil
         var hasMissingInput = false
         let draws: [StaticModelDraw] = parts.compactMap { entry in
+            let material = entry.material.resolvingDynamicValues(
+                layerID: layer.id, materialPath: entry.dynamicMaterialPath, snapshot: snapshot
+            ).resolvingDynamicViewTintBack(SceneDynamicLayerValues.color(
+                layerID: layer.id,
+                authoredValue: entry.material.viewTint.map { [$0.back.x, $0.back.y, $0.back.z] },
+                snapshot: snapshot))
+            guard entry.materialBlending == .normal || material.opacity > 0 else { return nil }
             guard let partNormalMatrix = entry.material.requiresSurfaceNormal
                 ? normalMatrix : matrix_identity_float3x3 else { return nil }
             let mesh: SceneStaticModelMesh
@@ -215,12 +222,6 @@ extension SceneMetalRenderer {
                 texture = albedo.texture; frame = albedo.textureFrame
                 sampling = albedo.sampling; premultiplied = albedo.isPremultiplied
             }
-            let material = entry.material.resolvingDynamicValues(
-                layerID: layer.id, materialPath: entry.dynamicMaterialPath, snapshot: snapshot
-            ).resolvingDynamicViewTintBack(SceneDynamicLayerValues.color(
-                layerID: layer.id,
-                authoredValue: entry.material.viewTint.map { [$0.back.x, $0.back.y, $0.back.z] },
-                snapshot: snapshot))
             return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,
                 world: world, normalMatrix: partNormalMatrix, material: material, alpha: alpha)

@@ -16,6 +16,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    }
   }
   var coverageRows:[[String:Any]]=[],normalRows:[[String:Any]]=[],alphaRows:[[String:Any]]=[],layerAlphaRows:[[String:Any]]=[]
+  var materialCoverageRows:[[String:Any]]=[]
   if CommandLine.arguments.count > 1 {
    let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:Any]
    for item in input["coverageCases"] as! [[String:Any]] {
@@ -32,8 +33,11 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    for item in input["layerAlphaCases"] as? [[String:Any]] ?? [] {
     layerAlphaRows.append(try run("native","directional",false,false,true,device,queue,coverage:item))
    }
+   for item in input["materialCoverageCases"] as? [[String:Any]] ?? [] {
+    materialCoverageRows.append(try run("native","directional",false,false,true,device,queue,coverage:item))
+   }
   }
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"coverageRows":coverageRows,"normalRows":normalRows,"alphaRows":alphaRows,"layerAlphaRows":layerAlphaRows],options:[.sortedKeys]),as:UTF8.self))
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"coverageRows":coverageRows,"normalRows":normalRows,"alphaRows":alphaRows,"layerAlphaRows":layerAlphaRows,"materialCoverageRows":materialCoverageRows],options:[.sortedKeys]),as:UTF8.self))
  }
  static func run(_ family:String,_ type:String,_ transformed:Bool,_ reverse:Bool,_ noCull:Bool,
                  _ device:MTLDevice,_ queue:MTLCommandQueue,coverage:[String:Any]?=nil)throws->[String:Any] {
@@ -100,6 +104,15 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    writesDepth:coverage?["writesDepth"] as? Bool ?? true,testsDepth:coverage?["testsDepth"] as? Bool ?? true,
    materialBlending:(coverage?["blending"] as? String).flatMap(SceneMaterialRenderState.Blending.init(rawValue:)))
   var entries=[1:[entry]]
+  if let opacity=coverage?["missingNamedOpacity"] as? Double {
+   var dependent=SceneStaticModelMaterial(color:SIMD3(repeating:1),opacity:Float(opacity),receivesLighting:true,
+     textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,
+     brightness:1,usesHDRBrightness:false,viewTint:nil)
+   dependent.cullMode = .none
+   entries[1]!.append(.init(materialPath:"zero-material-missing-named",dynamicMaterialPath:"",mesh:mesh,
+     albedo:nil,namedAlbedo:"missing-material",material:dependent,writesDepth:false,
+     materialBlending:SceneMaterialRenderState.Blending(rawValue:coverage!["missingNamedBlend"] as! String)))
+  }
   if mode.hasPrefix("mixed") {
    let named=mode == "mixed-named"
    for consumer in ["lit","view","reflection"] {
@@ -174,7 +187,14 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   let output=device.makeTexture(descriptor:outDesc)!,cb=queue.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
   let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:32*1024*1024)
-  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb),dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
+  let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb)
+  let dynamic:SceneDynamicSnapshot
+  if let opacity=coverage?["dynamicOpacity"] as? Double {
+   let target=SceneDynamicTarget.materialConstant(layerID:1,passIndex:0,name:"alpha")
+   let index=SceneDynamicSnapshotResolver.prepare(definitions:[.init(target:target,valueType:.scalar,authoredValue:.scalar(Double(material.opacity)))])
+   let resolved=SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,index:index,sceneScriptValues:[target:.scalar(opacity)])
+   precondition(resolved.diagnostics.isEmpty);dynamic=resolved.snapshot
+  } else {dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)}
   var worlds=[1:world]
   for (id,x) in [(2,Float(3)),(3,Float(-3))] where entries[id] != nil {
    let offset=pixelReadback ? x*0.6:x
@@ -182,11 +202,13 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   }
   if hasReceiver {worlds[99]=controlWorld*SceneMatrix.translation(yz ? SIMD3(-40,0,0):SIMD3(0,0,-40))}
   let visible=Set(layers.filter{$0.visible != false}.map(\.id))
-  let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)!
+  let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:worlds,snapshot:dynamic,groups:nil)
   var leases:[SceneParticleDepthTargetLease]=[]
-  renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
-   particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
-   mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
+  if let candidates {
+   renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],
+    particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,
+    mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
+  }
   let shadow=state.shadows.first
   let shadowResidentAfterPrepare=pool.residentByteCost
   let cameraDepthResidentAfterPrepare=renderer.staticModelDepthTargetPool.residentByteCost
@@ -296,14 +318,15 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
    result["peerColorRGBA"]=peerColors;result["namedQueries"]=renderer.dependencyRuntime.namedQueries
    result["drawMaterialPaths"]=normalDraws.map{$0.entry.materialPath};result["unlitMaterialPath"]=entry.materialPath
    result["normalMatrices"]=normalDraws.map{ d in (0..<3).flatMap { i in [d.normalMatrix[i].x,d.normalMatrix[i].y,d.normalMatrix[i].z] } }
-   if coverage?["layerAlphaCase"] as? Bool == true {
-    result["candidateSubjectDrawCount"]=candidates[1]?.count ?? 0
+   if coverage?["layerAlphaCase"] as? Bool == true || coverage?["materialCoverageCase"] as? Bool == true {
+    result["candidateSubjectDrawCount"]=candidates?[1]?.count ?? 0
     result["preparedSubjectDrawCount"]=state.prepared?[1]?.count ?? 0
     result["subjectDrawAlphas"]=normalDraws.map(\.alpha)
     result["subjectMaterialOpacities"]=normalDraws.map{ $0.material.opacity }
     result["shadowResidentAfterPrepare"]=shadowResidentAfterPrepare
     result["cameraDepthResidentAfterPrepare"]=cameraDepthResidentAfterPrepare
    }
+   if coverage?["materialCoverageCase"] as? Bool == true {result["completeCandidates"]=candidates != nil}
    if let leafEncoded {result["leafEncoded"]=leafEncoded}
   }
   return result

@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 463,
-      "bytes": 106644
+      "bytes": 107200
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 62056
+      "bytes": 62015
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -222,7 +222,7 @@
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 496,
-      "bytes": 145001
+      "bytes": 145272
     }
   },
   "archives": [
@@ -524,28 +524,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "215947d0795bc93335f44313706996b43affa8265217cd7332c523e88eb8b079",
-      "after": "196a64e7890c14f73decf5cf3b85a05dad9c581d8c80018de4beed031ced3a9b",
-      "owner": "Scene known-zero model work",
-      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
+      "before": "196a64e7890c14f73decf5cf3b85a05dad9c581d8c80018de4beed031ced3a9b",
+      "after": "069b60713b6fa80537316fa3959fe17dc691c655fe58d9cd063b31e664aaff60",
+      "owner": "Scene per-part zero coverage",
+      "reason": "Define and qualify resolved non-normal zero-opacity pruning before pose/albedo, preserve normal-zero receiver and pending named semantics, and record the separate ordered named failure domain without locking it as a golden. Replace current facts on the existing authority.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "7d9163a56ce28044332488bc49bd57e87b0382d50b754890171876251c801d58",
-      "after": "d7db4f54b56121adeb3ce8a2c1daf9870639e45d55d7a73e4b2060d91fe836ce",
-      "owner": "Scene known-zero model work",
-      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3023444552e8f74231528ec9ecb42932f8196b13b144f61cf8d0c85bdc472260",
-      "after": "473325404ec51cfa9735e85dbcdee61a473e693ddd1ee0032cb58471eb8d09e6",
-      "owner": "Scene known-zero model work",
-      "reason": "Define and qualify layer-zero draw and material-zero caster pruning in real Frame and complete App. Preserve normal opacity0 receiver, rejected color reconstruction evidence and the bounded next non-normal zero receiver gap. Replace previous facts on the same authority.",
+      "before": "d7db4f54b56121adeb3ce8a2c1daf9870639e45d55d7a73e4b2060d91fe836ce",
+      "after": "d00a284d1eaeba9e1ad48fc992f6c9694a8ebc5f3958eb8b7afb7be010ace25b",
+      "owner": "Scene per-part zero coverage",
+      "reason": "Define and qualify resolved non-normal zero-opacity pruning before pose/albedo, preserve normal-zero receiver and pending named semantics, and record the separate ordered named failure domain without locking it as a golden. Replace current facts on the existing authority.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
     }
   ]

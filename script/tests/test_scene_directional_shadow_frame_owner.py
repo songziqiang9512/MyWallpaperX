@@ -509,6 +509,21 @@ def model_layer_alpha_cases():
                                          ('material-opacity-zero-normal', 1, 0)]]
 
 
+def model_material_coverage_cases():
+    common = dict(light='directional', normalConsumer=True, normalMode='control',
+                  materialCoverageCase=True, noncasterPeers=True, noCull=True)
+    rows = [dict(common, name=name, blending=blend, opacity=cold, writesDepth=False,
+                 **({'dynamicOpacity': current} if current is not None else {}))
+            for name, blend, cold, current in [('cold1-dynamic0', 'translucent', 1, 0),
+                                               ('cold0-dynamic1', 'translucent', 0, 1),
+                                               ('additive-zero', 'additive', 0, None)]]
+    rows += [dict(common, name=name, blending='normal', missingNamedOpacity=opacity,
+                  missingNamedBlend=blend)
+             for name, blend, opacity in [('named-zero', 'translucent', 0),
+                                           ('named-positive', 'translucent', 1), ('named-normal0', 'normal', 0)]]
+    return rows
+
+
 class SceneModelShadowCameraFamilyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -517,10 +532,12 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         cls.normalCases = model_normal_consumer_cases()
         cls.alphaCases = model_alpha_sampling_cases()
         cls.layerAlphaCases = model_layer_alpha_cases()
+        cls.materialCoverageCases = model_material_coverage_cases()
         cls.report = shadow_fixture.run_swift(SOURCES, support, label='camera-family-cull',
                     metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'],
                     input_value={'coverageCases': cls.coverageCases,'normalCases':cls.normalCases,
-                                 'alphaSamplingCases':cls.alphaCases,'layerAlphaCases':cls.layerAlphaCases})
+                                 'alphaSamplingCases':cls.alphaCases,'layerAlphaCases':cls.layerAlphaCases,
+                                 'materialCoverageCases':cls.materialCoverageCases})
 
     def test_real_frame_native_canvas_fitted_and_override_cull_for_three_lights(self):
         self.assertEqual(len(self.report['rows']), 120)
@@ -728,6 +745,46 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
                     self.assertEqual(row['cameraDepth'][0],0,row)
                     self.assertEqual(row['coverageDepth'],[1,1],row)
                     if mode=='nan-world':self.assertEqual(row['drawMaterialPaths'],[],row)
+
+
+    def test_current_zero_material_coverage_skips_named_work_and_preserves_healthy_parts(self):
+        rows = {row['name']: row for row in self.report['materialCoverageRows']}
+        self.assertEqual(set(rows), {case['name'] for case in self.materialCoverageCases})
+        for case in self.materialCoverageCases:
+            row = rows[case['name']]
+            named = 'missingNamedOpacity' in case
+            active_named = named and case['name'] != 'named-zero'
+            visible = named or case['name'] == 'cold0-dynamic1'
+            shadow = visible and not active_named
+            with self.subTest(case=case['name']):
+                self.assertTrue(row['completed'] and row['shadowSamplesInBounds'], row)
+                self.assertTrue(row['receiverColorEncoded'], row)
+                self.assertEqual(row['peerColorRGBA'], [[255,255,255,255]] * 2, row)
+                self.assertTrue(all(value > 0 for value in row['cameraDepth'][1:]), row)
+                self.assertEqual(row['peerDepth'], [], row)
+                self.assertEqual(row['completeCandidates'], not active_named, row)
+                if not active_named:
+                    self.assertEqual(row['preparedSubjectDrawCount'], int(visible), row)
+                    self.assertEqual(row['candidateSubjectDrawCount'], int(visible), row)
+                    self.assertEqual(row['shadowPublished'], shadow, row)
+                self.assertEqual(row['drawMaterialPaths'], [row['unlitMaterialPath']] if visible else [], row)
+                self.assertEqual(row['subjectDrawAlphas'], [1] if visible else [], row)
+                self.assertEqual(row['subjectMaterialOpacities'], [1] if visible else [], row)
+                self.assertEqual(row['colorRGBA'], [255,255,255,255] if visible else [0,0,0,255], row)
+                self.assertEqual(row['cameraDepth'][0] > 0, named, row)
+                if active_named:
+                    self.assertEqual(set(row['namedQueries']), {'zero-material-missing-named'}, row)
+                else:
+                    self.assertEqual(row['namedQueries'], [], row)
+                if active_named:
+                    continue
+                if shadow:
+                    self.assertGreater(row['shadowResidentAfterPrepare'], 0, row)
+                    self.assertEqual(len(row['coverageDepth']), 2, row)
+                    self.assertTrue(all(0 <= value < .99 for value in row['coverageDepth']), row)
+                else:
+                    self.assertEqual(row['shadowResidentAfterPrepare'], 0, row)
+                    self.assertEqual(row['coverageDepth'], [], row)
 
 
 class SceneZeroOpacityReceiverRoleTests(unittest.TestCase):
