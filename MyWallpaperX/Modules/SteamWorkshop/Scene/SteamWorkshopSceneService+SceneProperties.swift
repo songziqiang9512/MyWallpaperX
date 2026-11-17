@@ -286,6 +286,17 @@ extension SteamWorkshopService {
             materialPropertyTargets: []
         )
         let declaredTextureKeys = Set(renderDescriptor.texturePropertyKeys)
+        var modelMaterials: Set<SceneVFSAssetPath> = []
+        let modelTextureKeys = renderDescriptor.materialPasses.compactMap { pass -> String? in
+            guard pass.passIndex == 0, let path = SceneVFSAssetPath(pass.materialPath),
+                  modelMaterials.insert(path).inserted,
+                  let bindings = pass.staticModelMaterialBindings, bindings.state != .rejected else { return nil }
+            return pass.userTextureInputs.first.flatMap {
+                guard let input = $0, input.kind == .property,
+                      declaredTextureKeys.contains(input.value) else { return nil }
+                return input.value
+            }
+        }
         let effectTextureKeys = renderDescriptor.layers.flatMap { layer in
             layer.effects.flatMap { effect in
                 effect.passes.flatMap { pass -> [String] in
@@ -316,6 +327,7 @@ extension SteamWorkshopService {
             }
         ).union(baseMaterialProviders.userPropertyDemands.map(\.propertyKey))
             .union(effectTextureKeys)
+            .union(modelTextureKeys)
         let catalog = project.userProperties
         let sourceIdentity: ScenePreparedCallbackPropertyReachability.Source?
         if let projectWitness = project.sourceWitness, let sceneWitness = document.sourceWitness {

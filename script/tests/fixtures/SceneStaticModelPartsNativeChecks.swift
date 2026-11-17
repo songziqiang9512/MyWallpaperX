@@ -16,6 +16,8 @@ import simd
                           ("parts65-shadow","parts65-shadow"),("parts65-shadow-false","parts65-shadow"),
                           ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("snapshot","parts8"),("overlap","overlap"),
                           ("defaults","defaults"),("emission","emission"),
+                          ("user-mixed","user-mixed"),("user-renamed","user-renamed"),
+                          ("user-only","user-only"),("user-only-renamed","user-only-renamed"),
                           ("blends","blends"),("blends-false","blends") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
    var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
@@ -39,6 +41,7 @@ import simd
    result.shaderPath = pass["shader"] as? String
    result.staticModelDefaultAlbedoAssetPath = pass["defaultAlbedo"] as? String
    result.blending = pass["blending"] as? String
+  result.userTextureInputs = (pass["usertextures"] as? [Any] ?? []).map { SceneEffectTextureInput.parse($0) }
    if pass["rejectedMaterial"] as? Bool == true {
        result.staticModelMaterialBindings = .init(state:.rejected,bindings:[],rejectionReason:"fixture-rejected-value")
    }
@@ -155,8 +158,9 @@ import simd
     let visible=Set(layers.map(\.id))
     let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
     renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
-    let shadow=state.shadows.first!,map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
     var buffers:[MTLBuffer]=[]
+    if let shadow=state.shadows.first {
+    let map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
     let draws=renderer.staticModelDraws(layer:layers.first{$0.id==2}!,worldFrames:world,snapshot:dynamic)!
     for (index,part) in resources[2]!.enumerated() {
      let local=(part.mesh.boundsMinimum+part.mesh.boundsMaximum)*0.5
@@ -175,16 +179,44 @@ import simd
      blit.copy(from:map,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:x,y:y,z:0),sourceSize:.init(width:1,height:1,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
      buffers.append(buffer)
     }
-    blit.endEncoding();precondition(pass.finishEnsuringClear())
+    blit.endEncoding()
+    }
+    precondition(pass.finishEnsuringClear())
     leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
     precondition(cb.status == .completed && cb.error == nil)
-    shadowDepths.append(buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee})
+    if !buffers.isEmpty {
+     shadowDepths.append(buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee})
+    }
    }
   }
   let gridCount=height>128 ? 65:64
   var frames:[[[Int]]]=[],peerFrames:[[Int]]=[],overlapFrames:[[Int]]=[]
+  let userInput = mode.hasPrefix("user-")
+      ? try JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("user-input.json"))) as? [String:Any] : nil
+  let userStem = userInput?["stem"] as? String ?? ""
+  let propertyKeys = (0..<8).map { SceneUserPropertyTextureIdentity(propertyKey:userStem+String($0),purpose:.straightAlbedo)! }
+  var userDrawPaths:[[String]]=[],userBoundSources:[[String]]=[],userPremultiplied:[[Bool]]=[]
   var leaseCounts:[Int]=[]
-  for _ in 0..<2 {
+  for phase in 0..<2 {
+   if userInput != nil {
+    func ready(_ suffix:String)->FixturePropertyLookup {
+     let path=root.appendingPathComponent("materials/"+userStem+"-"+suffix+".png").resolvingSymlinksInPath().path
+     return .ready(.init(publication:.init(candidate:loader.candidates[path]!)))
+    }
+    renderer.textureRegistry.properties = [propertyKeys[0]:ready(phase == 0 ? "green":"red"),
+        propertyKeys[1]:.absent,propertyKeys[2]:.pending,propertyKeys[3]:.unavailable,
+        propertyKeys[4]:.incomplete,propertyKeys[6]:ready("hidden"),propertyKeys[7]:.absent]
+    if phase == 0 { renderer.textureRegistry.properties[propertyKeys[7]]=ready("green") }
+    if phase == 1 && userInput?["only"] as? Bool == true { renderer.textureRegistry.properties[propertyKeys[0]] = .absent }
+    let unused=SceneUserPropertyTextureIdentity(propertyKey:"unused-"+userStem,purpose:.straightAlbedo)!
+    renderer.textureRegistry.properties[unused]=ready(phase == 0 ? "red":"green")
+    let draws=renderer.staticModelDraws(layer:layers.first{$0.id==2}!,worldFrames:world,snapshot:dynamic)!
+    userDrawPaths.append(draws.map{$0.entry.materialPath})
+    userPremultiplied.append(draws.map(\.premultiplied))
+    userBoundSources.append(draws.map { draw in
+     loader.candidates.first{$0.value.texture === draw.texture}.map{URL(fileURLWithPath:$0.key).lastPathComponent} ?? "untracked"
+    })
+   }
    let cb=queue.makeCommandBuffer()!
    let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
    let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
@@ -202,12 +234,13 @@ import simd
    peerFrames.append(rgba(146,10));overlapFrames.append(rgba(32,32))
   }
   let parts=resources[2] ?? []
-  let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),
+  var row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),
       "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
       "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
       "textureIDs":parts.map { entry in
-          guard case let .asset(identity)=entry.albedoSource else {return "named"}
-          return String(describing:renderer.textureRegistry.resource(for:.asset(identity))!.publication.candidate.identity)
+          guard let source=entry.albedoSource else {return "absent"}
+          guard case let .asset(identity)=source else {return "named"}
+          return renderer.textureRegistry.resource(for:.asset(identity)).map {String(describing:$0.publication.candidate.identity)} ?? "unavailable"
       },
       "materialMapComponents":parts.map{$0.materialMap?.components ?? 0},
       "emissionSeeds":parts.map{$0.material.emissiveBrightness},"textureRequests":loader.requests,
@@ -215,6 +248,11 @@ import simd
       "frames":frames,"peerFrames":peerFrames,"overlapFrames":overlapFrames,
       "canvasHeight":height,"gridCount":gridCount,"builderLinks":handoff?["links"] ?? [],
       "nativeMaterialReads":materialReads,"leaseCounts":leaseCounts,"completed":true,"encoded":renderer.dependencyRuntime.encoded[2] ?? false]
+  if userInput != nil {
+   row["userDrawPaths"]=userDrawPaths;row["userBoundSources"]=userBoundSources
+   row["userPremultiplied"]=userPremultiplied
+   row["userDemandsExact"]=resources.userPropertyDemands == Set(propertyKeys)
+  }
   return row
  }
 }

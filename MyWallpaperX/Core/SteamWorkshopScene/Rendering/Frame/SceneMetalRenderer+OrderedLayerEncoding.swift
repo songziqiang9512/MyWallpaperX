@@ -444,7 +444,9 @@ extension SceneMetalRenderer {
                    let videoAlbedos = staticModelResources.videoAlbedoAssetsByLayerID[layer.id],
                    SceneDynamicLayerValues.alpha(layerID: layer.id,
                     authoredValue: layer.alpha, snapshot: frameContext.dynamicValues) > 0 {
-                    for identity in videoAlbedos {
+                    for identity in videoAlbedos where staticModelResources[layer.id]?.contains(where: {
+                        $0.albedoSource == .asset(identity) && staticModelUsesAlbedoFallback($0)
+                    }) == true {
                         if case .pending = textureRegistry.lookup(.asset(identity)) {
                             initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
                             if layerMainPass === mainPass {

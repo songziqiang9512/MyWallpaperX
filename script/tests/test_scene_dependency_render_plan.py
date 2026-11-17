@@ -773,19 +773,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertLess(visibility_guard, draw_outcome)
 
     def test_static_model_named_albedo_uses_typed_forward_provider(self) -> None:
-        self.assertEqual(
-            self.result["staticModelNamedProvider"],
-            {
-                "binding": True,
-                "provider": 611,
-                "pass": 0,
-                "slot": 0,
-                "forward": True,
-                "required": True,
-                "activeOrder": [611],
-                "inactiveOrder": [],
-            },
-        )
+        self.assertEqual(self.result["staticModelNamedProvider"], {
+            "binding": True, "provider": 611, "pass": 0, "slot": 0,
+            "forward": True, "required": True,
+            "activeOrder": [611], "inactiveOrder": [],
+        })
         disabled = self.route_disabled_result["staticModelNamedProvider"]
         self.assertFalse(disabled["binding"])
         self.assertFalse(disabled["required"])
@@ -802,6 +794,17 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "dependencyPlan.requiredProviderLayerIDs",
             utility_plan[report_start:report_end],
         )
+
+    def test_model_property_preserves_only_its_named_fallback_binding(self) -> None:
+        for name, result in self.result["staticModelUserInputs"].items():
+            with self.subTest(input=name):
+                admitted = name in ("property", "renamedProperty")
+                self.assertEqual(result, {
+                    "binding": admitted, "required": admitted,
+                    "activeOrder": [611] if admitted else [], "inactiveOrder": [],
+                })
+                self.assertEqual(self.route_disabled_result["staticModelUserInputs"][name],
+                    {"binding": False, "required": False, "activeOrder": [], "inactiveOrder": []})
 
     def test_mixed_consumer_preserves_existing_effect_provider_route(self) -> None:
         self.assertEqual(

@@ -36,13 +36,18 @@ imagePath语义所需的JSON模型由真实consumer选择loadModel，不再靠mo
 <a id="model-albedo-frames"></a>
 ### 模型 albedo 的统一资产供货
 
-目标是使同一模型的静态、单帧与多帧 slot0 沿同一供货链正确着色、遮挡和投影。Entry只携asset或named身份，不自持冷加载candidate；全部资产albedo共用原播放生命周期，named图输入保原依赖链。normal/map/gradient/pigment的静态职责暂不扩大。
+目标是使同一模型的静态、单帧与多帧 slot0 沿同一供货链正确着色、遮挡和投影。Entry携asset/named缺省身份及可选typed用户属性身份，不自持冷加载candidate；全部albedo共用原播放生命周期，named图输入保原依赖链。normal/map/gradient/pigment的静态职责暂不扩大。
 
-`已准备 MDL 材料链接 → 原 descriptor 首个 pass0 → 冷 MaterialPlan → 原 Catalog demands → 原 FrameProvider(sceneTime) → 原 FrameTextureRegistry → 当帧 model draw → 颜色与 shadow`。计划只处理已标记的 direct model 材料，先固定首个 pass0（包括 rejected），不能用后项替换失败首项；material 数值投影一次。冷计划携原 pass 供现有可选贴图准备，Entry 只持 asset 或 named 身份，退出 slot0 的直接 resolve/loadCandidate、candidate 驻留与重复材料扫描。FrameProvider 是唯一推进者，颜色与阴影复用同一冻结 draw 的 texture/UV/sampler/content，普通帧不解析、不另推时钟或上传。
+`已准备 MDL 材料链接 → 原 descriptor 首个 pass0 → 冷 MaterialPlan → 原 Catalog demands → 原 FrameProvider(sceneTime) → 原 FrameTextureRegistry → 当帧 model draw → 颜色与 shadow`。计划只处理已标记的 direct model 材料，先固定首个 pass0（包括 rejected），不能用后项替换失败首项；material 数值投影一次。冷计划携原 pass 供现有可选贴图准备，Entry持缺省asset/named及可选typed用户身份，退出 slot0 的直接 resolve/loadCandidate、candidate 驻留与重复材料扫描。FrameProvider 是唯一推进者，颜色与阴影复用同一冻结 draw 的 texture/UV/sampler/content，普通帧不解析、不另推时钟或上传。
 
 Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先发布 geometry，之后由现有一次 Script resource-planning handoff 同时交动态 image 需求、model 计划和最小 launch readiness；不能提前 join 等待 Catalog。两既有 Task 类整体归位，去测试专属免交接模式，不增 condition、barrier、worker 或 cache。冷 missing/unavailable 只丢受影响 part，保原 prepared IDs/隐藏组合语义；ready/preparedVideo 保留 Entry，实际帧资产尚未 ready 时只跳该 part，不能冒充 named 依赖失败或扩大 requiresCompleteNamedInputs。
 
-视频声明不等于首帧 ready。模型实际资产需求并入原视频独立消费者集合，避免与隐藏 effect 共用时暂停；同 launch 的 albedo 身份不变，冷准备只索引实际视频 albedo 的 layer/asset，逐帧不重扫静态模型 Entry；可见模型的 pending 沿原 InitialVideoPresentation 等首个真实 publication 和 GPU 提交，主 pass 同时保暂停重试，group 输入只阻启动资格，不造 decoder、就绪 owner 或视频扩展名名单。仍消费当前 candidate.content，保原颜色表示；本批不增加模型媒体选择/热换身份能力。
+视频声明不等于首帧 ready。模型实际资产需求并入原视频独立消费者集合，避免与隐藏 effect 共用时暂停；同 launch 的资产身份不变，冷准备只索引实际视频 albedo 的 layer/asset，逐帧不重扫静态模型 Entry；可见模型的 pending 沿原 InitialVideoPresentation 等首个真实 publication 和 GPU 提交，主 pass 同时保暂停重试，group 输入只阻启动资格，不造 decoder、就绪 owner 或视频扩展名名单。仍消费当前 candidate.content，保原颜色表示。
+
+<a id="model-user-albedo"></a>
+用户静态图片slot0设计：MaterialPlan在原首pass0只读取已解析`userTextureInputs[0].property`，准备`.straightAlbedo`身份并保原可选asset/named缺省；Entry保存同一可选身份。只有用户输入而无缺省时仍保Entry，用户absent则跳该part，不伪造white。原Service属性context按首pass0、模型绑定状态和去重材料路径投影可调键，直接消费原typed TextureInput的property键，与MaterialPlan保持同一已解析输入，不重建GPU/完整材料计划。原Host/Session将模型需求并入同一次用户文件加载，复用purpose-qualified publication与既有资源/值事务。Frame对该身份只有`.absent`才用缺省；`.ready`直接采用当前texture/UV/sampling/content，pending/unavailable/incomplete或未发布只跳该part，不把已选坏图冒充空值。用户输入存在时，缺省资产未准备不应提前删除Entry；空值仍由原缺省就绪状态决定是否绘制。named缺省保冷依赖binding，但本帧只有实际选择缺省的模型才激活对应provider；用户ready或缺供时不提前执行未选缺省，混合part及非模型共享消费者仍按原需求激活。原反射准备与视频pending呈现资格均按本帧所选输入判断，退出冷缺省分类对用户ready的误拒绝。颜色、camera depth与caster复用同一冻结draw，无第二provider、缓存、纹理时钟、逐帧descriptor扫描或文件读取。旧‘模型只消费asset/named’在此退出；坏热换保上次资源/值，reset回原缺省，继续归原Session修订/取消/退出合同。当前用户视频只提供PMA，不能反推A0隐藏RGB；本slice仅接已支持straight用途的静态图片，不扩大视频/其它slot或userShortcut语义。
+
+验收须取得真实作者选文件的旧App像素红例与同Session红→绿→坏文件保旧→reset，配原Loader隐藏RGB A0/normal模型实际像素、属性/材料/资源改名、无引用peer及缺省坏但用户ready反例；独立未改作者保健康。准入/回调不替代model draw与同capture main/seal/GPU完成；不以自然旋转帧的全PNG相等或本slice宣称完整媒体/官方一致性。
 
 验收复用真实 Catalog/MDL/Frame 门：静态与单帧原输出不变，两帧纹理按原 sceneTime 对照独立裁剪图，颜色、移动透明孔与对应阴影同帧一致；包含改名、缺供局部失败、首 pass rejected/重复材料、取消/早失败/空交接和健康 peer。原 App 保旧像素红例及新两时间裁剪图等值，另用未参与修复的星球作者原包检查实际播放/合成；模型视频只按实际运行覆盖声明，不以静态 TEX 测试授视频解码或官方一致性。达到同链供货与实际像素验收后，队列退出该缺口；其它贴图动画、跨 image 与一般 atlas 线性边缘仍分别资格。
 

@@ -108,6 +108,8 @@ def policy_fixtures():
     entries['models/peer.mdl'] = quad(0, 160, 0, 144, -10, 'materials/peer.json')
     peer = json.loads(entries['materials/peer.json'])
     peer['passes'][0]['constantshadervalues'] = {'alpha': 0}
+    peer['passes'][0]['blending'] = 'normal'
+    peer['passes'][0]['combos']['LIGHTING'] = 1
     entries['materials/peer.json'] = json.dumps(peer).encode()
     variants['parts65-shadow'] = entries, expected
     for name in ['long-dots', 'long-pkg', 'long-dots-pkg-bad']:
@@ -123,6 +125,26 @@ def policy_fixtures():
         expected[0]['material'] = canonical
         variants[name] = entries, expected
     return variants
+
+
+def user_albedo_fixture(renamed=False, only=False):
+    entries, expected = native_fixture(8)
+    stem = 'picked-label-Ω' if renamed else 'user-label'
+    for i in range(8):
+        path = f'materials/part{i:03}.json'
+        value = json.loads(entries[path])
+        value['passes'][0]['usertextures'] = [f'{stem}{i}']
+        if i == 7:
+            value['passes'][0]['textures'] = ['materials/missing-fallback.png']
+        if i == 0 and only:
+            value['passes'][0]['textures'] = []
+        entries[path] = json.dumps(value).encode()
+    for suffix, rgba in [('red', [240,24,24,255]), ('green', [24,220,40,255]),
+                         ('hidden', [224,64,192,0])]:
+        entries[f'materials/{stem}-{suffix}.rgba'] = bytes(rgba)
+        entries[f'materials/{stem}-{suffix}.png'] = png(rgba)
+    entries['user-input.json'] = json.dumps({'stem': stem, 'only': only}).encode()
+    return entries, expected
 
 
 def actual_builder_rows(root, names):
@@ -203,11 +225,12 @@ def blending_fixture():
         else:
             material['passes'][0]['blending'] = blending
         entries[path] = json.dumps(material).encode()
-    # A zero-coverage caster keeps the same projection extent for cast=false.
-    # It cannot hide the five real parts in either their color or depth maps.
+    # A visible lit normal0 receiver is retained without becoming a caster.
     entries['models/peer.mdl'] = quad(0, 160, 0, 128, -10, 'materials/peer.json')
     peer = json.loads(entries['materials/peer.json'])
     peer['passes'][0]['constantshadervalues'] = {'alpha': 0}
+    peer['passes'][0]['blending'] = 'normal'
+    peer['passes'][0]['combos']['LIGHTING'] = 1
     entries['materials/peer.json'] = json.dumps(peer).encode()
     return entries, expected
 
@@ -569,6 +592,9 @@ class SceneModelPartsNativeTests(unittest.TestCase):
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
             'blends':blending_fixture(),
+            **{name: user_albedo_fixture(renamed, only) for name, renamed, only in [
+                ('user-mixed', False, False), ('user-renamed', True, False),
+                ('user-only', False, True), ('user-only-renamed', True, True)]},
             **{'attachment-'+mode:animation_attachment_fixture(mode) for mode in
                ['absent','nonempty','empty','bad-count','bad-name','bad-bone','bad-matrix']},
             'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True), **policy_fixtures()})
@@ -707,7 +733,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertEqual(len(on['shadowDepths']), 1)
         self.assertEqual(len(on['shadowDepths'][0]), 65)
         self.assertTrue(all(value < 1 for value in on['shadowDepths'][0]), on['shadowDepths'])
-        self.assertEqual(off['shadowDepths'], [[1]*65])
+        self.assertEqual(off['shadowDepths'], [])
 
     def test_prepared_mixed_blending_and_layer_cast_intent_reach_three_shadow_maps(self):
         enabled, disabled = self.rows['blends'], self.rows['blends-false']
@@ -723,7 +749,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         for depths in enabled['shadowDepths']:
             self.assertTrue(all(value < 1 for value in depths), depths)
         self.assertEqual(len(enabled['shadowDepths']), 3)
-        self.assertEqual(disabled['shadowDepths'], [[1] * 5] * 3)
+        self.assertEqual(disabled['shadowDepths'], [])
 
     def test_later_native_quota_failure_preserves_prefix_peer_and_new_load_recovers(self):
         row=self.rows['quota'];full=self.rows['recovery']
@@ -789,6 +815,31 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertEqual(row['peerFrames'][0], [255,255,255,255])
         self.assertEqual(row['frames'][0], row['frames'][1])
         self.assertEqual(row['budgetBefore'], row['budgetAfter'])
+
+
+    def test_user_albedo_publications_select_actual_model_draws_and_pixels(self):
+        for name in ['user-mixed', 'user-renamed', 'user-only', 'user-only-renamed']:
+            row = self.rows[name]
+            stem = 'picked-label-Ω' if 'renamed' in name else 'user-label'
+            for phase in range(2):
+                active = [1, 6] + ([0] if phase == 0 or 'only' not in name else []) + ([7] if phase == 0 else [])
+                expected = [[0,0,0,255] for _ in range(8)]
+                expected[1], expected[6] = [96,32,32,255], [224,64,192,255]
+                if 0 in active:
+                    expected[0] = [24,220,40,255] if phase == 0 else [240,24,24,255]
+                if 7 in active:
+                    expected[7] = [24,220,40,255]
+                self.assertEqual(row['userDrawPaths'][phase], [f'materials/part{i:03}.json' for i in sorted(active)])
+                sources = {i: ('part001.png' if i == 1 else f'{stem}-hidden.png' if i == 6
+                              else f'{stem}-red.png' if phase == 1 else f'{stem}-green.png') for i in active}
+                self.assertEqual(row['userBoundSources'][phase], [sources[i] for i in sorted(active)])
+                self.assertEqual(row['userPremultiplied'][phase], [False] * len(active))
+                for actual, wanted in zip(row['frames'][phase][:8], expected):
+                    for a, b in zip(actual, wanted): self.assertLessEqual(abs(a-b), 1)
+                self.assertEqual(row['peerFrames'][phase], [255,255,255,255])
+            self.assertEqual(row['parts'], [f'materials/part{i:03}.json' for i in range(8)])
+            self.assertTrue(row['userDemandsExact'])
+            self.assertTrue(row['completed'])
 
 
 def app_fixture(count, cast=True):

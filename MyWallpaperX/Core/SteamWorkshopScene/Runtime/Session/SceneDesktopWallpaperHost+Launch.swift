@@ -745,6 +745,7 @@ extension SceneDesktopWallpaperHost {
         let preparedDeviceResources = try deviceResourcesPreparation.value()
         let userTextureDemands = resolvedMaterialCatalog.userPropertyDemands
             .union(baseMaterialProviderBindings.userPropertyDemands)
+            .union(preparedDeviceResources.staticModels.userPropertyDemands)
             .union(runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
                 SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
             })

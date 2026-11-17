@@ -115,10 +115,11 @@ struct PreparedTexture {
  }
 }
 struct ScenePreparedStaticModelResources {
- enum AlbedoSource { case asset(SceneAssetTextureIdentity), named(String) }
+ enum AlbedoSource: Equatable { case asset(SceneAssetTextureIdentity), named(String) }
  struct Entry {
   let materialPath:String;let dynamicMaterialPath:String;let mesh:SceneStaticModelMesh
-  let albedoSource:AlbedoSource
+  let albedoSource:AlbedoSource?
+  var userAlbedoProperty:SceneUserPropertyTextureIdentity? = nil
   let fixtureAlbedo:PreparedTexture?
   var materialMap:SceneStaticModelMaterialMap? = nil
   var normalMap:SceneStaticModelNormalMap? = nil
@@ -161,12 +162,18 @@ final class BindingObserver {
  func recordStaticModelBindingFailure(for id:Int) { encoded[id] = false }
  func recordStaticModelBindingIfRequired(for id:Int, encoded value:Bool, on cb:MTLCommandBuffer) { encoded[id] = value }
 }
-enum FixtureAssetRequest {case asset(SceneAssetTextureIdentity)}
+enum FixtureAssetRequest {case asset(SceneAssetTextureIdentity), materialUserProperty(SceneUserPropertyTextureIdentity)}
 struct FixtureAssetPublication {let candidate:SceneTextureCandidate}
 struct FixtureAssetResource {let publication:FixtureAssetPublication}
+enum FixturePropertyLookup {case ready(FixtureAssetResource), absent, pending, unavailable, incomplete}
 final class TextureRegistry {
  let frameEpoch:UInt64 = 1
  var candidates:[SceneAssetTextureIdentity:SceneTextureCandidate]=[:]
+ var properties:[SceneUserPropertyTextureIdentity:FixturePropertyLookup]=[:]
+ func lookup(_ request:FixtureAssetRequest)->FixturePropertyLookup? {
+  guard case let .materialUserProperty(identity)=request else {return nil}
+  return properties[identity]
+ }
  func setCandidate(_ candidate:SceneTextureCandidate,for identity:SceneAssetTextureIdentity) {
   candidates[identity]=candidate
  }

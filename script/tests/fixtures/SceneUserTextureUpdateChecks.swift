@@ -227,7 +227,10 @@ struct DemandCatalog { let userPropertyDemands: Set<SceneUserPropertyTextureIden
 struct RenderDescriptor { let texturePropertyKeys: [String] }
 struct RuntimeInput { let renderDescriptor: RenderDescriptor }
 struct BaseImages { let textureLoader = SceneTextureLoader() }
-struct DeviceResources { var device = MTLDevice(); let baseImages = BaseImages() }
+struct DeviceResources {
+    var device = MTLDevice(); let baseImages = BaseImages()
+    var staticModels = DemandCatalog(userPropertyDemands: [])
+}
 final class ScriptDomain {
     var configuredVideoSources: [[String: Int]] = []
     func configurePreparedVideoSources(_ references: [String: Int]) throws {
@@ -285,6 +288,8 @@ final class SceneDesktopWallpaperSession {
             effectiveValues: ["photo": .string(""), "other": .string("")], activeConsumerTargets: []),
             resolvedMaterialCatalog: .init(userPropertyDemands: identities),
             baseMaterialProviderBindings: .init(userPropertyDemands: [.init(propertyKey: "photo", purpose: .premultipliedColor)!]))
+        launchContext!.preparedDeviceResources.staticModels = .init(userPropertyDemands: [
+            .init(propertyKey: "photo", purpose: .straightAlbedo)!])
     }
 }
 
@@ -314,8 +319,9 @@ final class SceneDesktopWallpaperSession {
         let firstRevision = session.launchContext!.liveState.revision
         results["pureTextureAccepted"] = events["first"] == .applied && firstRevision == 1
         results["pausedUpdateRequestsStaticFrame"] = session.staticFrameRequests == 1 && session.sceneClock.isPaused
-        results["allPurposesPublished"] = session.userPropertyTextureLoad.providerStates.count == 4
+        results["allPurposesPublished"] = session.userPropertyTextureLoad.providerStates.count == 5
             && session.userPropertyTextureLoad.providerStates.keys.contains(.init(propertyKey: "photo", purpose: .normal)!)
+            && session.userPropertyTextureLoad.providerStates.keys.contains(.init(propertyKey: "photo", purpose: .straightAlbedo)!)
         let photoDemands = session.launchContext!.resolvedMaterialCatalog.userPropertyDemands
         results["requiredLaunchAcceptsCompleteSelection"] = session.userPropertyTextureLoad.satisfiesRequiredProperties(
             ["photo"], selectedKeys: ["photo"], demands: photoDemands)
@@ -338,7 +344,7 @@ final class SceneDesktopWallpaperSession {
         results["independentKeySurvives"] = events["b"] == .applied && texture("other")?.name == "b.png:premultipliedColor"
         results["resetRemovesBareAndEveryPurpose"] = texture("photo") == nil
             && session.userPropertyTextureLoad.textureCandidates["photo"] == nil
-            && session.userPropertyTextureLoad.providerStates.filter { $0.key.propertyKey == "photo" }.count == 4
+            && session.userPropertyTextureLoad.providerStates.filter { $0.key.propertyKey == "photo" }.count == 5
             && session.userPropertyTextureLoad.providerStates.filter { $0.key.propertyKey == "photo" }.values.allSatisfy {
                 if case .absent = $0 { return true }; return false
             } && session.launchContext!.liveState.effectiveValues["photo"] == .string("")
@@ -380,7 +386,7 @@ final class SceneDesktopWallpaperSession {
             && imagePending.map { (try? $0.cancellation.check()) != nil } == true
             && session.pendingUserTextureUpdates.isEmpty
             && session.retiringSurfaceDrain.wait(timeout: .now()) == .success
-            && greenPublications.count == 4 && greenPublications.allSatisfy { identity, publication in
+            && greenPublications.count == 5 && greenPublications.allSatisfy { identity, publication in
                 publication.contentGeneration == imageGeneration
                     && publication.requestIdentity == .materialUserProperty(identity)
                     && publication.texture.name == "green.png:" + identity.purpose.rawValue
@@ -391,7 +397,7 @@ final class SceneDesktopWallpaperSession {
             && session.surfaces.isEmpty && green != nil && texture("photo") === green
             && session.launchContext!.liveState.revision == committedImageRevision
             && session.launchContext!.liveState.effectiveValues["photo"] == .string("/fixture/green.png")
-            && greenPublications.count == 4 && greenPublications.allSatisfy { identity, publication in
+            && greenPublications.count == 5 && greenPublications.allSatisfy { identity, publication in
                 let current = session.userPropertyTextureLoad.publications[identity]
                 return current?.texture === publication.texture
                     && current?.contentGeneration == publication.contentGeneration
@@ -681,7 +687,7 @@ final class SceneDesktopWallpaperSession {
             && !prepared.satisfiesRequiredProperties(["other"], selectedKeys: ["other"], demands: [identity])
             && prepared.textures["other"] == nil && prepared.publications[identity] == nil
         results["videoPreservesOtherKeyEveryPurpose"] = session.userPropertyTextureLoad.textures["photo"] === peer
-            && session.userPropertyTextureLoad.providerStates.filter { $0.key.propertyKey == "photo" }.count == 4
+            && session.userPropertyTextureLoad.providerStates.filter { $0.key.propertyKey == "photo" }.count == 5
         let issued = registry.issuedSources.count
         select("purpose", "photo", "not-a-data-map.mov", 2); wait("purpose")
         results["videoNonColorDemandRejectsWholeKeyBeforeFactory"] =

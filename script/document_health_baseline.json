@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48191
+      "bytes": 48289
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 463,
-      "bytes": 107200
+      "lines": 468,
+      "bytes": 109402
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 204,
-      "bytes": 63220
+      "lines": 205,
+      "bytes": 64010
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 513,
-      "bytes": 147257
+      "lines": 530,
+      "bytes": 152107
     }
   },
   "archives": [
@@ -496,24 +496,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "951e123c4cba12904385d4e9e815126e1b64feecd70a4ca7d2234d2cfa197598",
-      "after": "9659e9ddef345be96b091bb9cae2ae167cb00f34ec22eda5875523e4c6425220",
-      "owner": "Scene model shadow demand and coverage evidence",
-      "reason": "Preserve measured one-output shadow-demand simplification, exact original picture and bounded costs; record rejected default2x and its real resource/cost stop; remove superseded in-progress implementation claims. No copied runtime owner or new product quality state.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-demand"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "196a64e7890c14f73decf5cf3b85a05dad9c581d8c80018de4beed031ced3a9b",
-      "after": "069b60713b6fa80537316fa3959fe17dc691c655fe58d9cd063b31e664aaff60",
-      "owner": "Scene per-part zero coverage",
-      "reason": "Define and qualify resolved non-normal zero-opacity pruning before pose/albedo, preserve normal-zero receiver and pending named semantics, and record the separate ordered named failure domain without locking it as a golden. Replace current facts on the existing authority.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-zero-coverage-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "f9bb7795fc9849f705576c404216c32489804c23373fa13203902d0d7ad4d2fb",
       "after": "b3acce96026612220dfbcb21ab7fa7eb4b0a758d091a3465b98cbba8247085ed",
@@ -523,30 +505,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "e1ff5706831ce67fb97ab220703390bbf3e7ffb3607217fc27c39fd560d539bd",
-      "after": "6ec1a17d2351e3469f4d28121b96ba6ff4f7c8fa3ab484c8eb354cc7db5eca21",
-      "owner": "Existing Scene resource, evidence and developer-tool owners",
-      "reason": "Consolidate current resource evidence: single typed residency admission with actual 63-second-per-side cost, retained history/cancel behavior, rejected N2 healthy-author counterexample and existing background capture. Retire superseded details and duplicate gate debt; no new runtime/cache owner.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#frame-resource-preflight"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "963e06d6116d67e6484f4f84138b31aaa65d422c893e044687409a6b768cd3fa",
-      "after": "ee16403726718dd5399cfbb7f321b0e3a7cca1944b0e7ec8c2619f58776ae38d",
-      "owner": "Existing Scene resource, evidence and developer-tool owners",
-      "reason": "Consolidate current resource evidence: single typed residency admission with actual 63-second-per-side cost, retained history/cancel behavior, rejected N2 healthy-author counterexample and existing background capture. Retire superseded details and duplicate gate debt; no new runtime/cache owner.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-raster-coverage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "da9a4f24a0b63d4188408f4d1226567b33dc6720638ee76162d7dfa3f3eb630f",
       "after": "86333b2e3ab1985371189bbf3cbab8433a70e2d2639130de8d06ab37f4ab6d70",
       "owner": "Existing Scene resource, evidence and developer-tool owners",
       "reason": "Consolidate current resource evidence: single typed residency admission with actual 63-second-per-side cost, retained history/cancel behavior, rejected N2 healthy-author counterexample and existing background capture. Retire superseded details and duplicate gate debt; no new runtime/cache owner.",
       "decision": "docs/scene/development/development-workflow.md#metal-probe-reuse"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "9659e9ddef345be96b091bb9cae2ae167cb00f34ec22eda5875523e4c6425220",
+      "after": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
+      "owner": "Existing Scene model, property and resource owners",
+      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "069b60713b6fa80537316fa3959fe17dc691c655fe58d9cd063b31e664aaff60",
+      "after": "afcfd8f6583560c8c416ab80a10143691c18b3ce345f40e6296a8c48e21619f4",
+      "owner": "Existing Scene model, property and resource owners",
+      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/model-runtime-evidence.md",
+      "before": "6ec1a17d2351e3469f4d28121b96ba6ff4f7c8fa3ab484c8eb354cc7db5eca21",
+      "after": "d2785893b2505663f7183663cb6df8af645b75a44038aa69cb90873ae4185e72",
+      "owner": "Existing Scene model, property and resource owners",
+      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "ee16403726718dd5399cfbb7f321b0e3a7cca1944b0e7ec8c2619f58776ae38d",
+      "after": "86d7973f8f4d0c8010cf2227a6633d8c9f38377205fd8308c3a14dfcaa3c5726",
+      "owner": "Existing Scene model, property and resource owners",
+      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
     }
   ]
 }

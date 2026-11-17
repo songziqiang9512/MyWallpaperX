@@ -114,7 +114,8 @@ extension SceneDependencyRenderPlan {
             let providerID = reference.providerLayerID
             guard pass.texturePaths == pass.textureSlots.compactMap({ $0 }),
                   (!pass.userTextureInputs.indices.contains(0)
-                      || pass.userTextureInputs[0] == nil),
+                      || pass.userTextureInputs[0] == nil
+                      || pass.userTextureInputs[0]?.kind == .property),
                   consumer.contentKind == "model",
                   consumer.dependencyLayerIDs == [providerID] else {
                 issues.append(.init(

@@ -323,21 +323,30 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                  initial_snapshot: str = "scene-ready-window.png",
                  material_input_path: str = "materials/receiver.json",
                  name: str | None = None, entries: dict[str, bytes] | None = None,
-                 rois: dict | None = None) -> dict:
+                 rois: dict | None = None, project: dict | None = None,
+                 user_texture_files: dict[str, bytes] | None = None) -> dict:
         name = name or f"Ref{reflection}-capture-{'on' if capture else 'off'}"
         work = self.evidence_root / name
         content, home = work / "content", work / "home"
         content.mkdir(parents=True); home.mkdir()
         if entries is None:
             entries = fixture_entries(reflection)
-        (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+        (content / "project.json").write_text(json.dumps(
+            project if project is not None else {"type": "scene", "file": "scene.json"}))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
+        texture_urls = {}
+        for index, (key, payload) in enumerate((user_texture_files or {}).items()):
+            selected = content / f"selected-user-{index}.png"
+            selected.write_bytes(payload)
+            texture_urls[key] = selected.name
         (work / "scene-input.json").write_bytes(entries["scene.json"])
         (work / "material-input.json").write_bytes(entries[material_input_path])
         command = [str(self.app), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-duration", "6"]
         if capture:
             command += ["--mwx-debug-scene-evidence-dir", str(work / "evidence")]
+        if texture_urls:
+            command += ["--mwx-debug-scene-textures-json", json.dumps(texture_urls)]
         command += list(extra_arguments)
         environment = {key: value for key, value in os.environ.items()
                        if not key.startswith("MWX_SCENE_DEBUG_")}
@@ -348,6 +357,10 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     "sourcesBefore": {path: sha256(Path(path)) for path in self.source_identity},
                     "inputEntries": {path: hashlib.sha256(data).hexdigest() for path, data in entries.items()},
                     "package": sha256(content / "scene.pkg"), "project": sha256(content / "project.json")}
+        if texture_urls:
+            identity["externalUserTextureFiles"] = {
+                key: {"file": path, "sha256": sha256(content / path)}
+                for key, path in texture_urls.items()}
         (work / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
         with (work / "app.log").open("w") as output:
             process = subprocess.run(command, cwd=REPO, env=environment, stdout=output,
@@ -611,6 +624,67 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                 else:
                     self.assertFalse(result["completedSourceSubmissions"], result)
                     self.assert_pixel(settled["grazing"], [0, 0, 0])
+
+    def test_user_albedo_keeps_reflection_when_named_fallback_is_not_selected(self):
+        source_root = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
+        for relative in (
+            "Resources/Textures/ScenePreparedStaticModelResources.swift",
+            "Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+            "Runtime/Session/SceneDesktopWallpaperSession+UserTextures.swift",
+            "Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+            "Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
+            "Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
+            "Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift",
+        ):
+            path = source_root / relative
+            self.source_identity[str(path)] = sha256(path)
+        project = {"type": "scene", "file": "scene.json", "general": {"properties": {
+            "pickedAlbedo": {"type": "scenetexture", "value": ""}}}}
+        arguments = ("--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "2:0.8",
+                     "--mwx-debug-scene-after-snapshot-delay", "4")
+        cold, warm = "scene-resize-00-window.png", "scene-after-window.png"
+        reference = None
+        for fallback in ("asset", "named"):
+            with self.subTest(fallback=fallback):
+                entries = model_reflection_entries(1)
+                material = json.loads(entries["materials/receiver.json"])
+                material["passes"][0]["usertextures"] = ["pickedAlbedo"]
+                if fallback == "named":
+                    material["passes"][0]["textures"][0] = "_rt_imageLayerComposite_71_a"
+                    scene = json.loads(entries["scene.json"])
+                    for layer in scene["objects"]:
+                        if layer.get("model", "").startswith("models/receiver-"):
+                            layer["dependencies"] = [71]
+                    scene["objects"].append({"id": 71, "image": "models/util/solidlayer.json",
+                        "origin": "0 0 0", "size": "4 4", "color": "0 0 0", "visible": False})
+                    entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+                entries["materials/receiver.json"] = json.dumps(material, sort_keys=True).encode()
+                name = f"model-user-reflection-{fallback}"
+                result = self.run_case(1, capture=True, name=name, entries=entries,
+                    rois=MODEL_ROIS, extra_arguments=arguments, initial_snapshot=cold,
+                    project=project, user_texture_files={"pickedAlbedo": rgba_png((0, 0, 0))})
+                preview = (self.evidence_root / name / "evidence/scene-preview.log").read_text()
+                self.assertIn("sceneUserTextureStraightAlbedoLoadedCount: 1", preview)
+                log = (self.evidence_root / name / "app.log").read_text()
+                if fallback == "named":
+                    self.assertNotRegex(log, r"phase=named-target-capture layer=71 .*status=succeeded")
+                first, settled = result["pixels"][cold], result["pixels"][warm]
+                self.assertEqual(first["size"], settled["size"])
+                self.assertNotEqual(first["size"], result["pixels"]["scene-ready-window.png"]["size"])
+                self.assert_pixel(first["grazing"], [0, 0, 0])
+                for row in (first, settled):
+                    for roi, rgb in {"front": [0, 0, 0], "unoccludedBlue": [0, 0, 255],
+                        "historyRed": [255, 0, 0], "opaquePeer": [0, 255, 0],
+                        "exterior": [0, 0, 0]}.items():
+                        self.assert_pixel(row[roi], rgb)
+                self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
+                red, green, blue = settled["grazing"]["mean"]
+                self.assertGreater(red, 25, settled["grazing"])
+                self.assertLessEqual(max(green, blue), PIXEL_TOLERANCE, settled["grazing"])
+                if reference is not None:
+                    for actual, expected in zip(settled["grazing"]["mean"], reference, strict=True):
+                        self.assertAlmostEqual(actual, expected, delta=PIXEL_TOLERANCE)
+                reference = settled["grazing"]["mean"]
 
     def test_capture_off_product_drawable_remains_legal(self):
         # SceneDebugFrameCapture.configure forces framebufferOnly=false only

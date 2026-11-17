@@ -165,6 +165,12 @@ extension SceneMetalRenderer {
         }
     }
 
+    func staticModelUsesAlbedoFallback(_ entry: ScenePreparedStaticModelResources.Entry) -> Bool {
+        guard let property = entry.userAlbedoProperty else { return true }
+        if case .absent? = textureRegistry.lookup(.materialUserProperty(property)) { return true }
+        return false
+    }
+
     func staticModelDraws(layer: SceneRenderDescriptor.Layer,
                          worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
                          state: StaticModelFrame? = nil,
@@ -197,23 +203,38 @@ extension SceneMetalRenderer {
             let frame: SceneTextureUVTransform
             let sampling: SceneTextureSampling
             let premultiplied: Bool
-            switch entry.albedoSource {
-            case let .asset(identity):
-                guard let albedo = textureRegistry.resource(for: .asset(identity)) else { return nil }
-                let candidate = albedo.publication.candidate
+            let userAlbedo: SceneTextureCandidate?
+            if let property = entry.userAlbedoProperty {
+                switch textureRegistry.lookup(.materialUserProperty(property)) {
+                case let .ready(resource): userAlbedo = resource.publication.candidate
+                case .absent?: userAlbedo = nil
+                default: return nil
+                }
+            } else { userAlbedo = nil }
+            if let candidate = userAlbedo {
                 texture = candidate.texture; frame = candidate.uvTransform
                 sampling = candidate.sampling
                 premultiplied = candidate.content == .color(.resolved(.premultipliedAlpha))
-            case let .named(reference):
-                guard let albedo = dependencyRuntime.staticModelNamedAlbedo(
-                    for: layer.id, materialPath: entry.materialPath,
-                    expectedReference: reference, textureRegistry: textureRegistry) else {
-                    hasMissingInput = true
-                    dependencyRuntime.recordStaticModelBindingFailure(for: layer.id)
-                    return nil
+            } else {
+                switch entry.albedoSource {
+                case let .asset(identity):
+                    guard let albedo = textureRegistry.resource(for: .asset(identity)) else { return nil }
+                    let candidate = albedo.publication.candidate
+                    texture = candidate.texture; frame = candidate.uvTransform
+                    sampling = candidate.sampling
+                    premultiplied = candidate.content == .color(.resolved(.premultipliedAlpha))
+                case let .named(reference):
+                    guard let albedo = dependencyRuntime.staticModelNamedAlbedo(
+                        for: layer.id, materialPath: entry.materialPath,
+                        expectedReference: reference, textureRegistry: textureRegistry) else {
+                        hasMissingInput = true
+                        dependencyRuntime.recordStaticModelBindingFailure(for: layer.id)
+                        return nil
+                    }
+                    texture = albedo.texture; frame = albedo.textureFrame
+                    sampling = albedo.sampling; premultiplied = albedo.isPremultiplied
+                case nil: return nil
                 }
-                texture = albedo.texture; frame = albedo.textureFrame
-                sampling = albedo.sampling; premultiplied = albedo.isPremultiplied
             }
             return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,

@@ -51,7 +51,7 @@ struct SceneAuthoredEffectRenderPlan {
 #endif
 
 struct SceneEffectTextureInput {
-    enum Kind: Equatable { case path, system, property, unknown }
+    enum Kind: Equatable { case path, system, property, userShortcut, unknown }
     let kind: Kind
     let value: String
 }

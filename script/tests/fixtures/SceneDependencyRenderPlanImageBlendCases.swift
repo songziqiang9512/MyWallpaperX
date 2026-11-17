@@ -82,24 +82,27 @@ extension Harness {
         )
         let modelMaterialPath = "materials/unseen/shared.json"
         let modelNamedPath = "_rt_imageLayerComposite_611_a"
-        let modelDependencyPlan = SceneDependencyRenderPlan(
-            descriptor: .init(
-                layers: [modelConsumer, modelProvider],
-                renderOrderLayerIDs: [610, 611],
-                modelMaterialLinks: [.init(
-                    modelPath: "models/unseen/shared.mdl",
-                    materialPath: modelMaterialPath
-                )],
-                materialPasses: [.init(
-                    materialPath: modelMaterialPath,
-                    passIndex: 0,
-                    texturePaths: [modelNamedPath],
-                    textureSlots: [modelNamedPath],
-                    userTextureInputs: []
-                )]
-            ),
-            visibleLayerIDs: []
-        )
+        func modelPlan(userInput: SceneEffectTextureInput? = nil) -> SceneDependencyRenderPlan {
+            SceneDependencyRenderPlan(
+                descriptor: .init(
+                    layers: [modelConsumer, modelProvider],
+                    renderOrderLayerIDs: [610, 611],
+                    modelMaterialLinks: [.init(
+                        modelPath: "models/unseen/shared.mdl",
+                        materialPath: modelMaterialPath
+                    )],
+                    materialPasses: [.init(
+                        materialPath: modelMaterialPath,
+                        passIndex: 0,
+                        texturePaths: [modelNamedPath],
+                        textureSlots: [modelNamedPath],
+                        userTextureInputs: [userInput]
+                    )]
+                ),
+                visibleLayerIDs: []
+            )
+        }
+        let modelDependencyPlan = modelPlan()
         let activeModelForwardProviders = modelDependencyPlan.sourcePreparationPlan(
             authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
             visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [610],
@@ -108,6 +111,30 @@ extension Harness {
             authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
             visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [],
             sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs
+        var modelUserInputs: [String: Any] = [:]
+        let inputs: [(String, SceneEffectTextureInput)] = [
+            ("property", .init(kind: .property, value: "chosen")),
+            ("renamedProperty", .init(kind: .property, value: "alternateChosen")),
+            ("shortcut", .init(kind: .userShortcut, value: "chosen")),
+            ("system", .init(kind: .system, value: "$mediaThumbnail")),
+            ("unknown", .init(kind: .unknown, value: "chosen")),
+            ("path", .init(kind: .path, value: "fixtures/user.png")),
+        ]
+        for (name, input) in inputs {
+            let plan = modelPlan(userInput: input)
+            modelUserInputs[name] = [
+                "binding": plan.staticModelBindingsByConsumerLayerID[610] != nil,
+                "required": plan.requiredProviderLayerIDs.contains(611),
+                "activeOrder": plan.sourcePreparationPlan(
+                    authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
+                    visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [610],
+                    sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
+                "inactiveOrder": plan.sourcePreparationPlan(
+                    authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
+                    visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [],
+                    sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
+            ]
+        }
         let modelEffectConsumer = consumer(612, provider: 611)
         let mixedModelProvider = SceneRenderDescriptor.Layer(
             id: 611,
@@ -143,6 +170,7 @@ extension Harness {
             )
         )
         return [
+            "staticModelUserInputs": modelUserInputs,
             "staticModelNamedProvider": [
                 "binding": modelDependencyPlan
                     .staticModelBindingsByConsumerLayerID[610] != nil,

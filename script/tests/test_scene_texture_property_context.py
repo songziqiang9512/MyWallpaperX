@@ -22,17 +22,6 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-texture-context-")
         cls.work = Path(cls.temp.name)
         builder_leaves = builder.HARNESS_SOURCE.split("@main", 1)[0]
-        modulation = (SCENE_ROOT / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift").read_text()
-        # Keep the provider's actual proof DTO as its declaration evolves;
-        # this fixture still supplies no shader proof or renderer resource.
-        modulation_stub = method_body(builder_leaves, "enum SceneBaseMaterialColorModulationCompiler {")
-        builder_leaves = builder_leaves.replace(
-            modulation_stub,
-            modulation_stub.replace(
-                method_body(modulation_stub, "struct Binding {"),
-                method_body(modulation, "struct Binding: Sendable {"),
-            ),
-        )
         # This gate compiles the real provider compiler below. The shared
         # builder's no-material-proof leaf must not shadow the same owner.
         builder_leaves = builder_leaves.replace(method_body(
@@ -73,7 +62,9 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temp.cleanup()
 
-    def probe(self, objects: list[dict], *, material_usertextures=None, definitions=None) -> dict:
+    def probe(self, objects: list[dict], *, material_usertextures=None, definitions=None,
+              model_passes=None, model_path="models/direct.mdl",
+              model_material="materials/direct.json") -> dict:
         root = Path(tempfile.mkdtemp(dir=self.work, prefix="input-"))
         properties = {
             key: {"type": "scenetexture", "value": "", "order": index}
@@ -101,6 +92,12 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
             "effects/custom/effect.json": {"passes": [{"material": "materials/effect.json"}]},
             "materials/effect.json": {"passes": [{"shader": "own_effect", "textures": [None, "materials/fallback.png"]}]},
         }
+        if model_passes is not None:
+            from script.tests.test_scene_directional_shadow_integration import quad
+            model = root / model_path
+            model.parent.mkdir(parents=True, exist_ok=True)
+            model.write_bytes(quad(0, 1, 0, 1, 0, model_material))
+            files[model_material] = {"passes": model_passes}
         for path, data in files.items():
             target = root / path
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +163,38 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         result = self.probe([self.image(1)])
         self.assertTrue(result["declared"])
         self.assertFalse(result["contextExists"])
+
+    def test_direct_model_user_only_and_renamed_material_are_actionable(self) -> None:
+        for key, model, material in [
+            ("modelCover", "models/direct.mdl", "materials/direct.json"),
+            ("alternateCover", "models/renamed.mdl", "materials/renamed.json"),
+        ]:
+            with self.subTest(property=key):
+                result = self.probe([{"id": 10, "model": model}],
+                    definitions=[key, "unusedCover"], model_path=model, model_material=material,
+                    model_passes=[{"shader": "genericimage2", "usertextures": [key]}])
+                self.assertEqual(result["actionable"], [key])
+                self.assertEqual(result["materialTextureInputs"], ["property:" + key])
+                self.assertNotIn("unusedCover", result["actionable"])
+
+    def test_model_controls_require_a_consumer_first_pass_and_texture_declaration(self) -> None:
+        direct = [{"id": 10, "model": "models/direct.mdl"}]
+        passes = [{"shader": "genericimage2", "usertextures": ["modelCover"]}]
+        unused = self.probe([], definitions=["modelCover"], model_passes=passes)
+        self.assertFalse(unused["contextExists"])
+        later_pass = self.probe(direct, definitions=["modelCover"], model_passes=[
+            {"shader": "genericimage2"}, *passes])
+        self.assertFalse(later_pass["contextExists"])
+        for input_value in ["boolCover", "undeclaredCover",
+                            {"type": "system", "name": "modelCover"},
+                            {"type": "usershortcut", "name": "modelCover"},
+                            {"type": "future", "name": "modelCover"}]:
+            with self.subTest(input=input_value):
+                result = self.probe(direct,
+                    definitions={"modelCover": "scenetexture", "boolCover": "bool"},
+                    model_passes=[{"shader": "genericimage2", "usertextures": [input_value]}])
+                self.assertEqual(result["actionable"], [])
+                self.assertFalse(result["contextExists"])
 
     def test_declared_underscore_keys_survive_document_catalog_and_source_facts(self) -> None:
         result = self.probe([

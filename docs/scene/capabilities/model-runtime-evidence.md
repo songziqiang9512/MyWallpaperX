@@ -9,6 +9,18 @@
 
 3557068717 原project/pkg、3024×1964、当地18:57:13，旧签名exe `4b8b07a5…5da9` 与新 `6720e5d0…48fc` 的F972均完成、零截断并排空，metallib相同。旧237无draw，新424先供420，420发布并绑定237，选中帧237进入主目标。1280×831终端图的北美、南美区域暖色像素0→1982、0→603。日面见[点光衰减](runtime-evidence-current.md#point-falloff)。原生夹具的原名/改名、运行中退役直接上游与旧独立供货均通过，独立3470948192 F972保93发布、115绑定和draw。Debug构建、最近计划与自有shader四方法通过；相邻43项中两条几何/父层候选断言在未修改HEAD同样失败。Windows参考为18:57:00且画幅不同，仅作视觉参照。定格遮挡基线保留。收据归`.artifacts/scene-world-model-first-20261109/evidence.zip`。
 
+## 模型用户图片的选择与热换 <a id="model-user-albedo"></a>
+
+按[现有owner设计](advanced-object-coverage.md#model-user-albedo)，首pass0将typed用户slot0与可选asset/named缺省交给原FrameRegistry；Host/Session复用straight用途加载，Service只投影真实模型与已声明纹理键。only absent回缺省，用户ready/缺供不激活未选named，也不受未选video pending阻呈现；反射按实际选择准备。旧asset/named-only消费者退出，无新provider/IPC/cache/PSO/ABI或MSL；新增最小属性身份与选择分支，不授零开销。用户视频现只有PMA，混用同key新增straight需求会拒绝视频并保旧，本批不授视频/其它slot。
+
+真实361原project/pkg、Can70/材料123+newproperty5：旧App370857/7166选8²红图已准备PMA但模型仍取2048²原图，固定body ROI色差0；首版3b30/505e已取8²straight红图，原受光/暗面/圆圈文字保持。最终普通Debug26.338s，8产品/project/锁共10输入前后同；签名/原helpers验证通过，exe1077d6fd…ecc7d3f、dylibe33529cf…c6f14a，metallib仍7c94461a…c2cbb7。最终真实Service→Client→daemon→Session同请求热选2/5秒红/绿、8秒坏文件、11秒reset：只有PID28886、request/firstPresent各1；结果applied/applied/failed/applied，坏文件提交值及纹理保green，reset回原123。五张原生图均Model70→同main/seal/snapshot/CB、GPUcompleted/trunc0；自然旋转使原图正背面不同，不要求全PNG/相位等值。空值缺省、红绿受光和坏图保旧已实际查看。
+
+最近原生门15模型像素方法、20真实Loader、3依赖、8真实Service context、2 Session方法（69事务反例）通过；包含A0隐藏RGB/normal、无缺省、缺省坏但用户ready、missing/pending/incomplete/unavailable局部失败、改属性/模型/材料/资源名、无引用peer、后pass与bool/未声明键反例。原Parts无lit receiver却解包必有map的旧假设已退；正例显式保lit非caster receiver和65/5真实深度，off现在断言无map。context重复抽已退Binding stub的旧步骤删除，复用维护中的真实声明；两首失败原样保留。用户Registry状态门不冒真实视频pending呈现像素。
+
+自有四组App/8原PNG中，坏named缺省+用户ready保红[90,0,0]且不capture11；absent取绿[0,90,0]；坏用户图只跳Model2，接收面/原影点均[81,81,81]；共享普通effect50仍取绿[0,200,0]且capture11。实际未退模型的主影点为[5,5,5]，每对ready/after原PNG同字节；8图均按各自request/CB/main/seal/GPU及排空核对，unavailable不冒正draw。两场反射App的单方法通过，用户ready的named缺省不再阻暖反射，保原深度/peer。共49最近方法实际通过，不包含开放的全局存量门。
+
+最终全A0 PNG的64像素均[224,64,192,0]，两捕获Can70实际取8²straight，normal/材质与层alpha1下完整显色、受光/暗面保持；不外推其它混合。独立347原包固定HDR.3等既有控制30s/after25，输入三摘要与上一批精确同，模型115/186/14在R2/F1103到同main/export/seal/snapshot CB，completed/trunc0并排空；1512×982实图保亮缘、尖端、暗心、背景线、钟日和公式，只授健康回归。源、原首失败、原生/App像素、五身份与独审归`.artifacts/scene-model-user-albedo-20261117/evidence.zip`，真实361-UUID冷场及347另按formal run独立保留，14天/单包32MiB/共享5GiB；不授用户视频、实际视频pending像素、官方全覆盖或性能增益。
+
 ## <a id="world-model-sample-triage"></a>星空样本定向复跑
 
 3455121165原包普通预览 `a7b5879d…2f04` F953已编码107/199→main，GPU完成/零截断；296淡入uniform近1不证明glyph/投影。原收据归`.artifacts/scene-evidence/runs/scene-world-followup-normal-20261109/`。3453730450旧 `359404fb…c9e3` F967平灰；2026-11-14现役签名Debug `e4cc1a67…daf57` 唯一20s/after17低观测场，3024×1964的F964/request1捕获与seal同CB/纹理，GPU完成/零截断并排空，1280×831 PNG见受光月球、轨道、星点、标题与时钟。未授parity；证据/独审归`.artifacts/scene-terminal-345-20261114/`。
@@ -291,6 +303,11 @@ CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增
 按[使用期合同](../architecture/scene-resource-admission.md#depth-submission-order)，原深度pool保三个slot与每CB独立预约，tracked同queue已enqueue前驱可共享；原scratch Entry沿既有pin许可复用。退出跨CB无条件复制和逐part不可变shape重验，保同CB/未enqueue/跨queue/untracked、取消/完成/reset、精确准备身份及history/SceneColor边界，无第二资源/预算owner。
 
 旧/新深度10例24CB、frame scratch8例17CB读回保持；同frozen33/3024×1964的四张16bit原PNG均SHAb10fa13f…10d8628。原短窗pool峰213842432→138378496B、CPU中位反增.424ms，不授CPU/能耗改善；实际原记录归`.artifacts/scene-frame-scratch-order-20261117`及同名formal run。新后台runner以原Surface/GPU/PNG链取native3024截图，ready/after仍逐字节同b10fa，foreground ASN前后同；不代验前台点按。
+
+<a id="model-shadow-area-boundary"></a>
+合成8texel footprint的14CB控制中，真实N3随四相位的均值为.583333/.583333/.416667/.416667，面积真值恒.5；改名/全影/真孔/关影控制保持。这只证明更远缩小时固定核的限制。固定world-grid、仅479caster的真实局部探针里，两个完整面内像素各交9个map cell且全部clear，变化receiver-plane/bias的面积积分均为1，N3仅高1 Float32 ULP；不支持这两点的面积缺口，也不是含合法477等caster的完整影图，原景闪烁仍未知。v1编译失败0GPU与v2原qualifiedRaw=false完整保留；CPU独立解释只纠正诊断的严格上界，不改产品、不伪造新GPU。故不续调N3/放bias或删caster。
+
+IFO296成熟说明的“ra)”由作者26字符、速度5/平滑4、间隔2的循环substring解释，substring(43,69)正好匹配；未读所选帧实际offset，不授精确相位或全部文字正确。两项及拓扑256面前缀探查归`.artifacts/scene-model-shadow-area-research-20261117/evidence.zip`（314019B，SHAd4d0b44b…f2dd08，162逻辑文件/130唯一payload逐SHA复验，14天/共享5GiB）。11个已停编译输出按fresh PS/lsof及inventory精确退役，逻辑140383446B；源、原始失败/读回与唯一几何保留，不冒物理释放。
 
 <a id="frame-resource-preflight"></a>
 同帧完整驻留预检集中到原FrameResourceBundle：退出FramePreflight重复resident快照、evaluate、allocationPlans及无producer的deferred结果；原Admission消费bundle的ready/busy/rejected，busy仍延期，拒绝保原原因。五产品净减11行，无新缓存/token/预约owner。Graph34、copy/history1、coordinator生命周期1共36个不同方法实际通过；新增busy→同请求完成后ready→取消无残pin三项全真，96B拒绝无pool/native增量，原像素/history与取消保持。退两条强绑旧调用位置的源码字符串断言，未放宽行为golden。

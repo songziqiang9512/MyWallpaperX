@@ -91,8 +91,13 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
-            .intersection(staticModelResources.namedAlbedoLayerIDs)
+        let activeStaticModelNamedAlbedoLayerIDs = Set(frameVisibleLayerIDs
+            .intersection(staticModelResources.namedAlbedoLayerIDs).filter { layerID in
+                staticModelResources[layerID]?.contains { entry in
+                    guard case .named = entry.albedoSource else { return false }
+                    return staticModelUsesAlbedoFallback(entry)
+                } == true
+            })
 #if DEBUG
         performanceTelemetry?.beginStage("prepass-encoder")
 #endif
@@ -344,7 +349,7 @@ extension SceneMetalRenderer {
         let hasReadyReflectiveModel = staticModelResources.reflectiveLayerIDs.contains { id in
             guard frameVisibleLayerIDs.contains(id),
                   frameProjection.utilityExecution.memberRootsByLayerID[id] == nil,
-                  !staticModelResources.namedAlbedoLayerIDs.contains(id),
+                  !activeStaticModelNamedAlbedoLayerIDs.contains(id),
                   let layer = frameLayersByID[id], cameraFrame.resolvesPerspective(for: layer)
             else { return false }
             let draws = modelFrame.prepared?[id] ?? staticModelDraws(layer: layer,

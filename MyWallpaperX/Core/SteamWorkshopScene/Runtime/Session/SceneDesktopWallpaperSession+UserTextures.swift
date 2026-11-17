@@ -53,6 +53,7 @@ extension SceneDesktopWallpaperSession {
         }
         let demands = context.resolvedMaterialCatalog.userPropertyDemands
             .union(context.baseMaterialProviderBindings.userPropertyDemands)
+            .union(context.preparedDeviceResources.staticModels.userPropertyDemands)
             .union(context.runtimeInput.renderDescriptor.texturePropertyKeys.compactMap {
                 SceneUserPropertyTextureIdentity(propertyKey: $0, purpose: .premultipliedColor)
             })
