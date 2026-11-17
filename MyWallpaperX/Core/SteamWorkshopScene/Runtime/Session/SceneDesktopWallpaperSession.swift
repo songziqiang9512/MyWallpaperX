@@ -13,8 +13,12 @@ final class SceneDesktopWallpaperSession {
 
 #endif
     final class HostWindow: NSWindow {
-        override var canBecomeKey: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
-        override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
+        override var canBecomeKey: Bool {
+            SceneDesktopWallpaperHost.usesDebugEvidenceWindow && !SceneDesktopWallpaperHost.usesBackgroundEvidenceWindow
+        }
+        override var canBecomeMain: Bool {
+            SceneDesktopWallpaperHost.usesDebugEvidenceWindow && !SceneDesktopWallpaperHost.usesBackgroundEvidenceWindow
+        }
     }
 
     final class Surface {
@@ -237,7 +241,7 @@ final class SceneDesktopWallpaperSession {
                 firstPresentation?.arm(on: drawable) ?? false
             }
             surface.window.alphaValue = 1
-            surface.window.orderFrontRegardless()
+            Self.orderSurfaceWindow(surface.window)
         }
         soundPlaybackRegistry?.setMuted(!isOutputActive || PlaybackMuteState.shared.isMuted)
         if isOutputActive, !sceneClock.isPaused { soundPlaybackRegistry?.resume() }
@@ -493,7 +497,7 @@ final class SceneDesktopWallpaperSession {
         for surface in surfaces.values {
             surface.window.level = Self.wallpaperWindowLevel
             if !surface.window.isVisible {
-                surface.window.orderFrontRegardless()
+                Self.orderSurfaceWindow(surface.window)
             }
         }
         updateMouseLocations()
@@ -529,10 +533,21 @@ final class SceneDesktopWallpaperSession {
     }
 
     static var wallpaperWindowLevel: NSWindow.Level {
+        if SceneDesktopWallpaperHost.usesBackgroundEvidenceWindow { return .normal }
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             return .floating
         }
         return NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+    }
+
+    static func orderSurfaceWindow(_ window: NSWindow, makesKey: Bool = false) {
+        if SceneDesktopWallpaperHost.usesBackgroundEvidenceWindow {
+            window.orderBack(nil)
+        } else if makesKey {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            window.orderFrontRegardless()
+        }
     }
 
     static var windowCollectionBehavior: NSWindow.CollectionBehavior {

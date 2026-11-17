@@ -462,7 +462,7 @@ private func framePlan(
         requestedHeight: extent.height,
         usesSharedFullFrameWorkingPair: true,
         orderingContext: .init(commandBuffer: commandBuffer)
-    ), pool.preflightPersistentGraphTargets([allocation]) == .ready
+    )
     else { fatalError("production target preparation failed") }
     return allocation
 }

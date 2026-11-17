@@ -54,6 +54,8 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 <a id="material-graph-view"></a>
 ### 材质的图资源视图
 
+整组persistent目标的完整驻留预检只归原FrameResourceBundle准备入口；上层FramePreflight组装当前计划，不先扫一轮同组resident。资源入口以有载荷的ready、temporarilyBlocked、rejected结果返回原Admission：busy仍延期，预算/计划拒绝保原因，不压成bundle缺失。实际reserve/commit仍核当前pin、代次与请求身份；不加已预检布尔许可、持久token、镜像缓存或第二预约owner。验收核busy→完成→ready、真超额零分配、取消与history使用期，并比较完整作者像素/播放及成本。
+
 每次 material 绑定只把已准入 `Graph.Node.bindings` 的完整候选集合及该 effect 的隐式 framebuffer input 投影到原 frame snapshot；不能只取 State 的 framebuffer bindings 或当前 variant 的 active slots。冷 template admission 已将 graph 候选与 node bindings 对齐，暖帧沿这份事实取当前资源，不另建 read-set cache、游标或认证。原 base/named 依赖快照保持，退出每个 material 都重新校验、转换和折叠全部已发布 graph 原子的旧范围。
 
 完整 publications 仍归原 graph 事务，供 history、copy/swap、后继 stage、最终输出及失败回滚使用；局部视图不改变它、不跨 material/帧持久化。仍由原 overlay 验证所传原子并按值生成 snapshot，selectionDigest 沿原增量算法反映本视图；未读原子退出可使摘要数值改变，不能重做全量 digest 或伪装旧值。选出的 Program、实际 slot/资源代次与输出 identity 必须保持，集合外实际 lookup 一旦出现就停止此替代，不补全量 fallback 或第二资源 owner。

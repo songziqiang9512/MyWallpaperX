@@ -4,6 +4,12 @@ import Metal
 /// A one-use resource transfer, never a claim or a history/publication owner.
 /// cancel after take cannot reach the local possession held by prepareFrame.
 final class SceneResolvedMaterialFrameResourceBundle {
+    enum PreparationResult {
+        case ready(SceneResolvedMaterialFrameResourceBundle)
+        case temporarilyBlocked
+        case rejected(reasonCode: String)
+    }
+
     struct FrameIdentity {
         let runtimeInstanceIdentity: String
         let executionEpoch: UInt64
@@ -49,15 +55,23 @@ final class SceneResolvedMaterialFrameResourceBundle {
     fileprivate static func prepare(identity: FrameIdentity,
                                     plans: [SceneResolvedMaterialFrameTargetPlan],
                                     pool: SceneOffscreenTexturePool,
-                                    commandBuffer: MTLCommandBuffer) -> Self? {
+                                    commandBuffer: MTLCommandBuffer) -> PreparationResult {
         let allocations = plans.map(\.allocation)
         guard commandBuffer.status == .notEnqueued,
-              plans.allSatisfy({ $0.allocation.orderingContext?.accepts(commandBuffer) ?? true }),
-              pool.preflightPersistentGraphTargets(allocations) == .ready,
-              let targets = pool.preparePreflightedPersistentGraphTargets(framePlans: allocations),
-              let admission = pool.allocationCache.admitPreparedTargets(targets) else { return nil }
-        return .init(.init(identity: identity, plans: plans, pool: pool,
-            commandBuffer: commandBuffer, targets: targets, admission: admission))
+              plans.allSatisfy({ $0.allocation.orderingContext?.accepts(commandBuffer) ?? true }) else {
+            return .rejected(reasonCode: "frame-target-plan-allocation-failed")
+        }
+        switch pool.preflightPersistentGraphTargets(allocations) {
+        case .ready: break
+        case .temporarilyBlocked: return .temporarilyBlocked
+        case let .rejected(reasonCode): return .rejected(reasonCode: reasonCode)
+        }
+        guard let targets = pool.preparePreflightedPersistentGraphTargets(framePlans: allocations),
+              let admission = pool.allocationCache.admitPreparedTargets(targets) else {
+            return .rejected(reasonCode: "frame-target-plan-allocation-failed")
+        }
+        return .ready(.init(.init(identity: identity, plans: plans, pool: pool,
+            commandBuffer: commandBuffer, targets: targets, admission: admission)))
     }
 
     func take() -> Possession? {
@@ -83,7 +97,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         plans: [SceneResolvedMaterialFrameTargetPlan],
         pool: SceneOffscreenTexturePool,
         commandBuffer: MTLCommandBuffer
-    ) -> SceneResolvedMaterialFrameResourceBundle? {
+    ) -> SceneResolvedMaterialFrameResourceBundle.PreparationResult {
         lock.lock()
         guard terminalFailureReason == nil, frameIsActive, !frameRequiresDrop,
               !frameWaitsForPendingSubmission, frameFailure == nil, let frame,
@@ -94,12 +108,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               Set(plans.map { $0.allocation.graphPlan.key.layerID }).count == plans.count,
               Set(plans.map(\.token)).count == plans.count,
               nextTransactionID <= UInt64.max - UInt64(plans.count)
-        else { lock.unlock(); return nil }
+        else {
+            lock.unlock()
+            return .rejected(reasonCode: "frame-target-plan-allocation-failed")
+        }
         let identity = SceneResolvedMaterialFrameResourceBundle.FrameIdentity(
             runtimeInstanceIdentity: runtimeInstanceIdentity, executionEpoch: executionEpoch,
             frameEpoch: frame.textureRegistrySnapshot.frameEpoch, frameIndex: frame.frameIndex)
         lock.unlock()
-        return .prepare(identity: identity, plans: plans, pool: pool, commandBuffer: commandBuffer)
+        return SceneResolvedMaterialFrameResourceBundle.prepare(
+            identity: identity, plans: plans, pool: pool, commandBuffer: commandBuffer)
     }
 }
 

@@ -52,9 +52,9 @@ final class SceneResolvedMaterialRuntimeBridge {
  struct FramePreparationRequest {let targetPlan:SceneResolvedMaterialFrameTargetPlan}
  // This prepared-profile fixture has no authored environment sampler demand.
  func requiresSceneEnvironment(layerID:Int)->Bool {false}
- func prepareFrameResourceBundle(plans:[SceneResolvedMaterialFrameTargetPlan],pool:SceneOffscreenTexturePool,commandBuffer:MTLCommandBuffer)->SceneResolvedMaterialFrameResourceBundle? {fatalError("resource phase outside admission sizing probe")}
+ func prepareFrameResourceBundle(plans:[SceneResolvedMaterialFrameTargetPlan],pool:SceneOffscreenTexturePool,commandBuffer:MTLCommandBuffer)->SceneResolvedMaterialFrameResourceBundle.PreparationResult {fatalError("resource phase outside admission sizing probe")}
 }
-enum FixturePreflight {case ready([Int:SceneResolvedMaterialFrameTargetPlan],SceneDependencyRenderPlan.PreparationSchedule,[Int:String],[SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]),deferred,rejected(reasonCode:String)}
+enum FixturePreflight {case ready([Int:SceneResolvedMaterialFrameTargetPlan],SceneDependencyRenderPlan.PreparationSchedule,[Int:String],[SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]),rejected(reasonCode:String)}
 extension SceneMetalRenderer {
  enum ResolvedMaterialFrameAdmission {case ready(plans:[Int:SceneResolvedMaterialFrameTargetPlan],preparationSchedule:SceneDependencyRenderPlan.PreparationSchedule,preparationRequests:[SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],resourceBundle:SceneResolvedMaterialFrameResourceBundle?),deferred(reasonCode:String),rejected(reasonCode:String)}
  func imageModelMatrix(for layer:SceneRenderDescriptor.Layer,worldFramesByLayerID:[Int:simd_float4x4],renderSizeOverride:[Float]?,textPlacement: (centerOffsetY: Float, rasterOffsetY: Float)? = nil,parallaxMouseNormalized:SIMD2<Float>,configuration:SceneLayerParallax.Configuration,visibleHalfExtents:SIMD2<Float>,usesPerspective:Bool)->simd_float4x4 {precondition(textPlacement == nil);return worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4}

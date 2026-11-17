@@ -272,33 +272,36 @@ CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增
 
 ## 世界模型的亚像素颜色覆盖 <a id="model-raster-coverage"></a>
 
-2026-11-17在原2268×1474视口、真实456 cameraDepth前缀→462/479颜色链中清空shadow，保原BC3九级块、PMA、back-cull与非writer，以受控ambient .08/方向灯1观察四个相机对角相位0/.25/.5/.75px。真实片元body逐字相同；RGBA32Float附件保生产Half返回的量化，不授Float32着色或完整作者RGB。四CB/384记录GPU完成、全部源/mesh/18级纹理块执行前后同，实际alpha/PID另pass查询，不冒透明色唯一winner。
+无shadow的真实456 cameraDepth前缀→462/479颜色链已证几何跳变：2268×1474相机四个对角相位0/.25/.5/.75px，(663,888)仅.75相位被479的PID684958覆盖；源face面积约.3199px²、alpha1，使R约.174→.0639。保原BC3九级、PMA/back-cull与非writer，不能将全部环黑点归为错误投影或删除合法碎石。
 
-(663,888)在前三相位无479片元，.75相位被真实PID684958覆盖。该face源indices[2015086,2015087,2015088]，屏幕面积约.3199px²；前三中心严格在外，.75重心最小.09382、距边.03949px，控制灯下N·L约−.042。其实际alpha1将合成R从约.174换成.0639，证明这一点有无shadow均存在几何颜色跳变，不外推全部环闪。模型覆盖与接收影的后续职责遵[光栅域设计](../architecture/runtime-architecture.md#raster-sample-domain)。
+同几何/相机的固定ROI有限面积参考中，1×/2×/4×alpha MSE为.024313504/.011507701/.003736049；但16坐标四相位中2×缩4/增5/同7，不授全局、单调或自然闪烁改善。RGB还受LOD影响，不以此授颜色参考真值。固定五点CPU滤波因覆盖误差与细线扩散已淘汰，不续调或用全景模糊关闭问题。
 
-同输入实际2×/4×MSAA颜色与456 depth附件/PSO采样数一致，462→479完整pass后仅一次硬件resolve；PID各走独立1×前缀，从不resolve标签。三组各384记录，2×/4×各192条PID均与1×逐bit同、所有metallib同字节。关键点四相位R range为.110046/.055328/.062988；16坐标中2×缩4/增5/同7，4×缩6/增5/同5，不能授全局或单调闪烁改善。固定ROI[650,700,1000,900]再走同几何/相机四相位的1×/2×/4×与4倍viewport单采样，负origin裁到350×200或1400×800；16个实际CB均完成、31,360,000B原读回完整，既有64个alpha登记点逐bit同。4×4网格均值只作有限面积参考，alpha MSE为.024313504/.011507701/.003736049，MAE为.051915179/.040383929/.023878125；不混RGB LOD差、不授连续真面积/官方公式或自然闪烁。原MainPass/实际Frame探索版的共享2×色深、重叠opaque/半透明及读取后resume三方法23.781s通过，actual域2/2、publication1；只属当时七行中间身份。独审补入先读far再画near的第八行，尚未执行；不冒原结果覆盖它或最终预算版。两次Swift overlay探针编译失败均0GPU，不冒产品红。
+2026-11-17后续研究沿原MainPass/pool/PSO建立同N颜色与cameraDepth，包含普通image/text和通用terminal；无中断域memoryless，真实中读/离屏域private，只有原1×可读输出。近远两序、半透明、先读far再续near、clear=false、离屏后续画共16行实际读回通过；通用terminal新增9项实际像素/冷暖/反例通过。完整材质门另9项在相同HEAD原生重放中逐项同失败，未改golden，归开放队列；不把聚合门称通过。
 
-中间2×实际28模型到同CB硬件resolve和终端捕获，固定环ROI有静态软化，球面与四个微影暗点几乎不变；普通image/text、clear=false、独立作者及最终预算版未取得完整资格。原Frame/MainPass三方法仅属当时中间身份，独审新增的早深度第八行未执行，不外推最终方案。
+同真实三角形的private保样本+resolve/private最终resolve/memoryless最终resolve三组输出逐Half同，18正确性与84交错计时的中位3.316500/3.166812/3.120667ms；memoryless色深allocatedSize为0，不能外推整个App零开销。原N2候选逐次解析导致完整358 GPU中位28.427ms；按实际读取才解析后，每帧14段只有2次resolve，降到18.463ms，仍高于1×15.180ms。
 
-同frozen33/3024×1964/60FPS、warm30/duration45近时三场为2×→原476b→同2×，各约13.5秒、0failed：FPS52.812/59.467/54.387，GPU P50为22.228/14.486/21.552ms。两次2×池峰均518516736B，对原280951296增加237565440B；GPU allocated增加244383744B。短窗不授稳态/能耗或严格计时因果，足以触发停止线，退出以静态软化换正常播放回退的候选。
+完整358原包45秒/warm30、native3024×1964的1×/迟解析2×测量窗13.488/13.408秒，submitted FPS31.434/31.027，CPU P50/P9518.714/19.521与18.971/19.862ms，GPU15.180/16.806与18.463/20.984ms；池峰778770192/896356656B。成熟画面保土星、主环/主影、时钟与图标；同冻结输入ROI可见黑色方块与环边阶梯缓和，碎石暗点仍在。冻结33模型的memoryless域约60FPS、池峰均138378496B，不代表完整原包成本。
 
-默认2×、无消费者容量API及专用回归已撤回b1fd3ac3f，保N3滤波。早最低深度、暖2×公平及旧尺寸颜色回收仍未闭；不叠预算协调。479真实MDL为单mesh/material/顶点/index块，不是误合LOD；无作者距离/密度声明，不删合法碎石。原研究、输入/候选源码、完整成本/图像/独审与16份原Float32读回归`.artifacts/scene-model-raster-research-20261117/evidence.zip`（9062444B，292成员逐SHA核验，14天）；已停止的运行副本已清理，原始输入保留。重启须新低成本覆盖或可比成本收益；环闪未闭。
+独立已验收347同build4、30秒/after25/HDR.3近时1×/2×控制中，submitted FPS45.434/42.352，GPU P50/P9512.178/13.563与13.316/14.843ms，池峰308728832/451268096B。白紫发光边、亮尖、黑心、背景光带和钟日公式保持，未见足以抵销成本的新可辨收益。两次独审据此撤回通用默认2×及全部配套PSO/cohort/策略/API和测试接口；产品继续1×。短窗不授稳态、能耗或严格计时因果，但已触发候选停止线；不以三角形数量/AABB密度或样本名单挽救默认许可，现prepared元数据不能区分细分曲面与独立亚像素碎石。
 
-固定五点CPU显示重建仅在既有479透明黑诊断域筛选：权重只读RGB，alpha用相同权重作离线覆盖评分，不进产品。四相位内圈MSE/MAE虽略降，前三相位总覆盖绝对误差58.125→177.827、1.75→110.589、17.5625→102.066；±45°单像素线本体虽保持，各向28个邻点扩散、最大+.25。按预登记停止线淘汰，不调参、不出处理截图或shader。该数据缺reference RGB、halo和完整终端合成，既不授显示RGB收益，也不支持靠全景模糊关闭环闪；下一步需新的低成本覆盖证据，不能重跑默认2×或继续微调此滤镜。
+此前完整影像与面积研究保在`.artifacts/scene-model-raster-research-20261117/evidence.zip`，低成本存储研究保在`.artifacts/scene-model-tile-research-20261117/evidence.zip`。本轮新增研究归`.artifacts/scene-model-raster-withdrawal-research-20261117/evidence.zip`（12647881B，SHA33896157…149125，478 aliases/351唯一payload逐SHA复验，14天）；五场原包完整App按真实数字ID独立保于同名前缀的Scene evidence runs，各低于32MiB，共享5GiB。早两份源只有SHA+原读回，不授旧版本完整重编；相应两probe/库保留。37个已停用App/HOME/sample及编译子项经提取与fresh PS/lsof、原inventory核对后精确清理，逻辑4150016682B，不冒物理释放量。研究不冒现役资格。环自然闪烁仍开放，重启须真实完整原景收益及健康独立样本成本共同通过，不重复默认N2或五点滤波旧路径。
 
 ## 深度与帧临时纹理复用 <a id="depth-submission-order"></a>
 
-按[资源使用期合同](../architecture/scene-resource-admission.md#depth-submission-order)，原深度pool以每CB独立预约替代single owner，原frame scratch Entry沿既有pin判断同queue已enqueue顺序；退役每在途CB独占相同附件及每part重复shape重验。六产品净增10行，无新资源/预算/输出owner，记录有界。Context.accepts仍保精确准备身份；history、SceneColor与compositionGroup原入口不放宽。
+按[使用期合同](../architecture/scene-resource-admission.md#depth-submission-order)，原深度pool保三个slot与每CB独立预约，tracked同queue已enqueue前驱可共享；原scratch Entry沿既有pin许可复用。退出跨CB无条件复制和逐part不可变shape重验，保同CB/未enqueue/跨queue/untracked、取消/完成/reset、精确准备身份及history/SceneColor边界，无第二资源/预算owner。
 
-真实旧/新深度门各10例24CB、23个可比Float32读回逐bit同；frame scratch各8例17CB、13深度值及2个BGRA像素同，两个入口均两纹理→一纹理。长期Graph34及相机深度/提交八方法通过，补B/C各自CB内绿/红读回与取消/完成/reset，跨queue、未enqueue、untracked仍隔离。首42门的旧排他golden及Surface stub漂移分别由原例真实像素和Git75原编译复现核正，保失败记录；未变八方法复用有效实际结果。
+旧/新深度10例24CB、frame scratch8例17CB读回保持；同frozen33/3024×1964的四张16bit原PNG均SHAb10fa13f…10d8628。原短窗pool峰213842432→138378496B、CPU中位反增.424ms，不授CPU/能耗改善；实际原记录归`.artifacts/scene-frame-scratch-order-20261117`及同名formal run。新后台runner以原Surface/GPU/PNG链取native3024截图，ready/after仍逐字节同b10fa，foreground ASN前后同；不代验前台点按。
 
-Debug24.067s、六产品/project/锁前后同，strict deep及原helpers通过；execb8b2b89a…082ff1b/dylib2f977262…ec8f562，Metal仍7c94461a…0c2cbb7。同frozen33/3024×1964/45秒/warm30的旧75与新App，四张16bit原PNG均5356293B、SHAb10fa13f…10d8628；28model到main/export/seal同CB捕获/GPUcompleted/trunc0，原几何、影图尺寸/滤波和每帧census保持。
+<a id="frame-resource-preflight"></a>
+同帧完整驻留预检集中到原FrameResourceBundle：退出FramePreflight重复resident快照、evaluate、allocationPlans及无producer的deferred结果；原Admission消费bundle的ready/busy/rejected，busy仍延期，拒绝保原原因。五产品净减11行，无新缓存/token/预约owner。Graph34、copy/history1、coordinator生命周期1共36个不同方法实际通过；新增busy→同请求完成后ready→取消无残pin三项全真，96B拒绝无pool/native增量，原像素/history与取消保持。退两条强绑旧调用位置的源码字符串断言，未放宽行为golden。
 
-本次短窗13.498→13.500秒：池峰213842432→138378496B，GPU allocated750436352→672546816B；FPS59.933→59.927、0failed。GPU P50/P9512.563/12.949→11.338/12.376ms，CPU P50/P952.666/3.359→3.090/3.343ms。只认同条件采样的池峰减少75463936B及像素保持；CPU中位增加.424ms，未授CPU、持续FPS、稳态或能耗改善。先前depth-only方案池峰反增43352320B已按停止线拒绝，原证据保独立候选包；任何尺寸算术均不代逐资源分配清单。
+原Cache在预算已足够时直接返回，退无用victim列表/排序；真实生产helper的-Onone交错8进程、16/64/128居民微基准中位18.025/86.843/171.686µs→1.554/5.530/10.933µs。两预算逐出/pin控制逐值同；0CB/0GPU，仅授helper成本，不外推App或OS冷启动。
 
-独立347用既有intro/cursor/audio/rgb关闭、HDR.3控制自然30秒/after25，原生视口的1512整景图见白紫亮边/尖端、黑心、背景线及钟日公式。F1169/R2实际3model、material-map/gradient/reflection各1、3graph事务到CB528950134528/main=export=seal528909014016，GPUcompleted/trunc0；首5/3场仅SYKM开场不作成熟画面资格。七类是源码使用期范围，不授一个样本全部命中、连续全时段或官方一致。三App PID25328/27435/32636已退出并排空，前台已归还UI会话。
+最终Debug24.024s、12个产品/project/锁输入前后同，strict-deep与trusted helpers通过；exe370857cf…d8ce566/dylib7166bbe1…33d35b，Metal仍7c94461a…0c2cbb7。完整358原包两场95秒/warm30/after35，原1×构建→候选各63.502/63.495秒有效测量，CPU P50/P9519.236/20.047→16.639/17.325ms，submitted FPS30.865→33.641；GPU15.171/16.830→15.179/16.885ms。每帧15main/11depth/28offscreen/16Program/12source/3copy及91094528B拷贝完全同，均0failed、stopped/surfaces released/GPU drained。两成熟图保土星、环/主影、钟日与图标；自然clock/label不同，不授整图byte同或完整文字正确。
 
-最终实际源/读回/独审归`.artifacts/scene-frame-scratch-order-20261117`，成熟作者载荷归同名formal run，14天/总5GiB；初depth-only失败包为`.artifacts/scene-depth-ordering-candidate-20261117`，其14项停止产物已清理（10513文件/逻辑1760887642B，不冒物理释放）。保一份连续DD及75对照App供后续辨因，不恢复默认MSAA，不关闭自然环闪。
+呈现间隔P50/P95均33.333ms，进程CPU总时78256.727→78693.736ms，不能将单帧节省授为总占用、能耗或所有设备收益。pool峰863079184/861334736B仅为本场采样，不作固定资源节省。独立347保原30秒/after25/HDR.3，成熟白紫发光边、亮尖、黑心、背景光带及钟日公式保持；submitted45.423、pool308728832B，和近时原1×45.434/同池峰相当，只授健康画面/成本保持。环自然闪烁仍开放。
+
+本批源/原生读回/CPU采样/独审归`.artifacts/scene-frame-resource-preflight-20261117/evidence.zip`（6284251B，SHAbc3d5904…98cffae，236别名/179唯一载荷逐SHA复验，14天/总5GiB）；原包baseline/candidate/347与profile-diagnostic各保真实数字ID的独立formal run，后者不作干净成本。共21个停用运行/编译叶（含旧71/75 App）已按提取、fresh PS/lsof及精确inventory退役，逻辑3145366435B，不冒物理释放。保唯一连续DD、一份baseline5 App和三份缺旧源的唯一probe/库。
 
 ## 确定零覆盖的模型工作 <a id="model-zero-coverage-work"></a>
 

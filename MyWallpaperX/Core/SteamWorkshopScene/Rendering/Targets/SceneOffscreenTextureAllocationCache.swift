@@ -138,6 +138,7 @@ final class SceneOffscreenTextureAllocationCache {
         guard let base = cost(values) else { return false }
         let (initial, overflow) = base.addingReportingOverflow(incomingCost)
         guard !overflow else { return false }
+        if initial <= byteBudget { return true }
         var total = initial
         let victims = evictionVictims(in: values, protectedKeys: protected,
                                      protectedGenerations: [])

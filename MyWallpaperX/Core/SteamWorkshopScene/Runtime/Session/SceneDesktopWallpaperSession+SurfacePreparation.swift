@@ -402,11 +402,7 @@ extension SceneDesktopWallpaperSession {
             window.level = Self.wallpaperWindowLevel
             window.collectionBehavior = Self.windowCollectionBehavior
             window.contentView = metalView
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-                window.makeKeyAndOrderFront(nil)
-            } else {
-                window.orderFrontRegardless()
-            }
+            Self.orderSurfaceWindow(window, makesKey: SceneDesktopWallpaperHost.usesDebugEvidenceWindow)
             if let dynamicValues {
                 prepareSurfaceFrame(surface, context: launchContext,
                     dynamicValues: dynamicValues, topology: committedTopology)

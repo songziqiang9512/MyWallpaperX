@@ -82,9 +82,14 @@ private func submitCoordinatorFrame(
         sourcePipeline: pipeline,
         frameInputs: .init(dependencyEffects: dependencyEffects)
     )
-    let bundle = usesExternalResourceBundle ? coordinator.prepareFrameResourceBundle(
-        plans: [targetPlan], pool: pool, commandBuffer: commandBuffer) : nil
-    if usesExternalResourceBundle && bundle == nil { fatalError("resource bundle allocation failed") }
+    let bundle: SceneResolvedMaterialFrameResourceBundle?
+    if usesExternalResourceBundle {
+        guard case let .ready(prepared) = coordinator.prepareFrameResourceBundle(
+            plans: [targetPlan], pool: pool, commandBuffer: commandBuffer) else {
+            fatalError("resource bundle allocation failed")
+        }
+        bundle = prepared
+    } else { bundle = nil }
     let generations = pool.allocationCache.locked {
         Set(pool.allocationCache.residents.compactMap { key, entry -> UInt64? in
             if !requiresHistory {

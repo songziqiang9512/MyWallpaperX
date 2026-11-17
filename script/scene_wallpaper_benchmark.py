@@ -289,6 +289,8 @@ def parse_args() -> argparse.Namespace:
         help="run only this ID from the selected matrix; may be repeated",
     )
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--background-window", action="store_true",
+                        help="capture the normal Scene runner behind other apps without activating it")
     parser.add_argument(
         "--no-execution-observations",
         action="store_true",
@@ -602,6 +604,7 @@ def main() -> int:
                     require_effect_execution=args.require_effect_execution,
                     require_graph_execution=args.require_graph_execution,
                     no_execution_observations=args.no_execution_observations,
+                    background_window=args.background_window,
                     require_cursor_ripple_persistence=args.require_cursor_ripple_persistence,
                     log_only=args.log_only,
                     terminal_snapshot=args.terminal_snapshot,

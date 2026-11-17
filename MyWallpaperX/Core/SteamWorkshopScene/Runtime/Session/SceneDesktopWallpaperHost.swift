@@ -262,6 +262,15 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
+    static let usesBackgroundEvidenceWindow: Bool = {
+#if DEBUG
+        return usesDebugEvidenceWindow
+            && ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-background")
+#else
+        return false
+#endif
+    }()
+
     /// Execution observations are the heavy evidence instrument: they build a
     /// full `SceneGraphExecutionObservation` and SHA-256 graph mapping per
     /// successful effect every frame. They stay strictly opt-in for the debug

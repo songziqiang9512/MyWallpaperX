@@ -39,7 +39,6 @@ enum SceneResolvedMaterialGraphComposition {
                 SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
             ]
         )
-        case deferred
         case rejected(reasonCode: String)
     }
 

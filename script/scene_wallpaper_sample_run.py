@@ -151,6 +151,7 @@ def run_sample(
     log_only: bool = False,
     terminal_snapshot: bool = False,
     snapshot_max_edge: int | None = None,
+    background_window: bool = False,
 ) -> dict[str, Any]:
     # Playback duration starts after preparation; cold shader/resource work
     # needs its own bounded allowance in the supervising process.
@@ -205,6 +206,8 @@ def run_sample(
     ]
     if log_only:
         command.append("--mwx-debug-scene-log-only")
+    if background_window:
+        command.append("--mwx-debug-scene-background")
     if terminal_snapshot:
         command.append("--mwx-debug-scene-terminal-snapshot")
     if snapshot_max_edge is not None:

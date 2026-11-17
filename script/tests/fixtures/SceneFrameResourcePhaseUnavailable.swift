@@ -3,6 +3,11 @@
 // combinations must compile the production Bundle and PreparationAdmission
 // sources and must not include this adapter.
 final class SceneResolvedMaterialFrameResourceBundle {
+    enum PreparationResult {
+        case ready(SceneResolvedMaterialFrameResourceBundle)
+        case temporarilyBlocked
+        case rejected(reasonCode: String)
+    }
     private init() { fatalError("resource phase is outside this fixture") }
     func cancel() { fatalError("non-nil resource bundle is outside this fixture") }
 }
@@ -62,7 +67,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         plans: [SceneResolvedMaterialFrameTargetPlan],
         pool: SceneOffscreenTexturePool,
         commandBuffer: MTLCommandBuffer
-    ) -> SceneResolvedMaterialFrameResourceBundle? {
+    ) -> SceneResolvedMaterialFrameResourceBundle.PreparationResult {
         fatalError("resource phase is outside this one-phase fixture")
     }
     func overlayPreparedSceneEnvironment(

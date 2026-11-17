@@ -281,13 +281,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
 
         self.assertIn("static func executeClaimed(", composition)
-        # Target sizing/reservation moved into the single preflight walk
-        # (FrameTargetRequest lane deleted); the pool wiring assertions follow
-        # the walk in FRAME_PREFLIGHT.
+        # FramePreflight builds current target sizing and ordering; native
+        # resource-bundle tests exercise capacity admission and busy recovery.
         self.assertIn("func preflightResolvedMaterialFrameTargets(", frame_preflight)
         self.assertIn("admittedGraphs: claim.admittedGraphs", frame_preflight)
         self.assertIn("pairPlan: claim.pairPlan", frame_preflight)
-        self.assertIn("preflightPersistentGraphTargets(", frame_preflight)
         self.assertIn("framePlan.token == claim.token", composition)
         self.assertIn(
             "for subject in runtime.executionEvidenceSubjects(for: claim)",
@@ -553,14 +551,13 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
         self.assertIn("commandBuffer: commandBuffer", frame_preflight)
         self.assertIn("commandBuffer: MTLCommandBuffer", frame_preflight)
-        # The single preflight walk owns ordering-context construction and the
-        # pool reservation call since the request-wrapper pass was collapsed.
+        # FramePreflight owns ordering-context construction; the resource
+        # bundle performs the single full residency admission.
         self.assertIn("func preflightResolvedMaterialFrameTargets(", frame_preflight)
         self.assertIn("let orderingContext", frame_preflight)
         self.assertIn("orderingContext: orderingContext", frame_preflight)
         self.assertIn("admittedGraphs: claim.admittedGraphs", frame_preflight)
         self.assertIn("pairPlan: claim.pairPlan", frame_preflight)
-        self.assertIn("preflightPersistentGraphTargets(", frame_preflight)
         self.assertIn("orderingContext: contexts.first", target_preflight)
         self.assertIn("orderingContext: orderingContext", allocator)
         self.assertIn("reservation.orderingContext", batch)

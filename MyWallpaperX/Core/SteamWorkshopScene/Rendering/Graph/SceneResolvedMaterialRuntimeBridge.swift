@@ -630,7 +630,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         plans: [SceneResolvedMaterialFrameTargetPlan],
         pool: SceneOffscreenTexturePool,
         commandBuffer: MTLCommandBuffer
-    ) -> SceneResolvedMaterialFrameResourceBundle? {
+    ) -> SceneResolvedMaterialFrameResourceBundle.PreparationResult {
         submissions.prepareFrameResourceBundle(
             plans: plans,
             pool: pool,

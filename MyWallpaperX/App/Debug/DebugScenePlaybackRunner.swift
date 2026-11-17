@@ -263,7 +263,7 @@ enum DebugScenePlaybackRunner {
         }
 
         do {
-            if evidenceDirectory != nil {
+            if evidenceDirectory != nil && !SceneDesktopWallpaperHost.usesBackgroundEvidenceWindow {
                 NSApp.activate(ignoringOtherApps: true)
             }
             PlaybackPolicyController.shared.updateSettings({

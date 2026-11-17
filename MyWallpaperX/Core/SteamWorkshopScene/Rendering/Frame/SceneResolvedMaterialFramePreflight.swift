@@ -709,7 +709,6 @@ SceneBaseMaterialLitCaptureMissLog.record(
         }
         let deferredCompositeLayerIDs = preparationSchedule.scheduledGraphProviderLayerIDs
             .intersection(frameVisibleLayerIDs)
-        var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
         for layerID in preparationSchedule.preparationLayerIDs {
             guard let source = sources[layerID], let layer = layersByID[layerID] else { continue }
             let claim = source.claim
@@ -784,7 +783,6 @@ SceneBaseMaterialLitCaptureMissLog.record(
                     continue
                 }
             }
-            allocationPlans.append(allocation)
         }
         var preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
         var pendingGraphLayerIDs = Set(sourcePlan.preparationLayerIDs)
@@ -821,41 +819,11 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 frameInputs: source.frameInputs
             ))
         }
-        guard !byLayerID.isEmpty else {
-            // Every attempted planning failed: the graph-target fallbacks
-            // must still install so the skipped claimed layers keep taking
-            // the bounded local-fallback claim route instead of a hard
-            // frame drop.
-            var mergedFallbacks = sourceCoverageFallbacks
-            mergedFallbacks.merge(graphTargetFallbacks) { _, graphReason in
-                graphReason
-            }
-            return .ready(
-                plans: [:], preparationSchedule: preparationSchedule,
-                localFallbacks: mergedFallbacks,
-                preparationRequests: []
-            )
+        var mergedFallbacks = sourceCoverageFallbacks
+        mergedFallbacks.merge(graphTargetFallbacks) { _, graphReason in
+            graphReason
         }
-        guard let offscreenTexturePool else {
-            return .rejected(reasonCode: "frame-target-pool-unavailable")
-        }
-        switch offscreenTexturePool.preflightPersistentGraphTargets(
-            allocationPlans
-        ) {
-        case .ready:
-            var mergedFallbacks = sourceCoverageFallbacks
-            mergedFallbacks.merge(graphTargetFallbacks) { _, graphReason in
-                graphReason
-            }
-            return .ready(
-                plans: byLayerID, preparationSchedule: preparationSchedule,
-                localFallbacks: mergedFallbacks,
-                preparationRequests: preparationRequests
-            )
-        case .temporarilyBlocked:
-            return .deferred
-        case .rejected(let reasonCode):
-            return .rejected(reasonCode: reasonCode)
-        }
+        return .ready(plans: byLayerID, preparationSchedule: preparationSchedule,
+            localFallbacks: mergedFallbacks, preparationRequests: preparationRequests)
     }
 }

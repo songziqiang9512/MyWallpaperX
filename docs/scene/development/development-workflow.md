@@ -89,6 +89,8 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 ## 截图与时序
 
+普通Scene runner可用benchmark的`--background-window`在其他App之后取证：仅DEBUG且有evidence目录时启用，宿主不activate、不争key/main，窗口以normal/orderBack显示；仍按原Surface/GPU/PNG链捕获。原生前台交互资格须另验，不能用该模式代替用户点按。
+
 固定属性、时间、指针、音源、媒体状态、viewport 与随机条件后再比较画面。`--after-snapshot-delay` 约束 ready 后开始安排截图的单调时钟；指针交互还要完成退出和稳定步骤，after 取两者较晚时刻。请求时刻、实际 GPU 捕获和文件写出是不同阶段，比较时核对实际日志与捕获身份。
 
 <a id="pointer-input-timing"></a>

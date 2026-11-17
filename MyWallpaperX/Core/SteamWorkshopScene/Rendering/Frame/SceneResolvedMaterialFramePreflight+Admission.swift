@@ -103,24 +103,28 @@ extension SceneMetalRenderer {
                 resourceBundle = nil
             } else {
                 guard let pool = offscreenTexturePool,
-                      let bundle = imageCompositor.resolvedMaterialRuntime?.prepareFrameResourceBundle(
-                        plans: preparationRequests.map(\.targetPlan), pool: pool,
-                        commandBuffer: commandBuffer) else {
+                      let runtime = imageCompositor.resolvedMaterialRuntime else {
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
                         "frame-target-plan-allocation-failed")
                     _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
                     return .rejected(reasonCode: "frame-target-plan-allocation-failed")
                 }
-                resourceBundle = bundle
+                switch runtime.prepareFrameResourceBundle(
+                    plans: preparationRequests.map(\.targetPlan), pool: pool,
+                    commandBuffer: commandBuffer) {
+                case let .ready(bundle): resourceBundle = bundle
+                case .temporarilyBlocked:
+                    _ = imageCompositor.deferResolvedMaterialFrame()
+                    _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                    return .deferred(reasonCode: "resolved-material-preflight-deferred")
+                case let .rejected(reasonCode):
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
+                    _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                    return .rejected(reasonCode: reasonCode)
+                }
             }
             return .ready(plans: plans, preparationSchedule: preparationSchedule,
                 preparationRequests: preparationRequests, resourceBundle: resourceBundle)
-        case .deferred:
-            _ = imageCompositor.deferResolvedMaterialFrame()
-            _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-            return .deferred(
-                reasonCode: "resolved-material-preflight-deferred"
-            )
         case .rejected(let reasonCode):
             imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
