@@ -476,6 +476,7 @@
       },
       "Targets": {
         "file_globs": [
+          "SceneCommandBufferOrdering.swift",
           "SceneGraphExecutionState+Identity.swift",
           "SceneGraphExecutionState+Validation.swift",
           "SceneGraphExecutionState.swift",
