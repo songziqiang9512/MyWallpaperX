@@ -22,8 +22,8 @@ final class ScenePuppetBoneEvidence {
                       poseStatus: String, selection: ScenePuppetAnimationSelection,
                       animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
                       vertices: Vertices, bindVertices: BindVertices, commandBuffer: MTLCommandBuffer)
-    where Vertices.Element == SceneMdlStaticModel.Vertex,
-          BindVertices.Element == SceneMdlStaticModel.Vertex {
+    where Vertices.Element == SIMD3<Float>,
+          BindVertices.Element == SIMD3<Float> {
         guard Self.layerIDs.contains(layerID), count < 1200,
               sceneTime - lastTime >= 0.08, !vertices.isEmpty,
               vertices.count == bindVertices.count else { return }
@@ -32,13 +32,12 @@ final class ScenePuppetBoneEvidence {
         var digest = SHA256()
         var displacement: Double = 0
         for (vertex, bind) in zip(vertices, bindVertices) {
-            for component in [vertex.position.x, vertex.position.y, vertex.position.z] {
+            for component in [vertex.x, vertex.y, vertex.z] {
                 var bits = component.bitPattern.littleEndian
                 withUnsafeBytes(of: &bits) { digest.update(bufferPointer: $0) }
             }
-            let delta = SIMD3<Double>(Double(vertex.position.x) - Double(bind.position.x),
-                Double(vertex.position.y) - Double(bind.position.y),
-                Double(vertex.position.z) - Double(bind.position.z))
+            let delta = SIMD3<Double>(Double(vertex.x) - Double(bind.x),
+                Double(vertex.y) - Double(bind.y), Double(vertex.z) - Double(bind.z))
             displacement = max(displacement, simd_length(delta))
         }
         let positionHash = digest.finalize().map { String(format: "%02x", $0) }.joined()

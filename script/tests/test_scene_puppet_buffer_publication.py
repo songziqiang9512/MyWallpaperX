@@ -46,13 +46,15 @@ def static_model_carrier_source() -> str:
     source = PIPELINE.read_text()
     mesh = source[source.index("struct SceneStaticModelMesh {"):
                   source.index("private struct SceneStaticModelShadowUniforms")]
+    upload = source[source.index("    static func makeMesh(model:"):
+                    source.index("    /// One layer/surface owns this stream;")]
     factory = source[source.index("    func makeVertexStream("):
                      source.index("    /// Encodes into the caller's current render pass.")]
     abi = source[source.index("    private static let hasExpectedVertexABI ="):
                  source.index("    /// Swift/MSL constant-buffer ABI.")]
     return ("import Metal\nimport simd\n" + mesh
             + "final class SceneStaticModelPipeline {\n let device: MTLDevice\n"
-            + " init(device: MTLDevice) { self.device = device }\n" + factory + abi + "}\n")
+            + " init(device: MTLDevice) { self.device = device }\n" + upload + factory + abi + "}\n")
 
 
 FIXTURE = Path(__file__).with_name("fixtures") / "ScenePuppetBufferPublicationHarness.swift"

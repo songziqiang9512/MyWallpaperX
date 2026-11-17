@@ -2,6 +2,18 @@ import Foundation
 import Metal
 import simd
 
+nonisolated struct SceneStaticModelGPUVertex {
+    let positionAndU: SIMD4<Float>
+    let normalAndV: SIMD4<Float>
+    let tangent: SIMD4<Float>
+
+    init(_ vertex: SceneMdlStaticModel.Vertex) {
+        positionAndU = SIMD4(vertex.position, vertex.uv.x)
+        normalAndV = SIMD4(vertex.normal, vertex.uv.y)
+        tangent = vertex.tangent
+    }
+}
+
 /// Storage belongs to one layer/surface. Pose evaluation and submission remain
 /// with PlaybackState and SourceUpdateTransaction respectively.
 final class SceneStaticModelVertexStream: @unchecked Sendable {
@@ -79,8 +91,11 @@ final class SceneStaticModelVertexStream: @unchecked Sendable {
             owner: ObjectIdentifier(commandBuffer), generation: generation
         )
         let buffer = slots[index].buffer
-        vertices.withUnsafeBytes { bytes in
-            buffer.contents().copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
+        let output = buffer.contents().bindMemory(
+            to: SceneStaticModelGPUVertex.self, capacity: vertices.count
+        )
+        for index in vertices.indices {
+            output.advanced(by: index).initialize(to: SceneStaticModelGPUVertex(vertices[index]))
         }
         let lease = SceneStaticModelVertexLease(
             stream: self, slotIndex: index, generation: generation,

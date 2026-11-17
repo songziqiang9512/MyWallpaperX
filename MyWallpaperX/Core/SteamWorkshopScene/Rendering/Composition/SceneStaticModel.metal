@@ -6,10 +6,9 @@ using namespace metal;
 constant bool sceneStaticModelUsesReflection [[function_constant(0)]];
 
 struct SceneStaticModelVertex {
-    float3 position;
-    float3 normal;
+    float4 positionAndU;
+    float4 normalAndV;
     float4 tangent;
-    float2 uv;
 };
 
 struct SceneModelShadowUniforms {
@@ -86,23 +85,23 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     SceneStaticModelVertex modelVertex = vertices[vertexID];
     SceneStaticModelRasterVertex out;
-    float4 worldPosition = uniforms.modelMatrix * float4(modelVertex.position, 1.0);
+    float4 worldPosition = uniforms.modelMatrix * float4(modelVertex.positionAndU.xyz, 1.0);
     out.position = uniforms.viewProjectionMatrix * worldPosition;
     out.worldPosition = worldPosition.xyz;
-    float3 transformedNormal = uniforms.normalMatrix * modelVertex.normal;
+    float3 transformedNormal = uniforms.normalMatrix * modelVertex.normalAndV.xyz;
     float transformedLengthSquared = dot(transformedNormal, transformedNormal);
     out.normal = transformedLengthSquared > 1e-12
         ? transformedNormal * rsqrt(transformedLengthSquared)
         : float3(0.0, 0.0, 1.0);
     out.uv = uniforms.textureFrame0.xy
-        + modelVertex.uv.x * uniforms.textureFrame0.zw
-        + modelVertex.uv.y * uniforms.textureFrame1.xy;
+        + modelVertex.positionAndU.w * uniforms.textureFrame0.zw
+        + modelVertex.normalAndV.w * uniforms.textureFrame1.xy;
     out.componentUV = uniforms.componentTextureFrame0.xy
-        + modelVertex.uv.x * uniforms.componentTextureFrame0.zw
-        + modelVertex.uv.y * uniforms.componentTextureFrame1.xy;
+        + modelVertex.positionAndU.w * uniforms.componentTextureFrame0.zw
+        + modelVertex.normalAndV.w * uniforms.componentTextureFrame1.xy;
     out.normalUV = uniforms.normalTextureFrame0.xy
-        + modelVertex.uv.x * uniforms.normalTextureFrame0.zw
-        + modelVertex.uv.y * uniforms.normalTextureFrame1.xy;
+        + modelVertex.positionAndU.w * uniforms.normalTextureFrame0.zw
+        + modelVertex.normalAndV.w * uniforms.normalTextureFrame1.xy;
     out.tangent = float4(0.0);
     if (uniforms.materialFlags.z != 0u) {
         out.tangent = float4((uniforms.modelMatrix * float4(modelVertex.tangent.xyz, 0.0)).xyz,
@@ -497,10 +496,10 @@ fragment half4 sceneStaticModelFragment(
         uint3 face = uniforms.meshIndexElementSize == 4u
             ? uint3(wide[base], wide[base + 1u], wide[base + 2u])
             : uint3(indices[base], indices[base + 1u], indices[base + 2u]);
-        float3 anchor = vertices[face.x].position;
+        float3 anchor = vertices[face.x].positionAndU.xyz;
         // Subpixel screen derivatives need not preserve the drawn face plane.
-        worldEdge0 = (uniforms.modelMatrix * float4(vertices[face.y].position - anchor, 0.0)).xyz;
-        worldEdge1 = (uniforms.modelMatrix * float4(vertices[face.z].position - anchor, 0.0)).xyz;
+        worldEdge0 = (uniforms.modelMatrix * float4(vertices[face.y].positionAndU.xyz - anchor, 0.0)).xyz;
+        worldEdge1 = (uniforms.modelMatrix * float4(vertices[face.z].positionAndU.xyz - anchor, 0.0)).xyz;
     }
     float3 surfaceRadiance = float3(0.0);
     float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
@@ -734,7 +733,7 @@ struct SceneStaticModelShadowVertexOut {
 vertex float4 sceneStaticModelCameraDepthVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
     constant float4x4 &modelToClip [[buffer(1)]]) {
-    return modelToClip * float4(vertices[vertexID].position, 1.0);
+    return modelToClip * float4(vertices[vertexID].positionAndU.xyz, 1.0);
 }
 
 vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
@@ -742,10 +741,10 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelShadowVertex(
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     SceneStaticModelVertex modelVertex = vertices[vertexID];
     SceneStaticModelShadowVertexOut out;
-    out.position = uniforms.modelToLightClip * float4(modelVertex.position, 1.0);
+    out.position = uniforms.modelToLightClip * float4(modelVertex.positionAndU.xyz, 1.0);
     out.lightPosition = out.position.xyz;
-    out.uv = uniforms.textureFrame0.xy + modelVertex.uv.x * uniforms.textureFrame0.zw
-        + modelVertex.uv.y * uniforms.textureFrame1.xy;
+    out.uv = uniforms.textureFrame0.xy + modelVertex.positionAndU.w * uniforms.textureFrame0.zw
+        + modelVertex.normalAndV.w * uniforms.textureFrame1.xy;
     return out;
 }
 void sceneStaticModelShadowCoverage(float2 uv, texture2d<float> albedo,
@@ -799,15 +798,15 @@ vertex SceneStaticModelShadowVertexOut sceneStaticModelSpotShadowVertex(
     uint vertexID [[vertex_id]], constant SceneStaticModelVertex *vertices [[buffer(0)]],
     constant SceneStaticModelShadowUniforms &uniforms [[buffer(1)]]) {
     SceneStaticModelVertex modelVertex = vertices[vertexID];
-    float3 world = (uniforms.modelMatrix * float4(modelVertex.position, 1.0)).xyz;
+    float3 world = (uniforms.modelMatrix * float4(modelVertex.positionAndU.xyz, 1.0)).xyz;
     float3 q = (uniforms.worldToLight * float4(world - uniforms.positionRadius.xyz, 0.0)).xyz;
     SceneStaticModelShadowVertexOut out;
     // Homogeneous clipping retains the forward part of triangles crossing the
     // light's apex plane. Fragment axial depth needs no arbitrary positive near.
     out.position = float4(q.xy / uniforms.projectionParameters.x, 0.0, q.z);
     out.lightPosition = q;
-    out.uv = uniforms.textureFrame0.xy + modelVertex.uv.x * uniforms.textureFrame0.zw
-        + modelVertex.uv.y * uniforms.textureFrame1.xy;
+    out.uv = uniforms.textureFrame0.xy + modelVertex.positionAndU.w * uniforms.textureFrame0.zw
+        + modelVertex.normalAndV.w * uniforms.textureFrame1.xy;
     return out;
 }
 float2 sceneStaticModelPerspectiveShadowDepth(SceneStaticModelShadowVertexOut in,

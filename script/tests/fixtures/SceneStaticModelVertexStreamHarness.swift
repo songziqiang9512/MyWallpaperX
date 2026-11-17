@@ -1,6 +1,20 @@
 import Foundation
 import simd
 
+
+func channelsMatch(_ buffer: MTLBuffer, _ vertices: [SceneMdlStaticModel.Vertex]) -> Bool {
+    guard buffer.length == vertices.count * 48 else { return false }
+    let actual = buffer.contents().assumingMemoryBound(to: Float.self)
+    return vertices.enumerated().allSatisfy { index, v in
+        let expected = [v.position.x, v.position.y, v.position.z, v.uv.x,
+            v.normal.x, v.normal.y, v.normal.z, v.uv.y,
+            v.tangent.x, v.tangent.y, v.tangent.z, v.tangent.w]
+        return expected.enumerated().allSatisfy { lane, value in
+            actual[index * 12 + lane].bitPattern == value.bitPattern
+        }
+    }
+}
+
 #if STREAM_CPU_TEST
 // These leaves make completion/failure deterministic without creating a GPU.
 // Production stream, transaction, mesh-view and factory bodies are injected or
@@ -84,15 +98,15 @@ final class SceneStaticModelPipeline {
     static let vertices = [
         Vertex(position: SIMD3(-2, 3, -4), normal: SIMD3(2, -3, 4),
                tangent: SIMD4(-5, 6, -7, -1), uv: SIMD2(0.125, 0.875)),
-        Vertex(position: SIMD3(5, -6, 7), normal: .zero,
-               tangent: .zero, uv: SIMD2(0.625, 0.25)),
+        Vertex(position: SIMD3(5, -6, 7), normal: SIMD3(-0.0, 0.0, -0.0),
+               tangent: SIMD4(0.0, -0.0, 0.0, -0.0), uv: SIMD2(-0.0, 0.25)),
         Vertex(position: SIMD3(1, 2, 3), normal: SIMD3(0, 0, 1),
                tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
     ]
 
     static func mesh(_ device: Device) -> SceneStaticModelMesh {
         SceneStaticModelMesh(
-            vertexBuffer: Buffer(device: device, length: 3 * 64),
+            vertexBuffer: Buffer(device: device, length: 3 * 48),
             indexBuffer: Buffer(device: device, length: 6),
             boundsMinimum: .zero, boundsMaximum: SIMD3(repeating: 1),
             vertexCount: 3, indexCount: 3, indexType: .uint16
@@ -203,10 +217,7 @@ final class SceneStaticModelPipeline {
             let cb = CommandBuffer(device)
             let tx = SceneSourceUpdateTransaction(on: cb)
             let binding = update(storage, cb, tx, revision: 55)
-            let raw = binding.mesh.vertexBuffer.contents().assumingMemoryBound(to: Vertex.self)
-            let preserved = raw[0].position == vertices[0].position
-                && raw[0].normal == vertices[0].normal && raw[0].tangent == vertices[0].tangent
-                && raw[0].uv == vertices[0].uv && raw[1].normal == .zero
+            let preserved = channelsMatch(binding.mesh.vertexBuffer, vertices)
                 && binding.mesh.indexBuffer === base.indexBuffer
                 && binding.mesh.vertexCount == 3 && binding.mesh.indexCount == 3
                 && binding.mesh.boundsMinimum == SIMD3(-2, -6, -4)
@@ -299,9 +310,9 @@ extension MTLDevice {
         let model = try SceneMdlStaticModelReader.readParts(
             data: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))[0]
         let vertices = model.vertices
-        let expectedBytes = vertices.withUnsafeBytes { Data($0) }
+        let byteCount = vertices.count * 48
         let base = SceneStaticModelMesh(
-            vertexBuffer: device.makeBuffer(length: expectedBytes.count, options: .storageModeShared)!,
+            vertexBuffer: device.makeBuffer(length: byteCount, options: .storageModeShared)!,
             indexBuffer: device.makeBuffer(length: 6, options: .storageModeShared)!,
             boundsMinimum: SIMD3(repeating: -10), boundsMaximum: SIMD3(repeating: 10),
             vertexCount: vertices.count, indexCount: 3, indexType: .uint16)
@@ -312,12 +323,12 @@ extension MTLDevice {
             try stream.updateBinding(vertices: vertices, poseRevision: UInt64(index),
                 on: commands[index], transaction: transactions[index]).get()
         }
-        let readback = device.makeBuffer(length: expectedBytes.count, options: .storageModeShared)!
+        let readback = device.makeBuffer(length: byteCount, options: .storageModeShared)!
         let command = commands[0], transaction = transactions[0], binding = bindings[0]
         command.encodeWaitForEvent(event, value: 1)
         let blit = command.makeBlitCommandEncoder()!
         blit.copy(from: binding.mesh.vertexBuffer, sourceOffset: 0,
-            to: readback, destinationOffset: 0, size: expectedBytes.count)
+            to: readback, destinationOffset: 0, size: byteCount)
         blit.endEncoding()
         let resolved = DispatchSemaphore(value: 0)
         transaction.registerResolution(completed: { resolved.signal() }, rollback: { resolved.signal() })
@@ -336,7 +347,6 @@ extension MTLDevice {
             throw NSError(domain: "SceneStaticModelVertexStreamMetalTest", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "source resolution timed out"])
         }
-        let outputBytes = Data(bytes: readback.contents(), count: expectedBytes.count)
         let completionRevokedLease = !binding.isValid(for: command)
         let next = try stream.updateBinding(vertices: vertices, poseRevision: 5,
             on: commands[3], transaction: transactions[3]).get()
@@ -346,7 +356,8 @@ extension MTLDevice {
         let cancelledNext = !next.isValid(for: commands[3])
         transactions[1].cancel(); transactions[2].cancel()
         let rows = ["gpuCompleted": command.status == .completed && command.error == nil,
-            "allBufferBytes": outputBytes == expectedBytes,
+            "allBufferBytes": channelsMatch(readback, vertices)
+                && bindings.allSatisfy { $0.mesh.vertexBuffer.length == byteCount },
             "currentBounds": binding.mesh.boundsMinimum == SIMD3(-2, -6, -4)
                 && binding.mesh.boundsMaximum == SIMD3(5, 3, 7),
             "pendingLease": pendingLease && busy,

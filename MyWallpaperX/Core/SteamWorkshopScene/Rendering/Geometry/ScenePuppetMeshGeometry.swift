@@ -288,10 +288,10 @@ final class ScenePuppetMeshGeometry {
         guard ScenePuppetBoneEvidence.isEnabled(for: layerID),
               let binding = direct.binding else { return }
         let vertices = UnsafeBufferPointer(
-            start: binding.mesh.vertexBuffer.contents().assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self),
+            start: binding.mesh.vertexBuffer.contents().assumingMemoryBound(to: SceneStaticModelGPUVertex.self),
             count: binding.mesh.vertexCount)
         let bindVertices = UnsafeBufferPointer(
-            start: direct.bindMesh.vertexBuffer.contents().assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self),
+            start: direct.bindMesh.vertexBuffer.contents().assumingMemoryBound(to: SceneStaticModelGPUVertex.self),
             count: direct.bindMesh.vertexCount)
         let poseStatus: String
         switch status {
@@ -301,7 +301,9 @@ final class ScenePuppetMeshGeometry {
         boneEvidence.recordDirect(layerID: layerID, revision: binding.poseRevision,
             frame: frameIndex, sceneTime: sceneTime, poseStatus: poseStatus,
             selection: direct.selection, animationFrame: animationFrame,
-            vertices: vertices, bindVertices: bindVertices, commandBuffer: commandBuffer)
+            vertices: vertices.lazy.map { SIMD3($0.positionAndU.x, $0.positionAndU.y, $0.positionAndU.z) },
+            bindVertices: bindVertices.lazy.map { SIMD3($0.positionAndU.x, $0.positionAndU.y, $0.positionAndU.z) },
+            commandBuffer: commandBuffer)
     }
 
     private func recordWorldDraw(_ image: ImageGeometry, index: Int, mvp: simd_float4x4) {

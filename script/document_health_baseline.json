@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 468,
-      "bytes": 109402
+      "lines": 476,
+      "bytes": 111103
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 205,
-      "bytes": 64010
+      "lines": 204,
+      "bytes": 64159
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 530,
-      "bytes": 152107
+      "lines": 556,
+      "bytes": 158991
     }
   },
   "archives": [
@@ -524,29 +524,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "069b60713b6fa80537316fa3959fe17dc691c655fe58d9cd063b31e664aaff60",
-      "after": "afcfd8f6583560c8c416ab80a10143691c18b3ce345f40e6296a8c48e21619f4",
-      "owner": "Existing Scene model, property and resource owners",
-      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+      "before": "afcfd8f6583560c8c416ab80a10143691c18b3ce345f40e6296a8c48e21619f4",
+      "after": "2cdd7ad6530c2872f5412ab8a79de16ab444034063f196cf9351a64c89712a80",
+      "owner": "Existing Scene model storage and runtime evidence owners",
+      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "6ec1a17d2351e3469f4d28121b96ba6ff4f7c8fa3ab484c8eb354cc7db5eca21",
-      "after": "d2785893b2505663f7183663cb6df8af645b75a44038aa69cb90873ae4185e72",
-      "owner": "Existing Scene model, property and resource owners",
-      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+      "before": "d2785893b2505663f7183663cb6df8af645b75a44038aa69cb90873ae4185e72",
+      "after": "99552847cd0a0bc30f0f499d65955b865df47ba193c98a7bf7c85fcde39597a7",
+      "owner": "Existing Scene model storage and runtime evidence owners",
+      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ee16403726718dd5399cfbb7f321b0e3a7cca1944b0e7ec8c2619f58776ae38d",
-      "after": "86d7973f8f4d0c8010cf2227a6633d8c9f38377205fd8308c3a14dfcaa3c5726",
-      "owner": "Existing Scene model, property and resource owners",
-      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+      "before": "86d7973f8f4d0c8010cf2227a6633d8c9f38377205fd8308c3a14dfcaa3c5726",
+      "after": "14add0777cbff34dd28d0241d6140930d4e8c96635ed7658d452a802b6a48f08",
+      "owner": "Existing Scene model storage and runtime evidence owners",
+      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
     }
   ]
 }

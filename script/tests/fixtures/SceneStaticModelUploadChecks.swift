@@ -18,7 +18,6 @@ import simd
         for item in input {
             let model = try SceneMdlStaticModelReader.read(data:
                 Data(contentsOf: URL(fileURLWithPath: item["path"] as! String)))
-            let expectedVertices = model.vertices.withUnsafeBytes { Data($0) }
             let narrow = item["indexBytes"] as! Int == 2
             let expectedIndices = narrow
                 ? model.indices.map(UInt16.init).withUnsafeBytes { Data($0) }
@@ -43,6 +42,15 @@ import simd
             blit.endEncoding()
             command.commit()
             command.waitUntilCompleted()
+            let actual = vertexResult.contents().assumingMemoryBound(to: Float.self)
+            let channelsMatch = model.vertices.enumerated().allSatisfy { index, v in
+                let expected = [v.position.x, v.position.y, v.position.z, v.uv.x,
+                    v.normal.x, v.normal.y, v.normal.z, v.uv.y,
+                    v.tangent.x, v.tangent.y, v.tangent.z, v.tangent.w]
+                return expected.enumerated().allSatisfy { lane, value in
+                    actual[index * 12 + lane].bitPattern == value.bitPattern
+                }
+            }
             let expectedMinimum = (item["minimum"] as! [NSNumber]).map(\.floatValue)
             let expectedMaximum = (item["maximum"] as! [NSNumber]).map(\.floatValue)
             let minimum = [mesh.boundsMinimum.x, mesh.boundsMinimum.y, mesh.boundsMinimum.z]
@@ -54,8 +62,10 @@ import simd
             rows.append([
                 "name": item["name"]!,
                 "gpuCompleted": command.status == .completed && command.error == nil,
-                "allVertexBytes": vertices.length == expectedVertices.count
-                    && Data(bytes: vertexResult.contents(), count: vertices.length) == expectedVertices,
+                "allVertexChannels": channelsMatch,
+                "packedStorage": vertices.length == mesh.vertexCount * 48,
+                "vertexBytes": vertices.length, "vertexAllocatedBytes": vertices.allocatedSize,
+                "indexAllocatedBytes": indices.allocatedSize,
                 "allIndexBytes": indices.length == expectedIndices.count
                     && Data(bytes: indexResult.contents(), count: indices.length) == expectedIndices,
                 "indexType": indexType == (narrow ? .uint16 : .uint32),

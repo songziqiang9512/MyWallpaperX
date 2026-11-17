@@ -107,7 +107,7 @@ import simd
   descriptor.camera = .init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
       orthoHeight:Float(height),fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
   let loader=try SceneTextureLoader(root:root,device:device)
-  let meshCost=device.heapBufferSizeAndAlign(length:4*MemoryLayout<SceneMdlStaticModel.Vertex>.stride,options:.storageModeShared).size
+  let meshCost=device.heapBufferSizeAndAlign(length:4*48,options:.storageModeShared).size
        + device.heapBufferSizeAndAlign(length:6*MemoryLayout<UInt32>.stride,options:.storageModeShared).size
   let rejectionBefore=SceneResourceBudget.shared.snapshot.rejectionCount
   var held=0

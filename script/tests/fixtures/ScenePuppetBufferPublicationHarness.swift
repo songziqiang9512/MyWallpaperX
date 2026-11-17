@@ -515,12 +515,11 @@ func directPublicationChecks(device: MTLDevice, queue: MTLCommandQueue) throws -
     func make() throws -> (ScenePuppetPlaybackState, ScenePuppetMeshGeometry, SceneStaticModelMesh) {
         let state = try ScenePuppetPlaybackState.makeDirectModel(layerID: 42, vertices: vertices,
             evaluator: evaluator, selection: base.2).get()
-        var bind = vertices, indices = base.0.indices
-        let mesh = SceneStaticModelMesh(vertexBuffer: device.makeSceneBuffer(bytes: &bind,
-            length: bind.count * MemoryLayout<SceneMdlStaticModel.Vertex>.stride)!,
-            indexBuffer: device.makeSceneBuffer(bytes: &indices, length: indices.count * 2)!,
-            boundsMinimum: SIMD3(-0.5,-0.5,0), boundsMaximum: SIMD3(0.5,0.5,0),
-            vertexCount: vertices.count, indexCount: indices.count, indexType: .uint16)
+        let model = SceneMdlStaticModel(version: "MDLV0023", headerFormat: 0,
+            vertexFormat: 0, vertexStride: 48, indexElementSize: 2, materialPath: "fixture",
+            bounds: .init(minimum: [-0.5,-0.5,0], maximum: [0.5,0.5,0]),
+            vertices: vertices, indices: base.0.indices.map(UInt32.init))
+        let mesh = SceneStaticModelPipeline.makeMesh(model: model, device: device)!
         let gpu = try ScenePuppetMeshGeometry.prepareDirectModel(layerID: 42, vertices: vertices,
             mesh: mesh, pipeline: SceneStaticModelPipeline(device: device), selection: base.2).get()
         return (state, gpu, mesh)
@@ -536,22 +535,28 @@ func directPublicationChecks(device: MTLDevice, queue: MTLCommandQueue) throws -
         gpu.publish(frame: frame, animationFrame: a, sceneTime: 0, frameIndex: 1,
             commandBuffer: command, transaction: transaction)
     }
+    func readBuffer(_ buffer: MTLBuffer, count: Int) -> [SceneMdlStaticModel.Vertex] {
+        let raw = buffer.contents().assumingMemoryBound(to: Float.self)
+        return (0..<count).map { index in
+            let v = raw.advanced(by: index * 12)
+            return .init(position: SIMD3(v[0],v[1],v[2]), normal: SIMD3(v[4],v[5],v[6]),
+                tangent: SIMD4(v[8],v[9],v[10],v[11]), uv: SIMD2(v[3],v[7]))
+        }
+    }
     func read(_ mesh: SceneStaticModelMesh?) -> [SceneMdlStaticModel.Vertex]? {
-        mesh.map { Array(UnsafeBufferPointer(start: $0.vertexBuffer.contents()
-            .assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self), count: $0.vertexCount)) }
+        mesh.map { readBuffer($0.vertexBuffer, count: $0.vertexCount) }
     }
     let cb = queue.makeCommandBuffer()!, tx = SceneSourceUpdateTransaction(on: cb)
     publish(gpu, frozen, cb, tx)
     let first = gpu.directModelMesh(on: cb)!
     publish(gpu, frozen, cb, tx)
     let same = gpu.directModelMesh(on: cb)!
-    let copy = device.makeBuffer(length: first.vertexCount * MemoryLayout<SceneMdlStaticModel.Vertex>.stride,
+    let copy = device.makeBuffer(length: first.vertexCount * 48,
         options: .storageModeShared)!
     let blit = cb.makeBlitCommandEncoder()!
     blit.copy(from: first.vertexBuffer, sourceOffset: 0, to: copy, destinationOffset: 0, size: copy.length)
     blit.endEncoding(); tx.arm(on: cb); cb.commit(); tx.didSubmit(); cb.waitUntilCompleted()
-    let gpuBytes = Array(UnsafeBufferPointer(start: copy.contents()
-        .assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self), count: vertices.count))
+    let gpuBytes = readBuffer(copy, count: vertices.count)
     var checks = ["frozenGPUBytes": cb.status == .completed && gpuBytes == vertices,
         "repeatDoesNotPrepareCPU": state.renderFrame!.revision == latest.revision && first.vertexBuffer === same.vertexBuffer,
         "frozenBounds": first.boundsMinimum == SIMD3(-0.5,-0.5,0) && first.boundsMaximum == SIMD3(0.5,0.5,0)]
@@ -927,5 +932,5 @@ final class ScenePuppetBoneEvidence {
                       poseStatus: String, selection: ScenePuppetAnimationSelection,
                       animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
                       vertices: Vertices, bindVertices: BindVertices, commandBuffer: MTLCommandBuffer)
-        where Vertices.Element == SceneMdlStaticModel.Vertex, BindVertices.Element == SceneMdlStaticModel.Vertex {}
+        where Vertices.Element == SIMD3<Float>, BindVertices.Element == SIMD3<Float> {}
 }

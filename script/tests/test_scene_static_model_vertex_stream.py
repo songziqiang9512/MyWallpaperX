@@ -141,7 +141,7 @@ class SceneStaticModelVertexStreamTests(unittest.TestCase):
             model = folder / "verified.mdl"
             model.write_bytes(build_model(bounds=(-10, -10, -10, 10, 10, 10), vertices=[
                 ((-2, 3, -4), (2, -3, 4), (-5, 6, -7, -1), (.125, .875)),
-                ((5, -6, 7), (0, 0, 0), (0, 0, 0, 0), (.625, .25)),
+                ((5, -6, 7), (-0., 0., -0.), (0., -0., 0., -0.), (-0., .25)),
                 ((1, 2, 3), (0, 0, 1), (1, 0, 0, 1), (.5, .5))]))
             sources = [*SWIFT_SOURCES, STREAM, TRANSACTION, harness]
             binary = folder / "metal-checks"

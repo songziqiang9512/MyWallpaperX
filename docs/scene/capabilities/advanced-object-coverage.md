@@ -56,6 +56,14 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 动态骨骼输出由原 mesh owner 提供按 layer/surface 隔离的有界 vertex slots；index/material 可共享，可写 pose stream 不按 path 共享。color 与 shadow 消费同一 frame binding；编码开始后不能偷偷更换 pose。未准备、lease/encode 失败跳过受影响 draw，不能读取未持有旧 buffer。
 
+### 模型GPU顶点存储 <a id="model-gpu-vertex-storage"></a>
+
+目标是在原模型上传和pose发布边界减少不承载通道的存储，保持颜色、相机深度与三灯阴影逐值相同。CPU Reader/skinning的64B Vertex及冻结帧不变；GPU采用唯一48B记录：三个Float4依次存position.xyz/uv.x、normal.xyz/uv.y、tangent.xyzw。只移动原Float32位，不量化、归一化或改几何。直接改CPU布局会同时触及Reader、skin与热点向量读取，当前收益不足以承担该范围；也不保两套GPU格式或按模型选择stride。
+
+沿原`Reader/完整pose → makeMesh/VertexStream → 原MTLBuffer/预算和lease → color/camera-depth/shadow/receiver-face读取 → 唯一合成`。两处写入直接写原最终buffer，退出raw64复制；冷不可变上传可合并既有bounds遍历，pose仍先取得原bounds再按原锁/slot/transaction发布。所有MSL顶点和片元indexed-face消费者、DEBUG实际提交/bind位置读取同批迁移；不加packed数组、缓存、后台转换、PSO或分配owner，不改独立image puppet ABI。新增数据记录只表达共享物理布局，两处消费者需要它，不能以减少字节冒零CPU成本。
+
+验收锁原12通道的Float位、signed zero、16/32位索引、精确bounds、实际色深/法线纹理与receiver-face，保三slot、冻结pose、取消/完成和健康peer。真实大模型须核buffer.length、allocatedSize及原预算，不把纹理pool算作顶点收益；另量冷打包与动态发布CPU，补原包和独立动画/材质样本。若实际分配未降、需要额外副本或发布CPU代价抵销收益则撤候选，不以理论字节或新构建认领优化。
+
 源码：[静态模型资源](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)、[DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)。
 
 <a id="model-additive-blend"></a>

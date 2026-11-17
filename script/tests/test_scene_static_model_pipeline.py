@@ -153,7 +153,8 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     minimum, maximum = [-1, -1, 0], [1, 1, 0]
                 if name == "signed-zero-bounds":
                     positions = [(-0., 0., -0.), (0., -0., -0.), (-0., 0., 0.)]
-                    vertices = [(position, *vertex[1:]) for position, vertex in zip(positions, vertices)]
+                    vertices = [(position, (-0., 0., -0.), (0., -0., 0., -0.), (-0., 0.))
+                                for position in positions]
                     minimum = maximum = [0, 0, 0]
                 path = Path(tmp) / f"{name}.mdl"
                 path.write_bytes(build_model(vertices=vertices, indices=indices, index_flag=flag,
@@ -167,7 +168,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
             with self.subTest(name=row["name"]):
                 self.assertEqual(row["vertexCount"], count, row)
                 self.assertEqual(row["indexBytes"], width, row)
-                for check in ("gpuCompleted", "allVertexBytes", "allIndexBytes", "indexType",
+                for check in ("gpuCompleted", "allVertexChannels", "packedStorage", "allIndexBytes", "indexType",
                               "tightBounds", "boundsBitsMatchOriginal", "counts", "authoredBoundsWereLoose"):
                     self.assertTrue(row[check], row)
 

@@ -76,13 +76,25 @@
 
 a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有驱动沿原请求核火卫一/二及木卫一至四的135°/315°相反姿态，原847作者对象、1174非scene条目和project不变；intro/spin关闭且只冻结作者simulation，Date/原runtime继续。两轮采集均PASS，12目标各有strict实际focus/key/transition完成、READY→END HOLD、实际纹理model draw→同request/PID/CB/Surface/main/seal/GPUcompleted/trunc0及排空；四次父route单独收据不冒父模型可见资格。B六体地形/坑纹/裂纹连续，Phobos前景不规则岩体遮住后方巨大Mars；A为薄亮缘或完整遮星夜面，不将暗面判缺图。12原PNG与查看副本逐RGBA相同，独立实际审查f6fce8f3…3852b无新模型缺陷；未改产品、未补构建，不授全表面/全部视角/实际双击或官方逐像素一致。
 
-卫星输入、12原图/原行摘录与独审归`.artifacts/scene-solar-moons-20261115/first6.zip`（15,382,045B，SHA236e0914…6db0），全成员校验后清理两轮运行目录和两个pkg副本；保重建配方与未解决UI最小原图。另见钟和右面板缺片，尚未证明与模型或既有文字排序同因，问题只归[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)。
+卫星输入、12原图/原行摘录与独审归`.artifacts/scene-solar-moons-20261115/first6.zip`（15,382,045B，SHA236e0914…6db0），全成员校验后清理两轮运行目录和两个pkg副本；保重建配方与必要UI原图；旧缺片观察已由[当前复核](#solar-ui-layout)纠正，不列为已证模型或文字深度故障。
 
-同7159签名App补沿原3秒请求的Saturn→Titan→Iapetus→Uranus→Neptune→Saturn，原847对象、project及1174非scene条目保持；只替换私有驱动的两处原字节跨度。109.819s整轮PASS、22原PNG无截图失败，6×5条请求/移动/匹配/READY/END实际记录闭合。6个HOLD均有同request/PID/CB/main/seal/GPUcompleted、trunc0及排空，5个不同球体未见新纹理/外缘缺口；移动候选仅小Saturn在画幅内，其余5体没有可辨轮廓，不授黄色/蓝色完整3秒同步或全部镜头正常。独审a32c6b57…c8944无该范围新阻断。8必要原PNG、30状态记录、12候选帧原事件和输入重建/身份归`.artifacts/scene-solar-atmosphere-views-20261115/evidence.zip`；未留569MB包或全日志。按用户最新顺序先转347水滴，余15卫星B及航天器继续留队列，不再作转向硬前置。
+同7159签名App补沿原3秒请求的Saturn→Titan→Iapetus→Uranus→Neptune→Saturn，原847对象、project及1174非scene条目保持；只替换私有驱动的两处原字节跨度。109.819s整轮PASS、22原PNG无截图失败，6×5条请求/移动/匹配/READY/END实际记录闭合。6个HOLD均有同request/PID/CB/main/seal/GPUcompleted、trunc0及排空，5个不同球体未见新纹理/外缘缺口；移动候选仅小Saturn在画幅内，其余5体没有可辨轮廓，不授黄色/蓝色完整3秒同步或全部镜头正常。独审a32c6b57…c8944无该范围新阻断。8必要原PNG、30状态记录、12候选帧原事件和输入重建/身份归`.artifacts/scene-solar-atmosphere-views-20261115/evidence.zip`；未留569MB包或全日志。此移动窗口不替代后续稳定视角核对，也不再把旧转向顺序作为347已验收画面的前置。
 
 2026-11-16同15e4291c0签名App（exe3203f653/dylib65c79a02/metallibbfb78133）核六个航天器：TDRS-9、JWST、ISS、Tiangong、Hubble、LRO。原847对象、project和1174非scene条目不变，只在既有私有驱动的固定跨度送原作者焦点请求；近景沿原scalenum输入，实际type=spacecraft/globalsize=5持续6更新与1秒后再HOLD至少5秒。默认1×A、原生3024×1964的5×A(135°)/B(315°)各六帧均闭合实际模型→同request/CB/main/seal/GPUcompleted、trunc0及排空；默认场有5次superseded、1次teardown截图失败，两个近景场均PASS。默认小图只授模型出现，A/B细节与独审未见明确缺片或错误纹理；Hubble A高光饱和、JWST B暗镜面的受光仍未知。两近景JD相差571.801秒，不授纯角度/RGB因果、所有210条draw各自完整贡献、余17航天器或官方一致，9作者占位仍非MDL缺图。
 
 18原PNG与3原report保于`.artifacts/scene-spacecraft-first6-20261116/evidence.zip`（177,569,361B，SHAb072461e…7158082），最终B正式原报告/必要载荷归`.artifacts/scene-evidence/runs/scene-spacecraft-first6-20261116`，四项同SHA别名不重复存储。封包后只删核过完整清单及无句柄的121个精确路径，5.62GB为逻辑大小，274个保留文件逐SHA未变；当前App/唯一DerivedData和用户媒体不在清单。该轮未建立新模型缺陷，按收益转向新的明确阴影反馈。
+
+2026-11-17复用1077/e335/7c94签名App补余15卫星B(315°)及余17有MDL航天器的5×A/B，原847对象、project及1174非scene资产保持；只用私有驱动送原焦点请求，scalenum=1须实际type=spacecraft/globalsize=5连续6更新且≥1秒，再HOLD5秒。49个目标选帧分别核READY→END、实际目标model→同request/CB/main/seal/GPUcompleted、trunc0与停止排空，不由驱动计划或draw数量授像素。卫星两次实际看图加六张风险独审未见新明确破面/静态外层分离；Miranda沟槽、Titania/Oberon坑纹及Titan共位外缘可辨，Triton/Proteus仅窄亮侧，Charon强flare/夜面不足以授目标完整纹理。该整轮唯一performance presentation stream count不匹配仍保FAIL，不授性能。
+
+17航天器两轮均PASS、各76原PNG且零截图失败，34个HOLD原图逐一独审；Lucy/MRO/MAVEN的A暗面在B露出连续网格及主体，BeiDou/Galileo的panel另一侧也可辨，不把黑面或离散高光判漏槽。BeiDou饱和中心的受光细节，以及三体水滴p5c3的B可见性仍未知；该材料黑albedo/metallic1/REFLECTION1与实际历史反射draw只证供货，不证暗图完整。A/B作者simulationJD差417.921秒，不授纯姿态RGB因果、全部过渡/太阳遮挡或官方一致。两场输入配方/选择/独审与34原PNG按单包≤32MiB保于`.artifacts/scene-spacecraft-remaining17-20261117`；本轮卫星及下节界面复核归`.artifacts/scene-solar-focus-audit-20261117/evidence.zip`（33,424,565B，SHAe65fea1b…d562b，14天/共享5GiB）。未改产品、未因审图重建App，后续存储候选另行资格。
+
+### 366界面观察的复核 <a id="solar-ui-layout"></a>
+
+2026-11-17原两张PNG逐SHA复核，Haumea A的18:12、Ganymede B的19:51均完整；当前1077/e335/7c94同原project及847对象/1174资产、原前驱→目标/3s过渡/5sHOLD两例也见完整20:35/20:39。两after实际在各目标READY后3.075/3.139s且END前2.069/1.899s，分别model3177/3376到同request/CB/main/seal/GPUcompleted、trunc0并排空，两个整轮PASS。Haumea现有连续受光纹理，旧首15的黑图不再代表当前e0受光；两例不授全部视角。
+
+旧‘钟前缀/胶囊缺片’观察退出：原clock脚本仅完整HH:mm；GeoDraw四层depthtest/write禁用、未命中主画布prefix，标题黑色亦属作者声明。可见面板重叠是独立布局现象：原两脚本用相同screenResolution，固定Y53/81、大小1.5，尺寸k=min(W,H)/2160而位置沿固定1440单位。目录官方截图含Parallels外框，无遮挡client为[114,152,3134,1784)，高1632，不能用整图3248×1934冒client。当前1964高的条件间隙预测约−85.07单位，1632高约−2.53；同aspect缩至2510×1632的现有.83控制实际近接触，clock/model完整。该afterR3/F120仍闭合真实目标HOLD与model3177/main/seal/GPU；不授精确官方同输入或一般DPI结论。[官方screenResolution/resize定义](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/resizeScreen.html)以屏幕像素说明接口，不替代此原包输入观察。
+
+缩放整轮仍保FAIL4：旧epoch1的23份sealed ledger在主动resize后以allocation-reprepare取消，F83 epoch2同Program全部恢复；诊断把取消合成rejected/零allocation，而工具又跨epoch要求signature/mapping单调，旧347同链亦有4fail。没有取消帧像素，不保证中间无闪断；固定10×10重prepare不等于23份物理新pair或性能损失。此责任沿[开放队列](../roadmap/scene-open-breakpoint-queue.md#legacy-gate-debt)修正，不借此改资源架构或将原report改PASS。
 
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
@@ -297,6 +309,20 @@ CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增
 独立已验收347同build4、30秒/after25/HDR.3近时1×/2×控制中，submitted FPS45.434/42.352，GPU P50/P9512.178/13.563与13.316/14.843ms，池峰308728832/451268096B。白紫发光边、亮尖、黑心、背景光带和钟日公式保持，未见足以抵销成本的新可辨收益。两次独审据此撤回通用默认2×及全部配套PSO/cohort/策略/API和测试接口；产品继续1×。短窗不授稳态、能耗或严格计时因果，但已触发候选停止线；不以三角形数量/AABB密度或样本名单挽救默认许可，现prepared元数据不能区分细分曲面与独立亚像素碎石。
 
 此前完整影像与面积研究保在`.artifacts/scene-model-raster-research-20261117/evidence.zip`，低成本存储研究保在`.artifacts/scene-model-tile-research-20261117/evidence.zip`。本轮新增研究归`.artifacts/scene-model-raster-withdrawal-research-20261117/evidence.zip`（12647881B，SHA33896157…149125，478 aliases/351唯一payload逐SHA复验，14天）；五场原包完整App按真实数字ID独立保于同名前缀的Scene evidence runs，各低于32MiB，共享5GiB。早两份源只有SHA+原读回，不授旧版本完整重编；相应两probe/库保留。37个已停用App/HOME/sample及编译子项经提取与fresh PS/lsof、原inventory核对后精确清理，逻辑4150016682B，不冒物理释放量。研究不冒现役资格。环自然闪烁仍开放，重启须真实完整原景收益及健康独立样本成本共同通过，不重复默认N2或五点滤波旧路径。
+
+## 模型GPU顶点的紧凑存储 <a id="model-gpu-vertex-storage"></a>
+
+按[存储合同](advanced-object-coverage.md#model-gpu-vertex-storage)，原makeMesh与pose stream直接写最终48B GPU记录，退CPU64作为GPU ABI、raw复制和DEBUG旧cast；CPU Reader/skinning/冻结帧仍64B。MSL颜色、相机深度、三灯shadow及片元16/32位indexed-face统一迁移，DEBUG仍读实际提交与bind buffer。五产品净+14行，无packed数组、缓存、PSO或分配owner；冷上传合并原bounds遍历，pose保原锁前bounds与三slot/lease事务。
+
+真实358的479原MDL为3144456顶点/3206592索引，两flags各旧/新一次GPUblit，37733472个Float32通道位逐一相同、索引零差、bounds逐bit同。vertex请求201245184→150933888B，actual allocatedSize201261056→150945792B（少50315264B），原预算含不变索引214071552→163760256B；不是纹理pool或进程峰值节省。另4096受控pose沿原三slot，完整当前数据/取消/完成由最近门核，不把静态479冒实际动画。
+
+原owner的旧/新/新/旧分进程微基准分别保Onone与-O：各臂6次新makeMesh（不含Reader/磁盘/释放）及128次4096顶点updateBinding（含bounds/pack/lease，排除pose计算、CB创建/cancel和GPU）。Onone冷中位328.758→740.988ms、pose464.271→1109.355µs，明确增成本；-O冷19.408→22.218ms、pose7.667→7.208µs，后者不授稳定提速。正常Run/发行使用Release；本批选择明确的驻留减少，未宣打包免费、Debug启动/动画加速、能耗或一般FPS收益。
+
+42个不同最近方法通过：上传7输入全12lane/负零、65535/65536索引、stream8方法、原Parts15、Pipeline8、receiver-face3、真实Puppet publication2与normal6之间按方法去重；保局部坏材质、预算拒绝、健康peer、冻结pose和所有原容差。首9方法旧输入绿不冒新增负零资格，补输入仅重跑受影响9。普通Debug26.755s，五产品/project/锁共7输入前后同，strict deep及原helper签名通过；exe6ab33b9f…b581bf、dylib24c17145…f9d0、metallib00cbab3e…620cd。私有成本载体首编译缺两个未变化include为0GPU，补冻结头文件后复用原产品/输入，不当产品故障。
+
+完整原358同入口/60FPS、warm30/duration95，两场有效63.503/63.471s均0failed；CPU帧P50/P95为17.002/17.650→16.786/17.489ms，GPU15.910/18.142→14.770/16.904ms，submitted33.022→33.165，实际present P50/P95同33.333ms。逐帧pass/copy census完全同；process CPU总时78196.180→78277.265ms，Ready15.191→15.970s，不由单对授启动或总CPU改善。GPU采样峰1561001984→1472872448B同时纹理pool853610608→834781360B，不能从峰差归因精确顶点节省。成熟土星/星环/主影/钟日保持，独立347原包固定HDR.3的30s/after25保发光边/亮尖/暗心/背景线与钟日公式；各实际模型到main/seal/同CB捕获、completed/trunc0并排空。自然相位未配对，不授逐PNG等值或环闪已关闭。
+
+源/测试/原生位值与成本、构建/签名及独审归`.artifacts/scene-model-gpu-vertices-20261117/evidence.zip`；三原包载荷各以同名前缀独立formal run保留，14天/单包32MiB/总5GiB。独审无该范围阻断，CPU增长与未覆盖范围保留；唯一连续DD与1077对照App留作连续迭代。
 
 ## 深度与帧临时纹理复用 <a id="depth-submission-order"></a>
 

@@ -313,19 +313,13 @@ struct SceneStaticModelPipeline {
         let indices = model.indices
 
         let vertexLength = vertices.count
-            * MemoryLayout<SceneMdlStaticModel.Vertex>.stride
+            * MemoryLayout<SceneStaticModelGPUVertex>.stride
         let usesWideIndices = model.indexElementSize == 4
             && indices.contains { $0 > UInt16.max }
         let indexData = usesWideIndices
             ? indices.withUnsafeBytes { Data($0) }
             : indices.map(UInt16.init).withUnsafeBytes { Data($0) }
-        guard let vertexBuffer = vertices.withUnsafeBytes({ bytes in
-                  device.makeSceneBuffer(
-                      bytes: bytes.baseAddress!,
-                      length: vertexLength,
-                      options: []
-                  )
-              }),
+        guard let vertexBuffer = device.makeSceneBuffer(length: vertexLength),
               let indexBuffer = indexData.withUnsafeBytes({ bytes in
                   device.makeSceneBuffer(
                       bytes: bytes.baseAddress!,
@@ -339,7 +333,13 @@ struct SceneStaticModelPipeline {
         indexBuffer.label = "Scene static model indices"
         var boundsMinimum = vertices[0].position
         var boundsMaximum = boundsMinimum
-        for vertex in vertices.dropFirst() {
+        let output = vertexBuffer.contents().bindMemory(
+            to: SceneStaticModelGPUVertex.self, capacity: vertices.count
+        )
+        output.initialize(to: SceneStaticModelGPUVertex(vertices[0]))
+        for index in 1..<vertices.count {
+            let vertex = vertices[index]
+            output.advanced(by: index).initialize(to: SceneStaticModelGPUVertex(vertex))
             boundsMinimum = simd_min(boundsMinimum, vertex.position)
             boundsMaximum = simd_max(boundsMaximum, vertex.position)
         }
@@ -361,7 +361,7 @@ struct SceneStaticModelPipeline {
     ) -> Result<SceneStaticModelVertexStream, SceneStaticModelVertexStream.Failure> {
         guard Self.hasExpectedVertexABI else { return .failure(.invalidVertexABI) }
         let (byteCount, overflow) = mesh.vertexCount.multipliedReportingOverflow(
-            by: MemoryLayout<SceneMdlStaticModel.Vertex>.stride
+            by: MemoryLayout<SceneStaticModelGPUVertex>.stride
         )
         guard !overflow, mesh.vertexCount > 0,
               mesh.vertexBuffer.length >= byteCount,
@@ -810,11 +810,10 @@ struct SceneStaticModelPipeline {
     }
 
     private static let hasExpectedVertexABI =
-        MemoryLayout<SceneMdlStaticModel.Vertex>.stride == 64
-        && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.position) == 0
-        && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.normal) == 16
-        && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.tangent) == 32
-        && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.uv) == 48
+        MemoryLayout<SceneStaticModelGPUVertex>.stride == 48
+        && MemoryLayout<SceneStaticModelGPUVertex>.offset(of: \.positionAndU) == 0
+        && MemoryLayout<SceneStaticModelGPUVertex>.offset(of: \.normalAndV) == 16
+        && MemoryLayout<SceneStaticModelGPUVertex>.offset(of: \.tangent) == 32
 
     /// Swift/MSL constant-buffer ABI. The paired Metal source compiles in the
     /// same test that executes this gate; host-side drift rejects pipeline
