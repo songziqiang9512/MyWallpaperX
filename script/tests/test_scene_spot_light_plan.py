@@ -127,7 +127,7 @@ def _declaration(source: str, marker: str) -> str:
 _timeline_source = (SCENE_ROOT / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_text()
 CARRIERS = CARRIERS.replace("// PRODUCTION_TIMELINE_CARRIERS", "\n".join(
     _declaration(_timeline_source, "nonisolated struct " + name)
-    for name in ("SceneTimelineBinding:", "SceneTimelineProgram:")
+    for name in ("SceneTimelineBinding:", "SceneTimelineProgram:", "SceneTimelineAnimationEventOccurrence:")
 )).replace("// PRODUCTION_SOURCE_EVIDENCE", _declaration(
     (SCENE_ROOT / "Format/SceneScriptSourceEvidence.swift").read_text(),
     "nonisolated struct SceneScriptSourceEvidenceIR:",

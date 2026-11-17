@@ -333,6 +333,13 @@ CPU现有门30行/10方法通过2.605秒，旧连续源同JSON为8绿/2个新增
 <a id="model-shadow-area-boundary"></a>
 合成8texel footprint的14CB控制中，真实N3随四相位的均值为.583333/.583333/.416667/.416667，面积真值恒.5；改名/全影/真孔/关影控制保持。这只证明更远缩小时固定核的限制。固定world-grid、仅479caster的真实局部探针里，两个完整面内像素各交9个map cell且全部clear，变化receiver-plane/bias的面积积分均为1，N3仅高1 Float32 ULP；不支持这两点的面积缺口，也不是含合法477等caster的完整影图，原景闪烁仍未知。v1编译失败0GPU与v2原qualifiedRaw=false完整保留；CPU独立解释只纠正诊断的严格上界，不改产品、不伪造新GPU。故不续调N3/放bias或删caster。
 
+<a id="model-shadow-complete-contribution"></a>
+2026-11-18补完整投影域判别：实际Builder字段经私有DTO交原Reader/Resources/TEX Loader/World/Frame/Pipeline，保冻结33对象、28部件与25个caster部件；一次拟合4096影图，同一渲染CB中只切接收端full-shadow/空shadows。2268×1474视口的512²原Half ROI有26,315像素变化，alpha与相机depth逐bit相同；26,310处只增亮，5处含反向差且最大.00048828125。实际看图，关影减少斜长暗纹但仍有密集细粒；只授阴影贡献，不授所有暗纹错误、原130对象自然闪烁关闭或完整Program/反射/Bloom输出资格。
+
+私有layerID附件调用同生产深度函数，四份ROI色/相机depth与原控制逐byte相同、fit矩阵相同，不冒未保存的基线整张light-map位等。新相机射线与462双片几何的16格条件核中，729848前片阻权约.070847，实际winner为479；728848环面全亮但合成色仍变，后续须定位实际叠加片元。旧仅479探针与本图fit不同，不能把旧clear直接归新增caster；不据此续调N3、放bias或删合法投影体。
+
+原作者700在2秒后用34秒将shared.kv推至默认100，约36秒才完成倍速进场；墙钟after32/35不等于匹配成熟天文相位。官方同冻结输入开启阴影的原JPEG已取得；仅关259的两次控制均触发官方2.8.0.42堆损坏退出，无关影像素正控，不授开关消费或官方公式。客户端已恢复、本轮guest副本已清，原质量设置未改。本轮没有新的环闪产品修复。原色深、标签、失败与独审归`.artifacts/scene-review-closeout-20261118/evidence.zip`。
+
 IFO296成熟说明的“ra)”由作者26字符、速度5/平滑4、间隔2的循环substring解释，substring(43,69)正好匹配；未读所选帧实际offset，不授精确相位或全部文字正确。两项及拓扑256面前缀探查归`.artifacts/scene-model-shadow-area-research-20261117/evidence.zip`（314019B，SHAd4d0b44b…f2dd08，162逻辑文件/130唯一payload逐SHA复验，14天/共享5GiB）。11个已停编译输出按fresh PS/lsof及inventory精确退役，逻辑140383446B；源、原始失败/读回与唯一几何保留，不冒物理释放。
 
 <a id="frame-resource-preflight"></a>

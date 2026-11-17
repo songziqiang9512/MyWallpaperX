@@ -480,7 +480,8 @@ extension SceneMetalRenderer {
                     break frameLayers
                 }
             case "spotLight":
-                guard frameVisibleLayerIDs.contains(layer.id) else { continue }
+                guard frameVisibleLayerIDs.contains(layer.id),
+                      layer.spotLight?.castsVolumetrics == true else { continue }
                 spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(

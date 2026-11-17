@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 476,
-      "bytes": 111103
+      "bytes": 111357
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 270189
+      "bytes": 270602
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5095
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 204,
-      "bytes": 64159
+      "lines": 203,
+      "bytes": 63040
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14476
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 556,
-      "bytes": 158991
+      "lines": 563,
+      "bytes": 160652
     }
   },
   "archives": [
@@ -469,15 +469,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ecc81cb5b673bb1bee06810e83a6d61fa43348c149367f217195de4fa9b9c515",
-      "after": "eed9660bb2efab4495360073bea4a11370a4ad8e2b82326c5005ed017b37cab8",
-      "owner": "Existing Scene Bloom, terminal readback and runtime evidence owners",
-      "reason": "Merge qualified current-Ultra five corresponding responses and bounded spatial comparison with same-CB HDR16/real-replay evidence and restored ordinary identities; do not grant full halo, formula or performance parity.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hdr-bloom-extraction"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
       "after": "a3ed5f57ff7ef2bf8d04f5412b1843af03e7052df1fad9630aa13ba0d9edbe1a",
@@ -523,30 +514,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "afcfd8f6583560c8c416ab80a10143691c18b3ce345f40e6296a8c48e21619f4",
-      "after": "2cdd7ad6530c2872f5412ab8a79de16ab444034063f196cf9351a64c89712a80",
-      "owner": "Existing Scene model storage and runtime evidence owners",
-      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "d2785893b2505663f7183663cb6df8af645b75a44038aa69cb90873ae4185e72",
-      "after": "99552847cd0a0bc30f0f499d65955b865df47ba193c98a7bf7c85fcde39597a7",
-      "owner": "Existing Scene model storage and runtime evidence owners",
-      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
+      "before": "99552847cd0a0bc30f0f499d65955b865df47ba193c98a7bf7c85fcde39597a7",
+      "after": "56567c4da3023e300941010c4b1f139dbf8f3f900ee1dfc2c9e6f3a3eaa903fa",
+      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
+      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-complete-contribution"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "86d7973f8f4d0c8010cf2227a6633d8c9f38377205fd8308c3a14dfcaa3c5726",
-      "after": "14add0777cbff34dd28d0241d6140930d4e8c96635ed7658d452a802b6a48f08",
-      "owner": "Existing Scene model storage and runtime evidence owners",
-      "reason": "Specify one compact GPU layout, preserve all semantic channels and publication leases, qualify actual allocation savings with explicit Debug and optimized packing costs, and correct bounded model-view/UI observations. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-gpu-vertex-storage"
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "eed9660bb2efab4495360073bea4a11370a4ad8e2b82326c5005ed017b37cab8",
+      "after": "4390ca0c38634c0a11b5cc85fc5d82b970d30b21ee68297f38bd47cc0250280c",
+      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
+      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "2cdd7ad6530c2872f5412ab8a79de16ab444034063f196cf9351a64c89712a80",
+      "after": "38df7130c99a6ed4ea279fa28028fb7744ef778b09b42a229e279df6f8a7fdcb",
+      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
+      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
     }
   ]
 }

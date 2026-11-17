@@ -8,7 +8,7 @@
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
-当前转查其它世界模型与样本的已证断点，按实际画面收益优先核材质受光、合成及播放；太阳系和水滴已交付部分的范围见[模型证据](../capabilities/model-runtime-evidence.md)，已验收画面只凭新的可复现差异重开。太阳系默认开场以Date.now()推进，主过渡20秒、部分元素到25秒结束；复测仍须自然播放至少30秒并区分远近镜头。官方对照不足时可按明确的自有算法取得生产像素收益，不由此宣官方精确一致。
+2026-11-18按用户要求完成快速队列复看并转入收尾，随后暂停连续推进；恢复时从首项的现有证据边界继续。当前转查其它世界模型与样本的已证断点，按实际画面收益优先核材质受光、合成及播放；太阳系和水滴已交付部分的范围见[模型证据](../capabilities/model-runtime-evidence.md)，已验收画面只凭新的可复现差异重开。太阳系默认开场以Date.now()推进，主过渡20秒、部分元素到25秒结束；复测仍须自然播放至少30秒并区分远近镜头。官方对照不足时可按明确的自有算法取得生产像素收益，不由此宣官方精确一致。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -17,7 +17,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 3589454154 环黑点/快速闪烁（持续开放） | [实际接收平面](../capabilities/model-runtime-evidence.md#model-shadow-receiver-plane)、[有限微影滤波](../capabilities/model-runtime-evidence.md#model-directional-shadow-filter)和[贡献后取影](../capabilities/model-runtime-evidence.md#model-shadow-demand)已入现役，球面暗点和微影已有有界收益。新[固定世界网格](../capabilities/model-runtime-evidence.md#model-directional-shadow-grid)消除固定近面、只微移远接收物时的四相位拟合波动，完整主影/成熟原景/独立作者保持；不授全自然闪烁关闭。[无shadow颜色覆盖](../capabilities/model-runtime-evidence.md#model-raster-coverage)仍有真实亚像素碎石跳变。迟解析/memoryless研究已降低N2成本，但完整原包仍需private，且同构建独立347退帧/增驻留，已撤回全部默认N2配套；不以冻结子集、面积÷面数或样本名单复活，不续调已淘汰五点滤波。[同帧资源预检](../capabilities/model-runtime-evidence.md#frame-resource-preflight)已退重复工作，原1×图/独立347保持，未冒环闪修复；[两处真实接收像素](../capabilities/model-runtime-evidence.md#model-shadow-area-boundary)在仅479的map中均为全亮，未支持继续改N3核；完整原景原因仍未知，下一有区分实验再续。479单mesh非reader误合LOD，真实tap有碎石遮挡，不再改caster面；不删几何、关合法cast、放大bias或改作者风格，合法477不是错误投影。省略cast按官方缺省开启，utilwhite alpha1不外推BC3；尺度跨档/光向旋转与cascade单位仍未知。 |
+| 3589454154 环黑点/快速闪烁（持续开放） | [已交付的接收面、微影滤波与固定网格](../capabilities/model-runtime-evidence.md#model-directional-shadow-grid)保现役；[无影颜色覆盖](../capabilities/model-runtime-evidence.md#model-raster-coverage)与[完整投影域控制](../capabilities/model-runtime-evidence.md#model-shadow-complete-contribution)确认亚像素碎石跳变及阴影相关暗纹并存。本轮没有新生产算法修复；729848环面约7.085%阻权来自479，728848的最终叠加片元仍待定位，不归环自影。旧局部与新full fit不同，禁止拼旧clear作新增caster因果。官方关259的两次控制失败，无关影正控。恢复后先沿同fit实际接收片元/有限tap补归因；保主影、合法cast及原材质，不续调任意bias、五点滤波，默认N2仍按原播放/驻留停止线撤回。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | 模型用户视频与其它贴图slot（待证） | [用户静图slot0已接通](../capabilities/model-runtime-evidence.md#model-user-albedo)；现用户视频仅PMA，模型straight需求会拒绝同key视频并保旧，尚无作者选视频像素证据，不按后缀放宽用途。静图现仍沿旧declared-key兜底准备PMA与straight两用途，后续核实际消费者和物理纹理是否冗余再裁剪，不把ready计数当驻留量。其它slot的provider/动画仍需实际消费者与独立样本，不由slot0静图推广。 |
 | 3662790108 全镜头与开场（下一首项） | [TRS同帧](../capabilities/model-runtime-evidence.md#current-authored-transforms)、[透明模型深度](../capabilities/model-runtime-evidence.md#model-translucent-camera-depth)、[普通图像冷深度](../capabilities/runtime-evidence-current.md#world-orbit-labels)和[零指数径向](../capabilities/model-runtime-evidence.md#spot-radial-falloff)已分别处理切镜头错相、地球斜纹、第二段说明和远端矮行星。焦点选帧与六个航天器两侧近景只授[模型证据](../capabilities/model-runtime-evidence.md#solar-model-views)范围，未见新模型缺片；Hubble高光细节与JWST暗面受光仍未知。余15卫星B及17有MDL航天器两侧已补实际49目标选帧/独审，未见新明确缺片；Charon眩光、Triton/Proteus窄相、北斗高光和三体水滴B细节仍未知，9作者占位不是缺图。全部过渡/太阳遮挡/实际双击仍开放；黄色/蓝色完整3秒切换仅原小Saturn可辨，不能由HOLD正常授全部运动。旧钟/胶囊缺片观察已纠正，实际面板重叠见文字行。347已用户验收，不再把旧转向顺序当硬前置。 |
@@ -194,7 +194,6 @@
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
 | 3292370168普通Debug准备与505资格 | 观测误判已归[原合同](../capabilities/runtime-evidence-current.md#execution-observation-history)。实际Popen/Python3.12及3秒栈解除旧PID未知STOP，准备窗口确在粒子warmUp（Vortex/Movement含诊断），不是主线程卡死。Movement重复首事实已退役，[单root DEBUG成本](../capabilities/runtime-evidence-current.md#movement-first-fact-cost)下降；原作者普通Debug在同4+60监督下仍无Ready/PNG、11条缺证据为同超时后果，505实际消费仍未知。后续只查有资格的优化配置实际预热工作或明确无消费者计算；不原样重跑/延长Debug预算、不跳预热，不用空Rope历史或未闭动态初值的harness推全App收益。 |
-| 未请求体积的Spot诊断 | 固定单Spot明确castvolumetrics=false，SceneSpotLightPlan无plan是正常路径；SceneSpotLightRuntime仍recordFailure并报spot-light failed。实际surface typed灯定义、模型主画布和可逆径向像素均成立，不能据该volume遥测称表面失败。沿原Runtime诊断owner把未请求与真正plan/encode失败区分，保请求后真实失败，不扩表面光照/体积能力；证据归`.artifacts/scene-spot-radial-20261115`。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 周期终端截图与收尾 | 366首15 A有8次superseded，后续四矮行星B在teardown拒绝series-0011/request14，均使整轮采集FAIL；已选各目标HOLD内的成功帧不受此自动否定，也不能将整轮改记PASS。沿原截图请求owner核周期请求与结束排空，只在有实际目标缺帧时补对应目标，不为采集失败改播放或延时重跑全轮。 |
