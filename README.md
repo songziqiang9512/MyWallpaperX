@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest">下载正式版</a> ·
-  <a href="docs/releases/2.12.3.md">2.12.3 更新说明</a> ·
+  <a href="docs/releases/2.12.4.md">2.12.4 更新说明</a> ·
   <a href="https://www.mwpx.me">官方网站</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">问题反馈</a>
 </p>

@@ -34,6 +34,21 @@ PREAMBLE = SWIFT_PREAMBLE.replace(_TEXT_STUB, _TEXT_METADATA, 1)
 HARNESS = r'''
 import Foundation
 
+extension SceneScriptValueEvaluation {
+    /// The fixture's controller owner returns a vector3 transform. New scene
+    /// script semantics journal that return as a layer mutation; this suite is
+    /// about prepared text clones, so keep the controller's own transform out.
+    var preparedTextLayerMutations: [SceneScriptLayerMutation] {
+        layerMutations.filter { !($0.layerID == 110 && $0.fields == .origin) }
+    }
+}
+
+extension SceneScriptStringFrameResult {
+    var preparedTextLayerMutations: [SceneScriptLayerMutation] {
+        layerMutations.filter { !($0.layerID == 110 && $0.fields == .origin) }
+    }
+}
+
 enum SceneDocumentLoader {
     static func floatValue(_ value: Any?) -> Float? { (value as? NSNumber)?.floatValue }
     static func floatVector(_ value: Any?) -> [Float]? { (value as? [NSNumber])?.map(\.floatValue) }
@@ -206,7 +221,7 @@ enum SceneDocumentLoader {
             }
             """)
         let created = try run(owner,f).get()
-        let births = created.layerMutations.filter { $0.isDynamic && $0.kind == .upsert }
+        let births = created.preparedTextLayerMutations.filter { $0.isDynamic && $0.kind == .upsert }
         owner.commitLayerMutations()
         let adoption = adopt(f,births)
         let targets = births.map { SceneDynamicTarget.text(layerID:$0.layerID,field:.content) }
@@ -227,7 +242,7 @@ enum SceneDocumentLoader {
         f.program.finalizeLayerMutations(committing: true)
         let removal = try run(owner,f,5).get()
         owner.commitLayerMutations()
-        let removedIDs = Set(removal.layerMutations.filter { $0.kind == .destroy }.map(\.layerID))
+        let removedIDs = Set(removal.preparedTextLayerMutations.filter { $0.kind == .destroy }.map(\.layerID))
         let held=f.program.timerFrameStateSnapshot()
         let heldLedger=f.program.frameStateSnapshot()
         let retire = f.program.retire(layerIDs: removedIDs,frame: frame(5),
@@ -254,7 +269,7 @@ enum SceneDocumentLoader {
             "destroyed":removedIDs.count,"destroyCalls":retire.filter(\.destroyCallbackInvoked).count,
             "repeatDestroyCalls":repeatRetire.filter(\.destroyCallbackInvoked).count,
             "peerStillActive":peerActive,"staleHandle":status(stale),
-            "staleMutations":(try? stale.get().layerMutations.count) ?? -1,
+            "staleMutations":(try? stale.get().preparedTextLayerMutations.count) ?? -1,
             "creatorQuiescent":creatorRetire.snapshot.isQuiescent,
             "peerDestroyCalls":peerRetire.filter(\.destroyCallbackInvoked).count,
             "remainingBindings":f.program.bindings.count,
@@ -281,7 +296,7 @@ enum SceneDocumentLoader {
             }
             """)
         let result=run(owner,f)
-        let mutations=(try? result.get().layerMutations) ?? []
+        let mutations=(try? result.get().preparedTextLayerMutations) ?? []
         owner.commitLayerMutations()
         let adopted=adopt(f,mutations)
         return ["status":status(result),"count":mutations.count,
@@ -323,7 +338,7 @@ enum SceneDocumentLoader {
             """)
         let result=run(owner,f)
         owner.commitLayerMutations()
-        let adopted=adopt(f,(try? result.get().layerMutations) ?? [])
+        let adopted=adopt(f,(try? result.get().preparedTextLayerMutations) ?? [])
         return ["status":status(result),"adopted":adopted.definitions.count]
     }
     static func duplicateTemplates() throws -> [String:Any] {
@@ -350,10 +365,10 @@ enum SceneDocumentLoader {
             """)
         let rejected=run(b,f)
         b.commitLayerMutations()
-        return ["accepted":accepted.layerMutations.count,
-            "canonicalCount":Set(accepted.layerMutations.map(\.textTemplateIdentity)).count,
+        return ["accepted":accepted.preparedTextLayerMutations.count,
+            "canonicalCount":Set(accepted.preparedTextLayerMutations.map(\.textTemplateIdentity)).count,
             "refreshFailures":refresh.count,"conflictStatus":status(rejected),
-            "healthyCount":(try? rejected.get().layerMutations.count) ?? -1]
+            "healthyCount":(try? rejected.get().preparedTextLayerMutations.count) ?? -1]
     }
     static func parentJobs() throws -> [String:Any] {
         let f=try fixture()
@@ -372,7 +387,7 @@ enum SceneDocumentLoader {
         owner.commitLayerMutations()
         let adopted=adopt(f,at:2)
         return ["first":first.value == .vector3(0,0,0),"parentJobRan":second.value == .vector3(1,0,0),
-            "jobAlpha":first.layerMutations.first?.alpha ?? -1,"adopted":adopted.definitions.count]
+            "jobAlpha":first.preparedTextLayerMutations.first?.alpha ?? -1,"adopted":adopted.definitions.count]
     }
     static func childBoundary(_ source:String, sourceEffect:Bool=false,
                               scriptOuterUser:Bool=true) throws -> [String:Any] {
@@ -389,12 +404,12 @@ enum SceneDocumentLoader {
             """)
         let created=run(owner,f)
         owner.commitLayerMutations()
-        let adopted=adopt(f,(try? created.get().layerMutations) ?? [])
+        let adopted=adopt(f,(try? created.get().preparedTextLayerMutations) ?? [])
         var output:[String:Any]=["status":status(created),"adopted":adopted.definitions.count,
-            "birthCount":(try? created.get().layerMutations.count) ?? -1]
+            "birthCount":(try? created.get().preparedTextLayerMutations.count) ?? -1]
         if sourceEffect, case let .vector3(original,_,_)? = try? created.get().value {
             output["sourceEffectCount"]=original
-            output["childEffectTexts"]=(try? created.get().layerMutations.filter(\.isDynamic).map(\.text)) ?? []
+            output["childEffectTexts"]=(try? created.get().preparedTextLayerMutations.filter(\.isDynamic).map(\.text)) ?? []
         }
         return output
     }
@@ -409,8 +424,8 @@ enum SceneDocumentLoader {
             """)
         let result=run(owner,f)
         owner.commitLayerMutations()
-        return ["status":status(result),"count":(try? result.get().layerMutations.count) ?? -1,
-            "adopted":adopt(f,(try? result.get().layerMutations) ?? []).definitions.count]
+        return ["status":status(result),"count":(try? result.get().preparedTextLayerMutations.count) ?? -1,
+            "adopted":adopt(f,(try? result.get().preparedTextLayerMutations) ?? []).definitions.count]
     }
     static func isolatedUpdateFailure() throws -> [String:Any] {
         let source=clock.replacingOccurrences(of:"export function update(v) { return",
@@ -422,9 +437,9 @@ enum SceneDocumentLoader {
             """)
         let created=try run(owner,f).get()
         owner.commitLayerMutations()
-        _=adopt(f,created.layerMutations)
-        let targets=created.layerMutations.map{SceneDynamicTarget.text(layerID:$0.layerID,field:.content)}
-        let inputs=Dictionary(uniqueKeysWithValues:zip(targets,created.layerMutations.map{SceneDynamicValue.string($0.text)}))
+        _=adopt(f,created.preparedTextLayerMutations)
+        let targets=created.preparedTextLayerMutations.map{SceneDynamicTarget.text(layerID:$0.layerID,field:.content)}
+        let inputs=Dictionary(uniqueKeysWithValues:zip(targets,created.preparedTextLayerMutations.map{SceneDynamicValue.string($0.text)}))
         let first=f.program.evaluate(inputs:inputs,effectivePropertyValues:f.values,propertyRevision:0,
             frame:frame(2),userPropertiesJSON:f.userJSON)
         f.program.finalizeLayerMutations(committing:true)
@@ -448,8 +463,8 @@ enum SceneDocumentLoader {
             let birth=Double(cycle*2+1)
             let created=try run(owner,f,birth).get()
             owner.commitLayerMutations()
-            let adoption=adopt(f,created.layerMutations,at:birth)
-            guard let definition=adoption.definitions.first,let mutation=created.layerMutations.first else {
+            let adoption=adopt(f,created.preparedTextLayerMutations,at:birth)
+            guard let definition=adoption.definitions.first,let mutation=created.preparedTextLayerMutations.first else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument("cycle birth unavailable")
             }
             _=f.program.evaluate(inputs:[definition.target:.string(mutation.text)],
@@ -495,7 +510,7 @@ enum SceneDocumentLoader {
         layers.commit(birth.layerPlan);owner.commitLayerMutations()
         let adoption=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
             liveTextTemplates:birth.layerPlan.textTemplateIdentitiesByLayerID)
-        guard let definition=adoption.definitions.first,let mutation=born.layerMutations.first else {
+        guard let definition=adoption.definitions.first,let mutation=born.preparedTextLayerMutations.first else {
             return ["birthFailures":birth.rejectedOwners.count,"adopted":adoption.definitions.count]
         }
         let id=mutation.layerID,base=f.descriptor.renderOrderLayerIDs
@@ -577,20 +592,20 @@ enum SceneDocumentLoader {
             let update=f.program.evaluate(inputs:[definition.target:.string("creator-change")],
                 effectivePropertyValues:f.values,propertyRevision:0,targetFilter:definition.target,
                 frame:frame(2),userPropertiesJSON:f.userJSON)
-            textDirty=update.layerMutations.contains{$0.fields.contains(.text)}
+            textDirty=update.preparedTextLayerMutations.contains{$0.fields.contains(.text)}
             let plan=layers.preflightOwnerEffects(update.ownerEffects)
             childFailures=plan.rejectedOwners.count+update.failures.count
             layers.commit(plan.layerPlan);f.program.finalizeLayerMutations(committing:true)
             childText=text(layers.snapshot().authoredLayerValues[definition.target])
-            childRawSize=update.layerMutations.first?.pointSize ?? -1
+            childRawSize=update.preparedTextLayerMutations.first?.pointSize ?? -1
             if case let .scalar(value)? = layers.snapshot().authoredLayerValues[.text(layerID:SceneScriptLayerMutationBridge.layerID(for:definition.target)!,field:.pointSize)] {
                 childSize=SceneTextDescriptor.renderedPointSize(value) ?? -1
             }
             let partial=f.program.evaluate(inputs:[definition.target:.string("child-change")],
                 effectivePropertyValues:f.values,propertyRevision:0,targetFilter:definition.target,
                 frame:frame(3),userPropertiesJSON:f.userJSON)
-            partialSizeDirty=partial.layerMutations.contains{$0.fields.contains(.pointSize)}
-            retainedRawSize=partial.layerMutations.first?.pointSize ?? -1
+            partialSizeDirty=partial.preparedTextLayerMutations.contains{$0.fields.contains(.pointSize)}
+            retainedRawSize=partial.preparedTextLayerMutations.first?.pointSize ?? -1
             let partialPlan=layers.preflightOwnerEffects(partial.ownerEffects)
             childFailures += partialPlan.rejectedOwners.count+partial.failures.count
             layers.commit(partialPlan.layerPlan);f.program.finalizeLayerMutations(committing:true)
@@ -623,7 +638,7 @@ enum SceneDocumentLoader {
         layers.commit(birth.layerPlan);owner.commitLayerMutations()
         let adoption=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
             liveTextTemplates:birth.layerPlan.textTemplateIdentitiesByLayerID)
-        guard let target=adoption.definitions.first?.target,let seed=born.layerMutations.first?.text else {
+        guard let target=adoption.definitions.first?.target,let seed=born.preparedTextLayerMutations.first?.text else {
             return ["adopted":adoption.definitions.count]
         }
         var current=SceneDynamicValue.string(seed),outputs:[String]=[],rawInputs:[String]=[]
@@ -637,11 +652,11 @@ enum SceneDocumentLoader {
             try f.domain.publishLayerSnapshot(preliminary,descriptor:f.descriptor,
                 preparedTextValues:layers.preparedTextValues(in:preliminary),awaitingHostFrameOutcome:true)
             worldPublicationKeepsAuthoredIDs = worldPublicationKeepsAuthoredIDs
-                && f.domain.committedDynamicWorldTransformLayerIDs.isEmpty
+                && f.domain.committedDynamicWorldTransformLayerIDs.subtracting([110]).isEmpty
             let changed=try run(owner,f,Double(step)).get()
-            rawInputs.append(changed.layerMutations.first?.text ?? "absent")
-            transformOnly = transformOnly && !changed.layerMutations.isEmpty
-                && changed.layerMutations.allSatisfy{!$0.fields.contains(.text)}
+            rawInputs.append(changed.preparedTextLayerMutations.first?.text ?? "absent")
+            transformOnly = transformOnly && !changed.preparedTextLayerMutations.isEmpty
+                && changed.preparedTextLayerMutations.allSatisfy{!$0.fields.contains(.text)}
             let result=f.program.evaluate(inputs:[target:inputs[target]!],effectivePropertyValues:f.values,
                 propertyRevision:0,targetFilter:target,frame:frame(Double(step)),userPropertiesJSON:f.userJSON)
             let plan=layers.preflightOwnerEffects([effects(changed,owner)]+result.ownerEffects)
@@ -699,11 +714,11 @@ enum SceneDocumentLoader {
         layers.commit(admission.layerPlan);owner.commitLayerMutations()
         let adoption=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
             liveTextTemplates:admission.layerPlan.textTemplateIdentitiesByLayerID)
-        let targets=born.layerMutations.map{SceneDynamicTarget.text(layerID:$0.layerID,field:.content)}
+        let targets=born.preparedTextLayerMutations.map{SceneDynamicTarget.text(layerID:$0.layerID,field:.content)}
         guard adoption.definitions.count==2,let bounded=f.program.bindings.first(where:{$0.target==targets[0]}) else {
             return ["adopted":adoption.definitions.count]
         }
-        var current=Dictionary(uniqueKeysWithValues:zip(targets,born.layerMutations.map{SceneDynamicValue.string($0.text)}))
+        var current=Dictionary(uniqueKeysWithValues:zip(targets,born.preparedTextLayerMutations.map{SceneDynamicValue.string($0.text)}))
         var statuses:[String]=[],lengths:[Int]=[],healthy:[String]=[]
         for t in 2...5 {
             let result=f.program.evaluate(inputs:current,effectivePropertyValues:f.values,

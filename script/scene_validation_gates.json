@@ -5734,6 +5734,7 @@
         "test_grid_scroll_interaction",
         "test_grid_window_thumbnail_lifecycle",
         "test_library_keyboard_navigation",
+        "test_library_window_lifecycle",
         "test_library_remote_toolbar",
         "test_library_window_toolbar",
         "test_main_menu_commands",
