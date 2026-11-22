@@ -24,7 +24,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+def _repository_root() -> Path:
+    """Locate the checkout regardless of where the script is filed."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / 'MyWallpaperX' / 'Resources').is_dir():
+            return parent
+    return Path(__file__).resolve().parents[1]
+
+
+ROOT = _repository_root()
 CATALOG = Path('MyWallpaperX/Resources/Localizable.xcstrings')
 SOURCE_ROOTS = ('MyWallpaperX',)
 TRANSLATIONS = ('zh-Hans', 'ru', 'de', 'fr')
