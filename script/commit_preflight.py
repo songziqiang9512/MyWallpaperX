@@ -65,8 +65,8 @@ def inspect(root: Path, owned: set[str]) -> dict:
             objects[path] = json.loads(result.stdout)
         except (ValueError, TypeError) as error:
             findings.append(f'Invalid staged JSON {path}: {error}')
-    if 'script/scene_validation_gates.json' in objects:
-        registry = objects['script/scene_validation_gates.json']
+    if 'script/data/scene_validation_gates.json' in objects:
+        registry = objects['script/data/scene_validation_gates.json']
         gates = registry.get('gates') if isinstance(registry, dict) else None
         required = {'risk', 'trigger', 'cost', 'retirement'}
         if not isinstance(gates, dict) or not gates or not isinstance(registry.get('method_gates'), dict):

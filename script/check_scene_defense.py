@@ -6,7 +6,7 @@ The Scene contract requires defense that the runtime contract demands
 forbids defensive surface that has no consumer: zero-caller entries, per-file
 copies of a canonical helper, and errors swallowed inside identity or digest
 computation.  This gate locks the measured inventory in
-`script/scene_defense_baseline.json`; every family may only shrink.
+`script/data/scene_defense_baseline.json`; every family may only shrink.
 
 Detector boundaries (documented on purpose, see the baseline `notes` too):
 - A declaration counts as a zero-caller entry only when its name appears at
@@ -34,8 +34,8 @@ from typing import Any, Iterable, Sequence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-BASELINE_RELATIVE_PATH = Path("script/scene_defense_baseline.json")
-LAYOUT_RELATIVE_PATH = Path("script/scene_source_layout.json")
+BASELINE_RELATIVE_PATH = Path("script/data/scene_defense_baseline.json")
+LAYOUT_RELATIVE_PATH = Path("script/data/scene_source_layout.json")
 
 TEXT_EXTENSIONS = (
     ".swift",

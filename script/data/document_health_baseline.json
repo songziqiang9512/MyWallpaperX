@@ -54,7 +54,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 106,
-      "bytes": 15161
+      "bytes": 15166
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
-      "bytes": 2303
+      "bytes": 2308
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 78,
@@ -543,10 +543,19 @@
       "section": "bodies",
       "path": "docs/development/repository-workflow.md",
       "before": "e1d369d7d8bf0c537d91e3c559c8dd87c980f6822dc69cb3a02292532c8300fb",
-      "after": "092d635e11db43c6eebb5016c52c49e9e158f3fda4d56bc39d0a3d180d49e42e",
+      "after": "8fe267a57a8e1f84cb42e82d951966d904224896f5f5b5fd2d315e4af0e2ee8d",
       "owner": "repository-governance",
       "reason": "记录 Python/Swift 开发工具链入口（Pillow、ruff、swift-format、Periphery、LicensePlist）及其验证边界；不改变产品架构或运行时。",
       "decision": "docs/development/repository-workflow.md#开发工具链"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
+      "before": "8e696de5415584570954d0ff65d98d51e3dc534362442a0b17137b479b62a49b",
+      "after": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
+      "owner": "repository-governance",
+      "reason": "Move machine ledgers into script/data and update the relative link target.",
+      "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
     }
   ]
 }

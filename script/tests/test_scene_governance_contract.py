@@ -27,7 +27,7 @@ RESEARCH_WORKFLOW = (
     ROOT
     / "docs/scene/development/official-client-behavior-research-workflow.md"
 )
-FAST_SUITE = ROOT / "script/scene_fast_suite.json"
+FAST_SUITE = ROOT / "script/data/scene_fast_suite.json"
 
 SOURCE_CLASSES = {
     "official-public-contract",

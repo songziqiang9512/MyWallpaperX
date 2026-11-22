@@ -120,7 +120,7 @@ class SceneValidationRoutingTests(unittest.TestCase):
 
     def test_capability_family_map_selects_capability_census_gate(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/scene_capability_family_map.json"],
+            ["script/data/scene_capability_family_map.json"],
             arguments(phase="inner"),
             self.registry,
         )

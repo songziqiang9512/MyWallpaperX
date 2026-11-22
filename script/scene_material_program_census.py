@@ -38,8 +38,8 @@ from scene_swift_source_sets import (
 )
 
 
-DEFAULT_FIXTURE = SCRIPT_PATH.with_name("scene_real_test_fixture.json")
-DEFAULT_MATRIX = SCRIPT_PATH.with_name("scene_wallpaper_full_sample_matrix.json")
+DEFAULT_FIXTURE = SCRIPT_PATH.with_name("data") / "scene_real_test_fixture.json"
+DEFAULT_MATRIX = SCRIPT_PATH.with_name("data") / "scene_wallpaper_full_sample_matrix.json"
 DEFAULT_STOCK_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
 )

@@ -9,7 +9,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEVELOPMENT_MANIFEST = ROOT / "script/scene_shader_compiler_dependencies.json"
+DEVELOPMENT_MANIFEST = ROOT / "script/data/scene_shader_compiler_dependencies.json"
 RESOURCE_ROOT = ROOT / "MyWallpaperX/Resources"
 LICENSE_BUNDLE = RESOURCE_ROOT / "SceneShaderCompilerLicenses.bundle"
 PRODUCT_MANIFEST = LICENSE_BUNDLE / "Contents/Resources/product-manifest.json"

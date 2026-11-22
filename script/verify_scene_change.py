@@ -21,7 +21,7 @@ except ModuleNotFoundError:
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = Path(__file__).with_name("scene_validation_gates.json")
+REGISTRY_PATH = Path(__file__).with_name("data") / "scene_validation_gates.json"
 PHASES = ("inner", "checkpoint", "integration", "milestone")
 GATE_STATUSES = {"planned", "skipped", "blocked", "passed", "failed"}
 SCENE_PRODUCT_PATTERNS = (
@@ -303,7 +303,7 @@ def design_gate(base: str) -> Gate:
         ),
         (
             "design-first gate: implementation starts on registered capabilities "
-            "(script/design_gated_areas.json) require an approved design doc"
+            "(script/data/design_gated_areas.json) require an approved design doc"
         ),
         False,
     )
@@ -436,8 +436,8 @@ def build_plan(
         gates.append(Gate(gate_id, command, registry["gates"][gate_id]["trigger"], False))
     if any(
         fnmatch.fnmatch(path, "script/tests/test_*.py")
-        or path in {"script/check_test_assertions.py", "script/test_assertion_baseline.json",
-                    "script/scene_validation_gates.json"}
+        or path in {"script/check_test_assertions.py", "script/data/test_assertion_baseline.json",
+                    "script/data/scene_validation_gates.json"}
         for path in paths
     ):
         gates.append(Gate(
@@ -453,7 +453,7 @@ def build_plan(
         ))
     if any((path.startswith('MyWallpaperX/Core/SteamWorkshopScene/') and path.endswith('.swift'))
            or (path.startswith('script/tests/') and path.endswith(('.swift', '.py')))
-           or path in {'script/check_scene_dependencies.py', 'script/scene_dependency_baseline.json'}
+           or path in {'script/check_scene_dependencies.py', 'script/data/scene_dependency_baseline.json'}
            for path in paths):
         gates.append(Gate('scene-dependencies',
                           (sys.executable, '-B', 'script/check_scene_dependencies.py', '--check', '--base-ref', args.base),
@@ -518,7 +518,7 @@ def build_plan(
         else:
             command = runtime_command(
                 args,
-                "script/scene_wallpaper_full_sample_matrix.json",
+                "script/data/scene_wallpaper_full_sample_matrix.json",
                 selected_samples=True,
                 output_subdirectory="targeted",
             )
@@ -552,9 +552,9 @@ def build_plan(
 
     if args.phase == "milestone" and args.matrix_tier:
         matrix = (
-            "script/scene_wallpaper_sample_matrix.json"
+            "script/data/scene_wallpaper_sample_matrix.json"
             if args.matrix_tier == "fixed"
-            else "script/scene_wallpaper_full_sample_matrix.json"
+            else "script/data/scene_wallpaper_full_sample_matrix.json"
         )
         command = runtime_command(
             args,

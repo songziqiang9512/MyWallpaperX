@@ -261,7 +261,7 @@ class SceneShaderUnusedVersionComboTests(unittest.TestCase):
         if output:
             output.mkdir(parents=True, exist_ok=True)
         inputs = [*SWIFT_SOURCES, Path(__file__).resolve(),
-                  ROOT / "script/scene_swift_source_sets.json"]
+                  ROOT / "script/data/scene_swift_source_sets.json"]
         freeze = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         if output:
             (output / "input-freeze.json").write_text(json.dumps(freeze, indent=2) + "\n")

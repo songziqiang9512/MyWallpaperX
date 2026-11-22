@@ -2683,7 +2683,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
-        "script/scene_swift_source_sets.json",
+        "script/data/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
@@ -2695,11 +2695,11 @@
       "id": "documentation",
       "patterns": [
         "docs/**",
-        "script/design_gated_areas.json",
+        "script/data/design_gated_areas.json",
         "script/document_registry.py",
         "script/tests/test_document_registry.py",
         "script/document_health.py",
-        "script/document_health_baseline.json",
+        "script/data/document_health_baseline.json",
         "script/tests/test_document_health.py",
         "AGENTS.md",
         "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md",
@@ -2720,8 +2720,8 @@
       "id": "semantics",
       "patterns": [
         "AGENTS.md",
-        "script/scene_source_layout.json",
-        "script/scene_swift_source_sets.json",
+        "script/data/scene_source_layout.json",
+        "script/data/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py",
         "script/source_relocations.py",
         "script/tests/test_source_relocations.py"
@@ -2781,7 +2781,7 @@
     {
       "id": "real-fixture",
       "patterns": [
-        "script/scene_real_test_fixture.json",
+        "script/data/scene_real_test_fixture.json",
         "script/scene_real_test_fixture_config.py",
         "script/scene_real_test_fixtures.py",
         "script/audit_codex_artifacts.py"
@@ -2795,7 +2795,7 @@
     {
       "id": "shader-compiler-harness",
       "patterns": [
-        "script/scene_shader_compiler_dependencies.json",
+        "script/data/scene_shader_compiler_dependencies.json",
         "script/scene_shader_compiler_*.py",
         "script/tests/scene_generic_shader_provider_test_support.py",
         "script/tests/scene_generic_shader_test_support.py",
@@ -2847,8 +2847,8 @@
       "patterns": [
         "script/scene_capability_census*.py",
         "script/scene_capability_census_snapshot.json",
-        "script/scene_capability_family_map.json",
-        "script/scene_capability_repair_ledger.json",
+        "script/data/scene_capability_family_map.json",
+        "script/data/scene_capability_repair_ledger.json",
         "script/tests/scene_capability_census_test_support.py"
       ],
       "modules": [
@@ -2860,8 +2860,8 @@
       "id": "sample-acceptance-ledger",
       "patterns": [
         "script/scene_sample_acceptance_ledger.py",
-        "script/scene_sample_acceptance_verdicts.json",
-        "script/scene_sample_debug_archive.json"
+        "script/data/scene_sample_acceptance_verdicts.json",
+        "script/data/scene_sample_debug_archive.json"
       ],
       "modules": [
         "test_scene_sample_acceptance_ledger",
@@ -2871,22 +2871,22 @@
     {
       "id": "validation-governance",
       "patterns": [
-        "script/scene_fast_suite.json",
-        "script/code_health_baseline.json",
-        "script/scene_defense_baseline.json",
+        "script/data/scene_fast_suite.json",
+        "script/data/code_health_baseline.json",
+        "script/data/scene_defense_baseline.json",
         "script/run_scene_tests.py",
         "script/verify_scene_change.py",
-        "script/scene_validation_gates.json",
+        "script/data/scene_validation_gates.json",
         ".github/workflows/**",
         "script/check_test_assertions.py",
-        "script/test_assertion_baseline.json",
+        "script/data/test_assertion_baseline.json",
         "script/check_repository_artifacts.py",
         "script/tests/test_check_repository_artifacts.py",
         "script/repository_health.py",
         "script/tests/test_repository_health.py",
         "script/check_design_gate.py",
         "script/tests/test_check_design_gate.py",
-        "script/repository_artifact_baseline.json",
+        "script/data/repository_artifact_baseline.json",
         "script/commit_preflight.py",
         "script/repository_residue.py",
         "script/check_code_health.py",
@@ -2897,7 +2897,37 @@
         "script/tests/fixtures/SceneSignalCapabilitySupport.swift",
         "script/web_wallpaper_property_replay_gate.json",
         "script/check_test_mapping.py",
-        "script/check_script_layout.py"
+        "script/check_script_layout.py",
+        "script/code_health_baseline.json",
+        "script/design_gated_areas.json",
+        "script/document_health_baseline.json",
+        "script/repository_artifact_baseline.json",
+        "script/scene_capability_family_map.json",
+        "script/scene_capability_repair_ledger.json",
+        "script/scene_defense_baseline.json",
+        "script/scene_dependency_baseline.json",
+        "script/scene_fast_suite.json",
+        "script/scene_real_test_fixture.json",
+        "script/scene_sample_acceptance_verdicts.json",
+        "script/scene_sample_debug_archive.json",
+        "script/scene_sample_preview_oracle_registry.json",
+        "script/scene_shader_compiler_dependencies.json",
+        "script/scene_source_layout.json",
+        "script/scene_swift_source_sets.json",
+        "script/scene_validation_gates.json",
+        "script/scene_wallpaper_full_sample_matrix.json",
+        "script/scene_wallpaper_sample_matrix.json",
+        "script/test_assertion_baseline.json",
+        "script/web_wallpaper_external_sample_matrix.json",
+        "script/web_wallpaper_full_baseline.json",
+        "script/web_wallpaper_sample_matrix.json",
+        "script/web_wallpaper_steam_representative_sample_matrix.json",
+        "script/data/scene_sample_preview_oracle_registry.json",
+        "script/data/scene_wallpaper_full_sample_matrix.json",
+        "script/data/scene_wallpaper_sample_matrix.json",
+        "script/data/web_wallpaper_external_sample_matrix.json",
+        "script/data/web_wallpaper_full_baseline.json",
+        "script/data/web_wallpaper_steam_representative_sample_matrix.json"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -3340,7 +3370,7 @@
       "id": "scene-dependency-boundaries",
       "patterns": [
         "script/check_scene_dependencies.py",
-        "script/scene_dependency_baseline.json",
+        "script/data/scene_dependency_baseline.json",
         "script/tests/test_check_scene_dependencies.py"
       ],
       "modules": [
@@ -4201,7 +4231,7 @@
     {
       "id": "web-benchmark-matrix",
       "patterns": [
-        "script/web_wallpaper_sample_matrix.json"
+        "script/data/web_wallpaper_sample_matrix.json"
       ],
       "modules": [
         "test_ci_release_routing"
@@ -5896,7 +5926,7 @@
       ],
       "patterns": [
         "MyWallpaperX/**",
-        "script/scene_source_layout.json",
+        "script/data/scene_source_layout.json",
         "script/tests/test_scene_semantics_coverage.py",
         "script/source_authority.py"
       ],

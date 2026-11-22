@@ -68,9 +68,9 @@ class SceneValidationSelectionTests(unittest.TestCase):
             ('MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift', {'scene-dependencies', 'repository-residue'}),
             ('MyWallpaperX/App/AppDelegate.swift', {'repository-residue'}),
             ('SteamService/WorkshopDownloader.cs', {'repository-residue'}),
-            ('script/scene_source_layout.json', set()),
-            ('script/scene_dependency_baseline.json', {'scene-dependencies'}),
-            ('script/document_health_baseline.json', {'document-health'}),
+            ('script/data/scene_source_layout.json', set()),
+            ('script/data/scene_dependency_baseline.json', {'scene-dependencies'}),
+            ('script/data/document_health_baseline.json', {'document-health'}),
             ('script/tests/test_document_health.py', {'scene-dependencies', 'document-health'}),
             ('script/scene_wallpaper_benchmark.py', set()),
         ]
@@ -82,8 +82,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_governance_ratcheting_commands_preserve_the_requested_base(self) -> None:
         gates, _ = verify.build_plan([
-            'script/scene_source_layout.json', 'docs/document-role-index.json',
-            'script/scene_dependency_baseline.json',
+            'script/data/scene_source_layout.json', 'docs/document-role-index.json',
+            'script/data/scene_dependency_baseline.json',
         ], arguments(base='review-base', phase='inner'), self.registry)
         commands = {gate.gate_id: gate.command for gate in gates}
         self.assertEqual(commands['scene-dependencies'], (sys.executable, '-B',
@@ -369,7 +369,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_milestone_matrix_gate_requires_explicit_inputs(self) -> None:
         gates, _ = verify.build_plan(
-            ["script/scene_wallpaper_full_sample_matrix.json"],
+            ["script/data/scene_wallpaper_full_sample_matrix.json"],
             arguments(
                 phase="milestone",
                 matrix_tier="full",
@@ -792,7 +792,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
     def test_structure_is_inner_and_links_checkpoint_without_whole_module_repetition(self) -> None:
         for phase in verify.PHASES[:3]:
             with self.subTest(phase=phase):
-                gates, _ = verify.build_plan(["script/scene_source_layout.json"], arguments(phase=phase), self.registry)
+                gates, _ = verify.build_plan(["script/data/scene_source_layout.json"], arguments(phase=phase), self.registry)
                 ids = [gate.gate_id for gate in gates]
                 self.assertIn("scene-structure", ids)
                 self.assertEqual("document-links" in ids, phase != "inner")
@@ -813,7 +813,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
 
     def test_shape_checker_is_selected_for_test_checker_and_baseline_changes(self) -> None:
         for path in ("script/tests/test_verify_scene_change.py", "script/check_test_assertions.py",
-                     "script/test_assertion_baseline.json", "script/scene_validation_gates.json"):
+                     "script/data/test_assertion_baseline.json", "script/data/scene_validation_gates.json"):
             with self.subTest(path=path):
                 gates, _ = verify.build_plan([path], arguments(phase="inner", base="review-base"), self.registry)
                 checker = next(gate for gate in gates if gate.gate_id == "test-assertions")

@@ -37,7 +37,7 @@ AudiOrbits 的作者 production webpack 配置要求本地 HTTPS 证书，准备
 
 ## 3. 能力覆盖与门禁
 
-执行清单由 [`script/web_wallpaper_external_sample_matrix.json`](../../../script/web_wallpaper_external_sample_matrix.json) 定义：
+执行清单由 [`script/data/web_wallpaper_external_sample_matrix.json`](../../../script/data/web_wallpaper_external_sample_matrix.json) 定义：
 
 | ID | 主要能力组合 | 单项门 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ python3 script/web_wallpaper_benchmark.py \
   --workshop-root <external-root>/Web \
   --runtime-workshop-root <external-root> \
   --runtime-home <temporary-home> \
-  --matrix script/web_wallpaper_external_sample_matrix.json \
+  --matrix script/data/web_wallpaper_external_sample_matrix.json \
   --duration 18 \
   --screenshot \
   --kill-existing \

@@ -41,7 +41,7 @@ class ScenePreparedUniformQueryTests(unittest.TestCase):
         if cls.proof:
             cls.proof.mkdir(parents=True, exist_ok=True)
         inputs = list(dict.fromkeys([*SOURCES, Path(__file__), Path(finalizer.__file__),
-            ROOT / "script/scene_swift_source_sets.json",
+            ROOT / "script/data/scene_swift_source_sets.json",
             ROOT / "script/scene_swift_source_sets.py"]))
         before = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
         frozen = temporary / "source"

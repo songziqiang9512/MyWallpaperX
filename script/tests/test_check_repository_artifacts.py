@@ -43,8 +43,8 @@ class RepositoryArtifactTests(unittest.TestCase):
 
     def test_exception_is_exact_bounded_owned_and_retired(self):
         target = self.file('docs/large.json', MAX_BYTES + 1)
-        policy = self.root / 'script/repository_artifact_baseline.json'
-        policy.parent.mkdir(exist_ok=True)
+        policy = self.root / 'script/data/repository_artifact_baseline.json'
+        policy.parent.mkdir(parents=True, exist_ok=True)
         entry = {'path': 'docs/large.json', 'maximumBytes': MAX_BYTES + 2,
                  'owner': 'test owner', 'reason': 'reviewed input', 'retirement': 'replace with cache'}
         def save():
@@ -63,10 +63,10 @@ class RepositoryArtifactTests(unittest.TestCase):
         with self.assertRaises(ValueError): inspect(self.root)
 
     def test_new_exception_cannot_bypass_committed_empty_budget(self):
-        policy = self.root / 'script/repository_artifact_baseline.json'
-        policy.parent.mkdir()
+        policy = self.root / 'script/data/repository_artifact_baseline.json'
+        policy.parent.mkdir(parents=True, exist_ok=True)
         policy.write_text(json.dumps({'schemaVersion': 1, 'exceptions': []}))
-        subprocess.run(['git', 'add', 'script/repository_artifact_baseline.json'], cwd=self.root, check=True)
+        subprocess.run(['git', 'add', 'script/data/repository_artifact_baseline.json'], cwd=self.root, check=True)
         subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=f@example.test',
                         'commit', '-qm', 'baseline'], cwd=self.root, check=True)
         self.file('docs/new.json', MAX_BYTES + 1)

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY = ROOT / "script/scene_validation_gates.json"
+REGISTRY = ROOT / "script/data/scene_validation_gates.json"
 
 
 def load_registry() -> dict:

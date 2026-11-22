@@ -13,7 +13,7 @@ except ImportError:
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = Path(__file__).with_name("scene_real_test_fixture.json")
+CONFIG_PATH = Path(__file__).with_name("data") / "scene_real_test_fixture.json"
 
 
 def configured_path(key: str) -> Path:

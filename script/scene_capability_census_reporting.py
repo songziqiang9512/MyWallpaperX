@@ -186,7 +186,7 @@ def render_markdown(
         lines += [
             "### 4.1 公共能力映射概览",
             "",
-            "> family→capability 是 P0.2 的声明覆盖粗映射（`script/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 `docs/scene/capabilities/README.md`与专项表。",
+            "> family→capability 是 P0.2 的声明覆盖粗映射（`script/data/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 `docs/scene/capabilities/README.md`与专项表。",
             "",
             "| capability | 台账 authority 行 | family | occurrence | 样本 |",
             "|---|---|---:|---:|---:|",

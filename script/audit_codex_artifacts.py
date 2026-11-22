@@ -14,7 +14,7 @@ from scene_real_test_fixture_config import load_fixture_config
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CODEX_ROOT = REPOSITORY_ROOT / ".codex"
-FIXTURE_CONFIG = REPOSITORY_ROOT / "script/scene_real_test_fixture.json"
+FIXTURE_CONFIG = REPOSITORY_ROOT / "script/data/scene_real_test_fixture.json"
 ALWAYS_KEEP = (
     CODEX_ROOT / "config.toml",
     CODEX_ROOT / "environments",

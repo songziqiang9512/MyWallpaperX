@@ -33,7 +33,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/capabilities"
 SCENE_SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SCENE_LAYOUT_PATH = REPOSITORY_ROOT / "script/scene_source_layout.json"
+SCENE_LAYOUT_PATH = REPOSITORY_ROOT / "script/data/scene_source_layout.json"
 def validation_base() -> str:
     requested = os.environ.get("MWX_VALIDATION_BASE", "HEAD")
     result = subprocess.run(
@@ -47,13 +47,13 @@ def committed_scene_layout(base_ref: str | None = None) -> dict[str, object] | N
     base_ref = base_ref or validation_base()
     # Only a valid historical tree that predates this file may omit its baseline.
     listing = subprocess.run(
-        ["git", "ls-tree", "--name-only", base_ref, "--", "script/scene_source_layout.json"],
+        ["git", "ls-tree", "--name-only", base_ref, "--", "script/data/scene_source_layout.json"],
         cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
     )
     if not listing.stdout.strip():
         return None
     result = subprocess.run(
-        ["git", "show", f"{base_ref}:script/scene_source_layout.json"],
+        ["git", "show", f"{base_ref}:script/data/scene_source_layout.json"],
         cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
     )
     return json.loads(result.stdout)
@@ -252,7 +252,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             roots = sorted({rule.get("scan_root", scene_prefix.rstrip("/")) for rule in fresh_relocations})
             frozen_sources = frozen_git_swift_sources(base_ref, roots)
             approved_design_docs = {area["designDoc"] for area in json.loads(
-                (REPOSITORY_ROOT / "script/design_gated_areas.json").read_text())["areas"]
+                (REPOSITORY_ROOT / "script/data/design_gated_areas.json").read_text())["areas"]
                 if area["status"] == "approved"}
         old_states = old_contract.get("completion_state")
         if old_states is not None:
@@ -417,7 +417,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             source = "func draw() { mainPass.encoder(); frame.mainPass.encoder() }\n"
             (scene / "Origin.swift").write_text(source)
             (scene / "Stable.swift").write_text(source)
-            path = root / "script/scene_source_layout.json"
+            path = root / "script/data/scene_source_layout.json"
             path.parent.mkdir()
             design_doc = "docs/scene/architecture/runtime-architecture.md"
             (path.parent / "design_gated_areas.json").write_text(json.dumps({"areas": [
@@ -426,7 +426,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                           "pattern": r"(?:\bmainPass|\bframe\.mainPass)\.encoder\(\)",
                           "baseline_occurrences": 4, "allowed_files": ["Origin.swift", "Stable.swift"]}
             path.write_text(json.dumps({"render_chain_authority_ratchet": {"rules": [prior_rule]}}))
-            git("add", "script/scene_source_layout.json", "script/design_gated_areas.json",
+            git("add", "script/data/scene_source_layout.json", "script/data/design_gated_areas.json",
                 "MyWallpaperX/Core/SteamWorkshopScene/Origin.swift", "MyWallpaperX/Core/SteamWorkshopScene/Stable.swift")
             git("commit", "--quiet", "-m", "before owner relocation")
             rule = {**prior_rule, "allowed_files": ["Owner.swift", "Stable.swift"]}
@@ -445,13 +445,13 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             with patch.dict(globals(), REPOSITORY_ROOT=root, SCENE_SOURCE_ROOT=scene, SCENE_LAYOUT_PATH=path):
                 with patch.dict(os.environ, MWX_VALIDATION_BASE="HEAD"):
                     self.test_render_chain_ratchet_cannot_rise_above_committed_baseline()
-            git("add", "script/scene_source_layout.json", "MyWallpaperX/Core/SteamWorkshopScene/Origin.swift",
+            git("add", "script/data/scene_source_layout.json", "MyWallpaperX/Core/SteamWorkshopScene/Origin.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Owner.swift")
             git("commit", "--quiet", "-m", "original receipt")
             original = git("rev-parse", "HEAD")
             rule["owner_relocation"]["reason"] = "rewritten in a later commit"
             path.write_text(json.dumps(layout))
-            git("add", "script/scene_source_layout.json")
+            git("add", "script/data/scene_source_layout.json")
             git("commit", "--quiet", "-m", "tamper receipt")
             with patch.dict(globals(), REPOSITORY_ROOT=root, SCENE_SOURCE_ROOT=scene,
                             SCENE_LAYOUT_PATH=path):

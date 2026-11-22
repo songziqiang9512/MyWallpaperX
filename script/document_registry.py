@@ -155,7 +155,7 @@ def validate_routing(root: Path, index: dict) -> list[str]:
     """Resolve gate and nearest-test pointers against their existing sole registry."""
     from script.document_health import anchors
     errors = []
-    registry_path = root / 'script/scene_validation_gates.json'
+    registry_path = root / 'script/data/scene_validation_gates.json'
     registry = json.loads(registry_path.read_text()) if registry_path.exists() else {'gates': {}, 'path_groups': []}
     groups = {g['id']: g for g in registry['path_groups']}
     covered = set()
@@ -223,13 +223,13 @@ def query(index: dict, term: str, root: Path) -> dict:
     documents = [d for d in index['documents'] if needle in d['path'].casefold()]
     terms = [t for t in index.get('terminology', []) if any(needle in str(t.get(k, '')).casefold() for k in ('term', 'aliases'))]
     # Design ownership stays in its existing authority, not copied into task routes.
-    areas_path = root / 'script/design_gated_areas.json'
+    areas_path = root / 'script/data/design_gated_areas.json'
     areas = []
     if areas_path.is_file():
         for area in json.loads(areas_path.read_text())['areas']:
             if any(r['id'] == 'design' for r in routes) or any(needle in str(area.get(k, '')).casefold() for k in ('id', 'title', 'owner', 'designDoc')):
                 areas.append({k: area.get(k) for k in ('id', 'title', 'owner', 'status', 'designDoc')})
-    registry_path = root / 'script/scene_validation_gates.json'
+    registry_path = root / 'script/data/scene_validation_gates.json'
     if registry_path.is_file():
         registry = json.loads(registry_path.read_text())
         groups = {g['id']: g for g in registry['path_groups']}

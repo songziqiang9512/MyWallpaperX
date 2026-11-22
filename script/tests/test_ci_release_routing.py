@@ -90,7 +90,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         self.assertTrue(runner.RELEASE_MODULES <= modules)
 
     def test_web_matrix_loads_without_private_sample_or_app(self):
-        path = ROOT / 'script/web_wallpaper_sample_matrix.json'
+        path = ROOT / 'script/data/web_wallpaper_sample_matrix.json'
         samples, config = load_sample_matrix(path)
         self.assertTrue(samples)
         self.assertEqual(len({sample.id for sample in samples}), len(samples))

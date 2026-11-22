@@ -21,7 +21,7 @@ SEMANTIC_FILES = (
     Path("script/generate_scene_shader_cache_identity.py"),
 )
 TOOLCHAIN_FILES = (
-    Path("script/scene_shader_compiler_dependencies.json"),
+    Path("script/data/scene_shader_compiler_dependencies.json"),
     Path("MyWallpaperX/Resources/SceneShaderCompilerLicenses.bundle/Contents/Resources/product-manifest.json"),
     Path("MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"),
     Path("MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"),

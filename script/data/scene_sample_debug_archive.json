@@ -37526,7 +37526,7 @@
   "schemaVersion": 1,
   "source": {
     "baseArchive": {
-      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_sample_debug_archive.json",
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/data/scene_sample_debug_archive.json",
       "sampleCount": 491,
       "sha256": "95c328619bb6cab7863b2e58b92c2010632f3213907f8d09865b6c1ce3991226"
     },
@@ -37537,7 +37537,7 @@
       "sha256": "c541506f72bb45d7e2a242d4f50a87253ec3e29ffdf01abf9167591735a04934"
     },
     "previewOracleRegistry": {
-      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_sample_preview_oracle_registry.json",
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/data/scene_sample_preview_oracle_registry.json",
       "registeredSampleCount": 1,
       "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf"
     },

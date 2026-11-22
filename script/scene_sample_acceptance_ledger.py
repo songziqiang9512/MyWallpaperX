@@ -43,8 +43,8 @@ from scene_capability_census_io import (
 )
 
 DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
-DEFAULT_ARCHIVE = REPOSITORY_ROOT / "script/scene_sample_debug_archive.json"
-DEFAULT_VERDICTS = REPOSITORY_ROOT / "script/scene_sample_acceptance_verdicts.json"
+DEFAULT_ARCHIVE = REPOSITORY_ROOT / "script/data/scene_sample_debug_archive.json"
+DEFAULT_VERDICTS = REPOSITORY_ROOT / "script/data/scene_sample_acceptance_verdicts.json"
 DEFAULT_OUTPUT = (
     REPOSITORY_ROOT / ".artifacts/scene-reports/sample-acceptance/scene-sample-acceptance-ledger.md"
 )
@@ -663,7 +663,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         "# Scene 样本验收台账",
         "",
         "> 本次输入归档与人工裁决的投影，由 `script/scene_sample_acceptance_ledger.py` 生成；"
-        "视觉裁决只来自 `script/scene_sample_acceptance_verdicts.json` 的人工记录，不要手工编辑本页。",
+        "视觉裁决只来自 `script/data/scene_sample_acceptance_verdicts.json` 的人工记录，不要手工编辑本页。",
         ">",
         f"> 最终验收门：{ledger['finalGate']}。",
         ">",

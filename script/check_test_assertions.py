@@ -19,8 +19,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = ROOT / "script/test_assertion_baseline.json"
-BASELINE_RELATIVE = "script/test_assertion_baseline.json"
+BASELINE = ROOT / "script/data/test_assertion_baseline.json"
+BASELINE_RELATIVE = "script/data/test_assertion_baseline.json"
 DETECTOR = {
     "id": "python-unittest-swift-declaration-literal-v1",
     "methods": ["assertIn", "assertNotIn"],

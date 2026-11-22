@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = "script/scene_dependency_baseline.json"
+BASELINE = "script/data/scene_dependency_baseline.json"
 # Swift's documented identifier-head ranges (including non-BMP names), not
 # Python's narrower \w alphabet. See the boundary document's lexical source.
 IDENTIFIER_HEAD = (

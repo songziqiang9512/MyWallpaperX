@@ -10,7 +10,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_ROOTS = ('script', 'docs', '.agents', '.github')
 MAX_BYTES = 5_000_000
-BASELINE = 'script/repository_artifact_baseline.json'
+BASELINE = 'script/data/repository_artifact_baseline.json'
 
 
 def exceptions(root: Path) -> dict[str, dict]:

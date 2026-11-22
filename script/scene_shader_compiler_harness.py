@@ -42,7 +42,7 @@ from scene_shader_compiler_cli import parse_args
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MANIFEST = SCRIPT_ROOT / "scene_shader_compiler_dependencies.json"
+DEFAULT_MANIFEST = SCRIPT_ROOT / "data" / "scene_shader_compiler_dependencies.json"
 STAGE_SUFFIX = {"vertex": "vert", "fragment": "frag"}
 ALLOWED_DIALECTS = ("glsl-450", "wallpaper-engine-glsl-like-v0")
 VALUE_TYPES = {

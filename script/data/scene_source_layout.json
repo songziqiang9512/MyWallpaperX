@@ -1548,7 +1548,7 @@
     }
   },
   "dependency_contract": {
-    "authority": "script/scene_dependency_baseline.json",
+    "authority": "script/data/scene_dependency_baseline.json",
     "design": "docs/scene/architecture/scene-dependency-boundaries.md",
     "gate": "scene-dependencies"
   }

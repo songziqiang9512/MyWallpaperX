@@ -499,7 +499,7 @@ class SceneWallpaperAuthoredEffectsTests(unittest.TestCase):
 
     def test_tracked_full_matrix_retires_legacy_effect_counts_only_with_owner_transfer(self) -> None:
         matrix = json.loads(
-            (SCRIPT_DIR / "scene_wallpaper_full_sample_matrix.json").read_text(
+            (SCRIPT_DIR / "data" / "scene_wallpaper_full_sample_matrix.json").read_text(
                 encoding="utf-8"
             )
         )

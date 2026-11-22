@@ -472,13 +472,13 @@ class SceneDefenseGateTests(unittest.TestCase):
         current = measurements(dead=[{"name": "orphan", "file": "Scene/Holder.swift", "kind": "func"}])
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
 
             with patch.object(GATE, "REPO_ROOT", root):
                 with redirect_stderr(io.StringIO()):
                     refused = GATE.ratchet(baseline(), current, ratchet_args())
                 unlocked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
                 with redirect_stderr(io.StringIO()):
                     missing_reason = GATE.ratchet(
@@ -491,7 +491,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                         ratchet_args(accept_growth=True, reason="first lock of the measured inventory"),
                     )
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(2, refused)
@@ -515,7 +515,7 @@ class SceneDefenseGateTests(unittest.TestCase):
         current = measurements(helpers={"matches": 5})
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
 
             with patch.object(GATE, "REPO_ROOT", root):
                 with redirect_stderr(io.StringIO()):
@@ -527,7 +527,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                         ratchet_args(accept_growth=True, reason="batch 7 adds the reviewed helper"),
                     )
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(2, refused)
@@ -592,12 +592,12 @@ class SceneDefenseGateTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(recorded))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(recorded))
 
             with patch.object(GATE, "REPO_ROOT", root), redirect_stdout(io.StringIO()):
                 GATE.ratchet(recorded, measurements(), ratchet_args())
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(
@@ -609,7 +609,7 @@ class SceneDefenseGateTests(unittest.TestCase):
         current = measurements(helpers={"matches": 0}, swallows={"regex": 0})
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
 
             with patch.object(GATE, "REPO_ROOT", root):
                 with redirect_stderr(io.StringIO()):
@@ -621,7 +621,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                         ratchet_args(reason="family merged into the reviewed home"),
                     )
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(2, refused)
@@ -649,13 +649,13 @@ class SceneDefenseGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write(root, "Scene/Lone.swift", "enum Lone {\n    static func orphanLeaf() {}\n}\n")
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
 
             with patch.object(GATE, "REPO_ROOT", root):
-                paths = ["Scene/Lone.swift", "script/scene_defense_baseline.json"]
+                paths = ["Scene/Lone.swift", "script/data/scene_defense_baseline.json"]
                 first = GATE.measure(paths, baseline())
                 locked = GATE.ratcheted_baseline(baseline(), first)
-                write(root, "script/scene_defense_baseline.json", json.dumps(locked))
+                write(root, "script/data/scene_defense_baseline.json", json.dumps(locked))
                 second = GATE.measure(paths, locked)
                 errors, warnings = GATE.evaluate(locked, second)
 
@@ -695,12 +695,12 @@ class SceneDefenseGateTests(unittest.TestCase):
     def test_ratchet_preserves_notes_and_entry_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
 
             with patch.object(GATE, "REPO_ROOT", root), redirect_stdout(io.StringIO()):
                 GATE.ratchet(baseline(), measurements(), ratchet_args())
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(["locked inventory"], locked["notes"])
@@ -806,12 +806,12 @@ class SceneDefenseGateTests(unittest.TestCase):
             root = Path(directory)
             working = baseline(helpers=[meta_helper("matches", 1)])
             working["acknowledgedChanges"] = [stale]
-            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(working))
 
             with patch.object(GATE, "REPO_ROOT", root), redirect_stdout(io.StringIO()):
                 default_result = GATE.ratchet(working, current, ratchet_args())
                 default_locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
             self.assertEqual(0, default_result)
             self.assertEqual(
@@ -832,7 +832,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                     ratchet_args(base_ref="HEAD~1", drop_unused_acknowledgements=True),
                 )
                 pruned_locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(0, prune_result)
@@ -855,7 +855,7 @@ class SceneDefenseGateTests(unittest.TestCase):
             root = Path(directory)
             working = baseline(helpers=[meta_helper("matches", 1)])
             working["acknowledgedChanges"] = [recorded, still_needed, stale]
-            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(working))
 
             with (
                 patch.object(GATE, "REPO_ROOT", root),
@@ -873,7 +873,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                     ),
                 )
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(0, result)
@@ -887,7 +887,7 @@ class SceneDefenseGateTests(unittest.TestCase):
             root = Path(directory)
             working = baseline()
             working["acknowledgedChanges"] = [recorded]
-            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(working))
 
             with (
                 patch.object(GATE, "REPO_ROOT", root),
@@ -901,7 +901,7 @@ class SceneDefenseGateTests(unittest.TestCase):
                     ratchet_args(base_ref="OLD", drop_unused_acknowledgements=True),
                 )
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(0, result)
@@ -910,7 +910,7 @@ class SceneDefenseGateTests(unittest.TestCase):
     def test_pruning_rejects_an_unknown_ref(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
             with patch.object(GATE, "REPO_ROOT", root), redirect_stderr(io.StringIO()):
                 result = GATE.ratchet(
                     baseline(),
@@ -945,7 +945,7 @@ class SceneDefenseGateTests(unittest.TestCase):
     def test_drop_unused_acknowledgements_requires_a_base_ref(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(baseline()))
             with patch.object(GATE, "REPO_ROOT", root), redirect_stderr(io.StringIO()):
                 result = GATE.ratchet(
                     baseline(), measurements(), ratchet_args(drop_unused_acknowledgements=True)
@@ -963,7 +963,7 @@ class SceneDefenseGateTests(unittest.TestCase):
             root = Path(directory)
             working = baseline(helpers=[meta_helper("matches", 1)])
             working["acknowledgedChanges"] = [recorded]
-            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+            write(root, "script/data/scene_defense_baseline.json", json.dumps(working))
 
             with (
                 patch.object(GATE, "REPO_ROOT", root),
@@ -972,7 +972,7 @@ class SceneDefenseGateTests(unittest.TestCase):
             ):
                 result = GATE.ratchet(working, current, ratchet_args())
                 locked = json.loads(
-                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                    (root / "script/data/scene_defense_baseline.json").read_text(encoding="utf-8")
                 )
 
         self.assertEqual(0, result)

@@ -19,8 +19,8 @@ class DocumentRegistryTests(unittest.TestCase):
         (self.root / 'docs').mkdir()
         (self.root / 'docs/a.md').write_text('# A\n')
         (self.root / 'README.md').write_text('[A](docs/a.md)\n')
-        (self.root / 'script').mkdir()
-        (self.root / 'script/scene_validation_gates.json').write_text(json.dumps({
+        (self.root / 'script/data').mkdir(parents=True, exist_ok=True)
+        (self.root / 'script/data/scene_validation_gates.json').write_text(json.dumps({
             'gates': {'focused-tests': {}},
             'path_groups': [{'id': 'sample-tests', 'modules': ['test_sample']}]}))
         self.index = {
@@ -111,7 +111,7 @@ class DocumentRegistryTests(unittest.TestCase):
         self.assertEqual(query(self.index, 'missing', self.root), {'routes': [], 'documents': [], 'designAreas': [], 'terminology': []})
 
     def test_design_query_uses_current_authority(self):
-        (self.root / 'script/design_gated_areas.json').write_text(json.dumps({'areas': [
+        (self.root / 'script/data/design_gated_areas.json').write_text(json.dumps({'areas': [
             {'id': 'example', 'owner': 'live-owner', 'status': 'blocked-pending-design', 'designDoc': 'docs/a.md'}]}))
         result = query(self.index, 'example', self.root)
         self.assertEqual(result['designAreas'][0]['owner'], 'live-owner')

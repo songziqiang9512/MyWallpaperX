@@ -23,17 +23,17 @@ def summarize(counts: dict[str, int], health: dict, mapping: dict,
         if count > health['hardLineLimit']:
             signals.append({'kind': 'hard-limit', 'path': path, 'actual': count,
                             'limit': health['hardLineLimit'],
-                            'authority': 'script/code_health_baseline.json',
+                            'authority': 'script/data/code_health_baseline.json',
                             'nextAction': 'Separate actual responsibilities to meet the 1000-line limit.'})
     for path in mapping['unmapped_paths']:
         signals.append({'kind': 'selection-gap', 'path': path,
-                        'authority': 'script/scene_validation_gates.json',
+                        'authority': 'script/data/scene_validation_gates.json',
                         'nextAction': 'Trace actual consumers and map the nearest existing contract test; report missing tests explicitly.'})
     for row in mapping['mappings']:
         if row['missing_modules']:
             signals.append({'kind': 'missing-test-module', 'path': row['path'],
                             'modules': row['missing_modules'],
-                            'authority': 'script/scene_validation_gates.json',
+                            'authority': 'script/data/scene_validation_gates.json',
                             'nextAction': 'Repair stale module routing before treating a build as closure.'})
     for rule in layout['render_chain_authority_ratchet']['rules']:
         if rule['role'] != 'inventory' or not rule['baseline_occurrences']:
@@ -41,20 +41,20 @@ def summarize(counts: dict[str, int], health: dict, mapping: dict,
         signals.append({'kind': 'frozen-family', 'id': rule['id'],
                         'registeredBudget': rule['baseline_occurrences'],
                         'description': rule['description'],
-                        'authority': 'script/scene_source_layout.json',
+                        'authority': 'script/data/scene_source_layout.json',
                         'nextAction': 'Retire duplicate authority within the owning change and ratchet its existing baseline; this is registered budget, not a fresh scan.'})
     for entry in defense.get('canonicalHelpers', []):
         signals.append({'kind': 'canonical-helper', 'id': entry.get('id', entry.get('name', 'helper')),
                         'canonical': entry.get('canonical'), 'registeredCopies': entry.get('allowedCopies'),
                         'owner': entry.get('owner'), 'retirement': entry.get('retirement'),
-                        'authority': 'script/scene_defense_baseline.json',
+                        'authority': 'script/data/scene_defense_baseline.json',
                         'nextAction': 'Use the canonical owner when changing callers; run the existing defense audit before claiming duplicate removal.'})
     shapes = Counter()
     for entry in assertions['entries']:
         shapes[entry['path']] += entry['count']
     for path, count in sorted(shapes.items()):
         signals.append({'kind': 'test-shape', 'path': path, 'registeredCount': count,
-                        'authority': 'script/test_assertion_baseline.json',
+                        'authority': 'script/data/test_assertion_baseline.json',
                         'nextAction': 'Migrate the touched behavior to an executable positive and fault-injected counterexample; detector exclusions remain unmeasured.'})
     for signal in signals:
         signal['actionable'] = 'now' if signal['kind'] in {'hard-limit', 'missing-test-module'} else 'with-owning-change'
@@ -74,8 +74,8 @@ def collect() -> dict:
     mapping = verify_scene_change.product_test_mapping(list(counts), registry, modules)
     def load(path):
         return json.loads((ROOT / path).read_text(encoding='utf-8'))
-    signals = summarize(counts, health, mapping, load('script/scene_source_layout.json'),
-                        load('script/scene_defense_baseline.json'), load('script/test_assertion_baseline.json'))
+    signals = summarize(counts, health, mapping, load('script/data/scene_source_layout.json'),
+                        load('script/data/scene_defense_baseline.json'), load('script/data/test_assertion_baseline.json'))
     return {'evidenceLimit': 'Derived inventory and routing signals only. No test/build/runtime gate is executed; registered budgets are not measured violations.',
             'swiftFiles': len(counts), 'productFiles': len(mapping['product_paths']),
             'mappedProductFiles': len(mapping['mapped_paths']),

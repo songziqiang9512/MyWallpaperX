@@ -259,7 +259,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--matrix",
         type=Path,
-        default=Path(__file__).with_name("scene_wallpaper_sample_matrix.json"),
+        default=Path(__file__).with_name("data") / "scene_wallpaper_sample_matrix.json",
     )
     parser.add_argument(
         "--product-entry-audio-baseline",

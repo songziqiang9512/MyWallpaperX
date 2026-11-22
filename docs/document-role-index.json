@@ -273,7 +273,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4fc6668a2ea2cf2469ecda86d1a1b389443930239c2bfe103e718ca4e6505a03",
+        "sourceSHA256": "e4658fbfcf06feda54a572dad24a686e06e1cf7029c0c1a2ec58b1a69381c996",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -796,10 +796,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 依赖边界",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6717bfce9e67154d013435e8c226aaa11bdad1b832ee74e05453e3dcaee853f6",
+        "sourceSHA256": "16572a84fd5de9a17aa41f55fb3bb69badb43366e9bd0578a3d845d2378ed95e",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -1121,8 +1121,8 @@
       ],
       "sourcePaths": [
         "AGENTS.md",
-        "script/scene_validation_gates.json",
-        "script/code_health_baseline.json"
+        "script/data/scene_validation_gates.json",
+        "script/data/code_health_baseline.json"
       ],
       "verification": "先运行 document_registry.py --check，再按 owned paths 预览已有验证编排器。",
       "owner": "AGENTS.md",
@@ -1316,7 +1316,7 @@
       ],
       "sourcePaths": [
         "AGENTS.md",
-        "script/design_gated_areas.json",
+        "script/data/design_gated_areas.json",
         "script/check_design_gate.py"
       ],
       "verification": "按 AGENTS 五问决定登记；query 的 designAreas 来自现役登记。approved 不代表产品行为验收。",
@@ -1630,7 +1630,7 @@
       "sourcePaths": [
         "MyWallpaperX",
         "SteamService",
-        "script/scene_validation_gates.json"
+        "script/data/scene_validation_gates.json"
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
@@ -1738,7 +1738,7 @@
       "sourcePaths": [
         "MyWallpaperX",
         "SteamService",
-        "script/scene_validation_gates.json"
+        "script/data/scene_validation_gates.json"
       ],
       "verification": "沿真实消费者检查必要边界和成本；完成固定源最近行为门、必要构建/代表运行、前后对照及独立复审，不以少数通过宣布全仓完成。",
       "owner": "repository-maintainer",

@@ -103,9 +103,9 @@ DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_STOCK_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
 )
-DEFAULT_MATRIX = REPOSITORY_ROOT / "script/scene_wallpaper_full_sample_matrix.json"
-DEFAULT_LEDGER = REPOSITORY_ROOT / "script/scene_capability_repair_ledger.json"
-DEFAULT_FAMILY_MAP = REPOSITORY_ROOT / "script/scene_capability_family_map.json"
+DEFAULT_MATRIX = REPOSITORY_ROOT / "script/data/scene_wallpaper_full_sample_matrix.json"
+DEFAULT_LEDGER = REPOSITORY_ROOT / "script/data/scene_capability_repair_ledger.json"
+DEFAULT_FAMILY_MAP = REPOSITORY_ROOT / "script/data/scene_capability_family_map.json"
 DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
 DEFAULT_MARKDOWN = REPOSITORY_ROOT / ".artifacts/scene-reports/corpus/scene-corpus-capability-inventory.md"
 DEFAULT_SAMPLE_MARKDOWN = DEFAULT_MARKDOWN.with_name("scene-corpus-sample-inventory.md")

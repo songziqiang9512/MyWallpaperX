@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Design-first gate: block implementation starts on registered capabilities.
 
-A capability registered in script/design_gated_areas.json with status
+A capability registered in script/data/design_gated_areas.json with status
 ``blocked-pending-design`` may not gain implementation files or trigger
 symbols until a design document lands and the registry entry flips to
 ``approved``.  The gate is pure static analysis: it matches changed paths
@@ -20,11 +20,11 @@ from pathlib import Path
 from typing import Any, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = Path(__file__).with_name("design_gated_areas.json")
+REGISTRY_PATH = Path(__file__).with_name("data") / "design_gated_areas.json"
 # The registry lists trigger symbols as data and the checker mentions them in
 # help text; scanning our own files would make every registry edit self-fail.
 CONTENT_SCAN_EXEMPT = {
-    "script/design_gated_areas.json",
+    "script/data/design_gated_areas.json",
     "script/check_design_gate.py",
 }
 MAX_CONTENT_SCAN_BYTES = 4 * 1024 * 1024

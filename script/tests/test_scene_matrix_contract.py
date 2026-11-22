@@ -416,8 +416,8 @@ class SceneMatrixContractTests(unittest.TestCase):
             for expectation in expectations
         }
         for relative_path in (
-            "script/scene_wallpaper_sample_matrix.json",
-            "script/scene_wallpaper_full_sample_matrix.json",
+            "script/data/scene_wallpaper_sample_matrix.json",
+            "script/data/scene_wallpaper_full_sample_matrix.json",
         ):
             matrix = load_scene_matrix(REPOSITORY_ROOT / relative_path)
             for old_sample in matrix["samples"]:

@@ -46,15 +46,15 @@ class CommitPreflightTests(unittest.TestCase):
 
     def test_malformed_gate_and_missing_lifecycle_rejected(self):
         for value in (None, {}, [], {'gates': {}}, {'gates': {'x': {}}}, {'gates': {}, 'method_gates': {'x': {}}}):
-            self.stage('script/scene_validation_gates.json', json.dumps(value))
-            self.assertTrue(gate.inspect(self.root, {'script/scene_validation_gates.json'})['findings'])
+            self.stage('script/data/scene_validation_gates.json', json.dumps(value))
+            self.assertTrue(gate.inspect(self.root, {'script/data/scene_validation_gates.json'})['findings'])
 
     def test_valid_gate_registry_is_accepted(self):
         value = {'gates': {'x': {'risk': 'structure', 'trigger': 'change', 'cost': 'fast',
                                  'retirement': 'after removal', 'serialized': False}},
                  'method_gates': {'x': {}}}
-        self.stage('script/scene_validation_gates.json', json.dumps(value))
-        self.assertEqual(gate.inspect(self.root, {'script/scene_validation_gates.json'})['findings'], [])
+        self.stage('script/data/scene_validation_gates.json', json.dumps(value))
+        self.assertEqual(gate.inspect(self.root, {'script/data/scene_validation_gates.json'})['findings'], [])
 
     def test_nul_paths_preserve_leading_whitespace_for_ownership_and_blob_read(self):
         self.stage(' a.json', '{broken')

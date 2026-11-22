@@ -2,11 +2,28 @@
 
 开发、验证、证据与发布工具。产品源码在 `MyWallpaperX/`，行为测试在 `script/tests/`；本文件是顶层入口的导航，不替代各脚本的 `--help` 或 `docs/development/repository-workflow.md` 的验证合同。
 
+## 目录规划
+
+| 位置 | 内容 | 状态 |
+|---|---|---|
+| `data/` | 台账、注册表、baseline、矩阵 JSON | 已迁移 |
+| `tests/` | 行为测试与 fixtures | 保持 |
+| 顶层 `*.py` | 存量工具入口；按下方"入口索引"查阅 | 待按工具族迁移 |
+| `governance/` | 验证门、文档/仓库健康、提交预检 | 目标位置 |
+| `release/` | 发布、签名、版本脚本 | 目标位置 |
+| `build/` | 构建/运行/资源复制脚本 | 目标位置 |
+| `scene/` | Scene 普查、shader 合同、证据、播放/矩阵 | 目标位置 |
+| `web/` | Web 证据与基准 | 目标位置 |
+| `assets/` | 资产生成器 | 目标位置 |
+| `evidence/` | 外部证据提取与晋升 | 目标位置 |
+
+存量 Python 工具暂留顶层：它们通过同目录 import 和 `Path(__file__)` 计算仓库根，迁移需要同时改测试的 `sys.path` 导入与各脚本的相对路径。迁移按工具族分批进行，每批更新 `scene_validation_gates.json` 与 CI 引用并跑对应测试。
+
 ## 约定
 
 - 顶层 `*.py` 分两类：带 `if __name__ == "__main__"` 的 CLI 入口，和被其他脚本 import 的库模块。新增 CLI 必须带模块 docstring，并在下方"入口索引"登记。
 - 一次性研究脚本不留在顶层；中间产物写 `.artifacts/` 或任务临时目录，完成后清理。
-- 新测试必须能用 `script/run_scene_tests.py --module <name>` 独立运行，并在 `script/scene_validation_gates.json` 映射到产品路径；确实只属于全量回归的，在提交说明中标注。
+- 新测试必须能用 `script/run_scene_tests.py --module <name>` 独立运行，并在 `script/data/scene_validation_gates.json` 映射到产品路径；确实只属于全量回归的，在提交说明中标注。
 - 数据台账只保留当前消费者；历史结论从 Git 查询，不靠新增台账文件保留。
 
 ## 入口索引
