@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
+from script.tests.ui.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
 from script.tests.ui.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -144,7 +144,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             MANAGER / 'WallpaperManager+WallpaperApplication.swift', MANAGER / 'WallpaperManager+Removal.swift',
             MANAGER / 'WallpaperManager+PlaybackControl.swift', MANAGER / 'WallpaperManager+PlaybackSettings.swift',
             persistence_path, support_path, app, navigator, fixture_path, desktop_fixture, Path(__file__),
-            ROOT / 'script/tests/test_imported_video_autoplay_gate.py']
+            ROOT / 'script/tests/ui/test_imported_video_autoplay_gate.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-library-playback-', dir='/private/tmp') as temporary:
             work = Path(temporary)

@@ -549,7 +549,7 @@
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
         "WallpaperDaemonSources/Daemon/Support/CommandReader.swift",
         "WallpaperDaemonSources/Daemon/Support/WallpaperDaemon+Events.swift",
-        "script/tests/test_daemon_line_framing.py"
+        "script/tests/scene/test_daemon_line_framing.py"
       ],
       "modules": [
         "test_daemon_line_framing"
@@ -653,8 +653,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
-        "script/tests/test_daemon_process_transport.py",
-        "script/tests/test_debug_scene_product_entry_policy.py",
+        "script/tests/scene/test_daemon_process_transport.py",
+        "script/tests/scene/test_debug_scene_product_entry_policy.py",
         "script/tests/scene/test_scene_daemon_client_wiring.py"
       ],
       "modules": [
@@ -2724,7 +2724,7 @@
         "script/data/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py",
         "script/governance/source_relocations.py",
-        "script/tests/test_source_relocations.py"
+        "script/tests/governance/test_source_relocations.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -3643,7 +3643,18 @@
         "script/tests/test_scene_video_segment_materialization.py",
         "script/tests/test_scene_video_texture_source.py",
         "script/tests/test_scene_visible_graph_output_render_plan.py",
-        "script/tests/test_scene_webm_container.py"
+        "script/tests/test_scene_webm_container.py",
+        "script/tests/test_check_scene_dependencies.py",
+        "script/tests/test_debug_source_layout.py",
+        "script/tests/test_source_relocations.py",
+        "script/tests/test_extract_wallpaper_engine_client_evidence.py",
+        "script/tests/test_promote_scene_evidence.py",
+        "script/tests/test_daemon_line_framing.py",
+        "script/tests/test_daemon_process_lifetime.py",
+        "script/tests/test_daemon_process_transport.py",
+        "script/tests/test_debug_scene_product_entry_policy.py",
+        "script/tests/test_imported_video_admission.py",
+        "script/tests/test_imported_video_autoplay_gate.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -4087,7 +4098,7 @@
       "patterns": [
         "script/governance/check_scene_dependencies.py",
         "script/data/scene_dependency_baseline.json",
-        "script/tests/test_check_scene_dependencies.py"
+        "script/tests/governance/test_check_scene_dependencies.py"
       ],
       "modules": [
         "test_check_scene_dependencies"
@@ -4108,7 +4119,7 @@
       "id": "app-debug-layout",
       "patterns": [
         "MyWallpaperX/App/*Debug*.swift",
-        "script/tests/test_debug_source_layout.py"
+        "script/tests/governance/test_debug_source_layout.py"
       ],
       "modules": [
         "test_debug_source_layout"
@@ -4800,7 +4811,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift",
         "script/tests/test_playback_*",
-        "script/tests/test_daemon_process_lifetime.py",
+        "script/tests/scene/test_daemon_process_lifetime.py",
         "script/tests/fixtures/playback-lifecycle/**",
         "script/tests/fixtures/PlaybackExplicitStopHarness.swift",
         "script/tests/ui/test_grid_playback_publication.py",
@@ -5802,10 +5813,10 @@
         "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
-        "script/tests/test_imported_video_admission.py",
+        "script/tests/ui/test_imported_video_admission.py",
         "script/tests/fixtures/ImportedVideoAdmissionHarness.swift",
         "script/tests/fixtures/ImportedVideoAdmissionSupport.swift",
-        "script/tests/test_imported_video_autoplay_gate.py"
+        "script/tests/ui/test_imported_video_autoplay_gate.py"
       ],
       "modules": [
         "test_imported_video_admission",
@@ -6055,7 +6066,7 @@
         "script/tests/ui/test_wallpaper_library_relocation.py",
         "script/tests/fixtures/WallpaperLibraryRelocationHarness.swift",
         "script/tests/ui/test_wallpaper_library_import.py",
-        "script/tests/test_imported_video_admission.py",
+        "script/tests/ui/test_imported_video_admission.py",
         "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift",
         "script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift",
         "script/tests/fixtures/WallpaperLibraryImportHarness.swift",

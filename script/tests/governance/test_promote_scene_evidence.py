@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "evidence/promote_scene_evidence.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "evidence/promote_scene_evidence.py"
 SPEC = importlib.util.spec_from_file_location("promote_scene_evidence", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 promotion = importlib.util.module_from_spec(SPEC)

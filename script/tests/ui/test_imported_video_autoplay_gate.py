@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from script.tests.steam.test_steam_library_interactions import method
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTROL = REPO_ROOT / "MyWallpaperX/Core/PlaybackControl"
 MANAGER = REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
 GATE_SOURCES = [CONTROL / name for name in (

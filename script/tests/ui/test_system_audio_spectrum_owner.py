@@ -19,7 +19,7 @@ import unittest
 
 from script.tests.web.test_web_compat_parity import source_block
 from script.tests.steam.test_steam_library_interactions import method
-from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES
+from script.tests.ui.test_imported_video_autoplay_gate import GATE_SOURCES
 
 
 ROOT = Path(__file__).resolve().parents[3]

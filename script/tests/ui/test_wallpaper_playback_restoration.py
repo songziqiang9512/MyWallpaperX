@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, product_harness
+from script.tests.ui.test_imported_video_autoplay_gate import GATE_SOURCES, product_harness
 
 ROOT = Path(__file__).resolve().parents[3]
 

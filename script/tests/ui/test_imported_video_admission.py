@@ -7,12 +7,12 @@ import tempfile
 import unittest
 import uuid
 
-from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
+from script.tests.ui.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
 from script.tests.ui.test_ui_library_algorithms import declaration
 from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.ui.test_wallpaper_library_import import video_import_cache_methods
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class ImportedVideoAdmissionTests(unittest.TestCase):

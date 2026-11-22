@@ -319,7 +319,7 @@ protocol PlaybackResourceLifetime: AnyObject {}
         No NSApplication, window, renderer, media, or child Process is used.
         The negative build removes the guard in a temporary source copy.
         """
-        from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
+        from script.tests.ui.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
         from script.tests.ui.test_ui_library_algorithms import declaration
 
         engine_path = ROOT / 'MyWallpaperX/Core/Playback/WallpaperEngine.swift'
@@ -367,7 +367,7 @@ protocol PlaybackResourceLifetime: AnyObject {}
         ]
         originals = list(dict.fromkeys([*GATE_SOURCES, *[ROOT / 'MyWallpaperX' / name for name in relative]]))
         observed = list(dict.fromkeys([*originals, engine_path, removal_path, commands_path, fixture_path, event_path,
-            pause_path, types_path, Path(__file__), ROOT / 'script/tests/test_imported_video_autoplay_gate.py',
+            pause_path, types_path, Path(__file__), ROOT / 'script/tests/ui/test_imported_video_autoplay_gate.py',
             *MANAGER.glob('WallpaperManager*.swift')]))
         hashes = {str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         stop = declaration(engine_text, '    public func stopPlayback(')
