@@ -13,7 +13,7 @@ except ModuleNotFoundError:
     import check_code_health
     import verify_scene_change
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def summarize(counts: dict[str, int], health: dict, mapping: dict,

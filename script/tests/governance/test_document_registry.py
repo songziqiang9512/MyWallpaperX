@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.document_registry import ROOT, INDEX, managed_documents, query, validate, audit, local_targets, first_read_lines, ROLES, REQUIRED
+from script.governance.document_registry import ROOT, INDEX, managed_documents, query, validate, audit, local_targets, first_read_lines, ROLES, REQUIRED
 
 
 class DocumentRegistryTests(unittest.TestCase):

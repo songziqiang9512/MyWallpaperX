@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 
 if __package__:
-    from .commit_preflight import area_trailers
+    from script.governance.commit_preflight import area_trailers
     from .validate_release_notes import ROOT, validate_release
     from .release_version import PROJECT, project_version, appcast_version, require_newer
 else:

@@ -153,4 +153,4 @@ App、Video、Web、Steam 与跨引擎控制保留覆盖入口。提交 scope �
 
 正证：现有值声明和只读 alias consumer 保持接受；所有现行结构规则通过。反例：同文件新 analyzer、值枚举加行为、新 alias/写入/函数外使用、未声明直属/深层文件必须失败。检查器自身测试使用自有 fixture；同时核验原 regex 匹配全集仍被检查，原排序改动完整保留。没有产品修改，不据此声称画面、性能或 renderer owner 已迁移。
 
-机器分类与已提交合同迁移由 `script/source_authority.py` 承载，semantics 测试保留真实全域扫描与故障注入案例；执行器不藏在测试用例文件中。它是有界静态治理工具，不是 Swift 编译器或语义证明。
+机器分类与已提交合同迁移由 `script/governance/source_authority.py` 承载，semantics 测试保留真实全域扫描与故障注入案例；执行器不藏在测试用例文件中。它是有界静态治理工具，不是 Swift 编译器或语义证明。

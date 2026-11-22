@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BASELINE = ROOT / "script/data/test_assertion_baseline.json"
 BASELINE_RELATIVE = "script/data/test_assertion_baseline.json"
 DETECTOR = {

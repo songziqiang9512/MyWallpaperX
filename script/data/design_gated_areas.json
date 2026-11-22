@@ -1955,7 +1955,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
-        "script/source_authority.py",
+        "script/governance/source_authority.py",
         "script/tests/test_scene_semantics_coverage.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppet*.swift",

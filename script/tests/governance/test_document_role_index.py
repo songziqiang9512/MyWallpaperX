@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from script.document_registry import managed_documents, validate, local_targets, ROLES, HISTORY_ROOTS
+from script.governance.document_registry import managed_documents, validate, local_targets, ROLES, HISTORY_ROOTS
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]

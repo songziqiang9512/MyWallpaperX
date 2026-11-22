@@ -30,5 +30,5 @@
 ```bash
 python3 script/run_scene_tests.py --module test_verify_scene_change
 python3 script/run_scene_tests.py --scope scene -j 4
-python3 script/check_test_mapping.py
+python3 script/governance/check_test_mapping.py
 ```

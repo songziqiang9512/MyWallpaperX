@@ -15,9 +15,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from script.document_registry import managed_documents
-from script.document_links import markdown_anchors, relative_link_violations
-from script.source_authority import (
+from script.governance.document_registry import managed_documents
+from script.governance.document_links import markdown_anchors, relative_link_violations
+from script.governance.source_authority import (
     authority_metric_digest,
     authority_relocation_transition_violations,
     capability_addition_transition_violations,
@@ -228,7 +228,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         new_contract = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))[
             "render_chain_authority_ratchet"
         ]
-        from script.source_relocations import unchanged_source_relocations
+        from script.governance.source_relocations import unchanged_source_relocations
         scene_prefix = "MyWallpaperX/Core/SteamWorkshopScene/"
         old_paths = {
             scene_prefix + path
@@ -418,7 +418,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             (scene / "Origin.swift").write_text(source)
             (scene / "Stable.swift").write_text(source)
             path = root / "script/data/scene_source_layout.json"
-            path.parent.mkdir()
+            path.parent.mkdir(parents=True, exist_ok=True)
             design_doc = "docs/scene/architecture/runtime-architecture.md"
             (path.parent / "design_gated_areas.json").write_text(json.dumps({"areas": [
                 {"status": "approved", "designDoc": design_doc}]}))

@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 BASELINE_RELATIVE_PATH = Path("script/data/scene_defense_baseline.json")
 LAYOUT_RELATIVE_PATH = Path("script/data/scene_source_layout.json")
 

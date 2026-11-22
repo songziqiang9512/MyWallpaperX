@@ -13,10 +13,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Sequence
 try:
-    from script.source_relocations import unchanged_source_relocations
+    from script.governance.source_relocations import unchanged_source_relocations
     from script.run_scene_tests import RELEASE_MODULES
 except ModuleNotFoundError:
-    from source_relocations import unchanged_source_relocations
+    from governance.source_relocations import unchanged_source_relocations
     from run_scene_tests import RELEASE_MODULES
 
 
@@ -264,7 +264,7 @@ def code_health_gate(base: str, reason: str) -> Gate:
         "code-health",
         (
             sys.executable,
-            "script/check_code_health.py",
+            "script/governance/check_code_health.py",
             "--check",
             "--base-ref",
             base,
@@ -279,7 +279,7 @@ def scene_defense_gate(base: str) -> Gate:
         "scene-defense",
         (
             sys.executable,
-            "script/check_scene_defense.py",
+            "script/governance/check_scene_defense.py",
             "--check",
             "--base-ref",
             base,
@@ -297,7 +297,7 @@ def design_gate(base: str) -> Gate:
         "design-gate",
         (
             sys.executable,
-            "script/check_design_gate.py",
+            "script/governance/check_design_gate.py",
             "--base-ref",
             base,
         ),
@@ -362,7 +362,8 @@ def build_plan(
     swift_change = any(path.endswith(".swift") for path in paths)
     product_change = any(path.startswith(PRODUCT_PREFIXES) for path in paths)
     deleted_test = any(
-        path.startswith("script/tests/test_")
+        path.startswith("script/tests/")
+        and Path(path).name.startswith("test_")
         and path.endswith(".py")
         and not (ROOT / path).is_file()
         for path in paths
@@ -372,7 +373,8 @@ def build_plan(
     for path in paths:
         path_modules, path_keywords, path_groups = mapped_tests([path], registry)
         deleted_path = (
-            path.startswith("script/tests/test_")
+            path.startswith("script/tests/")
+            and Path(path).name.startswith("test_")
             and path.endswith(".py")
             and not (ROOT / path).is_file()
         )
@@ -435,36 +437,36 @@ def build_plan(
         )
         gates.append(Gate(gate_id, command, registry["gates"][gate_id]["trigger"], False))
     if any(
-        fnmatch.fnmatch(path, "script/tests/test_*.py")
-        or path in {"script/check_test_assertions.py", "script/data/test_assertion_baseline.json",
+        (path.startswith("script/tests/") and Path(path).name.startswith("test_") and path.endswith(".py"))
+        or path in {"script/governance/check_test_assertions.py", "script/data/test_assertion_baseline.json",
                     "script/data/scene_validation_gates.json"}
         for path in paths
     ):
         gates.append(Gate(
             "test-assertions",
-            (sys.executable, "-B", "script/check_test_assertions.py", "--check", "--base-ref", args.base),
+            (sys.executable, "-B", "script/governance/check_test_assertions.py", "--check", "--base-ref", args.base),
             "Python test declaration-shape assertions may only shrink", False,
         ))
     if any(path.startswith(("script/", "docs/", ".agents/", ".github/")) for path in paths):
         gates.append(Gate(
             "repository-artifacts",
-            (sys.executable, "-B", "script/check_repository_artifacts.py", "--check", "--base-ref", args.base),
+            (sys.executable, "-B", "script/governance/check_repository_artifacts.py", "--check", "--base-ref", args.base),
             "Git-visible tool and documentation files must stay within the artifact size budget", False,
         ))
     if any((path.startswith('MyWallpaperX/Core/SteamWorkshopScene/') and path.endswith('.swift'))
            or (path.startswith('script/tests/') and path.endswith(('.swift', '.py')))
-           or path in {'script/check_scene_dependencies.py', 'script/data/scene_dependency_baseline.json'}
+           or path in {'script/governance/check_scene_dependencies.py', 'script/data/scene_dependency_baseline.json'}
            for path in paths):
         gates.append(Gate('scene-dependencies',
-                          (sys.executable, '-B', 'script/check_scene_dependencies.py', '--check', '--base-ref', args.base),
+                          (sys.executable, '-B', 'script/governance/check_scene_dependencies.py', '--check', '--base-ref', args.base),
                           registry['gates']['scene-dependencies']['trigger'], False))
     if 'documentation' in groups:
         gates.append(Gate('document-health',
-                          (sys.executable, '-B', 'script/document_health.py', '--check', '--base', args.base),
+                          (sys.executable, '-B', 'script/governance/document_health.py', '--check', '--base', args.base),
                           registry['gates']['document-health']['trigger'], False))
     if any(path.startswith(PRODUCT_PREFIXES) for path in paths) or 'validation-governance' in groups:
         gates.append(Gate('repository-residue',
-                          (sys.executable, '-B', 'script/repository_residue.py', '--check'),
+                          (sys.executable, '-B', 'script/governance/repository_residue.py', '--check'),
                           registry['gates']['repository-residue']['trigger'], False))
 
     if args.ci:

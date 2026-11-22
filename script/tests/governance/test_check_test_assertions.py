@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from script import check_test_assertions as gate
+from script.governance import check_test_assertions as gate
 
 
 class TestAssertionGateTests(unittest.TestCase):

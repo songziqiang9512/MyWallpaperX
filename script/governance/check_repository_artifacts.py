@@ -7,7 +7,7 @@ import json
 from pathlib import Path, PurePosixPath
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TEXT_ROOTS = ('script', 'docs', '.agents', '.github')
 MAX_BYTES = 5_000_000
 BASELINE = 'script/data/repository_artifact_baseline.json'

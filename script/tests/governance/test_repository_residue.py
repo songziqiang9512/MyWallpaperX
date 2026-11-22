@@ -1,7 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from script.repository_residue import inventory
+from script.governance.repository_residue import inventory
 
 
 class RepositoryResidueTests(unittest.TestCase):

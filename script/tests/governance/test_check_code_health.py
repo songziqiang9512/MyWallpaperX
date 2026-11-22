@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "check_code_health.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "governance/check_code_health.py"
 SPEC = importlib.util.spec_from_file_location("check_code_health", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 GATE = importlib.util.module_from_spec(SPEC)
@@ -147,7 +147,7 @@ class CodeHealthGateTests(unittest.TestCase):
             git(root, "config", "user.email", "health@example.invalid")
             git(root, "commit", "--allow-empty", "--quiet", "-m", "before baseline")
             empty = git(root, "rev-parse", "HEAD")
-            path = root / GATE.BASELINE_RELATIVE_PATH; path.parent.mkdir()
+            path = root / GATE.BASELINE_RELATIVE_PATH; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(baseline()))
             git(root, "add", str(GATE.BASELINE_RELATIVE_PATH))
             git(root, "commit", "--quiet", "-m", "unified policy")

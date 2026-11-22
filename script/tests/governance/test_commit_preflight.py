@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-from script import commit_preflight as gate
+from script.governance import commit_preflight as gate
 from script.publish_release import release_areas
 
 
@@ -139,7 +139,7 @@ class CommitPreflightTests(unittest.TestCase):
         self.assertEqual(gate.inspect(self.root, {'only-installer.json'})['stagedPaths'], ['only-installer.json'])
 
     def test_shared_hook_survives_installer_removal_and_uninstalls_from_peer(self):
-        self.stage('script/commit_preflight.py', Path(gate.__file__).read_text())
+        self.stage('script/governance/commit_preflight.py', Path(gate.__file__).read_text())
         self.stage('seed.json', '{}')
         identity = ('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
                     '-c', 'commit.gpgsign=false')
@@ -147,7 +147,7 @@ class CommitPreflightTests(unittest.TestCase):
         installer = self.root / 'installer'
         gate.git(self.root, 'worktree', 'add', '--detach', str(installer), 'HEAD')
         result = subprocess.run(
-            ['python3.12', '-B', str(installer / 'script/commit_preflight.py'), '--install'],
+            ['python3.12', '-B', str(installer / 'script/governance/commit_preflight.py'), '--install'],
             cwd=installer, capture_output=True, text=True, check=True)
         self.assertIn('warning-only', result.stdout)
         directory = Path(gate.config_value(self.root))
@@ -161,7 +161,7 @@ class CommitPreflightTests(unittest.TestCase):
         self.assertIn('Invalid staged JSON seed.json', committed.stdout + committed.stderr)
         self.assertEqual((directory / 'commit_preflight.py').read_bytes(), snapshot)
         # Uninstall recognizes the installed snapshot, not the peer's checkout revision.
-        source = self.root / 'script/commit_preflight.py'
+        source = self.root / 'script/governance/commit_preflight.py'
         source.write_text(source.read_text() + '\n# peer revision\n')
         removed = subprocess.run(['python3.12', '-B', str(source), '--uninstall'],
                                  cwd=self.root, capture_output=True, text=True, check=True)

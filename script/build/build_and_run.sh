@@ -14,7 +14,7 @@ APP_BINARY="$BUILD_APP_PATH/Contents/MacOS/$APP_NAME"
 LOG_PREDICATE="process == \"$APP_NAME\""
 
 build_app() {
-  python3 "$ROOT_DIR/script/check_code_health.py" --check --base-ref HEAD
+  python3 "$ROOT_DIR/script/governance/check_code_health.py" --check --base-ref HEAD
   /usr/bin/xcodebuild \
     -project "$PROJECT_PATH" \
     -scheme "$SCHEME" \

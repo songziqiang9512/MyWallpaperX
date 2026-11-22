@@ -273,7 +273,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29a9f1d05d7c1685d8574194284986995f40a6f52af12b32f43ca0773485259f",
+        "sourceSHA256": "85b4f43c69eaf9e5aec04fe00fb3443944994d79d60cdf681c99291debc0b491",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -799,7 +799,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "16572a84fd5de9a17aa41f55fb3bb69badb43366e9bd0578a3d845d2378ed95e",
+        "sourceSHA256": "2ac9c3eb751390afe86d34851743da4552276ad1a6ea054db56e5a19f82b6b6d",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -1317,7 +1317,7 @@
       "sourcePaths": [
         "AGENTS.md",
         "script/data/design_gated_areas.json",
-        "script/check_design_gate.py"
+        "script/governance/check_design_gate.py"
       ],
       "verification": "按 AGENTS 五问决定登记；query 的 designAreas 来自现役登记。approved 不代表产品行为验收。",
       "owner": "AGENTS.md",

@@ -44,10 +44,11 @@ def arguments(**overrides: object) -> argparse.Namespace:
 
 
 def missing_registry_modules(registry: dict, tests_directory: Path) -> list[str]:
+    available = {path.stem for path in tests_directory.rglob('test_*.py')}
     return sorted({f"{group['id']}: {module}"
                    for group in registry['path_groups']
                    for module in group.get('modules', [])
-                   if not (tests_directory / f'{module}.py').is_file()})
+                   if module not in available})
 
 
 class SceneValidationSelectionTests(unittest.TestCase):
@@ -71,7 +72,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             ('script/data/scene_source_layout.json', set()),
             ('script/data/scene_dependency_baseline.json', {'scene-dependencies'}),
             ('script/data/document_health_baseline.json', {'document-health'}),
-            ('script/tests/test_document_health.py', {'scene-dependencies', 'document-health'}),
+            ('script/tests/governance/test_document_health.py', {'scene-dependencies', 'document-health', 'repository-residue'}),
             ('script/scene_wallpaper_benchmark.py', set()),
         ]
         for path, expected in cases:
@@ -87,9 +88,9 @@ class SceneValidationSelectionTests(unittest.TestCase):
         ], arguments(base='review-base', phase='inner'), self.registry)
         commands = {gate.gate_id: gate.command for gate in gates}
         self.assertEqual(commands['scene-dependencies'], (sys.executable, '-B',
-                         'script/check_scene_dependencies.py', '--check', '--base-ref', 'review-base'))
+                         'script/governance/check_scene_dependencies.py', '--check', '--base-ref', 'review-base'))
         self.assertEqual(commands['document-health'], (sys.executable, '-B',
-                         'script/document_health.py', '--check', '--base', 'review-base'))
+                         'script/governance/document_health.py', '--check', '--base', 'review-base'))
         self.assertNotIn('repository-debt', commands)
         self.assertNotIn('repository-residue', commands)
 
@@ -105,7 +106,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                 self.assertNotEqual(metadata["retirement"], "permanent")
 
     def test_document_link_checker_changes_select_repository_link_gate(self) -> None:
-        for path in ('script/document_links.py', 'script/tests/test_document_links.py'):
+        for path in ('script/governance/document_links.py', 'script/tests/governance/test_document_links.py'):
             with self.subTest(path=path):
                 gates, _ = verify.build_plan([path], arguments(), self.registry)
                 self.assertIn('document-links', [gate.gate_id for gate in gates])
@@ -548,7 +549,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         defense = [gate for gate in gates if gate.gate_id == "scene-defense"]
         self.assertEqual(len(defense), 1)
-        self.assertIn("script/check_scene_defense.py", defense[0].command)
+        self.assertIn("script/governance/check_scene_defense.py", defense[0].command)
         self.assertIn("--base-ref", defense[0].command)
         self.assertEqual(
             self.gate_ids(
@@ -812,7 +813,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
         self.assertNotIn("--fail-fast", checker.command)
 
     def test_shape_checker_is_selected_for_test_checker_and_baseline_changes(self) -> None:
-        for path in ("script/tests/test_verify_scene_change.py", "script/check_test_assertions.py",
+        for path in ("script/tests/governance/test_verify_scene_change.py", "script/governance/check_test_assertions.py",
                      "script/data/test_assertion_baseline.json", "script/data/scene_validation_gates.json"):
             with self.subTest(path=path):
                 gates, _ = verify.build_plan([path], arguments(phase="inner", base="review-base"), self.registry)
@@ -826,12 +827,12 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
         self.assertTrue(ids.isdisjoint(self.registry["method_gates"]))
 
     def test_artifact_gate_covers_governed_roots_without_product_media(self) -> None:
-        for path in ("docs/README.md", "script/check_repository_artifacts.py",
+        for path in ("docs/README.md", "script/governance/check_repository_artifacts.py",
                      ".agents/skills/mywallpaperx-maintainer/SKILL.md", ".github/workflows/ci.yml"):
             with self.subTest(path=path):
                 gates, _ = verify.build_plan([path], arguments(phase="inner"), self.registry)
                 gate = next(gate for gate in gates if gate.gate_id == "repository-artifacts")
-                self.assertEqual(gate.command[2:], ("script/check_repository_artifacts.py", "--check", "--base-ref", "HEAD"))
+                self.assertEqual(gate.command[2:], ("script/governance/check_repository_artifacts.py", "--check", "--base-ref", "HEAD"))
         gates, _ = verify.build_plan(["MyWallpaperX/Assets.xcassets/example.png"], arguments(phase="inner"), self.registry)
         self.assertNotIn("repository-artifacts", [gate.gate_id for gate in gates])
 
@@ -839,7 +840,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
 class ProductTestMappingTests(unittest.TestCase):
     def setUp(self) -> None:
         self.registry = verify.load_registry()
-        self.available = [path.stem for path in (verify.ROOT / "script/tests").glob("test_*.py")]
+        self.available = [path.stem for path in (verify.ROOT / "script/tests").rglob("test_*.py")]
 
     def test_keyword_only_groups_preserve_selection_when_mixed_with_explicit_modules(self) -> None:
         from run_scene_tests import discover_modules

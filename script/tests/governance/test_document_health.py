@@ -12,7 +12,7 @@ import tempfile
 import subprocess
 import unittest
 
-from script.document_health import ROOT, BASELINE, anchors, body_size, load_json, main, schema_errors, ratchet_errors, required_adjustments, review_errors, validate
+from script.governance.document_health import ROOT, BASELINE, anchors, body_size, load_json, main, schema_errors, ratchet_errors, required_adjustments, review_errors, validate
 
 
 class DocumentHealthTests(unittest.TestCase):
@@ -153,7 +153,7 @@ class DocumentHealthTests(unittest.TestCase):
                 self.record_adjustments(old, self.baseline)
             baseline_file.write_text(json.dumps(self.baseline))
             output = io.StringIO()
-            with patch('script.document_health.ROOT', self.root), redirect_stdout(output):
+            with patch('script.governance.document_health.ROOT', self.root), redirect_stdout(output):
                 code = main(['--check'])
             result = json.loads(output.getvalue())
             self.assertEqual(code, 0 if documented else 1)
@@ -222,7 +222,7 @@ class DocumentHealthTests(unittest.TestCase):
             git('commit', '-qm', 'Document baseline transition')
         def check():
             output = io.StringIO()
-            with patch('script.document_health.ROOT', self.root), redirect_stdout(output):
+            with patch('script.governance.document_health.ROOT', self.root), redirect_stdout(output):
                 code = main(['--check', '--base', base])
             return code, json.loads(output.getvalue())
         git('init', '-q')
@@ -327,7 +327,7 @@ class DocumentHealthTests(unittest.TestCase):
             (datetime(2026, 10, 19, 17, 57, tzinfo=timezone.utc), date(2026, 10, 20)),
             (datetime(2026, 10, 20, 0, 1, tzinfo=timezone.utc), date(2026, 10, 20)),
         ):
-            with self.subTest(instant=instant), patch('script.document_health.datetime') as clock:
+            with self.subTest(instant=instant), patch('script.governance.document_health.datetime') as clock:
                 clock.now.side_effect = lambda tz: instant.astimezone(tz)
                 self.assertEqual(validate(self.root, self.index, self.baseline), [])
                 clock.now.assert_called_once_with(timezone(timedelta(hours=8)))
@@ -374,7 +374,7 @@ class DocumentHealthTests(unittest.TestCase):
         for text in ('{"schemaVersion": NaN}', '[]', '{"bodies": false}'):
             (self.root / BASELINE).write_text(text)
             output, error = io.StringIO(), io.StringIO()
-            with patch('script.document_health.ROOT', self.root), redirect_stdout(output), redirect_stderr(error):
+            with patch('script.governance.document_health.ROOT', self.root), redirect_stdout(output), redirect_stderr(error):
                 try:
                     code = main(['--check'])
                 except SystemExit as failure:
@@ -384,7 +384,7 @@ class DocumentHealthTests(unittest.TestCase):
             self.assertTrue(output.getvalue() or error.getvalue())
 
     def test_heading_anchors_match_original_link_checker(self):
-        from script.document_links import markdown_anchors
+        from script.governance.document_links import markdown_anchors
         text = '# E-2026 — Test  Name\n## 中文 **标题** &amp; value\n```\n## Not an anchor\n```\n<a id="explicit"></a>\n<A class="x" ID="attribute-order"></A>\n'
         self.assertEqual(anchors(text), markdown_anchors(text))
         self.assertIn('e-2026-test-name', anchors(text))

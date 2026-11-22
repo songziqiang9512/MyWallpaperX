@@ -14,7 +14,7 @@
 <a id="scanner"></a>
 ## 扫描、变更与上限
 
-`script/check_scene_dependencies.py`扫描 Git 可见 Scene Swift 类型声明/引用，并从 Python AST 和 Swift fixture 读取测试消费者；不执行测试。当前强制边是 Rendering → Compilation internals，其他目录只作结构信号，不冒称完整依赖图已被机器认证。
+`script/governance/check_scene_dependencies.py`扫描 Git 可见 Scene Swift 类型声明/引用，并从 Python AST 和 Swift fixture 读取测试消费者；不执行测试。当前强制边是 Rendering → Compilation internals，其他目录只作结构信号，不冒称完整依赖图已被机器认证。
 
 扫描器不解析 Swift 重载、活跃条件编译、宏、类型推导或完整别名传播。todo 是 `(rule, consumer, symbol)`词法边，不是调用次数、帧热点或运行失败。测试可直接验证 compiler 内部，不因此令产品 namespace 公开。
 

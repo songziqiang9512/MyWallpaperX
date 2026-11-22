@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from script.document_links import markdown_anchors, relative_link_violations
+from script.governance.document_links import markdown_anchors, relative_link_violations
 
 
 class DocumentLinkTests(unittest.TestCase):
@@ -60,6 +60,6 @@ class DocumentLinkTests(unittest.TestCase):
         self.assertEqual(self.check("[tracked](../.artifacts/tracked.md#tracked)"), [])
 
     def test_ignore_classification_failure_cannot_pass_silently(self) -> None:
-        with patch("script.document_links.subprocess.run", return_value=subprocess.CompletedProcess([], 128, "", "bad git state")):
+        with patch("script.governance.document_links.subprocess.run", return_value=subprocess.CompletedProcess([], 128, "", "bad git state")):
             with self.assertRaisesRegex(RuntimeError, "bad git state"):
                 self.check("[target](target.md)")

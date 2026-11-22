@@ -1,5 +1,5 @@
 import unittest
-from script import check_design_gate as gate
+from script.governance import check_design_gate as gate
 
 
 class DesignGateEvidenceTests(unittest.TestCase):

@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MARKER = '# MyWallpaperX optional preflight v1'
 AREAS = {'App', 'Video', 'Web', 'Scene', 'Steam', 'Shared', 'Governance', 'Build', 'Release'}
 

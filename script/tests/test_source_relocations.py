@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.source_relocations import unchanged_source_relocations
+from script.governance.source_relocations import unchanged_source_relocations
 
 
 class SourceRelocationTests(unittest.TestCase):

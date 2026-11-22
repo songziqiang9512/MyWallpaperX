@@ -16,7 +16,7 @@ if __package__:
 else:
     from document_links import markdown_anchors as anchors
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path('script/data/document_health_baseline.json')
 HISTORY_ROOTS = ('docs/history', 'docs/scene/history')
 AUTHORITY_ROLES = {'stable-contract', 'current-state', 'active-plan'}

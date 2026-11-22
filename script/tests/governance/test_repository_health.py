@@ -3,7 +3,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from script import repository_health as health
+from script.governance import repository_health as health
 
 
 class RepositoryHealthTests(unittest.TestCase):

@@ -19,13 +19,13 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = Path(__file__).with_name("data") / "design_gated_areas.json"
+ROOT = Path(__file__).resolve().parents[2]
+REGISTRY_PATH = Path(__file__).resolve().parents[1] / "data" / "design_gated_areas.json"
 # The registry lists trigger symbols as data and the checker mentions them in
 # help text; scanning our own files would make every registry edit self-fail.
 CONTENT_SCAN_EXEMPT = {
     "script/data/design_gated_areas.json",
-    "script/check_design_gate.py",
+    "script/governance/check_design_gate.py",
 }
 MAX_CONTENT_SCAN_BYTES = 4 * 1024 * 1024
 

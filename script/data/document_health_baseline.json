@@ -54,7 +54,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 106,
-      "bytes": 15172
+      "bytes": 15216
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
-      "bytes": 2308
+      "bytes": 2319
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 78,
@@ -532,24 +532,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
-      "before": "8e696de5415584570954d0ff65d98d51e3dc534362442a0b17137b479b62a49b",
-      "after": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
-      "owner": "repository-governance",
-      "reason": "Move machine ledgers into script/data and update the relative link target.",
-      "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/repository-workflow.md",
-      "before": "8fe267a57a8e1f84cb42e82d951966d904224896f5f5b5fd2d315e4af0e2ee8d",
-      "after": "c28ec1a65020719e0976948c37ecb8d67e5f4f0e5a4467d53d6d31b2cacb22d8",
-      "owner": "repository-governance",
-      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
-      "decision": "docs/development/repository-workflow.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/bundle-content.md",
       "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
       "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
@@ -574,6 +556,24 @@
       "owner": "repository-governance",
       "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
       "decision": "docs/scene/development/development-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/repository-workflow.md",
+      "before": "c28ec1a65020719e0976948c37ecb8d67e5f4f0e5a4467d53d6d31b2cacb22d8",
+      "after": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
+      "owner": "repository-governance",
+      "reason": "Move governance tools into script/governance and update relative paths.",
+      "decision": "docs/development/repository-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-dependency-boundaries.md",
+      "before": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
+      "after": "25358f5c2434ac041b29be437ab6bab5fdcb3bf831304b2206f0a2f3453882d6",
+      "owner": "repository-governance",
+      "reason": "Move governance tools into script/governance and update relative paths.",
+      "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
     }
   ]
 }

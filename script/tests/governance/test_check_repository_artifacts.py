@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.check_repository_artifacts import inspect, historical_errors, MAX_BYTES
+from script.governance.check_repository_artifacts import inspect, historical_errors, MAX_BYTES
 
 
 class RepositoryArtifactTests(unittest.TestCase):

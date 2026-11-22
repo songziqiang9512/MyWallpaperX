@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from script import check_scene_dependencies as checker
+from script.governance import check_scene_dependencies as checker
 
 
 def configuration():
