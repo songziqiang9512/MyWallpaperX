@@ -199,7 +199,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("render-graph", groups)
         self.assertEqual(
             gates[-1].command,
-            ("/bin/bash", "script/run_checkpoint_build.sh"),
+            ("/bin/bash", "script/build/run_checkpoint_build.sh"),
         )
 
     def test_ci_build_adds_code_health_without_local_wrapper(self) -> None:
@@ -214,7 +214,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             gates[-1].command,
-            ("/bin/bash", "script/run_checkpoint_build.sh"),
+            ("/bin/bash", "script/build/run_checkpoint_build.sh"),
         )
 
     def test_every_xcode_product_input_root_triggers_checkpoint_build(self) -> None:
@@ -531,7 +531,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_video_repeated_commands", gates[0].command)
 
     def test_checkpoint_build_script_is_isolated_and_does_not_launch(self) -> None:
-        script = (SCRIPT_ROOT / "run_checkpoint_build.sh").read_text(encoding="utf-8")
+        script = (SCRIPT_ROOT / "build/run_checkpoint_build.sh").read_text(encoding="utf-8")
         self.assertIn("/private/tmp/mywallpaperx-checkpoint-build.", script)
         self.assertIn("CHECKPOINT_LOCK_DIR", script)
         self.assertIn("CODE_SIGNING_ALLOWED=NO", script)

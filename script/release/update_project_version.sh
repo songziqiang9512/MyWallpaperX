@@ -8,7 +8,7 @@ fi
 
 MARKETING_VERSION="$1"
 BUILD_VERSION="$2"
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 python3 - "$MARKETING_VERSION" "$BUILD_VERSION" <<'PY'

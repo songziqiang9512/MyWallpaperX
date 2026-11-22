@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHECKPOINT_LOCK_DIR="/private/tmp/mywallpaperx-checkpoint-build.lock"
 CHECKPOINT_LOCK_FILE="/private/tmp/mywallpaperx-checkpoint-build.flock"
 CHECKPOINT_DERIVED_DATA=""
@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
       fi
       CHECKPOINT_CACHE_ROOT="$2"; shift 2 ;;
     --help|-h)
-      echo "Usage: script/run_checkpoint_build.sh [--cache-dir DIR]"
+      echo "Usage: script/build/run_checkpoint_build.sh [--cache-dir DIR]"
       echo "Default: isolated cold build, removed at exit. --cache-dir retains keyed DerivedData for explicit incremental reuse."
       exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;

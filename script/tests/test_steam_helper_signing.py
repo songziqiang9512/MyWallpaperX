@@ -113,7 +113,7 @@ class SteamHelperSigningTests(unittest.TestCase):
 
     def sign(self, identity=IDENTITY, policy=None):
         helper = self.prepare_payload()
-        args = ["/bin/bash", str(self.repo / "script/sign-steam-helper.sh"), str(helper), identity]
+        args = ["/bin/bash", str(self.repo / "script/release/sign-steam-helper.sh"), str(helper), identity]
         if policy is not None:
             args.append(policy)
         return self.run_command(args), helper
@@ -122,7 +122,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         output = self.folder / "products/helper"
         output.parent.mkdir(exist_ok=True)
         result = self.run_command(
-            ["/bin/bash", str(self.repo / "script/publish-steam-helper.sh"),
+            ["/bin/bash", str(self.repo / "script/release/publish-steam-helper.sh"),
              str(output), str(self.folder / "intermediates")],
             overrides={"EXPANDED_CODE_SIGN_IDENTITY": IDENTITY} | (overrides or {}))
         return result, output

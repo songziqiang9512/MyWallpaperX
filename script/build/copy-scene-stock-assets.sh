@@ -1,7 +1,7 @@
 #!/bin/bash
 # Keep the authoring corpus in source; ship only its runtime assets and licenses.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DESTINATION="${1:?destination bundle required}"
 [[ "$DESTINATION" = /*.app/Contents/Resources/SceneStockAssets.bundle ]] || exit 2
 [[ ! -L "$DESTINATION" ]] || exit 2

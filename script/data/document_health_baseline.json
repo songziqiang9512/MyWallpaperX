@@ -54,7 +54,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 106,
-      "bytes": 15166
+      "bytes": 15172
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
@@ -74,11 +74,11 @@
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
-      "bytes": 4111
+      "bytes": 4123
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 13288
+      "bytes": 13304
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
       "lines": 58,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
-      "bytes": 17096
+      "bytes": 17108
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -496,15 +496,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "da9a4f24a0b63d4188408f4d1226567b33dc6720638ee76162d7dfa3f3eb630f",
-      "after": "86333b2e3ab1985371189bbf3cbab8433a70e2d2639130de8d06ab37f4ab6d70",
-      "owner": "Existing Scene resource, evidence and developer-tool owners",
-      "reason": "Consolidate current resource evidence: single typed residency admission with actual 63-second-per-side cost, retained history/cancel behavior, rejected N2 healthy-author counterexample and existing background capture. Retire superseded details and duplicate gate debt; no new runtime/cache owner.",
-      "decision": "docs/scene/development/development-workflow.md#metal-probe-reuse"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "9659e9ddef345be96b091bb9cae2ae167cb00f34ec22eda5875523e4c6425220",
       "after": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
@@ -541,21 +532,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/repository-workflow.md",
-      "before": "e1d369d7d8bf0c537d91e3c559c8dd87c980f6822dc69cb3a02292532c8300fb",
-      "after": "8fe267a57a8e1f84cb42e82d951966d904224896f5f5b5fd2d315e4af0e2ee8d",
-      "owner": "repository-governance",
-      "reason": "记录 Python/Swift 开发工具链入口（Pillow、ruff、swift-format、Periphery、LicensePlist）及其验证边界；不改变产品架构或运行时。",
-      "decision": "docs/development/repository-workflow.md#开发工具链"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-dependency-boundaries.md",
       "before": "8e696de5415584570954d0ff65d98d51e3dc534362442a0b17137b479b62a49b",
       "after": "5e4e9e652b2cdbc812c29b2e8409ff4d7ed8b7248c3bcb1730d0e67beae5a186",
       "owner": "repository-governance",
       "reason": "Move machine ledgers into script/data and update the relative link target.",
       "decision": "docs/scene/architecture/scene-dependency-boundaries.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/repository-workflow.md",
+      "before": "8fe267a57a8e1f84cb42e82d951966d904224896f5f5b5fd2d315e4af0e2ee8d",
+      "after": "c28ec1a65020719e0976948c37ecb8d67e5f4f0e5a4467d53d6d31b2cacb22d8",
+      "owner": "repository-governance",
+      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
+      "decision": "docs/development/repository-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/bundle-content.md",
+      "before": "9320ffb3f0d5e6abf1cfa44ec4d19363437b1b68c63e5017a0afca00a285833f",
+      "after": "5cf34e2b74a836cd19893a610f918df25ef0fcc127548d6de9357902efe8a7a0",
+      "owner": "repository-governance",
+      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
+      "decision": "docs/release/bundle-content.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "4d79df180a9ff536854d31d79627a276b841c53da40e66260bf50ad218157e08",
+      "after": "e763a2d65fe2fa113b093e3fe43c6e17c87c2101350696456f0a05aea31a6134",
+      "owner": "repository-governance",
+      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
+      "decision": "docs/release/release-signing.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "86333b2e3ab1985371189bbf3cbab8433a70e2d2639130de8d06ab37f4ab6d70",
+      "after": "2cf4a8f32467cae4ae6ab8518e940ad108999633eb84011f0d836659bd38113c",
+      "owner": "repository-governance",
+      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
+      "decision": "docs/scene/development/development-workflow.md"
     }
   ]
 }

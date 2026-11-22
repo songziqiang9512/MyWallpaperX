@@ -7,7 +7,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / 'script/run_checkpoint_build.sh'
+SCRIPT = ROOT / 'script/build/run_checkpoint_build.sh'
 
 
 class CheckpointBuildTests(unittest.TestCase):

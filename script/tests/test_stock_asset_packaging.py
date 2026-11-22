@@ -61,7 +61,7 @@ class StockAssetPackagingTests(unittest.TestCase):
             destination = Path(temporary) / "Test.app/Contents/Resources/SceneStockAssets.bundle"
             destination.mkdir(parents=True)
             (destination / "stale").write_text("old output")
-            subprocess.run(["bash", str(ROOT / "script/copy-scene-stock-assets.sh"), str(destination)], check=True)
+            subprocess.run(["bash", str(ROOT / "script/build/copy-scene-stock-assets.sh"), str(destination)], check=True)
             expected = {}
             for path in SOURCE.rglob("*"):
                 relative = path.relative_to(SOURCE)
@@ -114,7 +114,7 @@ class StockAssetPackagingTests(unittest.TestCase):
             environment["PATH"] = str(tools) + os.pathsep + environment.get("PATH", "")
             environment["DERIVED_FILE_DIR"] = str(work / "build")
             completed = subprocess.run(
-                ["bash", str(ROOT / "script/copy-scene-stock-assets.sh"), str(destination)],
+                ["bash", str(ROOT / "script/build/copy-scene-stock-assets.sh"), str(destination)],
                 env=environment, capture_output=True,
             )
             self.assertEqual(completed.returncode, 73)

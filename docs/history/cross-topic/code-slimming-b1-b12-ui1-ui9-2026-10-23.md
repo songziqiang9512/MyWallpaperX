@@ -50,7 +50,7 @@
 
 | 验证 | 结果与范围 |
 |---|---|
-| App Debug | `bash script/run_checkpoint_build.sh` 冷构建成功，含 Steam helper 嵌入；产品输入与验证前冻结内容一致。默认隔离 DerivedData/App 由脚本清理 |
+| App Debug | `bash script/build/run_checkpoint_build.sh` 冷构建成功，含 Steam helper 嵌入；产品输入与验证前冻结内容一致。默认隔离 DerivedData/App 由脚本清理 |
 | AppKit/图库/系统投影 | `test_ui_projection_efficiency`、`test_ui_library_algorithms`、`test_library_toolbar_behaviors`、`test_video_inspector_preview_reload`、`test_status_bar_icon_projection`、`test_steam_detail_layout`、`test_steam_appkit_interaction`、`test_steam_property_window`、`test_grid_card_lifecycle` 通过 |
 | Steam | `test_ui_request_schedulers`、`test_steam_preview_lifecycle`、`test_steam_protocol_golden`、`test_steam_helper_offline`、`test_steam_queries` 通过；helper 包含 Debug/Release 离线行为，不涉及真实账号 |
 | Web | `test_web_runtime_cache`、`test_web_launch_profile`、`test_web_resource_grants`、`test_web_display_conditions`、`test_web_playback_pause`、`test_web_compat_parity` 通过；其中播放/暂停及兼容门运行真实 WKWebView |
@@ -80,7 +80,7 @@
 
 执行与证据：新增任务查询与 Web 遍历回归先在原始 `4749df8f7` 产品上通过，再 overlay 冻结的 5 个产品文件运行 10 个最近模块，全部通过。模块为 `test_steam_download_tasks_popover`、`test_steam_download_history`、`test_steam_library_transaction`、`test_steam_library_interactions`、`test_library_toolbar_behaviors`、`test_web_dependency_traversal`、`test_web_runtime_cache`、`test_web_static_content_signals`、`test_web_launch_profile`、`test_web_resource_grants`。新增用例没有为新算法另改预期，原缓存、历史、排序和失败反例保留。
 
-`bash script/run_checkpoint_build.sh` 默认隔离冷 Debug 构建通过，构建与测试串行。构建来自固定 `4749df8f7` 导出加本批精确 overlay，不包含另一会话在途的文字实现；冻结的 7 个候选产品/测试输入在独审、候选运行与构建前后一致，基线使用原 B1 产品及同两份增强测试。再次由 3 个子代理独立复核控制流、扫描边界、预算/时钟、空间保留、账号、状态与断言，未发现产品或测试阻塞；修正文中候选与基线身份的混淆。代码健康、设计、断言信号、产物与残留检查通过；最近测试关联已补齐，选测未映射/失效项为零，路由/链接 110 项及文档登记/健康检查通过。关联只说明最近测试选择，不代表完整功能覆盖。
+`bash script/build/run_checkpoint_build.sh` 默认隔离冷 Debug 构建通过，构建与测试串行。构建来自固定 `4749df8f7` 导出加本批精确 overlay，不包含另一会话在途的文字实现；冻结的 7 个候选产品/测试输入在独审、候选运行与构建前后一致，基线使用原 B1 产品及同两份增强测试。再次由 3 个子代理独立复核控制流、扫描边界、预算/时钟、空间保留、账号、状态与断言，未发现产品或测试阻塞；修正文中候选与基线身份的混淆。代码健康、设计、断言信号、产物与残留检查通过；最近测试关联已补齐，选测未映射/失效项为零，路由/链接 110 项及文档登记/健康检查通过。关联只说明最近测试选择，不代表完整功能覆盖。
 
 源码没有新增 runtime 状态或逐帧工作。只确认移除了计数排序/中间数组和队列头部搬移；没有进行 App 性能、能耗或包体对比，不将算法简化表述为实测收益，也不认领完整 UI、真实 Steam 或全量内容兼容。Web 新门的时钟只在测试叶注入，产品时钟与预算不改。
 

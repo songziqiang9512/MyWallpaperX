@@ -194,8 +194,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 "    log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
             )
             codesign.chmod(0o755)
-            scripts = root / "script"
-            scripts.mkdir()
+            scripts = root / "script/release"
+            scripts.mkdir(parents=True)
             (scripts / "sign-steam-helper.sh").write_text(
                 '#!/bin/bash\ncodesign --force --timestamp --options runtime --sign "$2" "$1/SteamService"\n'
             )
@@ -302,9 +302,9 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             config.write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [{"name": "Microsoft.NETCore.App"}]}}))
             validator.validate_steam_helper(root)
         project = (ROOT / "MyWallpaperX.xcodeproj/project.pbxproj").read_text()
-        self.assertIn("script/publish-steam-helper.sh", project)
-        self.assertIn("script/sign-steam-helper.sh", (ROOT / ".github/workflows/build.yml").read_text())
-        publish = (ROOT / "script/publish-steam-helper.sh").read_text()
+        self.assertIn("script/release/publish-steam-helper.sh", project)
+        self.assertIn("script/release/sign-steam-helper.sh", (ROOT / ".github/workflows/build.yml").read_text())
+        publish = (ROOT / "script/release/publish-steam-helper.sh").read_text()
         self.assertIn("-p:TargetName=SteamService", publish)
     def test_project_and_release_workflow_freeze_arm64(self):
         project = (ROOT / "MyWallpaperX.xcodeproj/project.pbxproj").read_text()

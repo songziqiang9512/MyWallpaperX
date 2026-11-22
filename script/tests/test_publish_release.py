@@ -114,7 +114,7 @@ class PublishReleaseTests(unittest.TestCase):
         self.release_feed = self.feed = feed_xml(VERSION, 283)
         self.publish()
         self.assertFalse(any(command[:2] == ("git", "commit") for command in self.calls))
-        self.assertIn(("bash", "script/prepare_release_version.sh", VERSION, "282"), self.calls)
+        self.assertIn(("bash", "script/release/prepare_release_version.sh", VERSION, "282"), self.calls)
         self.assertIn(("git", "push", "origin", "HEAD:refs/heads/main"), self.calls)
         dispatch = next(command for command in self.calls if command[:4] == ("gh", "api", "--method", "POST"))
         self.assertIn(f"inputs[source_sha]={SHA}", dispatch)

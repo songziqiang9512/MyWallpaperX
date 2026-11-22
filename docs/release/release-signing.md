@@ -138,13 +138,13 @@ so users do not need an SDK or runtime installation. NuGet restore is locked;
 `SteamService/NOTICE.md` and `licenses/` accompany the generated directory.
 Review runtime security updates independently of the fixed build SDK.
 
-`script/publish-steam-helper.sh` publishes into a fresh temporary directory and
+`script/release/publish-steam-helper.sh` publishes into a fresh temporary directory and
 mirrors only a recognized generated helper output, removing stale dependencies.
 Xcode's `TARGETNAME` must not change the managed entry assembly: the script fixes
 `TargetName=SteamService` explicitly and rejects a missing `SteamService.dll`.
 Per-build intermediates live in DerivedData, outside the source tree.
 
-`script/sign-steam-helper.sh <helper-dir> <identity> [required|none]` signs native dependencies
+`script/release/sign-steam-helper.sh <helper-dir> <identity> [required|none]` signs native dependencies
 before the apphost. Real signing identities use hardened runtime and apphost
 `com.apple.security.cs.allow-jit`; native libraries must have the same Team ID.
 The optional timestamp policy defaults to `required`; ad-hoc code always omits

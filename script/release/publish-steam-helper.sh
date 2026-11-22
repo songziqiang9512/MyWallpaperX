@@ -1,13 +1,13 @@
 #!/bin/bash
 # SK1.2/SK7.2：确定性发布 Steam helper（osx-arm64，锁定依赖）。
 #
-# 用法：script/publish-steam-helper.sh
+# 用法：script/release/publish-steam-helper.sh
 # 产物：SteamService/bin/publish/SteamService（原生 apphost 可执行 + dll/依赖）。
 # 开发注入：export MWX_STEAM_HELPER_COMMAND=<SteamService/bin/publish/SteamService>
 # Xcode passes an exact helper output and per-build intermediate directory.
 
 set -euo pipefail
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PUBLISH_DIR="${1:-$REPO_ROOT/SteamService/bin/publish}"
 INTERMEDIATE_DIR="${2:-$REPO_ROOT/SteamService/obj}"
 HELPER_CONFIGURATION="${CONFIGURATION:-Release}"
@@ -46,7 +46,7 @@ cd "$REPO_ROOT/SteamService"
 HELPER_SIGN_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
 HELPER_TIMESTAMP_POLICY="${MWX_STEAM_HELPER_TIMESTAMP_POLICY:-required}"
 if [[ "${CONFIGURATION:-}" == Debug ]]; then HELPER_TIMESTAMP_POLICY=none; fi
-/bin/bash "$REPO_ROOT/script/sign-steam-helper.sh" "$FRESH_DIR" "$HELPER_SIGN_IDENTITY" "$HELPER_TIMESTAMP_POLICY"
+/bin/bash "$REPO_ROOT/script/release/sign-steam-helper.sh" "$FRESH_DIR" "$HELPER_SIGN_IDENTITY" "$HELPER_TIMESTAMP_POLICY"
 
 /bin/mkdir -p "$PUBLISH_DIR"
 /usr/bin/rsync -a --delete "$FRESH_DIR/" "$PUBLISH_DIR/"

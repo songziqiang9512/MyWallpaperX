@@ -409,7 +409,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
+			shellScript = "/bin/bash \"$SRCROOT/script/release/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
 		};
 		A40000022F810003005688A8 /* Embed stock runtime assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -425,7 +425,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
+			shellScript = "/bin/bash \"$SRCROOT/script/build/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
 		};
 		A40000032F810003005688A8 /* Build Scene media observer */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -433,7 +433,7 @@
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/script/build-scene-media-observer.sh",
+				"$(SRCROOT)/script/build/build-scene-media-observer.sh",
 				"$(SRCROOT)/MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
 			);
 			name = "Build Scene media observer";
@@ -442,7 +442,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/build-scene-media-observer.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneMediaObserver\"\n";
+			shellScript = "/bin/bash \"$SRCROOT/script/build/build-scene-media-observer.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneMediaObserver\"\n";
 		};
 		A40000042F810003005688A8 /* Generate Scene shader cache identity */ = {
 			isa = PBXShellScriptBuildPhase;

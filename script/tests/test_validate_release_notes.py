@@ -160,7 +160,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         (self.root / "parallel.txt").write_text("parallel work")
         self.git("add", "parallel.txt")
         staged = self.git("diff", "--cached")
-        result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION}")
+        result = self.run_shell(f"bash script/release/prepare_release_version.sh {VERSION}")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"MARKETING_VERSION = {VERSION};", self.project.read_text())
         self.assertEqual(self.git("rev-parse", "HEAD"), head)
@@ -170,12 +170,12 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
     def test_preparation_stops_before_mutation_on_invalid_notes_or_dirty_project(self):
         original = self.project.read_text()
         self.notes.write_text("TODO")
-        result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION}")
+        result = self.run_shell(f"bash script/release/prepare_release_version.sh {VERSION}")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.project.read_text(), original)
         self.notes.write_text(NOTES)
         self.project.write_text(original + "// parallel edit\n")
-        result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION}")
+        result = self.run_shell(f"bash script/release/prepare_release_version.sh {VERSION}")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.project.read_text(), original + "// parallel edit\n")
 
@@ -184,15 +184,15 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
             self.project.write_text(f"MARKETING_VERSION = 2.0.9;\nCURRENT_PROJECT_VERSION = {current};\n")
             self.git("add", "MyWallpaperX.xcodeproj/project.pbxproj")
             self.git("commit", "-qm", f"Fixture build {current}")
-            result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION} {published}")
+            result = self.run_shell(f"bash script/release/prepare_release_version.sh {VERSION} {published}")
             self.assertEqual(result.returncode, 0, result.stderr)
-            resolved = self.run_shell("bash script/resolve_version.sh --release")
+            resolved = self.run_shell("bash script/release/resolve_version.sh --release")
             self.assertEqual(resolved.returncode, 0, resolved.stderr)
             self.assertEqual(resolved.stdout, f"MARKETING_VERSION={VERSION}\nBUILD_VERSION={expected}\n")
 
     def test_resolver_rejects_unsafe_version_before_writing_environment(self):
         self.project.write_text("MARKETING_VERSION = 2.0.10\nUNSAFE=true;\n")
-        result = self.run_shell("bash script/resolve_version.sh --release")
+        result = self.run_shell("bash script/release/resolve_version.sh --release")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
@@ -204,7 +204,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.git("commit", "-qm", "Prepared release")
         head, original = self.git("rev-parse", "HEAD"), self.project.read_bytes()
         for _ in range(2):
-            result = self.run_shell(f"bash script/prepare_release_version.sh {target} 282")
+            result = self.run_shell(f"bash script/release/prepare_release_version.sh {target} 282")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(self.project.read_bytes(), original)
             self.assertEqual(self.git("status", "--porcelain", "--", "MyWallpaperX.xcodeproj", "docs/releases"), "")
@@ -216,7 +216,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.git("commit", "-qm", "Stale prepared build")
         original = self.project.read_bytes()
         for published in (282, 283):
-            result = self.run_shell(f"bash script/prepare_release_version.sh {VERSION} {published}")
+            result = self.run_shell(f"bash script/release/prepare_release_version.sh {VERSION} {published}")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("higher than the published", result.stderr)
             self.assertEqual(self.project.read_bytes(), original)
@@ -286,7 +286,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
         # Replace only the external signing service. The workflow's shell runs unchanged.
-        (self.root / "script/sign-steam-helper.sh").write_text(
+        (self.root / "script/release/sign-steam-helper.sh").write_text(
             'set -e\ntest -f "$1/SteamService"\ncodesign --steam-fixture "$1/SteamService"\n')
         self.stub("codesign", "assert Path(args[-1]).exists(), args[-1]\n")
         result = self.run_shell(workflow_shell("Sign app"))

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Normalize payload permissions and sign dependencies, then the apphost with MAP_JIT.
 set -euo pipefail
-REPOSITORY_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPOSITORY_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HELPER_DIR="${1:?helper directory required}"
 IDENTITY="${2:?signing identity required}"
 TIMESTAMP_POLICY="${3:-required}"

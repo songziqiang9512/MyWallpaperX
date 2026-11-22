@@ -14,7 +14,7 @@
 python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <修改路径>
 ```
 
-先检查选择结果，再加 `--run` 执行。Swift 产品修改做 Debug build；GPU、VM、生命周期和可见变化补隔离真实运行。纯文档修改检查索引、链接与内容，不自动构建 App。构建使用 `script/run_checkpoint_build.sh`；`script/build_and_run.sh` 会停止正在运行的 App。
+先检查选择结果，再加 `--run` 执行。Swift 产品修改做 Debug build；GPU、VM、生命周期和可见变化补隔离真实运行。纯文档修改检查索引、链接与内容，不自动构建 App。构建使用 `script/build/run_checkpoint_build.sh`；`script/build/build_and_run.sh` 会停止正在运行的 App。
 
 自有 fixture 测实际输入、输出、顺序和失败半径，保留健康相邻 consumer。兼容规则用变量或资源改名、等价表达式及相邻反例验证；另外选择未参与调参的真实内容核画面。实际过程只证明被执行的条件，编译、ready、非黑画面与日志无错都不能单独证明正确兼容。
 

@@ -33,7 +33,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
     def test_changed_fixture_selects_its_executable_consumer(self):
         registry = verify.load_registry()
         cases = {
-            'script/sign-steam-helper.sh': 'test_steam_helper_signing',
+            'script/release/sign-steam-helper.sh': 'test_steam_helper_signing',
             'script/scene_diagnostic_build.xcconfig': 'test_steam_helper_signing',
             'script/playback_process_isolation_benchmark.py': 'test_playback_process_isolation',
             'script/tests/fixtures/SceneAudioSpectrumInputHarness.swift': 'test_scene_audio_spectrum_input',
@@ -53,7 +53,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
     def test_unknown_fixture_is_still_blocked_beside_known_input(self):
         args = SimpleNamespace(base='HEAD', phase='inner', test_scope='changed', ci=True)
         gates, _ = verify.build_plan(
-            ['script/sign-steam-helper.sh', 'script/tests/fixtures/UnregisteredFutureChecks.swift'],
+            ['script/release/sign-steam-helper.sh', 'script/tests/fixtures/UnregisteredFutureChecks.swift'],
             args, verify.load_registry())
         blocked = [gate for gate in gates if gate.status == 'blocked']
         self.assertEqual(len(blocked), 1)

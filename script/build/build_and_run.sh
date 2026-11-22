@@ -6,7 +6,7 @@ APP_NAME="MyWallpaperX"
 SCHEME="MyWallpaperX"
 CONFIGURATION="Debug"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/MyWallpaperX.xcodeproj"
 DERIVED_DATA_PATH="$ROOT_DIR/.codex/DerivedData"
 BUILD_APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"

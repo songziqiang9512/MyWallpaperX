@@ -54,7 +54,7 @@ def publish(version: str, test_scope: str = "release") -> None:
     with tempfile.TemporaryDirectory(prefix="mwx-release-version-") as temporary:
         run("gh", "release", "download", "update-feed", "--pattern", "appcast.xml", "--dir", temporary)
         published = appcast_version((Path(temporary) / "appcast.xml").read_bytes())
-    run("bash", "script/prepare_release_version.sh", version, str(published[1]))
+    run("bash", "script/release/prepare_release_version.sh", version, str(published[1]))
     expected_version = project_version((ROOT / PROJECT).read_text())
     if expected_version[0] != version:
         raise ValueError("Prepared project version differs from requested release")

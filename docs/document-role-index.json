@@ -273,7 +273,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e4658fbfcf06feda54a572dad24a686e06e1cf7029c0c1a2ec58b1a69381c996",
+        "sourceSHA256": "29a9f1d05d7c1685d8574194284986995f40a6f52af12b32f43ca0773485259f",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -691,10 +691,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c04336ae618e8364d61d4e73bdf4a1c0d4e6d5d883d7a53e49ddbe9af31cad5d",
+        "sourceSHA256": "3c87e2ae103ea6340689379c1cbff432b22984f5f00b27b23fe28dcef8d63c52",
         "method": "document_registry --audit + document_health --check",
         "scope": "复核Video原生锁屏/屏保单组件、唯一发布、App Group及签名路由；同步当前owner与文档入口。",
         "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
@@ -937,10 +937,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-16",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1f8afe30726d2ca920da5fd3b0073df015d011b8a095b48815c8524bd4e874c",
+        "sourceSHA256": "5ca965115adbb6a5f0b3ca8aafb43899f3c05aff0ec94eb71ff479effe3bf5d5",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对原Metal探针身份复用、截图与时序，并登记现有benchmark的后台证据窗口选项和原生前台交互的独立资格。",
         "limitations": "仅本文与其协议/源码入口的有界审查，不授全仓App、GPU或官方一致；未登记架构文档的既有registry失败保持。"

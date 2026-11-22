@@ -176,10 +176,10 @@ def mapped_tests(
         if path in RELEASE_WORKFLOW_FILES:
             groups.add("release-workflow-governance")
             modules.add("test_document_role_index")
-        if path in {"script/build_and_run.sh", "script/run_checkpoint_build.sh"}:
+        if path in {"script/build/build_and_run.sh", "script/build/run_checkpoint_build.sh"}:
             groups.add("build-entrypoint-governance")
             modules.update({"test_verify_scene_change", "test_verify_scene_capability_routing"})
-            if path == "script/run_checkpoint_build.sh":
+            if path == "script/build/run_checkpoint_build.sh":
                 modules.add("test_checkpoint_build")
         if path.startswith(".agents/skills/mywallpaperx-maintainer/"):
             groups.add("repository-skill-governance")
@@ -486,7 +486,7 @@ def build_plan(
         gates.append(design_gate(args.base))
         gates.append(Gate(
             "build-verify",
-            ("/bin/bash", "script/run_checkpoint_build.sh"),
+            ("/bin/bash", "script/build/run_checkpoint_build.sh"),
             (
                 "product or project files changed; checkpoint builds use an isolated, "
                 "serialized, self-cleaning DerivedData and do not launch the App"

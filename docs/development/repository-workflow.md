@@ -62,7 +62,7 @@ Swift 格式用 Xcode 自带 `swift-format`：`script/format_swift_changed.py --
 
 不再要求每批为全仓未修改项填写清偿receipt。旧receipt仅保存在历史库；后续在本次改动涉及的owner上解决真实问题，并同步其已有基线。文件不超过1000行且职责清楚即可，不用400行或逐文件测试映射数量制造拆分/测试任务。
 
-`script/run_checkpoint_build.sh` 默认退出时清理隔离 DerivedData；同一 checkout 可用 `--cache-dir /private/tmp/<任务缓存>` 复用，仓库内只允许 `.build-cache/`，禁止真实样本目录。缓存键绑定 checkout、构建器、Xcode、SDK 和配置；Xcode 管源码增量，全局锁拒绝并行 checkpoint。指定缓存成功失败均保留，收尾报告路径与用途并按精确清单清理。复用不替代冷构建或运行验收。 共享 scheme 的 Run（Cmd+R）用 Release 优化构建，Test、Analyze 保持 Debug。逐行调试/`DEBUG` 诊断用 `xcodebuild -configuration Debug`、现有 Debug runner，或临时在 Edit Scheme → Run → Build Configuration 改为 Debug，结束恢复 Release。优化构建保留符号与错误日志；逐帧诊断按需开启。
+`script/build/run_checkpoint_build.sh` 默认退出时清理隔离 DerivedData；同一 checkout 可用 `--cache-dir /private/tmp/<任务缓存>` 复用，仓库内只允许 `.build-cache/`，禁止真实样本目录。缓存键绑定 checkout、构建器、Xcode、SDK 和配置；Xcode 管源码增量，全局锁拒绝并行 checkpoint。指定缓存成功失败均保留，收尾报告路径与用途并按精确清单清理。复用不替代冷构建或运行验收。 共享 scheme 的 Run（Cmd+R）用 Release 优化构建，Test、Analyze 保持 Debug。逐行调试/`DEBUG` 诊断用 `xcodebuild -configuration Debug`、现有 Debug runner，或临时在 Edit Scheme → Run → Build Configuration 改为 Debug，结束恢复 Release。优化构建保留符号与错误日志；逐帧诊断按需开启。
 
 ## 代码与知识交付
 
