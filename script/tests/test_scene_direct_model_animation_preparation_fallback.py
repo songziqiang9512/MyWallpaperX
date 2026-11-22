@@ -16,8 +16,8 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
-from script.tests.test_scene_puppet_animation_property_preparation import SWIFT_SOURCES as BASE_SOURCES
-from script.tests.test_scene_puppet_playback import SCENE_ROOT
+from script.tests.scene.test_scene_puppet_animation_property_preparation import SWIFT_SOURCES as BASE_SOURCES
+from script.tests.scene.test_scene_puppet_playback import SCENE_ROOT
 
 RESOURCE = SCENE_ROOT / "Resources/Textures/ScenePreparedStaticModelResources.swift"
 LAYER_LOAD = SCENE_ROOT / "Systems/Puppet/ScenePuppetLayerLoad.swift"

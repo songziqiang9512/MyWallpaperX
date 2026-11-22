@@ -18,7 +18,7 @@ if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
 
 from scene_swift_source_sets import scene_swift_sources_by_basename
-from script.tests.test_scene_puppet_mesh import build_attachment_mdl
+from script.tests.scene.test_scene_puppet_mesh import build_attachment_mdl
 from script.tests.scene.test_scene_particle_assets import SWIFT_SOURCES as PARTICLE_GRAPH_SOURCES
 from script.tests.test_scene_timeline_document import (
     SHADER_VALUE_NUMERIC_CASES, SHADER_VALUE_NESTED_CASES, assert_numeric_shader_values,

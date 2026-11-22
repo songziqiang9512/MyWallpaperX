@@ -341,14 +341,14 @@
     {
       "id": "scene-script-runtime",
       "patterns": [
-        "script/tests/test_scene_script_layer_order.py",
-        "script/tests/test_scene_script_create_geometry.py",
+        "script/tests/scene/test_scene_script_layer_order.py",
+        "script/tests/scene/test_scene_script_create_geometry.py",
         "script/tests/fixtures/SceneInitialLayerConfigurationQuickJSCases.c",
-        "script/tests/test_scene_script_initial_layer_configuration.py",
+        "script/tests/scene/test_scene_script_initial_layer_configuration.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**",
         "script/tests/test_scene_quickjs_layer_reference_identity.py",
         "script/tests/fixtures/SceneLayerReferenceQuickJSCases.c",
-        "script/tests/test_scene_script_quickjs.py",
+        "script/tests/scene/test_scene_script_quickjs.py",
         "script/tests/test_scene_quickjs_numeric_boundaries.py",
         "script/tests/fixtures/SceneScriptQuickJS*.c",
         "script/tests/fixtures/SceneScriptQuickJSFixture.h",
@@ -421,7 +421,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift",
-        "script/tests/test_scene_script_layer_order.py",
+        "script/tests/scene/test_scene_script_layer_order.py",
         "script/tests/fixtures/SceneScriptBooleanReturnChecks.swift",
         "script/tests/fixtures/SceneScriptBooleanVisibilityHarness.swift",
         "script/tests/fixtures/SceneScriptProjectVisibilityChecks.swift"
@@ -451,7 +451,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerMutation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopology*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift",
-        "script/tests/test_scene_script_create_geometry.py",
+        "script/tests/scene/test_scene_script_create_geometry.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
         "script/tests/fixtures/SceneScriptDynamicLayerRuntimeHarness.swift"
       ],
@@ -782,7 +782,7 @@
         "script/tests/fixtures/SceneNestedPropertyBindingChecks.swift",
         "script/tests/test_scene_color_script_property.py",
         "script/tests/fixtures/SceneColorScriptPropertyChecks.swift",
-        "script/tests/test_scene_shader_vec2_authored_fallback.py"
+        "script/tests/scene/test_scene_shader_vec2_authored_fallback.py"
       ],
       "keywords": [
         "property",
@@ -828,8 +828,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
-        "script/tests/test_scene_script_image_brightness.py",
-        "script/tests/test_scene_script_light_radius.py"
+        "script/tests/scene/test_scene_script_image_brightness.py",
+        "script/tests/scene/test_scene_script_light_radius.py"
       ],
       "modules": [
         "test_scene_script_image_brightness",
@@ -848,7 +848,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
-        "script/tests/test_scene_script_sound_volume.py",
+        "script/tests/scene/test_scene_script_sound_volume.py",
         "script/tests/test_scene_sound_playback_program.py",
         "script/tests/fixtures/SceneSoundPlaybackRegistryHarness.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoOwnedFile.swift",
@@ -872,7 +872,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
         "script/scene_shader_compiler_request_contract.py",
-        "script/tests/test_scene_shader_global_scope.py",
+        "script/tests/scene/test_scene_shader_global_scope.py",
         "script/tests/test_scene_light_host_array_frontends.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
@@ -1376,7 +1376,7 @@
         "script/tests/test_scene_property_binding_program.py",
         "script/tests/test_scene_previous_composite_scale.py",
         "script/tests/fixtures/ScenePreviousCompositeScaleHarness.swift",
-        "script/tests/test_scene_shader_vec2_authored_fallback.py"
+        "script/tests/scene/test_scene_shader_vec2_authored_fallback.py"
       ],
       "modules": [
         "test_scene_generic_shader_route_fallback",
@@ -1588,7 +1588,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
-        "script/tests/test_scene_script_dependency_preproof.py",
+        "script/tests/scene/test_scene_script_dependency_preproof.py",
         "script/tests/test_scene_inactive_optional_named_dependency.py"
       ],
       "modules": [
@@ -1867,7 +1867,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderCompletedCacheStorage.swift",
-        "script/tests/test_scene_shader_completed_cache.py",
+        "script/tests/scene/test_scene_shader_completed_cache.py",
         "script/tests/fixtures/SceneShaderCompletedCacheHarness.swift",
         "script/tests/test_scene_generic_shader_program_artifact.py",
         "script/tests/fixtures/SceneVariantAnalysisCacheWireChecks.swift",
@@ -1988,7 +1988,7 @@
       "id": "shader-preparation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",
-        "script/tests/test_scene_shader_macro_continuation.py",
+        "script/tests/scene/test_scene_shader_macro_continuation.py",
         "script/tests/fixtures/SceneShaderMacroContinuationChecks.swift"
       ],
       "modules": [
@@ -2024,7 +2024,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
-        "script/tests/test_scene_shader_dead_binding_projection.py",
+        "script/tests/scene/test_scene_shader_dead_binding_projection.py",
         "script/tests/fixtures/SceneShaderDeadBindingProjectionHarness.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
         "script/tests/test_scene_missing_resolution_normalization.py"
@@ -2055,7 +2055,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalEmitter.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-        "script/tests/test_scene_shader_derivative_aliases.py"
+        "script/tests/scene/test_scene_shader_derivative_aliases.py"
       ],
       "modules": [
         "test_scene_shader_derivative_aliases"
@@ -2066,7 +2066,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderMetalEmitter+Translation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-        "script/tests/test_scene_shader_fragment_position.py"
+        "script/tests/scene/test_scene_shader_fragment_position.py"
       ],
       "modules": [
         "test_scene_shader_fragment_position"
@@ -3113,7 +3113,96 @@
         "script/tests/test_wallpaper_playlist_picker.py",
         "script/tests/test_wallpaper_startup_benchmark.py",
         "script/tests/scene/**",
-        "script/tests/{\"test_scene_particle_affine_trail\": \"scene\", \"test_scene_particle_asset_preparation\": \"scene\", \"test_scene_particle_assets\": \"scene\", \"test_scene_particle_audio_declaration\": \"scene\", \"test_scene_particle_audio_response\": \"scene\", \"test_scene_particle_boids\": \"scene\", \"test_scene_particle_builtin_textures\": \"scene\", \"test_scene_particle_camera_frame\": \"scene\", \"test_scene_particle_camera_rendering\": \"scene\", \"test_scene_particle_casefold\": \"scene\", \"test_scene_particle_color_adaptation\": \"scene\", \"test_scene_particle_control_point_components\": \"scene\", \"test_scene_particle_control_point_force\": \"scene\", \"test_scene_particle_coverage_rendering\": \"scene\", \"test_scene_particle_definitions\": \"scene\", \"test_scene_particle_emitter_directions\": \"scene\", \"test_scene_particle_instance_alpha\": \"scene\", \"test_scene_particle_instance_host\": \"scene\", \"test_scene_particle_layer_image_emitter\": \"scene\", \"test_scene_particle_material_coverage\": \"scene\", \"test_scene_particle_playback_author\": \"scene\", \"test_scene_particle_playback_integration\": \"scene\", \"test_scene_particle_playback_simulator\": \"scene\", \"test_scene_particle_playback_transaction\": \"scene\", \"test_scene_particle_position_around\": \"scene\", \"test_scene_particle_prewarm_work\": \"scene\", \"test_scene_particle_refraction_pixels\": \"scene\", \"test_scene_particle_rendering\": \"scene\", \"test_scene_particle_rope\": \"scene\", \"test_scene_particle_rope_trail\": \"scene\", \"test_scene_particle_runtime\": \"scene\", \"test_scene_particle_scalar_speed_remap\": \"scene\", \"test_scene_particle_simulator\": \"scene\", \"test_scene_particle_texture_inputs\": \"scene\", \"test_scene_particle_trail_plan\": \"scene\", \"test_scene_particle_turbulence_mask\": \"scene\", \"test_scene_particle_turbulent_forward\": \"scene\", \"test_scene_particle_upload_ownership\": \"scene\", \"test_scene_particle_visibility_integration\": \"scene\", \"test_scene_particle_vortex\": \"scene\", \"test_scene_wallpaper_async_launch\": \"scene\", \"test_scene_wallpaper_authored_effects\": \"scene\", \"test_scene_wallpaper_benchmark\": \"scene\", \"test_scene_wallpaper_benchmark_media_event\": \"scene\", \"test_scene_wallpaper_effect_execution\": \"scene\", \"test_scene_wallpaper_effect_preparation\": \"scene\", \"test_scene_wallpaper_graph_lifecycle\": \"scene\", \"test_scene_wallpaper_graph_recovery\": \"scene\", \"test_scene_wallpaper_graph_routes\": \"scene\", \"test_scene_wallpaper_graph_terminals\": \"scene\", \"test_scene_wallpaper_graph_visual_failure\": \"scene\", \"test_scene_wallpaper_layers\": \"scene\", \"test_scene_wallpaper_lifecycle\": \"scene\", \"test_scene_wallpaper_matrix\": \"scene\", \"test_scene_wallpaper_media_properties\": \"scene\", \"test_scene_wallpaper_metadata\": \"scene\", \"test_scene_wallpaper_performance\": \"scene\", \"test_scene_wallpaper_pointer\": \"scene\", \"test_scene_wallpaper_pointer_schedule\": \"scene\", \"test_scene_wallpaper_preview\": \"scene\", \"test_scene_wallpaper_property_updates\": \"scene\", \"test_scene_wallpaper_publications\": \"scene\", \"test_scene_wallpaper_sample_run\": \"scene\", \"test_scene_wallpaper_utility\": \"scene\"}.py"
+        "script/tests/{\"test_scene_particle_affine_trail\": \"scene\", \"test_scene_particle_asset_preparation\": \"scene\", \"test_scene_particle_assets\": \"scene\", \"test_scene_particle_audio_declaration\": \"scene\", \"test_scene_particle_audio_response\": \"scene\", \"test_scene_particle_boids\": \"scene\", \"test_scene_particle_builtin_textures\": \"scene\", \"test_scene_particle_camera_frame\": \"scene\", \"test_scene_particle_camera_rendering\": \"scene\", \"test_scene_particle_casefold\": \"scene\", \"test_scene_particle_color_adaptation\": \"scene\", \"test_scene_particle_control_point_components\": \"scene\", \"test_scene_particle_control_point_force\": \"scene\", \"test_scene_particle_coverage_rendering\": \"scene\", \"test_scene_particle_definitions\": \"scene\", \"test_scene_particle_emitter_directions\": \"scene\", \"test_scene_particle_instance_alpha\": \"scene\", \"test_scene_particle_instance_host\": \"scene\", \"test_scene_particle_layer_image_emitter\": \"scene\", \"test_scene_particle_material_coverage\": \"scene\", \"test_scene_particle_playback_author\": \"scene\", \"test_scene_particle_playback_integration\": \"scene\", \"test_scene_particle_playback_simulator\": \"scene\", \"test_scene_particle_playback_transaction\": \"scene\", \"test_scene_particle_position_around\": \"scene\", \"test_scene_particle_prewarm_work\": \"scene\", \"test_scene_particle_refraction_pixels\": \"scene\", \"test_scene_particle_rendering\": \"scene\", \"test_scene_particle_rope\": \"scene\", \"test_scene_particle_rope_trail\": \"scene\", \"test_scene_particle_runtime\": \"scene\", \"test_scene_particle_scalar_speed_remap\": \"scene\", \"test_scene_particle_simulator\": \"scene\", \"test_scene_particle_texture_inputs\": \"scene\", \"test_scene_particle_trail_plan\": \"scene\", \"test_scene_particle_turbulence_mask\": \"scene\", \"test_scene_particle_turbulent_forward\": \"scene\", \"test_scene_particle_upload_ownership\": \"scene\", \"test_scene_particle_visibility_integration\": \"scene\", \"test_scene_particle_vortex\": \"scene\", \"test_scene_wallpaper_async_launch\": \"scene\", \"test_scene_wallpaper_authored_effects\": \"scene\", \"test_scene_wallpaper_benchmark\": \"scene\", \"test_scene_wallpaper_benchmark_media_event\": \"scene\", \"test_scene_wallpaper_effect_execution\": \"scene\", \"test_scene_wallpaper_effect_preparation\": \"scene\", \"test_scene_wallpaper_graph_lifecycle\": \"scene\", \"test_scene_wallpaper_graph_recovery\": \"scene\", \"test_scene_wallpaper_graph_routes\": \"scene\", \"test_scene_wallpaper_graph_terminals\": \"scene\", \"test_scene_wallpaper_graph_visual_failure\": \"scene\", \"test_scene_wallpaper_layers\": \"scene\", \"test_scene_wallpaper_lifecycle\": \"scene\", \"test_scene_wallpaper_matrix\": \"scene\", \"test_scene_wallpaper_media_properties\": \"scene\", \"test_scene_wallpaper_metadata\": \"scene\", \"test_scene_wallpaper_performance\": \"scene\", \"test_scene_wallpaper_pointer\": \"scene\", \"test_scene_wallpaper_pointer_schedule\": \"scene\", \"test_scene_wallpaper_preview\": \"scene\", \"test_scene_wallpaper_property_updates\": \"scene\", \"test_scene_wallpaper_publications\": \"scene\", \"test_scene_wallpaper_sample_run\": \"scene\", \"test_scene_wallpaper_utility\": \"scene\"}.py",
+        "script/tests/test_scene_puppet_active_composition.py",
+        "script/tests/test_scene_puppet_animation.py",
+        "script/tests/test_scene_puppet_animation_bounds.py",
+        "script/tests/test_scene_puppet_animation_playback_runtime.py",
+        "script/tests/test_scene_puppet_animation_property_preparation.py",
+        "script/tests/test_scene_puppet_animation_rate_script.py",
+        "script/tests/test_scene_puppet_bone_catalog.py",
+        "script/tests/test_scene_puppet_bone_origin.py",
+        "script/tests/test_scene_puppet_buffer_publication.py",
+        "script/tests/test_scene_puppet_clipping.py",
+        "script/tests/test_scene_puppet_clipping_pool.py",
+        "script/tests/test_scene_puppet_clipping_render.py",
+        "script/tests/test_scene_puppet_clipping_shader.py",
+        "script/tests/test_scene_puppet_direct_playback.py",
+        "script/tests/test_scene_puppet_direct_skinning.py",
+        "script/tests/test_scene_puppet_imported_clips.py",
+        "script/tests/test_scene_puppet_interaction_evidence.py",
+        "script/tests/test_scene_puppet_mesh.py",
+        "script/tests/test_scene_puppet_playback.py",
+        "script/tests/test_scene_puppet_pose_publication.py",
+        "script/tests/test_scene_puppet_preparation.py",
+        "script/tests/test_scene_puppet_rig.py",
+        "script/tests/test_scene_puppet_script_projection.py",
+        "script/tests/test_scene_puppet_translation_physics.py",
+        "script/tests/test_scene_puppet_v21_contract.py",
+        "script/tests/test_scene_puppet_weights.py",
+        "script/tests/test_scene_script_authored_layer_retirement.py",
+        "script/tests/test_scene_script_binding_parser.py",
+        "script/tests/test_scene_script_boolean_visibility.py",
+        "script/tests/test_scene_script_create_geometry.py",
+        "script/tests/test_scene_script_dependency_preproof.py",
+        "script/tests/test_scene_script_dynamic_layer_runtime.py",
+        "script/tests/test_scene_script_event_visibility.py",
+        "script/tests/test_scene_script_image_brightness.py",
+        "script/tests/test_scene_script_initial_layer_configuration.py",
+        "script/tests/test_scene_script_initialization_transaction.py",
+        "script/tests/test_scene_script_layer_creator_retirement.py",
+        "script/tests/test_scene_script_layer_order.py",
+        "script/tests/test_scene_script_layer_transform_projection.py",
+        "script/tests/test_scene_script_light_radius.py",
+        "script/tests/test_scene_script_light_visibility.py",
+        "script/tests/test_scene_script_named_timeline.py",
+        "script/tests/test_scene_script_owner_event_transaction.py",
+        "script/tests/test_scene_script_prepared_text_clones.py",
+        "script/tests/test_scene_script_program_resources.py",
+        "script/tests/test_scene_script_quickjs.py",
+        "script/tests/test_scene_script_quickjs_media_lifecycle.py",
+        "script/tests/test_scene_script_quickjs_owner_budget.py",
+        "script/tests/test_scene_script_resource_task.py",
+        "script/tests/test_scene_script_return_diagnostics.py",
+        "script/tests/test_scene_script_scalar_display_projection.py",
+        "script/tests/test_scene_script_scene_bloom_strength.py",
+        "script/tests/test_scene_script_shared_identity.py",
+        "script/tests/test_scene_script_solid.py",
+        "script/tests/test_scene_script_sound_volume.py",
+        "script/tests/test_scene_script_storage_transaction.py",
+        "script/tests/test_scene_script_string_lifecycle.py",
+        "script/tests/test_scene_script_text_pointsize.py",
+        "script/tests/test_scene_script_timer_identity.py",
+        "script/tests/test_scene_script_visible_roots.py",
+        "script/tests/test_scene_shader_cache_identity.py",
+        "script/tests/test_scene_shader_color_contract.py",
+        "script/tests/test_scene_shader_compiler_artifact_foundation.py",
+        "script/tests/test_scene_shader_compiler_harness.py",
+        "script/tests/test_scene_shader_compiler_product_manifest.py",
+        "script/tests/test_scene_shader_compiler_request_contract.py",
+        "script/tests/test_scene_shader_compiler_straight_alpha_preserving_contract.py",
+        "script/tests/test_scene_shader_completed_cache.py",
+        "script/tests/test_scene_shader_contract.py",
+        "script/tests/test_scene_shader_dead_binding_projection.py",
+        "script/tests/test_scene_shader_dependency_cache_identity.py",
+        "script/tests/test_scene_shader_derivative_aliases.py",
+        "script/tests/test_scene_shader_fragment_output.py",
+        "script/tests/test_scene_shader_fragment_position.py",
+        "script/tests/test_scene_shader_global_scope.py",
+        "script/tests/test_scene_shader_implicit_disabled_option.py",
+        "script/tests/test_scene_shader_lexer.py",
+        "script/tests/test_scene_shader_macro_continuation.py",
+        "script/tests/test_scene_shader_module_resolution.py",
+        "script/tests/test_scene_shader_persistent_cache.py",
+        "script/tests/test_scene_shader_preparation_census.py",
+        "script/tests/test_scene_shader_preprocessor.py",
+        "script/tests/test_scene_shader_presence_combo.py",
+        "script/tests/test_scene_shader_scalar_remainder.py",
+        "script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py",
+        "script/tests/test_scene_shader_syntax_concurrency.py",
+        "script/tests/test_scene_shader_unused_version_combo.py",
+        "script/tests/test_scene_shader_variant_environment.py",
+        "script/tests/test_scene_shader_vec2_authored_fallback.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -3685,8 +3774,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+DeferredBaseImages.swift",
         "script/tests/test_scene_parent_visibility_integration.py",
-        "script/tests/test_scene_script_visible_roots.py",
-        "script/tests/test_scene_script_light_visibility.py",
+        "script/tests/scene/test_scene_script_visible_roots.py",
+        "script/tests/scene/test_scene_script_light_visibility.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift",
         "script/tests/test_scene_model_visibility_integration.py",
         "script/tests/test_scene_composition_visibility_integration.py",
@@ -3838,7 +3927,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAttachmentReader.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",
-        "script/tests/test_scene_puppet_v21_contract.py"
+        "script/tests/scene/test_scene_puppet_v21_contract.py"
       ],
       "modules": [
         "test_scene_puppet_v21_contract",
@@ -3883,8 +3972,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
-        "script/tests/test_scene_script_program_resources.py",
-        "script/tests/test_scene_script_resource_task.py"
+        "script/tests/scene/test_scene_script_program_resources.py",
+        "script/tests/scene/test_scene_script_resource_task.py"
       ],
       "modules": [
         "test_scene_script_program_resources",
@@ -3929,7 +4018,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
-        "script/tests/test_scene_puppet_preparation.py",
+        "script/tests/scene/test_scene_puppet_preparation.py",
         "script/tests/fixtures/ScenePuppetPreparationCases.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources+Puppets.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
@@ -4149,7 +4238,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
-        "script/tests/test_scene_shader_fragment_output.py",
+        "script/tests/scene/test_scene_shader_fragment_output.py",
         "script/tests/fixtures/SceneShaderFragmentOutputHarness.swift"
       ],
       "modules": [
@@ -4166,7 +4255,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
         "script/tests/test_scene_independent_signal_carrier.py",
-        "script/tests/test_scene_shader_fragment_output.py",
+        "script/tests/scene/test_scene_shader_fragment_output.py",
         "script/tests/fixtures/SceneShaderFragmentOutputHarness.swift"
       ],
       "modules": [
@@ -4310,8 +4399,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Preparation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
         "script/assets/generate_scene_shader_cache_identity.py",
-        "script/tests/test_scene_shader_cache_identity.py",
-        "script/tests/test_scene_shader_dependency_cache_identity.py",
+        "script/tests/scene/test_scene_shader_cache_identity.py",
+        "script/tests/scene/test_scene_shader_dependency_cache_identity.py",
         "script/tests/fixtures/SceneShaderDependencyCacheChecks.swift",
         "script/tests/test_scene_generic_shader_artifact_recovery.py",
         "script/tests/test_scene_generic_shader_prepared_normalization.py",
@@ -4467,7 +4556,7 @@
       "id": "puppet-bone-catalog",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetBoneCatalog.swift",
-        "script/tests/test_scene_puppet_bone_catalog.py"
+        "script/tests/scene/test_scene_puppet_bone_catalog.py"
       ],
       "modules": [
         "test_scene_puppet_bone_catalog"
@@ -4477,7 +4566,7 @@
       "id": "shader-syntax-concurrency",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
-        "script/tests/test_scene_shader_syntax_concurrency.py"
+        "script/tests/scene/test_scene_shader_syntax_concurrency.py"
       ],
       "modules": [
         "test_scene_shader_syntax_concurrency"
@@ -4598,10 +4687,10 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
-        "script/tests/test_scene_puppet_animation_bounds.py",
-        "script/tests/test_scene_puppet_imported_clips.py",
-        "script/tests/test_scene_puppet_direct_skinning.py",
-        "script/tests/test_scene_puppet_direct_playback.py",
+        "script/tests/scene/test_scene_puppet_animation_bounds.py",
+        "script/tests/scene/test_scene_puppet_imported_clips.py",
+        "script/tests/scene/test_scene_puppet_direct_skinning.py",
+        "script/tests/scene/test_scene_puppet_direct_playback.py",
         "script/tests/test_scene_static_model_vertex_stream.py",
         "script/tests/fixtures/ScenePuppetDirectSkinningHarness.swift",
         "script/tests/fixtures/ScenePuppetDirectPlaybackHarness.swift",
@@ -4715,10 +4804,10 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+LiveConsumers.swift",
-        "script/tests/test_scene_puppet_animation_property_preparation.py",
+        "script/tests/scene/test_scene_puppet_animation_property_preparation.py",
         "script/tests/test_scene_direct_model_animation_live_consumers.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
-        "script/tests/test_scene_puppet_active_composition.py",
+        "script/tests/scene/test_scene_puppet_active_composition.py",
         "script/tests/test_scene_direct_model_animation_preparation_fallback.py"
       ],
       "modules": [

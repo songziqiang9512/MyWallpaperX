@@ -5466,7 +5466,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         )
         # Compare the Python UTF-8/typed-field golden with the live Swift key,
         # not just another Python hash assembled from the same seed.
-        from script.tests.test_scene_shader_compiler_request_contract import request
+        from script.tests.scene.test_scene_shader_compiler_request_contract import request
         from scene_shader_compiler_request_contract import request_cache_key
         swift_key = subprocess.check_output(
             [str(self.binary), "--remainder-request-key-golden"], text=True,

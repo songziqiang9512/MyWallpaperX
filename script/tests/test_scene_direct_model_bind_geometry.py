@@ -18,7 +18,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT))
 from script.tests.test_scene_static_model_reader import (
     SWIFT_SOURCES, build_model, build_legacy_model,
 )
-from script.tests.test_scene_puppet_rig import build_rig_mdl
+from script.tests.scene.test_scene_puppet_rig import build_rig_mdl
 
 FORMAT = 0x0180000F
 POSITIONS = [(-1., -1., -1.), (1., -1., 1.), (0., 1., -1.), (0., 0., 2.)]

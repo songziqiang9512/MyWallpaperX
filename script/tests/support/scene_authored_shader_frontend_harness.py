@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPO_ROOT / "script"))
 
-from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (
+from script.tests.scene.test_scene_shader_scalar_vector_builtin_canonicalization import (
     SWIFT_SOURCES as CANONICALIZER_SWIFT_SOURCES,
 )
 

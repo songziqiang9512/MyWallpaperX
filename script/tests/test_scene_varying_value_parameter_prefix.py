@@ -23,10 +23,10 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (
+from script.tests.scene.test_scene_shader_scalar_vector_builtin_canonicalization import (
     GLSLANG, SWIFT_SOURCES as CANONICALIZER_SOURCES,
 )
-from script.tests.test_scene_shader_preprocessor import SWIFT_SOURCES as PREPROCESSOR_SOURCES
+from script.tests.scene.test_scene_shader_preprocessor import SWIFT_SOURCES as PREPROCESSOR_SOURCES
 
 FIXTURE = Path(__file__).with_name("fixtures") / "SceneVaryingValueParameterPrefixHarness.swift"
 SWIFT_SOURCES = list(dict.fromkeys([

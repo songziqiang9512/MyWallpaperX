@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_shader_scalar_vector_builtin_canonicalization as harness
+from script.tests.scene import test_scene_shader_scalar_vector_builtin_canonicalization as harness
 
 
 class SceneDirectFunctionScalarConversionTests(unittest.TestCase):

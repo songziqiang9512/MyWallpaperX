@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Missing-resolution proof through shared production syntax and compiler paths."""
 import unittest
-from script.tests import test_scene_shader_dead_binding_projection as support
+from script.tests.scene import test_scene_shader_dead_binding_projection as support
 
 VERTEX = '''uniform vec4 g_Texture1Resolution;
 attribute vec3 a_Position;

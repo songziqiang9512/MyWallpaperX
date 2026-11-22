@@ -18,8 +18,8 @@ import unittest
 import zlib
 
 from script.web_benchmark_capture import png_rgb_pixels
-from .test_scene_composition_authored_order_integration import encoded, measure_capture
-from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
+from script.tests.test_scene_composition_authored_order_integration import encoded, measure_capture
+from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.tests.support.scene_pkg_fixture import make_package
 
 
@@ -566,8 +566,8 @@ class SceneParticleAncestorTranslationIntegrationTests(unittest.TestCase):
         cls.app = Path(configured).resolve(strict=True)
         cls.app_identity = app_hashes(cls.app)
         paths = [Path(__file__), Path(runner.__file__), (Path(__file__).parent / "support/scene_pkg_fixture.py"),
-                 Path(__file__).parents[2] / "web_benchmark_capture.py",
-                 Path(__file__).parents[2] / "scene_wallpaper_graph_output_metrics.py"]
+                 Path(__file__).parents[3] / "web_benchmark_capture.py",
+                 Path(__file__).parents[3] / "scene_wallpaper_graph_output_metrics.py"]
         cls.source_identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         destination = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if destination:

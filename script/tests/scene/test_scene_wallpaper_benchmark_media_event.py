@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2]
+SCRIPT_DIR = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_wallpaper_benchmark as benchmark

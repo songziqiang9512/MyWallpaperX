@@ -23,7 +23,7 @@ from scene_shader_compiler_color_transfer_contract import (  # noqa: E402
     prepare_independent_signal_contract,
 )
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
-from script.tests import test_scene_shader_compiler_harness as compiler_support  # noqa: E402
+from script.tests.scene import test_scene_shader_compiler_harness as compiler_support  # noqa: E402
 
 
 SWIFT_SOURCES = [

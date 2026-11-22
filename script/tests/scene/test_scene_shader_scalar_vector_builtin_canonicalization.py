@@ -1,0 +1,975 @@
+#!/usr/bin/env python3
+"""Shared authored scalar/vector built-in compiler canonicalization gate."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import struct
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
+
+from scene_swift_source_sets import scene_swift_sources
+
+
+SWIFT_SOURCES = [
+    *scene_swift_sources("authored_shader_frontend_core"),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderRuntimeConstantNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
+]
+GLSLANG = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"
+)
+
+
+HARNESS = (REPOSITORY_ROOT / "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift").read_text(encoding="utf-8")
+
+LOOP_HELPER = """
+float sampleCount(float first, float stop) {
+    float count = 0.0;
+    for (int i = first; i < stop; ++i) { count += 1.0; }
+    return count;
+}
+"""
+
+
+class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.build_directory = tempfile.TemporaryDirectory()
+        build_root = Path(cls.build_directory.name)
+        cls.probe_root = build_root / "intrinsic-cases"
+        if parent := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+            Path(parent).mkdir(parents=True, exist_ok=True)
+            cls.probe_root = Path(tempfile.mkdtemp(prefix="intrinsic-width-", dir=parent))
+            print(f"Intrinsic width evidence: {cls.probe_root}", flush=True)
+        cls.probe_root.mkdir(exist_ok=True)
+        cls.identity_paths = [Path(__file__), *SWIFT_SOURCES,
+            REPOSITORY_ROOT / "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift",
+            GLSLANG, GLSLANG.with_name("spirv-cross")]
+        cls.source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in cls.identity_paths if p.is_file()}
+        (cls.probe_root / "identity.json").write_text(json.dumps({"before": cls.source_hashes}, indent=2))
+        harness = build_root / "ScalarVectorBuiltInHarness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        cls.binary = build_root / "scalar-vector-built-in-harness"
+        environment = os.environ.copy()
+        environment["CLANG_MODULE_CACHE_PATH"] = str(
+            build_root / "clang-module-cache"
+        )
+        environment["SWIFT_MODULECACHE_PATH"] = str(
+            build_root / "swift-module-cache"
+        )
+        subprocess.run(
+            [
+                swiftc,
+                "-parse-as-library",
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(cls.binary),
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        after = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in cls.identity_paths if p.is_file()}
+        (cls.probe_root / "identity.json").write_text(json.dumps({
+            "before": cls.source_hashes, "after": after}, indent=2))
+        cls.build_directory.cleanup()
+
+    def test_shared_numeric_conversions_preserve_existing_boundaries(self) -> None:
+        completed = subprocess.run(
+            [str(self.binary)],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(completed.stdout)
+        self.assertEqual(
+            {name for name, passed in output["checks"].items() if not passed},
+            set(),
+        )
+
+    def test_dynamic_loop_keeps_built_in_type_conversions_and_renders(self) -> None:
+        source = LOOP_HELPER + """
+void main() {
+    vec3 albedo = vec3(-0.5, 0.5, 1.5);
+    vec3 lowered = max(0, albedo);
+    vec3 limited = min(1, lowered);
+    vec3 mixed = mix(0.25, limited, 0.5);
+    vec3 powered = pow(mixed, 2.0);
+    float scale = max(1, abs(0.5));
+    gl_FragColor = vec4(powered * scale, sampleCount(0.0, 2.8) / 4.0);
+}
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            authored = root / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+            self.assertEqual(output["strictDiagnosticCodes"], ["dynamicLoop"])
+            self.assertEqual(output["typeDiagnosticCodes"], [])
+            self.assertTrue(output["idempotent"])
+            for expected in ["max(vec3(0.0), albedo)", "min(vec3(1.0), lowered)",
+                             "mix(vec3(0.25), limited, 0.5)", "pow(mixed, vec3(2.0))",
+                             "max(1.0, abs(0.5))"]:
+                self.assertIn(expected, output["canonicalFragment"])
+            vertex, fragment = root / "author.vert", root / "author.frag"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            spirv, metal = root / "result.spv", root / "result.metal"
+            for command in (
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 str(fragment), "-o", str(spirv)],
+                [str(GLSLANG.with_name("spirv-cross")), str(spirv), "--msl",
+                 "--rename-entry-point", "main", "comparisonFragment", "frag", "--output", str(metal)],
+            ):
+                compiled = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
+                self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            pixels = json.loads(subprocess.check_output(
+                [str(self.binary), "--render", str(metal)], text=True, timeout=30,
+            ))
+            self.assertEqual(pixels, [0.015625, 0.140625, 0.390625, 0.75] * 2)
+
+    def test_comma_vector_initializers_broadcast_each_proven_scalar_and_link(self) -> None:
+        cases = [
+            # The actual U06 stage-link failure: each declarator owns a
+            # separate initializer, while center is already vector-valued.
+            ("uniform vec2 g_Ratio;\nvoid main() {\n"
+             "    vec2 radial = 0.0, tangential = 0.0, center = (1.0 - g_Ratio - 0.5) * 0.25;\n"
+             "    gl_FragColor = vec4(radial + tangential + center, 0.0, 1.0);\n}",
+             ["radial = vec2(0.0)", "tangential = vec2(0.0)",
+              "center = (1.0 - g_Ratio - 0.5) * 0.25"]),
+            # Later declarators also provide types for subsequent assignments.
+            ("void main() { float spare = 0.0, scale = 0.25;\n"
+             "    vec4 first = 0.0, second = scale; second = scale * 2.0;\n"
+             "    gl_FragColor = first + second; }",
+             ["first = vec4(0.0)", "second = vec4(scale)",
+              "second = vec4(scale * 2.0)"]),
+            # Argument commas never end an initializer, and explicit vector
+            # constructors retain their authored arguments.
+            ("void main() { vec3 first = abs(0.25), second = vec3(0.1, 0.2, 0.3), third = 0.75;\n"
+             "    gl_FragColor = vec4(first + second + third, 1.0); }",
+             ["first = vec3(abs(0.25))", "second = vec3(0.1, 0.2, 0.3)",
+              "third = vec3(0.75)"]),
+            # Equal names in another function cannot lend a type or revoke
+            # this function's independently proven declaration.
+            ("vec2 helper() { float scale = 0.5; vec2 value = scale; return value; }\n"
+             "void main() { float scale = 0.25; vec4 value = scale;\n"
+             "    gl_FragColor = value + vec4(helper(), 0.0, 0.0); }",
+             ["vec2 value = vec2(scale)", "vec4 value = vec4(scale)"]),
+            # The original rule supports equal types in distinct block scopes.
+            ("void main() { vec2 value = 0.5;\n"
+             "    { vec2 value = 0.25; gl_FragColor = vec4(value, 0.0, 1.0); }\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["vec2 value = vec2(0.5)", "vec2 value = vec2(0.25)"]),
+            # A later conflicting shadow cannot revoke an earlier conversion.
+            ("void main() { vec2 value = 0.5;\n"
+             "    { float value = 0.25; gl_FragColor = vec4(value); }\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["vec2 value = vec2(0.5)", "float value = 0.25"]),
+            # Built-in scalar arguments remain eligible when the current
+            # function's comma declarator agrees with the expression proof.
+            ("float helper() { float scale = 0.5; return scale; }\n"
+             "void main() { float spare = 0.0, scale = 0.25;\n"
+             "    vec2 first = vec2(0.0), value = abs(scale);\n"
+             "    gl_FragColor = vec4(first + value, 0.0, 1.0); }",
+             ["value = vec2(abs(scale))"]),
+            ("uniform vec2 g_Ratio;\nvoid main() { vec2 value = abs(g_Ratio.x);\n"
+             "    gl_FragColor = vec4(value, 0.0, 1.0); }",
+             ["value = vec2(abs(g_Ratio.x))"]),
+        ]
+        for source, expected in cases:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                authored = root / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                self.assertTrue(output["idempotent"])
+                for text in expected:
+                    self.assertIn(text, output["canonicalFragment"])
+                vertex, fragment = root / "author.vert", root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment)],
+                    cwd=root, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_vector_broadcast_preserves_unproven_comma_and_shadow_shapes(self) -> None:
+        bodies = [
+            # A plain assignment comma expression is not a declaration list.
+            "vec2 value = vec2(0.0); float scalar = 0.0; value = 0.5, scalar = 1.0;",
+            "vec2 value = (0.5, 1.0);",
+            "vec2 first = missingValue, second = vec2(0.0);",
+            # Conflicting local types cannot provide a broadcast type.
+            "vec2 value = vec2(0.0); { float value = 0.25; } value = 0.5;",
+            "vec2 values[2]; values[0] = 0.5;",
+            "vec2 values[2]; values = 0.5;",
+        ]
+        for body in bodies:
+            source = "void main() { " + body + " gl_FragColor = vec4(1.0); }"
+            with self.subTest(body=body), tempfile.TemporaryDirectory() as directory:
+                authored = Path(directory) / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                self.assertEqual(output["canonicalFragment"], source)
+                self.assertTrue(output["idempotent"])
+
+    def test_builtin_broadcast_does_not_borrow_another_function_scalar_type(self) -> None:
+        # The target uses shared comma-declarator facts, but the older
+        # component-expression proof can mistake helper's scale for main's
+        # vec3 scale. Its claimed scalar result must agree with this scope.
+        for expression in ["abs(scale)", "sin(abs(scale))", "pow(scale, 2.0)"]:
+            source = (
+                "float helper() { float scale = 0.5; return scale; }\n"
+                "void main() { vec3 spare = vec3(0.0), scale = vec3(0.1, 0.2, 0.3);\n"
+                f"    vec2 first = vec2(0.0), value = {expression};\n"
+                "    gl_FragColor = vec4(first + value, 0.0, 1.0); }"
+            )
+            with self.subTest(expression=expression), tempfile.TemporaryDirectory() as directory:
+                authored = Path(directory) / "source.frag"
+                authored.write_text(source, encoding="utf-8")
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), "--analyze", str(authored)], text=True,
+                ))
+                expected = source.replace("value = abs(scale)", "value = (abs(scale)).xy").replace(
+                    "value = pow(scale, 2.0)", "value = (pow(scale, vec3(2.0))).xy")
+                self.assertEqual(output["canonicalFragment"], expected)
+                self.assertTrue(output["idempotent"])
+
+    def test_broadcast_uses_parameter_facts_without_borrowing_peer_types(self) -> None:
+        source = (
+            "vec2 helper(float scalar) { vec2 result = scalar; return result; }\n"
+            "void main() { vec3 scalar = vec3(0.1); vec2 result = 0.25; "
+            "gl_FragColor = vec4(result + helper(0.5), 0.0, 1.0); }"
+        )
+        expected = (
+            "vec2 helper(float scalar) { vec2 result = vec2(scalar); return result; }\n"
+            "void main() { vec3 scalar = vec3(0.1); vec2 result = vec2(0.25); "
+            "gl_FragColor = vec4(result + helper(0.5), 0.0, 1.0); }"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            authored = Path(directory) / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+        self.assertEqual(output["strictDiagnosticCodes"], [])
+        self.assertEqual(output["typeDiagnosticCodes"], [])
+        self.assertEqual(output["canonicalFragment"], expected)
+        self.assertTrue(output["idempotent"])
+
+    def test_dynamic_loop_does_not_bypass_syntax_or_custom_overload_guards(self) -> None:
+        cases = [
+            ("vec3 max(int bound, vec3 value) { return value; }", "max(0, color)"),
+            ("vec3 min(int bound, vec3 value) { return value; }", "min(1, color)"),
+            ("vec3 mix(float first, vec3 second, float weight) { return second; }", "mix(0.25, color, 0.5)"),
+            ("vec3 pow(vec3 value, float exponent) { return value; }", "pow(color, 2.0)"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            authored = Path(directory) / "source.frag"
+            for helper, call in cases:
+                with self.subTest(call=call):
+                    source = LOOP_HELPER + helper + "\nvoid main() { vec3 color = vec3(0.5);"
+                    source += f" gl_FragColor = vec4({call}, 0.75); }}"
+                    authored.write_text(source, encoding="utf-8")
+                    output = json.loads(subprocess.check_output(
+                        [str(self.binary), "--analyze", str(authored)], text=True,
+                    ))
+                    self.assertEqual(output["strictDiagnosticCodes"], ["dynamicLoop"])
+                    self.assertEqual(output["typeDiagnosticCodes"], [])
+                    self.assertEqual(output["canonicalFragment"], source)
+            for malformed in [
+                "void main() { vec3 color = vec3(0.5); gl_FragColor = vec4(max(0, color));",
+                "void main() { vec3 color = vec3(0.5); @; gl_FragColor = vec4(max(0, color)); }",
+            ]:
+                with self.subTest(malformed=malformed):
+                    authored.write_text(malformed, encoding="utf-8")
+                    output = json.loads(subprocess.check_output(
+                        [str(self.binary), "--analyze", str(authored)], text=True,
+                    ))
+                    self.assertTrue(output["typeDiagnosticCodes"])
+                    self.assertEqual(output["canonicalFragment"], malformed)
+
+    def test_literal_zero_request_links_with_bundled_glslang(self) -> None:
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        completed = subprocess.run(
+            [str(self.binary)],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(completed.stdout)
+        self.assertIsNotNone(output["normalizedVertex"])
+        self.assertIsNotNone(output["normalizedFragment"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vertex = root / "author.vert"
+            fragment = root / "author.frag"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            linked = subprocess.run(
+                [
+                    str(GLSLANG),
+                    "-V",
+                    "--auto-map-bindings",
+                    "--auto-map-locations",
+                    "-l",
+                    str(vertex),
+                    str(fragment),
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_literal_bounds_on_abs_results_link(self) -> None:
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        statements = [
+            "gl_FragColor = vec4(max(1, abs(g_Ratio)), 0.0, 1.0);",
+            "gl_FragColor = vec4(min(0.5, abs(-g_Ratio)), 0.0, 1.0);",
+            "gl_FragColor = vec4(max(1, abs(g_Ratio.x)));",
+            "gl_FragColor = vec4(min(abs(g_Ratio.x), 2));",
+            "gl_FragColor = vec4(max(2, abs(abs(g_Ratio))), 0.0, 1.0);",
+            "int n = max(1, abs(-2)); gl_FragColor = vec4(float(n));",
+        ]
+        for statement in statements:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_declared_int_first_builtin_operands_link(self) -> None:
+        # The archived stage-link class: max/min(int, vecN) has no Vulkan
+        # GLSL overload (int does not convert to the vector), while the
+        # reverse order converts implicitly. The authored language
+        # broadcasts the scalar, so the normalizer promotes it to the
+        # sibling's vector type.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            ("int k = 2; gl_FragColor = vec4(max(k, g_Ratio), 0.0, 1.0);",
+             "max(vec2(k), g_Ratio)"),
+            ("int k = 2; gl_FragColor = vec4(min(k, g_Ratio), 0.0, 1.0);",
+             "min(vec2(k), g_Ratio)"),
+            # A float scalar first operand broadcasts the same way.
+            ("float f = 0.5; gl_FragColor = vec4(max(f, g_Ratio), 0.0, 1.0);",
+             "max(vec2(f), g_Ratio)"),
+            # An integer scalar against an integer vector keeps its element
+            # domain: the constructor is the sibling's ivec type.
+            ("int k = 2; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(k, iv).x));",
+             "max(ivec2(k), iv)"),
+            # A locally declared vector sibling takes the same promotion.
+            ("int k = 2; vec2 lv = g_Ratio; gl_FragColor = vec4(max(k, lv), 0.0, 1.0);",
+             "max(vec2(k), lv)"),
+            # The vector-first order already links; it must stay untouched.
+            ("int k = 2; gl_FragColor = vec4(max(g_Ratio, k), 0.0, 1.0);",
+             "max(g_Ratio, k)"),
+            # Integer-integer max keeps its own overload.
+            ("int k = 2; int j = 3; gl_FragColor = vec4(float(max(k, j)));",
+             "max(k, j)"),
+            # A uint scalar broadcasts into the uvec sibling.
+            ("uint u = 2u; uvec2 uv = uvec2(2);"
+             " gl_FragColor = vec4(float(max(u, uv).x));",
+             "max(uvec2(u), uv)"),
+            # A float scalar entering an integer vector would narrow; the
+            # shape stays fail-closed with no rewrite and no link claim.
+            ("float f = 0.5; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(f, iv).x));",
+             "max(f, iv)"),
+            # An authored overload owning the built-in name keeps its call
+            # sites; a different signature is a legal GLSL overload.
+            ("vec2 max(int a, vec2 b) { return b; }"
+             " int k = 2; gl_FragColor = vec4(max(k, g_Ratio), 0.0, 1.0);",
+             "max(k, g_Ratio)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if expected in ("max(g_Ratio, k)", "max(k, j)"):
+                    self.assertNotIn("vec2(k)", fragment)
+                if expected in ("max(k, g_Ratio)", "max(f, iv)"):
+                    # The authored overload sits inside the harness body, and
+                    # the narrowing shape has no legal overload at all; both
+                    # assert the guard's text behaviour only.
+                    self.assertNotIn("vec2(k)", fragment)
+                    continue
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_integer_literal_clamp_broadcast_follows_sibling_type(self) -> None:
+        # The archived stage-link subclass: the literal broadcast used to
+        # hardcode vec3, which breaks narrower and integer-vector siblings.
+        # The broadcast now follows the sibling's declared type; integer
+        # scalar and unknown siblings stay untouched.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            ("int k = 2; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(2, iv).x));",
+             "max(ivec2(2), iv)"),
+            ("gl_FragColor = vec4(max(2, g_Ratio), 0.0, 1.0);",
+             "max(vec2(2.0), g_Ratio)"),
+            # Integer scalar against integer scalar keeps its own overload.
+            ("int k = 2; int n = max(2, k);"
+             " gl_FragColor = vec4(float(n));",
+             "max(2, k)"),
+            # A float scalar sibling needs only the float spelling.
+            ("float v = max(2.0, g_Ratio.x);"
+             " gl_FragColor = vec4(v, 0.0, 1.0, 1.0);",
+             "max(2.0, g_Ratio.x)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if expected == "max(2, k)":
+                    # The harness prelude itself defines vec3 macros; the
+                    # untouched assertion is line-scoped to the call.
+                    line = next(
+                        line for line in fragment.splitlines()
+                        if "max(2, k)" in line
+                    )
+                    self.assertNotIn("vec3(", line)
+                    self.assertNotIn("ivec2(2)", line)
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_float_to_int_assignments_carry_explicit_truncation(self) -> None:
+        # The archived stage-link subclass: an integer target assigned a
+        # float-bearing expression relied on the lenient compilers' implicit
+        # conversion. The normalizer spells the truncation through int(...)
+        # for declarations and plain assignments; comparison operands have
+        # separate promotion and pixel-result tests.
+        # Compound assignments rebuild as `k = int(k op (rhs))` — the same
+        # truncation the official D3D pipeline applies implicitly; the
+        # sample-real `*=` form, uint targets, pure-integer RHS and explicit
+        # conversions each keep their exact contract below. Qualified member
+        # LHS and `%=` remain fail-closed residuals.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            # A for-update ends at the enclosing ')', never the first body
+            # semicolon. Float atoms in the body cannot type the update.
+            ("float value = 0.0; for (int k = 0; k < 4; k += 1) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k += 1) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k = k + 1) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k = k + 1) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k += 1.0) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k = int(k + (1.0))) { value += 0.25; }"),
+            ("float value = 0.0; for (int k = 0; k < 4; k = k + (1.0)) value += 0.25;"
+             " gl_FragColor = vec4(value);", "k = int(k + (1.0))) value += 0.25;"),
+            ("float value = 0.0; for (int k = 0; k < 4; k += int(1.0)) { value += 0.25; }"
+             " gl_FragColor = vec4(value);", "k += int(1.0)) { value += 0.25; }"),
+            ("int offsets[2]; offsets[0] = 0; float value = 0.0;"
+             " for (int k = 0; k < 2.5; k += offsets[0] + 1.0) { value += 0.25; }"
+             " gl_FragColor = vec4(value);",
+             "k = int(k + (offsets[0] + 1.0))) { value += 0.25; }"),
+            ("int k = g_Ratio.y * 2;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "int k = int(g_Ratio.y * 2);"),
+            ("int k = 0; k = g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y)"),
+            ("int k = 0; k = g_Ratio.y * 3.0;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y * 3.0)"),
+            ("int k = g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "int k = int(g_Ratio.y)"),
+            # The workshop-real compound form (Simple_Audio_Bars) rebuilds
+            # with the accumulated LHS and a parenthesized whole RHS.
+            ("int bar = 0; bar *= step(1.0 - g_Ratio.x, g_Ratio.y);"
+             " gl_FragColor = vec4(float(bar), 0.0, 1.0, 1.0);",
+             "bar = int(bar * (step(1.0 - g_Ratio.x, g_Ratio.y)))"),
+            ("int k = 0; k += g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(k + (g_Ratio.y))"),
+            # A uint target takes the same explicit truncation.
+            ("uint k = 0u; k -= g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(k - (g_Ratio.y))"),
+            # An already-integer pair keeps its own statement untouched.
+            ("int k = 2; int n = k;"
+             " gl_FragColor = vec4(float(n), 0.0, 1.0, 1.0);",
+             "int n = k"),
+            # A pure-integer compound statement stays untouched.
+            ("int k = 2; int n = 3; k *= n;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k *= n"),
+            # A float-declared target is not an int truncation site; the
+            # statement keeps its authored form.
+            ("float k = 1.0; k *= g_Ratio.y;"
+             " gl_FragColor = vec4(k, 0.0, 1.0, 1.0);",
+             "k *= g_Ratio.y"),
+            # An explicit conversion is already the truncation; it must not
+            # be wrapped twice (plain and compound forms).
+            ("int k = 0; k = int(g_Ratio.y);"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y)"),
+            ("int k = 0; k += int(g_Ratio.y);"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k += int(g_Ratio.y)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if "int(" in expected:
+                    self.assertNotIn("int(int(", fragment)
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_compound_assignment_does_not_inherit_another_scope_integer_type(self) -> None:
+        statement = (
+            "float spare = 0.0, k = 1; k *= 0.5;"
+            " gl_FragColor = vec4(k, k, k, float(helper()));"
+        )
+        output = json.loads(subprocess.check_output([
+            str(self.binary), statement,
+            "int helper() { int k = 1; return k; }",
+        ], text=True))
+        self.assertIn("k *= 0.5", output["normalizedFragment"])
+        self.assertNotIn("k = int(k", output["normalizedFragment"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "comparison.frag"
+            source.write_text(output["normalizedFragment"], encoding="utf-8")
+            spirv = root / "comparison.spv"
+            metal = root / "comparison.metal"
+            for command in (
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 str(source), "-o", str(spirv)],
+                [str(GLSLANG.with_name("spirv-cross")), str(spirv), "--msl",
+                 "--rename-entry-point", "main", "comparisonFragment", "frag",
+                 "--output", str(metal)],
+            ):
+                compiled = subprocess.run(command, capture_output=True, text=True, timeout=30)
+                self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            pixels = json.loads(subprocess.check_output([
+                str(self.binary), "--render", str(metal),
+            ], text=True, timeout=30))
+            self.assertEqual(pixels, [0.5, 0.5, 0.5, 1.0] * 2)
+
+    def test_comparisons_do_not_narrow_fractional_operands(self) -> None:
+        # Comparisons promote unlike assignment conversion: a fractional
+        # right operand must not acquire a float-to-int instruction.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            # float/float local comparison keeps its authored operands.
+            ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
+             " if (coverage < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None),
+            # The reversed operator direction is the same defect class.
+            ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
+             " if (cutoff > coverage) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None),
+            # A swizzle member on the left is not a declared int scalar.
+            ("float cutoff = 0.8; int scratch = 0;"
+             " if (g_Ratio.x < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None),
+            # A left identifier containing the right name must not corrupt
+            # the left operand (the old whole-expression replace produced
+            # the undeclared identifier xint).
+            ("float coverage = 0.8; float xcoverage = 0.1; int scratch = 0;"
+             " if (xcoverage < coverage) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None),
+            # The same name on both sides keeps the authored comparison.
+            ("float cutoff = 0.8; int scratch = 0;"
+             " if (cutoff < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None),
+            # A declared float uniform also keeps its fractional value.
+            ("float coverage = 0.4; int scratch = 0;"
+             " if (coverage < g_Threshold) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             "uniform float g_Threshold;"),
+            # Integer/float comparisons promote, including uniform bounds.
+            ("float cutoff = 0.8; int k = 0; if (k < cutoff) { k = 1; }"
+             " gl_FragColor = vec4(float(k));",
+             None),
+            ("int k = 0; if (k < g_Threshold) { k = 1; }"
+             " gl_FragColor = vec4(float(k));",
+             "uniform float g_Threshold;"),
+        ]
+        for statement, extra in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                command = [str(self.binary), statement]
+                if extra is not None:
+                    command.append(extra)
+                output = json.loads(subprocess.check_output(command, text=True))
+                fragment = output["normalizedFragment"]
+                root = Path(directory)
+                fragment_path = root / "author.frag"
+                fragment_path.write_text(fragment, encoding="utf-8")
+                compiled = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings",
+                     "--auto-map-locations", str(fragment_path),
+                     "-o", str(root / "result.spv")],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(
+                    compiled.returncode, 0, compiled.stdout + compiled.stderr
+                )
+                payload = (root / "result.spv").read_bytes()
+                words = struct.unpack(f"<{len(payload) // 4}I", payload)
+                opcode_counts: dict[int, int] = {}
+                offset = 5
+                while offset < len(words):
+                    count, opcode = (
+                        words[offset] >> 16, words[offset] & 0xFFFF
+                    )
+                    self.assertGreater(count, 0)
+                    opcode_counts[opcode] = opcode_counts.get(opcode, 0) + 1
+                    offset += count
+                self.assertEqual(opcode_counts.get(110, 0), 0)
+
+    def test_fractional_comparisons_and_loop_counts_render_authored_results(self) -> None:
+        cross = GLSLANG.with_name("spirv-cross")
+        cases = [
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(k < cutoff));", 1),
+            ("int k = 0; float cutoff = -0.8; gl_FragColor = vec4(float(k > cutoff));", 1),
+            ("uint k = 0u; float cutoff = 0.8; gl_FragColor = vec4(float(k < cutoff));", 1),
+            ("int k = 0; float cutoff = -0.8; gl_FragColor = vec4(float(k <= cutoff));", 0),
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(k >= cutoff));", 0),
+            ("int n = 0; float stop = 2.8; for (int k = 0; k < stop; ++k) { ++n; }"
+             " gl_FragColor = vec4(float(n));", 3),
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(cutoff > k));", 1),
+            ("float cutoff = 2.8; int k = cutoff; gl_FragColor = vec4(float(k));", 2),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                normalized = json.loads(subprocess.check_output([str(self.binary), statement, "--no-inputs"], text=True))
+                source = root / "comparison.frag"
+                source.write_text(normalized["normalizedFragment"], encoding="utf-8")
+                spirv = root / "comparison.spv"
+                metal = root / "comparison.metal"
+                for command in (
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     str(source), "-o", str(spirv)],
+                    [str(cross), str(spirv), "--msl", "--rename-entry-point", "main",
+                     "comparisonFragment", "frag", "--output", str(metal)],
+                ):
+                    compiled = subprocess.run(command, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+                pixels = json.loads(subprocess.check_output(
+                    [str(self.binary), "--render", str(metal)], text=True, timeout=30
+                ))
+                self.assertEqual(pixels, [float(expected)] * 8)
+
+    def test_hlsl_attribute_annotations_are_stripped_and_link(self) -> None:
+        # The archived syntax-error subclass: a bare `[loop]` line survives
+        # normalization and glslang rejects it with "unexpected IDENTIFIER,
+        # expecting LEFT_BRACKET". The annotation carries loop-execution
+        # hints only, so stripping it preserves semantics and restores the
+        # link.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        statement = (
+            "[loop] for (int i = 0; i < 4; i++) {"
+            " albedo.r += float(i); }"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), statement], text=True,
+            ))
+            root = Path(directory)
+            vertex = root / "author.vert"
+            fragment = root / "author.frag"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            self.assertNotIn("[loop]", output["normalizedFragment"])
+            linked = subprocess.run(
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                cwd=root, capture_output=True, text=True,
+            )
+            self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
+        for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
+            with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:
+                suffix = ", 0.0, 1.0" if peer == "abs(g_Ratio)" else ""
+                statement = f"gl_FragColor = vec4(min(010, {peer}){suffix});"
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                root = Path(directory)
+                fragment = root / "author.frag"
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     str(fragment), "-o", str(root / "result.spv")],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                payload = (root / "result.spv").read_bytes()
+                words = struct.unpack(f"<{len(payload) // 4}I", payload)
+                float_types, constants = set(), []
+                offset = 5
+                while offset < len(words):
+                    count, opcode = words[offset] >> 16, words[offset] & 0xffff
+                    self.assertGreater(count, 0)
+                    operands = words[offset + 1:offset + count]
+                    if opcode == 22 and operands[1] == 32:  # OpTypeFloat
+                        float_types.add(operands[0])
+                    if opcode == 43 and operands[0] in float_types:  # OpConstant
+                        constants.append(struct.unpack("<f", struct.pack("<I", operands[2]))[0])
+                    offset += count
+                self.assertIn(8.0, constants)
+                self.assertNotIn(10.0, constants)
+
+
+    def _analyze_intrinsic(self, name: str, source: str) -> tuple[Path, dict]:
+        root = self.probe_root / name
+        root.mkdir()
+        authored = root / "input.frag"
+        authored.write_text(source, encoding="utf-8")
+        output = json.loads(subprocess.check_output(
+            [str(self.binary), "--analyze", str(authored)], text=True, timeout=30))
+        (root / "analysis.json").write_text(json.dumps(output, indent=2), encoding="utf-8")
+        self.assertTrue(output["idempotent"], name)
+        return root, output
+
+    def _render_intrinsic(self, name: str, source: str, expected: list[float], *, preserve=False) -> None:
+        root, output = self._analyze_intrinsic(name, source)
+        if preserve:
+            self.assertEqual(output["canonicalFragment"], source)
+        self.assertEqual(output["fallbackDiagnosticCodes"], [], name)
+        self.assertEqual(output["fallbackFragmentFunctionName"], "sceneAuthoredFragment")
+        for stage, path in (("Vertex", "source.vert"), ("Fragment", "source.frag")):
+            (root / path).write_text(output["normalized" + stage], encoding="utf-8")
+        (root / "fallback.metal").write_text(output["fallbackMSL"], encoding="utf-8")
+        commands = (
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "-l", "source.vert", "source.frag"],
+            [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+             "source.frag", "-o", "result.spv"],
+            [str(GLSLANG.with_name("spirv-cross")), "result.spv", "--msl",
+             "--rename-entry-point", "main", "comparisonFragment", "frag", "--output", "generic.metal"],
+        )
+        receipts = []
+        (root / "expected.json").write_text(json.dumps(expected * 2), encoding="utf-8")
+        for command in commands:
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
+            receipts.append({"command": command, "returncode": result.returncode,
+                             "stdout": result.stdout, "stderr": result.stderr})
+            (root / "commands.json").write_text(json.dumps(receipts, indent=2), encoding="utf-8")
+            self.assertEqual(result.returncode, 0, name + result.stdout + result.stderr)
+        for flag, backend in (("--render", "generic"), ("--render-fallback", "fallback")):
+            with self.subTest(case=name, backend=backend):
+                result = subprocess.run([str(self.binary), flag, str(root / (backend + ".metal"))],
+                                        capture_output=True, text=True, timeout=30)
+                (root / (backend + "-render.json")).write_text(json.dumps({
+                    "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}, indent=2))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                pixels = json.loads(result.stdout)
+                self.assertEqual(len(pixels), 8)
+                for actual, wanted in zip(pixels, expected * 2):
+                    self.assertAlmostEqual(actual, wanted, places=6)
+        (root / "artifact-hashes.json").write_text(json.dumps({
+            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in root.iterdir() if p.is_file()}, indent=2), encoding="utf-8")
+
+    def test_floating_intrinsics_compile_and_render_through_both_backends(self) -> None:
+        endpoints = "vec4 low=vec4(.125,.25,.5,.875); vec3 high=vec3(.625,.75,1.0);"
+        cases = [
+            ("mixed-endpoints", endpoints + "vec3 v=mix(low,high,.25); gl_FragColor=vec4(v,low.a);",
+             [.25, .375, .625, .875]),
+            ("renamed-alias", endpoints.replace("low", "ink").replace("high", "paper") +
+             "vec3 alias=paper; vec3 v=lerp(((ink)),(alias),(.25)); gl_FragColor=vec4(v,ink.a);",
+             [.25, .375, .625, .875]),
+            ("reversed-endpoints", endpoints + "vec3 v=mix(high,low,.75); gl_FragColor=vec4(v,low.a);",
+             [.25, .375, .625, .875]),
+            ("constructor-weight", "vec2 a=vec2(.125,.25),b=vec2(.625,.75); vec3 w=vec3(.25,.5,.875);"
+             "vec2 v=mix((a),(b),(abs(w)+vec3(0.0))); gl_FragColor=vec4(v,.625,w.z);", [.25,.5,.625,.875]),
+            ("narrow-weight", endpoints + "vec2 w=vec2(.25,.5); vec2 v=mix(low,high,w);"
+             "gl_FragColor=vec4(v,.625,low.a);", [.25,.5,.625,.875]),
+            ("nested-width", "vec2 a=vec2(.125,.25),b=vec2(.625,.75); vec3 k=vec3(.5,.25,1.0);"
+             "vec4 w=vec4(.5,.75,.25,.875); vec2 v=mix(a,b,k*w); gl_FragColor=vec4(v,.625,w.a);",
+             [.25,.34375,.625,.875]),
+            ("nested-cast-dot", endpoints + "vec3 v=mix(low,CAST3(dot(low,vec3(.25,.5,.125))),.25);"
+             "gl_FragColor=vec4(v,low.a);", [.1484375,.2421875,.4296875,.875]),
+            ("compound-dot", "vec4 p=vec4(.125,.25,.5,16.0); vec3 c=vec3(.25,.5,.125);"
+             "float d=dot((p*2.0-vec4(.125)),c); gl_FragColor=vec4(d,p.w/32.0,.625,1.0);",
+             [.328125,.5,.625,1.0]),
+            ("reversed-dot", "vec4 p=vec4(.125,.25,.5,16.0); float d=dot(vec3(.25,.5,.125),p*2.0-vec3(.125));"
+             "gl_FragColor=vec4(d,p.w/32.0,.625,1.0);", [.328125,.5,.625,1.0]),
+            ("normalize-before-truncate", "vec4 p=vec4(1.0,2.0,3.0,4.0);"
+             "float d=dot(normalize(p),vec3(.125,.25,.5)); gl_FragColor=vec4(d,p.w/8.0,.625,1.0);",
+             [2.125 / (30 ** .5),.5,.625,1.0]),
+            ("scalar-dot", "float d=dot(.25,.5); gl_FragColor=vec4(d,.25,.5,1.0);", [.125,.25,.5,1.0]),
+            ("scalar-vector-dot", "float d=dot(.25,vec3(.125,.25,.5)); gl_FragColor=vec4(d,.25,.5,1.0);",
+             [.21875,.25,.5,1.0]),
+            ("constructor-literal-bounds", "vec3 v=max(0+0,vec3(-.25,.5,1.25));"
+             "vec3 z=min(max(v,0),1); gl_FragColor=vec4(z,1.0);", [0.0,.5,1.0,1.0]),
+            ("equal-width-rgba", "vec4 a=vec4(0.0,.125,.25,.5),b=vec4(.5,.625,.75,1.0);"
+             "vec4 w=vec4(.25,.5,.75,.875); gl_FragColor=mix(a,b,w);", [.125,.375,.625,.9375]),
+            ("scalar-neighbor", "float v=mix(.125,.625,.5);"
+             "float gate=min(1,smoothstep(0,.5,.125)+step(.5,.25)); gl_FragColor=vec4(v,gate,.5,1.0);",
+             [.375,.15625,.5,1.0]),
+        ]
+        for name, body, expected in cases:
+            with self.subTest(name=name):
+                self._render_intrinsic(name, "void main(){" + body + "}", expected)
+        helpers = [
+            ("pow-scalar-vector", "float peer(float pow){return pow;}",
+             "float c=.5; vec3 wave=vec3(.5,1.0,1.5);"
+             "vec3 v=pow(abs(c),wave*2.0); gl_FragColor=vec4(v,pow(c,1.0));", [.5,.25,.125,.5]),
+            ("declared-return", "vec3 gray(vec4 p){return CAST3(dot(p,vec3(.25,.5,.125)));}",
+             endpoints + "vec3 v=lerp(low,gray(low),.25); gl_FragColor=vec4(v,low.a);",
+             [.1484375,.2421875,.4296875,.875]),
+            ("single-evaluation-inout", "vec4 lift(inout vec4 p){p.a+=.125; return p;}",
+             "vec4 p=vec4(.125,.25,.5,.5); vec3 q=vec3(.625,.75,1.0);"
+             "vec3 v=mix(lift(p),q,.25); gl_FragColor=vec4(v,p.a);", [.25,.375,.625,.625]),
+        ]
+        for name, helper, body, expected in helpers:
+            with self.subTest(name=name):
+                self._render_intrinsic(name, helper + "void main(){" + body + "}", expected)
+        for intrinsic in ("mix", "lerp", "dot"):
+            source = (f"vec3 {intrinsic}(vec4 a,vec3 b){{return vec3(.125,.75,.25);}}"
+                      if intrinsic == "dot" else
+                      f"vec3 {intrinsic}(vec4 a,vec3 b,float w){{return vec3(.125,.75,.25);}}")
+            arguments = "a,b" if intrinsic == "dot" else "a,b,.5"
+            source += ("void main(){vec4 a=vec4(0.0);vec3 b=vec3(1.0);"
+                       f"gl_FragColor=vec4({intrinsic}({arguments}),1.0);}}")
+            with self.subTest(overload=intrinsic):
+                self._render_intrinsic(intrinsic + "-overload", source, [.125,.75,.25,1.0], preserve=True)
+
+    def test_intrinsic_conversion_preserves_nonfloating_and_unknown_ownership(self) -> None:
+        cases = [
+            ("integer-weight", "", "ivec4 w=ivec4(1);", "mix(a,b,w)"),
+            ("boolean-weight", "", "bvec4 w=bvec4(true);", "mix(a,b,w)"),
+            ("integer-endpoints", "", "ivec3 x=ivec3(0),y=ivec3(1);", "mix(x,y,.5)"),
+            ("unknown-weight", "", "", "mix(a,b,unknownWeight())"),
+            ("mutating-weight", "", "vec4 w=vec4(.5);", "mix(a,b,w++)"),
+            ("value-shadow", "", "float mix=1.0;", "mix(a,b,vec4(.5))"),
+            ("peer-scope", "float peer(float weight){return weight;}", "", "mix(a,b,weight)"),
+            ("prototype", "vec3 mix(vec3 a,vec3 b,vec4 w);", "vec4 w=vec4(.5);", "mix(a,b,w)"),
+        ]
+        for name, helper, declaration, call in cases:
+            source = helper + "void main(){vec3 a=vec3(0.0),b=vec3(1.0);" + declaration
+            source += call + ";gl_FragColor=vec4(1.0);}"
+            with self.subTest(name=name):
+                root, output = self._analyze_intrinsic(name, source)
+                self.assertEqual(output["canonicalFragment"], source)
+                if name in ("integer-weight", "boolean-weight", "integer-endpoints",
+                            "unknown-weight", "peer-scope"):
+                    path = root / "source.frag"
+                    path.write_text(output["normalizedFragment"], encoding="utf-8")
+                    result = subprocess.run([str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                        str(path), "-o", str(root / "result.spv")], capture_output=True, text=True, timeout=30)
+                    (root / "compiler.json").write_text(json.dumps({"returncode": result.returncode,
+                        "stdout": result.stdout, "stderr": result.stderr}, indent=2))
+                    if name in ("unknown-weight", "peer-scope"):
+                        self.assertNotEqual(result.returncode, 0, name)
+
+
+if __name__ == "__main__":
+    unittest.main()

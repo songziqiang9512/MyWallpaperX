@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
-FIXTURES = (Path(__file__).resolve().parents[1] / "fixtures")
+FIXTURES = (Path(__file__).resolve().parents[2] / "fixtures")
 
 class SceneParticlePlaybackAuthorTests(unittest.TestCase):
     @classmethod

@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (
+from script.tests.scene.test_scene_shader_scalar_vector_builtin_canonicalization import (
     GLSLANG, HARNESS, REPOSITORY_ROOT, SWIFT_SOURCES,
 )
 

@@ -24,9 +24,9 @@ from script.tests import test_scene_static_model_reader as reader
 from script.tests import test_scene_directional_shadow_frame_owner as frame
 from script.tests import test_scene_directional_shadow as native
 from script.tests import test_scene_alpha_display_builder_fixture as builder
-from script.tests import test_scene_puppet_playback as puppet
-from script.tests import test_scene_puppet_animation as animation
-from script.tests import test_scene_puppet_mesh as puppet_mesh
+from script.tests.scene import test_scene_puppet_playback as puppet
+from script.tests.scene import test_scene_puppet_animation as animation
+from script.tests.scene import test_scene_puppet_mesh as puppet_mesh
 from script.tests.test_scene_direct_model_bind_geometry import build_bind_model
 from script.tests.test_scene_directional_shadow_integration import png, quad, make_package
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration

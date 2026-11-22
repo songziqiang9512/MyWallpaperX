@@ -29,8 +29,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Systems/Particles/SceneParticleRefractionPlan.swift",
     SCENE_ROOT / "Systems/Particles/SceneParticleAssetGraph.swift",
     SCENE_ROOT / "Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
-    Path(__file__).resolve().parents[1] / "fixtures/SceneParticleAmbientLightingChecks.swift",
-    Path(__file__).resolve().parents[1] / "fixtures/SceneTextureSamplingReadback.swift",
+    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleAmbientLightingChecks.swift",
+    Path(__file__).resolve().parents[2] / "fixtures/SceneTextureSamplingReadback.swift",
     Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -82,7 +82,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
 ]
 
-HARNESS_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleRefractionPixelsHarness.swift"
+HARNESS_SOURCE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleRefractionPixelsHarness.swift"
 HARNESS = HARNESS_SOURCE.read_text(encoding="utf-8")
 
 

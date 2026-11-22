@@ -35,7 +35,7 @@ from pathlib import Path
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 from script.tests.test_scene_static_model_reader import build_model
-from script.tests.test_scene_puppet_mesh import build_attachment_mdl, matrix as attachment_matrix
+from script.tests.scene.test_scene_puppet_mesh import build_attachment_mdl, matrix as attachment_matrix
 from script.tests.test_scene_effect_render_graph import (
     HARNESS as EFFECT_GRAPH_HARNESS,
     SWIFT_SOURCES as EFFECT_GRAPH_SOURCES,

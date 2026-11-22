@@ -128,7 +128,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_asset_catalog_resource_view.py",
             "script/tests/test_scene_material_render_state.py",
             "script/tests/test_scene_runtime_input.py",
-            "script/tests/test_scene_shader_contract.py",
+            "script/tests/scene/test_scene_shader_contract.py",
         ]
         planning_consumers = []
         for relative in resolution_consumers:
@@ -306,18 +306,18 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_resolved_material_pass_encoder.py",
             "script/tests/test_scene_resolved_material_program_derivation.py",
             "script/tests/test_scene_resolved_material_program_finalizer.py",
-            "script/tests/test_scene_shader_color_contract.py",
+            "script/tests/scene/test_scene_shader_color_contract.py",
         ]
         for relative in consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(consumer=relative):
                 if relative == "script/tests/support/scene_authored_shader_frontend_harness.py":
                     self.assertIn(
-                        "from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (",
+                        "from script.tests.scene.test_scene_shader_scalar_vector_builtin_canonicalization import (",
                         text,
                     )
                     self.assertIn("SWIFT_SOURCES = list(CANONICALIZER_SWIFT_SOURCES)", text)
-                    provider = (REPOSITORY_ROOT / "script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py").read_text()
+                    provider = (REPOSITORY_ROOT / "script/tests/scene/test_scene_shader_scalar_vector_builtin_canonicalization.py").read_text()
                     self.assertIn('scene_swift_sources("authored_shader_frontend_core")', provider)
                 else:
                     self.assertIn("scene_swift_source", text)
@@ -336,8 +336,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "script/tests/test_scene_resolved_material_program_finalizer.py",
             ],
             "shader_preprocessing_and_variant_implementation": [
-                "script/tests/test_scene_shader_preprocessor.py",
-                "script/tests/test_scene_shader_variant_environment.py",
+                "script/tests/scene/test_scene_shader_preprocessor.py",
+                "script/tests/scene/test_scene_shader_variant_environment.py",
             ],
             "shader_variant_environment": [
                 "script/tests/test_scene_resolved_material_pass_encoder.py",
