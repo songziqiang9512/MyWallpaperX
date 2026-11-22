@@ -139,7 +139,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             (sparkle / 'Resources').mkdir(parents=True)
             (sparkle / 'Resources/Info.plist').write_bytes(plistlib.dumps({
                 'CFBundleIdentifier': 'org.sparkle-project.Sparkle', 'CFBundleExecutable': 'Sparkle',
-                'CFBundlePackageType': 'FMWK', 'CFBundleShortVersionString': '2.9.2'}))
+                'CFBundlePackageType': 'FMWK', 'CFBundleShortVersionString': '2.10.1'}))
             shutil.copy2(binary, sparkle / 'Sparkle')
             (framework / 'Versions/Current').symlink_to('B')
             for name in ('Sparkle', 'Resources'):
@@ -372,7 +372,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             sparkle = app / 'Contents/Frameworks/Sparkle.framework/Versions/B'
             metadata = sparkle / 'Resources/Info.plist'
             metadata.parent.mkdir(parents=True)
-            metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.9.2'}))
+            metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.10.1'}))
             permissions = {
                 str(app): {'com.apple.security.automation.apple-events': True, 'com.apple.security.application-groups': ['TEAM.MWX']},
                 str(app / 'Contents/Resources/SteamService/SteamService'): {'com.apple.security.cs.allow-jit': True},
@@ -433,7 +433,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.10.0'}))
                 with self.assertRaisesRegex(RuntimeError, 'Sparkle version changed'):
                     validator.validate_codesign(app, 'TEAM')
-                metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.9.2'}))
+                metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.10.1'}))
                 for invalid in [details.replace('TeamIdentifier=TEAM', 'TeamIdentifier=OTHER'),
                                 details.replace('Authority=Developer ID Application:', 'Authority=Apple Development:'),
                                 details.replace('(runtime)', '()'), details.replace('Timestamp=fixture', '')]:

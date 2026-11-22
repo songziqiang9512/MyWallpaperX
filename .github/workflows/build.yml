@@ -359,7 +359,7 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          SPARKLE_VERSION="2.9.2"
+          SPARKLE_VERSION="2.10.1"
           SPARKLE_DIR="$RUNNER_TEMP/sparkle"
           FEED_DIR="$RUNNER_TEMP/sparkle-feed"
           DOWNLOAD_PREFIX="https://github.com/${GITHUB_REPOSITORY}/releases/download/build-${MARKETING_VERSION}/"

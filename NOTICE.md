@@ -18,7 +18,7 @@ MyWallpaperX 项目自有代码（另有许可声明者除外）按 **GNU Genera
 | QuickJS-NG | [MIT 许可与原作者版权声明](MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE)，随 App 保留在 `Contents/Resources/QuickJSNG/LICENSE` |
 | glslang | [编译工具随包许可](MyWallpaperX/Resources/SceneShaderCompilerLicenses.bundle/Contents/Resources/glslang/LICENSE.txt) |
 | SPIRV-Cross | [编译工具随包许可](MyWallpaperX/Resources/SceneShaderCompilerLicenses.bundle/Contents/Resources/spirv-cross/LICENSE) |
-| Sparkle | [上游许可](https://github.com/sparkle-project/Sparkle/blob/2.9.2/LICENSE)；版本由 Xcode 的 `Package.resolved` 锁定，随 framework 保留原声明 |
+| Sparkle | [上游许可](https://github.com/sparkle-project/Sparkle/blob/2.10.1/LICENSE)；版本由 Xcode 的 `Package.resolved` 锁定，随 framework 保留原声明 |
 | Scene 公共字体、图像及其他素材 | `MyWallpaperX/Resources/SceneStockAssets.bundle/Licenses/` 及资源附带声明；打包规则见 [App 内容与体积](docs/release/bundle-content.md) |
 | 演示视频、项目图标与截图 | 不因项目代码采用 GPL 而改变原有权利归属；分发前应确认对应授权 |
 

@@ -31,10 +31,10 @@ THIRD_PARTY_HELPERS = {
 }
 SYSTEM_DEPENDENCY_PREFIXES = ("/usr/lib/", "/System/Library/")
 SAFE_RPATH_PREFIXES = ("@executable_path/", "@loader_path/")
-# Stock Sparkle 2.9.2 has no sandboxed Downloader. Custom sandboxing needs a
+# Stock Sparkle 2.10.1 has no sandboxed Downloader. Custom sandboxing needs a
 # source build and bundle ID, per https://sparkle-project.org/documentation/sandboxing/.
 # These exact claims were read from the checksum-pinned SPM distribution.
-SPARKLE_RELEASE_VERSION = "2.9.2"
+SPARKLE_RELEASE_VERSION = "2.10.1"
 SPARKLE_SIGNED_ENTITLEMENTS = {
     "XPCServices/Installer.xpc": {},
     "XPCServices/Downloader.xpc": {},

@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 import unittest
 
@@ -58,6 +59,24 @@ class SceneShaderCompilerProductManifestTests(unittest.TestCase):
                 rf"{file_name} in CopyFiles.*CodeSignOnCopy",
             )
         self.assertIn("dstPath = Contents/Helpers;", project)
+
+    def test_helpers_meet_deployment_target(self):
+        project = PROJECT.read_text(encoding="utf-8")
+        match = re.search(r"MACOSX_DEPLOYMENT_TARGET = ([0-9.]+);", project)
+        self.assertIsNotNone(match, "project deployment target is missing")
+        target = tuple(int(part) for part in match.group(1).split("."))
+        for file_name in ("glslang", "spirv-cross"):
+            output = subprocess.run(
+                ["/usr/bin/vtool", "-show-build", str(TOOL_ROOT / file_name)],
+                check=True, capture_output=True, text=True,
+            ).stdout
+            minos = re.search(r"minos ([0-9.]+)", output)
+            self.assertIsNotNone(minos, output)
+            actual = tuple(int(part) for part in minos.group(1).split("."))
+            self.assertLessEqual(
+                actual, target,
+                f"{file_name} minos {minos.group(1)} exceeds deployment target {match.group(1)}",
+            )
 
     def test_all_declared_upstream_licenses_are_bundled(self):
         development = json.loads(DEVELOPMENT_MANIFEST.read_text(encoding="utf-8"))

@@ -585,10 +585,10 @@ void main() {{
             )
             manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
             manifest_payload["tools"]["glslang"]["versionProbeContains"] = (
-                "Glslang Version: 11:16.4.0"
+                "Glslang Version: 11:16.6.0"
             )
             manifest_payload["tools"]["spirvCross"]["versionProbeContains"] = (
-                "Git commit: vulkan-sdk-1.4.357.0"
+                "Git commit: vulkan-sdk-1.4.363.0"
             )
             manifest_payload["tools"]["spirvCross"]["versionProbeExitCode"] = 1
             manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
