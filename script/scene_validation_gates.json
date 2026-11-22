@@ -2704,7 +2704,8 @@
         "AGENTS.md",
         "MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md",
         "script/document_links.py",
-        "script/tests/test_document_links.py"
+        "script/tests/test_document_links.py",
+        "script/README.md"
       ],
       "modules": [
         "test_document_role_index",
@@ -2891,7 +2892,10 @@
         "script/check_code_health.py",
         ".swift-format",
         "ruff.toml",
-        "script/format_swift_changed.py"
+        "script/format_swift_changed.py",
+        "script/scene_puppet_interaction_matrix.json",
+        "script/tests/fixtures/SceneSignalCapabilitySupport.swift",
+        "script/web_wallpaper_property_replay_gate.json"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -5822,6 +5826,20 @@
       "modules": [
         "test_scene_particle_control_point_components",
         "test_scene_particle_rendering"
+      ]
+    },
+    {
+      "id": "visual-evidence-tools",
+      "patterns": [
+        "script/web_benchmark_capture.py",
+        "script/scene_preview_visual_evidence.py",
+        "script/scene_sample_snapshot.py"
+      ],
+      "modules": [
+        "test_web_benchmark_capture",
+        "test_web_benchmark_scoring",
+        "test_scene_wallpaper_sample_run",
+        "test_scene_wallpaper_preview"
       ]
     }
   ],
