@@ -1,0 +1,594 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuffer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift",
+]
+
+
+HARNESS_SOURCE = r'''
+import Foundation
+import simd
+
+@main
+enum Harness {
+    static func main() throws {
+        let result: [String: Any] = [
+            "profiles": profileContract(),
+            "topology": topologyContract(),
+            "repeatedSpans": repeatedSpanContract(),
+            "scaledGeometry": scaledGeometryContract(),
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: result,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func profileContract() -> [String: Any] {
+        let basic = plan(["name": "rope"], maximumCount: 3)
+        let explicitDefaults = plan([
+            "name": "rope",
+            "orientation": "screen",
+            "subdivision": 0,
+            "uvsmoothing": false,
+            "uvscrolling": false,
+        ], maximumCount: 512)
+        let uvProfile = plan([
+            "name": "rope", "uvscale": 2,
+            "uvscrolling": true, "uvsmoothing": false,
+        ], maximumCount: 50)
+        let subdivisionProfile = plan([
+            "name": "rope", "subdivision": 3,
+        ], maximumCount: 32)
+        // The pointer-trail family profile (all six corpus shapes with this
+        // form): renderer flag bit0, authored subdivision ceiling, and the
+        // worst-case generated-segment count all stay inside the admission.
+        let authoredTrailProfile = plan([
+            "name": "rope", "flags": 1, "subdivision": 100,
+        ], maximumCount: 256)
+        let smoothingProfile = plan([
+            "name": "rope", "uvsmoothing": true,
+        ], maximumCount: 3)
+        let rejected = [
+            plan(["name": "rope", "orientation": "upright"], maximumCount: 3),
+            plan(["name": "rope", "axis": "0 0 1"], maximumCount: 3),
+            // Only flag bit0 is admitted; other bits stay rejected.
+            plan(["name": "rope", "flags": 2], maximumCount: 3),
+            plan(["name": "rope", "flags": 3], maximumCount: 3),
+            plan(["name": "rope", "length": 1], maximumCount: 3),
+            plan(["name": "rope", "minlength": 1], maximumCount: 3),
+            plan(["name": "rope", "maxlength": 1], maximumCount: 3),
+            plan(["name": "rope", "segments": 2], maximumCount: 3),
+            plan(["name": "rope", "subdivision": -1], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 1.5], maximumCount: 3),
+            // The authored subdivision ceiling and the segment budget stay
+            // hard bounds: 101 exceeds the profile, and subdivision 100 with
+            // maxcount 512 exceeds the generated-segment budget.
+            plan(["name": "rope", "subdivision": 101], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 100], maximumCount: 512),
+            plan(["name": "rope", "subdivision": 7], maximumCount: 513),
+            plan(["name": "rope", "fadealpha": false], maximumCount: 3),
+            plan(["name": "rope", "fadesize": false], maximumCount: 3),
+            plan(["name": "rope", "uvscale": 0], maximumCount: 3),
+            plan(["name": "rope", "uvscale": -1], maximumCount: 3),
+            plan(["name": "rope", "uvscale": 2048], maximumCount: 3),
+            plan(["name": "rope", "futurefield": 1], maximumCount: 3),
+            plan(["name": "rope"], maximumCount: 0),
+            plan(["name": "rope"], maximumCount: 1),
+            plan(["name": "rope"], maximumCount: 513),
+        ]
+        let malformed = definition([
+            "name": "rope",
+            "subdivision": "bad",
+        ], maximumCount: 3)
+        let multiple = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 3,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [["name": "rope"], ["name": "sprite"]],
+        ])
+        let peerRendererPreservesPlan: Bool = {
+            guard let renderer = multiple.renderers.first else { return false }
+            return SceneParticleRopePlan(
+                renderer: renderer,
+                maximumParticleCount: multiple.maximumCount ?? 1
+            ) != nil
+        }()
+        return [
+            "basicAccepted": basic != nil,
+            "basicLimit": basic?.particleLimit ?? -1,
+            "defaultSubdivision": basic?.subdivisionCount ?? -1,
+            "explicitDefaultsAccepted": explicitDefaults != nil,
+            "budgetBoundary": explicitDefaults?.particleLimit ?? -1,
+            "uvProfileAccepted": uvProfile != nil,
+            "uvScale": uvProfile?.uvScale ?? -1,
+            "subdivisionProfileAccepted": subdivisionProfile != nil,
+            "subdivisionCount": subdivisionProfile?.subdivisionCount ?? -1,
+            "authoredTrailProfileAccepted": authoredTrailProfile != nil,
+            "authoredTrailSubdivision": authoredTrailProfile?.subdivisionCount ?? -1,
+            "authoredTrailSegments": authoredTrailProfile?.maximumGeneratedSegments ?? -1,
+            "smoothingProfileAccepted": smoothingProfile != nil,
+            "allUnsupportedRejected": rejected.allSatisfy { $0 == nil },
+            "malformedFlagged": malformed.renderers.first?.hasMalformedFields == true,
+            "malformedRejected": planFromDefinition(malformed) == nil,
+            "peerRendererPreservesPlan": peerRendererPreservesPlan,
+        ]
+    }
+
+    private static func topologyContract() -> [String: Any] {
+        let value = plan(["name": "rope", "subdivision": 0], maximumCount: 3)!
+        let instances = value.instances(
+            particles: [
+                particle(id: 2, position: SIMD3(20, 10, 0), size: 6, alpha: 0.25),
+                particle(id: 0, position: SIMD3(0, 0, 0), size: 2, alpha: 0.5),
+                particle(id: 1, position: SIMD3(10, 0, 0), size: 4, alpha: 1),
+            ],
+            layerAlpha: 0.5
+        )
+        let duplicateIDs = value.instances(
+            particles: [
+                particle(id: 1, position: SIMD3(0, 0, 0)),
+                particle(id: 1, position: SIMD3(1, 0, 0)),
+            ],
+            layerAlpha: 1
+        )
+        let nonfinite = value.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0)),
+                particle(id: 1, position: SIMD3(.infinity, 0, 0)),
+            ],
+            layerAlpha: 1
+        )
+        let overBudget = value.instances(
+            particles: (0..<4).map {
+                particle(id: UInt64($0), position: SIMD3(Double($0), 0, 0))
+            },
+            layerAlpha: 1
+        )
+        let curved = plan(["name": "rope", "subdivision": 3], maximumCount: 3)!
+            .instances(
+                particles: [
+                    particle(id: 0, position: SIMD3(0, 0, 0)),
+                    particle(id: 1, position: SIMD3(10, 0, 0)),
+                    particle(id: 2, position: SIMD3(10, 10, 0)),
+                ],
+                layerAlpha: 1
+            )
+        let scrolling = plan([
+            "name": "rope", "subdivision": 0, "uvscale": 2,
+            "uvscrolling": true, "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0),
+            ],
+            layerAlpha: 1,
+            simulationTime: 2.25
+        )
+        let smoothed = plan([
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0),
+            ],
+            layerAlpha: 1
+        )
+        let smoothingFallback = plan([
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8, lifetime: 1),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4, lifetime: 2),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0, lifetime: 1),
+            ],
+            layerAlpha: 1
+        )
+        let translated = value.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0)),
+                particle(id: 1, position: SIMD3(10, 0, 0)),
+            ],
+            origin: SIMD3(100, 20, 0),
+            particleOrigins: [1: SIMD3(120, 20, 0)],
+            layerAlpha: 1
+        )
+        return [
+            "count": instances.count,
+            "positions": instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y]
+            },
+            "sizes": instances.map(\.positionAndSize.w),
+            "alphas": instances.map(\.rotationAndAlpha.w),
+            "displacements": instances.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y]
+            },
+            "uvRanges": instances.map { [$0.frame0B.z, $0.frame0B.w] },
+            "uvContinuous": instances.count == 2
+                && abs(instances[0].frame0B.w - instances[1].frame0B.z) < 0.0001,
+            "usesDisplacement": instances.allSatisfy { $0.frame1B.z == 1 },
+            "duplicateRejected": duplicateIDs.isEmpty,
+            "nonfiniteRejected": nonfinite.isEmpty,
+            "overBudgetRejected": overBudget.isEmpty,
+            "subdivisionCount": curved.count,
+            "subdivisionCurves": curved.contains {
+                abs($0.positionAndSize.y) > 0.0001
+                    && abs($0.velocityAndTrail.x) > 0.0001
+                    && abs($0.velocityAndTrail.y) > 0.0001
+            },
+            "subdivisionUVContinuous": zip(curved, curved.dropFirst()).allSatisfy {
+                abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
+            },
+            "scrollingUVRanges": scrolling.map { [$0.frame0B.z, $0.frame0B.w] },
+            "smoothedUVRanges": smoothed.map { [$0.frame0B.z, $0.frame0B.w] },
+            "fallbackUVRanges": smoothingFallback.map { [$0.frame0B.z, $0.frame0B.w] },
+            "translatedPosition": translated.first.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y]
+            } ?? [],
+        ]
+    }
+
+    private static func repeatedSpanContract() -> [String: Any] {
+        let straight = plan(["name": "rope", "subdivision": 0], maximumCount: 6)!
+        let nodes = [
+            particle(id: 0, position: .zero, size: 2, alpha: 0.5,
+                     color: SIMD3(1, 0, 0), age: 0.8),
+            particle(id: 1, position: SIMD3(10, 0, 0), size: 4,
+                     color: SIMD3(0, 1, 0), age: 0.6),
+            particle(id: 2, position: SIMD3(10, 0, 0), size: 80, alpha: 0,
+                     color: SIMD3(9, 8, 7), age: 0.4),
+            particle(id: 3, position: SIMD3(20, 0, 0), size: 6, alpha: 0.25,
+                     color: SIMD3(0, 0, 1)),
+        ]
+        let repeated = straight.instances(particles: nodes, layerAlpha: 0.5)
+        let allEnds = straight.instances(particles: [
+            particle(id: 0, position: .zero),
+            particle(id: 1, position: .zero),
+            particle(id: 2, position: SIMD3(10, 0, 0)),
+            particle(id: 3, position: SIMD3(10, 0, 0)),
+            particle(id: 4, position: SIMD3(20, 0, 0)),
+            particle(id: 5, position: SIMD3(20, 0, 0)),
+        ], layerAlpha: 1)
+        let allCoincident = straight.instances(particles: (0..<6).map {
+            particle(id: UInt64($0), position: .zero)
+        }, layerAlpha: 1)
+        let renamed = nodes.enumerated().map { index, item in
+            particle(id: UInt64(101 + index * 7), position: item.position,
+                     size: item.size, alpha: item.alpha, color: item.color,
+                     age: item.age, lifetime: item.lifetime)
+        }
+        let reordered = straight.instances(particles: Array(renamed.reversed()), layerAlpha: 0.5)
+        let smooth = plan([
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
+        ], maximumCount: 6)!
+        let lifetime = smooth.instances(particles: nodes, layerAlpha: 1)
+        var unequalLifetimes = nodes
+        unequalLifetimes[1].lifetime = 2
+        let fallback = smooth.instances(particles: unequalLifetimes, layerAlpha: 1)
+        let scrolling = plan([
+            "name": "rope", "subdivision": 0, "uvscale": 2,
+            "uvsmoothing": true, "uvscrolling": true,
+        ], maximumCount: 6)!.instances(particles: nodes, layerAlpha: 1, simulationTime: 2.25)
+        let curved = plan(["name": "rope", "subdivision": 3], maximumCount: 6)!
+            .instances(particles: nodes, layerAlpha: 0.5)
+        let defaultCurve = plan(["name": "rope"], maximumCount: 6)!
+            .instances(particles: nodes, layerAlpha: 0.5)
+        func ranges(_ values: [SceneParticleGPUInstance]) -> [[Float]] {
+            values.map { [$0.frame0B.z, $0.frame0B.w] }
+        }
+        func signature(_ values: [SceneParticleGPUInstance]) -> [[SIMD4<Float>]] {
+            values.map { [
+                $0.positionAndSize, $0.rotationAndAlpha, $0.colorAndFrameMix,
+                $0.frame0A, $0.frame0B, $0.frame1A, $0.frame1B,
+                $0.velocityAndTrail, $0.trailHeadJoin, $0.trailTailJoin,
+            ] }
+        }
+        return [
+            "innerUVRanges": ranges(repeated),
+            "endUVRanges": ranges(allEnds),
+            "allCoincidentCount": allCoincident.count,
+            "positions": repeated.map { [$0.positionAndSize.x, $0.positionAndSize.y] },
+            "sizes": repeated.map(\.positionAndSize.w),
+            "colors": repeated.map { [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z] },
+            "alphas": repeated.map(\.rotationAndAlpha.w),
+            "endpointHalfWidths": repeated.map { [$0.trailTailJoin.w, $0.trailHeadJoin.w] },
+            "renamedAndReorderedMatches": signature(repeated) == signature(reordered),
+            "lifetimeUVRanges": ranges(lifetime),
+            "fallbackUVRanges": ranges(fallback),
+            "scrollingUVRanges": ranges(scrolling),
+            "curvedCount": curved.count,
+            "middleCurveDisplacements": curved.dropFirst(4).prefix(4).map { $0.velocityAndTrail.x },
+            "curvedUVContinuous": zip(curved, curved.dropFirst()).allSatisfy {
+                abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
+            },
+            "defaultMatchesSubdivisionThree": signature(defaultCurve) == signature(curved),
+        ]
+    }
+
+    private static func scaledGeometryContract() -> [String: Any] {
+        let ribbon = plan(["name": "rope", "subdivision": 0], maximumCount: 3)!
+        let local = [
+            particle(id: 0, position: SIMD3(1, 2, 3), size: 2),
+            particle(id: 1, position: SIMD3(5, 6, 7), size: 4),
+            particle(id: 2, position: SIMD3(9, 2, 11), size: 6),
+        ]
+        let scaled = ribbon.instances(
+            particles: local, origin: SIMD3(10, 20, 30),
+            particleOrigins: [1: SIMD3(40, 50, 60)],
+            scale: SIMD3(2, 2, 3), layerAlpha: 1
+        )
+        let worldNodes = [
+            particle(id: 0, position: SIMD3(12, 24, 39), size: 4),
+            particle(id: 1, position: SIMD3(50, 62, 81), size: 8),
+            particle(id: 2, position: SIMD3(28, 24, 63), size: 12),
+        ]
+        func signature(_ instances: [SceneParticleGPUInstance]) -> [[Float]] {
+            instances.map { item in [
+                item.positionAndSize.x, item.positionAndSize.y,
+                item.positionAndSize.z, item.positionAndSize.w,
+                item.velocityAndTrail.x, item.velocityAndTrail.y,
+                item.velocityAndTrail.z, item.velocityAndTrail.w,
+                item.frame0B.z, item.frame0B.w, item.rotationAndAlpha.w,
+            ] }
+        }
+        let smooth = plan(["name": "rope", "subdivision": 3], maximumCount: 3)!
+        let smoothScaled = smooth.instances(
+            particles: local, origin: SIMD3(10, 20, 30),
+            particleOrigins: [1: SIMD3(40, 50, 60)],
+            scale: SIMD3(2, 2, 3), layerAlpha: 1
+        )
+        return [
+            "positions": scaled.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            },
+            "displacements": scaled.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
+            },
+            "halfWidths": scaled.map(\.positionAndSize.w),
+            "matchesExplicitWorldNodes": signature(scaled)
+                == signature(ribbon.instances(particles: worldNodes, layerAlpha: 1)),
+            "curvedCount": smoothScaled.count,
+            "curvedMatchesExplicitWorldNodes": signature(smoothScaled)
+                == signature(smooth.instances(particles: worldNodes, layerAlpha: 1)),
+            "rootIdentityUnchanged": signature(ribbon.instances(particles: local, layerAlpha: 1))
+                == signature(ribbon.instances(
+                    particles: local, scale: SIMD3(repeating: 1), layerAlpha: 1
+                )),
+        ]
+    }
+
+    private static func particle(
+        id: UInt64,
+        position: SIMD3<Double>,
+        size: Double = 2,
+        alpha: Double = 1,
+        color: SIMD3<Double> = SIMD3(0.5, 0.75, 1),
+        age: Double = 0,
+        lifetime: Double = 1
+    ) -> SceneParticleState {
+        SceneParticleState(
+            id: id,
+            position: position,
+            velocity: .zero,
+            color: color,
+            alpha: alpha,
+            size: size,
+            rotation: .zero,
+            angularVelocity: .zero,
+            age: age,
+            lifetime: lifetime,
+            initialColor: color,
+            initialAlpha: alpha,
+            initialSize: size
+        )
+    }
+
+    private static func plan(
+        _ renderer: [String: Any],
+        maximumCount: Int
+    ) -> SceneParticleRopePlan? {
+        planFromDefinition(definition(renderer, maximumCount: maximumCount))
+    }
+
+    private static func planFromDefinition(
+        _ definition: SceneParticleDefinition
+    ) -> SceneParticleRopePlan? {
+        guard let renderer = definition.renderers.first else { return nil }
+        return SceneParticleRopePlan(
+            renderer: renderer,
+            maximumParticleCount: definition.maximumCount ?? 1
+        )
+    }
+
+    private static func definition(
+        _ renderer: [String: Any],
+        maximumCount: Int
+    ) -> SceneParticleDefinition {
+        SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": maximumCount,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [renderer],
+        ])
+    }
+}
+'''
+
+
+class SceneParticleRopeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-particle-rope-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-rope"
+        environment = os.environ.copy()
+        module_cache = directory / "module-cache"
+        environment["CLANG_MODULE_CACHE_PATH"] = str(module_cache)
+        environment["SWIFT_MODULECACHE_PATH"] = str(module_cache)
+        compilation = subprocess.run(
+            [
+                swiftc,
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_only_bounded_public_profiles_are_admitted(self) -> None:
+        profiles = self.result["profiles"]
+        self.assertTrue(profiles["basicAccepted"])
+        self.assertEqual(profiles["basicLimit"], 3)
+        self.assertEqual(profiles["defaultSubdivision"], 3)
+        self.assertTrue(profiles["explicitDefaultsAccepted"])
+        self.assertEqual(profiles["budgetBoundary"], 512)
+        self.assertTrue(profiles["uvProfileAccepted"])
+        self.assertEqual(profiles["uvScale"], 2)
+        self.assertTrue(profiles["subdivisionProfileAccepted"])
+        self.assertEqual(profiles["subdivisionCount"], 3)
+        self.assertTrue(profiles["authoredTrailProfileAccepted"])
+        self.assertEqual(profiles["authoredTrailSubdivision"], 100)
+        self.assertEqual(profiles["authoredTrailSegments"], 25_755)
+        self.assertTrue(profiles["smoothingProfileAccepted"])
+        self.assertTrue(profiles["allUnsupportedRejected"])
+        self.assertTrue(profiles["malformedFlagged"])
+        self.assertTrue(profiles["malformedRejected"])
+        self.assertTrue(profiles["peerRendererPreservesPlan"])
+
+    def test_spawn_order_builds_adjacent_segments_with_continuous_uv(self) -> None:
+        topology = self.result["topology"]
+        self.assertEqual(topology["count"], 2)
+        self.assertEqual(topology["positions"], [[5, 0], [15, 5]])
+        self.assertEqual(topology["sizes"], [1.5, 2.5])
+        self.assertEqual(topology["displacements"], [[10, 0], [10, 10]])
+        self.assertEqual(topology["uvRanges"], [[0, 0.5], [0.5, 1]])
+        self.assertTrue(topology["uvContinuous"])
+        self.assertTrue(topology["usesDisplacement"])
+        self.assertAlmostEqual(topology["alphas"][0], 0.375, places=6)
+        self.assertAlmostEqual(topology["alphas"][1], 0.3125, places=6)
+
+    def test_invalid_or_over_budget_topology_fails_closed(self) -> None:
+        topology = self.result["topology"]
+        self.assertTrue(topology["duplicateRejected"])
+        self.assertTrue(topology["nonfiniteRejected"])
+        self.assertTrue(topology["overBudgetRejected"])
+
+    def test_subdivision_and_uv_options_are_bounded_and_continuous(self) -> None:
+        topology = self.result["topology"]
+        self.assertEqual(topology["subdivisionCount"], 8)
+        self.assertTrue(topology["subdivisionCurves"])
+        self.assertTrue(topology["subdivisionUVContinuous"])
+        self.assertEqual(topology["scrollingUVRanges"], [[0.25, 1.25], [1.25, 2.25]])
+        for actual, expected in zip(
+            topology["smoothedUVRanges"], [[0.2, 0.6], [0.6, 1]], strict=True
+        ):
+            self.assertAlmostEqual(actual[0], expected[0], places=6)
+            self.assertAlmostEqual(actual[1], expected[1], places=6)
+        self.assertEqual(topology["fallbackUVRanges"], [[0, 0.5], [0.5, 1]])
+        self.assertEqual(topology["translatedPosition"], [115, 20])
+
+    def test_legal_child_scale_prepares_3d_nodes_before_the_existing_spline(self) -> None:
+        result = self.result["scaledGeometry"]
+        self.assertEqual(result["positions"], [[31, 43, 60], [39, 43, 72]])
+        self.assertEqual(result["displacements"], [[38, 38, 42], [-22, -38, -18]])
+        self.assertEqual(result["halfWidths"], [3, 5])
+        self.assertTrue(result["matchesExplicitWorldNodes"])
+        self.assertEqual(result["curvedCount"], 8)
+        self.assertTrue(result["curvedMatchesExplicitWorldNodes"])
+        self.assertTrue(result["rootIdentityUnchanged"])
+
+    def test_repeated_spans_keep_first_sample_geometry_and_appearance(self) -> None:
+        result = self.result["repeatedSpans"]
+        self.assertEqual(result["positions"], [[5, 0], [15, 0]])
+        self.assertEqual(result["sizes"], [1.5, 2.5])
+        self.assertEqual(result["colors"], [[0.5, 0.5, 0], [0, 0.5, 0.5]])
+        self.assertEqual(result["alphas"], [0.375, 0.3125])
+        self.assertEqual(result["endpointHalfWidths"], [[1, 2], [2, 3]])
+        self.assertEqual(result["allCoincidentCount"], 0)
+        self.assertTrue(result["renamedAndReorderedMatches"])
+
+    def test_repeated_spans_keep_literal_uv_endpoints_and_existing_uv_modes(self) -> None:
+        result = self.result["repeatedSpans"]
+        for key, expected in (
+            ("innerUVRanges", [[0, 0.3333333333333333], [0.6666666666666666, 1]]),
+            ("endUVRanges", [[0.2, 0.4], [0.6, 0.8]]),
+            ("lifetimeUVRanges", [[0.2, 0.4], [0.6, 1]]),
+            ("fallbackUVRanges", [[0, 0.3333333333333333], [0.6666666666666666, 1]]),
+            ("scrollingUVRanges", [[0.25, 0.9166666666666666], [1.5833333333333333, 2.25]]),
+        ):
+            with self.subTest(mode=key):
+                self.assertEqual(len(result[key]), len(expected))
+                for actual, endpoints in zip(result[key], expected, strict=True):
+                    self.assertAlmostEqual(actual[0], endpoints[0], places=6)
+                    self.assertAlmostEqual(actual[1], endpoints[1], places=6)
+
+    def test_repeated_nodes_keep_original_subdivision_curve_and_default(self) -> None:
+        result = self.result["repeatedSpans"]
+        self.assertEqual(result["curvedCount"], 12)
+        self.assertEqual(result["middleCurveDisplacements"], [0.46875, -0.46875, -0.46875, 0.46875])
+        self.assertTrue(result["curvedUVContinuous"])
+        self.assertTrue(result["defaultMatchesSubdivisionThree"])
+
+
+if __name__ == "__main__":
+    unittest.main()

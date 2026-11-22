@@ -1,0 +1,986 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuffer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+]
+
+
+HARNESS_SOURCE = r'''
+import Foundation
+import simd
+
+@main
+enum Harness {
+    static func main() throws {
+        let result: [String: Any] = [
+            "profiles": profileContract(),
+            "history": historyContract(),
+            "largeHistory": largeHistoryContract(),
+            "subdivision": subdivisionContract(),
+            "appearance": appearanceContract(),
+            "growingTexture": growingTextureContract(),
+            "pausedTexture": pausedTextureContract(),
+            "churnBudget": churnBudgetContract(),
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: result,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func profileContract() -> [String: Any] {
+        let defaultProfile = plan([
+            "name": "ropetrail",
+            "length": 0.4,
+        ], maximumCount: 35)
+        let fadeProfile = plan([
+            "name": "ropetrail",
+            "length": 0.5,
+            "segments": 6,
+            "fadealpha": true,
+        ], maximumCount: 16)
+        let longProfile = plan([
+            "name": "ropetrail",
+            "length": 3,
+        ], maximumCount: 100)
+        let budgetBoundary = plan([
+            "name": "ropetrail",
+            "length": 30,
+            "segments": 16,
+            "subdivision": 0,
+        ], maximumCount: 3855)
+
+        let rejectedRenderers: [[String: Any]] = [
+            ["name": "ropetrail", "length": 0],
+            ["name": "ropetrail", "length": -1],
+            ["name": "ropetrail", "length": 1, "segments": 0],
+            ["name": "ropetrail", "length": 1, "segments": 65536],
+            ["name": "ropetrail", "length": 1, "orientation": "upright"],
+            ["name": "ropetrail", "length": 1, "axis": "0 0 1"],
+            ["name": "ropetrail", "length": 1, "flags": 2],
+            ["name": "ropetrail", "length": 1, "flags": 3],
+            ["name": "ropetrail", "length": 1, "minlength": 0.1],
+            ["name": "ropetrail", "length": 1, "maxlength": 2],
+            ["name": "ropetrail", "length": 1, "uvscale": 1],
+            ["name": "ropetrail", "length": 1, "uvsmoothing": false],
+            ["name": "ropetrail", "length": 1, "uvscrolling": false],
+            ["name": "ropetrail", "length": 1, "fadesize": true],
+            ["name": "ropetrail", "length": 1, "futurefield": 1],
+            ["name": "ropetrail", "length": 1, "subdivision": Double.nan],
+            ["name": "ropetrail", "length": 1, "subdivision": Double.infinity],
+        ]
+        let rejected = rejectedRenderers.map { plan($0, maximumCount: 1) == nil } + [
+            plan([
+                "name": "ropetrail", "length": 1,
+            ], maximumCount: 0) == nil,
+            plan([
+                "name": "ropetrail", "length": 1,
+            ], maximumCount: 13108) == nil,
+            plan([
+                "name": "ropetrail", "length": 30, "segments": 16, "subdivision": 0,
+            ], maximumCount: 3856) == nil,
+        ]
+
+        let malformedRenderers: [[String: Any]] = [
+            ["name": "ropetrail", "length": 1, "segments": 1.5],
+            ["name": "ropetrail", "length": 1, "fadealpha": "true"],
+            ["name": "ropetrail", "length": 1, "fadealpha": 1],
+            ["name": "ropetrail", "length": 1, "fadesize": 0],
+            ["name": "ropetrail", "length": "bad"],
+        ]
+        let malformedDefinitions = malformedRenderers.map { definition($0, maximumCount: 1) }
+        let multipleRenderers = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 1,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [
+                ["name": "ropetrail", "length": 1],
+                ["name": "sprite"],
+            ],
+        ])
+        let peerRendererPreservesPlan: Bool = {
+            guard let renderer = multipleRenderers.renderers.first else { return false }
+            return SceneParticleRopeTrailPlan(
+                renderer: renderer,
+                maximumParticleCount: 1
+            ) != nil
+        }()
+        let explicitObjectRenderer = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 1,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": ["name": "ropetrail", "length": 1],
+        ])
+        let onlyMalformedRenderer = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 1,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [NSNull()],
+        ])
+        let explicitEmptyRenderer = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 1,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [],
+        ])
+
+        return [
+            "defaultAccepted": defaultProfile != nil,
+            "defaultSegments": defaultProfile?.segmentCount ?? -1,
+            "defaultFade": defaultProfile?.fadesAlpha ?? true,
+            "fadeAccepted": fadeProfile != nil,
+            "fadeSegments": fadeProfile?.segmentCount ?? -1,
+            "fadeEnabled": fadeProfile?.fadesAlpha ?? false,
+            "longAccepted": longProfile != nil,
+            "omittedLength": plan(["name": "ropetrail"], maximumCount: 1)?.length ?? -1,
+            "worldRendererAccepted": plan(["name": "ropetrail", "length": 1, "flags": 1], maximumCount: 1) != nil,
+            "budgetBoundaryAccepted": budgetBoundary != nil,
+            "allUnsupportedRejected": rejected.allSatisfy { $0 },
+            "malformedFlagged": malformedDefinitions.allSatisfy {
+                $0.renderers.first?.hasMalformedFields == true
+            },
+            "malformedDiagnosed": malformedDefinitions.allSatisfy {
+                $0.diagnostics.contains { $0.kind == .malformedComponent }
+            },
+            "malformedRejected": malformedDefinitions.allSatisfy {
+                guard let renderer = $0.renderers.first else { return false }
+                return SceneParticleRopeTrailPlan(
+                    renderer: renderer,
+                    maximumParticleCount: $0.maximumCount ?? 1
+                ) == nil
+            },
+            "peerRendererPreservesPlan": peerRendererPreservesPlan,
+            "explicitObjectRendererRejected": !explicitObjectRenderer.rendererWasImplicit
+                && explicitObjectRenderer.renderers.isEmpty
+                && explicitObjectRenderer.diagnostics.contains {
+                    $0.kind == .malformedComponent && $0.path == "renderer"
+                },
+            "onlyMalformedRendererRejected": !onlyMalformedRenderer.rendererWasImplicit
+                && onlyMalformedRenderer.renderers.isEmpty
+                && onlyMalformedRenderer.diagnostics.contains {
+                    $0.kind == .malformedComponent && $0.path == "renderer[0]"
+                },
+            "explicitEmptyRendererRejected": !explicitEmptyRenderer.rendererWasImplicit
+                && explicitEmptyRenderer.renderers.isEmpty,
+        ]
+    }
+
+    private static func growingTextureContract() -> [[String: Any]] {
+        let profile = plan([
+            "name": "ropetrail", "length": 4, "segments": 4, "subdivision": 0,
+        ], maximumCount: 1)!
+        var history = SceneParticleRopeTrailHistory(plan: profile)
+        var rows: [[String: Any]] = []
+        for step in 0...24 {
+            let time = Float(step) / 4
+            let output = history.advance(by: step == 0 ? 0 : 0.25,
+                particles: [particle(id: 1, x: cos(time), y: sin(time))], layerAlpha: 1)
+            guard step == 1 || step == 4 || step == 16 || step == 24 else { continue }
+            // A texture's two end caps and center must remain present while
+            // the path grows, then slides through its bounded history window.
+            let ranges = output.map { SIMD2($0.frame0B.z, $0.frame0B.w) }
+            rows.append([
+                "tail": ranges.map(\.x).min() ?? -1,
+                "head": ranges.map(\.y).max() ?? -1,
+                "continuous": zip(ranges, ranges.dropFirst()).allSatisfy {
+                    abs($0.x - $1.y) < 0.00001
+                },
+                "centerCovered": ranges.contains { $0.x <= 0.5 && $0.y >= 0.5 },
+            ])
+        }
+        return rows
+    }
+
+    private static func pausedTextureContract() -> [String: Any] {
+        let profile = plan([
+            "name": "ropetrail", "length": 4, "segments": 4,
+            "subdivision": 0, "fadealpha": true,
+        ], maximumCount: 1)!
+        var history = SceneParticleRopeTrailHistory(plan: profile)
+        var rows: [[SceneParticleGPUInstance]] = []
+        for (step, x) in [Float(0), 0, 1, 1, 2].enumerated() {
+            rows.append(history.advance(by: step == 0 ? 0 : 0.25,
+                particles: [particle(id: 1, x: x)], layerAlpha: 1))
+        }
+        return [
+            "stationaryEmpty": rows[0].isEmpty && rows[1].isEmpty,
+            "youngAlpha": rows[2].first?.rotationAndAlpha.w ?? -1,
+            "validSpans": rows.dropFirst(2).allSatisfy { output in
+                let ranges = output.map { SIMD2($0.frame0B.z, $0.frame0B.w) }
+                return ranges.map(\.x).min() == 0 && ranges.map(\.y).max() == 1
+                    && ranges.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.x < $0.y }
+                    && zip(ranges, ranges.dropFirst()).allSatisfy { abs($0.x - $1.y) < 0.00001 }
+            },
+        ]
+    }
+
+    private static func appearanceContract() -> [String: Any] {
+        let base: [String: Any] = ["name": "ropetrail", "length": 1, "segments": 4, "subdivision": 0]
+        func history() -> SceneParticleRopeTrailHistory {
+            var history = SceneParticleRopeTrailHistory(plan: plan(base, maximumCount: 1)!)
+            for step in 0...16 {
+                history.ingest(by: step == 0 ? 0 : 1.0 / 16,
+                    particles: [.init(id: 1, position: SIMD3(Float(step), 0, 0),
+                        size: 2, color: SIMD3(1, 0, 0), alpha: 1)])
+            }
+            return history
+        }
+        let original = history()
+        func changed(size: Float = 2, alpha: Float = 1,
+                     color: SIMD3<Float> = SIMD3(1, 0, 0)) -> [SceneParticleGPUInstance] {
+            var value = original
+            return value.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+                size: size, color: color, alpha: alpha)], layerAlpha: 1)
+        }
+        let alpha = changed(alpha: 0.2), size = changed(size: 8), color = changed(color: SIMD3(0, 1, 0))
+        let invisible = changed(alpha: 0)
+        var life = original
+        // Death retires the track; the ghost keeps draining its window instead
+        // of the trail vanishing together with the particle.
+        let dead = life.advance(by: 0, particles: [], layerAlpha: 1)
+        // Revival un-retires the same track: it must emit exactly what a
+        // particle that never died emits, not a doubled copy.
+        let revived = life.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+            size: 2, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
+        var survivor = original
+        let alive = survivor.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+            size: 2, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
+        life = original
+        let replay = life.advance(by: 0, particles: [.init(id: 1, position: SIMD3(16, 0, 0),
+            size: 8, color: SIMD3(1, 0, 0), alpha: 1)], layerAlpha: 1)
+        return ["alphaUniform": !alpha.isEmpty && alpha.allSatisfy { abs($0.rotationAndAlpha.w - 0.2) < 0.000001 },
+                "sizeUniform": !size.isEmpty && size.allSatisfy { $0.positionAndSize.w == 4 && $0.trailHeadJoin.w == 4 && $0.trailTailJoin.w == 4 },
+                "colorUniform": !color.isEmpty && color.allSatisfy { $0.colorAndFrameMix.x == 0 && $0.colorAndFrameMix.y == 1 },
+                "noOldAlpha": invisible.allSatisfy { $0.rotationAndAlpha.w == 0 },
+                "deathDrainsGhost": !dead.isEmpty,
+                "revivalMatchesNeverDied": revived.count == alive.count
+                    && zip(revived, alive).allSatisfy {
+                        $0.positionAndSize == $1.positionAndSize
+                            && $0.rotationAndAlpha == $1.rotationAndAlpha
+                    },
+                "replay": zip(size, replay).allSatisfy { $0.positionAndSize == $1.positionAndSize && $0.rotationAndAlpha == $1.rotationAndAlpha }]
+    }
+
+    private static func subdivisionContract() -> [String: Any] {
+        func values(_ subdivision: Int?) -> [SceneParticleGPUInstance] {
+            var renderer: [String: Any] = ["name": "ropetrail", "length": 1, "segments": 4]
+            if let subdivision { renderer["subdivision"] = subdivision }
+            var history = SceneParticleRopeTrailHistory(plan: plan(renderer, maximumCount: 1)!)
+            var output: [SceneParticleGPUInstance] = []
+            for step in 0...128 {
+                let t = Float(step) / 128
+                output = history.advance(by: step == 0 ? 0 : 1.0 / 128,
+                    particles: [.init(id: 1, position: SIMD3(t, t * t, 0),
+                        size: 0.1 + t * 0.1, color: SIMD3(repeating: 1), alpha: 1)],
+                    layerAlpha: 1)
+            }
+            return output
+        }
+        let omitted = values(nil), explicit = values(1), coarse = values(0)
+        func error(_ values: [SceneParticleGPUInstance]) -> Float {
+            values.map { abs($0.positionAndSize.y - $0.positionAndSize.x * $0.positionAndSize.x) }.max() ?? 1
+        }
+        func sameGeometry(_ left: [SceneParticleGPUInstance], _ right: [SceneParticleGPUInstance]) -> Bool {
+            left.count == right.count && zip(left, right).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize && $0.velocityAndTrail == $1.velocityAndTrail
+                    && $0.trailHeadJoin == $1.trailHeadJoin && $0.trailTailJoin == $1.trailTailJoin
+                    && $0.frame0B == $1.frame0B && $0.rotationAndAlpha == $1.rotationAndAlpha
+            }
+        }
+        let normalizedPlans = [-16, 0, 1, 31, 32, 33].map { subdivision in
+            plan(["name": "ropetrail", "length": 1, "segments": 4, "subdivision": subdivision], maximumCount: 1)
+        }
+        let joints = zip(omitted, omitted.dropFirst()).allSatisfy { newer, older in
+            let a = SIMD3(newer.positionAndSize.x, newer.positionAndSize.y, newer.positionAndSize.z)
+                - SIMD3(newer.velocityAndTrail.x, newer.velocityAndTrail.y, newer.velocityAndTrail.z) * 0.5
+            let b = SIMD3(older.positionAndSize.x, older.positionAndSize.y, older.positionAndSize.z)
+                + SIMD3(older.velocityAndTrail.x, older.velocityAndTrail.y, older.velocityAndTrail.z) * 0.5
+            return simd_distance(a, b) < 0.000001 && newer.trailTailJoin.w == older.trailHeadJoin.w
+        }
+        let turns = zip(omitted, omitted.dropFirst()).map { newer, older -> Double in
+            let first = SIMD3(newer.velocityAndTrail.x, newer.velocityAndTrail.y, newer.velocityAndTrail.z)
+            let second = SIMD3(older.velocityAndTrail.x, older.velocityAndTrail.y, older.velocityAndTrail.z)
+            let firstLength = simd_length(first), secondLength = simd_length(second)
+            guard firstLength > 0.000001, secondLength > 0.000001 else { return 0 }
+            let cosine = min(max(simd_dot(first / firstLength, second / secondLength), -1), 1)
+            return Double(acos(cosine)) * 180 / Double.pi
+        }
+        return ["defaultMatchesOne": sameGeometry(omitted, explicit),
+                "normalizedSubdivisions": normalizedPlans.map { $0?.subdivision ?? -1 },
+                "normalizedSnapshotCapacities": normalizedPlans.map { $0?.stepSnapshotPolicy?.maximumSnapshots ?? -1 },
+                "negativeMatchesZero": sameGeometry(values(-16), coarse),
+                "overflowMatchesUpper": sameGeometry(values(33), values(32)),
+                "fineCount": omitted.count, "coarseCount": coarse.count,
+                "maximumSegmentTurnDegrees": turns.max() ?? 0,
+                "errorRatio": error(omitted) / error(coarse), "sharedEndpoints": joints,
+                "fractionRejected": plan(["name": "ropetrail", "length": 1, "subdivision": 0.5], maximumCount: 1) == nil,
+                "overflowRejected": plan(["name": "ropetrail", "length": 1, "subdivision": 1e100], maximumCount: 1) == nil,
+                "normalizedBudgetAccepted": plan(["name": "ropetrail", "length": 1, "segments": 1024, "subdivision": 64], maximumCount: 1) != nil,
+                "budgetRejected": plan(["name": "ropetrail", "length": 1, "segments": 2048, "subdivision": 64], maximumCount: 1) == nil]
+    }
+
+    private static func largeHistoryContract() -> [String: Any] {
+        guard let plan = plan([
+            "name": "ropetrail", "length": 30, "segments": 16, "subdivision": 0,
+        ], maximumCount: 1300) else { return ["accepted": false] }
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        func particles(at time: Float) -> [SceneParticleRopeTrailParticle] {
+            (0..<1300).map { index in
+                .init(id: UInt64(index), position: SIMD3(time, Float(index), 0),
+                      size: 2, color: SIMD3(repeating: 1), alpha: 1)
+            }
+        }
+        for index in 0...320 {
+            history.ingest(by: index == 0 ? 0 : 0.125,
+                           particles: particles(at: Float(index) * 0.125))
+        }
+        let instances = history.advance(by: 0, particles: particles(at: 40), layerAlpha: 1)
+        // Every drawable segment must lie inside the authored trail window,
+        // carry its own particle lane, and have a drawable length.
+        let correct = instances.allSatisfy { instance in
+            let x = instance.positionAndSize.x, y = instance.positionAndSize.y
+            let length = simd_length(SIMD3(
+                instance.velocityAndTrail.x, instance.velocityAndTrail.y,
+                instance.velocityAndTrail.z
+            ))
+            return x >= 40 - 30 - 0.001 && x <= 40 + 0.001
+                && y >= 0 && y <= 1299
+                && length > 0.0001 && length <= 30
+                && instance.rotationAndAlpha.w > 0
+        }
+        let restored = history
+        // Death drains inside the authored window instead of clearing: one
+        // second after the last live frame every retired track still emits
+        // its remaining tail, and only once the whole window has elapsed are
+        // the drained tracks removed and emit nothing.
+        let ghost = history.advance(by: 1, particles: [], layerAlpha: 1).count
+        let drained = history.advance(by: plan.length, particles: [], layerAlpha: 1).count
+        history = restored
+        let replay = history.advance(by: 0, particles: particles(at: 40), layerAlpha: 1)
+        return ["accepted": true, "count": instances.count, "correct": correct,
+                "ghostDrain": ghost, "cleared": drained, "replayed": replay.count]
+    }
+
+    private static func churnBudgetContract() -> [String: Any] {
+        // High churn: short-lived particles, a high emission rate, dense
+        // authored sampling, and a retention window far longer than any
+        // particle's life. Retired ribbons accumulate frame over frame, so
+        // the layer's total (live + retired) track and instance population
+        // must stay inside the frozen whole-layer budgets instead of
+        // growing without bound and dragging the GPU buffer along.
+        guard let dense = plan([
+            "name": "ropetrail", "length": 1, "segments": 4,
+            "subdivision": 0, "fadealpha": true,
+        ], maximumCount: 8192) else { return ["accepted": false] }
+        let frameDelta = 1.0 / 60.0
+        let birthCount = 600
+        let lifetimeFrames = 8
+        let totalFrames = 32
+        func particles(at frame: Int) -> [SceneParticleRopeTrailParticle] {
+            let firstBirth = max(0, frame - lifetimeFrames + 1)
+            return ((firstBirth * birthCount)..<(frame * birthCount + birthCount))
+                .map { id in
+                    particle(id: UInt64(id), x: Float(frame) * 2 + Float(id % 4))
+                }
+        }
+        func runChurn() -> (counts: [Int], trackCounts: [Int]) {
+            var history = SceneParticleRopeTrailHistory(plan: dense)
+            var counts: [Int] = []
+            var trackCounts: [Int] = []
+            for frame in 0...totalFrames {
+                counts.append(history.advance(
+                    by: frame == 0 ? 0 : frameDelta,
+                    particles: particles(at: frame),
+                    layerAlpha: 1
+                ).count)
+                trackCounts.append(history.totalTrackCount)
+            }
+            return (counts, trackCounts)
+        }
+        let run = runChurn()
+        let counts = run.counts
+        let trackCounts = run.trackCounts
+        let replayCounts = runChurn().counts
+        // Snapshot rollback determinism in the middle of the churn: the
+        // replay of the same two frames from a copied value must produce
+        // bit-identical output, retirement and eviction order included.
+        var rollbackHistory = SceneParticleRopeTrailHistory(plan: dense)
+        for frame in 0...20 {
+            _ = rollbackHistory.advance(
+                by: frame == 0 ? 0 : frameDelta,
+                particles: particles(at: frame),
+                layerAlpha: 1
+            )
+        }
+        let rollbackSnapshot = rollbackHistory
+        let originalFirst = rollbackHistory.advance(
+            by: frameDelta, particles: particles(at: 21), layerAlpha: 1
+        )
+        let originalSecond = rollbackHistory.advance(
+            by: frameDelta, particles: particles(at: 22), layerAlpha: 1
+        )
+        var replayHistory = rollbackSnapshot
+        let replayFirst = replayHistory.advance(
+            by: frameDelta, particles: particles(at: 21), layerAlpha: 1
+        )
+        let replaySecond = replayHistory.advance(
+            by: frameDelta, particles: particles(at: 22), layerAlpha: 1
+        )
+        let rollbackMatch = originalFirst.count == replayFirst.count
+            && zip(originalFirst, replayFirst).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize
+                    && $0.rotationAndAlpha == $1.rotationAndAlpha
+            }
+            && originalSecond.count == replaySecond.count
+            && zip(originalSecond, replaySecond).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize
+            }
+        // Live trails keep rendering while the budget holds: the steady
+        // frames still emit a full ribbon for every live particle.
+        var steadyHistory = SceneParticleRopeTrailHistory(plan: dense)
+        for frame in 0...totalFrames {
+            _ = steadyHistory.advance(
+                by: frame == 0 ? 0 : frameDelta,
+                particles: particles(at: frame),
+                layerAlpha: 1
+            )
+        }
+        let steadyOutput = steadyHistory.advance(
+            by: frameDelta, particles: particles(at: totalFrames + 1), layerAlpha: 1
+        )
+        return [
+            "accepted": true,
+            "counts": counts,
+            "trackCounts": trackCounts,
+            "trackBudget": dense.maximumTotalTrackCount,
+            "replayDeterministic": counts == replayCounts,
+            "maximumInstances": counts.max() ?? 0,
+            "bounded": (counts.max() ?? 0)
+                <= SceneParticleRopeTrailPlan.maximumSegmentInstanceCount,
+            "tracksBounded": trackCounts.allSatisfy {
+                $0 <= dense.maximumTotalTrackCount
+            },
+            "tracksReachSteadyState": trackCounts[totalFrames - 2]
+                == trackCounts[totalFrames - 1]
+                && trackCounts[totalFrames - 1] == trackCounts[totalFrames],
+            "tailStable": counts[totalFrames - 2] == counts[totalFrames - 1]
+                && counts[totalFrames - 1] == counts[totalFrames],
+            "doesNotGrowLate": counts[totalFrames] <= counts[totalFrames - 8],
+            "rollbackMatch": rollbackMatch,
+            "steadyTrailPresent": !steadyOutput.isEmpty,
+            "steadyTrailFades": steadyOutput.contains {
+                $0.rotationAndAlpha.w < 0.999
+            },
+        ]
+    }
+
+    private static func historyContract() -> [String: Any] {
+        let noFadePlan = plan([
+            "name": "ropetrail",
+            "length": 1,
+            "segments": 4,
+            "subdivision": 0,
+            "fadealpha": false,
+        ], maximumCount: 2)!
+        let fadePlan = plan([
+            "name": "ropetrail",
+            "length": 1,
+            "segments": 4,
+            "subdivision": 0,
+            "fadealpha": true,
+        ], maximumCount: 2)!
+
+        let firstFrame = firstFrameCount(plan: noFadePlan)
+        let noFade = linearInstances(plan: noFadePlan)
+        let fade = linearInstances(plan: fadePlan)
+        let curved = curvedInstances(plan: noFadePlan)
+        let lifecycle = lifecycleCounts(plan: noFadePlan)
+        let invalid = invalidLifecycleCounts(plan: noFadePlan)
+        let staticAndZeroSize = staticAndZeroSizeCounts(plan: noFadePlan)
+        let partition = partitionPositions(plan: noFadePlan)
+
+        let noFadeAlphas = noFade.map { $0.rotationAndAlpha.w }
+        let fadeAlphas = fade.map { $0.rotationAndAlpha.w }
+        let directions = curved.map {
+            [$0.velocityAndTrail.x, $0.velocityAndTrail.y]
+        }
+        let uvContinuous = zip(fade, fade.dropFirst()).allSatisfy {
+            abs($0.0.frame0A.y - ($0.1.frame0A.y + $0.1.frame0A.w)) < 0.0001
+        }
+        return [
+            "firstFrameCount": firstFrame,
+            "linearCount": noFade.count,
+            "linearDirections": noFade.map {
+                [$0.velocityAndTrail.x, $0.velocityAndTrail.y]
+            },
+            "linearStretches": noFade.map(\.velocityAndTrail.w),
+            "noFadeAlphas": noFadeAlphas,
+            "fadeAlphas": fadeAlphas,
+            "fadeStrictlyDecreases": zip(
+                fadeAlphas,
+                fadeAlphas.dropFirst()
+            ).allSatisfy(>),
+            "uvContinuous": uvContinuous,
+            "uvUsesVerticalTextureAxis": fade.allSatisfy {
+                abs($0.frame0A.z) < 0.0001
+                    && $0.frame0A.w < 0
+                    && abs($0.frame0B.x - 1) < 0.0001
+                    && abs($0.frame0B.y) < 0.0001
+                    && $0.frame0B.z < $0.frame0B.w
+            },
+            "curvedDirections": directions,
+            "lifecycleCounts": lifecycle,
+            "invalidLifecycleCounts": invalid,
+            "staticAndZeroSizeCounts": staticAndZeroSize,
+            "coarsePositions": partition.coarse,
+            "finePositions": partition.fine,
+        ]
+    }
+
+    private static func firstFrameCount(
+        plan: SceneParticleRopeTrailPlan
+    ) -> Int {
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        return history.advance(
+            by: 0,
+            particles: [particle(id: 1, x: 0)],
+            layerAlpha: 1
+        ).count
+    }
+
+    private static func linearInstances(
+        plan: SceneParticleRopeTrailPlan
+    ) -> [SceneParticleGPUInstance] {
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        var instances: [SceneParticleGPUInstance] = []
+        for step in 0...4 {
+            instances = history.advance(
+                by: step == 0 ? 0 : 0.25,
+                particles: [particle(
+                    id: 1,
+                    x: Float(step * 10),
+                    alpha: 0.8
+                )],
+                layerAlpha: 0.5
+            )
+        }
+        return instances
+    }
+
+    private static func curvedInstances(
+        plan: SceneParticleRopeTrailPlan
+    ) -> [SceneParticleGPUInstance] {
+        let points: [SIMD2<Float>] = [
+            SIMD2(0, 0),
+            SIMD2(10, 0),
+            SIMD2(10, 10),
+            SIMD2(20, 10),
+            SIMD2(20, 20),
+        ]
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        var instances: [SceneParticleGPUInstance] = []
+        for (index, point) in points.enumerated() {
+            instances = history.advance(
+                by: index == 0 ? 0 : 0.25,
+                particles: [particle(id: 1, x: point.x, y: point.y)],
+                layerAlpha: 1
+            )
+        }
+        return instances
+    }
+
+    private static func lifecycleCounts(
+        plan: SceneParticleRopeTrailPlan
+    ) -> [Int] {
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        var counts: [Int] = []
+        counts.append(history.advance(
+            by: 0,
+            particles: [particle(id: 1, x: 0), particle(id: 2, x: 100)],
+            layerAlpha: 1
+        ).count)
+        counts.append(history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 10), particle(id: 2, x: 110)],
+            layerAlpha: 1
+        ).count)
+        counts.append(history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 20)],
+            layerAlpha: 1
+        ).count)
+        counts.append(history.advance(
+            by: 0.25,
+            particles: [],
+            layerAlpha: 1
+        ).count)
+        counts.append(history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 30)],
+            layerAlpha: 1
+        ).count)
+        // Both particles stay dead from here: their ghosts drain inside the
+        // authored 1s window (four further 0.25 advances) before removal, so
+        // the emitted tail shrinks to zero and only then disappear the tracks.
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        counts.append(history.advance(by: 0.25, particles: [], layerAlpha: 1).count)
+        return counts
+    }
+
+    private static func invalidLifecycleCounts(
+        plan: SceneParticleRopeTrailPlan
+    ) -> [Int] {
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        _ = history.advance(
+            by: 0,
+            particles: [particle(id: 1, x: 0)],
+            layerAlpha: 1
+        )
+        let visible = history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 10)],
+            layerAlpha: 1
+        ).count
+        let invalid = history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: .nan)],
+            layerAlpha: 1
+        ).count
+        let restarted = history.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 20)],
+            layerAlpha: 1
+        ).count
+        return [visible, invalid, restarted]
+    }
+
+    private static func staticAndZeroSizeCounts(
+        plan: SceneParticleRopeTrailPlan
+    ) -> [Int] {
+        var staticHistory = SceneParticleRopeTrailHistory(plan: plan)
+        _ = staticHistory.advance(
+            by: 0,
+            particles: [particle(id: 1, x: 0)],
+            layerAlpha: 1
+        )
+        let staticCount = staticHistory.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 0)],
+            layerAlpha: 1
+        ).count
+
+        var zeroHistory = SceneParticleRopeTrailHistory(plan: plan)
+        _ = zeroHistory.advance(
+            by: 0,
+            particles: [particle(id: 1, x: 0, size: 0)],
+            layerAlpha: 1
+        )
+        let zeroCount = zeroHistory.advance(
+            by: 0.25,
+            particles: [particle(id: 1, x: 10, size: 0)],
+            layerAlpha: 1
+        ).count
+        return [staticCount, zeroCount]
+    }
+
+    private static func partitionPositions(
+        plan: SceneParticleRopeTrailPlan
+    ) -> (coarse: [Float], fine: [Float]) {
+        func positions(stepCount: Int) -> [Float] {
+            var history = SceneParticleRopeTrailHistory(plan: plan)
+            var instances: [SceneParticleGPUInstance] = []
+            for step in 0...stepCount {
+                let time = Double(step) / Double(stepCount)
+                instances = history.advance(
+                    by: step == 0 ? 0 : 1 / Double(stepCount),
+                    particles: [particle(id: 1, x: Float(time * 40))],
+                    layerAlpha: 1
+                )
+            }
+            return instances.map(\.positionAndSize.x)
+        }
+        return (positions(stepCount: 4), positions(stepCount: 16))
+    }
+
+    private static func particle(
+        id: UInt64,
+        x: Float,
+        y: Float = 0,
+        size: Float = 2,
+        alpha: Float = 1
+    ) -> SceneParticleRopeTrailParticle {
+        SceneParticleRopeTrailParticle(
+            id: id,
+            position: SIMD3(x, y, 0),
+            size: size,
+            color: SIMD3(repeating: 1),
+            alpha: alpha
+        )
+    }
+
+    private static func plan(
+        _ renderer: [String: Any],
+        maximumCount: Int
+    ) -> SceneParticleRopeTrailPlan? {
+        let value = definition(renderer, maximumCount: maximumCount)
+        guard let renderer = value.renderers.first else { return nil }
+        return SceneParticleRopeTrailPlan(
+            renderer: renderer,
+            maximumParticleCount: value.maximumCount ?? 1
+        )
+    }
+
+    private static func definition(
+        _ renderer: [String: Any],
+        maximumCount: Int
+    ) -> SceneParticleDefinition {
+        SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": maximumCount,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [renderer],
+        ])
+    }
+}
+'''
+
+
+class SceneParticleRopeTrailTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-particle-rope-trail-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-rope-trail"
+        environment = os.environ.copy()
+        module_cache = directory / "module-cache"
+        environment["CLANG_MODULE_CACHE_PATH"] = str(module_cache)
+        environment["SWIFT_MODULECACHE_PATH"] = str(module_cache)
+        compilation = subprocess.run(
+            [
+                swiftc,
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_strict_tier_a_profiles_and_malformed_fields(self) -> None:
+        profiles = self.result["profiles"]
+        self.assertTrue(profiles["defaultAccepted"])
+        self.assertEqual(profiles["defaultSegments"], 4)
+        self.assertFalse(profiles["defaultFade"])
+        self.assertTrue(profiles["fadeAccepted"])
+        self.assertEqual(profiles["fadeSegments"], 6)
+        self.assertTrue(profiles["fadeEnabled"])
+        self.assertTrue(profiles["longAccepted"])
+        self.assertEqual(profiles["omittedLength"], 1)
+        self.assertTrue(profiles["worldRendererAccepted"])
+        self.assertTrue(profiles["budgetBoundaryAccepted"])
+        self.assertTrue(profiles["allUnsupportedRejected"])
+        self.assertTrue(profiles["malformedFlagged"])
+        self.assertTrue(profiles["malformedDiagnosed"])
+        self.assertTrue(profiles["malformedRejected"])
+        self.assertTrue(profiles["peerRendererPreservesPlan"])
+        self.assertTrue(profiles["explicitObjectRendererRejected"])
+        self.assertTrue(profiles["onlyMalformedRendererRejected"])
+        self.assertTrue(profiles["explicitEmptyRendererRejected"])
+
+    def test_current_particle_appearance_applies_to_the_complete_trail(self) -> None:
+        for key, value in self.result["appearance"].items():
+            self.assertTrue(value, key)
+
+    def test_texture_covers_growing_and_mature_curved_trails(self) -> None:
+        self.assertEqual(len(self.result["growingTexture"]), 4)
+        for row in self.result["growingTexture"]:
+            self.assertAlmostEqual(row["tail"], 0, places=6)
+            self.assertAlmostEqual(row["head"], 1, places=6)
+            self.assertTrue(row["continuous"])
+            self.assertTrue(row["centerCovered"])
+
+    def test_texture_survives_stop_resume_without_changing_age_fade(self) -> None:
+        value = self.result["pausedTexture"]
+        self.assertTrue(value["stationaryEmpty"])
+        self.assertTrue(value["validSpans"])
+        self.assertAlmostEqual(value["youngAlpha"], 0.96875, places=6)
+
+    def test_subdivision_refines_authored_curvature_and_shares_endpoints(self) -> None:
+        value = self.result["subdivision"]
+        self.assertTrue(value["defaultMatchesOne"])
+        self.assertEqual(value["normalizedSubdivisions"], [0, 0, 1, 31, 32, 32])
+        self.assertEqual(value["normalizedSnapshotCapacities"], [20, 20, 36, 516, 532, 532])
+        self.assertTrue(value["negativeMatchesZero"])
+        self.assertTrue(value["overflowMatchesUpper"])
+        # Drawable nodes come from the prepared history, so the finer profile
+        # keeps more nodes than the coarse one instead of a fixed count.
+        self.assertGreater(value["fineCount"], value["coarseCount"])
+        self.assertGreaterEqual(value["fineCount"], 8)
+        self.assertLessEqual(value["errorRatio"], 0.26)
+        self.assertTrue(value["sharedEndpoints"])
+        # A curved authored path must not be drawn as a visibly cornered
+        # polyline: no drawable segment may turn by more than a few degrees.
+        self.assertLess(value["maximumSegmentTurnDegrees"], 5.0)
+        self.assertTrue(value["fractionRejected"])
+        self.assertTrue(value["overflowRejected"])
+        self.assertTrue(value["normalizedBudgetAccepted"])
+        self.assertTrue(value["budgetRejected"])
+
+    def test_long_dense_history_preserves_segments_and_snapshot(self) -> None:
+        result = self.result["largeHistory"]
+        self.assertTrue(result["accepted"])
+        self.assertGreaterEqual(result["count"], 20800)
+        self.assertTrue(result["correct"])
+        # Death drains inside the authored 30s window instead of clearing:
+        # one second later every retired track still emits its remaining
+        # tail; after the whole window has elapsed the drained tracks are
+        # removed and emit nothing.
+        self.assertGreater(result["ghostDrain"], 0)
+        self.assertEqual(result["cleared"], 0)
+        self.assertEqual(result["replayed"], result["count"])
+
+    def test_history_builds_bounded_segments_with_continuous_uv(self) -> None:
+        history = self.result["history"]
+        self.assertEqual(history["firstFrameCount"], 0)
+        self.assertEqual(history["linearCount"], 4)
+        self.assertEqual(history["linearDirections"], [[10, 0]] * 4)
+        self.assertEqual(history["linearStretches"], [5] * 4)
+        for alpha in history["noFadeAlphas"]:
+            self.assertAlmostEqual(alpha, 0.4, places=6)
+        self.assertTrue(history["fadeStrictlyDecreases"])
+        self.assertTrue(history["uvContinuous"])
+        self.assertTrue(history["uvUsesVerticalTextureAxis"])
+        directions = history["curvedDirections"]
+        self.assertIn([10, 0], directions)
+        self.assertIn([0, 10], directions)
+
+    def test_retired_tracks_obey_total_budget_under_high_churn(self) -> None:
+        result = self.result["churnBudget"]
+        self.assertTrue(result["accepted"])
+        counts = result["counts"]
+        track_counts = result["trackCounts"]
+        # The trend, not just the first frame: under short-lived, dense,
+        # long-window churn the combined live + retired track population
+        # and the emitted segment population must stay inside the frozen
+        # whole-layer budgets for the entire run...
+        self.assertTrue(result["tracksBounded"])
+        self.assertLessEqual(max(track_counts), result["trackBudget"])
+        self.assertTrue(result["tracksReachSteadyState"])
+        self.assertTrue(result["bounded"])
+        self.assertLessEqual(result["maximumInstances"], 65_536)
+        # ...and reach a steady state instead of growing with every frame.
+        self.assertTrue(result["tailStable"])
+        self.assertTrue(result["doesNotGrowLate"])
+        # The budget must not disable the feature: live ribbons keep
+        # rendering and keep fading along the authored window.
+        self.assertTrue(result["steadyTrailPresent"])
+        self.assertTrue(result["steadyTrailFades"])
+
+    def test_retired_budget_retirement_is_deterministic_and_rollback_stable(self) -> None:
+        result = self.result["churnBudget"]
+        # Two independent runs of the same churn produce identical per-frame
+        # emission counts, and a mid-churn snapshot replays the next frames
+        # bit-for-bit: retirement and eviction order never depend on
+        # dictionary iteration order.
+        self.assertTrue(result["replayDeterministic"])
+        self.assertTrue(result["rollbackMatch"])
+
+    def test_history_drains_dead_or_invalid_tracks_and_is_partition_stable(self) -> None:
+        history = self.result["history"]
+        # Fixture pacing: length=1 with one 0.25 advance per frame, so the
+        # retention window spans four frames. Ghost-exhaustion semantics: a
+        # dead particle's track does not vanish at the death frame; its ghost
+        # keeps emitting the window remainder, drains tail-first, and the
+        # track is removed only once its newest sample has left the whole
+        # window (id 2 at elapsed 1.25s, id 1 at elapsed 2.0s where the count
+        # finally reaches 0).
+        #   frame A (0.00s, both born):  single sample each -> 0 segments
+        #   frame B (0.25s, both live):  1 segment each -> 2
+        #   frame C (0.50s, id 2 dies):  id 1 emits 2 live segments + id 2's
+        #                                 ghost emits 1 -> 3
+        #   frame D (0.75s, both dead):  id 1 ghost 2 + id 2 ghost 1 -> 3
+        #   frame E (1.00s, id 1 revives): revived id 1 emits 3 segments
+        #                                 exactly once + id 2 ghost 1 -> 4
+        #   frame F (1.25s):             id 2 fully drained and removed,
+        #                                 id 1 ghost shrinks to 2 -> 2
+        #   frames G/H (1.50/1.75s):     id 1 ghost keeps shrinking -> 1, 1
+        #   frame I (2.00s):             id 1 fully drained and removed -> 0
+        self.assertEqual(history["lifecycleCounts"], [0, 2, 3, 3, 4, 2, 1, 1, 0])
+        # A particle invalidated for one frame (NaN) retires like a death, so
+        # its ghost still emits that frame; on recovery the track is revived
+        # explicitly and emits the same geometry exactly once (2 segments, not
+        # the 4 that a live+retired double emission would produce).
+        self.assertEqual(history["invalidLifecycleCounts"], [1, 1, 2])
+        self.assertEqual(history["staticAndZeroSizeCounts"], [0, 0])
+        # Both sampling rates must cover the same authored path; the finer
+        # one simply resolves it with more drawable nodes.
+        coarse, fine = history["coarsePositions"], history["finePositions"]
+        self.assertTrue(coarse and fine)
+        self.assertGreaterEqual(len(fine), len(coarse))
+        # Both sampling rates must cover the same authored trail window; the
+        # finer rate simply resolves it with more drawable segments.
+        self.assertLessEqual(min(fine) - 1e-3, min(coarse))
+        self.assertGreaterEqual(max(fine) + 1e-3, max(coarse))
+
+
+if __name__ == "__main__":
+    unittest.main()

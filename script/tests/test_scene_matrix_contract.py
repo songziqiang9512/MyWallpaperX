@@ -13,7 +13,7 @@ SCRIPT_ROOT = REPOSITORY_ROOT / "script"
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-import generate_scene_full_matrix as matrix_generator
+from script.assets import generate_scene_full_matrix as matrix_generator
 from scene_matrix_suite import load_scene_matrix
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,

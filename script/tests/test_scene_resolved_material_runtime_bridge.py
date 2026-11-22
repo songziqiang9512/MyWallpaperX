@@ -217,7 +217,7 @@ STATIC_SOURCE_DRAW_ONLY_HARNESS += _declaration(
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
     def test_typed_data_attachment_preserves_target_format(self) -> None:
-        from script.tests.test_scene_wallpaper_async_launch import function_body
+        from script.tests.scene.test_scene_wallpaper_async_launch import function_body
         body = function_body(CAPABILITY_STAGES.read_text(), "private static func attachment(")
         harness = (
             Path(__file__).with_name("fixtures") / "SceneTypedDataAttachmentHarness.swift"

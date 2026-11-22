@@ -1,0 +1,380 @@
+#!/usr/bin/env python3
+"""粒子 audio response 声明与 bounded execution admission 门。
+
+背景：粒子与 effect 是两套独立 schema。effect 侧走 shader constant
+（`audiobounds`/`audioamount`/`audioexponent` + `frequencymin`/`frequencymax`），
+粒子侧只有 `audioprocessing*` 一套且没有 amount。此前 parser 误用 effect 字段名，
+导致解析出恒为 nil 的字段，同时漏掉真实存在的 `audioprocessingfrequencyend`。
+
+执行使用项目自有 clean-room 近似合同；本门锁定声明保真和准入诊断，数值与
+fixed-step consumer 行为由独立 simulator 门覆盖。
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particles"
+DEFINITION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift"
+INITIALIZER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift"
+VORTEX_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift"
+REMAP_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift"
+REDUCE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift"
+COLLISION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift"
+COLLISION_SPHERE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift"
+POSITION_BETWEEN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift"
+POSITION_AROUND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift"
+AUDIO_PLAN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift"
+PARSER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift"
+OPERATOR_PARSER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift"
+SIMULATION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift"
+SIMULATION_DIAGNOSTIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift"
+CAP_VELOCITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift"
+BOIDS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift"
+CONTROL_POINT_FORCE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift"
+PERIODIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift"
+
+# 真实语料中的三个字段；残留参数不代表 mode 已启用。
+OFFICIAL_PARTICLE_AUDIO_KEYS = (
+    "audioprocessingmode",
+    "audioprocessingbounds",
+    "audioprocessingfrequencyend",
+)
+# 第三方 parser 交叉验证补充的两个字段，语料未出现但属同一 schema。
+CROSS_VERIFIED_KEYS = (
+    "audioprocessingexponent",
+    "audioprocessingfrequencystart",
+)
+# effect 侧 shader constant 字段名，粒子 parser 不得再解析。
+EFFECT_ONLY_KEYS = ("audioamount", "audioexponent", "audiofrequency", "audiobounds")
+
+HARNESS = r'''
+import Foundation
+
+@main
+enum Harness {
+    static func main() throws {
+        // 取自真实样本 2131872317 particles/workshop/2110548715/presets/fireworks1.json
+        // 的 sphererandom emitter：语料中唯一带 audioprocessingfrequencyend 的声明。
+        let fireworksEmitter: [String: Any] = [
+            "name": "sphererandom",
+            "id": 6,
+            "rate": 1,
+            "instantaneous": 0,
+            "origin": "0 0 0",
+            "directions": "1 1 0",
+            "distancemin": 0,
+            "distancemax": 0,
+            "audioprocessingmode": 3,
+            "audioprocessingbounds": "0 1",
+            "audioprocessingfrequencyend": 10,
+        ]
+        // 残留 bounds 的 boxrandom emitter；缺省 mode 仍为关闭。
+        let starsEmitter: [String: Any] = [
+            "name": "boxrandom",
+            "rate": 40,
+            "distancemax": "1000 500 0",
+            "audioprocessingbounds": "0.5 1",
+        ]
+        // 3299228616 形态：只有 mode，其余缺省。
+        let modeOnlyEmitter: [String: Any] = [
+            "name": "boxrandom",
+            "audioprocessingmode": 3,
+        ]
+        // 作者未启用。
+        let disabledEmitter: [String: Any] = [
+            "name": "boxrandom",
+            "audioprocessingmode": 0,
+            "audioprocessingbounds": "0.5 1",
+        ]
+        // effect 侧字段名不得被粒子 parser 采信。
+        let effectSchemaEmitter: [String: Any] = [
+            "name": "boxrandom",
+            "audiobounds": "0 1.2",
+            "audioamount": 2,
+            "audioexponent": 0.5,
+            "audiofrequency": "0 3",
+        ]
+        // 完整 schema（含第三方交叉验证的两个字段）。
+        let fullEmitter: [String: Any] = [
+            "name": "sphererandom",
+            "audioprocessingmode": 1,
+            "audioprocessingbounds": "0.8 1",
+            "audioprocessingexponent": 2,
+            "audioprocessingfrequencystart": 2,
+            "audioprocessingfrequencyend": 12,
+        ]
+        var residual = fullEmitter
+        residual.removeValue(forKey: "audioprocessingmode")
+        var equivalentResidual = residual
+        equivalentResidual["audioprocessingmode"] = NSNull()
+        equivalentResidual["audioprocessingbounds"] = [0.8, 1.0]
+        let inactiveResiduals: [[String: Any]] = [
+            ["name": "boxrandom", "audioprocessingexponent": 3],
+            ["name": "sphererandom", "audioprocessingfrequencystart": 2,
+             "audioprocessingfrequencyend": 12], residual, equivalentResidual,
+        ]
+
+        let definition: [String: Any] = [
+            "emitter": [
+                fireworksEmitter, starsEmitter, modeOnlyEmitter,
+                disabledEmitter, effectSchemaEmitter, fullEmitter,
+            ] + inactiveResiduals,
+            "initializer": [
+                [
+                    "name": "turbulentvelocityrandom",
+                    "audioprocessingmode": 3,
+                    "audioprocessingbounds": "0.8 1",
+                ],
+                ["name": "turbulentvelocityrandom", "audioprocessingbounds": "0.8 1"],
+            ],
+            "operator": [
+                [
+                    "name": "vortex",
+                    "audioprocessingmode": 3,
+                    "audioprocessingbounds": "0.5 1",
+                ],
+                ["name": "vortex", "audioprocessingbounds": "0.5 1"],
+            ],
+            "renderer": [["name": "sprite"]],
+            "material": "materials/particle.json",
+        ]
+
+        let data = try JSONSerialization.data(withJSONObject: definition)
+        let parsed: SceneParticleDefinition = try SceneParticleDefinitionParser()
+            .parse(data: data)
+
+        func describe(_ response: SceneParticleAudioResponse) -> [String: Any] {
+            var payload: [String: Any] = ["enabled": response.isEnabled,
+                "hasPlan": SceneParticleAudioResponsePlan(response) != nil]
+            payload["mode"] = response.mode ?? -1
+            payload["exponent"] = response.exponent ?? -1
+            payload["frequencyStart"] = response.frequencyStart ?? -1
+            payload["frequencyEnd"] = response.frequencyEnd ?? -1
+            if case let .vector(components)? = response.bounds {
+                payload["bounds"] = components
+            } else if case let .scalar(value)? = response.bounds {
+                payload["bounds"] = [value]
+            } else {
+                payload["bounds"] = []
+            }
+            return payload
+        }
+
+        let diagnostics = SceneParticleSimulationMath.diagnostics(parsed, nil)
+
+        let payload: [String: Any] = [
+            "emitters": parsed.emitters.map { describe($0.audioResponse) },
+            "turbulent": parsed.initializers.compactMap {
+                $0.turbulentVelocity.map { describe($0.audioResponse) }
+            },
+            "operators": parsed.operators.map { describe($0.audioResponse) },
+            "audioBoundedComponents": diagnostics
+                .filter { $0.kind == .audioResponseBounded }
+                .compactMap { $0.componentName }
+                .sorted(),
+            "audioIgnoredComponents": diagnostics
+                .filter { $0.kind == .audioResponseIgnored }
+                .compactMap { $0.componentName }
+                .sorted(),
+        ]
+        let out = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: out, as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneParticleAudioDeclarationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-particle-audio-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        binary = directory / "scene-particle-audio"
+        # 只编译声明、解析与诊断三段，避免拖入渲染/资源图等无关依赖。
+        sources = [
+            DEFINITION_SOURCE,
+            INITIALIZER_SOURCE,
+            VORTEX_SOURCE,
+            REMAP_SOURCE,
+            REDUCE_SOURCE,
+            COLLISION_SOURCE,
+            COLLISION_SPHERE_SOURCE,
+            POSITION_AROUND_SOURCE,
+            POSITION_BETWEEN_SOURCE,
+            AUDIO_PLAN_SOURCE,
+            PARSER_SOURCE,
+            OPERATOR_PARSER_SOURCE,
+            BOIDS_SOURCE,
+            SIMULATION_SOURCE,
+            SIMULATION_DIAGNOSTIC_SOURCE,
+            CAP_VELOCITY_SOURCE,
+            CONTROL_POINT_FORCE_SOURCE,
+            PERIODIC_SOURCE,
+        ]
+        compilation = subprocess.run(
+            ["swiftc", "-D", "DEBUG", *[str(path) for path in sources], str(harness), "-o", str(binary)],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_real_sample_declaration_is_preserved_in_full(self) -> None:
+        # 2131872317 是语料中唯一带 audioprocessingfrequencyend 的声明，
+        # 修正前该字段被静默丢弃。
+        fireworks = self.result["emitters"][0]
+        self.assertTrue(fireworks["enabled"])
+        self.assertEqual(fireworks["mode"], 3)
+        self.assertEqual(fireworks["bounds"], [0.0, 1.0])
+        self.assertEqual(
+            fireworks["frequencyEnd"],
+            10,
+            "audioprocessingfrequencyend 必须进入 IR，不得静默丢失",
+        )
+
+    def test_bounds_only_declaration_parses(self) -> None:
+        stars = self.result["emitters"][1]
+        self.assertFalse(stars["enabled"])
+        self.assertFalse(stars["hasPlan"])
+        self.assertEqual(stars["mode"], -1)
+        self.assertEqual(stars["bounds"], [0.5, 1.0])
+        self.assertEqual(stars["frequencyEnd"], -1, "未声明的字段保持缺省")
+
+    def test_mode_only_declaration_parses(self) -> None:
+        mode_only = self.result["emitters"][2]
+        self.assertTrue(mode_only["enabled"])
+        self.assertEqual(mode_only["mode"], 3)
+        self.assertEqual(mode_only["bounds"], [])
+
+    def test_author_disabled_declaration_is_not_enabled(self) -> None:
+        disabled = self.result["emitters"][3]
+        self.assertFalse(
+            disabled["enabled"], "mode=0 是作者关闭，必须与启用区分"
+        )
+        self.assertEqual(
+            disabled["bounds"],
+            [0.5, 1.0],
+            "关闭时其余字段仍应保真保存",
+        )
+
+    def test_effect_schema_field_names_are_not_accepted(self) -> None:
+        effect_schema = self.result["emitters"][4]
+        self.assertFalse(
+            effect_schema["enabled"],
+            "effect 的 audiobounds/audioamount 不是粒子字段，不得据此启用",
+        )
+        self.assertEqual(effect_schema["bounds"], [])
+        self.assertEqual(effect_schema["exponent"], -1)
+        self.assertEqual(effect_schema["frequencyEnd"], -1)
+
+    def test_full_schema_round_trips(self) -> None:
+        full = self.result["emitters"][5]
+        self.assertEqual(full["mode"], 1)
+        self.assertEqual(full["bounds"], [0.8, 1.0])
+        self.assertEqual(full["exponent"], 2)
+        self.assertEqual(full["frequencyStart"], 2)
+        self.assertEqual(full["frequencyEnd"], 12)
+
+    def test_initializer_and_operator_share_the_same_declaration(self) -> None:
+        self.assertEqual(len(self.result["turbulent"]), 2)
+        self.assertTrue(self.result["turbulent"][0]["enabled"])
+        self.assertEqual(self.result["turbulent"][0]["bounds"], [0.8, 1.0])
+        self.assertEqual(len(self.result["operators"]), 2)
+        self.assertTrue(self.result["operators"][0]["enabled"])
+        self.assertEqual(self.result["operators"][0]["bounds"], [0.5, 1.0])
+        for key in ("turbulent", "operators"):
+            self.assertFalse(self.result[key][1]["enabled"])
+            self.assertFalse(self.result[key][1]["hasPlan"])
+            self.assertEqual(self.result[key][1]["bounds"], self.result[key][0]["bounds"])
+
+    def test_residual_fields_preserve_values_without_enabling_audio(self) -> None:
+        residuals = self.result["emitters"][6:]
+        self.assertEqual(len(residuals), 4)
+        for value in residuals:
+            self.assertEqual(value["mode"], -1)
+            self.assertFalse(value["enabled"])
+            self.assertFalse(value["hasPlan"])
+        self.assertEqual(residuals[0]["exponent"], 3)
+        self.assertEqual([residuals[1]["frequencyStart"], residuals[1]["frequencyEnd"]], [2, 12])
+        self.assertEqual(residuals[2], residuals[3])
+        self.assertEqual(residuals[2]["bounds"], [0.8, 1.0])
+        self.assertEqual(residuals[2]["exponent"], 2)
+
+    def test_admitted_components_report_bounded_audio(self) -> None:
+        components = self.result["audioBoundedComponents"]
+        self.assertIn("emitter", components)
+        self.assertIn("turbulentvelocityrandom", components)
+        self.assertIn(
+            "operator",
+            self.result["audioIgnoredComponents"],
+            "缺省基础 Vortex distance/speed 仍须失败关闭",
+        )
+
+
+class SceneParticleAudioSchemaContractTests(unittest.TestCase):
+    """锁定字段名合同，防止 effect 与粒子两套 schema 再次混用。"""
+
+    def test_parser_reads_only_the_particle_schema(self) -> None:
+        source = PARSER_SOURCE.read_text(encoding="utf-8")
+        for key in OFFICIAL_PARTICLE_AUDIO_KEYS + CROSS_VERIFIED_KEYS:
+            self.assertIn(
+                f'root["{key}"]', source, f"粒子 schema 字段 {key} 必须被解析"
+            )
+        for key in EFFECT_ONLY_KEYS:
+            self.assertNotIn(
+                f'root["{key}"]',
+                source,
+                f"{key} 属于 effect shader constant schema，粒子 parser 不得解析",
+            )
+
+    def test_audio_declaration_is_shared_by_all_three_component_kinds(self) -> None:
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (DEFINITION_SOURCE, INITIALIZER_SOURCE)
+        )
+        self.assertEqual(
+            source.count("let audioResponse: SceneParticleAudioResponse"),
+            3,
+            "emitter、turbulent velocity 与 operator 共用同一声明类型",
+        )
+        self.assertIn("struct SceneParticleAudioResponse", source)
+
+    def test_declaration_carries_no_default_values(self) -> None:
+        source = DEFINITION_SOURCE.read_text(encoding="utf-8")
+        start = source.index("struct SceneParticleAudioResponse")
+        end = source.index("nonisolated struct SceneParticleEmitter", start)
+        declaration = source[start:end]
+        # mode 缺省关闭不应填充 IR 的 bounds/exponent/frequency；
+        # 响应参数仍保留作者原值与缺省状态。
+        for literal in ("0.8", "15", "= 2", "= 1.0"):
+            self.assertNotIn(
+                literal,
+                declaration,
+                "粒子 audio 默认值官方未公开，不得在 IR 层内置",
+            )
+
+
+
+if __name__ == "__main__":
+    unittest.main()

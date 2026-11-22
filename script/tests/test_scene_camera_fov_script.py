@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from script.tests.support import scene_vector_vm_test_support as vm
-from script.tests.test_scene_particle_camera_frame import SWIFT_SOURCES as CAMERA_SOURCES
+from script.tests.scene.test_scene_particle_camera_frame import SWIFT_SOURCES as CAMERA_SOURCES
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[2]

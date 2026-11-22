@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_wallpaper_async_launch import function_body
+from script.tests.scene.test_scene_wallpaper_async_launch import function_body
 
 ROOT = Path(__file__).resolve().parents[2]
 IPC = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC"
