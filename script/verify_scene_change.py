@@ -184,14 +184,14 @@ def mapped_tests(
         if path.startswith(".agents/skills/mywallpaperx-maintainer/"):
             groups.add("repository-skill-governance")
             modules.add("test_scene_governance_contract")
-        if path.startswith("script/tests/test_") and path.endswith(".py"):
+        if path.startswith("script/tests/") and Path(path).name.startswith("test_") and path.endswith(".py"):
             # Deleted tests still appear in a diff, but cannot be passed to the
             # executable test runner as module names.
             if (ROOT / path).is_file():
                 modules.add(Path(path).stem)
         elif path.startswith("script/") and path.endswith(".py"):
-            counterpart = ROOT / "script/tests" / f"test_{Path(path).name}"
-            if counterpart.is_file():
+            counterpart = next(iter((ROOT / "script/tests").rglob(f"test_{Path(path).name}")), None)
+            if counterpart is not None and counterpart.is_file():
                 modules.add(counterpart.stem)
         for group in registry["path_groups"]:
             patterns = group.get("patterns", [])
@@ -349,7 +349,7 @@ def build_plan(
 ) -> tuple[list[Gate], set[str]]:
     modules, keywords, groups = mapped_tests(paths, registry)
     missing_modules = sorted(module for module in modules
-                             if not (ROOT / "script/tests" / f"{module}.py").is_file())
+                             if not next(iter((ROOT / "script/tests").rglob(f"{module}.py")), None) is not None)
     if missing_modules:
         raise ValueError("mapped test modules no longer exist: " + ", ".join(missing_modules))
     # These modules have registered method-level gates; never also execute
@@ -632,7 +632,7 @@ def validation_payload(
 ) -> dict[str, Any]:
     mapping = product_test_mapping(
         paths, registry if registry is not None else load_registry(),
-        [path.stem for path in (ROOT / "script/tests").glob("test_*.py")],
+        [path.stem for path in (ROOT / "script/tests").rglob("test_*.py")],
     )
     # A byte-identical move has no new behavior to test. Preserve its missing
     # focused mapping in the report; only an actual successful product build

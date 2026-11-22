@@ -133,7 +133,7 @@ class DocumentHealthTests(unittest.TestCase):
         self.assertTrue(schema_errors(invalid))
 
     def test_cli_compares_committed_baseline_and_reports_required_adjustments(self):
-        (self.root / 'script').mkdir()
+        (self.root / 'script/data').mkdir(parents=True, exist_ok=True)
         (self.root / 'docs/document-role-index.json').write_text(json.dumps(self.index))
         baseline_file = self.root / BASELINE
         baseline_file.write_text(json.dumps(self.baseline))
@@ -209,7 +209,7 @@ class DocumentHealthTests(unittest.TestCase):
         self.assertTrue(ratchet_errors(old, final, ((old, first),)))
 
     def test_cli_uses_only_ancestor_receipts_and_historical_decisions(self):
-        (self.root / 'script').mkdir()
+        (self.root / 'script/data').mkdir(parents=True, exist_ok=True)
         (self.root / 'docs/document-role-index.json').write_text(json.dumps(self.index))
         baseline_file = self.root / BASELINE
         def git(*args):
@@ -369,7 +369,7 @@ class DocumentHealthTests(unittest.TestCase):
         self.assertTrue(any('escapes docs' in e for e in validate(self.root, self.index, self.baseline)))
 
     def test_cli_invalid_json_and_schema_report_errors_without_traceback(self):
-        (self.root / 'script').mkdir()
+        (self.root / 'script/data').mkdir(parents=True, exist_ok=True)
         (self.root / 'docs/document-role-index.json').write_text(json.dumps(self.index))
         for text in ('{"schemaVersion": NaN}', '[]', '{"bodies": false}'):
             (self.root / BASELINE).write_text(text)

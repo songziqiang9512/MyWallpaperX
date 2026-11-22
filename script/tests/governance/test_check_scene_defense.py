@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "check_scene_defense.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "check_scene_defense.py"
 SPEC = importlib.util.spec_from_file_location("check_scene_defense", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 GATE = importlib.util.module_from_spec(SPEC)

@@ -2936,7 +2936,9 @@
         "script/resolve_version.sh",
         "script/run_checkpoint_build.sh",
         "script/sign-steam-helper.sh",
-        "script/update_project_version.sh"
+        "script/update_project_version.sh",
+        "script/tests/README.md",
+        "script/tests/governance/**"
       ],
       "modules": [
         "test_scene_governance_contract",

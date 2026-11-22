@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 
-SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1]
+SCRIPT_DIRECTORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 import run_scene_tests as runner
@@ -115,7 +115,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             runner.discover_modules(available[1:], scope="release")
 
     def test_release_profile_references_real_test_modules(self) -> None:
-        available = [path.stem for path in runner.TESTS_DIRECTORY.glob("test_*.py")]
+        available = [path.stem for path in runner.TESTS_DIRECTORY.rglob("test_*.py")]
         self.assertTrue(runner.discover_modules(available, scope="release"))
 
     def test_test_module_imports_and_declared_release_selection_still_exist(self) -> None:
@@ -293,7 +293,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             with self.subTest(arguments=arguments):
                 error = io.StringIO()
                 directory = mock.Mock()
-                directory.glob.return_value = [Path("test_scene_known_fixture.py")]
+                directory.rglob.return_value = [runner.REPOSITORY_ROOT / "script/tests/test_scene_known_fixture.py"]
                 with mock.patch.object(runner, "TESTS_DIRECTORY", directory), \
                      mock.patch.object(runner, "run_module") as run, \
                      contextlib.redirect_stderr(error):
@@ -326,9 +326,9 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             stderr="",
         )
         module, returncode, _, output = runner.run_module(
-            "script.tests.test_scene_test_runner"
+            "script.tests.governance.test_scene_test_runner"
         )
-        self.assertEqual(module, "script.tests.test_scene_test_runner")
+        self.assertEqual(module, "script.tests.governance.test_scene_test_runner")
         self.assertEqual(returncode, 0)
         self.assertEqual(output, "")
         self.assertEqual(
@@ -338,7 +338,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 "-B",
                 "-m",
                 "unittest",
-                "script.tests.test_scene_test_runner",
+                "script.tests.governance.test_scene_test_runner",
             ],
         )
 

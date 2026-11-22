@@ -6,7 +6,7 @@ import subprocess
 import sys
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'script'))
 import verify_scene_change as verify
 import run_scene_tests as runner
@@ -79,7 +79,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         self.assertLessEqual(consumers, modules)
 
     def test_default_release_scope_includes_signing_and_diagnostic_exclusion(self):
-        modules = [p.stem for p in (ROOT / 'script/tests').glob('test_*.py')]
+        modules = [p.stem for p in (ROOT / 'script/tests').rglob('test_*.py')]
         selected = runner.discover_modules(modules, scope='release')
         for module in ['test_steam_helper_signing', 'test_release_diagnostic_isolation',
                        'test_ci_release_routing', 'test_screen_saver_integration']:

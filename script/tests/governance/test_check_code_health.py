@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "check_code_health.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "check_code_health.py"
 SPEC = importlib.util.spec_from_file_location("check_code_health", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 GATE = importlib.util.module_from_spec(SPEC)

@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlsplit
 from script.document_registry import managed_documents, validate, local_targets, ROLES, HISTORY_ROOTS
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 ROLE_INDEX_PATH = DOCUMENTATION_ROOT / "document-role-index.json"
 HISTORY_README_PATH = DOCUMENTATION_ROOT / "history" / "README.md"

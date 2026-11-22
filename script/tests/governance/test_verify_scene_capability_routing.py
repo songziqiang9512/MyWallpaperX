@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from script.tests.test_verify_scene_change import arguments, verify
+from script.tests.governance.test_verify_scene_change import arguments, verify
 
 
 class SceneValidationRoutingTests(unittest.TestCase):

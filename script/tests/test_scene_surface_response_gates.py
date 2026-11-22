@@ -2,7 +2,7 @@
 import unittest
 
 from script import verify_scene_change as verify
-from script.tests.test_verify_scene_change import arguments
+from script.tests.governance.test_verify_scene_change import arguments
 
 
 class SceneSurfaceResponseGateTests(unittest.TestCase):

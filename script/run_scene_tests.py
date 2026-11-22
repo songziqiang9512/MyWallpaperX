@@ -77,6 +77,7 @@ def discover_modules(
     scope: str = "all",
     keywords: Sequence[str] = (),
     requested_modules: Sequence[str] = (),
+    module_map: dict[str, str] | None = None,
 ) -> list[str]:
     """Select fully qualified unittest modules without reading global state."""
     if scope not in {"all", "scene", "release"}:
@@ -114,7 +115,8 @@ def discover_modules(
         selected.update(keyword_matches)
     elif keywords:
         selected.update(keyword_matches)
-    return [f"script.tests.{name}" for name in sorted(selected)]
+    mapping = module_map or {}
+    return [mapping.get(name, f"script.tests.{name}") for name in sorted(selected)]
 
 
 def positive_job_count(value: str) -> int:
@@ -194,15 +196,21 @@ def run_module(module: str) -> tuple[str, int, float, str]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_arguments(argv)
-    available_modules = sorted(
-        path.stem for path in TESTS_DIRECTORY.glob("test_*.py")
-    )
+    module_map: dict[str, str] = {}
+    for path in TESTS_DIRECTORY.rglob("test_*.py"):
+        basename = path.stem
+        if basename in module_map:
+            raise SystemExit(f"duplicate test module basename: {basename}")
+        relative = path.relative_to(REPOSITORY_ROOT).with_suffix("")
+        module_map[basename] = ".".join(relative.parts)
+    available_modules = sorted(module_map)
     try:
         modules = discover_modules(
             available_modules,
             scope=args.scope,
             keywords=args.keyword,
             requested_modules=args.module,
+            module_map=module_map,
         )
     except ValueError as error:
         print(f"测试选择失败: {error}", file=sys.stderr)
