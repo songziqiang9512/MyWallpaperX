@@ -59,6 +59,9 @@ jobs:
       - name: Lint repository Python
         run: ruff check script
 
+      - name: Report unmapped test modules
+        run: python3 script/check_test_mapping.py
+
       - name: Restore locked SteamService dependencies
         working-directory: SteamService
         run: dotnet restore --locked-mode
