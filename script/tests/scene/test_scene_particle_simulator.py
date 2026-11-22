@@ -1,0 +1,4514 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuffer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+MaintainControlPointDistance.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Boids.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+AudioResponse.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Vortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CapVelocity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleUnaryOperatorPlans.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneBCTextureDecoder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackModels.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Operators.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ExplicitEmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+PlaybackTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+InstanceOverride.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+]
+
+
+SPHERE_SAMPLING_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleSphereSamplingChecks.swift"
+COMPONENT_OBSERVATION_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleComponentObservationChecks.swift"
+
+HARNESS_SOURCE = r'''
+import Foundation
+import simd
+
+@main
+enum Harness {
+    static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "component-observation" {
+            try printJSON(SceneParticleComponentObservationChecks.run())
+        } else if CommandLine.arguments.dropFirst().first == "force-safety" {
+            try printJSON(forceSafetyResults())
+        } else if CommandLine.arguments.dropFirst().first == "periodic-overrides" {
+            try printJSON(periodicOverrideResults())
+        } else if CommandLine.arguments.dropFirst().first == "speed-disable" {
+            try printJSON(speedDisableResults())
+        } else if CommandLine.arguments.dropFirst().first == "gravity-speed" {
+            try printJSON(gravitySpeedResults())
+        } else if CommandLine.arguments.dropFirst().first == "angular-speed" {
+            try printJSON(angularSpeedResults())
+        } else if CommandLine.arguments.dropFirst().first == "rotation-source-types" {
+            try printJSON(rotationSourceTypeResults())
+        } else if CommandLine.arguments.dropFirst().first == "birth-scalar-safety" {
+            try printJSON(birthScalarSafetyResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "simulation-rate" {
+            try printJSON(simulationRateResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "signed-drag" {
+            try printJSON(signedDragResults())
+        } else if CommandLine.arguments.dropFirst().first == "signed-drag-safety" {
+            try printJSON(signedDragSafetyResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "sphere-sampling" {
+            try printJSON(SceneParticleSphereSamplingChecks.run())
+        } else if CommandLine.arguments.count == 2,
+           CommandLine.arguments[1] == "position-around-control-point" {
+            try printJSON(positionAroundControlPointResults())
+        } else if CommandLine.arguments.count == 2,
+                  CommandLine.arguments[1] == "emitter-pointer" {
+            try printJSON(emitterPointerResults())
+        } else if CommandLine.arguments.count == 3,
+                  CommandLine.arguments[1] == "census" {
+            try printJSON(census(rootPath: CommandLine.arguments[2]))
+        } else {
+            try printJSON(syntheticResults())
+        }
+    }
+
+    private static func forceSafetyResults() throws -> [String: Any] {
+        let original = SIMD3<Double>(1, 2, 3)
+        var rejected: [Bool] = []
+        for axis in 0..<3 {
+            for bad in [1e100, -1e100, Double.infinity, Double.nan] {
+                var delta = SIMD3<Double>(4, 5, 6)
+                delta[axis] = bad
+                var value = original
+                SceneParticleSimulationMath.addFinite(delta, to: &value)
+                rejected.append(value == original)
+            }
+        }
+        var boundary = SIMD3<Double>.zero
+        let limit = Double(Float.greatestFiniteMagnitude)
+        SceneParticleSimulationMath.addFinite(SIMD3(limit, -limit, 0), to: &boundary)
+        let parser = SceneParticleDefinitionParser()
+        var root = try object(vortexJSON(speedOuter: "2"))
+        var operators = root["operator"] as! [[String: Any]]
+        operators.append(["name": "movement", "gravity": "0 0 0", "drag": 0])
+        root["operator"] = operators
+        func make() throws -> SceneParticleSimulator {
+            SceneParticleSimulator(definition: try parser.parse(root: root),
+                seed: 81, fixedTimeStep: 0.25)
+        }
+        let live = try make(), reference = try make()
+        live.advance(by: 0.25)
+        reference.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        let before = live.particles[0]
+        let bad = parser.parseInstanceOverride(["speed": 1e100])
+        live.advance(by: 0.25, dynamicInstanceOverride: bad)
+        reference.advance(by: 0.25,
+            dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        let afterBad = live.particles
+        let retained = afterBad == reference.particles
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: bad)
+        let retry = live.particles == afterBad
+        live.advance(by: 0.25)
+        reference.advance(by: 0.25)
+        let recovered = live.particles == reference.particles
+        return ["atomicRejection": rejected,
+            "boundaryAccepted": boundary == SIMD3(limit, -limit, 0),
+            "badForceSkipped": retained, "retry": retry, "recovered": recovered,
+            "continuesMoving": live.particles[0].position != before.position,
+            "safeVelocity": Float(live.particles[0].velocity.x).isFinite
+                && Float(live.particles[0].velocity.y).isFinite]
+    }
+
+    private static func periodicOverrideResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func make(rate: Double = 1, count: Double = 1, flags: Int = 0,
+                  randomWindows: Bool = false, step: Double = 0.25) throws -> SceneParticleSimulator {
+            var root = try object(periodicJSON)
+            root["flags"] = flags
+            root["initializer"] = [["name": "lifetimerandom", "min": 1e9, "max": 1e9]]
+            if randomWindows, var emitters = root["emitter"] as? [[String: Any]] {
+                emitters[0]["minperiodicduration"] = 0.1
+                emitters[0]["maxperiodicduration"] = 0.3
+                emitters[0]["minperiodicdelay"] = 0.2
+                emitters[0]["maxperiodicdelay"] = 0.4
+                root["emitter"] = emitters
+            }
+            return SceneParticleSimulator(definition: try parser.parse(root: root),
+                instanceOverride: parser.parseInstanceOverride(["rate": rate, "count": count]),
+                seed: 101, fixedTimeStep: step)
+        }
+        var rows: [[String: Any]] = []
+        for rate in [0.0, 0.5, 1, 2] {
+            for count in [0.0, 0.5, 1, 2] {
+                let sim = try make(rate: rate, count: count)
+                sim.advance(by: 2)
+                rows.append(["rate": rate, "count": count, "particles": sim.particles.count,
+                    "time": sim.simulationTime])
+            }
+        }
+        let randomReference = try make(randomWindows: true)
+        let randomScaled = try make(rate: 2, randomWindows: true, step: 0.125)
+        randomReference.advance(by: 2)
+        randomScaled.advance(by: 1)
+        let disabled = try make(count: 0, flags: 32)
+        disabled.advance(by: 2)
+        let live = try make(count: 0)
+        live.advance(by: 0.5)
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let delayCount = live.particles.count
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 0, "count": 2]))
+        let pausedTime = live.simulationTime
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let first = live.particles
+        live.restoreFrame(saved)
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let unsafe = try make()
+        unsafe.advance(by: 0.25)
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1e6, "count": 1]))
+        let afterUnsafe = unsafe.particles.count
+        unsafe.advance(by: 0.25)
+        let boundary = try make(rate: 2048)
+        boundary.advance(by: 0.25)
+        return ["rows": rows, "randomScaledEqual": randomReference.particles == randomScaled.particles,
+            "disabled": disabled.particles.count,
+            "delayCount": delayCount, "pausedTime": pausedTime,
+            "resumedCount": first.count, "retry": first == live.particles,
+            "afterUnsafe": afterUnsafe, "recovered": unsafe.particles.count,
+            "invalidEmitter": unsafe.diagnostics.filter { $0.kind == .invalidEmitterState }.count,
+            "boundaryCount": boundary.particles.count,
+            "boundaryInvalid": boundary.diagnostics.filter { $0.kind == .invalidEmitterState }.count]
+    }
+
+    private static func speedDisableResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func make(_ speed: Double?, disabled: Bool) throws -> SceneParticleSimulator {
+            var root = try object(turbulenceOperatorJSON)
+            root["flags"] = disabled ? 16 : 0
+            return SceneParticleSimulator(definition: try parser.parse(root: root),
+                instanceOverride: speed.flatMap { parser.parseInstanceOverride(["speed": $0]) },
+                seed: 71, fixedTimeStep: 0.1)
+        }
+        let reference = try make(nil, disabled: false)
+        reference.advance(by: 0.1)
+        let baseline = vector(reference.particles[0].velocity)
+        var rows: [[String: Any]] = []
+        for speed in [-2.0, 0, 0.5, 2, 1e100] {
+            let disabled = try make(speed, disabled: true)
+            disabled.advance(by: 0.1)
+            let ordinary = try make(speed, disabled: false)
+            ordinary.advance(by: 0.1)
+            rows.append(["speed": speed, "disabled": vector(disabled.particles[0].velocity),
+                "ordinary": vector(ordinary.particles[0].velocity)])
+        }
+        let live = try make(2, disabled: true)
+        live.advance(by: 0.1)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        let changed = vector(live.particles[0].velocity)
+        live.restoreFrame(saved)
+        live.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        reference.advance(by: 0.1)
+        return ["baseline": baseline, "rows": rows, "changed": changed,
+            "retry": vector(live.particles[0].velocity),
+            "referenceNext": vector(reference.particles[0].velocity)]
+    }
+
+    private static func gravitySpeedResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func modifier(_ speed: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["speed": speed])
+        }
+        func make(_ speed: Double, flags: Int = 0, drag: Double = 0,
+                  gravity: String = "4 -8 2") throws -> SceneParticleSimulator {
+            let definition = try parser.parse(root: ["maxcount": 4, "flags": flags,
+                "emitter": [["name": "sphererandom", "instantaneous": 1,
+                    "rate": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                "operator": [["name": "movement", "drag": drag, "gravity": gravity]],
+                "renderer": [["name": "sprite"]]])
+            return SceneParticleSimulator(definition: definition,
+                instanceOverride: modifier(speed), fixedTimeStep: 0.25)
+        }
+        var rows: [[String: Any]] = []
+        for flags in [0, 16] {
+            for speed in [-1.0, 0, 0.5, 1, 2] {
+                let sim = try make(speed, flags: flags)
+                sim.advance(by: 0.5)
+                rows.append(["flags": flags, "speed": speed,
+                    "velocity": vector(sim.particles[0].velocity),
+                    "position": vector(sim.particles[0].position)])
+            }
+        }
+        let live = try make(1, drag: 0.5)
+        live.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let stopped = vector(live.particles[0].velocity)
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let retry = vector(live.particles[0].velocity)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(2))
+        let doubled = vector(live.particles[0].velocity)
+        live.advance(by: 0.25)
+        let unsafe = try make(1, gravity: "1000000 0 0")
+        unsafe.advance(by: 0.25)
+        let oldPosition = unsafe.particles[0].position
+        let oldVelocity = unsafe.particles[0].velocity
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: modifier(1e35))
+        let preserved = unsafe.particles[0].position == oldPosition
+            && unsafe.particles[0].velocity == oldVelocity
+        unsafe.advance(by: 0.25)
+        return ["rows": rows, "stopped": stopped, "retry": retry, "doubled": doubled,
+            "fallback": vector(live.particles[0].velocity), "preserved": preserved,
+            "recovered": unsafe.particles[0].velocity.x > oldVelocity.x,
+            "invalidMotion": unsafe.diagnostics.filter { $0.kind == .invalidOperatorState }.count]
+    }
+
+    private static func angularSpeedResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func definition(_ flags: Int = 0, continuous: Bool = false) throws -> SceneParticleDefinition {
+            try parser.parse(root: ["maxcount": 16, "flags": flags,
+                "emitter": [["name": "sphererandom", "instantaneous": continuous ? 0 : 1,
+                    "rate": continuous ? 4 : 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "rotationrandom", "min": "0.2 -0.4 0.6", "max": "0.2 -0.4 0.6"],
+                    ["name": "angularvelocityrandom", "min": "1 -2 3", "max": "1 -2 3"]],
+                "operator": [["name": "angularmovement", "drag": 0, "force": "0 0 0"]],
+                "renderer": [["name": "sprite"]]])
+        }
+        func modifier(_ speed: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["speed": speed])
+        }
+        var rows: [[String: Any]] = []
+        for flags in [0, 16] {
+            for speed in [-1.0, 0, 0.5, 1, 2] {
+                let sim = SceneParticleSimulator(definition: try definition(flags),
+                    instanceOverride: modifier(speed), fixedTimeStep: 0.25)
+                sim.advance(by: 0.25)
+                rows.append(["flags": flags, "speed": speed,
+                    "angular": vector(sim.particles[0].angularVelocity),
+                    "rotation": vector(sim.particles[0].rotation)])
+            }
+        }
+        let live = SceneParticleSimulator(definition: try definition(continuous: true),
+            instanceOverride: modifier(2), fixedTimeStep: 0.25)
+        live.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let changed = live.particles.map { vector($0.angularVelocity) }
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let retry = live.particles.map { vector($0.angularVelocity) }
+        live.advance(by: 0.25)
+        let unsafe = SceneParticleSimulator(definition: try definition(continuous: true), fixedTimeStep: 0.25)
+        unsafe.advance(by: 0.25)
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: modifier(1e100))
+        let safePeers = unsafe.particles.count
+        unsafe.advance(by: 0.25)
+        return ["rows": rows, "changed": changed, "retry": retry,
+            "fallback": vector(live.particles.last!.angularVelocity),
+            "unsafePeers": safePeers, "recovered": unsafe.particles.count,
+            "invalidBirths": unsafe.diagnostics.filter { $0.kind == .invalidEmitterState }.count]
+    }
+
+    private static func rotationSourceTypeResults() throws -> [String: Any] {
+        func run(_ minimum: Any, _ maximum: Any, kind: String = "rotationrandom") throws -> [Double] {
+            let root: [String: Any] = [
+                "maxcount": 1,
+                "emitter": [["name": "sphererandom", "instantaneous": 1, "rate": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                                ["name": kind, "min": minimum, "max": maximum]],
+                "renderer": [["name": "sprite"]]
+            ]
+            let data = try JSONSerialization.data(withJSONObject: root)
+            let definition = try SceneParticleDefinitionParser().parse(data: data)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 5)
+            simulation.advance(by: 1.0 / 60)
+            let particle = simulation.particles[0]
+            let value = kind == "velocityrandom" ? particle.velocity : particle.rotation
+            return [value.x, value.y, value.z]
+        }
+        return [
+            "number": try run(0.3, 0.3),
+            "negative": try run(-0.25, -0.25),
+            "zero": try run(0, 0),
+            "string": try run("0.3", "0.3"),
+            "explicitZ": try run("0 0 0.3", "0 0 0.3"),
+            "explicitX": try run("0.3 0 0", "0.3 0 0"),
+            "explicitXYZ": try run("0.3 0.3 0.3", "0.3 0.3 0.3"),
+            "mixed": try run(0.3, "0 0 0.3"),
+            "range": try run(-0.4, -0.3),
+            "velocityControl": try run(0.3, 0.3, kind: "velocityrandom")
+        ]
+    }
+
+
+    private static func birthScalarSafetyResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        let definition = try parser.parse(data: JSONSerialization.data(withJSONObject: [
+            "maxcount": 100,
+            "emitter": [["name": "sphererandom", "rate": 60, "distancemax": 0]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 20, "max": 20],
+                ["name": "sizerandom", "min": 20, "max": 20],
+                ["name": "velocityrandom", "min": "20 0 0", "max": "20 0 0"],
+                ["name": "colorrandom", "min": "510 510 510", "max": "510 510 510"],
+            ],
+            "operator": [], "renderer": [["name": "sprite"]],
+        ]))
+        var rows: [[String: Any]] = []
+        for field in ["size", "lifetime", "speed", "alpha", "brightness"] {
+            for multiplier in [1e100, Double(Float.greatestFiniteMagnitude)] {
+                var simulator = SceneParticleSimulator(definition: definition, seed: 4)
+                simulator.advance(by: 1.0 / 60.0)
+                let peer = simulator.particles
+                simulator.advance(by: 1.0 / 60.0,
+                    dynamicInstanceOverride: parser.parseInstanceOverride([field: multiplier]))
+                let unsafeCount = simulator.particles.count
+                let peerPreserved = simulator.particles.first?.id == peer.first?.id
+                simulator.advance(by: 1.0 / 60.0,
+                    dynamicInstanceOverride: parser.parseInstanceOverride([field: 1]))
+                rows.append(["field": field, "multiplier": multiplier,
+                    "unsafeCount": unsafeCount, "recoveredCount": simulator.particles.count,
+                    "peerPreserved": peerPreserved,
+                    "diagnosticCount": simulator.diagnostics.filter {
+                        $0.kind == .invalidEmitterState
+                    }.count,
+                    "finite": simulator.particles.allSatisfy {
+                        Float($0.size).isFinite && Float($0.lifetime).isFinite
+                            && Float($0.alpha).isFinite && Float($0.velocity.x).isFinite
+                            && Float($0.color.x).isFinite
+                    }])
+            }
+        }
+        return ["rows": rows]
+    }
+
+    private static func simulationRateResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func modifier(_ rate: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["rate": rate])
+        }
+        func definition(delay: Double = 0, duration: Double = 0, startTime: Double = 0,
+                        burst: Bool = true, lifetime: Double = 2) -> SceneParticleDefinition {
+            parser.parse(root: ["material": "p.json", "maxcount": 100, "starttime": startTime,
+                "emitter": [["name": "boxrandom", "rate": burst ? 0 : 20,
+                    "instantaneous": burst ? 1 : 0, "distancemin": 0, "distancemax": 0,
+                    "delay": delay, "duration": duration]],
+                "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime],
+                    ["name": "velocityrandom", "min": "2 0 0", "max": "2 0 0"]],
+                "operator": [["name": "movement", "gravity": "0 -4 0", "drag": 0],
+                    ["name": "alphafade", "fadeintime": 0.5, "fadeouttime": 0.8]],
+                "renderer": [["name": "sprite"]]])
+        }
+        func signature(_ simulation: SceneParticleSimulator) -> [Double] {
+            [simulation.simulationTime] + simulation.particles.flatMap {
+                [Double($0.id), $0.age, $0.position.x, $0.position.y, $0.velocity.y, $0.alpha]
+            }
+        }
+        var rows: [[String: Any]] = []
+        for rate in [0.25, 0.5, 1, 2, 4] {
+            let def = definition()
+            let actual = SceneParticleSimulator(definition: def, instanceOverride: modifier(rate), fixedTimeStep: 0.1)
+            let reference = SceneParticleSimulator(definition: def, fixedTimeStep: 0.1 * rate)
+            actual.advance(by: 0.3)
+            reference.advance(by: 0.3 * rate)
+            rows.append(["rate": rate, "actual": signature(actual), "reference": signature(reference)])
+        }
+        let live = SceneParticleSimulator(definition: definition(), fixedTimeStep: 0.1)
+        live.advance(by: 0.2)
+        let beforePause = signature(live)
+        live.advance(by: 10, dynamicInstanceOverride: modifier(0))
+        let afterPause = signature(live)
+        let pausedBirths = live.consumeBirthEvents().count
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(0.5))
+        let half = signature(live)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(2))
+        let fast = signature(live)
+        live.restoreFrame(saved)
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(2))
+        let retry = signature(live)
+        live.advance(by: 0.1)
+        let fallback = signature(live)
+        let frozenStart = SceneParticleSimulator(definition: definition(startTime: 1),
+            instanceOverride: modifier(0), fixedTimeStep: 0.1)
+        frozenStart.advance(by: 0.1)
+        let warm = SceneParticleSimulator(definition: definition(startTime: 0.3),
+            instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
+        let equivalent = SceneParticleSimulator(definition: definition(),
+            instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
+        equivalent.advance(by: 0.3)
+        let delayed = SceneParticleSimulator(definition: definition(delay: 0.15, duration: 0.2, burst: false),
+            instanceOverride: modifier(2), fixedTimeStep: 0.1)
+        delayed.advance(by: 0.1)
+        let delayCount = delayed.particles.count
+        delayed.advance(by: 0.1)
+        let clippedCount = delayed.particles.count
+        delayed.advance(by: 1)
+        let totalBirths = delayed.consumeBirthEvents().count
+        let dying = SceneParticleSimulator(definition: definition(lifetime: 0.4),
+            instanceOverride: modifier(2), fixedTimeStep: 0.1)
+        dying.advance(by: 0.1)
+        let firstDeathCount = dying.consumeDeathEvents().count
+        dying.advance(by: 0.1)
+        let secondDeathCount = dying.consumeDeathEvents().count
+        let overflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 2)
+        overflow.advance(by: 2, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        let finiteStepOverflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 1.0 / 60)
+        finiteStepOverflow.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        finiteStepOverflow.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        let rejectedTime = finiteStepOverflow.simulationTime
+        finiteStepOverflow.advance(by: 1.0 / 60)
+        let emitterOverflowDefinition = parser.parse(root: ["material": "p.json", "maxcount": 20,
+            "emitter": [["name": "boxrandom", "rate": 1e308, "distancemin": 0, "distancemax": 0],
+                ["name": "boxrandom", "rate": 0, "instantaneous": 1, "distancemin": 0, "distancemax": 0]],
+            "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+            "renderer": [["name": "sprite"]]])
+        let emission = SceneParticleSimulator(definition: emitterOverflowDefinition, fixedTimeStep: 1.0 / 60)
+        let emissionSaved = emission.frameSnapshot()
+        for _ in 0..<2 { emission.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(120)) }
+        let peerCount = emission.particles.count
+        let emissionFailure = signature(emission)
+        let emitterDiagnostics = emission.diagnostics.map { $0.kind.rawValue }
+        let finiteRemainders = emission.frameSnapshot().emitters.allSatisfy { $0.remainder.isFinite }
+        emission.restoreFrame(emissionSaved)
+        for _ in 0..<2 { emission.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(120)) }
+        let emissionRetry = signature(emission)
+        emission.advance(by: 1.0 / 60)
+        let boundaryDefinition = parser.parse(root: ["material": "p.json", "maxcount": 20,
+            "emitter": [["name": "boxrandom", "rate": 9.999999999999 / 0.1,
+                "distancemin": 0, "distancemax": 0]],
+            "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+            "renderer": [["name": "sprite"]]])
+        let boundary = SceneParticleSimulator(definition: boundaryDefinition, fixedTimeStep: 0.1)
+        boundary.advance(by: 0.1)
+        boundary.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["count": 0]))
+        return ["rows": rows, "beforePause": beforePause, "afterPause": afterPause,
+            "pausedBirths": pausedBirths, "half": half, "fast": fast, "retry": retry,
+            "fallback": fallback, "frozenStartCount": frozenStart.particles.count,
+            "frozenStartTime": frozenStart.simulationTime, "warm": signature(warm),
+            "equivalentWarm": signature(equivalent), "delayCount": delayCount,
+            "clippedCount": clippedCount, "totalBirths": totalBirths,
+            "firstDeathCount": firstDeathCount, "secondDeathCount": secondDeathCount,
+            "overflowTime": overflow.simulationTime, "overflowCount": overflow.particles.count,
+            "overflowDiagnostics": overflow.diagnostics.map { $0.kind.rawValue },
+            "finiteStepRejectedTime": rejectedTime,
+            "finiteStepRecoveryTime": finiteStepOverflow.simulationTime,
+            "finiteStepDiagnosticCount": finiteStepOverflow.diagnostics.filter { $0.kind == .invalidSimulationTime }.count,
+            "emissionPeerCount": peerCount, "emissionFiniteRemainders": finiteRemainders,
+            "emissionDiagnostics": emitterDiagnostics, "emissionFailure": emissionFailure,
+            "emissionRetry": emissionRetry, "emissionRecoveryCount": emission.particles.count,
+            "roundedEmissionCount": boundary.particles.count,
+            "roundedRemainder": boundary.frameSnapshot().emitters[0].remainder]
+    }
+
+    private static func signedDragResults() throws -> [String: Any] {
+        func run(_ drag: Any, angular: Bool = false, enabled: Bool = true) throws -> SceneParticleState {
+            let root: [String: Any] = [
+                "material": "p.json", "maxcount": 1,
+                "emitter": [["name": "sphererandom", "instantaneous": 1, "rate": 0,
+                    "directions": "0 0 0", "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": angular ? "angularvelocityrandom" : "velocityrandom",
+                     "min": "0 0 1", "max": "0 0 1"]],
+                "operator": enabled ? [["name": angular ? "angularmovement" : "movement",
+                    "drag": drag]] : [], "renderer": [["name": "sprite"]]
+            ]
+            let definition = try SceneParticleDefinitionParser().parse(root: root)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+            simulation.advance(by: 0.5)
+            return simulation.particles[0]
+        }
+        var rows: [[String: Any]] = []
+        for angular in [false, true] {
+            for drag in angular ? [-2.0, 0.0, 2.0] : [-2.0, 0.0, 2.0, 8.0] {
+                let p = try run(drag, angular: angular)
+                rows.append(["angular": angular, "drag": drag,
+                    "velocity": angular ? p.angularVelocity.z : p.velocity.z,
+                    "position": angular ? p.rotation.z : p.position.z])
+            }
+        }
+        let invalid = try ["nan", "inf", "-inf"].flatMap { value in
+            try [run(value), run(value, angular: true)]
+        }
+        let inert = try run(-2, enabled: false)
+        let inertAngular = try run(-2, angular: true, enabled: false)
+        return ["rows": rows,
+            "nonFiniteDragKeepsFiniteState": invalid.allSatisfy {
+                $0.position.z.isFinite && $0.velocity.z.isFinite
+                    && $0.rotation.z.isFinite && $0.angularVelocity.z.isFinite
+            }, "missingOperatorsKeepPosition": inert.position == .zero && inertAngular.rotation == .zero]
+    }
+
+    private static func signedDragSafetyResults() throws -> [String: Any] {
+        var rows: [[String: Any]] = []
+        for angular in [false, true] {
+            for drag in [-Double.greatestFiniteMagnitude, -1e39, -1000] {
+                let root: [String: Any] = [
+                    "material": "p.json", "maxcount": 2,
+                    "emitter": [["name": "boxrandom", "instantaneous": 2, "rate": 0,
+                        "distancemin": "0 0 0", "distancemax": "0 0 0"]],
+                    "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+                    "operator": [["name": angular ? "angularmovement" : "movement", "drag": drag],
+                        ["name": "alphachange", "startvalue": 0.5, "endvalue": 0.5]],
+                    "renderer": [["name": "sprite"]]]
+                let definition = try SceneParticleDefinitionParser().parse(root: root)
+                let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+                simulation.advance(by: 0.25)
+                if angular { simulation.particles[0].angularVelocity = SIMD3(0, 0, 2) }
+                else { simulation.particles[0].velocity = SIMD3(0, 0, 2) }
+                let original = simulation.frameSnapshot()
+                var rejected = false
+                var atomic = true
+                var finite = true
+                for _ in 0..<24 {
+                    let before = simulation.particles[0]
+                    simulation.advance(by: 0.25)
+                    let after = simulation.particles[0]
+                    finite = finite && [after.velocity, after.position, after.angularVelocity, after.rotation]
+                        .allSatisfy { Float($0.x).isFinite && Float($0.y).isFinite && Float($0.z).isFinite }
+                    let oldVelocity = angular ? before.angularVelocity : before.velocity
+                    let newVelocity = angular ? after.angularVelocity : after.velocity
+                    if oldVelocity == newVelocity {
+                        rejected = true
+                        atomic = atomic && (angular ? before.rotation == after.rotation : before.position == after.position)
+                    }
+                }
+                let expected = simulation.particles
+                let count = simulation.diagnostics.filter { $0.kind == .invalidOperatorState }.count
+                let peer = simulation.particles[1]
+                let siblingSafe = peer.position == .zero && peer.rotation == .zero && peer.age > 6
+                let downstream = simulation.particles.allSatisfy { abs($0.alpha - 0.5) < 1e-12 }
+                simulation.restoreFrame(original)
+                let restoredDiagnostics = !simulation.diagnostics.contains { $0.kind == .invalidOperatorState }
+                for _ in 0..<24 { simulation.advance(by: 0.25) }
+                let replay = zip(expected, simulation.particles).allSatisfy {
+                    $0.position == $1.position && $0.velocity == $1.velocity
+                        && $0.rotation == $1.rotation && $0.angularVelocity == $1.angularVelocity && $0.age == $1.age
+                }
+                rows.append(["angular": angular, "drag": drag, "finite": finite,
+                    "rejected": rejected, "atomic": atomic, "diagnosticCount": count,
+                    "siblingSafe": siblingSafe, "downstream": downstream,
+                    "restoredDiagnostics": restoredDiagnostics, "replay": replay])
+            }
+        }
+        var positionOnly: [Bool] = []
+        for angular in [false, true] {
+            let root: [String: Any] = ["material": "p.json", "maxcount": 1,
+                "emitter": [["name": "boxrandom", "instantaneous": 1, "rate": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+                "operator": [["name": angular ? "angularmovement" : "movement", "drag": 0]],
+                "renderer": [["name": "sprite"]]]
+            let definition = try SceneParticleDefinitionParser().parse(root: root)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+            simulation.advance(by: 0.25)
+            let limit = Double(Float.greatestFiniteMagnitude)
+            if angular {
+                simulation.particles[0].rotation = SIMD3(0, 0, limit * 0.999)
+                simulation.particles[0].angularVelocity = SIMD3(0, 0, limit * 0.1)
+            } else {
+                simulation.particles[0].position = SIMD3(0, 0, limit * 0.999)
+                simulation.particles[0].velocity = SIMD3(0, 0, limit * 0.1)
+            }
+            let before = simulation.particles[0]
+            simulation.advance(by: 0.25)
+            let after = simulation.particles[0]
+            positionOnly.append(before.position == after.position && before.velocity == after.velocity
+                && before.rotation == after.rotation && before.angularVelocity == after.angularVelocity
+                && simulation.diagnostics.contains { $0.kind == .invalidOperatorState })
+        }
+        return ["rows": rows, "positionOnly": positionOnly]
+    }
+
+    private static func emitterPointerResults() throws -> [String: Any] {
+        // CP0 *is* the particle-system origin: with the pointer flag it
+        // follows the cursor, so an omitted emitter source resolves to 0.
+        let originJSON = #"""
+        {"material":"p.json","maxcount":8,"starttime":1,
+         "controlpoint":[{"id":0,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let originDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(originJSON)
+        )
+        var originInjected = simulator(originJSON, seed: 71, step: 0.1)
+        originInjected.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 0)])
+
+        // Shuriken-cursor shape: explicit emitter control-point reference.
+        let shurikenJSON = #"""
+        {"material":"p.json","maxcount":8,"starttime":1,
+         "controlpoint":[{"id":0,"flags":0,"offset":"0 0 0"},{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let shurikenDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(shurikenJSON)
+        )
+        var shurikenFollow = simulator(shurikenJSON, seed: 71, step: 0.1)
+        let shurikenPrewarmPositions = shurikenFollow.particles.map {
+            vector($0.position)
+        }
+        shurikenFollow.advance(by: 0.1, dynamicControlPoints: [1: SIMD3(7, 8, 0)])
+        var shurikenOutside = simulator(shurikenJSON, seed: 71, step: 0.1)
+        shurikenOutside.advance(
+            by: 0.1, dynamicControlPoints: [1: SIMD3(repeating: .nan)]
+        )
+
+        // dust-motes shape: pointer CP1 consumed only by controlpointattract;
+        // the static CP0 keeps the emitter's default identity out.
+        let attractOnlyJSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":0,"flags":0,"offset":"0 0 0"},{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "operator":[{"name":"controlpointattract","controlpoint":1,"scale":500,"threshold":5000}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let attractOnlyDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(attractOnlyJSON)
+        )
+
+        // Rejections: world-space system, static CP1, and layer-image emitter.
+        let worldSpaceJSON = #"""
+        {"material":"p.json","maxcount":8,"flags":1,
+         "controlpoint":[{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let worldSpaceDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(worldSpaceJSON)
+        )
+        let staticCP1JSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":1,"flags":0,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let staticCP1Definition = try SceneParticleDefinitionParser().parse(
+            root: object(staticCP1JSON)
+        )
+        let layerImageJSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"layerimage","controlpoint":1,"instantaneous":4}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let layerImageDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(layerImageJSON)
+        )
+
+        return [
+            "originIdentities": originDefinition.pointerControlPointIdentities,
+            "originInjectedPositions": originInjected.particles.map { vector($0.position) },
+            "shurikenIdentities": shurikenDefinition.pointerControlPointIdentities,
+            "shurikenPrewarmPositions": shurikenPrewarmPositions,
+            "shurikenFollowPositions": shurikenFollow.particles.map { vector($0.position) },
+            "shurikenOutsideCount": shurikenOutside.particles.count,
+            "shurikenDiagnostics": shurikenFollow.diagnostics.map(\.kind.rawValue),
+            "attractOnlyIdentities": attractOnlyDefinition.pointerControlPointIdentities,
+            "worldSpaceIdentities": worldSpaceDefinition.pointerControlPointIdentities,
+            "staticCP1Identities": staticCP1Definition.pointerControlPointIdentities,
+            "layerImageIdentities": layerImageDefinition.pointerControlPointIdentities
+        ]
+    }
+
+    private static func positionAroundControlPointResults() throws -> [String: Any] {
+        let fields = #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#
+        var sequence = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        sequence.advance(by: 0.1)
+        var partitioned = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        var partitionedFrames = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        partitioned.advance(by: 0.2)
+        partitionedFrames.advance(by: 0.1)
+        partitionedFrames.advance(by: 0.1)
+
+        let pointerFields = #""bounds":"0 1","count":4,"controlpoint":1,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#
+        let pointerPoint = #"{"id":1,"flags":1,"offset":"0 0 0"}"#
+        let pointerJSON = positionAroundJSON(
+            pointerFields, point: pointerPoint
+        )
+        let pointerDefinition = try SceneParticleDefinitionParser().parse(
+            data: Data(pointerJSON.utf8)
+        )
+        let pointerValues = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(5, 6, 0)
+        )
+        var pointer = simulator(pointerJSON, seed: 71, step: 0.1)
+        pointer.advance(by: 0.1, dynamicControlPoints: pointerValues)
+        var missingPointer = simulator(pointerJSON, seed: 71, step: 0.1)
+        missingPointer.advance(by: 0.1)
+        var pointerBaseline = simulator(
+            positionAroundJSON("", point: pointerPoint),
+            seed: 71, step: 0.1
+        )
+        pointerBaseline.advance(by: 0.1)
+
+        let pointerOrigin = #"{"id":0,"flags":1,"offset":"0 0 0"}"#
+        var originCases: [[String: Any]] = []
+        for kind in ["sphererandom", "boxrandom"] {
+            for target in [SIMD3<Double>(5, 6, 7), SIMD3(-40, 30, -2)] {
+                let emitter = #"{"name":"\#(kind)","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2}"#
+                let explicitEmitter = String(emitter.dropLast()) + #", "controlpoint":0}"#
+                var implicit = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: emitter), seed: 71, step: 0.1)
+                var explicit = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: explicitEmitter), seed: 71, step: 0.1)
+                var centered = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: emitter), seed: 71, step: 0.1)
+                // No pointer must not consume the instantaneous burst.
+                implicit.advance(by: 0.1)
+                implicit.advance(by: 0.1, dynamicControlPoints: [0: target])
+                explicit.advance(by: 0.1)
+                explicit.advance(by: 0.1, dynamicControlPoints: [0: target])
+                centered.advance(by: 0.1)
+                centered.advance(by: 0.1, dynamicControlPoints: [0: .zero])
+                originCases.append([
+                    "equivalent": implicit.particles == explicit.particles,
+                    "relativePositions": implicit.particles.map { vector($0.position - target) },
+                    "centeredPositions": centered.particles.map { vector($0.position) },
+                    "velocities": implicit.particles.map { vector($0.velocity) },
+                    "centeredVelocities": centered.particles.map { vector($0.velocity) }
+                ])
+            }
+        }
+        // A distinct implicit source is as unsupported as a distinct explicit one.
+        let twoPoints = pointerOrigin + #",{"id":1,"flags":0,"offset":"10 20 0"}"#
+        let differentTarget = fields + #", "controlpoint":1"#
+        var different = simulator(positionAroundJSON(differentTarget, point: twoPoints), seed: 71, step: 0.1)
+        var differentBaseline = simulator(positionAroundJSON("", point: twoPoints), seed: 71, step: 0.1)
+        different.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 7)])
+        differentBaseline.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 7)])
+
+        var unseenBox = simulator(positionAroundJSON(
+            #""axis":"0 0 2","bounds":"0.25 0.75","count":2,"controlpoint":2,"limitbehavior":"repeat","speedmin":"1 0 0","speedmax":"1 0 0""#,
+            point: #"{"id":2,"flags":0,"offset":"3 4 0"}"#,
+            emitter: #"{"name":"boxrandom","instantaneous":4,"directions":"1 1 0","distancemax":"2 3 0"}"#
+        ), seed: 72, step: 0.1)
+        unseenBox.advance(by: 0.1)
+
+        let invalidFields = [
+            #""bounds":null,"count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":0,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"mirror","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":0,"speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 3 0","speedmax":"0 2 0""#,
+            #""bounds":"0.8 0.2","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0","flags":1"#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0","future":1"#,
+            #""axis":"0 0 0","bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"controlpoint":8,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+        ]
+        let invalid = invalidFields.map { authored -> SceneParticleSimulator in
+            var value = simulator(positionAroundJSON(authored), seed: 71, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        var staticBaseline = simulator(positionAroundJSON(""), seed: 71, step: 0.1)
+        staticBaseline.advance(by: 0.1)
+        return [
+            "originCases": originCases,
+            "differentSourcePreservesEmitter": different.particles == differentBaseline.particles,
+            "differentSourceDiagnostics": different.diagnostics.map(\.kind.rawValue),
+            "positions": sequence.particles.map { vector($0.position) },
+            "velocities": sequence.particles.map { vector($0.velocity) },
+            "diagnostics": sequence.diagnostics.map(\.kind.rawValue),
+            "partitioned": partitioned.particles == partitionedFrames.particles,
+            "pointerValues": pointerValues.keys.sorted(),
+            "pointerFirstPosition": vector(pointer.particles[0].position),
+            "pointerDiagnostics": pointer.diagnostics.map(\.kind.rawValue),
+            "missingPointerPreservesCurrent": missingPointer.particles
+                == pointerBaseline.particles,
+            "unseenBoxFinite": unseenBox.particles.allSatisfy {
+                $0.position.x.isFinite && $0.position.y.isFinite
+                    && $0.velocity.x.isFinite && $0.velocity.y.isFinite
+            },
+            "unseenBoxDiagnostics": unseenBox.diagnostics.map(\.kind.rawValue),
+            "invalidPreserveCurrent": invalid.map { $0.particles }
+                .allSatisfy { $0 == staticBaseline.particles },
+            "invalidDiagnostics": invalid.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+        ]
+    }
+
+    private static func positionAroundJSON(
+        _ fields: String,
+        point: String = #"{"id":0,"flags":0,"offset":"10 20 0"}"#,
+        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","sign":"1 0 0","distancemin":2,"distancemax":2}"#
+    ) -> String {
+        let initializer = fields.isEmpty
+            ? #"{"name":"unsupported-position-around-baseline"}"#
+            : #"{"name":"mapsequencearoundcontrolpoint",\#(fields)}"#
+        return #"{"material":"p.json","maxcount":8,"controlpoint":[\#(point)],"emitter":[\#(emitter)],"initializer":[\#(initializer)],"renderer":[{"name":"sprite"}]}"#
+    }
+
+    /// 非有限 / 超大 / 负数 starttime 必须被安全处理：不得触发 Int 转换 trap，
+    /// 也不得产生预热时间。
+    private static func prewarmGuardResults(_ source: String) -> [[String: Any]] {
+        ["1e308", "inf", "-inf", "nan", "-5", "0"].map { start in
+            var root = objectOrEmpty(source)
+            root["starttime"] = start
+            let definition = SceneParticleDefinitionParser().parse(root: root)
+            var value = SceneParticleSimulator(
+                definition: definition, seed: 1, fixedTimeStep: 0.1
+            )
+            value.advance(by: 0.1)
+            return ["start": start, "time": value.simulationTime,
+                    "count": value.particles.count]
+        }
+    }
+
+    private static func extendedPrewarmResults() -> [String: Any] {
+        var source: [String: Any] = [
+            "material": "p.json", "maxcount": 15, "starttime": 15.0,
+            "emitter": [["name": "boxrandom", "rate": 0.3]],
+            "initializer": [["name": "lifetimerandom", "min": 8, "max": 20],
+                            ["name": "velocityrandom", "min": "-20 0 0", "max": "-5 10 0"]],
+            "operator": [["name": "movement", "gravity": "0 0 0"]],
+            "renderer": [["name": "sprite"]]
+        ]
+        func make(_ root: [String: Any], budget: Int? = nil,
+                  step: Double = 1.0 / 60.0) -> SceneParticleSimulator {
+            SceneParticleSimulator(
+                definition: SceneParticleDefinitionParser().parse(root: root), seed: 52,
+                fixedTimeStep: step, prewarmStepBudget: budget,
+                stepSnapshotPolicies: [SceneParticleStepSnapshotPolicy(interval: 0.1, maximumSnapshots: 5)!]
+            )
+        }
+        let warm = make(source)
+        let child = make(source, budget: 240)
+        let initialCount = warm.particles.count
+        let warmTime = warm.simulationTime
+        let drained = warm.birthEvents.isEmpty && warm.deathEvents.isEmpty
+        let history = warm.consumeStepSnapshots().values.flatMap { $0 }
+        source.removeValue(forKey: "starttime")
+        let played = make(source)
+        for _ in 0..<900 { played.advance(by: 1.0 / 60.0) }
+        func equivalent(_ a: SceneParticleSimulator, _ b: SceneParticleSimulator) -> Bool {
+            let aa = a.frameSnapshot(), bb = b.frameSnapshot()
+            return aa.particles.count == bb.particles.count
+                && zip(aa.particles, bb.particles).allSatisfy { a, b in
+                    a.id == b.id && abs(a.age - b.age) < 1e-10
+                        && simd_length(a.position - b.position) < 1e-9
+                        && a.velocity == b.velocity && a.lifetime == b.lifetime
+                }
+                && aa.random.state == bb.random.state
+                && aa.nextParticleID == bb.nextParticleID
+                && abs(aa.simulationTime - bb.simulationTime) < 1e-10
+        }
+        let initialEquivalent = equivalent(warm, played)
+        for _ in 0..<90 { warm.advance(by: 1.0 / 60.0); played.advance(by: 1.0 / 60.0) }
+        let nextEquivalent = equivalent(warm, played)
+        var fractional = source; fractional["starttime"] = 15.005
+        var empty = source; empty["maxcount"] = 0; empty["starttime"] = 60.0
+        let exactLimit = make(empty, budget: Int.max)
+        empty["starttime"] = 60.01
+        let overLimit = make(empty, budget: Int.max)
+        var expensive = source; expensive["starttime"] = 60.0; expensive["maxcount"] = 20_000
+        expensive["emitter"] = [] as [[String: Any]]
+        let highCapacity = make(expensive)
+        expensive["maxcount"] = 15
+        expensive["operator"] = Array(repeating: ["name": "movement"], count: 1_000)
+        let manyOperators = make(expensive)
+        var flock = source; flock["starttime"] = 60.0; flock["maxcount"] = 64
+        flock["emitter"] = [] as [[String: Any]]
+        let linear = make(flock)
+        flock["operator"] = [["name": "boids", "neighborthreshold": 100,
+                              "alignmentfactor": 1, "cohesionfactor": 1, "separationfactor": 0]]
+        let quadratic = make(flock)
+        var invalid = source; invalid["starttime"] = 1e308
+        let huge = make(invalid)
+        invalid["starttime"] = 1.0
+        let tinyStep = make(invalid, step: Double.leastNonzeroMagnitude)
+        var churn = source; churn["starttime"] = 15.0
+        churn["emitter"] = [["name": "boxrandom", "rate": 600]]
+        churn["initializer"] = [["name": "lifetimerandom", "min": 0.001, "max": 0.001]]
+        let shortLived = make(churn)
+        let churnDrained = shortLived.birthEvents.isEmpty && shortLived.deathEvents.isEmpty
+        shortLived.advance(by: 1.0 / 60.0)
+        return [
+            "time": warmTime, "count": initialCount,
+            "initialEquivalent": initialEquivalent, "nextEquivalent": nextEquivalent,
+            "drained": drained, "historyCount": history.count,
+            "historyNonempty": history.contains { !$0.particles.isEmpty },
+            "fractionalTime": make(fractional).simulationTime,
+            "childTime": child.simulationTime,
+            "childLimited": child.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "exactTime": exactLimit.simulationTime,
+            "exactLimited": exactLimit.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "overTime": overLimit.simulationTime,
+            "overLimited": overLimit.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "capacityTime": highCapacity.simulationTime,
+            "operatorTime": manyOperators.simulationTime,
+            "linearTime": linear.simulationTime,
+            "quadraticTime": quadratic.simulationTime,
+            "hugeTime": huge.simulationTime,
+            "hugeInvalid": huge.diagnostics.contains { $0.kind == .prewarmInvalidDuration },
+            "tinyStepTime": tinyStep.simulationTime,
+            "tinyStepInvalid": tinyStep.diagnostics.contains { $0.kind == .prewarmInvalidDuration },
+            "churnDrained": churnDrained,
+            "churnNextBirths": shortLived.birthEvents.count,
+            "churnNextDeaths": shortLived.deathEvents.count
+        ]
+    }
+
+    private static func objectOrEmpty(_ source: String) -> [String: Any] {
+        (try? object(source)) ?? [:]
+    }
+
+    private static func syntheticResults() throws -> [String: Any] {
+        var first = simulator(deterministicJSON, seed: 41, step: 0.1)
+        var partitioned = simulator(deterministicJSON, seed: 41, step: 0.1)
+        var different = simulator(deterministicJSON, seed: 42, step: 0.1)
+        first.advance(by: 0.5)
+        partitioned.advance(by: 0.2)
+        partitioned.advance(by: 0.3)
+        different.advance(by: 0.5)
+        let birthEvents = first.consumeBirthEvents()
+        let partitionedBirthEvents = partitioned.consumeBirthEvents()
+
+        var capped = simulator(maximumCountJSON, seed: 1, step: 0.1)
+        capped.advance(by: 0.1)
+        var budgeted = simulator(maximumCountJSON, seed: 1, step: 0.1, particleBudget: 2)
+        budgeted.advance(by: 0.1)
+        let prewarmed = simulator(prewarmJSON, seed: 1, step: 0.1)
+        let halfRateOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"rate":0.5}"#)
+        )
+        let prewarmedAtInitialHalfRate = simulator(
+            prewarmJSON,
+            initialOverride: halfRateOverride,
+            seed: 1,
+            step: 0.1
+        )
+
+        var death = simulator(deathJSON, seed: 1, step: 0.1)
+        death.advance(by: 0.2)
+        let deathEvents = death.consumeDeathEvents()
+
+        var burst = simulator(durationJSON, seed: 1, step: 0.1)
+        burst.advance(by: 0.5)
+        var onePerFrame = simulator(onePerFrameJSON, seed: 1, step: 0.1)
+        onePerFrame.advance(by: 0.3)
+        let onePerFrameCoarseCount = onePerFrame.particles.count
+        onePerFrame.advance(by: 0.3)
+        var onePerFramePartitioned = simulator(onePerFrameJSON, seed: 1, step: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        var onePerFrameAuthorOff = simulator(onePerFrameAuthorOffJSON, seed: 1, step: 0.1)
+        onePerFrameAuthorOff.advance(by: 0.3)
+        var twoOnePerFrameEmitters = simulator(
+            twoOnePerFrameEmittersJSON, seed: 1, step: 0.1
+        )
+        twoOnePerFrameEmitters.advance(by: 0.3)
+        let prewarmedOnePerFrame = simulator(
+            prewarmOnePerFrameJSON, seed: 1, step: 0.1
+        )
+
+        var bounds = simulator(boundsJSON, seed: 7, step: 0.1)
+        bounds.advance(by: 0.1)
+        let sphere = bounds.particles.prefix(50)
+        let box = bounds.particles.dropFirst(50)
+        let sphereRadii = sphere.map { length($0.position - SIMD3(10, 20, 30)) }
+        let boxOffsets = box.map { $0.position - SIMD3(-10, -20, -30) }
+        var centeredBox = simulator(centeredBoxJSON, seed: 19, step: 0.1)
+        centeredBox.advance(by: 0.1)
+        let centeredBoxOffsets = centeredBox.particles.map {
+            $0.position - SIMD3(10, 20, 30)
+        }
+        var explicitCenteredBox = simulator(
+            explicitCenteredBoxJSON, seed: 23, step: 0.1
+        )
+        explicitCenteredBox.advance(by: 0.1)
+        let explicitCenteredOffsets = explicitCenteredBox.particles.map(\.position)
+        var positiveBox = simulator(positiveBoxJSON, seed: 29, step: 0.1)
+        positiveBox.advance(by: 0.1)
+        let positiveBoxPositions = positiveBox.particles.map(\.position)
+
+        var movement = simulator(movementJSON, seed: 1, step: 0.25)
+        movement.advance(by: 0.5)
+        let movementPosition = movement.particles[0].position
+        movement.advance(by: 1.25)
+        let scaledWorld = simd_float4x4(
+            SIMD4(2, 0, 0, 0),
+            SIMD4(0, 4, 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(0, 0, 0, 1)
+        )
+        var worldMovement = simulator(
+            worldMovementJSON,
+            seed: 1,
+            step: 0.5,
+            worldSpaceFrame: SceneParticleWorldSpaceFrame(worldFrame: scaledWorld)
+        )
+        worldMovement.advance(by: 0.5)
+
+        let overrideRoot = try object(overrideJSON)
+        let parsedOverride = SceneParticleDefinitionParser().parseInstanceOverride(overrideRoot)
+        var overridden = simulator(overrideDefinitionJSON, override: parsedOverride, seed: 1, step: 0.25)
+        overridden.advance(by: 0.25)
+        let overriddenParticle = overridden.particles[0]
+        overridden.advance(by: 1.0)
+        let authoredLiveOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"alpha":{"user":"alpha","value":1},"size":{"user":"size","value":1},"count":{"user":"count","value":1},"colorn":{"user":"color","value":"1 1 1"}}"#)
+        )
+        var liveOverride = simulator(
+            liveOverrideDefinitionJSON, override: authoredLiveOverride, seed: 1, step: 0.25
+        )
+        let zeroCountOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"count":0}"#)
+        )
+        liveOverride.advance(by: 0.25, dynamicInstanceOverride: zeroCountOverride)
+        let liveZeroCount = liveOverride.particles.count
+        let currentOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"alpha":0.25,"size":3,"count":2,"colorn":"0.5 1 0.25"}"#)
+        )
+        liveOverride.advance(by: 0.25, dynamicInstanceOverride: currentOverride)
+        let liveParticle = liveOverride.particles[0]
+        liveOverride.advance(by: 0.25)
+        let fallbackParticle = liveOverride.particles.last!
+        var colorDenied = simulator(
+            overrideDefinition(flags: 8), override: parsedOverride, seed: 1, step: 0.25
+        )
+        colorDenied.advance(by: 0.25)
+        var speedDenied = simulator(
+            overrideDefinition(flags: 16), override: parsedOverride, seed: 1, step: 0.25
+        )
+        speedDenied.advance(by: 0.25)
+        var countDenied = simulator(
+            overrideDefinition(flags: 32), override: parsedOverride, seed: 1, step: 0.25
+        )
+        countDenied.advance(by: 1.25)
+        var lifetimeDenied = simulator(
+            overrideDefinition(flags: 64), override: parsedOverride, seed: 1, step: 0.25
+        )
+        lifetimeDenied.advance(by: 0.25)
+        var sizeDenied = simulator(
+            overrideDefinition(flags: 128), override: parsedOverride, seed: 1, step: 0.25
+        )
+        sizeDenied.advance(by: 0.25)
+        let controlPointOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"controlpoint1":"2 3 4"}"#)
+        )
+        var dynamicControlPoint = simulator(
+            dynamicControlPointJSON,
+            override: controlPointOverride,
+            seed: 1,
+            step: 1
+        )
+        dynamicControlPoint.advance(
+            by: 1,
+            dynamicControlPoints: [1: SIMD3(10, 20, 30)]
+        )
+        dynamicControlPoint.advance(
+            by: 1,
+            dynamicControlPoints: [1: SIMD3(-5, 6, 7)]
+        )
+        dynamicControlPoint.advance(by: 1)
+        var authoredControlPoint = simulator(
+            authoredControlPointIdentityJSON, seed: 1, step: 1
+        )
+        authoredControlPoint.advance(by: 1)
+        var implicitControlPoint = simulator(
+            implicitControlPointJSON, seed: 1, step: 1
+        )
+        implicitControlPoint.advance(by: 1)
+        var duplicateControlPoint = simulator(
+            malformedControlPointJSON(#"[{"id":0},{"id":1},{"id":1}]"#),
+            seed: 1, step: 1
+        )
+        duplicateControlPoint.advance(by: 1)
+        var outOfRangeControlPoint = simulator(
+            malformedControlPointJSON(#"[{"id":8}]"#), seed: 1, step: 1
+        )
+        outOfRangeControlPoint.advance(by: 1)
+        var missingControlPointID = simulator(
+            malformedControlPointJSON(#"[{"offset":"1 0 0"}]"#), seed: 1, step: 1
+        )
+        missingControlPointID.advance(by: 1)
+        var outOfRangeControlPointSource = simulator(
+            implicitControlPointJSON.replacingOccurrences(
+                of: #""controlpoint":3"#, with: #""controlpoint":8"#
+            ), seed: 1, step: 1
+        )
+        outOfRangeControlPointSource.advance(by: 1)
+        let stockAngleOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(stockControlPointAngleOverrideJSON)
+        )
+        var stockControlPointAngles = simulator(
+            stockControlPointAngleJSON, override: stockAngleOverride, seed: 1, step: 1
+        )
+        stockControlPointAngles.advance(by: 1)
+        var angleSpatial = simulator(controlPointAngleSpatialJSON, seed: 1, step: 1)
+        angleSpatial.advance(by: 1)
+        let replacementOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"controlpointangle1":"0 0 -1.5707963267948966"}"#)
+        )
+        var replacementAngle = simulator(
+            controlPointDefaultAngleJSON, override: replacementOverride, seed: 1, step: 1
+        )
+        replacementAngle.advance(by: 1)
+        let xyzRotation = SceneParticleEmitterControlPointFrame(
+            origin: .zero, sine: .init(repeating: sin(Double.pi / 2)),
+            cosine: .init(repeating: cos(Double.pi / 2))
+        ).direction(for: SIMD3(1, 2, 3))
+        let invalidDefinitionAngles = [
+            #""angles":"1 2""#,
+            #""angles":"nan 0 0""#,
+            #""angles":"1000001 0 0""#,
+            #""angles":1"#,
+            #""angles":"bad""#,
+            #""angles":"0 0 1","flags":1"#,
+            #""angles":"0 0 1","flags":2"#,
+            #""angles":"0 0 1","flags":4"#,
+            #""angles":"0 0 1","parentcontrolpoint":0"#,
+            #""angles":"0 0 1","offset":2"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(controlPointAngleJSON(pointFields: fields), seed: 1, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+        let invalidAngleOverrides = [
+            #"{"controlpointangle1":1}"#,
+            #"{"controlpointangle1":{"user":"angle","value":"0 0 1"}}"#,
+            #"{"controlpointangle1":{"script":"x","value":"0 0 1"}}"#,
+            #"{"controlpointangle1":{"animation":{},"value":"0 0 1"}}"#,
+            #"{"controlpointangle1":"0 0 1000001"}"#,
+            #"{"controlpoint1":{"user":"position","value":"0 0 0"},"controlpointangle1":"0 0 1"}"#,
+        ].map { source -> SceneParticleSimulator in
+            let override = SceneParticleDefinitionParser().parseInstanceOverride(
+                try! object(source)
+            )
+            var value = simulator(
+                controlPointAngleJSON(pointFields: #""offset":"0 0 0""#),
+                override: override, seed: 1, step: 1
+            )
+            value.advance(by: 1)
+            return value
+        }
+        let angledLayerDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(controlPointAngleLayerImageJSON)
+        )
+        var angledLayerImage = SceneParticleSimulator(
+            definition: angledLayerDefinition, seed: 1, fixedTimeStep: 1,
+            layerImageEmissionMap: .init(positions: [.zero])
+        )
+        angledLayerImage.advance(by: 1)
+        var fixedEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":3,"speedmax":3"#), seed: 1, step: 1
+        )
+        fixedEmitterSpeed.advance(by: 1)
+        var maxOnlyEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmax":4"#, count: 16), seed: 1, step: 1
+        )
+        maxOnlyEmitterSpeed.advance(by: 1)
+        var nonfiniteEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":"nan","speedmax":1"#), seed: 1, step: 1
+        )
+        nonfiniteEmitterSpeed.advance(by: 1)
+        var sphereDirectionSign = simulator(
+            emitterShapeJSON(
+                #""name":"sphererandom","directions":"2 0 1","sign":"-1 0 1","distancemin":10,"distancemax":10"#
+            ), seed: 3, step: 1
+        )
+        sphereDirectionSign.advance(by: 1)
+        var zeroDirections = simulator(
+            emitterShapeJSON(
+                #""name":"sphererandom","origin":"7 8 9","directions":"0 0 0","sign":"0 0 0","distancemin":10,"distancemax":10"#,
+                count: 8
+            ), seed: 3, step: 1
+        )
+        zeroDirections.advance(by: 1)
+        var boxDirections = simulator(
+            emitterShapeJSON(
+                #""name":"boxrandom","directions":"2 -1 0","distancemin":"1 2 3","distancemax":"2 4 5""#
+            ), seed: 3, step: 1
+        )
+        boxDirections.advance(by: 1)
+        let invalidEmitterShapes = [
+            #""name":"sphererandom","directions":"nan 1 0""#,
+            #""name":"sphererandom","directions":"1 1""#,
+            #""name":"sphererandom","directions":"bad""#,
+        ].map { fields -> SceneParticleSimulator in
+            var simulator = simulator(emitterShapeJSON(fields), seed: 3, step: 1)
+            simulator.advance(by: 1)
+            return simulator
+        }
+        var pointerPull = simulator(
+            controlPointForceJSON(scale: "2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerPull.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerPush = simulator(
+            controlPointForceJSON(scale: "-2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerPush.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerOutside = simulator(
+            controlPointForceJSON(scale: "2", threshold: "5"), seed: 1, step: 1
+        )
+        pointerOutside.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerAtCenter = simulator(
+            controlPointForceJSON(scale: "2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerAtCenter.advance(by: 1, dynamicControlPoints: [1: .zero])
+        var pointerZero = simulator(
+            controlPointForceJSON(
+                scale: "2", threshold: "20", controlPoint: 0
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerZero.advance(by: 1, dynamicControlPoints: [0: SIMD3(10, 0, 0)])
+        var pointerInactiveTailBlend = simulator(
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":2, "blendoutend":2"#
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerInactiveTailBlend.advance(
+            by: 1,
+            dynamicControlPoints: [1: SIMD3(10, 0, 0)]
+        )
+        var pointerLifetimeBlend = simulator(
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":0, "blendoutend":1"#
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerLifetimeBlend.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        let pointerDefinition = SceneParticleDefinitionParser().parse(
+            root: try! object(controlPointForceJSON(scale: "2", threshold: "20"))
+        )
+        let pointerMapped = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(3, 4, 0)
+        )[1]
+        let pointerIdentities = pointerDefinition.pointerControlPointIdentities
+        let pointerCachedMapped = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(3, 4, 0), identities: pointerIdentities
+        )[1]
+        let pointerOutsideMapped = pointerDefinition.pointerControlPointValues(at: nil)[1]
+        let duplicatePointerDefinition = SceneParticleDefinitionParser().parse(
+            root: try! object(controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                controlPointSuffix: #",{"id":1,"flags":1,"offset":"0 0 0"}"#
+            ))
+        )
+        let invalidControlPointForces = [
+            controlPointForceJSON(scale: #""nan""#, threshold: "20"),
+            controlPointForceJSON(scale: "2", threshold: "-1"),
+            controlPointForceJSON(scale: #""1 2 3""#, threshold: "20"),
+            controlPointForceJSON(scale: "2", threshold: "20", flags: 3),
+            controlPointForceJSON(scale: "2", threshold: "20", extra: #", "blendinstart":0"#),
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":0.8, "blendoutend":0.2"#
+            ),
+            controlPointForceJSON(scale: "2", threshold: "20", controlPoint: 8),
+            controlPointForceJSON(scale: "2", threshold: "20", pointOffset: "0 0"),
+        ].map { source -> SceneParticleSimulator in
+            var simulator = simulator(source, seed: 1, step: 1)
+            simulator.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+            return simulator
+        }
+        let pointerForceFlagCases = [
+            ("worldSpaceSystem", 1, 0),
+            ("perspectiveSystem", 4, 0),
+            ("worldSpaceMovement", 0, 1),
+        ]
+        let pointerForceFlagResults = pointerForceFlagCases.map { fixture -> [String: Any] in
+            let (name, systemFlags, movementFlags) = fixture
+            let source = controlPointForceJSON(
+                scale: "2", threshold: "20",
+                systemFlags: systemFlags, movementFlags: movementFlags
+            )
+            let parser = SceneParticleDefinitionParser()
+            let definition = parser.parse(root: try! object(source))
+            let identities = definition.pointerControlPointIdentities
+            let pointerValues = definition.pointerControlPointValues(
+                at: SIMD3(10, 0, 0), identities: identities
+            )
+            let live = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 1)
+            live.advance(by: 1, dynamicControlPoints: pointerValues)
+
+            // A non-origin birth distinguishes missing input from a false
+            // fallback to the origin, which would accelerate this particle.
+            var missingRoot = try! object(source)
+            var missingEmitters = missingRoot["emitter"] as! [[String: Any]]
+            missingEmitters[0]["distancemin"] = "5 0 0"
+            missingEmitters[0]["distancemax"] = "5 0 0"
+            missingRoot["emitter"] = missingEmitters
+            let missing = SceneParticleSimulator(
+                definition: parser.parse(root: missingRoot), seed: 1, fixedTimeStep: 1
+            )
+            missing.advance(by: 1)
+            return [
+                "name": name,
+                "systemFlags": definition.flags.rawValue,
+                "movementFlags": definition.operators.first { $0.kind == .movement }?.rawFlags ?? -1,
+                "forceSupported": definition.operators.contains {
+                    $0.kind == .controlPointAttract && definition.supportsBoundedControlPointForce($0)
+                },
+                "pointerIdentities": identities,
+                "pointerMapped": pointerValues[1].map(vector) ?? [],
+                "velocity": vector(live.particles[0].velocity),
+                "diagnostics": live.diagnostics.map(\.kind.rawValue).sorted(),
+                "missingPointerVelocity": vector(missing.particles[0].velocity),
+                "missingPointerPosition": vector(missing.particles[0].position),
+                "missingPointerDiagnostics": missing.diagnostics.map(\.kind.rawValue).sorted(),
+            ]
+        }
+
+        var operators = simulator(operatorJSON, seed: 1, step: 0.25)
+        operators.advance(by: 0.25)
+        let operatorParticle = operators.particles[0]
+        var lifetimeOscillation = simulator(
+            lifetimeOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        lifetimeOscillation.advance(by: 1)
+        let quarterLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
+        lifetimeOscillation.advance(by: 1)
+        let halfLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
+        let halfLifeOscillationSize = lifetimeOscillation.particles[0].size
+        var fineLifetimeOscillation = simulator(
+            lifetimeOscillationJSON,
+            seed: 1,
+            step: 1.0 / 60.0
+        )
+        fineLifetimeOscillation.advance(by: 2)
+        let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
+        let fineHalfLifeOscillationSize = fineLifetimeOscillation.particles[0].size
+        var positionOscillation = simulator(
+            positionOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        positionOscillation.advance(by: 2)
+        let quarterLifeOscillationPosition = positionOscillation.particles[0].position
+        positionOscillation.advance(by: 2)
+        let halfLifeOscillationPosition = positionOscillation.particles[0].position
+        var finePositionOscillation = simulator(
+            positionOscillationJSON,
+            seed: 1,
+            step: 1.0 / 60.0
+        )
+        finePositionOscillation.advance(by: 4)
+        let fineHalfLifeOscillationPosition =
+            finePositionOscillation.particles[0].position
+        var longPositionOscillation = simulator(
+            longPositionOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        longPositionOscillation.advance(by: 4)
+        let longQuarterLifeOscillationPosition =
+            longPositionOscillation.particles[0].position
+
+        let diagnosticOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"size":{"script":"return 2","value":2}}"#)
+        )
+        let diagnosticSimulator = simulator(
+            diagnosticJSON, override: diagnosticOverride, seed: 1, step: 0.1
+        )
+        var colors = simulator(colorJSON, seed: 1, step: 0.1)
+        colors.advance(by: 0.1)
+        let randomColor = colors.particles[0].color
+        let colorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"colorn":"0.5 1 0.25"}"#)
+        )
+        var colorsWithOverride = simulator(
+            colorJSON, override: colorOverride, seed: 1, step: 0.1
+        )
+        colorsWithOverride.advance(by: 0.1)
+        let colorParser = SceneParticleDefinitionParser()
+        var colorBirthRoot = try object(colorJSON)
+        colorBirthRoot["initializer"] = [
+            ["name": "lifetimerandom", "min": 10, "max": 10],
+            ["name": "colorrandom", "min": "128 64 0", "max": "128 64 0"],
+        ]
+        let colorBirthCases: [(String, String?, Int)] = [
+            ("normalized", #"{"colorn":"0.5 0.25 1"}"#, 0),
+            ("legacy", #"{"color":"127.5 63.75 255"}"#, 0),
+            ("legacyPrecedence", #"{"color":"127.5 63.75 255","colorn":"1 0 0"}"#, 0),
+            ("brightness", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 0),
+            ("brightnessOnly", #"{"brightness":2}"#, 0),
+            ("noOverride", nil, 0),
+            ("disabled", #"{"colorn":"0.5 0.25 1","brightness":2}"#, 8),
+            ("black", #"{"colorn":"0 0 0"}"#, 0),
+            ("operator", #"{"colorn":"0.5 0.25 1"}"#, 0),
+        ]
+        var colorBirthResults: [String: Any] = [:]
+        for (name, rawOverride, flags) in colorBirthCases {
+            var root = colorBirthRoot
+            root["flags"] = flags
+            if name == "operator" {
+                root["operator"] = [["name": "colorchange", "starttime": 0, "endtime": 1,
+                    "startvalue": "0.5 1 0.25", "endvalue": "0.5 1 0.25"]]
+            }
+            let value = colorParser.parseInstanceOverride(try rawOverride.map { try object($0) })
+            var candidate = SceneParticleSimulator(definition: colorParser.parse(root: root),
+                instanceOverride: value, seed: 52, fixedTimeStep: 0.1)
+            candidate.advance(by: 0.1)
+            colorBirthResults[name] = [
+                "colors": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue),
+            ]
+        }
+        var colorCohortResults: [[String: Any]] = []
+        for variant in 0..<2 {
+            var root = try object(liveOverrideDefinitionJSON)
+            root["material"] = variant == 0 ? "palette/base.json" : "renamed/independent.json"
+            var emitters = root["emitter"] as! [[String: Any]]
+            emitters[0]["id"] = variant == 0 ? 71 : 902
+            root["emitter"] = emitters
+            root["initializer"] = colorBirthRoot["initializer"]
+            let property = variant == 0 ? "beam_color" : "renamed_tint"
+            let defaultValue: Any = variant == 0 ? "0.5 0.25 1" as Any : [0.5, 0.25, 1] as Any
+            let authored = colorParser.parseInstanceOverride([
+                "id": variant == 0 ? 73 : 904,
+                "colorn": ["user": property, "value": defaultValue],
+            ])!
+            let current = colorParser.parseInstanceOverride([
+                "colorn": ["user": ["name": property + "_next"], "value": [1, 0.5, 0.25]],
+            ])!
+            let definition = colorParser.parse(root: root)
+            var candidate = SceneParticleSimulator(definition: definition,
+                instanceOverride: authored, seed: 53, fixedTimeStep: 0.25)
+            var peer = SceneParticleSimulator(definition: definition, seed: 54, fixedTimeStep: 0.25)
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            let first = candidate.particles.map { vector($0.color) }
+            let firstID = candidate.particles[0].id
+            candidate.advance(by: 0.25, dynamicInstanceOverride: current)
+            peer.advance(by: 0.25)
+            let second = candidate.particles.map { vector($0.color) }
+            candidate.advance(by: 0.25)
+            peer.advance(by: 0.25)
+            colorCohortResults.append([
+                "first": first, "second": second,
+                "fallback": candidate.particles.map { vector($0.color) },
+                "birthColors": candidate.particles.map { vector($0.initialColor) },
+                "firstIDRetained": candidate.particles[0].id == firstID,
+                "peer": peer.particles.map { vector($0.color) },
+                "propertyKeys": [authored.normalizedColor!.userPropertyKey!, current.normalizedColor!.userPropertyKey!],
+                "diagnostics": candidate.diagnostics.map(\.kind.rawValue) + peer.diagnostics.map(\.kind.rawValue),
+            ])
+        }
+        let colorAmount = (randomColor.x * 255 - 10) / 230
+        let expectedGreen = (40 + 160 * colorAmount) / 255
+        let expectedBlue = (80 + 80 * colorAmount) / 255
+        var colorList = simulator(colorListJSON, seed: 43, step: 0.1)
+        colorList.advance(by: 0.1)
+        var colorListThenColor = simulator(colorListThenColorJSON, seed: 43, step: 0.1)
+        colorListThenColor.advance(by: 0.1)
+        let invalidColorLists = [
+            #""colors":[]"#,
+            #""colors":["1 0 0","0 1 0","0 0 1","1 1 0","1 0 1","0 1 1","0.5 0 0","0 0.5 0","0 0 0.5","0.5 0.5 0.5","1 1 1"]"#,
+            #""colors":[0.5]"#,
+            #""colors":["1.1 0 0"]"#,
+            #""colors":["bad"]"#,
+            #""colors":["1 0 0"],"weights":[1]"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(colorListJSON(fields), seed: 43, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        var hsvColors = simulator(hsvColorJSON, seed: 44, step: 0.1)
+        hsvColors.advance(by: 0.1)
+        var fixedGrayHSV = simulator(
+            makeHSVColorJSON(
+                #""huemin":0.5,"huemax":0.5,"huesteps":1,"saturationmin":0,"saturationmax":0,"valuemin":0.25,"valuemax":0.25"#,
+                count: 1
+            ), seed: 44, step: 0.1
+        )
+        fixedGrayHSV.advance(by: 0.1)
+        var hsvThenColor = simulator(hsvThenColorJSON, seed: 44, step: 0.1)
+        hsvThenColor.advance(by: 0.1)
+        let invalidHSVColors = [
+            "",
+            #""huemin":-0.1,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1.1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0.8,"huemax":0.2,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":0,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":1025,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":1.5,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":-0.1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0.8,"saturationmax":0.2,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0,"saturationmax":1.1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":-0.1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0.8,"valuemax":0.2"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0,"valuemax":1.1"#,
+            #""huemin":"bad","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":"0","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":{"value":0},"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":false,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1,"future":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(makeHSVColorJSON(fields, count: 1), seed: 44, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        let hsvColorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"colorn":"0.5 1 1"}"#)
+        )
+        var hsvColorWithOverride = simulator(
+            makeHSVColorJSON(
+                #""huemin":0.5,"huemax":0.5,"huesteps":1,"saturationmin":0,"saturationmax":0,"valuemin":0.5,"valuemax":0.5"#,
+                count: 1
+            ),
+            override: hsvColorOverride, seed: 44, step: 0.1
+        )
+        hsvColorWithOverride.advance(by: 0.1)
+        let firstEventColor = SIMD3(0.2, 0.4, 0.6)
+        let secondEventColor = SIMD3(0.8, 0.3, 0.1)
+        var inheritedSnapshot = simulator(
+            inheritEventColorJSON, seed: 45, step: 0.1,
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
+        )
+        inheritedSnapshot.advance(by: 0.1)
+        var inheritThenAuthored = simulator(
+            inheritThenAuthoredColorJSON, seed: 45, step: 0.1,
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
+        )
+        inheritThenAuthored.advance(by: 0.1)
+        var authoredThenInherit = simulator(
+            authoredThenInheritColorJSON, seed: 45, step: 0.1,
+            eventValueContext: .snapshot(.init(color: firstEventColor, size: 20, alpha: 1))
+        )
+        authoredThenInherit.advance(by: 0.1)
+        var followedColor = simulator(
+            followEventColorJSON, seed: 46, step: 0.1,
+            eventValueContext: .follow(.init(color: firstEventColor, size: 20, alpha: 1))
+        )
+        followedColor.advance(by: 0.1)
+        let followedInitialColor = followedColor.particles[0].color
+        let followedInitialCount = followedColor.particles.count
+        followedColor.updateFollowEventValues(.init(color: secondEventColor, size: 20, alpha: 1))
+        followedColor.advance(by: 0.1)
+        var unavailableEventColor = simulator(
+            inheritEventColorJSON, seed: 45, step: 0.1
+        )
+        unavailableEventColor.advance(by: 0.1)
+        var unsupportedEventColor = simulator(
+            unsupportedEventColorJSON, seed: 46, step: 0.1,
+            eventValueContext: .follow(.init(color: firstEventColor, size: 20, alpha: 1))
+        )
+        unsupportedEventColor.advance(by: 0.1)
+        var nonfiniteEventColor = simulator(
+            followEventColorJSON, seed: 46, step: 0.1,
+            eventValueContext: .follow(.init(color: SIMD3(.infinity, 0.4, 0.6), size: 20, alpha: 1))
+        )
+        nonfiniteEventColor.advance(by: 0.1)
+        var positionOffset = simulator(positionOffsetJSON, seed: 47, step: 0.1)
+        var positionOffsetRepeat = simulator(positionOffsetJSON, seed: 47, step: 0.1)
+        var positionOffsetDifferentSeed = simulator(positionOffsetJSON, seed: 48, step: 0.1)
+        var stockPositionOffset = simulator(
+            positionOffsetJSON(#""distance":150"#), seed: 47, step: 0.1
+        )
+        positionOffset.advance(by: 0.1)
+        positionOffsetRepeat.advance(by: 0.1)
+        positionOffsetDifferentSeed.advance(by: 0.1)
+        stockPositionOffset.advance(by: 0.1)
+        let positionOffsetDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(positionOffsetJSON)
+        )
+        guard let positionOffsetPlan =
+            positionOffsetDefinition.initializers[1].boundedPositionOffset else {
+            throw HarnessError.invalidJSON
+        }
+        let positionOffsetEarly = SceneParticleSimulationMath.positionOffset(
+            positionOffsetPlan, position: .zero, time: 0,
+            particleID: 7, simulationSeed: 47
+        )
+        let positionOffsetLate = SceneParticleSimulationMath.positionOffset(
+            positionOffsetPlan, position: .zero, time: 2,
+            particleID: 7, simulationSeed: 47
+        )
+        let invalidPositionOffsets = [
+            "",
+            #""distance":-1"#,
+            #""distance":1000001"#,
+            #""distance":10,"directions":"1 0""#,
+            #""distance":10,"directions":"1.1 0 0""#,
+            #""distance":10,"octaves":0"#,
+            #""distance":10,"octaves":9"#,
+            #""distance":10,"octaves":1.5"#,
+            #""distance":10,"scale":-1"#,
+            #""distance":10,"scale":1000001"#,
+            #""distance":10,"timescale":1000001"#,
+            #""distance":10,"sign":"1 0 0""#,
+            #""distance":10,"future":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(positionOffsetJSON(fields), seed: 47, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        var remapVelocity = simulator(remapVelocityJSON, seed: 53, step: 0.1)
+        var remapVelocityRepeat = simulator(remapVelocityJSON, seed: 53, step: 0.1)
+        var remapVelocityDifferentSeed = simulator(remapVelocityJSON, seed: 54, step: 0.1)
+        remapVelocity.advance(by: 0.1)
+        remapVelocityRepeat.advance(by: 0.1)
+        remapVelocityDifferentSeed.advance(by: 0.1)
+        let remapVelocityEarly = remapVelocity.particles[0].velocity
+        let remapPositionEarly = remapVelocity.particles[0].position
+        remapVelocity.advance(by: 0.2)
+        let invalidRemapValues = [
+            #""output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"velocity","outputrangemin":-10,"outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"speed","outputrangemin":-5,"outputrangemax":7,"transformfunction":"fbmnoise","transforminputscale":8"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":0"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10,"flags":3"#,
+            #""operation":"remap","input":"particlesystemtime","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10,"future":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(remapVelocityJSON(fields), seed: 53, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        let stockReduceFields = #""distanceinner":20,"distanceouter":50,"reductioninner":1000"#
+        var reduceInner = simulator(
+            reduceMovementJSON(stockReduceFields), seed: 59, step: 0.1
+        )
+        reduceInner.advance(by: 0.1)
+        var reduceInterpolated = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100,"reductionouter":0"#,
+                origin: "35 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceInterpolated.advance(by: 0.1)
+        var reduceOutside = simulator(
+            reduceMovementJSON(stockReduceFields, origin: "60 0 0"),
+            seed: 59, step: 0.1
+        )
+        reduceOutside.advance(by: 0.1)
+        var reduceNegative = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":-100"#
+            ), seed: 59, step: 0.1
+        )
+        reduceNegative.advance(by: 0.1)
+        let staticPoint = #"{"id":1,"flags":2,"offset":"30 0 0","parentcontrolpoint":0}"#
+        var reduceStaticPoint = simulator(
+            reduceMovementJSON(
+                #""controlpoint":1,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+                controlPoints: staticPoint, origin: "30 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceStaticPoint.advance(by: 0.1)
+        let dynamicPoint = #"{"id":1,"flags":0,"offset":"0 0 0"}"#
+        var reduceDynamicPoint = simulator(
+            reduceMovementJSON(
+                #""controlpoint":1,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+                controlPoints: dynamicPoint, origin: "40 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceDynamicPoint.advance(
+            by: 0.1, dynamicControlPoints: [1: SIMD3(40, 0, 0)]
+        )
+        var reducePartitioned = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100"#
+            ), seed: 59, step: 0.1
+        )
+        var reducePartitionedFrames = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100"#
+            ), seed: 59, step: 0.1
+        )
+        reducePartitioned.advance(by: 0.2)
+        reducePartitionedFrames.advance(by: 0.1)
+        reducePartitionedFrames.advance(by: 0.1)
+        var reduceBeforeMovement = simulator(
+            reduceMovementJSON(stockReduceFields), seed: 59, step: 0.1
+        )
+        var movementBeforeReduce = simulator(
+            reduceMovementJSON(stockReduceFields, movementFirst: true),
+            seed: 59, step: 0.1
+        )
+        reduceBeforeMovement.advance(by: 0.1)
+        movementBeforeReduce.advance(by: 0.1)
+        let invalidReduceValues = [
+            #""distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50"#,
+            #""distanceinner":-1,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":60,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":1000001,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":1000001"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"flags":1"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"blendinstart":0.1"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"audioprocessingmode":1"#,
+            #""controlpoint":8,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"future":1"#,
+            #""distanceinner":"bad","distanceouter":50,"reductioninner":100"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(
+                reduceMovementJSON(fields), seed: 59, step: 0.1
+            )
+            value.advance(by: 0.1)
+            return value
+        }
+        var worldReduce = simulator(
+            reduceMovementJSON(stockReduceFields, systemFlags: 1), seed: 59, step: 0.1
+        )
+        var perspectiveReduce = simulator(
+            reduceMovementJSON(stockReduceFields, systemFlags: 4), seed: 59, step: 0.1
+        )
+        worldReduce.advance(by: 0.1)
+        perspectiveReduce.advance(by: 0.1)
+        let allInvalidReduce = invalidReduceValues + [worldReduce, perspectiveReduce]
+        let stockCollisionFields = #""distance":0,"bouncefactor":0.5"#
+        var collision = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        collision.advance(by: 0.1)
+        var explicitCollision = simulator(
+            collisionPlaneJSON(
+                #""plane":"2 0 0","distance":0,"bouncefactor":0.5"#,
+                origin: "1 0 0", velocity: "-20 3 0"
+            ), seed: 61, step: 0.1
+        )
+        explicitCollision.advance(by: 0.1)
+        var collisionOutside = simulator(
+            collisionPlaneJSON(
+                stockCollisionFields, origin: "0 1 0", velocity: "0 20 0"
+            ), seed: 61, step: 0.1
+        )
+        collisionOutside.advance(by: 0.1)
+        var collisionBeforeMovement = simulator(
+            collisionPlaneJSON(stockCollisionFields, collisionFirst: true),
+            seed: 61, step: 0.1
+        )
+        collisionBeforeMovement.advance(by: 0.1)
+        var collisionPartitioned = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        var collisionPartitionedFrames = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        collisionPartitioned.advance(by: 0.2)
+        collisionPartitionedFrames.advance(by: 0.1)
+        collisionPartitionedFrames.advance(by: 0.1)
+        let invalidCollisionValues = [
+            #""bouncefactor":0.5"#,
+            #""distance":0"#,
+            #""distance":0,"bouncefactor":-1"#,
+            #""distance":0,"bouncefactor":101"#,
+            #""plane":1,"distance":0,"bouncefactor":0.5"#,
+            #""plane":"0 0 0","distance":0,"bouncefactor":0.5"#,
+            #""distance":0,"bouncefactor":0.5,"flags":1"#,
+            #""distance":0,"bouncefactor":0.5,"blendinstart":0.1"#,
+            #""distance":0,"bouncefactor":0.5,"audioprocessingmode":1"#,
+            #""distance":0,"bouncefactor":0.5,"future":1"#,
+            #""distance":"bad","bouncefactor":0.5"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(
+                collisionPlaneJSON(fields), seed: 61, step: 0.1
+            )
+            value.advance(by: 0.1)
+            return value
+        }
+        var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
+        var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
+        uniformSize.advance(by: 0.1)
+        biasedSize.advance(by: 0.1)
+        let uniformSizeAmount = (uniformSize.particles[0].size - 20) / 30
+        let biasedSizeAmount = (biasedSize.particles[0].size - 20) / 30
+        var maximumSize = simulator(maximumSizeJSON, seed: 17, step: 0.1)
+        maximumSize.advance(by: 0.1)
+        var uniformVelocity = simulator(uniformVelocityJSON, seed: 31, step: 0.1)
+        var biasedVelocity = simulator(biasedVelocityJSON, seed: 31, step: 0.1)
+        uniformVelocity.advance(by: 0.1)
+        biasedVelocity.advance(by: 0.1)
+        let uniformVelocityAmount = (uniformVelocity.particles[0].velocity
+            - SIMD3(10, 20, 30)) / SIMD3(10, 20, 20)
+        let biasedVelocityAmount = (biasedVelocity.particles[0].velocity
+            - SIMD3(10, 20, 30)) / SIMD3(10, 20, 20)
+        var uniformColor = simulator(uniformColorJSON, seed: 37, step: 0.1)
+        var biasedColor = simulator(biasedColorJSON, seed: 37, step: 0.1)
+        uniformColor.advance(by: 0.1)
+        biasedColor.advance(by: 0.1)
+        let uniformColorAmount = (
+            uniformColor.particles[0].color.x * 255 - 10
+        ) / 230
+        let biasedColorAmount = (
+            biasedColor.particles[0].color.x * 255 - 10
+        ) / 230
+
+        var turbulentFirst = simulator(turbulentJSON, seed: 71, step: 0.1)
+        var turbulentRepeat = simulator(turbulentJSON, seed: 71, step: 0.1)
+        var turbulentDifferent = simulator(turbulentJSON, seed: 72, step: 0.1)
+        turbulentFirst.advance(by: 0.1)
+        turbulentRepeat.advance(by: 0.1)
+        turbulentDifferent.advance(by: 0.1)
+        let turbulentVelocity = turbulentFirst.particles[0].velocity
+        let turbulentDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(turbulentJSON)
+        )
+        let turbulentValue = turbulentDefinition.initializers[1].turbulentVelocity
+        var earlyRandom = SceneParticleRandomGenerator(state: 91)
+        var lateRandom = SceneParticleRandomGenerator(state: 91)
+        let earlyVelocity = SceneParticleSimulationMath.turbulentVelocity(
+            turbulentValue, SIMD3(4, 8, 0), 0, &earlyRandom
+        )
+        let lateVelocity = SceneParticleSimulationMath.turbulentVelocity(
+            turbulentValue, SIMD3(4, 8, 0), 2, &lateRandom
+        )
+        var zeroScaleTurbulent = simulator(zeroScaleTurbulentJSON, seed: 71, step: 0.1)
+        zeroScaleTurbulent.advance(by: 0.1)
+        var offsetTurbulent = simulator(offsetTurbulentJSON, seed: 71, step: 0.1)
+        offsetTurbulent.advance(by: 0.1)
+        var audioTurbulent = simulator(audioTurbulentJSON, seed: 71, step: 0.1)
+        audioTurbulent.advance(by: 0.1)
+
+        var turbulenceOperator = simulator(turbulenceOperatorJSON, seed: 71, step: 0.1)
+        var turbulenceOperatorPartitioned = simulator(
+            turbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        var turbulenceOperatorDifferentSeed = simulator(
+            turbulenceOperatorJSON, seed: 72, step: 0.1
+        )
+        var turbulenceOperatorOneStep = simulator(
+            turbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        turbulenceOperator.advance(by: 0.3)
+        turbulenceOperatorPartitioned.advance(by: 0.1)
+        turbulenceOperatorPartitioned.advance(by: 0.2)
+        turbulenceOperatorDifferentSeed.advance(by: 0.3)
+        turbulenceOperatorOneStep.advance(by: 0.1)
+        let turbulenceOperatorVelocity = turbulenceOperatorOneStep.particles[0].velocity
+
+        var zeroTimeTurbulence = simulator(
+            zeroTimeTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        zeroTimeTurbulence.advance(by: 0.3)
+        var xOnlyTurbulence = simulator(
+            xOnlyTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        xOnlyTurbulence.advance(by: 0.1)
+        var defaultTurbulence = simulator(
+            defaultTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        defaultTurbulence.advance(by: 0.1)
+        var blendedTurbulence = simulator(
+            blendedTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        blendedTurbulence.advance(by: 0.1)
+        let turbulenceOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenTurbulence = simulator(
+            turbulenceOperatorJSON,
+            override: turbulenceOverride,
+            seed: 71,
+            step: 0.1
+        )
+        overriddenTurbulence.advance(by: 0.1)
+        var audioOperatorTurbulence = simulator(
+            audioTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        audioOperatorTurbulence.advance(by: 0.1)
+        var turbulenceBeforeMovement = simulator(
+            turbulenceBeforeMovementJSON, seed: 71, step: 0.1
+        )
+        var movementBeforeTurbulence = simulator(
+            movementBeforeTurbulenceJSON, seed: 71, step: 0.1
+        )
+        turbulenceBeforeMovement.advance(by: 0.1)
+        movementBeforeTurbulence.advance(by: 0.1)
+        var overflowTurbulence = simulator(
+            overflowTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        overflowTurbulence.advance(by: 0.1)
+
+        var vortex = simulator(vortexJSON(), seed: 81, step: 1)
+        vortex.advance(by: 1)
+        var vortexPartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
+        vortexPartitioned.advance(by: 0.5)
+        vortexPartitioned.advance(by: 0.5)
+        var reverseVortex = simulator(
+            vortexJSON(speedInner: "0", speedOuter: "-100"), seed: 81, step: 1
+        )
+        reverseVortex.advance(by: 1)
+        var yAxisVortex = simulator(
+            vortexJSON(axis: "0 1 0"), seed: 81, step: 1
+        )
+        yAxisVortex.advance(by: 1)
+        var infiniteAxisVortex = simulator(
+            vortexJSON(position: "10 0 100", distanceOuter: "100", flags: 1),
+            seed: 81, step: 1
+        )
+        infiniteAxisVortex.advance(by: 1)
+        var finiteAxisVortex = simulator(
+            vortexJSON(position: "10 0 100", distanceOuter: "100"), seed: 81, step: 1
+        )
+        finiteAxisVortex.advance(by: 1)
+        let vortexOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenVortex = simulator(
+            vortexJSON(), override: vortexOverride, seed: 81, step: 1
+        )
+        overriddenVortex.advance(by: 1)
+        var overrideDeniedVortex = simulator(
+            vortexJSON(systemFlags: 16), override: vortexOverride, seed: 81, step: 1
+        )
+        overrideDeniedVortex.advance(by: 1)
+        // 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16）；它不再是拒绝 case。
+        var zeroAxisVortex = simulator(vortexJSON(axis: "0 0 0"), seed: 81, step: 1)
+        zeroAxisVortex.advance(by: 1)
+        let invalidVortices = [
+            vortexJSON(axis: "0 0"),
+            vortexJSON(distanceInner: "10", distanceOuter: "0"),
+            vortexJSON(speedOuter: "null"),
+            vortexJSON(flags: 2),
+            vortexJSON(extra: #", "future":1"#),
+            vortexJSON(extra: #", "blendinstart":0"#),
+            vortexJSON(speedOuter: #""nan""#),
+            vortexJSON(distanceInner: "10", distanceOuter: "10"),
+        ].map { source -> SceneParticleSimulator in
+            var value = simulator(source, seed: 81, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+        var vortexV2 = simulator(vortexV2JSON, seed: 81, step: 1)
+        vortexV2.advance(by: 1)
+
+        var capVelocity = simulator(capVelocityJSON(), seed: 91, step: 1)
+        capVelocity.advance(by: 1)
+        var capVelocityPartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
+        capVelocityPartitioned.advance(by: 0.5)
+        capVelocityPartitioned.advance(by: 0.5)
+        var zeroCapVelocity = simulator(
+            capVelocityJSON(maximumSpeed: "0"), seed: 91, step: 1
+        )
+        zeroCapVelocity.advance(by: 1)
+        var underCapVelocity = simulator(
+            capVelocityJSON(velocity: "30 40 0"), seed: 91, step: 1
+        )
+        underCapVelocity.advance(by: 1)
+        var blendedCapVelocity = simulator(
+            capVelocityJSON(blend: #", "blendinstart":0.1, "blendinend":0.3"#),
+            seed: 91,
+            step: 1
+        )
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendStart = blendedCapVelocity.particles[0].velocity
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendMiddle = blendedCapVelocity.particles[0].velocity
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendEnd = blendedCapVelocity.particles[0].velocity
+        let capVelocityLifeEdges: [[String: Any]] = [
+            (0.0, 1e-13), (0.775, 1.0), (0.875, 10.0), (1.875, 10.0),
+            (2.875, 10.0), (6.875, 10.0), (7.875, 10.0), (8.875, 10.0), (9.875, 10.0)
+        ].map { age, lifetime in
+            let value = simulator(capVelocityJSON(blend:
+                #", "blendinstart":0.1, "blendinend":0.3, "blendoutstart":0.7, "blendoutend":0.9"#),
+                seed: 91, step: 0.125)
+            value.advance(by: 0.125)
+            var particle = value.particles[0]
+            particle.age = age; particle.lifetime = lifetime
+            particle.velocity = SIMD3(300, 400, 0)
+            value.particles = SceneParticleBuffer([particle])
+            value.advance(by: 0.125)
+            let deaths = value.consumeDeathEvents()
+            let result = value.particles.first ?? deaths.last!
+            return ["velocity": vector(result.velocity), "age": result.age,
+                "lifetime": result.lifetime, "dead": value.particles.isEmpty]
+        }
+        let capVelocityOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenCapVelocity = simulator(
+            capVelocityJSON(), override: capVelocityOverride, seed: 91, step: 1
+        )
+        overriddenCapVelocity.advance(by: 1)
+        var overrideDeniedCapVelocity = simulator(
+            capVelocityJSON(systemFlags: 16),
+            override: capVelocityOverride,
+            seed: 91,
+            step: 1
+        )
+        overrideDeniedCapVelocity.advance(by: 1)
+        let invalidCapVelocities = [
+            capVelocityJSON(maximumSpeed: "null"),
+            capVelocityJSON(maximumSpeed: "-1"),
+            capVelocityJSON(maximumSpeed: #""nan""#),
+            capVelocityJSON(maximumSpeed: "1000001"),
+            capVelocityJSON(flags: 1),
+            capVelocityJSON(extra: #", "future":1"#),
+            capVelocityJSON(blend: #", "blendinstart":0.1"#),
+            capVelocityJSON(blend: #", "blendinstart":0.4, "blendinend":0.2"#),
+            capVelocityJSON(blend: #", "blendinstart":-0.1, "blendinend":0.2"#),
+            capVelocityJSON(blend: #", "blendinstart":0, "blendinend":0.8, "blendoutstart":0.7, "blendoutend":1"#),
+            capVelocityJSON(extra: #", "audioprocessingmode":1"#),
+        ].map { source -> SceneParticleSimulator in
+            var value = simulator(source, seed: 91, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+
+        var periodic = simulator(periodicJSON, seed: 101, step: 0.25)
+        periodic.advance(by: 0.5)
+        let periodicFirstWindowCount = periodic.particles.count
+        periodic.advance(by: 0.5)
+        let periodicDelayCount = periodic.particles.count
+        periodic.advance(by: 0.5)
+        let periodicSecondWindowCount = periodic.particles.count
+        var periodicPartitioned = simulator(periodicJSON, seed: 101, step: 0.25)
+        periodicPartitioned.advance(by: 0.25)
+        periodicPartitioned.advance(by: 1.25)
+        var periodicAuthorOff = simulator(periodicAuthorOffJSON, seed: 101, step: 0.25)
+        periodicAuthorOff.advance(by: 1.5)
+        var periodicMalformed = simulator(periodicMalformedJSON, seed: 101, step: 0.25)
+        periodicMalformed.advance(by: 1.5)
+        var periodicBurst = simulator(periodicBurstJSON, seed: 101, step: 0.25)
+        periodicBurst.advance(by: 1.5)
+        let periodicOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"rate":2}"#)
+        )
+        var periodicOverridden = simulator(
+            periodicJSON, override: periodicOverride, seed: 101, step: 0.25
+        )
+        periodicOverridden.advance(by: 1.5)
+
+        var delayedRate = simulator(delayJSON("0.5"), seed: 103, step: 0.25)
+        delayedRate.advance(by: 0.5)
+        let delayedRateBeforeCount = delayedRate.particles.count
+        delayedRate.advance(by: 0.25)
+        let delayedRateFirstCount = delayedRate.particles.count
+        delayedRate.advance(by: 0.25)
+        let delayedRateSecondCount = delayedRate.particles.count
+        var delayedRatePartitioned = simulator(delayJSON("0.5"), seed: 103, step: 0.25)
+        delayedRatePartitioned.advance(by: 0.25)
+        delayedRatePartitioned.advance(by: 0.75)
+        var delayedBoundary = simulator(delayJSON("0.375", rate: 8), seed: 103, step: 0.25)
+        delayedBoundary.advance(by: 0.5)
+        var delayedInstantaneous = simulator(
+            delayJSON("0.5", rate: 0, instantaneous: 1), seed: 103, step: 0.25
+        )
+        delayedInstantaneous.advance(by: 0.5)
+        let delayedInstantaneousBeforeCount = delayedInstantaneous.particles.count
+        delayedInstantaneous.advance(by: 0.25)
+        var delayedDuration = simulator(
+            delayJSON("0.5", duration: 0.5), seed: 103, step: 0.25
+        )
+        delayedDuration.advance(by: 2)
+        var delayedPeriodic = simulator(periodicDelayedJSON, seed: 101, step: 0.25)
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicBeforeCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicFirstWindowCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicPauseCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicSecondWindowCount = delayedPeriodic.particles.count
+        var zeroDelay = simulator(delayJSON("0"), seed: 103, step: 0.25)
+        zeroDelay.advance(by: 0.25)
+        let invalidDelays = [#""bad""#, "-1", #""nan""#, "3600.1"].map {
+            source -> SceneParticleSimulator in
+            var value = simulator(delayJSON(source), seed: 103, step: 0.25)
+            value.advance(by: 1)
+            return value
+        }
+
+        let layerImageDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(layerImageJSON)
+        )
+        let layerImageMap = SceneParticleLayerImageEmissionMap(
+            positions: [SIMD3(-15, 5, 0)]
+        )
+        var layerImage = SceneParticleSimulator(
+            definition: layerImageDefinition, seed: 1, fixedTimeStep: 0.1,
+            layerImageEmissionMap: layerImageMap
+        )
+        var layerImageMissingMap = SceneParticleSimulator(
+            definition: layerImageDefinition, seed: 1, fixedTimeStep: 0.1
+        )
+        layerImage.advance(by: 0.1)
+        layerImageMissingMap.advance(by: 0.1)
+        let signedLayerImageDefinition = SceneParticleDefinitionParser().parse(root: try object(
+            layerImageJSON.replacingOccurrences(of: #""name":"layerimage""#,
+                with: #""name":"layerimage","sign":"1 0 0""#)))
+        let signedLayerImage = SceneParticleSimulator(definition: signedLayerImageDefinition,
+            seed: 1, fixedTimeStep: 0.1, layerImageEmissionMap: layerImageMap)
+        signedLayerImage.advance(by: 0.1)
+        let layerImageExplicitSignRejected: Bool =
+            signedLayerImageDefinition.emitters[0].sign == .vector([1, 0, 0])
+            && !signedLayerImageDefinition.emitters[0].hasMalformedDirectionsOrSign
+            && !signedLayerImageDefinition.emitters[0].hasValidDirectionsAndSign
+            && signedLayerImage.particles.isEmpty && signedLayerImage.playbackHasWork == nil
+        let delayedLayerImageDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(delayedLayerImageJSON)
+        )
+        var delayedLayerImage = SceneParticleSimulator(
+            definition: delayedLayerImageDefinition, seed: 1, fixedTimeStep: 0.25,
+            layerImageEmissionMap: layerImageMap
+        )
+        delayedLayerImage.advance(by: 0.5)
+        let delayedLayerImageBeforeCount = delayedLayerImage.particles.count
+        delayedLayerImage.advance(by: 0.25)
+
+        return [
+            "deterministic": first.particles == partitioned.particles,
+            "differentSeed": first.particles != different.particles,
+            "birthEventIDs": birthEvents.map(\.id),
+            "birthEventsDeterministic": birthEvents == partitionedBirthEvents,
+            "birthEventsDrain": first.consumeBirthEvents().isEmpty,
+            "maxCount": capped.particles.count,
+            "budgetCount": budgeted.particles.count,
+            "prewarmCount": prewarmed.particles.count,
+            "prewarmInitialHalfRateCount": prewarmedAtInitialHalfRate.particles.count,
+            "prewarmTime": prewarmed.simulationTime,
+            "prewarmBirthEvents": prewarmed.birthEvents.count,
+            "deathEventCount": deathEvents.count,
+            "deathEventPosition": deathEvents.first.map { vector($0.position) } ?? [],
+            "deathEventsDrain": death.consumeDeathEvents().isEmpty,
+            "deathParticles": death.particles.count,
+            "durationCount": burst.particles.count,
+            "onePerFrameCoarseCount": onePerFrameCoarseCount,
+            "onePerFrameSecondFrameCount": onePerFrame.particles.count,
+            "onePerFramePartitionedCount": onePerFramePartitioned.particles.count,
+            "onePerFrameAuthorOffCount": onePerFrameAuthorOff.particles.count,
+            "twoOnePerFrameEmittersCount": twoOnePerFrameEmitters.particles.count,
+            "prewarmOnePerFrameCount": prewarmedOnePerFrame.particles.count,
+            "prewarmGuard": prewarmGuardResults(prewarmJSON),
+            "extendedPrewarm": extendedPrewarmResults(),
+            "sphereMinimumRadius": sphereRadii.min() ?? -1,
+            "sphereMaximumRadius": sphereRadii.max() ?? -1,
+            "boxInBounds": boxOffsets.allSatisfy {
+                (-1...1).contains($0.x) && (-2...2).contains($0.y) && (-3...3).contains($0.z)
+            },
+            "centeredBoxInBounds": centeredBoxOffsets.allSatisfy {
+                (-4...4).contains($0.x) && (-3...3).contains($0.y) && abs($0.z) < 1e-12
+            },
+            "centeredBoxHasBothSigns":
+                centeredBoxOffsets.contains(where: { $0.x < 0 })
+                && centeredBoxOffsets.contains(where: { $0.x > 0 })
+                && centeredBoxOffsets.contains(where: { $0.y < 0 })
+                && centeredBoxOffsets.contains(where: { $0.y > 0 }),
+            "explicitCenteredBoxHasBothSigns":
+                explicitCenteredOffsets.contains(where: { $0.x < 0 })
+                && explicitCenteredOffsets.contains(where: { $0.x > 0 })
+                && explicitCenteredOffsets.contains(where: { $0.y < 0 })
+                && explicitCenteredOffsets.contains(where: { $0.y > 0 }),
+            "positiveBoxPreservesInterval": positiveBoxPositions.allSatisfy {
+                (2...4).contains($0.x)
+                    && (3...5).contains($0.y)
+                    && (1...2).contains($0.z)
+            },
+            "movementPosition": vector(movementPosition),
+            "worldMovementPosition": vector(worldMovement.particles[0].position),
+            "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
+            "fadeAlpha": movement.particles[0].alpha,
+            "overrideLifetime": overriddenParticle.lifetime,
+            "overrideSize": overriddenParticle.size,
+            "overrideVelocity": vector(overriddenParticle.velocity),
+            "overrideAlpha": overriddenParticle.alpha,
+            "overrideColor": vector(overriddenParticle.color),
+            "overrideEmissionCount": overridden.particles.count,
+            "colorDeniedColor": vector(colorDenied.particles[0].color),
+            "colorDeniedAlpha": colorDenied.particles[0].alpha,
+            "speedDeniedVelocity": vector(speedDenied.particles[0].velocity),
+            "countDeniedEmissionCount": countDenied.particles.count,
+            "lifetimeDeniedLifetime": lifetimeDenied.particles[0].lifetime,
+            "sizeDeniedSize": sizeDenied.particles[0].size,
+            "dynamicControlPointPositions": dynamicControlPoint.particles.map {
+                vector($0.position)
+            },
+            "authoredControlPointPosition":
+                authoredControlPoint.particles.first.map { vector($0.position) } ?? [],
+            "authoredControlPointDiagnostics":
+                authoredControlPoint.diagnostics.map(\.kind.rawValue),
+            "implicitControlPointPosition":
+                implicitControlPoint.particles.first.map { vector($0.position) } ?? [],
+            "implicitControlPointDiagnostics":
+                implicitControlPoint.diagnostics.map(\.kind.rawValue),
+            "invalidControlPointCounts": [
+                duplicateControlPoint.particles.count,
+                outOfRangeControlPoint.particles.count,
+                missingControlPointID.particles.count,
+                outOfRangeControlPointSource.particles.count,
+            ],
+            "invalidControlPointDiagnostics": [
+                duplicateControlPoint, outOfRangeControlPoint,
+                missingControlPointID, outOfRangeControlPointSource,
+            ].map { $0.diagnostics.map(\.kind.rawValue) },
+            "stockControlPointAnglePositions": stockControlPointAngles.particles.map {
+                vector($0.position)
+            },
+            "stockControlPointAngleVelocities": stockControlPointAngles.particles.map {
+                vector($0.velocity)
+            },
+            "stockControlPointAngleDiagnostics":
+                stockControlPointAngles.diagnostics.map(\.kind.rawValue),
+            "controlPointAngleSpatialPosition":
+                angleSpatial.particles.first.map { vector($0.position) } ?? [],
+            "controlPointAngleSpatialVelocity":
+                angleSpatial.particles.first.map { vector($0.velocity) } ?? [],
+            "controlPointDefaultReplacementVelocity":
+                replacementAngle.particles.first.map { vector($0.velocity) } ?? [],
+            "controlPointXYZRotation": vector(xyzRotation),
+            "invalidControlPointAngleCounts":
+                (invalidDefinitionAngles + invalidAngleOverrides + [angledLayerImage])
+                    .map(\.particles.count),
+            "invalidControlPointAngleDiagnostics":
+                (invalidDefinitionAngles + invalidAngleOverrides + [angledLayerImage]).map {
+                    $0.diagnostics.map(\.kind.rawValue)
+                },
+            "fixedEmitterSpeedPosition":
+                fixedEmitterSpeed.particles.first.map { vector($0.position) } ?? [],
+            "fixedEmitterSpeedVelocity":
+                fixedEmitterSpeed.particles.first.map { vector($0.velocity) } ?? [],
+            "fixedEmitterSpeedDiagnostics":
+                fixedEmitterSpeed.diagnostics.map(\.kind.rawValue),
+            "maxOnlyEmitterSpeeds": maxOnlyEmitterSpeed.particles.map { $0.velocity.x },
+            "maxOnlyEmitterSpeedDiagnostics":
+                maxOnlyEmitterSpeed.diagnostics.map(\.kind.rawValue),
+            "nonfiniteEmitterSpeedCount": nonfiniteEmitterSpeed.particles.count,
+            "nonfiniteEmitterSpeedDiagnostics":
+                nonfiniteEmitterSpeed.diagnostics.map(\.kind.rawValue),
+            "sphereDirectionSignBounded": sphereDirectionSign.particles.count == 64
+                && sphereDirectionSign.particles.allSatisfy { particle in
+                    let position = particle.position
+                    return position.x <= 0 && abs(position.y) < 1e-12 && position.z >= 0
+                        && abs(sqrt(position.x * position.x / 4 + position.z * position.z) - 10) < 1e-9
+                }
+                && sphereDirectionSign.particles.contains { $0.position.x < -1e-6 }
+                && sphereDirectionSign.particles.contains { $0.position.z > 1e-6 },
+            "sphereDirectionSignDiagnostics":
+                sphereDirectionSign.diagnostics.map(\.kind.rawValue),
+            "zeroDirectionsStayAtOrigin": zeroDirections.particles.count == 8
+                && zeroDirections.particles.allSatisfy { $0.position == SIMD3(7, 8, 9) },
+            "zeroDirectionsDiagnostics": zeroDirections.diagnostics.map(\.kind.rawValue),
+            "boxDirectionsBounded": boxDirections.particles.count == 64
+                && boxDirections.particles.allSatisfy { particle in
+                    let position = particle.position
+                    return (2 ... 4).contains(position.x)
+                        && (-4 ... -2).contains(position.y) && position.z == 0
+                },
+            "boxDirectionsDiagnostics": boxDirections.diagnostics.map(\.kind.rawValue),
+            "invalidEmitterShapeCounts": invalidEmitterShapes.map { $0.particles.count },
+            "invalidEmitterShapeDiagnostics": invalidEmitterShapes.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "pointerPullVelocity": vector(pointerPull.particles[0].velocity),
+            "pointerPushVelocity": vector(pointerPush.particles[0].velocity),
+            "pointerOutsideVelocity": vector(pointerOutside.particles[0].velocity),
+            "pointerAtCenterVelocity": vector(pointerAtCenter.particles[0].velocity),
+            "pointerZeroVelocity": vector(pointerZero.particles[0].velocity),
+            "pointerInactiveTailBlendVelocity": vector(
+                pointerInactiveTailBlend.particles[0].velocity
+            ),
+            "pointerLifetimeBlendVelocity": vector(pointerLifetimeBlend.particles[0].velocity),
+            "pointerMapped": pointerMapped.map(vector) ?? [],
+            "pointerIdentityPlan": pointerIdentities,
+            "pointerCachedMatches": pointerCachedMapped.map(vector) == pointerMapped.map(vector),
+            "pointerOutsideInactive": pointerOutsideMapped?.x.isNaN == true
+                && pointerOutsideMapped?.y.isNaN == true
+                && pointerOutsideMapped?.z.isNaN == true,
+            "duplicatePointerRejected": duplicatePointerDefinition
+                .pointerControlPointValues(at: SIMD3(3, 4, 0)).isEmpty,
+            "pointerPullDiagnostics": pointerPull.diagnostics.map(\.kind.rawValue).sorted(),
+            "invalidControlPointForceVelocities": invalidControlPointForces.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidControlPointForceDiagnostics": invalidControlPointForces.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "pointerForceFlagResults": pointerForceFlagResults,
+            "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
+            "liveOverrideDiagnostics": liveOverride.diagnostics.map(\.kind.rawValue),
+            "liveZeroCount": liveZeroCount,
+            "liveDynamicCount": liveOverride.particles.count - 1,
+            "liveDynamicAlpha": liveParticle.alpha,
+            "liveDynamicSize": liveParticle.size,
+            "liveDynamicColor": vector(liveParticle.color),
+            "liveFallbackAlpha": fallbackParticle.alpha,
+            "liveFallbackSize": fallbackParticle.size,
+            "liveFallbackColor": vector(fallbackParticle.color),
+            "operatorAlpha": operatorParticle.alpha,
+            "operatorSize": operatorParticle.size,
+            "operatorColor": vector(operatorParticle.color),
+            "operatorRotation": vector(operatorParticle.rotation),
+            "operatorPosition": vector(operatorParticle.position),
+            "quarterLifeOscillationAlpha": quarterLifeOscillationAlpha,
+            "halfLifeOscillationAlpha": halfLifeOscillationAlpha,
+            "fineHalfLifeOscillationAlpha": fineHalfLifeOscillationAlpha,
+            "halfLifeOscillationSize": halfLifeOscillationSize,
+            "fineHalfLifeOscillationSize": fineHalfLifeOscillationSize,
+            "quarterLifeOscillationPosition":
+                vector(quarterLifeOscillationPosition),
+            "halfLifeOscillationPosition":
+                vector(halfLifeOscillationPosition),
+            "fineHalfLifeOscillationPosition":
+                vector(fineHalfLifeOscillationPosition),
+            "longQuarterLifeOscillationPosition":
+                vector(longQuarterLifeOscillationPosition),
+            "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
+                && abs(randomColor.z - expectedBlue) < 1e-12,
+            "colorOverrideValue": vector(colorsWithOverride.particles[0].color),
+            "colorBirthResults": colorBirthResults,
+            "colorCohortResults": colorCohortResults,
+            "colorListColors": colorList.particles.map { vector($0.color) },
+            "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
+            "colorListThenColor": vector(colorListThenColor.particles[0].color),
+            "invalidColorListColors": invalidColorLists.map {
+                vector($0.particles[0].color)
+            },
+            "invalidColorListDiagnostics": invalidColorLists.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "hsvColors": hsvColors.particles.map { vector($0.color) },
+            "hsvColorDiagnostics": hsvColors.diagnostics.map(\.kind.rawValue),
+            "fixedGrayHSV": vector(fixedGrayHSV.particles[0].color),
+            "hsvThenColor": vector(hsvThenColor.particles[0].color),
+            "invalidHSVColors": invalidHSVColors.map { vector($0.particles[0].color) },
+            "invalidHSVColorDiagnostics": invalidHSVColors.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "hsvColorWithOverride": vector(hsvColorWithOverride.particles[0].color),
+            "hsvColorWithOverrideDiagnostics":
+                hsvColorWithOverride.diagnostics.map(\.kind.rawValue),
+            "inheritedSnapshotColor": vector(inheritedSnapshot.particles[0].color),
+            "inheritedSnapshotDiagnostics":
+                inheritedSnapshot.diagnostics.map(\.kind.rawValue),
+            "inheritThenAuthoredColor": vector(inheritThenAuthored.particles[0].color),
+            "authoredThenInheritColor": vector(authoredThenInherit.particles[0].color),
+            "followedInitialColor": vector(followedInitialColor),
+            "followedUpdatedColor": vector(followedColor.particles[0].color),
+            "followedParticleCountStable":
+                followedInitialCount == followedColor.particles.count,
+            "followedDiagnostics": followedColor.diagnostics.map(\.kind.rawValue),
+            "unavailableEventColor": vector(unavailableEventColor.particles[0].color),
+            "unavailableEventDiagnostics":
+                unavailableEventColor.diagnostics.map(\.kind.rawValue),
+            "unsupportedEventColor": vector(unsupportedEventColor.particles[0].color),
+            "unsupportedEventDiagnostics":
+                unsupportedEventColor.diagnostics.map(\.kind.rawValue).sorted(),
+            "nonfiniteEventColor": vector(nonfiniteEventColor.particles[0].color),
+            "nonfiniteEventDiagnostics":
+                nonfiniteEventColor.diagnostics.map(\.kind.rawValue),
+            "positionOffset": vector(positionOffset.particles[0].position),
+            "positionOffsetDeterministic":
+                positionOffset.particles == positionOffsetRepeat.particles,
+            "positionOffsetDifferentSeed":
+                positionOffset.particles != positionOffsetDifferentSeed.particles,
+            "positionOffsetDifferentTime": positionOffsetEarly != positionOffsetLate,
+            "positionOffsetDiagnostics": positionOffset.diagnostics.map(\.kind.rawValue),
+            "stockPositionOffset": vector(stockPositionOffset.particles[0].position),
+            "stockPositionOffsetDiagnostics":
+                stockPositionOffset.diagnostics.map(\.kind.rawValue),
+            "invalidPositionOffsetPositions": invalidPositionOffsets.map {
+                vector($0.particles[0].position)
+            },
+            "invalidPositionOffsetDiagnostics": invalidPositionOffsets.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "remapVelocity": vector(remapVelocityEarly),
+            "remapPosition": vector(remapPositionEarly),
+            "remapVelocityDeterministic":
+                remapVelocityRepeat.particles[0].velocity == remapVelocityEarly,
+            "remapVelocityDifferentSeed":
+                remapVelocityDifferentSeed.particles[0].velocity != remapVelocityEarly,
+            "remapVelocityDifferentTime":
+                remapVelocity.particles[0].velocity != remapVelocityEarly,
+            "remapVelocityDiagnostics":
+                remapVelocityRepeat.diagnostics.map(\.kind.rawValue),
+            "invalidRemapVelocities": invalidRemapValues.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidRemapDiagnostics": invalidRemapValues.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "reduceInnerVelocity": vector(reduceInner.particles[0].velocity),
+            "reduceInnerPosition": vector(reduceInner.particles[0].position),
+            "reduceInterpolatedVelocity":
+                vector(reduceInterpolated.particles[0].velocity),
+            "reduceOutsideVelocity": vector(reduceOutside.particles[0].velocity),
+            "reduceNegativeVelocity": vector(reduceNegative.particles[0].velocity),
+            "reduceStaticPointVelocity": vector(reduceStaticPoint.particles[0].velocity),
+            "reduceDynamicPointVelocity": vector(reduceDynamicPoint.particles[0].velocity),
+            "reducePartitioned": reducePartitioned.particles == reducePartitionedFrames.particles,
+            "reduceBeforeMovementPosition":
+                vector(reduceBeforeMovement.particles[0].position),
+            "movementBeforeReducePosition":
+                vector(movementBeforeReduce.particles[0].position),
+            "reduceDiagnostics": reduceInner.diagnostics.map(\.kind.rawValue),
+            "invalidReduceVelocities": allInvalidReduce.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidReduceDiagnostics": allInvalidReduce.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "collisionPosition": vector(collision.particles[0].position),
+            "collisionVelocity": vector(collision.particles[0].velocity),
+            "explicitCollisionPosition":
+                vector(explicitCollision.particles[0].position),
+            "explicitCollisionVelocity":
+                vector(explicitCollision.particles[0].velocity),
+            "collisionOutsidePosition":
+                vector(collisionOutside.particles[0].position),
+            "collisionOutsideVelocity":
+                vector(collisionOutside.particles[0].velocity),
+            "collisionBeforeMovementPosition":
+                vector(collisionBeforeMovement.particles[0].position),
+            "collisionBeforeMovementVelocity":
+                vector(collisionBeforeMovement.particles[0].velocity),
+            "collisionPartitioned":
+                collisionPartitioned.particles == collisionPartitionedFrames.particles,
+            "collisionDiagnostics": collision.diagnostics.map(\.kind.rawValue),
+            "invalidCollisionPositions": invalidCollisionValues.map {
+                vector($0.particles[0].position)
+            },
+            "invalidCollisionVelocities": invalidCollisionValues.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidCollisionDiagnostics": invalidCollisionValues.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "uniformSizeAmount": uniformSizeAmount,
+            "biasedSizeAmount": biasedSizeAmount,
+            "maximumSize": maximumSize.particles[0].size,
+            "uniformVelocityAmount": vector(uniformVelocityAmount),
+            "biasedVelocityAmount": vector(biasedVelocityAmount),
+            "uniformColorAmount": uniformColorAmount,
+            "biasedColorAmount": biasedColorAmount,
+            "turbulentDeterministic": turbulentFirst.particles == turbulentRepeat.particles,
+            "turbulentDifferentSeed": turbulentFirst.particles != turbulentDifferent.particles,
+            "turbulentDifferentTime": earlyVelocity != lateVelocity,
+            "turbulentSpeed": length(turbulentVelocity),
+            "turbulentPlanar": abs(turbulentVelocity.z) < 1e-12,
+            "zeroScaleTurbulentVelocity": vector(zeroScaleTurbulent.particles[0].velocity),
+            "offsetTurbulentVelocity": vector(offsetTurbulent.particles[0].velocity),
+            "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
+            "audioTurbulentVelocity": vector(audioTurbulent.particles[0].velocity),
+            "audioTurbulentDiagnostics": audioTurbulent.diagnostics.map(\.kind.rawValue).sorted(),
+            "turbulenceOperatorDeterministic":
+                turbulenceOperator.particles == turbulenceOperatorPartitioned.particles,
+            "turbulenceOperatorDifferentSeed":
+                turbulenceOperator.particles != turbulenceOperatorDifferentSeed.particles,
+            "turbulenceOperatorTimeScale":
+                turbulenceOperator.particles != zeroTimeTurbulence.particles,
+            "turbulenceOperatorSpeed": length(turbulenceOperatorVelocity),
+            "turbulenceOperatorPlanar": abs(turbulenceOperatorVelocity.z) < 1e-12,
+            "xOnlyTurbulenceVelocity": vector(xOnlyTurbulence.particles[0].velocity),
+            "defaultTurbulenceSpeed": length(defaultTurbulence.particles[0].velocity),
+            "blendedTurbulenceVelocity": vector(blendedTurbulence.particles[0].velocity),
+            "overriddenTurbulenceSpeed": length(overriddenTurbulence.particles[0].velocity),
+            "turbulenceOperatorDiagnostics": turbulenceOperator.diagnostics.map(\.kind.rawValue),
+            "audioOperatorTurbulenceVelocity":
+                vector(audioOperatorTurbulence.particles[0].velocity),
+            "audioOperatorTurbulenceDiagnostics":
+                audioOperatorTurbulence.diagnostics.map(\.kind.rawValue).sorted(),
+            "turbulenceBeforeMovementPosition":
+                vector(turbulenceBeforeMovement.particles[0].position),
+            "movementBeforeTurbulencePosition":
+                vector(movementBeforeTurbulence.particles[0].position),
+            "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
+            "vortexVelocity": vector(vortex.particles[0].velocity),
+            "vortexDiagnostics": vortex.diagnostics.map(\.kind.rawValue),
+            "vortexPartitioned": vortex.particles == vortexPartitioned.particles,
+            "reverseVortexVelocity": vector(reverseVortex.particles[0].velocity),
+            "yAxisVortexVelocity": vector(yAxisVortex.particles[0].velocity),
+            "infiniteAxisVortexVelocity": vector(infiniteAxisVortex.particles[0].velocity),
+            "finiteAxisVortexVelocity": vector(finiteAxisVortex.particles[0].velocity),
+            "overriddenVortexVelocity": vector(overriddenVortex.particles[0].velocity),
+            "overrideDeniedVortexVelocity": vector(overrideDeniedVortex.particles[0].velocity),
+            "invalidVortexVelocities": invalidVortices.map { vector($0.particles[0].velocity) },
+            "zeroAxisVortexVelocity": vector(zeroAxisVortex.particles[0].velocity),
+            "invalidVortexDiagnostics": invalidVortices.map {
+                $0.diagnostics.map(\.kind.rawValue).sorted()
+            },
+            "vortexV2Velocity": vector(vortexV2.particles[0].velocity),
+            "vortexV2Diagnostics": vortexV2.diagnostics.map(\.kind.rawValue),
+            "capVelocity": vector(capVelocity.particles[0].velocity),
+            "capVelocityDiagnostics": capVelocity.diagnostics.map(\.kind.rawValue),
+            "capVelocityPartitioned":
+                capVelocity.particles == capVelocityPartitioned.particles,
+            "zeroCapVelocity": vector(zeroCapVelocity.particles[0].velocity),
+            "underCapVelocity": vector(underCapVelocity.particles[0].velocity),
+            "capVelocityBlendStart": vector(capVelocityBlendStart),
+            "capVelocityBlendMiddle": vector(capVelocityBlendMiddle),
+            "capVelocityBlendEnd": vector(capVelocityBlendEnd),
+            "capVelocityLifeEdges": capVelocityLifeEdges,
+            "overriddenCapVelocity": vector(overriddenCapVelocity.particles[0].velocity),
+            "overrideDeniedCapVelocity":
+                vector(overrideDeniedCapVelocity.particles[0].velocity),
+            "invalidCapVelocities": invalidCapVelocities.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidCapVelocityDiagnostics": invalidCapVelocities.map {
+                $0.diagnostics.map(\.kind.rawValue).sorted()
+            },
+            "periodicFirstWindowCount": periodicFirstWindowCount,
+            "periodicDelayCount": periodicDelayCount,
+            "periodicSecondWindowCount": periodicSecondWindowCount,
+            "periodicDeterministic": periodic.particles == periodicPartitioned.particles,
+            "periodicDiagnostics": periodic.diagnostics.map(\.kind.rawValue),
+            "periodicAuthorOffCount": periodicAuthorOff.particles.count,
+            "periodicMalformedCount": periodicMalformed.particles.count,
+            "periodicMalformedDiagnostics": periodicMalformed.diagnostics.map(\.kind.rawValue),
+            "periodicBurstCount": periodicBurst.particles.count,
+            "periodicBurstDiagnostics": periodicBurst.diagnostics.map(\.kind.rawValue),
+            "periodicOverriddenCount": periodicOverridden.particles.count,
+            "periodicOverriddenDiagnostics": periodicOverridden.diagnostics.map(\.kind.rawValue),
+            "delayedRateBeforeCount": delayedRateBeforeCount,
+            "delayedRateFirstCount": delayedRateFirstCount,
+            "delayedRateSecondCount": delayedRateSecondCount,
+            "delayedRatePartitioned": delayedRate.particles == delayedRatePartitioned.particles,
+            "delayedRateDiagnostics": delayedRate.diagnostics.map(\.kind.rawValue),
+            "delayedBoundaryCount": delayedBoundary.particles.count,
+            "delayedInstantaneousBeforeCount": delayedInstantaneousBeforeCount,
+            "delayedInstantaneousCount": delayedInstantaneous.particles.count,
+            "delayedDurationCount": delayedDuration.particles.count,
+            "delayedPeriodicBeforeCount": delayedPeriodicBeforeCount,
+            "delayedPeriodicFirstWindowCount": delayedPeriodicFirstWindowCount,
+            "delayedPeriodicPauseCount": delayedPeriodicPauseCount,
+            "delayedPeriodicSecondWindowCount": delayedPeriodicSecondWindowCount,
+            "delayedPeriodicDiagnostics": delayedPeriodic.diagnostics.map(\.kind.rawValue),
+            "zeroDelayCount": zeroDelay.particles.count,
+            "zeroDelayDiagnostics": zeroDelay.diagnostics.map(\.kind.rawValue),
+            "invalidDelayCounts": invalidDelays.map(\.particles.count),
+            "invalidDelayDiagnostics": invalidDelays.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "layerImagePosition": layerImage.particles.first.map { vector($0.position) } ?? [],
+            "layerImageMissingMapCount": layerImageMissingMap.particles.count,
+            "layerImageExplicitSignRetainedAndRejectedWithReadyMap": layerImageExplicitSignRejected,
+            "delayedLayerImageBeforeCount": delayedLayerImageBeforeCount,
+            "delayedLayerImageCount": delayedLayerImage.particles.count,
+            "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
+        ]
+    }
+
+    private static func simulator(
+        _ source: String,
+        override: SceneParticleInstanceOverride? = nil,
+        initialOverride: SceneParticleInstanceOverride? = nil,
+        seed: UInt64,
+        step: Double,
+        particleBudget: Int? = nil,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
+        eventValueContext: SceneParticleEventValueContext = .unavailable
+    ) -> SceneParticleSimulator {
+        let definition = SceneParticleDefinitionParser().parse(root: try! object(source))
+        return SceneParticleSimulator(
+            definition: definition,
+            instanceOverride: override,
+            initialDynamicInstanceOverride: initialOverride,
+            seed: seed,
+            fixedTimeStep: step,
+            particleBudget: particleBudget,
+            worldSpaceFrame: worldSpaceFrame,
+            eventValueContext: eventValueContext
+        )
+    }
+
+    private static let deterministicJSON = #"""
+    {"material":"p.json","maxcount":64,
+     "emitter":[{"name":"sphererandom","instantaneous":2,"rate":8,"distancemin":1,"distancemax":2,"speedmin":1,"speedmax":3}],
+     "initializer":[{"name":"lifetimerandom","min":5,"max":5},{"name":"sizerandom","min":1,"max":2},{"name":"velocityrandom","min":"-1 -1 0","max":"1 1 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let layerImageJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"layerimage","instantaneous":1}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let delayedLayerImageJSON = layerImageJSON.replacingOccurrences(
+        of: #""instantaneous":1"#,
+        with: #""delay":0.5,"instantaneous":1"#
+    )
+
+    private static let maximumCountJSON = #"""
+    {"material":"p.json","maxcount":3,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let prewarmJSON = #"""
+    {"material":"p.json","maxcount":64,"starttime":1,
+     "emitter":[{"name":"boxrandom","rate":10,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let durationJSON = #"""
+    {"material":"p.json","maxcount":64,
+     "emitter":[{"name":"boxrandom","instantaneous":3,"rate":100,"duration":0.25,"flags":2,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let onePerFrameJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let onePerFrameAuthorOffJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""flags":2"#,
+        with: #""flags":0"#
+    )
+
+    private static let twoOnePerFrameEmittersJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}]"#,
+        with: #""emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0},{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}]"#
+    )
+
+    private static let prewarmOnePerFrameJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""maxcount":100"#,
+        with: #""maxcount":100,"starttime":1"#
+    )
+
+    private static let deathJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":0.2,"max":0.2},{"name":"velocityrandom","min":"2 0 0","max":"2 0 0"}],
+     "operator":[{"name":"movement"}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let boundsJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[
+       {"name":"sphererandom","instantaneous":50,"origin":"10 20 30","directions":"1 1 1","distancemin":2,"distancemax":4},
+       {"name":"boxrandom","instantaneous":50,"origin":"-10 -20 -30","directions":"1 1 1","distancemin":"-1 -2 -3","distancemax":"1 2 3"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let movementJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"velocityrandom","min":"2 0 0","max":"2 0 0"},{"name":"alpharandom","min":1,"max":1}],
+     "operator":[{"name":"movement","gravity":"0 -2 0","drag":1},{"name":"alphafade","fadeintime":0.25,"fadeouttime":0.75}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let centeredBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"origin":"10 20 30","distancemax":"4 3 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let explicitCenteredBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"distancemin":"0 0 0","distancemax":"4 3 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let positiveBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"directions":"1 1 1","distancemin":"2 3 1","distancemax":"4 5 2"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let worldMovementJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"velocityrandom","min":"8 4 0","max":"8 4 0"}],
+     "operator":[{"name":"movement","flags":1,"gravity":"0 -8 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let overrideDefinitionJSON = #"""
+    {"material":"p.json","maxcount":32,"flags":0,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"rate":4,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"sizerandom","min":2,"max":2},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"},{"name":"colorrandom","min":"255 255 255","max":"255 255 255"},{"name":"alpharandom","min":0.5,"max":0.5}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static func overrideDefinition(flags: Int) -> String {
+        overrideDefinitionJSON.replacingOccurrences(
+            of: #""flags":0"#,
+            with: #""flags":\#(flags)"#
+        )
+    }
+
+    private static let overrideJSON = #"""
+    {"alpha":0.5,"size":{"user":"size_prop","value":3},"lifetime":2,"rate":2,"speed":4,"count":0.5,"brightness":2,"colorn":"0.5 0.25 1"}
+    """#
+
+    private static let liveOverrideDefinitionJSON = #"""
+    {"material":"p.json","maxcount":16,"flags":0,
+     "emitter":[{"name":"boxrandom","rate":4,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":2,"max":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let dynamicControlPointJSON = #"""
+    {"material":"p.json","maxcount":4,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"rate":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"offset":"1 1 1"}]}
+    """#
+
+    private static let authoredControlPointIdentityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":2,"offset":"200 0 0"},{"id":0},{"id":1,"offset":"10 0 0"}]}
+    """#
+
+    private static let implicitControlPointJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":3,"instantaneous":1,"origin":"5 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static func malformedControlPointJSON(_ points: String) -> String {
+        let prefix = String(implicitControlPointJSON
+            .replacingOccurrences(of: #""controlpoint":3"#, with: #""controlpoint":1"#)
+            .dropLast())
+        return prefix + #", "controlpoint":"# + points + "}"
+    }
+
+    private static let stockControlPointAngleJSON = #"""
+    {"material":"p.json","maxcount":2,
+     "emitter":[
+       {"name":"sphererandom","controlpoint":1,"instantaneous":1,"distancemin":0,"distancemax":0},
+       {"name":"sphererandom","controlpoint":2,"instantaneous":1,"distancemin":0,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"0 -200 0","max":"0 -200 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"flags":16},{"id":2,"flags":16}]}
+    """#
+
+    private static let stockControlPointAngleOverrideJSON = #"""
+    {"controlpoint1":"22 0 0","controlpoint2":"-22 0 0",
+     "controlpointangle1":"0 0 -0.52360","controlpointangle2":"0 0 0.52360"}
+    """#
+
+    private static let controlPointAngleSpatialJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"origin":"4 5 6","directions":"1 1 1","distancemin":"1 2 3","distancemax":"1 2 3"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"offset":"10 20 30","angles":"0 0 1.5707963267948966"}]}
+    """#
+
+    private static let controlPointDefaultAngleJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"angles":"0 0 1.5707963267948966"}]}
+    """#
+
+    private static func controlPointAngleJSON(pointFields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}],
+         "controlpoint":[{"id":1,\(pointFields)}]}
+        """
+    }
+
+    private static let controlPointAngleLayerImageJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"layerimage","controlpoint":1,"instantaneous":1}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"angles":"0 0 1"}]}
+    """#
+
+    private static func emitterSpeedJSON(_ fields: String, count: Int = 1) -> String {
+        """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{"name":"boxrandom","instantaneous":\(count),"distancemin":"2 0 0","distancemax":"2 0 0",\(fields)}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"movement"}],"renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func emitterShapeJSON(_ fields: String, count: Int = 64) -> String {
+        """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{\(fields),"instantaneous":\(count)}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func controlPointForceJSON(
+        scale: String,
+        threshold: String,
+        flags: Int = 1,
+        extra: String = "",
+        controlPoint: Int = 1,
+        pointOffset: String = "0 0 0",
+        systemFlags: Int = 0,
+        movementFlags: Int = 0,
+        controlPointSuffix: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"movement","flags":\(movementFlags)},{"name":"controlpointattract","controlpoint":\(controlPoint),"origin":"0 0 0","scale":\(scale),"threshold":\(threshold)\(extra)}],
+         "renderer":[{"name":"sprite"}],
+         "controlpoint":[{"id":\(controlPoint),"flags":\(flags),"offset":"\(pointOffset)"}\(controlPointSuffix)]}
+        """
+    }
+
+    private static func vortexJSON(
+        position: String = "10 0 0",
+        axis: String = "0 0 1",
+        distanceInner: String = "0",
+        distanceOuter: String = "10",
+        speedInner: String = "0",
+        speedOuter: String = "100",
+        flags: Int = 0,
+        systemFlags: Int = 0,
+        extra: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"directions":"1 1 1","distancemin":"\(position)","distancemax":"\(position)"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"vortex","axis":"\(axis)","distanceinner":\(distanceInner),"distanceouter":\(distanceOuter),"speedinner":\(speedInner),"speedouter":\(speedOuter),"flags":\(flags)\(extra)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let vortexV2JSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"10 0 0","distancemax":"10 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "operator":[{"name":"vortex_v2","distance":10,"speed":100}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static func capVelocityJSON(
+        velocity: String = "300 400 0",
+        maximumSpeed: String = "100",
+        flags: Int = 0,
+        systemFlags: Int = 0,
+        blend: String = "",
+        extra: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[{"name":"capvelocity","maxspeed":\(maximumSpeed),"flags":\(flags)\(blend)\(extra)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let periodicJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"sphererandom","flags":4,"rate":4,"distancemax":0,
+       "minperiodicduration":0.5,"maxperiodicduration":0.5,
+       "minperiodicdelay":0.5,"maxperiodicdelay":0.5}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let periodicAuthorOffJSON = periodicJSON.replacingOccurrences(
+        of: #""flags":4"#,
+        with: #""flags":0"#
+    )
+
+    private static let periodicMalformedJSON = periodicJSON.replacingOccurrences(
+        of: #""maxperiodicdelay":0.5"#,
+        with: #""maxperiodicdelay":"bad""#
+    )
+
+    private static let periodicBurstJSON = periodicJSON.replacingOccurrences(
+        of: #""rate":4"#,
+        with: #""rate":4,"instantaneous":1"#
+    )
+
+    private static let periodicDelayedJSON = periodicJSON.replacingOccurrences(
+        of: #""rate":4"#,
+        with: #""delay":0.5,"rate":4"#
+    )
+
+    private static func delayJSON(
+        _ delay: String,
+        rate: Int = 4,
+        instantaneous: Int = 0,
+        duration: Double? = nil
+    ) -> String {
+        let burst = instantaneous > 0 ? ",\"instantaneous\":\(instantaneous)" : ""
+        let lifetime = duration.map { ",\"duration\":\($0)" } ?? ""
+        return """
+        {"material":"p.json","maxcount":100,
+         "emitter":[{"name":"boxrandom","delay":\(delay),"rate":\(rate)\(burst)\(lifetime),"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let operatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":2,"max":2},{"name":"colorrandom","min":"255 255 255","max":"255 255 255"},{"name":"angularvelocityrandom","min":"0 0 1","max":"0 0 1"}],
+     "operator":[
+       {"name":"alphachange","starttime":0,"endtime":1,"startvalue":1,"endvalue":0.5},
+       {"name":"sizechange","starttime":0,"endtime":1,"startvalue":1,"endvalue":2},
+       {"name":"colorchange","starttime":0,"endtime":1,"startvalue":"1 1 1","endvalue":"0 0.5 1"},
+       {"name":"angularmovement","force":"0 0 0","drag":0},
+       {"name":"oscillatealpha","frequencymin":0,"frequencymax":0,"scalemin":0.5,"scalemax":0.5,"phasemin":0,"phasemax":0},
+       {"name":"oscillatesize","frequencymin":0,"frequencymax":0,"scalemin":2,"scalemax":2,"phasemin":0,"phasemax":0},
+       {"name":"oscillateposition","frequencymin":1,"frequencymax":1,"scalemin":"1 0 0","scalemax":"1 0 0","phasemin":1.5707963267948966,"phasemax":1.5707963267948966,"mask":"1 0 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let diagnosticJSON = #"""
+    {"material":"p.json","maxcount":4,
+     "emitter":[{"name":"boxrandom","rate":1,"audioprocessingmode":1}],
+     "initializer":[{"name":"turbulentvelocityrandom","audioprocessingmode":1}],
+     "operator":[{"name":"controlpointattract"},{"name":"turbulence"},{"name":"vortex"}],
+     "renderer":[{"name":"spritetrail"}],"controlpoint":[{"id":0,"flags":1}],
+     "children":[{"name":"child.json","type":"static"}]}
+    """#
+
+    private static let lifetimeOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1},{"name":"sizerandom","min":10,"max":10}],
+     "operator":[{"name":"oscillatealpha","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.5,"scalemax":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let positionOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":8,"max":8}],
+     "operator":[{"name":"oscillateposition","frequencymin":2,"frequencymax":2,"scalemin":"8 4 0","scalemax":"8 4 0","phasemin":0,"phasemax":0,"mask":"1 0.5 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let longPositionOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":16,"max":16}],
+     "operator":[{"name":"oscillateposition","frequencymin":2,"frequencymax":2,"scalemin":"8 4 0","scalemax":"8 4 0","phasemin":0,"phasemax":0,"mask":"1 0.5 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let turbulentJSON = #"""
+    {"material":"p.json","maxcount":2,
+     "emitter":[{"name":"boxrandom","instantaneous":2,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"0 0 1","up":"0 0 0","offset":0.25,"phasemin":0.5,"phasemax":1,"scale":0.2,"speedmin":25,"speedmax":25,"timescale":0.5}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let zeroScaleTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 2 0","right":"1 0 0","scale":0,"speedmin":25,"speedmax":25}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let offsetTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","offset":3,"scale":0,"speedmin":25,"speedmax":25}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let audioTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","speedmin":25,"speedmax":25,"audioprocessingmode":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let turbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let zeroTimeTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":0}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let xOnlyTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"2 0 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let defaultTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","timescale":30}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let blendedTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"timescale":2,"blendinstart":0.5,"blendinend":0.6}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let audioTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"timescale":2,"audioprocessingmode":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let turbulenceBeforeMovementJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3},{"name":"movement"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let movementBeforeTurbulenceJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"movement"},{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let overflowTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1e308 1e308 0","speedmin":1e308,"speedmax":1e308}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let colorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let colorListJSON = colorListJSON(
+        #""colors":["1 0 0","0 1 0","0 0 1"]"#
+    )
+
+    private static func colorListJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":30,
+         "emitter":[{"name":"boxrandom","instantaneous":30,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"255 255 255","max":"255 255 255"},{"name":"colorlist",\(fields)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let colorListThenColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorlist","colors":["1 0 0"]},{"name":"colorrandom","min":"64 128 255","max":"64 128 255"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let inheritEventColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"inheritinitialvaluefromevent"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let inheritThenAuthoredColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"inheritinitialvaluefromevent"},{"name":"colorrandom","min":"255 0 0","max":"255 0 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let authoredThenInheritColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"255 0 0","max":"255 0 0"},{"name":"inheritinitialvaluefromevent","input":"setcolor"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let followEventColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "operator":[{"name":"inheritvaluefromevent"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let unsupportedEventColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"inheritinitialvaluefromevent","input":"setsize"}],
+     "operator":[{"name":"inheritvaluefromevent","input":"setsize","future":true}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let completeHSVColorFields = #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#
+
+    private static let hsvColorJSON = makeHSVColorJSON(completeHSVColorFields)
+
+    private static func makeHSVColorJSON(_ fields: String, count: Int = 120) -> String {
+        let suffix = fields.isEmpty ? "" : ",\(fields)"
+        return """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{"name":"boxrandom","instantaneous":\(count),"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"hsvcolorrandom"\(suffix)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let hsvThenColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"hsvcolorrandom","huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1},{"name":"colorrandom","min":"64 128 255","max":"64 128 255"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let positionOffsetJSON = positionOffsetJSON(
+        #""distance":100,"directions":"1 0 0","octaves":4,"scale":0.25,"timescale":2"#
+    )
+
+    private static func positionOffsetJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"positionoffsetrandom",\(fields)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let remapVelocityJSON = remapVelocityJSON(
+        #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#
+    )
+
+    private static func remapVelocityJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 2 3","max":"1 2 3"}],
+         "operator":[{"name":"remapvalue",\(fields)},{"name":"movement"}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func reduceMovementJSON(
+        _ fields: String,
+        systemFlags: Int = 0,
+        controlPoints: String = "",
+        origin: String = "10 0 0",
+        velocity: String = "100 0 0",
+        movementFirst: Bool = false
+    ) -> String {
+        let reduce = #"{"name":"reducemovementnearcontrolpoint",\#(fields)}"#
+        let movement = #"{"name":"movement"}"#
+        let operators = movementFirst ? "\(movement),\(reduce)" : "\(reduce),\(movement)"
+        return """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "controlpoint":[\(controlPoints)],
+         "emitter":[{"name":"boxrandom","instantaneous":1,"origin":"\(origin)","distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[\(operators)],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func collisionPlaneJSON(
+        _ fields: String,
+        origin: String = "0 1 0",
+        velocity: String = "3 -20 0",
+        collisionFirst: Bool = false
+    ) -> String {
+        let collision = #"{"name":"collisionplane",\#(fields)}"#
+        let movement = #"{"name":"movement"}"#
+        let operators = collisionFirst
+            ? "\(collision),\(movement)" : "\(movement),\(collision)"
+        return """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"origin":"\(origin)","distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[\(operators)],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let uniformSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let maximumSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":0}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let uniformVelocityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"10 20 30","max":"20 40 50","exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedVelocityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"10 20 30","max":"20 40 50","exponent":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let uniformColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160","exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160","exponent":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static func census(rootPath: String) throws -> [String: Any] {
+        let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
+        let samples = try FileManager.default.contentsOfDirectory(
+            at: rootURL, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
+        ).filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+        let parser = SceneParticleDefinitionParser()
+        var definitionSimulators = 0
+        var rootSimulators = 0
+
+        for sample in samples {
+            let project = try object(data: Data(contentsOf: sample.appendingPathComponent("project.json")))
+            let scenePath = normalized(project["file"] as? String ?? "scene.json")
+            let packageURL = try packageURL(sample: sample, scenePath: scenePath)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
+            let entries = Dictionary(uniqueKeysWithValues: index.entries.map { (normalized($0.path), $0) })
+            guard let sceneEntry = entries[scenePath] else { throw HarnessError.missingEntry(scenePath) }
+            let scene = try object(data: try read(sceneEntry, opened: opened))
+            let objects = scene["objects"] as? [[String: Any]] ?? []
+
+            for object in objects {
+                guard let path = object["particle"] as? String,
+                      let entry = entries[normalized(path)] else { continue }
+                let definition = try parser.parse(data: read(entry, opened: opened))
+                var runtime = SceneParticleSimulator(
+                    definition: definition,
+                    instanceOverride: parser.parseInstanceOverride(object["instanceoverride"]),
+                    seed: UInt64(rootSimulators), fixedTimeStep: 1.0 / 60.0
+                )
+                runtime.advance(by: 1.0 / 60.0)
+                rootSimulators += 1
+            }
+
+            var visited = Set<String>()
+            func visit(_ rawPath: String) throws {
+                let path = normalized(rawPath)
+                guard visited.insert(path).inserted, let entry = entries[path] else { return }
+                let definition = try parser.parse(data: read(entry, opened: opened))
+                var runtime = SceneParticleSimulator(
+                    definition: definition, seed: UInt64(definitionSimulators), fixedTimeStep: 1.0 / 60.0
+                )
+                runtime.advance(by: 1.0 / 60.0)
+                definitionSimulators += 1
+                for child in definition.children { if let path = child.path { try visit(path) } }
+            }
+            for object in objects { if let path = object["particle"] as? String { try visit(path) } }
+        }
+        return ["sampleCount": samples.count, "definitionSimulators": definitionSimulators,
+                "rootSimulators": rootSimulators]
+    }
+
+    private static func read(
+        _ entry: ScenePkgIndex.Entry, opened: ScenePkgReader.OpenPackage
+    ) throws -> Data {
+        var data = Data()
+        try opened.readEntryChunks(entry) { data.append($0) }
+        return data
+    }
+
+    private static func packageURL(sample: URL, scenePath: String) throws -> URL {
+        let name = ((scenePath as NSString).lastPathComponent as NSString).deletingPathExtension
+        for file in name == "scene" ? ["scene.pkg"] : ["\(name).pkg", "scene.pkg"] {
+            let candidate = sample.appendingPathComponent(file)
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        throw HarnessError.missingPackage(sample.lastPathComponent)
+    }
+
+    private static func normalized(_ path: String) -> String {
+        var value = path.replacingOccurrences(of: "\\", with: "/")
+        while value.hasPrefix("./") { value.removeFirst(2) }
+        return value.lowercased()
+    }
+
+    private static func object(_ source: String) throws -> [String: Any] {
+        try object(data: Data(source.utf8))
+    }
+
+    private static func object(data: Data) throws -> [String: Any] {
+        guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw HarnessError.invalidJSON
+        }
+        return value
+    }
+
+    private static func vector(_ value: SIMD3<Double>) -> [Double] {
+        [value.x, value.y, value.z]
+    }
+
+    private static func length(_ value: SIMD3<Double>) -> Double {
+        sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
+    }
+
+    private static func printJSON(_ value: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private enum HarnessError: Error {
+        case invalidJSON
+        case missingPackage(String)
+        case missingEntry(String)
+        case truncatedEntry(String)
+    }
+}
+'''
+
+
+class SceneParticleSimulatorTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-particle-runtime-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-runtime"
+        subprocess.run(
+            [swiftc, "-D", "DEBUG", *(str(path) for path in SWIFT_SOURCES), str(SPHERE_SAMPLING_SOURCE), str(COMPONENT_OBSERVATION_SOURCE),
+             str(harness), "-o", str(cls.binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.results = cls.run_harness()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    @classmethod
+    def run_harness(cls, *arguments: str) -> dict[str, object]:
+        result = subprocess.run(
+            [str(cls.binary), *arguments], check=True, capture_output=True, text=True
+        )
+        return json.loads(result.stdout)
+
+    def test_component_observation_records_only_real_first_facts_and_rolls_back_candidates(self) -> None:
+        for enabled in ("0", "1"):
+            with self.subTest(enabled=enabled):
+                completed = subprocess.run(
+                    [str(self.binary), "component-observation"], check=True, capture_output=True,
+                    text=True, env={**os.environ, "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": enabled},
+                )
+                results = json.loads(completed.stdout)
+                self.assertTrue(results)
+                for name, passed in results.items():
+                    with self.subTest(check=name):
+                        self.assertTrue(passed, name)
+
+    def test_simulation_rate_scales_one_time_domain_and_preserves_pause_and_rollback(self) -> None:
+        result = self.run_harness("simulation-rate")
+        for row in result["rows"]:
+            with self.subTest(rate=row["rate"]):
+                self.assertEqual(len(row["actual"]), len(row["reference"]))
+                for actual, expected in zip(row["actual"], row["reference"]):
+                    self.assertAlmostEqual(actual, expected)
+        self.assertEqual(result["beforePause"], result["afterPause"])
+        self.assertAlmostEqual(result["half"][0], 0.3)
+        self.assertAlmostEqual(result["fast"][0], 0.7)
+        self.assertEqual(result["fast"], result["retry"])
+        self.assertAlmostEqual(result["fallback"][0], 0.8)
+        self.assertEqual(result["frozenStartCount"], 0)
+        self.assertEqual(result["frozenStartTime"], 0)
+        self.assertEqual(len(result["warm"]), len(result["equivalentWarm"]))
+        for actual, expected in zip(result["warm"], result["equivalentWarm"]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(result["delayCount"], 1)
+        self.assertEqual(result["clippedCount"], 4)
+        self.assertEqual(result["totalBirths"], 4)
+        self.assertEqual(result["firstDeathCount"], 0)
+        self.assertEqual(result["secondDeathCount"], 1)
+        self.assertEqual(result["overflowTime"], 0)
+        self.assertEqual(result["overflowCount"], 0)
+        self.assertIn("invalidSimulationTime", result["overflowDiagnostics"])
+        self.assertEqual(result["finiteStepRejectedTime"], 0)
+        self.assertAlmostEqual(result["finiteStepRecoveryTime"], 1 / 60)
+        self.assertEqual(result["finiteStepDiagnosticCount"], 1)
+        self.assertEqual(result["emissionPeerCount"], 1)
+        self.assertTrue(result["emissionFiniteRemainders"])
+        self.assertEqual(result["emissionDiagnostics"].count("invalidEmitterState"), 1)
+        self.assertEqual(result["emissionFailure"], result["emissionRetry"])
+        self.assertEqual(result["emissionRecoveryCount"], 20)
+        self.assertEqual(result["roundedEmissionCount"], 10)
+        self.assertEqual(result["roundedRemainder"], 0)
+
+    def test_signed_drag_accelerates_or_slows_linear_and_angular_motion(self) -> None:
+        result = self.run_harness("signed-drag")
+        angular_expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
+        linear_expected = {-2: (2, .8535533905932737), 0: (1, .5),
+                           2: (.5, .3017766952966369), 8: (.0625, .078125)}
+        self.assertEqual(len(result["rows"]), 7)
+        for row in result["rows"]:
+            with self.subTest(angular=row["angular"], drag=row["drag"]):
+                expected = angular_expected if row["angular"] else linear_expected
+                velocity, position = expected[row["drag"]]
+                self.assertAlmostEqual(row["velocity"], velocity, places=12)
+                self.assertAlmostEqual(row["position"], position, places=12)
+        self.assertTrue(result["nonFiniteDragKeepsFiniteState"])
+        self.assertTrue(result["missingOperatorsKeepPosition"])
+
+    def test_signed_drag_rejects_only_unsafe_motion_results(self) -> None:
+        result = self.run_harness("signed-drag-safety")
+        self.assertEqual(result["positionOnly"], [True, True])
+        self.assertEqual(len(result["rows"]), 6)
+        for row in result["rows"]:
+            with self.subTest(angular=row["angular"], drag=row["drag"]):
+                for field in ["finite", "rejected", "atomic", "siblingSafe", "downstream",
+                              "restoredDiagnostics", "replay"]:
+                    self.assertTrue(row[field], field)
+                self.assertEqual(row["diagnosticCount"], 1)
+
+    def test_sphere_sampling_preserves_shell_axes_and_has_no_axis_pileup(self) -> None:
+        result = self.run_harness("sphere-sampling")
+        self.assertAlmostEqual(result["counterexampleRadius"], 10, places=9)
+        self.assertAlmostEqual(result["counterexampleSpeed"], 7, places=9)
+        self.assertAlmostEqual(result["counterexampleRadialSpeed"], 0, places=9)
+        for row in result["rows"]:
+            mask = row["mask"]
+            dimensions = mask.bit_count()
+            with self.subTest(mask=mask):
+                self.assertEqual(row["count"], 20_000)
+                self.assertAlmostEqual(row["minimumRadius"], 1 if dimensions else 0, places=9)
+                self.assertAlmostEqual(row["maximumRadius"], 1 if dimensions else 0, places=9)
+                if dimensions > 1:
+                    self.assertEqual(row["axisAtoms"], 0)
+                for axis in range(3):
+                    self.assertAlmostEqual(row["mean"][axis], 0, delta=0.025)
+                    expected = 1 / dimensions if mask & (1 << axis) else 0
+                    self.assertAlmostEqual(row["secondMoment"][axis], expected, delta=0.025)
+        self.assertGreaterEqual(result["volumeFactorMin"], 0)
+        self.assertLessEqual(result["volumeFactorMax"], 1)
+        self.assertAlmostEqual(result["volumeFactorMean"], 0.5, delta=0.015)
+        self.assertTrue(result["signedShell"])
+        self.assertTrue(result["deterministic"])
+        self.assertTrue(result["rollback"])
+
+    def test_periodic_emission_consumes_rate_and_count_with_bounded_work(self) -> None:
+        result = self.run_harness("periodic-overrides")
+        for row in result["rows"]:
+            with self.subTest(rate=row["rate"], count=row["count"]):
+                self.assertEqual(row["particles"], int(4 * row["rate"] * row["count"]))
+                self.assertEqual(row["time"], 2 * row["rate"])
+        self.assertTrue(result["randomScaledEqual"])
+        self.assertEqual(result["disabled"], 4)
+        self.assertEqual(result["delayCount"], 0)
+        self.assertEqual(result["pausedTime"], 1)
+        self.assertEqual(result["resumedCount"], 4)
+        self.assertTrue(result["retry"])
+        self.assertEqual(result["afterUnsafe"], 1)
+        self.assertEqual(result["recovered"], 2)
+        self.assertEqual(result["invalidEmitter"], 1)
+        self.assertEqual(result["boundaryCount"], 100)
+        self.assertEqual(result["boundaryInvalid"], 0)
+
+    def test_disable_speed_override_covers_turbulence_and_live_updates(self) -> None:
+        result = self.run_harness("speed-disable")
+        self.assertGreater(sum(v * v for v in result["baseline"]), 0)
+        for row in result["rows"]:
+            with self.subTest(speed=row["speed"]):
+                self.assertEqual(row["disabled"], result["baseline"])
+                if abs(row["speed"]) < 10:
+                    for actual, base in zip(row["ordinary"], result["baseline"]):
+                        self.assertAlmostEqual(actual, base * row["speed"])
+        self.assertEqual(result["changed"], result["referenceNext"])
+        self.assertEqual(result["retry"], result["referenceNext"])
+
+    def test_speed_scales_gravity_without_rescaling_drag_or_existing_velocity(self) -> None:
+        result = self.run_harness("gravity-speed")
+        for row in result["rows"]:
+            factor = 1 if row["flags"] == 16 else row["speed"]
+            with self.subTest(flags=row["flags"], speed=row["speed"]):
+                self.assertEqual(row["velocity"], [2 * factor, -4 * factor, factor])
+                self.assertEqual(row["position"], [0.75 * factor, -1.5 * factor, 0.375 * factor])
+        self.assertEqual(result["retry"], result["stopped"])
+        for name, expected_x in [("stopped", .87840077934934), ("doubled", 2.721302750736767),
+                                 ("fallback", 3.453348467469253)]:
+            for actual, expected in zip(result[name], (expected_x, -2 * expected_x, expected_x / 2)):
+                self.assertAlmostEqual(actual, expected, places=12)
+        self.assertTrue(result["preserved"])
+        self.assertTrue(result["recovered"])
+        self.assertEqual(result["invalidMotion"], 1)
+
+    def test_speed_scales_initial_angular_velocity_and_respects_birth_boundaries(self) -> None:
+        result = self.run_harness("angular-speed")
+        for row in result["rows"]:
+            factor = 1 if row["flags"] == 16 else row["speed"]
+            with self.subTest(flags=row["flags"], speed=row["speed"]):
+                for actual, initial, velocity in zip(row["rotation"], [0.2, -0.4, 0.6], [1, -2, 3]):
+                    self.assertAlmostEqual(actual, initial + velocity * factor * 0.25)
+                self.assertEqual(row["angular"], [factor, -2 * factor, 3 * factor])
+        self.assertEqual(result["changed"], [[2, -4, 6], [0, 0, 0]])
+        self.assertEqual(result["retry"], result["changed"])
+        self.assertEqual(result["fallback"], [2, -4, 6])
+        self.assertEqual(result["unsafePeers"], 1)
+        self.assertEqual(result["recovered"], 2)
+        self.assertEqual(result["invalidBirths"], 1)
+
+    def test_rotation_preserves_numeric_and_text_axis_semantics(self) -> None:
+        result = self.run_harness("rotation-source-types")
+        self.assertEqual(result["number"], [0, 0, 0.3])
+        self.assertEqual(result["negative"], [0, 0, -0.25])
+        self.assertEqual(result["zero"], [0, 0, 0])
+        self.assertEqual(result["number"], result["explicitZ"])
+        self.assertEqual(result["mixed"], result["explicitZ"])
+        self.assertEqual(result["string"], [0.3, 0, 0])
+        self.assertEqual(result["string"], result["explicitX"])
+        self.assertEqual(result["explicitXYZ"], [0.3, 0.3, 0.3])
+        self.assertEqual(result["range"][:2], [0, 0])
+        self.assertGreaterEqual(result["range"][2], -0.4)
+        self.assertLessEqual(result["range"][2], -0.3)
+        self.assertEqual(result["velocityControl"], [0.3, 0.3, 0.3])
+
+    def test_scalar_birth_overflow_rejects_only_new_particle_and_recovers(self) -> None:
+        result = self.run_harness("birth-scalar-safety")
+        for row in result["rows"]:
+            with self.subTest(field=row["field"], multiplier=row["multiplier"]):
+                # Alpha starts at one: Float.max remains finite and is valid.
+                rejected = row["field"] != "alpha" or row["multiplier"] > 1e50
+                self.assertEqual(row["unsafeCount"], 1 if rejected else 2)
+                self.assertEqual(row["recoveredCount"], 2 if rejected else 3)
+                self.assertEqual(row["diagnosticCount"], 1 if rejected else 0)
+                self.assertTrue(row["peerPreserved"])
+                self.assertTrue(row["finite"])
+
+    def test_fixed_step_and_seed_are_deterministic(self) -> None:
+        self.assertTrue(self.results["deterministic"])
+        self.assertTrue(self.results["differentSeed"])
+
+    def test_birth_events_are_ordered_deterministic_and_drained(self) -> None:
+        self.assertEqual(self.results["birthEventIDs"], [0, 1, 2, 3, 4])
+        self.assertTrue(self.results["birthEventsDeterministic"])
+        self.assertTrue(self.results["birthEventsDrain"])
+        self.assertEqual(self.results["prewarmBirthEvents"], 0)
+
+    def test_death_events_capture_final_state_before_removal(self) -> None:
+        self.assertEqual(self.results["deathEventCount"], 1)
+        self.assertEqual(self.results["deathEventPosition"], [0.4, 0, 0])
+        self.assertTrue(self.results["deathEventsDrain"])
+        self.assertEqual(self.results["deathParticles"], 0)
+
+    def test_warmup_guards_non_finite_and_unbounded_durations(self) -> None:
+        # 非有限或无法表示的 starttime 不得进入 Int 转换（否则进程 SIGTRAP），
+        # 也不得被"平分放大"成少数巨大步；两种情形都表现为没有预热时间。
+        cases = {row["start"]: row for row in self.results["prewarmGuard"]}
+        self.assertEqual(set(cases), {"1e308", "inf", "-inf", "nan", "-5", "0"})
+        for start in cases:
+            self.assertAlmostEqual(cases[start]["time"], 0.1, msg=start)
+        self.assertTrue(all(row["count"] >= 0 for row in cases.values()))
+
+    def test_root_prewarm_matches_fifteen_seconds_of_fixed_step_playback(self) -> None:
+        value = self.results["extendedPrewarm"]
+        self.assertAlmostEqual(value["time"], 15)
+        self.assertEqual(value["count"], 4)
+        self.assertTrue(value["initialEquivalent"])
+        self.assertTrue(value["nextEquivalent"])
+        self.assertAlmostEqual(value["fractionalTime"], 15.005)
+        self.assertTrue(value["drained"])
+        self.assertEqual(value["historyCount"], 5)
+        self.assertTrue(value["historyNonempty"])
+
+    def test_complete_root_prewarm_keeps_child_and_invalid_duration_boundaries(self) -> None:
+        value = self.results["extendedPrewarm"]
+        self.assertAlmostEqual(value["childTime"], 4)
+        self.assertTrue(value["childLimited"])
+        self.assertAlmostEqual(value["exactTime"], 60)
+        self.assertFalse(value["exactLimited"])
+        self.assertAlmostEqual(value["overTime"], 60.01)
+        self.assertFalse(value["overLimited"])
+        self.assertAlmostEqual(value["capacityTime"], 60)
+        self.assertAlmostEqual(value["operatorTime"], 60)
+        self.assertAlmostEqual(value["quadraticTime"], value["linearTime"])
+        self.assertEqual(value["hugeTime"], 0)
+        self.assertTrue(value["hugeInvalid"])
+        self.assertEqual(value["tinyStepTime"], 0)
+        self.assertTrue(value["tinyStepInvalid"])
+        self.assertTrue(value["churnDrained"])
+        self.assertGreater(value["churnNextBirths"], 0)
+        self.assertGreater(value["churnNextDeaths"], 0)
+
+    def test_maximum_count_and_start_time_prewarm(self) -> None:
+        self.assertEqual(self.results["maxCount"], 3)
+        self.assertEqual(self.results["budgetCount"], 2)
+        self.assertEqual(self.results["prewarmCount"], 10)
+        self.assertEqual(self.results["prewarmInitialHalfRateCount"], 5)
+        self.assertAlmostEqual(self.results["prewarmTime"], 1.0)
+
+    def test_rate_instantaneous_duration_and_one_per_frame(self) -> None:
+        self.assertEqual(self.results["durationCount"], 4)
+        self.assertEqual(self.results["onePerFrameCoarseCount"], 1)
+        self.assertEqual(self.results["onePerFrameSecondFrameCount"], 2)
+        self.assertEqual(self.results["onePerFramePartitionedCount"], 3)
+        self.assertEqual(self.results["onePerFrameAuthorOffCount"], 30)
+        self.assertEqual(self.results["twoOnePerFrameEmittersCount"], 2)
+        self.assertEqual(self.results["prewarmOnePerFrameCount"], 10)
+
+    def test_sphere_and_box_emitters_stay_in_authored_bounds(self) -> None:
+        self.assertGreaterEqual(self.results["sphereMinimumRadius"], 2.0)
+        self.assertLessEqual(self.results["sphereMaximumRadius"], 4.0)
+        self.assertTrue(self.results["boxInBounds"])
+        self.assertTrue(self.results["centeredBoxInBounds"])
+        self.assertTrue(self.results["centeredBoxHasBothSigns"])
+        self.assertTrue(self.results["explicitCenteredBoxHasBothSigns"])
+        self.assertTrue(self.results["positiveBoxPreservesInterval"])
+
+    def test_layer_image_emitter_uses_injected_alpha_bitmap_position(self) -> None:
+        self.assertEqual(self.results["layerImagePosition"], [-15, 5, 0])
+        self.assertEqual(self.results["layerImageMissingMapCount"], 0)
+        self.assertTrue(self.results["layerImageExplicitSignRetainedAndRejectedWithReadyMap"])
+
+    def test_pointer_control_point_force_is_bounded_and_directional(self) -> None:
+        for name, strength in [("Pull", .75), ("Push", -.75),
+                               ("InactiveTailBlend", .75), ("LifetimeBlend", .675)]:
+            velocity = self.results[f"pointer{name}Velocity"]
+            self.assertAlmostEqual(velocity[0], strength)
+            self.assertEqual(velocity[1:], [0, 0])
+        self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerZeroVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
+        self.assertEqual(self.results["pointerIdentityPlan"], [1])
+        self.assertTrue(self.results["pointerCachedMatches"])
+        self.assertTrue(self.results["pointerOutsideInactive"])
+        self.assertTrue(self.results["duplicatePointerRejected"])
+        self.assertEqual(
+            self.results["pointerPullDiagnostics"],
+            ["controlPointForceBounded", "pointerControlPointBounded"],
+        )
+        self.assertEqual(
+            self.results["invalidControlPointForceVelocities"],
+            [[0, 0, 0]] * 8,
+        )
+        self.assertEqual(len(self.results["invalidControlPointForceDiagnostics"]), 8)
+        for diagnostics in self.results["invalidControlPointForceDiagnostics"]:
+            self.assertIn("controlPointForceUnsupported", diagnostics)
+        expected_flags = {
+            "worldSpaceSystem": (1, 0),
+            "perspectiveSystem": (4, 0),
+            "worldSpaceMovement": (0, 1),
+        }
+        flag_results = self.results["pointerForceFlagResults"]
+        self.assertEqual([row["name"] for row in flag_results], list(expected_flags))
+        for row in flag_results:
+            with self.subTest(flags=row["name"], pointer="present"):
+                self.assertEqual(
+                    (row["systemFlags"], row["movementFlags"]),
+                    expected_flags[row["name"]],
+                )
+                self.assertTrue(row["forceSupported"])
+                self.assertEqual(row["pointerIdentities"], [1])
+                self.assertEqual(row["pointerMapped"], [10, 0, 0])
+                self.assertAlmostEqual(row["velocity"][0], .75)
+                self.assertEqual(row["velocity"][1:], [0, 0])
+                self.assertEqual(
+                    row["diagnostics"],
+                    ["controlPointForceBounded", "pointerControlPointBounded"],
+                )
+            with self.subTest(flags=row["name"], pointer="missing"):
+                self.assertEqual(row["missingPointerVelocity"], [0, 0, 0])
+                self.assertEqual(row["missingPointerPosition"], [5, 0, 0])
+                self.assertEqual(
+                    row["missingPointerDiagnostics"],
+                    ["controlPointForceBounded", "pointerControlPointBounded"],
+                )
+
+    def test_random_periodic_emission_uses_bounded_active_and_delay_windows(self) -> None:
+        self.assertEqual(self.results["periodicFirstWindowCount"], 2)
+        self.assertEqual(self.results["periodicDelayCount"], 2)
+        self.assertEqual(self.results["periodicSecondWindowCount"], 4)
+        self.assertTrue(self.results["periodicDeterministic"])
+        self.assertEqual(self.results["periodicDiagnostics"], ["periodicEmissionBounded"])
+        self.assertEqual(self.results["periodicAuthorOffCount"], 6)
+        self.assertEqual(self.results["periodicOverriddenCount"], 6)
+        self.assertEqual(self.results["periodicOverriddenDiagnostics"], ["periodicEmissionBounded"])
+        for prefix in [
+            "periodicMalformed", "periodicBurst"
+        ]:
+            self.assertEqual(self.results[f"{prefix}Count"], 0)
+            self.assertEqual(
+                self.results[f"{prefix}Diagnostics"],
+                ["periodicEmissionUnsupported"],
+            )
+
+    def test_initial_emission_delay_gates_all_emission_and_composes_with_schedule(self) -> None:
+        self.assertEqual(self.results["delayedRateBeforeCount"], 0)
+        self.assertEqual(self.results["delayedRateFirstCount"], 1)
+        self.assertEqual(self.results["delayedRateSecondCount"], 2)
+        self.assertTrue(self.results["delayedRatePartitioned"])
+        self.assertEqual(self.results["delayedRateDiagnostics"], ["emitterDelayBounded"])
+        self.assertEqual(self.results["delayedBoundaryCount"], 1)
+        self.assertEqual(self.results["delayedInstantaneousBeforeCount"], 0)
+        self.assertEqual(self.results["delayedInstantaneousCount"], 1)
+        self.assertEqual(self.results["delayedDurationCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicBeforeCount"], 0)
+        self.assertEqual(self.results["delayedPeriodicFirstWindowCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicPauseCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicSecondWindowCount"], 4)
+        self.assertEqual(
+            self.results["delayedPeriodicDiagnostics"],
+            ["emitterDelayBounded", "periodicEmissionBounded"],
+        )
+        self.assertEqual(self.results["zeroDelayCount"], 1)
+        self.assertEqual(self.results["zeroDelayDiagnostics"], [])
+        self.assertEqual(self.results["invalidDelayCounts"], [0, 0, 0, 0])
+        for diagnostics in self.results["invalidDelayDiagnostics"]:
+            self.assertEqual(diagnostics, ["emitterDelayUnsupported"])
+        self.assertEqual(self.results["delayedLayerImageBeforeCount"], 0)
+        self.assertEqual(self.results["delayedLayerImageCount"], 1)
+
+    def test_movement_gravity_drag_and_alpha_fade(self) -> None:
+        for actual, expected in zip(self.results["movementPosition"], [.774001598220131, -.326046773496649, 0]):
+            self.assertAlmostEqual(actual, expected, places=12)
+        self.assertAlmostEqual(self.results["fadeAlpha"], 0.5)
+        self.assertEqual(self.results["worldMovementPosition"], [2, 0, 0])
+        self.assertEqual(self.results["worldMovementLocalVelocity"], [4, 0, 0])
+
+    def test_static_instance_overrides_apply_and_supported_user_binding_is_admitted(self) -> None:
+        self.assertEqual(self.results["overrideLifetime"], 4)
+        self.assertEqual(self.results["overrideSize"], 6)
+        self.assertEqual(self.results["overrideVelocity"], [4, 0, 0])
+        self.assertEqual(self.results["overrideAlpha"], 0.25)
+        self.assertEqual(self.results["overrideColor"], [0.5, 0.125, 2])
+        self.assertEqual(self.results["overrideEmissionCount"], 5)
+        self.assertNotIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
+
+    def test_dynamic_instance_override_applies_per_step_then_restores_authored_values(self) -> None:
+        self.assertEqual(self.results["liveOverrideDiagnostics"], [])
+        self.assertEqual(self.results["liveZeroCount"], 0)
+        self.assertEqual(self.results["liveDynamicCount"], 2)
+        self.assertEqual(self.results["liveDynamicAlpha"], 0.25)
+        self.assertEqual(self.results["liveDynamicSize"], 6)
+        self.assertEqual(self.results["liveDynamicColor"], [0.25, 1, 0.0625])
+        self.assertEqual(self.results["liveFallbackAlpha"], 1)
+        self.assertEqual(self.results["liveFallbackSize"], 2)
+        self.assertEqual(self.results["liveFallbackColor"], [1, 1, 1])
+
+    def test_general_flags_deny_only_the_matching_instance_override(self) -> None:
+        self.assertEqual(self.results["colorDeniedColor"], [2, 2, 2])
+        self.assertEqual(self.results["colorDeniedAlpha"], 0.25)
+        self.assertEqual(self.results["speedDeniedVelocity"], [1, 0, 0])
+        self.assertEqual(self.results["countDeniedEmissionCount"], 9)
+        self.assertEqual(self.results["lifetimeDeniedLifetime"], 2)
+        self.assertEqual(self.results["sizeDeniedSize"], 2)
+
+    def test_dynamic_control_point_replaces_only_the_current_frame_override(self) -> None:
+        self.assertEqual(
+            self.results["dynamicControlPointPositions"],
+            [[10, 20, 30], [-5, 6, 7], [2, 3, 4]],
+        )
+
+    def test_control_point_emitters_bind_authored_ids_and_reject_invalid_identity(self) -> None:
+        self.assertEqual(self.results["authoredControlPointPosition"], [10, 0, 0])
+        self.assertEqual(
+            self.results["authoredControlPointDiagnostics"],
+            ["controlPointEmitterBounded"],
+        )
+        self.assertEqual(self.results["implicitControlPointPosition"], [5, 0, 0])
+        self.assertEqual(
+            self.results["implicitControlPointDiagnostics"],
+            ["controlPointEmitterBounded"],
+        )
+        self.assertEqual(self.results["invalidControlPointCounts"], [0, 0, 0, 0])
+        self.assertEqual(
+            self.results["invalidControlPointDiagnostics"],
+            [["controlPointEmitterUnsupported"]] * 4,
+        )
+
+    def test_static_control_point_angles_rotate_emitter_frame_and_velocity(self) -> None:
+        self.assertEqual(
+            self.results["stockControlPointAnglePositions"],
+            [[22, 0, 0], [-22, 0, 0]],
+        )
+        velocities = self.results["stockControlPointAngleVelocities"]
+        self.assertAlmostEqual(velocities[0][0], -100, places=3)
+        self.assertAlmostEqual(velocities[0][1], -173.2048, places=3)
+        self.assertAlmostEqual(velocities[1][0], 100, places=3)
+        self.assertAlmostEqual(velocities[1][1], -173.2048, places=3)
+        self.assertEqual(
+            self.results["stockControlPointAngleDiagnostics"],
+            ["controlPointEmitterBounded", "controlPointEmitterAnglesBounded"],
+        )
+        spatial_position = self.results["controlPointAngleSpatialPosition"]
+        spatial_velocity = self.results["controlPointAngleSpatialVelocity"]
+        for actual, expected in zip(spatial_position, [3, 25, 39], strict=True):
+            self.assertAlmostEqual(actual, expected)
+        for actual, expected in zip(spatial_velocity, [0, 1, 0], strict=True):
+            self.assertAlmostEqual(actual, expected)
+
+    def test_static_instance_angle_replaces_default_and_xyz_order_is_shared(self) -> None:
+        velocity = self.results["controlPointDefaultReplacementVelocity"]
+        for actual, expected in zip(velocity, [0, -1, 0], strict=True):
+            self.assertAlmostEqual(actual, expected)
+        rotation = self.results["controlPointXYZRotation"]
+        for actual, expected in zip(rotation, [3, 2, -1], strict=True):
+            self.assertAlmostEqual(actual, expected)
+
+    def test_control_point_angles_fail_closed_outside_bounded_static_contract(self) -> None:
+        self.assertEqual(self.results["invalidControlPointAngleCounts"], [0] * 17)
+        for diagnostics in self.results["invalidControlPointAngleDiagnostics"]:
+            self.assertIn("controlPointEmitterUnsupported", diagnostics)
+            self.assertIn("controlPointEmitterAnglesUnsupported", diagnostics)
+
+    def test_emitter_speed_applies_fixed_and_max_only_values_and_rejects_nonfinite(self) -> None:
+        self.assertEqual(self.results["fixedEmitterSpeedPosition"], [5, 0, 0])
+        self.assertEqual(self.results["fixedEmitterSpeedVelocity"], [3, 0, 0])
+        self.assertEqual(
+            self.results["fixedEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
+        )
+        speeds = self.results["maxOnlyEmitterSpeeds"]
+        self.assertEqual(len(speeds), 16)
+        self.assertTrue(all(0 <= value <= 4 for value in speeds))
+        self.assertTrue(any(value > 0 for value in speeds))
+        self.assertEqual(
+            self.results["maxOnlyEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
+        )
+        self.assertEqual(self.results["nonfiniteEmitterSpeedCount"], 0)
+        self.assertEqual(
+            self.results["nonfiniteEmitterSpeedDiagnostics"], ["emitterSpeedUnsupported"]
+        )
+
+    def test_emitter_directions_and_sign_are_valid_and_fail_closed(self) -> None:
+        self.assertTrue(self.results["sphereDirectionSignBounded"])
+        self.assertEqual(
+            self.results["sphereDirectionSignDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertTrue(self.results["zeroDirectionsStayAtOrigin"])
+        self.assertEqual(
+            self.results["zeroDirectionsDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertTrue(self.results["boxDirectionsBounded"])
+        self.assertEqual(
+            self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0])
+        self.assertEqual(
+            self.results["invalidEmitterShapeDiagnostics"],
+            [["emitterShapeUnsupported"]] * 3,
+        )
+
+    def test_change_angular_and_oscillation_operators_execute(self) -> None:
+        self.assertAlmostEqual(self.results["operatorAlpha"], 0.49375)
+        self.assertAlmostEqual(self.results["operatorSize"], 4.1)
+        self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
+        self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
+        self.assertLess(self.results["operatorPosition"][0], 0)
+        age_one_wave = (math.cos(0.25) + 1) * 0.5
+        age_two_wave = (math.cos(0.5) + 1) * 0.5
+        self.assertAlmostEqual(
+            self.results["quarterLifeOscillationAlpha"],
+            0.2 + 0.8 * age_one_wave,
+        )
+        self.assertAlmostEqual(
+            self.results["halfLifeOscillationAlpha"],
+            0.2 + 0.8 * age_two_wave,
+        )
+        self.assertAlmostEqual(
+            self.results["fineHalfLifeOscillationAlpha"],
+            self.results["halfLifeOscillationAlpha"],
+        )
+        self.assertAlmostEqual(
+            self.results["halfLifeOscillationSize"],
+            10 * (0.5 + 0.5 * age_two_wave),
+        )
+        self.assertAlmostEqual(
+            self.results["fineHalfLifeOscillationSize"],
+            self.results["halfLifeOscillationSize"],
+        )
+        expected_age_two = [8 * (math.cos(4) - 1), 2 * (math.cos(4) - 1), 0]
+        for actual, expected in zip(
+            self.results["quarterLifeOscillationPosition"], expected_age_two
+        ):
+            self.assertAlmostEqual(actual, expected, places=10)
+        self.assertNotEqual(
+            self.results["longQuarterLifeOscillationPosition"],
+            self.results["quarterLifeOscillationPosition"],
+        )
+        for actual, same_age_long in zip(
+            self.results["halfLifeOscillationPosition"],
+            self.results["longQuarterLifeOscillationPosition"],
+        ):
+            self.assertAlmostEqual(actual, same_age_long, places=10)
+        for coarse, fine in zip(
+            self.results["halfLifeOscillationPosition"],
+            self.results["fineHalfLifeOscillationPosition"],
+        ):
+            self.assertAlmostEqual(coarse, fine, places=10)
+
+    def test_color_initializer_interpolates_between_authored_colors(self) -> None:
+        self.assertTrue(self.results["colorUsesSingleInterpolation"])
+
+    def test_color_instance_override_replaces_initializer_result(self) -> None:
+        self.assertEqual(self.results["colorOverrideValue"], [0.25, 1, 0.0625])
+        results = self.results["colorBirthResults"]
+        for name in ("normalized", "legacy", "legacyPrecedence"):
+            with self.subTest(profile=name):
+                self.assertEqual(results[name]["colors"], [[0.25, 0.0625, 1]])
+                self.assertEqual(results[name]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["noOverride"]["colors"], [[128 / 255, 64 / 255, 0]])
+        self.assertEqual(results["brightness"]["colors"], [[0.5, 0.125, 2]])
+        self.assertEqual(results["black"]["colors"], [[0, 0, 0]])
+        for name in ("brightnessOnly", "disabled"):
+            self.assertEqual(results[name]["colors"], [[256 / 255, 128 / 255, 0]])
+        self.assertEqual(results["operator"]["birthColors"], [[0.25, 0.0625, 1]])
+        self.assertEqual(results["operator"]["colors"], [[0.125, 0.0625, 0.25]])
+        for name, result in results.items():
+            with self.subTest(profile=name):
+                self.assertEqual(result["diagnostics"], [])
+
+    def test_dynamic_color_override_changes_only_new_births_and_preserves_peer(self) -> None:
+        initial = [0.25, 0.0625, 1]
+        updated = [1, 0.25, 0.0625]
+        results = self.results["colorCohortResults"]
+        for index, result in enumerate(results):
+            with self.subTest(variant=index):
+                self.assertEqual(result["first"], [initial])
+                self.assertEqual(result["second"], [initial, updated])
+                self.assertEqual(result["fallback"], [initial, updated, initial])
+                self.assertEqual(result["birthColors"], [initial, updated, initial])
+                self.assertTrue(result["firstIDRetained"])
+                self.assertEqual(result["peer"], [[128 / 255, 64 / 255, 0]] * 3)
+                self.assertEqual(result["diagnostics"], [])
+        self.assertEqual(results[0]["propertyKeys"], ["beam_color", "beam_color_next"])
+        self.assertEqual(results[1]["propertyKeys"], ["renamed_tint", "renamed_tint_next"])
+        self.assertEqual(results[0]["fallback"], results[1]["fallback"])
+
+    def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
+        colors = {tuple(value) for value in self.results["colorListColors"]}
+        self.assertEqual(colors, {(1, 0, 0), (0, 1, 0), (0, 0, 1)})
+        self.assertEqual(self.results["colorListDiagnostics"], ["colorListBounded"])
+        self.assertEqual(
+            self.results["colorListThenColor"],
+            [64 / 255, 128 / 255, 1],
+        )
+
+    def test_color_list_rejects_malformed_or_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidColorListColors"], [[1, 1, 1]] * 6)
+        self.assertEqual(
+            self.results["invalidColorListDiagnostics"],
+            [["colorListUnsupported"]] * 6,
+        )
+
+    def test_hsv_color_random_executes_bounded_discrete_hues_in_authored_order(self) -> None:
+        colors = {
+            tuple(round(component, 9) for component in color)
+            for color in self.results["hsvColors"]
+        }
+        self.assertEqual(
+            colors,
+            {
+                (1, 0, 0),
+                (1, 1, 0),
+                (0, 1, 0),
+                (0, 1, 1),
+                (0, 0, 1),
+                (1, 0, 1),
+            },
+        )
+        self.assertEqual(self.results["hsvColorDiagnostics"], ["hsvColorBounded"])
+        self.assertEqual(self.results["fixedGrayHSV"], [0.25, 0.25, 0.25])
+        self.assertEqual(
+            self.results["hsvThenColor"], [64 / 255, 128 / 255, 1]
+        )
+
+    def test_hsv_color_random_rejects_only_incomplete_or_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidHSVColors"], [[1, 1, 1]] * 19)
+        self.assertEqual(
+            self.results["invalidHSVColorDiagnostics"],
+            [["hsvColorUnsupported"]] * 19,
+        )
+        self.assertEqual(self.results["hsvColorWithOverride"], [0.25, 1, 1])
+        self.assertEqual(
+            self.results["hsvColorWithOverrideDiagnostics"], ["hsvColorBounded"]
+        )
+
+    def test_event_color_inheritance_executes_snapshot_follow_and_authored_order(self) -> None:
+        self.assertEqual(self.results["inheritedSnapshotColor"], [0.2, 0.4, 0.6])
+        self.assertEqual(
+            self.results["inheritedSnapshotDiagnostics"],
+            ["eventValueInitializerBounded"],
+        )
+        self.assertEqual(self.results["inheritThenAuthoredColor"], [1, 0, 0])
+        self.assertEqual(self.results["authoredThenInheritColor"], [0.2, 0.4, 0.6])
+        self.assertEqual(self.results["followedInitialColor"], [0.2, 0.4, 0.6])
+        self.assertEqual(self.results["followedUpdatedColor"], [0.8, 0.3, 0.1])
+        self.assertTrue(self.results["followedParticleCountStable"])
+        self.assertEqual(
+            self.results["followedDiagnostics"], ["eventValueOperatorBounded"]
+        )
+
+    def test_event_color_inheritance_fails_closed_without_event_or_bounded_input(self) -> None:
+        self.assertEqual(self.results["unavailableEventColor"], [1, 1, 1])
+        self.assertEqual(
+            self.results["unavailableEventDiagnostics"],
+            ["eventValueInitializerUnsupported"],
+        )
+        self.assertEqual(self.results["unsupportedEventColor"], [1, 1, 1])
+        self.assertEqual(
+            self.results["unsupportedEventDiagnostics"],
+            ["eventValueInitializerUnsupported", "eventValueOperatorUnsupported"],
+        )
+        self.assertEqual(self.results["nonfiniteEventColor"], [1, 1, 1])
+        self.assertEqual(
+            self.results["nonfiniteEventDiagnostics"],
+            ["eventValueOperatorUnsupported"],
+        )
+
+    def test_position_offset_executes_project_owned_bounded_noise(self) -> None:
+        position = self.results["positionOffset"]
+        self.assertLessEqual(abs(position[0]), 100)
+        self.assertNotEqual(position[0], 0)
+        self.assertEqual(position[1:], [0, 0])
+        self.assertTrue(self.results["positionOffsetDeterministic"])
+        self.assertTrue(self.results["positionOffsetDifferentSeed"])
+        self.assertTrue(self.results["positionOffsetDifferentTime"])
+        self.assertEqual(
+            self.results["positionOffsetDiagnostics"], ["positionOffsetBounded"]
+        )
+
+        stock_position = self.results["stockPositionOffset"]
+        self.assertNotEqual(stock_position[:2], [0, 0])
+        self.assertEqual(stock_position[2], 0)
+        self.assertTrue(all(abs(value) <= 150 for value in stock_position))
+        self.assertEqual(
+            self.results["stockPositionOffsetDiagnostics"],
+            ["positionOffsetBounded"],
+        )
+
+    def test_position_offset_rejects_unknown_malformed_or_unbounded_profiles(self) -> None:
+        self.assertEqual(
+            self.results["invalidPositionOffsetPositions"], [[0, 0, 0]] * 13
+        )
+        self.assertEqual(
+            self.results["invalidPositionOffsetDiagnostics"],
+            [["positionOffsetUnsupported"]] * 13,
+        )
+
+    def test_remap_value_executes_bounded_velocity_noise_in_operator_order(self) -> None:
+        velocity = self.results["remapVelocity"]
+        self.assertGreaterEqual(velocity[0], -10)
+        self.assertLessEqual(velocity[0], 10)
+        self.assertGreaterEqual(velocity[1], -40)
+        self.assertLessEqual(velocity[1], -20)
+        self.assertEqual(velocity[2], 0)
+        position = self.results["remapPosition"]
+        for component in range(3):
+            self.assertAlmostEqual(position[component], velocity[component] * 0.1)
+        self.assertTrue(self.results["remapVelocityDeterministic"])
+        self.assertTrue(self.results["remapVelocityDifferentSeed"])
+        self.assertTrue(self.results["remapVelocityDifferentTime"])
+        self.assertEqual(
+            self.results["remapVelocityDiagnostics"], ["remapValueBounded"]
+        )
+
+    def test_remap_value_rejects_other_lifecycle_input_and_transform_shapes(self) -> None:
+        self.assertEqual(
+            self.results["invalidRemapVelocities"], [[1, 2, 3]] * 7
+        )
+        self.assertEqual(
+            self.results["invalidRemapDiagnostics"],
+            [["remapValueUnsupported"]] * 7,
+        )
+
+    def test_reduce_movement_executes_distance_speed_and_control_point_contract(self) -> None:
+        self.assertEqual(self.results["reduceInnerVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["reduceInnerPosition"], [10, 0, 0])
+        self.assertEqual(self.results["reduceInterpolatedVelocity"], [95, 0, 0])
+        self.assertEqual(self.results["reduceOutsideVelocity"], [100, 0, 0])
+        self.assertEqual(self.results["reduceNegativeVelocity"], [110, 0, 0])
+        self.assertEqual(self.results["reduceStaticPointVelocity"], [90, 0, 0])
+        self.assertEqual(self.results["reduceDynamicPointVelocity"], [90, 0, 0])
+        self.assertTrue(self.results["reducePartitioned"])
+        self.assertEqual(self.results["reduceBeforeMovementPosition"], [10, 0, 0])
+        self.assertEqual(self.results["movementBeforeReducePosition"], [20, 0, 0])
+        self.assertEqual(self.results["reduceDiagnostics"], ["reduceMovementBounded"])
+
+    def test_reduce_movement_rejects_malformed_unbounded_and_unsafe_profiles(self) -> None:
+        self.assertEqual(self.results["invalidReduceVelocities"], [[100, 0, 0]] * 15)
+        diagnostics = self.results["invalidReduceDiagnostics"]
+        self.assertEqual(len(diagnostics), 15)
+        for value in diagnostics:
+            self.assertIn("reduceMovementUnsupported", value)
+        self.assertIn("audioResponseIgnored", diagnostics[9])
+
+    def test_collision_plane_projects_and_reflects_in_authored_order(self) -> None:
+        for actual, expected in zip(self.results["collisionPosition"], [0.3, 0, 0]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionVelocity"], [3, 10, 0])
+        for actual, expected in zip(
+            self.results["explicitCollisionPosition"], [0, 0.3, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["explicitCollisionVelocity"], [10, 3, 0])
+        for actual, expected in zip(
+            self.results["collisionOutsidePosition"], [0, 3, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionOutsideVelocity"], [0, 20, 0])
+        for actual, expected in zip(
+            self.results["collisionBeforeMovementPosition"], [0.3, -1, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionBeforeMovementVelocity"], [3, -20, 0])
+        self.assertTrue(self.results["collisionPartitioned"])
+        self.assertEqual(self.results["collisionDiagnostics"], ["collisionPlaneBounded"])
+
+    def test_collision_plane_rejects_malformed_unbounded_and_unsafe_profiles(self) -> None:
+        for position in self.results["invalidCollisionPositions"]:
+            for actual, expected in zip(position, [0.3, -1, 0]):
+                self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["invalidCollisionVelocities"], [[3, -20, 0]] * 11)
+        diagnostics = self.results["invalidCollisionDiagnostics"]
+        self.assertEqual(len(diagnostics), 11)
+        for value in diagnostics:
+            self.assertIn("collisionPlaneUnsupported", value)
+        self.assertIn("audioResponseIgnored", diagnostics[8])
+
+    def test_position_around_control_point_maps_repeat_sequence_and_pointer(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        radius = math.hypot(8, 20)
+        expected_positions = [[10, 20 + radius, 0], [10 + radius, 20, 0],
+                              [10, 20 - radius, 0], [10 - radius, 20, 0]]
+        expected_velocities = [[0, 2, 0], [2, 0, 0], [0, -2, 0], [-2, 0, 0]]
+        for actual, expected in zip(result["positions"], expected_positions):
+            for value, wanted in zip(actual, expected):
+                self.assertAlmostEqual(value, wanted)
+        for actual, expected in zip(result["velocities"], expected_velocities):
+            for value, wanted in zip(actual, expected):
+                self.assertAlmostEqual(value, wanted)
+        self.assertEqual(
+            result["diagnostics"],
+            ["emitterShapeBounded", "positionAroundControlPointBounded"],
+        )
+        self.assertTrue(result["partitioned"])
+        self.assertEqual(result["pointerValues"], [1])
+        for actual, expected in zip(result["pointerFirstPosition"], [5, 6 + math.hypot(3, 6), 0]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(
+            result["pointerDiagnostics"],
+            [
+                "emitterShapeBounded", "positionAroundControlPointBounded",
+                "pointerControlPointBounded",
+            ],
+        )
+        self.assertTrue(result["missingPointerPreservesCurrent"])
+        self.assertTrue(result["unseenBoxFinite"])
+        self.assertEqual(
+            result["unseenBoxDiagnostics"],
+            ["emitterShapeBounded", "positionAroundControlPointBounded"],
+        )
+
+    def test_position_around_implicit_pointer_origin_is_translation_invariant(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        self.assertEqual(len(result["originCases"]), 4)
+        for case in result["originCases"]:
+            self.assertTrue(case["equivalent"])
+            self.assertEqual(len(case["relativePositions"]), 4)
+            for actual, expected in zip(case["relativePositions"], case["centeredPositions"]):
+                for value, wanted in zip(actual, expected):
+                    self.assertAlmostEqual(value, wanted)
+            self.assertEqual(case["velocities"], case["centeredVelocities"])
+        self.assertTrue(result["differentSourcePreservesEmitter"])
+        self.assertIn("positionAroundControlPointUnsupported", result["differentSourceDiagnostics"])
+
+    def test_position_around_control_point_invalid_profiles_preserve_current(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        self.assertTrue(result["invalidPreserveCurrent"])
+        self.assertEqual(len(result["invalidDiagnostics"]), 10)
+        for diagnostics in result["invalidDiagnostics"]:
+            self.assertIn("positionAroundControlPointUnsupported", diagnostics)
+
+    def test_emitter_pointer_control_point_follows_cursor_shapes(self) -> None:
+        result = self.run_harness("emitter-pointer")
+        # CP0 with the pointer flag drives the system origin: an omitted
+        # emitter source resolves to it and spawns at the pointer frame.
+        self.assertEqual(result["originIdentities"], [0])
+        for position in result["originInjectedPositions"]:
+            for value, wanted in zip(position, [5, 6, 0]):
+                self.assertAlmostEqual(value, wanted)
+        # Shuriken-cursor shape: explicit emitter reference to pointer CP1.
+        self.assertEqual(result["shurikenIdentities"], [1])
+        # Prewarm runs before the first pointer frame. It must neither create
+        # origin particles nor consume the instantaneous burst.
+        self.assertEqual(result["shurikenPrewarmPositions"], [])
+        self.assertEqual(len(result["shurikenFollowPositions"]), 4)
+        for position in result["shurikenFollowPositions"]:
+            for value, wanted in zip(position, [7, 8, 0]):
+                self.assertAlmostEqual(value, wanted)
+        # An unprojected pointer fails only the unsafe emission unit.
+        self.assertEqual(result["shurikenOutsideCount"], 0)
+        self.assertIn("pointerControlPointBounded", result["shurikenDiagnostics"])
+        # dust-motes shape keeps the operator-only identity set.
+        self.assertEqual(result["attractOnlyIdentities"], [1])
+        # Static CP1 and layer-image emitters stay out of the emitter demand;
+        # world-space systems share it (the pointer value is the layer-local
+        # unprojection — runtime following is covered by the dedicated
+        # world-space pointer emitter behavior test).
+        self.assertEqual(result["worldSpaceIdentities"], [1])
+        self.assertEqual(result["staticCP1Identities"], [])
+        self.assertEqual(result["layerImageIdentities"], [])
+
+    def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
+        uniform = self.results["uniformSizeAmount"]
+        biased = self.results["biasedSizeAmount"]
+        self.assertGreater(uniform, 0)
+        self.assertLess(uniform, 1)
+        self.assertAlmostEqual(biased, uniform * uniform)
+        self.assertLess(biased, uniform)
+        self.assertEqual(self.results["maximumSize"], 50)
+        for uniform_component, biased_component in zip(
+            self.results["uniformVelocityAmount"],
+            self.results["biasedVelocityAmount"],
+        ):
+            self.assertAlmostEqual(
+                biased_component,
+                uniform_component * uniform_component,
+            )
+        self.assertAlmostEqual(
+            self.results["biasedColorAmount"],
+            self.results["uniformColorAmount"]
+            * self.results["uniformColorAmount"],
+        )
+
+    def test_non_audio_turbulent_velocity_is_deterministic_and_bounded(self) -> None:
+        self.assertTrue(self.results["turbulentDeterministic"])
+        self.assertTrue(self.results["turbulentDifferentSeed"])
+        self.assertTrue(self.results["turbulentDifferentTime"])
+        self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
+        self.assertTrue(self.results["turbulentPlanar"])
+        self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 50, 0])
+        offset_velocity = self.results["offsetTurbulentVelocity"]
+        self.assertAlmostEqual(offset_velocity[0], -25 * math.sin(3), places=10)
+        self.assertAlmostEqual(offset_velocity[1], 25 * math.cos(3), places=10)
+        self.assertAlmostEqual(offset_velocity[2], 0, places=10)
+        self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
+
+    def test_audio_turbulent_velocity_uses_silent_base_phase(self) -> None:
+        self.assertNotEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
+        self.assertEqual(
+            self.results["audioTurbulentDiagnostics"],
+            ["audioResponseBounded"],
+        )
+
+    def test_non_audio_turbulence_operator_executes_bounded_fixed_step_noise(self) -> None:
+        self.assertTrue(self.results["turbulenceOperatorDeterministic"])
+        self.assertTrue(self.results["turbulenceOperatorDifferentSeed"])
+        self.assertTrue(self.results["turbulenceOperatorTimeScale"])
+        self.assertAlmostEqual(self.results["turbulenceOperatorSpeed"], 2.5)
+        self.assertTrue(self.results["turbulenceOperatorPlanar"])
+        self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][1], 0)
+        self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][2], 0)
+        self.assertGreaterEqual(self.results["defaultTurbulenceSpeed"], 50)
+        self.assertLessEqual(self.results["defaultTurbulenceSpeed"], 100)
+        self.assertEqual(self.results["blendedTurbulenceVelocity"], [0, 0, 0])
+        self.assertAlmostEqual(self.results["overriddenTurbulenceSpeed"], 5)
+        self.assertNotIn(
+            "unsupportedOperator", self.results["turbulenceOperatorDiagnostics"]
+        )
+
+    def test_audio_turbulence_operator_uses_silent_base_phase(self) -> None:
+        self.assertNotEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
+        self.assertEqual(
+            self.results["audioOperatorTurbulenceDiagnostics"],
+            ["audioResponseBounded"],
+        )
+
+    def test_turbulence_respects_authored_operator_order_and_rejects_overflow(self) -> None:
+        self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [0, 0, 0])
+        self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
+        self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
+
+    def test_force_overflow_is_atomic_and_motion_recovers(self) -> None:
+        result = self.run_harness("force-safety")
+        for index, accepted in enumerate(result["atomicRejection"]):
+            with self.subTest(rejection=index):
+                self.assertTrue(accepted)
+        for key in ["boundaryAccepted", "badForceSkipped", "retry", "recovered",
+                    "continuesMoving", "safeVelocity"]:
+            with self.subTest(behavior=key):
+                self.assertTrue(result[key])
+
+    def test_classic_vortex_executes_bounded_axis_distance_and_speed(self) -> None:
+        self.assertEqual(self.results["vortexVelocity"], [0, -100, 0])
+        self.assertEqual(
+            self.results["vortexDiagnostics"],
+            ["emitterShapeBounded", "vortexBounded"],
+        )
+        self.assertTrue(self.results["vortexPartitioned"])
+        self.assertEqual(self.results["reverseVortexVelocity"], [0, 100, 0])
+        self.assertEqual(self.results["yAxisVortexVelocity"], [0, 0, 100])
+        self.assertEqual(self.results["infiniteAxisVortexVelocity"], [0, -10, 0])
+        finite = self.results["finiteAxisVortexVelocity"]
+        self.assertAlmostEqual(finite[0], 0)
+        self.assertAlmostEqual(finite[1], -100)
+        self.assertAlmostEqual(finite[2], 0)
+        self.assertEqual(self.results["overriddenVortexVelocity"], [0, -200, 0])
+        self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, -100, 0])
+
+    def test_classic_vortex_rejects_unknown_malformed_audio_and_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 8)
+        for diagnostics in self.results["invalidVortexDiagnostics"]:
+            self.assertIn("vortexUnsupported", diagnostics)
+        # 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16），不再被拒绝。
+        self.assertEqual(self.results["zeroAxisVortexVelocity"], [0, -100, 0])
+
+    def test_vortex_v2_unknown_wire_fields_remain_fail_closed(self) -> None:
+        self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])
+        self.assertIn("vortexUnsupported", self.results["vortexV2Diagnostics"])
+
+    def test_cap_velocity_executes_bounded_direction_preserving_clamp(self) -> None:
+        self.assertEqual(self.results["capVelocity"], [60, 80, 0])
+        self.assertEqual(self.results["capVelocityDiagnostics"], ["capVelocityBounded"])
+        self.assertTrue(self.results["capVelocityPartitioned"])
+        self.assertEqual(self.results["zeroCapVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["underCapVelocity"], [30, 40, 0])
+        self.assertEqual(self.results["capVelocityBlendStart"], [300, 400, 0])
+        for actual, expected in zip(
+            self.results["capVelocityBlendMiddle"], [180, 240, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["capVelocityBlendEnd"], [60, 80, 0])
+        self.assertEqual(self.results["overriddenCapVelocity"], [120, 160, 0])
+        self.assertEqual(self.results["overrideDeniedCapVelocity"], [60, 80, 0])
+
+    def test_cap_velocity_rejects_malformed_unknown_and_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidCapVelocities"], [[300, 400, 0]] * 11)
+        for diagnostics in self.results["invalidCapVelocityDiagnostics"]:
+            self.assertIn("capVelocityUnsupported", diagnostics)
+
+    def test_cap_velocity_uses_current_step_life_at_blend_and_death_boundaries(self) -> None:
+        rows = self.results["capVelocityLifeEdges"]
+        expected = [[300, 400, 0], [300, 400, 0], [300, 400, 0], [180, 240, 0],
+                    [60, 80, 0], [60, 80, 0], [180, 240, 0], [300, 400, 0], [300, 400, 0]]
+        self.assertEqual(len(rows), len(expected))
+        for index, (row, velocity) in enumerate(zip(rows, expected)):
+            with self.subTest(edge=index):
+                for actual, reference in zip(row["velocity"], velocity):
+                    self.assertAlmostEqual(actual, reference, places=8)
+                self.assertEqual(row["dead"], index in (0, 8))
+
+    def test_unsupported_capabilities_are_reported(self) -> None:
+        self.assertEqual(
+            self.results["diagnostics"],
+            [
+                "audioResponseBounded",
+                "audioResponseBounded",
+                "childSystemsIgnored",
+                "controlPointForceUnsupported",
+                "dynamicOverrideIgnored",
+                "pointerControlPointBounded",
+                "vortexUnsupported",
+            ],
+        )
+
+if __name__ == "__main__":
+    unittest.main()

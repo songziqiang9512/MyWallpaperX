@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTrailRenderPlan.swift"
+)
+
+HARNESS_SOURCE = r'''
+import Foundation
+
+@main
+enum Harness {
+    static func main() throws {
+        let authored = SceneParticleTrailRenderPlan(
+            length: 0.005,
+            minimumLength: 1,
+            maximumLength: 20
+        )!
+        let bounded = SceneParticleTrailRenderPlan(
+            length: 1,
+            minimumLength: 2,
+            maximumLength: 4
+        )!
+        let largeAuthoredRange = SceneParticleTrailRenderPlan(
+            length: 1,
+            minimumLength: 300,
+            maximumLength: 400
+        )!
+        let defaults = SceneParticleTrailRenderPlan(
+            length: nil,
+            minimumLength: nil,
+            maximumLength: nil
+        )!
+        let lengthOnly = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: nil, maximumLength: nil
+        )!
+        let explicitDefaults = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: 0, maximumLength: 10
+        )!
+        let orientationOnly = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: 1, maximumLength: 1
+        )!
+        let minimumOnly = SceneParticleTrailRenderPlan(
+            length: nil, minimumLength: 0.25, maximumLength: nil
+        )!
+        let maximumOnly = SceneParticleTrailRenderPlan(
+            length: nil, minimumLength: nil, maximumLength: 4
+        )!
+        let speeds: [Double] = [0, 100, 200, 400, 10_000]
+        let directionInputs: [SIMD3<Double>] = [
+            SIMD3(3, 4, 0), SIMD3(0, 1e-30, 0), SIMD3(0, -1e-30, 0),
+            SIMD3(1e38, -1e38, 1e38), SIMD3(1e300, -1e300, 1e300),
+            SIMD3(Double.leastNonzeroMagnitude, 0, 0), .zero,
+            SIMD3(.nan, 1, 0), SIMD3(0, .infinity, 1), SIMD3(1, 0, -.infinity),
+        ]
+
+        let invalidPlans: [SceneParticleTrailRenderPlan?] = [
+            SceneParticleTrailRenderPlan(length: .nan, minimumLength: nil, maximumLength: nil),
+            SceneParticleTrailRenderPlan(length: .infinity, minimumLength: nil, maximumLength: nil),
+            SceneParticleTrailRenderPlan(length: -1, minimumLength: nil, maximumLength: nil),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: .nan, maximumLength: 2),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: -.infinity, maximumLength: 2),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: -1, maximumLength: 2),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: 1, maximumLength: .nan),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: 1, maximumLength: .infinity),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: 1, maximumLength: -1),
+            SceneParticleTrailRenderPlan(length: 1, minimumLength: 2, maximumLength: 1),
+            SceneParticleTrailRenderPlan(
+                length: nil, minimumLength: nil, maximumLength: nil,
+                hasMalformedFields: true
+            ),
+        ]
+        let result: [String: Any] = [
+            "authored": authored.stretch(for: SIMD3(1_350, 0, 0)),
+            "minimum": bounded.stretch(for: SIMD3(0.5, 0, 0)),
+            "maximum": bounded.stretch(for: SIMD3(5, 0, 0)),
+            "threeDimensional": bounded.stretch(for: SIMD3(1, 2, 2)),
+            "largeAuthoredMaximum": largeAuthoredRange.stretch(for: SIMD3(1_000, 0, 0)),
+            "zeroSpeed": defaults.stretch(for: .zero),
+            "defaults": speeds.map { defaults.stretch(for: SIMD3($0, 0, 0)) },
+            "lengthOnly": speeds.map { lengthOnly.stretch(for: SIMD3($0, 0, 0)) },
+            "explicitDefaults": speeds.map { explicitDefaults.stretch(for: SIMD3($0, 0, 0)) },
+            "orientationOnly": speeds.map { orientationOnly.stretch(for: SIMD3($0, 0, 0)) },
+            "minimumOnly": [minimumOnly.stretch(for: .zero), minimumOnly.stretch(for: SIMD3(100, 0, 0))],
+            "maximumOnly": [maximumOnly.stretch(for: .zero), maximumOnly.stretch(for: SIMD3(100, 0, 0))],
+            "nonFiniteSpeed": bounded.stretch(for: SIMD3(.nan, 0, 0)),
+            "invalidCount": invalidPlans.compactMap { $0 }.count,
+            "directions": directionInputs.map { velocity in
+                let direction = authored.direction(for: velocity)
+                return [direction.x, direction.y, direction.z]
+            },
+            "directionIgnoresStretchBounds": directionInputs.allSatisfy {
+                authored.direction(for: $0) == orientationOnly.direction(for: $0)
+            },
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneParticleTrailRenderPlanTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-particle-trail-plan-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-trail-plan"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                str(SOURCE), str(harness), "-o", str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_authored_drop_velocity_produces_expected_stretch(self) -> None:
+        self.assertAlmostEqual(self.result["authored"], 6.75)
+
+    def test_authored_minimum_maximum_and_three_dimensional_speed_are_used(self) -> None:
+        self.assertEqual(self.result["minimum"], 2)
+        self.assertEqual(self.result["maximum"], 4)
+        self.assertEqual(self.result["threeDimensional"], 3)
+
+    def test_large_authored_range_and_omitted_defaults_are_bounded(self) -> None:
+        self.assertEqual(self.result["largeAuthoredMaximum"], 400)
+        self.assertEqual(self.result["zeroSpeed"], 0)
+        self.assertEqual(self.result["nonFiniteSpeed"], 2)
+
+    def test_missing_bounds_preserve_speed_dependent_stretch(self) -> None:
+        self.assertEqual(self.result["defaults"], [0, 5, 10, 10, 10])
+        self.assertEqual(self.result["lengthOnly"], self.result["explicitDefaults"])
+        for actual, expected in zip(self.result["lengthOnly"], [0, 0.7, 1.4, 2.8, 10]):
+            self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_explicit_equal_bounds_remain_orientation_only(self) -> None:
+        self.assertEqual(self.result["orientationOnly"], [1, 1, 1, 1, 1])
+
+    def test_independent_bound_overrides_preserve_other_defaults(self) -> None:
+        self.assertEqual(self.result["minimumOnly"], [0.25, 5])
+        self.assertEqual(self.result["maximumOnly"], [0, 4])
+
+    def test_invalid_authored_values_fail_closed(self) -> None:
+        self.assertEqual(self.result["invalidCount"], 0)
+
+    def test_direction_preserves_tiny_and_large_finite_velocity_axes(self) -> None:
+        import math
+        unit_diagonal = 1 / math.sqrt(3)
+        expected = [[.6, .8, 0], [0, 1, 0], [0, -1, 0],
+                    [unit_diagonal, -unit_diagonal, unit_diagonal],
+                    [unit_diagonal, -unit_diagonal, unit_diagonal], [1, 0, 0]]
+        for actual, target in zip(self.result["directions"][:6], expected):
+            with self.subTest(target=target):
+                self.assertEqual(len(actual), 3)
+                for value, component in zip(actual, target):
+                    self.assertAlmostEqual(value, component, places=6)
+                self.assertAlmostEqual(math.hypot(*actual), 1, places=6)
+        self.assertTrue(self.result["directionIgnoresStretchBounds"])
+
+    def test_zero_and_invalid_directions_preserve_the_gpu_zero_fallback(self) -> None:
+        self.assertEqual(self.result["directions"][6:], [[0, 0, 0]] * 4)
+
+
+if __name__ == "__main__":
+    unittest.main()

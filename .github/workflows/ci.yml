@@ -56,6 +56,15 @@ jobs:
       - name: Prepare test dependencies
         run: python3 -m pip install -r script/requirements-tests.txt
 
+      - name: Lint repository Python
+        run: ruff check script
+
+      - name: Report unmapped test modules
+        run: python3 script/governance/check_test_mapping.py
+
+      - name: Report script layout
+        run: python3 script/governance/check_script_layout.py
+
       - name: Restore locked SteamService dependencies
         working-directory: SteamService
         run: dotnet restore --locked-mode

@@ -1,0 +1,622 @@
+#!/usr/bin/env python3
+
+"""String SceneScript failures must expose the changing lower-priority current."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness, ROOT
+
+HARNESS = r'''
+@main
+enum Harness {
+    static func main() throws {
+        let descriptor = SceneRenderDescriptor(layers: [.init(
+            id: 77,
+            layerIndex: 0,
+            name: "Song Title",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: nil,
+            alpha: 1,
+            effects: [],
+            contentKind: "text",
+            text: "authored",
+            textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
+        )])
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let program = SceneScriptStringProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(source: source)],
+            generation: 1
+        )
+        let frame = SceneScriptFrameInput(
+            timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0),
+                simulationFrameTime: 1.0 / 60.0,
+                sceneTime: 2
+            ),
+            timeZone: TimeZone(secondsFromGMT: 0)!
+        )
+        let target = SceneDynamicTarget.text(layerID: 77, field: .content)
+        let warmed = program.evaluate(
+            inputs: [target: .string("lower-1")],
+            frame: frame
+        )
+        let warmedResolution = resolution(
+            program: program,
+            target: target,
+            lowerPriorityCurrent: "lower-1",
+            sceneScriptValues: warmed.values,
+            frameIndex: 1
+        )
+        let failure = program.evaluate(
+            inputs: [target: .string("lower-2")],
+            frame: frame
+        )
+        let failureResolution = resolution(
+            program: program,
+            target: target,
+            lowerPriorityCurrent: "lower-2",
+            sceneScriptValues: failure.values,
+            frameIndex: 2
+        )
+        let disabled = program.evaluate(
+            inputs: [target: .string("lower-3")],
+            frame: frame
+        )
+        let disabledResolution = resolution(
+            program: program,
+            target: target,
+            lowerPriorityCurrent: "lower-3",
+            sceneScriptValues: disabled.values,
+            frameIndex: 3
+        )
+        let propertyDomain = try SceneScriptQuickJSDomain()
+        let propertyDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 88,
+            layerIndex: 0,
+            name: "Generic Clock",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: nil,
+            alpha: 1,
+            effects: [],
+            contentKind: "text",
+            text: "placeholder",
+            textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
+        )])
+        try propertyDomain.configureLayerCatalog(propertyDescriptor)
+        let propertyProgram = SceneScriptStringProgram.compile(
+            domain: propertyDomain,
+            descriptor: propertyDescriptor,
+            scriptBindings: [propertyBinding(source: propertySource)],
+            generation: 2
+        )
+        let propertyTarget = SceneDynamicTarget.text(
+            layerID: 88, field: .content
+        )
+        let propertyResult = propertyProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["clockPrefix": .string("live")],
+            frame: frame
+        )
+        let propertyValue: String
+        if case let .string(value)? = propertyResult.values[propertyTarget] {
+            propertyValue = value
+        } else {
+            propertyValue = "missing"
+        }
+        let propertyTeardown = propertyProgram.teardown(
+            frame: frame,
+            effectivePropertyValues: ["clockPrefix": .string("teardown")],
+            userPropertiesJSON: "{}"
+        )
+        let eventSource = """
+        const selectedFont = engine.registerAsset('fonts/selected.ttf');
+        const timerFont = engine.registerAsset('fonts/timer.ttf');
+        export function applyUserProperties(properties) {
+            if (properties.fontChoice === 'selected') {
+                thisLayer.font = selectedFont;
+            } else if (properties.fontChoice === 'timer') {
+                thisLayer.font = timerFont;
+                engine.setTimeout(() => { thisLayer.font = selectedFont; }, 20);
+            }
+        }
+        """
+        let eventDomain = try SceneScriptQuickJSDomain()
+        let eventDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 88,
+            layerIndex: 0,
+            name: "Font Choice",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: nil,
+            alpha: 1,
+            effects: [],
+            contentKind: "text",
+            text: "placeholder",
+            textStyle: .init(
+                fontPath: "fonts/authored.ttf",
+                colorRGB: [1, 1, 1],
+                pointSize: 32
+            )
+        )])
+        try eventDomain.configureLayerCatalog(eventDescriptor)
+        let eventProgram = SceneScriptStringProgram.compile(
+            domain: eventDomain,
+            descriptor: eventDescriptor,
+            scriptBindings: [eventBinding(source: eventSource)],
+            userPropertyDefinitions: [.init(
+                key: "fontChoice", title: "Font", kind: .combo,
+                runtimeType: "combo", order: 0, index: nil,
+                minimumValue: nil, maximumValue: nil, stepValue: nil,
+                allowsFractionalValues: false, fractionalPrecision: nil,
+                displayCondition: nil, defaultValue: .string("selected"),
+                options: []
+            )],
+            generation: 3
+        )
+        let eventResult = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: frame
+        )
+        let eventFontMutation = eventResult.layerMutations.first
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventStable = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: frame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventTimerScheduled = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("timer")],
+            frame: frame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let timerFrame = SceneScriptFrameInput(
+            timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0.025),
+                simulationFrameTime: 0.025,
+                sceneTime: 2.025
+            ),
+            timeZone: TimeZone(secondsFromGMT: 0)!
+        )
+        let eventTimer = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: timerFrame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventSettled = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: timerFrame
+        )
+        let storageRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: storageRoot) }
+        let storage = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        storage.prepare()
+        try storage.apply([.init(
+            kind: .set,
+            globalScope: true,
+            screenIdentity: nil,
+            key: "counter",
+            json: "7"
+        )])
+        Thread.sleep(forTimeInterval: 0.8)
+        let reloaded = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        reloaded.prepare()
+        let persistedValue: String
+        switch reloaded.read(
+            screenIdentity: nil,
+            globalScope: true,
+            key: "counter"
+        ) {
+        case let .success(value): persistedValue = value ?? "missing"
+        case .failure: persistedValue = "failure"
+        }
+        let storedFile = try FileManager.default.contentsOfDirectory(
+            at: storageRoot,
+            includingPropertiesForKeys: nil
+        ).first!
+        let futureEnvelope = Data(
+            "{\"version\":2,\"global\":{\"counter\":\"8\"},\"screens\":{}}".utf8
+        )
+        try futureEnvelope.write(to: storedFile, options: .atomic)
+        let futureSession = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        futureSession.prepare()
+        let futureReadRejected: Bool
+        if case .failure = futureSession.read(
+            screenIdentity: nil,
+            globalScope: true,
+            key: "counter"
+        ) {
+            futureReadRejected = true
+        } else {
+            futureReadRejected = false
+        }
+        let futureWriteRejected: Bool
+        do {
+            try futureSession.apply([.init(
+                kind: .set,
+                globalScope: true,
+                screenIdentity: nil,
+                key: "counter",
+                json: "9"
+            )])
+            futureWriteRejected = false
+        } catch {
+            futureWriteRejected = true
+        }
+        let futureEnvelopePreserved = try Data(contentsOf: storedFile)
+            == futureEnvelope
+        let payload: [String: Any] = [
+            "admission": try [
+                "comments": stringAdmission("'use strict'; /* export function update(v) { return v; } */", frame: frame),
+                "helper": stringAdmission("globalThis.admitted = (globalThis.admitted || 0) + 1; export function unused() { throw new Error('must stay asleep'); }", frame: frame),
+                "destroy": stringAdmission("globalThis.admitted = (globalThis.admitted || 0) + 1; export function destroy() { globalThis.admitted += 10; }", frame: frame),
+                "timer": stringAdmission("globalThis.admitted = 1; engine.setTimeout(() => { globalThis.admitted += 2; }, 0);", frame: frame),
+                "invalid": stringAdmission("export function broken( {", frame: frame),
+                "throwing": stringAdmission("throw new Error('real module failure');", frame: frame),
+                "initOnly": stringAdmission("export function init(v) { globalThis.admitted = (globalThis.admitted || 0) + 1; return 'initialized:'+v; }", frame: frame),
+            ],
+            "bindings": program.bindings.count,
+            "warmedFailures": warmed.failures.count,
+            "warmedResolution": warmedResolution,
+            "failureCode": failure.failures[target]?.code ?? "",
+            "failurePublished": failure.values[target] != nil,
+            "failureResolution": failureResolution,
+            "disabledFailures": disabled.failures.count,
+            "disabledPublished": disabled.values[target] != nil,
+            "disabledResolution": disabledResolution,
+            "propertyBindings": propertyProgram.bindings.count,
+            "propertyFailures": propertyResult.failures.count,
+            "propertyValue": propertyValue,
+            "propertyLiveTargets": propertyProgram.livePropertyInputTargets.count,
+            "propertyActiveLiveTargets":
+                propertyProgram.activeLivePropertyInputTargets.count,
+            "propertyTeardownFailures":
+                propertyTeardown.compactMap(\.failure).count,
+            "propertyDestroyCallbacks":
+                propertyTeardown.filter(\.destroyCallbackInvoked).count,
+            "eventBindings": eventProgram.bindings.count,
+            "eventFailures": eventResult.failures.count,
+            "eventOutput": eventResult.values[propertyTarget] == .string("placeholder"),
+            "eventFontField": eventFontMutation?.fields.contains(.font) == true,
+            "eventFontPath": eventFontMutation?.font ?? "",
+            "eventStableSkipped": eventStable.values[propertyTarget] == nil,
+            "eventTimerScheduledOutput":
+                eventTimerScheduled.values[propertyTarget]
+                    == .string("placeholder"),
+            "eventTimerScheduledFontPaths":
+                eventTimerScheduled.layerMutations.compactMap(\.font),
+            "eventTimerOutput":
+                eventTimer.values[propertyTarget] == .string("placeholder"),
+            "eventTimerFontPaths": eventTimer.layerMutations.compactMap(\.font),
+            "eventSettledSkipped": eventSettled.values[propertyTarget] == nil,
+            "persistedStorageValue": persistedValue,
+            "futureStorageReadRejected": futureReadRejected,
+            "futureStorageWriteRejected": futureWriteRejected,
+            "futureStoragePreserved": futureEnvelopePreserved,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func stringAdmission(_ source: String, frame: SceneScriptFrameInput) throws -> [String: Any] {
+        let descriptor = SceneRenderDescriptor(layers: [.init(
+            id: 77, layerIndex: 0, name: "unseen module", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0],
+            colorRGB: nil, alpha: 1, effects: [], contentKind: "text",
+            text: "authored",
+            textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
+        )])
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let work = SceneScriptConstructionWorkBudget(limit: 1, plannedOwnerUpperBound: 1)
+        let candidate = SceneScriptStringProgram.compileCandidate(
+            domain: domain, descriptor: descriptor,
+            scriptBindings: [binding(source: source)], rejectedTargets: [],
+            generation: 1, constructionWork: work
+        )
+        let target = SceneDynamicTarget.text(layerID: 77, field: .content)
+        let program = candidate.program
+        let first = program.evaluate(inputs: [target: .string("first-current")], frame: frame)
+        program.finalizeLayerMutations(committing: true)
+        let second = program.evaluate(inputs: [target: .string("second-current")], frame: frame)
+        program.finalizeLayerMutations(committing: true)
+        // Observe evaluated module/timer/teardown effects from a peer in the
+        // same real VM. No source-text or internal-symbol assertions.
+        let witness = try SceneScriptValueOwner(
+            domain: domain,
+            source: "export function update(v) { return String(globalThis.admitted || 0); }",
+            target: target, valueType: .string, effectNames: [], generation: 1, budget: .default
+        )
+        let beforeTeardown = try witness.evaluate(
+            input: .string(""), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil
+        ).get().value
+        witness.commitLayerMutations()
+        let teardown = program.teardown(frame: frame, userPropertiesJSON: "{}")
+        let repeated = program.teardown(frame: frame, userPropertiesJSON: "{}")
+        let afterTeardown = try witness.evaluate(
+            input: .string(""), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil
+        ).get().value
+        witness.commitLayerMutations()
+        func string(_ value: SceneDynamicValue) -> String {
+            if case let .string(value) = value { return value }
+            return "wrong-type"
+        }
+        return [
+            "instantiated": candidate.instantiatedTargets.count,
+            "failures": candidate.failures.values.map(\.code),
+            "reconstruct": candidate.requiresDomainReconstruction,
+            "work": work.consumed,
+            "firstPublished": first.values[target] != nil,
+            "firstValue": first.values[target].map(string) ?? "missing",
+            "secondPublished": second.values[target] != nil,
+            "frameFailures": first.failures.count + second.failures.count,
+            "beforeTeardown": string(beforeTeardown),
+            "afterTeardown": string(afterTeardown),
+            "destroyCallbacks": teardown.filter(\.destroyCallbackInvoked).count,
+            "repeatedDestroyCallbacks": repeated.filter(\.destroyCallbackInvoked).count,
+            "teardownFailures": (teardown + repeated).compactMap(\.failure).count,
+        ]
+    }
+
+    static func binding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 77,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("text")],
+            properties: [:],
+            authoredValue: .string("authored"),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
+    static func propertyBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 88,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("text")],
+            properties: [
+                "prefix": .object([
+                    "user": .string("clockPrefix"),
+                    "value": .string("fallback"),
+                ]),
+            ],
+            authoredValue: .string("placeholder"),
+            valueType: .string,
+            wrapperKeys: ["script", "scriptproperties", "value"]
+        )
+    }
+
+    static func eventBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 88,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("text")],
+            properties: [:],
+            authoredValue: .string("placeholder"),
+            valueType: .string,
+            wrapperKeys: ["script", "user", "value"]
+        )
+    }
+
+    static func resolution(
+        program: SceneScriptStringProgram,
+        target: SceneDynamicTarget,
+        lowerPriorityCurrent: String,
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue],
+        frameIndex: UInt64
+    ) -> [String: Any] {
+        let snapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: frameIndex,
+            generation: frameIndex,
+            definitions: program.definitions,
+            timelineValues: [target: .string(lowerPriorityCurrent)],
+            sceneScriptValues: sceneScriptValues
+        ).snapshot
+        guard let resolved = snapshot[target],
+              case let .string(value) = resolved.value else {
+            return ["value": "missing", "source": "missing"]
+        }
+        return ["value": value, "source": resolved.source.rawValue]
+    }
+
+    static let source = """
+    let updateCount = 0;
+    export function update(value) {
+        updateCount += 1;
+        if (updateCount > 1) { throw new Error('string failure'); }
+        return `script:${value}`;
+    }
+    """
+
+    static let propertySource = """
+    export var scriptProperties = createScriptProperties()
+        .addText({ name: 'prefix', value: 'fallback' })
+        .finish();
+    export function update(value) {
+        const labels = ['zero', 'one', 'two'];
+        const now = new Date();
+        return scriptProperties.prefix + ':' + labels[1] + ':' + now.getUTCFullYear();
+    }
+    export function destroy() {
+        if (scriptProperties.prefix !== 'teardown') {
+            throw new Error('stale string properties during destroy');
+        }
+    }
+    """
+}
+'''
+
+
+class SceneScriptStringLifecycleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temp_dir = tempfile.TemporaryDirectory(prefix="mwx-scene-string-life-")
+        cls.binary = compile_vector_harness(Path(cls.temp_dir.name), HARNESS, "string-lifecycle")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temp_dir.cleanup()
+
+    def test_valid_modules_without_frame_callbacks_remain_admitted_and_quiescent(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]
+        for name in ("comments", "helper", "destroy"):
+            with self.subTest(name=name):
+                result = value[name]
+                self.assertEqual(result["instantiated"], 1)
+                self.assertEqual(result["failures"], [])
+                self.assertFalse(result["reconstruct"])
+                self.assertEqual(result["work"], 1)
+                self.assertEqual(result["frameFailures"], 0)
+                self.assertFalse(result["secondPublished"])
+                self.assertEqual(result["teardownFailures"], 0)
+                self.assertEqual(result["repeatedDestroyCallbacks"], 0)
+        for name in ("comments", "helper", "destroy"):
+            self.assertFalse(value[name]["firstPublished"])
+        self.assertEqual(value["helper"]["beforeTeardown"], "1")
+        self.assertEqual(value["destroy"]["beforeTeardown"], "1")
+        self.assertEqual(value["destroy"]["afterTeardown"], "11")
+        self.assertEqual(value["destroy"]["destroyCallbacks"], 1)
+
+    def test_real_module_errors_still_reject(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]
+        for name, code in (("invalid", "compile-error"), ("throwing", "exception"),
+                           ("timer", "exception")):
+            with self.subTest(name=name):
+                self.assertEqual(value[name]["instantiated"], 0)
+                self.assertEqual(value[name]["failures"], [code])
+                self.assertTrue(value[name]["reconstruct"])
+                self.assertFalse(value[name]["firstPublished"])
+
+    def test_init_only_publishes_once_and_becomes_quiescent(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]["initOnly"]
+        self.assertEqual(value["instantiated"], 1)
+        self.assertEqual(value["failures"], [])
+        self.assertFalse(value["reconstruct"])
+        self.assertEqual(value["firstValue"], "initialized:first-current")
+        self.assertFalse(value["secondPublished"])
+        self.assertEqual(value["beforeTeardown"], "1")
+        self.assertEqual(value["frameFailures"], 0)
+
+    def test_warmed_failure_and_disabled_frame_use_new_lower_current(self) -> None:
+        result = json.loads(
+            subprocess.run(
+                [str(self.binary)],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+        self.assertEqual(result["bindings"], 1)
+        self.assertEqual(result["warmedFailures"], 0)
+        self.assertEqual(
+            result["warmedResolution"],
+            {"source": "sceneScript", "value": "script:lower-1"},
+        )
+        self.assertEqual(result["failureCode"], "exception")
+        self.assertFalse(result["failurePublished"])
+        self.assertEqual(
+            result["failureResolution"],
+            {"source": "timeline", "value": "lower-2"},
+        )
+        self.assertEqual(result["disabledFailures"], 0)
+        self.assertFalse(result["disabledPublished"])
+        self.assertEqual(
+            result["disabledResolution"],
+            {"source": "timeline", "value": "lower-3"},
+        )
+        self.assertEqual(result["propertyBindings"], 1)
+        self.assertEqual(result["propertyFailures"], 0)
+        self.assertEqual(result["propertyLiveTargets"], 1)
+        self.assertEqual(result["propertyActiveLiveTargets"], 1)
+        self.assertEqual(result["propertyTeardownFailures"], 0)
+        self.assertEqual(result["propertyDestroyCallbacks"], 1)
+        self.assertEqual(result["eventBindings"], 1)
+        self.assertEqual(result["eventFailures"], 0)
+        self.assertTrue(result["eventOutput"])
+        self.assertTrue(result["eventFontField"])
+        self.assertEqual(result["eventFontPath"], "fonts/selected.ttf")
+        self.assertTrue(result["eventStableSkipped"])
+        self.assertTrue(result["eventTimerScheduledOutput"])
+        self.assertIn("fonts/timer.ttf", result["eventTimerScheduledFontPaths"])
+        self.assertTrue(result["eventTimerOutput"])
+        self.assertIn("fonts/selected.ttf", result["eventTimerFontPaths"])
+        self.assertTrue(result["eventSettledSkipped"])
+        prefix, array_value, year = result["propertyValue"].split(":")
+        self.assertEqual(prefix, "live")
+        self.assertEqual(array_value, "one")
+        self.assertEqual(int(year), 1970)
+        self.assertEqual(result["persistedStorageValue"], "7")
+        self.assertTrue(result["futureStorageReadRejected"])
+        self.assertTrue(result["futureStorageWriteRejected"])
+        self.assertTrue(result["futureStoragePreserved"])
+
+
+if __name__ == "__main__":
+    unittest.main()

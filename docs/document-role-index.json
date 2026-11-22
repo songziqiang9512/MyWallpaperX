@@ -144,10 +144,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-12",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "40d9da2e61e4d47241b40b70a74768d2c37da1478c450f9c2ae7469e73f24dbb",
+        "sourceSHA256": "3fce92131bdc6d88ef51c12ce7ea9af3268548c0f1b51a1f9f774913c812c168",
         "method": "document_registry --audit + document_health --check",
         "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, current JobStore v5/ready v3 ownership, and the retired-file link now pointing at the current Steam acquisition boundary.",
         "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
@@ -292,10 +292,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "faa33852158f9b0ef96b0a7808363958b108d83edbd579f47add644eb183079c",
+        "sourceSHA256": "85b4f43c69eaf9e5aec04fe00fb3443944994d79d60cdf681c99291debc0b491",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -713,10 +713,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c04336ae618e8364d61d4e73bdf4a1c0d4e6d5d883d7a53e49ddbe9af31cad5d",
+        "sourceSHA256": "f97d8f44f1c63459928ac55e67cc06bd4869fd07dde40454e87b6371f1250f4c",
         "method": "document_registry --audit + document_health --check",
         "scope": "复核Video原生锁屏/屏保单组件、唯一发布、App Group及签名路由；同步当前owner与文档入口。",
         "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
@@ -818,10 +818,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 依赖边界",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6717bfce9e67154d013435e8c226aaa11bdad1b832ee74e05453e3dcaee853f6",
+        "sourceSHA256": "2ac9c3eb751390afe86d34851743da4552276ad1a6ea054db56e5a19f82b6b6d",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -959,10 +959,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-16",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1f8afe30726d2ca920da5fd3b0073df015d011b8a095b48815c8524bd4e874c",
+        "sourceSHA256": "663c9f8a44f6cb7854780b38e5008bc69695b9cdbab626b15cfadd97443a1719",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对原Metal探针身份复用、截图与时序，并登记现有benchmark的后台证据窗口选项和原生前台交互的独立资格。",
         "limitations": "仅本文与其协议/源码入口的有界审查，不授全仓App、GPU或官方一致；未登记架构文档的既有registry失败保持。"
@@ -974,10 +974,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "官方行为研究与一致性验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bb01749e7fda4853c7ba0c87398f553c5b17a6393085bc6f25d8bccd85fa9e56",
+        "sourceSHA256": "6a3ba23b04fb8d49e4197ae78592e418ea838d84ff14e2e581297f3e6f2382a7",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -1033,10 +1033,10 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-05",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "503701e565bc8947e4c84b020fd5883a010852fc0398cb4aa81bc4fc4c9d025e",
+        "sourceSHA256": "86ade0cb6dec3e86fa10be5fbe097594e775b59f2ef120f4d3e46faab188c870",
         "method": "document_registry --audit + document_health --check",
         "scope": "Retire eight unused non-Scene entry/state groups and obsolete route assertions; preserve current navigation, ticketed playback, page sorting and audio recovery owners.",
         "limitations": "Current source/caller and document audit; runtime and build results have separate bounded evidence. No real user-library, live account or actual system-host parity claim."
@@ -1047,10 +1047,10 @@
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
       "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7ec17126a0b3d84dd992ea1d77b7b83d9aa60ba0f614fef3ff4a2338dfd5305f",
+        "sourceSHA256": "0287a72674bc17ab3652182a5a4622dde179b95ee3e9357c543666ac1a98e90c",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
@@ -1143,8 +1143,8 @@
       ],
       "sourcePaths": [
         "AGENTS.md",
-        "script/scene_validation_gates.json",
-        "script/code_health_baseline.json"
+        "script/data/scene_validation_gates.json",
+        "script/data/code_health_baseline.json"
       ],
       "verification": "先运行 document_registry.py --check，再按 owned paths 预览已有验证编排器。",
       "owner": "AGENTS.md",
@@ -1338,8 +1338,8 @@
       ],
       "sourcePaths": [
         "AGENTS.md",
-        "script/design_gated_areas.json",
-        "script/check_design_gate.py"
+        "script/data/design_gated_areas.json",
+        "script/governance/check_design_gate.py"
       ],
       "verification": "按 AGENTS 五问决定登记；query 的 designAreas 来自现役登记。approved 不代表产品行为验收。",
       "owner": "AGENTS.md",
@@ -1660,11 +1660,11 @@
         "docs/release/bundle-content.md"
       ],
       "sourcePaths": [
-        "script/publish_release.py",
+        "script/release/publish_release.py",
         ".github/workflows/build.yml"
       ],
       "verification": "仅用户明确授权发布时执行完整发布合同；普通 CI 不发布。",
-      "owner": "script/publish_release.py",
+      "owner": "script/release/publish_release.py",
       "firstRead": "docs/release/release-signing.md#正式发布流程",
       "nearestTestGroups": [
         "release-preparation"
@@ -1698,7 +1698,7 @@
       "sourcePaths": [
         "MyWallpaperX",
         "SteamService",
-        "script/scene_validation_gates.json"
+        "script/data/scene_validation_gates.json"
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
@@ -1806,7 +1806,7 @@
       "sourcePaths": [
         "MyWallpaperX",
         "SteamService",
-        "script/scene_validation_gates.json"
+        "script/data/scene_validation_gates.json"
       ],
       "verification": "沿真实消费者检查必要边界和成本；完成固定源最近行为门、必要构建/代表运行、前后对照及独立复审，不以少数通过宣布全仓完成。",
       "owner": "repository-maintainer",

@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+RUNTIME_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionFrameTrace.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionTelemetry.swift",
+]
+GRAPH_COMPOSITION_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
+)
+GRAPH_EXECUTOR_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
+)
+
+HARNESS = r'''
+import Foundation
+import Metal
+
+nonisolated final class LogCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    func append(_ value: String) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    func snapshot() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+}
+
+enum HarnessError: Error {
+    case missingCohort
+}
+
+@main
+enum Harness {
+    static func main() throws {
+        let collector = LogCollector()
+        let telemetry = SceneEffectExecutionTelemetry { collector.append($0) }
+        let reportLines = ["effectAdmissionSchema: 1", "effectStageRuntimeDispositionSchema: 1"]
+        let unobserved = SceneEffectExecutionTelemetry { collector.append($0) }
+        let reportInitiallyEmpty = telemetry.preparedRuntimeReportLines.isEmpty
+            && telemetry.effectRuntimeSummary(for: 7) == nil
+        telemetry.installPreparedAdmission(reportLines: reportLines, resolvedMaterialLayerIDs: [7])
+        let preparedReport = telemetry.preparedRuntimeReportLines
+        let admittedSummary = telemetry.effectRuntimeSummary(for: 7)
+        let foreignSummary = telemetry.effectRuntimeSummary(for: 8)
+        let reportDoesNotInventExecution = collector.snapshot().isEmpty
+        let observationIsInstanceOwned = unobserved.preparedRuntimeReportLines.isEmpty
+            && unobserved.effectRuntimeSummary(for: 7) == nil
+
+        let failureThenSuccess = telemetry.makeFrame(frameIndex: 1)
+        let identityA = SceneEffectExecutionIdentity(
+            layerID: 7, effectIndex: 2, descriptorID: "descriptor A"
+        )
+        failureThenSuccess.recordExact(
+            identity: identityA, origin: .image, family: "Tint Family",
+            backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
+        )
+        failureThenSuccess.recordExact(
+            identity: identityA, origin: .image, family: "Tint Family",
+            backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
+        )
+        failureThenSuccess.recordExact(
+            identity: identityA, origin: .image, family: "Tint Family",
+            backend: "program", outcome: .encodedOutput
+        )
+        failureThenSuccess.recordExact(
+            identity: identityA, origin: .image, family: "Tint Family",
+            backend: "program", outcome: .encodedOutput
+        )
+
+        let successThenFailure = telemetry.makeFrame(frameIndex: 2)
+        let identityB = SceneEffectExecutionIdentity(
+            layerID: 8, effectIndex: 5, descriptorID: "descriptor-B"
+        )
+        successThenFailure.recordExact(
+            identity: identityB, origin: .text, family: "Opacity",
+            backend: "program", outcome: .encodedOutput
+        )
+        successThenFailure.recordExact(
+            identity: identityB, origin: .text, family: "Opacity",
+            backend: "program", outcome: .failed(reasonCode: "late-failure")
+        )
+
+        let concurrentDuplicates = telemetry.makeFrame(frameIndex: 3)
+        let identityC = SceneEffectExecutionIdentity(
+            layerID: 9, effectIndex: 1, descriptorID: "concurrent"
+        )
+        DispatchQueue.concurrentPerform(iterations: 32) { _ in
+            concurrentDuplicates.recordExact(
+                identity: identityC, origin: .quad, family: "Godrays",
+                backend: "program", outcome: .encodedOutput
+            )
+        }
+
+        let routeTransitions = telemetry.makeFrame(frameIndex: 10)
+        routeTransitions.recordRouteOperation(
+            layerID: 70, origin: .utilityComposition, operation: "source capture",
+            outcome: .failed(reasonCode: "missing-target")
+        )
+        routeTransitions.recordRouteOperation(
+            layerID: 70, origin: .utilityComposition, operation: "source capture",
+            outcome: .failed(reasonCode: "missing-target")
+        )
+        routeTransitions.recordRouteOperation(
+            layerID: 70, origin: .utilityComposition, operation: "source capture",
+            outcome: .encoded
+        )
+        routeTransitions.recordRouteOperation(
+            layerID: 70, origin: .utilityComposition, operation: "source capture",
+            outcome: .encoded
+        )
+
+        let hashTraceA = telemetry.makeFrame(frameIndex: 20)
+        recordHashCohort(on: hashTraceA, reverse: false)
+        guard let cohortA = hashTraceA.freeze() else { throw HarnessError.missingCohort }
+        let postFreezeAccepted = hashTraceA.recordExact(
+            identity: .init(layerID: 99, effectIndex: 0, descriptorID: "late"),
+            origin: .image, family: "Late", backend: "none",
+            outcome: .encodedOutput
+        )
+
+        let hashTraceB = telemetry.makeFrame(frameIndex: 21)
+        recordHashCohort(on: hashTraceB, reverse: true)
+        guard let cohortB = hashTraceB.freeze() else { throw HarnessError.missingCohort }
+
+        let emptyTrace = telemetry.makeFrame(frameIndex: 30)
+        let emptyReduced = telemetry.reduceSharedCommandBufferStatus(
+            for: emptyTrace, status: .completed
+        )
+
+        let failedFrame = telemetry.makeFrame(frameIndex: 41)
+        failedFrame.recordRouteOperation(
+            layerID: 410, origin: .utilityFullscreen, operation: "final-composite",
+            outcome: .failed(reasonCode: "encoder-unavailable")
+        )
+        let firstFrameCompletion = telemetry.reduceSharedCommandBufferStatus(
+            for: failedFrame, status: .completed
+        )
+        let duplicateFrameCompletion = telemetry.reduceSharedCommandBufferStatus(
+            for: failedFrame, status: .completed
+        )
+
+        let laterFrame = telemetry.makeFrame(frameIndex: 42)
+        laterFrame.recordExact(
+            identity: .init(
+                layerID: 420, effectIndex: 0, descriptorID: "iris-suffix"
+            ),
+            origin: .utilityProject, family: "IrisSuffix",
+            backend: "program", outcome: .encodedOutput
+        )
+        let laterFrameCompletion = telemetry.reduceSharedCommandBufferStatus(
+            for: laterFrame, status: .completed
+        )
+        let laterFrameFailure = telemetry.reduceSharedCommandBufferStatus(
+            for: laterFrame, status: .failed
+        )
+        let duplicateLaterFrameFailure = telemetry.reduceSharedCommandBufferStatus(
+            for: laterFrame, status: .failed
+        )
+
+        let compositionCollector = LogCollector()
+        let compositionTelemetry = SceneEffectExecutionTelemetry { compositionCollector.append($0) }
+        let disabledComposition = compositionTelemetry.makeFrame(frameIndex: 50)
+        disabledComposition.recordComposition(.init(kind: "ordinary", layerID: 5))
+        let disabledCompositionIsEmpty = disabledComposition.freeze() == nil
+        let ordinary = compositionTelemetry.makeFrame(frameIndex: 51, observesComposition: true,
+            commandBufferToken: "ordinary-buffer")
+        ordinary.setCompositionSurface(displayID: 12, identity: "surface-incarnation")
+        ordinary.setCompositionPresentRequested(false)
+        ordinary.recordComposition(.init(kind: "ordinary", layerID: 5,
+            source: .init(textureToken: "texture-a", width: 16, height: 8, pixelFormat: 80, role: "source"),
+            target: .init(textureToken: "texture-b", width: 32, height: 16, pixelFormat: 80, role: "drawable")))
+        let ordinaryCohort = ordinary.freeze()
+        ordinary.recordComposition(.init(kind: "late-row"))
+        let ordinaryFreezeIsStable = ordinary.freeze()?.cohortSHA256 == ordinaryCohort?.cohortSHA256
+        compositionTelemetry.recordCompositionCancellation(for: ordinary)
+        let bounded = compositionTelemetry.makeFrame(frameIndex: 52, observesComposition: true)
+        for _ in 0..<4200 { bounded.recordComposition(.init(kind: "particle", layerID: 7)) }
+        compositionTelemetry.recordCompositionCancellation(for: bounded)
+
+        var metalAvailable = false
+        var emptyObserved = false
+        var realObserved = false
+        var metalLogs: [String] = []
+        var compositionMetalLogs: [String] = []
+        if let device = MTLCreateSystemDefaultDevice(),
+           let queue = device.makeCommandQueue(),
+           let emptyCommand = queue.makeCommandBuffer(),
+           let command = queue.makeCommandBuffer() {
+            metalAvailable = true
+            let metalCollector = LogCollector()
+            let metalTelemetry = SceneEffectExecutionTelemetry { metalCollector.append($0) }
+            emptyObserved = metalTelemetry.observeSharedCommandBuffer(
+                for: metalTelemetry.makeFrame(frameIndex: 39), on: emptyCommand
+            )
+
+            let realFrame = metalTelemetry.makeFrame(frameIndex: 40)
+            realFrame.recordExact(
+                identity: SceneEffectExecutionIdentity(
+                    layerID: 400, effectIndex: 6, descriptorID: "metal-completion"
+                ),
+                origin: .solid, family: "Opacity", backend: "program",
+                outcome: .encodedOutput
+            )
+            realObserved = metalTelemetry.observeSharedCommandBuffer(
+                for: realFrame, on: command
+            )
+            let completion = DispatchSemaphore(value: 0)
+            command.addCompletedHandler { _ in completion.signal() }
+            command.commit()
+            _ = completion.wait(timeout: .now() + 5)
+            metalLogs = metalCollector.snapshot()
+            let surfaceCollector = LogCollector()
+            let surfaceTelemetry = SceneEffectExecutionTelemetry { surfaceCollector.append($0) }
+            for surfaceID in [UInt32(12), UInt32(13)] {
+                guard let buffer = queue.makeCommandBuffer() else { continue }
+                let selected = surfaceTelemetry.makeFrame(frameIndex: 60, observesComposition: true,
+                    commandBufferToken: String(UInt(bitPattern: ObjectIdentifier(buffer))))
+                selected.setCompositionSurface(displayID: surfaceID, identity: "surface-\(surfaceID)")
+                selected.setCompositionPresentRequested(surfaceID == 12)
+                selected.recordComposition(.init(kind: surfaceID == 12 ? "ordinary" : "particle", layerID: 9))
+                _ = surfaceTelemetry.observeSharedCommandBuffer(for: selected, on: buffer)
+                let completed = DispatchSemaphore(value: 0)
+                buffer.addCompletedHandler { _ in completed.signal() }
+                buffer.commit()
+                _ = completed.wait(timeout: .now() + 5)
+            }
+            compositionMetalLogs = surfaceCollector.snapshot()
+        }
+
+        let payload: [String: Any] = [
+            "admissionObservation": [
+                "initiallyEmpty": reportInitiallyEmpty,
+                "reportPreserved": preparedReport == reportLines,
+                "summary": admittedSummary ?? "",
+                "foreignSummaryAbsent": foreignSummary == nil,
+                "noExecutionEmitted": reportDoesNotInventExecution,
+                "instanceOwned": observationIsInstanceOwned,
+            ],
+            "logs": collector.snapshot(),
+            "cohortA": cohortPayload(cohortA),
+            "cohortB": cohortPayload(cohortB),
+            "postFreezeAccepted": postFreezeAccepted,
+            "emptyReduced": emptyReduced,
+            "frameReducerTransitions": [
+                firstFrameCompletion, duplicateFrameCompletion,
+                laterFrameCompletion, laterFrameFailure, duplicateLaterFrameFailure,
+            ],
+            "metalAvailable": metalAvailable,
+            "emptyObserved": emptyObserved,
+            "realObserved": realObserved,
+            "metalLogs": metalLogs,
+            "compositionLogs": compositionCollector.snapshot(),
+            "compositionMetalLogs": compositionMetalLogs,
+            "disabledCompositionIsEmpty": disabledCompositionIsEmpty,
+            "ordinaryFreezeIsStable": ordinaryFreezeIsStable,
+            "ordinaryAttemptedEffects": ordinaryCohort?.attemptedEffects ?? -1,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func recordHashCohort(
+        on trace: SceneEffectExecutionFrameTrace,
+        reverse: Bool
+    ) {
+        let identity = SceneEffectExecutionIdentity(
+            layerID: 20, effectIndex: 3, descriptorID: "same descriptor"
+        )
+        let operations: [() -> Void] = [
+            {
+                trace.recordExact(
+                    identity: identity, origin: .image, family: "Tint Space",
+                    backend: "program", outcome: .encodedOutput
+                )
+            },
+            {
+                trace.recordExact(
+                    identity: identity, origin: .image, family: "Tint Space",
+                    backend: "program", outcome: .failed(reasonCode: "late-error")
+                )
+            },
+            {
+                trace.recordRouteOperation(
+                    layerID: 22, origin: .utilityProject, operation: "source-copy",
+                    outcome: .encoded
+                )
+            },
+            {
+                trace.recordRouteOperation(
+                    layerID: 22, origin: .utilityProject, operation: "source-copy",
+                    outcome: .failed(reasonCode: "route-error")
+                )
+            },
+        ]
+        (reverse ? operations.reversed() : operations).forEach { $0() }
+        trace.recordExact(
+            identity: identity, origin: .image, family: "Tint Space",
+            backend: "program", outcome: .encodedOutput
+        )
+    }
+
+    private static func cohortPayload(
+        _ cohort: SceneEffectExecutionFrameCohort
+    ) -> [String: Any] {
+        [
+            "frame": cohort.frameIndex,
+            "attemptedEffects": cohort.attemptedEffects,
+            "returnedOutputs": cohort.returnedOutputs,
+            "failedInvocations": cohort.failedInvocations,
+            "routeOperations": cohort.routeOperations,
+            "sha256": cohort.cohortSHA256,
+        ]
+    }
+}
+'''
+
+
+class SceneEffectExecutionTelemetryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-effect-execution-telemetry-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        binary = directory / "scene-effect-execution-telemetry-harness"
+        environment = os.environ.copy()
+        environment["CLANG_MODULE_CACHE_PATH"] = str(directory / "clang-cache")
+        environment["SWIFT_MODULECACHE_PATH"] = str(directory / "swift-cache")
+        compilation = subprocess.run(
+            [
+                "swiftc", "-D", "DEBUG",
+                "-swift-version",
+                "6",
+                "-default-isolation",
+                "MainActor",
+                "-strict-concurrency=complete",
+                "-warnings-as-errors",
+                *(str(source) for source in SWIFT_SOURCES),
+                str(harness),
+                "-framework",
+                "Metal",
+                "-o",
+                str(binary),
+            ],
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+        cls.logs = cls.result["logs"]
+        cls.metal_logs = cls.result["metalLogs"]
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_prepared_admission_observation_is_instance_owned_and_does_not_emit_execution(self) -> None:
+        observation = self.result["admissionObservation"]
+        self.assertEqual(observation["summary"], "effect runtime resolved-material-graph; graph owner")
+        for key in ("initiallyEmpty", "reportPreserved", "foreignSummaryAbsent", "noExecutionEmitted", "instanceOwned"):
+            with self.subTest(key=key):
+                self.assertIs(observation[key], True)
+
+    def test_cpu_outcomes_are_independent_sticky_transitions(self) -> None:
+        failure_then_success = [line for line in self.logs if "descriptor=descriptor%20A" in line]
+        self.assertEqual(len(failure_then_success), 2)
+        self.assertEqual(
+            {self._field(line, "outcome") for line in failure_then_success},
+            {"encoded-output", "failed"},
+        )
+        success_then_failure = [line for line in self.logs if "descriptor=descriptor-B" in line]
+        self.assertEqual(len(success_then_failure), 2)
+        self.assertEqual(
+            {self._field(line, "outcome") for line in success_then_failure},
+            {"encoded-output", "failed"},
+        )
+        concurrent = [line for line in self.logs if "descriptor=concurrent" in line]
+        self.assertEqual(len(concurrent), 1)
+
+    def test_cpu_log_schema_and_token_encoding_are_exact(self) -> None:
+        line = next(
+            line
+            for line in self.logs
+            if "descriptor=descriptor%20A" in line and "outcome=failed" in line
+        )
+        self.assertRegex(
+            line,
+            re.compile(
+                r"^MWX DEBUG SCENE: schema=1 axis=effect-cpu-invocation "
+                r"frame=1 origin=image subject=effect layer=7 effect=2 "
+                r"descriptor=descriptor%20A family=Tint%20Family "
+                r"backend=program outcome=failed reason=pipeline-missing$"
+            ),
+        )
+
+    def test_route_outcomes_are_independent_and_deduplicated(self) -> None:
+        lines = [line for line in self.logs if "operation=source%20capture" in line]
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(
+            {self._field(line, "outcome") for line in lines},
+            {"encoded", "failed"},
+        )
+        self.assertTrue(
+            all("axis=effect-route-operation" in line for line in lines)
+        )
+
+    def test_frozen_cohort_counts_unique_subjects_and_has_stable_hash(self) -> None:
+        cohort_a = self.result["cohortA"]
+        cohort_b = self.result["cohortB"]
+        self.assertEqual(cohort_a["attemptedEffects"], 1)
+        self.assertEqual(cohort_a["returnedOutputs"], 1)
+        self.assertEqual(cohort_a["failedInvocations"], 1)
+        self.assertEqual(cohort_a["routeOperations"], 1)
+        self.assertEqual(cohort_a["sha256"], cohort_b["sha256"])
+        self.assertRegex(cohort_a["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(cohort_a["sha256"], self._expected_cohort_hash())
+        self.assertFalse(self.result["postFreezeAccepted"])
+
+    def test_empty_frame_is_not_observed(self) -> None:
+        self.assertFalse(self.result["emptyReduced"])
+        self.assertFalse(self.result["emptyObserved"])
+        self.assertFalse(any("frame=30 " in line for line in self.logs))
+        self.assertFalse(
+            any("frame=39 " in line for line in self.logs + self.metal_logs)
+        )
+
+    def test_frame_status_reducer_keeps_completed_and_failed_facts(self) -> None:
+        self.assertEqual(
+            self.result["frameReducerTransitions"],
+            [True, False, False, True, False],
+        )
+        frame_41 = [
+            line
+            for line in self.logs
+            if "axis=scene-frame-command-buffer frame=41 " in line
+        ]
+        self.assertEqual(len(frame_41), 1)
+        self.assertEqual(self._field(frame_41[0], "status"), "completed")
+        frame_42 = [
+            line
+            for line in self.logs
+            if "axis=scene-frame-command-buffer frame=42 " in line
+        ]
+        self.assertEqual(len(frame_42), 1)
+        self.assertEqual(self._field(frame_42[0], "status"), "failed")
+        self.assertEqual(
+            len(
+                [line for line in self.logs if "axis=scene-frame-command-buffer" in line]
+            ),
+            2,
+        )
+
+    def test_real_metal_completion_uses_only_scene_frame_axis(self) -> None:
+        if not self.result["metalAvailable"]:
+            self.skipTest("Metal device is unavailable")
+        self.assertTrue(self.result["realObserved"])
+        frame_line = next(
+            line
+            for line in self.metal_logs
+            if "axis=scene-frame-command-buffer frame=40 " in line
+        )
+        self.assertRegex(
+            frame_line,
+            re.compile(
+                r"^MWX DEBUG SCENE: schema=1 axis=scene-frame-command-buffer "
+                r"frame=40 attemptedEffects=1 returnedOutputs=1 "
+                r"failedInvocations=0 routeOperations=0 "
+                r"cohortSHA256=[0-9a-f]{64} status=completed$"
+            ),
+        )
+        joined = "\n".join(self.logs + self.metal_logs).lower()
+        self.assertNotIn("axis=effect-gpu", joined)
+        self.assertNotIn("stage gpu", joined)
+        self.assertNotIn("succeeded", joined)
+
+    def test_selected_draw_only_trace_freezes_without_inventing_effects(self) -> None:
+        self.assertTrue(self.result["disabledCompositionIsEmpty"])
+        self.assertTrue(self.result["ordinaryFreezeIsStable"])
+        self.assertEqual(self.result["ordinaryAttemptedEffects"], 0)
+        observed = self._composition_rows(self.result["compositionLogs"])
+        ordinary = next(row for row in observed if row["frameIndex"] == 51)
+        self.assertEqual(ordinary["gpuStatus"], "cancelled-not-submitted")
+        self.assertFalse(ordinary["presentRequested"])
+        self.assertEqual(ordinary["displayID"], 12)
+        self.assertEqual(ordinary["surfaceIdentity"], "surface-incarnation")
+        self.assertEqual([row["kind"] for row in ordinary["rows"]], ["ordinary"])
+        self.assertEqual(ordinary["rows"][0]["source"]["textureToken"], "texture-a")
+        bounded = next(row for row in observed if row["frameIndex"] == 52)
+        self.assertGreater(bounded["truncatedRows"], 0)
+        self.assertEqual(len(bounded["rows"]) + bounded["truncatedRows"], 4200)
+
+    def test_selected_surfaces_emit_independently_of_sticky_gpu_fact(self) -> None:
+        if not self.result["metalAvailable"]:
+            self.skipTest("Metal device is unavailable")
+        observed = self._composition_rows(self.result["compositionMetalLogs"])
+        self.assertEqual(len(observed), 2)
+        self.assertEqual({row["displayID"] for row in observed}, {12, 13})
+        self.assertEqual({row["surfaceIdentity"] for row in observed}, {"surface-12", "surface-13"})
+        self.assertEqual({row["gpuStatus"] for row in observed}, {"completed"})
+        self.assertEqual({row["presentRequested"] for row in observed}, {True, False})
+        self.assertEqual({row["frameIndex"] for row in observed}, {60})
+
+    @staticmethod
+    def _composition_rows(lines: list[str]) -> list[dict[str, object]]:
+        prefix = "MWX SCENE COMPOSITION OBSERVATION: "
+        return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
+
+    def test_unified_execution_uses_single_backend_identity(self) -> None:
+        composition = GRAPH_COMPOSITION_SOURCE.read_text(encoding="utf-8")
+        executor = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "family: runtime.executionEvidenceFamily(for: subject.key)",
+            composition,
+        )
+        self.assertIn('backend: "resolved-material-graph"', composition)
+        self.assertNotIn("SceneEffectStageRenderer", executor)
+        self.assertNotIn("case dedicated", executor)
+
+    @staticmethod
+    def _field(line: str, name: str) -> str:
+        match = re.search(rf"(?:^| ){re.escape(name)}=([^ ]+)", line)
+        if match is None:
+            raise AssertionError(f"missing {name}= in {line!r}")
+        return match.group(1)
+
+    @staticmethod
+    def _expected_cohort_hash() -> str:
+        lines = [
+            "effect|origin=image|subject=effect|layer=20|effect=3|"
+            "descriptor=same%20descriptor|family=Tint%20Space|"
+            "backend=program|outcome=encoded-output|reason=-",
+            "effect|origin=image|subject=effect|layer=20|effect=3|"
+            "descriptor=same%20descriptor|family=Tint%20Space|"
+            "backend=program|outcome=failed|reason=late-error",
+            "route|origin=utility-project|layer=22|operation=source-copy|"
+            "outcome=encoded|reason=-",
+            "route|origin=utility-project|layer=22|operation=source-copy|"
+            "outcome=failed|reason=route-error",
+        ]
+        return hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
+
+
+if __name__ == "__main__":
+    unittest.main()

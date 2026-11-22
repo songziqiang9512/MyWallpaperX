@@ -13,15 +13,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Sequence
 try:
-    from script.source_relocations import unchanged_source_relocations
+    from script.governance.source_relocations import unchanged_source_relocations
     from script.run_scene_tests import RELEASE_MODULES
 except ModuleNotFoundError:
-    from source_relocations import unchanged_source_relocations
+    from governance.source_relocations import unchanged_source_relocations
     from run_scene_tests import RELEASE_MODULES
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = Path(__file__).with_name("scene_validation_gates.json")
+REGISTRY_PATH = Path(__file__).with_name("data") / "scene_validation_gates.json"
 PHASES = ("inner", "checkpoint", "integration", "milestone")
 GATE_STATUSES = {"planned", "skipped", "blocked", "passed", "failed"}
 SCENE_PRODUCT_PATTERNS = (
@@ -176,22 +176,22 @@ def mapped_tests(
         if path in RELEASE_WORKFLOW_FILES:
             groups.add("release-workflow-governance")
             modules.add("test_document_role_index")
-        if path in {"script/build_and_run.sh", "script/run_checkpoint_build.sh"}:
+        if path in {"script/build/build_and_run.sh", "script/build/run_checkpoint_build.sh"}:
             groups.add("build-entrypoint-governance")
             modules.update({"test_verify_scene_change", "test_verify_scene_capability_routing"})
-            if path == "script/run_checkpoint_build.sh":
+            if path == "script/build/run_checkpoint_build.sh":
                 modules.add("test_checkpoint_build")
         if path.startswith(".agents/skills/mywallpaperx-maintainer/"):
             groups.add("repository-skill-governance")
             modules.add("test_scene_governance_contract")
-        if path.startswith("script/tests/test_") and path.endswith(".py"):
+        if path.startswith("script/tests/") and Path(path).name.startswith("test_") and path.endswith(".py"):
             # Deleted tests still appear in a diff, but cannot be passed to the
             # executable test runner as module names.
             if (ROOT / path).is_file():
                 modules.add(Path(path).stem)
         elif path.startswith("script/") and path.endswith(".py"):
-            counterpart = ROOT / "script/tests" / f"test_{Path(path).name}"
-            if counterpart.is_file():
+            counterpart = next(iter((ROOT / "script/tests").rglob(f"test_{Path(path).name}")), None)
+            if counterpart is not None and counterpart.is_file():
                 modules.add(counterpart.stem)
         for group in registry["path_groups"]:
             patterns = group.get("patterns", [])
@@ -264,7 +264,7 @@ def code_health_gate(base: str, reason: str) -> Gate:
         "code-health",
         (
             sys.executable,
-            "script/check_code_health.py",
+            "script/governance/check_code_health.py",
             "--check",
             "--base-ref",
             base,
@@ -279,7 +279,7 @@ def scene_defense_gate(base: str) -> Gate:
         "scene-defense",
         (
             sys.executable,
-            "script/check_scene_defense.py",
+            "script/governance/check_scene_defense.py",
             "--check",
             "--base-ref",
             base,
@@ -297,13 +297,13 @@ def design_gate(base: str) -> Gate:
         "design-gate",
         (
             sys.executable,
-            "script/check_design_gate.py",
+            "script/governance/check_design_gate.py",
             "--base-ref",
             base,
         ),
         (
             "design-first gate: implementation starts on registered capabilities "
-            "(script/design_gated_areas.json) require an approved design doc"
+            "(script/data/design_gated_areas.json) require an approved design doc"
         ),
         False,
     )
@@ -326,7 +326,7 @@ def runtime_command(
         return None
     command = [
         sys.executable,
-        "script/scene_wallpaper_benchmark.py",
+        "script/scene/scene_wallpaper_benchmark.py",
         "--app",
         str(args.app),
         "--sample-root",
@@ -349,7 +349,7 @@ def build_plan(
 ) -> tuple[list[Gate], set[str]]:
     modules, keywords, groups = mapped_tests(paths, registry)
     missing_modules = sorted(module for module in modules
-                             if not (ROOT / "script/tests" / f"{module}.py").is_file())
+                             if not next(iter((ROOT / "script/tests").rglob(f"{module}.py")), None) is not None)
     if missing_modules:
         raise ValueError("mapped test modules no longer exist: " + ", ".join(missing_modules))
     # These modules have registered method-level gates; never also execute
@@ -362,7 +362,8 @@ def build_plan(
     swift_change = any(path.endswith(".swift") for path in paths)
     product_change = any(path.startswith(PRODUCT_PREFIXES) for path in paths)
     deleted_test = any(
-        path.startswith("script/tests/test_")
+        path.startswith("script/tests/")
+        and Path(path).name.startswith("test_")
         and path.endswith(".py")
         and not (ROOT / path).is_file()
         for path in paths
@@ -372,7 +373,8 @@ def build_plan(
     for path in paths:
         path_modules, path_keywords, path_groups = mapped_tests([path], registry)
         deleted_path = (
-            path.startswith("script/tests/test_")
+            path.startswith("script/tests/")
+            and Path(path).name.startswith("test_")
             and path.endswith(".py")
             and not (ROOT / path).is_file()
         )
@@ -435,46 +437,46 @@ def build_plan(
         )
         gates.append(Gate(gate_id, command, registry["gates"][gate_id]["trigger"], False))
     if any(
-        fnmatch.fnmatch(path, "script/tests/test_*.py")
-        or path in {"script/check_test_assertions.py", "script/test_assertion_baseline.json",
-                    "script/scene_validation_gates.json"}
+        (path.startswith("script/tests/") and Path(path).name.startswith("test_") and path.endswith(".py"))
+        or path in {"script/governance/check_test_assertions.py", "script/data/test_assertion_baseline.json",
+                    "script/data/scene_validation_gates.json"}
         for path in paths
     ):
         gates.append(Gate(
             "test-assertions",
-            (sys.executable, "-B", "script/check_test_assertions.py", "--check", "--base-ref", args.base),
+            (sys.executable, "-B", "script/governance/check_test_assertions.py", "--check", "--base-ref", args.base),
             "Python test declaration-shape assertions may only shrink", False,
         ))
     if any(path.startswith(("script/", "docs/", ".agents/", ".github/")) for path in paths):
         gates.append(Gate(
             "repository-artifacts",
-            (sys.executable, "-B", "script/check_repository_artifacts.py", "--check", "--base-ref", args.base),
+            (sys.executable, "-B", "script/governance/check_repository_artifacts.py", "--check", "--base-ref", args.base),
             "Git-visible tool and documentation files must stay within the artifact size budget", False,
         ))
     if any((path.startswith('MyWallpaperX/Core/SteamWorkshopScene/') and path.endswith('.swift'))
            or (path.startswith('script/tests/') and path.endswith(('.swift', '.py')))
-           or path in {'script/check_scene_dependencies.py', 'script/scene_dependency_baseline.json'}
+           or path in {'script/governance/check_scene_dependencies.py', 'script/data/scene_dependency_baseline.json'}
            for path in paths):
         gates.append(Gate('scene-dependencies',
-                          (sys.executable, '-B', 'script/check_scene_dependencies.py', '--check', '--base-ref', args.base),
+                          (sys.executable, '-B', 'script/governance/check_scene_dependencies.py', '--check', '--base-ref', args.base),
                           registry['gates']['scene-dependencies']['trigger'], False))
     if any(
         (path.startswith(('MyWallpaperX/', 'ScreenSaverSources/')) and path.endswith('.swift'))
         or path.endswith('.xcstrings')
         or path.startswith('MyWallpaperXHelp/')
-        or path == 'script/check_localization.py'
+        or path == 'script/governance/check_localization.py'
         for path in paths
     ):
         gates.append(Gate('localization',
-                          (sys.executable, '-B', 'script/check_localization.py', '--hardcoded', '--compile'),
+                          (sys.executable, '-B', 'script/governance/check_localization.py', '--hardcoded', '--compile'),
                           registry['gates']['localization']['trigger'], False))
     if 'documentation' in groups:
         gates.append(Gate('document-health',
-                          (sys.executable, '-B', 'script/document_health.py', '--check', '--base', args.base),
+                          (sys.executable, '-B', 'script/governance/document_health.py', '--check', '--base', args.base),
                           registry['gates']['document-health']['trigger'], False))
     if any(path.startswith(PRODUCT_PREFIXES) for path in paths) or 'validation-governance' in groups:
         gates.append(Gate('repository-residue',
-                          (sys.executable, '-B', 'script/repository_residue.py', '--check'),
+                          (sys.executable, '-B', 'script/governance/repository_residue.py', '--check'),
                           registry['gates']['repository-residue']['trigger'], False))
 
     if args.ci:
@@ -496,7 +498,7 @@ def build_plan(
         gates.append(design_gate(args.base))
         gates.append(Gate(
             "build-verify",
-            ("/bin/bash", "script/run_checkpoint_build.sh"),
+            ("/bin/bash", "script/build/run_checkpoint_build.sh"),
             (
                 "product or project files changed; checkpoint builds use an isolated, "
                 "serialized, self-cleaning DerivedData and do not launch the App"
@@ -528,7 +530,7 @@ def build_plan(
         else:
             command = runtime_command(
                 args,
-                "script/scene_wallpaper_full_sample_matrix.json",
+                "script/data/scene_wallpaper_full_sample_matrix.json",
                 selected_samples=True,
                 output_subdirectory="targeted",
             )
@@ -562,9 +564,9 @@ def build_plan(
 
     if args.phase == "milestone" and args.matrix_tier:
         matrix = (
-            "script/scene_wallpaper_sample_matrix.json"
+            "script/data/scene_wallpaper_sample_matrix.json"
             if args.matrix_tier == "fixed"
-            else "script/scene_wallpaper_full_sample_matrix.json"
+            else "script/data/scene_wallpaper_full_sample_matrix.json"
         )
         command = runtime_command(
             args,
@@ -642,7 +644,7 @@ def validation_payload(
 ) -> dict[str, Any]:
     mapping = product_test_mapping(
         paths, registry if registry is not None else load_registry(),
-        [path.stem for path in (ROOT / "script/tests").glob("test_*.py")],
+        [path.stem for path in (ROOT / "script/tests").rglob("test_*.py")],
     )
     # A byte-identical move has no new behavior to test. Preserve its missing
     # focused mapping in the report; only an actual successful product build

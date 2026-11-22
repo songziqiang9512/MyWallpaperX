@@ -14,7 +14,7 @@
 python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <修改路径>
 ```
 
-先检查选择结果，再加 `--run` 执行。Swift 产品修改做 Debug build；GPU、VM、生命周期和可见变化补隔离真实运行。纯文档修改检查索引、链接与内容，不自动构建 App。构建使用 `script/run_checkpoint_build.sh`；`script/build_and_run.sh` 会停止正在运行的 App。
+先检查选择结果，再加 `--run` 执行。Swift 产品修改做 Debug build；GPU、VM、生命周期和可见变化补隔离真实运行。纯文档修改检查索引、链接与内容，不自动构建 App。构建使用 `script/build/run_checkpoint_build.sh`；`script/build/build_and_run.sh` 会停止正在运行的 App。
 
 自有 fixture 测实际输入、输出、顺序和失败半径，保留健康相邻 consumer。兼容规则用变量或资源改名、等价表达式及相邻反例验证；另外选择未参与调参的真实内容核画面。实际过程只证明被执行的条件，编译、ready、非黑画面与日志无错都不能单独证明正确兼容。
 
@@ -22,7 +22,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <�
 
 真实 Workshop 目录只读。输入副本、HOME、TMPDIR、缓存、App staging 和报告放任务隔离目录；记录实际 App、输入、工具和环境身份。共享构建目录、原生窗口、GPU、真实鼠标、音频与系统媒体实验串行协调。只退出精确归属本次任务的进程。
 
-`script/scene_diagnostic_build.xcconfig` 供短筛查和交互诊断，保留 DEBUG 入口并使用优化 Swift/C；它的 single-file 配置不代表正式 Release WMO。性能对照使用相同 Swift/C 参数、诊断开关、输入、音源、viewport、帧率与热状态，不能新配置候选配旧配置基线。测量及停止标准见[性能工作卡](../roadmap/performance-convergence-card.md)。
+`script/build/scene_diagnostic_build.xcconfig` 供短筛查和交互诊断，保留 DEBUG 入口并使用优化 Swift/C；它的 single-file 配置不代表正式 Release WMO。性能对照使用相同 Swift/C 参数、诊断开关、输入、音源、viewport、帧率与热状态，不能新配置候选配旧配置基线。测量及停止标准见[性能工作卡](../roadmap/performance-convergence-card.md)。
 
 DEBUG direct-host、产品 client→daemon 和正常桌面有不同覆盖范围。截图入口可能改变目标的 framebuffer-only 权限或使用合成 provider；桌面、真实媒体和终端 attachment 的修改还要走正常桌面路径。产品控制链的测试必须实际经过 App 服务、client 与 daemon，不能用独立 Host 代替。
 
@@ -43,11 +43,11 @@ collector 对未生成的可选 preview/runtime 文件输出 `null`，不制造�
 显式输出示例：
 
 ```sh
-python3.12 -B script/scene_capability_census.py generate \
+python3.12 -B script/scene/scene_capability_census.py generate \
   --snapshot .artifacts/scene-reports/corpus/snapshot.json \
   --markdown .artifacts/scene-reports/corpus/overview.md \
   --sample-markdown .artifacts/scene-reports/corpus/samples.md
-python3.12 -B script/scene_capability_census.py verify \
+python3.12 -B script/scene/scene_capability_census.py verify \
   --snapshot .artifacts/scene-reports/corpus/snapshot.json \
   --markdown .artifacts/scene-reports/corpus/overview.md \
   --sample-markdown .artifacts/scene-reports/corpus/samples.md
@@ -58,11 +58,11 @@ python3.12 -B script/scene_capability_census.py verify \
 运行用当前 snapshot 的 sample identity 构造所需 matrix，选择报告所需的少量代表，不继承不适用的截图、计数或性能期待：
 
 ```sh
-python3.12 -B script/scene_wallpaper_benchmark.py \
+python3.12 -B script/scene/scene_wallpaper_benchmark.py \
   --app <签名App可执行文件> --sample-root <只读且含Scene的输入父目录> \
   --matrix <本次matrix.json> --output-dir <本次结果目录> \
   --log-only --duration 4 --jobs 1
-python3.12 -B script/scene_sample_debug_archive.py \
+python3.12 -B script/scene/scene_sample_debug_archive.py \
   --snapshot <本次snapshot.json> --report <本次结果目录/report.json> \
   --output <本次archive.json>
 ```

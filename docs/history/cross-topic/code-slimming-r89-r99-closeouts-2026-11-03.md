@@ -8,7 +8,7 @@
 
 当前范围、循环授权、审查保留项与 R55/R62/R23 待验边界仍见[现役精简专项](../../development/code-slimming-program.md#目标与边界)；引擎职责仍归[技术栈合同](../../architecture/technology-stack-boundaries.md)。下文命令、授权与“当前”“下一步”仅属于各批当时语境，不自动续开任务，也不将有界证据提升为完整 App、真实账户/媒体、性能或发布验收。
 
-下方标记界定保留载荷；仅将 R61–R88 档案的一条相对链接改为同目录链接，逆向替换可还原原块。精确长度与 SHA 见[预算登记](../../../script/document_health_baseline.json)中的本档记录；`completed-r89-r99` 是新增归档入口，不是原段锚点。
+下方标记界定保留载荷；仅将 R61–R88 档案的一条相对链接改为同目录链接，逆向替换可还原原块。精确长度与 SHA 见[预算登记](../../../script/data/document_health_baseline.json)中的本档记录；`completed-r89-r99` 是新增归档入口，不是原段锚点。
 
 <!-- preserved-body:start -->
 <a id="completed-r89-r99"></a>

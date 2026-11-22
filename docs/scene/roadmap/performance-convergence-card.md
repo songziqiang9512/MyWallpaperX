@@ -13,7 +13,7 @@
 4. 旧/新交替重复，报告分布、噪声和失败；不在看到结果后放宽窗口、阈值或删失败。测量时避免构建、测试、导出和 profiler 相互争用。
 5. 同输入确认内容、动画、属性、交互、暂停恢复和退出没有退化，再讨论收益。日志减少、代码变短、少几次调用或构建成功都不是整体性能结果。
 
-工具入口：[scene_wallpaper_benchmark](../../../script/scene_wallpaper_benchmark.py)、[scene_wallpaper_performance](../../../script/scene_wallpaper_performance.py)、[verify_scene_change](../../../script/verify_scene_change.py)。使用前读取实际 `--help`和所选门的输入/断言，不在本文复制易漂移参数。
+工具入口：[scene_wallpaper_benchmark](../../../script/scene/scene_wallpaper_benchmark.py)、[scene_wallpaper_performance](../../../script/scene/scene_wallpaper_performance.py)、[verify_scene_change](../../../script/verify_scene_change.py)。使用前读取实际 `--help`和所选门的输入/断言，不在本文复制易漂移参数。
 
 <a id="costs"></a>
 ## 当前成本调查入口

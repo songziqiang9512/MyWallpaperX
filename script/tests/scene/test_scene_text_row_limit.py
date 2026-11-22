@@ -1,0 +1,789 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+from script.scene.scene_swift_source_sets import scene_swift_sources
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
+SWIFT_SOURCES = list(dict.fromkeys([
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
+    *scene_swift_sources("authored_shader_frontend_support"),
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
+    Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
+    SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
+    SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocument+General.swift",
+    SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+    SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
+    SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
+    SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
+    SOURCE_ROOT / "Format/ScenePointLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneTubeLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
+    SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+    SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextFontResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextRowLimit.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift",
+]))
+
+# 全部 fixture 自建：字体只用 macOS 系统别名，内容是 A/B 重复串，没有官方 payload。
+# pointsize 12 -> 12 * 25/6 = 50 px；Arial 50 px 下 "AAAA BBBB" 约 290 px 宽、行高约 58 px，
+# 显式 limitwidth=200 会折成两行；保存的 size 本身不是换行开关。
+SCENE_FIXTURE = {
+    "version": 3,
+    "objects": [
+        {"id": 130, "name": "hidden-script-target", "text": "Hidden", "font": "systemfont_arial", "pointsize": 12, "size": "500 100", "visible": False},
+        {
+            "id": 10,
+            "name": "wrap baseline",
+            "limitwidth": True,
+            "maxwidth": 200,
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "200 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+        },
+        {
+            "id": 20,
+            "name": "one row",
+            "limitwidth": True,
+            "maxwidth": 200,
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "200 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": True,
+            "maxrows": 1,
+        },
+        {
+            "id": 30,
+            "name": "one row with ellipsis",
+            "limitwidth": True,
+            "maxwidth": 200,
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "200 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": True,
+            "maxrows": 1,
+            "limituseellipsis": True,
+        },
+        {
+            "id": 40,
+            "name": "hard newlines limited",
+            "text": "A\nB\nC",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "200 300",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": True,
+            "maxrows": 2,
+        },
+        {
+            "id": 50,
+            "name": "hard newlines baseline",
+            "text": "A\nB\nC",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "200 300",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+        },
+        {
+            "id": 60,
+            "name": "width limit on",
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "400 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitwidth": True,
+            "maxwidth": 100,
+        },
+        {
+            "id": 70,
+            "name": "width limit off keeps default maxwidth",
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "400 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitwidth": False,
+            "maxwidth": 100,
+        },
+        {
+            "id": 80,
+            "name": "wrapped property forms",
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "400 140",
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": {"value": True},
+            "maxrows": {"value": 1},
+            "limitwidth": {"value": True},
+            # 真实语料里 maxwidth 会带 animation 包装，取 value。
+            "maxwidth": {"animation": {"options": {"fps": 30}}, "value": 100},
+            "limituseellipsis": {"value": True},
+        },
+        {
+            "id": 90,
+            "name": "padded clock-sized frame",
+            "text": "20:06:35",
+            "font": "systemfont_arial",
+            "pointsize": 13,
+            "color": "1 1 1",
+            "size": "196 126",
+            "padding": 32,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
+        {
+            "id": 100,
+            "name": "padding surrounds the complete line",
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "330 140",
+            "padding": 32,
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": True,
+            "maxrows": 1,
+        },
+        {
+            "id": 110,
+            "name": "large padded clock",
+            "text": "12:00:",
+            "font": "systemfont_arial",
+            "pointsize": 28,
+            "color": "1 1 1",
+            "size": "411 140",
+            "padding": 70,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
+        {
+            "id": 120,
+            "name": "padded date",
+            "text": "Thursday, December 25th, 2025",
+            "font": "systemfont_arial",
+            "pointsize": 14,
+            "color": "1 1 1",
+            "size": "1216 70",
+            "padding": 32,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
+    ],
+}
+
+
+HARNESS_SOURCE = r'''
+import CoreGraphics
+import CoreText
+import Foundation
+import Metal
+
+enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
+
+struct SceneParticleInstanceOverride: Codable {}
+
+struct SceneParticleDefinitionParser {
+    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
+}
+
+struct SceneProject {
+    let rootURL: URL
+    let entryPath: String
+    let userProperties: SceneUserPropertyCatalog
+
+    var entryURL: URL { rootURL.appendingPathComponent(entryPath) }
+}
+
+struct SceneMdlPuppetAttachment {
+    let name: String
+    let isNamedBinding = true
+    let sceneBindFrameColumnMajor: [Float]
+}
+
+struct SceneAssetCatalog {
+    struct ModelAsset {
+        var declaredSizeWH: [Float]? { nil }
+        var passthrough: Bool? { nil }
+        let relativePath: String
+        let materialPath: String?
+        let cropOffsetXY: [Float]?
+        let isSolidLayer: Bool
+        let puppetPath: String?
+        let puppetAttachments: [SceneMdlPuppetAttachment]
+    }
+
+    struct MaterialAsset {
+        struct Pass {
+            let shader: String?
+            let textures: [String]
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+            let userShaderValues: [String: String]
+            let blending: String?
+            let depthTest: String?
+            let depthWrite: String?
+            let cullMode: String?
+            let alphaWriting: String?
+        }
+
+        let relativePath: String
+        let rawSHA256: String
+        let shaderPathIndependentSHA256: String
+        let passes: [Pass]
+    }
+
+    let models: [ModelAsset]
+    let materials: [MaterialAsset]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+    let shaderReferences: [String]
+    var shaderContracts: [SceneShaderContract] { [] }
+    let textureReferences: [String]
+}
+
+struct SceneResourceReferenceIndex {
+    let missingReferences: [String]
+    let builtInReferenceCount: Int
+    let runtimeProvidedReferenceCount: Int
+}
+
+struct SceneCapabilityProfile {
+    let firstStageRendererGaps: [String]
+}
+
+struct SceneDiagnosticsReport {
+    let project: SceneProject?
+    let sceneDocument: SceneDocument?
+    let assetCatalog: SceneAssetCatalog?
+    let resourceReferences: SceneResourceReferenceIndex?
+    let capabilityProfile: SceneCapabilityProfile?
+}
+
+@main
+enum Harness {
+    static func main() throws {
+        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        let document = try SceneDocumentLoader().load(from: sceneURL)
+        let project = SceneProject(
+            rootURL: sceneURL.deletingLastPathComponent(),
+            entryPath: sceneURL.lastPathComponent,
+            userProperties: .empty
+        )
+        guard let descriptor = SceneRenderDescriptorBuilder().build(
+            project: project,
+            sceneDocument: document,
+            assetCatalog: SceneAssetCatalog(
+                models: [],
+                materials: [],
+                effectDefinitions: [],
+                effectDefinitionDiagnostics: [],
+                shaderReferences: [],
+                textureReferences: []
+            ),
+            resourceReferences: SceneResourceReferenceIndex(
+                missingReferences: [], builtInReferenceCount: 0,
+                runtimeProvidedReferenceCount: 0
+            ),
+            capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
+        ) else {
+            throw HarnessError.descriptorRejected
+        }
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
+            url: sceneURL.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
+
+        let loaded = SceneTextTextureLoader.load(
+            descriptor: descriptor,
+            resourceView: resourceView,
+            device: device
+        )
+        let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130]
+        var style: [String: Any] = [:]
+        var ink: [String: Any] = [:]
+        var sameContentDynamicInk: [String: Any] = [:]
+        for id in ids {
+            guard let layer = layers[id], let text = layer.textStyle else { continue }
+            style["\(id)"] = [
+                "limitRows": text.limitRows,
+                "maxRows": text.maxRows,
+                "limitWidth": text.limitWidth,
+                "maxWidth": text.maxWidth,
+                "useEllipsis": text.useEllipsis,
+            ]
+            guard let texture = loaded.rasters[id]?.texture else { continue }
+            ink["\(id)"] = inkStatistics(texture)
+            if let dynamic = try SceneTextTextureLoader.makeDynamicTexture(
+                for: layer, content: layer.text!, pointSize: text.pointSize,
+                colorRGB: text.colorRGB, resourceView: resourceView, device: device
+            ) {
+                sameContentDynamicInk["\(id)"] = inkStatistics(dynamic.texture)
+                precondition(loaded.rasters[id]?.renderSizeWH == dynamic.renderSizeWH)
+            }
+        }
+
+        let wrapWidths: [String: Any] = [
+            "limitOff": SceneTextRowLimit.wrapWidth(
+                contentWidth: 653,
+                style: SceneTextDescriptor.parse([
+                    "text": "x", "limitwidth": false, "maxwidth": 500,
+                ]),
+                scale: 1
+            ),
+            "limitOn": SceneTextRowLimit.wrapWidth(
+                contentWidth: 653,
+                style: SceneTextDescriptor.parse([
+                    "text": "x", "limitwidth": true, "maxwidth": 620,
+                ]),
+                scale: 1
+            ),
+            "limitAboveBox": SceneTextRowLimit.wrapWidth(
+                contentWidth: 653,
+                style: SceneTextDescriptor.parse([
+                    "text": "x", "limitwidth": true, "maxwidth": 1942.6299,
+                ]),
+                scale: 1
+            ),
+            "limitScaled": SceneTextRowLimit.wrapWidth(
+                contentWidth: 653,
+                style: SceneTextDescriptor.parse([
+                    "text": "x", "limitwidth": true, "maxwidth": 620,
+                ]),
+                scale: 0.5
+            ),
+            "limitZero": SceneTextRowLimit.wrapWidth(
+                contentWidth: 653,
+                style: SceneTextDescriptor.parse([
+                    "text": "x", "limitwidth": true, "maxwidth": 0,
+                ]),
+                scale: 1
+            ),
+        ]
+        let longContent = "AAAA BBBB CCCC DDDD"
+        let autoSized = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: longContent,
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                resourceView: resourceView,
+                device: device
+            )
+        }
+        let widthLimited = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: longContent,
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                resourceView: resourceView,
+                device: device
+            )
+        }
+        let timelineNarrow = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: "AAAA BBBB",
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                maxWidth: 100,
+                resourceView: resourceView,
+                device: device
+            )
+        }
+        let timelineWide = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: "AAAA BBBB",
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                maxWidth: 350,
+                resourceView: resourceView,
+                device: device
+            )
+        }
+
+        // Independent native font metrics choose a width that admits visible
+        // glyphs but excludes the final advance. No Workshop font is copied.
+        let boundaryFont = CTFontCreateWithName("Arial" as CFString, 50, nil)
+        let boundaryLine = CTLineCreateWithAttributedString(NSAttributedString(
+            string: "ONE TWO", attributes: [NSAttributedString.Key(kCTFontAttributeName as String): boundaryFont]
+        ))
+        let inkWidth = CTLineGetBoundsWithOptions(boundaryLine, .useGlyphPathBounds).width
+        let advance = CTLineGetTypographicBounds(boundaryLine, nil, nil, nil)
+        let admittedWidth = Float(ceil(inkWidth))
+        precondition(Double(admittedWidth) < advance)
+        var boundaryInk: [String: Any] = [:]
+        for (name, id, width) in [("fits", 60, admittedWidth),
+                                  ("tooNarrow", 60, Float(floor(inkWidth) - 1)),
+                                  ("oneRow", 20, admittedWidth)] {
+            if let layer = layers[id], let rendered = try SceneTextTextureLoader.makeDynamicTexture(
+                for: layer, content: "ONE TWO", pointSize: 12,
+                colorRGB: [1, 1, 1], maxWidth: width,
+                resourceView: resourceView, device: device
+            ) { boundaryInk[name] = inkStatistics(rendered.texture) }
+        }
+
+        let lastRowLiteral = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0, content: "AAAA B", pointSize: 12,
+                colorRGB: [1, 1, 1], resourceView: resourceView, device: device
+            )
+        }
+        let ellipsisLiteral = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
+                for: $0, content: "AAAA …", pointSize: 12,
+                colorRGB: [1, 1, 1], resourceView: resourceView, device: device
+            )
+        }
+        let result: [String: Any] = [
+            "ellipsisLiteralInk": ellipsisLiteral.map { inkStatistics($0.texture) } ?? [:],
+            "lastRowLiteralInk": lastRowLiteral.map { inkStatistics($0.texture) } ?? [:],
+            "glyphBoundaryInk": boundaryInk,
+            "style": style,
+            "ink": ink,
+            "sameContentDynamicInk": sameContentDynamicInk,
+            "wrapWidths": wrapWidths,
+            "dynamicRenderSizes": [
+                "auto": autoSized?.renderSizeWH ?? [],
+                "limited": widthLimited?.renderSizeWH ?? [],
+            ],
+            "dynamicAutoInk": autoSized.map { inkStatistics($0.texture) } ?? [:],
+            "dynamicLimitedInk": widthLimited.map { inkStatistics($0.texture) } ?? [:],
+            "timelineWidthInk": [
+                "narrow": timelineNarrow.map { inkStatistics($0.texture) } ?? [:],
+                "wide": timelineWide.map { inkStatistics($0.texture) } ?? [:],
+            ],
+            "hiddenStillHidden": !SceneLayerVisibility.visibleLayerIDs(in: descriptor).contains(130),
+            "hiddenPrepared": loaded.rasters[130]?.texture != nil,
+            "messages": loaded.messages,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    /// 逐像素统计不透明覆盖：bitmap 是 premultipliedFirst + byteOrder32Little，
+    /// 所以内存里的顺序是 B,G,R,A，alpha 在第 4 字节。
+    /// 行区间按纹理行号给出（CGContext 原点在左下，所以行号越大越靠画面上方）。
+    private static func inkStatistics(_ texture: MTLTexture) -> [String: Any] {
+        let width = texture.width
+        let height = texture.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        texture.getBytes(
+            &pixels,
+            bytesPerRow: width * 4,
+            from: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0
+        )
+        var count = 0
+        var minX = width
+        var maxX = -1
+        var rows: [Int] = []
+        for y in 0 ..< height {
+            var rowHasInk = false
+            for x in 0 ..< width where pixels[(y * width + x) * 4 + 3] > 0 {
+                count += 1
+                rowHasInk = true
+                minX = min(minX, x)
+                maxX = max(maxX, x)
+            }
+            if rowHasInk { rows.append(y) }
+        }
+        var ranges: [[Int]] = []
+        for row in rows {
+            if let last = ranges.last, last[1] + 1 == row {
+                ranges[ranges.count - 1][1] = row
+            } else {
+                ranges.append([row, row])
+            }
+        }
+        return [
+            "size": [width, height],
+            "count": count,
+            "minX": minX,
+            "maxX": maxX,
+            "rowRanges": ranges,
+        ]
+    }
+
+    enum HarnessError: Error {
+        case missingFixture
+        case noMetal
+        case descriptorRejected
+    }
+}
+'''
+
+
+class SceneTextRowLimitTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        missing_sources = [path for path in SWIFT_SOURCES if not path.is_file()]
+        if missing_sources:
+            raise RuntimeError(
+                "Scene text row limit production contract is missing: "
+                + ", ".join(path.name for path in missing_sources)
+            )
+
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-text-rows-")
+        directory = Path(cls.temporary_directory.name)
+        fixture = directory / "scene.json"
+        fixture.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-text-row-limit"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-framework", "Metal",
+                "-framework", "CoreText",
+                "-o", str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary), str(fixture)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if hasattr(cls, "temporary_directory"):
+            cls.temporary_directory.cleanup()
+
+    def test_visible_glyph_width_controls_wrap_and_row_truncation(self) -> None:
+        boundary = self.result["glyphBoundaryInk"]
+        self.assertEqual(len(boundary["fits"]["rowRanges"]), 1)
+        self.assertEqual(len(boundary["tooNarrow"]["rowRanges"]), 2)
+        self.assertEqual(boundary["oneRow"], boundary["fits"])
+
+    def test_default_loader_has_no_unclaimed_effect_runtime_authority(self) -> None:
+        source = TEXT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
+            source,
+        )
+        self.assertNotIn("SceneEffectRuntimePlanner", source)
+        self.assertNotIn("SceneInlineEffectRuntime", source)
+        self.assertFalse(
+            any("effect runtime" in message for message in self.result["messages"]),
+            self.result["messages"],
+        )
+
+    def test_limit_fields_default_off_and_parse_wrapped_forms(self) -> None:
+        # 官方 ITextLayer 的 limitrows/maxrows/limitwidth/maxwidth 与编辑器的
+        # Overflow ellipsis：缺省全部关闭，maxrows 缺省 1，maxwidth 缺省 0。
+        self.assertEqual(
+            self.result["style"]["10"],
+            {
+                "limitRows": False,
+                "maxRows": 1,
+                "limitWidth": True,
+                "maxWidth": 200,
+                "useEllipsis": False,
+            },
+        )
+        # 语料里 maxwidth 可能带 animation 包装，property 形式必须取 value。
+        self.assertEqual(
+            self.result["style"]["80"],
+            {
+                "limitRows": True,
+                "maxRows": 1,
+                "limitWidth": True,
+                "maxWidth": 100,
+                "useEllipsis": True,
+            },
+        )
+        self.assertEqual(self.result["style"]["70"]["limitWidth"], False)
+        self.assertEqual(self.result["style"]["70"]["maxWidth"], 100)
+
+    def test_wrap_width_only_applies_when_limit_width_is_enabled(self) -> None:
+        # 关闭时必须完全忽略 maxwidth，否则 393 个带 500 默认值的 layer 会被压窄。
+        self.assertEqual(self.result["wrapWidths"]["limitOff"], 653)
+        self.assertEqual(self.result["wrapWidths"]["limitOn"], 620)
+        # maxwidth 大于外框时以外框为上界，maxwidth 是像素所以要跟随栅格降采样。
+        self.assertEqual(self.result["wrapWidths"]["limitAboveBox"], 653)
+        self.assertEqual(self.result["wrapWidths"]["limitScaled"], 310)
+        self.assertEqual(self.result["wrapWidths"]["limitZero"], 653)
+
+    def test_max_rows_drops_the_overflowing_rows(self) -> None:
+        baseline = self.result["ink"]["10"]
+        limited = self.result["ink"]["20"]
+        self.assertEqual(len(baseline["rowRanges"]), 2)
+        self.assertEqual(len(limited["rowRanges"]), 1)
+        self.assertEqual(limited["rowRanges"][0], baseline["rowRanges"][0])
+        self.assertLess(limited["count"], baseline["count"])
+        self.assertEqual(limited, self.result["lastRowLiteralInk"])
+
+    def test_max_rows_counts_hard_line_breaks(self) -> None:
+        baseline = self.result["ink"]["50"]
+        limited = self.result["ink"]["40"]
+        self.assertEqual(len(baseline["rowRanges"]), 3)
+        self.assertEqual(len(limited["rowRanges"]), 2)
+        self.assertEqual(limited["rowRanges"], baseline["rowRanges"][:2])
+
+    def test_overflow_ellipsis_fits_the_final_row_and_marks_truncation(self) -> None:
+        plain = self.result["ink"]["20"]
+        ellipsis = self.result["ink"]["30"]
+        self.assertEqual(len(ellipsis["rowRanges"]), 1)
+        self.assertGreater(ellipsis["maxX"], plain["maxX"])
+        self.assertEqual(ellipsis, self.result["ellipsisLiteralInk"])
+
+    def test_ellipsis_backs_off_characters_to_fit_the_narrowed_wrap(self) -> None:
+        # 80 号同时开三个开关且全是 property 包装形式：换行宽度 100 px 装不下
+        # "AA…"，末行必须回退到 "A…" 才不越界；同一段文本在不限宽的 30 号里是 "AAAA…"。
+        narrow = self.result["ink"]["80"]
+        wide = self.result["ink"]["30"]
+        self.assertEqual(len(narrow["rowRanges"]), 1)
+        self.assertLessEqual(narrow["maxX"], 100)
+        self.assertLess(narrow["maxX"], wide["maxX"])
+        self.assertLess(narrow["count"], wide["count"])
+
+    def test_width_limit_narrows_the_wrap_and_off_state_keeps_the_full_box(self) -> None:
+        limited = self.result["ink"]["60"]
+        unlimited = self.result["ink"]["70"]
+        self.assertEqual(len(unlimited["rowRanges"]), 1)
+        self.assertGreater(len(limited["rowRanges"]), 1)
+        self.assertLessEqual(limited["maxX"], 100)
+        self.assertGreater(unlimited["maxX"], 100)
+
+    def test_hidden_text_has_prepared_source_without_becoming_visible(self):
+        self.assertTrue(self.result["hiddenPrepared"])
+        self.assertTrue(self.result["hiddenStillHidden"])
+
+    def test_padded_authored_outer_frame_still_rasterizes_visible_text(self) -> None:
+        padded = self.result["ink"]["90"]
+        self.assertGreater(padded["size"][0], 196)
+        self.assertEqual(padded, self.result["sameContentDynamicInk"]["90"])
+        self.assertGreater(padded["count"], 0)
+        self.assertGreaterEqual(padded["minX"], 0)
+        self.assertLess(padded["maxX"], padded["size"][0])
+        self.assertEqual(len(padded["rowRanges"]), 1)
+
+    def test_unlimited_width_keeps_full_padding_around_the_complete_line(self) -> None:
+        padded = self.result["ink"]["100"]
+        self.assertEqual(len(padded["rowRanges"]), 1)
+        self.assertGreaterEqual(padded["minX"], 31)
+        self.assertGreaterEqual(padded["size"][0] - padded["maxX"] - 1, 31)
+        self.assertGreater(padded["maxX"], 270)
+
+    def test_large_padded_single_line_text_keeps_visible_ink(self) -> None:
+        clock = self.result["ink"]["110"]
+        date = self.result["ink"]["120"]
+        self.assertEqual(clock, self.result["sameContentDynamicInk"]["110"])
+        self.assertEqual(date, self.result["sameContentDynamicInk"]["120"])
+        self.assertGreater(clock["size"][1], 140)
+        self.assertGreater(date["size"][1], 70)
+        self.assertEqual(len(clock["rowRanges"]), 1)
+        self.assertEqual(len(date["rowRanges"]), 1)
+        self.assertGreater(clock["count"], 0)
+        self.assertGreater(date["count"], 0)
+
+    def test_dynamic_text_measures_wrapped_height_instead_of_clipping_to_saved_size(self) -> None:
+        self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
+        limited = self.result["dynamicLimitedInk"]
+        self.assertGreater(limited["count"], 0)
+        self.assertGreaterEqual(len(limited["rowRanges"]), 4)
+        # Width limits constrain ink. CoreText can retain a fractional
+        # trailing advance in the allocation extent without drawing past it.
+        self.assertLess(limited["maxX"], 100)
+        self.assertGreater(limited["size"][1], self.result["dynamicAutoInk"]["size"][1])
+
+    def test_initial_and_updated_text_have_identical_ink_and_geometry(self) -> None:
+        self.assertEqual(self.result["ink"], self.result["sameContentDynamicInk"])
+
+    def test_dynamic_max_width_rerasterizes_the_wrap_geometry(self) -> None:
+        narrow = self.result["timelineWidthInk"]["narrow"]
+        wide = self.result["timelineWidthInk"]["wide"]
+        self.assertGreater(len(narrow["rowRanges"]), len(wide["rowRanges"]))
+        self.assertEqual(len(wide["rowRanges"]), 1)
+        self.assertLessEqual(narrow["maxX"], 100)
+        self.assertGreater(wide["maxX"], 100)
+
+
+if __name__ == "__main__":
+    unittest.main()

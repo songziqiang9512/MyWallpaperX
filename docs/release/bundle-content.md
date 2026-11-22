@@ -16,7 +16,7 @@ App 只保留运行代码、依赖、许可证与资源，排除开发及编辑�
 
 ## SceneStockAssets
 
-`script/copy-scene-stock-assets.sh` 是 App 内该 bundle 的唯一复制入口；Xcode 自动资源复制排除原目录。
+`script/build/copy-scene-stock-assets.sh` 是 App 内该 bundle 的唯一复制入口；Xcode 自动资源复制排除原目录。
 复制保留原始路径和运行文件字节，仅过滤：
 
 - `.mimosa`、`.DS_Store`：本地工具或系统元数据。
@@ -54,7 +54,7 @@ ZIP 从 31,697,465 bytes 减为 6,918,174 bytes。本机检查了完整视频的
 - App/dSYM 分开发布，dSYM 是 Release 附件，不塞进 App；Release 本就没有 Debug 注入 dylib。
 - `Resources/SceneMediaObserver/SceneMediaObserver.dylib` 随 Developer ID Release 分发
   （2026-10-07 发布负责人决定，见 [D6 渠道修订](../web/mediaremote-nowplaying-design.md)）；
-  由 `script/build-scene-media-observer.sh` 构建并随包签名，供壁纸歌曲信息的系统正在播放
+  由 `script/build/build-scene-media-observer.sh` 构建并随包签名，供壁纸歌曲信息的系统正在播放
   来源在独立 Perl 宿主装载。Mac App Store 构建不得包含该私有 backend。
 
 `validate_apple_silicon_release.py` 在实际 bundle 上拒绝开发残留、PDB 和重复根资源。

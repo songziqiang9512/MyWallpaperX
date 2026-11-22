@@ -36,7 +36,7 @@
 
 ## 3. 能力门
 
-执行清单由 [`script/web_wallpaper_steam_representative_sample_matrix.json`](../../../script/web_wallpaper_steam_representative_sample_matrix.json) 定义：
+执行清单由 [`script/data/web_wallpaper_steam_representative_sample_matrix.json`](../../../script/data/web_wallpaper_steam_representative_sample_matrix.json) 定义：
 
 | ID | 主要能力组合 | 单项门 |
 | --- | --- | --- |
@@ -56,12 +56,12 @@
 ## 5. 复现
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app <debug-app>/Contents/MacOS/MyWallpaperX \
   --workshop-root <steam-sample-root>/Web \
   --runtime-workshop-root <steam-sample-root> \
   --runtime-home <temporary-home> \
-  --matrix script/web_wallpaper_steam_representative_sample_matrix.json \
+  --matrix script/data/web_wallpaper_steam_representative_sample_matrix.json \
   --duration 20 \
   --screenshot \
   --kill-existing \

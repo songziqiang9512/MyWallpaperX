@@ -1,0 +1,1000 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+]
+
+
+HARNESS_SOURCE = r'''
+import Foundation
+
+@main
+enum Harness {
+    static func main() throws {
+        guard CommandLine.arguments.count >= 2 else { throw HarnessError.missingMode }
+        switch CommandLine.arguments[1] {
+        case "synthetic":
+            try printJSON(syntheticResult())
+        case "render-state-profiles":
+            try printJSON(renderStateProfileResults())
+        case "census":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
+            try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
+        default:
+            throw HarnessError.unknownMode
+        }
+    }
+
+    private static func syntheticResult() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-assets-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try writeJSON([
+            "material": "Materials/Particle/Root.json",
+            "emitter": [["name": "sphereRandom"]],
+            "children": [["name": "Particles/Child.json"]]
+        ], relativePath: "particles/root.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/child.json",
+            "emitter": [["name": "boxRandom"]],
+            "children": [["name": "particles/root.json"]]
+        ], relativePath: "particles/child.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/absent-material.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/missing-material.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/missing-texture.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/missing-texture.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/builtin-texture.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/builtin-texture.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/drop-texture.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/drop-texture.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/refract.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/refract-single.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract-single.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/refract-missing-normal.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract-missing-normal.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/unknown-blend.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/unknown-blend.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/unsupported-state.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/unsupported-state.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/depth.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite"]]
+        ], relativePath: "particles/depth.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/depth.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite", "orientation": "fixed"]]
+        ], relativePath: "particles/depth-fixed.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite"]]
+        ], relativePath: "particles/normal-cull.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite", "orientation": "fixed"]]
+        ], relativePath: "particles/normal-cull-fixed.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "spritetrail", "length": 0.1]]
+        ], relativePath: "particles/normal-cull-trail.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/custom-shader.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/custom-shader.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/missing-shader.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/missing-shader.json", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
+        try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
+        try writeJSON(["passes": []], relativePath: "materials/particle/halo.json", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/refract-blank.tex", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/refract-normal.tex", under: directory)
+
+        let passes = [
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/root.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "Additive"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/child.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["materials/particle/child.png"],
+                blending: "Translucent"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/missing-texture.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["custom/absent"],
+                blending: nil
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/builtin-texture.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/halo"],
+                blending: nil
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/drop-texture.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/drop"],
+                blending: nil
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract-single.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract-missing-normal.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank", "particle/missing-normal"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/unknown-blend.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "multiply"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/unsupported-state.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "additive",
+                alphaWriting: "enabled"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/depth.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "translucent",
+                combos: ["CUTOUT": 0, "REFRACT": 0],
+                constantValues: [
+                    "ui_editor_properties_overbright": .init(
+                        components: [1.19],
+                        isStatic: true
+                    )
+                ],
+                depthTest: "enabled",
+                depthWrite: "enabled",
+                alphaWriting: "default"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/normal-cull.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "translucent",
+                combos: ["REFRACT": 0],
+                cullMode: "normal"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/custom-shader.json",
+                shaderPath: "shaders/customparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "additive"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/missing-shader.json",
+                shaderPath: nil,
+                texturePaths: ["particle/root"],
+                blending: "additive"
+            )
+        ]
+        let resourceView = SceneResourceView(
+            projectRootURL: directory,
+            packageRootURL: nil,
+            stockAssetsRootURL: nil
+        )
+        let graph = try SceneParticleAssetGraphLoader(resourceView: resourceView).load(
+            rootPaths: [
+                "Particles\\Root.JSON",
+                "particles/missing-material.json",
+                "particles/missing-texture.json",
+                "particles/builtin-texture.json",
+                "particles/drop-texture.json",
+                "particles/refract.json",
+                "particles/refract-single.json",
+                "particles/unknown-blend.json",
+                "particles/unsupported-state.json",
+                "particles/depth.json",
+                "particles/depth-fixed.json",
+                "particles/normal-cull.json",
+                "particles/normal-cull-fixed.json",
+                "particles/normal-cull-trail.json",
+                "particles/custom-shader.json",
+                "particles/missing-shader.json",
+                "particles/missing-definition.json"
+            ],
+            materialPasses: passes
+        )
+        let root = graph.assetsByPath["particles/root.json"]
+        let child = graph.assetsByPath["particles/child.json"]
+        let halo = graph.assetsByPath["particles/builtin-texture.json"]
+        let drop = graph.assetsByPath["particles/drop-texture.json"]
+        let refract = graph.assetsByPath["particles/refract.json"]
+        let singleSlotRefract = graph.assetsByPath["particles/refract-single.json"]
+        let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
+        let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
+        let depth = graph.assetsByPath["particles/depth.json"]
+        let depthFixed = graph.assetsByPath["particles/depth-fixed.json"]
+        let normalCull = graph.assetsByPath["particles/normal-cull.json"]
+        let normalCullFixed = graph.assetsByPath["particles/normal-cull-fixed.json"]
+        let normalCullTrail = graph.assetsByPath["particles/normal-cull-trail.json"]
+        let customShader = graph.assetsByPath["particles/custom-shader.json"]
+        let missingShader = graph.assetsByPath["particles/missing-shader.json"]
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
+        let localDropGraph = try SceneParticleAssetGraphLoader(resourceView: .init(
+            projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
+        )).load(
+            rootPaths: ["particles/drop-texture.json"],
+            materialPasses: passes
+        )
+        let localDrop = localDropGraph.assetsByPath["particles/drop-texture.json"]
+        let missingNormalGraph = try SceneParticleAssetGraphLoader(
+            resourceView: resourceView
+        ).load(
+            rootPaths: ["particles/refract-missing-normal.json"],
+            materialPasses: passes
+        )
+        let missingNormalRefract = missingNormalGraph.assetsByPath[
+            "particles/refract-missing-normal.json"
+        ]
+        let singleSlotGraphWired: Bool
+        if let singleSlotRefract,
+           let declaration = singleSlotRefract.refraction {
+            singleSlotGraphWired = singleSlotRefract.textureSource != nil
+                && declaration.normalTextureSource == nil
+        } else {
+            singleSlotGraphWired = false
+        }
+        let missingExplicitNormalRejected: Bool
+        if let missingNormalRefract {
+            missingExplicitNormalRejected = missingNormalRefract.textureSource == nil
+                && missingNormalRefract.refraction == nil
+                && missingNormalGraph.diagnostics.contains {
+                    $0.kind == .refractionUnsupported
+                        && $0.detail == "normalTextureUnavailable"
+                }
+        } else {
+            missingExplicitNormalRejected = false
+        }
+        let singleSlotPlan = refractionPlan(
+            for: SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            )
+        )
+        let diagnostics = Dictionary(grouping: graph.diagnostics, by: { $0.kind.rawValue })
+            .mapValues(\.count)
+        let depthFixedCamera = depthFixed?.definition.renderers.first.map {
+            SceneParticlePipelineRenderStateCompiler.usesSceneCamera(renderer: $0, materialPass: depthFixed?.materialPass)
+        } ?? false
+        return [
+            "assetCount": graph.assetsByPath.count,
+            "rootPaths": graph.rootPaths,
+            "rootChildren": root?.childPaths ?? [],
+            "rootBlend": root?.pipelineState?.blendMode.rawValue ?? "",
+            "childBlend": child?.pipelineState?.blendMode.rawValue ?? "",
+            "rootTexture": fileURL(root?.textureSource)?.lastPathComponent ?? "",
+            "childTexture": fileURL(child?.textureSource)?.lastPathComponent ?? "",
+            "rootTextureExists": fileURL(root?.textureSource).map {
+                FileManager.default.fileExists(atPath: $0.path)
+            } ?? false,
+            "childTextureExists": fileURL(child?.textureSource).map {
+                FileManager.default.fileExists(atPath: $0.path)
+            } ?? false,
+            "haloTextureSource": sourceKind(halo?.textureSource),
+            "dropTextureSource": sourceKind(drop?.textureSource),
+            "localDropTextureSource": sourceKind(localDrop?.textureSource),
+            "refractHasTextureSource": refract?.textureSource != nil,
+            "refractHasPlan": refract?.refraction != nil,
+            "refractDefaultAmount": refract?.refraction?.amount ?? -1,
+            "singleSlotGraphWired": singleSlotGraphWired,
+            "missingExplicitNormalRejected": missingExplicitNormalRejected,
+            "unknownBlendRejected": unknownBlend?.pipelineState == nil,
+            "unknownBlendStateRejected": unknownBlend?.renderState == nil,
+            "unsupportedStateRejected": unsupportedState?.pipelineState == nil
+                && unsupportedState?.renderState == nil,
+            "depthTestEnabled": depth?.pipelineState?.depthTestEnabled ?? false,
+            "depthWriteEnabled": depth?.pipelineState?.depthWriteEnabled ?? false,
+            "depthOverbright": depth?.pipelineState?.overbright ?? -1,
+            "depthFixedState": depthFixed?.pipelineState.map {
+                [$0.depthTestEnabled, $0.depthWriteEnabled, depthFixedCamera]
+            } ?? [],
+            "rootCull": root?.pipelineState?.cullMode.rawValue ?? "",
+            "normalCull": normalCull?.pipelineState?.cullMode.rawValue ?? "",
+            "normalCullFixed": normalCullFixed?.pipelineState?.cullMode.rawValue ?? "",
+            "normalCullTrail": normalCullTrail?.pipelineState?.cullMode.rawValue ?? "",
+            "customShaderRejected": customShader?.supportsBuiltInShaderExecution == false,
+            "missingShaderRejected": missingShader?.supportsBuiltInShaderExecution == false,
+            "unknownEnabledComboRejected": refractionPlan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1, "LIGHTING": 1]
+                )
+            ) == nil,
+            "normalCullRefractionPreservesInput": refractionPlan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1],
+                    cullMode: "normal"
+                )
+            )?.normalReference == "particle/refract-normal",
+            "singleSlotRefractionUsesFlatNormal": singleSlotPlan.map {
+                $0.normalReference == nil
+            } ?? false,
+            "twoSlotRefractionPreservesNormal": refractionPlan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1]
+                )
+            )?.normalReference == "particle/refract-normal",
+            "normalSlotHoleEqualsOmitted": refractionPlan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank"],
+                    textureSlots: ["particle/refract-blank", nil],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1]
+                )
+            ) == singleSlotPlan,
+            "depthRefractionReadOnly": refractionPlan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/renamed-mask.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/renamed-opacity"],
+                    blending: "additive", combos: ["REFRACT": 1],
+                    depthTest: "enabled", depthWrite: "disabled", cullMode: "nocull"
+                )
+            ) != nil,
+            "diagnostics": diagnostics
+        ]
+    }
+
+    private static func refractionPlan(for pass: SceneParticleMaterialPass) -> SceneParticleRefractionPlanner.Plan? {
+        guard let state = SceneMaterialRenderState.compile(
+            blending: pass.blending, depthTest: pass.depthTest, depthWrite: pass.depthWrite,
+            cullMode: pass.cullMode, alphaWriting: pass.alphaWriting, missingBlending: .translucent
+        ) else { return nil }
+        return SceneParticleRefractionPlanner.plan(for: pass, renderState: state)
+    }
+
+    private static func renderStateProfileResults() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-profiles-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/profile.tex", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/rebadged.tex", under: directory)
+        let states: [(String, Bool, Bool, String)] = [
+            ("plain", false, false, "nocull"),
+            ("test-write", true, true, "nocull"),
+            ("test-only", true, false, "nocull"),
+            ("write-only", false, true, "nocull"),
+            ("cull-only", false, false, "normal"),
+            ("test-write-cull", true, true, "normal")
+        ]
+        var roots: [String] = []
+        var passes: [SceneParticleMaterialPass] = []
+        var expected: [String: (Bool, Bool, Bool, String, Int, Int, Bool, Bool)] = [:]
+        func add(
+            _ name: String, flags: Int = 5,
+            renderers: [[String: Any]] = [["name": "sprite", "flags": 1]],
+            state: (String, Bool, Bool, String) = ("test-write-cull", true, true, "normal"),
+            allowed: Bool = false, combos: [String: Int] = ["REFRACT": 0],
+            userTexture: Bool = false, userValues: Bool = false,
+            cameraProfile: Bool? = nil, blending: String = "translucent", texture: String = "particle/profile"
+        ) throws {
+            let path = "particles/\(name).json"
+            let material = "materials/particle/\(name).json"
+            try writeJSON([
+                "material": material, "flags": flags,
+                "emitter": [["name": "sphereRandom"]], "renderer": renderers
+            ], relativePath: path, under: directory)
+            roots.append(path)
+            passes.append(.init(
+                materialPath: material, shaderPath: "shaders/genericparticle.json",
+                texturePaths: [texture], blending: blending, combos: combos,
+                constantValues: ["ui_editor_properties_overbright": .init(components: [1.19], isStatic: true)],
+                hasUserTextureInputs: userTexture, hasUserShaderValues: userValues,
+                depthTest: state.1 ? "enabled" : "disabled",
+                depthWrite: state.2 ? "enabled" : "disabled", cullMode: state.3
+            ))
+            expected[path] = (allowed, state.1, state.2, state.3, flags,
+                              renderers.first?["flags"] as? Int ?? 0, cameraProfile ?? allowed,
+                              allowed && combos["REFRACT"] == 1)
+        }
+        for flags in [0, 1, 4, 5] {
+            for rendererFlags in [0, 1] {
+                for state in states {
+                    try add("system\(flags)-renderer\(rendererFlags)-\(state.0)", flags: flags,
+                        renderers: [["name": "sprite", "flags": rendererFlags, "orientation": "screen"]],
+                        state: state, allowed: true)
+                }
+                try add("refract-read-only-\(flags)-\(rendererFlags)", flags: flags,
+                    renderers: [["name": "sprite", "flags": rendererFlags, "orientation": "screen"]],
+                    state: ("read-only", true, false, rendererFlags == 0 ? "normal" : "nocull"), allowed: true,
+                    combos: ["REFRACT": 1], cameraProfile: false)
+            }
+        }
+        try add("refract-renamed-additive", flags: 4, state: ("read-only", true, false, "normal"),
+            allowed: true, combos: ["REFRACT": 1], cameraProfile: false,
+            blending: "additive", texture: "particle/rebadged")
+        for state in states where state.2 || state.3 == "normal" {
+            try add("refract-state-\(state.0)", state: state, allowed: !state.2,
+                combos: ["REFRACT": 1], cameraProfile: false)
+        }
+        try add("coverage-no-cull", state: ("plain", false, false, "nocull"), allowed: true, blending: "alphatocoverage")
+        try add("coverage-normal-cull", state: ("plain", false, false, "normal"), allowed: true, blending: "alphatocoverage")
+        try add("default-world-screen", allowed: true)
+        let geometryStart = roots.count
+        for orientation in ["fixed", "upright"] {
+            try add(orientation, renderers: [["name": "sprite", "flags": 1, "orientation": orientation]], allowed: true, cameraProfile: false)
+        }
+        for name in ["spritetrail", "rope", "ropetrail"] {
+            try add(name, renderers: [["name": name, "flags": 1]], allowed: true, cameraProfile: false)
+        }
+        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]], allowed: true, cameraProfile: true)
+        try add("axis", renderers: [["name": "sprite", "flags": 1, "axis": "0 0 1"]], allowed: true, cameraProfile: false)
+        try add("unknown-flags", renderers: [["name": "sprite", "flags": 3]], allowed: true, cameraProfile: false)
+        try add("malformed-flags", renderers: [["name": "sprite", "flags": "invalid"]], allowed: true, cameraProfile: false)
+        try add("malformed-orientation", renderers: [["name": "sprite", "orientation": 17]], allowed: true, cameraProfile: false)
+        try add("unknown-field", renderers: [["name": "sprite", "unrecognized": true]], allowed: true, cameraProfile: false)
+        let geometryPaths = Set(roots[geometryStart...])
+        for combo in ["REFRACT", "CUTOUT", "LIGHTING", "UNKNOWN"] {
+            try add(combo.lowercased(), combos: [combo: 1])
+        }
+        try add("user-texture", userTexture: true)
+        try add("user-values", userValues: true)
+        // Material state does not grant renderer execution or camera selection.
+        for path in roots.filter({ expected[$0]?.0 == false || geometryPaths.contains($0) }) {
+            let definition = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: directory.appendingPathComponent(path))) as! [String: Any]
+            let pass = passes.first { $0.materialPath == definition["material"] as? String }!
+            guard pass.blending != "alphatocoverage" else { continue }
+            try add("plain-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
+                renderers: definition["renderer"] as! [[String: Any]],
+                state: ("plain", false, false, "normal"), allowed: true,
+                combos: pass.combos, userTexture: pass.hasUserTextureInputs,
+                userValues: pass.hasUserShaderValues, cameraProfile: expected[path]!.6)
+            if pass.combos != ["REFRACT": 1] {
+                try add("refract-read-only-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
+                    renderers: definition["renderer"] as! [[String: Any]],
+                    state: ("read-only", true, false, "nocull"), allowed: expected[path]!.0 || pass.combos == ["CUTOUT": 1],
+                    combos: pass.combos.merging(["REFRACT": 1]) { _, selected in selected },
+                    userTexture: pass.hasUserTextureInputs, userValues: pass.hasUserShaderValues,
+                    cameraProfile: false)
+            }
+        }
+        let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
+            projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
+        )).load(rootPaths: roots, materialPasses: passes)
+        let rows = roots.map { path -> [String: Any] in
+            let expectation = expected[path]!
+            let asset = graph.assetsByPath[path]
+            let state = asset?.pipelineState
+            return [
+                "name": URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent,
+                "expectedAllowed": expectation.0,
+                "expectedTest": expectation.1, "expectedWrite": expectation.2,
+                "expectedCull": expectation.3 == "normal" ? "back" : "none",
+                "expectedSystemFlags": expectation.4, "expectedRendererFlags": expectation.5,
+                "expectedSceneCameras": Array(repeating: expectation.6, count: asset?.definition.renderers.count ?? 0),
+                "expectedRefraction": expectation.7, "hasRefraction": asset?.refraction != nil,
+                "defaultCutout": asset?.refraction?.cutout == SIMD3<Float>(0.1, 0.2, 1),
+                "systemFlags": asset?.definition.flags.rawValue ?? -1,
+                "rendererFlags": asset?.definition.renderers.first?.rawFlags ?? -1,
+                "textureAvailable": asset?.textureSource != nil,
+                "builtInShader": asset?.supportsBuiltInShaderExecution ?? false,
+                "hasPipelineState": state != nil, "hasRenderState": asset?.renderState != nil,
+                "usesSceneCameras": asset?.definition.renderers.map {
+                    state != nil && SceneParticlePipelineRenderStateCompiler.usesSceneCamera(
+                        renderer: $0, materialPass: asset?.materialPass)
+                } ?? [],
+                "test": state?.depthTestEnabled ?? false, "write": state?.depthWriteEnabled ?? false,
+                "cull": state?.cullMode.rawValue ?? "unavailable", "overbright": state?.overbright ?? -1,
+                "unsupportedRenderState": graph.diagnostics.contains {
+                    $0.kind == .unsupportedRenderState && $0.assetPath == path
+                }
+            ]
+        }
+        let ordinary = SceneParticlePipelineVariant(blendMode: .translucent)
+        let refract = SceneParticlePipelineVariant(isRefraction: true, blendMode: .additive)
+        let readers: Set<SceneParticlePipelineVariant> = [ordinary, refract]
+        let writer = SceneParticlePipelineVariant(blendMode: .additive, usesDepthAttachment: true)
+        let expectedMixed: Set<SceneParticlePipelineVariant> = [ordinary, refract, writer,
+            .init(blendMode: .translucent, usesDepthAttachment: true),
+            .init(isRefraction: true, blendMode: .additive, usesDepthAttachment: true)]
+        return ["rows": rows, "variantPrimitive": [
+            "readOnly": SceneParticlePipelineVariant.includingLayerDepth(readers) == readers,
+            "mixed": SceneParticlePipelineVariant.includingLayerDepth(readers.union([writer])) == expectedMixed
+        ]]
+    }
+
+    private static func censusResult(rootPath: String) throws -> [String: Any] {
+        let sourceRoot = URL(fileURLWithPath: rootPath, isDirectory: true)
+        let sampleURLs = try FileManager.default.contentsOfDirectory(
+            at: sourceRoot,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ).filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let extractionRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-census-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: extractionRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: extractionRoot) }
+
+        var samplesWithParticles = 0
+        var reachableAssetCount = 0
+        var maximumChildDepth = 0
+        var nestedParentDeclarations = 0
+        var blendCounts: [String: Int] = [:]
+        var diagnosticCounts: [String: Int] = [:]
+        var missingResourceDiagnostics: [String] = []
+        var summaries: [[String: Any]] = []
+
+        for sampleURL in sampleURLs {
+            let project = try jsonObject(data: Data(
+                contentsOf: sampleURL.appendingPathComponent("project.json")
+            ))
+            let entryPath = normalizedPath(project["file"] as? String ?? "scene.json")
+            let packageURL = try scenePackageURL(sampleURL: sampleURL, entryPath: entryPath)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
+            let entries = Dictionary(
+                index.entries.map { (normalizedPath($0.path), $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let outputURL = extractionRoot.appendingPathComponent(
+                sampleURL.lastPathComponent,
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
+
+            let jsonEntries = entries.filter { path, _ in
+                path == entryPath || URL(fileURLWithPath: path).pathExtension == "json"
+            }.map(\.value)
+            try extract(jsonEntries, opened: opened, outputURL: outputURL)
+
+            let sceneURL = outputURL.appendingPathComponent(entryPath)
+            let scene = try jsonObject(data: Data(contentsOf: sceneURL))
+            let rootPaths = (scene["objects"] as? [[String: Any]] ?? [])
+                .compactMap { $0["particle"] as? String }
+            if !rootPaths.isEmpty { samplesWithParticles += 1 }
+
+            let materialPasses = try loadMaterialPasses(rootURL: outputURL)
+            let relevantMaterialPaths = reachableMaterialPaths(
+                rootPaths: rootPaths,
+                rootURL: outputURL
+            )
+            let relevantPasses = materialPasses.filter {
+                relevantMaterialPaths.contains(normalizedPath($0.materialPath))
+            }
+            let textureEntries = relevantPasses.flatMap(\.texturePaths).compactMap { texturePath in
+                textureCandidates(texturePath).lazy.compactMap { entries[$0] }.first
+            }
+            try extract(textureEntries, opened: opened, outputURL: outputURL)
+
+            let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
+                projectRootURL: outputURL, packageRootURL: nil, stockAssetsRootURL: nil
+            )).load(
+                rootPaths: rootPaths,
+                materialPasses: materialPasses
+            )
+            for root in rootPaths.map(normalizedPath) {
+                var queue: [(String, Int)] = [(root, 0)]
+                var visited = Set<String>()
+                while let (path, depth) = queue.popLast() {
+                    guard visited.insert(path).inserted, depth <= 8,
+                          let asset = graph.assetsByPath[path] else { continue }
+                    for child in asset.definition.children {
+                        guard let raw = child.path else { continue }
+                        let childPath = normalizedPath(raw)
+                        maximumChildDepth = max(maximumChildDepth, depth + 1)
+                        let target = graph.assetsByPath[childPath]
+                        if !(target?.definition.children.isEmpty ?? true) {
+                            nestedParentDeclarations += 1
+                        }
+                        queue.append((childPath, depth + 1))
+                    }
+                }
+            }
+            reachableAssetCount += graph.assetsByPath.count
+            for asset in graph.assetsByPath.values {
+                guard let blendMode = asset.pipelineState?.blendMode else { continue }
+                blendCounts[blendMode.rawValue, default: 0] += 1
+            }
+            for diagnostic in graph.diagnostics {
+                diagnosticCounts[diagnostic.kind.rawValue, default: 0] += 1
+                if [
+                    SceneParticleAssetDiagnostic.Kind.missingDefinition,
+                    .missingMaterial,
+                    .missingTextureReference,
+                    .missingTextureFile
+                ].contains(diagnostic.kind) {
+                    missingResourceDiagnostics.append(
+                        "\(sampleURL.lastPathComponent):\(diagnostic.assetPath):\(diagnostic.detail ?? "")"
+                    )
+                }
+            }
+            summaries.append([
+                "sample": sampleURL.lastPathComponent,
+                "roots": rootPaths.count,
+                "assets": graph.assetsByPath.count,
+                "diagnostics": graph.diagnostics.count
+            ])
+        }
+
+        return [
+            "sampleCount": sampleURLs.count,
+            "samplesWithParticles": samplesWithParticles,
+            "reachableAssetCount": reachableAssetCount,
+            "maximumChildDepth": maximumChildDepth,
+            "nestedParentDeclarations": nestedParentDeclarations,
+            "blendCounts": blendCounts,
+            "diagnosticCounts": diagnosticCounts,
+            "missingResourceDiagnostics": missingResourceDiagnostics.sorted(),
+            "samples": summaries
+        ]
+    }
+
+    private static func reachableMaterialPaths(rootPaths: [String], rootURL: URL) -> Set<String> {
+        let resources = SceneResourceView(
+            projectRootURL: rootURL, packageRootURL: nil, stockAssetsRootURL: nil
+        )
+        var materials = Set<String>()
+        var visited = Set<String>()
+        var pending = rootPaths.map(normalizedPath)
+        while let path = pending.popLast() {
+            guard visited.insert(path).inserted,
+                  let resource = resources.resolvedResource(relativePath: path),
+                  let data = try? resource.readSnapshot().data,
+                  let definition = try? SceneParticleDefinitionParser().parse(data: data) else { continue }
+            if let material = definition.materialPath { materials.insert(normalizedPath(material)) }
+            pending.append(contentsOf: definition.children.compactMap(\.path).map(normalizedPath))
+        }
+        return materials
+    }
+
+    private static func loadMaterialPasses(rootURL: URL) throws -> [SceneParticleMaterialPass] {
+        let resources = SceneResourceView(
+            projectRootURL: rootURL, packageRootURL: nil, stockAssetsRootURL: nil
+        )
+        return try resources.authorHandles.filter {
+            normalizedPath($0.relativePath).hasPrefix("materials/")
+                && normalizedPath($0.relativePath).hasSuffix(".json")
+        }.flatMap { resource -> [SceneParticleMaterialPass] in
+            let root = try jsonObject(data: resource.readSnapshot().data)
+            return (root["passes"] as? [[String: Any]] ?? []).map { pass in
+                SceneParticleMaterialPass(
+                    materialPath: resource.relativePath,
+                    shaderPath: pass["shader"] as? String,
+                    texturePaths: (pass["textures"] as? [Any] ?? []).compactMap { $0 as? String },
+                    blending: pass["blending"] as? String
+                )
+            }
+        }
+    }
+
+    private static func textureCandidates(_ rawName: String) -> [String] {
+        let name = normalizedPath(rawName)
+        let bases = name.hasPrefix("materials/") ? [name] : ["materials/\(name)", name]
+        var candidates = bases.flatMap { [$0, "\($0).tex"] }
+        if URL(fileURLWithPath: name).pathExtension.isEmpty {
+            candidates += bases.flatMap { base in
+                ["\(base).png", "\(base).jpg", "\(base).jpeg"]
+            }
+        }
+        return candidates
+    }
+
+    private static func extract(
+        _ entries: [ScenePkgIndex.Entry],
+        opened: ScenePkgReader.OpenPackage,
+        outputURL: URL
+    ) throws {
+        for entry in entries {
+            let path = normalizedPath(entry.path)
+            guard !path.hasPrefix("/"), !path.split(separator: "/").contains("..") else {
+                throw HarnessError.unsafeEntry(entry.path)
+            }
+            var data = Data()
+            try opened.readEntryChunks(entry) { data.append($0) }
+            try write(data, relativePath: path, under: outputURL)
+        }
+    }
+
+    private static func writeJSON(
+        _ value: [String: Any],
+        relativePath: String,
+        under rootURL: URL
+    ) throws {
+        try write(
+            JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
+            relativePath: relativePath,
+            under: rootURL
+        )
+    }
+
+    private static func write(_ data: Data, relativePath: String, under rootURL: URL) throws {
+        let url = rootURL.appendingPathComponent(relativePath)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: url, options: .atomic)
+    }
+
+    private static func scenePackageURL(sampleURL: URL, entryPath: String) throws -> URL {
+        let entryName = (entryPath as NSString).lastPathComponent
+        let baseName = (entryName as NSString).deletingPathExtension
+        let derivedName = baseName.isEmpty ? "scene.pkg" : "\(baseName).pkg"
+        for name in derivedName == "scene.pkg" ? [derivedName] : [derivedName, "scene.pkg"] {
+            let candidate = sampleURL.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        throw HarnessError.missingPackage(sampleURL.lastPathComponent)
+    }
+
+    private static func jsonObject(data: Data) throws -> [String: Any] {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw HarnessError.invalidJSON
+        }
+        return root
+    }
+
+    private static func normalizedPath(_ rawPath: String) -> String {
+        var value = rawPath
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\", with: "/")
+        while value.hasPrefix("./") { value.removeFirst(2) }
+        return value.lowercased()
+    }
+
+    private static func fileURL(_ source: SceneParticleTextureSource?) -> URL? {
+        guard case let .file(input)? = source else { return nil }
+        return URL(fileURLWithPath: input.diagnosticPath)
+    }
+
+    private static func sourceKind(_ source: SceneParticleTextureSource?) -> String {
+        switch source {
+        case .file: "file"
+        case let .builtIn(key): key.rawValue
+        case nil: "missing"
+        }
+    }
+
+    private static func printJSON(_ value: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private enum HarnessError: Error {
+        case missingMode
+        case missingSampleRoot
+        case unknownMode
+        case invalidJSON
+        case missingPackage(String)
+        case unsafeEntry(String)
+        case truncatedEntry(String)
+    }
+}
+'''
+
+
+class SceneParticleAssetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-particle-assets-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-assets"
+        compilation = subprocess.run(
+            [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def run_harness(self, *arguments: str) -> dict[str, object]:
+        result = subprocess.run(
+            [str(self.binary), *arguments],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    def test_material_state_keeps_authored_depth_cull_and_separate_camera_selection(self) -> None:
+        result = self.run_harness("render-state-profiles")
+        rows = result["rows"]
+        self.assertEqual(result["variantPrimitive"], {"readOnly": True, "mixed": True})
+        self.assertTrue(next(row["defaultCutout"] for row in rows if row["name"] == "refract-read-only-cutout"))
+        for row in rows:
+            with self.subTest(profile=row["name"]):
+                self.assertTrue(row["builtInShader"])
+                self.assertEqual(row["systemFlags"], row["expectedSystemFlags"])
+                self.assertEqual(row["rendererFlags"], row["expectedRendererFlags"])
+                self.assertEqual(row["hasPipelineState"], row["expectedAllowed"])
+                self.assertEqual(row["hasRenderState"], row["expectedAllowed"])
+                self.assertEqual(row["usesSceneCameras"], row["expectedSceneCameras"])
+                self.assertEqual(row["unsupportedRenderState"], not row["expectedAllowed"])
+                if row["expectedAllowed"]:
+                    self.assertEqual(row["hasRefraction"], row["expectedRefraction"])
+                    self.assertTrue(row["textureAvailable"])
+                    self.assertEqual(row["test"], row["expectedTest"])
+                    self.assertEqual(row["write"], row["expectedWrite"])
+                    self.assertEqual(row["cull"], row["expectedCull"])
+                    self.assertAlmostEqual(row["overbright"], 1.19, places=6)
+
+    def test_synthetic_asset_graph(self) -> None:
+        result = self.run_harness("synthetic")
+        self.assertEqual(result["assetCount"], 17)
+        self.assertEqual(
+            result["rootPaths"],
+            [
+                "particles/root.json",
+                "particles/missing-material.json",
+                "particles/missing-texture.json",
+                "particles/builtin-texture.json",
+                "particles/drop-texture.json",
+                "particles/refract.json",
+                "particles/refract-single.json",
+                "particles/unknown-blend.json",
+                "particles/unsupported-state.json",
+                "particles/depth.json",
+                "particles/depth-fixed.json",
+                "particles/normal-cull.json",
+                "particles/normal-cull-fixed.json",
+                "particles/normal-cull-trail.json",
+                "particles/custom-shader.json",
+                "particles/missing-shader.json",
+                "particles/missing-definition.json",
+            ],
+        )
+        self.assertEqual(result["rootChildren"], ["particles/child.json"])
+        self.assertEqual(result["rootBlend"], "additive")
+        self.assertEqual(result["childBlend"], "translucent")
+        self.assertEqual(result["rootTexture"], "root.tex")
+        self.assertEqual(result["childTexture"], "child.png")
+        self.assertTrue(result["rootTextureExists"])
+        self.assertTrue(result["childTextureExists"])
+        self.assertEqual(result["haloTextureSource"], "particle/halo")
+        self.assertEqual(result["dropTextureSource"], "particle/drop")
+        self.assertEqual(result["localDropTextureSource"], "file")
+        self.assertTrue(result["refractHasTextureSource"])
+        self.assertTrue(result["refractHasPlan"])
+        self.assertAlmostEqual(result["refractDefaultAmount"], 0.05, places=6)
+        self.assertTrue(result["singleSlotGraphWired"])
+        self.assertTrue(result["missingExplicitNormalRejected"])
+        self.assertTrue(result["unknownBlendRejected"])
+        self.assertTrue(result["unknownBlendStateRejected"])
+        self.assertTrue(result["unsupportedStateRejected"])
+        self.assertTrue(result["depthTestEnabled"])
+        self.assertTrue(result["depthWriteEnabled"])
+        self.assertAlmostEqual(result["depthOverbright"], 1.19, places=6)
+        self.assertEqual(result["depthFixedState"], [True, True, False])
+        self.assertEqual(result["rootCull"], "none")
+        self.assertEqual(result["normalCull"], "back")
+        self.assertEqual(result["normalCullFixed"], "back")
+        self.assertEqual(result["normalCullTrail"], "back")
+        self.assertTrue(result["customShaderRejected"])
+        self.assertTrue(result["missingShaderRejected"])
+        self.assertTrue(result["unknownEnabledComboRejected"])
+        self.assertTrue(result["normalCullRefractionPreservesInput"])
+        self.assertTrue(result["singleSlotRefractionUsesFlatNormal"])
+        self.assertTrue(result["twoSlotRefractionPreservesNormal"])
+        self.assertTrue(result["normalSlotHoleEqualsOmitted"])
+        self.assertTrue(result["depthRefractionReadOnly"])
+        self.assertEqual(
+            result["diagnostics"],
+            {
+                "cyclicChildReference": 1,
+                "missingDefinition": 1,
+                "missingMaterial": 1,
+                "missingTextureFile": 1,
+                "missingTextureReference": 1,
+                "unsupportedBlendMode": 1,
+                "unsupportedRenderState": 1,
+                "unsupportedShader": 2,
+            },
+        )
+
+if __name__ == "__main__":
+    unittest.main()

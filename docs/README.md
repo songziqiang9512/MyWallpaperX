@@ -2,7 +2,7 @@
 
 这里把当前事实、目标合同、任务顺序与历史分开。跨模块任务从[仓库开发工作流](development/repository-workflow.md)和[源码职责图](architecture/repository-map.md)定位；Scene 细节从[开发工作流](scene/development/development-workflow.md)进入。历史资料保留在[历史索引](history/README.md)，不决定当前任务。
 
-任务查询：`python3.12 -B script/document_registry.py --list`，或 `--query scene`、`--query 发布`、`--query 设计`。查询复用下方角色索引和现役 design area，仅返回指针；查询返回 `firstRead`、owner、分阶段 gate 引用与动态解析的最近测试；先读 `firstRead`，其余 `documents` 按首断点选取，不是整组必读；支持 `--query "修复 Scene 视觉缺陷"`、`--query "发布新版本"`、`--query "设计前置判定"`，不会自动执行命令。术语可查 `named source taxonomy`、`owned paths`、`家族/防御面`，每项只转到一个权威。
+任务查询：`python3.12 -B script/governance/document_registry.py --list`，或 `--query scene`、`--query 发布`、`--query 设计`。查询复用下方角色索引和现役 design area，仅返回指针；查询返回 `firstRead`、owner、分阶段 gate 引用与动态解析的最近测试；先读 `firstRead`，其余 `documents` 按首断点选取，不是整组必读；支持 `--query "修复 Scene 视觉缺陷"`、`--query "发布新版本"`、`--query "设计前置判定"`，不会自动执行命令。术语可查 `named source taxonomy`、`owned paths`、`家族/防御面`，每项只转到一个权威。
 
 ## 事实角色
 
@@ -33,7 +33,7 @@
 
 从 [Scene 一页说明](scene/README.md)开始：先理解进程、准备、逐帧合成与代码职责，再选择重构或兼容路线。长期设计、能力表、研究和历史均按需进入，不把它们当成入仓必读清单。
 
-`python3.12 -B script/document_registry.py --query "Scene架构"` 直接定位总设计、组件合同与当前 owner；视觉问题仍从对应能力首断点进入。
+`python3.12 -B script/governance/document_registry.py --query "Scene架构"` 直接定位总设计、组件合同与当前 owner；视觉问题仍从对应能力首断点进入。
 
 ## App、Web 与发布
 
@@ -58,7 +58,7 @@
 
 [仓库改良完成记录](history/cross-topic/repository-improvement-completion-2026-10-03.md)保存原提案验收（[旧入口与永久锚点](development/repository-improvement.md)）；持续治理由[仓库开发工作流](development/repository-workflow.md)接管。
 
-[文档角色索引](document-role-index.json)登记所有 Git 可见的 docs Markdown：active-plan、stable-contract、historical-evidence、navigation、current-state、reference。发现范围包括未跟踪且未忽略的新文件，不遍历忽略的本机证据缓存。运行 `python3.12 -B script/document_registry.py --audit` 机器核对首跳、全量登记、合同路由与术语；`python3.12 -B script/document_health.py --check` 检查正文默认只降、有据调整、归档载荷/锚点和复核年龄。新增权威或合理预算扩展、移动、合并和退役按[工作流中的精确调整登记](development/repository-workflow.md#代码与知识交付)办理，不绕过实际正文、锚点与索引校验。stable-contract 的 `lastReviewed` 与 `reviewBasis` 明示日期来源及复核上限：Git 文档维护日期不冒充产品重新验收，导航审计只证明入口/结构。超过 60 天须实际复核相应范围并保存依据。适用规则：
+[文档角色索引](document-role-index.json)登记所有 Git 可见的 docs Markdown：active-plan、stable-contract、historical-evidence、navigation、current-state、reference。发现范围包括未跟踪且未忽略的新文件，不遍历忽略的本机证据缓存。运行 `python3.12 -B script/governance/document_registry.py --audit` 机器核对首跳、全量登记、合同路由与术语；`python3.12 -B script/governance/document_health.py --check` 检查正文默认只降、有据调整、归档载荷/锚点和复核年龄。新增权威或合理预算扩展、移动、合并和退役按[工作流中的精确调整登记](development/repository-workflow.md#代码与知识交付)办理，不绕过实际正文、锚点与索引校验。stable-contract 的 `lastReviewed` 与 `reviewBasis` 明示日期来源及复核上限：Git 文档维护日期不冒充产品重新验收，导航审计只证明入口/结构。超过 60 天须实际复核相应范围并保存依据。适用规则：
 
 - 现役 plan/contract 通常使用稳定、无日期的路径，并在首部声明 `document-role`；日期写入正文的复核字段。确需保留日期化的现役派生队列时，必须同时在 `document-role-index.json` 的 `additionalPaths` 和文档角色表中显式登记，并写明其派生性质与退役条件。
 - 带日期的历史Markdown位于 `docs/history/`；Scene使用稳定主题路径。历史目录中的文件不能取得现役角色。

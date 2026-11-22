@@ -7,7 +7,7 @@
 ## 定位与决定
 
 1. 写代码前从用户角度明确问题、预期结果和完成边界，核对原生 macOS 产品方向与[技术栈合同](../architecture/technology-stack-boundaries.md)。检查 Git 状态，列出本批文件；用简短说明连接用户结果、当前首断点与验证，不为常规任务另建计划。
-2. 从[文档入口](../README.md)或 `python3.12 -B script/document_registry.py --list` 选择任务。`--query scene`、`--query 发布` 返回当前索引中的合同、状态和源码指针；design area 的 owner/status 直接读取原登记，不复制。查询不执行命令，也不读取研究正文。
+2. 从[文档入口](../README.md)或 `python3.12 -B script/governance/document_registry.py --list` 选择任务。`--query scene`、`--query 发布` 返回当前索引中的合同、状态和源码指针；design area 的 owner/status 直接读取原登记，不复制。查询不执行命令，也不读取研究正文。
 3. 沿 producer → 第一个错误状态/identity → consumer 追踪，区分“缺实现”“实现偏差”“合同未定”；按下述判定完成必要设计。
 4. 只闭合一个职责结果。数据/持久化/IPC 变化须说明兼容、取消、失败、旧版本与退出；普通局部修复不另造设计、registry 或工作流。
 
@@ -17,7 +17,7 @@
 
 优先修订所属专题的现役设计，无合适承接者才新建。设计从完整用户结果和主链出发，至少写清目标/非目标、当前差距、职责与数据流、关键方案取舍、失败/回退/旧实现退出、验收与未定项。先保存到仓库、接入现有路线和文档索引，再写对应实现；设计变化修订同一权威，不在实施时临时裁决另一个架构。
 
-同步[设计登记](../../script/design_gated_areas.json)的 owner、designDoc、状态与有实际依据的匹配范围；设计未定保留 `blocked-pending-design`，方案和边界明确后才能标为 `approved`。已批准的旧设计不自动覆盖新增范围。落库指仓库中的可审查文件，不要求未经用户授权先 Git 提交；`approved` 表示设计可实施，不表示用户授权发布或能力验收完成。
+同步[设计登记](../../script/data/design_gated_areas.json)的 owner、designDoc、状态与有实际依据的匹配范围；设计未定保留 `blocked-pending-design`，方案和边界明确后才能标为 `approved`。已批准的旧设计不自动覆盖新增范围。落库指仓库中的可审查文件，不要求未经用户授权先 Git 提交；`approved` 表示设计可实施，不表示用户授权发布或能力验收完成。
 
 `check_design_gate.py` 只能拦住已登记且命中模式的 blocked 实施，空模式只提示，未登记能力无法自动识别；它不判断设计质量或先后时序。上述判定和设计覆盖范围仍由实现者、审查者负责，不能以门禁通过替代。
 
@@ -48,15 +48,21 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 
 相同源码、harness、工具链、flags/配置和输入身份的构建/测试结果复用；文档修订不重建产品，失败修复后只重验受影响部分。性能基线复用还须条件一致且有效，漂移时重测。跨提交保留具体版本和通过/跳过边界，不能以旧结果覆盖已变更输入。测量期间不并行构建、测试或profiler；独立静态阅读可交错。
 
+## 开发工具链
+
+Python 测试与工具依赖固定在 `script/requirements-tests.txt`（numpy、Pillow、ruff），CI 安装后运行 `ruff check script`。图片与视觉证据统一用 Pillow 解码；`png_rgb_pixels` 仍返回预乘 alpha 的 RGB 行，16-bit 输入取高字节。`ruff.toml` 只启用 `E9/F541/F811/F821`；F401/F841 暂不启用，因为工具模块存在测试侧 `module.X` 再导出、测试初始化还有副作用赋值，需逐处确认后再收紧。
+
+Swift 格式用 Xcode 自带 `swift-format`：`script/governance/format_swift_changed.py --base <ref> [--lint]` 只处理改动文件，配置见 `.swift-format`；存量未全量重排。Periphery（`periphery scan --project <xcodeproj> --schemes <scheme> --format json`）与 LicensePlist（`license-plist --xcodeproj-path <xcodeproj> --output-path <目录> --fail-if-missing-license`）分别用于死代码报告和发布前 SPM 许可核对。Periphery 含动态入口误报、不接门禁；LicensePlist 生成物不入库，`NOTICE.md` 与包内许可是唯一权威。
+
 ## 查询结构债与复用构建
 
-`python3.12 -B script/repository_health.py --format json --limit 50` 从现役 code-health、结构/防御面与测试断言基线、真实 Swift 文件及测试路由派生报告；`--path <精确路径>` 聚焦单个职责。报告区分真实行数、未关联测试的路径和仅登记的冻结预算，不运行验证，不建立第二份债务台账。未关联产品路径或已失效的测试模块会进入编排报告，单独构建成功不能把它们标为 `closure_complete`。
+`python3.12 -B script/governance/repository_health.py --format json --limit 50` 从现役 code-health、结构/防御面与测试断言基线、真实 Swift 文件及测试路由派生报告；`--path <精确路径>` 聚焦单个职责。报告区分真实行数、未关联测试的路径和仅登记的冻结预算，不运行验证，不建立第二份债务台账。未关联产品路径或已失效的测试模块会进入编排报告，单独构建成功不能把它们标为 `closure_complete`。
 
 纯源码移动仍报告缺失测试映射；只有唯一、字节相同的旧删除→新文件证明及本次构建通过才能闭合。复制、歧义、正文变化或后续行为编辑均不适用。
 
 不再要求每批为全仓未修改项填写清偿receipt。旧receipt仅保存在历史库；后续在本次改动涉及的owner上解决真实问题，并同步其已有基线。文件不超过1000行且职责清楚即可，不用400行或逐文件测试映射数量制造拆分/测试任务。
 
-`script/run_checkpoint_build.sh` 默认退出时清理隔离 DerivedData；同一 checkout 可用 `--cache-dir /private/tmp/<任务缓存>` 复用，仓库内只允许 `.build-cache/`，禁止真实样本目录。缓存键绑定 checkout、构建器、Xcode、SDK 和配置；Xcode 管源码增量，全局锁拒绝并行 checkpoint。指定缓存成功失败均保留，收尾报告路径与用途并按精确清单清理。复用不替代冷构建或运行验收。 共享 scheme 的 Run（Cmd+R）用 Release 优化构建，Test、Analyze 保持 Debug。逐行调试/`DEBUG` 诊断用 `xcodebuild -configuration Debug`、现有 Debug runner，或临时在 Edit Scheme → Run → Build Configuration 改为 Debug，结束恢复 Release。优化构建保留符号与错误日志；逐帧诊断按需开启。
+`script/build/run_checkpoint_build.sh` 默认退出时清理隔离 DerivedData；同一 checkout 可用 `--cache-dir /private/tmp/<任务缓存>` 复用，仓库内只允许 `.build-cache/`，禁止真实样本目录。缓存键绑定 checkout、构建器、Xcode、SDK 和配置；Xcode 管源码增量，全局锁拒绝并行 checkpoint。指定缓存成功失败均保留，收尾报告路径与用途并按精确清单清理。复用不替代冷构建或运行验收。 共享 scheme 的 Run（Cmd+R）用 Release 优化构建，Test、Analyze 保持 Debug。逐行调试/`DEBUG` 诊断用 `xcodebuild -configuration Debug`、现有 Debug runner，或临时在 Edit Scheme → Run → Build Configuration 改为 Debug，结束恢复 Release。优化构建保留符号与错误日志；逐帧诊断按需开启。
 
 ## 代码与知识交付
 
@@ -74,7 +80,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 
 ## 可选暂存面快检
 
-`python3.12 -B script/commit_preflight.py --owned-file /private/tmp/<批次路径数组>.json` 秒级读取当前worktree的暂存blob，核对owned、JSON和gate元数据，默认提示，`--strict`才拒绝。它不暂存、不运行构建或测试；未暂存修复不会掩盖暂存错误。可用 `--message-file` 检查实际Git trailers，`Area: Scene` 等值由工具公开白名单约束，发布工具仅复用解析结果做分组，不自动发布。
+`python3.12 -B script/governance/commit_preflight.py --owned-file /private/tmp/<批次路径数组>.json` 秒级读取当前worktree的暂存blob，核对owned、JSON和gate元数据，默认提示，`--strict`才拒绝。它不暂存、不运行构建或测试；未暂存修复不会掩盖暂存错误。可用 `--message-file` 检查实际Git trailers，`Area: Scene` 等值由工具公开白名单约束，发布工具仅复用解析结果做分组，不自动发布。
 
 如需自动提示，可显式 `--install`，用 `--uninstall`恢复；这里未默认安装。hooksPath为共享仓库配置，会影响其全部worktree，hook的owned快照由common Git目录保存，不绑定安装checkout；每次按提交所在工作树解析index，可从其他worktree卸载。现有有效hooksPath、默认hooks、用户追加内容和符号链接均受保护，工具拒绝覆盖。`MWX_OWNED_PATHS`可给hook传JSON路径清单；不提供时诚实提示归属未验证。
 

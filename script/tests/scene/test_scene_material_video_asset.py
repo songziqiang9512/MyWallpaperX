@@ -1,0 +1,765 @@
+"""Authored video TEX assets through the real provider and image GPU pipeline."""
+
+from __future__ import annotations
+
+import json
+import hashlib
+import os
+from pathlib import Path
+import shutil
+import struct
+import subprocess
+import tempfile
+import unittest
+import zlib
+
+from script.tests.scene import test_scene_sampler_default_purpose as sampler
+from script.tests.scene import test_scene_user_property_textures as textures
+from script.tests.scene import test_scene_initial_video_resource_readiness as readiness
+from script.tests.support.scene_pkg_fixture import make_package
+from script.tests.support.scene_video_segment_delegate_fixture import (
+    compile_segment_delegate, segment_delegate_sources,
+)
+
+ROOT = Path(__file__).resolve().parents[3]
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+
+
+
+def video_carrier_source(scene_root: Path) -> tuple[str, list[Path]]:
+    script_input = scene_root / "Systems/Script/SceneScriptLayerHandleBridge.swift"
+    prepared_input = scene_root / "Runtime/Session/ScenePreparedDeviceResources.swift"
+    script = script_input.read_text()
+    carriers = "\n".join(readiness.declaration(script, f"nonisolated struct {name}:") for name in (
+        "SceneScriptVideoPlaybackSnapshot", "SceneScriptVideoFrameSnapshot", "SceneScriptMediaPlaybackCommand"))
+    product = readiness.declaration(prepared_input.read_text(), "    nonisolated enum Product {")
+    carriers += "\nstruct ScenePreparedDynamicImageResource {\n" + product + "\n    let product: Product\n}\n"
+    return carriers, [script_input, prepared_input]
+
+
+def video_tex(payload: bytes, *, flags: int = 2) -> bytes:
+    return (b"TEXV0005\0TEXI0001\0"
+            + struct.pack("<7I", 0, flags, 32, 24, 32, 24, 0)
+            + b"TEXB0003\0" + struct.pack("<Ii6I", 1, -1, 1, 32, 24, 0, 0, len(payload))
+            + payload)
+
+
+BASELINE = r'''
+import Foundation
+import Metal
+import simd
+
+func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int,
+                   propertyKey: String? = nil, channels: Bool = false) -> SceneResolvedMaterialTemplate {
+    let slot = variant == 0 ? 0 : 2
+    let varying = variant == 0 ? "v_TexCoord" : "renamedUV"
+    let name = variant == 0 ? "self/neutral" : "alternate/renamed-resource"
+    let annotation = channels ? #" // {"mode":"rgbmask"}"#
+        : (propertyKey == nil ? "" : #" // {"formatcombo":true}"#)
+    let result = channels
+        ? "vec4 sampledColor = texSample2D(g_Texture\(slot), \(varying)); gl_FragColor = vec4(sampledColor.rgb, 1.0);"
+        : variant == 0
+        ? "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+        : "vec2 copiedUV = renamedUV; vec4 sampledColor = texSample2D(g_Texture2, copiedUV); gl_FragColor = sampledColor;"
+    let sources: [(SceneShaderContract.StageKind, String, String)] = [
+        (.vertex, name + ".vert", """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 \(varying);
+        void main() { \(varying) = a_TexCoord; gl_Position = vec4(a_Position, 1.0); }
+        """),
+        (.fragment, name + ".frag", """
+        varying vec2 \(varying);
+        uniform sampler2D g_Texture\(slot);\(annotation)
+        void main() { \(result) }
+        """),
+    ]
+    let stages: [SceneShaderContract.Stage] = sources.map { kind, name, source in
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: name)
+        return .init(kind: kind, relativePath: name, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
+            annotations: parsed.annotations, declarations: parsed.declarations)
+    }
+    let hash = SceneShaderStableDigest.hash(Data(sources.map { $0.2 }.joined().utf8))
+    let contract = SceneShaderContract(identity: name, sourceKind: .authoredSource,
+        stages: stages, diagnostics: [], canonicalSHA256: hash, sourceGraph: .init(
+            roots: stages.map { .init(label: $0.kind.rawValue, virtualPath: $0.relativePath) },
+            nodes: stages.map { .init(virtualPath: $0.relativePath, provenance: .package, source: $0.source,
+                rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count) },
+            edges: [], diagnostics: [], dependencySHA256: hash))
+    var slots = Array<SceneResolvedMaterialTemplate.TextureSlot?>(repeating: nil, count: 8)
+    let reference: SceneResolvedMaterialTemplate.TextureReference = propertyKey.map {
+        .userProperty(.init(key: $0))
+    } ?? .asset(path)
+    slots[slot] = .init(index: slot, candidates: [.init(reference: reference, provenance: .explicitBinding)])
+    return .validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+        renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
+            depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
+        graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
+            nodeTarget: .effectOutput, bindings: []), shaderContract: contract,
+        diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: contract.identity,
+            contractIdentity: contract.identity, contractCanonicalSHA256: hash,
+            textureSources: [], uniformSources: []))!
+}
+
+func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: MTLDevice) throws -> [String: Bool] {
+    let slot = variant == 0 ? 0 : 2
+    let key = variant == 0 ? "self-picture" : "arbitrary-renamed-picture"
+    let property = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: .premultipliedColor)!
+    let template = mediaTemplate(path, variant: variant, propertyKey: key)
+    let sampler = SceneResolvedMaterialShaderSchema.Sampler(name: "g_Texture\(slot)", slot: slot,
+        mode: .regular, materialKey: nil, isHidden: false, defaultTexture: nil,
+        readinessCombo: nil, sourceProvenPurpose: .premultipliedColor)
+    let formatSlots = try SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template).get()
+    let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+        in: template, samplers: [slot: sampler], implicitFramebufferIdentity: nil,
+        graphInputSourceSlotFacts: [:])
+    let profiles = try SceneResolvedMaterialVariantCache.launchTextureFormatProfiles(template: template,
+        samplers: [slot: sampler], readinessMask: UInt8(1) << UInt8(slot), formatSlots: formatSlots,
+        graphTextureFormatFacts: [:], assetFormatFacts: [:], assetStates: [:]).get()
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+        width: 2, height: 2, mipmapped: false)
+    descriptor.usage = .shaderRead
+    let texture = device.makeTexture(descriptor: descriptor)!
+    let incarnation = UUID()
+    func runtimeKey(format: SceneShaderTextureFormat?, generation: UInt64) throws -> SceneResolvedMaterialVariantKey {
+        // Controlled provider metadata at the production resolver boundary.
+        // The separate native Source gate proves which format the producer supplies.
+        let candidate = SceneTextureCandidate(texture: texture,
+            identity: .provider(.videoUserProperty(property: property, sourceIncarnation: incarnation,
+                lifecycleEpoch: 3)), generation: .provider(contentGeneration: generation),
+            purpose: .premultipliedColor, content: .color(.resolved(.opaque)),
+            physicalSize: .init(width: 2, height: 2), mappedSize: .init(width: 2, height: 2),
+            uvTransform: .identity, sampling: .linearClamp, authoredFormat: format)
+        let publication = SceneTextureProviderPublication(requestIdentity: .materialUserProperty(property),
+            candidate: candidate, contentGeneration: generation)
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: [], userValues: [:], timelineValues: [:], sceneScriptValues: [:]).snapshot
+        let frameInputs = SceneAuthoredShaderFrameInputs(frameIndex: 1, screenSize: .init(width: 2, height: 2),
+            sceneTime: 0, dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero, pointerPrimaryButtonDown: false,
+            parallaxPositionNDC: .zero, audioSpectrum: .silent)
+        let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: 1, frameIndex: 1,
+            entries: [.materialUserProperty(property): .ready(.init(publication: publication, resourceGeneration: generation))])
+        let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
+            dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
+        let input = frame.finalizationInput(layerID: 17,
+            renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)
+        return try SceneResolvedMaterialTextureResolver.variantKey(input, textureSlots: template.textureSlots, samplers: [slot: sampler],
+            reachableTexturePurposes: facts.candidatePurposes, formatSlots: formatSlots,
+            allowPresenceIndependentDefaults: true, textureSelectionFacts: facts,
+            graphInputSourceSlotFacts: [:])
+    }
+    let first = try runtimeKey(format: nil, generation: 1)
+    let later = try runtimeKey(format: nil, generation: 7)
+    let invented = try runtimeKey(format: .rgba8888, generation: 1)
+    return ["formatComboAnnotationReachesOwner": formatSlots == [slot],
+        "externalPropertyLaunchHasNoTEXFormat": profiles.count == 1 && profiles[0][slot] == nil,
+        "externalPropertyRuntimeMatchesLaunchProfile": profiles.contains(first.textureFormats),
+        "providerGenerationDoesNotChangeFormatKey": first == later,
+        "inventedTEXFormatCannotMatchPropertyLaunch": !profiles.contains(invented.textureFormats)]
+}
+
+@main enum Harness {
+    static func main() throws {
+        let root = URL(fileURLWithPath: CommandLine.arguments[1])
+        let variant = Int(CommandLine.arguments[3])!
+        let slot = variant == 0 ? 0 : 2
+        let identity = SceneAssetTextureIdentity(virtualPath: CommandLine.arguments[2], purpose: .premultipliedColor)!
+        let catalog = try SceneMaterialAssetTextureCatalog(demands: [identity],
+            resourceView: SceneResourceView(projectRootURL: root, packageRootURL: nil,
+                stockAssetsRootURL: nil), descriptor: .init(), device: MTLCreateSystemDefaultDevice()!)
+        let active = SceneResolvedMaterialShaderSchema.Sampler(name: "g_Texture\(slot)", slot: slot,
+            mode: .regular, materialKey: nil, isHidden: false, defaultTexture: .asset(identity.path),
+            readinessCombo: nil, sourceProvenPurpose: .premultipliedColor)
+        var checks: [String: Bool] = [:]
+        let value = mediaTemplate(identity.path, variant: variant)
+        func envelope(_ state: SceneAssetTextureLaunchState) -> Bool {
+            guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: value,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value),
+                maximumVariantCount: 8, assetFormatFacts: catalog.launchFormatFacts) else { return false }
+            let capture = SceneAuthoredEffectRenderPlan.TextureIdentity(kind: .layerSource,
+                layerID: variant == 0 ? 91 : 3083, effect: nil, name: nil)
+            if case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: capture,
+                assetStates: [identity: state]) {
+                let capability = cache.launchEnvelopeCapabilitySnapshot()
+                return capability.allEntriesReady && !capability.variants.isEmpty
+            }
+            return false
+        }
+        checks["preparedProviderColorEnvelope"] = envelope(.preparedVideo(.color(.resolved(.premultipliedAlpha))))
+        let selected = try SceneResolvedMaterialVariantCache.launchDefaultReference(sampler: active,
+            slot: slot, assetStates: catalog.launchStates, systemProviderStates: [:])
+        if case let .selected(reference, purpose) = selected {
+            checks["preparedVideoCanPrepareSampler"] = reference == .asset(identity.path) && purpose == .premultipliedColor
+        } else { checks["preparedVideoCanPrepareSampler"] = false }
+        for state in [SceneAssetTextureLaunchState.pending, .unavailable] {
+            do {
+                _ = try SceneResolvedMaterialVariantCache.launchDefaultReference(sampler: active,
+                    slot: slot, assetStates: [identity: state], systemProviderStates: [:])
+                checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = false
+            } catch { checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = true }
+        }
+        checks.merge(try propertyFormatProfileChecks(path: identity.path, variant: variant,
+            device: MTLCreateSystemDefaultDevice()!)) { _, new in new }
+        let device = MTLCreateSystemDefaultDevice()!
+        let dataIdentity = SceneAssetTextureIdentity(path: identity.path, purpose: .preservedChannels)
+        let straightIdentity = SceneAssetTextureIdentity(path: identity.path, purpose: .straightAlbedo)
+        let normal = SceneAssetTextureIdentity(path: identity.path, purpose: .normal)
+        let dataCatalog = try SceneMaterialAssetTextureCatalog(demands: [dataIdentity, straightIdentity, normal],
+            resourceView: SceneResourceView(projectRootURL: root, packageRootURL: nil,
+                stockAssetsRootURL: nil), descriptor: .init(), device: device)
+        checks["preparedDataIsAContractNotAReadyFrame"] = dataCatalog.launchStates[dataIdentity] == .preparedVideo(.data)
+            && { if case .pending? = dataCatalog.makeFrameProvider().states(sceneTime: 0)[dataIdentity] { return true }; return false }()
+        checks["preparedStraightIsOpaqueContractNotReady"] = dataCatalog.launchStates[straightIdentity]
+            == .preparedVideo(.color(.resolved(.opaque)))
+            && { if case .pending? = dataCatalog.makeFrameProvider().states(sceneTime: 0)[straightIdentity] { return true }; return false }()
+        let straightSelection = try SceneResolvedMaterialVariantCache.launchDefaultReference(
+            sampler: active.withSourceProvenPurpose(.straightAlbedo), slot: slot,
+            assetStates: dataCatalog.launchStates, systemProviderStates: [:])
+        if case let .selected(reference, purpose) = straightSelection {
+            checks["preparedStraightKeepsPurposeAndFormat"] = reference == .asset(identity.path)
+                && purpose == .straightAlbedo && dataCatalog.videoDeclarations[straightIdentity] != nil
+                && dataCatalog.launchFormatFacts[straightIdentity.reportToken] == SceneShaderTextureFormat.rgba8888.macroValue
+        } else { checks["preparedStraightKeepsPurposeAndFormat"] = false }
+        checks["normalVideoRemainsUnavailable"] = dataCatalog.launchStates[normal] == .unavailable
+        let dataTemplate = mediaTemplate(identity.path, variant: variant, channels: true)
+        let dataCache = try SceneResolvedMaterialVariantCache.launchValidated(template: dataTemplate,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: dataTemplate),
+            maximumVariantCount: 8, assetFormatFacts: dataCatalog.launchFormatFacts).get()
+        try dataCache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
+            assetStates: dataCatalog.launchStates).get()
+        checks["rgbmaskPreparedDataEnvelope"] = dataCache.launchEnvelopeCapabilitySnapshot().allEntriesReady
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: 2, height: 2, mipmapped: false)
+        textureDescriptor.usage = .shaderRead
+        let texture = device.makeTexture(descriptor: textureDescriptor)!
+        let publication = SceneTextureProviderPublication(requestIdentity: .asset(dataIdentity),
+            candidate: .init(texture: texture, identity: .provider(.videoAsset(asset: dataIdentity,
+                sourceIncarnation: UUID(), lifecycleEpoch: 3)), generation: .provider(contentGeneration: 1),
+                purpose: .preservedChannels, content: .data, physicalSize: .init(width: 2, height: 2),
+                mappedSize: .init(width: 2, height: 2), uvTransform: .identity, sampling: .linearClamp,
+                authoredFormat: .rgba8888), contentGeneration: 1)
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: [], userValues: [:], timelineValues: [:], sceneScriptValues: [:]).snapshot
+        let frameInputs = SceneAuthoredShaderFrameInputs(frameIndex: 1, screenSize: .init(width: 2, height: 2),
+            sceneTime: 0, dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero, pointerPrimaryButtonDown: false, parallaxPositionNDC: .zero, audioSpectrum: .silent)
+        let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: 1, frameIndex: 1,
+            entries: [.asset(dataIdentity): .ready(.init(publication: publication, resourceGeneration: 1))])
+        let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
+            dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
+        let input = frame.finalizationInput(layerID: 17,
+            renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)
+        let program = try SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: dataCache).get()
+        checks["rgbmaskFinalizationKeepsDataIdentity"] = program.textureSlots[slot]?.reference == .asset(identity.path)
+            && program.textureSlots[slot]?.expectedPurpose == .preservedChannels
+            && program.exactIdentity.textureSlots[slot]?.purpose == .preservedChannels
+        print(String(decoding: try JSONSerialization.data(withJSONObject: [
+            "mediaAdmitted": catalog.launchStates[identity] != .unavailable,
+            "report": catalog.reportLines, "checks": checks, "variant": variant,
+            "contractIdentity": value.shaderContract.identity
+        ]), as: UTF8.self))
+    }
+}
+'''
+
+
+NATIVE_ASSET_CASES = r'''
+import Metal
+
+extension Harness {
+    static func emit(_ result: [String: Any]) throws {
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
+    }
+
+    static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Any] {
+        guard let snapshot = source.playbackSnapshot(sceneTime: sceneTime) else { return ["available": false] }
+        return ["available": true, "duration": snapshot.duration, "currentTime": snapshot.currentTime]
+    }
+
+    static func observeDormantAssetPause(
+        _ source: SceneVideoTextureSource, peer: SceneVideoTextureSource,
+        registry: SceneVideoTextureSourceRegistry, timing: () -> SceneFrameTiming
+    ) -> (paused: Bool, refreshed: Bool) {
+        guard let beforeDormancy = source.prepareFrame(for: timing()) else {
+            fatalError("active asset frame missing before dormancy")
+        }
+        registry.commitPreparedFrame()
+        var dormantAcquired = false
+        _ = pump(0.35) {
+            let frame = source.prepareFrame(for: timing(), effectVisibility: false)
+            dormantAcquired = dormantAcquired
+                || (frame?.contentGeneration ?? 0) > beforeDormancy.contentGeneration
+            registry.commitPreparedFrame()
+            return false
+        }
+        let heldTiming = timing()
+        registry.pause(sceneTime: heldTiming.sceneTime, hostTime: heldTiming.hostTime)
+        let paused = player(source).rate == 0
+        let heldTime = source.playbackSnapshot(sceneTime: heldTiming.sceneTime)!.currentTime
+        var returnedStaleFrame = false
+        let refreshed = pump(0.8) {
+            let time = timing()
+            let frame = source.prepareFrame(for: time, effectVisibility: true)
+            let peerFrame = peer.prepareFrame(for: time, effectVisibility: true)
+            registry.commitPreparedFrame()
+            guard let frame else {
+                returnedStaleFrame = returnedStaleFrame || peerFrame != nil
+                return false
+            }
+            let current = frame.contentGeneration == beforeDormancy.contentGeneration + 1
+                && frame.decodedItemTime.map { abs($0 - heldTime) <= 0.11 } == true
+                && peerFrame?.contentGeneration == frame.contentGeneration
+            returnedStaleFrame = returnedStaleFrame || !current
+            return current
+        }
+        registry.resume(sceneTime: timing().sceneTime, hostTime: CACurrentMediaTime())
+        return (paused, !dormantAcquired && refreshed && !returnedStaleFrame)
+    }
+
+    static func channelPipeline(_ device: MTLDevice) throws -> MTLComputePipelineState {
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+        kernel void decodedChannels(texture2d<float> image [[texture(0)]], device float4 *pixel [[buffer(0)]]) {
+            constexpr sampler linearClamp(coord::normalized, address::clamp_to_edge, filter::linear);
+            pixel[0] = image.sample(linearClamp, float2(0.5));
+        }
+        """
+        let library = try device.makeLibrary(source: source, options: nil)
+        return try device.makeComputePipelineState(function: library.makeFunction(name: "decodedChannels")!)
+    }
+
+    static func observeChannels(frame: SceneVideoTextureSource.Frame, color: SceneTextureProviderPublication,
+        asset: SceneAssetTextureIdentity, colorAsset: SceneAssetTextureIdentity, device: MTLDevice,
+        queue: MTLCommandQueue, pipeline: MTLComputePipelineState,
+        checks: inout [String: Bool], pixels: inout [[Float]]) throws {
+        let publication = frame.assetPublication(for: asset)
+        let straightAsset = SceneAssetTextureIdentity(path: asset.path, purpose: .straightAlbedo)
+        let straight = frame.assetPublication(for: straightAsset)
+        checks["dataRequiresActualOpaqueDecodedFrame"] = checks["dataRequiresActualOpaqueDecodedFrame", default: true]
+            && ((publication != nil) == (frame.content == .color(.resolved(.opaque))))
+        checks["straightRequiresActualOpaqueDecodedFrame"] = checks["straightRequiresActualOpaqueDecodedFrame", default: true]
+            && ((straight != nil) == (frame.content == .color(.resolved(.opaque))))
+        guard let publication else { return }
+        guard let straight else { fatalError("actual opaque decoded frame did not publish its straight color request") }
+        checks["opaqueStraightPreservesTypedAtom"] = checks["opaqueStraightPreservesTypedAtom", default: true]
+            && straight.isComplete && straight.requestIdentity == .asset(straightAsset)
+            && straight.candidate.identity == .provider(.videoAsset(asset: straightAsset,
+                sourceIncarnation: frame.sourceIncarnation, lifecycleEpoch: frame.epoch))
+            && straight.candidate.purpose == .straightAlbedo && straight.candidate.content == frame.content
+            && straight.candidate.generation == .provider(contentGeneration: frame.contentGeneration)
+            && straight.contentGeneration == frame.contentGeneration
+            && straight.candidate.authoredFormat == .rgba8888 && straight.candidate.sampling == .linearClamp
+        checks["colorStraightAndDataShareDecodedBacking"] = checks["colorStraightAndDataShareDecodedBacking", default: true]
+            && straight.texture === frame.texture && straight.texture === color.texture
+            && straight.texture === publication.texture && straight.contentGeneration == publication.contentGeneration
+        checks["colorAndDataShareDecodedBacking"] = checks["colorAndDataShareDecodedBacking", default: true]
+            && publication.texture === color.texture && publication.contentGeneration == color.contentGeneration
+            && publication.candidate.identity == .provider(.videoAsset(asset: asset,
+                sourceIncarnation: frame.sourceIncarnation, lifecycleEpoch: frame.epoch))
+            && publication.candidate.content == .data && publication.candidate.purpose == .preservedChannels
+            && publication.candidate.pixelFormat == .bgra8Unorm && publication.candidate.sampling == .linearClamp
+        let registry = SceneFrameTextureRegistry()
+        registry.beginFrame(frameIndex: frame.contentGeneration, layerSources: [:],
+            assetStates: [asset: .ready(publication), colorAsset: .ready(color), straightAsset: .ready(straight)])
+        guard let data = registry.resource(for: .asset(asset)),
+              let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: data.publication.candidate),
+              let straightResource = registry.resource(for: .asset(straightAsset)),
+              let straightBinding = SceneTextureSlotBinding(slotIndex: 2, candidate: straightResource.publication.candidate) else {
+            fatalError("actual decoded channel publication did not reach its typed sampler")
+        }
+        checks["straightPurposeQualifiedAtomIsDistinct"] = checks["straightPurposeQualifiedAtomIsDistinct", default: true]
+            && straightResource.publication.isSameAtom(as: straight)
+            && straight.requestIdentity != publication.requestIdentity && straight.requestIdentity != color.requestIdentity
+            && straightBinding.purpose == .straightAlbedo && straightBinding.content == .color(.resolved(.opaque))
+            && straightBinding.texture === binding.texture
+        checks["purposeQualifiedAtomsStayDistinct"] = checks["purposeQualifiedAtomsStayDistinct", default: true]
+            && data.publication.isSameAtom(as: publication)
+            && registry.resource(for: .asset(colorAsset))?.publication.isSameAtom(as: color) == true
+            && publication.requestIdentity != color.requestIdentity
+        let output = device.makeBuffer(length: 16, options: .storageModeShared)!
+        let command = queue.makeCommandBuffer()!, encoder = command.makeComputeCommandEncoder()!
+        encoder.setComputePipelineState(pipeline); encoder.setTexture(binding.texture, index: 0)
+        encoder.setBuffer(output, offset: 0, index: 0)
+        encoder.dispatchThreads(MTLSize(width: 1, height: 1, depth: 1),
+            threadsPerThreadgroup: MTLSize(width: 1, height: 1, depth: 1))
+        encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed, command.error == nil else { fatalError("channel GPU sample failed") }
+        pixels.append(Array(UnsafeBufferPointer(start: output.contents().assumingMemoryBound(to: Float.self), count: 4)))
+        registry.commitFramePublication()
+        guard pixels.count == 1 else { return }
+        func typedFrame(_ content: SceneTextureContent, texture: MTLTexture? = nil, epoch: UInt64? = nil) -> SceneVideoTextureSource.Frame {
+            .init(texture: texture ?? frame.texture, content: content, contentGeneration: frame.contentGeneration,
+                requestedItemTime: frame.requestedItemTime, decodedItemTime: frame.decodedItemTime,
+                epoch: epoch ?? frame.epoch, owner: frame.owner, sourceIncarnation: frame.sourceIncarnation)
+        }
+        for (name, bytes) in [("fractionalAlpha", [UInt8(64), 32, 16, 128]), ("zeroAlpha", [UInt8(0), 0, 0, 0])] {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 1, height: 1, mipmapped: false)
+            descriptor.usage = .shaderRead; descriptor.storageMode = .shared
+            let texture = device.makeTexture(descriptor: descriptor)!
+            bytes.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                withBytes: $0.baseAddress!, bytesPerRow: 4) }
+            let premultiplied = typedFrame(.color(.resolved(.premultipliedAlpha)), texture: texture)
+            checks[name + "PMAStillPublishesColor"] = premultiplied.assetPublication(for: colorAsset)?.isComplete == true
+            checks[name + "PMARejectsPreservedChannels"] = premultiplied.assetPublication(for: asset) == nil
+            checks[name + "PMARejectsStraightAlbedo"] = premultiplied.assetPublication(for: straightAsset) == nil
+        }
+        for (name, content) in [("unknownAlpha", SceneTextureContent.color(.unresolved)),
+                                ("straightAlpha", .color(.resolved(.straightAlpha)))] {
+            checks[name + "CannotPublishChannels"] = typedFrame(content).assetPublication(for: asset) == nil
+            checks[name + "CannotPublishStraightAlbedo"] = typedFrame(content).assetPublication(for: straightAsset) == nil
+        }
+        checks["normalVideoFrameRemainsUnavailable"] = frame.assetPublication(
+            for: .init(path: asset.path, purpose: .normal)) == nil
+        checks["straightZeroEpochIsIncomplete"] = typedFrame(frame.content, epoch: 0)
+            .assetPublication(for: straightAsset)?.isComplete == false
+        checks["straightWrongRequestIsIncomplete"] = !SceneTextureProviderPublication(requestIdentity: .asset(colorAsset),
+            candidate: straight.candidate, contentGeneration: straight.contentGeneration).isComplete
+        let request = request(texture: publication.texture, candidate: publication.candidate,
+            layer: .init(id: 81, contentKind: "solid"), tint: SIMD3(repeating: 1))
+        checks["dataCannotBecomePlainFinalColor"] = request.resolvedBaseTextureSample() == nil
+            && SceneImageLayerCompositor().sourceFragmentUniforms(for: request, routesOffscreen: false) == nil
+        checks["dataZeroEpochIsIncomplete"] = typedFrame(frame.content, epoch: 0).assetPublication(for: asset)?.isComplete == false
+        checks["dataWrongRequestIsIncomplete"] = !SceneTextureProviderPublication(requestIdentity: .asset(colorAsset),
+            candidate: publication.candidate, contentGeneration: publication.contentGeneration).isComplete
+    }
+}
+'''
+
+
+@unittest.skipUnless(shutil.which("swiftc") and shutil.which("ffmpeg"), "Swift and ffmpeg required")
+class SceneMaterialVideoAssetTests(unittest.TestCase):
+    def test_media_asset_is_admitted_without_fabricating_a_static_frame(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-material-video-") as directory:
+            work = Path(directory)
+            (work / "cards").mkdir()
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+                "color=red:size=32x24:rate=10:duration=1", "-f", "lavfi", "-i",
+                "color=blue:size=32x24:rate=10:duration=1", "-filter_complex",
+                "[0:v][1:v]concat=n=2:v=1:a=0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                str(work / "clip.mp4")], check=True, capture_output=True)
+            for resource in ["cards/first", "renamed/new-card"]:
+                (work / resource).parent.mkdir(parents=True, exist_ok=True)
+                (work / f"{resource}.tex").write_bytes(video_tex((work / "clip.mp4").read_bytes()))
+            support = work / "Support.swift"
+            support.write_text(sampler.SUPPORT)
+            harness = work / "Harness.swift"
+            harness.write_text(BASELINE)
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(work / "clang-cache")
+            compiled = subprocess.run(["swiftc", "-parse-as-library", str(support),
+                *map(str, sampler.SWIFT_SOURCES), str(harness),
+                "-module-cache-path", str(work / "swift-cache"), "-o", str(work / "probe")],
+                cwd=ROOT, env=environment, capture_output=True, text=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            for index, resource in enumerate(["cards/first", "renamed/new-card"]):
+                with self.subTest(resource=resource):
+                    run = subprocess.run([str(work / "probe"), str(work), resource, str(index)], check=True,
+                        capture_output=True, text=True, env=environment)
+                    result = json.loads(run.stdout)
+                    self.assertTrue(result["mediaAdmitted"], result)
+                    for name, passed in result["checks"].items():
+                        self.assertTrue(passed, (name, result))
+                    print(json.dumps(result, sort_keys=True))
+
+
+def solid_png() -> bytes:
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", 1, 1, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes([0, 0, 255, 0, 255]))) + chunk(b"IEND", b""))
+
+
+@unittest.skipUnless(shutil.which("swiftc") and shutil.which("ffmpeg"), "Swift and ffmpeg required")
+class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-material-video-gpu-")
+        cls.work = Path(cls.temporary.name)
+        cls.evidence = Path(os.environ["MWX_SCENE_MATERIAL_VIDEO_EVIDENCE"]) if os.environ.get(
+            "MWX_SCENE_MATERIAL_VIDEO_EVIDENCE") else None
+        if cls.evidence:
+            cls.evidence.mkdir(parents=True, exist_ok=True)
+        cls.product_root = Path(os.environ.get("MWX_SCENE_VIDEO_PRODUCT_SOURCE_ROOT", ROOT)).resolve()
+        extras = [
+            "Resources/Assets/SceneResourceIndex.swift", "Resources/Assets/SceneResourceView.swift",
+            "Resources/Assets/SceneStockTextureSemanticRegistry.swift",
+            "Resources/Textures/SceneTexturePathResolver.swift", "Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+            "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift", "Resources/Textures/SceneBaseMaterialTextureResolver.swift",
+            "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift", "Compilation/Material/SceneEffectTextureInput.swift",
+            "Compilation/Material/SceneRenderTargetVocabulary.swift",
+            "Systems/Properties/SceneDynamicSnapshot.swift", "Rendering/Frame/SceneMetalRenderer+BaseMaterialColor.swift",
+            "Rendering/Metal/SceneMetalPipeline.swift", "Runtime/Frame/SceneMaterialRenderState.swift", "Format/SceneWebMContainer.swift",
+            "Rendering/Composition/SceneImageLayerDrawRequest.swift", "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift",
+            "Rendering/Composition/SceneBlendModeShaderSource.swift",
+            "Resources/Providers/SceneVideoPayloadPreparation.swift", "Resources/Providers/SceneVideoProviderLifecycleState.swift",
+            "Resources/Providers/SceneVideoTextureSource.swift", "Resources/Providers/SceneVideoTextureSourceRegistry.swift",
+            "Format/ScenePkgReader.swift",
+        ]
+        sources = list(dict.fromkeys(textures.SWIFT_SOURCES + [SCENE / path for path in extras]))
+        sources = [cls.product_root / path.relative_to(ROOT) for path in sources]
+        readiness_input = cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
+        readiness_source = cls.work / "SceneOrdinaryVideoFrameReadiness.swift"
+        harness = ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"
+        carriers, carrier_inputs = video_carrier_source(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
+        readiness_source.write_text("import Foundation\n" + readiness.declaration(readiness_input.read_text(),
+            "enum SceneOrdinaryVideoFrameReadiness:") + "\n" + carriers + "\n" + NATIVE_ASSET_CASES)
+        shader = cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
+        delegate_sources = segment_delegate_sources(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
+        cls.source_inputs = list(dict.fromkeys(sources + list(delegate_sources) + [
+            Path(compile_segment_delegate.__code__.co_filename), readiness_input, *carrier_inputs, harness, Path(__file__),
+            Path(textures.__file__), Path(readiness.__file__), Path(make_package.__code__.co_filename),
+            shader, shader.with_name("SceneDistanceFog.metalh")]))
+        cls.io_fixture = ROOT / "script/tests/fixtures/SceneVideoPackageReadObserver.c"
+        cls.source_inputs.append(cls.io_fixture)
+        cls.before_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in cls.source_inputs}
+        cls.environment = os.environ.copy()
+        cls.environment["CLANG_MODULE_CACHE_PATH"] = str(cls.work / "clang-cache")
+        cls.environment["HOME"] = str(cls.work / "home")
+        cls.environment["CFFIXED_USER_HOME"] = str(cls.work / "home")
+        (cls.work / "home").mkdir()
+        delegate_arguments = compile_segment_delegate(cls.work,
+            scene_root=cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene",
+            environment=cls.environment, evidence_directory=cls.evidence)
+        cls.io_library = cls.work / "entry-read-observer.dylib"
+        io_command = ["xcrun", "clang", "-dynamiclib", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                      str(cls.io_fixture), "-o", str(cls.io_library)]
+        io_compile = subprocess.run(io_command, cwd=ROOT, env=cls.environment,
+            capture_output=True, text=True, timeout=60)
+        if cls.evidence:
+            (cls.evidence / "entry-read-observer-compile.json").write_text(json.dumps({
+                "argv": io_command, "exitCode": io_compile.returncode,
+                "stdout": io_compile.stdout, "stderr": io_compile.stderr,
+                "sourceSHA256": hashlib.sha256(cls.io_fixture.read_bytes()).hexdigest(),
+            }, indent=2) + "\n")
+        if io_compile.returncode:
+            raise RuntimeError(io_compile.stderr)
+        compiled = subprocess.run(["swiftc", "-parse-as-library", "-D", "DEBUG", "-default-isolation", "MainActor",
+            "-D", "MWX_COMPLETED_WEBM_REUSE", "-D", "MWX_REGISTRY_INPUT_IO",
+            *delegate_arguments, *map(str, sources), str(readiness_source), str(harness),
+            "-module-cache-path", str(cls.work / "swift-cache"), "-o", str(cls.work / "probe")],
+            cwd=ROOT, env=cls.environment, capture_output=True, text=True)
+        if cls.evidence:
+            (cls.evidence / "compile.stdout.log").write_text(compiled.stdout)
+            (cls.evidence / "compile.stderr.log").write_text(compiled.stderr)
+            (cls.evidence / "compile.json").write_text(json.dumps({"exitCode": compiled.returncode,
+                "productSourceRoot": str(cls.product_root), "sourceSHA256Before": cls.before_hashes,
+                "generatedReadinessSHA256": hashlib.sha256(readiness_source.read_bytes()).hexdigest()}, indent=2) + "\n")
+        if compiled.returncode:
+            cls.temporary.cleanup()
+            raise RuntimeError(compiled.stderr)
+        cls.shader = cls.work / "SceneImageLayer.metal"
+        cls.shader.write_text(shader.read_text().replace('#include "SceneDistanceFog.metalh"',
+            shader.with_name("SceneDistanceFog.metalh").read_text()))
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+            "color=red:size=32x24:rate=10:duration=1", "-f", "lavfi", "-i",
+            "color=blue:size=32x24:rate=10:duration=1", "-f", "lavfi", "-i",
+            "color=c=0x808080:size=32x24:rate=10:duration=1", "-filter_complex",
+            "[0:v][1:v][2:v]concat=n=3:v=1:a=0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            str(cls.work / "clip.mp4")], check=True, capture_output=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in cls.source_inputs}
+        changed = [path for path, sha in cls.before_hashes.items() if after[path] != sha]
+        if cls.evidence:
+            (cls.evidence / "source-identity.json").write_text(json.dumps({
+                "productSourceRoot": str(cls.product_root),
+                "sourceSHA256Before": cls.before_hashes, "sourceSHA256After": after,
+                "changedPaths": changed, "sourceUnchanged": not changed}, indent=2) + "\n")
+        cls.temporary.cleanup()
+        if changed:
+            raise RuntimeError("material video gate input changed: " + ", ".join(changed))
+
+    def test_package_remount_video_private_storage_and_actual_av_borrowers(self):
+        root = self.work / "storage-scene"
+        root.mkdir()
+        (root / "scene.pkg").write_bytes(make_package([
+            ("textures/renamed-card.tex", video_tex((self.work / "clip.mp4").read_bytes())),
+        ]))
+        run = subprocess.run([str(self.work / "probe"), str(root), str(self.shader), "--storage",
+            str(self.work / "clip.mp4")],
+            cwd=ROOT, env=self.environment, capture_output=True, text=True, timeout=90)
+        if self.evidence:
+            (self.evidence / "storage.stdout.log").write_text(run.stdout)
+            (self.evidence / "storage.stderr.log").write_text(run.stderr)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        if self.evidence:
+            (self.evidence / "storage.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        print(json.dumps(result, sort_keys=True), flush=True)
+        required = {"embeddedActualFrameKeepsRedPixels", "embeddedBorrowsActualSourceAVAsset",
+            "addedViewReusesActualAssetSource", "independentPackageMountKeepsActualSource",
+            "retiredCachePollutionDoesNotChangePackageBytes", "retiredCachePollutionKeepsBorrowedEmbeddedBytes",
+            "retiredCachePollutionKeepsCurrentDeclaration", "embeddedAVBorrowerAlonePinsFile",
+            "embeddedFinalAVBorrowerUnlinksFile", "externalCandidatePrimesActualDecoder",
+            "externalCandidateAdopts", "externalActualFrameKeepsRedPixels",
+            "packageRemountKeepsExternalPrivateBytes", "cancelledReplacementKeepsOldProvider",
+            "liveReplacementUsesNewActualPrivateSource", "externalAVBorrowerAlonePinsFile",
+            "externalFinalAVBorrowerUnlinksFile"}
+        required.update(kind + suffix for kind in ("failed", "missing") for suffix in (
+            "PackageUnavailableKeepsLooseSelection", "LoosePrivateOutsideAuthor", "LooseAuthorNamespaceUnchanged"))
+        self.assertTrue(required.issubset(result["checks"]), result)
+        self.assertEqual(len(result["pixels"]), 2, result)
+        self.assertEqual(result["storageMapping"], "actual package Root with explicit App-private media domain")
+        for name, passed in result["checks"].items():
+            with self.subTest(check=name):
+                self.assertTrue(passed, result)
+
+    def test_real_frames_publication_fallback_selection_and_float_gpu(self):
+        for index, (resource, property_name, flags) in enumerate([
+            ("cards/first", "background", 2), ("renamed/new-card", "arbitrary-picture", 34),
+        ]):
+            with self.subTest(resource=resource, property=property_name):
+                root = self.work / f"scene{index}"
+                (root / resource).parent.mkdir(parents=True)
+                (root / f"{resource}.tex").write_bytes(video_tex((self.work / "clip.mp4").read_bytes(), flags=flags))
+                (root / "bad").mkdir()
+                (root / "bad/truncated.tex").write_bytes(b"TEXV0005\0")
+                (root / "still.png").write_bytes(solid_png())
+                layer_id, video_layer_id = (91, 7) if index == 0 else (3083, 551)
+                run = subprocess.run([str(self.work / "probe"), str(root), str(self.shader), resource, property_name,
+                    str(layer_id), str(video_layer_id)],
+                    cwd=ROOT, env=self.environment, capture_output=True, text=True, timeout=20)
+                if self.evidence:
+                    (self.evidence / f"original-gpu-{index}.stdout.log").write_text(run.stdout)
+                    (self.evidence / f"original-gpu-{index}.stderr.log").write_text(run.stderr)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                result = json.loads(run.stdout)
+                for name, passed in result["checks"].items():
+                    self.assertTrue(passed, (name, result))
+                self.assertGreater(len(result["generations"]), 10)
+                self.assertGreater(len(result["dataPixels"]), 10)
+                self.assertTrue({"colorAndDataShareDecodedBacking", "purposeQualifiedAtomsStayDistinct",
+                    "fractionalAlphaPMARejectsPreservedChannels", "zeroAlphaPMARejectsPreservedChannels",
+                    "unknownAlphaCannotPublishChannels", "straightAlphaCannotPublishChannels",
+                    "dataCannotBecomePlainFinalColor", "dataZeroEpochIsIncomplete",
+                    "dataWrongRequestIsIncomplete", "straightRequiresActualOpaqueDecodedFrame",
+                    "opaqueStraightPreservesTypedAtom", "colorStraightAndDataShareDecodedBacking",
+                    "straightPurposeQualifiedAtomIsDistinct", "fractionalAlphaPMARejectsStraightAlbedo",
+                    "zeroAlphaPMARejectsStraightAlbedo", "unknownAlphaCannotPublishStraightAlbedo",
+                    "straightAlphaCannotPublishStraightAlbedo", "normalVideoFrameRemainsUnavailable",
+                    "straightZeroEpochIsIncomplete", "straightWrongRequestIsIncomplete"}.issubset(result["checks"]), result)
+                self.assertTrue(all(b == a + 1 for a, b in zip(result["generations"], result["generations"][1:])))
+                print(json.dumps({"variant": index, "resource": resource, "property": property_name,
+                    "layerID": layer_id, "videoLayerID": video_layer_id,
+                    "checks": result["checks"], "frames": len(result["pixels"]),
+                    "red": result["pixels"][0], "dataPixels": result["dataPixels"],
+                    "durationSnapshots": result["durationSnapshots"], "tinted": result["tinted"], "still": result["still"],
+                    "afterStopInsideAVScope": result.get("afterStopInsideAVScope"),
+                    "afterAVScopeRelease": result.get("afterAVScopeRelease")}, sort_keys=True))
+
+    def test_completed_package_webm_reuses_file_with_independent_players_and_last_borrow(self):
+        root = self.work / 'completed-webm-scene'
+        root.mkdir()
+        webm = root / 'source.webm'
+        # A supported-size, explicit pixel-format real VP9 input, independent of D34's large mechanism clip.
+        encode = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i',
+            'color=red:size=320x180:rate=30:duration=2', '-c:v', 'libvpx-vp9',
+            '-pix_fmt', 'yuv420p', '-g', '30', '-auto-alt-ref', '0', str(webm)],
+            check=True, capture_output=True, text=True, timeout=60)
+        package = make_package([
+            ('textures/first.tex', video_tex(webm.read_bytes())),
+            ('textures/peer.tex', video_tex(webm.read_bytes())),
+        ])
+        for name in ('scene.pkg', 'peer.pkg'):
+            (root / name).write_bytes(package)
+        run = subprocess.run([str(self.work / 'probe'), str(root), str(self.shader), '--completed-webm-reuse'],
+            cwd=ROOT, env=self.environment, capture_output=True, text=True, timeout=90)
+        if self.evidence:
+            (self.evidence / 'completed-webm-inputs.json').write_text(json.dumps({
+                'webmSHA256': hashlib.sha256(webm.read_bytes()).hexdigest(),
+                'packageSHA256': hashlib.sha256(package).hexdigest(),
+                'webmBytes': webm.stat().st_size, 'packageBytes': len(package),
+                'encodeStdout': encode.stdout, 'encodeStderr': encode.stderr,
+                'scope': 'generated real VP9 input; Reader package facts with controlled managed binding; no library admission claim',
+            }, indent=2) + '\n')
+            (self.evidence / 'completed-webm.stdout.log').write_text(run.stdout)
+            (self.evidence / 'completed-webm.stderr.log').write_text(run.stderr)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        if self.evidence:
+            (self.evidence / 'completed-webm.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+        expected = {
+            'startsWithNoPrivateReservation', 'actualFileOutsideAuthorRoot', 'completedFileHasOneActualReservation',
+            'independentSourcesAndPlayers', 'secondSourceUsesCompletedFileSynchronously',
+            'bothActualPlayersPublishRedPixels', 'firstStopDoesNotStopSecondPublication',
+            'lastActualAssetAloneKeepsFileAndCharge', 'lastAssetReleaseUnlinksAndReturnsReservation',
+            'stoppedSourcesRemainAliveAfterFinalBorrow', 'sourceSnapshotCannotServeRemuxPurpose',
+            'closedWriterPublishesExactFile', 'remuxCannotReplaceSourceSnapshotPurpose',
+            'actualPrivateDomainPartitionsBorrow', 'budgetInstancePartitionsBorrow',
+            'partialWriterNeverRegistersSuccess', 'cancelledPublicationEscapes',
+            'cancelledPublicationDoesNotRegister', 'cancelledHitCannotBorrow',
+            'replacedOutputCannotHitOldSuccess', 'changedAuthorInputEscapesAtRegistryEntry',
+            'changedAuthorDeclarationEscapesAtRegistryEntry', 'completedFileRemainsUsableAfterAuthorChange',
+            'freshRootUsesNewRevisionAndPrivateFile',
+        }
+        expected.update(name + 'CannotBorrowOtherCompletedIdentity' for name in
+                        ('packagePath', 'rawEntry'))
+        self.assertEqual(set(result['checks']), expected, result)
+        for name in expected:
+            with self.subTest(check=name):
+                self.assertIs(result['checks'][name], True, result)
+        print(json.dumps(result, sort_keys=True), flush=True)
+
+    def test_package_registry_hits_avoid_payload_io_after_eviction(self):
+        root = self.work / 'registry-input-io'
+        root.mkdir()
+        external = os.environ.get('MWX_SCENE_VIDEO_IO_WEBM')
+        webm = Path(external) if external else root / 'source.webm'
+        if not external:
+            subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i',
+                'color=red:size=320x180:rate=30:duration=2', '-c:v', 'libvpx-vp9',
+                '-pix_fmt', 'yuv420p', '-g', '30', '-auto-alt-ref', '0', str(webm)],
+                check=True, capture_output=True, timeout=60)
+        media = webm.read_bytes()
+        package = make_package([
+            ('textures/first.tex', video_tex(media)),
+            ('textures/not-tex.bin', video_tex(media)),
+            ('textures/not-video.tex', video_tex(bytes(16))),
+            ('textures/malformed.tex', b'not a TEX'),
+        ])
+        for name in ('scene.pkg', 'changed.pkg'):
+            (root / name).write_bytes(package)
+        environment = dict(self.environment, DYLD_INSERT_LIBRARIES=str(self.io_library))
+        command = [str(self.work / 'probe'), str(root), str(self.shader), '--registry-input-io']
+        run = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, text=True, timeout=90)
+        if self.evidence:
+            (self.evidence / 'input-io.stdout.log').write_text(run.stdout)
+            (self.evidence / 'input-io.stderr.log').write_text(run.stderr)
+            (self.evidence / 'input-io-inputs.json').write_text(json.dumps({
+                'argv': command, 'productSourceRoot': str(self.product_root),
+                'sharedWebMInput': str(webm), 'webmSHA256': hashlib.sha256(media).hexdigest(),
+                'packageSHA256': hashlib.sha256(package).hexdigest(),
+                'observerSHA256': hashlib.sha256(self.io_fixture.read_bytes()).hexdigest(),
+                'sourceSHA256': self.before_hashes,
+            }, indent=2) + '\n')
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        expected = {'coldPositiveControl', 'sameLiveSourceAndExpectedIO', 'completedHitExpectedIO',
+            'differentIdentityReadsOriginalPayload', 'not-tex.binKeepsOriginalResult',
+            'not-video.texKeepsOriginalResult', 'malformed.texKeepsOriginalResult',
+            'cancelledRequestIsRejected', 'cancelledRequestExpectedIO', 'sourceChangedEscapesBeforePayload',
+            'actualAssetKeepsCompletedFile', 'lastBorrowActuallyReleased', 'lastBorrowMissReadsOriginalPayload'}
+        expected.update({'preparedColdAvoidsPayloadAndDuplicateFile', 'preparedActualFrameUsesCompletedMP4',
+            'preparedLiveCacheHitAvoidsPayload', 'addedViewReusesSourceWithoutPayload',
+            'preparedCancelledCacheHitIsRejected', 'preparedStopRetiresActualPlayer',
+            'preparedAssetAlonePinsCompletedFile', 'preparedFinalBorrowReturnsReservation',
+            'layerIndexExcludesAssetAndKeepsBothLayers', 'layerIndexSharesResourceAndTargetsDistinctRevision',
+            'wrongLayerRejectedAtomically', 'knownNativeDurationRejectedAtomically', 'staleSourceCommandRejected', 'missingSourceCommandRejected', 'retireAndAddedViewKeepOnlyCurrentBinding',
+            'layerIndexRetiredCommandsAreUnavailable', 'layerIndexStopClearsBindings',
+            'catalogZeroCarrierReusesSourceAndFile'})
+        self.assertEqual(set(result['checks']), expected)
+        for name in expected:
+            with self.subTest(check=name):
+                self.assertIs(result['checks'][name], True, result)
+        self.assertGreater(result['entryBytes'], 0)
+        if self.evidence:
+            (self.evidence / 'input-io.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+        print(json.dumps(result, sort_keys=True), flush=True)

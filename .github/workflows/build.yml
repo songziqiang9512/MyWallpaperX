@@ -60,7 +60,7 @@ jobs:
           cache-dependency-path: script/requirements-tests.txt
 
       - name: Resolve build version
-        run: bash script/resolve_version.sh --release >> "$GITHUB_ENV"
+        run: bash script/release/resolve_version.sh --release >> "$GITHUB_ENV"
 
       - name: Validate version and authored release notes
         env:
@@ -76,9 +76,9 @@ jobs:
             echo "::error::Requested version must match the committed project version ($MARKETING_VERSION)."
             exit 1
           fi
-          python3 script/validate_release_notes.py "$REQUESTED_VERSION" --check-project --check-tags
+          python3 script/release/validate_release_notes.py "$REQUESTED_VERSION" --check-project --check-tags
           gh release download update-feed --pattern appcast.xml --dir "$RUNNER_TEMP/previous-feed"
-          python3 script/release_version.py --previous-appcast "$RUNNER_TEMP/previous-feed/appcast.xml"
+          python3 script/release/release_version.py --previous-appcast "$RUNNER_TEMP/previous-feed/appcast.xml"
           if gh release view "build-$MARKETING_VERSION" >/dev/null 2>&1; then
             echo "::error::Release or draft already exists; inspect it before retrying."
             exit 1
@@ -113,7 +113,7 @@ jobs:
           if [ -z "${BASE_REF}" ]; then
             BASE_REF="$(git rev-list --max-parents=0 HEAD | head -n 1)"
           fi
-          python3 script/check_code_health.py --check --base-ref "${BASE_REF}" --format github
+          python3 script/governance/check_code_health.py --check --base-ref "${BASE_REF}" --format github
 
       - name: Show Xcode environment
         run: |
@@ -196,10 +196,10 @@ jobs:
       - name: Validate Apple Silicon release contract
         run: |
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
-          python3 script/validate_apple_silicon_release.py \
+          python3 script/release/validate_apple_silicon_release.py \
             --project "$PROJECT_PATH" \
             --app "$APP_PATH" --skip-codesign
-          python3 script/release_version.py --app "$APP_PATH"
+          python3 script/release/release_version.py --app "$APP_PATH"
 
       - name: Sign app
         env:
@@ -207,7 +207,7 @@ jobs:
         run: |
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
 
-          /bin/bash script/sign-steam-helper.sh "$APP_PATH/Contents/Resources/SteamService" "$DEVELOPER_ID_APPLICATION"
+          /bin/bash script/release/sign-steam-helper.sh "$APP_PATH/Contents/Resources/SteamService" "$DEVELOPER_ID_APPLICATION"
 
           codesign --force --timestamp --options runtime \
             --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
@@ -246,7 +246,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
-          python3 script/validate_apple_silicon_release.py \
+          python3 script/release/validate_apple_silicon_release.py \
             --app "$APP_PATH" --signatures-only --expected-team-id "$APPLE_TEAM_ID"
 
       - name: Package app
@@ -384,7 +384,7 @@ jobs:
                 --link "https://github.com/${GITHUB_REPOSITORY}" \
                 -o "$DIST_DIR/appcast.xml" \
                 "$FEED_DIR"
-          python3 script/release_version.py --appcast "$DIST_DIR/appcast.xml"
+          python3 script/release/release_version.py --appcast "$DIST_DIR/appcast.xml"
 
       - name: Archive release artifacts
         run: |

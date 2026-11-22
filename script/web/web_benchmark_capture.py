@@ -1,0 +1,406 @@
+#!/usr/bin/env python3
+"""Capture-infrastructure helpers for the Web wallpaper benchmark."""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import plistlib
+import re
+import shutil
+import subprocess
+import time
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+from PIL import Image
+
+
+class AppIdentityError(RuntimeError):
+    pass
+
+
+def require_fresh_output_dir(path: Path) -> Path:
+    if path.exists() and (not path.is_dir() or any(path.iterdir())):
+        raise FileExistsError(f"output directory is not empty: {path}")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _app_bundle_for(binary: Path) -> Path:
+    for parent in binary.parents:
+        if parent.suffix == ".app":
+            return parent
+    raise AppIdentityError(f"app binary is not inside an .app bundle: {binary}")
+
+
+def _verify_signature(bundle: Path) -> None:
+    result = subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--strict", "--deep", "--verbose=2", str(bundle)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise AppIdentityError(f"strict code signature verification failed for {bundle}: {detail}")
+
+
+def _codesign_values(bundle: Path) -> dict[str, str | None]:
+    result = subprocess.run(
+        ["/usr/bin/codesign", "-dv", "--verbose=4", str(bundle)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise AppIdentityError(f"failed to read code signature metadata for {bundle}")
+    output = "\n".join((result.stdout, result.stderr))
+
+    def value(name: str) -> str | None:
+        match = re.search(rf"^{re.escape(name)}=(.+)$", output, flags=re.MULTILINE)
+        if not match:
+            return None
+        parsed = match.group(1).strip()
+        return None if parsed in {"", "not set"} else parsed
+
+    values = {
+        "bundle_identifier": value("Identifier"),
+        "team_identifier": value("TeamIdentifier"),
+        "cdhash": value("CDHash"),
+    }
+    if not values["bundle_identifier"] or not values["cdhash"]:
+        raise AppIdentityError(f"incomplete code signature metadata for {bundle}")
+    return values
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _identity_values(bundle: Path, binary: Path) -> dict[str, Any]:
+    info_path = bundle / "Contents/Info.plist"
+    try:
+        info = plistlib.loads(info_path.read_bytes())
+    except (OSError, plistlib.InvalidFileException) as error:
+        raise AppIdentityError(f"failed to read {info_path}: {error}") from error
+    return {
+        **_codesign_values(bundle),
+        "short_version": info.get("CFBundleShortVersionString"),
+        "bundle_version": info.get("CFBundleVersion"),
+        "executable_sha256": _sha256(binary),
+    }
+
+
+def _ditto_copy(source: Path, destination: Path) -> None:
+    result = subprocess.run(
+        ["/usr/bin/ditto", str(source), str(destination)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise AppIdentityError(f"failed to stage signed app with ditto: {detail}")
+
+
+def stage_signed_app(
+    source_binary: Path,
+    output_dir: Path,
+    *,
+    runtime_bundle_name: str | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    source_binary = source_binary.expanduser().resolve()
+    if not source_binary.is_file():
+        raise AppIdentityError(f"app binary not found: {source_binary}")
+    source_bundle = _app_bundle_for(source_binary)
+    if runtime_bundle_name is None:
+        runtime_bundle_name = source_bundle.name
+    elif (not isinstance(runtime_bundle_name, str)
+          or not runtime_bundle_name.endswith(".app")
+          or runtime_bundle_name == ".app"
+          or Path(runtime_bundle_name).name != runtime_bundle_name
+          or "\\" in runtime_bundle_name or "\0" in runtime_bundle_name):
+        raise AppIdentityError("runtime bundle name must be a single .app basename")
+    _verify_signature(source_bundle)
+
+    runtime_root = output_dir / f"runtime-app-{os.getpid()}-{time.time_ns()}"
+    runtime_bundle = runtime_root / runtime_bundle_name
+    runtime_root.mkdir(parents=False, exist_ok=False)
+    _ditto_copy(source_bundle, runtime_bundle)
+    relative_binary = source_binary.relative_to(source_bundle)
+    runtime_binary = runtime_bundle / relative_binary
+    _verify_signature(runtime_bundle)
+
+    identity = {
+        **_identity_values(runtime_bundle, runtime_binary),
+        "runtime_root_path": str(runtime_root),
+        "source_bundle_path": str(source_bundle),
+        "source_executable_path": str(source_binary),
+        "runtime_bundle_path": str(runtime_bundle),
+        "runtime_executable_path": str(runtime_binary),
+        "runtime_retained": True,
+        "source_signature_verified": True,
+        "verified_before": True,
+        "verified_after": None,
+    }
+    return runtime_binary, identity
+
+
+def verify_staged_app(identity: dict[str, Any]) -> None:
+    bundle = Path(identity["runtime_bundle_path"])
+    binary = Path(identity["runtime_executable_path"])
+    try:
+        _verify_signature(bundle)
+        current = _identity_values(bundle, binary)
+    except (AppIdentityError, OSError):
+        identity["verified_after"] = False
+        raise
+    expected_keys = (
+        "bundle_identifier",
+        "team_identifier",
+        "cdhash",
+        "short_version",
+        "bundle_version",
+        "executable_sha256",
+    )
+    mismatches = [key for key in expected_keys if current.get(key) != identity.get(key)]
+    identity["verified_after"] = not mismatches
+    if mismatches:
+        raise AppIdentityError(f"staged app identity changed during benchmark: {', '.join(mismatches)}")
+
+
+def discard_staged_app(identity: dict[str, Any]) -> None:
+    runtime_root_raw = identity.get("runtime_root_path")
+    runtime_bundle_raw = identity.get("runtime_bundle_path")
+    runtime_binary_raw = identity.get("runtime_executable_path")
+    if not all(isinstance(path, str) and path for path in (
+        runtime_root_raw,
+        runtime_bundle_raw,
+        runtime_binary_raw,
+    )):
+        raise AppIdentityError("staged app cleanup metadata is incomplete")
+
+    runtime_root = Path(runtime_root_raw).resolve()
+    runtime_bundle = Path(runtime_bundle_raw).resolve()
+    runtime_binary = Path(runtime_binary_raw).resolve()
+    try:
+        runtime_bundle.relative_to(runtime_root)
+        runtime_binary.relative_to(runtime_bundle)
+    except ValueError as error:
+        raise AppIdentityError("staged app cleanup paths escape the runtime root") from error
+    if not runtime_root.name.startswith("runtime-app-"):
+        raise AppIdentityError("staged app cleanup root has an unexpected name")
+
+    shutil.rmtree(runtime_root)
+    identity["runtime_root_path"] = None
+    identity["runtime_bundle_path"] = None
+    identity["runtime_executable_path"] = None
+    identity["runtime_retained"] = False
+
+
+def logged_snapshot_paths(metadata: dict[str, Any], sample_dir: Path) -> list[Path]:
+    root = sample_dir.resolve()
+    accepted: list[Path] = []
+    for snapshot in metadata.get("snapshots") or []:
+        raw_path = snapshot.get("path")
+        if not raw_path:
+            continue
+        candidate = Path(str(raw_path)).expanduser()
+        if not candidate.is_absolute():
+            candidate = sample_dir / candidate
+        candidate = candidate.resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        if candidate.is_file() and candidate not in accepted:
+            accepted.append(candidate)
+    return sorted(accepted)
+
+
+def has_window_snapshot(paths: list[str] | list[Path]) -> bool:
+    return any(Path(path).stem.endswith("-window") for path in paths)
+
+
+def _paeth(left: int, up: int, upper_left: int) -> int:
+    estimate = left + up - upper_left
+    left_distance = abs(estimate - left)
+    up_distance = abs(estimate - up)
+    upper_left_distance = abs(estimate - upper_left)
+    if left_distance <= up_distance and left_distance <= upper_left_distance:
+        return left
+    if up_distance <= upper_left_distance:
+        return up
+    return upper_left
+
+
+def _decode_png_rows(path: Path) -> tuple[int, int, int, int, list[bytes]] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return _decode_png_rows_cached(path.resolve(), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4)
+def _decode_png_rows_cached(
+    path: Path,
+    _mtime_ns: int,
+    _size: int,
+) -> tuple[int, int, int, int, list[bytes]] | None:
+    try:
+        with Image.open(path) as image:
+            image.load()
+            if image.mode in ("P", "PA"):
+                image = image.convert("RGBA")
+            elif image.mode == "1":
+                image = image.convert("L")
+            elif image.mode in ("I;16", "I;16B", "I;16L"):
+                # Existing visibility/motion metrics consume an 8-bit view.
+                samples = np.asarray(image, dtype=np.uint16) >> 8
+                return (
+                    samples.shape[1],
+                    samples.shape[0],
+                    1,
+                    1,
+                    [row.astype(np.uint8).tobytes() for row in samples],
+                )
+            channels = {"L": 1, "LA": 2, "RGB": 3, "RGBA": 4}.get(image.mode)
+            if channels is None:
+                return None
+            width, height = image.size
+            payload = image.tobytes()
+    except (OSError, ValueError, SyntaxError):
+        return None
+    stride = width * channels
+    return width, height, channels, 1 if channels <= 2 else 3, [
+        payload[offset : offset + stride] for offset in range(0, stride * height, stride)
+    ]
+
+
+def png_rgb_pixels(path: Path) -> tuple[int, int, list[bytes]] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return _png_rgb_pixels_cached(path.resolve(), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4)
+def _png_rgb_pixels_cached(
+    path: Path,
+    _mtime_ns: int,
+    _size: int,
+) -> tuple[int, int, list[bytes]] | None:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
+        return None
+    width, height, channels, color_channels, rows = decoded
+    pixels = np.frombuffer(b"".join(rows), dtype=np.uint8).reshape(height, width, channels)
+    if color_channels == 1:
+        rgb = np.repeat(pixels[..., :1], 3, axis=2)
+    else:
+        rgb = pixels[..., :3]
+    if channels > color_channels:
+        alpha = pixels[..., color_channels : color_channels + 1]
+        rgb = (rgb.astype(np.uint16) * alpha // 255).astype(np.uint8)
+    return width, height, [rgb[y].tobytes() for y in range(height)]
+
+
+def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
+        return False
+    width, _, channels, color_channels, rows = decoded
+    stride = width * channels
+    return any(
+        row[pixel + channel] > threshold
+        for row in rows
+        for pixel in range(0, stride, channels)
+        for channel in range(color_channels)
+    )
+
+
+def png_flat_border_ratio(
+    path: Path,
+    band: int = 12,
+    quantization: int = 8,
+) -> float | None:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
+        return None
+    width, height, channels, color_channels, rows = decoded
+    thickness = max(1, min(band, width // 2, height // 2))
+    counts: dict[tuple[int, ...], int] = {}
+    total = 0
+    for y, row in enumerate(rows):
+        if y < thickness or y >= height - thickness:
+            x_values = range(width)
+        else:
+            x_values = (*range(thickness), *range(width - thickness, width))
+        for x in x_values:
+            offset = x * channels
+            color = tuple(
+                row[offset + channel] // quantization
+                for channel in range(color_channels)
+            )
+            counts[color] = counts.get(color, 0) + 1
+            total += 1
+    return max(counts.values(), default=0) / max(total, 1)
+
+
+def png_motion_metrics(
+    first_path: Path,
+    second_path: Path,
+    threshold: int = 2,
+    region: tuple[float, float, float, float] | None = None,
+) -> dict[str, float] | None:
+    first = _decode_png_rows(first_path)
+    second = _decode_png_rows(second_path)
+    if first is None or second is None or first[:4] != second[:4]:
+        return None
+    width, height, channels, color_channels, first_rows = first
+    second_rows = second[4]
+    left, top, right, bottom = 0, 0, width, height
+    if region is not None:
+        if len(region) != 4 or not (0 <= region[0] < region[2] <= 1 and 0 <= region[1] < region[3] <= 1):
+            raise ValueError("motion ROI must be normalized left, top, right, bottom")
+        left, top = int(region[0] * width), int(region[1] * height)
+        right, bottom = int(region[2] * width), int(region[3] * height)
+        if left == right or top == bottom:
+            raise ValueError("motion ROI is empty")
+    changed_pixels = 0
+    total_delta = 0
+    for first_row, second_row in zip(first_rows[top:bottom], second_rows[top:bottom]):
+        for pixel in range(left * channels, right * channels, channels):
+            deltas = [
+                abs(first_row[pixel + channel] - second_row[pixel + channel])
+                for channel in range(color_channels)
+            ]
+            total_delta += sum(deltas)
+            if max(deltas) > threshold:
+                changed_pixels += 1
+    pixel_count = (right - left) * (bottom - top)
+    component_count = pixel_count * color_channels
+    return {
+        "mean_delta": total_delta / max(component_count * 255, 1),
+        "changed_ratio": changed_pixels / max(pixel_count, 1),
+    }
+
+
+def capture_non_black_screenshot(path: Path) -> Path | None:
+    executable = shutil.which("screencapture")
+    if not executable:
+        return None
+    result = subprocess.run(
+        [executable, "-x", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not path.is_file() or path.stat().st_size == 0:
+        return None
+    return path if png_has_non_black_pixel(path) else None

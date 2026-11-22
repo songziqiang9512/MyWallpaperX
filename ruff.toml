@@ -1,0 +1,17 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+# F401 is intentionally off: tool modules such as scene_wallpaper_benchmark.py
+# re-export constants that tests read as `module.CONSTANT`; ruff cannot see
+# those cross-module attribute reads and would delete valid imports.
+# F841 is intentionally off: existing test initializers assign side-effecting
+# calls for setup, so each site needs a behavior check before tightening.
+select = ["E9", "F541", "F811", "F821"]
+
+exclude = [
+    ".artifacts",
+    ".build-cache",
+    "Reference Project",
+    "Screenshot",
+]

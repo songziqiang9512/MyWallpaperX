@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""Validate MyWallpaperX's effective arm64 settings and built app Mach-O closure."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import plistlib
+import re
+import stat
+import subprocess
+from pathlib import Path
+
+
+OWN_TARGETS = ("MyWallpaperX", "MyWallpaperXWallpaperDaemon", "MyWallpaperXSystemWallpaper")
+CONFIGURATIONS = ("Debug", "Release")
+MINIMUM_MACOS = "26.0"
+SCREEN_SAVER_BUNDLE = Path("Contents/Extensions/MyWallpaperXSystemWallpaper.appex")
+REQUIRED_BUNDLE_EXECUTABLES = (
+    Path("Contents/MacOS/MyWallpaperX"),
+    Path("Contents/Helpers/MyWallpaperXWallpaperDaemon"),
+    Path("Contents/Helpers/glslang"),
+    Path("Contents/Helpers/spirv-cross"),
+    Path("Contents/Resources/SteamService/SteamService"),
+    Path("Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"),
+    SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperXSystemWallpaper",
+)
+THIRD_PARTY_HELPERS = {
+    Path("Contents/Helpers/glslang"),
+    Path("Contents/Helpers/spirv-cross"),
+}
+SYSTEM_DEPENDENCY_PREFIXES = ("/usr/lib/", "/System/Library/")
+SAFE_RPATH_PREFIXES = ("@executable_path/", "@loader_path/")
+# Stock Sparkle 2.10.1 has no sandboxed Downloader. Custom sandboxing needs a
+# source build and bundle ID, per https://sparkle-project.org/documentation/sandboxing/.
+# These exact claims were read from the checksum-pinned SPM distribution.
+SPARKLE_RELEASE_VERSION = "2.10.1"
+SPARKLE_SIGNED_ENTITLEMENTS = {
+    "XPCServices/Installer.xpc": {},
+    "XPCServices/Downloader.xpc": {},
+    "Autoupdate": {"com.apple.application-identifier": "org.sparkle-project.Sparkle.Autoupdate"},
+    "Updater.app": {},
+}
+
+
+def run_checked(
+    command: list[str], *, cwd: Path | None = None, include_stderr: bool = False
+) -> str:
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise RuntimeError(f"{' '.join(command)} failed: {detail}")
+    return completed.stdout + completed.stderr if include_stderr else completed.stdout
+
+
+def parse_build_settings(output: str) -> dict[str, str]:
+    settings: dict[str, str] = {}
+    for line in output.splitlines():
+        match = re.match(r"^\s*([A-Z0-9_]+) = (.*)$", line)
+        if match:
+            settings[match.group(1)] = match.group(2).strip()
+    return settings
+
+
+def validate_project(project: Path) -> None:
+    if not project.is_dir():
+        raise RuntimeError(f"Xcode project does not exist: {project}")
+    for target in OWN_TARGETS:
+        for configuration in CONFIGURATIONS:
+            output = run_checked(
+                [
+                    "xcodebuild",
+                    "-project",
+                    project.name,
+                    "-target",
+                    target,
+                    "-configuration",
+                    configuration,
+                    "-showBuildSettings",
+                ],
+                cwd=project.parent,
+            )
+            settings = parse_build_settings(output)
+            architectures = settings.get("ARCHS", "").split()
+            if architectures != ["arm64"]:
+                raise RuntimeError(
+                    f"{target} {configuration} ARCHS must be exactly arm64; got {architectures}"
+                )
+            deployment = settings.get("MACOSX_DEPLOYMENT_TARGET")
+            if deployment != MINIMUM_MACOS:
+                raise RuntimeError(
+                    f"{target} {configuration} deployment target must be {MINIMUM_MACOS}; "
+                    f"got {deployment or 'missing'}"
+                )
+    print("Effective settings: App, WallpaperDaemon and ScreenSaver Debug/Release = arm64, macOS 26.0")
+
+
+def executable_candidates(app: Path) -> list[Path]:
+    candidates = set(app / relative for relative in REQUIRED_BUNDLE_EXECUTABLES)
+    for path in app.rglob("*"):
+        if path.is_symlink() or not path.is_file():
+            continue
+        mode = path.stat().st_mode
+        if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH) or path.suffix in {
+            ".dylib",
+            ".so",
+        }:
+            candidates.add(path)
+    return sorted(candidates)
+
+
+def dependency_names(otool_output: str) -> list[str]:
+    lines = otool_output.splitlines()[1:]
+    return [line.strip().split(" (", 1)[0] for line in lines if line.strip()]
+
+
+def rpath_names(otool_output: str) -> list[str]:
+    paths: list[str] = []
+    expects_path = False
+    for line in otool_output.splitlines():
+        value = line.strip()
+        if value == "cmd LC_RPATH":
+            expects_path = True
+        elif expects_path and value.startswith("path "):
+            paths.append(value.removeprefix("path ").split(" (offset ", 1)[0])
+            expects_path = False
+    return paths
+
+
+def is_third_party(relative: Path) -> bool:
+    return relative.parts[:2] == ("Contents", "Frameworks") or relative in THIRD_PARTY_HELPERS
+
+
+def validate_bundle(app: Path) -> None:
+    if not app.is_dir():
+        raise RuntimeError(f"App bundle does not exist: {app}")
+    for relative in REQUIRED_BUNDLE_EXECUTABLES:
+        path = app / relative
+        if not path.is_file():
+            raise RuntimeError(f"Required bundled executable is missing: {relative}")
+
+    validate_resource_hygiene(app)
+    validate_steam_helper(app / "Contents/Resources/SteamService")
+    validate_screen_saver(app)
+
+    mach_o_count = 0
+    third_party_count = 0
+    required_paths = {app / relative for relative in REQUIRED_BUNDLE_EXECUTABLES}
+    for path in executable_candidates(app):
+        description = run_checked(["file", "-b", str(path)])
+        if "Mach-O" not in description:
+            if path in required_paths:
+                raise RuntimeError(
+                    f"Required bundled executable is not Mach-O: {path.relative_to(app)}"
+                )
+            continue
+        mach_o_count += 1
+        relative = path.relative_to(app)
+        architectures = set(run_checked(["lipo", "-archs", str(path)]).split())
+        if is_third_party(relative):
+            third_party_count += 1
+            if "arm64" not in architectures:
+                raise RuntimeError(f"Third-party Mach-O lacks arm64: {relative} ({architectures})")
+        elif architectures != {"arm64"}:
+            raise RuntimeError(f"Owned Mach-O must be arm64-only: {relative} ({architectures})")
+
+        install_names = set(
+            dependency_names(run_checked(["otool", "-D", str(path)]))
+        )
+        for dependency in dependency_names(run_checked(["otool", "-L", str(path)])):
+            if dependency in install_names:
+                continue
+            if dependency.startswith("/") and not dependency.startswith(SYSTEM_DEPENDENCY_PREFIXES):
+                raise RuntimeError(
+                    f"Mach-O has non-system absolute dependency: {relative} -> {dependency}"
+                )
+        for rpath in rpath_names(run_checked(["otool", "-l", str(path)])):
+            if rpath in ("@loader_path", "@executable_path") or rpath.startswith(SAFE_RPATH_PREFIXES):
+                continue
+            if rpath.startswith(SYSTEM_DEPENDENCY_PREFIXES):
+                continue
+            raise RuntimeError(f"Mach-O has unsafe runtime search path: {relative} -> {rpath}")
+
+    if mach_o_count == 0:
+        raise RuntimeError("No Mach-O files were found in the app bundle")
+    print(
+        f"Bundle closure: {mach_o_count} Mach-O files include arm64; "
+        f"{mach_o_count - third_party_count} owned files are arm64-only; "
+        f"{third_party_count} third-party files include arm64"
+    )
+
+
+def validate_resource_hygiene(app: Path, *, include_quickjs: bool = True) -> None:
+    resources = app / "Contents/Resources"
+    source_root = Path(__file__).resolve().parents[2]
+    license_sources = [
+        ("LICENSE", "LICENSE"),
+        ("NOTICE.md", "NOTICE.md"),
+    ]
+    if include_quickjs:
+        license_sources.append(("QuickJSNG/LICENSE", "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE"))
+    for name, source_name in license_sources:
+        bundled = resources / name
+        source = source_root / source_name
+        if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
+            raise RuntimeError(f"Project license material is missing or stale: {name}")
+    for path in resources.rglob("*"):
+        if (path.name in (".mimosa", ".DS_Store", "AGENTS.md", "CLAUDE.md")
+                or path.suffix in (".source", ".pdb")
+                or (path.name.startswith("sess_") and path.suffix == ".json")):
+            raise RuntimeError(f"Development residue in App resources: {path.relative_to(app)}")
+    # The Help bundle is the single owner; synced root folders duplicate it.
+    for name in ("en", "zh-Hans", "README.md"):
+        if (resources / name).exists():
+            raise RuntimeError(f"Unexpected root resource: {name}")
+
+
+def validate_screen_saver(app: Path) -> None:
+    for retired in ("Contents/PlugIns/MyWallpaperX.saver", "Contents/PlugIns/MyWallpaperXSystemWallpaper.appex"):
+        if (app / retired).exists():
+            raise RuntimeError(f"Retired or misplaced system wallpaper component remains bundled: {retired}")
+    saver = app / SCREEN_SAVER_BUNDLE
+    try:
+        info = plistlib.loads((saver / "Contents/Info.plist").read_bytes())
+        app_info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError("ScreenSaver or App bundle metadata is missing or invalid") from error
+    expected = {
+        "CFBundleIdentifier": "com.songziqiang.MyWallpaperX.WallpaperExtension",
+        "CFBundleExecutable": "MyWallpaperXSystemWallpaper",
+        "CFBundlePackageType": "XPC!",
+        "LSMinimumSystemVersion": MINIMUM_MACOS,
+    }
+    if not isinstance(info, dict) or not isinstance(app_info, dict):
+        raise RuntimeError("ScreenSaver or App bundle metadata must be a dictionary")
+    for key, value in expected.items():
+        if info.get(key) != value:
+            raise RuntimeError(f"Unexpected ScreenSaver metadata: {key} -> {info.get(key)!r}")
+    if info.get("EXAppExtensionAttributes", {}).get("EXExtensionPointIdentifier") != "com.apple.wallpaper":
+        raise RuntimeError("Unexpected native wallpaper extension point")
+    for key in ("CFBundleShortVersionString", "CFBundleVersion"):
+        if not isinstance(app_info.get(key), str) or not app_info[key] or info.get(key) != app_info[key]:
+            raise RuntimeError(f"ScreenSaver version differs from App: {key}")
+
+    # Video-only modules have no nested tools or engine assets. Reject stale
+    # build output before traversing a retired stock/font corpus.
+    helpers = saver / "Contents/Helpers"
+    if helpers.exists() or helpers.is_symlink():
+        raise RuntimeError("Unexpected Video-only ScreenSaver content: Contents/Helpers")
+    resources = saver / "Contents/Resources"
+    if resources.is_dir():
+        for path in resources.iterdir():
+            if path.name not in {"LICENSE", "NOTICE.md"}:
+                raise RuntimeError(f"Unexpected Video-only ScreenSaver resource: {path.name}")
+    validate_resource_hygiene(saver, include_quickjs=False)
+
+
+def validate_steam_helper(helper: Path) -> None:
+    for name in ("SteamService", "SteamService.dll", "SteamKit2.dll", "libhostfxr.dylib",
+                 "libhostpolicy.dylib", "libcoreclr.dylib", "System.Private.CoreLib.dll", "NOTICE.md"):
+        if not (helper / name).is_file():
+            raise RuntimeError(f"Incomplete self-contained SteamService: missing {name}")
+    try:
+        runtime = json.loads((helper / "SteamService.runtimeconfig.json").read_text())["runtimeOptions"]
+    except (OSError, ValueError, KeyError) as error:
+        raise RuntimeError("SteamService runtime configuration is missing or invalid") from error
+    if runtime.get("framework") or runtime.get("frameworks") or not runtime.get("includedFrameworks"):
+        raise RuntimeError("SteamService must not depend on a machine-installed .NET runtime")
+    if not (helper / "licenses/SteamKit2-LGPL-2.1.txt").is_file():
+        raise RuntimeError("SteamService dependency licenses are missing")
+
+
+def signed_entitlements(path: Path) -> dict:
+    # A valid signature may have no entitlement blob. Do not confuse that with
+    # unsigned code (which codesign --display alone can also describe).
+    run_checked(["/usr/bin/codesign", "--verify", "--strict", str(path)])
+    output = run_checked([
+        "/usr/bin/codesign", "--display", "--entitlements", "-", "--xml", str(path)
+    ])
+    if not output.strip():
+        return {}
+    try:
+        result = plistlib.loads(output.encode())
+    except (ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError(f"Signed entitlements are missing or invalid: {path}") from error
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Signed entitlements are not a dictionary: {path}")
+    return result
+
+
+def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
+    for relative in REQUIRED_BUNDLE_EXECUTABLES:
+        if not (app / relative).is_file():
+            raise RuntimeError(f"Required signed executable is missing: {relative}")
+    # arm64 requires all executable code in the bundle to be signed. .NET PE
+    # assemblies cannot carry signatures, so the embed step must demote them
+    # to resources (no exec bits) — this probe fails if that regresses.
+    for path in app.rglob("*"):
+        relative = path.relative_to(app)
+        if relative.parts[:2] in (("Contents", "Resources"), ("Contents", "_CodeSignature")):
+            continue
+        if not path.is_file() or path.is_symlink():
+            continue
+        if path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
+            with path.open("rb") as handle:
+                magic = handle.read(4)
+            if magic not in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
+                raise RuntimeError(
+                    f"Executable non-Mach-O file inside Contents (cannot be signed): {relative}"
+                )
+    run_checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
+    if expected_team_id is not None:
+        for path in executable_candidates(app):
+            if path.is_symlink() or not path.is_file():
+                continue
+            if "Mach-O" not in run_checked(["file", "-b", str(path)]):
+                continue
+            run_checked(["/usr/bin/codesign", "--verify", "--strict", str(path)])
+            details = run_checked(
+                ["/usr/bin/codesign", "--display", "--verbose=4", str(path)],
+                include_stderr=True,
+            )
+            lines = details.splitlines()
+            if (f"TeamIdentifier={expected_team_id}" not in lines
+                    or not any(line.startswith("Authority=Developer ID Application:") for line in lines)
+                    or not re.search(r"flags=0x[0-9a-fA-F]+\([^\n)]*\bruntime\b", details)
+                    or not any(line.startswith("Timestamp=") for line in lines)):
+                raise RuntimeError(f"Incomplete Developer ID signature: {path.relative_to(app)}")
+
+    for path, key in (
+        (app, "com.apple.security.automation.apple-events"),
+        (app / "Contents/Resources/SteamService/SteamService", "com.apple.security.cs.allow-jit"),
+    ):
+        entitlements = signed_entitlements(path)
+        if entitlements.get(key) is not True:
+            raise RuntimeError(f"Required signed entitlement is missing: {path} -> {key}")
+        if entitlements.get("com.apple.security.get-task-allow") is True:
+            raise RuntimeError(f"Development debugging entitlement in release: {path}")
+    saver = app / SCREEN_SAVER_BUNDLE
+    groups = signed_entitlements(app).get("com.apple.security.application-groups")
+    if (not isinstance(groups, list) or len(groups) != 1 or not isinstance(groups[0], str)
+            or not groups[0].endswith(".MWX")
+            or (expected_team_id is not None and groups != [f"{expected_team_id}.MWX"])):
+        raise RuntimeError("App shared-container entitlement is missing or incorrect")
+    expected_saver = {"com.apple.security.app-sandbox": True,
+                      "com.apple.security.application-groups": groups}
+    if signed_entitlements(saver) != expected_saver:
+        raise RuntimeError("Unexpected ScreenSaver signed entitlements; native host requires sandbox and shared group")
+    sparkle = app / "Contents/Frameworks/Sparkle.framework/Versions/B"
+    try:
+        metadata = plistlib.loads((sparkle / "Resources/Info.plist").read_bytes())
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError("Sparkle release metadata is missing or invalid") from error
+    if not isinstance(metadata, dict) or metadata.get("CFBundleShortVersionString") != SPARKLE_RELEASE_VERSION:
+        raise RuntimeError("Sparkle version changed; review its signed permission contract")
+    for relative, expected in SPARKLE_SIGNED_ENTITLEMENTS.items():
+        path = sparkle / relative
+        if signed_entitlements(path) != expected:
+            raise RuntimeError(f"Unexpected Sparkle signed entitlements: {path}")
+    print("Signed permissions: Apple Events, Steam JIT, ScreenSaver and stock Sparkle helpers verified")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--project", type=Path)
+    parser.add_argument("--app", type=Path, required=True)
+    parser.add_argument("--signatures-only", action="store_true",
+                        help="check final signed code and permissions without repeating build-setting probes")
+    parser.add_argument("--expected-team-id",
+                        help="require timestamped hardened Developer ID signatures from this team")
+    parser.add_argument("--skip-codesign", action="store_true",
+                        help="skip signature verification (unsigned local builds)")
+    args = parser.parse_args()
+    if args.signatures_only:
+        if args.skip_codesign or not args.expected_team_id or not args.expected_team_id.strip():
+            parser.error("--signatures-only requires --expected-team-id and cannot skip codesign")
+    elif not args.project:
+        parser.error("--project is required unless --signatures-only is selected")
+    try:
+        if not args.signatures_only:
+            validate_project(args.project.resolve())
+            validate_bundle(args.app.resolve())
+        if not args.skip_codesign:
+            validate_codesign(args.app.resolve(), args.expected_team_id)
+    except RuntimeError as error:
+        parser.error(str(error))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

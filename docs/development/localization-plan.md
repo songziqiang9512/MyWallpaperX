@@ -24,7 +24,7 @@
 | 资源 | `MyWallpaperX/Resources/Localizable.xcstrings` 1460 条 key × 5 语言；`InfoPlist.xcstrings` 2 条；屏保扩展独立 `ScreenSaverSources/Resources/Localizable.xcstrings` 2 条 |
 | 界面文案 | 1993 处中文字面量改为 `String(localized:)` 英文源文案；中文、俄文、德文、法文译文写入 catalog |
 | 结构解耦 | 账号不一致改为 `accountMismatch` 错误码；登录提示改为 `browsingNeedsSignIn` 状态；`未知作者`/`未知大小` 哨兵改为空值判断；Pixabay 元数据改为可选字段；`创意工坊` 与用户媒体目录保持路径字面量 |
-| 检查模块 | `script/check_localization.py`：catalog 完整性/占位符/复数、`--extraction` 对比编译期 `.stringsdata`、`--hardcoded` 检测、`--compile` 校验 catalog 可编译 |
+| 检查模块 | `script/governance/check_localization.py`：catalog 完整性/占位符/复数、`--extraction` 对比编译期 `.stringsdata`、`--hardcoded` 检测、`--compile` 校验 catalog 可编译 |
 | 构建 | Debug checkpoint 构建通过（0 error）；产物含 5 个 lproj，扩展资源独立打包且主 App 无重复条目 |
 | 场景属性名 | `WorkshopPropertyDisplayStrings.json` 增加 `ru-ru`、`de-de`、`fr-fr` 各 225 条 |
 | 帮助书 | `MyWallpaperXHelp` 增加 `ru`、`de`、`fr` 三份完整翻译；`help.js` 搜索状态提示支持五种语言 |
@@ -184,7 +184,7 @@ SteamService helper ──► 错误码 + 诊断 message ──► App 映射为
 本计划执行期间，仓库 `script/tests/` 目录正由另一任务整理。为避免冲突：
 
 - 本批（标准与计划）只新增文档并登记索引，不修改 `script/tests/**`、不移动脚本。
-- 检查脚本与门禁条目已落地为 `script/check_localization.py`、`scene_validation_gates.json`（`localization`）与 `verify_scene_change.py` 的触发条件；若并行任务重构 `script/` 结构，合并时以对方的新结构为准迁移这三处，不保留旧位置副本。
+- 检查脚本与门禁条目已落地为 `script/governance/check_localization.py`、`scene_validation_gates.json`（`localization`）与 `verify_scene_change.py` 的触发条件；若并行任务重构 `script/` 结构，合并时以对方的新结构为准迁移这三处，不保留旧位置副本。
 - 共享 JSON（`docs/document-role-index.json`、`script/design_gated_areas.json`、`script/document_health_baseline.json`）由本计划单点写入并复核，不与其他任务并行修改同一文件。
 
 <a id="retirement"></a>

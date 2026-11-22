@@ -1,0 +1,994 @@
+#!/usr/bin/env python3
+
+"""Typed sampler-default purpose inheritance through immutable Program identity."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
+
+from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+
+
+# Named boundaries can share support sources; compose their union once.
+SWIFT_SOURCES = list(dict.fromkeys([
+    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+    SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SCENE_ROOT / "Format/SceneTexContainer.swift",
+    SCENE_ROOT / "Format/SceneTexDataReader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    *scene_swift_sources("authored_shader_frontend_support"),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    *scene_swift_sources("authored_shader_frontend_implementation"),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+    *scene_swift_sources("authored_shader_preparation_implementation"),
+    *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureSemanticRegistry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+    *scene_swift_sources("resolved_material_frame_finalization"),
+]))
+
+
+SUPPORT = r'''
+import Foundation
+
+nonisolated enum SceneEffectStageCompilerBackend { case authoredShader }
+nonisolated struct SceneEffectStageCompilerFailure {
+    enum Phase: String { case shaderPreprocessor = "shader-preprocessor"; case invariant }
+    enum Code: String {
+        case shaderStageMissing = "shader-stage-missing"
+        case shaderSourceGraphMissing = "shader-source-graph-missing"
+        case shaderSourceIdentityMismatch = "shader-source-identity-mismatch"
+        case shaderVariantInvalid = "shader-variant-invalid"
+        case shaderIncludeMissing = "shader-include-missing"
+        case shaderIncludeAmbiguous = "shader-include-ambiguous"
+        case shaderIncludeCycle = "shader-include-cycle"
+        case shaderDirectiveUnsupported = "shader-directive-unsupported"
+        case shaderModuleResolutionRejected = "shader-module-resolution-rejected"
+        case shaderConditionInvalid = "shader-condition-invalid"
+        case shaderPreprocessorBudgetExceeded = "shader-preprocessor-budget-exceeded"
+        case shaderPreprocessorDiagnostic = "shader-preprocessor-diagnostic"
+        case shaderPreparationInvariant = "shader-preparation-invariant"
+    }
+    let backend: SceneEffectStageCompilerBackend
+    let phase: Phase
+    let code: Code
+    let details: [String]
+}
+nonisolated enum SceneEffectStageBackendCompileResult<Value> {
+    case notApplicable, rejected(SceneEffectStageCompilerFailure), accepted(Value)
+}
+nonisolated struct SceneResolvedMaterialNode {
+    enum TextureProvenance: String, Hashable { case material, instance, userTexture, explicitBinding }
+}
+nonisolated struct SceneRenderDescriptor {
+    struct Layer { let imagePath: String?
+        var staticBaseTexturePath: String? = nil }
+    struct ModelMaterialLink { let modelPath: String; let materialPath: String }
+    struct MaterialPass { let materialPath: String; let texturePaths: [String] }
+    let modelMaterialLinks: [ModelMaterialLink]
+    let materialPasses: [MaterialPass]
+
+    init(
+        modelMaterialLinks: [ModelMaterialLink] = [],
+        materialPasses: [MaterialPass] = []
+    ) {
+        self.modelMaterialLinks = modelMaterialLinks
+        self.materialPasses = materialPasses
+    }
+}
+'''
+
+
+HARNESS = r'''
+import Foundation
+import Metal
+import simd
+
+private typealias Program = SceneResolvedMaterialProgram
+private typealias Template = SceneResolvedMaterialTemplate
+private let overridePath = SceneVFSAssetPath("fixtures/unseen/static-authored")!
+private let animatedPath = SceneVFSAssetPath("particle/fog/fog2")!
+private let preservedDefault = SceneVFSAssetPath("gradient/gradient_fire")!
+private let preservedDefault2 = SceneVFSAssetPath("gradient/gradient_iridescent")!
+private let noiseDefault = SceneVFSAssetPath("util/noise")!
+
+private func contract(
+    default path: String,
+    active: Bool = true,
+    samplerSlot: Int = 0
+) -> SceneShaderContract {
+    let combo = active ? "" : #"// [COMBO] {"combo":"ACTIVE","default":0}"#
+    let guardOpen = active ? "" : "#if ACTIVE"
+    let guardClose = active ? "" : "#endif"
+    // The animated publication changes independently of this declared author
+    // input. Both finalizations receive the same sceneTime below.
+    let authoredUniform = samplerSlot == 3 ? "uniform float g_Time;" : ""
+    let authoredGain = samplerSlot == 3 ? " * (1.0 + g_Time)" : ""
+    let vertex = """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_TexCoord;
+    void main() { v_TexCoord = a_TexCoord; gl_Position = vec4(a_Position, 1.0); }
+    """
+    let fragment = """
+    varying vec2 v_TexCoord;
+    \(authoredUniform)
+    \(combo)
+    \(guardOpen)
+    uniform sampler2D g_Texture\(samplerSlot); // {"default":"\(path)"}
+    \(guardClose)
+    void main() {
+        vec4 outputColor = vec4(1.0);
+    \(guardOpen)
+        outputColor.rgb = texSample2D(g_Texture\(samplerSlot), v_TexCoord).rgb\(authoredGain);
+    \(guardClose)
+        gl_FragColor = outputColor;
+    }
+    """
+    func stage(_ kind: SceneShaderContract.StageKind, _ path: String, _ source: String)
+        -> SceneShaderContract.Stage {
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: path)
+        return .init(
+            kind: kind, relativePath: path, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
+            includes: parsed.includes, annotations: parsed.annotations,
+            declarations: parsed.declarations
+        )
+    }
+    let stages = [
+        stage(.vertex, "fixture/root.vert", vertex),
+        stage(.fragment, "fixture/root.frag", fragment),
+    ]
+    let dependency = SceneShaderStableDigest.hash(Data((vertex + fragment).utf8))
+    return .init(
+        identity: "fixture/sampler-default-purpose",
+        sourceKind: .authoredSource,
+        stages: stages,
+        diagnostics: [],
+        canonicalSHA256: dependency,
+        sourceGraph: .init(
+            roots: [
+                .init(label: "vertex", virtualPath: "fixture/root.vert"),
+                .init(label: "fragment", virtualPath: "fixture/root.frag"),
+            ],
+            nodes: stages.map {
+                .init(
+                    virtualPath: $0.relativePath, provenance: .package,
+                    source: $0.source, rawSHA256: $0.rawSHA256,
+                    byteCount: $0.source.utf8.count
+                )
+            },
+            edges: [], diagnostics: [], dependencySHA256: dependency
+        )
+    )
+}
+
+private func template(
+    _ shader: SceneShaderContract,
+    candidatePath: SceneVFSAssetPath = overridePath,
+    slot: Int = 0
+) -> Template {
+    var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+    slots[slot] = .init(index: slot, candidates: [
+        .init(reference: .asset(candidatePath), provenance: .explicitBinding),
+    ])
+    return Template.validated(
+        textureSlots: slots, combos: [], uniformDeclarations: [],
+        renderState: SceneMaterialRenderState.compile(
+            blending: "normal", depthTest: "disabled", depthWrite: "disabled",
+            cullMode: "nocull", alphaWriting: nil
+        )!,
+        graphRole: .init(
+            effectInput: .layerSource, effectOutput: .effectOutput,
+            nodeTarget: .effectOutput, bindings: []
+        ),
+        shaderContract: shader,
+        diagnosticProvenance: .init(
+            nodeIndex: 17, authoredShaderPath: shader.identity,
+            contractIdentity: shader.identity,
+            contractCanonicalSHA256: shader.canonicalSHA256,
+            textureSources: [], uniformSources: []
+        )
+    )!
+}
+
+private func texture(_ device: MTLDevice, usage: MTLTextureUsage = .shaderRead) -> MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false
+    )
+    descriptor.storageMode = .shared
+    descriptor.usage = usage
+    return device.makeTexture(descriptor: descriptor)!
+}
+
+private func ready(
+    _ device: MTLDevice,
+    request: SceneFrameTextureIdentity,
+    purpose: SceneTextureLoadPurpose,
+    requestOverride: SceneFrameTextureIdentity? = nil,
+    candidatePurpose: SceneTextureLoadPurpose? = nil,
+    generationMismatch: Bool = false,
+    textureOverride: MTLTexture? = nil
+) -> SceneFrameTextureLookupStatus {
+    let revision = SceneTextureFileRevision(
+        fileSystemID: 1, fileID: 2, statusChangedAtSeconds: 3,
+        statusChangedAtNanoseconds: 4
+    )
+    let candidate = SceneTextureCandidate(
+        texture: textureOverride ?? texture(device),
+        identity: .file(path: overridePath.value),
+        generation: generationMismatch
+            ? .provider(contentGeneration: 1)
+            : .file(byteCount: 16, modifiedAtBits: 5, revision: revision),
+        purpose: candidatePurpose ?? purpose, content: .data,
+        physicalSize: CGSize(width: 2, height: 2),
+        mappedSize: CGSize(width: 2, height: 2), uvTransform: .identity,
+        sampling: .directImageFallback
+    )
+    return .ready(.init(
+        publication: .init(
+            requestIdentity: requestOverride ?? request,
+            candidate: candidate, contentGeneration: 1
+        ),
+        resourceGeneration: 1
+    ))
+}
+
+private func sampler(
+    _ shader: SceneShaderContract,
+    slot: Int = 0
+) -> SceneResolvedMaterialShaderSchema.Sampler? {
+    guard case let .accepted(prepared) =
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader, combos: [:], textureReadiness: [slot: true]
+        ) else { return nil }
+    return try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)[slot]
+}
+
+private func input(
+    entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+    implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
+) -> SceneResolvedMaterialFinalizationInput? {
+    let dynamic = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1, generation: 1, definitions: [], userValues: [:],
+        timelineValues: [:], sceneScriptValues: [:]
+    ).snapshot
+    let frameInputs = SceneAuthoredShaderFrameInputs(
+        frameIndex: 1, screenSize: CGSize(width: 2, height: 2), sceneTime: 0,
+        dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero,
+        pointerPreviousNDC: .zero, pointerPrimaryButtonDown: false,
+        parallaxPositionNDC: .zero, audioSpectrum: .silent
+    )
+    guard case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: .init(frameEpoch: 1, frameIndex: 1, entries: entries),
+        dynamicSnapshot: dynamic, frameInputs: frameInputs
+    ) else { return nil }
+    return frame.finalizationInput(
+        layerID: implicitFramebufferIdentity?.layerID ?? 0,
+        renderSize: CGSize(width: 2, height: 2),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: matrix_identity_float4x4,
+        effectOutputModelViewProjection: matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+        implicitFramebufferIdentity: implicitFramebufferIdentity
+    )
+}
+
+private func cache(
+    _ template: Template,
+    purpose: SceneTextureLoadPurpose,
+    path: SceneVFSAssetPath = overridePath
+)
+    -> SceneResolvedMaterialVariantCache? {
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 8
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: nil,
+        assetStates: [.init(path: path, purpose: purpose): .ready(.data)]
+    ) else { return nil }
+    return cache
+}
+
+private func launchFailure(_ template: Template) -> String {
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 8
+    ) else { return "launch-validation-failed" }
+    switch cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: nil, assetStates: [:]
+    ) {
+    case .success: return "success"
+    case .failure(.capacity): return "capacity"
+    case let .failure(.material(failure)):
+        return "\(failure.phase.rawValue)/\(failure.code.rawValue)/\(failure.slot ?? -1)"
+    }
+}
+
+private func finalize(
+    _ template: Template,
+    cache: SceneResolvedMaterialVariantCache,
+    entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+) -> Result<Program, SceneResolvedMaterialFailure>? {
+    guard let input = input(entries: entries) else { return nil }
+    return SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: cache)
+}
+
+private func program(
+    _ device: MTLDevice, defaultPath: SceneVFSAssetPath,
+    purpose: SceneTextureLoadPurpose, sharedTexture: MTLTexture
+) -> Program? {
+    let value = template(contract(default: defaultPath.value))
+    let identity = SceneAssetTextureIdentity(path: overridePath, purpose: purpose)
+    guard let cache = cache(value, purpose: purpose) else {
+        FileHandle.standardError.write(Data("cache-failed:\(defaultPath.value)\n".utf8))
+        return nil
+    }
+    let result = finalize(
+        value, cache: cache,
+        entries: [.asset(identity): ready(
+            device, request: .asset(identity), purpose: purpose,
+            textureOverride: sharedTexture
+        )]
+    )
+    guard case let .success(program)? = result else {
+        FileHandle.standardError.write(Data(
+            "finalize-failed:\(defaultPath.value):\(failureToken(result))\n".utf8
+        ))
+        return nil
+    }
+    return program
+}
+
+private func failureToken(
+    _ result: Result<Program, SceneResolvedMaterialFailure>?
+) -> String {
+    guard case let .failure(failure)? = result else { return "not-failure" }
+    return "\(failure.phase.rawValue)/\(failure.code.rawValue)/\(failure.slot ?? -1)"
+}
+
+private func launchToken(
+    template: Template,
+    sampler: SceneResolvedMaterialShaderSchema.Sampler,
+    states: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+    slot: Int = 0,
+    expectedPath: SceneVFSAssetPath = overridePath
+) -> String {
+    do {
+        switch try SceneResolvedMaterialVariantCache.launchAuthoredReference(
+            template: template, sampler: sampler, slot: slot, assetStates: states
+        ) {
+        case let .selected(reference, _):
+            return reference == .asset(expectedPath) ? "selected" : "selected-other"
+        case .none: return "none"
+        case .deferred: return "deferred"
+        }
+    } catch let failure as SceneResolvedMaterialFailure {
+        return "\(failure.phase.rawValue)/\(failure.code.rawValue)/\(failure.slot ?? -1)"
+    } catch {
+        return "unexpected-error"
+    }
+}
+
+private func productChain(
+    device: MTLDevice,
+    resourceRoot: URL,
+    stockRoot: URL
+) throws -> [String: Any] {
+    let shader = contract(default: preservedDefault.value)
+    let activeSampler = sampler(shader)!
+    let animatedShader = contract(
+        default: preservedDefault.value, samplerSlot: 3
+    )
+    let animatedSampler = sampler(animatedShader, slot: 3)!
+    let staticTemplate = template(shader)
+    let animatedTemplate = template(
+        animatedShader, candidatePath: animatedPath, slot: 3
+    )
+    let staticIdentity = SceneAssetTextureIdentity(
+        path: overridePath,
+        purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: activeSampler)!
+    )
+    let animatedIdentity = SceneAssetTextureIdentity(
+        path: animatedPath,
+        purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(animatedPath), sampler: animatedSampler)!
+    )
+    let defaultIdentity = SceneAssetTextureIdentity(
+        path: preservedDefault, purpose: .preservedChannels
+    )
+    let catalog = try SceneMaterialAssetTextureCatalog(
+        demands: [staticIdentity, animatedIdentity, defaultIdentity],
+        resourceView: SceneResourceView(
+            projectRootURL: resourceRoot, packageRootURL: nil,
+            stockAssetsRootURL: stockRoot
+        ),
+        descriptor: SceneRenderDescriptor(), device: device
+    )
+    let provider = catalog.makeFrameProvider()
+    let frameStates = provider.states(sceneTime: 0)
+    let laterStates = provider.states(sceneTime: 0.02)
+    guard case let .ready(staticPublication)? = frameStates[staticIdentity],
+          case let .ready(animatedPublication)? = frameStates[animatedIdentity],
+          case let .ready(laterAnimatedPublication)? = laterStates[animatedIdentity],
+          case .ready? = frameStates[defaultIdentity] else {
+        return ["catalogStates": false]
+    }
+    let finalized = cache(staticTemplate, purpose: .preservedChannels).flatMap { cache in
+        finalize(
+            staticTemplate, cache: cache,
+            entries: [.asset(staticIdentity): .ready(.init(
+                publication: staticPublication, resourceGeneration: 1
+            ))]
+        )
+    }
+    let programIdentity: Bool = if case let .success(program)? = finalized {
+        program.textureSlots[0]?.reference == .asset(overridePath)
+            && program.textureSlots[0]?.expectedPurpose == .preservedChannels
+            && program.exactIdentity.textureSlots[0]?.reference == .asset(overridePath)
+            && program.exactIdentity.textureSlots[0]?.purpose == .preservedChannels
+    } else { false }
+    let animatedCache = cache(
+        animatedTemplate,
+        purpose: animatedIdentity.purpose,
+        path: animatedPath
+    )
+    func animatedProgram(
+        _ publication: SceneTextureProviderPublication
+    ) -> (Program?, String) {
+        guard let animatedCache else { return (nil, "cache") }
+        let result = finalize(
+            animatedTemplate,
+            cache: animatedCache,
+            entries: [.asset(animatedIdentity): .ready(.init(
+                publication: publication,
+                resourceGeneration: publication.contentGeneration
+            ))]
+        )
+        guard case let .success(program)? = result else {
+            return (nil, failureToken(result))
+        }
+        return (program, "not-failure")
+    }
+    let (animatedFrame0, animatedFailure) = animatedProgram(animatedPublication)
+    let (animatedLater, _) = animatedProgram(laterAnimatedPublication)
+    return [
+        "catalogStates": frameStates.count == 3,
+        "staticPublication": staticPublication.isComplete
+            && staticPublication.requestIdentity == .asset(staticIdentity)
+            && staticPublication.candidate.purpose == .preservedChannels
+            && staticPublication.candidate.content == .data,
+        "staticSelection": launchToken(
+            template: staticTemplate, sampler: activeSampler,
+            states: catalog.launchStates
+        ) == "selected",
+        "staticProgramIdentity": programIdentity,
+        "animatedPublication": animatedPublication.isComplete
+            && animatedPublication.requestIdentity == .asset(animatedIdentity)
+            && animatedPublication.candidate.purpose == animatedIdentity.purpose,
+        "animatedSelection": launchToken(
+            template: animatedTemplate, sampler: animatedSampler,
+            states: catalog.launchStates, slot: 3, expectedPath: animatedPath
+        ) == "selected",
+        "animatedProgramIdentity": animatedFrame0?.textureSlots[3]?
+                .registryIdentity == .asset(animatedIdentity)
+            && animatedFrame0?.exactIdentity.textureSlots[3]?.uvBitPatterns
+                == [
+                    animatedPublication.candidate.uvTransform.origin.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.origin.y.bitPattern,
+                    animatedPublication.candidate.uvTransform.xAxis.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.xAxis.y.bitPattern,
+                    animatedPublication.candidate.uvTransform.yAxis.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.yAxis.y.bitPattern,
+                ]
+            && animatedFrame0?.semanticIdentity
+                == animatedLater?.semanticIdentity
+            && animatedFrame0?.exactIdentity != animatedLater?.exactIdentity,
+        "animatedPublicationUVChanges": animatedPublication.candidate.uvTransform
+            != laterAnimatedPublication.candidate.uvTransform,
+        "animatedContentGenerationChanges": animatedPublication.contentGeneration
+            != laterAnimatedPublication.contentGeneration,
+        // RF02: candidate atlas frames do not inject synthetic author uniforms.
+        // A real declared host input remains present and stable across frames.
+        "authoredUniformBytesStable": animatedFrame0?.semanticIdentity
+            .activeUniforms.contains(where: { $0.fieldName == "g_Time" }) == true
+            && animatedFrame0?.uniformBytes.isEmpty == false
+            && animatedFrame0?.uniformBytes == animatedLater?.uniformBytes,
+        "animatedFailure": animatedFailure,
+    ]
+}
+
+private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
+    let path = SceneVFSAssetPath("util/clouds_256")!
+    let identity = SceneAssetTextureIdentity(path: path, purpose: .noise)
+    let explicit = SceneAssetTextureIdentity(path: overridePath, purpose: .noise)
+    let provider = SceneSystemProviderTextureIdentity(name: path.value, purpose: .noise)
+    let shader = contract(default: path.value)
+    let value = template(shader)
+    let active = sampler(shader)!
+    let assets: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
+        identity: .absent, explicit: .absent,
+    ]
+    let store = try SceneStockNoiseTextureStore(assetStates: assets, device: device)
+    guard case let .ready(publication)? = store.states[provider] else { return ["prepared": false] }
+    func admission(_ state: SceneAssetTextureLaunchState?,
+                   providers: [SceneSystemProviderTextureIdentity: SceneTextureProviderState])
+        -> SceneResolvedMaterialVariantCache? {
+        var states = assets
+        states[identity] = state
+        guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+            template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value), maximumVariantCount: 8
+        ), case .success = cache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: nil, assetStates: states,
+            systemProviderStates: providers
+        ) else { return nil }
+        return cache
+    }
+    let prepared = admission(.absent, providers: store.states)
+    let frame = prepared.flatMap { finalize(value, cache: $0, entries: [
+        .asset(identity): .absent, .asset(explicit): .absent,
+        .system(provider): .ready(.init(publication: publication, resourceGeneration: 1)),
+    ]) }
+    let usesSystem: Bool
+    if case let .success(program)? = frame {
+        usesSystem = program.textureSlots[0]?.registryIdentity == .system(provider)
+    } else { usesSystem = false }
+    let projection = SceneResolvedMaterialVariantCache.launchReadinessProjection(
+        template: value, samplers: [0: active], implicitFramebufferIdentity: nil,
+        assetStates: assets, systemProviderStates: store.states
+    )
+    let required: Bool
+    if case let .success(mask) = projection { required = mask.requiredMask == 1 }
+    else { required = false }
+    let formats = SceneResolvedMaterialVariantCache.launchTextureFormatProfiles(
+        template: value, samplers: [0: active], readinessMask: 1, formatSlots: [0],
+        graphTextureFormatFacts: [:], assetFormatFacts: [identity.reportToken: 8],
+        assetStates: assets, systemProviderStates: store.states
+    )
+    let formatMatches: Bool
+    if case let .success(profiles) = formats {
+        formatMatches = profiles.count == 1 && profiles[0][0] == publication.candidate.authoredFormat
+    } else { formatMatches = false }
+    let selectedAsset = try SceneResolvedMaterialVariantCache.launchDefaultReference(
+        sampler: active, slot: 0, assetStates: [identity: .ready(.data)],
+        systemProviderStates: store.states
+    )
+    let assetWins: Bool
+    if case let .selected(reference, purpose) = selectedAsset {
+        assetWins = reference == .asset(path) && purpose == .noise
+    } else { assetWins = false }
+    return [
+        "prepared": true, "launchAndFrameAgree": prepared != nil && usesSystem,
+        "readiness": required, "formatUsesSelectedProvider": formatMatches,
+        "assetWins": assetWins,
+        "pendingRejects": admission(.pending, providers: store.states) == nil,
+        "unavailableRejects": admission(.unavailable, providers: store.states) == nil,
+        "unknownRejects": admission(nil, providers: store.states) == nil,
+        "missingProviderRejects": admission(.absent, providers: [:]) == nil,
+        "failedProviderRejects": admission(.absent, providers: [provider: .unavailable]) == nil,
+        "wrongPublicationRejects": admission(.absent, providers: [provider: .ready(
+            publication.publication(for: .system(.init(name: "util/noise", purpose: .noise)))
+        )]) == nil,
+    ]
+}
+
+private func selfCompositeSelections(_ device: MTLDevice) throws -> [String: Bool] {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias Schema = SceneResolvedMaterialShaderSchema
+    let prior = Graph.EffectKey(layerID: 81, effectIndex: 0, descriptorID: "prefix")
+    let owner = Graph.EffectKey(layerID: 81, effectIndex: 1, descriptorID: "probe")
+    let ingress = Graph.TextureIdentity(kind: .effectOutput, layerID: 81, effect: prior, name: nil)
+    let base = Graph.TextureIdentity(kind: .layerSource, layerID: 81, effect: nil, name: nil)
+    let selfA = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 81, variant: .primary)))
+    let selfB = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 81, variant: .secondary)))
+    let external = Template.TextureReference.provider(.namedLayerTarget(.init(providerLayerID: 99, variant: .primary)))
+    let user = Template.TextureReference.userProperty(.init(key: "override"))
+    let userIdentity = SceneFrameTextureIdentity.materialUserProperty(SceneUserPropertyTextureIdentity(propertyKey: "override", purpose: .preservedChannels)!)
+    let shader = contract(default: "util/white")
+    let original = template(shader)
+    let graphTexture = texture(device, usage: [.shaderRead, .renderTarget])
+    let graphCandidate = SceneTextureCandidate(texture: graphTexture,
+        identity: .provider(.graph(allocationGeneration: 1, physicalToken: "self-current")),
+        generation: .provider(contentGeneration: 1), purpose: .premultipliedColor,
+        content: .color(.resolved(.premultipliedAlpha)), physicalSize: CGSize(width: 2, height: 2),
+        mappedSize: CGSize(width: 2, height: 2), uvTransform: .identity, sampling: .linearClamp)
+    func select(_ candidates: [Template.TextureCandidate], identity: Graph.TextureIdentity = ingress,
+                expected: Graph.TextureIdentity? = ingress, mode: Schema.TextureMode = .regular,
+                defaultTexture: Schema.DefaultTexture? = nil,
+                verifyVariantKey: Bool = false,
+                entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [:]) throws -> SceneResolvedMaterialTextureSelection.Entry {
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        if !candidates.isEmpty { slots[0] = .init(index: 0, candidates: candidates) }
+        let value = Template.validated(textureSlots: slots, combos: [], uniformDeclarations: [],
+            renderState: original.renderState,
+            graphRole: .init(effectInput: identity.kind == .layerSource ? .layerSource : .effectOutput,
+                effectOutput: .effectOutput, nodeTarget: .effectOutput, bindings: []),
+            effectContext: expected.map { .init(key: owner, input: $0) },
+            shaderContract: shader, diagnosticProvenance: original.diagnosticProvenance)!
+        let active = Schema.Sampler(name: "g_Texture0", slot: 0, mode: mode, materialKey: nil,
+            isHidden: false, defaultTexture: defaultTexture, readinessCombo: nil)
+        let graphFacts = Schema.graphInputSourceSlotFacts(
+            template: value, samplers: [0: active], inputIdentity: identity)
+        let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+            in: value, samplers: [0: active], implicitFramebufferIdentity: identity,
+            graphInputSourceSlotFacts: graphFacts)
+        var publications = entries
+        publications[.graph(identity)] = .ready(.init(publication: .init(requestIdentity: .graph(identity),
+            candidate: graphCandidate, contentGeneration: 1), resourceGeneration: 1))
+        let finalization = input(entries: publications, implicitFramebufferIdentity: identity)!
+        if verifyVariantKey {
+            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, textureSlots: value.textureSlots, samplers: [0: active],
+                reachableTexturePurposes: facts.candidatePurposes, formatSlots: [], channelUses: [0: .wholeVector],
+                allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
+                graphInputSourceSlotFacts: graphFacts)
+        }
+        return try SceneResolvedMaterialTextureSelection.resolve(finalization, textureSlots: value.textureSlots, samplers: [0: active],
+            reachableTexturePurposes: facts.candidatePurposes, channelUses: [0: .wholeVector],
+            allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
+            graphInputSourceSlotFacts: graphFacts)[0]
+    }
+    func selected(_ entry: SceneResolvedMaterialTextureSelection.Entry, _ reference: Template.TextureReference,
+                  purpose: SceneTextureLoadPurpose = .premultipliedColor,
+                  fact: Bool = false, provenance: Program.TextureSelectionProvenance = .authored(.instance)) -> Bool {
+        guard case let .reference(actual, actualPurpose, actualProvenance, sourceFact) = entry else { return false }
+        return actual == reference && actualPurpose == purpose && actualProvenance == provenance
+            && (sourceFact != nil) == fact && (sourceFact == nil || (sourceFact?.inputIdentity == ingress
+                && sourceFact?.selectionProvenance == actualProvenance))
+    }
+    let a = Template.TextureCandidate(reference: selfA, provenance: .instance)
+    let b = Template.TextureCandidate(reference: selfB, provenance: .instance)
+    let override = Template.TextureCandidate(reference: user, provenance: .userTexture)
+    var result = [
+        "selfAUsesPrior": selected(try select([a]), .graph(ingress), fact: true),
+        "selfBUsesPrior": selected(try select([b]), .graph(ingress), fact: true),
+        "externalStaysNamed": selected(try select([.init(reference: external, provenance: .instance)]), external),
+        "mismatchedIngressStaysNamed": selected(try select([a], identity: base), selfA),
+        "unknownEffectStaysNamed": selected(try select([a], expected: nil), selfA),
+        "currentEffectStaysNamed": selected(try select([a], identity: .init(kind: .effectOutput, layerID: 81, effect: owner, name: nil), expected: .init(kind: .effectOutput, layerID: 81, effect: owner, name: nil)), selfA),
+        "explicitPreviousWins": selected(try select([a, .init(reference: .graph(ingress), provenance: .explicitBinding)]), .graph(ingress), provenance: .authored(.explicitBinding)),
+        "readyUserWins": selected(try select([a, override], mode: .rgbMask, verifyVariantKey: true, entries: [userIdentity: ready(device, request: userIdentity, purpose: .preservedChannels)]), user, purpose: .preservedChannels, provenance: .authored(.userTexture)),
+        "externalMixedStaysNamed": selected(try select([.init(reference: external, provenance: .instance), override], mode: .rgbMask, entries: [userIdentity: .absent]), external),
+        "unknownMixedStaysNamed": selected(try select([a, a, override], mode: .rgbMask, entries: [userIdentity: .absent]), selfA),
+    ]
+    if case let .reference(reference, purpose, _, fact) = try select([a], identity: base, expected: base) {
+        result["firstEffectUsesBase"] = reference == .graph(base) && purpose == .premultipliedColor && fact?.inputIdentity == base
+    }
+    for (name, status) in [("absent", SceneFrameTextureLookupStatus.absent), ("pending", .pending), ("unavailable", .unavailable)] {
+        result["mixed-" + name + "UsesPrior"] = selected(try select([a, override], mode: .rgbMask, verifyVariantKey: true,
+            entries: [userIdentity: status]), .graph(ingress), fact: true)
+    }
+    for suffix in ["a", "b"] {
+        let target = Schema.DefaultTexture.internalTarget(Schema.renderTargetDefault(authoredName: "_rt_imageLayerComposite_81_" + suffix))
+        result["default-" + suffix + "UsesPrior"] = selected(try select([], defaultTexture: target), .graph(ingress), fact: true, provenance: .shaderDefault)
+        if case .internalDefault = try select([], expected: nil, defaultTexture: target) {
+            result["default-" + suffix + "RejectsUnknownEffect"] = true
+        } else { result["default-" + suffix + "RejectsUnknownEffect"] = false }
+        if case .internalDefault = try select([], identity: base, defaultTexture: target) {
+            result["default-" + suffix + "RejectsWrongIngress"] = true
+        } else { result["default-" + suffix + "RejectsWrongIngress"] = false }
+    }
+    return result
+}
+
+@main
+private enum Main {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print(#"{"metalAvailable":false}"#); return
+        }
+        guard CommandLine.arguments.count == 3 else {
+            throw NSError(domain: "fixture", code: 2)
+        }
+        let resourceRoot = URL(
+            fileURLWithPath: CommandLine.arguments[1], isDirectory: true
+        )
+        let stockRoot = URL(
+            fileURLWithPath: CommandLine.arguments[2], isDirectory: true
+        )
+        let sharedTexture = texture(device)
+        let preserved = program(
+            device, defaultPath: preservedDefault,
+            purpose: .preservedChannels, sharedTexture: sharedTexture
+        )
+        let preserved2 = program(
+            device, defaultPath: preservedDefault2,
+            purpose: .preservedChannels, sharedTexture: sharedTexture
+        )
+        let noise = program(
+            device, defaultPath: noiseDefault,
+            purpose: .noise, sharedTexture: sharedTexture
+        )
+        guard let preserved, let preserved2, let noise,
+              let preservedSlot = preserved.textureSlots[0],
+              let preservedExact = preserved.exactIdentity.textureSlots[0],
+              let preserved2Exact = preserved2.exactIdentity.textureSlots[0],
+              let noiseExact = noise.exactIdentity.textureSlots[0] else {
+            throw NSError(
+                domain: "fixture", code: 1,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "programs=\(preserved != nil),\(preserved2 != nil),\(noise != nil)"]
+            )
+        }
+
+        let conflictShader = contract(default: preservedDefault.value)
+        let conflictSampler = sampler(conflictShader)!
+        let conflictReference = Template.TextureReference.asset(noiseDefault)
+        let conflictTemplate = template(conflictShader)
+        var conflictSlots = conflictTemplate.textureSlots
+        conflictSlots[0] = .init(index: 0, candidates: [
+            .init(reference: conflictReference, provenance: .explicitBinding),
+        ])
+        let conflictLaunchTemplate = Template.validated(
+            textureSlots: conflictSlots, combos: conflictTemplate.combos,
+            uniformDeclarations: conflictTemplate.uniformDeclarations,
+            renderState: conflictTemplate.renderState,
+            graphRole: conflictTemplate.graphRole,
+            shaderContract: conflictTemplate.shaderContract,
+            diagnosticProvenance: conflictTemplate.diagnosticProvenance
+        )!
+        let untypedShader = contract(default: "fixtures/untyped-default")
+        let untypedSampler = sampler(untypedShader)!
+        let internalSampler = sampler(contract(default: "_rt_fixture"))!
+        let inactiveShader = contract(default: preservedDefault.value, active: false)
+        let inactiveTemplate = template(inactiveShader)
+        let inactivePrepared = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: inactiveShader, combos: [:], textureReadiness: [0: true]
+        )
+        let inactiveActiveCount: Int = if case let .accepted(prepared) = inactivePrepared {
+            try SceneResolvedMaterialShaderSchema.activeSamplers(prepared).count
+        } else { -1 }
+        let inactiveReachable = try SceneResolvedMaterialShaderSchema.reachableSamplers(
+            inactiveTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: inactiveTemplate).get(),
+            implicitFramebufferIdentity: nil
+        )[0]?.count ?? 0
+
+        let positiveTemplate = template(contract(default: preservedDefault.value))
+        let positiveCache = cache(positiveTemplate, purpose: .preservedChannels)!
+        let candidateIdentity = SceneAssetTextureIdentity(
+            path: overridePath, purpose: .preservedChannels
+        )
+        let defaultIdentity = SceneAssetTextureIdentity(
+            path: preservedDefault, purpose: .preservedChannels
+        )
+        let defaultReady = ready(
+            device, request: .asset(defaultIdentity), purpose: .preservedChannels
+        )
+        func failure(_ status: SceneFrameTextureLookupStatus?) -> String {
+            var entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [
+                .asset(defaultIdentity): defaultReady,
+            ]
+            if let status { entries[.asset(candidateIdentity)] = status }
+            return failureToken(finalize(
+                positiveTemplate, cache: positiveCache, entries: entries
+            ))
+        }
+        let wrongRequest = SceneFrameTextureIdentity.asset(.init(
+            path: preservedDefault, purpose: .preservedChannels
+        ))
+        let results: [String: Any] = [
+            "selfCompositeSelections": try selfCompositeSelections(device),
+            "stockDefaultLifecycle": try stockDefaultLifecycle(device: device),
+            "metalAvailable": true,
+            "positive": [
+                "reference": preservedExact.reference == .asset(overridePath),
+                "slotReference": preservedSlot.reference == .asset(overridePath),
+                "slotPurpose": preservedSlot.expectedPurpose == .preservedChannels,
+                "registryIdentity": preservedSlot.registryIdentity
+                    == .asset(candidateIdentity),
+                "demandIdentity": SceneAssetTextureIdentity(
+                    path: overridePath,
+                    purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath),
+                        sampler: sampler(contract(default: preservedDefault.value))!)!
+                ) == candidateIdentity,
+                "semanticPurpose": preserved.semanticIdentity.textureSlots[0]?.purpose
+                    == .preservedChannels,
+                "exactPurpose": preservedExact.purpose == .preservedChannels,
+                "selectionAuthored": preservedSlot.diagnosticSelectionProvenance
+                    == .authored(.explicitBinding),
+            ],
+            "identity": [
+                "sameRoleSameTexture": preservedExact == preserved2Exact,
+                "defaultChangeChangesProgram": preserved.exactIdentity
+                    != preserved2.exactIdentity,
+                "roleChangeChangesTexture": preservedExact != noiseExact,
+                "roleChangeChangesSemantic": preserved.semanticIdentity
+                    != noise.semanticIdentity,
+            ],
+            "purposeBoundaries": [
+                "conflict": SceneResolvedMaterialShaderSchema.purpose(for: conflictReference, sampler: conflictSampler) == nil,
+                "conflictTypedReject": launchFailure(conflictLaunchTemplate),
+                "untyped": SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: untypedSampler) == nil,
+                "untypedTypedReject": launchFailure(template(untypedShader)),
+                "internal": SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: internalSampler) == nil,
+                "inactiveActiveCount": inactiveActiveCount,
+                "inactiveReachableCount": inactiveReachable,
+            ],
+            "noFallback": [
+                "pending": failure(.pending),
+                "missing": failure(nil),
+                "unavailable": failure(.unavailable),
+                "wrongPurpose": failure(ready(
+                    device, request: .asset(candidateIdentity),
+                    purpose: .preservedChannels, candidatePurpose: .noise
+                )),
+                "wrongPublication": failure(ready(
+                    device, request: .asset(candidateIdentity),
+                    purpose: .preservedChannels, requestOverride: wrongRequest
+                )),
+                "wrongGeneration": failure(ready(
+                    device, request: .asset(candidateIdentity),
+                    purpose: .preservedChannels, generationMismatch: true
+                )),
+            ],
+            "productChain": try productChain(
+                device: device, resourceRoot: resourceRoot, stockRoot: stockRoot
+            ),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
+        FileHandle.standardOutput.write(data)
+    }
+}
+'''
+
+
+@unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+class SceneSamplerDefaultPurposeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-sampler-default-purpose-"
+        )
+        root = Path(cls.temporary_directory.name)
+        support = root / "Support.swift"
+        harness = root / "Harness.swift"
+        binary = root / "sampler-default-purpose-test"
+        resources = root / "resources"
+        static_texture = resources / "fixtures/unseen/static-authored.png"
+        animated_texture = resources / "particle/fog/fog2.tex"
+        static_texture.parent.mkdir(parents=True)
+        animated_texture.parent.mkdir(parents=True)
+        shutil.copyfile(
+            REPOSITORY_ROOT / (
+                "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/"
+                "materials/editor/testusertexture.png"
+            ),
+            static_texture,
+        )
+        shutil.copyfile(
+            REPOSITORY_ROOT / (
+                "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/"
+                "materials/particle/fog/fog2.tex"
+            ),
+            animated_texture,
+        )
+        support.write_text(SUPPORT, encoding="utf-8")
+        harness.write_text(HARNESS, encoding="utf-8")
+        environment = os.environ.copy()
+        environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+        environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
+        compilation = subprocess.run(
+            ["xcrun","--sdk","macosx","swiftc","-parse-as-library",str(support),*(str(path) for path in SWIFT_SOURCES),str(SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift"),str(harness),"-framework","Metal","-framework","CoreGraphics","-framework","ImageIO","-module-cache-path",str(root / "module-cache"),"-o",str(binary)],
+            cwd=REPOSITORY_ROOT, env=environment, capture_output=True, text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [
+                str(binary), str(resources),
+                str(REPOSITORY_ROOT / (
+                    "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
+                )),
+            ],
+            cwd=REPOSITORY_ROOT, env=environment,
+            capture_output=True, text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr or completed.stdout)
+        cls.result = json.loads(completed.stdout)
+        if not cls.result["metalAvailable"]:
+            raise unittest.SkipTest("Metal is unavailable")
+
+    def test_stock_default_launch_and_frame_share_prepared_publication(self) -> None:
+        facts = self.result["stockDefaultLifecycle"]
+        self.assertTrue(all(facts.values()), facts)
+
+    def test_same_layer_inputs_preserve_ingress_and_candidate_precedence(self) -> None:
+        facts = self.result["selfCompositeSelections"]
+        self.assertEqual([key for key, passed in facts.items() if not passed], [], facts)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_inherited_purpose_reaches_selection_and_program_identity(self) -> None:
+        self.assertEqual(
+            [key for key, value in self.result["positive"].items() if not value],
+            [], self.result,
+        )
+        self.assertEqual(
+            [key for key, value in self.result["identity"].items() if not value],
+            [], self.result,
+        )
+
+    def test_conflict_source_typed_internal_and_inactive_stay_closed(self) -> None:
+        self.assertEqual(
+            self.result["purposeBoundaries"],
+            {
+                "conflict": True, "untyped": False, "internal": True,
+                "conflictTypedReject": "texture/textureBindingInvalid/0",
+                "untypedTypedReject": "texture/textureBindingInvalid/0",
+                "inactiveActiveCount": 0, "inactiveReachableCount": 0,
+            },
+            self.result,
+        )
+
+    def test_unready_or_invalid_candidate_never_falls_back_to_default(self) -> None:
+        self.assertEqual(
+            self.result["noFallback"],
+            {
+                "pending": "texture/resourceSnapshotUnresolved/0",
+                "missing": "texture/resourceSnapshotUnresolved/0",
+                "unavailable": "texture/resourceSnapshotUnresolved/0",
+                "wrongPurpose": "texture/textureMetadataIncomplete/0",
+                "wrongPublication": "texture/textureMetadataIncomplete/0",
+                "wrongGeneration": "texture/textureMetadataIncomplete/0",
+            },
+            self.result,
+        )
+
+    def test_product_asset_catalog_preserves_inherited_role_and_readiness(self) -> None:
+        self.assertEqual(
+            self.result["productChain"],
+            {
+                "catalogStates": True,
+                "staticPublication": True,
+                "staticSelection": True,
+                "staticProgramIdentity": True,
+                "animatedPublication": True,
+                "animatedSelection": True,
+                "animatedProgramIdentity": True,
+                "animatedPublicationUVChanges": True,
+                "animatedContentGenerationChanges": True,
+                "authoredUniformBytesStable": True,
+                "animatedFailure": "not-failure",
+            },
+            self.result,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

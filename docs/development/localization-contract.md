@@ -320,7 +320,7 @@ String(localized: "menu.file.open", defaultValue: "Open", comment: "File menu it
 
 检查与修复分离：脚本默认只读检查并报告；显式的修复模式只做机械部分——把源码新增的 key 以未翻译状态写入 `en` 条目、把源码已无的 key 标为 `extractionState: stale`——不生成任何译文内容。`xcstringstool sync` 可依据 `.stringsdata` 标记 stale，但不会新增 key（2026-11-23 实测），因此新增条目仍由脚本完成。
 
-层 C 实测结论（2026-11-23，Xcode 27.2）：主 App 的 Debug 配置已含 `SWIFT_EMIT_LOC_STRINGS = YES`，普通构建即生成 `.stringsdata`，其 key 已是 `%lld`/`%@` 等精确形式；`script/check_localization.py --extraction <DerivedData 路径>` 直接读取这些文件与 catalog 比对，不需要先 `-exportLocalizations`。XLIFF 导出保留为发布前的补充校验，不作为日常门禁。实测中 1459 个编译期 key 与 catalog 完全一致。
+层 C 实测结论（2026-11-23，Xcode 27.2）：主 App 的 Debug 配置已含 `SWIFT_EMIT_LOC_STRINGS = YES`，普通构建即生成 `.stringsdata`，其 key 已是 `%lld`/`%@` 等精确形式；`script/governance/check_localization.py --extraction <DerivedData 路径>` 直接读取这些文件与 catalog 比对，不需要先 `-exportLocalizations`。XLIFF 导出保留为发布前的补充校验，不作为日常门禁。实测中 1459 个编译期 key 与 catalog 完全一致。
 
 ### 13.3 检查模块必须报出的结论
 

@@ -1,0 +1,578 @@
+#!/usr/bin/env python3
+
+"""Shared compiler fixture for focused SceneScript vector-owner tests."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
+
+
+ROOT = Path(__file__).resolve().parents[3]
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+VM = SCENE / "Systems/Script"
+QUICKJS = VM / "QuickJSNG"
+
+SWIFT_SOURCES = [
+    ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+    VM / "SceneScriptUserShortcutDispatch.swift",
+    SCENE / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SCENE / "Rendering/Composition/SceneUtilityLayer.swift",
+    SCENE / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+    SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
+    VM / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
+    SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
+    SCENE / "Format/SceneJSONValue.swift",
+    SCENE / "Format/SceneDirectionalLightDefinition.swift",
+    SCENE / "Format/ScenePointLightDefinition.swift",
+    SCENE / "Format/SceneTubeLightDefinition.swift",
+    SCENE / "Format/SceneScriptBindingDefinition.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+    SCENE / "Systems/Properties/ScenePropertyBindingProgram.swift",
+    SCENE / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
+    SCENE / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+    SCENE / "Format/SceneTimelineAnimation.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLocalStorage.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerLifecycleBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAnimationHandleBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPuppetAnimationBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationControl.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationSelection.swift",
+    SCENE / "Systems/Puppet/ScenePuppetAnimationEvaluator+FrameSampling.swift",
+    SCENE / "Format/SceneMdlPuppetAnimation.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePuppetAnimationLayer.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAudioHost.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptEffectHandleBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptFallbackCatalog.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerMutation.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformPublication.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptProgramFrameLedger.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgramModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram+Construction.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorHitAdmission.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+    VM / "SceneScriptDynamicLayerRuntime+Values.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram+PreparedText.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwner+String.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateCatalog.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorMediaRouteCandidate.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgramModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram+Registrations.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptBooleanVisibilityValidation.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwnerConstruction.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwner+Cursor.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwner+PuppetBones.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidateModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidate.swift",
+]
+
+C_SOURCES = [
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTextTemplateHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTextCloneHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerAssetHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHandleHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerJournalHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerMediaHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerValueHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetBoneHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetAnimationHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSParticleInstanceHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c",
+]
+
+SWIFT_PREAMBLE = r'''
+import Foundation
+import simd
+
+struct SceneParticleCameraFrame {
+    struct NativePerspectiveOverride {}
+    static func acceptsNativePerspectiveProjection(camera: SceneRenderDescriptor.Camera) -> Bool { false }
+    static func usesNativePerspective(camera: SceneRenderDescriptor.Camera, nativePerspectiveOverride: NativePerspectiveOverride? = nil) -> Bool { false }
+    static func nativePerspectiveOverride(
+        descriptor: SceneRenderDescriptor, layersByID: [Int: SceneRenderDescriptor.Layer],
+        worldFrames: [Int: simd_float4x4], dynamicValues: SceneDynamicSnapshot
+    ) -> NativePerspectiveOverride? { nil }
+}
+
+struct SceneFrameTiming {
+    let wallDate: Date
+    let simulationFrameTime: TimeInterval
+    let sceneTime: TimeInterval
+}
+
+final class SceneMediaThumbnailInbox {
+    struct Snapshot {
+        struct Properties {
+            let title, artist, subTitle, albumTitle, albumArtist, genres, contentType: String
+        }
+        struct Timeline { let position, duration: Double }
+        let current: Data?
+        let primaryColor: SIMD3<Double>?
+        let secondaryColor: SIMD3<Double>?
+        let tertiaryColor: SIMD3<Double>?
+        let textColor: SIMD3<Double>?
+        let highContrastColor: SIMD3<Double>?
+        let generation: UInt64
+        let playbackState: Int?
+        let playbackGeneration: UInt64
+        let properties: Properties?
+        let propertiesGeneration: UInt64
+        let timeline: Timeline?
+        let timelineGeneration: UInt64
+    }
+}
+
+
+struct SceneShaderContract {}
+
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let materialPath: String
+        let colorKey: String
+        let scriptSource: String?
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+        var alphaKey: String? = nil
+        var authoredAlpha: Float = 1
+        var alphaUserPropertyKey: String? = nil
+        var alphaPropertyTarget: SceneDynamicTarget? {
+            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: alphaKey, materialPath: materialPath)
+        }
+        var colorUserPropertyKey: String? = nil
+        var colorPropertyTarget: SceneDynamicTarget? {
+            guard colorUserPropertyKey != nil else { return nil }
+            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
+                name: colorKey, materialPath: materialPath)
+        }
+        var colorBindingPath: [SceneUserPropertyPathComponent] {
+            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
+             .key("constantshadervalues"), .key(colorKey)]
+        }
+    }
+
+    static func compile(
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        dynamicImageModelPaths: Set<String>,
+        admittedLayerColorConsumerIDs: Set<Int>
+    ) -> [Binding] { [] }
+}
+
+struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
+    let layerID: Int
+    let effectIndex: Int
+    let functionName: String
+}
+
+enum SceneTimelinePlaybackCommand: Equatable, Sendable {
+    case play
+    case pause
+    case stop
+    case setFrame(Double)
+}
+
+struct SceneTimelinePlaybackMutation: Equatable, Sendable {
+    let target: SceneDynamicTarget
+    let command: SceneTimelinePlaybackCommand
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+
+    init(target: SceneDynamicTarget, command: SceneTimelinePlaybackCommand,
+         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
+        self.target = target
+        self.command = command
+        self.callbackEpoch = callbackEpoch
+        self.ordinal = ordinal
+    }
+}
+
+enum SceneParticleNumericValue: Equatable, Sendable {
+    case scalar(Double)
+    case vector([Double])
+
+    var scalarValue: Double? {
+        guard case let .scalar(value) = self else { return nil }
+        return value
+    }
+}
+
+struct SceneParticleBoundValue: Equatable, Sendable {
+    let value: SceneParticleNumericValue?
+    let userPropertyKey: String?
+    let hasScript: Bool
+    let hasAnimation: Bool
+}
+
+struct SceneParticleInstanceOverride: Equatable, Sendable {
+    let alpha: SceneParticleBoundValue?
+    let size: SceneParticleBoundValue?
+    let lifetime: SceneParticleBoundValue?
+    let rate: SceneParticleBoundValue?
+    let speed: SceneParticleBoundValue?
+    let count: SceneParticleBoundValue?
+    let brightness: SceneParticleBoundValue?
+    let color: SceneParticleBoundValue?
+    let normalizedColor: SceneParticleBoundValue?
+    let controlPoints: [Int: SceneParticleBoundValue]
+    let controlPointAngles: [Int: SceneParticleBoundValue]
+}
+
+struct SceneDocument {
+    struct Scene2DCameraPathDefinition {
+        let camera: String
+        var path: String = "paths/fixture.json"
+        var queueMode: String? = nil
+        var zoom: Double? = nil
+        let fov: Double?
+    }
+}
+
+struct SceneRenderDescriptor {
+    typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
+    // External descriptor inputs; camera projection and VM behavior use product code.
+    // The Bloom-specific gate replaces this field with the production config.
+    struct Bloom { var hdr: Bool? = nil }
+    struct Camera {
+        var bloom = Bloom()
+        var eye: [Float] = [0, 0, 0]
+        var center: [Float] = [0, 0, -1]
+        var up: [Float] = [0, 1, 0]
+        var parallaxEnabled = false
+        var orthoWidth: Float? = nil
+        var orthoHeight: Float? = nil
+        var generalZoom: Float? = nil
+        var default2DInputLayerID: Int? = nil
+        var default2DOriginInputLayerID: Int? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
+    }
+    typealias CameraDescriptor = Camera
+    var camera = Camera()
+    struct ModelMaterialLink {
+        let modelPath: String
+        var materialPath: String? = nil
+    }
+    enum SceneShaderUserValueKind {
+        case null
+        case string
+    }
+
+    struct TextStyle {
+        let fontPath: String?
+        let colorRGB: [Float]?
+        let pointSize: Float?
+    }
+
+    struct ShaderValue {
+        let scriptSource: String?
+        let components: [Double]?
+        var rawValue: String { (components ?? []).map(String.init(describing:)).joined(separator: " ") }
+        let userValueKind: SceneShaderUserValueKind?
+        var userBinding: String? = nil
+        let bindingKeys: [String]
+        let timeline: Bool?
+        let timelineDiagnostics: [String]
+        let scriptProperties: [String: SceneJSONValue]?
+
+        init(
+            scriptSource: String?,
+            components: [Double]?,
+            userValueKind: SceneShaderUserValueKind? = nil,
+            bindingKeys: [String] = [],
+            timeline: Bool? = nil,
+            timelineDiagnostics: [String] = [],
+            scriptProperties: [String: SceneJSONValue]? = nil
+        ) {
+            self.scriptSource = scriptSource
+            self.components = components
+            self.userValueKind = userValueKind
+            self.bindingKeys = bindingKeys
+            self.timeline = timeline
+            self.timelineDiagnostics = timelineDiagnostics
+            self.scriptProperties = scriptProperties
+        }
+    }
+
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let passIndex: Int
+        let constantShaderValues: [String: ShaderValue]
+        var staticModelMaterialBindings: SceneStaticModelMaterialBindings? = nil
+    }
+
+    struct SceneEffectTextureInput: ExpressibleByBooleanLiteral {
+        enum Kind: Equatable { case path, system, property, unknown }
+        let kind: Kind
+        let value: String
+
+        init(booleanLiteral value: Bool) {
+            kind = .path
+            self.value = value ? "fixture-user-texture" : ""
+        }
+    }
+
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            let passIndex: Int
+            let id: Int?
+            let constantShaderValues: [String: ShaderValue]
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+
+            init(
+                passIndex: Int,
+                id: Int?,
+                constantShaderValues: [String: ShaderValue],
+                textureSlots: [String?] = [],
+                userTextureInputs: [SceneEffectTextureInput?] = []
+            ) {
+                self.passIndex = passIndex
+                self.id = id
+                self.constantShaderValues = constantShaderValues
+                self.textureSlots = textureSlots
+                self.userTextureInputs = userTextureInputs
+            }
+        }
+
+        let name: String?
+        let effectID: Int?
+        let passes: [PassDescriptor]
+        let id: String
+        let visible: Bool?
+
+        init(
+            name: String?,
+            effectID: Int? = nil,
+            passes: [PassDescriptor] = [],
+            id: String = "effect",
+            visible: Bool? = true
+        ) {
+            self.name = name
+            self.effectID = effectID
+            self.passes = passes
+            self.id = id
+            self.visible = visible
+        }
+    }
+
+    typealias UtilityLayer = SceneUtilityLayer
+
+    struct Layer {
+        var cameraPath: CameraPath? = nil
+        let id: Int
+        let layerIndex: Int
+        let name: String?
+        var solid: Bool? = nil
+        var usesPerspective: Bool? = nil
+        var visible: Bool?
+        let originXYZ: [Float]?
+        let scaleXYZ: [Float]?
+        var anglesXYZ: [Float]? = nil
+        var colorRGB: [Float]? = nil
+        var scaleHasScript: Bool? = nil
+        let alpha: Double?
+        var brightness: Double? = nil
+        let effects: [EffectDescriptor]
+        var contentKind: String = "image"
+        var particleInstanceOverride: SceneParticleInstanceOverride? = nil
+
+        var text: String? = nil
+        var textStyle: TextStyle? = nil
+        var sizeWH: [Float]? = nil
+        var imagePath: String? = nil
+        var staticModelPath: String? = nil
+        var puppetMeshPath: String? = nil
+        var pointLight: ScenePointLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
+        var spotLight: Int? = nil
+        var directionalLight: Int? = nil
+        var authoredLightIntensity: Float? = nil
+        var utilityLayer: UtilityLayer? = nil
+        var parentID: Int? = nil
+        var childLayerIDs: [Int] = []
+        var dependencyLayerIDs: [Int] = []
+        var authoredDependencies: [Int] = []
+        var effectFiles: [String] = []
+        var parallaxDepthXY: [Float]? = nil
+        var attachmentName: String? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
+        var puppetAnimationLayers: [ScenePuppetAnimationLayer] = []
+        var initialConfiguration: SceneJSONValue? = nil
+
+__PERSPECTIVE_GEOMETRY_CONSUMER__
+
+        var supportsUserPropertyImageSourceModulationConsumer: Bool {
+            contentKind == "image" && puppetMeshPath == nil && staticModelPath == nil
+                && dependencyLayerIDs.isEmpty && authoredDependencies.isEmpty
+        }
+    }
+
+    var layers: [Layer]
+    var modelMaterialLinks: [ModelMaterialLink] = []
+    var materialPasses: [MaterialPassDescriptor] = []
+    var renderOrderLayerIDs: [Int] { layers.map(\.id) }
+}
+
+extension SceneRenderDescriptor.Layer {
+    static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
+        nil
+    }
+
+    static func preparedResourceLayer(
+        _ mutation: SceneScriptLayerMutation,
+        template: SceneScriptPreparedResourceLayerTemplate
+    ) -> Self? {
+        nil
+    }
+}
+'''
+
+# Keep the camera profile's external Timeline carrier aligned with production.
+_document_models = (SCENE / "Format/SceneDocumentObject.swift").read_text(encoding="utf-8")
+_timeline_start = _document_models.index("    struct SceneObjectTimeline:")
+_timeline_end = _document_models.index("\n    /// Particle", _timeline_start)
+SWIFT_PREAMBLE = SWIFT_PREAMBLE.replace(
+    "struct SceneDocument {", "struct SceneDocument {\n" + _document_models[_timeline_start:_timeline_end]
+).replace(
+    "__PERSPECTIVE_GEOMETRY_CONSUMER__",
+    swift_declaration(
+        (SCENE / "Runtime/Frame/SceneRenderDescriptor+Layer.swift").read_text(encoding="utf-8"),
+        "        nonisolated var hasPerspectiveGeometryConsumer:",
+    ),
+)
+SWIFT_PREAMBLE += swift_declaration(
+    (SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_text(encoding="utf-8"),
+    "nonisolated struct SceneTimelineAnimationEventOccurrence:",
+)
+
+
+def compile_vector_harness(
+    temporary_directory: Path,
+    harness_source: str,
+    binary_name: str,
+    *, extra_swift_sources: tuple[Path, ...] = (), preamble: str = SWIFT_PREAMBLE,
+    whole_module_optimization: bool = False,
+    bridging_header: Path | None = None, extra_link_objects: tuple[Path, ...] = (),
+) -> Path:
+    clang = shutil.which("clang")
+    if clang is None:
+        raise RuntimeError("clang is required")
+
+    objects: list[Path] = []
+    for source in C_SOURCES:
+        output = temporary_directory / f"{source.stem}.o"
+        subprocess.run(
+            [
+                clang,
+                "-std=c11",
+                "-O0",
+                "-c",
+                str(source),
+                "-o",
+                str(output),
+                "-I",
+                str(VM),
+                "-I",
+                str(QUICKJS),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        objects.append(output)
+
+    swift_sources = list(dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources]))
+    fixture = preamble + harness_source
+    evaluator_source = SCENE / "Systems/Puppet/ScenePuppetAnimationEvaluator.swift"
+    if evaluator_source.resolve() not in {source.resolve() for source in swift_sources}:
+        sample = swift_declaration(evaluator_source.read_text(encoding="utf-8"), "    struct FrameSample:")
+        fixture += f"\nnonisolated struct ScenePuppetAnimationEvaluator {{\n{sample}\n}}\n"
+    text_descriptor = SCENE / "Systems/Text/SceneTextDescriptor.swift"
+    if text_descriptor.resolve() not in {source.resolve() for source in swift_sources}:
+        normalizer = swift_declaration(text_descriptor.read_text(encoding="utf-8"),
+                                       "    nonisolated static func normalizedPath(")
+        owner = "extension" if re.search(r"\b(?:struct|enum|class)\s+SceneTextDescriptor\b", fixture) else "nonisolated enum"
+        fixture += f"\n{owner} SceneTextDescriptor {{\n{normalizer}\n}}\n"
+    harness = temporary_directory / f"{binary_name}.swift"
+    harness.write_text(fixture, encoding="utf-8")
+    binary = temporary_directory / binary_name
+    compilation = subprocess.run(
+        [
+            "xcrun",
+            "swiftc",
+            "-parse-as-library",
+            "-module-cache-path", str(temporary_directory / "modules"),
+            "-O",
+            *(["-whole-module-optimization"] if whole_module_optimization else []),
+            "-import-objc-header",
+            str(bridging_header or ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
+            "-Xcc",
+            f"-I{VM}",
+            "-o",
+            str(binary),
+            *map(str, swift_sources),
+            str(harness),
+            *map(str, objects),
+            *map(str, extra_link_objects),
+            "-Xlinker",
+            "-lm",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if compilation.returncode != 0:
+        raise AssertionError(compilation.stdout + compilation.stderr)
+    return binary
