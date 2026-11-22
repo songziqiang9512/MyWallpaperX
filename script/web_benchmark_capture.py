@@ -8,13 +8,14 @@ import os
 import plistlib
 import re
 import shutil
-import struct
 import subprocess
 import time
-import zlib
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+from PIL import Image
 
 
 class AppIdentityError(RuntimeError):
@@ -252,63 +253,33 @@ def _decode_png_rows_cached(
     _size: int,
 ) -> tuple[int, int, int, int, list[bytes]] | None:
     try:
-        payload = path.read_bytes()
-        if payload[:8] != b"\x89PNG\r\n\x1a\n":
-            return None
-        offset = 8
-        width = height = bit_depth = color_type = interlace = None
-        compressed = bytearray()
-        while offset + 12 <= len(payload):
-            length = struct.unpack(">I", payload[offset : offset + 4])[0]
-            kind = payload[offset + 4 : offset + 8]
-            data = payload[offset + 8 : offset + 8 + length]
-            offset += 12 + length
-            if kind == b"IHDR":
-                width, height, bit_depth, color_type, _, _, interlace = struct.unpack(">IIBBBBB", data)
-            elif kind == b"IDAT":
-                compressed.extend(data)
-            elif kind == b"IEND":
-                break
-        channels = {0: 1, 2: 3, 4: 2, 6: 4}.get(color_type)
-        if not width or not height or bit_depth not in (8, 16) or interlace != 0 or channels is None:
-            return None
-        decoded = zlib.decompress(compressed)
-        bytes_per_pixel = channels * (bit_depth // 8)
-        stride = width * bytes_per_pixel
-        previous = bytearray(stride)
-        cursor = 0
-        rows: list[bytes] = []
-        for _ in range(height):
-            filter_type = decoded[cursor]
-            source = decoded[cursor + 1 : cursor + 1 + stride]
-            cursor += stride + 1
-            row = bytearray(stride)
-            for index, value in enumerate(source):
-                left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
-                up = previous[index]
-                upper_left = previous[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
-                if filter_type == 0:
-                    predictor = 0
-                elif filter_type == 1:
-                    predictor = left
-                elif filter_type == 2:
-                    predictor = up
-                elif filter_type == 3:
-                    predictor = (left + up) // 2
-                elif filter_type == 4:
-                    predictor = _paeth(left, up, upper_left)
-                else:
-                    return None
-                row[index] = (value + predictor) & 0xFF
-            # Existing visibility/motion metrics use an 8-bit view. Keep the
-            # original 16-bit PNG intact for precision measurements. PNG
-            # filters operate on bytes with the full pixel stride.
-            rows.append(bytes(row if bit_depth == 8 else row[::2]))
-            previous = row
-    except (IndexError, OSError, struct.error, ValueError, zlib.error):
+        with Image.open(path) as image:
+            image.load()
+            if image.mode in ("P", "PA"):
+                image = image.convert("RGBA")
+            elif image.mode == "1":
+                image = image.convert("L")
+            elif image.mode in ("I;16", "I;16B", "I;16L"):
+                # Existing visibility/motion metrics consume an 8-bit view.
+                samples = np.asarray(image, dtype=np.uint16) >> 8
+                return (
+                    samples.shape[1],
+                    samples.shape[0],
+                    1,
+                    1,
+                    [row.astype(np.uint8).tobytes() for row in samples],
+                )
+            channels = {"L": 1, "LA": 2, "RGB": 3, "RGBA": 4}.get(image.mode)
+            if channels is None:
+                return None
+            width, height = image.size
+            payload = image.tobytes()
+    except (OSError, ValueError, SyntaxError):
         return None
-    color_channels = 1 if color_type in {0, 4} else 3
-    return width, height, channels, color_channels, rows
+    stride = width * channels
+    return width, height, channels, 1 if channels <= 2 else 3, [
+        payload[offset : offset + stride] for offset in range(0, stride * height, stride)
+    ]
 
 
 def png_rgb_pixels(path: Path) -> tuple[int, int, list[bytes]] | None:
@@ -329,26 +300,15 @@ def _png_rgb_pixels_cached(
     if decoded is None:
         return None
     width, height, channels, color_channels, rows = decoded
-    rgb_rows: list[bytes] = []
-    for row in rows:
-        rgb = bytearray(width * 3)
-        for x in range(width):
-            source = x * channels
-            destination = x * 3
-            if color_channels == 1:
-                red = green = blue = row[source]
-            else:
-                red, green, blue = row[source : source + 3]
-            alpha = row[source + color_channels] if channels > color_channels else 255
-            rgb[destination : destination + 3] = bytes(
-                (
-                    red * alpha // 255,
-                    green * alpha // 255,
-                    blue * alpha // 255,
-                )
-            )
-        rgb_rows.append(bytes(rgb))
-    return width, height, rgb_rows
+    pixels = np.frombuffer(b"".join(rows), dtype=np.uint8).reshape(height, width, channels)
+    if color_channels == 1:
+        rgb = np.repeat(pixels[..., :1], 3, axis=2)
+    else:
+        rgb = pixels[..., :3]
+    if channels > color_channels:
+        alpha = pixels[..., color_channels : color_channels + 1]
+        rgb = (rgb.astype(np.uint16) * alpha // 255).astype(np.uint8)
+    return width, height, [rgb[y].tobytes() for y in range(height)]
 
 
 def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:

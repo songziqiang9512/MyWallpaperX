@@ -53,8 +53,8 @@
       "bytes": 23241
     },
     "docs/development/repository-workflow.md": {
-      "lines": 100,
-      "bytes": 14109
+      "lines": 106,
+      "bytes": 15161
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
@@ -538,6 +538,15 @@
       "owner": "Existing Scene model evidence and Spot volume dispatch owners",
       "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/repository-workflow.md",
+      "before": "e1d369d7d8bf0c537d91e3c559c8dd87c980f6822dc69cb3a02292532c8300fb",
+      "after": "092d635e11db43c6eebb5016c52c49e9e158f3fda4d56bc39d0a3d180d49e42e",
+      "owner": "repository-governance",
+      "reason": "记录 Python/Swift 开发工具链入口（Pillow、ruff、swift-format、Periphery、LicensePlist）及其验证边界；不改变产品架构或运行时。",
+      "decision": "docs/development/repository-workflow.md#开发工具链"
     }
   ]
 }

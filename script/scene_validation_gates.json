@@ -2888,7 +2888,10 @@
         "script/repository_artifact_baseline.json",
         "script/commit_preflight.py",
         "script/repository_residue.py",
-        "script/check_code_health.py"
+        "script/check_code_health.py",
+        ".swift-format",
+        "ruff.toml",
+        "script/format_swift_changed.py"
       ],
       "modules": [
         "test_scene_governance_contract",

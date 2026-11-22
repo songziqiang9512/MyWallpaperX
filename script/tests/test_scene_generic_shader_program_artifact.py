@@ -5319,12 +5319,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
                 else {1: auxiliary_channel_use}
             )
         slots = [0, *sorted(auxiliary_channel_uses)]
-        metal = f"""
+        metal = """
 #include <metal_stdlib>
 using namespace metal;
-struct Uniforms {{ float2 mwxRenderSize; }};
-vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) {{ return float4(0.0); }}
-fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), float2(0.5)); }}
+struct Uniforms { float2 mwxRenderSize; };
+vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) { return float4(0.0); }
+fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) { return g_Texture0.sample(sampler(), float2(0.5)); }
 """.strip() + "\n"
         return {
             "schemaVersion": 10,

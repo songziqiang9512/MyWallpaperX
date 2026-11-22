@@ -1,2 +1,6 @@
-# Numeric oracle used by the blend-mode GPU regression tests.
+# Python test and repository-tooling dependencies.
 numpy==2.4.6
+# Decodes preview and capture PNG/JPEG/GIF in the visual-evidence tools.
+Pillow==12.2.0
+# Repository Python lint entry; see ruff.toml for the selected rules.
+ruff==0.17.6

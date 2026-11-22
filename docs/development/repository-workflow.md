@@ -48,6 +48,12 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 
 相同源码、harness、工具链、flags/配置和输入身份的构建/测试结果复用；文档修订不重建产品，失败修复后只重验受影响部分。性能基线复用还须条件一致且有效，漂移时重测。跨提交保留具体版本和通过/跳过边界，不能以旧结果覆盖已变更输入。测量期间不并行构建、测试或profiler；独立静态阅读可交错。
 
+## 开发工具链
+
+Python 测试与工具依赖固定在 `script/requirements-tests.txt`（numpy、Pillow、ruff），CI 安装后运行 `ruff check script`。图片与视觉证据统一用 Pillow 解码；`png_rgb_pixels` 仍返回预乘 alpha 的 RGB 行，16-bit 输入取高字节。`ruff.toml` 只启用 `E9/F541/F811/F821`；F401/F841 暂不启用，因为工具模块存在测试侧 `module.X` 再导出、测试初始化还有副作用赋值，需逐处确认后再收紧。
+
+Swift 格式用 Xcode 自带 `swift-format`：`script/format_swift_changed.py --base <ref> [--lint]` 只处理改动文件，配置见 `.swift-format`；存量未全量重排。Periphery（`periphery scan --project <xcodeproj> --schemes <scheme> --format json`）与 LicensePlist（`license-plist --xcodeproj-path <xcodeproj> --output-path <目录> --fail-if-missing-license`）分别用于死代码报告和发布前 SPM 许可核对。Periphery 含动态入口误报、不接门禁；LicensePlist 生成物不入库，`NOTICE.md` 与包内许可是唯一权威。
+
 ## 查询结构债与复用构建
 
 `python3.12 -B script/repository_health.py --format json --limit 50` 从现役 code-health、结构/防御面与测试断言基线、真实 Swift 文件及测试路由派生报告；`--path <精确路径>` 聚焦单个职责。报告区分真实行数、未关联测试的路径和仅登记的冻结预算，不运行验证，不建立第二份债务台账。未关联产品路径或已失效的测试模块会进入编排报告，单独构建成功不能把它们标为 `closure_complete`。

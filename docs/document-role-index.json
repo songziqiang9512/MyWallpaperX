@@ -270,10 +270,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "faa33852158f9b0ef96b0a7808363958b108d83edbd579f47add644eb183079c",
+        "sourceSHA256": "4fc6668a2ea2cf2469ecda86d1a1b389443930239c2bfe103e718ca4e6505a03",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

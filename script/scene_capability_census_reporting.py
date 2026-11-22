@@ -126,7 +126,7 @@ def render_markdown(
         "",
         f"- 对象类型：`{json.dumps(summary['object_kind_counts'], ensure_ascii=False, sort_keys=True)}`；静态非 hidden：`{json.dumps(summary['visible_object_kind_counts'], ensure_ascii=False, sort_keys=True)}`。",
         f"- Effect instance **{summary['effect_instance_count']}**，粒子 root layer **{summary['particle_layer_count']}**；动态 wrapper：`{json.dumps(summary['dynamic_feature_counts'], ensure_ascii=False, sort_keys=True)}`。",
-        f"- 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。",
+        "- 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。",
     ]
     audio = summary.get("audio_declarations") or summarize_audio_declarations(
         census.get("occurrences", [])

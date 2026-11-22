@@ -129,7 +129,7 @@ void main() {{
         helpers = (f"vec2 copyVector({qualifier}vec2 {vector});\n"
                    f"float copyScalar({qualifier}float {scalar});\n")
         if qualifier == "const in ":
-            helpers += f"float copyScalar(const in float renamedFormal);\n"
+            helpers += "float copyScalar(const in float renamedFormal);\n"
         definition_qualifier = qualifier if qualifier == "const in " else ""
         helpers += (f"vec2 copyVector({definition_qualifier}vec2 {vector}){{return {vector};}}\n"
                     f"float copyScalar({definition_qualifier}float {scalar}){{return {scalar};}}\n")

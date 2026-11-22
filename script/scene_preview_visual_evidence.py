@@ -9,10 +9,11 @@ import json
 import math
 import shutil
 import struct
-import subprocess
 import zlib
 from pathlib import Path
 from typing import Any
+
+from PIL import Image
 
 from web_benchmark_capture import (
     png_rgb_pixels, png_has_non_black_pixel, png_flat_border_ratio, png_motion_metrics,
@@ -63,23 +64,10 @@ def _prepare_preview_png(source: Path, destination: Path) -> str:
     if source.suffix.lower() == ".png":
         shutil.copy2(source, destination)
         return "still"
-    result = subprocess.run(
-        [
-            "/usr/bin/sips",
-            "-s",
-            "format",
-            "png",
-            str(source),
-            "--out",
-            str(destination),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 or not destination.is_file():
-        detail = (result.stderr or result.stdout).strip()
-        raise ValueError(f"preview conversion failed: {detail or 'sips produced no image'}")
-    return "first-frame-via-sips" if source.suffix.lower() == ".gif" else "still-via-sips"
+    with Image.open(source) as image:
+        image.seek(0)
+        image.convert("RGBA").save(destination, format="PNG")
+    return "first-frame-via-pillow" if source.suffix.lower() == ".gif" else "still-via-pillow"
 
 
 def _center_crop(
