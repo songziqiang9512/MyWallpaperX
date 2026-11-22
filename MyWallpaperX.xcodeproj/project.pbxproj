@@ -455,7 +455,7 @@
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/script/generate_scene_shader_cache_identity.py",
+				"$(SRCROOT)/script/assets/generate_scene_shader_cache_identity.py",
 			);
 			name = "Generate Scene shader cache identity";
 			outputPaths = (
@@ -463,7 +463,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/python3 -B \"$SRCROOT/script/generate_scene_shader_cache_identity.py\" --root \"$SRCROOT\" --output \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SceneShaderCacheIdentity.json\"\n";
+			shellScript = "/usr/bin/python3 -B \"$SRCROOT/script/assets/generate_scene_shader_cache_identity.py\" --root \"$SRCROOT\" --output \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/SceneShaderCacheIdentity.json\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
