@@ -154,7 +154,7 @@
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
-      "bytes": 5885
+      "bytes": 5894
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 41,
@@ -574,6 +574,15 @@
       "owner": "repository-governance",
       "reason": "Move release tools into script/release and update commands.",
       "decision": "docs/release/release-signing.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/official-client-behavior-research-workflow.md",
+      "before": "2a24fcd4d8da1c03c0eba0af945d45baf77e2fbfc5841c276032c7028a8adf59",
+      "after": "78dc7c325049f97c488f0163f7be944d9f69ebab9e8d7a71188941428662f5e4",
+      "owner": "repository-governance",
+      "reason": "Move asset/evidence tools into collections and update paths.",
+      "decision": "docs/scene/development/official-client-behavior-research-workflow.md"
     }
   ]
 }

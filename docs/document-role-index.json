@@ -952,10 +952,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "官方行为研究与一致性验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bb01749e7fda4853c7ba0c87398f553c5b17a6393085bc6f25d8bccd85fa9e56",
+        "sourceSHA256": "6a3ba23b04fb8d49e4197ae78592e418ea838d84ff14e2e581297f3e6f2382a7",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
