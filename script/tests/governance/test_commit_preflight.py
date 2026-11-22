@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from script.governance import commit_preflight as gate
-from script.publish_release import release_areas
+from script.release.publish_release import release_areas
 
 
 class CommitPreflightTests(unittest.TestCase):

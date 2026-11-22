@@ -694,7 +694,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c87e2ae103ea6340689379c1cbff432b22984f5f00b27b23fe28dcef8d63c52",
+        "sourceSHA256": "f97d8f44f1c63459928ac55e67cc06bd4869fd07dde40454e87b6371f1250f4c",
         "method": "document_registry --audit + document_health --check",
         "scope": "复核Video原生锁屏/屏保单组件、唯一发布、App Group及签名路由；同步当前owner与文档入口。",
         "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
@@ -1592,11 +1592,11 @@
         "docs/release/bundle-content.md"
       ],
       "sourcePaths": [
-        "script/publish_release.py",
+        "script/release/publish_release.py",
         ".github/workflows/build.yml"
       ],
       "verification": "仅用户明确授权发布时执行完整发布合同；普通 CI 不发布。",
-      "owner": "script/publish_release.py",
+      "owner": "script/release/publish_release.py",
       "firstRead": "docs/release/release-signing.md#正式发布流程",
       "nearestTestGroups": [
         "release-preparation"

@@ -198,7 +198,7 @@ def validate_bundle(app: Path) -> None:
 
 def validate_resource_hygiene(app: Path, *, include_quickjs: bool = True) -> None:
     resources = app / "Contents/Resources"
-    source_root = Path(__file__).resolve().parents[1]
+    source_root = Path(__file__).resolve().parents[2]
     license_sources = [
         ("LICENSE", "LICENSE"),
         ("NOTICE.md", "NOTICE.md"),

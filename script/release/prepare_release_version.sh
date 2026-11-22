@@ -14,11 +14,11 @@ cd "$ROOT_DIR"
 # prepares files; staging, committing, pushing and publishing remain explicit.
 git diff --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
 git diff --cached --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
-python3 script/validate_release_notes.py "$MARKETING_VERSION" --check-tags
+python3 script/release/validate_release_notes.py "$MARKETING_VERSION" --check-tags
 BUILD_VERSION="$(python3 - "${2:-0}" "$MARKETING_VERSION" <<'PYTHON'
 from pathlib import Path
 import sys
-from script.release_version import PROJECT, project_version
+from script.release.release_version import PROJECT, project_version
 published = sys.argv[1]
 if not published.isascii() or not published.isdecimal():
     raise SystemExit("Published build version must be numeric")

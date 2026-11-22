@@ -12,14 +12,15 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-if __package__:
-    from script.governance.commit_preflight import area_trailers
-    from .validate_release_notes import ROOT, validate_release
-    from .release_version import PROJECT, project_version, appcast_version, require_newer
-else:
-    from commit_preflight import area_trailers
-    from validate_release_notes import ROOT, validate_release
-    from release_version import PROJECT, project_version, appcast_version, require_newer
+import sys
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
+from script.governance.commit_preflight import area_trailers
+from script.release.validate_release_notes import ROOT, validate_release
+from script.release.release_version import PROJECT, project_version, appcast_version, require_newer
 
 
 def run(*args: str) -> str:

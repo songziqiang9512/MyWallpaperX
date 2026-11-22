@@ -5,4 +5,4 @@ case "${1:-development}" in
   --release|release|development) ;;
   *) echo "Usage: $0 [--release]" >&2; exit 64 ;;
 esac
-python3 "$ROOT_DIR/script/release_version.py"
+python3 "$ROOT_DIR/script/release/release_version.py"

@@ -16,7 +16,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
-VALIDATOR_PATH = ROOT / "script/validate_apple_silicon_release.py"
+VALIDATOR_PATH = ROOT / "script/release/validate_apple_silicon_release.py"
 
 
 def load_validator():
@@ -313,7 +313,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
         self.assertNotIn("MACOSX_DEPLOYMENT_TARGET = 26.2", project)
         self.assertIn("ARCHS=arm64", workflow)
         self.assertIn("ONLY_ACTIVE_ARCH=NO", workflow)
-        self.assertIn("script/validate_apple_silicon_release.py", workflow)
+        self.assertIn("script/release/validate_apple_silicon_release.py", workflow)
         self.assertNotIn("arm64e", project + workflow)
         self.assertNotIn("-mcpu=native", project + workflow)
 

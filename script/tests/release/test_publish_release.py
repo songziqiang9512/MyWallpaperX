@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from script import publish_release as publisher
+from script.release import publish_release as publisher
 
 
 VERSION = "2.0.10"

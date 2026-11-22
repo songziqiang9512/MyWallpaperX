@@ -7,7 +7,7 @@ import re
 import subprocess
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SECTIONS = ("新增", "修改", "优化", "修复", "已知问题")
 
 

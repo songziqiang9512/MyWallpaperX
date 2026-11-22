@@ -171,9 +171,9 @@
         "script/release/prepare_release_version.sh",
         "script/release/resolve_version.sh",
         "script/release/update_project_version.sh",
-        "script/validate_release_notes.py",
-        "script/publish_release.py",
-        "script/release_version.py",
+        "script/release/validate_release_notes.py",
+        "script/release/publish_release.py",
+        "script/release/release_version.py",
         "script/requirements-tests.txt",
         "script/build/copy-scene-stock-assets.sh",
         "script/generate-scene-stock-index.swift",
@@ -2995,7 +2995,11 @@
         "script/audit_codex_artifacts.py",
         "script/check_test_mapping.py",
         "script/check_script_layout.py",
-        "script/format_swift_changed.py"
+        "script/format_swift_changed.py",
+        "script/publish_release.py",
+        "script/release_version.py",
+        "script/validate_apple_silicon_release.py",
+        "script/validate_release_notes.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -4310,7 +4314,7 @@
       "patterns": [
         "script/release/sign-steam-helper.sh",
         "script/scene_diagnostic_build.xcconfig",
-        "script/validate_apple_silicon_release.py",
+        "script/release/validate_apple_silicon_release.py",
         "MyWallpaperX/HardenedRuntime.entitlements",
         "SteamService/SteamService.entitlements"
       ],

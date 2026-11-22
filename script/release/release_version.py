@@ -7,7 +7,7 @@ import plistlib
 import re
 import xml.etree.ElementTree as ET
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROJECT = Path("MyWallpaperX.xcodeproj/project.pbxproj")
 SPARKLE = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from script.release_version import appcast_version, project_version, require_newer, validate_artifacts
+from script.release.release_version import appcast_version, project_version, require_newer, validate_artifacts
 
 
 def feed(version="2.0.10", build=279):

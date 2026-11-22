@@ -10,7 +10,7 @@ import tempfile
 import textwrap
 import unittest
 
-from script.validate_release_notes import validate_notes, validate_release, version_tuple
+from script.release.validate_release_notes import validate_notes, validate_release, version_tuple
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -80,10 +80,8 @@ class ReleaseExecutionTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         (self.root / "script/release").mkdir(parents=True)
-        for name in ("prepare_release_version.sh", "resolve_version.sh", "update_project_version.sh"):
+        for name in ("prepare_release_version.sh", "resolve_version.sh", "update_project_version.sh", "validate_release_notes.py", "release_version.py"):
             shutil.copy2(ROOT / "script/release" / name, self.root / "script/release" / name)
-        for name in ("validate_release_notes.py", "release_version.py"):
-            shutil.copy2(ROOT / "script" / name, self.root / "script" / name)
         self.project = self.root / "MyWallpaperX.xcodeproj/project.pbxproj"
         self.project.parent.mkdir()
         self.project.write_text("MARKETING_VERSION = 2.0.9;\nCURRENT_PROJECT_VERSION = 1;\n")
