@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 270602
+      "bytes": 270608
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
-      "bytes": 17132
+      "bytes": 17138
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -496,15 +496,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eed9660bb2efab4495360073bea4a11370a4ad8e2b82326c5005ed017b37cab8",
-      "after": "4390ca0c38634c0a11b5cc85fc5d82b970d30b21ee68297f38bd47cc0250280c",
-      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
-      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "2cdd7ad6530c2872f5412ab8a79de16ab444034063f196cf9351a64c89712a80",
       "after": "38df7130c99a6ed4ea279fa28028fb7744ef778b09b42a229e279df6f8a7fdcb",
@@ -586,21 +577,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "2cf4a8f32467cae4ae6ab8518e940ad108999633eb84011f0d836659bd38113c",
-      "after": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
-      "owner": "repository-governance",
-      "reason": "Move scene tools into script/scene and update paths.",
-      "decision": "docs/scene/development/development-workflow.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
       "after": "052e0984d4ec9c8f14fa7d30964e7720403d1d7aa40fe86584279b1ab3f5e395",
       "owner": "repository-governance",
       "reason": "Move scene tools into script/scene and update paths.",
       "decision": "docs/scene/roadmap/performance-convergence-card.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "4390ca0c38634c0a11b5cc85fc5d82b970d30b21ee68297f38bd47cc0250280c",
+      "after": "a548b3195857374efa26f09aff8965019bd8392a96d732dadf927ed79d24d55e",
+      "owner": "repository-governance",
+      "reason": "Move remaining script files into collections and update paths.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
+      "after": "1ef5200da31d5985fece01ffe41b838e454aa548ac4f09c1ee9188f0ee742917",
+      "owner": "repository-governance",
+      "reason": "Move remaining script files into collections and update paths.",
+      "decision": "docs/scene/development/development-workflow.md"
     }
   ]
 }

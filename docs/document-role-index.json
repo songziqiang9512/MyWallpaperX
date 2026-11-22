@@ -940,7 +940,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "861514ac02f4f96c31a49b313b22f28fc787a6887598d84261ba9a8ce1b54011",
+        "sourceSHA256": "663c9f8a44f6cb7854780b38e5008bc69695b9cdbab626b15cfadd97443a1719",
         "method": "document_registry --audit + document_health --check",
         "scope": "核对原Metal探针身份复用、截图与时序，并登记现有benchmark的后台证据窗口选项和原生前台交互的独立资格。",
         "limitations": "仅本文与其协议/源码入口的有界审查，不授全仓App、GPU或官方一致；未登记架构文档的既有registry失败保持。"
