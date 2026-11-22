@@ -478,8 +478,8 @@ bool mwx_scene_quickjs_restore_frame_engine_host(
     );
 }
 
-static int interrupt_handler(JSRuntime *runtime, void *opaque) {
-    (void)runtime;
+static int interrupt_handler(JSContext *context, void *opaque) {
+    (void)context;
     MWXSceneQuickJSDomain *domain = (MWXSceneQuickJSDomain *)opaque;
     if (domain != NULL && domain->cancellation_check != NULL &&
         domain->cancellation_check(domain->cancellation_opaque) != 0) {

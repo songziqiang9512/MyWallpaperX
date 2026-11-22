@@ -160,7 +160,6 @@ extern "C" {
 typedef struct JSRuntime JSRuntime;
 typedef struct JSContext JSContext;
 typedef struct JSObject JSObject;
-typedef struct JSClass JSClass;
 typedef uint32_t JSClassID;
 typedef uint32_t JSAtom;
 
@@ -316,7 +315,10 @@ static inline bool JS_VALUE_IS_NAN(JSValue v)
 #else /* !JS_NAN_BOXING */
 
 typedef union JSValueUnion {
-    int32_t int32;
+    /* JS_MKVAL() writes all 64 bits even though only 32 are needed:
+       leaving the upper half uninitialized makes GCC 14+ generate much
+       slower code on x86-64 */
+    uint64_t uint64;
     double float64;
     void *ptr;
     int32_t short_big_int;
@@ -330,10 +332,10 @@ typedef struct JSValue {
 #define JS_VALUE_GET_TAG(v) ((int32_t)(v).tag)
 /* same as JS_VALUE_GET_TAG, but return JS_TAG_FLOAT64 with NaN boxing */
 #define JS_VALUE_GET_NORM_TAG(v) JS_VALUE_GET_TAG(v)
-#define JS_VALUE_GET_INT(v) ((v).u.int32)
-#define JS_VALUE_GET_BOOL(v) ((v).u.int32)
+#define JS_VALUE_GET_INT(v) ((int)(v).u.uint64)
+#define JS_VALUE_GET_BOOL(v) ((int)(v).u.uint64)
 #define JS_VALUE_GET_FLOAT64(v) ((v).u.float64)
-#define JS_VALUE_GET_SHORT_BIG_INT(v) ((v).u.short_big_int)
+#define JS_VALUE_GET_SHORT_BIG_INT(v) ((int32_t)(v).u.uint64)
 #define JS_VALUE_GET_PTR(v) ((v).u.ptr)
 
 /* msvc doesn't understand designated initializers without /std:c++20 */
@@ -348,7 +350,7 @@ static inline JSValue JS_MKPTR(int64_t tag, void *ptr)
 static inline JSValue JS_MKVAL(int64_t tag, int32_t int32)
 {
     JSValue v;
-    v.u.int32 = int32;
+    v.u.uint64 = (uint32_t)int32;
     v.tag = tag;
     return v;
 }
@@ -365,7 +367,7 @@ static inline JSValue JS_MKNAN(void)
 #define JS_NAN             JS_MKNAN() /* alas, not a constant expression */
 #else
 #define JS_MKPTR(tag, p)   (JSValue){ (JSValueUnion){ .ptr = p }, tag }
-#define JS_MKVAL(tag, val) (JSValue){ (JSValueUnion){ .int32 = val }, tag }
+#define JS_MKVAL(tag, val) (JSValue){ (JSValueUnion){ .uint64 = (uint32_t)(val) }, tag }
 #define JS_NAN             (JSValue){ (JSValueUnion){ .float64 = NAN }, JS_TAG_FLOAT64 }
 #endif
 
@@ -847,12 +849,14 @@ JS_EXTERN void JS_ClearUncatchableError(JSContext *ctx, JSValueConst val);
 //  JS_Throw(ctx, exc);
 JS_EXTERN void JS_ResetUncatchableError(JSContext *ctx);
 JS_EXTERN JSValue JS_NewError(JSContext *ctx);
+// InternalError cannot be caught by JS code
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewInternalError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewPlainError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewRangeError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewReferenceError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewSyntaxError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_NewTypeError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
+// InternalError cannot be caught by JS code
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_ThrowInternalError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_ThrowPlainError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
 JS_EXTERN JSValue JS_PRINTF_FORMAT_ATTR(2, 3) JS_ThrowRangeError(JSContext *ctx, JS_PRINTF_FORMAT const char *fmt, ...);
@@ -978,6 +982,8 @@ JS_EXTERN JSValue JS_GetPropertyInt64(JSContext *ctx, JSValueConst this_obj,
                                       int64_t idx);
 JS_EXTERN JSValue JS_GetPropertyStr(JSContext *ctx, JSValueConst this_obj,
                                     const char *prop);
+JS_EXTERN JSValue JS_GetPropertyValue(JSContext *ctx, JSValueConst this_obj,
+                                      JSValue prop);
 
 JS_EXTERN int JS_SetProperty(JSContext *ctx, JSValueConst this_obj,
                              JSAtom prop, JSValue val);
@@ -987,6 +993,9 @@ JS_EXTERN int JS_SetPropertyInt64(JSContext *ctx, JSValueConst this_obj,
                                   int64_t idx, JSValue val);
 JS_EXTERN int JS_SetPropertyStr(JSContext *ctx, JSValueConst this_obj,
                                 const char *prop, JSValue val);
+// |flags| is a mix of JS_PROP_* values; when in doubt use JS_PROP_C_W_E
+JS_EXTERN int JS_SetPropertyValue(JSContext *ctx, JSValueConst this_obj,
+                                  JSValue prop, JSValue val, int flags);
 JS_EXTERN int JS_HasProperty(JSContext *ctx, JSValueConst this_obj, JSAtom prop);
 JS_EXTERN int JS_IsExtensible(JSContext *ctx, JSValueConst obj);
 JS_EXTERN int JS_PreventExtensions(JSContext *ctx, JSValueConst obj);
@@ -1151,7 +1160,10 @@ JS_EXTERN bool JS_IsPromise(JSValueConst val);
 JS_EXTERN void JS_PromiseMarkAsHandled(JSContext *ctx, JSValueConst promise);
 JS_EXTERN JSValue JS_NewSettledPromise(JSContext *ctx, bool is_reject, JSValueConst value);
 
+// a symbol that is visible to JavaScript code
 JS_EXTERN JSValue JS_NewSymbol(JSContext *ctx, const char *description, bool is_global);
+// a symbol that is only visible to C code
+JS_EXTERN JSValue JS_NewPrivateSymbol(JSContext *ctx, const char *description);
 
 typedef enum JSPromiseHookType {
     JS_PROMISE_HOOK_INIT,     // emitted when a new promise is created
@@ -1177,7 +1189,7 @@ typedef void JSHostPromiseRejectionTracker(JSContext *ctx, JSValueConst promise,
 JS_EXTERN void JS_SetHostPromiseRejectionTracker(JSRuntime *rt, JSHostPromiseRejectionTracker *cb, void *opaque);
 
 /* return != 0 if the JS code needs to be interrupted */
-typedef int JSInterruptHandler(JSRuntime *rt, void *opaque);
+typedef int JSInterruptHandler(JSContext *ctx, void *opaque);
 JS_EXTERN void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque);
 /* if can_block is true, Atomics.wait() can be used */
 JS_EXTERN void JS_SetCanBlock(JSRuntime *rt, bool can_block);
@@ -1198,6 +1210,35 @@ typedef char *JSModuleNormalizeFunc2(JSContext *ctx,
                                      void *opaque);
 typedef JSModuleDef *JSModuleLoaderFunc(JSContext *ctx,
                                         const char *module_name, void *opaque);
+
+// Dynamic module loading in detail:
+//
+// 1. JS code calls `import(url, {with: /*...*/})`
+//
+// 2. If there are import attributes, JSModuleCheckSupportedImportAttributes
+//    runs synchronously (with the |opaque| passed to JS_SetModuleLoaderFunc2)
+//
+// 3. An unfulfilled promise is returned to the JS caller
+//
+// 4. A job is posted to the microtask queue that runs when something
+//    calls JS_ExecutePendingJob or js_std_await
+//
+// 5. The JSDynamicImportFunc callback is called
+//
+// 6. You, the embedder, load the resource at your convenience and eventually
+//    call JS_LoadModule(). Pass the result to JS_FinishDynamicImport().
+//
+// Step 6 means the non-dynamic module loader needs to be aware of resources
+// loaded by the dynamic module loader. How to implement that is up to you.
+//
+// Ownership of |token| passes to JSDynamicImportFunc. If you need to hold
+// on to |basename|, |filename| or |attributes|, strdup or JS_DupValue them.
+//
+// You must *always* call JS_FinishDynamicImport(), even on error, otherwise
+// the resources associated with |token| leak.
+typedef void JSDynamicImportFunc(JSContext *ctx, const char *basename,
+                                 const char *filename, JSValue token,
+                                 JSValueConst attributes, void *opaque);
 
 /* module loader with import attributes support */
 typedef JSModuleDef *JSModuleLoaderFunc2(JSContext *ctx,
@@ -1221,9 +1262,17 @@ JS_EXTERN void JS_SetModuleLoaderFunc2(JSRuntime *rt,
                                        JSModuleCheckSupportedImportAttributes *module_check_attrs,
                                        void *opaque);
 
+JS_EXTERN void JS_SetDynamicImportFunc(JSRuntime *rt, JSDynamicImportFunc *func,
+                                       void *opaque);
+
 /* Set an attributes-aware module normalizer. Call after JS_SetModuleLoaderFunc2. */
 JS_EXTERN void JS_SetModuleNormalizeFunc2(JSRuntime *rt,
                                           JSModuleNormalizeFunc2 *module_normalize);
+
+// pass promise=JS_EXCEPTION and exception=<something> if an exception
+// occurred during module loading; pass exception=JS_UNDEFINED otherwise
+JS_EXTERN int JS_FinishDynamicImport(JSContext *ctx, JSValue token,
+                                     JSValue promise, JSValue exception);
 
 /* return the import.meta object of a module */
 JS_EXTERN JSValue JS_GetImportMeta(JSContext *ctx, JSModuleDef *m);
@@ -1285,9 +1334,9 @@ JS_EXTERN int JS_ResolveModule(JSContext *ctx, JSValueConst obj);
 
 /* only exported for os.Worker() */
 JS_EXTERN JSAtom JS_GetScriptOrModuleName(JSContext *ctx, int n_stack_levels);
-/* only exported for os.Worker() */
+/* don't call this recursively */
 JS_EXTERN JSValue JS_LoadModule(JSContext *ctx, const char *basename,
-                                const char *filename);
+                                const char *filename, JSValueConst attributes);
 
 /* C function definition */
 typedef enum JSCFunctionEnum {  /* XXX: should rename for namespace isolation */
@@ -1415,6 +1464,7 @@ typedef struct JSCFunctionListEntry {
 #define JS_CGETSET_DEF(name, fgetter, fsetter) { name, JS_PROP_CONFIGURABLE, JS_DEF_CGETSET, 0, { .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } } } }
 #define JS_CGETSET_DEF2(name, fgetter, fsetter, prop_flags) { name, prop_flags, JS_DEF_CGETSET, 0, { .getset = { .get = { .getter = fgetter }, .set = { .setter = fsetter } } } }
 #define JS_CGETSET_MAGIC_DEF(name, fgetter, fsetter, magic) { name, JS_PROP_CONFIGURABLE, JS_DEF_CGETSET_MAGIC, magic, { .getset = { .get = { .getter_magic = fgetter }, .set = { .setter_magic = fsetter } } } }
+#define JS_CGETSET_MAGIC_DEF2(name, fgetter, fsetter, magic, prop_flags) { name, prop_flags, JS_DEF_CGETSET_MAGIC, magic, { .getset = { .get = { .getter_magic = fgetter }, .set = { .setter_magic = fsetter } } } }
 #define JS_PROP_STRING_DEF(name, cstr, prop_flags) { name, prop_flags, JS_DEF_PROP_STRING, 0, { .str = cstr } }
 #define JS_PROP_INT32_DEF(name, val, prop_flags) { name, prop_flags, JS_DEF_PROP_INT32, 0, { .i32 = val } }
 #define JS_PROP_INT64_DEF(name, val, prop_flags) { name, prop_flags, JS_DEF_PROP_INT64, 0, { .i64 = val } }
@@ -1450,8 +1500,8 @@ JS_EXTERN int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
 /* Version */
 
 #define QJS_VERSION_MAJOR 0
-#define QJS_VERSION_MINOR 16
-#define QJS_VERSION_PATCH 1
+#define QJS_VERSION_MINOR 18
+#define QJS_VERSION_PATCH 0
 #define QJS_VERSION_SUFFIX ""
 
 JS_EXTERN const char* JS_GetVersion(void);

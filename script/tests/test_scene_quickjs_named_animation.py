@@ -471,7 +471,7 @@ static void readonly_and_budget(void) {
     mwx_scene_quickjs_owner_destroy(o);
     o = owner(d, "export function update(v){const a=thisScene.getAnimation('surface-alpha');"
         "for(let i=0;i<17;i++){try{a.setFrame(i+.25);}catch(e){}}return v;}", 0);
-    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    update(o, 1, 0, MWX_SCENE_QUICKJS_MUTATION_OVERFLOW);
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
     double payload_frame = 0; uint64_t epoch = 0; uint32_t ordinal = 0;
     check(mwx_scene_quickjs_owner_animation_command_at(o, 0, &actual, &actual_target,

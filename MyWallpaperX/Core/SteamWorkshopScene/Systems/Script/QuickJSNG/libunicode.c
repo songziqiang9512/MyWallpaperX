@@ -1054,6 +1054,11 @@ int unicode_normalize(uint32_t **pdst, const uint32_t *src, int src_len,
     int *buf, buf_len, i, p, starter_pos, cc, last_cc, out_len;
     bool is_compat;
     DynBuf dbuf_s, *dbuf = &dbuf_s;
+    
+    if (src_len == 0) {
+        *pdst = NULL;
+        return 0;
+    }
 
     is_compat = n_type >> 1;
 
@@ -1285,7 +1290,7 @@ int unicode_script(CharRange *cr,
         cr_free(cr1);
         cr_free(cr2);
     }
-    goto fail;
+    return -1;
 }
 
 #define M(id) (1U << UNICODE_GC_ ## id)

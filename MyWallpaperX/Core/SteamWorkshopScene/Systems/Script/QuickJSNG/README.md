@@ -2,7 +2,7 @@
 
 This directory contains the minimal QuickJS-NG core sources used by the
 SceneScript runtime. The snapshot is pinned to upstream commit
-`bbe0480a68c664d7737eecde260fd47224b2c0d6` (2026-08-16).
+`d7215b0ad3fc2c562e8317fd9bca058fd4863804` (v0.18.0, 2026-11-01).
 
 Only the core runtime is included. The QuickJS command-line shell and its
 standard-library host modules are intentionally excluded: SceneScript gets a

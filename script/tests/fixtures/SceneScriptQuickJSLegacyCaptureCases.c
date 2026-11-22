@@ -353,8 +353,8 @@ static int memory_limit_cases(void) {
     return failures;
 }
 
-static int interrupt_after_three(JSRuntime *rt,void *opaque) {
-    (void)rt;
+static int interrupt_after_three(JSContext *ctx,void *opaque) {
+    (void)ctx;
     int *calls=opaque;
     return ++*calls>3;
 }
