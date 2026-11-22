@@ -4,9 +4,9 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
-from script.tests.test_ui_library_algorithms import declaration
+from script.tests.ui.test_ui_library_algorithms import declaration
 from script.tests.steam.test_steam_library_interactions import method
-from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.support.native_app_harness import native_app_session
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]

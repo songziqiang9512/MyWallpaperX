@@ -9,8 +9,8 @@ import tempfile
 import unittest
 
 from script.tests.steam.test_steam_library_transaction import SOURCES as TRANSACTION_SOURCES
-from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
-from script.tests.test_ui_library_algorithms import declaration
+from script.tests.ui.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[3]
 CORE = Path('MyWallpaperX/Modules/SteamWorkshop/Core')
@@ -106,8 +106,8 @@ def prepare_legacy_discovery_sources(tree, work, fixture_tree=None):
     """Use the complete two builder overloads and their real transitive leaves, not guard stand-ins."""
     paths = list(dict.fromkeys([OWNER, SYNC, API, PARSING, FIXTURE, TEST, *PRODUCT_SOURCES,
         Path('script/tests/steam/test_steam_library_transaction.py'),
-        Path('script/tests/test_thumbnail_return_reuse.py'),
-        Path('script/tests/test_ui_library_algorithms.py')]))
+        Path('script/tests/ui/test_thumbnail_return_reuse.py'),
+        Path('script/tests/ui/test_ui_library_algorithms.py')]))
     fixture_tree = fixture_tree or tree
     hashes = {str(path): digest((fixture_tree if path in (FIXTURE, TEST) else tree) / path) for path in paths}
     source = (tree / OWNER).read_text()

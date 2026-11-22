@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[3]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'

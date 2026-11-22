@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from script.tests.steam.test_steam_library_interactions import method
-from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[3]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'

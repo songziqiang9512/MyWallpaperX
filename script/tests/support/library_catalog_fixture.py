@@ -7,7 +7,7 @@ import hashlib
 from pathlib import Path
 import re
 
-from script.tests.test_ui_library_algorithms import declaration
+from script.tests.ui.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[3]
 

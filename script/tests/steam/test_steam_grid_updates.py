@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 from script.tests.steam.test_steam_library_interactions import method
-from script.tests.test_list_thumbnail_tint import STEAM_SOURCES, steam_source_projection
+from script.tests.ui.test_list_thumbnail_tint import STEAM_SOURCES, steam_source_projection
 
 ROOT = Path(__file__).resolve().parents[3]
 UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'

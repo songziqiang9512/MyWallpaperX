@@ -8,7 +8,7 @@ import unittest
 
 from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_scene_property_live_routing import method_body
-from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop'

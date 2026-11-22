@@ -159,7 +159,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             [
                 "script.tests.test_scene_audio_spectrum_input",
                 "script.tests.test_scene_particle_runtime",
-                "script.tests.test_system_audio_spectrum",
+                "script.tests.ui.test_system_audio_spectrum",
                 "script.tests.web.test_web_runtime_switch_benchmark",
             ],
         )
@@ -198,7 +198,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             ),
             [
                 "script.tests.test_scene_particle_runtime",
-                "script.tests.test_system_audio_spectrum",
+                "script.tests.ui.test_system_audio_spectrum",
             ],
         )
 
@@ -214,7 +214,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             ),
             [
                 "script.tests.test_scene_audio_spectrum_input",
-                "script.tests.test_system_audio_spectrum",
+                "script.tests.ui.test_system_audio_spectrum",
             ],
         )
 

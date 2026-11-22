@@ -13,8 +13,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_ui_library_algorithms import declaration
-from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.ui.test_ui_library_algorithms import declaration
+from script.tests.ui.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -46,8 +46,8 @@ CHECKS = {
 class SteamHTMLEntryResolutionTests(unittest.TestCase):
     def test_real_resolver_order_preference_and_filesystem_admission(self):
         paths = [OWNER, FIXTURE, Path(__file__),
-                 ROOT / 'script/tests/test_ui_library_algorithms.py',
-                 ROOT / 'script/tests/test_video_thumbnail_prefetch.py']
+                 ROOT / 'script/tests/ui/test_ui_library_algorithms.py',
+                 ROOT / 'script/tests/ui/test_video_thumbnail_prefetch.py']
 
         def fingerprints():
             return {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
