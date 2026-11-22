@@ -2806,7 +2806,7 @@
         "script/scene_shader_compiler_*.py",
         "script/tests/support/scene_generic_shader_provider_test_support.py",
         "script/tests/support/scene_generic_shader_test_support.py",
-        "script/fixtures/scene_shader_compiler/**",
+        "script/tests/fixtures/scene_shader_compiler/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
@@ -3742,7 +3742,9 @@
         "script/scene_diagnostic_build.xcconfig",
         "script/steam-auth-gate.sh",
         "script/governance/check_localization.py",
-        "script/check_localization.py"
+        "script/check_localization.py",
+        "script/fixtures/scene_shader_compiler/**",
+        "script/tests/fixtures/scene_shader_compiler/**"
       ],
       "modules": [
         "test_scene_governance_contract",

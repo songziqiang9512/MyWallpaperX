@@ -166,7 +166,7 @@ class SceneShaderCompilerRequestContractTests(unittest.TestCase):
         }
         for name, key in keys.items():
             with self.subTest(fixture=name):
-                path = REPOSITORY_ROOT / "script/fixtures/scene_shader_compiler" / f"{name}.json"
+                path = REPOSITORY_ROOT / "script/tests/fixtures/scene_shader_compiler" / f"{name}.json"
                 legacy = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(legacy["schemaVersion"], 6)
                 self.assertEqual(request_cache_key(legacy), key)
