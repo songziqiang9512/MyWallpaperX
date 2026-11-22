@@ -235,7 +235,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9233d791539a09384de3c11b33413ad8326240013d3942dac3fbefd8f7a4cecd",
+        "sourceSHA256": "7501f76e7f1b1acbed6ca52a3d07485bba80e3a92c02e4cfc77b49ee9b918937",
         "method": "document_registry --audit + document_health --check",
         "scope": "英文源语言与回退、String Catalog 资源格式、入口与 key 规则、禁译边界、失败消息分层、字符长度布局（含更长语言样张）、区域格式、术语、新增语言流程、校验门与源码文案变更同步检查；2026-11-23 实施后补记编译期提取实测结论与资源规模。",
         "limitations": "文档与索引核对；构建已验证，但界面截图、中文逐屏回归、帮助书与场景属性名译文、译文人工审校未完成。"
@@ -716,7 +716,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f97d8f44f1c63459928ac55e67cc06bd4869fd07dde40454e87b6371f1250f4c",
+        "sourceSHA256": "0d13b58aa2eca1993c49f64a8875d87d4e6114a0528ff0f6d7556bc918935fd0",
         "method": "document_registry --audit + document_health --check",
         "scope": "复核Video原生锁屏/屏保单组件、唯一发布、App Group及签名路由；同步当前owner与文档入口。",
         "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"

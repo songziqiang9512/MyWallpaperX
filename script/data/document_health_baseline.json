@@ -78,7 +78,7 @@
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 13312
+      "bytes": 13315
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
       "lines": 58,
@@ -226,11 +226,11 @@
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
-      "bytes": 29766
+      "bytes": 29777
     },
     "docs/development/localization-plan.md": {
       "lines": 201,
-      "bytes": 20368
+      "bytes": 20390
     }
   },
   "archives": [
@@ -540,15 +540,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/release/release-signing.md",
-      "before": "e763a2d65fe2fa113b093e3fe43c6e17c87c2101350696456f0a05aea31a6134",
-      "after": "727947c6ffbb7b9f875251e4938bbdb5eab4aa53a6a8b38b76d03e387cc8c218",
-      "owner": "repository-governance",
-      "reason": "Move release tools into script/release and update commands.",
-      "decision": "docs/release/release-signing.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/official-client-behavior-research-workflow.md",
       "before": "2a24fcd4d8da1c03c0eba0af945d45baf77e2fbfc5841c276032c7028a8adf59",
       "after": "78dc7c325049f97c488f0163f7be944d9f69ebab9e8d7a71188941428662f5e4",
@@ -613,20 +604,29 @@
     {
       "section": "bodies",
       "path": "docs/development/localization-contract.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "1fe06626d4935615677fc4d5186f467398dfbed07e544a973a3960da37fc3484",
-      "owner": "Localization contract/plan owner",
-      "reason": "Record the five supported languages and their measured length ratios in the standard.",
-      "decision": "docs/development/localization-contract.md#source-language"
+      "before": "1fe06626d4935615677fc4d5186f467398dfbed07e544a973a3960da37fc3484",
+      "after": "ea1a7be2ba540a81e3c0106d398e8e4f7a2c3893cfb33a078d639e04f9340e68",
+      "owner": "repository-governance",
+      "reason": "Merge the codex localization work with the script collection migration.",
+      "decision": "docs/development/localization-contract.md"
     },
     {
       "section": "bodies",
       "path": "docs/development/localization-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "2991fa74e408110c9874e42ee74f79fe4ab2ba62451ea8de4e800b36cbbe049a",
-      "owner": "Localization migration plan owner",
-      "reason": "Record the four-language real-window walkthrough that closed the last acceptance gap.",
-      "decision": "docs/development/localization-plan.md#current-state"
+      "before": "2991fa74e408110c9874e42ee74f79fe4ab2ba62451ea8de4e800b36cbbe049a",
+      "after": "9d18a19f93a648349baeccdbcd928d1671c3233c8f560c11c36ce724ab999cf7",
+      "owner": "repository-governance",
+      "reason": "Merge the codex localization work with the script collection migration.",
+      "decision": "docs/development/localization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "727947c6ffbb7b9f875251e4938bbdb5eab4aa53a6a8b38b76d03e387cc8c218",
+      "after": "1f3e40eedcb290a7aefad571d62288783f367b85fd9ad6c5b3588dadb9aa9c20",
+      "owner": "repository-governance",
+      "reason": "Merge the codex localization work with the script collection migration.",
+      "decision": "docs/release/release-signing.md"
     }
   ]
 }
