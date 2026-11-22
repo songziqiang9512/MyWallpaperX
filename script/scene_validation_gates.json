@@ -2896,7 +2896,8 @@
         "script/scene_puppet_interaction_matrix.json",
         "script/tests/fixtures/SceneSignalCapabilitySupport.swift",
         "script/web_wallpaper_property_replay_gate.json",
-        "script/check_test_mapping.py"
+        "script/check_test_mapping.py",
+        "script/check_script_layout.py"
       ],
       "modules": [
         "test_scene_governance_contract",

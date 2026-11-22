@@ -62,6 +62,9 @@ jobs:
       - name: Report unmapped test modules
         run: python3 script/check_test_mapping.py
 
+      - name: Report script layout
+        run: python3 script/check_script_layout.py
+
       - name: Restore locked SteamService dependencies
         working-directory: SteamService
         run: dotnet restore --locked-mode

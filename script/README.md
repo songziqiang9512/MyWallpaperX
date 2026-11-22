@@ -19,10 +19,12 @@
 | 文档与仓库健康 | `document_health.py`、`document_links.py`、`document_registry.py`、`repository_health.py`、`repository_residue.py` | 文档预算、链接、角色、结构债与残留 |
 | 提交预检 | `commit_preflight.py` | 读取暂存 blob，提示或拒绝不完整批次；不代替构建/测试 |
 | 测试映射报告 | `check_test_mapping.py` | 列出未被任何验证路径组选中的测试；默认只报告，`--strict` 才拒绝 |
+| 脚本布局报告 | `check_script_layout.py` | 列出未登记入口与超过 1000 行的测试；默认只报告 |
 | Swift 格式 | `format_swift_changed.py` | 只处理改动/未跟踪 Swift 文件；`--lint` 为严格检查 |
 | Scene 能力普查 | `scene_capability_census.py`、`scene_material_program_census.py`、`scene_shader_preparation_census.py`、`scene_effect_census.py` | 只读样本/材质/编译覆盖统计；输出不写入样本 |
 | Scene 诊断与证据 | `scene_diagnostic_report.py`、`scene_sample_acceptance_ledger.py`、`scene_sample_debug_archive.py`、`scene_sample_snapshot.py`、`scene_helper_qualification_sites.py` | 证据归档、验收台账、快照与资格点 |
-| Scene 播放验证 | `scene_wallpaper_benchmark.py`、`scene_matrix_suite.py`、`playback_process_isolation_benchmark.py` | 真实 App/隔离播放基准；需要样本或构建产物 |
+| 证据升降与审计 | `extract_wallpaper_engine_client_evidence.py`、`promote_scene_evidence.py`、`audit_codex_artifacts.py` | 外部证据提取、证据晋升与 Agent 产物审计 |
+| Scene 播放验证 | `scene_wallpaper_benchmark.py`、`scene_matrix_suite.py`、`playback_process_isolation_benchmark.py`、`wallpaper_startup_benchmark.py` | 真实 App/隔离播放/启动基准；需要样本或构建产物 |
 | Scene shader 编译 | `scene_shader_compiler_harness.py` | 离线通用 shader 编译/合同 harness；不进入产品运行时 |
 | Web 证据与基准 | `web_wallpaper_benchmark.py`、`web_runtime_switch_benchmark.py`、`web_audio_restart_benchmark.py`、`web_space_lifecycle_benchmark.py`、`web_system_state_benchmark.py`、`web_failure_state_benchmark.py`、`web_property_persistence_gate.py` | 需要已构建 App 与真实样本；`web_benchmark_capture.py` 是共享采集库 |
 | 发布 | `publish_release.py`、`release_version.py`、`validate_release_notes.py`、`validate_apple_silicon_release.py` | 只在明确发布授权后使用 |
