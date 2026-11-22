@@ -9,10 +9,10 @@ import re
 import shutil
 import subprocess
 
-from .test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"

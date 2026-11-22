@@ -18,8 +18,8 @@ import time
 import unittest
 import uuid
 
-from .scene_pkg_fixture import make_package
-from .scene_display_reconciliation_fixture import (
+from script.tests.support.scene_pkg_fixture import make_package
+from script.tests.support.scene_display_reconciliation_fixture import (
     assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
 )
 

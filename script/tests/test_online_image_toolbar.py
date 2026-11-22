@@ -15,7 +15,7 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +36,7 @@ class OnlineImageToolbarTests(unittest.TestCase):
         sources = [ROOT / "MyWallpaperX" / name for name in relative]
         sources += [ROOT / "script/tests/fixtures/NativeAppHarness.swift",
                     ROOT / "script/tests/fixtures/NativeFilterPanelSnapshot.swift", FIXTURE]
-        observed = [*sources, Path(__file__), ROOT / "script/tests/native_app_harness.py"]
+        observed = [*sources, Path(__file__), ROOT / "script/tests/support/native_app_harness.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         proof = None
         if value := os.environ.get("MWX_ONLINE_IMAGE_TOOLBAR_PROOF_DIR"):

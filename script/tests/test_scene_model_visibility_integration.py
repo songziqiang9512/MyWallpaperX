@@ -23,7 +23,7 @@ from .test_scene_composition_authored_order_integration import encoded, measure_
 from .test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from .test_scene_static_model_reader import build_model
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 CANVAS = (160, 96)

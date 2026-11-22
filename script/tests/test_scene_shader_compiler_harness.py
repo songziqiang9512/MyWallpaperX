@@ -29,7 +29,7 @@ from scene_shader_compiler_harness import (
     parse_limits,
     validate_request,
 )
-from script.tests.scene_generic_shader_test_support import (
+from script.tests.support.scene_generic_shader_test_support import (
     assert_default_color_artifact,
 )
 

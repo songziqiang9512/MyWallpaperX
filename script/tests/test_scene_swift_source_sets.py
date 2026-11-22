@@ -300,7 +300,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:
         consumers = [
             "script/scene_shader_preparation_census.py",
-            "script/tests/scene_authored_shader_frontend_harness.py",
+            "script/tests/support/scene_authored_shader_frontend_harness.py",
             "script/tests/test_scene_fragment_output_initialization.py",
             "script/tests/test_scene_graph_texture_publication.py",
             "script/tests/test_scene_resolved_material_pass_encoder.py",
@@ -311,7 +311,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         for relative in consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(consumer=relative):
-                if relative == "script/tests/scene_authored_shader_frontend_harness.py":
+                if relative == "script/tests/support/scene_authored_shader_frontend_harness.py":
                     self.assertIn(
                         "from script.tests.test_scene_shader_scalar_vector_builtin_canonicalization import (",
                         text,

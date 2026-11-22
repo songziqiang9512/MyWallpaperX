@@ -9,9 +9,9 @@ import math
 import tempfile
 from pathlib import Path
 
-from script.tests.scene_particle_render_test_support import run_particle_harness
+from script.tests.support.scene_particle_render_test_support import run_particle_harness
 from script.tests.test_scene_particle_rendering import SWIFT_SOURCES
-from script.tests.scene_particle_runtime_configuration_cases import _declaration
+from script.tests.support.scene_particle_runtime_configuration_cases import _declaration
 
 
 # Reuse the runtime gate's maintained leaves; frame decisions below are the

@@ -9,9 +9,9 @@ import tempfile
 import unittest
 
 if __package__:
-    from .scene_vector_vm_test_support import C_SOURCES, ROOT, VM, QUICKJS
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, ROOT, VM, QUICKJS
 else:
-    from scene_vector_vm_test_support import C_SOURCES, ROOT, VM, QUICKJS
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, ROOT, VM, QUICKJS
 
 
 @unittest.skipUnless(shutil.which("clang"), "clang is required")

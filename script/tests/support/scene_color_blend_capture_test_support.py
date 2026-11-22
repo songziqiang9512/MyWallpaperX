@@ -5,7 +5,7 @@ pixel bounds remain the exact production declarations, never fixture algorithms.
 """
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 PROJECTION_SOURCE = REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift"
 UNIFORMS_SOURCE = PROJECTION_SOURCE.with_name("SceneImageLayerCompositor+Uniforms.swift")
 

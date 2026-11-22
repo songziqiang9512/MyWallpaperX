@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import scene_vector_vm_test_support as vm
+from script.tests.support import scene_vector_vm_test_support as vm
 
 EXTRA_SOURCES = (
     vm.SCENE / "Rendering/Composition/SceneBloomPostProcess.swift",

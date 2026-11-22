@@ -23,7 +23,7 @@ import unittest
 
 from script.tests import test_scene_effect_draw_alpha as alpha_fixture
 from script.tests import test_scene_resolved_material_graph_executor as graph_fixture
-from script.tests.scene_harness_io import separate_graph_debug_output
+from script.tests.support.scene_harness_io import separate_graph_debug_output
 from script.tests.test_scene_property_live_routing import method_body
 
 ROOT = Path(__file__).resolve().parents[2]

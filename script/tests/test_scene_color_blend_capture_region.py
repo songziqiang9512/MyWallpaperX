@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_color_blend_capture_test_support import PROJECTION_SOURCE, projection_support
+from script.tests.support.scene_color_blend_capture_test_support import PROJECTION_SOURCE, projection_support
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / "MyWallpaperX/Core/SteamWorkshopScene"

@@ -9,11 +9,11 @@ import re
 
 from script.tests.test_ui_library_algorithms import declaration
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def assemble_catalog_fixture(main_fixture=None):
-    read_inputs = {"script/tests/library_catalog_fixture.py": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    read_inputs = {"script/tests/support/library_catalog_fixture.py": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     def source(path):
         data = (ROOT / path).read_bytes()
         read_inputs[path] = hashlib.sha256(data).hexdigest()

@@ -11,9 +11,9 @@ import unittest
 from pathlib import Path
 
 try:
-    from .scene_vector_vm_test_support import C_SOURCES, QUICKJS, ROOT, VM
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, QUICKJS, ROOT, VM
 except ImportError:
-    from scene_vector_vm_test_support import C_SOURCES, QUICKJS, ROOT, VM
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, QUICKJS, ROOT, VM
 
 
 class SceneQuickJSLayerReferenceIdentityTest(unittest.TestCase):

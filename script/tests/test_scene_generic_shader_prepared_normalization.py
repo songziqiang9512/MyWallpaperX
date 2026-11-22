@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_compiler_fixture import compiler_bundle, fixture_sources
+from script.tests.support.scene_compiler_fixture import compiler_bundle, fixture_sources
 from script.tests.test_scene_generic_shader_program_artifact import REPOSITORY_ROOT, SWIFT_SOURCES
 
 

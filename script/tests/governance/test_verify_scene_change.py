@@ -114,12 +114,12 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_shared_material_harness_changes_select_real_consumers(self) -> None:
         cases = {
-            'script/tests/scene_harness_io.py': {'test_scene_animated_material_visual_failure', 'test_scene_source_color_graph'},
+            'script/tests/support/scene_harness_io.py': {'test_scene_animated_material_visual_failure', 'test_scene_source_color_graph'},
             'script/tests/fixtures/SceneGraphTexturePublicationHarness.swift': {
                 'test_scene_graph_texture_publication', 'test_scene_resolved_material_graph_executor', 'test_scene_source_color_graph'},
             'script/tests/fixtures/SceneParticleFixedGeometryHarness.swift': {
                 'test_scene_particle_rendering', 'test_scene_particle_affine_trail', 'test_scene_particle_camera_rendering', 'test_scene_particle_coverage_rendering'},
-            'script/tests/scene_video_segment_delegate_fixture.py': {
+            'script/tests/support/scene_video_segment_delegate_fixture.py': {
                 'test_scene_video_segment_materialization', 'test_scene_material_video_asset', 'test_scene_hidden_property_consumers', 'test_scene_user_property_video'},
             # A deleted support path still selects the surviving original consumer.
             'script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift': {'test_scene_standard_blur_previous_composite'},
@@ -159,8 +159,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
             'script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift': 'test_scene_resolved_material_pass_encoder',
             'script/tests/fixtures/SceneResolvedMaterialPassFixture.swift': 'test_scene_resolved_material_pass_encoder',
             'script/tests/fixtures/SceneResolvedMaterialPassHarness.swift': 'test_scene_resolved_material_pass_encoder',
-            'script/tests/scene_particle_render_test_support.py': 'test_scene_particle_camera_rendering',
-            'script/tests/scene_wallpaper_graph_output_test_support.py': 'test_scene_wallpaper_graph_terminals',
+            'script/tests/support/scene_particle_render_test_support.py': 'test_scene_particle_camera_rendering',
+            'script/tests/support/scene_wallpaper_graph_output_test_support.py': 'test_scene_wallpaper_graph_terminals',
         }
         for path, consumer in cases.items():
             with self.subTest(path=path):

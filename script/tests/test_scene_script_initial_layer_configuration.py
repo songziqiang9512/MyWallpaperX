@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import (
+from script.tests.support.scene_vector_vm_test_support import (
     C_SOURCES, QUICKJS, ROOT, VM, SWIFT_PREAMBLE, compile_vector_harness,
 )
 

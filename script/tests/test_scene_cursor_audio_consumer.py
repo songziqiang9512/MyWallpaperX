@@ -11,9 +11,9 @@ import tempfile
 import unittest
 
 try:
-    from .scene_vector_vm_test_support import compile_vector_harness
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 except ImportError:
-    from scene_vector_vm_test_support import compile_vector_harness
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
 CURSOR_HARNESS = r'''

@@ -37,7 +37,7 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import native_app_session
+from script.tests.support.native_app_harness import native_app_session
 
 
 ROOT = Path(__file__).resolve().parents[2]

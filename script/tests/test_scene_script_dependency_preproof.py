@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_dependency_binding_test_support import (
+from script.tests.support.scene_dependency_binding_test_support import (
     SCENE_DEPENDENCY_AGGREGATE_SUPPORT,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
 )

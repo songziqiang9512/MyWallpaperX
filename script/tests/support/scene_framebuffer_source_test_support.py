@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-SOURCE = Path(__file__).resolve().parents[2] / (
+SOURCE = Path(__file__).resolve().parents[3] / (
     "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/"
     "SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift"
 )

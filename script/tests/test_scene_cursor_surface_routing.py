@@ -4,7 +4,7 @@ import json
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness, ROOT
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness, ROOT
 from .test_scene_cursor_owner_transaction import HARNESS
 
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'

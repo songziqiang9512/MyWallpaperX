@@ -919,7 +919,7 @@ class SceneModelPartsAppTests(unittest.TestCase):
         if parent:Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='model-parts-app-',dir=parent))
         cls.protocol={'app':{str(p):sha(p) for p in cls.binaries},'buildReceipt':cls.buildReceipt,
-            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',REPO/'script/tests/scene_pkg_fixture.py']},'cases':{}}
+            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',REPO/'script/tests/support/scene_pkg_fixture.py']},'cases':{}}
         cls.runs={}
         for name,count,cast in [('five-on',5,True),('five-off',5,False),('eight',8,False)]:
             scene,entries,oracle=app_fixture(count,cast)

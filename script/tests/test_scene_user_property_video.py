@@ -13,7 +13,7 @@ import unittest
 from script.tests import test_scene_material_video_asset as material
 from script.tests import test_scene_user_property_textures as textures
 from script.tests import test_scene_initial_video_resource_readiness as readiness
-from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
+from script.tests.support.scene_video_segment_delegate_fixture import compile_segment_delegate
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

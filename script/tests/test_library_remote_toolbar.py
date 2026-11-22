@@ -10,7 +10,7 @@ import unittest
 
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_steam_library_interactions import method
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -283,7 +283,7 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         navigation = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift'
         filtering = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift'
         accessors = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift'
-        observed = [*paths, fixture, tasks, models, service, navigation, filtering, accessors, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        observed = [*paths, fixture, tasks, models, service, navigation, filtering, accessors, Path(__file__), ROOT / 'script/tests/support/native_app_harness.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         template = fixture.read_text()

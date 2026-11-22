@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_directional_shadow_integration import fixture_entries, make_package
-from script.tests.scene_color_blend_capture_test_support import projection_support, completed_source_uniforms_support
+from script.tests.support.scene_color_blend_capture_test_support import projection_support, completed_source_uniforms_support
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO/'MyWallpaperX/Core/SteamWorkshopScene'
 APP_CASES = ('static', 'named-early', 'named-late', 'middle-image-alpha', 'solid-late', 'forward-graph-neighbor', 'hidden-normal-consumer')
@@ -122,7 +122,7 @@ class SceneNamedModelShadowAppTests(unittest.TestCase):
         if parent: Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='named-model-shadow-app-',dir=parent))
         sources=[Path(__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',
-                 REPO/'script/tests/test_scene_static_model_reader.py',REPO/'script/tests/scene_pkg_fixture.py']
+                 REPO/'script/tests/test_scene_static_model_reader.py',REPO/'script/tests/support/scene_pkg_fixture.py']
         cls.source_identity={str(p):sha(p) for p in sources}
         inputs={}
         for case in APP_CASES:

@@ -10,7 +10,7 @@ import unittest
 from .test_scene_image_upload_completion import LOADER_SOURCES, SOURCE, RESAMPLE_SOURCE
 
 SWIFT_SOURCES = [*LOADER_SOURCES, SOURCE, RESAMPLE_SOURCE]
-from .scene_vector_vm_test_support import compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
 HARNESS = r'''

@@ -7,7 +7,7 @@ import unittest
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_steam_library_interactions import method
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
-from script.tests.native_app_harness import native_app_session
+from script.tests.support.native_app_harness import native_app_session
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'

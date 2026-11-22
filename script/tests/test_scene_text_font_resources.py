@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_text_native_bounds import SWIFT_SOURCES as RASTER_SOURCES
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 ROOT = Path(__file__).resolve().parents[2]

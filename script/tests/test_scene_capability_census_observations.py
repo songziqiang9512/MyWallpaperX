@@ -24,7 +24,7 @@ import scene_capability_census as census
 import scene_capability_census_io as census_io
 from scene_capability_census_io import ResolvedResource
 from scene_capability_census_profiles import family_key, scenescript_audio_registrations, script_profile
-from script.tests.scene_capability_census_test_support import json_bytes, make_fixture, pkg
+from script.tests.support.scene_capability_census_test_support import json_bytes, make_fixture, pkg
 
 
 class SceneCapabilityCensusObservationTests(unittest.TestCase):

@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import (
+from script.tests.support.scene_vector_vm_test_support import (
     C_SOURCES, ROOT, SWIFT_SOURCES, VM, compile_vector_harness,
 )
 

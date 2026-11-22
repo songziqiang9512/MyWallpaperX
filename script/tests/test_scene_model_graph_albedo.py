@@ -18,8 +18,8 @@ import unittest
 from script.tests.test_scene_dependency_render_plan import SWIFT_SOURCES
 from script.tests.test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from script.tests.scene_color_blend_capture_test_support import UNIFORMS_SOURCE, completed_source_uniforms_support
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_color_blend_capture_test_support import UNIFORMS_SOURCE, completed_source_uniforms_support
+from script.tests.support.scene_pkg_fixture import make_package
 from script.scene_swift_source_sets import scene_swift_sources
 
 

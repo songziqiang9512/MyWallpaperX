@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 READER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift"
 HARNESS = r'''

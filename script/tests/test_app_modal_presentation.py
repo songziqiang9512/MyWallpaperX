@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
@@ -24,7 +24,7 @@ class AppModalPresentationTests(unittest.TestCase):
         settings = ROOT / 'MyWallpaperX/Shared/Settings/AppKitSettingsView.swift'
         tasks = ROOT / 'MyWallpaperX/App/DownloadTasksController.swift'
         steam = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
-        observed = [*sources, settings, tasks, steam, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        observed = [*sources, settings, tasks, steam, Path(__file__), ROOT / 'script/tests/support/native_app_harness.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-app-modal-', dir='/private/tmp') as directory:

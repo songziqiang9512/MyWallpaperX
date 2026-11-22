@@ -14,9 +14,9 @@ import tempfile
 import unittest
 
 try:
-    from .scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
 except ImportError:
-    from scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES, compile_vector_harness
 
 
 ROOT = Path(__file__).resolve().parents[2]

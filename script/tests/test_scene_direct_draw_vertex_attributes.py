@@ -18,7 +18,7 @@ import unittest
 from script.tests.test_scene_resolved_material_program_finalizer import (
     SWIFT_SOURCES, SUPPORT_SOURCE,
 )
-from script.tests.scene_compiler_fixture import compiler_bundle, fixture_sources
+from script.tests.support.scene_compiler_fixture import compiler_bundle, fixture_sources
 
 
 ROOT = Path(__file__).resolve().parents[2]

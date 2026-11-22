@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from script.tests.scene_particle_render_test_support import run_particle_harness
+from script.tests.support.scene_particle_render_test_support import run_particle_harness
 from script.tests.test_scene_particle_rendering import HARNESS_SUPPORT_SOURCE, SWIFT_SOURCES
 
 

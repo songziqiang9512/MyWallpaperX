@@ -22,7 +22,7 @@ from script.web_benchmark_capture import png_rgb_pixels
 from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 from .fixtures.scene_timeline_combined_cases import linked_effect_constants
 
 CANVAS = (256, 192)

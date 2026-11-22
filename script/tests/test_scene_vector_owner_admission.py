@@ -11,11 +11,11 @@ import tempfile
 import unittest
 
 try:
-    from .scene_vector_owner_admission_harness import HARNESS
-    from .scene_vector_vm_test_support import compile_vector_harness
+    from script.tests.support.scene_vector_owner_admission_harness import HARNESS
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 except ImportError:
-    from scene_vector_owner_admission_harness import HARNESS
-    from scene_vector_vm_test_support import compile_vector_harness
+    from script.tests.support.scene_vector_owner_admission_harness import HARNESS
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
 SCREENSAVER_HARNESS = r'''

@@ -22,7 +22,7 @@ from .test_scene_hidden_provider_integration import fixture_entries as hidden_fi
 from .test_scene_directional_shadow_integration import png
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from .test_scene_composition_authored_order_integration import measure_capture, VERTEX
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 REPO = Path(__file__).resolve().parents[2]

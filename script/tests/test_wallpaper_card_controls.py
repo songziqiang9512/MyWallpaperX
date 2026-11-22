@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +20,7 @@ class WallpaperCardControlsTests(unittest.TestCase):
                  "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
                  "script/tests/fixtures/NativeAppHarness.swift",
                  "script/tests/fixtures/WallpaperCardControlsHarness.swift"]
-        observed = paths + [str(Path(__file__).relative_to(ROOT)), "script/tests/native_app_harness.py",
+        observed = paths + [str(Path(__file__).relative_to(ROOT)), "script/tests/support/native_app_harness.py",
                             "script/tests/test_video_thumbnail_prefetch.py"]
         hashes = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in observed}
         self.addCleanup(lambda: self.assertEqual(hashes,

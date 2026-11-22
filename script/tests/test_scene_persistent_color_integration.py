@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from script.web_benchmark_capture import png_rgb_pixels
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 class ScenePersistentColorIntegrationTests(unittest.TestCase):

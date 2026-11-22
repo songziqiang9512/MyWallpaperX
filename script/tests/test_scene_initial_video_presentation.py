@@ -19,7 +19,7 @@ import zlib
 
 from .test_scene_composition_authored_order_integration import VERTEX
 from .test_scene_material_video_asset import video_tex
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 def video_material(texture):

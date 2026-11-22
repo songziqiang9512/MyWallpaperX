@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from script.tests.scene_compiler_fixture import RESOLVER, compiler_bundle, fixture_sources
+from script.tests.support.scene_compiler_fixture import RESOLVER, compiler_bundle, fixture_sources
 
 PROBE = r'''
 import Foundation
@@ -95,7 +95,7 @@ class SceneCompilerFixtureTests(unittest.TestCase):
 
     def test_fixture_edits_select_security_and_actual_compiler_regressions(self):
         from script.verify_scene_change import load_registry, mapped_tests
-        modules, _, _ = mapped_tests(["script/tests/scene_compiler_fixture.py"], load_registry())
+        modules, _, _ = mapped_tests(["script/tests/support/scene_compiler_fixture.py"], load_registry())
         self.assertEqual(modules, {"test_scene_compiler_fixture",
             "test_scene_generic_shader_texture_transform_compiler", "test_scene_previous_composite_scale"})
         unrelated, _, _ = mapped_tests(["script/tests/scene_compiler_fixture_notes.py"], load_registry())

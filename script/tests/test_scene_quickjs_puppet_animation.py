@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 from .test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES as PUPPET_SOURCES
 
 HARNESS = r'''

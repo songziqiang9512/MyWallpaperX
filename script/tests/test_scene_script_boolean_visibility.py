@@ -11,11 +11,11 @@ import tempfile
 import unittest
 
 try:
-    from . import scene_vector_vm_test_support as vm
-    from .scene_vector_vm_test_support import compile_vector_harness
+    from script.tests.support import scene_vector_vm_test_support as vm
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 except ImportError:
-    import scene_vector_vm_test_support as vm
-    from scene_vector_vm_test_support import compile_vector_harness
+    import script.tests.support.scene_vector_vm_test_support as vm
+    from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
 HARNESS = (Path(__file__).parent / "fixtures/SceneScriptBooleanVisibilityHarness.swift").read_text()

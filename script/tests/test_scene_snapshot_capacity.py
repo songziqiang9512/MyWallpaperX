@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from script.tests.test_scene_directional_shadow import run_swift
-from script.tests.scene_color_blend_capture_test_support import projection_support, PROJECTION_SOURCE
+from script.tests.support.scene_color_blend_capture_test_support import projection_support, PROJECTION_SOURCE
 
 REPO=Path(__file__).resolve().parents[2]
 SCENE=REPO/'MyWallpaperX/Core/SteamWorkshopScene'

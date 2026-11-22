@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .scene_particle_runtime_configuration_cases import _declaration
+from script.tests.support.scene_particle_runtime_configuration_cases import _declaration
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

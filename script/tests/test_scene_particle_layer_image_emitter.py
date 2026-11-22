@@ -37,7 +37,7 @@ MAP_SOURCES = [
 
 from script.tests import test_scene_solid_layers as descriptor_fixture
 from script.tests import test_scene_bc_texture_uploader as upload_fixture
-from script.tests.scene_particle_runtime_configuration_cases import (
+from script.tests.support.scene_particle_runtime_configuration_cases import (
     NO_TIMESTAMP_OBSERVATION_SUPPORT, _declaration,
 )
 from script.scene_swift_source_sets import scene_swift_sources

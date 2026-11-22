@@ -13,7 +13,7 @@
 | `ui/` | 库、网格、工具栏、设置、在线来源与屏保 |
 | `scene/` | Scene 解析、shader、渲染、粒子、Puppet、脚本与证据 |
 | `fixtures/` | 共享 fixture 与 harness（保持） |
-| `support/` | 跨集合测试 support 模块（迁移目标） |
+| `support/` | 跨集合测试 support 模块（已迁移） |
 
 顶层不再新增 `test_*.py`。新测试放入对应集合目录；跨集合共用的 support 模块放入 `support/`，单集合的放该集合内。
 

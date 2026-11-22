@@ -21,7 +21,7 @@ from script.tests import test_scene_static_model_reader as reader
 from script.tests.test_scene_directional_shadow_integration import png, quad
 from script.tests.test_scene_native_world_composition import png as grid_png
 from script.tests.test_scene_static_model_parts import join_parts
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.web_benchmark_capture import png_rgb_pixels
 

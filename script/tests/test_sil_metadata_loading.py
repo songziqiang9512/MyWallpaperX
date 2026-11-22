@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 from script.tests.test_ui_library_algorithms import declaration
-from script.tests.sil_unified_grid_fixture import assemble
+from script.tests.support.sil_unified_grid_fixture import assemble
 
 
 ROOT = Path(__file__).resolve().parents[2]

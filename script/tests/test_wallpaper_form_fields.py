@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
@@ -29,7 +29,7 @@ class WallpaperFormFieldTests(unittest.TestCase):
             "script/tests/fixtures/NativeAppHarness.swift")]
         producer = ROOT / "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift"
         fixture = ROOT / "script/tests/fixtures/WallpaperFormFieldHarness.swift"
-        observed = paths + [producer, fixture, Path(__file__), ROOT / "script/tests/native_app_harness.py",
+        observed = paths + [producer, fixture, Path(__file__), ROOT / "script/tests/support/native_app_harness.py",
                             ROOT / "script/tests/test_ui_library_algorithms.py",
                             ROOT / "script/tests/test_video_thumbnail_prefetch.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}

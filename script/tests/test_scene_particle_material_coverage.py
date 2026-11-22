@@ -16,11 +16,11 @@ from pathlib import Path
 if __package__:
     from .test_scene_particle_assets import SWIFT_SOURCES as ASSET_SOURCES
     from .test_scene_particle_runtime import SWIFT_SOURCES as RUNTIME_SOURCES
-    from .scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
+    from script.tests.support.scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
 else:
     from test_scene_particle_assets import SWIFT_SOURCES as ASSET_SOURCES
     from test_scene_particle_runtime import SWIFT_SOURCES as RUNTIME_SOURCES
-    from scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
+    from script.tests.support.scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 BASE_HARNESS = FIXTURES / "SceneParticleRuntimeHarness.swift"

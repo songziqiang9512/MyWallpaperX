@@ -25,7 +25,7 @@ def _declaration(source: str, marker: str) -> str:
 # Particle admission, simulation, instance buffers and renderer decisions remain
 # the real product sources. The separate timestamp gate tests that diagnostic.
 NO_TIMESTAMP_OBSERVATION_SUPPORT = "#if DEBUG\nimport Metal\n" + _declaration(
-    (Path(__file__).with_name("fixtures") / "SceneColorBlendCaptureRegionHarness.swift").read_text(),
+    ((Path(__file__).resolve().parents[1] / "fixtures") / "SceneColorBlendCaptureRegionHarness.swift").read_text(),
     "enum SceneGPUStageTimestampHook {",
 ) + "\n#endif\n"
 

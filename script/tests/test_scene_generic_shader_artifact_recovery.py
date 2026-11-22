@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_generic_shader_test_support import generic_color_program_artifact
+from script.tests.support.scene_generic_shader_test_support import generic_color_program_artifact
 from script.tests.test_scene_generic_shader_program_artifact import (
     REPOSITORY_ROOT,
     SWIFT_SOURCES,

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class GridWindowThumbnailLifecycleTests(unittest.TestCase):
     def test_shared_local_grid_viewport_geometry_and_native_window_leases(self):
-        from script.tests.native_app_harness import prepare_native_app, run_native_app
+        from script.tests.support.native_app_harness import prepare_native_app, run_native_app
         from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
         paths = ["Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
             "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/Components/WallpaperCardInteractionView.swift",

@@ -22,9 +22,9 @@ import scene_preview_visual_evidence as visual
 from scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_snapshot_metrics
 from scene_capability_census_io import tree_manifest
 from scene_preview_visual_evidence import _write_rgb_png
-from script.tests.scene_wallpaper_benchmark_test_support import effect_execution_log
-from script.tests.scene_wallpaper_sample_fixture import run_sample_fixture, write_png
-from script.tests.scene_wallpaper_sample_fixture import PERFORMANCE_LOG
+from script.tests.support.scene_wallpaper_benchmark_test_support import effect_execution_log
+from script.tests.support.scene_wallpaper_sample_fixture import run_sample_fixture, write_png
+from script.tests.support.scene_wallpaper_sample_fixture import PERFORMANCE_LOG
 
 
 WINDOW_FIELDS = (

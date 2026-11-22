@@ -15,7 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
-from script.tests.scene_generic_shader_test_support import (
+from script.tests.support.scene_generic_shader_test_support import (
     generic_color_program_artifact,
 )
 

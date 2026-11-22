@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from script.tests.source_family import read_source_family
+from script.tests.support.source_family import read_source_family
 import json
 import os
 from pathlib import Path

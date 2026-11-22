@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
-from script.tests.scene_framebuffer_source_test_support import _declaration
+from script.tests.support.scene_framebuffer_source_test_support import _declaration
 
 
-_MODEL_SOURCE = (Path(__file__).resolve().parents[2] /
+_MODEL_SOURCE = (Path(__file__).resolve().parents[3] /
     "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan.swift").read_text(encoding="utf-8")
 
 SCENE_DEPENDENCY_AGGREGATE_SUPPORT = "extension SceneDependencyRenderPlan {\n" + _declaration(

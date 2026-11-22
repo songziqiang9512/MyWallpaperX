@@ -2,7 +2,7 @@ import json
 import subprocess
 import unittest
 
-from script.tests.scene_harness_io import DIAGNOSTIC_PREFIXES, separate_graph_debug_output
+from script.tests.support.scene_harness_io import DIAGNOSTIC_PREFIXES, separate_graph_debug_output
 
 
 class GraphHarnessIOTests(unittest.TestCase):

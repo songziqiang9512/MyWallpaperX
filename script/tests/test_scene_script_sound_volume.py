@@ -11,7 +11,7 @@ import tempfile
 import unittest
 import wave
 
-from script.tests import scene_vector_vm_test_support as vm
+from script.tests.support import scene_vector_vm_test_support as vm
 from script.tests.test_scene_sound_playback_program import STUB_SOURCE
 
 SCENE = vm.SCENE

@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_ui_library_algorithms import declaration
 
@@ -57,7 +57,7 @@ class PlaylistDirectoryTests(unittest.TestCase):
         self.assertTrue(selected[directory].is_file(), str(selected[directory]))
         observed = list(selected.values()) + [Path(__file__).resolve(),
             ROOT / "script/tests/test_ui_library_algorithms.py",
-            ROOT / "script/tests/test_video_thumbnail_prefetch.py", ROOT / "script/tests/native_app_harness.py"]
+            ROOT / "script/tests/test_video_thumbnail_prefetch.py", ROOT / "script/tests/support/native_app_harness.py"]
 
         def input_hashes():
             return {str(path.resolve()): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}

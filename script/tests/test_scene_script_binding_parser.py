@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .scene_vector_vm_test_support import compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

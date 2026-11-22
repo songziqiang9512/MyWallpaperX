@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def make_fixture(root):
-    from script.tests.scene_pkg_fixture import make_package
+    from script.tests.support.scene_pkg_fixture import make_package
     root.mkdir(parents=True)
     def png(alpha):
         def chunk(kind, data):

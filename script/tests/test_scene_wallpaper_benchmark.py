@@ -30,7 +30,7 @@ import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
 import scene_wallpaper_sample_lifecycle as lifecycle
 import generate_scene_full_matrix as matrix_generator
-from script.tests.scene_wallpaper_graph_output_test_support import (
+from script.tests.support.scene_wallpaper_graph_output_test_support import (
     assert_named_graph_output_publication_has_one_terminal_owner,
     assert_named_provider_terminal,
     assert_visible_provider_requires_compositor_consumption,
@@ -38,7 +38,7 @@ from script.tests.scene_wallpaper_graph_output_test_support import (
     assert_utility_capture_respects_dormant_graph_members,
 )
 
-from script.tests.scene_wallpaper_benchmark_test_support import (
+from script.tests.support.scene_wallpaper_benchmark_test_support import (
     static_effect_disposition,
     shader_stage,
     runtime_evidence,

@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,7 +29,7 @@ class SteamLoginModalTests(unittest.TestCase):
             'script/tests/fixtures/SteamLoginModalHarness.swift',
             'script/tests/fixtures/WallpaperLibraryModalInputChecks.swift',
             'script/tests/fixtures/NativeAppHarness.swift')]
-        observed = [*paths, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        observed = [*paths, Path(__file__), ROOT / 'script/tests/support/native_app_harness.py',
                     ROOT / 'script/tests/test_video_thumbnail_prefetch.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-login-modal-', dir='/private/tmp') as directory:

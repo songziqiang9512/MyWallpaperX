@@ -4,9 +4,9 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from .scene_vector_vm_test_support import compile_vector_harness, SWIFT_PREAMBLE, ROOT
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness, SWIFT_PREAMBLE, ROOT
 from .test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES
-from .scene_particle_runtime_configuration_cases import _declaration
+from script.tests.support.scene_particle_runtime_configuration_cases import _declaration
 
 HARNESS = r'''
 import simd

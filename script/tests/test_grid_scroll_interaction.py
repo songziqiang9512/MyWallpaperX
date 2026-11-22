@@ -13,7 +13,7 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import native_app_session
+from script.tests.support.native_app_harness import native_app_session
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]

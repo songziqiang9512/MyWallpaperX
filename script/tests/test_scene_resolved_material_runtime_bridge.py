@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from script.tests.source_family import read_source_family
-from script.tests.scene_framebuffer_source_test_support import _declaration
+from script.tests.support.source_family import read_source_family
+from script.tests.support.scene_framebuffer_source_test_support import _declaration
 import json
 import shutil
 import subprocess
@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.scene_dependency_binding_test_support import (
+from script.tests.support.scene_dependency_binding_test_support import (
     SCENE_DEPENDENCY_AGGREGATE_SUPPORT,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
 )

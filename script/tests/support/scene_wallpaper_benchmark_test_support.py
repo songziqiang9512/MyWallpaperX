@@ -14,7 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 from unittest import mock
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 DEBUG_RUNNER_SOURCE = (
     SCRIPT_DIR.parent / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
@@ -27,7 +27,7 @@ DEBUG_ARGUMENTS_RUNNER_SOURCE = (
 import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
 import generate_scene_full_matrix as matrix_generator
-from script.tests.scene_wallpaper_graph_output_test_support import (
+from script.tests.support.scene_wallpaper_graph_output_test_support import (
     assert_named_graph_output_publication_has_one_terminal_owner,
     assert_named_provider_terminal,
     assert_visible_provider_requires_compositor_consumption,

@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.scene_source_color_fixture import HARNESS_EXTENSION, assert_source_color_upload
+from script.tests.support.scene_source_color_fixture import HARNESS_EXTENSION, assert_source_color_upload
 from script.scene_swift_source_sets import scene_swift_sources
 
 

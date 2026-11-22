@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import scene_vector_vm_test_support as vm
+from script.tests.support import scene_vector_vm_test_support as vm
 from script.tests import test_scene_timeline_runtime as timeline
 from script.tests.test_scene_particle_camera_frame import SWIFT_SOURCES as CAMERA_SOURCES
 

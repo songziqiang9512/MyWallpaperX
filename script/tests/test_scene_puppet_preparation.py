@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_puppet_mesh import build_attachment_block, build_mdl
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.test_scene_puppet_animation import animation_record
 
 

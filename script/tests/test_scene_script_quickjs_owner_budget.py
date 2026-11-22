@@ -11,9 +11,9 @@ import unittest
 from pathlib import Path
 
 try:
-    from .scene_vector_vm_test_support import C_SOURCES
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES
 except ImportError:
-    from scene_vector_vm_test_support import C_SOURCES
+    from script.tests.support.scene_vector_vm_test_support import C_SOURCES
 
 
 ROOT = Path(__file__).resolve().parents[2]

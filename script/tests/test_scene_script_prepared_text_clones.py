@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import ROOT, SWIFT_PREAMBLE, compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import ROOT, SWIFT_PREAMBLE, compile_vector_harness
 
 
 # The shared harness intentionally omits renderer descriptor projection. Supply

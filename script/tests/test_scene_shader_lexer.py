@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_authored_shader_frontend_harness import AuthoredShaderFrontendHarness
+from script.tests.support.scene_authored_shader_frontend_harness import AuthoredShaderFrontendHarness
 
 
 class SceneShaderLexerTests(AuthoredShaderFrontendHarness, unittest.TestCase):

@@ -17,8 +17,8 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.sil_unified_grid_fixture import assemble
-from script.tests.native_app_harness import native_app_session, prepare_native_app, run_native_app
+from script.tests.support.sil_unified_grid_fixture import assemble
+from script.tests.support.native_app_harness import native_app_session, prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]

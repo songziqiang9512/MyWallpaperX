@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness, VM
+from script.tests.support.scene_vector_vm_test_support import compile_vector_harness, VM
 from .test_scene_script_named_timeline import playback_preamble, TIMELINE_SOURCES
 from .test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES as PUPPET_SOURCES
 

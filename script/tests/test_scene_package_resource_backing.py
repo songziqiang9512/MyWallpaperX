@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from script.scene_swift_source_sets import scene_swift_sources
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES = scene_swift_sources("shader_contract_resource_resolution")

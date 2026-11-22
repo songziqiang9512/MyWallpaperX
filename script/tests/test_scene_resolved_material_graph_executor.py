@@ -13,10 +13,10 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_framebuffer_source_test_support import (
+from script.tests.support.scene_framebuffer_source_test_support import (
     framebuffer_source_material_declarations,
 )
-from script.tests.scene_harness_io import separate_graph_debug_output
+from script.tests.support.scene_harness_io import separate_graph_debug_output
 
 
 CONTRACT_GATE = Path(__file__).with_name(

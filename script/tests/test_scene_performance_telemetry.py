@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from script.tests.source_family import read_source_family
+from script.tests.support.source_family import read_source_family
 import json
 import subprocess
 import tempfile

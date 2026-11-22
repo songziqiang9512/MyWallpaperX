@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from script.tests import test_scene_static_model_parts as parts
-from script.tests.scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 MAIN = r'''

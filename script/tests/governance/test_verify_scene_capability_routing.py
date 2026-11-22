@@ -451,7 +451,7 @@ class SceneValidationRoutingTests(unittest.TestCase):
 
     def test_vector_owner_admission_harness_selects_consumers(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/tests/scene_vector_owner_admission_harness.py"],
+            ["script/tests/support/scene_vector_owner_admission_harness.py"],
             arguments(),
             self.registry,
         )

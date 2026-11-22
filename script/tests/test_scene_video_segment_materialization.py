@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 from .test_scene_sound_resource_input import CARRIERS
-from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
+from script.tests.support.scene_video_segment_delegate_fixture import compile_segment_delegate
 
 
 ROOT = Path(__file__).resolve().parents[2]

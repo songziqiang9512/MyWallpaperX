@@ -7,7 +7,7 @@ import math
 import unittest
 from pathlib import Path
 
-from script.tests.scene_particle_render_test_support import run_particle_harness
+from script.tests.support.scene_particle_render_test_support import run_particle_harness
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

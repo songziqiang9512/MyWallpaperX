@@ -1,7 +1,7 @@
 """Value and binding contracts, independent of equivalent emitted expression shapes."""
 import unittest
 
-from script.tests.scene_authored_shader_frontend_harness import (
+from script.tests.support.scene_authored_shader_frontend_harness import (
     AuthoredShaderFrontendHarness, VEC4_COORDINATE_VERTEX_SOURCE,
 )
 

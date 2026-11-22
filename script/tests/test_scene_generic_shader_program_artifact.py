@@ -18,7 +18,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
 from scene_shader_compiler_artifact import build_program_artifact
-from script.tests.scene_generic_shader_provider_test_support import (
+from script.tests.support.scene_generic_shader_provider_test_support import (
     assert_independent_signal_request_contract,
     assert_provider_backed_spatial_weighted_profile,
     assert_python_worker_rejects_typed_input_without_compatible_transfer,

@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 
-SCENE_ROOT = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
+SCENE_ROOT = Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene"
 
 
 def segment_delegate_sources(scene_root: Path = SCENE_ROOT) -> tuple[Path, Path]:

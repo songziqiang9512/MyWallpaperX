@@ -20,8 +20,8 @@ import tempfile
 import unittest
 import zlib
 
-from script.tests.scene_pkg_fixture import make_package
-from script.tests.scene_display_reconciliation_fixture import (
+from script.tests.support.scene_pkg_fixture import make_package
+from script.tests.support.scene_display_reconciliation_fixture import (
     assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
 )
 from script.tests.test_scene_static_model_reader import build_model
@@ -298,9 +298,9 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         if destination:
             Path(destination).mkdir(parents=True, exist_ok=True)
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="rf04-reflection-history-", dir=destination))
-        sources = [Path(__file__), REPO / "script/tests/scene_pkg_fixture.py",
+        sources = [Path(__file__), REPO / "script/tests/support/scene_pkg_fixture.py",
                    REPO / "script/tests/test_scene_static_model_reader.py",
-                   REPO / "script/tests/scene_display_reconciliation_fixture.py",
+                   REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
                    REPO / "script/web_benchmark_capture.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",

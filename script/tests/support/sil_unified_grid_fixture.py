@@ -9,7 +9,7 @@ import re
 
 from script.tests.test_ui_library_algorithms import declaration
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def assemble(work: Path, *, count_layout=False, count_collection=False, cache_name=None, observe_loads=False, observe_configures=False, observe_failure_signatures=False):

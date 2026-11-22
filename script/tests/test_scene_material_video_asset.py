@@ -16,8 +16,8 @@ import zlib
 from script.tests import test_scene_sampler_default_purpose as sampler
 from script.tests import test_scene_user_property_textures as textures
 from script.tests import test_scene_initial_video_resource_readiness as readiness
-from script.tests.scene_pkg_fixture import make_package
-from script.tests.scene_video_segment_delegate_fixture import (
+from script.tests.support.scene_pkg_fixture import make_package
+from script.tests.support.scene_video_segment_delegate_fixture import (
     compile_segment_delegate, segment_delegate_sources,
 )
 

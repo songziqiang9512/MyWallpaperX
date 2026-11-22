@@ -13,7 +13,7 @@ import tempfile
 import unittest
 
 from script.tests.test_ui_library_algorithms import declaration
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +41,7 @@ class LibraryWindowToolbarTests(unittest.TestCase):
         pixabay_source = pixabay.read_text()
         layout_start = pixabay_source.index('    let pixabayIdentifiers:')
         pixabay_layout = pixabay_source[layout_start:pixabay_source.index('\n    ]', layout_start) + len('\n    ]')]
-        observed = paths + [sheet, fixture, pixabay, Path(__file__).resolve(), ROOT / 'script/tests/native_app_harness.py']
+        observed = paths + [sheet, fixture, pixabay, Path(__file__).resolve(), ROOT / 'script/tests/support/native_app_harness.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-window-toolbar-', dir='/private/tmp') as directory:
             work = Path(directory)

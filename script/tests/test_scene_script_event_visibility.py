@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import SCENE, SWIFT_PREAMBLE, compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import SCENE, SWIFT_PREAMBLE, compile_vector_harness
 from .test_scene_prepared_script_resource_catalog import swift_declaration
 
 

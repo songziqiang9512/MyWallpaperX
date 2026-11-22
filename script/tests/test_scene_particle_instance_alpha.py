@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .scene_vector_vm_test_support import ROOT, SWIFT_PREAMBLE, compile_vector_harness
+from script.tests.support.scene_vector_vm_test_support import ROOT, SWIFT_PREAMBLE, compile_vector_harness
 from .test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES
 
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

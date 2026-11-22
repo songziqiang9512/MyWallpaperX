@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
@@ -40,7 +40,7 @@ class WallpaperLibraryPageChromeTests(unittest.TestCase):
         presentation = ROOT / "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift"
         actions = ROOT / "MyWallpaperX/Shell/PlaylistOrganizationActions.swift"
         observed = [*paths, fixture, initialization, composition, split, tint, presentation, actions, Path(__file__),
-                    ROOT / "script/tests/native_app_harness.py", ROOT / "script/tests/test_ui_library_algorithms.py",
+                    ROOT / "script/tests/support/native_app_harness.py", ROOT / "script/tests/test_ui_library_algorithms.py",
                     ROOT / "script/tests/test_video_thumbnail_prefetch.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         self.assertNotIn("grid.scrollView.onRefresh", composition.read_text())

@@ -16,7 +16,7 @@ SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPO_ROOT / "script"))
 
 from scene_real_test_fixtures import sample_cache_root
-from script.tests.scene_authored_shader_frontend_harness import (
+from script.tests.support.scene_authored_shader_frontend_harness import (
     AuthoredShaderFrontendHarness, VERTEX_SOURCE, VEC4_COORDINATE_VERTEX_SOURCE,
 )
 

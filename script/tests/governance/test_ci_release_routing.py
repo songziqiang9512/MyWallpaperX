@@ -61,7 +61,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         self.assertIn('UnregisteredFutureChecks.swift', blocked[0].unresolved)
 
     def test_native_app_harness_selects_its_actual_direct_consumers(self):
-        modules, _, _ = verify.mapped_tests(['script/tests/native_app_harness.py'], verify.load_registry())
+        modules, _, _ = verify.mapped_tests(['script/tests/support/native_app_harness.py'], verify.load_registry())
         paths = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard',
                                          '--', 'script/tests/test_*.py'], cwd=ROOT, text=True).split('\0')
         consumers = set()

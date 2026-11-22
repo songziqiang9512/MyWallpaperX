@@ -12,15 +12,15 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 if __package__:
-    from .scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
-    from .scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
-    from .scene_particle_runtime_configuration_cases import (
+    from script.tests.support.scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
+    from script.tests.support.scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
+    from script.tests.support.scene_particle_runtime_configuration_cases import (
         SceneParticleRuntimeConfigurationCases, compile_runtime_configurations,
     )
 else:
-    from scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
-    from scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
-    from scene_particle_runtime_configuration_cases import (
+    from script.tests.support.scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
+    from script.tests.support.scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
+    from script.tests.support.scene_particle_runtime_configuration_cases import (
         SceneParticleRuntimeConfigurationCases, compile_runtime_configurations,
     )
 

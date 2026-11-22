@@ -23,7 +23,7 @@ from script.web_benchmark_capture import png_rgb_pixels
 from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 from .test_scene_authored_sampling_integration import solid_texture
 
 

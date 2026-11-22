@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 from script.tests.test_steam_list_thumbnail_animation import SOURCES, SUPPORT, UI
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 

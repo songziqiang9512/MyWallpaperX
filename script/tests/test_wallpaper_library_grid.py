@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_ui_library_algorithms import declaration
 

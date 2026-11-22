@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
-from script.tests.native_app_harness import native_app_session
+from script.tests.support.native_app_harness import native_app_session
 from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
 from script.tests.test_ui_library_algorithms import declaration
 

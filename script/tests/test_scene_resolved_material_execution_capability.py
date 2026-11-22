@@ -1,4 +1,4 @@
-from script.tests.source_family import read_source_family
+from script.tests.support.source_family import read_source_family
 from pathlib import Path
 import unittest
 

@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from script.tests import scene_vector_vm_test_support as vm
+from script.tests.support import scene_vector_vm_test_support as vm
 from script.tests.test_scene_property_live_update_state import SOURCE_ROOT, SWIFT_SOURCES
 
 ROOT = Path(__file__).resolve().parents[2]

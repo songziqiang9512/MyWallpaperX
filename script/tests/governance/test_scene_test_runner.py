@@ -22,7 +22,7 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 import run_scene_tests as runner
-from script.tests.native_app_harness import native_app_session
+from script.tests.support.native_app_harness import native_app_session
 
 
 AVAILABLE_MODULES = [

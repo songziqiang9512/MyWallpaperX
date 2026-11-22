@@ -13,7 +13,7 @@ import unittest
 import wave
 
 from .test_scene_sound_playback_program import STUB_SOURCE
-from .scene_pkg_fixture import make_package
+from script.tests.support.scene_pkg_fixture import make_package
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

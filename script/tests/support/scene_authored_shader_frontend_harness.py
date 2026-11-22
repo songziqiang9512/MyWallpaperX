@@ -11,7 +11,7 @@ import textwrap
 import unittest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPO_ROOT / "script"))
 
@@ -186,7 +186,7 @@ class AuthoredShaderFrontendHarness:
     def evaluate(self, metal_source, kernel, count):
         binary = self.binary.parent / 'expression-probe'
         if not binary.exists():
-            compiled = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(Path(__file__).with_name('fixtures') /
+            compiled = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str((Path(__file__).resolve().parents[1] / 'fixtures') /
                 'SceneShaderExpressionProbe.swift'), '-o', str(binary)],
                 capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)

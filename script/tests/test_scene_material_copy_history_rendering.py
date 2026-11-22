@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_framebuffer_source_test_support import _declaration
+from script.tests.support.scene_framebuffer_source_test_support import _declaration
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

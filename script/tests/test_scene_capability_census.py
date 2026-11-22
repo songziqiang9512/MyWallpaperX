@@ -26,7 +26,7 @@ from scene_capability_census_io import (
     iter_sample_directories,
     validated_sample_id,
 )
-from script.tests.scene_capability_census_test_support import json_bytes, make_fixture, pkg
+from script.tests.support.scene_capability_census_test_support import json_bytes, make_fixture, pkg
 
 
 class SceneCapabilityCensusTests(unittest.TestCase):

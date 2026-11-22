@@ -84,7 +84,7 @@ def run_native_app(
     command = ["/usr/bin/open", "-n", "-W", "--stdout", str(stdout), "--stderr", str(stderr)]
     for key, value in overrides.items():
         command += ["--env", key + "=" + value]
-    command += [str(binary.parents[2]), "--args", *arguments]
+    command += [str(binary.parents[3]), "--args", *arguments]
     with native_app_session():
         try:
             launched = subprocess.run(command, capture_output=True, text=True, cwd=work, timeout=timeout)
