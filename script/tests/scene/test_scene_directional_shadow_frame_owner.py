@@ -17,7 +17,7 @@ from script.tests.scene import test_scene_directional_shadow as shadow_fixture
 from script.tests.scene import test_scene_offscreen_texture_pool as pool_fixture
 from script.tests.scene import test_scene_particle_rendering as particle_fixture
 from script.tests.scene import test_scene_static_model_pipeline as model_fixture
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 
 REPO = Path(__file__).resolve().parents[3]
 SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'

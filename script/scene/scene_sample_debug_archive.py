@@ -32,7 +32,7 @@ from scene_diagnostic_report import (
 )
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
 
@@ -398,7 +398,7 @@ def build_archive(
     if not snapshot_path.is_file():
         raise ValueError(
             f"census cache is missing: {snapshot_path}; pass --snapshot <existing-cache> "
-            "or explicitly run python3.12 script/scene_capability_census.py generate "
+            "or explicitly run python3.12 script/scene/scene_capability_census.py generate "
             "with the matching --samples-root and --snapshot first"
         )
     if not samples_root.is_dir():

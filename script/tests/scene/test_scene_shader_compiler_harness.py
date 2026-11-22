@@ -34,7 +34,7 @@ from script.tests.support.scene_generic_shader_test_support import (
 )
 
 
-SCRIPT = REPOSITORY_ROOT / "script/scene_shader_compiler_harness.py"
+SCRIPT = REPOSITORY_ROOT / "script/scene/scene_shader_compiler_harness.py"
 FIXTURE = REPOSITORY_ROOT / "script/fixtures/scene_shader_compiler/ordinary_one_pass.json"
 WE_FIXTURE = REPOSITORY_ROOT / "script/fixtures/scene_shader_compiler/wallpaper_engine_one_pass.json"
 

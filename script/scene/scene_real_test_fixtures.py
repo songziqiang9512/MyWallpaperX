@@ -12,8 +12,8 @@ except ImportError:
     from scene_real_test_fixture_config import load_fixture_config
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = Path(__file__).with_name("data") / "scene_real_test_fixture.json"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "data" / "scene_real_test_fixture.json"
 
 
 def configured_path(key: str) -> Path:

@@ -73,7 +73,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             ('script/data/scene_dependency_baseline.json', {'scene-dependencies'}),
             ('script/data/document_health_baseline.json', {'document-health'}),
             ('script/tests/governance/test_document_health.py', {'scene-dependencies', 'document-health', 'repository-residue'}),
-            ('script/scene_wallpaper_benchmark.py', set()),
+            ('script/scene/scene_wallpaper_benchmark.py', set()),
         ]
         for path, expected in cases:
             for phase in ('inner', 'checkpoint'):
@@ -146,7 +146,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             'script/tests/fixtures/ScreenSaverActivityChecks.swift': 'test_screen_saver_integration',
             'script/tests/fixtures/ScreenSaverPreferencesChecks.swift': 'test_personal_settings_import',
             'MyWallpaperX/Shared/VideoStillFrame.swift': 'test_video_thumbnail_prefetch',
-            'script/scene_diagnostic_report_io.py': 'test_scene_diagnostic_report',
+            'script/scene/scene_diagnostic_report_io.py': 'test_scene_diagnostic_report',
             'script/tests/fixtures/GridViewportSizingHarness.swift': 'test_steam_grid_updates',
             'script/tests/fixtures/SteamBrowserContainerHarness.swift': 'test_steam_grid_updates',
             'script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c': 'test_scene_script_quickjs',
@@ -230,7 +230,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_fixture_config_does_not_trigger_corpus_compilation(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/scene_real_test_fixture_config.py"],
+            ["script/scene/scene_real_test_fixture_config.py"],
             arguments(),
             self.registry,
         )
@@ -242,7 +242,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_census_change_selects_only_its_corpus_contract(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/scene_shader_preparation_census.py"],
+            ["script/scene/scene_shader_preparation_census.py"],
             arguments(),
             self.registry,
         )
@@ -406,7 +406,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_milestone_matrix_contract_without_tier_is_blocked(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/scene_wallpaper_benchmark.py"],
+            ["script/scene/scene_wallpaper_benchmark.py"],
             arguments(phase="milestone"),
             self.registry,
         )
@@ -423,7 +423,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                         "--phase",
                         "milestone",
                         "--path",
-                        "script/scene_wallpaper_benchmark.py",
+                        "script/scene/scene_wallpaper_benchmark.py",
                         "--run",
                     ]
                 )
@@ -737,7 +737,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
         emitted = set()
         # Dedicated method gates need their real test input, rather than an
         # unrelated generic renderer input that cannot reach those contracts.
-        paths = [self.doc, self.swift, "script/scene_wallpaper_benchmark.py",
+        paths = [self.doc, self.swift, "script/scene/scene_wallpaper_benchmark.py",
                  "script/unmapped_fixture.json", "script/tests/test_removed_fixture.py",
                  "script/tests/scene/test_scene_independent_signal_carrier.py"]
         for phase in verify.PHASES:

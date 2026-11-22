@@ -14,7 +14,7 @@ from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-SCRIPT_PATH = REPOSITORY_ROOT / "script/scene_shader_preparation_census.py"
+SCRIPT_PATH = REPOSITORY_ROOT / "script/scene/scene_shader_preparation_census.py"
 BASELINE_REF = "9d655ce294b1d656a1b66f50c77b156685e7f3f8"
 
 SPEC = importlib.util.spec_from_file_location(

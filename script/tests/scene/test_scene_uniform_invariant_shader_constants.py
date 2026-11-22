@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT))
 from script.tests.scene.test_scene_varying_value_parameter_prefix import (
     FIXTURE, GLSLANG, SWIFT_SOURCES as PREFIX_SOURCES, vertex_source,
 )
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 
 RUNTIME_SOURCES = [
     path for path in scene_swift_sources("generic_shader_compiler_preparation_implementation")

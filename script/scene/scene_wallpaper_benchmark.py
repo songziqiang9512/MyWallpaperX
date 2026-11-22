@@ -263,7 +263,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--matrix",
         type=Path,
-        default=Path(__file__).with_name("data") / "scene_wallpaper_sample_matrix.json",
+        default=Path(__file__).resolve().parents[1] / "data" / "scene_wallpaper_sample_matrix.json",
     )
     parser.add_argument(
         "--product-entry-audio-baseline",
@@ -276,7 +276,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--audio-declaration-snapshot",
         type=Path,
-        default=(Path(__file__).resolve().parents[1]
+        default=(Path(__file__).resolve().parents[2]
                  / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"),
         help="local census cache that owns the audio relationship IDs; generate explicitly when absent",
     )
@@ -526,7 +526,7 @@ def main() -> int:
         print(
             f"Scene benchmark precondition failed: census cache is missing: {matrix_path}; "
             "pass --audio-declaration-snapshot <existing-cache> or explicitly run "
-            "python3.12 script/scene_capability_census.py generate with the matching "
+            "python3.12 script/scene/scene_capability_census.py generate with the matching "
             "--samples-root and --snapshot first",
             file=sys.stderr,
         )

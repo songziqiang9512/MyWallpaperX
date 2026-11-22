@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 from script.tests.support.scene_pkg_fixture import make_package
 
 ROOT = Path(__file__).resolve().parents[3]

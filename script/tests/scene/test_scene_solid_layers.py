@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 from script.tests.support.source_family import read_source_family
 from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES

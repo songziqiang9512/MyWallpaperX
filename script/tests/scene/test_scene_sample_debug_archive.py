@@ -10,8 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import script.scene_sample_debug_archive as archive_module
-from script.scene_sample_debug_archive import _json, build_archive
+import script.scene.scene_sample_debug_archive as archive_module
+from script.scene.scene_sample_debug_archive import _json, build_archive
 
 
 class SceneSampleDebugArchiveTests(unittest.TestCase):

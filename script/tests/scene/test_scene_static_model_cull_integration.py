@@ -23,7 +23,7 @@ from script.tests.scene.test_scene_native_world_composition import png as grid_p
 from script.tests.scene.test_scene_static_model_parts import join_parts
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.scene.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 
 
 REPO = Path(__file__).resolve().parents[3]

@@ -15,7 +15,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 from script.tests.scene.test_scene_composition_authored_order_integration import encoded
 from script.tests.scene.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.tests.support.scene_pkg_fixture import make_package

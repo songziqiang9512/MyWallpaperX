@@ -1,5 +1,5 @@
 import unittest
-from script.scene_puppet_interaction_evidence import collect_puppet_interaction_evidence
+from script.scene.scene_puppet_interaction_evidence import collect_puppet_interaction_evidence
 
 
 def fixture(*, changed=True, returned=True, terminal=True):

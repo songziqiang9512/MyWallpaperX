@@ -871,7 +871,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
-        "script/scene_shader_compiler_request_contract.py",
+        "script/scene/scene_shader_compiler_request_contract.py",
         "script/tests/scene/test_scene_shader_global_scope.py",
         "script/tests/scene/test_scene_light_host_array_frontends.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
@@ -2684,7 +2684,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
         "script/data/scene_swift_source_sets.json",
-        "script/scene_swift_source_sets.py",
+        "script/scene/scene_swift_source_sets.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
       ],
       "modules": [
@@ -2722,7 +2722,7 @@
         "AGENTS.md",
         "script/data/scene_source_layout.json",
         "script/data/scene_swift_source_sets.json",
-        "script/scene_swift_source_sets.py",
+        "script/scene/scene_swift_source_sets.py",
         "script/governance/source_relocations.py",
         "script/tests/governance/test_source_relocations.py"
       ],
@@ -2736,11 +2736,11 @@
     {
       "id": "matrix",
       "patterns": [
-        "script/scene_matrix_contract.py",
-        "script/scene_matrix_suite.py",
+        "script/scene/scene_matrix_contract.py",
+        "script/scene/scene_matrix_suite.py",
         "script/assets/generate_scene_full_matrix.py",
-        "script/scene_product_entry_audio_baseline.py",
-        "script/scene_wallpaper_media_event.py",
+        "script/scene/scene_product_entry_audio_baseline.py",
+        "script/scene/scene_wallpaper_media_event.py",
         "script/scene_wallpaper_*matrix.json",
         "script/scene_wallpaper_*.py",
         "script/tests/scene/test_scene_product_entry_audio_baseline.py",
@@ -2748,7 +2748,7 @@
         "script/tests/support/scene_wallpaper_sample_fixture.py",
         "script/tests/fixtures/scene_wallpaper_sample_report_golden.json",
         "script/tests/support/scene_wallpaper_graph_output_test_support.py",
-        "script/scene_preview_visual_evidence.py"
+        "script/scene/scene_preview_visual_evidence.py"
       ],
       "modules": [
         "test_scene_matrix_contract",
@@ -2782,8 +2782,8 @@
       "id": "real-fixture",
       "patterns": [
         "script/data/scene_real_test_fixture.json",
-        "script/scene_real_test_fixture_config.py",
-        "script/scene_real_test_fixtures.py",
+        "script/scene/scene_real_test_fixture_config.py",
+        "script/scene/scene_real_test_fixtures.py",
         "script/governance/audit_codex_artifacts.py"
       ],
       "modules": [
@@ -2827,7 +2827,7 @@
     {
       "id": "shader-census",
       "patterns": [
-        "script/scene_shader_preparation_census.py"
+        "script/scene/scene_shader_preparation_census.py"
       ],
       "modules": [
         "test_scene_shader_preparation_census"
@@ -2836,7 +2836,7 @@
     {
       "id": "material-census",
       "patterns": [
-        "script/scene_material_program_census.py"
+        "script/scene/scene_material_program_census.py"
       ],
       "modules": [
         "test_scene_material_program_census"
@@ -2859,7 +2859,7 @@
     {
       "id": "sample-acceptance-ledger",
       "patterns": [
-        "script/scene_sample_acceptance_ledger.py",
+        "script/scene/scene_sample_acceptance_ledger.py",
         "script/data/scene_sample_acceptance_verdicts.json",
         "script/data/scene_sample_debug_archive.json"
       ],
@@ -3668,7 +3668,69 @@
         "script/playback_process_isolation_benchmark.py",
         "script/wallpaper_startup_benchmark.py",
         "script/steam_auth_gate.py",
-        "script/steam-auth-gate.sh"
+        "script/steam-auth-gate.sh",
+        "script/scene/**",
+        "script/scene_capability_census.py",
+        "script/scene_capability_census_contracts.py",
+        "script/scene_capability_census_effects.py",
+        "script/scene_capability_census_io.py",
+        "script/scene_capability_census_particles.py",
+        "script/scene_capability_census_profiles.py",
+        "script/scene_capability_census_reporting.py",
+        "script/scene_capability_census_resources.py",
+        "script/scene_capability_census_samples.py",
+        "script/scene_diagnostic_report.py",
+        "script/scene_diagnostic_report_io.py",
+        "script/scene_effect_census.py",
+        "script/scene_helper_qualification_sites.py",
+        "script/scene_material_program_census.py",
+        "script/scene_matrix_contract.py",
+        "script/scene_matrix_suite.py",
+        "script/scene_preview_visual_evidence.py",
+        "script/scene_product_entry_audio_baseline.py",
+        "script/scene_puppet_interaction_evidence.py",
+        "script/scene_real_test_fixture_config.py",
+        "script/scene_real_test_fixtures.py",
+        "script/scene_sample_acceptance_ledger.py",
+        "script/scene_sample_debug_archive.py",
+        "script/scene_sample_snapshot.py",
+        "script/scene_shader_compiler_artifact.py",
+        "script/scene_shader_compiler_cli.py",
+        "script/scene_shader_compiler_color_transfer_contract.py",
+        "script/scene_shader_compiler_harness.py",
+        "script/scene_shader_compiler_independent_signal_contract.py",
+        "script/scene_shader_compiler_independent_signal_inline_contract.py",
+        "script/scene_shader_compiler_input_color_contract.py",
+        "script/scene_shader_compiler_loop_budget.py",
+        "script/scene_shader_compiler_msl_function_contract.py",
+        "script/scene_shader_compiler_passthrough_contract.py",
+        "script/scene_shader_compiler_request_contract.py",
+        "script/scene_shader_compiler_texture_sampling.py",
+        "script/scene_shader_preparation_census.py",
+        "script/scene_swift_source_sets.py",
+        "script/scene_wallpaper_authored_effects.py",
+        "script/scene_wallpaper_benchmark.py",
+        "script/scene_wallpaper_effect_disposition.py",
+        "script/scene_wallpaper_effect_execution.py",
+        "script/scene_wallpaper_effect_expectations.py",
+        "script/scene_wallpaper_effect_preparation.py",
+        "script/scene_wallpaper_graph_acceptance.py",
+        "script/scene_wallpaper_graph_execution.py",
+        "script/scene_wallpaper_graph_output_metrics.py",
+        "script/scene_wallpaper_graph_subjects.py",
+        "script/scene_wallpaper_layer_runtime.py",
+        "script/scene_wallpaper_matrix_policy.py",
+        "script/scene_wallpaper_media_event.py",
+        "script/scene_wallpaper_media_properties.py",
+        "script/scene_wallpaper_performance.py",
+        "script/scene_wallpaper_pointer_evidence.py",
+        "script/scene_wallpaper_property_updates.py",
+        "script/scene_wallpaper_runtime_metadata.py",
+        "script/scene_wallpaper_sample_acceptance.py",
+        "script/scene_wallpaper_sample_lifecycle.py",
+        "script/scene_wallpaper_sample_run.py",
+        "script/scene_wallpaper_typed_publications.py",
+        "script/scene_wallpaper_utility_capture.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -5174,7 +5236,7 @@
     {
       "id": "diagnostic-report-io",
       "patterns": [
-        "script/scene_diagnostic_report_io.py"
+        "script/scene/scene_diagnostic_report_io.py"
       ],
       "modules": [
         "test_scene_diagnostic_report",
@@ -6605,9 +6667,9 @@
       "id": "visual-evidence-tools",
       "patterns": [
         "script/web/web_benchmark_capture.py",
-        "script/scene_preview_visual_evidence.py",
-        "script/scene_sample_snapshot.py",
-        "script/scene_puppet_interaction_evidence.py"
+        "script/scene/scene_preview_visual_evidence.py",
+        "script/scene/scene_sample_snapshot.py",
+        "script/scene/scene_puppet_interaction_evidence.py"
       ],
       "modules": [
         "test_web_benchmark_capture",
@@ -6642,7 +6704,7 @@
       "patterns": [
         "script/evidence/extract_wallpaper_engine_client_evidence.py",
         "script/evidence/promote_scene_evidence.py",
-        "script/scene_helper_qualification_sites.py",
+        "script/scene/scene_helper_qualification_sites.py",
         "script/governance/steam_auth_gate.py",
         "script/web/wallpaper_startup_benchmark.py"
       ],

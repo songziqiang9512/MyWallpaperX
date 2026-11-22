@@ -98,7 +98,7 @@ from scene_capability_census_reporting import (
     snapshot_payload,
 )
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_STOCK_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
@@ -112,15 +112,15 @@ DEFAULT_SAMPLE_MARKDOWN = DEFAULT_MARKDOWN.with_name("scene-corpus-sample-invent
 
 
 GENERATOR_PATHS = (
-    "script/scene_capability_census.py",
-    "script/scene_capability_census_contracts.py",
-    "script/scene_capability_census_effects.py",
-    "script/scene_capability_census_io.py",
-    "script/scene_capability_census_particles.py",
-    "script/scene_capability_census_profiles.py",
-    "script/scene_capability_census_reporting.py",
-    "script/scene_capability_census_resources.py",
-    "script/scene_capability_census_samples.py",
+    "script/scene/scene_capability_census.py",
+    "script/scene/scene_capability_census_contracts.py",
+    "script/scene/scene_capability_census_effects.py",
+    "script/scene/scene_capability_census_io.py",
+    "script/scene/scene_capability_census_particles.py",
+    "script/scene/scene_capability_census_profiles.py",
+    "script/scene/scene_capability_census_reporting.py",
+    "script/scene/scene_capability_census_resources.py",
+    "script/scene/scene_capability_census_samples.py",
 )
 
 
@@ -693,7 +693,7 @@ def query(args: argparse.Namespace) -> int:
             print(
                 f"unable to query local census snapshot {snapshot}: {error}. "
                 "Pass --snapshot <existing-cache> or explicitly run "
-                "python3.12 script/scene_capability_census.py generate "
+                "python3.12 script/scene/scene_capability_census.py generate "
                 "with your --samples-root and --snapshot; use query --live "
                 "only when a private corpus scan is intended.",
                 file=sys.stderr,

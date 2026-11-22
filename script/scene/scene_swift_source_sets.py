@@ -9,8 +9,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, TypeVar
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST_PATH = Path(__file__).with_name("data") / "scene_swift_source_sets.json"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "data" / "scene_swift_source_sets.json"
 SourcePath = TypeVar("SourcePath", str, Path)
 
 

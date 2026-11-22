@@ -15,7 +15,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.support.scene_display_reconciliation_fixture import (
     SURFACE_IDENTITIES, assert_retained_particles, assert_retained_surfaces,

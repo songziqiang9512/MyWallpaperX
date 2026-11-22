@@ -183,11 +183,16 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def run_module(module: str) -> tuple[str, int, float, str]:
     started = time.monotonic()
+    environment = os.environ.copy()
+    support_paths = [str(TESTS_DIRECTORY.parent), str(TESTS_DIRECTORY.parent / "scene"), str(TESTS_DIRECTORY.parent / "web")]
+    existing = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = os.pathsep.join(support_paths + ([existing] if existing else []))
     completed = subprocess.run(
         [sys.executable, "-B", "-m", "unittest", module],
         cwd=REPOSITORY_ROOT,
         capture_output=True,
         text=True,
+        env=environment,
     )
     elapsed = time.monotonic() - started
     output = (completed.stdout + completed.stderr).strip()

@@ -19,8 +19,8 @@ from pathlib import Path
 
 from . import test_scene_particle_simulator as particle_simulator
 from script.tests.scene.test_scene_initial_video_resource_readiness import declaration
-from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, combined_scene, rejected_combined_scenes
-from .fixtures.scene_timeline_layer_color_cases import assert_layer_color_result, layer_color_cases
+from script.tests.fixtures.scene_timeline_combined_cases import accepted_combined_scenes, combined_scene, rejected_combined_scenes
+from script.tests.fixtures.scene_timeline_layer_color_cases import assert_layer_color_result, layer_color_cases
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

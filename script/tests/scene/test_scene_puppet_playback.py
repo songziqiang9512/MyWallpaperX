@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.scene_capability_census_io import PkgArchive
+from script.scene.scene_capability_census_io import PkgArchive
 from script.tests.scene.test_scene_timeline_target_compiler import SWIFT_SOURCES as TIMELINE_SOURCES
 
 

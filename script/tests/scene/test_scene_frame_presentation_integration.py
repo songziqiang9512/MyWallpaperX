@@ -428,8 +428,8 @@ class SceneProductDaemonLifecycleIntegrationTests(unittest.TestCase):
             STARTUP_BUNDLE_ID, child_processes, finish_selection_process,
             production_preferences_identity, reset_startup_defaults, tree_identity,
         )
-        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
-        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        from script.web.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
         app = Path(candidate).resolve(strict=True)
         info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
         self.assertEqual(info["CFBundleIdentifier"], STARTUP_BUNDLE_ID)
@@ -653,8 +653,8 @@ export function update(value) {
         from script.wallpaper_startup_benchmark import (
             child_processes, finish_selection_process, production_preferences_identity, tree_identity,
         )
-        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
-        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        from script.web.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
         from script.tests.scene.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
         candidate = Path(configured).resolve(strict=True)
         if candidate.suffix == ".app":

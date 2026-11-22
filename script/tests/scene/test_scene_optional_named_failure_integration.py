@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 from script.tests.scene.test_scene_hidden_provider_integration import fixture_entries
 from script.tests.support.scene_pkg_fixture import make_package
 

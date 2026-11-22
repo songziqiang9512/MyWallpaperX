@@ -24,7 +24,7 @@ import tarfile
 import tempfile
 from typing import Any, Iterable, Sequence
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPT_DIRECTORY = SCRIPT_PATH.parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
@@ -1684,7 +1684,7 @@ def build_report(
     fixture_directory = inputs["fixture_path"].parent
     normalized_command = [
         "python3",
-        "script/scene_shader_preparation_census.py",
+        "script/scene/scene_shader_preparation_census.py",
         "--fixture",
         portable_path(inputs["fixture_path"], fixture_directory),
         "--matrix",
@@ -1700,7 +1700,7 @@ def build_report(
         "schema_version": 1,
         "kind": "scene-shader-preparation-census",
         "generator": {
-            "path": "script/scene_shader_preparation_census.py",
+            "path": "script/scene/scene_shader_preparation_census.py",
             "sha256": sha256_file(SCRIPT_PATH),
             "harness_sha256": sha256_bytes(HARNESS_SOURCE.encode("utf-8")),
             "canonical_json_contract": "sorted-keys-indented-utf8-v1",

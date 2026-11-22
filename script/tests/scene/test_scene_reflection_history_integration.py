@@ -25,7 +25,7 @@ from script.tests.support.scene_display_reconciliation_fixture import (
     assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
 )
 from script.tests.scene.test_scene_static_model_reader import build_model
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 
 
 REPO = Path(__file__).resolve().parents[3]

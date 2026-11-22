@@ -156,8 +156,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 self.assertNotIn("Compilation/Material/SceneAuthoredMaterialResolver.swift", text)
 
         for relative in (
-            "script/scene_material_program_census.py",
-            "script/scene_shader_preparation_census.py",
+            "script/scene/scene_material_program_census.py",
+            "script/scene/scene_shader_preparation_census.py",
         ):
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(source_set="census", consumer=relative):
@@ -299,7 +299,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
 
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:
         consumers = [
-            "script/scene_shader_preparation_census.py",
+            "script/scene/scene_shader_preparation_census.py",
             "script/tests/support/scene_authored_shader_frontend_harness.py",
             "script/tests/scene/test_scene_fragment_output_initialization.py",
             "script/tests/scene/test_scene_graph_texture_publication.py",
@@ -330,8 +330,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
     def test_shader_preparation_consumers_use_the_canonical_source_set(self) -> None:
         consumers = {
             "authored_shader_preparation_implementation": [
-                "script/scene_shader_preparation_census.py",
-                "script/scene_material_program_census.py",
+                "script/scene/scene_shader_preparation_census.py",
+                "script/scene/scene_material_program_census.py",
                 "script/tests/scene/test_scene_graph_texture_publication.py",
                 "script/tests/scene/test_scene_resolved_material_program_finalizer.py",
             ],

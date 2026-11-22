@@ -104,7 +104,7 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
                    native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None, instance_base_size=(4,4), instance_base_animated=False, same_model_peer=False, instance_base_failure=None, pbr_map=None, no_lights=False):
         import hashlib, struct, zlib, shutil
         from script.tests.support.scene_pkg_fixture import make_package
-        from script.web_benchmark_capture import png_rgb_pixels
+        from script.web.web_benchmark_capture import png_rgb_pixels
         def png(rgb, size=(4,4)):
             def chunk(k,v):return struct.pack('>I',len(v))+k+v+struct.pack('>I',zlib.crc32(k+v)&0xffffffff)
             return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',*size,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\0'+bytes((*rgb,255))*size[0])*size[1]))+chunk(b'IEND',b'')

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from . import test_scene_timeline_runtime as timeline_gate
-from .fixtures.scene_timeline_combined_cases import effect_linked_cases, non_effect_no_lane_cases
+from script.tests.fixtures.scene_timeline_combined_cases import effect_linked_cases, non_effect_no_lane_cases
 
 
 FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneEffectTimelineGroupsHarness.swift"

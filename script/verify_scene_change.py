@@ -326,7 +326,7 @@ def runtime_command(
         return None
     command = [
         sys.executable,
-        "script/scene_wallpaper_benchmark.py",
+        "script/scene/scene_wallpaper_benchmark.py",
         "--app",
         str(args.app),
         "--sample-root",

@@ -40,7 +40,7 @@ from script.tests.scene import test_scene_bc_texture_uploader as upload_fixture
 from script.tests.support.scene_particle_runtime_configuration_cases import (
     NO_TIMESTAMP_OBSERVATION_SUPPORT, _declaration,
 )
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 
 SOURCES = list(dict.fromkeys(path.resolve() for path in [
     *MAP_SOURCES, *descriptor_fixture.SWIFT_SOURCES, *upload_fixture.SWIFT_SOURCES,

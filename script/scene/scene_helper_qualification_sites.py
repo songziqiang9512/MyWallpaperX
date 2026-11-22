@@ -33,10 +33,10 @@ This tool therefore uses the compiler as the source of truth:
   `#{2}#` makes a plain count unusable).
 
 Usage:
-    python3 script/scene_helper_qualification_sites.py --name matches --name capture
-    python3 script/scene_helper_qualification_sites.py --name matches --apply
-    python3 script/scene_helper_qualification_sites.py --name matches --apply-from report.txt
-    python3 script/scene_helper_qualification_sites.py --brace-delta path/to/File.swift
+    python3 script/scene/scene_helper_qualification_sites.py --name matches --name capture
+    python3 script/scene/scene_helper_qualification_sites.py --name matches --apply
+    python3 script/scene/scene_helper_qualification_sites.py --name matches --apply-from report.txt
+    python3 script/scene/scene_helper_qualification_sites.py --brace-delta path/to/File.swift
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TESTS_ROOT = REPOSITORY_ROOT / "script/tests"
 FAMILY_PREFIXES = (
     "Compilation/ShaderPreparation",
@@ -87,7 +87,7 @@ def load_module(path: Path):
     """Import the harness module as `script.tests.<name>`.
 
     The harnesses import each other by package-relative name (`from .test_x import ...`)
-    and by repository path (`import script.scene_swift_source_sets`); loading them under
+    and by repository path (`import script.scene.scene_swift_source_sets`); loading them under
     a bare stem makes both forms fail, which silently removes those source sets from the
     sweep. The package form resolves both, and the bare load stays as a fallback.
     """

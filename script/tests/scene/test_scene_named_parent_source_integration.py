@@ -20,10 +20,10 @@ from unittest.mock import patch
 
 from script.tests.scene import test_scene_reflection_history_integration as app_runner
 from script.tests.scene.test_scene_authored_sampling_integration import solid_texture
-from script.scene_wallpaper_graph_output_metrics import (
+from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 
 REPO = Path(__file__).resolve().parents[3]
 CANVAS = (512, 320)

@@ -319,7 +319,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "commit": "uncommitted-working-tree",
                 "targeted_samples": ["3747492842"],
                 "roi_evidence": [
-                    "script/scene_capability_census.py#anchor",
+                    "script/scene/scene_capability_census.py#anchor",
                     "/private/tmp/mwx-some-run/report.json sha256=deadbeef",
                 ],
                 "regression_gates": [
@@ -330,7 +330,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                     },
                     {
                         "kind": "fixture-only-kind",
-                        "reference": "script/scene_capability_census.py"
+                        "reference": "script/scene/scene_capability_census.py"
                                      "#validate_repair_references",
                     },
                     {
@@ -342,7 +342,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                     "date": "2026-09-17",
                     "state": "implemented",
                     "commit": "abcdef0",
-                    "evidence_refs": ["script/scene_capability_census.py#anchor"],
+                    "evidence_refs": ["script/scene/scene_capability_census.py#anchor"],
                     "notes": "fixture",
                 }],
             }],
@@ -508,12 +508,12 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "regression_gates": [
                     {
                         "kind": "synthetic-positive",
-                        "reference": "script/scene_capability_census.py"
+                        "reference": "script/scene/scene_capability_census.py"
                                      "#validate_repair_references",
                     },
                     {
                         "kind": "synthetic-negative",
-                        "reference": "script/scene_capability_census.py"
+                        "reference": "script/scene/scene_capability_census.py"
                                      "#validate_repair",
                     },
                 ],

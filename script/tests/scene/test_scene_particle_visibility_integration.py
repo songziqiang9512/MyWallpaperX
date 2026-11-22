@@ -17,7 +17,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 from script.tests.scene.test_scene_composition_authored_order_integration import encoded, measure_capture
 from script.tests.scene.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.tests.support.scene_pkg_fixture import make_package
@@ -426,7 +426,7 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
                 self.run_control_point_offset_case(renamed)
 
     def run_control_point_offset_case(self, renamed):
-        from script.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
+        from script.scene.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
         project, entries, protocol = control_point_offset_entries(renamed)
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-cp-offset-") as temporary:
@@ -590,7 +590,7 @@ class SceneParticleAncestorTranslationIntegrationTests(unittest.TestCase):
     def run_translation_case(self, case):
         from unittest.mock import patch
         from . import test_scene_reflection_history_integration as runner
-        from script.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
+        from script.scene.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
         prefix = "retitled" if case else "ancestry"
         with patch.object(runner, "fixture_entries", ancestor_translation_entries), patch.object(
                 runner, "measure_capture", ancestor_translation_pixels):

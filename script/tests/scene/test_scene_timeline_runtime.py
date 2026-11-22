@@ -18,7 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, mixed_combined_scenes
+from script.tests.fixtures.scene_timeline_combined_cases import accepted_combined_scenes, mixed_combined_scenes
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

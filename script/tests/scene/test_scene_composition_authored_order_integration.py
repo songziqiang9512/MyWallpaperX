@@ -19,8 +19,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.web_benchmark_capture import png_rgb_pixels
-from script.scene_wallpaper_graph_output_metrics import (
+from script.web.web_benchmark_capture import png_rgb_pixels
+from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 from script.tests.support.scene_pkg_fixture import make_package

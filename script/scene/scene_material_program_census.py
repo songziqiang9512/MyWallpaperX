@@ -23,7 +23,7 @@ import sys
 import tempfile
 from typing import Any, Iterable, Sequence
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = Path(__file__).resolve()
 SCRIPT_DIRECTORY = SCRIPT_PATH.parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
@@ -2322,7 +2322,7 @@ def build_report(
     fixture_directory = inputs["fixture_path"].parent
     command = [
         "python3",
-        "script/scene_material_program_census.py",
+        "script/scene/scene_material_program_census.py",
         "--fixture",
         portable_path(inputs["fixture_path"], fixture_directory),
         "--matrix",
@@ -2348,7 +2348,7 @@ def build_report(
         "schema_version": 2,
         "kind": "scene-material-program-census",
         "generator": {
-            "path": "script/scene_material_program_census.py",
+            "path": "script/scene/scene_material_program_census.py",
             "sha256": sha256_file(SCRIPT_PATH),
             "harness_sha256": sha256_bytes(HARNESS_SOURCE.encode("utf-8")),
             "canonical_json_contract": "sorted-keys-indented-utf8-v1",

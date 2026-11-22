@@ -18,7 +18,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 from script.tests.support.scene_pkg_fixture import make_package
 
 

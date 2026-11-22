@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]

@@ -21,7 +21,7 @@ import unittest
 from script.tests.scene.test_scene_native_world_composition import encoded, mdl_quad, model_material, png
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.scene.test_scene_reflection_history_integration import METAL_FAILURE, sha256
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 
 
 REPO = Path(__file__).resolve().parents[3]

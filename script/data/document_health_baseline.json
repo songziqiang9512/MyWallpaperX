@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
-      "bytes": 17108
+      "bytes": 17132
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -158,7 +158,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 41,
-      "bytes": 5095
+      "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
@@ -361,15 +361,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "053827ea44996f95e60b80b7d39d33822ee36474fcd65b634c7f0dcfe0df9280",
-      "after": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
-      "owner": "Scene bounded followup qualification",
-      "reason": "Preserve one current instrumented function sample and two bounded R0 input investigations as concrete stop conditions. No product fix or performance gain is claimed; keep unlocalized visual feedback and actual source-material capability open. Exact body budget.",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#costs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "before": "e4686c656bc41c7edfbe764c6a5fdd13688681ef9c140821d3d457d474888955",
       "after": "6101c81d5a0bb091996a7b50a4c5156eafc1349024b78174f347df44bca9ce43",
@@ -532,15 +523,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "86333b2e3ab1985371189bbf3cbab8433a70e2d2639130de8d06ab37f4ab6d70",
-      "after": "2cf4a8f32467cae4ae6ab8518e940ad108999633eb84011f0d836659bd38113c",
-      "owner": "repository-governance",
-      "reason": "Move build/release shell entrypoints into script/build and script/release; update relative links.",
-      "decision": "docs/scene/development/development-workflow.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/repository-workflow.md",
       "before": "c28ec1a65020719e0976948c37ecb8d67e5f4f0e5a4467d53d6d31b2cacb22d8",
       "after": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
@@ -601,6 +583,24 @@
       "owner": "repository-governance",
       "reason": "Move web tools into script/web and update paths.",
       "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "2cf4a8f32467cae4ae6ab8518e940ad108999633eb84011f0d836659bd38113c",
+      "after": "3d06b07015ac6d6d1edc3486908fa7372b1fcf0fe15eb6b97a05cd6e311ab545",
+      "owner": "repository-governance",
+      "reason": "Move scene tools into script/scene and update paths.",
+      "decision": "docs/scene/development/development-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "a2cf1a3745cb5736a0eeabe7c0fd6370a4dc98b8afb4b62405b99aaa95f68306",
+      "after": "052e0984d4ec9c8f14fa7d30964e7720403d1d7aa40fe86584279b1ab3f5e395",
+      "owner": "repository-governance",
+      "reason": "Move scene tools into script/scene and update paths.",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md"
     }
   ]
 }

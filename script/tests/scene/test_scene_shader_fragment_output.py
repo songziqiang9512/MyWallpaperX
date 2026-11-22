@@ -76,7 +76,7 @@ class SceneShaderFragmentOutputTests(unittest.TestCase):
         write_identity(resource, cls.cache_identity)
         cls.inputs = [*SWIFT_SOURCES, FIXTURE, Path(__file__), resource,
                       Path(color.__file__), Path(preprocessor.__file__),
-                      ROOT / "script/scene_swift_source_sets.py"]
+                      ROOT / "script/scene/scene_swift_source_sets.py"]
         cls.inputs.extend(Path(os.environ[name]) for name in (
             "MWX_FRAGMENT_OUTPUT_PREPARED_FRAGMENT", "MWX_FRAGMENT_OUTPUT_PREPARED_VERTEX"
         ) if os.environ.get(name))

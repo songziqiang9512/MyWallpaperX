@@ -22,7 +22,7 @@ from unittest.mock import patch
 from script.tests.scene import test_scene_reflection_history_integration as runner
 from script.tests.scene.test_scene_native_world_composition import encoded, png
 from script.tests.support.scene_pkg_fixture import make_package
-from script.web_benchmark_capture import png_rgb_pixels
+from script.web.web_benchmark_capture import png_rgb_pixels
 
 REPO = Path(__file__).resolve().parents[3]
 DEFAULT_ROOT = REPO / ".artifacts/pointer-domain-followup-20261021/synthetic"

@@ -43,11 +43,11 @@ collector 对未生成的可选 preview/runtime 文件输出 `null`，不制造�
 显式输出示例：
 
 ```sh
-python3.12 -B script/scene_capability_census.py generate \
+python3.12 -B script/scene/scene_capability_census.py generate \
   --snapshot .artifacts/scene-reports/corpus/snapshot.json \
   --markdown .artifacts/scene-reports/corpus/overview.md \
   --sample-markdown .artifacts/scene-reports/corpus/samples.md
-python3.12 -B script/scene_capability_census.py verify \
+python3.12 -B script/scene/scene_capability_census.py verify \
   --snapshot .artifacts/scene-reports/corpus/snapshot.json \
   --markdown .artifacts/scene-reports/corpus/overview.md \
   --sample-markdown .artifacts/scene-reports/corpus/samples.md
@@ -58,11 +58,11 @@ python3.12 -B script/scene_capability_census.py verify \
 运行用当前 snapshot 的 sample identity 构造所需 matrix，选择报告所需的少量代表，不继承不适用的截图、计数或性能期待：
 
 ```sh
-python3.12 -B script/scene_wallpaper_benchmark.py \
+python3.12 -B script/scene/scene_wallpaper_benchmark.py \
   --app <签名App可执行文件> --sample-root <只读且含Scene的输入父目录> \
   --matrix <本次matrix.json> --output-dir <本次结果目录> \
   --log-only --duration 4 --jobs 1
-python3.12 -B script/scene_sample_debug_archive.py \
+python3.12 -B script/scene/scene_sample_debug_archive.py \
   --snapshot <本次snapshot.json> --report <本次结果目录/report.json> \
   --output <本次archive.json>
 ```

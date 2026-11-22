@@ -789,7 +789,7 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
         environment.update(HOME=str(cls.home), CFFIXED_USER_HOME=str(cls.home))
         cls.environment = environment
         cls.proof = Path(os.environ["MWX_INDEPENDENT_SIGNAL_PROOF"]) if os.environ.get("MWX_INDEPENDENT_SIGNAL_PROOF") else None
-        cls.inputs = [*SWIFT_SOURCES, harness, identity_resource, Path(__file__), REPOSITORY_ROOT / "script/scene_swift_source_sets.py"]
+        cls.inputs = [*SWIFT_SOURCES, harness, identity_resource, Path(__file__), REPOSITORY_ROOT / "script/scene/scene_swift_source_sets.py"]
         cls.before = cls.input_identities()
         cls.record("inputs-before.json", cls.before)
         started = time.monotonic()

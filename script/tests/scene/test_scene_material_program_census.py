@@ -14,7 +14,7 @@ from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-SCRIPT_PATH = REPOSITORY_ROOT / "script/scene_material_program_census.py"
+SCRIPT_PATH = REPOSITORY_ROOT / "script/scene/scene_material_program_census.py"
 SPEC = importlib.util.spec_from_file_location("scene_material_program_census", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 CENSUS = importlib.util.module_from_spec(SPEC)

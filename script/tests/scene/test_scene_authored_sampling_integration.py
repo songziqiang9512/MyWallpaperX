@@ -18,12 +18,12 @@ import tempfile
 import unittest
 import zlib
 
-from script.web_benchmark_capture import png_rgb_pixels
-from script.scene_wallpaper_graph_output_metrics import (
+from script.web.web_benchmark_capture import png_rgb_pixels
+from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 from script.tests.support.scene_pkg_fixture import make_package
-from .fixtures.scene_timeline_combined_cases import linked_effect_constants
+from script.tests.fixtures.scene_timeline_combined_cases import linked_effect_constants
 
 CANVAS = (256, 192)
 COLORS = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0))

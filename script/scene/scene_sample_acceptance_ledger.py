@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
@@ -662,7 +662,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
     lines = [
         "# Scene 样本验收台账",
         "",
-        "> 本次输入归档与人工裁决的投影，由 `script/scene_sample_acceptance_ledger.py` 生成；"
+        "> 本次输入归档与人工裁决的投影，由 `script/scene/scene_sample_acceptance_ledger.py` 生成；"
         "视觉裁决只来自 `script/data/scene_sample_acceptance_verdicts.json` 的人工记录，不要手工编辑本页。",
         ">",
         f"> 最终验收门：{ledger['finalGate']}。",

@@ -22,8 +22,8 @@ import zlib
 from script.tests.scene import test_scene_reflection_history_integration as app_runner
 from script.tests.scene.test_scene_static_model_reader import build_model
 from script.tests.scene.test_scene_static_model_parts import join_parts
-from script.web_benchmark_capture import png_rgb_pixels
-from script.scene_wallpaper_graph_output_metrics import (
+from script.web.web_benchmark_capture import png_rgb_pixels
+from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 

@@ -15,7 +15,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.scene_wallpaper_graph_output_metrics import (
+from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 from script.tests.scene.test_scene_hidden_provider_integration import fixture_entries as hidden_fixture
