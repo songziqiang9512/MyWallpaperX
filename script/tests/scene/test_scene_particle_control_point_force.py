@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES as SIMULATOR_SOURCES
-from script.tests.test_scene_solid_layers import SWIFT_SOURCES as DOCUMENT_SOURCES, HARNESS_SOURCE as DOCUMENT_CARRIER
+from script.tests.scene.test_scene_solid_layers import SWIFT_SOURCES as DOCUMENT_SOURCES, HARNESS_SOURCE as DOCUMENT_CARRIER
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = Path(__file__).resolve().parents[3] / "fixtures/SceneParticleControlPointForceHarness.swift"

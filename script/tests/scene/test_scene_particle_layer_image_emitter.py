@@ -35,8 +35,8 @@ MAP_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
 ]
 
-from script.tests import test_scene_solid_layers as descriptor_fixture
-from script.tests import test_scene_bc_texture_uploader as upload_fixture
+from script.tests.scene import test_scene_solid_layers as descriptor_fixture
+from script.tests.scene import test_scene_bc_texture_uploader as upload_fixture
 from script.tests.support.scene_particle_runtime_configuration_cases import (
     NO_TIMESTAMP_OBSERVATION_SUPPORT, _declaration,
 )

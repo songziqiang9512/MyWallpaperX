@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_property_live_update_state import SWIFT_SOURCES, SOURCE_ROOT
+from script.tests.scene.test_scene_property_live_update_state import SWIFT_SOURCES, SOURCE_ROOT
 
 WIDTH_SOURCES = [*SWIFT_SOURCES, SOURCE_ROOT / "Systems/Properties/SceneUserPropertyDefinitionParser.swift"]
 

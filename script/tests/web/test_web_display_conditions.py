@@ -337,7 +337,7 @@ class SceneDisplayConditionProjectionTests(unittest.TestCase):
         swiftc = shutil.which("swiftc")
         if swiftc is None:
             raise unittest.SkipTest("swiftc is unavailable")
-        from script.tests.test_scene_property_live_routing import method_body
+        from script.tests.scene.test_scene_property_live_routing import method_body
 
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-condition-")
         directory = Path(cls.temporary_directory.name)

@@ -14,9 +14,9 @@ import shutil
 import tempfile
 import unittest
 
-from script.tests import test_scene_named_model_shadow as named
-from script.tests import test_scene_texture_candidate as textures
-from script.tests.test_scene_directional_shadow import run_swift
+from script.tests.scene import test_scene_named_model_shadow as named
+from script.tests.scene import test_scene_texture_candidate as textures
+from script.tests.scene.test_scene_directional_shadow import run_swift
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

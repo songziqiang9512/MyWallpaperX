@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_color_blend_capture_region as shared
+from script.tests.scene import test_scene_color_blend_capture_region as shared
 
 
 ADDITIVE_HARNESS = r'''

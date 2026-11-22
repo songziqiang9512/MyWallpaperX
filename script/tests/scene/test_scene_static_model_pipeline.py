@@ -117,7 +117,7 @@ struct SceneRenderDescriptor {
 
 class SceneStaticModelPipelineTests(unittest.TestCase):
     def test_reader_geometry_upload_preserves_gpu_bytes_tight_bounds_and_index_width(self) -> None:
-        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_directional_shadow import run_swift
         from script.tests.scene.test_scene_static_model_reader import DEFAULT_VERTICES, build_model
 
         sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES,
@@ -173,7 +173,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     self.assertTrue(row[check], row)
 
     def test_shared_sampler_preserves_nearest_address_and_mips_with_anisotropic_quality(self) -> None:
-        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_directional_shadow import run_swift
 
         # The owned mip colors identify the selected level independently of
         # Saturn. A 16:1 footprint has a fine red gradient along its short axis;
@@ -307,7 +307,7 @@ import Metal
                 self.assertEqual(result[f"between-{flags}"][2:], [0, 255])
 
     def test_real_draw_uploads_only_static_model_point_count(self) -> None:
-        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_directional_shadow import run_swift
 
         with tempfile.TemporaryDirectory(prefix="mwx-model-light-count-") as tmp:
             probe_shader = Path(tmp) / "LightCounts.metal"
@@ -336,7 +336,7 @@ fragment half4 sceneStaticModelFragment(
             self.assertEqual(report["counts"], [[0, count, 0] for count in range(5)])
 
     def test_hdr_brightness_requires_finite_value_only_when_consumed(self) -> None:
-        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_directional_shadow import run_swift
         from script.tests.scene.test_scene_static_model_emission import PIXEL_MAIN
 
         variants = [("off-one", False, 1, True), ("off-wide", False, 1e300, True),

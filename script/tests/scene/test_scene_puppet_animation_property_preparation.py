@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_property_live_update_state import SWIFT_SOURCES as PROPERTY_SOURCES
+from script.tests.scene.test_scene_property_live_update_state import SWIFT_SOURCES as PROPERTY_SOURCES
 from script.tests.scene.test_scene_puppet_playback import SCENE_ROOT, SWIFT_SOURCES as PUPPET_SOURCES
 
 EXTRA = [

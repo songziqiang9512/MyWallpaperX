@@ -7,7 +7,7 @@ Root's frozen App gate owns final FrameOutcome/host propagation validation.
 from pathlib import Path
 import unittest
 
-from script.tests import test_scene_directional_shadow_frame_owner as frame
+from script.tests.scene import test_scene_directional_shadow_frame_owner as frame
 
 MAIN = (Path(__file__).with_name('fixtures') / 'SceneStaticModelDepthPendingChecks.swift').read_text()
 

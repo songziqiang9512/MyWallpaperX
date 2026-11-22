@@ -21,15 +21,15 @@ import tempfile
 import unittest
 
 from script.tests.scene import test_scene_static_model_reader as reader
-from script.tests import test_scene_directional_shadow_frame_owner as frame
-from script.tests import test_scene_directional_shadow as native
-from script.tests import test_scene_alpha_display_builder_fixture as builder
+from script.tests.scene import test_scene_directional_shadow_frame_owner as frame
+from script.tests.scene import test_scene_directional_shadow as native
+from script.tests.scene import test_scene_alpha_display_builder_fixture as builder
 from script.tests.scene import test_scene_puppet_playback as puppet
 from script.tests.scene import test_scene_puppet_animation as animation
 from script.tests.scene import test_scene_puppet_mesh as puppet_mesh
-from script.tests.test_scene_direct_model_bind_geometry import build_bind_model
-from script.tests.test_scene_directional_shadow_integration import png, quad, make_package
-from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.scene.test_scene_direct_model_bind_geometry import build_bind_model
+from script.tests.scene.test_scene_directional_shadow_integration import png, quad, make_package
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 REPO = Path(__file__).resolve().parents[3]
 SCENE = REPO/'MyWallpaperX/Core/SteamWorkshopScene'
@@ -919,7 +919,7 @@ class SceneModelPartsAppTests(unittest.TestCase):
         if parent:Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='model-parts-app-',dir=parent))
         cls.protocol={'app':{str(p):sha(p) for p in cls.binaries},'buildReceipt':cls.buildReceipt,
-            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',REPO/'script/tests/support/scene_pkg_fixture.py']},'cases':{}}
+            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/scene/test_scene_directional_shadow_integration.py',REPO/'script/tests/support/scene_pkg_fixture.py']},'cases':{}}
         cls.runs={}
         for name,count,cast in [('five-on',5,True),('five-off',5,False),('eight',8,False)]:
             scene,entries,oracle=app_fixture(count,cast)

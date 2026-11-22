@@ -10,8 +10,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from script.tests import test_scene_offscreen_texture_pool as pool_support
-from script.tests.test_scene_directional_shadow import run_swift
+from script.tests.scene import test_scene_offscreen_texture_pool as pool_support
+from script.tests.scene.test_scene_directional_shadow import run_swift
 
 
 FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "scene_graph_allocation_recovery.swift"

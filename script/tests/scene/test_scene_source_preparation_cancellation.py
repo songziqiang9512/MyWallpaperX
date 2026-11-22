@@ -19,8 +19,8 @@ import tempfile
 import unittest
 
 from script.tests.scene import test_scene_static_model_parts as parts
-from script.tests import test_scene_persistent_cache_behavior as cache
-from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.scene import test_scene_persistent_cache_behavior as cache
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 REPO = Path(__file__).resolve().parents[3]

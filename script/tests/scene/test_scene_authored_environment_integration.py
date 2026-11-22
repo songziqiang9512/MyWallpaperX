@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_reflection_history_integration as reflection
+from script.tests.scene import test_scene_reflection_history_integration as reflection
 
 
 def fixture_entries(slot: int, shader_default: bool, with_f5: bool = False) -> dict[str, bytes]:

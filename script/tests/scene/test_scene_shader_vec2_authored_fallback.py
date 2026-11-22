@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_property_binding_program as property_fixture
+from script.tests.scene import test_scene_property_binding_program as property_fixture
 from script.tests.scene import test_scene_resolved_material_program_finalizer as material_fixture
 
 ROOT = Path(__file__).resolve().parents[3]

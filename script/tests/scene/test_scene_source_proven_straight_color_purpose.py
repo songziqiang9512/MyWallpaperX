@@ -17,7 +17,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 BASE = runpy.run_path(
-    str(REPOSITORY_ROOT / "script/tests/test_scene_sampler_default_purpose.py")
+    str(REPOSITORY_ROOT / "script/tests/scene/test_scene_sampler_default_purpose.py")
 )
 SWIFT_SOURCES = BASE["SWIFT_SOURCES"]
 SUPPORT = BASE["SUPPORT"]

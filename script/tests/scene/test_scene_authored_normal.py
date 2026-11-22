@@ -6,8 +6,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from script.tests import test_scene_texture_candidate as texture_fixture
-from script.tests.test_scene_lit_image_layer import ROOT, SCENE
+from script.tests.scene import test_scene_texture_candidate as texture_fixture
+from script.tests.scene.test_scene_lit_image_layer import ROOT, SCENE
 
 def pbr_expected(normal=(0,0,1), light=(100,0,100), view=(0,0,1), *,
                  metallic=.5, roughness=.5, albedo=128, intensity=1.5, radius=1000):

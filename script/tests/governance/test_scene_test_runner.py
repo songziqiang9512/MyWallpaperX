@@ -157,7 +157,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         self.assertEqual(
             runner.discover_modules(AVAILABLE_MODULES),
             [
-                "script.tests.test_scene_audio_spectrum_input",
+                "script.tests.scene.test_scene_audio_spectrum_input",
                 "script.tests.scene.test_scene_particle_runtime",
                 "script.tests.ui.test_system_audio_spectrum",
                 "script.tests.web.test_web_runtime_switch_benchmark",
@@ -168,7 +168,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         self.assertEqual(
             runner.discover_modules(AVAILABLE_MODULES, scope="scene"),
             [
-                "script.tests.test_scene_audio_spectrum_input",
+                "script.tests.scene.test_scene_audio_spectrum_input",
                 "script.tests.scene.test_scene_particle_runtime",
             ],
         )
@@ -213,7 +213,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 ],
             ),
             [
-                "script.tests.test_scene_audio_spectrum_input",
+                "script.tests.scene.test_scene_audio_spectrum_input",
                 "script.tests.ui.test_system_audio_spectrum",
             ],
         )

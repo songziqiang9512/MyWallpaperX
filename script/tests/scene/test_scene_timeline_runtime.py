@@ -1,0 +1,1000 @@
+#!/usr/bin/env python3
+"""Timeline 每帧值产出门。
+
+覆盖 host 每帧要做的两件事：把 Timeline definition 并进 property definitions，
+以及按绝对 scene time 求出该帧的全部 Timeline 值。
+
+`SceneDynamicSnapshotResolver` 对不在 definitions 里的 target 判 `unknownTarget`
+丢弃，对重复 definition 判 `duplicateDefinition` 把该 target 整个丢掉——两条都会
+让 Timeline 静默失效，所以这里直接用真实 resolver 走完整条链路来断言。
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, mixed_combined_scenes
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    (Path(__file__).resolve().parents[1] / "fixtures") / "SceneTimelineCombinedPlaybackChecks.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
+    Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+    SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
+    SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
+    SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocument+General.swift",
+    SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+    SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
+    SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
+    SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
+    SOURCE_ROOT / "Format/ScenePointLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneTubeLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
+    SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContract.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
+]
+
+
+def keyframe(frame, value):
+    return {
+        "back": {"enabled": True, "x": -1, "y": 0},
+        "frame": frame,
+        "front": {"enabled": True, "x": 1, "y": 0},
+        "lockangle": True,
+        "locklength": True,
+        "value": value,
+    }
+
+
+SCENE_FIXTURE = {
+    "version": 3,
+    "general": {"orthogonalprojection": {"width": 1280, "height": 720}},
+    "objects": [
+        {
+            "id": 10,
+            "name": "Loop alpha",
+            "image": "models/user/a.json",
+            "size": "100 100",
+            "alpha": {
+                "value": 0.25,
+                "animation": {
+                    "c0": [keyframe(0, 0), keyframe(30, 1)],
+                    "options": {
+                        "fps": 30,
+                        "length": 60,
+                        "mode": "loop",
+                        "wraploop": True,
+                    },
+                },
+            },
+        },
+        {
+            "id": 20,
+            "name": "Effect constant",
+            "image": "models/user/b.json",
+            "size": "100 100",
+            "effects": [
+                {
+                    "file": "effects/pulse/effect.json",
+                    "passes": [
+                        {
+                            "constantshadervalues": {
+                                "multiply": {
+                                    "value": 1,
+                                    "animation": {
+                                        "c0": [keyframe(0, 1), keyframe(15, 0)],
+                                        "options": {
+                                            "fps": 15,
+                                            "length": 15,
+                                            "mode": "single",
+                                        },
+                                    },
+                                },
+                                "neutralVector": {
+                                    "value": "0.2 0.4 0.6",
+                                    "animation": {
+                                        "c0": [keyframe(0, 0.2), keyframe(15, 0.8)],
+                                        "c1": [keyframe(0, 0.4), keyframe(15, 0.1)],
+                                        "c2": [keyframe(0, 0.6), keyframe(15, 0.3)],
+                                        "options": {
+                                            "fps": 15,
+                                            "length": 15,
+                                            "mode": "single",
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    ],
+                }
+            ],
+        },
+        {
+            "id": 30,
+            "name": "Start paused",
+            "image": "models/user/c.json",
+            "size": "100 100",
+            "alpha": {
+                "value": 1,
+                "animation": {
+                    "c0": [keyframe(0, 1), keyframe(60, 0)],
+                    "options": {
+                        "fps": 30,
+                        "length": 60,
+                        "mode": "single",
+                        "startpaused": True,
+                    },
+                },
+            },
+        },
+        {
+            "id": 40,
+            "name": "Relative angles",
+            "image": "models/user/d.json",
+            "size": "100 100",
+            "angles": {
+                "value": "0.5 1.5 2.5",
+                "animation": {
+                    "c0": [keyframe(0, 0), keyframe(60, 1)],
+                    "c1": [keyframe(0, 0), keyframe(60, 2)],
+                    "c2": [keyframe(0, 0), keyframe(60, 3)],
+                    "options": {"fps": 30, "length": 60, "mode": "loop"},
+                    "relative": True,
+                },
+            },
+        },
+        {
+            "id": 50,
+            "name": "Combined camera path",
+            "camera": "default",
+            "path": "scripts/camera_path.json",
+            "queuemode": "sequential",
+            "origin": {
+                "value": "0 0 500",
+                "animation": {
+                    "c0": [keyframe(0, -100), keyframe(180, 0)],
+                    "c1": [keyframe(0, 682), keyframe(180, 0)],
+                    "c2": [keyframe(0, 0), keyframe(180, 0)],
+                    "options": {
+                        "fps": 30,
+                        "length": 180,
+                        "mode": "single",
+                        "children": [{"key": "zoom"}],
+                    },
+                    "relative": True,
+                },
+            },
+            "zoom": {
+                "value": 1,
+                "animation": {
+                    "c0": [keyframe(0, 2.4), keyframe(180, 1)],
+                    # 故意给 child 一套不同 clock；Combined 必须使用 owner clock。
+                    "options": {
+                        "fps": 5,
+                        "length": 5,
+                        "mode": "loop",
+                        "parent": {"key": "origin"},
+                    },
+                },
+            },
+        },
+    ],
+}
+for layer_index, host in ((0, "alpha"), (3, "angles"), (4, "origin")):
+    SCENE_FIXTURE["objects"][layer_index][host]["animation"]["options"]["events"] = [{"frame": 10, "name": "raw"}]
+
+
+def general_bloom_fixtures():
+    def scene(layer_id=71, name="Beacon", key="glow", numeric=float):
+        animation = {
+            "c0": [keyframe(numeric(0), 0), keyframe(numeric(40), 1.36),
+                   keyframe(numeric(90), 0)],
+            "options": {"fps": numeric(30), "length": numeric(150),
+                        "mode": "loop", "wraploop": True, "name": name},
+        }
+        return {
+            "version": 3,
+            "general": {"hdr": False, "bloom": True,
+                        "bloomstrength": {"user": key, "value": 0.35,
+                                          "animation": animation}},
+            "objects": [{"id": layer_id, "name": name, "image": f"models/user/{name}.json",
+                         "size": "100 100", "alpha": {
+                             "value": 0.25, "animation": {
+                                 "c0": [keyframe(0, 0.25), keyframe(30, 0.75)],
+                                 "options": {"fps": 30, "length": 30, "mode": "single"}}}}],
+        }
+    base = scene(numeric=int)
+    cases = {"loop": base, "renamed": scene(803, "Afterimage", "alternate_gain")}
+    for label in ("hdr", "relative", "combined", "lanes", "wrap", "malformed",
+                  "script", "script_false", "script_null"):
+        cases[label] = copy.deepcopy(base)
+    cases["hdr"]["general"]["hdr"] = True
+    wrapper = lambda label: cases[label]["general"]["bloomstrength"]
+    wrapper("relative")["animation"]["relative"] = True
+    wrapper("combined")["animation"]["options"]["parent"] = {"key": "alpha"}
+    wrapper("lanes")["animation"]["c1"] = [keyframe(0, 0), keyframe(40, 1)]
+    wrapper("wrap")["animation"]["options"]["mode"] = "single"
+    wrapper("malformed")["animation"]["options"]["fps"] = 0
+    wrapper("script")["script"] = "export function update(value) { return value; }"
+    wrapper("script_false")["script"] = False
+    wrapper("script_null")["script"] = None
+    return cases
+
+
+HARNESS_SOURCE = r'''
+import Foundation
+enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
+
+enum SceneTextGeometry {
+    static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
+}
+struct SceneProject {
+    let rootURL: URL
+    let entryPath: String
+    let userProperties: SceneUserPropertyCatalog
+    var entryURL: URL { rootURL.appendingPathComponent(entryPath) }
+}
+struct SceneMdlPuppetAttachment {
+    let name: String
+    let isNamedBinding = true
+    let sceneBindFrameColumnMajor: [Float]
+}
+struct SceneAssetCatalog {
+    struct ModelAsset {
+        var declaredSizeWH: [Float]? { nil }
+        var passthrough: Bool? = nil
+        let relativePath: String
+        let materialPath: String?
+        let cropOffsetXY: [Float]?
+        let isSolidLayer: Bool
+        let puppetPath: String?
+        let puppetAttachments: [SceneMdlPuppetAttachment]
+    }
+    struct MaterialAsset {
+        struct Pass {
+            let shader: String?
+            let textures: [String]
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+            let userShaderValues: [String: String]
+            let blending: String?
+            let depthTest: String?
+            let depthWrite: String?
+            let cullMode: String?
+            let alphaWriting: String?
+        }
+        let relativePath: String
+        let rawSHA256: String
+        let shaderPathIndependentSHA256: String
+        let passes: [Pass]
+    }
+    let models: [ModelAsset]
+    let materials: [MaterialAsset]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+    let shaderReferences: [String]
+    var shaderContracts: [SceneShaderContract] { [] }
+    let textureReferences: [String]
+}
+struct SceneResourceReferenceIndex {
+    let missingReferences: [String]
+    let builtInReferenceCount: Int
+    let runtimeProvidedReferenceCount: Int
+}
+struct SceneCapabilityProfile { let firstStageRendererGaps: [String] }
+
+enum HarnessError: Error { case missingFixture, descriptorRejected }
+
+@main
+enum Harness {
+    static func generalChecks(
+        _ document: SceneDocument, _ descriptor: SceneRenderDescriptor,
+        _ program: SceneTimelineProgram
+    ) throws -> [String: Any] {
+        let target = SceneDynamicTarget.scene(.bloomStrength)
+        let healthy = SceneDynamicTarget.layer(layerID: descriptor.layers[0].id, field: .alpha)
+        let bloomBindings = program.bindings.filter { $0.target == target }
+        var result: [String: Any] = [
+            "parsedIR": document.general.timelines?.count ?? 0,
+            "preparedIR": descriptor.generalTimelines?.count ?? 0,
+            "irPreserved": document.general.timelines == descriptor.generalTimelines,
+            "parseDiagnostics": document.general.timelineDiagnostics ?? [],
+            "preparedDiagnostics": descriptor.generalTimelineDiagnostics ?? [],
+            "diagnostics": program.diagnostics,
+            "hasScript": document.general.timelines?.first?.hasScript ?? false,
+            "bloomBindings": bloomBindings.count,
+            "healthyLayerSurvives": SceneTimelineRuntime.values(
+                program: program, sceneTime: 40.0 / 30
+            )[healthy] != nil,
+            "currentStrength": Double(descriptor.camera.bloom.strength),
+            "isHDRConsumer": descriptor.camera.bloom.hdr != nil,
+        ]
+        var boundaryTransaction = SceneEvaluationTransaction()
+        let boundary = boundaryTransaction.evaluate(
+            frameIndex: 0,
+            definitions: SceneTimelineRuntime.mergedDefinitions(
+                propertyDefinitions: [], timelineProgram: program
+            ),
+            timelineValues: SceneTimelineRuntime.values(program: program, sceneTime: 40.0 / 30)
+        )
+        result["generalPublicationPresent"] = boundary.snapshot[target] != nil
+        result["fallbackStrength"] = Double(
+            descriptor.camera.bloom.resolving(boundary.snapshot).strength
+        )
+        guard let binding = bloomBindings.first else { return result }
+        guard case let .scalar(seed) = binding.definition.authoredValue else {
+            throw HarnessError.descriptorRejected
+        }
+        result["rawBindingSeed"] = seed
+        result["rawIRSeed"] = Double(document.general.timelines![0].authoredValue)
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: [binding.definition], timelineProgram: program
+        )
+        result["sharedDefinitionCount"] = definitions.filter { $0.target == target }.count
+        let index = SceneDynamicSnapshotResolver.prepare(definitions: definitions)
+        let playback = SceneTimelinePlaybackRuntime(program: program)
+        var transaction = SceneEvaluationTransaction()
+        var frame: UInt64 = 0
+        var allTimeline = true
+        func sample(_ time: Double) -> Double {
+            let resolution = transaction.evaluate(
+                frameIndex: frame, index: index, userValues: [target: .scalar(0.9)],
+                timelineValues: playback.values(sceneTime: time)
+            )
+            frame += 1
+            allTimeline = allTimeline && resolution.diagnostics.isEmpty
+                && resolution.snapshot[target]?.source == .timeline
+                && resolution.snapshot[healthy]?.source == .timeline
+            return Double(descriptor.camera.bloom.resolving(resolution.snapshot).strength)
+        }
+        let peakTime = 40.0 / 30
+        var samples = [sample(0), sample(peakTime), sample(5 + peakTime)]
+        try playback.apply([.init(target: target, command: .pause)],
+                           sceneTime: 5 + peakTime).get()
+        samples.append(sample(8))
+        let committed = transaction.committedSnapshot!
+        var canceledValues = playback.values(sceneTime: 9)
+        canceledValues.merge(try playback.preview(
+            [.init(target: target, command: .stop)], sceneTime: 9
+        ).get()) { _, value in value }
+        let canceled = transaction.prepare(
+            frameIndex: frame, index: index, userValues: [target: .scalar(0.9)],
+            timelineValues: canceledValues
+        )
+        result["pendingStopValue"] = Double(
+            descriptor.camera.bloom.resolving(canceled.snapshot).strength
+        )
+        result["discardPreservesPublication"] = transaction.committedSnapshot == committed
+        samples.append(sample(9))
+        try playback.apply([.init(target: target, command: .stop)], sceneTime: 10).get()
+        samples.append(sample(11))
+        try playback.apply([.init(target: target, command: .play)], sceneTime: 12).get()
+        samples.append(sample(12 + peakTime))
+        result["samples"] = samples
+        result["allSamplesUseTimeline"] = allTimeline
+        return result
+    }
+
+    static func main() throws {
+        guard (2...3).contains(CommandLine.arguments.count) else { throw HarnessError.missingFixture }
+        let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        let isGeneral = CommandLine.arguments.last == "general"
+        var catalog = SceneUserPropertyCatalog.empty
+        if isGeneral {
+            let projectURL = sceneURL.deletingLastPathComponent().appendingPathComponent("project.json")
+            let root = try JSONSerialization.jsonObject(with: Data(contentsOf: projectURL))
+            catalog = SceneUserPropertyDefinitionParser().parse(projectRoot: root as! [String: Any])
+        }
+        let overrides = Dictionary(uniqueKeysWithValues: catalog.definitions.map {
+            ($0.key, SceneUserPropertyValue.number(0.9))
+        })
+        let document = try SceneDocumentLoader().load(
+            from: sceneURL, propertyCatalog: catalog, propertyOverrides: overrides
+        )
+        guard let descriptor = SceneRenderDescriptorBuilder().build(
+            project: SceneProject(
+                rootURL: sceneURL.deletingLastPathComponent(),
+                entryPath: sceneURL.lastPathComponent,
+                userProperties: catalog
+            ),
+            sceneDocument: document,
+            assetCatalog: SceneAssetCatalog(
+                models: [], materials: [], effectDefinitions: [],
+                effectDefinitionDiagnostics: [], shaderReferences: [], textureReferences: []
+            ),
+            resourceReferences: SceneResourceReferenceIndex(
+                missingReferences: [], builtInReferenceCount: 0,
+                runtimeProvidedReferenceCount: 0
+            ),
+            capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
+        ) else {
+            throw HarnessError.descriptorRejected
+        }
+        let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+        if ["combined", "mixed"].contains(CommandLine.arguments.last ?? "") {
+            var result: [String: Any]
+            if CommandLine.arguments.last == "mixed" {
+                result = try SceneTimelineCombinedPlaybackChecks.mixed(program, descriptor: descriptor)
+            } else { result = try SceneTimelineCombinedPlaybackChecks.run(program) }
+            result["responseOptions"] = program.bindings.filter { $0.playbackOwner != nil }.map {
+                binding -> [Any] in
+                [binding.animation.options.smoothing.map { $0 as Any } ?? NSNull(),
+                 binding.animation.options.stiffness.map { $0 as Any } ?? NSNull()]
+            }
+            result["diagnostics"] = program.diagnostics
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result,
+                options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
+        if isGeneral {
+            var result = try generalChecks(document, descriptor, program)
+            if case let .number(value)? = catalog.defaultValues.values.first {
+                result["catalogDefault"] = value
+            }
+            print(String(decoding: try JSONSerialization.data(
+                withJSONObject: result, options: [.sortedKeys]
+            ), as: UTF8.self))
+            return
+        }
+
+        // 模拟 host：一个已有的 property definition 与 layer 10 的 alpha 撞 target。
+        let sharedTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let propertyDefinitions = [
+            SceneDynamicTargetDefinition(
+                target: sharedTarget, valueType: .scalar, authoredValue: .scalar(0.25)
+            ),
+        ]
+        let merged = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: propertyDefinitions, timelineProgram: program
+        )
+
+        var payload: [String: Any] = [
+            "definitionCount": merged.count,
+            "sharedTargetDefinitionCount": merged.filter { $0.target == sharedTarget }.count,
+            "bindingCount": program.bindings.count,
+            "absentGeneralTimelineIR": document.general.timelines == nil
+                && descriptor.generalTimelines == nil,
+        ]
+
+        // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
+        var samples: [String: Any] = [:]
+        var transaction = SceneEvaluationTransaction()
+        for (frameIndex, sample) in [
+            ("t0", 0.0), ("half", 1.0), ("closing", 1.5), ("late", 5.0),
+            ("lateAgain", 5.0),
+        ].enumerated() {
+            let (label, seconds) = sample
+            let values = SceneTimelineRuntime.values(program: program, sceneTime: seconds)
+            let resolution = transaction.evaluate(
+                frameIndex: UInt64(frameIndex),
+                definitions: merged,
+                userValues: [sharedTarget: .scalar(0.25)],
+                timelineValues: values
+            )
+            var entry: [String: Any] = [
+                "diagnostics": resolution.diagnostics.map { $0.code.rawValue },
+                "generation": resolution.snapshot.generation,
+            ]
+            for (name, target) in [
+                ("layer10Alpha", sharedTarget),
+                ("layer30Alpha", SceneDynamicTarget.layer(layerID: 30, field: .alpha)),
+                ("constant", SceneDynamicTarget.effectConstant(
+                    layerID: 20, effectIndex: 0, passIndex: 0, name: "multiply"
+                )),
+            ] {
+                if let resolved = resolution.snapshot[target],
+                   case let .scalar(v) = resolved.value {
+                    entry[name] = ["value": v, "source": resolved.source.rawValue]
+                }
+            }
+            let relativeTarget = SceneDynamicTarget.layer(layerID: 40, field: .angles)
+            if let resolved = resolution.snapshot[relativeTarget],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["relativeAngles"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
+            let effectVectorTarget = SceneDynamicTarget.effectConstant(
+                layerID: 20, effectIndex: 0, passIndex: 0, name: "neutralVector"
+            )
+            if let resolved = resolution.snapshot[effectVectorTarget],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["effectVector"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
+            if let resolved = resolution.snapshot[.camera(.origin)],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["cameraOrigin"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
+            if let resolved = resolution.snapshot[.camera(.zoom)],
+               case let .scalar(value) = resolved.value {
+                entry["cameraZoom"] = [
+                    "value": value, "source": resolved.source.rawValue,
+                ]
+            }
+            samples[label] = entry
+        }
+        payload["samples"] = samples
+        let camera = try SceneTimelineCombinedPlaybackChecks.camera(program)
+        payload["cameraPlayback"] = camera.facts
+        payload["cameraSeekSnapshot"] = camera.seekSnapshot
+        payload["eventScope"] = SceneTimelineCombinedPlaybackChecks.unsupportedEventScope(program)
+
+        let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
+        let playback = SceneTimelinePlaybackRuntime(program: program)
+        func playbackScalar(_ time: Double, _ target: SceneDynamicTarget) -> Double? {
+            guard case let .scalar(value)? = playback.values(sceneTime: time)[target]
+            else { return nil }
+            return value
+        }
+        var playbackPayload: [String: Any] = [
+            "paused": playbackScalar(5, pausedTarget) ?? -1,
+            "autoplay": playbackScalar(1, sharedTarget) ?? -1,
+        ]
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .play)],
+            sceneTime: 5
+        )
+        let observationState = playback.observationSnapshot()
+        _ = playback.sample(sceneTime: 5.5)
+        let observationConsumed = playback.observationSnapshot()
+        playback.restoreObservationState(observationState)
+        let observationRestored = playback.observationSnapshot()
+        playbackPayload["observationChanged"] = observationState != observationConsumed
+        playbackPayload["observationRestored"] = observationState == observationRestored
+        playbackPayload["played"] = playbackScalar(6, pausedTarget) ?? -1
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .pause)],
+            sceneTime: 6
+        )
+        playbackPayload["held"] = playbackScalar(9, pausedTarget) ?? -1
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .stop)],
+            sceneTime: 9
+        )
+        playbackPayload["stopped"] = playbackScalar(10, pausedTarget) ?? -1
+        let invalidTarget = SceneDynamicTarget.layer(layerID: 999, field: .alpha)
+        let atomic = playback.apply([
+            .init(target: pausedTarget, command: .play),
+            .init(target: invalidTarget, command: .pause),
+        ], sceneTime: 10)
+        if case .failure = atomic {
+            playbackPayload["atomicRejected"] = true
+        } else {
+            playbackPayload["atomicRejected"] = false
+        }
+        playbackPayload["afterRejected"] = playbackScalar(11, pausedTarget) ?? -1
+        payload["playback"] = playbackPayload
+
+        let replay = SceneTimelinePlaybackRuntime(program: program)
+        func replayScalar(_ time: Double) -> Double {
+            guard case let .scalar(value)? = replay.values(sceneTime: time)[pausedTarget]
+            else { return -1 }
+            return value
+        }
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 2)
+        let completed = replayScalar(4)
+        let replayPreview = replay.preview([.init(target: pausedTarget, command: .play)], sceneTime: 9)
+        let beforeCommit = replayScalar(9)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 9)
+        let restarted = replayScalar(9)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 9.5)
+        let playingIsNotRewound = replayScalar(10)
+        _ = replay.apply([.init(target: pausedTarget, command: .play)], sceneTime: 15)
+        payload["singleReplay"] = [
+            "completed": completed,
+            "preview": String(describing: try! replayPreview.get()[pausedTarget]!),
+            "beforeCommit": beforeCommit,
+            "restarted": restarted,
+            "playingIsNotRewound": playingIsNotRewound,
+            "secondRestart": replayScalar(15),
+            "secondMidpoint": replayScalar(16),
+        ]
+        let constantTarget = SceneDynamicTarget.effectConstant(
+            layerID: 20, effectIndex: 0, passIndex: 0, name: "multiply"
+        )
+        let previewRuntime = SceneTimelinePlaybackRuntime(program: program)
+        let beforePreview = previewRuntime.values(sceneTime: 2)
+        let beforeObservation = previewRuntime.observationSnapshot()
+        let restart: [SceneTimelinePlaybackMutation] = [
+            .init(target: constantTarget, command: .stop),
+            .init(target: constantTarget, command: .play),
+        ]
+        let projected = try previewRuntime.preview(restart, sceneTime: 2).get()
+        let repeated = try previewRuntime.preview(restart, sceneTime: 2).get()
+        let failedPreview = previewRuntime.preview(restart + [
+            .init(target: invalidTarget, command: .pause),
+        ], sceneTime: 2)
+        let invalidTime = previewRuntime.preview(restart, sceneTime: .nan)
+        let emptyPreview = try previewRuntime.preview([], sceneTime: 2).get()
+        let afterPreviewObservation = previewRuntime.observationSnapshot()
+        let afterPreview = previewRuntime.values(sceneTime: 2)
+        let stoppedRuntime = SceneTimelinePlaybackRuntime(program: program)
+        _ = stoppedRuntime.apply(Array(restart.reversed()), sceneTime: 2)
+        _ = previewRuntime.apply(restart, sceneTime: 2)
+        let committedObservation = previewRuntime.observationSnapshot()
+        _ = try previewRuntime.preview([
+            .init(target: constantTarget, command: .pause),
+        ], sceneTime: 2.5).get()
+        let observationsPreserved = committedObservation == previewRuntime.observationSnapshot()
+        let continued = previewRuntime.values(sceneTime: 2.5)
+        let stopped = stoppedRuntime.values(sceneTime: 2.5)
+        payload["preview"] = [
+            "oldValue": String(describing: beforePreview[constantTarget]!),
+            "eventValue": String(describing: projected[constantTarget]!),
+            "changedTargetsOnly": Set(projected.keys) == [constantTarget],
+            "repeatedStable": projected == repeated,
+            "playbackUnchanged": beforePreview == afterPreview,
+            "observationsUnchanged": beforeObservation == afterPreviewObservation,
+            "failedBatch": failedPreview == .failure(.unknownTarget(invalidTarget)),
+            "invalidTime": invalidTime == .failure(.invalidSceneTime),
+            "empty": emptyPreview.isEmpty,
+            "pendingObservationsPreserved": observationsPreserved,
+            "stopPlayContinues": String(describing: continued[constantTarget]!),
+            "playStopHolds": String(describing: stopped[constantTarget]!),
+        ]
+        print(String(decoding: try JSONSerialization.data(
+            withJSONObject: payload, options: [.sortedKeys]
+        ), as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneTimelineRuntimeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-timeline-runtime-"
+        )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        scene = directory / "scene.json"
+        scene.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
+        binary = directory / "scene-timeline-runtime"
+        cls.binary = binary
+        compilation = subprocess.run(
+            [
+                "swiftc", "-module-cache-path", str(directory / "module-cache"),
+                *(str(source) for source in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary), str(scene)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+        cls.combined_results = []
+        for label, (fixture, response) in accepted_combined_scenes().items():
+            group = fixture["objects"][0]
+            for host in ("origin", "angles", "scale"):
+                group[host]["animation"]["options"]["events"] = (
+                    [{"frame": 20, "name": "end"}, {"frame": 10, "name": "mid"},
+                     {"frame": 20, "name": "same frame"}, {"frame": 20, "name": "end"},
+                     {"frame": 0, "name": "zero"},
+                     {"frame": -1, "name": "negative"}, {"frame": 21, "name": "outside"}]
+                    if group[host]["animation"]["options"].get("children") else
+                    [{"frame": 3, "name": "child raw"}, {"frame": True, "name": "invalid child"}])
+            entry = directory / f"combined-{label}.json"
+            entry.write_text(json.dumps(fixture), encoding="utf-8")
+            result = subprocess.run([str(binary), str(entry), "combined"],
+                                    check=True, capture_output=True, text=True)
+            root = next(key for key in ("origin", "angles")
+                        if group[key]["animation"]["options"].get("children"))
+            cls.combined_results.append((label, group["id"], root, response, json.loads(result.stdout)))
+        cls.general_results = {}
+        for label, fixture in general_bloom_fixtures().items():
+            case = directory / label
+            case.mkdir()
+            entry = case / "scene.json"
+            entry.write_text(json.dumps(fixture), encoding="utf-8")
+            key = fixture["general"]["bloomstrength"]["user"]
+            project = {"general": {"properties": {key: {
+                "type": "slider", "value": 0.6, "min": 0, "max": 2}}}}
+            (case / "project.json").write_text(json.dumps(project), encoding="utf-8")
+            result = subprocess.run(
+                [str(binary), str(entry), "general"], check=True, capture_output=True, text=True
+            )
+            cls.general_results[label] = json.loads(result.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
+        # 七条 binding：既有四条、vector effect constant、camera origin/zoom 原子组。
+        self.assertEqual(self.result["bindingCount"], 7)
+        self.assertTrue(self.result["absentGeneralTimelineIR"])
+        # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
+        self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
+        # 1 条 property + 6 条 timeline 独有
+        self.assertEqual(self.result["definitionCount"], 7)
+
+    def test_resolver_accepts_every_timeline_value(self) -> None:
+        for label in ("t0", "half", "closing", "late", "lateAgain"):
+            with self.subTest(sample=label):
+                self.assertEqual(self.result["samples"][label]["diagnostics"], [])
+
+    def test_timeline_outranks_the_user_property_on_a_shared_target(self) -> None:
+        # 同一 target 上 property 给 0.25，Timeline 在 t=1s（第 30 帧）给峰值 1
+        entry = self.result["samples"]["half"]["layer10Alpha"]
+        self.assertEqual(entry["source"], "timeline")
+        self.assertAlmostEqual(entry["value"], 1.0)
+
+    def test_loop_wraps_while_single_holds_its_final_value(self) -> None:
+        # layer10 前半周期 0→1，后半周期由 wrap 段 1→0；t=1.5s 位于闭合段中点。
+        self.assertAlmostEqual(
+            self.result["samples"]["closing"]["layer10Alpha"]["value"], 0.5
+        )
+        # t=5s 落在第 30 帧，与 t=1s 同相位。
+        self.assertAlmostEqual(
+            self.result["samples"]["late"]["layer10Alpha"]["value"], 1.0
+        )
+        # constant 是 1 秒的 single：t=1s 已到末帧，t=5s 仍保持 0
+        self.assertAlmostEqual(self.result["samples"]["half"]["constant"]["value"], 0.0)
+        self.assertAlmostEqual(self.result["samples"]["late"]["constant"]["value"], 0.0)
+        self.assertAlmostEqual(self.result["samples"]["t0"]["constant"]["value"], 1.0)
+
+    def test_combined_members_share_commands_preview_and_typed_values(self) -> None:
+        base = [[10, 20, 30], [1, 2, 3], [1, 2, 3]]
+        middle = [[11, 22, 33], [3, 5, 7], [1.25, 2.5, 3.75]]
+        end = [[12, 24, 36], [5, 8, 11], [1.5, 3, 4.5]]
+        for label, layer_id, root, response, result in self.combined_results:
+            with self.subTest(variant=label):
+                self.assertEqual(result["samples"], [base, middle, middle, end, base, middle, base])
+                self.assertEqual(result["preview"], base)
+                self.assertEqual(result["ordered"], middle)
+                self.assertEqual(result["reversed"], base)
+                self.assertTrue(all(result["retirement"].values()), result["retirement"])
+                self.assertTrue(all(result["facts"].values()), result["facts"])
+                self.assertEqual(result["responseOptions"], [response] * 3)
+                self.assertEqual([d for d in result["diagnostics"] if ": events[" not in d], [] if response == [None, None]
+                                 else [f"layer {layer_id} {root}: responseOptionsUnmodeled"])
+
+    def test_mixed_groups_compile_and_share_typed_playback(self) -> None:
+        for label, (fixture, expected) in mixed_combined_scenes().items():
+            with self.subTest(variant=label):
+                entry = Path(self.temporary_directory.name) / f"mixed-{label}.json"
+                entry.write_text(json.dumps(fixture), encoding="utf-8")
+                completed = subprocess.run([str(self.binary), str(entry), "mixed"],
+                                           check=True, capture_output=True, text=True)
+                result = json.loads(completed.stdout)
+                for key, value in expected.items():
+                    self.assertEqual(result[key], value, key)
+                self.assertTrue(all(result["facts"].values()), result["facts"])
+
+    def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
+        for label in ("t0", "half", "closing", "late"):
+            with self.subTest(sample=label):
+                entry = self.result["samples"][label]["layer30Alpha"]
+                self.assertAlmostEqual(entry["value"], 1.0)
+                # 仍然由 timeline 提供，只是值恒定——不是回落到 authored
+                self.assertEqual(entry["source"], "timeline")
+
+    def test_playback_runtime_resumes_pauses_stops_and_rejects_atomically(self) -> None:
+        playback = self.result["playback"]
+        self.assertAlmostEqual(playback["paused"], 1.0)
+        self.assertAlmostEqual(playback["autoplay"], 1.0)
+        self.assertAlmostEqual(playback["played"], 0.5)
+        self.assertTrue(playback["observationChanged"])
+        self.assertTrue(playback["observationRestored"])
+
+        self.assertAlmostEqual(playback["held"], 0.5)
+        self.assertAlmostEqual(playback["stopped"], 1.0)
+        self.assertTrue(playback["atomicRejected"])
+        self.assertAlmostEqual(playback["afterRejected"], 1.0)
+
+    def test_completed_single_restarts_without_rewinding_active_playback(self) -> None:
+        replay = self.result["singleReplay"]
+        self.assertEqual(replay["completed"], 0)
+        self.assertEqual(replay["beforeCommit"], 0)
+        self.assertEqual(replay["preview"], "scalar(1.0)")
+        self.assertEqual(replay["restarted"], 1)
+        self.assertAlmostEqual(replay["playingIsNotRewound"], 0.5)
+        self.assertEqual(replay["secondRestart"], 1)
+        self.assertAlmostEqual(replay["secondMidpoint"], 0.5)
+
+    def test_single_events_use_one_owner_cursor_and_acceptance_boundary(self) -> None:
+        self.assertTrue(all(self.result["eventScope"].values()), self.result["eventScope"])
+        for label, layer_id, root_key, _, result in self.combined_results:
+            with self.subTest(variant=label):
+                events = result["events"]
+                self.assertTrue(all(events["facts"].values()), events)
+                self.assertEqual(events["first"], [[10, "mid"]])
+                self.assertEqual(events["endpoint"], [[20, "end"], [20, "same frame"], [20, "end"]])
+                self.assertEqual([d for d in result["diagnostics"] if ": events[" in d],
+                    [f"layer {layer_id} {host}: events[1]: invalidEvent"
+                     for host in ("origin", "angles", "scale") if host != root_key])
+
+    def test_admitted_restart_projects_first_value_without_committing_or_observing(self) -> None:
+        preview = self.result["preview"]
+        self.assertEqual(preview["oldValue"], "scalar(0.0)")
+        self.assertEqual(preview["eventValue"], "scalar(1.0)")
+        for key in ("changedTargetsOnly", "repeatedStable", "playbackUnchanged",
+                    "observationsUnchanged", "pendingObservationsPreserved", "empty"):
+            self.assertTrue(preview[key], key)
+
+    def test_preview_rejects_whole_batch_and_preserves_stop_play_order(self) -> None:
+        preview = self.result["preview"]
+        self.assertTrue(preview["failedBatch"])
+        self.assertTrue(preview["invalidTime"])
+        self.assertEqual(preview["stopPlayContinues"], "scalar(0.5)")
+        self.assertEqual(preview["playStopHolds"], "scalar(1.0)")
+
+    def test_relative_transform_adds_lane_values_to_authored_base(self) -> None:
+        self.assertEqual(
+            self.result["samples"]["t0"]["relativeAngles"]["value"],
+            [0.5, 1.5, 2.5],
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["relativeAngles"]["value"],
+            [1.0, 2.5, 4.0],
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["relativeAngles"]["source"],
+            "timeline",
+        )
+
+    def test_effect_vector_flows_through_evaluator_and_snapshot(self) -> None:
+        self.assertEqual(
+            self.result["samples"]["t0"]["effectVector"],
+            {"value": [0.2, 0.4, 0.6], "source": "timeline"},
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["effectVector"],
+            {"value": [0.8, 0.1, 0.3], "source": "timeline"},
+        )
+        self.assertEqual(
+            self.result["samples"]["late"]["effectVector"],
+            {"value": [0.8, 0.1, 0.3], "source": "timeline"},
+        )
+
+    def test_value_change_advances_generation_but_same_value_does_not(self) -> None:
+        samples = self.result["samples"]
+        self.assertGreater(samples["half"]["generation"], samples["t0"]["generation"])
+        self.assertGreater(samples["late"]["generation"], samples["closing"]["generation"])
+        self.assertEqual(samples["lateAgain"]["generation"], samples["late"]["generation"])
+
+    def test_general_bloom_reaches_resolving_without_overriding_authored_seed(self) -> None:
+        for label in ("loop", "renamed", "script_null"):
+            case = self.general_results[label]
+            with self.subTest(case=label):
+                self.assertEqual(case["bloomBindings"], 1, case)
+                self.assertEqual(case["parsedIR"], 1, case)
+                self.assertTrue(case["irPreserved"], case)
+                self.assertEqual(case["parseDiagnostics"], [], case)
+                self.assertEqual(case["diagnostics"], [], case)
+                self.assertFalse(case["hasScript"], case)
+                self.assertEqual(case["sharedDefinitionCount"], 1, case)
+                self.assertAlmostEqual(case["rawBindingSeed"], 0.35, places=6)
+                self.assertAlmostEqual(case["rawIRSeed"], 0.35, places=6)
+                self.assertAlmostEqual(case["catalogDefault"], 0.6, places=6)
+                self.assertAlmostEqual(case["currentStrength"], 0.9, places=6)
+                self.assertTrue(case["allSamplesUseTimeline"], case)
+                self.assertTrue(case["healthyLayerSurvives"], case)
+                self.assertEqual(len(case["samples"]), 7, case)
+                for actual, expected in zip(case["samples"], [0, 1.36, 1.36, 1.36, 1.36, 0, 1.36]):
+                    self.assertAlmostEqual(actual, expected, places=5, msg=str(case))
+                self.assertEqual(case["pendingStopValue"], 0, case)
+                self.assertTrue(case["discardPreservesPublication"], case)
+
+    def test_general_rejection_is_local_and_keeps_authored_ir(self) -> None:
+        reasons = {"hdr": "unsupportedHost", "relative": "relativeUnsupported",
+                   "combined": "combinedAnimationUnsupported", "lanes": "componentMismatch",
+                   "wrap": "invalidWrapLoop", "script": "unsupportedScriptSource",
+                   "script_false": "unsupportedScriptSource"}
+        for label, reason in reasons.items():
+            case = self.general_results[label]
+            with self.subTest(case=label):
+                self.assertEqual(case["bloomBindings"], 0, case)
+                self.assertFalse(case["generalPublicationPresent"], case)
+                self.assertAlmostEqual(case["fallbackStrength"], 0.9, places=6)
+                self.assertEqual(case["parsedIR"], 1, case)
+                self.assertTrue(case["irPreserved"], case)
+                self.assertTrue(case["healthyLayerSurvives"], case)
+                self.assertTrue(any(reason in d for d in case["diagnostics"]), case)
+        self.assertTrue(self.general_results["hdr"]["isHDRConsumer"])
+        for label in ("script", "script_false"):
+            self.assertTrue(self.general_results[label]["hasScript"])
+        malformed = self.general_results["malformed"]
+        self.assertEqual(malformed["parsedIR"], 0, malformed)
+        self.assertEqual(malformed["preparedIR"], 0, malformed)
+        self.assertTrue(malformed["parseDiagnostics"], malformed)
+        self.assertEqual(malformed["parseDiagnostics"], malformed["preparedDiagnostics"])
+        self.assertEqual(malformed["bloomBindings"], 0, malformed)
+        self.assertFalse(malformed["generalPublicationPresent"], malformed)
+        self.assertAlmostEqual(malformed["fallbackStrength"], 0.9, places=6)
+        self.assertTrue(malformed["healthyLayerSurvives"], malformed)
+
+    def test_combined_camera_members_share_the_owner_clock_and_snapshot(self) -> None:
+        self.assertTrue(all(self.result["cameraPlayback"].values()), self.result["cameraPlayback"])
+        self.assertEqual(
+            self.result["samples"]["t0"]["cameraOrigin"]["value"],
+            [-100, 682, 500],
+        )
+        sought = self.result["cameraSeekSnapshot"]
+        self.assertEqual(
+            self.result["samples"]["late"]["cameraOrigin"]["value"],
+            sought[0],
+        )
+        self.assertEqual(
+            self.result["samples"]["late"]["cameraZoom"]["value"],
+            sought[1][0],
+        )
+        for key in ("cameraOrigin", "cameraZoom"):
+            self.assertEqual(
+                self.result["samples"]["late"][key]["source"], "timeline"
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -19,7 +19,7 @@ from scene_swift_source_sets import scene_swift_sources
 
 
 SWIFT_SOURCES = scene_swift_sources("authored_shader_frontend_core")
-FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures/scene_color_blend"
+FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "fixtures/scene_color_blend"
 
 HARNESS = r'''
 import Foundation

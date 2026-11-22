@@ -1,0 +1,636 @@
+#!/usr/bin/env python3
+"""Focused contract tests for the Scene sample acceptance ledger."""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[2]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from scene_sample_acceptance_ledger import (  # noqa: E402
+    ALLOWED_VERDICTS,
+    DEFAULT_OUTPUT,
+    build_ledger,
+    cluster_for,
+    render_markdown,
+    main,
+    validate_verdict_references,
+)
+from scene_capability_census_io import iter_sample_directories
+
+
+V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"
+
+
+def _write(path: Path, value: object) -> Path:
+    path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _archive(rows: list[dict]) -> dict:
+    return {"kind": "scene-sample-debug-archive", "generatedAtUtc": "2026-09-07T00:00:00+00:00", "samples": rows}
+
+
+def _verdicts(entries: dict) -> dict:
+    return {"schemaVersion": 1, "allowedVerdicts": list(ALLOWED_VERDICTS), "verdicts": entries}
+
+
+def _build_recorded_scope(sample_ids: list[str], samples: Path, archive: Path,
+                          verdicts: Path, repository_root: Path | None = None) -> dict:
+    """Freeze only inventory selection; all row values still come from inputs."""
+    selected = [path for path in iter_sample_directories(samples) if path.name in sample_ids]
+    missing = set(sample_ids) - {path.name for path in selected}
+    if missing:
+        raise ValueError(f'recorded samples are unavailable: {sorted(missing)}')
+    with patch('scene_sample_acceptance_ledger.iter_sample_directories', return_value=selected):
+        return build_ledger(samples, archive, verdicts, repository_root)
+
+
+class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
+    def _corpus(self, root: Path) -> Path:
+        samples = root / "Scene"
+        (samples / "10").mkdir(parents=True)
+        (samples / "20").mkdir()
+        (samples / "30").mkdir()
+        (samples / "not-a-sample").mkdir()
+        (samples / V2_LAYOUT_SAMPLE).mkdir()
+        _write(samples / V2_LAYOUT_SAMPLE / "project.json", {
+            "title": "Current layout",
+            "general": {"properties": {
+                "schemecolor": {"type": "color", "value": "1 1 1"},
+            }},
+        })
+        _write(samples / "10" / "project.json", {
+            "title": "Ten | pipe",
+            "general": {"properties": {
+                "schemecolor": {"type": "color", "value": "1 1 1"},
+                "speed": {"type": "slider", "value": 1, "condition": "toggle.value == true"},
+                "toggle": {"type": "bool", "value": True},
+                "legacy": {"value": 3},
+            }},
+        })
+        _write(samples / "20" / "project.json", {
+            "title": "Twenty",
+            "general": {"properties": {"schemecolor": {"type": "color", "value": "1 1 1"}}},
+        })
+        return samples
+
+    def test_runtime_evidence_never_produces_a_visual_verdict(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([
+                {"id": "10", "runtime": {"status": "structural-chain-complete-visual-review", "firstBreakpoint": None}},
+                {"id": "20", "runtime": {"status": "blocked", "firstBreakpoint": {
+                    "stage": "effect-admission", "owner": "EffectStageAdmission",
+                    "reasonCode": "unified-capability-unavailable",
+                    "capabilityProfileOrAuthoredShape": "backend:effect-family:blend",
+                }}},
+            ]))
+            verdicts = _write(root / "verdicts.json", _verdicts({
+                "20": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "effect missing"},
+            }))
+            ledger = build_ledger(samples, archive, verdicts)
+
+        by_id = {row["id"]: row for row in ledger["samples"]}
+        self.assertEqual(sorted(by_id), ["10", "20", "30", V2_LAYOUT_SAMPLE])
+        self.assertEqual(by_id[V2_LAYOUT_SAMPLE]["authored"]["parseState"], "parsed")
+        self.assertEqual(by_id["10"]["verdict"], "unreviewed")
+        self.assertEqual(by_id["10"]["cluster"], "visual-review")
+        self.assertEqual(by_id["10"]["authored"]["parameterCount"], 4)
+        self.assertEqual(by_id["10"]["authored"]["conditionalCount"], 1)
+        self.assertEqual(by_id["10"]["authored"]["typeCounts"], {"bool": 1, "color": 1, "slider": 1, "untyped": 1})
+        self.assertFalse(by_id["10"]["authored"]["schemeColorOnly"])
+        self.assertTrue(by_id["20"]["authored"]["schemeColorOnly"])
+        self.assertEqual(by_id["20"]["cluster"], "effect-chain")
+        self.assertEqual(by_id["20"]["verdict"], "fail")
+        self.assertEqual(by_id["20"]["firstBreakpoint"]["reasonCode"], "unified-capability-unavailable")
+        self.assertEqual(by_id["30"]["runtimeStatus"], "not-run")
+        self.assertEqual(by_id["30"]["cluster"], "not-run")
+        self.assertEqual(by_id["30"]["authored"]["parseState"], "missing-project")
+        self.assertEqual(ledger["summary"]["verdictCounts"], {"unreviewed": 3, "pass": 0, "fail": 1, "platform-unsupported": 0})
+        self.assertEqual(ledger["summary"]["samplesWithAuthoredParameters"], 1)
+
+        markdown = render_markdown(ledger)
+        self.assertIn("| `10` | Ten \\| pipe | 4(1) bool 1 color 1 slider 1 untyped 1 |", markdown)
+        self.assertIn("`effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:blend`", markdown)
+        self.assertIn("| `30` | 30 | `missing-project` | `not-run` | - | `not-run` | `unreviewed` |  |", markdown)
+        self.assertIn("`fail` 2026-09-08", markdown)
+        self.assertNotIn("| `pass` | 1 |", markdown)
+
+    def test_sample_identity_covers_both_installed_layouts(self) -> None:
+        """A current-layout verdict key is accepted; a non-sample key is not."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([
+                {"id": V2_LAYOUT_SAMPLE, "runtime": {"status": "not-run", "firstBreakpoint": None}},
+            ]))
+            verdicts = _write(root / "verdicts.json", _verdicts({
+                V2_LAYOUT_SAMPLE: {"verdict": "fail", "reviewedOn": "2026-09-23", "note": "current layout"},
+            }))
+            ledger = build_ledger(samples, archive, verdicts)
+            by_id = {row["id"]: row for row in ledger["samples"]}
+            self.assertEqual(by_id[V2_LAYOUT_SAMPLE]["verdict"], "fail")
+            self.assertIn(f"| `{V2_LAYOUT_SAMPLE}` |", render_markdown(ledger))
+
+            junk = _write(root / "junk.json", _verdicts({
+                "not-a-sample": {"verdict": "fail", "reviewedOn": "2026-09-23"},
+            }))
+            with self.assertRaisesRegex(ValueError, "is not a sample id"):
+                build_ledger(samples, archive, junk)
+
+    def test_cluster_mapping_follows_first_breakpoint_owner(self) -> None:
+        self.assertEqual(cluster_for("degraded-runtime", {"stage": "resource-load", "owner": "ParticleRuntime"}), "particle-load")
+        self.assertEqual(cluster_for("degraded-runtime", {"stage": "resource-load", "owner": "BaseImageTextureStore"}), "texture-load")
+        self.assertEqual(cluster_for("blocked", {"stage": "graph-execution", "owner": "GraphExecutor"}), "effect-chain")
+        self.assertEqual(cluster_for("degraded-runtime", {"stage": "script-execution", "owner": "SceneScriptVM"}), "scenescript")
+        self.assertEqual(cluster_for("structural-chain-complete-visual-review", None), "visual-review")
+        self.assertEqual(cluster_for("not-run", None), "not-run")
+        self.assertEqual(
+            cluster_for("blocked", {"stage": "terminal-compositor", "owner": "SceneCompositor"}),
+            "terminal-output",
+        )
+
+    def test_invalid_overlays_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            bad_value = _write(root / "bad-value.json", _verdicts({"10": {"verdict": "looks-fine", "reviewedOn": "2026-09-08"}}))
+            with self.assertRaisesRegex(ValueError, "invalid verdict"):
+                build_ledger(samples, archive, bad_value)
+            missing_date = _write(root / "missing-date.json", _verdicts({"10": {"verdict": "pass"}}))
+            with self.assertRaisesRegex(ValueError, "requires reviewedOn"):
+                build_ledger(samples, archive, missing_date)
+            unknown_sample = _write(root / "unknown.json", _verdicts({"99": {"verdict": "fail", "reviewedOn": "2026-09-08"}}))
+            historical_archive = _write(root / "historical.json", _archive([{"id": "99"}]))
+            original_overlay = unknown_sample.read_bytes()
+            current = build_ledger(samples, archive, unknown_sample)
+            historical = build_ledger(samples, historical_archive, unknown_sample)
+            self.assertEqual(current["source"]["verdicts"]["archivedOnlySampleIDs"], ["99"])
+            self.assertEqual(current["samples"], historical["samples"])
+            self.assertEqual(historical["source"]["verdicts"]["archivedOnlySampleIDs"], ["99"])
+            self.assertNotIn("99", [row["id"] for row in historical["samples"]])
+            self.assertEqual(unknown_sample.read_bytes(), original_overlay)
+            self.assertIn("99；不计当前目录表", render_markdown(historical))
+            wrong_allowed = _write(root / "allowed.json", {"allowedVerdicts": ["pass"], "verdicts": {}})
+            with self.assertRaisesRegex(ValueError, "allowedVerdicts"):
+                build_ledger(samples, archive, wrong_allowed)
+
+    def test_p0_2_verdict_relation_fields_default_to_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            (root / "docs/scene/evidence").mkdir(parents=True)
+            _write(root / "docs/scene/evidence/ready.md", {"note": "observed"})
+            archive = _write(root / "archive.json", _archive([
+                {"id": "10", "runtime": {"status": "not-run", "firstBreakpoint": None}},
+            ]))
+            legacy = _write(root / "legacy.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "legacy entry"},
+            }))
+            ledger = build_ledger(samples, archive, legacy, root)
+            row = next(item for item in ledger["samples"] if item["id"] == "10")
+            self.assertEqual(row["reviewer"], "unknown")
+            self.assertEqual(row["runs"], [])
+            self.assertEqual(row["evidence"], [])
+            self.assertEqual(row["remainingDifferences"], "unknown")
+            self.assertEqual(row["officialComparison"], "unknown")
+            summary = ledger["summary"]
+            self.assertEqual(
+                sorted(summary["officialComparisonCounts"]),
+                ["blocked", "compared", "not-run", "unknown"],
+            )
+            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 4)
+            self.assertEqual(summary["reviewedWithoutViewer"], 1)
+            self.assertEqual(summary["reviewedWithoutEvidence"], 1)
+
+            # A blank string is a placeholder, not a recorded viewer identity.
+            blank = _write(root / "blank.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                       "reviewer": "   ", "remainingDifferences": "\t "},
+            }))
+            blanked = build_ledger(samples, archive, blank, root)
+            row = next(item for item in blanked["samples"] if item["id"] == "10")
+            self.assertEqual(row["reviewer"], "unknown")
+            self.assertEqual(row["remainingDifferences"], "unknown")
+            self.assertEqual(blanked["summary"]["reviewedWithoutViewer"], 1)
+
+            full = _write(root / "full.json", _verdicts({
+                "10": {
+                    "verdict": "fail",
+                    "reviewedOn": "2026-09-08",
+                    "note": "annotated",
+                    "reviewer": "operator",
+                    "runs": ["/private/tmp/mwx-run/report.json#10"],
+                    "evidence": ["docs/scene/evidence/ready.md#L3"],
+                    "remainingDifferences": "text clipping",
+                    "officialComparison": "not-run",
+                },
+                "20": {
+                    "verdict": "pass",
+                    "reviewedOn": "2026-09-08",
+                    "note": "annotated",
+                    "reviewer": "operator",
+                    "evidence": ["docs/scene/evidence/ready.md"],
+                    "remainingDifferences": "none",
+                    "officialComparison": "compared",
+                },
+            }))
+            annotated = build_ledger(samples, archive, full, root)
+            row = next(item for item in annotated["samples"] if item["id"] == "10")
+            self.assertEqual(row["reviewer"], "operator")
+            self.assertEqual(row["runs"], ["/private/tmp/mwx-run/report.json#10"])
+            self.assertEqual(row["evidence"], ["docs/scene/evidence/ready.md#L3"])
+            self.assertEqual(row["remainingDifferences"], "text clipping")
+            self.assertEqual(row["officialComparison"], "not-run")
+            summary = annotated["summary"]
+            self.assertEqual(summary["reviewedWithoutViewer"], 0)
+            self.assertEqual(summary["reviewedWithoutEvidence"], 0)
+            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 2)
+            markdown = render_markdown(annotated)
+            self.assertIn("官方对照状态", markdown)
+            for expected_row in (
+                "| `unknown` | 2 |",
+                "| `not-run` | 1 |",
+                "| `blocked` | 0 |",
+                "| `compared` | 1 |",
+            ):
+                self.assertIn(expected_row, markdown)
+
+    def test_explicitly_retired_cache_references_preserve_history_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            missing_run = ".artifacts/scene-evidence/runs/deleted/current/report.json"
+            missing_image = ".artifacts/scene-evidence/runs/deleted/current/frame.png"
+            entry = {
+                "verdict": "fail", "reviewedOn": "2026-09-08", "reviewer": "viewer",
+                "note": "Historical observed difference; no fresh playback.",
+                "unavailableLocalRuns": [missing_run],
+                "unavailableLocalEvidence": [missing_image],
+            }
+            overlay = _write(root / "retired.json", _verdicts({"10": entry}))
+            ledger = build_ledger(samples, archive, overlay, root)
+            row = next(row for row in ledger["samples"] if row["id"] == "10")
+            self.assertEqual(row["verdict"], "fail")
+            self.assertEqual(row["reviewedOn"], "2026-09-08")
+            self.assertEqual(row["runs"], [])
+            self.assertEqual(row["evidence"], [])
+            self.assertEqual(row["unavailableLocalRuns"], [missing_run])
+            self.assertEqual(row["unavailableLocalEvidence"], [missing_image])
+            self.assertEqual(ledger["summary"]["reviewedWithoutEvidence"], 1)
+            self.assertEqual(ledger["summary"]["unavailableLocalEvidenceSamples"], 1)
+            self.assertEqual(ledger["summary"]["unavailableLocalEvidenceReferences"], 2)
+            self.assertIn("1 个样本、2 个引用", render_markdown(ledger))
+            # Retirement is not a whitelist for an active dangling citation.
+            _write(overlay, _verdicts({"10": {**entry, "runs": [missing_run]}}))
+            with self.assertRaisesRegex(ValueError, "dangling references"):
+                build_ledger(samples, archive, overlay, root)
+
+    def test_p0_2_verdict_relation_fields_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            (root / "docs/scene/evidence").mkdir(parents=True)
+            archive = _write(root / "archive.json", _archive([]))
+            for name, entry, expected in (
+                ("bad-official", {"officialComparison": "looks-compared"}, "officialComparison"),
+                ("blank-official", {"officialComparison": "  "}, "officialComparison"),
+                ("bad-runs", {"runs": "one-path"}, "runs must be a list"),
+                ("mixed-runs", {"runs": ["ok", 5]}, "runs must be a list"),
+                ("bad-reviewer", {"reviewer": 7}, "must be strings"),
+                ("bad-remaining", {"remainingDifferences": None}, "must be strings"),
+            ):
+                overlay = _write(root / f"{name}.json", _verdicts({
+                    "10": {"verdict": "fail", "reviewedOn": "2026-09-08", **entry},
+                }))
+                with self.assertRaisesRegex(ValueError, expected):
+                    build_ledger(samples, archive, overlay, root)
+            missing = _write(root / "missing.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                       "evidence": ["docs/scene/evidence/does-not-exist.md#x"]},
+            }))
+            with self.assertRaisesRegex(ValueError, r"dangling references \(1\)"):
+                build_ledger(samples, archive, missing, root)
+            escaping = _write(root / "escaping.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                       "evidence": ["../../../../etc/hosts"]},
+            }))
+            with self.assertRaisesRegex(ValueError, "outside-repository"):
+                build_ledger(samples, archive, escaping, root)
+            link = root / "docs/scene/escape-link"
+            try:
+                link.symlink_to("/etc/hosts")
+            except OSError:
+                link = None
+            if link is not None:
+                # An in-repository path that leaves the repository through a
+                # symlink is an escape, not a filename to verify -- and the
+                # absolute spelling of that same path is an escape too.
+                for reference in ("docs/scene/escape-link", str(link)):
+                    symlinked = _write(root / "symlinked.json", _verdicts({
+                        "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                               "evidence": [reference]},
+                    }))
+                    with self.assertRaisesRegex(ValueError, "outside-repository"):
+                        build_ledger(samples, archive, symlinked, root)
+            # A directory is not a screenshot or run identity.
+            directory_citation = _write(root / "directory.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                       "evidence": ["docs/scene/evidence"]},
+            }))
+            with self.assertRaisesRegex(ValueError, "not-a-file"):
+                build_ledger(samples, archive, directory_citation, root)
+
+    def test_repository_internal_citations_are_checked_in_any_spelling(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            (root / "docs/scene/evidence").mkdir(parents=True)
+            tracked = _write(root / "docs/scene/evidence/ready.md", {"note": "observed"})
+            spaced_name = "docs/scene/evidence note 01.48.33.png"
+            (root / spaced_name).write_bytes(b"png")
+            # `#` and `=` are filename characters, not only annotation syntax.
+            (root / "docs/scene/evi2#dence.png").write_bytes(b"png")
+            (root / "docs/scene/evi2").write_bytes(b"png")
+            (root / "docs/scene/ led.md").write_bytes(b"md")
+            (root / "docs/scene/lead.md").write_bytes(b"md")
+            accepted = _write(root / "accepted.json", _verdicts({
+                "10": {
+                    "verdict": "fail",
+                    "reviewedOn": "2026-09-08",
+                    "evidence": [
+                        # A filename with spaces is a path, not an annotation,
+                        # with or without a trailing anchor/checksum note.
+                        spaced_name,
+                        spaced_name + "#L1",
+                        spaced_name + " sha256=deadbeef",
+                        spaced_name + "\tsize=3",
+                        spaced_name + " sha256=deadbeef size=3 md5=crc crc32=1 blake2b=2",
+                        "docs/scene/lead.md ",
+                        "./docs/scene/evidence/ready.md",
+                        "docs/scene/evidence/ready.md#L2",
+                        "docs/scene/evi2#dence.png",
+                        "docs/scene/evi2#dence.png#L1",
+                        "docs/scene/ led.md",
+                        str(tracked),
+                    ],
+                },
+            }))
+            ledger = build_ledger(samples, archive, accepted, root)
+            self.assertEqual(ledger["summary"]["reviewedWithoutEvidence"], 0)
+
+            # A same-prefix sibling must not lend its identity to a reference
+            # that names a different, absent file.
+            (root / "docs/scene/evi").write_bytes(b"png")
+            for reference in (
+                "docs/scene/evi dence note absent.png",
+                # An unrecognized `#...` suffix is part of the path too: the
+                # sibling `docs/scene/evi2` must not vouch for it.
+                "docs/scene/evi2#absent.png",
+                # Leading whitespace is not stripped, so this names no file.
+                " docs/scene/lead.md",
+            ):
+                collision = _write(root / "collision.json", _verdicts({
+                    "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                           "evidence": [reference]},
+                }))
+                with self.assertRaisesRegex(ValueError, "file-missing"):
+                    build_ledger(samples, archive, collision, root)
+
+            absolute_missing = _write(root / "absolute-missing.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08",
+                       "evidence": [str(root / "docs/scene/evidence/gone.md")]},
+            }))
+            # An absolute spelling of a repository path is checked like the
+            # relative one instead of being waved through as repository-external.
+            with self.assertRaisesRegex(ValueError, "file-missing"):
+                build_ledger(samples, archive, absolute_missing, root)
+
+    def test_verdict_reference_gate_skips_transient_and_non_repository_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            evidence = [
+                "/private/tmp/mwx-run/ready.png",
+                "~/Movies/MyWallpaperX/创意工坊/Scene/10/截屏 01.48.33.png",
+                "$HOME/Movies/MyWallpaperX/创意工坊/Scene/10/截屏 01.48.33.png",
+            ]
+            environment = {"HOME": "/nonexistent-home-for-reference-gate"}
+            transient = _write(root / "transient.json", _verdicts({
+                "10": {
+                    "verdict": "fail",
+                    "reviewedOn": "2026-09-08",
+                    "runs": ["/private/tmp/mwx-run/report.json#10 sha256=deadbeef"],
+                    "evidence": evidence,
+                },
+            }))
+            with patch.dict(os.environ, environment):
+                ledger = build_ledger(samples, archive, transient, root)
+            row = next(item for item in ledger["samples"] if item["id"] == "10")
+            self.assertEqual(row["verdict"], "fail")
+            self.assertEqual(row["evidence"], evidence)
+            for name, reference in (("anchor-only", "#anchor-only"), ("blank", "   ")):
+                empty = _write(root / f"{name}.json", _verdicts({
+                    "10": {"verdict": "fail", "reviewedOn": "2026-09-08", "evidence": [reference]},
+                }))
+                with self.assertRaisesRegex(ValueError, "reference-empty"):
+                    build_ledger(samples, archive, empty, root)
+
+    def test_archive_identity_line_reports_every_execution_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            overlay = _write(root / "verdicts.json", _verdicts({}))
+            cdhash = "aa" * 20
+            archive = _write(root / "archive.json", {
+                **_archive([]),
+                "appIdentities": [
+                    {"cdhash": cdhash, "executable_sha256": "bb" * 32},
+                    {"cdhash": cdhash, "executable_sha256": "bb" * 32},
+                    {"cdhash": None, "executable_sha256": "cc" * 32},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, archive, overlay, root))
+            self.assertEqual(markdown.count(f"CDHash `{cdhash}`"), 1)
+            self.assertIn(f"executable SHA-256 `{'cc' * 32}`", markdown)
+            self.assertIn("不止一个执行身份", markdown)
+
+            # A blank cdhash is missing, not a second identity.
+            blanks = _write(root / "blanks.json", {
+                **_archive([]),
+                "appIdentities": [
+                    {"cdhash": "  ", "executable_sha256": "dd" * 32},
+                    {"cdhash": None, "executable_sha256": "dd" * 32},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, blanks, overlay, root))
+            self.assertEqual(markdown.count(f"executable SHA-256 `{'dd' * 32}`"), 1)
+            self.assertNotIn("不止一个执行身份", markdown)
+
+            # A pipe in an identity must not break the summary tables.
+            piped = _write(root / "piped.json", {
+                **_archive([]),
+                "appIdentities": [{"cdhash": "aa|bb", "executable_sha256": None}],
+            })
+            markdown = render_markdown(build_ledger(samples, piped, overlay, root))
+            self.assertIn("CDHash `aa\\|bb`", markdown)
+
+            # Non-string identity fields are missing, not identities.
+            malformed_items = _write(root / "malformed-items.json", {
+                **_archive([]),
+                "appIdentities": [
+                    7, "x", None,
+                    {"cdhash": 7, "executable_sha256": ["y"]},
+                    {"cdhash": "aa", "executable_sha256": None},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, malformed_items, overlay, root))
+            self.assertEqual(markdown.count("CDHash `aa`"), 1)
+
+            # Malformed containers must still render a page.
+            for payload in (5, {"unexpected": "mapping"}, "text"):
+                degenerate = _write(root / "degenerate.json", {
+                    **_archive([]), "appIdentities": payload,
+                })
+                markdown = render_markdown(build_ledger(samples, degenerate, overlay, root))
+                self.assertIn("归档运行身份：未记录", markdown)
+                self.assertNotIn("不止一个执行身份", markdown)
+
+            baseline_lines = len(markdown.splitlines())
+            injected = _write(root / "injected.json", {
+                **_archive([]),
+                "appIdentities": [{"cdhash": "aa\n- 注入行", "executable_sha256": None}],
+            })
+            markdown = render_markdown(build_ledger(samples, injected, overlay, root))
+            self.assertEqual(len(markdown.splitlines()), baseline_lines)
+            self.assertFalse(
+                any(line.startswith("- 注入行") for line in markdown.splitlines())
+            )
+
+    def test_cli_generates_a_report_from_explicit_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            verdicts = _write(root / "verdicts.json", _verdicts({}))
+            output = root / "reports/nested/acceptance.md"
+            self.assertEqual(main([
+                "--samples-root", str(samples), "--archive", str(archive),
+                "--verdicts", str(verdicts), "--output", str(output),
+            ]), 0)
+            report = output.read_text()
+            self.assertIn("| `10` |", report)
+            self.assertIn("unreviewed", report)
+            self.assertTrue(DEFAULT_OUTPUT.is_relative_to(
+                SCRIPT_ROOT.parent / ".artifacts"
+            ))
+
+    def test_recorded_scope_ignores_new_downloads_without_inventing_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / 'archive.json', _archive([
+                {'id': '10', 'runtime': {'status': 'blocked', 'firstBreakpoint': None}},
+            ]))
+            overlay = _write(root / 'verdicts.json', _verdicts({
+                '20': {'verdict': 'fail', 'reviewedOn': '2026-09-08', 'note': 'observed'},
+            }))
+            before = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            (samples / '99').mkdir()
+            _write(samples / '99/project.json', {'title': 'New unreviewed download'})
+            after = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            self.assertEqual(before['samples'], after['samples'])
+            self.assertEqual(before['summary'], after['summary'])
+            stable_page = lambda ledger: [line for line in render_markdown(ledger).splitlines()
+                                          if not line.startswith('- 本页生成于')]
+            self.assertEqual(stable_page(before), stable_page(after))
+            self.assertEqual(after['source']['sampleCount'], 2)
+            rows = {row['id']: row for row in after['samples']}
+            self.assertEqual(rows['10']['runtimeStatus'], 'blocked')
+            self.assertEqual(rows['20']['runtimeStatus'], 'not-run')
+            self.assertEqual(rows['20']['verdict'], 'fail')
+            current = build_ledger(samples, archive, overlay, root)
+            new_row = next(row for row in current['samples'] if row['id'] == '99')
+            self.assertEqual((new_row['runtimeStatus'], new_row['verdict']),
+                             ('not-run', 'unreviewed'))
+            _write(overlay, _verdicts({
+                '20': {'verdict': 'pass', 'reviewedOn': '2026-09-08', 'note': 'review changed'},
+            }))
+            changed = _build_recorded_scope(['10', '20'], samples, archive, overlay, root)
+            self.assertNotEqual(stable_page(before), stable_page(changed))
+            self.assertEqual(next(row for row in changed['samples'] if row['id'] == '20')['verdict'],
+                             'pass')
+            with self.assertRaisesRegex(ValueError, 'recorded samples are unavailable'):
+                _build_recorded_scope(['10', '20', '100'], samples, archive, overlay, root)
+
+    def test_verdict_loader_never_rewrites_the_human_overlay(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            overlay = _write(root / "verdicts.json", _verdicts({
+                "10": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "legacy entry"},
+            }))
+            before = overlay.read_bytes()
+            before_mtime = overlay.stat().st_mtime_ns
+            build_ledger(samples, archive, overlay, root)
+            build_ledger(samples, archive, overlay, root)
+            self.assertEqual(overlay.read_bytes(), before)
+            self.assertEqual(overlay.stat().st_mtime_ns, before_mtime)
+            document = json.loads(overlay.read_text(encoding="utf-8"))
+            self.assertEqual(sorted(document["verdicts"]["10"]), ["note", "reviewedOn", "verdict"])
+
+    def test_verdict_reference_validator_never_raises_on_malformed_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            records = validate_verdict_references({
+                "10": ["not-an-object"],
+                "20": {"runs": 5, "evidence": [1, 2]},
+                "30": {"evidence": "one-path"},
+                "40": {"evidence": ["a" * 5000]},
+                "50": {"evidence": ["docs/scene/evidence note 01.48.33.png"]},
+            }, root)
+            # The validator's own containers are guarded too: an audit script
+            # calling it on unnormalized input gets records, not a traceback.
+            self.assertEqual(
+                validate_verdict_references(["10"], root)[0]["code"],
+                "verdict-container-shape-invalid",
+            )
+            self.assertEqual(
+                validate_verdict_references({"10": {}}, None)[0]["code"],
+                "verdict-repository-root-invalid",
+            )
+            self.assertTrue(records)
+            for record in records:
+                self.assertEqual(
+                    sorted(record), ["code", "field", "reference", "sample_id"]
+                )
+                self.assertTrue(record["code"].startswith("verdict-"))
+            codes = {record["code"] for record in records}
+            self.assertIn("verdict-entry-shape-invalid", codes)
+            self.assertIn("verdict-evidence-reference-invalid", codes)
+            shape = next(record for record in records if record["sample_id"] == "10")
+            self.assertEqual((shape["field"], shape["reference"]), ("", ""))
+            overlong = [record for record in records if record["sample_id"] == "40"]
+            self.assertEqual(len(overlong), 1)
+            self.assertEqual(overlong[0]["code"], "verdict-evidence-reference-unresolvable")
+
+
+
+if __name__ == "__main__":
+    unittest.main()

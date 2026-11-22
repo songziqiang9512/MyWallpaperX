@@ -19,7 +19,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from script.tests.test_scene_varying_value_parameter_prefix import (
+from script.tests.scene.test_scene_varying_value_parameter_prefix import (
     FIXTURE, GLSLANG, SWIFT_SOURCES,
 )
 

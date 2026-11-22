@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from script.tests import test_scene_frame_texture_registry as texture_fixture
+from script.tests.scene import test_scene_frame_texture_registry as texture_fixture
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]

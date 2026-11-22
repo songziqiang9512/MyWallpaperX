@@ -158,7 +158,7 @@ final class SceneOffscreenTexturePool {
 '''
 
 
-HARNESS = (Path(__file__).resolve().parents[1] / "fixtures/SceneGraphTexturePublicationHarness.swift").read_text(
+HARNESS = (Path(__file__).resolve().parents[2] / "fixtures/SceneGraphTexturePublicationHarness.swift").read_text(
     encoding="utf-8"
 )
 

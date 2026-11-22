@@ -1,0 +1,713 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties"
+SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot+Camera.swift",
+]
+
+HARNESS = r'''
+import Foundation
+import simd
+
+@main
+enum Harness {
+    static func main() throws {
+        let values: [SceneDynamicValue] = [
+            .bool(true),
+            .scalar(1.5),
+            .vector2(1, 2),
+            .vector3(1, 2, 3),
+            .vector4(1, 2, 3, 4),
+            .string("scene"),
+        ]
+        let targets: [SceneDynamicTarget] = [
+            .scene(.bloomEnabled),
+            .camera(.parallaxAmount),
+            .layer(layerID: 10, field: .alpha),
+            .effectVisibility(layerID: 10, effectIndex: 2),
+            .effectConstant(layerID: 10, effectIndex: 2, passIndex: 1, name: "strength"),
+            .text(layerID: 11, field: .content),
+            .particle(layerID: 12, field: .controlPoint(3)),
+            .scriptInstanceProperty(layerID: 13, path: ["settings", "speed"]),
+        ]
+        let boundedDefinition = SceneDynamicTargetDefinition(
+            target: .effectConstant(
+                layerID: 14, effectIndex: 0, passIndex: 0, name: "scale"
+            ),
+            valueType: .scalar,
+            authoredValue: .scalar(0.05),
+            userPropertyNumericRange: 0 ... 0.3
+        )
+        let coderRoundTrip = try roundTrip(values) == values
+            && roundTrip(targets) == targets
+            && roundTrip(boundedDefinition) == boundedDefinition
+
+        let alpha = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+        let text = SceneDynamicTarget.text(layerID: 2, field: .content)
+        let vector = SceneDynamicTarget.layer(layerID: 3, field: .size)
+        let unknown = SceneDynamicTarget.layer(layerID: 99, field: .volume)
+        let duplicate = SceneDynamicTarget.camera(.parallaxDelay)
+        let authoredMismatch = SceneDynamicTarget.layer(layerID: 4, field: .color)
+        let authoredNonFinite = SceneDynamicTarget.effectConstant(
+            layerID: 5,
+            effectIndex: 0,
+            passIndex: 0,
+            name: "amount"
+        )
+        let definitions: [SceneDynamicTargetDefinition] = [
+            .init(target: alpha, valueType: .scalar, authoredValue: .scalar(0.1)),
+            .init(target: text, valueType: .string, authoredValue: .string("authored")),
+            .init(target: vector, valueType: .vector2, authoredValue: .vector2(1, 2)),
+            .init(target: duplicate, valueType: .scalar, authoredValue: .scalar(1)),
+            .init(target: duplicate, valueType: .scalar, authoredValue: .scalar(2)),
+            .init(target: authoredMismatch, valueType: .vector3, authoredValue: .scalar(1)),
+            .init(target: authoredNonFinite, valueType: .scalar, authoredValue: .scalar(.infinity)),
+        ]
+        let resolver = SceneDynamicSnapshotResolver()
+        let preparedIndex = SceneDynamicSnapshotResolver.prepare(
+            definitions: definitions
+        )
+        let first = resolver.resolve(
+            frameIndex: 42,
+            generation: 7,
+            definitions: definitions,
+            userValues: dictionary([
+                (alpha, .scalar(0.2)),
+                (text, .string("user")),
+                (vector, .scalar(8)),
+                (unknown, .scalar(1)),
+                (duplicate, .scalar(3)),
+                (authoredMismatch, .vector3(1, 2, 3)),
+                (authoredNonFinite, .scalar(1)),
+            ]),
+            timelineValues: dictionary([
+                (alpha, .scalar(0.3)),
+                (vector, .vector2(3, 4)),
+                (duplicate, .scalar(4)),
+            ]),
+            sceneScriptValues: dictionary([
+                (alpha, .scalar(0.4)),
+                (vector, .vector2(.nan, 9)),
+                (duplicate, .scalar(5)),
+            ])
+        )
+        let preparedFirst = resolver.resolve(
+            frameIndex: 42,
+            generation: 7,
+            index: preparedIndex,
+            userValues: dictionary([
+                (alpha, .scalar(0.2)),
+                (text, .string("user")),
+                (vector, .scalar(8)),
+                (unknown, .scalar(1)),
+                (duplicate, .scalar(3)),
+                (authoredMismatch, .vector3(1, 2, 3)),
+                (authoredNonFinite, .scalar(1)),
+            ]),
+            timelineValues: dictionary([
+                (alpha, .scalar(0.3)),
+                (vector, .vector2(3, 4)),
+                (duplicate, .scalar(4)),
+            ]),
+            sceneScriptValues: dictionary([
+                (alpha, .scalar(0.4)),
+                (vector, .vector2(.nan, 9)),
+                (duplicate, .scalar(5)),
+            ])
+        )
+        let second = resolver.resolve(
+            frameIndex: 42,
+            generation: 7,
+            definitions: definitions.reversed(),
+            userValues: dictionary([
+                (duplicate, .scalar(3)),
+                (unknown, .scalar(1)),
+                (vector, .scalar(8)),
+                (text, .string("user")),
+                (alpha, .scalar(0.2)),
+                (authoredNonFinite, .scalar(1)),
+                (authoredMismatch, .vector3(1, 2, 3)),
+            ]),
+            timelineValues: dictionary([
+                (duplicate, .scalar(4)),
+                (vector, .vector2(3, 4)),
+                (alpha, .scalar(0.3)),
+            ]),
+            sceneScriptValues: dictionary([
+                (duplicate, .scalar(5)),
+                (vector, .vector2(.nan, 9)),
+                (alpha, .scalar(0.4)),
+            ])
+        )
+        let dottedPath = SceneDynamicTarget.scriptInstanceProperty(
+            layerID: 20,
+            path: ["a.b"]
+        )
+        let splitPath = SceneDynamicTarget.scriptInstanceProperty(
+            layerID: 20,
+            path: ["a", "b"]
+        )
+        let collisionForward = resolver.resolve(
+            frameIndex: 0,
+            generation: 0,
+            definitions: [],
+            userValues: dictionary([(dottedPath, .scalar(1)), (splitPath, .scalar(1))])
+        )
+        let collisionReverse = resolver.resolve(
+            frameIndex: 0,
+            generation: 0,
+            definitions: [],
+            userValues: dictionary([(splitPath, .scalar(1)), (dottedPath, .scalar(1))])
+        )
+        let controlPoint = SceneDynamicTarget.particle(
+            layerID: 12,
+            field: .controlPoint(3)
+        )
+        let otherLayerControlPoint = SceneDynamicTarget.particle(
+            layerID: 13,
+            field: .controlPoint(3)
+        )
+        let particleAlpha = SceneDynamicTarget.particle(layerID: 12, field: .alpha)
+        let particleColor = SceneDynamicTarget.particle(
+            layerID: 12, field: .normalizedColor
+        )
+        let controlPointSnapshot = resolver.resolve(
+            frameIndex: 8,
+            generation: 2,
+            definitions: [
+                .init(
+                    target: controlPoint,
+                    valueType: .vector3,
+                    authoredValue: .vector3(1, 2, 3)
+                ),
+                .init(
+                    target: otherLayerControlPoint,
+                    valueType: .vector3,
+                    authoredValue: .vector3(4, 5, 6)
+                ),
+                .init(target: particleAlpha, valueType: .scalar, authoredValue: .scalar(1)),
+                .init(
+                    target: particleColor,
+                    valueType: .vector3,
+                    authoredValue: .vector3(1, 1, 1)
+                ),
+            ],
+            userValues: [
+                particleAlpha: .scalar(0.35),
+                particleColor: .vector3(0.2, 0.4, 0.6),
+            ],
+            timelineValues: [
+                controlPoint: .vector3(10, 20, 30),
+                otherLayerControlPoint: .vector3(40, 50, 60),
+            ]
+        ).snapshot
+        let layer12ControlPoints = controlPointSnapshot.particleControlPoints(layerID: 12)
+        let layer12ParticleValues = controlPointSnapshot.particleInstanceValues(layerID: 12)
+        let cameraValueSnapshot = resolver.resolve(
+            frameIndex: 9,
+            generation: 3,
+            definitions: [
+                .init(
+                    target: .camera(.origin), valueType: .vector3,
+                    authoredValue: .vector3(0, 0, 500)
+                ),
+                .init(
+                    target: .camera(.zoom), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+                .init(
+                    target: .camera(.parallaxEnabled), valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .camera(.parallaxAmount), valueType: .scalar,
+                    authoredValue: .scalar(0.1)
+                ),
+                .init(
+                    target: .camera(.parallaxDelay), valueType: .scalar,
+                    authoredValue: .scalar(0.2)
+                ),
+                .init(
+                    target: .camera(.parallaxMouseInfluence), valueType: .scalar,
+                    authoredValue: .scalar(0.3)
+                ),
+                .init(
+                    target: .camera(.shakeEnabled), valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .camera(.shakeAmplitude), valueType: .scalar,
+                    authoredValue: .scalar(0.5)
+                ),
+                .init(
+                    target: .camera(.shakeRoughness), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+                .init(
+                    target: .camera(.shakeSpeed), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+            ],
+            userValues: [
+                .camera(.parallaxEnabled): .bool(true),
+                .camera(.parallaxAmount): .scalar(0.75),
+                .camera(.parallaxDelay): .scalar(1.25),
+                .camera(.parallaxMouseInfluence): .scalar(-0.4),
+                .camera(.shakeEnabled): .bool(true),
+                .camera(.shakeAmplitude): .scalar(0.25),
+                .camera(.shakeRoughness): .scalar(1.5),
+                .camera(.shakeSpeed): .scalar(2.5),
+            ],
+            timelineValues: [
+                .camera(.origin): .vector3(-100, 682, 500),
+                .camera(.zoom): .scalar(2.4),
+            ]
+        ).snapshot
+        let cameraSnapshot = cameraValueSnapshot.cameraTransform()
+        let cameraProperty = cameraValueSnapshot.cameraPropertyProjection()
+        let boundedZero = resolver.resolve(
+            frameIndex: 10,
+            generation: 4,
+            definitions: [boundedDefinition],
+            userValues: [boundedDefinition.target: .scalar(0)]
+        )
+        let boundedOverflow = resolver.resolve(
+            frameIndex: 11,
+            generation: 5,
+            definitions: [boundedDefinition],
+            userValues: [boundedDefinition.target: .scalar(0.31)]
+        )
+        let dynamicOrigin = SceneDynamicTarget.layer(
+            layerID: 21, field: .origin
+        )
+        let dynamicTransform = resolver.resolve(
+            frameIndex: 12,
+            generation: 6,
+            definitions: [
+                .init(
+                    target: dynamicOrigin,
+                    valueType: .vector3,
+                    authoredValue: .vector3(0, 0, 0)
+                ),
+                .init(
+                    target: .layer(layerID: 21, field: .alpha),
+                    valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+            ],
+            timelineValues: [dynamicOrigin: .vector3(10, 20, 30)]
+        )
+        let scalarProjection = first.snapshot.typedValues(
+            for: Set([alpha, vector]), valueTypes: [.scalar]
+        )
+        let vectorProjection = first.snapshot.typedValues(
+            for: Set([alpha, vector]), valueTypes: [.vector2]
+        )
+        let stringProjection = first.snapshot.typedValues(
+            for: Set([text, alpha]), valueTypes: [.string]
+        )
+        let incrementalAlpha = SceneDynamicTarget.layer(
+            layerID: 30, field: .alpha
+        )
+        let incrementalVector = SceneDynamicTarget.layer(
+            layerID: 30, field: .size
+        )
+        let incrementalUnknown = SceneDynamicTarget.layer(
+            layerID: 99, field: .volume
+        )
+        let incrementalDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(
+                target: incrementalAlpha, valueType: .scalar,
+                authoredValue: .scalar(0.1)
+            ),
+            .init(
+                target: incrementalVector, valueType: .vector2,
+                authoredValue: .vector2(1, 2)
+            ),
+        ]
+        let incrementalIndex = SceneDynamicSnapshotResolver.prepare(
+            definitions: incrementalDefinitions
+        )
+        let incrementalBase = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            userValues: [incrementalAlpha: .scalar(0.2)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.25)]
+        )
+        let incremental = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            base: incrementalBase,
+            sceneScriptValues: [
+                incrementalAlpha: .scalar(0.75),
+                incrementalVector: .vector2(8, 9),
+                incrementalUnknown: .scalar(1),
+            ]
+        )
+        let full = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            userValues: [incrementalAlpha: .scalar(0.2)],
+            sceneScriptValues: [
+                incrementalAlpha: .scalar(0.75),
+                incrementalVector: .vector2(8, 9),
+                incrementalUnknown: .scalar(1),
+            ]
+        )
+        let multiply = SceneDynamicTarget.effectConstant(
+            layerID: 30, effectIndex: 0, passIndex: 0, name: "multiply"
+        )
+        let effectVisible = SceneDynamicTarget.effectVisibility(layerID: 30, effectIndex: 0)
+        let sameFrameIndex = SceneDynamicSnapshotResolver.prepare(definitions:
+            incrementalDefinitions + [
+                .init(target: multiply, valueType: .scalar, authoredValue: .scalar(1)),
+                .init(target: effectVisible, valueType: .bool, authoredValue: .bool(false)),
+            ])
+        let sameFrameBase = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex,
+            timelineValues: [multiply: .scalar(0)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.25)]
+        )
+        let sameFrame = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(1), incrementalAlpha: .scalar(1)],
+            sceneScriptValues: [effectVisible: .bool(true)]
+        )
+        let returnedScript = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(1), incrementalAlpha: .scalar(1)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.75)]
+        )
+        let invalidTimeline = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            timelineValues: [multiply: .scalar(.nan), incrementalUnknown: .scalar(1)],
+            sceneScriptValues: [:]
+        )
+        let emptyOverlay = resolver.resolve(
+            frameIndex: 78, generation: 8, index: sameFrameIndex, base: sameFrameBase,
+            sceneScriptValues: [:]
+        )
+        let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
+        let nonFiniteAlpha = SceneDynamicTarget.layer(layerID: 40, field: .alpha)
+        let nonFiniteDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(target: nonFiniteAlpha, valueType: .scalar,
+                  authoredValue: .scalar(0.4)),
+        ]
+        let sceneScriptNonFinite = resolver.resolve(
+            frameIndex: 79, generation: 9, definitions: nonFiniteDefinitions,
+            sceneScriptValues: [nonFiniteAlpha: .scalar(.nan)]
+        )
+        let userNonFinite = resolver.resolve(
+            frameIndex: 79, generation: 9, definitions: nonFiniteDefinitions,
+            userValues: [nonFiniteAlpha: .scalar(.nan)]
+        )
+        let retainedScriptValue = sceneScriptNonFinite.snapshot.values(
+            for: [nonFiniteAlpha], source: .sceneScript
+        )[nonFiniteAlpha]
+        let sceneScriptNonFiniteRetained: Bool
+        if case let .scalar(number)? = retainedScriptValue {
+            sceneScriptNonFiniteRetained = number.isNaN
+        } else {
+            sceneScriptNonFiniteRetained = false
+        }
+        let payload: [String: Any] = [
+            "coderRoundTrip": coderRoundTrip,
+            "valueTypes": values.map { $0.valueType.rawValue },
+            "finite": values.map(\.isFinite),
+            "frameIndex": first.snapshot.frameIndex,
+            "generation": first.snapshot.generation,
+            "count": first.snapshot.count,
+            "alpha": resolved(first.snapshot[alpha]),
+            "text": resolved(first.snapshot[text]),
+            "vector": resolved(first.snapshot[vector]),
+            "typedScalarTargets": scalarProjection.count,
+            "typedScalarHasAlpha": scalarProjection[alpha] != nil,
+            "typedScalarHasVector": scalarProjection[vector] != nil,
+            "typedVectorTargets": vectorProjection.count,
+            "typedVectorHasVector": vectorProjection[vector] != nil,
+            "typedVectorHasAlpha": vectorProjection[alpha] != nil,
+            "typedStringTargets": stringProjection.count,
+            "typedStringHasText": stringProjection[text] != nil,
+            "typedStringHasAlpha": stringProjection[alpha] != nil,
+            "incrementalEquivalent": incremental == full,
+            "incrementalValue": String(describing: incremental.snapshot[incrementalAlpha]!.value),
+            "incrementalDiagnostics": incremental.diagnostics.map { diagnostic($0) },
+            "sameFrameMultiply": resolved(sameFrame.snapshot[multiply]),
+            "sameFrameVisible": resolved(sameFrame.snapshot[effectVisible]),
+            "sameFrameExistingScript": resolved(sameFrame.snapshot[incrementalAlpha]),
+            "sameFrameReturnedScript": resolved(returnedScript.snapshot[incrementalAlpha]),
+            "invalidTimelineKeptValue": resolved(invalidTimeline.snapshot[multiply]),
+            "invalidTimelineDiagnostics": invalidTimeline.diagnostics.map { diagnostic($0) },
+            "emptyOverlayEquivalent": emptyOverlay == sameFrameBase,
+            "duplicateMissing": first.snapshot[duplicate] == nil,
+            "mismatchMissing": first.snapshot[authoredMismatch] == nil,
+            "nonFiniteMissing": first.snapshot[authoredNonFinite] == nil,
+            "diagnostics": first.diagnostics.map { diagnostic($0) },
+            "deterministic": first == second,
+            "preparedEquivalent": first == preparedFirst,
+            "collisionDeterministic": collisionForward == collisionReverse,
+            "collisionOrder": collisionForward.diagnostics.map { targetPath($0.target) },
+            "layer12ControlPoint3": layer12ControlPoints[3].map { [$0.x, $0.y, $0.z] } ?? [],
+            "layer12ControlPointCount": layer12ControlPoints.count,
+            "layer12ParticleAlpha": layer12ParticleValues?.alpha ?? -1,
+            "layer12ParticleColor": layer12ParticleValues?.normalizedColor.map {
+                [$0.x, $0.y, $0.z]
+            } ?? [],
+            "otherLayerParticleValuesMissing":
+                controlPointSnapshot.particleInstanceValues(layerID: 13) == nil,
+            "cameraOrigin": [
+                cameraSnapshot.origin.x, cameraSnapshot.origin.y, cameraSnapshot.origin.z,
+            ],
+            "cameraZoom": cameraSnapshot.zoom,
+            "cameraProperty": [
+                cameraProperty.parallaxEnabled ?? false,
+                cameraProperty.parallaxAmount ?? -999,
+                cameraProperty.parallaxDelay ?? -999,
+                cameraProperty.parallaxMouseInfluence ?? -999,
+                cameraProperty.shakeEnabled ?? false,
+                cameraProperty.shakeAmplitude ?? -999,
+                cameraProperty.shakeRoughness ?? -999,
+                cameraProperty.shakeSpeed ?? -999,
+            ],
+            "boundedZero": resolved(boundedZero.snapshot[boundedDefinition.target]),
+            "boundedRange": boundedZero.snapshot.userPropertyNumericRange(
+                for: boundedDefinition.target
+            ).map { [$0.lowerBound, $0.upperBound] } ?? [],
+            "boundedOverflow": resolved(
+                boundedOverflow.snapshot[boundedDefinition.target]
+            ),
+            "boundedOverflowDiagnostics": boundedOverflow.diagnostics.map {
+                diagnostic($0)
+            },
+            "sceneScriptNonFinite": resolved(sceneScriptNonFinite.snapshot[nonFiniteAlpha]),
+            "sceneScriptNonFiniteDiagnostics": sceneScriptNonFinite.diagnostics.map {
+                diagnostic($0)
+            },
+            "sceneScriptNonFiniteRetained": sceneScriptNonFiniteRetained,
+            "userNonFinite": resolved(userNonFinite.snapshot[nonFiniteAlpha]),
+            "userNonFiniteDiagnostics": userNonFinite.diagnostics.map { diagnostic($0) },
+            "dynamicTransformLayerIDs": dynamicTransform
+                .snapshot.dynamicTransformLayerIDsForFrame.sorted(),
+            "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func roundTrip<T: Codable>(_ value: T) throws -> T {
+        try JSONDecoder().decode(T.self, from: JSONEncoder().encode(value))
+    }
+
+    static func dictionary(
+        _ entries: [(SceneDynamicTarget, SceneDynamicValue)]
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        Dictionary(uniqueKeysWithValues: entries)
+    }
+
+    static func resolved(_ value: SceneDynamicResolvedValue?) -> [String] {
+        guard let value else { return [] }
+        return [String(describing: value.value), value.source.rawValue]
+    }
+
+    static func diagnostic(_ value: SceneDynamicSnapshotDiagnostic) -> [String] {
+        [value.source.rawValue, value.code.rawValue]
+    }
+
+    static func targetPath(_ target: SceneDynamicTarget) -> String {
+        guard case let .scriptInstanceProperty(_, path) = target else { return "other" }
+        return path.map { "[\($0)]" }.joined()
+    }
+}
+'''
+
+
+class SceneDynamicSnapshotTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-dynamic-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        binary = directory / "scene-dynamic-snapshot"
+        compilation = subprocess.run(
+            ["swiftc", *(str(source) for source in SOURCES), str(harness), "-o", str(binary)],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_values_and_targets_are_typed_and_codable(self) -> None:
+        self.assertTrue(self.result["coderRoundTrip"])
+        self.assertEqual(
+            self.result["valueTypes"],
+            ["bool", "scalar", "vector2", "vector3", "vector4", "string"],
+        )
+        self.assertEqual(self.result["finite"], [True] * 6)
+
+    def test_resolution_uses_fixed_source_priority(self) -> None:
+        self.assertEqual(self.result["frameIndex"], 42)
+        self.assertEqual(self.result["generation"], 7)
+        self.assertEqual(self.result["alpha"], ["scalar(0.4)", "sceneScript"])
+        self.assertEqual(self.result["text"], ['string("user")', "userProperty"])
+
+    def test_invalid_higher_priority_value_keeps_last_valid_value(self) -> None:
+        self.assertEqual(self.result["vector"], ["vector2(3.0, 4.0)", "timeline"])
+
+    def test_typed_program_lanes_filter_without_rebuilding_full_snapshot(self) -> None:
+        self.assertEqual(self.result["typedScalarTargets"], 1)
+        self.assertTrue(self.result["typedScalarHasAlpha"])
+        self.assertFalse(self.result["typedScalarHasVector"])
+        self.assertEqual(self.result["typedVectorTargets"], 1)
+        self.assertTrue(self.result["typedVectorHasVector"])
+        self.assertFalse(self.result["typedVectorHasAlpha"])
+        self.assertEqual(self.result["typedStringTargets"], 1)
+        self.assertTrue(self.result["typedStringHasText"])
+        self.assertFalse(self.result["typedStringHasAlpha"])
+
+    def test_scene_script_overlay_matches_full_resolution_and_keeps_diagnostics(self) -> None:
+        self.assertTrue(self.result["incrementalEquivalent"])
+        self.assertEqual(self.result["incrementalValue"], "scalar(0.75)")
+        self.assertEqual(
+            self.result["incrementalDiagnostics"],
+            [["sceneScript", "unknownTarget"]],
+        )
+
+    def test_duplicate_and_invalid_definitions_fail_closed(self) -> None:
+        self.assertTrue(self.result["duplicateMissing"])
+        self.assertTrue(self.result["mismatchMissing"])
+        self.assertTrue(self.result["nonFiniteMissing"])
+        self.assertEqual(self.result["count"], 3)
+
+    def test_only_scene_script_scalars_may_publish_non_finite_values(self) -> None:
+        self.assertEqual(
+            self.result["sceneScriptNonFinite"], ["scalar(nan)", "sceneScript"]
+        )
+        self.assertEqual(self.result["sceneScriptNonFiniteDiagnostics"], [])
+        self.assertTrue(self.result["sceneScriptNonFiniteRetained"])
+        self.assertEqual(self.result["userNonFinite"], ["scalar(0.4)", "authored"])
+        self.assertEqual(
+            self.result["userNonFiniteDiagnostics"],
+            [["userProperty", "nonFiniteValue"]],
+        )
+
+    def test_same_frame_timeline_and_visibility_keep_both_script_priority_lanes(self) -> None:
+        self.assertEqual(self.result["sameFrameMultiply"], ["scalar(1.0)", "timeline"])
+        self.assertEqual(self.result["sameFrameVisible"], ["bool(true)", "sceneScript"])
+        self.assertEqual(self.result["sameFrameExistingScript"], ["scalar(0.25)", "sceneScript"])
+        self.assertEqual(self.result["sameFrameReturnedScript"], ["scalar(0.75)", "sceneScript"])
+        self.assertTrue(self.result["emptyOverlayEquivalent"])
+
+    def test_invalid_timeline_overlay_uses_existing_typed_validation(self) -> None:
+        self.assertEqual(self.result["invalidTimelineKeptValue"], ["scalar(0.0)", "timeline"])
+        self.assertEqual(self.result["invalidTimelineDiagnostics"],
+                         [["timeline", "nonFiniteValue"], ["timeline", "unknownTarget"]])
+
+    def test_diagnostics_are_complete_and_deterministic(self) -> None:
+        self.assertTrue(self.result["deterministic"])
+        self.assertTrue(self.result["preparedEquivalent"])
+        self.assertEqual(
+            self.result["diagnostics"],
+            [
+                ["authored", "duplicateDefinition"],
+                ["authored", "authoredTypeMismatch"],
+                ["authored", "nonFiniteValue"],
+                ["userProperty", "valueTypeMismatch"],
+                ["userProperty", "unknownTarget"],
+                ["sceneScript", "nonFiniteValue"],
+            ],
+        )
+        self.assertTrue(self.result["collisionDeterministic"])
+        self.assertEqual(self.result["collisionOrder"], ["[a][b]", "[a.b]"])
+
+    def test_empty_snapshot_preserves_frame_identity(self) -> None:
+        self.assertEqual(self.result["empty"], [9, 4, 0])
+
+    def test_particle_control_point_snapshot_is_scoped_to_one_layer(self) -> None:
+        self.assertEqual(self.result["layer12ControlPoint3"], [10, 20, 30])
+        self.assertEqual(self.result["layer12ControlPointCount"], 1)
+
+    def test_particle_instance_values_are_typed_and_scoped_to_one_layer(self) -> None:
+        self.assertEqual(self.result["layer12ParticleAlpha"], 0.35)
+        self.assertEqual(self.result["layer12ParticleColor"], [0.2, 0.4, 0.6])
+        self.assertTrue(self.result["otherLayerParticleValuesMissing"])
+
+    def test_camera_transform_reads_typed_origin_and_zoom_atomically(self) -> None:
+        self.assertEqual(self.result["cameraOrigin"], [-100, 682, 500])
+        self.assertAlmostEqual(self.result["cameraZoom"], 2.4, places=5)
+
+    def test_camera_property_projection_reads_the_same_typed_snapshot(self) -> None:
+        expected = [True, 0.75, 1.25, -0.4, True, 0.25, 1.5, 2.5]
+        for actual, wanted in zip(self.result["cameraProperty"], expected, strict=True):
+            if isinstance(wanted, float):
+                self.assertAlmostEqual(actual, wanted, places=5)
+            else:
+                self.assertEqual(actual, wanted)
+
+    def test_user_property_numeric_domain_is_published_and_enforced(self) -> None:
+        self.assertEqual(self.result["boundedRange"], [0, 0.3])
+        self.assertEqual(self.result["boundedZero"], ["scalar(0.0)", "userProperty"])
+        self.assertEqual(self.result["boundedOverflow"], ["scalar(0.05)", "authored"])
+        self.assertEqual(
+            self.result["boundedOverflowDiagnostics"],
+            [["userProperty", "userPropertyValueOutOfRange"]],
+        )
+
+    def test_prepared_authored_lanes_are_reused_by_frame_resolution(self) -> None:
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fileprivate let authoredValueLanes", source)
+        self.assertIn("fileprivate let userPropertyNumericRanges", source)
+        self.assertIn("nonisolated func typedValues", source)
+        self.assertIn("replacingResolvedValues", source)
+        self.assertIn("resolvedValuesForPreparation", source)
+        self.assertIn("base: SceneDynamicSnapshotResolution", source)
+        self.assertIn("authoredValues: index.authoredValueLanes", source)
+
+    def test_valid_resolution_avoids_diagnostic_sort_and_field_collection(self) -> None:
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("guard diagnostics.count > 1 else { return diagnostics }", source)
+        self.assertIn("private nonisolated static func orderedDiagnostics(", source)
+        self.assertIn("return hasDynamicValue(.origin)", source)
+        self.assertNotIn(
+            "[SceneDynamicLayerField.origin, .scale, .angles].contains",
+            source,
+        )
+        self.assertIn(
+            "userPropertyNumericRanges: index.userPropertyNumericRanges",
+            source,
+        )
+
+    def test_prepared_transform_candidates_bound_snapshot_projection(self) -> None:
+        self.assertEqual(self.result["dynamicTransformLayerIDs"], [21])
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fileprivate let dynamicTransformLayerIDs", source)
+        self.assertIn("candidates: index.dynamicTransformLayerIDs", source)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -18,11 +18,11 @@ import tempfile
 import unittest
 
 from script.tests.scene import test_scene_static_model_reader as reader
-from script.tests.test_scene_directional_shadow_integration import png, quad
-from script.tests.test_scene_native_world_composition import png as grid_png
+from script.tests.scene.test_scene_directional_shadow_integration import png, quad
+from script.tests.scene.test_scene_native_world_composition import png as grid_png
 from script.tests.scene.test_scene_static_model_parts import join_parts
 from script.tests.support.scene_pkg_fixture import make_package
-from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
+from script.tests.scene.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.web_benchmark_capture import png_rgb_pixels
 
 
@@ -306,7 +306,7 @@ def fixture_entries(*, cast=True, all_nocull=False, texture_case=None, frame_pha
 
 
 def effect_role_entries(case):
-    from script.tests import test_scene_named_model_shadow as named
+    from script.tests.scene import test_scene_named_model_shadow as named
     scene, entries = named.named_fixture("named-late")
     _, donor = named.named_fixture("forward-graph-neighbor")
     standard, explicit = "effects/own_dim/effect.json", "effects/selected-model-dim.json"

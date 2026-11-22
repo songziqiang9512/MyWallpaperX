@@ -81,7 +81,7 @@ def map_oracle(v):
 
 class SceneAuthoredPBRMapTests(unittest.TestCase):
     def test_reflection_intent_from_authored_input(self):
-        from script.tests import test_scene_alpha_display_builder_fixture as builder
+        from script.tests.scene import test_scene_alpha_display_builder_fixture as builder
         support=builder.HARNESS_SOURCE.split('@main',1)[0]+r'''
 enum SceneTextureLoadPurpose { case normal, mask }
 struct SceneAssetTextureIdentity: Equatable, Sendable {
@@ -172,7 +172,7 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
 
 
     def test_authored_map_profile_and_emission_projection(self):
-        from script.tests import test_scene_alpha_display_builder_fixture as builder
+        from script.tests.scene import test_scene_alpha_display_builder_fixture as builder
         support=builder.HARNESS_SOURCE.split('@main',1)[0]+r'''
 enum SceneTextureLoadPurpose { case normal, mask }
 struct SceneAssetTextureIdentity: Equatable, Sendable {
@@ -280,7 +280,7 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
                         else:self.assertEqual(actual[key],wanted,(name,actual))
 
     def test_loader_map_sampling_and_material_output(self):
-        from script.tests import test_scene_texture_candidate as texture
+        from script.tests.scene import test_scene_texture_candidate as texture
         root=Path(__file__).resolve().parents[3];scene=root/'MyWallpaperX/Core/SteamWorkshopScene'
         with tempfile.TemporaryDirectory(prefix='mwx-pbr-map-') as temporary:
             work=Path(temporary);vectors=map_vectors()

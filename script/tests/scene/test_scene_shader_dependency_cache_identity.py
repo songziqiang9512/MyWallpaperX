@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_persistent_cache_behavior import HARNESS, SUPPORT, SWIFT_SOURCES
+from script.tests.scene.test_scene_persistent_cache_behavior import HARNESS, SUPPORT, SWIFT_SOURCES
 
 
 ROOT = Path(__file__).resolve().parents[3]

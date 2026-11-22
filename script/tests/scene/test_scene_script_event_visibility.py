@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from script.tests.support.scene_vector_vm_test_support import SCENE, SWIFT_PREAMBLE, compile_vector_harness
-from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 # Data-only adapter for the shared VM fixture's descriptor carrier. Validation

@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]

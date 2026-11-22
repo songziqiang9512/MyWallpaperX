@@ -10,7 +10,7 @@ import os
 import subprocess
 import tempfile
 import unittest
-from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResourcesTask.swift"

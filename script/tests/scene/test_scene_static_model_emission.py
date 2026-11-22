@@ -7,7 +7,7 @@ import math
 import unittest
 
 from script.tests.scene import test_scene_static_model_pipeline as model_fixture
-from script.tests.test_scene_directional_shadow import SCENE, run_swift
+from script.tests.scene.test_scene_directional_shadow import SCENE, run_swift
 
 
 ALBEDO = [0.2, 0.3, 0.4]

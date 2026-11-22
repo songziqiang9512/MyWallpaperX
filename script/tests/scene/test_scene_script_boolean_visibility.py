@@ -18,7 +18,7 @@ except ImportError:
     from script.tests.support.scene_vector_vm_test_support import compile_vector_harness
 
 
-HARNESS = (Path(__file__).resolve().parents[2] / "fixtures/SceneScriptBooleanVisibilityHarness.swift").read_text()
+HARNESS = (Path(__file__).resolve().parents[3] / "fixtures/SceneScriptBooleanVisibilityHarness.swift").read_text()
 
 
 class SceneScriptBooleanVisibilityTests(unittest.TestCase):
@@ -34,8 +34,8 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             preamble=vm.SWIFT_PREAMBLE.replace("        var bloom = Bloom()\n",
                 "        var bloom = SceneBloomConfiguration.disabled\n", 1),
             extra_swift_sources=(
-                Path(__file__).resolve().parents[2] / "fixtures/SceneScriptBooleanReturnChecks.swift",
-                Path(__file__).resolve().parents[2] / "fixtures/SceneScriptProjectVisibilityChecks.swift",
+                Path(__file__).resolve().parents[3] / "fixtures/SceneScriptBooleanReturnChecks.swift",
+                Path(__file__).resolve().parents[3] / "fixtures/SceneScriptProjectVisibilityChecks.swift",
                 vm.SCENE / "Systems/Script/SceneScriptMediaFrameCoordinator.swift",
                 vm.SCENE / "Rendering/Composition/SceneBloomPostProcess.swift",
                 vm.SCENE / "Resources/Textures/SceneResourceBudget.swift",

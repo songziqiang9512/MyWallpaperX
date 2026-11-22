@@ -181,7 +181,7 @@ func namedScalarClassifierContracts() -> [String: Bool] {
 '''
 
 
-HARNESS = (Path(__file__).resolve().parents[1] / "fixtures/scene_resolved_material_template.swift").read_text(encoding="utf-8")
+HARNESS = (Path(__file__).resolve().parents[2] / "fixtures/scene_resolved_material_template.swift").read_text(encoding="utf-8")
 
 
 def source_prefix(path: Path, marker: str) -> str:
@@ -205,7 +205,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
         evidence = os.environ.get("MWX_MATERIAL_TEMPLATE_EVIDENCE")
         cls.evidence = Path(evidence) if evidence else None
         inputs = list(dict.fromkeys([*SWIFT_SOURCES, PROGRAM_SOURCE, Path(__file__),
-            Path(__file__).resolve().parents[1] / "fixtures/scene_resolved_material_template.swift"]))
+            Path(__file__).resolve().parents[2] / "fixtures/scene_resolved_material_template.swift"]))
         before = {str(p.relative_to(REPOSITORY_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in inputs}
         if cls.evidence:

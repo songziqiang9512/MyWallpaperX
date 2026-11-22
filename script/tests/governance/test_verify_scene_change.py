@@ -804,7 +804,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
                 self.assertTrue(all("markdown" not in value for value in structure.command))
 
     def test_ci_method_gates_use_unittest_flag_and_checker_receives_no_runner_flag(self) -> None:
-        gates, _ = verify.build_plan(["script/tests/test_scene_semantics_coverage.py"], arguments(ci=True), self.registry)
+        gates, _ = verify.build_plan(["script/tests/scene/test_scene_semantics_coverage.py"], arguments(ci=True), self.registry)
         structure = next(gate for gate in gates if gate.gate_id == "scene-structure")
         checker = next(gate for gate in gates if gate.gate_id == "test-assertions")
         self.assertIn("--failfast", structure.command)

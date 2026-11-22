@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_material_texture_transform import (
+from script.tests.scene.test_scene_material_texture_transform import (
     COORDINATE_HARNESS,
     REPOSITORY_ROOT,
     SCENE_ROOT,

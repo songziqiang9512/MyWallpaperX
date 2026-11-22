@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+
+"""Typed same-frame scene-background Program and route gate."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import runpy
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+FINALIZER_FIXTURE = runpy.run_path(
+    str(Path(__file__).with_name("test_scene_resolved_material_program_finalizer.py"))
+)
+
+PROVIDER_SETUP = r'''
+        func backgroundContract(_ revision: String) -> SceneShaderContract {
+            let vertex = vertexSource(
+                samplerMetadata: nil,
+                deadMaskCoordinates: false,
+                stageLocalUniforms: false
+            )
+            let fragment = """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture1; // {"hidden":true,"default":"_rt_FullFrameBuffer"}
+            void main() {
+                gl_FragColor = texSample2D(g_Texture1, v_TexCoord);
+            }
+            """
+            func stage(
+                _ kind: SceneShaderContract.StageKind,
+                path: String,
+                source: String
+            ) -> SceneShaderContract.Stage {
+                let parsed = SceneShaderContractSourceParser().parse(
+                    source,
+                    stageRelativePath: path
+                )
+                return .init(
+                    kind: kind,
+                    relativePath: path,
+                    source: source,
+                    rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
+                    includes: parsed.includes,
+                    annotations: parsed.annotations,
+                    declarations: parsed.declarations
+                )
+            }
+            let stages = [
+                stage(.vertex, path: "\(revision)/root.vert", source: vertex),
+                stage(.fragment, path: "\(revision)/root.frag", source: fragment),
+            ]
+            let sourceGraph = SceneShaderSourceGraph(
+                roots: [
+                    .init(label: "vertex", virtualPath: "\(revision)/root.vert"),
+                    .init(label: "fragment", virtualPath: "\(revision)/root.frag"),
+                ],
+                nodes: stages.map { value in
+                    .init(
+                        virtualPath: value.relativePath,
+                        provenance: .package,
+                        source: value.source,
+                        rawSHA256: value.rawSHA256,
+                        byteCount: value.source.utf8.count
+                    )
+                },
+                edges: [],
+                diagnostics: [],
+                dependencySHA256: "fixture-dependency-\(revision)"
+            )
+            return .init(
+                identity: "fixture/\(revision)",
+                sourceKind: .authoredSource,
+                stages: stages,
+                diagnostics: [],
+                canonicalSHA256: "fixture-contract-\(revision)",
+                sourceGraph: sourceGraph
+            )
+        }
+        func backgroundTexture(_ usage: MTLTextureUsage) -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm,
+                width: 8,
+                height: 8,
+                mipmapped: false
+            )
+            descriptor.storageMode = .shared
+            descriptor.usage = usage
+            return device.makeTexture(descriptor: descriptor)!
+        }
+        let readableBackground = backgroundTexture([.shaderRead, .renderTarget])
+        let backgroundResource = SceneFrameTextureResource.sameFrameSceneBackground(
+            consumerLayerID: fixtureLayerID,
+            frameEpoch: 1,
+            texture: readableBackground
+        )
+        let backgroundReference = Template.TextureReference.provider(
+            .sceneBackground(consumerLayerID: fixtureLayerID)
+        )
+        let backgroundEffectContext = Template.EffectContext(
+            key: Graph.EffectKey(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                descriptorID: "scene-background-provider"
+            ),
+            input: graphTexture()
+        )
+        let backgroundProgram = finalize(
+            shader: backgroundContract("scene-background-provider"),
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: backgroundReference,
+            additionalEntries: backgroundResource.map {
+                [.sceneBackground(fixtureLayerID): .ready($0)]
+            } ?? [:],
+            effectContext: backgroundEffectContext
+        )
+        let missingBackgroundProgram = finalize(
+            shader: backgroundContract("scene-background-missing"),
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: backgroundReference,
+            effectContext: backgroundEffectContext
+        )
+        let shaderDefaultBackgroundProgram = finalize(
+            shader: backgroundContract("scene-background-shader-default"),
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: backgroundResource.map {
+                [.sceneBackground(fixtureLayerID): .ready($0)]
+            } ?? [:],
+            effectContext: backgroundEffectContext
+        )
+        let backgroundProgramIdentity: Bool = {
+            guard case let .success(program) = backgroundProgram,
+                  let slot = program.textureSlots[1] else { return false }
+            return slot.reference == backgroundReference
+                && slot.registryIdentity == .sceneBackground(fixtureLayerID)
+                && slot.resource.publication.texture === readableBackground
+                && slot.expectedPurpose == .premultipliedColor
+        }()
+        let staleBackground = SceneFrameTextureResource.sameFrameSceneBackground(
+            consumerLayerID: fixtureLayerID,
+            frameEpoch: 2,
+            texture: readableBackground
+        )
+        let frameOne = snapshot(device, kind: .ready, frameIndex: 1)
+        let staleOverlayRejected = staleBackground.map {
+            frameOne.overlayingSceneBackground(
+                consumerLayerID: fixtureLayerID,
+                resource: $0
+            ) == nil
+        } ?? false
+        let wrongLayerRejected = backgroundResource.map {
+            frameOne.overlayingSceneBackground(
+                consumerLayerID: fixtureLayerID + 1,
+                resource: $0
+            ) == nil
+        } ?? false
+        let unreadableRejected = SceneFrameTextureResource
+            .sameFrameSceneBackground(
+                consumerLayerID: fixtureLayerID,
+                frameEpoch: 1,
+                texture: backgroundTexture([.renderTarget])
+            ) == nil
+        // D8：RT 名称词汇表行为断言——FullFrameBuffer 任意大小写整名都改写为
+        // typed frame input（不退化为磁盘资产引用），imageLayerComposite 语法
+        // 家族改写为保留 provider 身份的 typed reference，未知 _rt_ 名不准入，
+        // 普通资产路径不受影响。
+        let renderTargetVocabularyBehavior: [String: Any] = [
+            "fullFrameBufferCaseVariantsTyped": [
+                "_rt_FullFrameBuffer", "_RT_FullFrameBuffer", "_Rt_FULLFRAMEBUFFER"
+            ].allSatisfy { value in
+                SceneRenderTargetVocabulary.dispatch(authoredName: value) == .typedFrameInput
+            },
+            "imageLayerCompositeTypedProvider": {
+                guard case let .namedLayerTarget(reference) =
+                    SceneRenderTargetVocabulary.dispatch(authoredName: "_rt_imageLayerComposite_7_b") else {
+                    return false
+                }
+                return reference.providerLayerID == 7 && reference.variant == .secondary
+            }(),
+            "unknownInternalTargetUnadmitted": {
+                if case .unadmitted = SceneRenderTargetVocabulary.dispatch(authoredName: "_rt_unsupported") {
+                    return true
+                }
+                return false
+            }(),
+            "plainAssetPathUntouchedByRTFates": {
+                // 普通资产路径不得被 RT 命运误改写：落到 unadmitted 交调用方
+                // 按资产路径解析，即为正确结果。
+                if case .unadmitted = SceneRenderTargetVocabulary.dispatch(authoredName: "textures/iron.png") {
+                    return true
+                }
+                return false
+            }(),
+        ]
+        let sceneBackgroundProvider: [String: Any] = [
+            "programIdentity": backgroundProgramIdentity,
+            "programFailure": failureToken(backgroundProgram),
+            "shaderDefaultFailure": failureToken(shaderDefaultBackgroundProgram),
+            "missingFailure": failureToken(missingBackgroundProgram),
+            "staleOverlayRejected": staleOverlayRejected,
+            "wrongLayerRejected": wrongLayerRejected,
+            "unreadableRejected": unreadableRejected,
+            "renderTargetVocabularyBehavior": renderTargetVocabularyBehavior,
+        ]
+'''
+
+
+HARNESS = r'''
+import Foundation
+import Metal
+import simd
+
+@main
+enum SceneBackgroundProviderHarness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalAvailable\":false}")
+            return
+        }
+        let fixture = SceneResolvedMaterialFinalizerFixture(device: device)
+        let result = fixture.run {
+''' + PROVIDER_SETUP + r'''
+            return ["sceneBackgroundProvider": sceneBackgroundProvider]
+        }
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        withExtendedLifetime(fixture) { FileHandle.standardOutput.write(data) }
+    }
+}
+'''
+
+
+@unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+class SceneBackgroundMaterialProviderTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-background-provider-"
+        )
+        root = Path(cls.temporary_directory.name)
+        support = root / "Support.swift"
+        harness = root / "Harness.swift"
+        binary = root / "scene-background-provider-test"
+        harness.write_text(HARNESS, encoding="utf-8")
+        environment = os.environ.copy()
+        environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+        environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
+                *(str(path) for path in FINALIZER_FIXTURE["SWIFT_SOURCES"]),
+                *(str(path) for path in FINALIZER_FIXTURE["SHARED_FIXTURE_SOURCES"]),
+                str(harness),
+                "-framework", "Metal", "-framework", "CoreGraphics",
+                "-framework", "ImageIO", "-module-cache-path",
+                str(root / "module-cache"), "-o", str(binary),
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary)], cwd=REPOSITORY_ROOT, env=environment,
+            capture_output=True, text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr or completed.stdout)
+        cls.result = json.loads(completed.stdout)["sceneBackgroundProvider"]
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_program_consumes_only_complete_same_frame_provider(self) -> None:
+        self.assertTrue(self.result["programIdentity"], self.result)
+        self.assertEqual(self.result["shaderDefaultFailure"], "success")
+        self.assertEqual(
+            self.result["missingFailure"],
+            "texture/resourceSnapshotUnresolved",
+        )
+        self.assertTrue(self.result["staleOverlayRejected"], self.result)
+        self.assertTrue(self.result["wrongLayerRejected"], self.result)
+        self.assertTrue(self.result["unreadableRejected"], self.result)
+
+    def test_rt_name_vocabulary_dispatch_behavior(self) -> None:
+        # D8：大小写变体 FullFrameBuffer 仍是 typed frame input（防回归断言）。
+        behavior = self.result["renderTargetVocabularyBehavior"]
+        self.assertTrue(behavior["fullFrameBufferCaseVariantsTyped"], behavior)
+        self.assertTrue(behavior["imageLayerCompositeTypedProvider"], behavior)
+        self.assertTrue(behavior["unknownInternalTargetUnadmitted"], behavior)
+        self.assertTrue(behavior["plainAssetPathUntouchedByRTFates"], behavior)
+
+    def test_route_is_exact_and_layer_ordered(self) -> None:
+        compiler = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift"
+        ).read_text(encoding="utf-8")
+        capability = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+        ).read_text(encoding="utf-8")
+        capability += "\n" + (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
+        ).read_text(encoding="utf-8")
+        capability_report = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+        ).read_text(encoding="utf-8")
+        composition = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
+        ).read_text(encoding="utf-8")
+        # D8：FullFrameBuffer 的大小写不敏感匹配收口到词汇表唯一分派（原
+        # TemplateCompiler 内联字面量已退役），由
+        # test_rt_name_vocabulary_dispatch_behavior 做行为级防回归断言。
+        vocabulary = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("caseInsensitiveCompare(fullFrameBufferName)", vocabulary)
+        self.assertIn("SceneRenderTargetVocabulary.dispatch(authoredName: value)", compiler)
+        self.assertIn("sceneBackgroundCandidateIsOrdered", capability)
+        self.assertIn(
+            "sceneBackgroundCandidateHasTypedSinglePassColorABI",
+            capability,
+        )
+        self.assertIn(
+            "variant.premultipliedColorInputSlots.contains(candidate.slot)",
+            capability,
+        )
+        self.assertIn("candidateNode.nodeIndex == nodes.last?.nodeIndex", capability)
+        self.assertIn("!admitted.isGraphOutputProvider", capability)
+        self.assertIn(
+            "case .none, .externalPrimary, .graphInternal: true",
+            capability,
+        )
+        # The aggregate vector has no same-layer composite to alias, so it
+        # keeps failing the background compose contract closed.
+        self.assertIn("case .externalAggregate: false", capability)
+        self.assertIn("scene-background-provider-ambiguous", capability)
+        self.assertIn("scene-background-compose-shape", capability)
+        self.assertIn("schema=scene-background-provider-v1", capability_report)
+        self.assertNotIn("sceneBackground=same-frame-main-target", capability_report)
+        self.assertIn("mainPass.withReadableTarget", composition)
+        background_section = capability.split(
+            "static func sceneBackgroundRequirement", 1
+        )[1].split("/// Only a launch-time", 1)[0]
+        self.assertNotIn("sampleID", background_section)
+        self.assertNotIn("descriptorID ==", background_section)
+
+
+if __name__ == "__main__":
+    unittest.main()

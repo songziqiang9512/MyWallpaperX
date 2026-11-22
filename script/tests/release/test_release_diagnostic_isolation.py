@@ -56,7 +56,7 @@ import Foundation
 
 class ReleaseDiagnosticIsolationTests(unittest.TestCase):
     def test_graph_program_keys_are_debug_only_without_changing_history_pixels(self):
-        from script.tests import test_scene_persistent_history_visual_failure_gpu as history
+        from script.tests.scene import test_scene_persistent_history_visual_failure_gpu as history
         from script.tests.scene import test_scene_resolved_material_graph_executor as graph
 
         # Reuse every original GPU/history assertion in both configurations.
@@ -268,7 +268,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
             self.assertEqual(release["finalFrames"], debug["finalFrames"])
 
     def test_system_media_release_has_no_log_state_calls_or_interpolation_before_optimization(self):
-        from script.tests import test_scene_system_media_provider as provider
+        from script.tests.scene import test_scene_system_media_provider as provider
         support, separator, _ = provider.HARNESS.partition("@main struct Main")
         self.assertTrue(separator)
         parent = os.environ.get("MWX_AUDIO_MEDIA_DIAGNOSTIC_EVIDENCE")
@@ -348,7 +348,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
         self.assertIn("diagnostic payload", output)
 
     def test_sound_playing_observer_is_debug_only_without_changing_player_state(self):
-        from script.tests.test_scene_sound_playback_program import REGISTRY_SWIFT_SOURCES, STUB_SOURCE
+        from script.tests.scene.test_scene_sound_playback_program import REGISTRY_SWIFT_SOURCES, STUB_SOURCE
         _, separator, carriers = STUB_SOURCE.partition("struct SceneScriptMediaPlaybackCommand")
         self.assertTrue(separator)
         harness = r'''

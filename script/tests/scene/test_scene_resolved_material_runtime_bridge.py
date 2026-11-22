@@ -626,7 +626,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
     def test_terminal_seal_rejection_keeps_real_buffer_unsubmitted(self) -> None:
         # Compile the actual terminal helper and submission owner; the carrier
         # supplies app dependencies. This does not execute the full renderer.
-        from script.tests.test_scene_persistent_color_output import _compile_and_run
+        from script.tests.scene.test_scene_persistent_color_output import _compile_and_run
         result = _compile_and_run("SceneTerminalSealHarness.swift")
         self.assertEqual(result["accepted"], [True, False, True])
         self.assertEqual(result["beforeSubmit"], [True, True, True])

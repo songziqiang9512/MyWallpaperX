@@ -54,7 +54,7 @@ def make_fixture(root):
 class SceneImageMaterialAlphaTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from script.tests import test_scene_alpha_display_builder_fixture as builder
+        from script.tests.scene import test_scene_alpha_display_builder_fixture as builder
         cls.temp = tempfile.TemporaryDirectory(prefix='mwx-image-alpha-native-')
         cls.work = Path(cls.temp.name)
         source = cls.work / 'Probe.swift'

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_property_live_routing import method_body
+from script.tests.scene.test_scene_property_live_routing import method_body
 
 ROOT = Path(__file__).resolve().parents[3]
 RESOLVER = ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift'

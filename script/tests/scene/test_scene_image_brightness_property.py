@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from script.tests.test_scene_property_live_update_state import SOURCE_ROOT, SWIFT_SOURCES
+from script.tests.scene.test_scene_property_live_update_state import SOURCE_ROOT, SWIFT_SOURCES
 
 HARNESS = r'''
 import Foundation

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_offscreen_texture_pool import SWIFT_SOURCES
+from script.tests.scene.test_scene_offscreen_texture_pool import SWIFT_SOURCES
 
 
 SUPPORT = ((Path(__file__).resolve().parents[1] / "fixtures") / "SceneOffscreenPoolSupport.swift").read_text()
