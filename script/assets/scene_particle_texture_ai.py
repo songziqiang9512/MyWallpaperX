@@ -7,8 +7,8 @@ gpt-image-2 不支持 background=transparent，因此配方按用途指定纯色
 
 用法：
   export MYWALLPAPERX_IMAGE_API_KEY=sk-...
-  python3 script/scene_particle_texture_ai.py --recipe rosepetals --n 4
-  python3 script/scene_particle_texture_ai.py --list
+  python3 script/assets/scene_particle_texture_ai.py --recipe rosepetals --n 4
+  python3 script/assets/scene_particle_texture_ai.py --list
   # 自建/代理端点：--base-url https://your-proxy/v1
 """
 import argparse

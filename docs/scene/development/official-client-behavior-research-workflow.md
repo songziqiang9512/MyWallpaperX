@@ -29,7 +29,7 @@
 
 每次发现实际客户端、工具路径及版本，不从旧安装路径或文档中的版本推定当前环境。静态分析只追回答问题所需的字段、数据流和实际消费者；能读出或保存字段不证明它如何影响画面。存储、使用、插值、混合及最终输出分别取证。
 
-结构提取工具 [extract_wallpaper_engine_client_evidence.py](../../../script/extract_wallpaper_engine_client_evidence.py) 读取本地客户端的 changelog、locale 和依赖清单，输出来源身份与结构化观察。它不执行客户端，不证明运行语义；输出放本机任务目录。
+结构提取工具 [extract_wallpaper_engine_client_evidence.py](../../../script/evidence/extract_wallpaper_engine_client_evidence.py) 读取本地客户端的 changelog、locale 和依赖清单，输出来源身份与结构化观察。它不执行客户端，不证明运行语义；输出放本机任务目录。
 
 跨宿主、VM、shell 与客户端时，先确认失败发生在哪一层，再决定是否重试。固定原工程入口、实际 VFS 和关联资源；首次 stage 校验完整文件集，已有效副本先校验，不因运输错误重复覆盖。含非 ASCII 的 PowerShell 5.1 脚本与 JSON 显式处理编码，隐藏文件检查使用 `-Force`。不要把 manifest 值拼成命令源码，不用动态执行绕过拒绝。
 

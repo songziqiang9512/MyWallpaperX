@@ -14,8 +14,8 @@
 | `build/` | 构建/运行/资源复制脚本 | 已迁移 |
 | `scene/` | Scene 普查、shader 合同、证据、播放/矩阵 | 目标位置 |
 | `web/` | Web 证据与基准 | 目标位置 |
-| `assets/` | 资产生成器 | 目标位置 |
-| `evidence/` | 外部证据提取与晋升 | 目标位置 |
+| `assets/` | 资产生成器 | 已迁移 |
+| `evidence/` | 外部证据提取与晋升 | 已迁移 |
 
 存量 Python 工具暂留顶层：它们通过同目录 import 和 `Path(__file__)` 计算仓库根，迁移需要同时改测试的 `sys.path` 导入与各脚本的相对路径。迁移按工具族分批进行，每批更新 `scene_validation_gates.json` 与 CI 引用并跑对应测试。
 

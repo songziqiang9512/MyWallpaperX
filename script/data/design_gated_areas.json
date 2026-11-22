@@ -880,7 +880,7 @@
       "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "design_notes": "",
       "matchPatterns": [
-        "script/generate_scene_shader_cache_identity.py",
+        "script/assets/generate_scene_shader_cache_identity.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
@@ -1225,7 +1225,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Format/*Particle*.swift",
         "script/scene_capability_census_resources.py",
         "script/scene_wallpaper_graph_output_metrics.py",
-        "script/promote_scene_evidence.py"
+        "script/evidence/promote_scene_evidence.py"
       ],
       "contentPatterns": []
     },
@@ -1382,7 +1382,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
         "script/build/copy-scene-stock-assets.sh",
-        "script/generate-scene-stock-index.swift"
+        "script/assets/generate-scene-stock-index.swift"
       ],
       "contentPatterns": []
     },

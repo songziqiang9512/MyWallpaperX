@@ -16,7 +16,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_wallpaper_benchmark as benchmark
 import scene_wallpaper_sample_run as sample_run
-import promote_scene_evidence as promotion
+from script.evidence import promote_scene_evidence as promotion
 import web_benchmark_capture as capture
 import scene_preview_visual_evidence as visual
 from scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_snapshot_metrics

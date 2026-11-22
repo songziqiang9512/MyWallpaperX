@@ -13,7 +13,7 @@
 
 用法：
 
-    python3 script/extract_wallpaper_engine_client_evidence.py \\
+    python3 script/evidence/extract_wallpaper_engine_client_evidence.py \\
         --client-root "Reference Project/wallpaper_engine" \\
         --output-dir /tmp/we-evidence
 """
@@ -28,7 +28,7 @@ from collections import Counter
 from pathlib import Path
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CLIENT_ROOT = REPOSITORY_ROOT / "Reference Project/wallpaper_engine"
 CHANGELOG_HEADLINE = re.compile(r'changelogHeadline">([^<]+)<')
 CHANGELOG_BODY = re.compile(r'changelogBody">(.*?)</pre>', re.S)

@@ -22,7 +22,7 @@ STOCK_WORK="$(/usr/bin/mktemp -d "$STOCK_WORK_BASE/mwx-stock-index.XXXXXX")"
 trap '/bin/rm -rf -- "$STOCK_WORK"' EXIT
 xcrun --sdk macosx swiftc -parse-as-library -O -whole-module-optimization \
   "$ROOT/MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift" \
-  "$ROOT/script/generate-scene-stock-index.swift" \
+  "$ROOT/script/assets/generate-scene-stock-index.swift" \
   -module-cache-path "$STOCK_WORK/modules" \
   -o "$STOCK_WORK/generate-scene-stock-index"
 "$STOCK_WORK/generate-scene-stock-index" \

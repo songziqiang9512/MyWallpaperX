@@ -6,6 +6,11 @@ import hashlib
 import json
 from pathlib import Path
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
     EFFECT_EXECUTION_EXPECTATIONS,

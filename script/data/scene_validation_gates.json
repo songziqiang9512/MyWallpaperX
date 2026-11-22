@@ -176,7 +176,7 @@
         "script/release/release_version.py",
         "script/requirements-tests.txt",
         "script/build/copy-scene-stock-assets.sh",
-        "script/generate-scene-stock-index.swift",
+        "script/assets/generate-scene-stock-index.swift",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "docs/releases/**",
         "docs/release/**",
@@ -2738,7 +2738,7 @@
       "patterns": [
         "script/scene_matrix_contract.py",
         "script/scene_matrix_suite.py",
-        "script/generate_scene_full_matrix.py",
+        "script/assets/generate_scene_full_matrix.py",
         "script/scene_product_entry_audio_baseline.py",
         "script/scene_wallpaper_media_event.py",
         "script/scene_wallpaper_*matrix.json",
@@ -2999,7 +2999,15 @@
         "script/publish_release.py",
         "script/release_version.py",
         "script/validate_apple_silicon_release.py",
-        "script/validate_release_notes.py"
+        "script/validate_release_notes.py",
+        "script/assets/**",
+        "script/evidence/**",
+        "script/generate_scene_full_matrix.py",
+        "script/generate_scene_shader_cache_identity.py",
+        "script/generate-scene-stock-index.swift",
+        "script/scene_particle_texture_ai.py",
+        "script/extract_wallpaper_engine_client_evidence.py",
+        "script/promote_scene_evidence.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -4195,7 +4203,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Preparation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
-        "script/generate_scene_shader_cache_identity.py",
+        "script/assets/generate_scene_shader_cache_identity.py",
         "script/tests/test_scene_shader_cache_identity.py",
         "script/tests/test_scene_shader_dependency_cache_identity.py",
         "script/tests/fixtures/SceneShaderDependencyCacheChecks.swift",
@@ -5971,8 +5979,8 @@
     {
       "id": "script-entrypoint-tests",
       "patterns": [
-        "script/extract_wallpaper_engine_client_evidence.py",
-        "script/promote_scene_evidence.py",
+        "script/evidence/extract_wallpaper_engine_client_evidence.py",
+        "script/evidence/promote_scene_evidence.py",
         "script/scene_helper_qualification_sites.py",
         "script/steam_auth_gate.py",
         "script/wallpaper_startup_benchmark.py"

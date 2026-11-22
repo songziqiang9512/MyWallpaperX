@@ -18,14 +18,14 @@ from pathlib import Path
 from typing import Any
 
 
-SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1]
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_capability_census_io import is_sample_directory_name
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_ROOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/runs"
 RUN_LABEL_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
 DEFAULT_MAX_CACHE_MIB = 5 * 1024

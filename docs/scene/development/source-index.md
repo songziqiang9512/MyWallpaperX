@@ -43,4 +43,4 @@
 | [QuickJS-NG](https://github.com/quickjs-ng/quickjs)、[本地引入说明](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md) | VM 上游来源与项目引入差异；Scene host API 由本项目 bridge 决定 |
 | [MirageWallpaper](https://github.com/laobamac/MirageWallpaper)、[linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine) | 第三方架构与行为候选；使用时固定 revision、核源码和许可证，独立实现并运行验证 |
 
-本地参考工程和客户端按实际存在位置发现，记录本次版本与身份；不把个人路径、旧 HEAD 或历史工具版本写成默认环境。真实 Workshop 内容只读，观察使用隔离副本。官方客户端结构清单可用 [提取工具](../../../script/extract_wallpaper_engine_client_evidence.py) 重新生成到任务目录；字段标签、changelog 或模块依赖均不能自动决定运行语义。
+本地参考工程和客户端按实际存在位置发现，记录本次版本与身份；不把个人路径、旧 HEAD 或历史工具版本写成默认环境。真实 Workshop 内容只读，观察使用隔离副本。官方客户端结构清单可用 [提取工具](../../../script/evidence/extract_wallpaper_engine_client_evidence.py) 重新生成到任务目录；字段标签、changelog 或模块依赖均不能自动决定运行语义。

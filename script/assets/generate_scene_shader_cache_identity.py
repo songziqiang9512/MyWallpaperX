@@ -18,7 +18,7 @@ SEMANTIC_DIRECTORIES = (
     SCENE / "Resources/Textures",
 )
 SEMANTIC_FILES = (
-    Path("script/generate_scene_shader_cache_identity.py"),
+    Path("script/assets/generate_scene_shader_cache_identity.py"),
 )
 TOOLCHAIN_FILES = (
     Path("script/data/scene_shader_compiler_dependencies.json"),

@@ -11,7 +11,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-import extract_wallpaper_engine_client_evidence as extractor
+from script.evidence import extract_wallpaper_engine_client_evidence as extractor
 
 
 class ClientRootTests(unittest.TestCase):
