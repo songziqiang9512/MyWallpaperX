@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18202
+      "bytes": 18213
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
@@ -178,11 +178,11 @@
     },
     "docs/web/current-state.md": {
       "lines": 139,
-      "bytes": 52143
+      "bytes": 52147
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 92,
-      "bytes": 19594
+      "bytes": 19598
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -406,15 +406,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "593c325e5e45c16dd02a2d072c9878b782f2bc4e7e97ae5a2191b65d33771897",
-      "after": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
-      "owner": "Repository documentation",
-      "reason": "R7 gate recovery: corrected non-Scene links and particle-drift fixes; remaining drift and dependency-edge decision recorded.",
-      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/status-bar-panel-redesign.md",
       "before": "ed069d383b8ffd1adce6d6b6db999cb9aad18d4d2634bcef1d22dc1a76f257d1",
       "after": "1b80994208efaa63d2e7663144303c4befe7afd6078aeab240e0d6af2eeb1158",
@@ -583,6 +574,33 @@
       "owner": "repository-governance",
       "reason": "Move asset/evidence tools into collections and update paths.",
       "decision": "docs/scene/development/official-client-behavior-research-workflow.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
+      "after": "2cd621a6fd5b5db869c6d44d9acc2d1ad06d03eea87cf6e898d38c03b1f9c98f",
+      "owner": "repository-governance",
+      "reason": "Move web tools into script/web and update paths.",
+      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "e46b9461f16eb10a822ffcacfa59922cab40d0532c09490dbdababb98e49a9bf",
+      "after": "2b243b0a9204f19ec3f87d8d3009266e2dbdfe0c09517fdaecc6ded709fcfe5f",
+      "owner": "repository-governance",
+      "reason": "Move web tools into script/web and update paths.",
+      "decision": "docs/web/current-state.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
+      "after": "0deb8ade3de8344685f03798e3dcc1166013e78e175760e889770ed9fde3f721",
+      "owner": "repository-governance",
+      "reason": "Move web tools into script/web and update paths.",
+      "decision": "docs/web/dedicated-host-process-design.md"
     }
   ]
 }
