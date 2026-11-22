@@ -51,7 +51,7 @@ internal sealed partial class SteamSession
                 AsyncJob<SteamUnifiedMessages.ServiceMethodResponse<CPlayer_GetPlayerLinkDetails_Response>> job;
                 lock (gate) {
                     if (!ReferenceEquals(client, source)) throw new OperationCanceledException();
-                    job = source.GetHandler<SteamUnifiedMessages>()!.CreateService<Player>().GetPlayerLinkDetails(request);
+                    job = source.GetRequiredHandler<SteamUnifiedMessages>().CreateService<Player>().GetPlayerLinkDetails(request);
                 }
                 var result = await job.ToTask().WaitAsync(timeout.Token).ConfigureAwait(false);
                 if (result.Result == EResult.OK) {

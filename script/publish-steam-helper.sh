@@ -14,7 +14,7 @@ HELPER_CONFIGURATION="${CONFIGURATION:-Release}"
 case "$HELPER_CONFIGURATION" in Debug|Release) ;; *) echo "Unsupported helper configuration: $HELPER_CONFIGURATION" >&2; exit 2 ;; esac
 DOTNET="${DOTNET:-$(command -v dotnet || true)}"
 if [[ -z "$DOTNET" ]]; then DOTNET="$HOME/.dotnet/dotnet"; fi
-[[ -x "$DOTNET" ]] || { echo "SteamService requires .NET SDK 8.0.401 to build" >&2; exit 1; }
+[[ -x "$DOTNET" ]] || { echo "SteamService requires .NET SDK 10.0.404 to build" >&2; exit 1; }
 [[ "$PUBLISH_DIR" = /* && "$INTERMEDIATE_DIR" = /* ]] || exit 2
 
 # Only replace this script's generated product; never mirror over an unrelated directory.

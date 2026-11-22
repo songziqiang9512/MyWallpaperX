@@ -132,8 +132,8 @@ GitHub CI 的离线测试、构建和发布成功不等于所有真实壁纸、�
 ## SteamService build and signing boundary
 
 Xcode's App target publishes and embeds `Contents/Resources/SteamService/` in both
-Debug and Release. Install SDK **8.0.401** (`SteamService/global.json`); CI selects
-that version explicitly. The helper ships a pinned **.NET 8.0.31 osx-arm64** runtime,
+Debug and Release. Install SDK **10.0.404** (`SteamService/global.json`); CI selects
+that version explicitly. The helper ships a pinned **.NET 10.0.15 osx-arm64** runtime,
 so users do not need an SDK or runtime installation. NuGet restore is locked;
 `SteamService/NOTICE.md` and `licenses/` accompany the generated directory.
 Review runtime security updates independently of the fixed build SDK.

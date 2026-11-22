@@ -538,7 +538,7 @@ internal sealed partial class SteamSession
         request.publishedfileids.Add(publishedFileId);
         ct.ThrowIfCancellationRequested();
         var response = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>().GetDetails(request).ToTask(), ct)
+                () => context.Source.GetRequiredHandler<SteamUnifiedMessages>().CreateService<PublishedFile>().GetDetails(request).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         if (response.Result != EResult.OK) throw SteamRequestFailure.FromResult(response.Result);
@@ -550,14 +550,14 @@ internal sealed partial class SteamSession
     {
         ct.ThrowIfCancellationRequested();
         var tokens = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamApps>()!.PICSGetAccessTokens([ProtocolLimits.AppId], []).ToTask(), ct)
+                () => context.Source.GetRequiredHandler<SteamApps>().PICSGetAccessTokens([ProtocolLimits.AppId], []).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var request = new SteamApps.PICSRequest(ProtocolLimits.AppId);
         if (tokens.AppTokens.TryGetValue(ProtocolLimits.AppId, out var token)) request.AccessToken = token;
         ct.ThrowIfCancellationRequested();
         var response = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamApps>()!.PICSGetProductInfo([request], []).ToTask(), ct)
+                () => context.Source.GetRequiredHandler<SteamApps>().PICSGetProductInfo([request], []).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var info = response.Results?.Select(r => r.Apps)
@@ -571,7 +571,7 @@ internal sealed partial class SteamSession
     {
         ct.ThrowIfCancellationRequested();
         var result = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamApps>()!.GetDepotDecryptionKey(depotId, ProtocolLimits.AppId).ToTask(), ct)
+                () => context.Source.GetRequiredHandler<SteamApps>().GetDepotDecryptionKey(depotId, ProtocolLimits.AppId).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         if (result.Result != EResult.OK)
@@ -585,7 +585,7 @@ internal sealed partial class SteamSession
     {
         ct.ThrowIfCancellationRequested();
         var code = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamContent>()!.GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public"), ct)
+                () => context.Source.GetRequiredHandler<SteamContent>().GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public"), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         return code != 0 ? code : throw new SteamRequestFailure("accessDenied", "manifest request code unavailable.");
@@ -594,7 +594,7 @@ internal sealed partial class SteamSession
     private async Task<WorkshopCdnTransfer> CreateCdnTransferAsync(ActiveDownload context, uint depotId, CancellationToken ct)
     {
         var servers = await SendForAccount(context.Account,
-                () => context.Source.GetHandler<SteamContent>()!.GetServersForSteamPipe(), ct)
+                () => context.Source.GetRequiredHandler<SteamContent>().GetServersForSteamPipe(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
@@ -602,7 +602,7 @@ internal sealed partial class SteamSession
         return new WorkshopCdnTransfer(servers, async (server, token) =>
         {
             var auth = await SendForAccount(context.Account,
-                    () => context.Source.GetHandler<SteamContent>()!.GetCDNAuthToken(ProtocolLimits.AppId, depotId, server.Host!), token)
+                    () => context.Source.GetRequiredHandler<SteamContent>().GetCDNAuthToken(ProtocolLimits.AppId, depotId, server.Host!), token)
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), token).ConfigureAwait(false);
             if (auth.Result != EResult.OK) throw SteamRequestFailure.FromResult(auth.Result);
             return (auth.Token, auth.Expiration);

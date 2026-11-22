@@ -41,10 +41,10 @@ internal sealed class ProbeSession : IAsyncDisposable
         }));
         client = new SteamClient(configuration);
         callbacks = new CallbackManager(client);
-        user = client.GetHandler<SteamUser>()!;
-        apps = client.GetHandler<SteamApps>()!;
-        content = client.GetHandler<SteamContent>()!;
-        publishedFiles = client.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
+        user = client.GetRequiredHandler<SteamUser>();
+        apps = client.GetRequiredHandler<SteamApps>();
+        content = client.GetRequiredHandler<SteamContent>();
+        publishedFiles = client.GetRequiredHandler<SteamUnifiedMessages>().CreateService<PublishedFile>();
         callbacks.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
         callbacks.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
         callbacks.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);

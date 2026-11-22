@@ -90,7 +90,7 @@ jobs:
       - name: Select SteamService SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.401"
+          dotnet-version: "10.0.404"
           cache: true
           cache-dependency-path: SteamService/packages.lock.json
 

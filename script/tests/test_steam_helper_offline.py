@@ -66,7 +66,7 @@ class SteamHelperOfflineTests(unittest.TestCase):
             inspector.mkdir()
             (inspector / 'Inspect.csproj').write_text(
                 '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType>'
-                '<TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>')
+                '<TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>')
             (inspector / 'Program.cs').write_text(r'''
 using System;
 using System.IO;

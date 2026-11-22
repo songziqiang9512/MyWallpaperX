@@ -82,7 +82,7 @@ Scene 兼容范围持续完善，上千作品测试还原Windows官方99%+。部
 
 ## 技术栈与播放引擎
 
-**技术栈**：界面与播放控制使用 Swift + AppKit；Scene 渲染使用 Metal；视频使用 AVFoundation；Web 壁纸使用 WebKit（WKWebView）；SceneScript 由 QuickJS-NG 执行，作者 shader 经 glslang / SPIRV-Cross 编译为 Metal；Steam 工坊获取由独立的 .NET 8 + SteamKit2 服务完成；应用更新使用 Sparkle。
+**技术栈**：界面与播放控制使用 Swift + AppKit；Scene 渲染使用 Metal；视频使用 AVFoundation；Web 壁纸使用 WebKit（WKWebView）；SceneScript 由 QuickJS-NG 执行，作者 shader 经 glslang / SPIRV-Cross 编译为 Metal；Steam 工坊获取由独立的 .NET 10 + SteamKit2 服务完成；应用更新使用 Sparkle。
 
 **播放架构**：主 App 负责界面、资料库、设置与用户意图；桌面窗口、播放时钟、输入和渲染在独立后台播放进程中运行。两者通过有界 IPC 交换启动、停止、属性与状态，主界面的重绘不参与壁纸的逐帧驱动；切换时先准备好新画面，再退休旧画面。
 

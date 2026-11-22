@@ -632,10 +632,10 @@ internal sealed partial class SteamSession : IAsyncDisposable
             var cancellation = new CancellationTokenSource();
             client = source;
             lifetime = cancellation;
-            user = source.GetHandler<SteamUser>()!;
-            publishedFiles = source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
-            apps = source.GetHandler<SteamApps>()!;
-            content = source.GetHandler<SteamContent>()!;
+            user = source.GetRequiredHandler<SteamUser>();
+            publishedFiles = source.GetRequiredHandler<SteamUnifiedMessages>().CreateService<PublishedFile>();
+            apps = source.GetRequiredHandler<SteamApps>();
+            content = source.GetRequiredHandler<SteamContent>();
             manager.Subscribe<SteamClient.ConnectedCallback>(_ =>
             {
                 lock (gate) { if (ReferenceEquals(client, source)) connectedSource?.TrySetResult(true); }
@@ -715,7 +715,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 if (!ReferenceEquals(client, source)) throw new IOException("Steam connection replaced.");
                 loggedOnSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 logon = loggedOnSource.Task;
-                source.GetHandler<SteamUser>()!.LogOn(new SteamUser.LogOnDetails
+                source.GetRequiredHandler<SteamUser>().LogOn(new SteamUser.LogOnDetails
                 {
                     Username = accountNameIn,
                     AccessToken = token,
@@ -776,7 +776,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 if (isLoggedIn || isAnonymous) return;
                 loggedOnSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 logon = loggedOnSource.Task;
-                source.GetHandler<SteamUser>()!.LogOnAnonymous();
+                source.GetRequiredHandler<SteamUser>().LogOnAnonymous();
             }
             try
             {
