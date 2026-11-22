@@ -12,8 +12,8 @@ import json
 import shutil
 import unittest
 
-from script.tests import test_scene_resolved_material_graph_executor as graph_fixture
-from script.tests import test_scene_resolved_material_program_finalizer as finalizer_fixture
+from script.tests.scene import test_scene_resolved_material_graph_executor as graph_fixture
+from script.tests.scene import test_scene_resolved_material_program_finalizer as finalizer_fixture
 from script.tests.test_scene_property_live_routing import method_body
 
 

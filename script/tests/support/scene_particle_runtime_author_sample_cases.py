@@ -1,6 +1,6 @@
 """Isolated author-sample regressions for the shared particle harness."""
 
-from scene_real_test_fixtures import sample_cache_root, sample_runtime_evidence_path
+from script.scene_real_test_fixtures import sample_cache_root, sample_runtime_evidence_path
 
 REAL_SAMPLE_CACHE = sample_cache_root("3742133044")
 REAL_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3742133044")

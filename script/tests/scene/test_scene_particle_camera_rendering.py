@@ -19,8 +19,8 @@ from script.tests.support.scene_particle_runtime_configuration_cases import _dec
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RUNTIME_TEST = Path(__file__).with_name("test_scene_particle_runtime.py")
-RUNTIME_FIXTURE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleRuntimeHarness.swift"
-CAMERA_FIXTURE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleCameraRenderingHarness.swift"
+RUNTIME_FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleRuntimeHarness.swift"
+CAMERA_FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleCameraRenderingHarness.swift"
 TELEMETRY_SOURCE = SCENE / "Diagnostics/SceneFramePerformanceTelemetry.swift"
 # Evaluate only the maintained path-list expression. Importing the Runtime test
 # module would also resolve unrelated real-sample caches at module import time.

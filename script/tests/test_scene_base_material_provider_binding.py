@@ -36,7 +36,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
     def test_current_and_previous_binding_compiler_is_shared_and_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
-        from script.tests import test_scene_static_model_material_properties as material
+        from script.tests.scene import test_scene_static_model_material_properties as material
         with tempfile.TemporaryDirectory(prefix="mwx-media-binding-") as directory:
             root = Path(directory)
             harness = root / "main.swift"

@@ -10,7 +10,7 @@ import struct
 import tempfile
 import unittest
 from script.tests import test_scene_directional_shadow as shared
-from script.tests import test_scene_static_model_pipeline as model
+from script.tests.scene import test_scene_static_model_pipeline as model
 from script.tests import test_scene_spot_model_shadow as spot
 
 DEPTH_TOLERANCE=2e-6

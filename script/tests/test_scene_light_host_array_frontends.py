@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_generic_shader_float_array_index import SWIFT_SOURCES, REPOSITORY_ROOT
+from script.tests.scene.test_scene_generic_shader_float_array_index import SWIFT_SOURCES, REPOSITORY_ROOT
 
 TOOLS = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools"
 HARNESS = r'''

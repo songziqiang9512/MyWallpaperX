@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_generic_shader_float_array_index import (
+from script.tests.scene.test_scene_generic_shader_float_array_index import (
     GLSLANG, HARNESS as COMPILER_HARNESS, REPOSITORY_ROOT, SWIFT_SOURCES,
 )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
-from script.tests import test_scene_resolved_material_graph_executor as fixture
+from script.tests.scene import test_scene_resolved_material_graph_executor as fixture
 
 HARNESS = r'''
 import Foundation

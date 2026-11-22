@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_static_model_parts as parts
+from script.tests.scene import test_scene_static_model_parts as parts
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.steam.test_steam_library_transaction import SOURCES as LIBRARY_SOURCES, digest
 
@@ -133,7 +133,7 @@ class ScenePackageSourceInputTests(unittest.TestCase):
             # Execute only fixture declarations to obtain the original closure;
             # all its product paths point into the actual recorded predecessor.
             before_builder = runpy.run_path(str(cls.before_root / 'script/tests/test_scene_alpha_display_builder_fixture.py'))
-            before_reader = runpy.run_path(str(cls.before_root / 'script/tests/test_scene_static_model_reader.py'))
+            before_reader = runpy.run_path(str(cls.before_root / 'script/tests/scene/test_scene_static_model_reader.py'))
             before_sources = list(dict.fromkeys([*before_builder['SWIFT_SOURCES'], *before_reader['SWIFT_SOURCES'],
                 cls.before_root / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift']))
             before_text = support(before_builder['HARNESS_SOURCE']) + HARNESS.read_text()

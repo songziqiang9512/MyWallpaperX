@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .test_scene_resolved_material_runtime_bridge import (
+from script.tests.scene.test_scene_resolved_material_runtime_bridge import (
     SUBMISSION_COORDINATOR_FIXTURE, SUBMISSION_SWIFT_SOURCES, SCENE_DEPENDENCY_BINDING_SUPPORT,
     RESOURCE_PHASE_UNAVAILABLE_SUPPORT,
 )

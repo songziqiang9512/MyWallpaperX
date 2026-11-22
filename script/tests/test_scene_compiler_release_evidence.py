@@ -16,8 +16,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_generic_shader_float_array_index import SWIFT_SOURCES
-from script.tests.test_scene_generic_shader_texture_transform_compiler import compiler_bundle
+from script.tests.scene.test_scene_generic_shader_float_array_index import SWIFT_SOURCES
+from script.tests.scene.test_scene_generic_shader_texture_transform_compiler import compiler_bundle
 
 
 ROOT = Path(__file__).resolve().parents[2]

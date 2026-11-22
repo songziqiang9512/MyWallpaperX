@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_property_live_routing import method_body
-from script.tests.test_scene_static_model_pipeline import LIGHTING_STUB
+from script.tests.scene.test_scene_static_model_pipeline import LIGHTING_STUB
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -488,7 +488,7 @@ class OrdinaryEffectLightingTests(unittest.TestCase):
             self.assertTrue(all(result.values()), {key: value for key, value in result.items() if not value})
 
     def test_reserved_names_reject_real_finalizer_authored_fallback(self) -> None:
-        from script.tests import test_scene_resolved_material_program_finalizer as fixture
+        from script.tests.scene import test_scene_resolved_material_program_finalizer as fixture
         with tempfile.TemporaryDirectory(prefix="mwx-light-host-finalizer-") as tmp:
             work = Path(tmp)
             harness = work / "Harness.swift"

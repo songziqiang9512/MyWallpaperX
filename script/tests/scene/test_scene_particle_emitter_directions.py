@@ -13,7 +13,7 @@ from pathlib import Path
 from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES
 
 
-HARNESS = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleEmitterDirectionsHarness.swift"
+HARNESS = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleEmitterDirectionsHarness.swift"
 
 
 class SceneParticleEmitterDirectionsTests(unittest.TestCase):

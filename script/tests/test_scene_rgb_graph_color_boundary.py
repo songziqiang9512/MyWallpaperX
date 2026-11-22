@@ -12,8 +12,8 @@ import sys
 import tempfile
 import unittest
 
-from script.tests import test_scene_graph_source_color_purpose as color_fixture
-from script.tests import test_scene_resolved_material_graph_executor as fixture
+from script.tests.scene import test_scene_graph_source_color_purpose as color_fixture
+from script.tests.scene import test_scene_resolved_material_graph_executor as fixture
 from script.tests.support.scene_harness_io import separate_graph_debug_output
 
 ROOT = Path(__file__).resolve().parents[2]

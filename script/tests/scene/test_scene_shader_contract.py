@@ -12,7 +12,7 @@ import textwrap
 import unittest
 
 
-SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[3]
 if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from script.tests import test_scene_generic_shader_program_artifact as shared
+from script.tests.scene import test_scene_generic_shader_program_artifact as shared
 
 
 PROFILE = "source-proven-graph-target-opaque-loop-sample-average"

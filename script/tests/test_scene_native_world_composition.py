@@ -20,8 +20,8 @@ from unittest.mock import patch
 import zlib
 
 from script.tests import test_scene_reflection_history_integration as app_runner
-from script.tests.test_scene_static_model_reader import build_model
-from script.tests.test_scene_static_model_parts import join_parts
+from script.tests.scene.test_scene_static_model_reader import build_model
+from script.tests.scene.test_scene_static_model_parts import join_parts
 from script.web_benchmark_capture import png_rgb_pixels
 from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
@@ -586,8 +586,8 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
             Path(parent).mkdir(parents=True, exist_ok=True)
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="native-world-source-", dir=parent))
         sources = [Path(__file__), Path(app_runner.__file__),
-                   REPO / "script/tests/test_scene_static_model_reader.py",
-                   REPO / "script/tests/test_scene_static_model_parts.py",
+                   REPO / "script/tests/scene/test_scene_static_model_reader.py",
+                   REPO / "script/tests/scene/test_scene_static_model_parts.py",
                    REPO / "script/tests/support/scene_pkg_fixture.py",
                    REPO / "script/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}

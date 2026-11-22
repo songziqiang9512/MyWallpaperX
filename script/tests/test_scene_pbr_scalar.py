@@ -159,7 +159,7 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
         cls.execution_test_sha=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
     def run_case(self, name, *, expected, **kwargs):
-        from script.tests.test_scene_authored_normal import SceneAuthoredNormalIntegrationTests
+        from script.tests.scene.test_scene_authored_normal import SceneAuthoredNormalIntegrationTests
         self.scenario_id=name
         kwargs.setdefault('shader', 'genericimage2')
         result=SceneAuthoredNormalIntegrationTests.run_normal(self,no_normal=True,**kwargs)
@@ -168,21 +168,21 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
         return result
 
     def test_plain_scalar_material_response(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         for m,r in [(1,.5),(1,1),(0,1)]:
             expected=pbr_expected(light=(0,0,100),metallic=m,roughness=r,intensity=.2)
             self.run_case(f'genericimage2-{m}-{r}',expected=expected,shader='genericimage2',
                 scalar_values={'metallic':m,'roughness':r},light_origin='80 48 100',intensity=.2)
 
     def test_effect_scalar_material_response(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         for r in [.5,1]:
             expected=pbr_expected(light=(0,0,100),metallic=1,roughness=r,intensity=.2)/2
             self.run_case(f'dim-{r}',expected=expected,effect=True,
                 scalar_values={'metallic':1,'roughness':r},light_origin='80 48 100',intensity=.2)
 
     def test_defaults_instance_zero_and_local_invalid(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         cases=[('default2',None,None,.5,.5),
                ('instance-zero',{'metallic':1,'roughness':1},{'metallic':0},0,1),
                ('instance-invalid',{'metallic':1,'roughness':1},{'metallic':None},.5,1)]
@@ -216,20 +216,20 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
             scalar_values={'metallic':0,'roughness':1},light_origin='80 48 100',intensity=2)
 
     def test_startup_user_property_and_authored_fallback(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         for name,user,defaults in [('resolved','m',{'m':{'type':'slider','value':.8}}),('fallback','missing',{})]:
             self.run_case(name,expected=pbr_expected(light=(0,0,100),metallic=.8,roughness=.5,intensity=.2),
                 scalar_values={'roughness':.5},instance_scalar={'metallic':{'user':user,'value':.8 if name=='fallback' else .2}},
                 property_defaults=defaults,light_origin='80 48 100',intensity=.2)
 
     def test_reflection_does_not_gate_direct_and_lighting_zero(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         self.run_case('reflection1',expected=pbr_expected(light=(0,0,100),metallic=1,roughness=1,intensity=.2),
             reflection=1,scalar_values={'metallic':1,'roughness':1},light_origin='80 48 100',intensity=.2)
         self.run_case('lighting0',expected=128,lighting=0,scalar_values={'metallic':1,'roughness':0})
 
     def test_native_camera_eye_changes_specular(self):
-        from script.tests.test_scene_authored_normal import pbr_expected
+        from script.tests.scene.test_scene_authored_normal import pbr_expected
         for offset in [-100,100]:
             camera={'eye':f'{80+offset} 48 100','center':'80 48 0','up':'0 1 0'}
             self.run_case(f'eye{offset}',expected=pbr_expected(view=(offset,0,100)),native_camera=camera)

@@ -26,7 +26,7 @@ else:
     from script.tests.scene.test_scene_particle_rendering import SWIFT_SOURCES
 
 
-FIXTURE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleAffineTrailHarness.swift"
+FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleAffineTrailHarness.swift"
 
 
 def case(name, scale=(1, 1, 1), velocity=(0.0001, 0, 0), angle=0, kind="trail", **options):

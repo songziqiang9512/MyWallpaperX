@@ -11,8 +11,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_generic_shader_program_artifact as generic
-from script.tests import test_scene_resolved_material_program_derivation as derivation
+from script.tests.scene import test_scene_generic_shader_program_artifact as generic
+from script.tests.scene import test_scene_resolved_material_program_derivation as derivation
 
 
 ROOT = Path(__file__).resolve().parents[2]

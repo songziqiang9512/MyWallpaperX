@@ -302,10 +302,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/scene_shader_preparation_census.py",
             "script/tests/support/scene_authored_shader_frontend_harness.py",
             "script/tests/test_scene_fragment_output_initialization.py",
-            "script/tests/test_scene_graph_texture_publication.py",
-            "script/tests/test_scene_resolved_material_pass_encoder.py",
-            "script/tests/test_scene_resolved_material_program_derivation.py",
-            "script/tests/test_scene_resolved_material_program_finalizer.py",
+            "script/tests/scene/test_scene_graph_texture_publication.py",
+            "script/tests/scene/test_scene_resolved_material_pass_encoder.py",
+            "script/tests/scene/test_scene_resolved_material_program_derivation.py",
+            "script/tests/scene/test_scene_resolved_material_program_finalizer.py",
             "script/tests/scene/test_scene_shader_color_contract.py",
         ]
         for relative in consumers:
@@ -332,20 +332,20 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "authored_shader_preparation_implementation": [
                 "script/scene_shader_preparation_census.py",
                 "script/scene_material_program_census.py",
-                "script/tests/test_scene_graph_texture_publication.py",
-                "script/tests/test_scene_resolved_material_program_finalizer.py",
+                "script/tests/scene/test_scene_graph_texture_publication.py",
+                "script/tests/scene/test_scene_resolved_material_program_finalizer.py",
             ],
             "shader_preprocessing_and_variant_implementation": [
                 "script/tests/scene/test_scene_shader_preprocessor.py",
                 "script/tests/scene/test_scene_shader_variant_environment.py",
             ],
             "shader_variant_environment": [
-                "script/tests/test_scene_resolved_material_pass_encoder.py",
-                "script/tests/test_scene_resolved_material_program_derivation.py",
+                "script/tests/scene/test_scene_resolved_material_pass_encoder.py",
+                "script/tests/scene/test_scene_resolved_material_program_derivation.py",
             ],
             "generic_shader_compiler_preparation_implementation": [
-                "script/tests/test_scene_graph_texture_publication.py",
-                "script/tests/test_scene_resolved_material_program_finalizer.py",
+                "script/tests/scene/test_scene_graph_texture_publication.py",
+                "script/tests/scene/test_scene_resolved_material_program_finalizer.py",
             ],
         }
         for source_set, paths in consumers.items():
@@ -363,12 +363,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
     def test_material_program_consumers_use_the_canonical_source_sets(self) -> None:
         consumers = {
             "resolved_material_frame_finalization": [
-                "script/tests/test_scene_graph_texture_publication.py",
-                "script/tests/test_scene_resolved_material_program_finalizer.py",
+                "script/tests/scene/test_scene_graph_texture_publication.py",
+                "script/tests/scene/test_scene_resolved_material_program_finalizer.py",
             ],
             "resolved_material_program_model": [
-                "script/tests/test_scene_resolved_material_pass_encoder.py",
-                "script/tests/test_scene_resolved_material_program_derivation.py",
+                "script/tests/scene/test_scene_resolved_material_pass_encoder.py",
+                "script/tests/scene/test_scene_resolved_material_program_derivation.py",
             ],
         }
         for source_set, paths in consumers.items():
@@ -385,11 +385,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
 
     def test_material_program_indirect_consumers_inherit_canonical_fixtures(self) -> None:
         inherited = {
-            "script/tests/test_scene_resolved_material_graph_executor.py": (
+            "script/tests/scene/test_scene_resolved_material_graph_executor.py": (
                 "runpy.run_path",
                 "test_scene_resolved_material_graph_visual_failure_contract.py",
             ),
-            "script/tests/test_scene_resolved_material_graph_visual_failure_contract.py": (
+            "script/tests/scene/test_scene_resolved_material_graph_visual_failure_contract.py": (
                 "runpy.run_path",
                 "test_scene_graph_texture_publication.py",
             ),

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
+from script.tests.scene.test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
 
 
 HARNESS = r'''

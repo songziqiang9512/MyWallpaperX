@@ -24,7 +24,7 @@ from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 from script.tests.support.scene_pkg_fixture import make_package
-from .test_scene_authored_sampling_integration import solid_texture
+from script.tests.scene.test_scene_authored_sampling_integration import solid_texture
 
 
 CANVAS = (256, 256)

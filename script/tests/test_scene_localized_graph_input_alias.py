@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_resolved_material_program_finalizer as fixture
+from script.tests.scene import test_scene_resolved_material_program_finalizer as fixture
 
 
 SWIFT_SOURCES = [*fixture.SWIFT_SOURCES, *fixture.SHARED_FIXTURE_SOURCES]

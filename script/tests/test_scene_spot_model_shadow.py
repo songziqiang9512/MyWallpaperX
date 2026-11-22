@@ -8,7 +8,7 @@ from pathlib import Path
 import unittest
 
 from script.tests import test_scene_directional_shadow as shared
-from script.tests import test_scene_static_model_pipeline as model
+from script.tests.scene import test_scene_static_model_pipeline as model
 
 SCENE = shared.SCENE
 DEPTH_TOLERANCE = 2e-6

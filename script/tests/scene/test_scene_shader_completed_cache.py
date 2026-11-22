@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_generic_shader_program_artifact import (
+from script.tests.scene.test_scene_generic_shader_program_artifact import (
     REPOSITORY_ROOT,
     SCENE_ROOT,
     SWIFT_SOURCES as ARTIFACT_SOURCES,

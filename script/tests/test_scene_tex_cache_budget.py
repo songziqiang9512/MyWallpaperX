@@ -9,7 +9,7 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
-from script.tests.test_scene_image_upload_completion import FAULTS, HEADER, LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
+from script.tests.scene.test_scene_image_upload_completion import FAULTS, HEADER, LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
 
 
 def compressed_tex(image_count=2):

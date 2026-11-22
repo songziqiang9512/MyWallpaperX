@@ -69,7 +69,7 @@ SWIFT_SOURCES = [
 ]
 
 
-FIXTURE_ROOT = (Path(__file__).resolve().parents[2] / "fixtures")
+FIXTURE_ROOT = (Path(__file__).resolve().parents[1] / "fixtures")
 HARNESS_SUPPORT_SOURCE = (FIXTURE_ROOT / "SceneParticleRenderingSupport.swift").read_text(encoding="utf-8")
 HARNESS_SOURCE = HARNESS_SUPPORT_SOURCE + "".join(
     (FIXTURE_ROOT / name).read_text(encoding="utf-8")

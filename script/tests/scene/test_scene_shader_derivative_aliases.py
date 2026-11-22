@@ -15,7 +15,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 from scene_swift_source_sets import scene_swift_sources
-from script.tests.test_scene_generic_shader_texture_transform_compiler import compiler_bundle
+from script.tests.scene.test_scene_generic_shader_texture_transform_compiler import compiler_bundle
 
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = list(dict.fromkeys([

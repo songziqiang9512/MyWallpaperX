@@ -11,8 +11,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_generic_shader_program_artifact as shared
-from script.tests import test_scene_resolved_material_program_finalizer as finalizer
+from script.tests.scene import test_scene_generic_shader_program_artifact as shared
+from script.tests.scene import test_scene_resolved_material_program_finalizer as finalizer
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

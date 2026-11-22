@@ -11,7 +11,7 @@ from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES as SI
 from script.tests.test_scene_solid_layers import SWIFT_SOURCES as DOCUMENT_SOURCES, HARNESS_SOURCE as DOCUMENT_CARRIER
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-FIXTURE = Path(__file__).resolve().parents[2] / "fixtures/SceneParticleControlPointForceHarness.swift"
+FIXTURE = Path(__file__).resolve().parents[3] / "fixtures/SceneParticleControlPointForceHarness.swift"
 SWIFT_SOURCES = list(dict.fromkeys([
     *SIMULATOR_SOURCES, *DOCUMENT_SOURCES,
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",

@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
+from script.tests.scene.test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
 
 SOURCES = [*LOADER_SOURCES, SOURCE, RESAMPLE_SOURCE]
 HARNESS = r'''

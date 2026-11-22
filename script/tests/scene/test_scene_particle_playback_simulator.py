@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES
 
-POLICY_HARNESS = Path(__file__).resolve().parents[2] / "fixtures" / "SceneParticleStepSnapshotPolicyHarness.swift"
+POLICY_HARNESS = Path(__file__).resolve().parents[1] / "fixtures" / "SceneParticleStepSnapshotPolicyHarness.swift"
 
 HARNESS = r'''
 import Foundation

@@ -1,0 +1,597 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    Path(__file__).resolve().parents[3] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Clear.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Extent.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetFormat.swift",
+    SOURCE_ROOT / "Rendering/Targets/SceneLayerFullFramePairPlan.swift",
+    SOURCE_ROOT / "Rendering/Targets/SceneGraphExecutionState.swift",
+    SOURCE_ROOT / "Rendering/Targets/SceneGraphExecutionState+Validation.swift",
+    SOURCE_ROOT / "Rendering/Targets/SceneGraphExecutionState+Identity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable+Mapped.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
+]
+
+
+HARNESS = r'''
+import Foundation
+import Metal
+
+struct SceneEffectStageExecutionPlan {
+    let layerID: Int
+    let materialNodeCount: Int
+    let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
+    var supportsUnifiedFullFrameComposeStage: Bool { false }
+}
+
+@main
+enum Harness {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias TargetPlan = SceneGraphRenderTargetPlan
+    typealias TargetTable = SceneGraphRenderTargetTable
+
+    static func identity(
+        _ kind: Graph.TextureKind,
+        layerID: Int = 10,
+        effect: Graph.EffectKey? = nil,
+        name: String? = nil
+    ) -> Graph.TextureIdentity {
+        .init(kind: kind, layerID: layerID, effect: effect, name: name)
+    }
+
+    static func logicalTarget(
+        _ identity: Graph.TextureIdentity,
+        width: Int,
+        height: Int,
+        format: TargetPlan.TextureFormat = .rgbaBackbuffer,
+        addressMode: TargetPlan.UVAddressMode = .clampToEdge,
+        isUnique: Bool = false,
+        firstWrite: Int,
+        lastWrite: Int,
+        firstRead: Int?,
+        lastRead: Int?,
+        historySeed: Bool = false,
+        initialClear: TargetPlan.ClearColor? = nil
+    ) -> TargetPlan.LogicalTarget {
+        var lifetime = TargetPlan.Lifetime(
+            firstWriteNodeIndex: firstWrite,
+            lastWriteNodeIndex: lastWrite,
+            firstReadNodeIndex: firstRead,
+            lastReadNodeIndex: lastRead
+        )
+        lifetime.requiresHistorySeed = historySeed
+        return TargetPlan.LogicalTarget(
+            identity: identity,
+            extent: .init(width: width, height: height),
+            format: format,
+            addressMode: addressMode,
+            isUnique: isUnique,
+            lifetime: lifetime,
+            initialClear: initialClear
+        )
+    }
+
+    static func failure(
+        _ result: Result<TargetTable, TargetTable.Failure>
+    ) -> String {
+        switch result {
+        case .success:
+            return "success"
+        case .failure(let reason):
+            return reason.rawValue
+        }
+    }
+
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalUnavailable\":true}")
+            return
+        }
+
+        let effect = Graph.EffectKey(
+            layerID: 10,
+            effectIndex: 2,
+            descriptorID: "10#effect#2"
+        )
+        let input = identity(.layerSource)
+        let output = identity(.effectOutput, effect: effect)
+        let quarterA = identity(.framebuffer, effect: effect, name: "quarterA")
+        let quarterB = identity(.framebuffer, effect: effect, name: "quarterB")
+        let plan = TargetPlan.testingPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 9, height: 7),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 2, height: 1,
+                    format: .rgba8888,
+                    firstWrite: 0, lastWrite: 2, firstRead: 1, lastRead: 3
+                ),
+                logicalTarget(
+                    quarterB, width: 2, height: 1,
+                    format: .rgba8888,
+                    firstWrite: 1, lastWrite: 1, firstRead: 2, lastRead: 2
+                ),
+            ]
+        )
+        let historyPlan = TargetPlan.testingPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 2, height: 2),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 2, height: 2,
+                    firstWrite: 1, lastWrite: 1, firstRead: 0, lastRead: 1,
+                    historySeed: true
+                )
+            ]
+        )
+        let authoredClearPlan = TargetPlan.testingPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 1, height: 1),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 1, height: 1,
+                    format: .rgba8888,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil,
+                    initialClear: .init(red: 0, green: 0, blue: 0, alpha: 0)
+                )
+            ]
+        )
+        let r8Plan = TargetPlan.testingPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 1, height: 1),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 1, height: 1,
+                    format: .r8,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil,
+                    initialClear: .init(red: 0, green: 0, blue: 0, alpha: 0)
+                )
+            ]
+        )
+
+        let exactBudget = 520
+        guard case .success(let table) = TargetTable.make(
+            plan: plan,
+            device: device,
+            byteBudget: exactBudget
+        ), case .success(let secondTable) = TargetTable.make(
+            plan: plan,
+            device: device,
+            byteBudget: exactBudget
+        ), let quarterATexture = table.texture(for: quarterA),
+        let quarterBTexture = table.texture(for: quarterB) else {
+            fatalError("valid table allocation failed")
+        }
+        guard case .success(let historyTable) = TargetTable.make(
+            plan: historyPlan,
+            device: device,
+            byteBudget: 64
+        ), historyTable.texture(for: quarterA) != nil,
+        case .success(let authoredClearTable) = TargetTable.make(
+            plan: authoredClearPlan,
+            device: device,
+            byteBudget: 12
+        ), authoredClearTable.texture(for: quarterA) != nil,
+        case .success(let r8Table) = TargetTable.make(
+            plan: r8Plan,
+            device: device,
+            byteBudget: 9
+        ), let r8Texture = r8Table.texture(for: quarterA) else {
+            fatalError("target metadata allocation failed")
+        }
+
+        let textures = [
+            table.inputTexture,
+            quarterATexture,
+            quarterBTexture,
+            table.outputTexture,
+        ]
+        let objectIDs = Set(textures.map(ObjectIdentifier.init))
+        let secondObjectIDs = Set([
+            secondTable.inputTexture,
+            secondTable.texture(for: quarterA)!,
+            secondTable.texture(for: quarterB)!,
+            secondTable.outputTexture,
+        ].map(ObjectIdentifier.init))
+        let mappedTextures: [Graph.TextureIdentity: MTLTexture] = [
+            input: table.inputTexture,
+            quarterA: quarterATexture,
+            quarterB: quarterBTexture,
+            output: table.outputTexture,
+        ]
+        let mappedValid: Bool
+        switch TargetTable.makeMapped(
+            plan: plan, device: device, texturesByIdentity: mappedTextures,
+            makeInputsDigest: 0
+        ) {
+        case .success(let mapped):
+            mappedValid = mapped.inputTexture === table.inputTexture
+                && mapped.outputTexture === table.outputTexture
+                && mapped.residentTextureCount == 4
+                && mapped.residentByteCost == exactBudget
+        case .failure:
+            mappedValid = false
+        }
+        var aliasedMappedTextures = mappedTextures
+        aliasedMappedTextures[output] = table.inputTexture
+        let controlledEndpointAliasValid: Bool
+        switch TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: aliasedMappedTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
+        ) {
+        case .success(let mapped):
+            controlledEndpointAliasValid = mapped.inputOutputAliased
+                && mapped.inputTexture === mapped.outputTexture
+                && mapped.fullFramePair.first === table.inputTexture
+                && mapped.fullFramePair.second === table.outputTexture
+                && mapped.residentTextureCount == 4
+                && mapped.residentByteCost == exactBudget
+        case .failure:
+            controlledEndpointAliasValid = false
+        }
+        let mappedAliasFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: aliasedMappedTextures,
+            makeInputsDigest: 0
+        ))
+        let unexpectedDistinctEndpointFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: mappedTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
+        ))
+        var pairAliasedFramebufferTextures = aliasedMappedTextures
+        pairAliasedFramebufferTextures[quarterA] = table.outputTexture
+        let pairAliasedFramebufferFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: pairAliasedFramebufferTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
+        ))
+        var siblingAliasedFramebufferTextures = aliasedMappedTextures
+        siblingAliasedFramebufferTextures[quarterB] = quarterATexture
+        let siblingAliasedFramebufferFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: siblingAliasedFramebufferTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
+        ))
+        var incompleteMappedTextures = mappedTextures
+        incompleteMappedTextures.removeValue(forKey: quarterB)
+        let mappedIncompleteFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: incompleteMappedTextures,
+            makeInputsDigest: 0
+        ))
+        let invalidUsageDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: plan.inputExtent.width,
+            height: plan.inputExtent.height,
+            mipmapped: false
+        )
+        invalidUsageDescriptor.usage = [.shaderRead]
+        invalidUsageDescriptor.storageMode = .private
+        guard let invalidUsageTexture = device.makeTexture(
+            descriptor: invalidUsageDescriptor
+        ) else { fatalError("mapped invalid-usage fixture failed") }
+        var invalidUsageMappedTextures = mappedTextures
+        invalidUsageMappedTextures[output] = invalidUsageTexture
+        let mappedUsageFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: invalidUsageMappedTextures,
+            makeInputsDigest: 0
+        ))
+        let otherEffect = Graph.EffectKey(
+            layerID: 10,
+            effectIndex: 3,
+            descriptorID: "10#effect#3"
+        )
+        let unknown = identity(.framebuffer, effect: otherEffect, name: "quarterA")
+        let duplicatePlan = TargetPlan.testingPlan(
+            layerID: plan.layerID,
+            input: input,
+            output: output,
+            inputExtent: plan.inputExtent,
+            logicalTargets: [
+                plan.logicalTargets[0],
+                plan.logicalTargets[0],
+            ]
+        )
+        let overflowPlan = TargetPlan.testingPlan(
+            layerID: plan.layerID,
+            input: input,
+            output: output,
+            inputExtent: .init(width: Int.max, height: 2),
+            logicalTargets: []
+        )
+        let wrongEffect = Graph.EffectKey(
+            layerID: 11,
+            effectIndex: 2,
+            descriptorID: "11#effect#2"
+        )
+        let invalidIdentityPlan = TargetPlan.testingPlan(
+            layerID: plan.layerID,
+            input: input,
+            output: output,
+            inputExtent: plan.inputExtent,
+            logicalTargets: [
+                logicalTarget(
+                    identity(.framebuffer, effect: wrongEffect, name: "foreign"),
+                    width: 2, height: 1,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil
+                ),
+            ]
+        )
+        let whitespaceNamePlan = TargetPlan.testingPlan(
+            layerID: plan.layerID,
+            input: input,
+            output: output,
+            inputExtent: plan.inputExtent,
+            logicalTargets: [
+                logicalTarget(
+                    identity(.framebuffer, effect: effect, name: "  \t"),
+                    width: 2, height: 1,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil
+                ),
+            ]
+        )
+
+        let floatPlan = TargetPlan.testingPlan(
+            layerID: 10, input: input, output: output,
+            inputExtent: .init(width: 9, height: 7), backbufferFormat: .rgba16f,
+            logicalTargets: [logicalTarget(
+                quarterA, width: 2, height: 1, format: .rgba8888,
+                firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil
+            )]
+        )
+        let floatTable = try! TargetTable.make(plan: floatPlan, device: device, byteBudget: 1016).get()
+        let result: [String: Any] = [
+            "floatResidentBytes": floatTable.residentByteCost,
+            "floatPairFormat": floatTable.inputTexture.pixelFormat == .rgba16Float
+                && floatTable.outputTexture.pixelFormat == .rgba16Float,
+            "explicitByteFormat": floatTable.texture(for: quarterA)?.pixelFormat == .rgba8Unorm,
+            "floatBudgetFailure": failure(TargetTable.make(plan: floatPlan, device: device, byteBudget: 1015)),
+            "metalUnavailable": false,
+            "residentCount": table.residentTextureCount,
+            "residentBytes": table.residentByteCost,
+            "inputSize": [table.inputTexture.width, table.inputTexture.height],
+            "outputSize": [table.outputTexture.width, table.outputTexture.height],
+            "quarterASize": [quarterATexture.width, quarterATexture.height],
+            "quarterBSize": [quarterBTexture.width, quarterBTexture.height],
+            "identityMappingComplete": table.texture(for: input) === table.inputTexture
+                && table.texture(for: output) === table.outputTexture,
+            "unknownIdentityIsNil": table.texture(for: unknown) == nil,
+            "allResourcesDistinct": objectIDs.count == textures.count,
+            "separateAllocationsDistinct": objectIDs.isDisjoint(with: secondObjectIDs),
+            "mappedValid": mappedValid,
+            "controlledEndpointAliasValid": controlledEndpointAliasValid,
+            "mappedAliasFailure": mappedAliasFailure,
+            "unexpectedDistinctEndpointFailure": unexpectedDistinctEndpointFailure,
+            "pairAliasedFramebufferFailure": pairAliasedFramebufferFailure,
+            "siblingAliasedFramebufferFailure": siblingAliasedFramebufferFailure,
+            "mappedIncompleteFailure": mappedIncompleteFailure,
+            "mappedUsageFailure": mappedUsageFailure,
+            "inputOutputFormat": table.inputTexture.pixelFormat == .bgra8Unorm
+                && table.outputTexture.pixelFormat == .bgra8Unorm,
+            "framebufferFormats": quarterATexture.pixelFormat == .rgba8Unorm
+                && quarterBTexture.pixelFormat == .rgba8Unorm,
+            "historyTargetPersistent":
+                historyTable.plan.logicalTargets[0].lifetime.requiresHistorySeed,
+            "authoredClearMetadataPreserved":
+                authoredClearTable.plan.logicalTargets[0].initialClear
+                    == authoredClearPlan.logicalTargets[0].initialClear,
+            "r8ResidentBytes": r8Table.residentByteCost,
+            "r8ResidentCount": r8Table.residentTextureCount,
+            "r8PixelFormat": r8Texture.pixelFormat == .r8Unorm,
+            "r8ClearMetadataPreserved":
+                r8Table.plan.logicalTargets[0].initialClear
+                    == r8Plan.logicalTargets[0].initialClear,
+            "r8BudgetFailure": failure(TargetTable.make(
+                plan: r8Plan, device: device, byteBudget: 8
+            )),
+            "textureContract": textures.allSatisfy {
+                $0.storageMode == .private
+                    && $0.usage.contains(.renderTarget)
+                    && $0.usage.contains(.shaderRead)
+            },
+
+
+
+
+
+
+
+
+            "budgetFailure": failure(TargetTable.make(
+                plan: plan, device: device, byteBudget: exactBudget - 1
+            )),
+            "negativeBudgetFailure": failure(TargetTable.make(
+                plan: plan, device: device, byteBudget: -1
+            )),
+            "duplicateFailure": failure(TargetTable.make(
+                plan: duplicatePlan, device: device, byteBudget: exactBudget
+            )),
+            "overflowFailure": failure(TargetTable.make(
+                plan: overflowPlan, device: device, byteBudget: Int.max
+            )),
+            "invalidIdentityFailure": failure(TargetTable.make(
+                plan: invalidIdentityPlan, device: device, byteBudget: exactBudget
+            )),
+            "whitespaceNameFailure": failure(TargetTable.make(
+                plan: whitespaceNamePlan, device: device, byteBudget: exactBudget
+            )),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneGraphRenderTargetTableTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-rt-table-")
+        root = Path(cls.temporary_directory.name)
+        harness = root / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        binary = root / "scene-rt-table"
+        compilation = subprocess.run(
+            [
+                "xcrun",
+                "--sdk",
+                "macosx",
+                "swiftc",
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-D",
+                "SCENE_GRAPH_TESTING",
+                "-framework",
+                "Metal",
+                "-o",
+                str(binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+        if cls.result["metalUnavailable"]:
+            raise unittest.SkipTest("Metal is unavailable")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_float_pair_preserves_explicit_byte_target_and_budget(self) -> None:
+        self.assertEqual(self.result["floatResidentBytes"], 1016)
+        self.assertTrue(self.result["floatPairFormat"])
+        self.assertTrue(self.result["explicitByteFormat"])
+        self.assertEqual(self.result["floatBudgetFailure"], "byteBudgetExceeded")
+
+    def test_allocates_every_logical_identity_without_aliasing(self) -> None:
+        self.assertEqual(self.result["residentCount"], 4)
+        self.assertTrue(self.result["identityMappingComplete"])
+        self.assertTrue(self.result["unknownIdentityIsNil"])
+        self.assertTrue(self.result["allResourcesDistinct"])
+        self.assertTrue(self.result["separateAllocationsDistinct"])
+
+    def test_preserves_input_output_and_scaled_target_extents(self) -> None:
+        self.assertEqual(self.result["inputSize"], [9, 7])
+        self.assertEqual(self.result["outputSize"], [9, 7])
+        self.assertEqual(self.result["quarterASize"], [2, 1])
+        self.assertEqual(self.result["quarterBSize"], [2, 1])
+
+    def test_mapped_entry_revalidates_complete_physical_contract(self) -> None:
+        self.assertTrue(self.result["mappedValid"])
+        self.assertTrue(self.result["controlledEndpointAliasValid"])
+        self.assertEqual(self.result["mappedAliasFailure"], "mappedTextureAliased")
+        self.assertEqual(
+            self.result["unexpectedDistinctEndpointFailure"],
+            "mappedTextureAliased",
+        )
+        self.assertEqual(
+            self.result["pairAliasedFramebufferFailure"],
+            "mappedTextureInvalid",
+        )
+        self.assertEqual(
+            self.result["siblingAliasedFramebufferFailure"],
+            "mappedTextureAliased",
+        )
+        self.assertEqual(self.result["mappedIncompleteFailure"], "mappedTextureInvalid")
+        self.assertEqual(self.result["mappedUsageFailure"], "mappedTextureInvalid")
+
+    def test_reports_exact_resident_cost_and_texture_contract(self) -> None:
+        self.assertEqual(self.result["residentBytes"], 520)
+        self.assertTrue(self.result["inputOutputFormat"])
+        self.assertTrue(self.result["framebufferFormats"])
+        self.assertTrue(self.result["textureContract"])
+        self.assertTrue(self.result["historyTargetPersistent"])
+        self.assertTrue(self.result["authoredClearMetadataPreserved"])
+
+    def test_target_table_does_not_encode_initialization_outside_transaction(self) -> None:
+        table_source = SWIFT_SOURCES[6].read_text(encoding="utf-8")
+        preparation_source = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("encodeInitialTargetClear", table_source)
+        self.assertNotIn("encodeInitialTargetClear", preparation_source)
+
+    def test_r8_uses_single_channel_storage_and_exact_logical_budget(self) -> None:
+        self.assertEqual(self.result["r8ResidentBytes"], 9)
+        self.assertEqual(self.result["r8ResidentCount"], 3)
+        self.assertTrue(self.result["r8PixelFormat"])
+        self.assertTrue(self.result["r8ClearMetadataPreserved"])
+        self.assertEqual(self.result["r8BudgetFailure"], "byteBudgetExceeded")
+
+    def test_refuses_the_whole_allocation_before_exceeding_budget(self) -> None:
+        self.assertEqual(self.result["budgetFailure"], "byteBudgetExceeded")
+        self.assertEqual(self.result["negativeBudgetFailure"], "invalidByteBudget")
+
+    def test_rejects_invalid_or_overflowing_resource_sets(self) -> None:
+        self.assertEqual(self.result["duplicateFailure"], "invalidPlan")
+        self.assertEqual(self.result["overflowFailure"], "byteCostOverflow")
+        self.assertEqual(self.result["invalidIdentityFailure"], "invalidPlan")
+        self.assertEqual(self.result["whitespaceNameFailure"], "invalidPlan")
+
+
+if __name__ == "__main__":
+    unittest.main()

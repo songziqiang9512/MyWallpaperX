@@ -43,7 +43,7 @@ TOLERANCE = 4
 SOURCES = tuple(REPO / path for path in (
     "script/tests/test_scene_native_camera_frame_integration.py",
     "script/tests/test_scene_native_world_composition.py",
-    "script/tests/test_scene_static_model_reader.py",
+    "script/tests/scene/test_scene_static_model_reader.py",
     "script/tests/support/scene_pkg_fixture.py",
     "script/tests/test_scene_reflection_history_integration.py",
     "script/web_benchmark_capture.py"))

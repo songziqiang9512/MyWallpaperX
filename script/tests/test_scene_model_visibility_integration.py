@@ -22,7 +22,7 @@ from script.scene_wallpaper_graph_output_metrics import (
 from .test_scene_composition_authored_order_integration import encoded, measure_capture
 from .test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_static_model_reader import build_model
+from script.tests.scene.test_scene_static_model_reader import build_model
 from script.tests.support.scene_pkg_fixture import make_package
 
 

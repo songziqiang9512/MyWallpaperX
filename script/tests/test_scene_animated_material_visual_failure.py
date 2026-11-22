@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from script.tests import test_scene_resolved_material_graph_executor as base
+from script.tests.scene import test_scene_resolved_material_graph_executor as base
 
 
 class SceneAnimatedMaterialVisualFailureTests(unittest.TestCase):

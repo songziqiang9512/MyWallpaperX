@@ -24,7 +24,7 @@ SWIFT_SOURCES = [
 ]
 
 
-HARNESS_SOURCE = (Path(__file__).resolve().parents[2] / "fixtures/SceneParticleCameraFrameHarness.swift").read_text(
+HARNESS_SOURCE = (Path(__file__).resolve().parents[3] / "fixtures/SceneParticleCameraFrameHarness.swift").read_text(
     encoding="utf-8"
 )
 

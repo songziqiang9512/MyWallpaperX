@@ -15,7 +15,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT))
-from script.tests.test_scene_static_model_reader import (
+from script.tests.scene.test_scene_static_model_reader import (
     SWIFT_SOURCES, build_model, build_legacy_model,
 )
 from script.tests.scene.test_scene_puppet_rig import build_rig_mdl

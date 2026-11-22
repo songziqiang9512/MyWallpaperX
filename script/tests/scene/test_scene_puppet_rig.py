@@ -13,10 +13,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[2]
+SCRIPT_DIR = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from scene_real_test_fixtures import runtime_homes_root
+from script.scene_real_test_fixtures import runtime_homes_root
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]

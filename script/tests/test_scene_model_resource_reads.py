@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
-from script.tests.test_scene_static_model_reader import SWIFT_SOURCES, build_model
+from script.tests.scene.test_scene_static_model_reader import SWIFT_SOURCES, build_model
 
 
 REPO = Path(__file__).resolve().parents[2]

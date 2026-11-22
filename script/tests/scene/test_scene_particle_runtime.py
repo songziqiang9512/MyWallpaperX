@@ -148,18 +148,18 @@ SWIFT_SOURCES = [
 
 
 HARNESS_SOURCES = [
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleMultipleRendererHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeLifecycleHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeChildrenHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeEventsHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeControlPointsHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeWorldFramesHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeTranslationHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeWorldPointerHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeRopeHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeRenderingHarness.swift",
-    Path(__file__).resolve().parents[2] / "fixtures/SceneParticleRuntimeAuthorSamplesHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleMultipleRendererHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeLifecycleHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeChildrenHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeEventsHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeControlPointsHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeWorldFramesHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeTranslationHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeWorldPointerHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeRopeHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeRenderingHarness.swift",
+    Path(__file__).resolve().parents[3] / "fixtures/SceneParticleRuntimeAuthorSamplesHarness.swift",
 ]
 
 

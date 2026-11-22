@@ -57,7 +57,7 @@ import Foundation
 class ReleaseDiagnosticIsolationTests(unittest.TestCase):
     def test_graph_program_keys_are_debug_only_without_changing_history_pixels(self):
         from script.tests import test_scene_persistent_history_visual_failure_gpu as history
-        from script.tests import test_scene_resolved_material_graph_executor as graph
+        from script.tests.scene import test_scene_resolved_material_graph_executor as graph
 
         # Reuse every original GPU/history assertion in both configurations.
         # Reflection checks the compiled stage storage, not source spelling.

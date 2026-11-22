@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_resolved_material_program_finalizer as fixture
+from script.tests.scene import test_scene_resolved_material_program_finalizer as fixture
 
 OWNER = fixture.VARIANT_COMPILATION_SOURCE
 OWNER_TEST_EXTENSION = r'''

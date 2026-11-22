@@ -107,7 +107,7 @@ class SceneInstanceBaseTextureTests(unittest.TestCase):
     def test_legacy_descriptor_without_optional_selection_decodes(self):
         self.assertEqual(self.result['legacyPaths'],['base.png']*15)
 
-from script.tests import test_scene_authored_normal as normal_fixture
+from script.tests.scene import test_scene_authored_normal as normal_fixture
 pbr_expected = normal_fixture.pbr_expected
 
 class SceneInstanceBaseTextureIntegrationTests(unittest.TestCase):

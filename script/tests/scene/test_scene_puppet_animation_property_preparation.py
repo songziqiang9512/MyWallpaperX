@@ -29,7 +29,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     *(p for p in PROPERTY_SOURCES if p.name != "SceneRetiredCallbackLiveUpdateChecks.swift"),
     *PUPPET_SOURCES, *(SCENE_ROOT / p for p in EXTRA),
 ]))
-SERVICE_SOURCE = SCENE_ROOT.parents[2] / "Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift"
+SERVICE_SOURCE = SCENE_ROOT.parents[3] / "Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift"
 
 
 def service_target_carrier() -> str:

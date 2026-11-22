@@ -62,8 +62,8 @@ SWIFT_SOURCES = [
 ]
 
 
-SPHERE_SAMPLING_SOURCE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleSphereSamplingChecks.swift"
-COMPONENT_OBSERVATION_SOURCE = (Path(__file__).resolve().parents[2] / "fixtures") / "SceneParticleComponentObservationChecks.swift"
+SPHERE_SAMPLING_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleSphereSamplingChecks.swift"
+COMPONENT_OBSERVATION_SOURCE = (Path(__file__).resolve().parents[1] / "fixtures") / "SceneParticleComponentObservationChecks.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation

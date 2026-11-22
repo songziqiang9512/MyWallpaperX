@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_resolved_material_runtime_bridge import (
+from script.tests.scene.test_scene_resolved_material_runtime_bridge import (
     RESOURCE_PHASE_UNAVAILABLE_SUPPORT,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
     SUBMISSION_COORDINATOR_FIXTURE,

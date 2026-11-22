@@ -30,7 +30,7 @@ SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
 ]
 
-HARNESS = (Path(__file__).resolve().parents[1] / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift").read_text(encoding="utf-8")
+HARNESS = (Path(__file__).resolve().parents[2] / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift").read_text(encoding="utf-8")
 CAMERA_PROFILE = SCENE_SCRIPT.parent / "Properties/SceneDefault2DCameraInputProfile.swift"
 TEXT_DESCRIPTOR = SCENE_SCRIPT.parent / "Text/SceneTextDescriptor.swift"
 DECLARATION_SUPPORT = Path(__file__).parent / "test_scene_prepared_script_resource_catalog.py"
@@ -527,7 +527,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         )
         directory = Path(cls.temporary_directory.name)
         inputs = [*SOURCES, CAMERA_PROFILE, TEXT_DESCRIPTOR, DECLARATION_SUPPORT,
-                  Path(__file__), Path(__file__).resolve().parents[1] / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift",
+                  Path(__file__), Path(__file__).resolve().parents[2] / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift",
                   *SCENE_SCRIPT.rglob("*.h")]
         before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         frozen = directory / "source"

@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 import unittest
 
-from script.tests import test_scene_resolved_material_graph_executor as graph
+from script.tests.scene import test_scene_resolved_material_graph_executor as graph
 
 
 FIXTURE = Path(__file__).with_name("fixtures") / "SceneFramebufferSourceGraphChecks.swift"

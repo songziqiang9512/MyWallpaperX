@@ -12,7 +12,7 @@ import tempfile
 import unittest
 
 from script.tests import test_scene_dependency_render_plan as dependency
-from script.tests import test_scene_resolved_material_graph_executor as graph
+from script.tests.scene import test_scene_resolved_material_graph_executor as graph
 
 
 ROOT = Path(__file__).resolve().parents[2]

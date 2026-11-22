@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_resolved_material_program_finalizer import (
+from script.tests.scene.test_scene_resolved_material_program_finalizer import (
     SWIFT_SOURCES, SUPPORT_SOURCE,
 )
 from script.tests.support.scene_compiler_fixture import compiler_bundle, fixture_sources

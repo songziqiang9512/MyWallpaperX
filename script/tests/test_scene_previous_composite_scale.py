@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_generic_shader_texture_transform_compiler as compiler
+from script.tests.scene import test_scene_generic_shader_texture_transform_compiler as compiler
 from script.tests import test_scene_material_texture_transform as material
 
 

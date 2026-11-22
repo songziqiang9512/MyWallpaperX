@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_resolved_material_program_finalizer as finalizer
+from script.tests.scene import test_scene_resolved_material_program_finalizer as finalizer
 
 ROOT = finalizer.REPOSITORY_ROOT
 SCENE = finalizer.SCENE_ROOT

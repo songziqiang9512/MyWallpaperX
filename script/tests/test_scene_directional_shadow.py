@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
-from script.tests import test_scene_static_model_pipeline as model_fixture
+from script.tests.scene import test_scene_static_model_pipeline as model_fixture
 from script.tests.fixtures.scene_directional_shadow_oracle import freeze_vectors, expected_visibility
 
 REPO = Path(__file__).resolve().parents[2]

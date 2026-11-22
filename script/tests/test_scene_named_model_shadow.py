@@ -122,7 +122,7 @@ class SceneNamedModelShadowAppTests(unittest.TestCase):
         if parent: Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='named-model-shadow-app-',dir=parent))
         sources=[Path(__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',
-                 REPO/'script/tests/test_scene_static_model_reader.py',REPO/'script/tests/support/scene_pkg_fixture.py']
+                 REPO/'script/tests/scene/test_scene_static_model_reader.py',REPO/'script/tests/support/scene_pkg_fixture.py']
         cls.source_identity={str(p):sha(p) for p in sources}
         inputs={}
         for case in APP_CASES:
@@ -336,7 +336,7 @@ def typecheck_dependency_support():
 
 from script.tests import test_scene_directional_shadow_frame_owner as frame_fixture
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
-from script.tests.test_scene_resolved_material_runtime_bridge import RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
+from script.tests.scene.test_scene_resolved_material_runtime_bridge import RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
 
 ORDERED_SOURCES=list(dict.fromkeys([*DEPENDENCY_SOURCES,*frame_fixture.SOURCES]))
 

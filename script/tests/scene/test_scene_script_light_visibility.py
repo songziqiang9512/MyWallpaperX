@@ -10,7 +10,7 @@ import unittest
 
 from script.tests.support.scene_vector_vm_test_support import SWIFT_PREAMBLE, compile_vector_harness
 from script.tests.test_scene_property_live_routing import method_body
-from script.tests.test_scene_static_model_pipeline import LIGHTING_STUB
+from script.tests.scene.test_scene_static_model_pipeline import LIGHTING_STUB
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"

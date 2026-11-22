@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import patch
 
 from script.tests import test_scene_reflection_history_integration as app_runner
-from script.tests.test_scene_authored_sampling_integration import solid_texture
+from script.tests.scene.test_scene_authored_sampling_integration import solid_texture
 from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
@@ -411,7 +411,7 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             Path(destination).mkdir(parents=True, exist_ok=True)
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="named-parent-source-", dir=destination))
         sources = [Path(__file__), Path(app_runner.__file__),
-            REPO / "script/tests/test_scene_authored_sampling_integration.py",
+            REPO / "script/tests/scene/test_scene_authored_sampling_integration.py",
             REPO / "script/tests/support/scene_pkg_fixture.py", REPO / "script/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
         preregistered = {str(i): {"protocol": protocol(i), "entries": {

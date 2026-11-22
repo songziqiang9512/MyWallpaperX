@@ -1,0 +1,744 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
+FOG_HEADER = METAL_SOURCE.with_name("SceneDistanceFog.metalh")
+SURFACE_HEADER = METAL_SOURCE.with_name("SceneSurfaceResponse.metalh")
+SHADOW_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelShadow.swift"
+PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
+MATERIAL_SOURCE = SCENE_ROOT / "Rendering/Metal/SceneStaticModelMaterial.swift"
+DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
+BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift"
+DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
+MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
+LIGHTING_INPUT_SOURCE = SCENE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift"
+TUBE_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneTubeLightDefinition.swift"
+MODEL_SUPPORT_SOURCES = [SCENE_ROOT / "Format" / name for name in [
+    "SceneMdlPuppetMeshReader.swift", "SceneMdlPuppetRigReader.swift",
+]] + [
+    LIGHTING_INPUT_SOURCE,
+    SCENE_ROOT / "Rendering/Metal/SceneStaticModelVertexStream.swift",
+    SCENE_ROOT / "Rendering/Frame/SceneSourceUpdateTransaction.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelFixture.swift",
+]
+SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
+UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
+LIGHT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift"
+VISIBILITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift"
+DIRECTIONAL_LIGHT_SOURCE = (
+    SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift"
+)
+POINT_LIGHT_SOURCE = SCENE_ROOT / "Format/ScenePointLightDefinition.swift"
+SPOT_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneSpotLightDefinition.swift"
+PERFORMANCE_COUNTER_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
+)
+
+LIGHTING_STUB = r'''
+struct SceneLayerDisplayScriptOwnership {
+    let visible: Bool
+    let alpha: Bool
+    var isEmpty: Bool { !visible && !alpha }
+    var fields: [String] { [] }
+}
+
+struct SceneRenderDescriptor {
+    struct LightingDescriptor {
+        struct DistanceFog {
+            let color: [Float]
+            let start: Float
+            let end: Float
+            let startDensity: Float
+            let endDensity: Float
+        }
+        struct LightClassesDescriptor {
+            var directional: Bool = true
+            var point: Bool = true
+            var spot: Bool = true
+            var tube: Bool = true
+        }
+        let ambientColorRGB: [Float]?
+        let skylightColorRGB: [Float]?
+        var lightClasses: LightClassesDescriptor = .init()
+        var distanceFog: DistanceFog? = nil
+    }
+
+    struct CameraDescriptor {
+        let orthoHeight: Float?
+        var default2DOriginInputLayerID: Int? = nil
+    }
+
+    struct Layer {
+        let id: Int
+        let visible: Bool?
+        var anglesXYZ: [Float]? = nil
+        var pointLight: ScenePointLightDefinition? = nil
+        var tubeLight: SceneTubeLightDefinition? = nil
+        let spotLight: SceneSpotLightDefinition?
+        let directionalLight: SceneDirectionalLightDefinition?
+        var parentID: Int? = nil
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
+        var originXYZ: [Float]? = nil
+        var scaleXYZ: [Float]? = nil
+        var attachmentName: String? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
+    }
+
+    let lighting: LightingDescriptor?
+    let camera: CameraDescriptor
+    let layers: [Layer]
+    let renderOrderLayerIDs: [Int]
+
+    init(
+        lighting: LightingDescriptor?,
+        layers: [Layer],
+        renderOrderLayerIDs: [Int]? = nil,
+        sceneOrthoHeight: Float? = nil
+    ) {
+        self.lighting = lighting
+        self.camera = CameraDescriptor(orthoHeight: sceneOrthoHeight)
+        self.layers = layers
+        self.renderOrderLayerIDs = renderOrderLayerIDs ?? layers.map(\.id)
+    }
+}
+'''
+
+
+class SceneStaticModelPipelineTests(unittest.TestCase):
+    def test_reader_geometry_upload_preserves_gpu_bytes_tight_bounds_and_index_width(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_static_model_reader import DEFAULT_VERTICES, build_model
+
+        sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES,
+                   SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift",
+                   SAMPLING_SOURCE, UV_TRANSFORM_SOURCE, DIRECTIONAL_LIGHT_SOURCE,
+                   POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE, LIGHT_SOURCE, VISIBILITY_SOURCE,
+                   DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE, PERFORMANCE_COUNTER_SOURCE,
+                   BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                   SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
+        harness = (REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelUploadChecks.swift").read_text()
+        cases = [
+            ("source16", 3, 0, (0, 1, 2), 2),
+            ("source32-shrinks", 3, 1, (2, 0, 1), 2),
+            ("uint16-65535", 65_536, 0, (0, 65_534, 65_535), 2),
+            ("uint32-65536", 65_537, 1, (0, 65_535, 65_536), 4),
+            ("large-source16-small-indices", 65_537, 0, (0, 1, 2), 2),
+            ("large-source32-small-indices", 65_537, 1, (2, 1, 0), 2),
+            ("signed-zero-bounds", 3, 0, (0, 1, 2), 2),
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-model-upload-") as tmp:
+            inputs = []
+            for name, count, flag, indices, width in cases:
+                vertices = [DEFAULT_VERTICES[index % 3] for index in range(count)]
+                if count > 3:
+                    # Full vertex storage owns bounds, even when these last
+                    # extreme vertices are absent from the triangle indices.
+                    vertices[-2] = ((-71., -83., -97.), (2., -3., 4.), (-5., 6., -7., -1.), (.125, .875))
+                    vertices[-1] = ((101., 113., 127.), (0., 0., 0.), (0., 0., 0., 0.), (.625, .25))
+                    minimum, maximum = [-71, -83, -97], [101, 113, 127]
+                    if "small-indices" in name:
+                        self.assertTrue(all(index < count - 2 for index in indices))
+                else:
+                    minimum, maximum = [-1, -1, 0], [1, 1, 0]
+                if name == "signed-zero-bounds":
+                    positions = [(-0., 0., -0.), (0., -0., -0.), (-0., 0., 0.)]
+                    vertices = [(position, (-0., 0., -0.), (0., -0., 0., -0.), (-0., 0.))
+                                for position in positions]
+                    minimum = maximum = [0, 0, 0]
+                path = Path(tmp) / f"{name}.mdl"
+                path.write_bytes(build_model(vertices=vertices, indices=indices, index_flag=flag,
+                                             bounds=(-1_000, -1_000, -1_000, 1_000, 1_000, 1_000)))
+                inputs.append({"name": name, "path": str(path), "indexBytes": width,
+                               "minimum": minimum, "maximum": maximum})
+            report = run_swift(sources, LIGHTING_STUB + harness, label="model-upload",
+                               metal_sources=[METAL_SOURCE], input_value=inputs)
+        self.assertEqual([row["name"] for row in report["rows"]], [case[0] for case in cases])
+        for row, (_, count, _, _, width) in zip(report["rows"], cases):
+            with self.subTest(name=row["name"]):
+                self.assertEqual(row["vertexCount"], count, row)
+                self.assertEqual(row["indexBytes"], width, row)
+                for check in ("gpuCompleted", "allVertexChannels", "packedStorage", "allIndexBytes", "indexType",
+                              "tightBounds", "boundsBitsMatchOriginal", "counts", "authoredBoundsWereLoose"):
+                    self.assertTrue(row[check], row)
+
+    def test_shared_sampler_preserves_nearest_address_and_mips_with_anisotropic_quality(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+
+        # The owned mip colors identify the selected level independently of
+        # Saturn. A 16:1 footprint has a fine red gradient along its short axis;
+        # its coarser authored levels are blue with a different alpha marker.
+        shader = r'''
+#include <metal_stdlib>
+using namespace metal;
+struct SamplingVertex { float4 position [[position]]; float2 uv; };
+vertex SamplingVertex samplingVertex(uint id [[vertex_id]]) {
+    const float2 p[] = { {-1,-1}, {1,-1}, {-1,1}, {1,-1}, {1,1}, {-1,1} };
+    return { float4(p[id],0,1), (p[id]+1)*0.5 };
+}
+fragment float4 samplingFragment(SamplingVertex in [[stage_in]],
+    constant float4 &mapping [[buffer(0)]], texture2d<float> source [[texture(0)]],
+    sampler sourceSampler [[sampler(0)]]) {
+    float4 c = source.sample(sourceSampler, in.uv*mapping.xy+mapping.zw);
+    return float4(c.rgb*c.a,c.a);
+}
+'''
+        support = r'''
+import Foundation
+import Metal
+@main enum SharedSamplerProbe {
+    static func makeTexture(_ device: MTLDevice, levels: Int) -> MTLTexture {
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 256, height: 256, mipmapped: false)
+        d.mipmapLevelCount = levels; d.storageMode = .shared; d.usage = .shaderRead
+        let texture = device.makeTexture(descriptor: d)!
+        for level in 0..<levels {
+            let size = max(1,256 >> level)
+            var rgba = [UInt8](repeating: 0, count: size*size*4)
+            for y in 0..<size { for x in 0..<size {
+                let i = (y*size+x)*4
+                rgba[i] = level == 0 ? UInt8(128+x/2) : 0
+                rgba[i+2] = level == 0 ? 0 : 255
+                rgba[i+3] = level == 0 ? 128 : 64
+            } }
+            rgba.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0,0,size,size),
+                mipmapLevel: level, withBytes: $0.baseAddress!, bytesPerRow: size*4) }
+        }
+        return texture
+    }
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
+              let samplers = SceneTextureSamplerStateSet(device: device) else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        let library = try device.makeLibrary(URL: URL(fileURLWithPath: "default.metallib"))
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "samplingVertex")
+        descriptor.fragmentFunction = library.makeFunction(name: "samplingFragment")
+        descriptor.colorAttachments[0].pixelFormat = .rgba8Unorm
+        let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        func render(_ source: MTLTexture, _ sampler: MTLSamplerState, _ transform: SIMD4<Float>) -> [UInt8] {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+                width: 64, height: 64, mipmapped: false)
+            d.storageMode = .shared; d.usage = .renderTarget
+            let output = device.makeTexture(descriptor: d)!
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = output
+            pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+            let cb = queue.makeCommandBuffer()!, encoder = cb.makeRenderCommandEncoder(descriptor: pass)!
+            var mapping = transform
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setFragmentTexture(source,index: 0); encoder.setFragmentSamplerState(sampler,index: 0)
+            encoder.setFragmentBytes(&mapping,length: MemoryLayout<SIMD4<Float>>.stride,index: 0)
+            encoder.drawPrimitives(type: .triangle,vertexStart: 0,vertexCount: 6)
+            encoder.endEncoding(); cb.commit(); cb.waitUntilCompleted()
+            precondition(cb.status == .completed && cb.error == nil)
+            var rgba = [UInt8](repeating: 0,count: 4)
+            rgba.withUnsafeMutableBytes { output.getBytes($0.baseAddress!,bytesPerRow: 4,
+                from: MTLRegionMake2D(32,32,1,1),mipmapLevel: 0) }
+            return rgba
+        }
+        // This independent control represents isotropic trilinear filtering;
+        // the production sampler remains the only tested quality-policy owner.
+        let isotropicDescriptor = MTLSamplerDescriptor()
+        isotropicDescriptor.minFilter = .linear; isotropicDescriptor.magFilter = .linear
+        isotropicDescriptor.mipFilter = .linear; isotropicDescriptor.maxAnisotropy = 1
+        isotropicDescriptor.sAddressMode = .repeat; isotropicDescriptor.tAddressMode = .repeat
+        let isotropic = device.makeSamplerState(descriptor: isotropicDescriptor)!
+        let full = makeTexture(device,levels: 9), single = makeTexture(device,levels: 1)
+        let elongated = SIMD4<Float>(0.125,2,0.25,0.25)
+        let square = SIMD4<Float>(2,2,0.25,0.25)
+        let linear = samplers.state(for: .init(texFlags: 0))
+        var result: [String: Any] = [
+            "mipCount": full.mipmapLevelCount,
+            "linearElongated": render(full,linear,elongated),
+            "isotropicElongated": render(full,isotropic,elongated),
+            "nearestElongated": render(full,samplers.state(for: .init(texFlags: 1)),elongated),
+            "singleMipElongated": render(single,linear,elongated),
+            "squareLinear": render(full,linear,square),
+            "squareIsotropic": render(full,isotropic,square),
+        ]
+        let tinyDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 2,height: 2,mipmapped: false)
+        tinyDescriptor.storageMode = .shared; tinyDescriptor.usage = .shaderRead
+        let tiny = device.makeTexture(descriptor: tinyDescriptor)!
+        let pixels: [UInt8] = [255,0,0,255,0,255,0,255,255,0,0,255,0,255,0,255]
+        pixels.withUnsafeBytes { tiny.replace(region: MTLRegionMake2D(0,0,2,2),
+            mipmapLevel: 0,withBytes: $0.baseAddress!,bytesPerRow: 8) }
+        for flags: UInt32 in 0...3 {
+            let sampler = samplers.state(for: .init(texFlags: flags))
+            result["outside-\(flags)"] = render(tiny,sampler,SIMD4(0,0,-0.25,0.5))
+            result["between-\(flags)"] = render(tiny,sampler,SIMD4(0,0,0.5,0.5))
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),as: UTF8.self))
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="mwx-shared-sampler-") as tmp:
+            metal = Path(tmp) / "SharedSampler.metal"
+            metal.write_text(shader, encoding="utf-8")
+            result = run_swift([SAMPLING_SOURCE], support, label="shared-sampler-quality", metal_sources=[metal])
+        self.assertEqual(result["mipCount"], 9)
+        # The gradient at x=32.5 is 167.75; multiplying its alpha once yields
+        # 84.20 RGB8. The orthogonal UV footprint selects level 3, blue/alpha64.
+        self.assertAlmostEqual(result["linearElongated"][0], 84, delta=3)
+        self.assertEqual(result["linearElongated"][1:3], [0, 0])
+        self.assertAlmostEqual(result["linearElongated"][3], 128, delta=1)
+        self.assertEqual(result["singleMipElongated"], result["linearElongated"])
+        for name in ("isotropicElongated", "nearestElongated", "squareLinear", "squareIsotropic"):
+            self.assertEqual(result[name], [0, 0, 64, 64], name)
+        for flags in range(4):
+            self.assertEqual(result[f"outside-{flags}"], [255, 0, 0, 255] if flags & 2 else [0, 255, 0, 255])
+            if flags & 1:
+                self.assertEqual(result[f"between-{flags}"], [0, 255, 0, 255])
+            else:
+                for channel in result[f"between-{flags}"][:2]:
+                    self.assertAlmostEqual(channel, 128, delta=1)
+                self.assertEqual(result[f"between-{flags}"][2:], [0, 255])
+
+    def test_real_draw_uploads_only_static_model_point_count(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+
+        with tempfile.TemporaryDirectory(prefix="mwx-model-light-count-") as tmp:
+            probe_shader = Path(tmp) / "LightCounts.metal"
+            (Path(tmp) / FOG_HEADER.name).write_bytes(FOG_HEADER.read_bytes())
+            (Path(tmp) / SURFACE_HEADER.name).write_bytes(SURFACE_HEADER.read_bytes())
+            source = METAL_SOURCE.read_text(encoding="utf-8").replace(
+                "fragment half4 sceneStaticModelFragment(",
+                "fragment half4 sceneStaticModelOriginalFragment(", 1)
+            source += r'''
+fragment half4 sceneStaticModelFragment(
+    SceneStaticModelRasterVertex in [[stage_in]],
+    constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
+    return half4(half3(uniforms.lightCounts.xyz), half(1.0));
+}
+'''
+            probe_shader.write_text(source, encoding="utf-8")
+            sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
+                       DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
+                       LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
+                       PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                       SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
+            support = LIGHTING_STUB + (
+                REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelLightCountHarness.swift"
+            ).read_text(encoding="utf-8")
+            report = run_swift(sources, support, label="light-count", metal_sources=[probe_shader])
+            self.assertEqual(report["counts"], [[0, count, 0] for count in range(5)])
+
+    def test_hdr_brightness_requires_finite_value_only_when_consumed(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.scene.test_scene_static_model_emission import PIXEL_MAIN
+
+        variants = [("off-one", False, 1, True), ("off-wide", False, 1e300, True),
+                    ("on-one", True, 1, True), ("on-two", True, 2, True),
+                    ("on-inf", True, "inf", False), ("on-negative-inf", True, "-inf", False),
+                    ("on-nan", True, "nan", False)]
+        inputs = [dict(name=name, usesHDR=hdr, materialBrightness=value, drawBoundary=True,
+                       albedo=[.25, .5, .75], opacity=1, ambient=[0, 0, 0], hasMask=False,
+                       maskAlpha=0, emissiveColor=[0, 0, 0], brightness=0, receivesLighting=False)
+                  for name, hdr, value, _ in variants]
+        sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
+                   DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, TUBE_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
+                   LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
+                   PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                   SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
+        report = run_swift(sources, "import Foundation\nimport Metal\nimport simd\n" + LIGHTING_STUB + PIXEL_MAIN,
+                           label="unused-brightness", metal_sources=[METAL_SOURCE], input_value=inputs)
+        rows = {row["name"]: row for row in report["rows"]}
+        self.assertEqual(set(rows), {case[0] for case in variants})
+        for name, hdr, value, expected in variants:
+            row = rows[name]
+            with self.subTest(case=name):
+                self.assertTrue(row["completed"] and row["peerEncoded"], row)
+                self.assertEqual(row["peerPixel"], [0, 0, 1, 1], row)
+                self.assertEqual(row["peerDepth"], .5, row)
+                gain = value if hdr and expected else 1
+                self.assertEqual(row["pixel"], [.25*gain, .5*gain, .75*gain, 1] if expected else [0]*4, row)
+                self.assertEqual(row["depth"], .5 if expected else 0, row)
+                self.assertEqual(row["encoded"], expected, row)
+
+    def test_fixed_metal_shader_compiles(self) -> None:
+        metal = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--find", "metal"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="mwx-static-model-metal-") as tmp:
+            output = Path(tmp) / "SceneStaticModel.air"
+            completed = subprocess.run(
+                [
+                    metal,
+                    "-x", "metal",
+                    "-std=macos-metal2.4",
+                    "-c", str(METAL_SOURCE),
+                    "-o", str(output),
+                ],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_pipeline_typechecks_against_decoded_vertex_contract(self) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            self.skipTest("swiftc is unavailable")
+        with tempfile.TemporaryDirectory(prefix="mwx-static-model-swift-") as tmp:
+            root = Path(tmp)
+            lighting_stub = root / "LightingStub.swift"
+            lighting_stub.write_text(LIGHTING_STUB, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-modules")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-modules")
+            completed = subprocess.run(
+                [
+                    swiftc,
+                    "-typecheck",
+                    str(MODEL_SOURCE),
+                    *map(str, MODEL_SUPPORT_SOURCES),
+                    str(SAMPLING_SOURCE),
+                    str(UV_TRANSFORM_SOURCE),
+                    str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
+                    str(SPOT_LIGHT_SOURCE),
+                    str(lighting_stub),
+                    str(LIGHT_SOURCE),
+                    str(VISIBILITY_SOURCE),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
+                    str(PERFORMANCE_COUNTER_SOURCE),
+                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
+                    str(BINDINGS_SOURCE),
+                    str(MATERIAL_SOURCE),
+                    str(PIPELINE_SOURCE),
+                    str(SHADOW_SOURCE),
+                ],
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_material_consumes_dynamic_values_and_preserves_cull_mode(self) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            self.skipTest("swiftc is unavailable")
+        harness_source = r'''
+import Metal
+import simd
+
+@main
+enum MaterialHarness {
+    static func main() {
+        precondition(SceneStaticModelPipeline.hasExpectedUniformABI)
+        let definitions: [SceneDynamicTargetDefinition] = [
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "color"
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(1, 1, 1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "emissivecolor"
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(1, 1, 1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "alpha"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "brightness"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0,
+                    name: "emissivebrightness"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+        ]
+        let snapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 2,
+            definitions: definitions,
+            userValues: [
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "color"
+                ): .vector3(0.2, 0.4, 0.6),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "emissivecolor"
+                ): .vector3(0.9, 0.3, 0.1),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "alpha"
+                ): .scalar(0.4),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "brightness"
+                ): .scalar(1.75),
+                .materialConstant(
+                    layerID: 7, passIndex: 0,
+                    name: "emissivebrightness"
+                ): .scalar(3),
+            ]
+        ).snapshot
+        let base = SceneStaticModelMaterial(
+            color: SIMD3(1, 1, 1), opacity: 1,
+            receivesLighting: true, textureAlphaIsOpacity: true,
+            textureAlphaIsTintMask: false,
+            emissiveColor: SIMD3(1, 1, 1), emissiveBrightness: 1,
+            brightness: 1, usesHDRBrightness: true,
+            viewTint: .init(front: SIMD3(1, 0, 0), back: SIMD3(0, 0, 1),
+                exponent: 2, usesDynamicBackColor: true)
+        )
+        precondition(base.cullMode == .back)
+        for mode: MTLCullMode in [.none, .back, .front] {
+            var authoredCull = base
+            authoredCull.cullMode = mode
+            authoredCull.surfaceProfile = .init(metallic: 0.25, roughness: 0.7,
+                reflectivity: 0.4, rimAmount: 2, rimExponent: 0,
+                kind: .chroma4, specularTint: SIMD3(0.1, 0.2, 0.3), pigmentAmount: 0.2)
+            let dynamic = authoredCull.resolvingDynamicValues(
+                layerID: 7, snapshot: snapshot
+            )
+            precondition(dynamic.opacity == 0.4 && dynamic.color != base.color)
+            precondition(dynamic.cullMode == mode)
+            precondition(dynamic.surfaceProfile == authoredCull.surfaceProfile)
+            let tint = dynamic.resolvingDynamicViewTintBack(SIMD3(0.8, 0.7, 0.6))
+            precondition(tint.viewTint?.back == SIMD3<Float>(0.8, 0.7, 0.6))
+            precondition(tint.cullMode == mode)
+            precondition(tint.surfaceProfile == authoredCull.surfaceProfile)
+            precondition(authoredCull.resolvingDynamicValues(
+                layerID: 8, snapshot: snapshot
+            ).cullMode == mode)
+        }
+        let resolved = base.resolvingDynamicValues(
+            layerID: 7, snapshot: snapshot
+        )
+        precondition(resolved.color == SIMD3<Float>(0.2, 0.4, 0.6))
+        precondition(resolved.emissiveColor == SIMD3<Float>(0.9, 0.3, 0.1))
+        precondition(resolved.opacity == 0.4)
+        precondition(resolved.brightness == 1.75)
+        precondition(resolved.emissiveBrightness == 3)
+        precondition(base.resolvingDynamicValues(
+            layerID: 8, snapshot: snapshot
+        ).color == base.color)
+        var unproven = base
+        unproven.channelBindings = .init(state: .unavailable, bindings: [], rejectionReason: "interface-unproven")
+        let legacy = unproven.resolvingDynamicValues(layerID: 7, snapshot: snapshot)
+        precondition(legacy.color == resolved.color && legacy.opacity == resolved.opacity)
+        precondition(legacy.brightness == resolved.brightness && legacy.emissiveBrightness == resolved.emissiveBrightness)
+        precondition(legacy.emissiveColor == resolved.emissiveColor)
+        let authoredBindings = SceneStaticModelMaterialBindings(
+            state: .authored,
+            bindings: [
+                .init(channel: .alpha, uniformName: "g_TintAlpha", materialKey: "Alpha", components: [0.02]),
+                .init(channel: .color, uniformName: "g_TintColor", materialKey: "Color", components: [0.2, 0.4, 0.6]),
+                .init(channel: .brightness, uniformName: "g_Brightness", materialKey: "Brigtness", components: [1.25]),
+            ],
+            rejectionReason: nil
+        )
+        var authored = base
+        authored.channelBindings = authoredBindings
+        let exactPath = "materials/authored.json"
+        let unrelatedPath = "materials/peer.json"
+        func target(_ name: String, layerID: Int = 7, path: String = "materials/authored.json") -> SceneDynamicTarget {
+            .materialConstant(layerID: layerID, passIndex: 0, name: name, materialPath: path)
+        }
+        let exactDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(target: target("Alpha"), valueType: .scalar, authoredValue: .scalar(0.02)),
+            .init(target: target("Color"), valueType: .vector3, authoredValue: .vector3(0.2, 0.4, 0.6)),
+            .init(target: target("Brigtness"), valueType: .scalar, authoredValue: .scalar(1.25)),
+            .init(target: target("alpha"), valueType: .scalar, authoredValue: .scalar(1)),
+            .init(target: target("color"), valueType: .vector3, authoredValue: .vector3(1, 0, 0)),
+            .init(target: target("brightness"), valueType: .scalar, authoredValue: .scalar(8)),
+            .init(target: target("Alpha", layerID: 8), valueType: .scalar, authoredValue: .scalar(0.9)),
+            .init(target: target("Alpha", path: unrelatedPath), valueType: .scalar, authoredValue: .scalar(0.6)),
+        ]
+        let exactSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2, generation: 2, definitions: exactDefinitions,
+            userValues: [
+                target("Alpha"): .scalar(0.3), target("Color"): .vector3(0.1, 0.5, 0.9),
+                target("Brigtness"): .scalar(2), target("alpha"): .scalar(1),
+                target("color"): .vector3(1, 0, 0), target("brightness"): .scalar(8),
+                target("Alpha", layerID: 8): .scalar(0.9),
+                target("Alpha", path: unrelatedPath): .scalar(0.6),
+            ]
+        ).snapshot
+        let exact = authored.resolvingDynamicValues(layerID: 7, materialPath: exactPath, snapshot: exactSnapshot)
+        precondition(exact.opacity == 0.3)
+        precondition(exact.color == SIMD3<Float>(0.1, 0.5, 0.9))
+        precondition(exact.brightness == 2)
+        precondition(exact.channelBindings == authoredBindings)
+        precondition(authored.resolvingDynamicValues(layerID: 8, materialPath: exactPath, snapshot: exactSnapshot).opacity == 0.9)
+        precondition(authored.resolvingDynamicValues(layerID: 7, materialPath: unrelatedPath, snapshot: exactSnapshot).opacity == 0.6)
+        precondition(authored.resolvingDynamicValues(layerID: 9, materialPath: exactPath, snapshot: exactSnapshot).opacity == base.opacity)
+
+        var defaultsOnly = authored
+        defaultsOnly.channelBindings = SceneStaticModelMaterialBindings(
+            state: .authored,
+            bindings: [
+                .init(channel: .alpha, uniformName: "g_TintAlpha", materialKey: nil, components: [0.02]),
+                .init(channel: .color, uniformName: "g_TintColor", materialKey: nil, components: [0.2, 0.4, 0.6]),
+                .init(channel: .brightness, uniformName: "g_Brightness", materialKey: nil, components: [1.25]),
+            ], rejectionReason: nil
+        )
+        let unchanged = defaultsOnly.resolvingDynamicValues(layerID: 7, materialPath: exactPath, snapshot: exactSnapshot)
+        precondition(unchanged.opacity == defaultsOnly.opacity && unchanged.color == defaultsOnly.color)
+        precondition(unchanged.brightness == defaultsOnly.brightness)
+        precondition(exact.resolvingDynamicViewTintBack(SIMD3(0.8, 0.7, 0.6)).channelBindings == authoredBindings)
+        let overflowSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3, generation: 2, definitions: [
+                .init(target: target("Brigtness"), valueType: .scalar, authoredValue: .scalar(1.25)),
+            ], userValues: [target("Brigtness"): .scalar(1e100)]
+        ).snapshot
+        precondition(authored.resolvingDynamicValues(
+            layerID: 7, materialPath: exactPath, snapshot: overflowSnapshot
+        ).brightness == authored.brightness)
+        func transform(_ scale: SIMD3<Float>) -> simd_float4x4 {
+            var matrix = matrix_identity_float4x4
+            matrix.columns.0.x = scale.x
+            matrix.columns.1.y = scale.y
+            matrix.columns.2.z = scale.z
+            return matrix
+        }
+        for scale: Float in [1, 0.001, 0.000001, 1e-30, 1e30] {
+            let normal = SceneStaticModelPipeline.normalMatrix(
+                for: transform(SIMD3(repeating: scale))
+            )
+            precondition(normal != nil)
+            precondition(simd_length(normal!.columns.0 - SIMD3(1, 0, 0)) < 1e-5)
+            precondition(simd_length(normal!.columns.1 - SIMD3(0, 1, 0)) < 1e-5)
+            precondition(simd_length(normal!.columns.2 - SIMD3(0, 0, 1)) < 1e-5)
+        }
+        let anisotropic = SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(-0.001, 0.002, 0.004))
+        )!
+        precondition(abs(anisotropic.columns.0.x + 1) < 1e-5)
+        precondition(abs(anisotropic.columns.1.y - 0.5) < 1e-5)
+        precondition(abs(anisotropic.columns.2.z - 0.25) < 1e-5)
+        precondition(SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(1, 0, 1))
+        ) == nil)
+        precondition(SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(Float.nan, 1, 1))
+        ) == nil)
+        var singular = matrix_identity_float4x4
+        singular.columns.1 = singular.columns.0
+        precondition(SceneStaticModelPipeline.normalMatrix(for: singular) == nil)
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="mwx-model-material-consumer-") as tmp:
+            root = Path(tmp)
+            lighting_stub = root / "LightingStub.swift"
+            harness = root / "MaterialHarness.swift"
+            executable = root / "MaterialHarness"
+            lighting_stub.write_text(LIGHTING_STUB, encoding="utf-8")
+            harness.write_text(harness_source, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-modules")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-modules")
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    str(MODEL_SOURCE),
+                    *map(str, MODEL_SUPPORT_SOURCES),
+                    str(SAMPLING_SOURCE),
+                    str(UV_TRANSFORM_SOURCE),
+                    str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
+                    str(SPOT_LIGHT_SOURCE),
+                    str(lighting_stub),
+                    str(LIGHT_SOURCE),
+                    str(VISIBILITY_SOURCE),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
+                    str(PERFORMANCE_COUNTER_SOURCE),
+                    str(SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"),
+                    str(BINDINGS_SOURCE),
+                    str(MATERIAL_SOURCE),
+                    str(PIPELINE_SOURCE),
+                    str(SHADOW_SOURCE),
+                    str(harness),
+                    "-framework", "Metal",
+                    "-o", str(executable),
+                ],
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            completed = subprocess.run(
+                [str(executable)], capture_output=True, text=True, env=environment
+            ) if compiled.returncode == 0 else compiled
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_light_snapshot_publishes_bounded_spot_geometry_and_dynamic_color(self) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            self.skipTest("swiftc is unavailable")
+        harness_source = (
+            REPOSITORY_ROOT / "script/tests/fixtures/SceneLightSnapshotHarness.swift"
+        ).read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory(prefix="mwx-light-snapshot-") as tmp:
+            root = Path(tmp)
+            lighting_stub = root / "LightingStub.swift"
+            harness = root / "LightSnapshotHarness.swift"
+            executable = root / "LightSnapshotHarness"
+            lighting_stub.write_text(LIGHTING_STUB, encoding="utf-8")
+            harness.write_text(harness_source, encoding="utf-8")
+            completed = subprocess.run(
+                [
+                    swiftc,
+                    "-parse-as-library",
+                    str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
+                    str(TUBE_LIGHT_SOURCE),
+                    str(SPOT_LIGHT_SOURCE),
+                    str(lighting_stub),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
+                    str(VISIBILITY_SOURCE),
+                    str(LIGHT_SOURCE),
+                    str(LIGHTING_INPUT_SOURCE),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift"),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift"),
+                    str(SCENE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"),
+                    str(SCENE_ROOT / "Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift"),
+                    str(harness),
+                    "-o", str(executable),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            completed = subprocess.run(
+                [str(executable)], capture_output=True, text=True
+            )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+if __name__ == "__main__":
+    unittest.main()

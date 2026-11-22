@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests import test_scene_generic_shader_type_spellings as SPELLINGS
+from script.tests.scene import test_scene_generic_shader_type_spellings as SPELLINGS
 
 
 class SceneAudioPackedSourceViewTests(unittest.TestCase):

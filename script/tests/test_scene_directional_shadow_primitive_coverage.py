@@ -9,7 +9,7 @@ import struct
 import unittest
 
 from script.tests import test_scene_directional_shadow as shared
-from script.tests import test_scene_static_model_pipeline as model
+from script.tests.scene import test_scene_static_model_pipeline as model
 
 FIXTURE = Path(__file__).with_name('fixtures') / 'SceneDirectionalShadowPrimitiveCoverageChecks.swift'
 DEPTH_TOLERANCE = 2e-5

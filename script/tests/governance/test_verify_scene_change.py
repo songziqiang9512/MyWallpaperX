@@ -126,8 +126,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
             'script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift': {'test_scene_standard_blur_previous_composite'},
             'script/tests/fixtures/SceneVideoPackageReadObserver.c': {'test_scene_material_video_asset', 'test_scene_package_resource_backing'},
             'script/tests/fixtures/SceneGenericShaderSharedAnalysisCases.swift': {'test_scene_generic_shader_typed_input_lowering'},
-            'script/tests/test_scene_resolved_material_graph_visual_failure_contract.py': {'test_scene_resolved_material_graph_executor'},
-            'script/tests/test_scene_resolved_material_program_finalizer.py': {'test_scene_background_material_provider'},
+            'script/tests/scene/test_scene_resolved_material_graph_visual_failure_contract.py': {'test_scene_resolved_material_graph_executor'},
+            'script/tests/scene/test_scene_resolved_material_program_finalizer.py': {'test_scene_background_material_provider'},
         }
         for path, consumers in cases.items():
             with self.subTest(path=path):
@@ -739,7 +739,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
         # unrelated generic renderer input that cannot reach those contracts.
         paths = [self.doc, self.swift, "script/scene_wallpaper_benchmark.py",
                  "script/unmapped_fixture.json", "script/tests/test_removed_fixture.py",
-                 "script/tests/test_scene_independent_signal_carrier.py"]
+                 "script/tests/scene/test_scene_independent_signal_carrier.py"]
         for phase in verify.PHASES:
             for scope in ("changed", "release", "all"):
                 for tier in ((None, "fixed", "full") if phase == "milestone" else (None,)):

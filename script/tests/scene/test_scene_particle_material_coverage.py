@@ -22,7 +22,7 @@ else:
     from script.tests.scene.test_scene_particle_runtime import SWIFT_SOURCES as RUNTIME_SOURCES
     from script.tests.support.scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
 
-FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 BASE_HARNESS = FIXTURES / "SceneParticleRuntimeHarness.swift"
 COVERAGE_HARNESS = FIXTURES / "SceneParticleMaterialCoverageHarness.swift"
 # Imported groups can spell the same file through Scene/../Storage or Storage.

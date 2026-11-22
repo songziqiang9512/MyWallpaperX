@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_resolved_material_pass_encoder import (
+from script.tests.scene.test_scene_resolved_material_pass_encoder import (
     REPOSITORY_ROOT,
     SCENE_ROOT,
     SUPPORT as PASS_ENCODER_SUPPORT,
