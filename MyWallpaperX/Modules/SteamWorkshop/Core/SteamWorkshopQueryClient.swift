@@ -116,7 +116,7 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
                 && (UInt64(value) ?? 0) > 0
         }
         let invalid = SteamServiceClient.RequestError.helperError(
-            code: "integrity", message: "下载完成凭证不完整或与当前任务不一致。")
+            code: "integrity", message: String(localized: "The download completion receipt is incomplete or doesn’t match the current task."))
         guard frame.isTerminal, frame.ok == true, frame.accountEpoch == accountEpoch,
               let data = frame.root["data"]?.objectValue,
               data["receiptVersion"]?.intValue == 2,
@@ -401,7 +401,7 @@ final class SteamWorkshopQueryClient {
     // MARK: - 解码
 
     private var malformed: SteamServiceClient.RequestError {
-        .helperError(code: "protocolMismatch", message: "Steam 查询结果不完整，原列表已保留，请重试。")
+        .helperError(code: "protocolMismatch", message: String(localized: "The Steam results were incomplete. The original list was kept; try again."))
     }
 
     private func validID(_ id: String) -> Bool {

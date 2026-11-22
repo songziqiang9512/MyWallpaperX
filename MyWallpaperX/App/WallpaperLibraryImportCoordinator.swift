@@ -32,10 +32,10 @@ import UniformTypeIdentifiers
         panel.allowedContentTypes = page == .images ? SILService.allowedUTTypes
             : page == .videos || page == .recent ? [.movie, .video, .mpeg4Movie, .quickTimeMovie]
             : [.movie, .video, .image]
-        panel.message = page == .videos || page == .recent ? "可选择视频或文件夹；将导入文件夹内的视频。"
-            : page == .images ? "可选择图片或文件夹；将导入文件夹内的图片。"
-            : "文件夹仅递归导入图片；视频请直接选择文件。"
-        panel.title = page == .images ? "导入图片" : page == .videos || page == .recent ? "导入视频" : "导入壁纸"
+        panel.message = page == .videos || page == .recent ? String(localized: "Choose a video or a folder; videos inside the folder will be imported.")
+            : page == .images ? String(localized: "Choose an image or a folder; images inside the folder will be imported.")
+            : String(localized: "Only images are imported from folders; select videos as individual files.")
+        panel.title = page == .images ? String(localized: "Import Images") : page == .videos || page == .recent ? String(localized: "Import Videos") : String(localized: "Import Wallpapers")
         let accept: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self, response == .OK, self.workspace.relationships.resetEpoch == epoch else { return }
             self.importFiles(panel.urls, to: page)
@@ -66,7 +66,7 @@ import UniformTypeIdentifiers
             } else if page != .images, type?.conforms(to: .movie) == true || type?.conforms(to: .video) == true {
                 videoURLs.append(url)
             } else {
-                rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: "该页面不接受此文件类型"))
+                rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: String(localized: "This page doesn’t accept this file type")))
             }
         }
         let batch = Batch(order: order, remaining: (imageURLs.isEmpty ? 0 : 1) + (videoURLs.isEmpty ? 0 : 1),
@@ -119,9 +119,9 @@ import UniformTypeIdentifiers
         panel.canChooseDirectories = false
         panel.allowedContentTypes = reference.provider == .staticImageLibrary ? SILService.allowedUTTypes
             : [.movie, .video, .mpeg4Movie, .quickTimeMovie]
-        panel.title = "重新定位壁纸文件"
-        panel.prompt = "关联此文件"
-        panel.message = "请选择这张壁纸的新位置；将保留原播放列表、特别喜爱和最近使用。不会移动或删除文件。"
+        panel.title = String(localized: "Relocate Wallpaper File")
+        panel.prompt = String(localized: "Associate This File")
+        panel.message = String(localized: "Choose a new location for this wallpaper. Its playlists, Favorites, and recent use are kept. No files are moved or deleted.")
         let accept: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self, response == .OK, let url = panel.url else { return }
             self.importReplacement(url, for: reference, epoch: epoch, generation: generation, page: page,
@@ -153,7 +153,7 @@ import UniformTypeIdentifiers
                           Data(receipt.sourceURL.resolvingSymlinksInPath().standardizedFileURL.path.utf8) == selectedPath,
                           let replacement = receipt.organizationItem, replacement.reference.provider == reference.provider,
                           replacement.isPublishedLocally, replacement.isAvailable else {
-                        throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: result.failures.first?.failureMessage ?? "所选文件未能成功入库，原关联保持不变。"])
+                        throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: result.failures.first?.failureMessage ?? String(localized: "The selected file couldn’t be added to the library; the original link is unchanged.")])
                     }
                     let recovered = replacement.reference != reference ? await self.originalIsAvailable(reference) : false
                     guard self.relocationGeneration == generation, collections.snapshot.resetEpoch == epoch,
@@ -180,8 +180,8 @@ import UniformTypeIdentifiers
                 } catch {
                     guard self.relocationGeneration == generation, collections.snapshot.resetEpoch == epoch,
                           !collections.isResetting, self.workspace.presentation.page == page else { return }
-                    let alert = makeAppAlert(title: "文件未关联", message: error.localizedDescription
-                        + "\n已入库内容和原列表均保留。")
+                    let alert = makeAppAlert(title: String(localized: "File Not Linked"), message: error.localizedDescription
+                        + String(localized: "\nImported content and the existing list are both kept."))
                     presentAppAlert(alert, in: self.hostWindow())
                 }
             }
@@ -250,9 +250,9 @@ import UniformTypeIdentifiers
                     guard collections.snapshot.playlists.contains(where: { $0.id == id }) else {
                         throw UserCollectionsError.missingPlaylist
                     }
-                    commands.append(.addMembers(id, ordered, Date())); undoName = "导入并加入列表"
+                    commands.append(.addMembers(id, ordered, Date())); undoName = String(localized: "Import and Add to Playlist")
                 case .favorites:
-                    commands += ordered.map { .setFavorite($0, true, Date()) }; undoName = "导入并特别喜爱"
+                    commands += ordered.map { .setFavorite($0, true, Date()) }; undoName = String(localized: "Import and Add to Favorites")
                 default: break
                 }
                 try await collections.perform(commands, undoName: undoName, expectedEpoch: epoch)
@@ -263,14 +263,14 @@ import UniformTypeIdentifiers
                 let added = batch.results.reduce(0) { $0 + $1.addedCount }
                 let existing = batch.results.reduce(0) { $0 + $1.existingCount }
                 let failures = batch.results.flatMap(\.failures)
-                var lines = ["新增入库：\(added) 项", "已在资料库：\(existing) 项", "未完成：\(failures.count) 项"]
-                lines += failures.prefix(8).map { $0.sourceURL.lastPathComponent + "：" + ($0.failureMessage ?? "未完成") }
-                if failures.count > 8 { lines.append("另有 \(failures.count - 8) 项未显示") }
-                let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
+                var lines = [String(localized: "Added to library: \(added)"), String(localized: "Already in Library: \(existing)"), String(localized: "Not completed: \(failures.count)")]
+                lines += failures.prefix(8).map { $0.sourceURL.lastPathComponent + "：" + ($0.failureMessage ?? String(localized: "Incomplete")) }
+                if failures.count > 8 { lines.append(String(localized: "\(failures.count - 8) more not shown")) }
+                let alert = makeAppAlert(title: String(localized: "Import Results"), message: lines.joined(separator: "\n"))
                 presentAppAlert(alert, in: self.hostWindow())
             } catch {
                 guard collections.snapshot.resetEpoch == epoch else { return }
-                let alert = makeAppAlert(title: "导入整理未完成", message: error.localizedDescription + "\n已成功导入的原始壁纸仍保留在资料库中。")
+                let alert = makeAppAlert(title: String(localized: "Import Organizing Incomplete"), message: error.localizedDescription + String(localized: "\nOriginal wallpapers that were imported successfully remain in your library."))
                 presentAppAlert(alert, in: self.hostWindow())
             }
         }

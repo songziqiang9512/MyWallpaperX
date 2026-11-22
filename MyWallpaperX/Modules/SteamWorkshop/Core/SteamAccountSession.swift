@@ -198,7 +198,7 @@ final class SteamAccountSession {
         case "failed":
             phase = .failed(
                 code: "authExpired",
-                message: frame.root["message"]?.stringValue ?? "认证失败"
+                message: frame.root["message"]?.stringValue ?? String(localized: "Authentication Failed")
             )
         default:
             break

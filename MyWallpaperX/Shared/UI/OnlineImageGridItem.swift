@@ -106,7 +106,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         updateAppearance()
         if changed {
             retireRequest(); if mustClear { thumbnail.image = nil }; thumbnailRequestFinished = false; hasFailed = false
-            placeholder.stringValue = thumbnail.image == nil ? "加载中" : ""; loadThumbnail()
+            placeholder.stringValue = thumbnail.image == nil ? String(localized: "Loading") : ""; loadThumbnail()
         } else if resized {
             retireRequest(); thumbnailRequestFinished = false; hasFailed = false; loadThumbnail()
         } else if explicitRefresh, hasFailed {
@@ -192,7 +192,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         guard visible, !thumbnailRequestFinished, task == nil, cancellation == nil, !hasFailed,
               let content, let thumbnailRequest else { return }
         let id = UUID(); requestID = id
-        if thumbnail.image == nil { placeholder.stringValue = "加载中" }
+        if thumbnail.image == nil { placeholder.stringValue = String(localized: "Loading") }
         if content.publishedAvailability.isAvailable, let path = content.locator.path {
             let cancellation = ThumbnailCacheRequestCancellation(); self.cancellation = cancellation
             localThumbnails.load(path: path, request: thumbnailRequest, cancellation: cancellation) { [weak self] result in
@@ -214,7 +214,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         thumbnailRequestFinished = true
         if let image { thumbnail.image = image }
         hasFailed = image == nil
-        placeholder.stringValue = thumbnail.image == nil ? "缩略图暂不可用" : ""
+        placeholder.stringValue = thumbnail.image == nil ? String(localized: "Thumbnail Temporarily Unavailable") : ""
         layoutImage()
     }
 
@@ -285,8 +285,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         bar.apply(title: content.title, metadata: [content.metadata.author, content.metadata.resolutionText].compactMap { $0 }.joined(separator: "  "))
         bar.primaryState = switching ? .switching : playing ? .playing : busy ? .switching
             : content.publishedAvailability.isAvailable ? .apply : .download
-        bar.primaryActionTitle = busy && !playing && !switching ? "正在下载原图"
-            : bar.primaryState == .download ? "下载原图" : nil
+        bar.primaryActionTitle = busy && !playing && !switching ? String(localized: "Downloading Original")
+            : bar.primaryState == .download ? String(localized: "Download Original") : nil
         bar.playButton.isEnabled = onPrimary != nil && !switching && (!busy || playing)
         bar.detailButton.isEnabled = onInspect != nil
         let reference = content.providerReference

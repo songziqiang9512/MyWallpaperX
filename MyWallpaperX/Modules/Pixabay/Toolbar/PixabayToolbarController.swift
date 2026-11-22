@@ -26,7 +26,7 @@ extension NSToolbarItem.Identifier {
 final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     private enum Title {
-        static let browser = "Pixabay 素材库"
+        static let browser = String(localized: "Pixabay Library")
     }
 
     weak var window:  NSWindow?
@@ -159,9 +159,9 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var zoomToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .pixabayZoom)
-        item.label        = "缩放"
-        item.paletteLabel = "缩放"
-        item.toolTip      = "调整 Pixabay 缩略图大小"
+        item.label        = String(localized: "Zoom")
+        item.paletteLabel = String(localized: "Zoom")
+        item.toolTip      = String(localized: "Resize Pixabay Thumbnails")
         item.autovalidates = false
         item.view = zoomControl
         item.visibilityPriority = .low
@@ -170,10 +170,10 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var filterToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .pixabayFilter)
-        item.label = "筛选"; item.paletteLabel = "筛选"; item.toolTip = "筛选 Pixabay"
+        item.label = String(localized: "Filter"); item.paletteLabel = String(localized: "Filter"); item.toolTip = String(localized: "Filter Pixabay")
         item.autovalidates = false
-        let button = NSButton(title: "筛选", target: self, action: #selector(handleFilterAction))
-        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol, accessibilityDescription: "筛选")
+        let button = NSButton(title: String(localized: "Filter"), target: self, action: #selector(handleFilterAction))
+        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol, accessibilityDescription: String(localized: "Filter"))
         button.imagePosition = .imageLeading
         WallpaperLibraryControlStyle.capsule(button)
         item.view = button
@@ -184,14 +184,14 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var orderToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .pixabayOrder)
-        item.label = "排序"
-        item.paletteLabel = "排序"
-        item.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.sortSymbol, accessibilityDescription: "排序")
+        item.label = String(localized: "Sort")
+        item.paletteLabel = String(localized: "Sort")
+        item.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.sortSymbol, accessibilityDescription: String(localized: "Sort"))
         let button = NSButton(title: "", target: self, action: #selector(handleOrderAction(_:)))
         WallpaperLibraryControlStyle.capsule(button)
         button.image = item.image
         button.imagePosition = .imageOnly
-        button.setAccessibilityLabel("排序")
+        button.setAccessibilityLabel(String(localized: "Sort"))
         item.view = button
         item.autovalidates = false
         return item
@@ -202,7 +202,7 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
     lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "在Pixabay中查找"
+        field.placeholderString = String(localized: "Search Pixabay")
         field.setAccessibilityLabel(field.placeholderString)
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
@@ -214,9 +214,9 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var searchToolbarItem: NSSearchToolbarItem = {
         let item = NSSearchToolbarItem(itemIdentifier: .pixabaySearch)
-        item.label = "搜索"
-        item.paletteLabel = "搜索 Pixabay"
-        item.toolTip = "探索 Pixabay"
+        item.label = String(localized: "Search")
+        item.paletteLabel = String(localized: "Search Pixabay")
+        item.toolTip = String(localized: "Explore Pixabay")
         item.autovalidates = false
         item.searchField = searchField
         searchField.widthAnchor.constraint(equalToConstant: WallpaperLibraryControlStyle.toolbarSearchWidth).isActive = true
@@ -233,15 +233,15 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
         button.isBordered = true
         WallpaperLibraryControlStyle.toolbarAccountButton(button)
         button.image = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "API Key")
-        button.toolTip = "Pixabay API Key 设置"
+        button.toolTip = String(localized: "Pixabay API Key Settings")
         return button
     }()
 
     lazy var settingsToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .pixabaySettings)
         item.label         = "API Key"
-        item.paletteLabel  = "API Key 设置"
-        item.toolTip       = "更改 Pixabay API Key"
+        item.paletteLabel  = String(localized: "API Key Settings")
+        item.toolTip       = String(localized: "Change Pixabay API Key")
         item.autovalidates = false
         item.view          = settingsButton
         item.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "API Key", rows: settingsRows())
@@ -316,13 +316,13 @@ extension PixabayToolbarController {
     private func settingsRows() -> [ToolbarMenu.Row] {
         [
             ToolbarMenu.Row(
-                title: "更改 API Key",
+                title: String(localized: "Change API Key"),
                 kind: .action,
                 handler: { [weak self] in self?.handleChangeAPIKey() }
             ),
             .separator(),
             ToolbarMenu.Row(
-                title: "清空并返回登录界面",
+                title: String(localized: "Clear and Return to Sign-In"),
                 kind: .action,
                 handler: { [weak self] in self?.handleClearAPIKey() }
             )
@@ -377,7 +377,7 @@ extension PixabayToolbarController {
 
     /// 切换到在线模式时同步控件状态，避免重建后选中项丢失
     private func syncFilterControl() {
-        filterToolbarItem.menuFormRepresentation = ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
+        filterToolbarItem.menuFormRepresentation = ActionMenuItem(title: String(localized: "Filter"), symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
             self?.handleFilterAction()
         }
         if filterPopover.isShown { (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize() }
@@ -401,10 +401,10 @@ extension PixabayToolbarController {
             menu.addItem(item)
         }
         (orderToolbarItem.view as? NSButton)?.menu = menu
-        let overflow = NSMenuItem(title: "排序", action: nil, keyEquivalent: "")
+        let overflow = NSMenuItem(title: String(localized: "Sort"), action: nil, keyEquivalent: "")
         overflow.submenu = menu
         orderToolbarItem.menuFormRepresentation = overflow
-        orderToolbarItem.toolTip = "排序：\(current.displayName)"
+        orderToolbarItem.toolTip = String(localized: "Sort: \(current.displayName)")
     }
 
     @objc private func handleOrderAction(_ sender: NSButton) {

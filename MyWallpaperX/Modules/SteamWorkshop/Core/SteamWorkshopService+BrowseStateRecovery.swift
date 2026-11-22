@@ -57,7 +57,7 @@ extension SteamWorkshopService {
         selectedBrowserItemError = nil
         isRefreshingSelectedBrowserItem = false
         currentWorkshopItemID = nil
-        currentPageTitle = "Steam 创意工坊"
+        currentPageTitle = String(localized: "Steam Workshop")
         activeDownloadItemIDs.removeAll()
         downloads = []
         selectedDownloadInspectorItem = nil
@@ -86,7 +86,7 @@ extension SteamWorkshopService {
 
         navigationVersion += 1
         currentPageTitle = browseContext.title
-        statusMessage = "Steam 创意工坊已恢复到初始状态。"
+        statusMessage = String(localized: "Steam Workshop has been reset to its initial state.")
         // The unified grid no longer owns a didMoveToWindow reload. Cache
         // clearing is the explicit refresh intent; use the original single-flight
         // source scan once, independently of later queries or page changes.

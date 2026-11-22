@@ -20,14 +20,14 @@ nonisolated enum DownloadTaskPhase: String, Sendable {
 
     var title: String {
         switch self {
-        case .queued: return "等待下载"
-        case .preparing: return "正在连接"
-        case .transferring: return "正在下载"
-        case .saving: return "正在保存"
-        case .paused: return "已暂停"
-        case .completed: return "已完成"
-        case .failed: return "下载失败"
-        case .cancelled: return "已取消"
+        case .queued: return String(localized: "Waiting to Download")
+        case .preparing: return String(localized: "Connecting")
+        case .transferring: return String(localized: "Downloading")
+        case .saving: return String(localized: "Saving")
+        case .paused: return String(localized: "Paused")
+        case .completed: return String(localized: "Completed")
+        case .failed: return String(localized: "Download Failed")
+        case .cancelled: return String(localized: "Canceled")
         }
     }
 }

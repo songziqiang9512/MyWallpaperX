@@ -62,7 +62,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         guard request.entryURL.isFileURL,
               FileManager.default.isReadableFile(atPath: request.entryURL.path),
               (try? request.entryURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
-            failCurrentLaunch(message: "Web 壁纸入口不存在或无法读取")
+            failCurrentLaunch(message: String(localized: "The Web wallpaper entry is missing or unreadable."))
             return
         }
 

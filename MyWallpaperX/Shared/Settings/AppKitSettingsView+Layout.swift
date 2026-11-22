@@ -68,10 +68,10 @@ extension AppKitSettingsContainerView {
 
     private func setupPlaybackSection() {
         // 播放控制区只放与播放状态相关的可逆配置，避免和系统集成配置混在一起。
-        playbackModesSection.addRow(makeSettingRow(title: "循环播放", iconSystemName: "repeat", trailing: loopSwitch))
-        playbackModesSection.addRow(makeSettingRow(title: "顺序播放", iconSystemName: "list.number", trailing: sequentialSwitch))
-        playbackModesSection.addRow(makeSettingRow(title: "随机播放", iconSystemName: "shuffle", trailing: randomSwitch))
-        let autoSwitchRow = makeSettingRow(title: "自动切换", iconSystemName: "arrow.triangle.2.circlepath", trailing: autoSwitchSwitch)
+        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Loop"), iconSystemName: "repeat", trailing: loopSwitch))
+        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Play in Order"), iconSystemName: "list.number", trailing: sequentialSwitch))
+        playbackModesSection.addRow(makeSettingRow(title: String(localized: "Shuffle"), iconSystemName: "shuffle", trailing: randomSwitch))
+        let autoSwitchRow = makeSettingRow(title: String(localized: "Auto Switch"), iconSystemName: "arrow.triangle.2.circlepath", trailing: autoSwitchSwitch)
         autoSwitchRowView = autoSwitchRow
         playbackModesSection.addRow(autoSwitchRow)
 
@@ -91,7 +91,7 @@ extension AppKitSettingsContainerView {
         intervalControls.alignment = .centerY
         intervalControls.spacing = 8
 
-        intervalRowView = makeSettingRow(title: "-  间隔时间", iconSystemName: "timer", trailing: intervalControls)
+        intervalRowView = makeSettingRow(title: String(localized: "-  Interval"), iconSystemName: "timer", trailing: intervalControls)
         if let intervalRowView {
             playbackModesSection.addRow(intervalRowView)
         }
@@ -107,10 +107,10 @@ extension AppKitSettingsContainerView {
         volumeControls.orientation = .horizontal
         volumeControls.alignment = .centerY
         volumeControls.spacing = 8
-        audioSection.addRow(makeSettingRow(title: "音量/静音", iconSystemName: "speaker.slash", trailing: volumeControls))
+        audioSection.addRow(makeSettingRow(title: String(localized: "Volume / Mute"), iconSystemName: "speaker.slash", trailing: volumeControls))
 
         // 播放速率行：开关控制滑块显隐，滑杆覆盖 0.25x 到 2x。
-        playbackRateSwitch.toolTip = "启用后可调整播放速率"
+        playbackRateSwitch.toolTip = String(localized: "Enable to adjust playback speed")
         playbackRateSlider.translatesAutoresizingMaskIntoConstraints = false
         playbackRateSlider.widthAnchor.constraint(equalToConstant: 230).isActive = true
         playbackRateSlider.numberOfTickMarks = 0
@@ -124,38 +124,38 @@ extension AppKitSettingsContainerView {
         rateControls.orientation = .horizontal
         rateControls.alignment = .centerY
         rateControls.spacing = 8
-        let rateRow = makeSettingRow(title: "播放速率", iconSystemName: "speedometer", trailing: rateControls)
+        let rateRow = makeSettingRow(title: String(localized: "Playback Speed"), iconSystemName: "speedometer", trailing: rateControls)
         audioSection.addRow(rateRow)
     }
 
     private func setupSystemSection() {
         // 系统集成区只放会影响全局快捷键、同步壁纸和开机行为的配置。
-        startOnBootSwitch.toolTip = "开机时自动启动应用"
-        restorePlaybackOnLaunchSwitch.toolTip = "启动时恢复上次播放的壁纸（视频/Web/Scene）；关闭后启动不播放任何壁纸。静态图片壁纸由系统自身保留，不受此开关影响"
-        syncSystemWallpaperSwitch.toolTip = "切换壁纸时同步更新系统壁纸：视频用静帧，Web/Scene 在启动过渡结束后截取一帧（静态图壁纸始终直接设置）"
-        systemAudioSpectrumSwitch.toolTip = "采集系统音频并在桌面底部显示频谱条"
-        systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
+        startOnBootSwitch.toolTip = String(localized: "Launch the app at login")
+        restorePlaybackOnLaunchSwitch.toolTip = String(localized: "Restore the last wallpaper (Video, Web or Scene) at launch. When off, no wallpaper plays at launch. Static image wallpapers are kept by the system and are not affected.")
+        syncSystemWallpaperSwitch.toolTip = String(localized: "Also update the system wallpaper when the wallpaper changes: a still frame for Video, and one frame captured after the launch transition for Web and Scene. Static image wallpapers are always applied directly.")
+        systemAudioSpectrumSwitch.toolTip = String(localized: "Capture system audio and show a spectrum bar at the bottom of the desktop")
+        systemHotkeysSwitch.toolTip = String(localized: "Allow global F1–F12 shortcuts to control the wallpaper")
 
-        systemSection.addRow(makeSettingRow(title: "场景壁纸HDR", iconSystemName: "sun.max",
-            subtitle: "需要壁纸自身支持，功耗极高慎开", trailing: sceneHDRDisplaySwitch))
+        systemSection.addRow(makeSettingRow(title: String(localized: "Scene HDR"), iconSystemName: "sun.max",
+            subtitle: String(localized: "Requires wallpaper support; very high power draw, enable with care"), trailing: sceneHDRDisplaySwitch))
 
-        sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；首次需要读取 Apple Music 时请求系统授权。若曾拒绝，可在系统设置的「隐私与安全性 → 自动化」中允许后重新开启。"
-        systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
-            subtitle: "让支持的场景和网页壁纸显示当前歌曲与封面", trailing: sceneMediaInfoSwitch))
+        sceneMediaInfoSwitch.toolTip = String(localized: "Shows the current track and artwork on Scene wallpapers. macOS asks for permission the first time Apple Music is read. If you denied it, allow it in System Settings > Privacy & Security > Automation and turn this on again.")
+        systemSection.addRow(makeSettingRow(title: String(localized: "Wallpaper Song Info"), iconSystemName: "music.note",
+            subtitle: String(localized: "Show the current track and artwork on supported Scene and Web wallpapers"), trailing: sceneMediaInfoSwitch))
 
-        systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
-        systemSection.addRow(makeSettingRow(title: "启动时恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
-        systemSection.addRow(makeSettingRow(title: "同步系统壁纸", iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
+        systemSection.addRow(makeSettingRow(title: String(localized: "Launch at Login"), iconSystemName: "power", trailing: startOnBootSwitch))
+        systemSection.addRow(makeSettingRow(title: String(localized: "Resume Playback at Launch"), iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
+        systemSection.addRow(makeSettingRow(title: String(localized: "Sync System Wallpaper"), iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
         let systemAudioSpectrumRow = makeSettingRow(
-            title: "音频频谱效果",
+            title: String(localized: "Audio Spectrum"),
             iconSystemName: "chart.bar.xaxis",
-            subtitle: "仅对视频类型壁纸生效的个性化效果",
+            subtitle: String(localized: "A visual effect that applies only to Video wallpapers"),
             trailing: systemAudioSpectrumSwitch
         )
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
         systemSection.addRow(systemAudioSpectrumRow)
         for barCount in [16, 20, 28, 36, 48] {
-            systemAudioSpectrumBarCountPopup.addItem(withTitle: "\(barCount) 根")
+            systemAudioSpectrumBarCountPopup.addItem(withTitle: String(localized: "\(barCount) bars"))
             systemAudioSpectrumBarCountPopup.lastItem?.representedObject = barCount
         }
         systemAudioSpectrumColorWell.supportsAlpha = false
@@ -172,12 +172,12 @@ extension AppKitSettingsContainerView {
         }
 
         let spectrumBarCountRow = makeSettingRow(
-            title: "-  频柱数量",
+            title: String(localized: "-  Bar Count"),
             iconSystemName: "square.split.2x1",
             trailing: systemAudioSpectrumBarCountPopup
         )
         let spectrumColorRow = makeSettingRow(
-            title: "-  颜色",
+            title: String(localized: "-  Color"),
             iconSystemName: "paintpalette",
             trailing: systemAudioSpectrumColorWell
         )
@@ -190,17 +190,17 @@ extension AppKitSettingsContainerView {
         offsetYControls.alignment = .centerY
         offsetYControls.spacing = 8
         let spectrumOffsetXRow = makeSettingRow(
-            title: "-  X 位置",
+            title: String(localized: "-  X Position"),
             iconSystemName: "arrow.left.and.right",
             trailing: offsetXControls
         )
         let spectrumOffsetYRow = makeSettingRow(
-            title: "-  Y 位置",
+            title: String(localized: "-  Y Position"),
             iconSystemName: "arrow.up.and.down",
             trailing: offsetYControls
         )
         let spectrumPeakCapsRow = makeSettingRow(
-            title: "-  显示峰值帽",
+            title: String(localized: "-  Show Peak Caps"),
             iconSystemName: "rectangle.topthird.inset.filled",
             trailing: systemAudioSpectrumPeakCapsSwitch
         )
@@ -232,7 +232,7 @@ extension AppKitSettingsContainerView {
             spectrumOptionsStack.identifier = NSUserInterfaceItemIdentifier("settings.stack.system-audio-spectrum.options")
             systemSection.addRow(systemAudioSpectrumOptionsContainer)
         }
-        hotkeysSection.addRow(makeSettingRow(title: "播放控制快捷键", iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
+        hotkeysSection.addRow(makeSettingRow(title: String(localized: "Playback Shortcuts"), iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
 
         hotkeyRowsStack.orientation = .vertical
         hotkeyRowsStack.alignment = .leading
@@ -273,22 +273,22 @@ extension AppKitSettingsContainerView {
 
     private func setupEfficiencySection() {
         // 性能区的开关会直接影响引擎暂停状态，改动后必须同步到 WallpaperEngine。
-        pauseOtherAppFocusedSwitch.toolTip = "前台是其他应用（桌面 Finder 与本应用除外）时暂停壁纸播放"
-        pauseOtherAppFullscreenSwitch.toolTip = "当其他应用进入全屏并占据主要桌面空间时暂停壁纸播放"
-        pauseWhenUnpluggedSwitch.toolTip = "使用电池时暂停壁纸播放以节省电量"
-        pauseWhenIdleSwitch.toolTip = "当电脑长时间不活跃时暂停壁纸播放"
+        pauseOtherAppFocusedSwitch.toolTip = String(localized: "Pause the wallpaper while another app is in front (excluding Finder on the desktop and this app)")
+        pauseOtherAppFullscreenSwitch.toolTip = String(localized: "Pause the wallpaper when another app enters full screen and covers the main desktop")
+        pauseWhenUnpluggedSwitch.toolTip = String(localized: "Pause the wallpaper on battery to save power")
+        pauseWhenIdleSwitch.toolTip = String(localized: "Pause the wallpaper when the Mac has been idle for a while")
 
-        efficiencySection.addRow(makeSettingRow(title: "其他应用焦点时暂停", iconSystemName: "app.badge", trailing: pauseOtherAppFocusedSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "其他应用全屏时暂停", iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "未连接电源时暂停播放", iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "电脑不活跃时暂停播放", iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "场景壁纸帧率上限", iconSystemName: "gauge.with.needle", subtitle: "日常建议开30帧以节能", trailing: sceneMaxFPSSegmented))
+        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Another App Is Focused"), iconSystemName: "app.badge", trailing: pauseOtherAppFocusedSwitch))
+        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Another App Is Full Screen"), iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
+        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When on Battery"), iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
+        efficiencySection.addRow(makeSettingRow(title: String(localized: "Pause When Idle"), iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
+        efficiencySection.addRow(makeSettingRow(title: String(localized: "Scene Frame Rate Cap"), iconSystemName: "gauge.with.needle", subtitle: String(localized: "30 fps is recommended for everyday use to save power"), trailing: sceneMaxFPSSegmented))
 
         for value in [5, 10, 15, 20, 30, 60] {
-            idleTimeoutPopup.addItem(withTitle: "\(value)分钟")
+            idleTimeoutPopup.addItem(withTitle: String(localized: "\(value) min"))
             idleTimeoutPopup.lastItem?.representedObject = value
         }
-        idleTimeoutRowView = makeSettingRow(title: "-  不活跃时间", iconSystemName: "clock", trailing: idleTimeoutPopup)
+        idleTimeoutRowView = makeSettingRow(title: String(localized: "-  Idle Time"), iconSystemName: "clock", trailing: idleTimeoutPopup)
         if let idleTimeoutRowView {
             efficiencySection.addRow(idleTimeoutRowView)
         }
@@ -301,27 +301,27 @@ extension AppKitSettingsContainerView {
             libraryBackgroundPopup.lastItem?.tag = index
             libraryBackgroundPopup.lastItem?.representedObject = style
         }
-        displaySection.addRow(makeSettingRow(title: "APP界面色调", iconSystemName: "rectangle.on.rectangle",
+        displaySection.addRow(makeSettingRow(title: String(localized: "App Theme"), iconSystemName: "rectangle.on.rectangle",
             trailing: libraryBackgroundPopup))
         for (index, action) in LibraryCardClickAction.allCases.enumerated() {
             libraryCardClickPopup.addItem(withTitle: action.title)
             libraryCardClickPopup.lastItem?.tag = index
             libraryCardClickPopup.lastItem?.representedObject = action
         }
-        displaySection.addRow(makeSettingRow(title: "卡片单击操作", iconSystemName: "cursorarrow.click",
+        displaySection.addRow(makeSettingRow(title: String(localized: "Card Click Action"), iconSystemName: "cursorarrow.click",
             trailing: libraryCardClickPopup))
-        let screenSaverButton = NSButton(title: "配置", target: self, action: #selector(openScreenSaverSettings))
+        let screenSaverButton = NSButton(title: String(localized: "Configure"), target: self, action: #selector(openScreenSaverSettings))
         screenSaverButton.bezelStyle = .rounded
-        displaySection.addRow(makeSettingRow(title: "锁屏与屏保", iconSystemName: "display",
-            subtitle: "让本地视频在系统屏保中静音循环播放", trailing: screenSaverButton))
-        multiDisplaySwitch.toolTip = "在所有显示器上显示壁纸（视频/Web/Scene）"
-        displaySection.addRow(makeSettingRow(title: "多屏支持", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
+        displaySection.addRow(makeSettingRow(title: String(localized: "Lock Screen & Screen Saver"), iconSystemName: "display",
+            subtitle: String(localized: "Play local videos muted on loop as the system screen saver"), trailing: screenSaverButton))
+        multiDisplaySwitch.toolTip = String(localized: "Show the wallpaper on all displays (Video, Web and Scene)")
+        displaySection.addRow(makeSettingRow(title: String(localized: "Multiple Displays"), iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
 
         let fillModeControls = NSStackView(views: [fillModeFitButton, fillModeFillButton])
         fillModeControls.orientation = .horizontal
         fillModeControls.alignment = .centerY
         fillModeControls.spacing = 16
-        displaySection.addRow(makeSettingRow(title: "视频填充模式", iconSystemName: "aspectratio", trailing: fillModeControls))
+        displaySection.addRow(makeSettingRow(title: String(localized: "Video Fill Mode"), iconSystemName: "aspectratio", trailing: fillModeControls))
     }
 
     private func setupMaintenanceSection() {
@@ -388,19 +388,23 @@ extension AppKitSettingsContainerView {
         titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
         titleLabel.alignment = .left
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.toolTip = title
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let textContentView: NSView
         if let subtitle {
-            let subtitleLabel = NSTextField(labelWithString: subtitle)
+            let subtitleLabel = NSTextField(wrappingLabelWithString: subtitle)
             subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
             subtitleLabel.textColor = .secondaryLabelColor
+            subtitleLabel.maximumNumberOfLines = 3
+            subtitleLabel.toolTip = subtitle
             let textStack = NSStackView(views: [titleLabel, subtitleLabel])
             textStack.orientation = .vertical
             textStack.alignment = .leading
             textStack.distribution = .gravityAreas
             textStack.spacing = 2
+            textStack.widthAnchor.constraint(lessThanOrEqualToConstant: 430).isActive = true
             textContentView = textStack
         } else {
             textContentView = titleLabel

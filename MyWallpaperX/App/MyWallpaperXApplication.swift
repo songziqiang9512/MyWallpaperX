@@ -102,7 +102,7 @@ enum MyWallpaperXApplication {
                 }
             } catch {
                 let alert = NSAlert()
-                alert.messageText = "资料库启动未完成"
+                alert.messageText = String(localized: "The library didn’t finish starting")
                 alert.informativeText = error.localizedDescription
                 _ = runAppAlert(alert)
                 return
@@ -156,7 +156,7 @@ enum MyWallpaperXApplication {
                         adapter?.cancelPreparedProcess(requestID: id)
                         if WallpaperManager.shared.playbackIntentEpoch == epoch,
                            !WallpaperManager.shared.hasTransferredWebPreparation(epoch: epoch) {
-                            manager.switchFailed(pending.ticket, reason: "Web 资源准备失败，已保留原壁纸")
+                            manager.switchFailed(pending.ticket, reason: String(localized: "Web resource preparation failed; the original wallpaper was kept"))
                         }
                     },
                     isCurrent: { manager.acceptsLibraryPlayback(pending) },
@@ -192,7 +192,7 @@ enum MyWallpaperXApplication {
             return (intentEpoch: ticket.epoch,
                 isCurrent: { manager.playbackSwitch.pending?.selection.ticket == ticket
                     || (!newSelection && manager.playbackSwitch.committed?.ticket == ticket && manager.playbackSwitch.pending == nil) },
-                cancel: { manager.switchFailed(ticket, reason: "Scene 资源准备失败") })
+                cancel: { manager.switchFailed(ticket, reason: String(localized: "Scene Resource Preparation Failed")) })
         }
         // 工坊 web 记录删除/退订后回收其持久化 WKWebsiteDataStore：装配层把
         // downloads 投影与模块自身的删除意图一同翻译成 Host 事实（Host 不直呼
@@ -321,7 +321,7 @@ enum MyWallpaperXApplication {
             } catch {
                 workspace.setPersonalSettingsReady(profile.allowsEditing)
                 workspace.presentation.report(error)
-                presentAppAlert(makeAppAlert(title: "重置未完成", message: error.localizedDescription), in: MainWindowCoordinator.mainWindow())
+                presentAppAlert(makeAppAlert(title: String(localized: "Reset Not Completed"), message: error.localizedDescription), in: MainWindowCoordinator.mainWindow())
             }
         }
     }

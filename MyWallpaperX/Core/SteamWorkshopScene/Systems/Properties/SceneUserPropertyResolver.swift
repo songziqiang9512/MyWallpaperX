@@ -85,7 +85,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
                     kind: .missingEffectiveValue,
                     path: propertyPath,
                     propertyKey: reference.key,
-                    message: "属性没有定义或有效覆盖值，保留 wrapper 默认值。"
+                    message: String(localized: "The property has no definition or effective override; the wrapper default is kept.")
                 ))
                 return result
             }

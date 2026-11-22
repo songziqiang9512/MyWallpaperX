@@ -447,7 +447,7 @@ final class SteamDownloadJobStore: ObservableObject {
                commit == job.preparedCommit, !commit.removed {
                 _ = apply(.completed, toID: job.id)
             } else {
-                _ = apply(.failed("上次入库未提交，旧版本保持不变；请重新发起下载。"), toID: job.id)
+                _ = apply(.failed(String(localized: "The last import wasn’t committed, so the old version is unchanged; start the download again.")), toID: job.id)
             }
         }
     }
@@ -536,7 +536,7 @@ final class SteamDownloadJobStore: ObservableObject {
                 jobs[index].receipt = nil
                 if jobs[index].state == .staged {
                     jobs[index].state = .failed
-                    jobs[index].failureMessage = "暂存身份缺少创建时间；已保留任务意图，请重新下载。"
+                    jobs[index].failureMessage = String(localized: "The staging identity has no creation time; the task intent was kept. Download again.")
                     jobs[index].updatedAt = stamp
                     recoveredFailureIDs.insert(jobs[index].id)
                 }
@@ -561,7 +561,7 @@ final class SteamDownloadJobStore: ObservableObject {
             if jobs[index].stagingPath != nil && jobs[index].stagingManifestId != nil
                 && jobs[index].stagingLeaseIdentity?.isComplete == true {
                 jobs[index].state = .failed
-                jobs[index].failureMessage = "上次下载被中断；请重试以校验并恢复已完成的数据块。"
+                jobs[index].failureMessage = String(localized: "The last download was interrupted. Try again to verify and recover the completed chunks.")
                 jobs[index].updatedAt = stamp
                 recoveredFailureIDs.insert(jobs[index].id)
             } else {

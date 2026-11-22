@@ -48,7 +48,7 @@ extension SteamWorkshopService {
 
     var activeFilterSummary: String {
         let parts = activeFilterDisplayParts
-        return parts.isEmpty ? "未筛选" : parts.joined(separator: " · ")
+        return parts.isEmpty ? String(localized: "Unfiltered") : parts.joined(separator: " · ")
     }
 
 

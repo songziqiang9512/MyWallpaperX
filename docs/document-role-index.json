@@ -12,6 +12,8 @@
       "docs/development/immersive-ui-design.md",
       "docs/development/immersive-ui-execution-plan.md",
       "docs/development/local-library-loading-design.md",
+      "docs/development/localization-contract.md",
+      "docs/development/localization-plan.md",
       "docs/development/lock-screen-screensaver-design.md",
       "docs/development/main-window-playlists-redesign.md",
       "docs/development/pixiv-online-browser-design.md",
@@ -224,6 +226,26 @@
       "role": "active-plan",
       "entrypoint": "docs/development/main-window-playlists-redesign.md",
       "retirementCondition": "两项本地首显/回访目标由真实启动与滚动验收完成或用户结束后，稳定边界归原source/缓存合同，结算归精简专项并退役本卡。"
+    },
+    {
+      "path": "docs/development/localization-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/development/localization-plan.md",
+      "lastReviewed": "2026-11-23",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9233d791539a09384de3c11b33413ad8326240013d3942dac3fbefd8f7a4cecd",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "英文源语言与回退、String Catalog 资源格式、入口与 key 规则、禁译边界、失败消息分层、字符长度布局（含更长语言样张）、区域格式、术语、新增语言流程、校验门与源码文案变更同步检查；2026-11-23 实施后补记编译期提取实测结论与资源规模。",
+        "limitations": "文档与索引核对；构建已验证，但界面截图、中文逐屏回归、帮助书与场景属性名译文、译文人工审校未完成。"
+      }
+    },
+    {
+      "path": "docs/development/localization-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "全仓界面文案经本地化入口并以英文为源、中文译文完整、同步检查门禁在常规验证中稳定拦截\"改文案不改翻译\"、三语布局截图验收通过且临时语言演练完成，并经过一个发布周期后，将本文转为 historical-evidence，稳定职责只留 localization-contract。"
     },
     {
       "path": "docs/development/lock-screen-screensaver-design.md",
@@ -1330,6 +1352,52 @@
           "phase": "inner",
           "gateRefs": [
             "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "localization",
+      "title": "界面语言适配与本地化",
+      "keywords": [
+        "本地化",
+        "多语言",
+        "语言",
+        "翻译",
+        "国际化",
+        "i18n",
+        "localization",
+        "文案",
+        "字符长度",
+        "术语",
+        "String Catalog",
+        "译文同步"
+      ],
+      "documents": [
+        "docs/development/localization-contract.md",
+        "docs/development/localization-plan.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Shared/Settings",
+        "MyWallpaperX/App/MainMenuBuilder.swift",
+        "MyWallpaperX/Resources",
+        "MyWallpaperXHelp"
+      ],
+      "verification": "文档与索引先跑文档门；文案批次另需检查模块（源码 key ⇄ 资源 key ⇄ 占位符 ⇄ 翻译状态）、Debug build 与英中长三语关键窗口截图。",
+      "owner": "界面展示点（App 与模块 UI）；SteamService 错误码由 App 侧映射文案",
+      "firstRead": "docs/development/localization-contract.md#goal",
+      "nearestTestGroups": [
+        "documentation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "document-health"
           ],
           "requiredArguments": [
             "--path"

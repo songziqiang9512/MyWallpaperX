@@ -73,7 +73,7 @@ actor PixivClient {
         return try pages.enumerated().map { index, page in
             guard let original = PixivRequestURL.imageURL(page.urls["original"]) else { throw OnlineImageError.invalidResponse }
             return OnlineImageAsset(id: .init(source: .pixiv, artworkID: artwork.artworkID, pageIndex: index),
-                title: pages.count == 1 ? resolved.title : "\(resolved.title) · 第\(index + 1)张",
+                title: pages.count == 1 ? resolved.title : String(localized: "\(resolved.title) · Item \(index + 1)"),
                 sourceURL: resolved.sourceURL, originalURL: original,
                 previewURL: PixivRequestURL.imageURL(page.urls["regular"]), author: resolved.author, authorID: resolved.authorID,
                 tags: resolved.tags, width: page.width.flatMap { $0 > 0 ? $0 : nil },
@@ -213,7 +213,7 @@ actor PixivClient {
                 retryNotBefore = ProcessInfo.processInfo.systemUptime + seconds
             }
             throw OnlineImageError.rateLimited
-        default: throw OnlineImageError.message("Pixiv 请求失败（HTTP \(http.statusCode)）。")
+        default: throw OnlineImageError.message(String(localized: "Pixiv request failed (HTTP \(http.statusCode))."))
         }
         guard http.mimeType == "application/json" else { throw OnlineImageError.invalidResponse }
         return data
@@ -224,7 +224,7 @@ actor PixivClient {
     }
 
     private func rejectedNotice(_ count: Int) -> String? {
-        count > 0 ? "有\(count)项作品信息暂时无法识别。" : nil
+        count > 0 ? String(localized: "Info for \(count) items can’t be read right now.") : nil
     }
 
     private nonisolated static func retryDelay(_ value: String) -> TimeInterval? {

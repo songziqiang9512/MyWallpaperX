@@ -71,12 +71,12 @@ final class AppKitSettingsContainerView: NSView {
         return stack
     }()
 
-    let playbackModesSection = SettingsGroupView(title: "播放模式")
-    let audioSection = SettingsGroupView(title: "音频与速率")
-    let systemSection = SettingsGroupView(title: "系统行为")
-    let hotkeysSection = SettingsGroupView(title: "快捷键")
-    let efficiencySection = SettingsGroupView(title: "节能与暂停")
-    let displaySection = SettingsGroupView(title: "显示设置")
+    let playbackModesSection = SettingsGroupView(title: String(localized: "Playback Modes"))
+    let audioSection = SettingsGroupView(title: String(localized: "Audio & Speed"))
+    let systemSection = SettingsGroupView(title: String(localized: "System Behavior"))
+    let hotkeysSection = SettingsGroupView(title: String(localized: "Keyboard Shortcuts"))
+    let efficiencySection = SettingsGroupView(title: String(localized: "Energy Saving & Pausing"))
+    let displaySection = SettingsGroupView(title: String(localized: "Display Settings"))
     let maintenanceSection = SettingsGroupView(title: nil)
 
     let loopSwitch = NSSwitch()
@@ -135,10 +135,10 @@ final class AppKitSettingsContainerView: NSView {
     let fillModeFitButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFit.rawValue, target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFill.rawValue, target: nil, action: nil)
 
-    let clearCacheButton = NSButton(title: "清除缓存", target: nil, action: nil)
-    let resetSettingsButton = NSButton(title: "重置应用", target: nil, action: nil)
-    let exportProfileButton = NSButton(title: "导出设置", target: nil, action: nil)
-    let importProfileButton = NSButton(title: "导入设置", target: nil, action: nil)
+    let clearCacheButton = NSButton(title: String(localized: "Clear Cache"), target: nil, action: nil)
+    let resetSettingsButton = NSButton(title: String(localized: "Reset App"), target: nil, action: nil)
+    let exportProfileButton = NSButton(title: String(localized: "Export Settings"), target: nil, action: nil)
+    let importProfileButton = NSButton(title: String(localized: "Import Settings"), target: nil, action: nil)
 
     init(
         dependency: AppSettingsPanelDependency,
@@ -526,13 +526,13 @@ final class AppKitSettingsContainerView: NSView {
     private func presentLoginItemSyncFailure(_ notification: Notification) {
         let operation = notification.userInfo?["operation"] as? String
         let failureDetail = (notification.userInfo?["error"] as? NSError)?.localizedDescription
-        let verb = operation == "unregister" ? "取消注册" : "注册"
-        var message = "开机自动启动\(verb)未生效，开关已恢复为系统实际状态。"
+        let verb = operation == "unregister" ? String(localized: "Unregister") : String(localized: "Register")
+        var message = String(localized: "Launch at login: \(verb) didn’t take effect; the switch now reflects the actual system state.")
         if let failureDetail, !failureDetail.isEmpty {
-            message += "\n原因：\(failureDetail)"
+            message += String(localized: "\nReason: \(failureDetail)")
         }
         let alert = makeAppAlert(
-            title: "开机自启设置失败",
+            title: String(localized: "Couldn’t Update Launch at Login"),
             message: message,
             style: .warning
         )
@@ -634,9 +634,9 @@ final class AppKitSettingsContainerView: NSView {
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.sceneMediaAuthorizationCheckID == checkID,
                       SceneMediaSourcePreference.isEnabled, let window = self.window, window.isVisible else { return }
-                let alert = makeAppAlert(title: "允许读取 Apple Music",
-                    message: "请在「隐私与安全性 → 自动化」中允许访问音乐。授权后重新开启「壁纸歌曲信息」。",
-                    buttons: ["打开系统设置", "稍后"])
+                let alert = makeAppAlert(title: String(localized: "Allow Access to Apple Music"),
+                    message: String(localized: "Allow access to Music in “Privacy & Security → Automation.” After granting access, turn “Wallpaper Song Info” back on."),
+                    buttons: [String(localized: "Open System Settings"), String(localized: "Later")])
                 presentAppAlert(alert, in: window) { response in
                     guard response == .alertFirstButtonReturn else { return }
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
@@ -780,15 +780,15 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleClearCache() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
-            title: "清空缓存",
-            message: "将清空缩略图、视频静帧、在线浏览和原图预览缓存，并重置工坊浏览状态。媒体、下载文件和设置均保留。",
-            buttons: ["清空", "取消"]
+            title: String(localized: "Clear Cache"),
+            message: String(localized: "This clears thumbnail, video still, online browsing, and original preview caches, and resets Workshop browsing state. Media, downloads, and settings are kept."),
+            buttons: [String(localized: "Clear"), String(localized: "Cancel")]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             let title = self.clearCacheButton.title
             self.clearCacheButton.isEnabled = false
-            self.clearCacheButton.title = "清理中…"
+            self.clearCacheButton.title = String(localized: "Cleaning Up…")
             Task { @MainActor in
                 defer {
                     self.clearCacheButton.isEnabled = true
@@ -796,7 +796,7 @@ final class AppKitSettingsContainerView: NSView {
                 }
                 await self.dependency.actions.clearAllCaches()
                 guard hostWindow?.isVisible != false else { return }
-                let result = makeAppAlert(title: "缓存已清空", message: "下次浏览时会按需重新生成。")
+                let result = makeAppAlert(title: String(localized: "Cache cleared"), message: String(localized: "It will be regenerated on demand the next time you browse."))
                 presentAppAlert(result, in: hostWindow)
             }
         }
@@ -804,7 +804,7 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc func handleExportProfile() {
         let panel = NSSavePanel()
-        panel.title = "导出个人设置"
+        panel.title = String(localized: "Export Personal Settings")
         panel.nameFieldStringValue = "MyWallpaperX-Profile.json"
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.json]
@@ -820,12 +820,12 @@ final class AppKitSettingsContainerView: NSView {
                 do {
                     let summary = try await self.dependency.actions.exportPersonalSettings(targetURL)
                     guard let hostWindow, hostWindow.isVisible else { return }
-                    let done = makeAppAlert(title: "导出完成",
-                        message: "已导出 \(summary.wallpaperCount) 条壁纸配置，\(summary.tagCount) 个播放列表。")
+                    let done = makeAppAlert(title: String(localized: "Export Complete"),
+                        message: String(localized: "Exported \(summary.wallpaperCount) wallpaper configurations and \(summary.tagCount) playlists."))
                     presentAppAlert(done, in: hostWindow)
                 } catch {
                     guard let hostWindow, hostWindow.isVisible else { return }
-                    let failed = makeAppAlert(title: "导出失败", message: error.localizedDescription)
+                    let failed = makeAppAlert(title: String(localized: "Export Failed"), message: error.localizedDescription)
                     presentAppAlert(failed, in: hostWindow)
                 }
             }
@@ -834,7 +834,7 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc func handleImportProfile() {
         let panel = NSOpenPanel()
-        panel.title = "导入个人设置"
+        panel.title = String(localized: "Import Personal Settings")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -844,9 +844,9 @@ final class AppKitSettingsContainerView: NSView {
             guard let self, let sourceURL else { return }
             let hostWindow = self.preferredHostWindow()
             let confirm = makeAppAlert(
-                title: "导入个人设置",
-                message: "将合并设置、列表和喜爱，同 UUID 列表更新信息并追加成员。缺失文件保留引用，不下载或播放。",
-                buttons: ["导入", "取消"]
+                title: String(localized: "Import Personal Settings"),
+                message: String(localized: "Settings, playlists, and favorites will be merged. Playlists with matching UUIDs update their details and gain members. Missing files keep their references and won’t be downloaded or played."),
+                buttons: [String(localized: "Import"), String(localized: "Cancel")]
             )
             presentAppAlert(confirm, in: hostWindow) { [weak self] confirmResponse in
                 guard let self, confirmResponse == .alertFirstButtonReturn else { return }
@@ -857,14 +857,13 @@ final class AppKitSettingsContainerView: NSView {
                     do {
                         let summary = try await self.dependency.actions.importPersonalSettings(sourceURL)
                         guard let hostWindow, hostWindow.isVisible else { return }
-                        let done = makeAppAlert(title: "导入完成", message: """
-                            已更新 \(summary.mergedWallpaperCount) 项、新增 \(summary.createdWallpaperCount) 项，导入 \(summary.tagCount) 个播放列表。
-                            \(summary.missingPathCount) 个缺失路径已保留引用。
-                            """)
+                        let done = makeAppAlert(
+                            title: String(localized: "Import Complete"),
+                            message: String(localized: "Updated \(summary.mergedWallpaperCount) wallpapers and added \(summary.createdWallpaperCount); imported \(summary.tagCount) playlists.\n\(summary.missingPathCount) missing paths kept their references."))
                         presentAppAlert(done, in: hostWindow)
                     } catch {
                         guard let hostWindow, hostWindow.isVisible else { return }
-                        let failed = makeAppAlert(title: "导入未完成", message: error.localizedDescription)
+                        let failed = makeAppAlert(title: String(localized: "Import Incomplete"), message: error.localizedDescription)
                         presentAppAlert(failed, in: hostWindow)
                     }
                 }
@@ -930,9 +929,9 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleResetSettings() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
-            title: "重置应用",
-            message: "将清空应用中的入库记录、喜爱、播放列表、最近使用及已保存的屏保内容，并恢复默认设置。磁盘上的原始媒体与下载文件保留，此操作不可撤销。",
-            buttons: ["取消", "重置"]
+            title: String(localized: "Reset App"),
+            message: String(localized: "This clears the app’s library records, favorites, playlists, recents, and saved screen saver content, and restores default settings. Original media and downloaded files on disk are kept. This can’t be undone."),
+            buttons: [String(localized: "Cancel"), String(localized: "Reset")]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertSecondButtonReturn else { return }

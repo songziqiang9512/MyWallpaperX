@@ -130,7 +130,7 @@ final class PixabayService: ObservableObject {
                 guard !Task.isCancelled, let self, self.downloadedContentGeneration == generation else { return }
                 // A failed scan preserves the last published source facts.
                 self.publishDownloadedContent(self.downloadedContent.entries, status: .init(
-                    phase: .failed(message: "无法读取已下载 Pixabay 内容：" + error.localizedDescription),
+                    phase: .failed(message: String(localized: "Couldn’t read downloaded Pixabay content:") + error.localizedDescription),
                     hasSuccessfulScan: self.downloadedContent.status.hasSuccessfulScan))
             }
         }
@@ -287,7 +287,7 @@ final class PixabayService: ObservableObject {
         }
         guard let admission = prepareVideoPlaybackIntent?(
             WallpaperReference(provider: .pixabay, sourceID: String(id)), libraryPending) else {
-            downloadError = "视频播放入口尚未就绪。"
+            downloadError = String(localized: "The video playback entry point isn’t ready yet.")
             return false
         }
         ImportedVideoPlaybackRequest(localURL: local, admission: admission)
@@ -337,7 +337,7 @@ final class PixabayService: ObservableObject {
                 let resolved: PixabayVideoItem
                 if let item { resolved = item }
                 else { resolved = try await resolveDownloadItem(id: id) }
-                guard let source = resolved.bestVideoDownload else { throw downloadFailure("该视频当前没有可下载的文件。") }
+                guard let source = resolved.bestVideoDownload else { throw downloadFailure(String(localized: "This video has no downloadable file right now.")) }
                 terminalTitle = resolved.displayTitle
                 downloadSlots[id]?.title = terminalTitle
                 downloadSlots[id]?.previewURL = resolved.previewThumbnailURL
@@ -355,7 +355,7 @@ final class PixabayService: ObservableObject {
                 restoration?()
                 refreshDownloadedContent()
                 lastDownloadedItemID = id
-                downloadSuccessMessage = "已保存到 \"影片/MyWallpaperX/Pixabay\""
+                downloadSuccessMessage = String(localized: "Saved to \"Movies/MyWallpaperX/Pixabay\"")
             } catch is CancellationError {
                 terminal = .cancelled
             } catch let error as URLError where error.code == .cancelled {
@@ -376,18 +376,18 @@ final class PixabayService: ObservableObject {
     /// A history retry resolves its fixed ID with the original API/session;
     /// it never edits the browser query, current page or visible item array.
     private func resolveDownloadItem(id: Int) async throws -> PixabayVideoItem {
-        guard hasValidAPIKey else { throw downloadFailure("请先填写 Pixabay API Key。") }
+        guard hasValidAPIKey else { throw downloadFailure(String(localized: "Enter a Pixabay API key first.")) }
         var components = URLComponents(string: "https://pixabay.com/api/videos/")!
         components.queryItems = [.init(name: "key", value: apiKey), .init(name: "id", value: String(id))]
         let (data, response) = try await session.data(from: components.url!)
         try Task.checkCancellation()
-        guard let http = response as? HTTPURLResponse else { throw downloadFailure("无效响应。") }
+        guard let http = response as? HTTPURLResponse else { throw downloadFailure(String(localized: "Invalid response.")) }
         guard http.statusCode == 200 else {
             throw downloadFailure(http.statusCode == 401 || http.statusCode == 403 || http.statusCode == 400
-                ? "API Key 无效，请重新填写。" : "服务器错误 (\(http.statusCode))")
+                ? String(localized: "The API key is invalid. Enter it again.") : String(localized: "Server Error (\(http.statusCode))"))
         }
         let responseValue = try JSONDecoder().decode(PixabayResponse.self, from: data)
-        guard let item = responseValue.hits.first(where: { $0.id == id }) else { throw downloadFailure("该视频当前不可访问。") }
+        guard let item = responseValue.hits.first(where: { $0.id == id }) else { throw downloadFailure(String(localized: "This video can’t be accessed right now.")) }
         return item
     }
 
@@ -465,7 +465,7 @@ final class PixabayService: ObservableObject {
                 guard url.isFileURL, PixabayDownloadedContent.itemID(for: url) != nil,
                       Self.downloadRoots.contains(where: { $0.resolvingSymlinksInPath().standardizedFileURL.path == directory.path }),
                       isInUse?(url) != true else {
-                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源文件不属于当前下载目录，或正在播放/准备；请先停止后重试"])
+                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: String(localized: "The source file isn't in the current Downloads folder, or it's playing or being prepared. Stop it first, then try again.")])
                 }
                 do {
                     let prepared = try WallpaperSourceFileDeletion.prepare(url)
@@ -511,9 +511,9 @@ final class PixabayService: ObservableObject {
     // MARK: - 私有
 
     private func fetchPage(page: Int, appending: Bool) {
-        guard hasValidAPIKey else { isLoading = false; errorMessage = "请先填写 Pixabay API Key"; return }
+        guard hasValidAPIKey else { isLoading = false; errorMessage = String(localized: "Enter your Pixabay API key first"); return }
         let params = currentParams
-        guard let url = buildURL(params: params, page: page) else { isLoading = false; errorMessage = "URL 构建失败"; return }
+        guard let url = buildURL(params: params, page: page) else { isLoading = false; errorMessage = String(localized: "URL Construction Failed"); return }
 
         isLoading    = true
         errorMessage = nil
@@ -528,7 +528,7 @@ final class PixabayService: ObservableObject {
                 let (data, response) = try await self.session.data(from: url)
                 if Task.isCancelled { return }
                 guard let http = response as? HTTPURLResponse else {
-                    self.errorMessage = "无效响应"; return
+                    self.errorMessage = String(localized: "Invalid Response"); return
                 }
                 switch http.statusCode {
                 case 200:
@@ -551,15 +551,15 @@ final class PixabayService: ObservableObject {
                     // with no suspension before deferred UI delivery.
                     self.items = nextItems
                     self.itemIndexByID = nextIndex
-                case 400:       self.errorMessage = "API Key 无效或不完整，请重新填写"
-                case 401, 403:  self.errorMessage = "API Key 无效，请重新填写"
-                case 429:       self.errorMessage = "请求过于频繁，请稍后再试"
-                default:        self.errorMessage = "服务器错误 (\(http.statusCode))"
+                case 400:       self.errorMessage = String(localized: "The API key is invalid or incomplete — enter it again")
+                case 401, 403:  self.errorMessage = String(localized: "The API key is invalid — enter it again")
+                case 429:       self.errorMessage = String(localized: "Too many requests, try again later")
+                default:        self.errorMessage = String(localized: "Server Error (\(http.statusCode))")
                 }
             } catch is CancellationError {
                 // 正常取消
             } catch {
-                if !Task.isCancelled { self.errorMessage = "网络错误：\(error.localizedDescription)" }
+                if !Task.isCancelled { self.errorMessage = String(localized: "Network error: \(error.localizedDescription)") }
             }
         }
     }

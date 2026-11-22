@@ -42,21 +42,21 @@ nonisolated struct SteamWorkshopDownloadProgressSnapshot: Equatable, Sendable {
     func statusText(compact: Bool = false) -> String {
         switch phase {
         case .connecting:
-            return "正在连接"
+            return String(localized: "Connecting")
         case .preparing:
-            return totalBytes == nil ? "正在获取文件信息" : "准备下载"
+            return totalBytes == nil ? String(localized: "Fetching file information") : String(localized: "Preparing to Download")
         case .transferring:
-            guard let percent else { return "正在下载 · 大小未知" }
+            guard let percent else { return String(localized: "Downloading · Size unknown") }
             if compact { return "\(percent)%" }
             return "\(percent)% · \(Self.bytes(verifiedBytes))/\(Self.bytes(totalBytes ?? 0))"
         case .validating:
-            return "校验中" + (percent.map { " · \($0)%" } ?? "")
+            return String(localized: "Verifying") + (percent.map { " · \($0)%" } ?? "")
         case .saving:
-            return "正在保存" + (percent.map { " · \($0)%" } ?? "")
+            return String(localized: "Saving") + (percent.map { " · \($0)%" } ?? "")
         case .waiting:
-            return "等待重连" + (percent.map { " · \($0)%" } ?? "")
+            return String(localized: "Waiting to reconnect") + (percent.map { " · \($0)%" } ?? "")
         case .failed:
-            return "失败 · 重试"
+            return String(localized: "Failed · Retry")
         }
     }
 

@@ -12,7 +12,7 @@ extension AppKitSteamWorkshopItemDetailView {
     /// 的展示。
     var resolvedFileSizeText: String? {
         if let record = service.downloadRecord(for: currentItem.id),
-           record.sizeText != "未知大小" {
+           !record.sizeText.isEmpty {
             return record.sizeText
         }
         return currentItem.fileSizeText

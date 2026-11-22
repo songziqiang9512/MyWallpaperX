@@ -41,14 +41,14 @@ extension MainWindowCoordinator {
             // Progress only: a Scene launched event is not a product commit.
             switch state.phase {
             case .accepted, .preparingModel, .preparingPrograms, .preparingResources, .preparingSurfaces:
-                SteamWorkshopService.shared.statusMessage = "\(state.message)，当前壁纸会继续播放"
+                SteamWorkshopService.shared.statusMessage = String(localized: "\(state.message); the current wallpaper will keep playing")
             case .launched:
-                SteamWorkshopService.shared.statusMessage = "Scene 表面已启动，正在等待首帧显示"
+                SteamWorkshopService.shared.statusMessage = String(localized: "Scene surface started; waiting for the first frame")
             case .failed, .cancelled, .stopped: break
             }
         }
         observe(.wallpaperSwitchDidFail) { notification in
-            SteamWorkshopService.shared.statusMessage = notification.userInfo?["message"] as? String ?? "壁纸切换失败"
+            SteamWorkshopService.shared.statusMessage = notification.userInfo?["message"] as? String ?? String(localized: "Wallpaper Switch Failed")
         }
         observe(.staticImageWallpaperReadyToApply) { notification in
             guard let url = notification.userInfo?["imageURL"] as? URL else { return }

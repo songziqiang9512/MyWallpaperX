@@ -26,7 +26,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView      = NSImageView()
     private let placeholderView    = NSView()
-    private let placeholderLabel = NSTextField(labelWithString: "加载中")
+    private let placeholderLabel = NSTextField(labelWithString: String(localized: "Loading"))
     private let hoverOutlineView   = NSView()
     private let durationBadgeView  = NSView()
     private let durationBadgeTextLayer = CATextLayer()
@@ -194,8 +194,8 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         let isPlaying = organization?.state.isPlaying == true
         controlBar.primaryState = isSwitching ? .switching : isPlaying ? .playing
             : isDownloadingState ? .switching : isDownloadedState ? .apply : .download
-        controlBar.primaryActionTitle = isDownloadingState && !isPlaying && !isSwitching ? "正在下载"
-            : controlBar.primaryState == .download ? "下载到本地" : nil
+        controlBar.primaryActionTitle = isDownloadingState && !isPlaying && !isSwitching ? String(localized: "Downloading")
+            : controlBar.primaryState == .download ? String(localized: "Download to Mac") : nil
         let canPerformPrimary = isDownloadedState || isPlaying
             ? (organization?.state.canPerformPrimary ?? (onSetAsWallpaper != nil)) : onDownload != nil
         controlBar.playButton.isEnabled = canPerformPrimary && !isSwitching && (isPlaying || !isDownloadingState)
@@ -226,7 +226,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         thumbnailRequestID = requestID
         thumbnailRequestFinished = false
         guard let url else {
-            placeholderLabel.stringValue = "暂无缩略图"
+            placeholderLabel.stringValue = String(localized: "No Thumbnail")
             placeholderView.isHidden = false
             return
         }
@@ -238,7 +238,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
             return
         }
         if thumbnailView.image == nil {
-            placeholderLabel.stringValue = "加载中"
+            placeholderLabel.stringValue = String(localized: "Loading")
             placeholderView.isHidden = false
         }
         let id = currentItemID
@@ -252,7 +252,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
                     self.thumbnailRequestFinished = true
                     self.terminalThumbnailFailureGeneration = generation
                     if self.thumbnailView.image == nil { self.placeholderView.isHidden = false }
-                    self.placeholderLabel.stringValue = "暂无缩略图"
+                    self.placeholderLabel.stringValue = String(localized: "No Thumbnail")
                 }
                 return
             }
@@ -318,7 +318,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         // 下载 / 已下载状态
         menu.addItem(
             makeContextMenuItem(
-                title: "下载到本地",
+                title: String(localized: "Download to Mac"),
                 symbolName: "arrow.down.circle",
                 action: isDownloadingState ? nil : onDownload
             )
@@ -327,7 +327,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         // 设为壁纸
         menu.addItem(
             makeContextMenuItem(
-                title: "设为壁纸",
+                title: String(localized: "Set as Wallpaper"),
                 symbolName: "display",
                 action: isDownloadingState ? nil : onSetAsWallpaper
             )
@@ -341,7 +341,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         }
         menu.addItem(
             makeContextMenuItem(
-                title: "在 Pixabay 上查看",
+                title: String(localized: "View on Pixabay"),
                 symbolName: "arrow.up.right.square",
                 action: openPage
             )
@@ -350,7 +350,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         if let organization {
             let id = currentItemID, bindingID = contextMenuBindingID
             menu.addItem(.separator())
-            let favorite = ActionMenuItem(title: organization.state.isFavorite ? "取消特别喜爱" : "加入特别喜爱",
+            let favorite = ActionMenuItem(title: organization.state.isFavorite ? String(localized: "Unfavorite") : String(localized: "Add to Favorites"),
                 symbol: organization.state.isFavorite ? "heart.fill" : "heart") { [weak self] in
                     guard let self, self.currentItemID == id, self.contextMenuBindingID == bindingID,
                           self.organization?.state.canFavorite == true, organization.state.canFavorite else { return }
@@ -358,7 +358,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
                 }
             favorite.isEnabled = organization.state.canFavorite
             menu.addItem(favorite)
-            let playlist = NSMenuItem(title: "添加到播放列表", action: nil, keyEquivalent: "")
+            let playlist = NSMenuItem(title: String(localized: "Add to Playlist"), action: nil, keyEquivalent: "")
             playlist.image = NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: nil)
             playlist.submenu = organization.makePlaylistMenu?({ [weak self] in
                 guard let self else { return false }
@@ -368,14 +368,14 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
             playlist.isEnabled = organization.state.canOrganize && playlist.submenu != nil
             menu.addItem(playlist)
             if let restore = organization.onRestoreLibrary {
-                menu.addItem(makeContextMenuItem(title: "重新加入我的下载", symbolName: "arrow.down.to.line", action: restore))
+                menu.addItem(makeContextMenuItem(title: String(localized: "Add Back to My Downloads"), symbolName: "arrow.down.to.line", action: restore))
             }
         }
 
         if let activity = PixabayService.shared.downloadActivity(for: currentItemID) {
             let id = activity.itemID, attemptID = activity.attemptID
             menu.addItem(.separator())
-            menu.addItem(makeContextMenuItem(title: "取消下载", symbolName: "xmark", action: {
+            menu.addItem(makeContextMenuItem(title: String(localized: "Cancel Download"), symbolName: "xmark", action: {
                 PixabayService.shared.cancelDownload(id: id, attemptID: attemptID)
             }))
         }

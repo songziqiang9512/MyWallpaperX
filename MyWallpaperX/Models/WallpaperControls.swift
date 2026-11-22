@@ -27,7 +27,7 @@ public enum FunctionKeyShortcut: String, Codable, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .none: return "无"
+        case .none: return String(localized: "None")
         case .f1: return "F1"
         case .f2: return "F2"
         case .f3: return "F3"
@@ -54,10 +54,10 @@ public enum SystemHotkeyAction: String, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .previous: return "-  上一张"
-        case .next: return "-  下一张"
-        case .playPause: return "-  播放/暂停"
-        case .muteToggle: return "-  开启静音/关闭静音"
+        case .previous: return String(localized: "-  Previous")
+        case .next: return String(localized: "-  Next")
+        case .playPause: return String(localized: "-  Play/Pause")
+        case .muteToggle: return String(localized: "-  Mute/Unmute")
         }
     }
 }

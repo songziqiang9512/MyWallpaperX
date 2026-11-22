@@ -512,7 +512,7 @@ extension SteamWorkshopService {
                 sourceVideoURL: nil,
                 exportedVideoURL: nil,
                 updatedAt: Date(),
-                sizeText: sizeText ?? "等待下载",
+                sizeText: sizeText ?? String(localized: "Waiting to Download"),
                 status: status,
                 browserItem: browserItemForDownload(id: id),
                 contentType: .unknown,
@@ -836,7 +836,7 @@ extension SteamWorkshopService {
         let creationDate = metadata?.firstDownloadedAt == nil && metadata?.commit?.committedAt == nil
             ? Self.localCreationDate(at: sampleDirectory ?? standaloneFile) : nil
         return (metadata?.resolvedFirstDownloadDate(fallbackCreationDate: creationDate) ?? creationDate,
-                bytes, bytes.map(Self.fileSizeText(forBytes:)) ?? "未知大小")
+                bytes, bytes.map(Self.fileSizeText(forBytes:)) ?? "")
     }
 
     nonisolated static func localCreationDate(at url: URL?) -> Date? {

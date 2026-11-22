@@ -626,12 +626,12 @@ import Combine
         let navigationVersion = steam.navigationVersion
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let favorite = ActionMenuItem(title: organization.isFavorite ? "取消特别喜爱" : "特别喜爱", symbol: "heart") {
+        let favorite = ActionMenuItem(title: organization.isFavorite ? String(localized: "Unfavorite") : String(localized: "Favorite"), symbol: "heart") {
             organization.onFavorite?()
         }
         favorite.isEnabled = organization.canFavorite
         menu.addItem(favorite)
-        let playlist = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
+        let playlist = NSMenuItem(title: String(localized: "Add to Playlist"), action: nil, keyEquivalent: "")
         playlist.image = NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
         playlist.submenu = commands.makePlaylistMenu([content.reference], permitsAction: { [weak self] in
             self?.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, navigationVersion: navigationVersion) == true
@@ -639,7 +639,7 @@ import Combine
         playlist.isEnabled = commands.canOrganize && content.capabilities.contains(.organize) && playlist.submenu != nil
         menu.addItem(playlist)
         if let restore = commands.makeRestoreLibraryAction(for: content) {
-            menu.addItem(ActionMenuItem(title: "重新加入我的下载", symbol: "arrow.down.to.line") { [weak self] in
+            menu.addItem(ActionMenuItem(title: String(localized: "Add Back to My Downloads"), symbol: "arrow.down.to.line") { [weak self] in
                 guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID,
                     navigationVersion: navigationVersion) else { return }
                 restore()
@@ -671,12 +671,12 @@ import Combine
         switch workspace.presentation.page {
         case .workshop:
             guard let primary = steamBrowserContent.selectedPrimaryAction, let reference = selectedBrowserReference else { return nil }
-            title = workspace.isPlaying(reference) ? "停止播放" : steam.downloadProgressStore.snapshot(for: reference.sourceID)?.phase == .failed
-                ? "重试下载" : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? "设为壁纸" : "下载壁纸"
+            title = workspace.isPlaying(reference) ? String(localized: "Stop Playback") : steam.downloadProgressStore.snapshot(for: reference.sourceID)?.phase == .failed
+                ? String(localized: "Retry Download") : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? String(localized: "Set as Wallpaper") : String(localized: "Download Wallpaper")
             action = primary
         case .pixabay:
             guard let primary = pixabayBrowserContent.selectedPrimaryAction, let reference = selectedBrowserReference else { return nil }
-            title = workspace.isPlaying(reference) ? "停止播放" : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? "设为壁纸" : "下载视频"
+            title = workspace.isPlaying(reference) ? String(localized: "Stop Playback") : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? String(localized: "Set as Wallpaper") : String(localized: "Download Video")
             action = primary
         default:
             guard let primary = onlineImages.selectedPrimaryAction() else { return nil }
@@ -801,7 +801,7 @@ import Combine
         let query = state.query
         let filtered = !query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !query.providers.isEmpty || !query.kinds.isEmpty || !query.statuses.isEmpty
-        let summary = filtered ? "显示 \(state.queryResult.items.count) / 共 \(entry.count) 张壁纸" : "\(entry.count) 张壁纸"
+        let summary = filtered ? String(localized: "Showing \(state.queryResult.items.count) of \(entry.count) wallpapers") : String(localized: "\(entry.count) wallpapers")
         header.update(name: entry.name, summary: summary, image: covers[id]?.image, canPlay: playable > 0, canAdd: commands.canOrganize,
             descriptionText: workspace.relationships.playlists.first(where: { $0.id == id })?.descriptionText, playableCount: playable,
             play: { [weak self] in
@@ -831,7 +831,7 @@ import Combine
         let dependencies = (try? WallpaperLibraryQuery.requiredProviders(page: state.page, state: state.query, relationships: workspace.relationships)) ?? []
         if state.page == .playlists {
             let total = workspace.relationships.playlists.count, visible = state.directoryEntries.count
-            directory.setPullCountText(visible == total ? "共 \(total) 个播放列表" : "显示 \(visible) / 共 \(total) 个播放列表")
+            directory.setPullCountText(visible == total ? String(localized: "\(total) playlists") : String(localized: "Showing \(visible) of \(total) playlists"))
         } else if case .playlist = page {
             grid.scrollView.pullCountText = nil
         } else if !state.page.isRemoteBrowse {
@@ -848,9 +848,9 @@ import Combine
                 fullCountKnown = true
             }
             if fullCountKnown {
-                grid.scrollView.pullCountText = visible == total ? "共 \(total) 张壁纸" : "显示 \(visible) / 共 \(total) 张壁纸"
+                grid.scrollView.pullCountText = visible == total ? String(localized: "\(total) wallpapers") : String(localized: "Showing \(visible) of \(total) wallpapers")
             } else {
-                grid.scrollView.pullCountText = total > 0 ? (filtered ? "显示 \(visible) / 已加载 \(total) 张壁纸" : "已加载 \(total) 张壁纸") : nil
+                grid.scrollView.pullCountText = total > 0 ? (filtered ? String(localized: "Showing \(visible) of \(total) loaded wallpapers") : String(localized: "Loaded \(total) wallpapers")) : nil
             }
         }
         var scanFailed = false
@@ -859,45 +859,45 @@ import Combine
         if dependencies.contains(.pixabay), let scan = workspace.catalog.catalog.sourceScanStatuses[.pixabay] {
             switch scan.phase {
             case .loading:
-                if scan.hasSuccessfulScan { notices.append("正在刷新 Pixabay 已下载的壁纸…") }
+                if scan.hasSuccessfulScan { notices.append(String(localized: "Refreshing downloaded Pixabay wallpapers…")) }
             case .ready(let warnings):
-                if !warnings.isEmpty { notices.append("Pixabay 已下载内容：" + warnings.joined(separator: "；")) }
+                if !warnings.isEmpty { notices.append(String(localized: "Downloaded from Pixabay:") + warnings.joined(separator: "；")) }
             case .failed(let reason):
                 scanFailed = true
-                notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
-                noticeActions.append(action("重试载入") { $0.pixabay.refreshDownloadedContent() })
+                notices.append((scan.hasSuccessfulScan ? String(localized: "Refresh failed. The current content was kept.") : "") + reason)
+                noticeActions.append(action(String(localized: "Retry Loading")) { $0.pixabay.refreshDownloadedContent() })
             }
         }
         if let provider = dependencies.first(where: { $0 == .wallhaven || $0 == .pixiv }),
            let scan = workspace.catalog.catalog.sourceScanStatuses[provider] {
             switch scan.phase {
             case .loading:
-                if scan.hasSuccessfulScan { notices.append("正在刷新已下载的在线图片…") }
+                if scan.hasSuccessfulScan { notices.append(String(localized: "Refreshing downloaded online images…")) }
             case .ready(let warnings):
-                if !warnings.isEmpty { notices.append("在线图片：" + warnings.joined(separator: "；")) }
+                if !warnings.isEmpty { notices.append(String(localized: "Online images:") + warnings.joined(separator: "；")) }
             case .failed(let reason):
                 scanFailed = true
-                notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
-                noticeActions.append(action("重试载入在线图片") { _ in
+                notices.append((scan.hasSuccessfulScan ? String(localized: "Refresh failed. The current content was kept.") : "") + reason)
+                noticeActions.append(action(String(localized: "Retry Loading Online Image")) { _ in
                     OnlineImageLibrary.shared.refreshLocal(Set(OnlineImageSource.allCases.filter { dependencies.contains($0.provider) }))
                 })
             }
         }
         if state.page == .playlists {
             if state.directoryEntries.isEmpty, !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                message = "没有符合条件的播放列表"
-                actions = [action("清除搜索") { composition in
+                message = String(localized: "No playlists match the filters")
+                actions = [action(String(localized: "Clear Search")) { composition in
                     var query = composition.workspace.presentation.queryState
                     query.search = ""
                     _ = composition.workspace.presentation.setQueryState(query)
                 }]
             }
         } else if !state.page.isRemoteBrowse, state.queryResult.items.isEmpty {
-            if scanFailed { message = "暂时没有可显示的壁纸" }
-            else if !dependencies.isSubset(of: workspace.catalog.catalog.loadedProviders) { message = "正在载入壁纸…" }
+            if scanFailed { message = String(localized: "No wallpapers to show right now") }
+            else if !dependencies.isSubset(of: workspace.catalog.catalog.loadedProviders) { message = String(localized: "Loading wallpaper…") }
             else if filtered {
-                message = "没有符合条件的壁纸"
-                actions = [action("清除筛选") { composition in
+                message = String(localized: "No wallpapers match the filters")
+                actions = [action(String(localized: "Clear Filters")) { composition in
                     var query = composition.workspace.presentation.queryState
                     query.search = ""; query.providers = []; query.kinds = []; query.statuses = []
                     if page == .downloads { query.showsAdultContent = true }
@@ -906,13 +906,13 @@ import Combine
             } else {
                 switch state.page {
                 case .videos, .images:
-                    message = state.page == .images ? "导入图片，建立你的壁纸资料库" : "导入视频，建立你的壁纸资料库"
+                    message = state.page == .images ? String(localized: "Import images to build your wallpaper library") : String(localized: "Import videos to build your wallpaper library")
                 case .downloads:
-                    message = "下载的壁纸将显示在这里"
-                case .recent: message = "播放过的壁纸将显示在这里"
-                case .favorites: message = "标记为特别喜爱的壁纸将显示在这里"
+                    message = String(localized: "Downloaded wallpapers will appear here")
+                case .recent: message = String(localized: "Wallpapers you’ve played will appear here")
+                case .favorites: message = String(localized: "Wallpapers marked as Favorites will appear here")
                 case .playlist:
-                    message = "从顶部添加壁纸，开始建立这个播放列表"
+                    message = String(localized: "Add wallpapers from the top to start building this playlist.")
                 default: break
                 }
             }
@@ -934,7 +934,7 @@ import Combine
         let epoch = collections.snapshot.resetEpoch
         Task { @MainActor [weak self] in
             do {
-                try await collections.perform(.addMembers(id, values.map(\.organizationItem), Date()), undoName: "添加到列表", expectedEpoch: epoch)
+                try await collections.perform(.addMembers(id, values.map(\.organizationItem), Date()), undoName: String(localized: "Add to Playlist"), expectedEpoch: epoch)
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
                 self?.workspace.didEditMembers(of: .playlist(id))
             } catch { if collections.snapshot.resetEpoch == epoch { self?.workspace.presentation.report(error) } }

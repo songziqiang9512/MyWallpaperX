@@ -95,10 +95,10 @@ final class WallpaperCardControlsView: NSView, WallpaperInspectorCardSource {
     private func updateSymbols() {
         let configuration = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
         detailButton.image = NSImage(systemSymbolName: "exclamationmark.circle",
-            accessibilityDescription: "详细信息")?.withSymbolConfiguration(configuration)
+            accessibilityDescription: String(localized: "Detailed Information"))?.withSymbolConfiguration(configuration)
         detailButton.contentTintColor = .labelColor
-        detailButton.toolTip = "详细信息"
-        detailButton.setAccessibilityLabel("详细信息")
+        detailButton.toolTip = String(localized: "Detailed Information")
+        detailButton.setAccessibilityLabel(String(localized: "Detailed Information"))
         let playSymbol: String
         let playColor: NSColor
         switch primaryState {
@@ -120,10 +120,10 @@ final class WallpaperCardControlsView: NSView, WallpaperInspectorCardSource {
     private var primaryTitle: String {
         if let primaryActionTitle { return primaryActionTitle }
         switch primaryState {
-        case .apply: return "设为壁纸"
-        case .switching: return "正在切换壁纸"
-        case .playing: return "停止播放"
-        case .download: return "下载壁纸"
+        case .apply: return String(localized: "Set as Wallpaper")
+        case .switching: return String(localized: "Switching Wallpaper")
+        case .playing: return String(localized: "Stop Playback")
+        case .download: return String(localized: "Download Wallpaper")
         }
     }
 

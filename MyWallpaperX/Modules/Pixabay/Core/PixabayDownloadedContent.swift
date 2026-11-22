@@ -140,7 +140,7 @@ nonisolated enum PixabayDownloadedContent {
             else { metadata = nil }
             try Task.checkCancellation()
             if metadata != nil, PixabayDownloadedFileIdentity.key(for: url) != key {
-                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "文件在读取元数据期间发生变化，请刷新后重试。"])
+                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: String(localized: "The file changed while its metadata was being read. Refresh and try again.")])
             }
             let reused = prior[id].flatMap { $0.thumbnailSourceKey == key ? $0 : nil }
             entries.append(PixabayDownloadedEntry(id: id, localURL: url, fileSize: size,

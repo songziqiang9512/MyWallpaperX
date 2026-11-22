@@ -64,30 +64,30 @@ import Combine
     }
 
     var pixivAccountStatus: String {
-        guard let state = library.pixivSession?.state else { return "未登录（匿名浏览）" }
+        guard let state = library.pixivSession?.state else { return String(localized: "Not signed in (anonymous browsing)") }
         let accountName = state.identity.map { identity in
             let name = identity.displayName.flatMap { $0.isEmpty ? nil : $0 }
             return name.map { "\($0)（\(identity.userID)）" } ?? identity.userID
         }
         switch state.phase {
-        case .anonymous: return "未登录（匿名浏览）"
-        case .checking: return accountName.map { "已登录：\($0) · 正在更新账号信息…" } ?? "正在读取账号信息…"
-        case .unknown: return accountName.map { "已登录：\($0) · 资料暂不可用" } ?? "会话状态待确认"
-        case .authenticated: return accountName.map { "已登录：\($0)" } ?? "会话状态待确认"
+        case .anonymous: return String(localized: "Not signed in (anonymous browsing)")
+        case .checking: return accountName.map { String(localized: "Signed in: \($0) · Updating account info…") } ?? String(localized: "Reading account information…")
+        case .unknown: return accountName.map { String(localized: "Signed in: \($0) · Profile unavailable") } ?? String(localized: "Session Status Pending")
+        case .authenticated: return accountName.map { String(localized: "Signed in: \($0)") } ?? String(localized: "Session Status Pending")
         }
     }
 
     func accountStatus(for source: OnlineImageSource) -> [String] {
         guard source == .wallhaven else { return [pixivAccountStatus] }
         switch library.wallhavenAccount {
-        case .unread: return ["尚未读取 API Key 状态"]
-        case .unconfigured: return ["未配置 API Key · 可匿名浏览"]
-        case .saved: return ["已保存 API Key", "收藏信息尚未读取"]
-        case .loading: return ["已保存 API Key", "正在读取收藏信息…"]
+        case .unread: return [String(localized: "API key status hasn’t been read yet")]
+        case .unconfigured: return [String(localized: "API key not set · Anonymous browsing available")]
+        case .saved: return [String(localized: "API key saved"), String(localized: "Favorites info hasn’t been loaded yet")]
+        case .loading: return [String(localized: "API key saved"), String(localized: "Reading favorites…")]
         case .ready(let collections):
-            return ["已保存 API Key", "已取得 \(collections.count) 个收藏集"]
-                + collections.map { "\($0.label) · \($0.count) 张" }
-        case .unavailable(let message): return ["已保存 API Key", "收藏信息暂不可用：" + message]
+            return [String(localized: "API key saved"), String(localized: "Fetched \(collections.count) collections")]
+                + collections.map { String(localized: "\($0.label) · \($0.count) items") }
+        case .unavailable(let message): return [String(localized: "API key saved"), String(localized: "Favorites info is currently unavailable:") + message]
         }
     }
 
@@ -193,13 +193,13 @@ import Combine
     func selectedPrimaryAction() -> (title: String, action: () -> Void)? {
         guard let content = selectedContent, isSwitching?(content.reference) != true else { return nil }
         if content.publishedAvailability.isPublishedLocally {
-            let title = workspace.isPlaying(content.reference) ? "停止播放" : content.capabilities.contains(.play) ? "设为壁纸" : "重新下载"
+            let title = workspace.isPlaying(content.reference) ? String(localized: "Stop Playback") : content.capabilities.contains(.play) ? String(localized: "Set as Wallpaper") : String(localized: "Redownload")
             return commands.makePrimaryAction(for: content).map { (title, $0) }
         }
         guard content.capabilities.contains(.download), let session = session(for: workspace.presentation.page),
               let artwork = session.state.items.first(where: { $0.firstAssetID.reference == content.providerReference }),
               library.progress[artwork.firstAssetID] == nil else { return nil }
-        return ("下载原图", { [weak self] in self?.library.downloadArtwork(artwork) })
+        return (String(localized: "Download Original"), { [weak self] in self?.library.downloadArtwork(artwork) })
     }
     func selectedOrganizationActions() -> WallpaperInspectorActions? {
         let page = workspace.presentation.page
@@ -285,7 +285,7 @@ import Combine
     private func presentKey(in window: NSWindow) {
         if keyPanel == nil {
             keyPanel = WallpaperAPIKeyPanelController(title: "Wallhaven API Key",
-                message: "匿名即可浏览安全内容。填写自己的 API Key 后可按账号权限浏览；Key 保存在系统钥匙串中。",
+                message: String(localized: "You can browse safe content anonymously. Enter your own API key to browse with your account’s permissions; the key is stored in the system keychain."),
                 helpURL: URL(string: "https://wallhaven.cc/settings/account")!, hasStoredKey: library.wallhavenAccount.hasStoredKey) { [weak self] key in
                     guard let self else { return }
                     try await library.setWallhavenKey(key)
@@ -307,20 +307,20 @@ import Combine
         menu.autoenablesItems = false
         let downloading = library.progress[artwork.firstAssetID] != nil
         if content.publishedAvailability == .remote, content.capabilities.contains(.download) {
-            let download = ActionMenuItem(title: "下载原图", symbol: "arrow.down") { [weak self] in self?.downloadFirst(artwork) }
-            let apply = ActionMenuItem(title: "下载并设为壁纸", symbol: "play.fill") { [weak self] in self?.downloadFirst(artwork, apply: true) }
+            let download = ActionMenuItem(title: String(localized: "Download Original"), symbol: "arrow.down") { [weak self] in self?.downloadFirst(artwork) }
+            let apply = ActionMenuItem(title: String(localized: "Download and Set as Wallpaper"), symbol: "play.fill") { [weak self] in self?.downloadFirst(artwork, apply: true) }
             download.isEnabled = !downloading; apply.isEnabled = !downloading
             menu.addItem(download); menu.addItem(apply)
         }
         if downloading, !content.publishedAvailability.isPublishedLocally {
-            menu.addItem(ActionMenuItem(title: "取消下载", symbol: "xmark") { [weak self] in self?.library.cancel(artwork.firstAssetID) })
+            menu.addItem(ActionMenuItem(title: String(localized: "Cancel Download"), symbol: "xmark") { [weak self] in self?.library.cancel(artwork.firstAssetID) })
         }
         if content.publishedAvailability == .remote, content.capabilities.contains(.quickLook) {
-            menu.addItem(ActionMenuItem(title: "临时预览", symbol: "eye") { [weak self] in _ = self?.inspector.preview(content: content) })
+            menu.addItem(ActionMenuItem(title: String(localized: "Temporary Preview"), symbol: "eye") { [weak self] in _ = self?.inspector.preview(content: content) })
         }
-        menu.addItem(ActionMenuItem(title: "打开原网页", symbol: "safari") { NSWorkspace.shared.open(artwork.sourceURL) })
+        menu.addItem(ActionMenuItem(title: String(localized: "Open Original Page"), symbol: "safari") { NSWorkspace.shared.open(artwork.sourceURL) })
         if let id = artwork.authorID {
-            menu.addItem(ActionMenuItem(title: "查看作者作品", symbol: "person") { [weak self] in
+            menu.addItem(ActionMenuItem(title: String(localized: "View Author's Works"), symbol: "person") { [weak self] in
                 guard let self else { return }
                 openAuthor(.init(source: source, id: id, name: artwork.author), from: page(for: source))
             })

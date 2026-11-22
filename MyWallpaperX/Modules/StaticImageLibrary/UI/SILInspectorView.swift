@@ -82,9 +82,9 @@ final class SILInspectorView: NSView {
             wallpaper.pixelHeight.map { "\(width) × \($0)" }
         }
         return [
-            resolution.map { ("分辨率", $0) },
-            ("添加时间", formatter.string(from: wallpaper.addedAt)),
-            wallpaper.lastUsed > .distantPast ? ("最近使用", formatter.string(from: wallpaper.lastUsed)) : nil
+            resolution.map { (String(localized: "Resolution"), $0) },
+            (String(localized: "Date Added"), formatter.string(from: wallpaper.addedAt)),
+            wallpaper.lastUsed > .distantPast ? (String(localized: "Recently Used"), formatter.string(from: wallpaper.lastUsed)) : nil
         ]
         .compactMap { $0 }
     }
@@ -92,10 +92,10 @@ final class SILInspectorView: NSView {
     private func notices(for wallpaper: SILWallpaper) -> [(icon: String, text: String)] {
         var result: [(String, String)] = []
         if !FileManager.default.fileExists(atPath: wallpaper.path) {
-            result.append(("exclamationmark.triangle.fill", "原始图片文件当前不可用"))
+            result.append(("exclamationmark.triangle.fill", String(localized: "The original image file isn’t available right now")))
         }
         if service.currentActiveWallpaperPath == wallpaper.path {
-            result.append(("photo.fill", "当前桌面正在使用这张图片"))
+            result.append(("photo.fill", String(localized: "This image is used by the current desktop")))
         }
         return result
     }
@@ -221,11 +221,11 @@ final class SILInspectorView: NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
+        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle(String(localized: "Original Data")))
         stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts(for: wallpaper)))
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("文件位置"))
+        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle(String(localized: "File Location")))
 
         let path = SILInspectorViews.makeLabel(wallpaper.path, font: .systemFont(ofSize: 13), color: .labelColor)
         path.maximumNumberOfLines = 3
@@ -241,11 +241,11 @@ final class SILInspectorView: NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         let names = libraryActions.state.playlistNames
-        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("播放列表"))
+        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle(String(localized: "Playlist")))
 
         if names.isEmpty {
             stack.addArrangedSubview(
-                SILInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
+                SILInspectorViews.makeLabel(String(localized: "Not in any playlist"), font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
             )
         } else {
             let row = NSStackView()
@@ -290,7 +290,7 @@ final class SILInspectorView: NSView {
         primaryButton = wallpaperButton
         wallpaperButton.isEnabled = libraryActions.state.canPerformPrimary
         let revealButton = SILInspectorViews.makeFooterButton(
-            title: "查看文件",
+            title: String(localized: "Reveal in Finder"),
             symbolName: "folder.fill",
             target: self,
             action: #selector(revealInFinder)
@@ -303,7 +303,7 @@ final class SILInspectorView: NSView {
         )
         playlistButton = tagButton
         tagButton.isEnabled = libraryActions.state.canOrganize
-        let tagTitle = "添加到列表"
+        let tagTitle = String(localized: "Add to Playlist")
         tagButton.setAccessibilityLabel(tagTitle)
         tagButton.toolTip = tagTitle
 

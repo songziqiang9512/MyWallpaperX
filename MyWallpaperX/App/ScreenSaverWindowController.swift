@@ -9,14 +9,14 @@ import Combine
     private let mode = NSPopUpButton()
     private let fill = NSPopUpButton()
     private let battery = NSSwitch()
-    private let selected = NSTextField(wrappingLabelWithString: "选择一段喜欢的视频")
+    private let selected = NSTextField(wrappingLabelWithString: String(localized: "Choose a Video You Like"))
     private let selectionHint = NSTextField(wrappingLabelWithString: "")
     private let selectedPreview = NSImageView()
     private let status = NSTextField(wrappingLabelWithString: "")
     private let feedback = NSTextField(wrappingLabelWithString: "")
     private var actionFeedback = ""
-    private let saveButton = NSButton(title: "保存屏保", target: nil, action: nil)
-    private let chooseButton = NSButton(title: "选择视频", target: nil, action: nil)
+    private let saveButton = NSButton(title: String(localized: "Save Screen Saver"), target: nil, action: nil)
+    private let chooseButton = NSButton(title: String(localized: "Choose Video"), target: nil, action: nil)
     private lazy var artworkLoader = WallpaperLibraryArtworkProvider.liveLoader(manager: .shared, images: .shared, steam: .shared, pixabay: .shared)
     private let posterLoader = SILThumbnailProvider()
     private var selectedArtworkIdentity: WallpaperLibraryArtworkProvider.Identity?
@@ -38,7 +38,7 @@ import Combine
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
-        panel.title = "锁屏与屏保"
+        panel.title = String(localized: "Lock Screen & Screen Saver")
         panel.identifier = NSUserInterfaceItemIdentifier("ScreenSaverSettings")
         panel.isReleasedWhenClosed = false
         super.init(window: panel)
@@ -104,23 +104,23 @@ import Combine
         symbol.contentTintColor = .controlAccentColor
         symbol.symbolConfiguration = .init(pointSize: 26, weight: .medium)
         symbol.translatesAutoresizingMaskIntoConstraints = false
-        let title = label("锁屏与屏保")
+        let title = label(String(localized: "Lock Screen & Screen Saver"))
         title.font = .systemFont(ofSize: 18, weight: .semibold)
         let close = WallpaperPanelCloseButton()
-        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭")
+        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close"))
         close.target = self; close.action = #selector(cancelAction)
         let header = NSStackView(views: [symbol, title, NSView(), close])
         header.orientation = .horizontal; header.alignment = .centerY; header.spacing = 12
         let headerRule = WallpaperLibraryControlStyle.sectionDivider()
         let footerRule = WallpaperLibraryControlStyle.sectionDivider()
-        let cancel = button("取消", #selector(cancelAction))
+        let cancel = button(String(localized: "Cancel"), #selector(cancelAction))
         cancel.keyEquivalent = "\u{1b}"
         saveButton.target = self; saveButton.action = #selector(saveAction)
         saveButton.keyEquivalent = "\r"
         WallpaperLibraryControlStyle.sheetCapsule(saveButton)
         let buttons = NSStackView(views: [cancel, saveButton])
         buttons.orientation = .horizontal; buttons.alignment = .centerY; buttons.spacing = 12
-        let clear = button("清除内容", #selector(clearAction))
+        let clear = button(String(localized: "Clear Content"), #selector(clearAction))
         let footer = NSStackView(views: [clear, NSView(), buttons])
         footer.orientation = .horizontal; footer.alignment = .centerY
         footer.distribution = .fill; footer.spacing = 12
@@ -165,50 +165,50 @@ import Combine
         let chosen = NSStackView(views: [selected, selectionHint])
         chosen.orientation = .vertical; chosen.alignment = .leading; chosen.spacing = 6
         chosen.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        configureThumbnail(selectedPreview, label: "所选视频缩略图")
+        configureThumbnail(selectedPreview, label: String(localized: "Selected Video Thumbnail"))
         let selectedContent = NSStackView(views: [selectedPreview, chosen, chooseButton])
         selectedContent.orientation = .horizontal; selectedContent.alignment = .centerY
         selectedContent.distribution = .fill; selectedContent.spacing = 16
         add(selectedContent, to: stack)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         status.font = .systemFont(ofSize: 12); status.textColor = .secondaryLabelColor
-        mode.addItems(withTitles: ["固定所选视频", "跟随最近播放的视频"])
+        mode.addItems(withTitles: [String(localized: "Pin Selected Video"), String(localized: "Follow the Most Recently Played Video")])
         mode.target = self; mode.action = #selector(changed)
-        mode.toolTip = "跟随最近成功播放的视频，切换 Scene、Web 或图片时保留原视频。"
+        mode.toolTip = String(localized: "Follow the most recently played video and keep it when switching to Scene, Web, or images.")
         let options = NSStackView()
         options.orientation = .vertical; options.alignment = .leading; options.spacing = 8
         options.setHuggingPriority(.required, for: .vertical)
-        add(row(label("内容模式"), trailing: mode), to: options)
-        fill.addItems(withTitles: ["完整显示", "填充屏幕"])
+        add(row(label(String(localized: "Content Mode")), trailing: mode), to: options)
+        fill.addItems(withTitles: [String(localized: "Fit"), String(localized: "Fill Screen")])
         fill.target = self; fill.action = #selector(changed)
-        add(row(label("画面布局"), trailing: fill), to: options)
+        add(row(label(String(localized: "Screen Layout")), trailing: fill), to: options)
         battery.controlSize = .small; battery.target = self; battery.action = #selector(changed)
-        battery.toolTip = "关闭时使用视频静帧；系统低电量模式始终显示静帧。"
-        add(row(label("使用电池时播放"), trailing: battery), to: options)
-        add(label("始终静音循环。使用电池时关闭此项即可改为静帧。", secondary: true), to: options)
+        battery.toolTip = String(localized: "Use a video still frame when closed; Low Power Mode always shows a still frame.")
+        add(row(label(String(localized: "Play on Battery")), trailing: battery), to: options)
+        add(label(String(localized: "Always loops muted. Turn this off on battery to show a still frame instead."), secondary: true), to: options)
         add(options, to: stack)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         let guide = NSStackView()
         guide.orientation = .vertical; guide.alignment = .leading; guide.spacing = 12
         guide.setHuggingPriority(.required, for: .vertical)
-        let guideTitle = label("在 macOS 中启用")
+        let guideTitle = label(String(localized: "Enable in macOS"))
         guideTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         add(row(guideTitle, trailing: status), to: guide)
         let steps = NSStackView()
         steps.orientation = .vertical; steps.alignment = .leading; steps.spacing = 6
         steps.setHuggingPriority(.required, for: .vertical)
-        for text in ["1  保存视频后，点击“打开屏保设置”。",
-                     "2  点击“屏幕保护程序…” → 自定义 → MyWallpaperX 分组，\n    选择已保存的视频。",
-                     "3  设置屏保开始时间，再点“完成”。无需更改桌面墙纸。"] {
+        for text in [String(localized: "1  After saving the video, click “Open Screen Saver Settings”."),
+                     String(localized: "2  Click “Screen Saver…” → Customize → MyWallpaperX group,\n    then select the saved video."),
+                     String(localized: "3  Set when the screen saver starts, then click “Done”. You don’t need to change the desktop wallpaper.")] {
             add(label(text, secondary: true), to: steps)
         }
         add(steps, to: guide)
-        let lockSettings = button("锁屏设置", #selector(openLockSettings))
-        lockSettings.toolTip = "在“锁屏”页调整“屏幕保护程序启动或显示器关闭后需要密码”和显示器关闭时间；屏保启动时间应早于熄屏时间。"
-        let actions = NSStackView(views: [button("打开屏保设置", #selector(openScreenSaverSettings)), lockSettings])
+        let lockSettings = button(String(localized: "Lock Screen Settings"), #selector(openLockSettings))
+        lockSettings.toolTip = String(localized: "On the “Lock Screen” pane, set “Require password after the screen saver begins or the display turns off” and the display-off time. The screen saver should start before the display turns off.")
+        let actions = NSStackView(views: [button(String(localized: "Open Screen Saver Settings"), #selector(openScreenSaverSettings)), lockSettings])
         actions.orientation = .horizontal; actions.distribution = .fillEqually; actions.spacing = 12
         add(actions, to: guide)
-        add(label("屏保开始时间应早于熄屏时间，桌面墙纸保持原样。", secondary: true), to: guide)
+        add(label(String(localized: "The screen saver start time must be earlier than the display-off time. Desktop wallpaper stays as is."), secondary: true), to: guide)
         feedback.font = .systemFont(ofSize: 12); feedback.textColor = .secondaryLabelColor
         feedback.maximumNumberOfLines = 2
         feedback.lineBreakMode = .byTruncatingTail
@@ -261,18 +261,18 @@ import Combine
         if let reference = draft.reference {
             let savedTitle = actual.flatMap { $0.sourceIdentity == reference.storageKey ? $0.title : nil }
             selected.stringValue = content.flatMap { $0.kind == .video && $0.publishedAvailability.isAvailable ? $0.title : nil }
-                ?? savedTitle ?? content?.title ?? "原视频暂不可用，请重新选择"
-        } else { selected.stringValue = "选择一段喜欢的视频" }
+                ?? savedTitle ?? content?.title ?? String(localized: "The original video isn’t available. Please choose another one.")
+        } else { selected.stringValue = String(localized: "Choose a Video You Like") }
         let matchesSaved = draft.reference != nil && draft.reference?.storageKey == actual?.sourceIdentity
-        selectionHint.stringValue = draft.reference == nil ? "本地与已下载的视频均可选择"
-            : (matchesSaved ? "当前屏保视频" : "所选视频 · 尚未保存")
+        selectionHint.stringValue = draft.reference == nil ? String(localized: "Local and downloaded videos can both be selected")
+            : (matchesSaved ? String(localized: "Current Screen Saver Video") : String(localized: "Selected video · Not saved"))
         chooseButton.isEnabled = !isSaving
-        status.stringValue = integration.hasBundledComponent ? "系统组件随 App 提供" : "系统组件缺失"
+        status.stringValue = integration.hasBundledComponent ? String(localized: "System components are included with the app") : String(localized: "System Component Missing")
         refreshArtwork(content: content)
         let coordinator = ScreenSaverCoordinator.shared
         if isSaving { feedback.stringValue = actionFeedback }
-        else if coordinator.isPreparing { feedback.stringValue = "正在同步最近播放的视频…" }
-        else if let error = coordinator.errorMessage { feedback.stringValue = "尚未同步：" + error }
+        else if coordinator.isPreparing { feedback.stringValue = String(localized: "Syncing the most recently played video…") }
+        else if let error = coordinator.errorMessage { feedback.stringValue = String(localized: "Not synced yet:") + error }
         else { feedback.stringValue = actionFeedback }
         feedback.isHidden = feedback.stringValue.isEmpty
         feedback.toolTip = feedback.stringValue
@@ -347,7 +347,7 @@ import Combine
     @objc private func saveAction() {
         changed()
         isSaving = true
-        actionFeedback = "正在准备视频，原屏保会保留到保存完成…"
+        actionFeedback = String(localized: "Preparing the video. The current screen saver remains until saving finishes…")
         refresh()
         presentationEpoch &+= 1
         let operation = presentationEpoch
@@ -361,7 +361,7 @@ import Combine
             case .success:
                 self.original = WallpaperManager.shared.settings.screenSaver
                 self.draft = self.original
-                self.actionFeedback = "已保存。首次使用请在系统设置中选择 MyWallpaperX。"
+                self.actionFeedback = String(localized: "Saved. On first use, choose MyWallpaperX in System Settings.")
                 if opensSystemSettings { self.openScreenSaverSettings() }
             case .failure(let error): self.actionFeedback = error.localizedDescription
             }
@@ -402,15 +402,15 @@ import Combine
     @objc private func clearAction() {
         guard let window else { return }
         let presentation = presentationEpoch
-        let alert = makeAppAlert(title: "清除屏保内容？",
-            message: "将停止跟随并清除已发布视频。系统的墙纸与屏保选择请在系统设置中调整。",
-            style: .warning, buttons: ["清除", "取消"])
+        let alert = makeAppAlert(title: String(localized: "Clear Screensaver Content?"),
+            message: String(localized: "Follow mode will stop and the published video will be cleared. Change the system wallpaper and screen saver in System Settings."),
+            style: .warning, buttons: [String(localized: "Clear"), String(localized: "Cancel")])
         presentAppAlert(alert, in: window) { [weak self] response in
             guard let self, self.presentationEpoch == presentation, response == .alertFirstButtonReturn else { return }
             self.presentationEpoch &+= 1
             let operation = self.presentationEpoch
             self.isSaving = true
-            self.actionFeedback = "正在清除内容…"
+            self.actionFeedback = String(localized: "Clearing content…")
             self.refresh()
             let finished: @MainActor (Result<Void, Error>) -> Void = { [weak self] result in
                 guard let self, self.presentationEpoch == operation else { return }
@@ -420,7 +420,7 @@ import Combine
                 self.fill.selectItem(at: self.draft.fillMode == "aspectFit" ? 0 : 1)
                 self.battery.state = self.draft.playsOnBattery ? .on : .off
                 if case .failure(let error) = result { self.actionFeedback = error.localizedDescription }
-                else { self.actionFeedback = "已清除内容。" }
+                else { self.actionFeedback = String(localized: "Content cleared.") }
                 self.refresh()
             }
             ScreenSaverCoordinator.shared.clear(completion: finished)

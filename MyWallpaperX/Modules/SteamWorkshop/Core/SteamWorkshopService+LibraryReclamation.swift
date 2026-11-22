@@ -8,7 +8,7 @@ extension SteamWorkshopService {
 
     func libraryVersionLifetime(recordID: String, consumedRoots: [URL]) throws -> PlaybackResourceLifetime? {
         guard !removingDownloadIDs.contains(recordID) else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸正在删除，无法开始播放。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "This wallpaper is being deleted and can't start playing."))
         }
         let storageIdentities = Set(consumedRoots.compactMap {
             SteamWorkshopLibraryTransaction.storageIdentity(
@@ -20,7 +20,7 @@ extension SteamWorkshopService {
             return nil
         }
         guard let lease = steamLibraryVersionLeaseRegistry.acquire(storageIdentities: storageIdentities) else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "此版本已开始回收，请刷新列表后选择当前版本。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "This version is being reclaimed. Refresh the list and choose the current version."))
         }
         return lease
     }
@@ -37,7 +37,7 @@ extension SteamWorkshopService {
     /// unsuspended service-actor segment. No migration or content scan runs here.
     func sceneSourceAdmission(for record: SteamWorkshopDownloadRecord) throws -> SceneSourceAdmission {
         typealias Transaction = SteamWorkshopLibraryTransaction
-        let rejected = Transaction.Failure(message: "Scene 来源版本已变化或正在删除，请刷新后重试。")
+        let rejected = Transaction.Failure(message: String(localized: "The Scene source changed or is being deleted. Refresh and try again."))
         guard !removingDownloadIDs.contains(record.id),
               record.dependencyItemID.map({ !removingDownloadIDs.contains($0) }) ?? true else { throw rejected }
         // Foundation may abbreviate /private/tmp to its /tmp symlink for an
@@ -63,7 +63,7 @@ extension SteamWorkshopService {
                 storageIdentity: storageIdentity, generation: generation.lowercased()))
             guard source.isValid else { throw rejected }
             guard let lifetime = steamLibraryVersionLeaseRegistry.acquire(storageIdentities: [storageIdentity]) else {
-                throw Transaction.Failure(message: "Scene 来源版本已开始回收，请刷新后重试。")
+                throw Transaction.Failure(message: String(localized: "The Scene source is being reclaimed. Refresh and try again."))
             }
             return SceneSourceAdmission(source: source, resourceLifetime: lifetime)
         }
@@ -90,7 +90,7 @@ extension SteamWorkshopService {
             for (itemID, snapshot) in snapshots {
                 if let commit = snapshot.commit {
                     guard snapshot.item.id == itemID, commit.workshopId == itemID else {
-                        throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。")
+                        throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download index identity is invalid, so version reclamation is paused."))
                     }
                 }
             }

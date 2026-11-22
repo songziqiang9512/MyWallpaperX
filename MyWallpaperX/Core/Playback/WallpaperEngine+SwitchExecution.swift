@@ -94,7 +94,7 @@ extension WallpaperEngine {
         guard !displays.isEmpty else { failVideoExecution(execution, message: "No target display"); return }
         for display in displays {
             guard let session = ensureSession(for: display) else {
-                failVideoExecution(execution, message: "无法启动视频播放进程"); return
+                failVideoExecution(execution, message: String(localized: "Couldn’t start the video playback process")); return
             }
             execution.sessions[display] = session
             session.nextRequestID += 1

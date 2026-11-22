@@ -17,14 +17,14 @@ nonisolated enum SteamWorkshopStorageTree {
         case sourceChanged
         var errorDescription: String? {
             switch self {
-            case .sourceChanged: return "受管来源在读取期间发生变化。"
+            case .sourceChanged: return String(localized: "The managed source changed while it was being read.")
             }
         }
     }
     final class FD {
         let value: Int32
         init(_ value: Int32) throws {
-            guard value >= 0 else { throw Failure(message: "文件操作失败：\(String(cString: strerror(errno)))") }
+            guard value >= 0 else { throw Failure(message: String(localized: "File operation failed: \(String(cString: strerror(errno)))")) }
             self.value = value
         }
         deinit { close(value) }
@@ -34,7 +34,7 @@ nonisolated enum SteamWorkshopStorageTree {
         let size: Int64
         let isDirectory: Bool
     }
-    static func require(_ condition: Bool, _ message: String = "下载内容或文件路径校验失败。") throws {
+    static func require(_ condition: Bool, _ message: String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
         guard condition else { throw Failure(message: message) }
     }
     static func parts(_ path: String) throws -> [String] {
@@ -47,7 +47,7 @@ nonisolated enum SteamWorkshopStorageTree {
     }
     static func directory(_ parent: FD, _ name: String, create: Bool = false, exclusive: Bool = false) throws -> FD {
         if create && mkdirat(parent.value, name, 0o700) != 0 {
-            try require(!exclusive && errno == EEXIST, "无法创建下载版本目录。")
+            try require(!exclusive && errno == EEXIST, String(localized: "Couldn’t create the download version folder."))
         }
         return try FD(openat(parent.value, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC))
     }
@@ -61,7 +61,7 @@ nonisolated enum SteamWorkshopStorageTree {
         var value = stat()
         try require(fstat(fd.value, &value) == 0)
         try require((value.st_mode & S_IFMT) == (regular ? S_IFREG : S_IFDIR))
-        if regular { try require(value.st_nlink == 1 && value.st_size >= 0, "拒绝链接或特殊下载文件。") }
+        if regular { try require(value.st_nlink == 1 && value.st_size >= 0, String(localized: "Links and special download files are not allowed.")) }
         return value
     }
     static func openFile(_ root: FD, _ path: String, create: Bool = false, readableOutput: Bool = false) throws -> FD {
@@ -86,13 +86,13 @@ nonisolated enum SteamWorkshopStorageTree {
             // A fresh open description prevents readdir from changing the root
             // descriptor's shared directory offset across repeated inventories.
             let duplicate = openat(fd.value, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-            guard duplicate >= 0 else { throw Failure(message: "无法枚举下载目录。") }
-            guard let stream = fdopendir(duplicate) else { close(duplicate); throw Failure(message: "无法枚举下载目录。") }
+            guard duplicate >= 0 else { throw Failure(message: String(localized: "Couldn’t enumerate the Downloads folder.")) }
+            guard let stream = fdopendir(duplicate) else { close(duplicate); throw Failure(message: String(localized: "Couldn’t enumerate the Downloads folder.")) }
             defer { closedir(stream) }
             while true {
                 errno = 0
                 guard let entry = readdir(stream) else {
-                    try require(errno == 0, "下载目录枚举失败。")
+                    try require(errno == 0, String(localized: "Failed to enumerate the Downloads folder."))
                     break
                 }
                 let name = withUnsafePointer(to: &entry.pointee.d_name) {
@@ -112,7 +112,7 @@ nonisolated enum SteamWorkshopStorageTree {
                 case S_IFREG:
                     try require(value.st_nlink == 1 && value.st_size >= 0)
                     result.append(FileEntry(path: path, size: value.st_size, isDirectory: false))
-                default: throw Failure(message: "下载目录包含链接或特殊文件。")
+                default: throw Failure(message: String(localized: "The download directory contains a link or special file."))
                 }
             }
         }
@@ -134,7 +134,7 @@ nonisolated enum SteamWorkshopStorageTree {
             while offset < buffer.count {
                 let n = Darwin.write(fd.value, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
                 if n < 0 && errno == EINTR { continue }
-                try require(n > 0, "下载入库写入失败，可能没有足够磁盘空间。")
+                try require(n > 0, String(localized: "Writing the download to the library failed. There may not be enough disk space."))
                 offset += n
             }
         }
@@ -142,7 +142,7 @@ nonisolated enum SteamWorkshopStorageTree {
     static func readData(_ fd: FD, maximumBytes: Int,
                          checkCancellation: (() throws -> Void)? = nil) throws -> Data {
         let before = try info(fd, regular: true)
-        try require(maximumBytes >= 0 && before.st_size <= maximumBytes, "下载记录超出读取预算。")
+        try require(maximumBytes >= 0 && before.st_size <= maximumBytes, String(localized: "The download record exceeds the read budget."))
         var data = Data(count: Int(before.st_size))
         try data.withUnsafeMutableBytes { buffer in
             var offset = 0

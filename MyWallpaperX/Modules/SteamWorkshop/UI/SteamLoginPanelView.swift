@@ -17,23 +17,23 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
     static let width: CGFloat = 420
     static let height: CGFloat = 480
 
-    let modeSegment = NSSegmentedControl(labels: ["二维码登录", "账号密码"], trackingMode: .selectOne, target: nil, action: nil)
+    let modeSegment = NSSegmentedControl(labels: [String(localized: "QR Code Login"), String(localized: "Account & Password")], trackingMode: .selectOne, target: nil, action: nil)
     let qrImageView = SteamLoginQRCodeImageView()
-    let refreshQRButton = NSButton(title: "刷新二维码", target: nil, action: nil)
-    let zoomQRButton = NSButton(title: "放大查看", target: nil, action: nil)
+    let refreshQRButton = NSButton(title: String(localized: "Refresh QR Code"), target: nil, action: nil)
+    let zoomQRButton = NSButton(title: String(localized: "Enlarge"), target: nil, action: nil)
     let usernameField = WallpaperFormTextField()
     let passwordField = WallpaperFormSecureField()
     private let revealedPasswordField = WallpaperFormTextField()
     private let revealButton = NSButton(title: "", target: nil, action: nil)
     let codeField = WallpaperFormTextField()
-    let rememberCheck = NSButton(checkboxWithTitle: "记住登录，下次自动恢复", target: nil, action: nil)
-    let loginButton = NSButton(title: "登录 Steam", target: nil, action: nil)
-    let guardSubmitButton = NSButton(title: "提交验证码", target: nil, action: nil)
+    let rememberCheck = NSButton(checkboxWithTitle: String(localized: "Remember sign-in and restore it next time"), target: nil, action: nil)
+    let loginButton = NSButton(title: String(localized: "Sign In to Steam"), target: nil, action: nil)
+    let guardSubmitButton = NSButton(title: String(localized: "Submit Verification Code"), target: nil, action: nil)
     let cancelButton = WallpaperPanelCloseButton()
-    let doneButton = NSButton(title: "完成", target: nil, action: nil)
+    let doneButton = NSButton(title: String(localized: "Done"), target: nil, action: nil)
     private let submitArea = NSStackView()
     private let qrActions = NSStackView()
-    private let qrFailureLabel = NSTextField(wrappingLabelWithString: "二维码已失效\n请重新生成")
+    private let qrFailureLabel = NSTextField(wrappingLabelWithString: String(localized: "QR code expired\nGenerate a new one"))
     let statusLabel = NSTextField(wrappingLabelWithString: "")
 
     private let content = NSStackView()
@@ -76,9 +76,9 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         let titles = NSStackView()
         configureStack(titles, spacing: 4)
         titles.alignment = .leading
-        let title = NSTextField(labelWithString: "登录 Steam")
+        let title = NSTextField(labelWithString: String(localized: "Sign In to Steam"))
         title.font = .systemFont(ofSize: 22, weight: .semibold)
-        let subtitle = NSTextField(labelWithString: "连接你的创意工坊")
+        let subtitle = NSTextField(labelWithString: String(localized: "Connect Your Workshop"))
         subtitle.font = .systemFont(ofSize: 12)
         subtitle.textColor = .secondaryLabelColor
         titles.addArrangedSubview(title)
@@ -88,7 +88,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         content.addArrangedSubview(heading)
         modeSegment.segmentStyle = .rounded
         modeSegment.controlSize = .large
-        modeSegment.setAccessibilityLabel("Steam 登录方式")
+        modeSegment.setAccessibilityLabel(String(localized: "Steam Sign-In Method"))
         addFullWidth(modeSegment, to: content)
         addFullWidth(body, to: content)
         body.heightAnchor.constraint(equalToConstant: 196).isActive = true
@@ -107,7 +107,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         }
 
         rememberCheck.font = .systemFont(ofSize: 12)
-        rememberCheck.toolTip = "仅将登录令牌保存在 macOS 钥匙串，不保存密码。"
+        rememberCheck.toolTip = String(localized: "Only the sign-in token is stored in the macOS keychain, never your password.")
         content.addArrangedSubview(rememberCheck)
         configureStack(submitArea, spacing: 0)
         addFullWidth(submitArea, to: content)
@@ -125,12 +125,12 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         statusLabel.maximumNumberOfLines = 3
         statusLabel.setAccessibilityElement(true)
         statusLabel.setAccessibilityRole(.staticText)
-        statusLabel.setAccessibilityLabel("Steam 登录状态")
+        statusLabel.setAccessibilityLabel(String(localized: "Steam Sign-In Status"))
         addFullWidth(statusLabel, to: content)
         statusLabel.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        cancelButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭登录")
-        cancelButton.toolTip = "关闭并取消本次登录（Esc）"
-        cancelButton.setAccessibilityLabel("关闭登录")
+        cancelButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close Sign-In"))
+        cancelButton.toolTip = String(localized: "Close and Cancel Sign-In (Esc)")
+        cancelButton.setAccessibilityLabel(String(localized: "Close Sign-In"))
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         bodyView.addSubview(cancelButton)
         NSLayoutConstraint.activate([
@@ -176,7 +176,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
             qrPlaceholder.centerYAnchor.constraint(equalTo: qrTile.centerYAnchor)
         ])
         qrPage.addArrangedSubview(qrTile)
-        let hint = NSTextField(labelWithString: "打开 Steam 手机应用，扫码并确认登录")
+        let hint = NSTextField(wrappingLabelWithString: String(localized: "Open the Steam mobile app, scan the code, and confirm the sign-in"))
         hint.font = .systemFont(ofSize: 12)
         hint.textColor = .secondaryLabelColor
         qrPage.addArrangedSubview(hint)
@@ -191,25 +191,25 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
 
     private func buildPasswordPage() {
         configureStack(passwordPage, spacing: 16)
-        addFullWidth(fieldGroup(usernameField, title: "Steam 账号", placeholder: "输入账号名称", symbol: "person"), to: passwordPage)
-        addFullWidth(fieldGroup(passwordField, title: "密码", placeholder: "输入 Steam 密码", symbol: "key"), to: passwordPage)
+        addFullWidth(fieldGroup(usernameField, title: String(localized: "Steam Account"), placeholder: String(localized: "Enter Account Name"), symbol: "person"), to: passwordPage)
+        addFullWidth(fieldGroup(passwordField, title: String(localized: "Password"), placeholder: String(localized: "Enter Steam Password"), symbol: "key"), to: passwordPage)
         if let surface = passwordField.superview {
             // Both editors occupy the same bounds; the secure editor owns the submitted value.
             WallpaperFormFieldStyle.configure(revealedPasswordField)
             revealedPasswordField.font = passwordField.font
             revealedPasswordField.placeholderString = passwordField.placeholderString
-            revealedPasswordField.setAccessibilityLabel("密码（可见）")
+            revealedPasswordField.setAccessibilityLabel(String(localized: "Password (Visible)"))
             revealedPasswordField.isHidden = true
             revealedPasswordField.delegate = self
             passwordField.delegate = self
             revealedPasswordField.translatesAutoresizingMaskIntoConstraints = false
             surface.addSubview(revealedPasswordField)
-            revealButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "显示密码")
+            revealButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: String(localized: "Show Password"))
             revealButton.isBordered = false
             revealButton.target = self
             revealButton.action = #selector(togglePasswordVisibility)
-            revealButton.toolTip = "显示密码"
-            revealButton.setAccessibilityLabel("显示密码")
+            revealButton.toolTip = String(localized: "Show Password")
+            revealButton.setAccessibilityLabel(String(localized: "Show Password"))
             revealButton.translatesAutoresizingMaskIntoConstraints = false
             surface.addSubview(revealButton)
             for constraint in surface.constraints where constraint.firstItem as? NSView === passwordField && constraint.firstAttribute == .trailing { constraint.isActive = false }
@@ -238,8 +238,8 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         revealedPasswordField.isHidden = true
         passwordField.isHidden = false
         revealButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: nil)
-        revealButton.toolTip = "显示密码"
-        revealButton.setAccessibilityLabel("显示密码")
+        revealButton.toolTip = String(localized: "Show Password")
+        revealButton.setAccessibilityLabel(String(localized: "Show Password"))
     }
 
     @objc private func togglePasswordVisibility() {
@@ -251,8 +251,8 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
             revealedPasswordField.isHidden = false
             passwordField.isHidden = true
             revealButton.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: nil)
-            revealButton.toolTip = "隐藏密码"
-            revealButton.setAccessibilityLabel("隐藏密码")
+            revealButton.toolTip = String(localized: "Hide Password")
+            revealButton.setAccessibilityLabel(String(localized: "Hide Password"))
             window?.makeFirstResponder(revealedPasswordField)
         } else {
             hidePassword()
@@ -276,7 +276,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         guardHint.font = .systemFont(ofSize: 13)
         guardHint.alignment = .center
         addFullWidth(guardHint, to: guardPage)
-        codeGroup = fieldGroup(codeField, title: "Steam Guard 验证码", placeholder: "输入验证码", symbol: "lock.shield")
+        codeGroup = fieldGroup(codeField, title: String(localized: "Steam Guard Code"), placeholder: String(localized: "Enter Verification Code"), symbol: "lock.shield")
         codeField.alignment = .center
         codeField.font = .monospacedSystemFont(ofSize: 18, weight: .medium)
         addFullWidth(codeGroup, to: guardPage)
@@ -309,20 +309,21 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
             switch kind {
             case .deviceConfirmation:
                 needsCode = false
-                guardHint.stringValue = "请在 Steam 手机应用中\n确认本次登录请求。"
+                guardHint.stringValue = String(localized: "Confirm this sign-in request\nin the Steam mobile app.")
             case .deviceCode:
                 needsCode = true
-                guardHint.stringValue = "输入 Steam 手机令牌上显示的当前验证码。"
+                guardHint.stringValue = String(localized: "Enter the current code shown in the Steam mobile authenticator.")
             case .emailCode(let domain, _):
                 needsCode = true
-                guardHint.stringValue = "输入发送至 \(domain ?? "你的邮箱") 的验证码。"
+                let addressText = domain ?? String(localized: "your email")
+                guardHint.stringValue = String(localized: "Enter the code sent to \(addressText) as the verification code.")
             }
             codeGroup.isHidden = !needsCode
             guardSubmitButton.isHidden = !needsCode
 
         case .completed:
             guardPage.isHidden = false
-            guardHint.stringValue = "已登录 Steam\n本次登录未能保存，下次需要重新登录。"
+            guardHint.stringValue = String(localized: "Signed in to Steam\nThis sign-in couldn’t be saved; you’ll need to sign in again next time.")
             codeGroup.isHidden = true
             modeSegment.isHidden = true
             rememberCheck.isHidden = true
@@ -332,7 +333,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
 
     func setQRImage(_ image: NSImage?) {
         qrFailureLabel.isHidden = true
-        refreshQRButton.title = "刷新二维码"
+        refreshQRButton.title = String(localized: "Refresh QR Code")
         refreshQRButton.isEnabled = image != nil
         qrImageView.image = image
         zoomQRButton.isEnabled = image != nil
@@ -344,7 +345,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         qrPlaceholder.stopAnimation(nil)
         qrPlaceholder.isHidden = true
         qrFailureLabel.isHidden = false
-        refreshQRButton.title = "重新生成"
+        refreshQRButton.title = String(localized: "Regenerate")
         refreshQRButton.isEnabled = true
     }
 

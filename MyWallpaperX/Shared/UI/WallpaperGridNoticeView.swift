@@ -29,11 +29,11 @@ import AppKit
         row.spacing = 12
         row.translatesAutoresizingMaskIntoConstraints = false
         buttons.spacing = 8
-        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭提示")
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Dismiss Tip"))
         closeButton.bezelStyle = .inline
         closeButton.target = self
         closeButton.action = #selector(closeNotice)
-        closeButton.toolTip = "关闭"
+        closeButton.toolTip = String(localized: "Close")
         row.addArrangedSubview(labels)
         row.addArrangedSubview(buttons)
         row.addArrangedSubview(closeButton)

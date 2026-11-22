@@ -74,12 +74,12 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         guard WallpaperLibrarySheetPresentation.permitsInput(in: hostWindow()), permitsEditing(), let playlist = collections.snapshot.playlists.first(where: { $0.id == id }) else { return }
         let epoch = collections.snapshot.resetEpoch
         let count = collections.snapshot.members.filter { $0.playlistID == id }.count
-        let alert = makeAppAlert(title: "删除“\(playlist.name)”？",
-            message: "仅移除此列表，保留其中 \(count) 张壁纸和其他列表。",
-            style: .warning, buttons: ["移除", "取消"])
+        let alert = makeAppAlert(title: String(localized: "Delete “\(playlist.name)”?"),
+            message: String(localized: "Only this list will be removed. Its \(count) wallpapers and your other lists will be kept."),
+            style: .warning, buttons: [String(localized: "Remove"), String(localized: "Cancel")])
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            self.run(epoch: epoch, operation: { try await self.collections.perform(.deletePlaylist(id), undoName: "删除列表") }) { _ in self.onDidEdit?(id, true) }
+            self.run(epoch: epoch, operation: { try await self.collections.perform(.deletePlaylist(id), undoName: String(localized: "Delete List")) }) { _ in self.onDidEdit?(id, true) }
         }
     }
 
@@ -97,7 +97,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         guard ids != current else { completion(.success(collections.snapshot.revision)); return }
         Task { @MainActor in
             do {
-                let committed = try await collections.perform(.reorderPlaylists(ids), undoName: "调整列表顺序", expectedEpoch: epoch)
+                let committed = try await collections.perform(.reorderPlaylists(ids), undoName: String(localized: "Reorder List"), expectedEpoch: epoch)
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else {
                     throw UserCollectionsError.staleResetEpoch
                 }
@@ -105,7 +105,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
             } catch {
                 completion(.failure(error))
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
-                let alert = makeAppAlert(title: "播放列表操作未完成", message: error.localizedDescription, buttons: ["好"])
+                let alert = makeAppAlert(title: String(localized: "Playlist Action Failed"), message: error.localizedDescription, buttons: [String(localized: "OK")])
                 presentAppAlert(alert, in: hostWindow())
             }
         }
@@ -113,7 +113,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
 
     func add(_ items: [WallpaperOrganizationItem], to id: UUID, completion: (() -> Void)? = nil) {
         let epoch = collections.snapshot.resetEpoch
-        run(epoch: epoch, operation: { try await self.collections.perform(.addMembers(id, items, Date()), undoName: "添加到列表") }) { _ in
+        run(epoch: epoch, operation: { try await self.collections.perform(.addMembers(id, items, Date()), undoName: String(localized: "Add to Playlist")) }) { _ in
             completion?()
             self.onDidEdit?(id, false)
         }
@@ -134,7 +134,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
                 completion?(value)
             } catch {
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
-                let alert = makeAppAlert(title: "播放列表操作未完成", message: error.localizedDescription, buttons: ["好"])
+                let alert = makeAppAlert(title: String(localized: "Playlist Action Failed"), message: error.localizedDescription, buttons: [String(localized: "OK")])
                 presentAppAlert(alert, in: hostWindow())
             }
         }

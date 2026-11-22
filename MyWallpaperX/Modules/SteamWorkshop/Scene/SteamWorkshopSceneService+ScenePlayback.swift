@@ -47,7 +47,7 @@ extension SteamWorkshopService {
             NotificationCenter.default.post(name: .steamWorkshopSceneReadyToRender,
                 object: nil, userInfo: ["request": request])
         }
-        statusMessage = "正在后台准备 \(record.title)，当前壁纸会继续播放"
+        statusMessage = String(localized: "Preparing \(record.title) in the background; the current wallpaper keeps playing")
         return true
     }
 }

@@ -23,13 +23,13 @@ nonisolated enum PersonalSettingsError: Error, LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedSchema(let version): return "个人设置版本 \(version) 不受支持，请使用当前版本导出的文件。"
-        case .invalidPayload(let field): return "个人设置内容无效：\(field)"
-        case .importInProgress: return "个人设置正在导入，请等待完成。"
-        case .recoveryRequired(let stage): return "个人设置导入未完成（\(stage)）。恢复依据已保留，暂不能继续整理资料库。"
-        case .sourceChanged: return "来源资料已在导入后发生变化，不能用旧配置覆盖，请保留恢复文件。"
-        case .preferencesChanged: return "偏好已在导入后发生变化，不能用旧配置覆盖，请保留恢复文件。"
-        case .indexLoading: return "资料库仍在载入，请载入完成后再导入或导出设置。"
+        case .unsupportedSchema(let version): return String(localized: "Personal settings version \(version) isn’t supported; use a file exported by the current version.")
+        case .invalidPayload(let field): return String(localized: "Invalid personal settings content: \(field)")
+        case .importInProgress: return String(localized: "Personal settings are being imported; wait for it to finish.")
+        case .recoveryRequired(let stage): return String(localized: "Personal settings import didn’t finish (\(stage)). Recovery data was kept, so you can’t organize the library yet.")
+        case .sourceChanged: return String(localized: "The source data changed after import and can’t be overwritten with the old configuration. Keep the recovery file.")
+        case .preferencesChanged: return String(localized: "Settings changed after the import, so the old set can’t overwrite them. Keep the recovery file.")
+        case .indexLoading: return String(localized: "The library is still loading. Wait for it to finish before importing or exporting settings.")
         }
     }
 }

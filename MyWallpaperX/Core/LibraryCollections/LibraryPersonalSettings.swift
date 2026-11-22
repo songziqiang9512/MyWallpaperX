@@ -50,7 +50,7 @@ nonisolated enum LibraryPersonalSettings {
         collections.aliases = state.aliases
         let covers = try checkedCoverAssets(coverAssets)
         let needed = Set(state.playlists.compactMap(\.customCoverAssetID))
-        guard needed.isSubset(of: Set(covers.keys)) else { throw PersonalSettingsError.invalidPayload("列表封面副本缺失") }
+        guard needed.isSubset(of: Set(covers.keys)) else { throw PersonalSettingsError.invalidPayload(String(localized: "The list cover copy is missing.")) }
         collections.coverAssets = needed.sorted { $0.uuidString < $1.uuidString }.compactMap { covers[$0] }
         let excluded = Set(state.excludedLibraryReferences.map { canonical[$0.reference] ?? $0.reference })
         collections.libraryExclusionStates = references.filter {
@@ -72,7 +72,7 @@ nonisolated enum LibraryPersonalSettings {
         for source in sources {
             try validate(source)
             guard sourceByRef.updateValue(source, forKey: source.reference) == nil else {
-                throw PersonalSettingsError.invalidPayload("重复来源 ID")
+                throw PersonalSettingsError.invalidPayload(String(localized: "Duplicate Source ID"))
             }
             sourceByPath[source.reference.provider, default: [:]][normalizedPaths[source.path] ?? source.path] = source
         }
@@ -107,7 +107,7 @@ nonisolated enum LibraryPersonalSettings {
         var declarations: [WallpaperReference: PersonalSettingsLocalSource] = [:]
         for source in payload.sources {
             if let previous = declarations[source.reference], previous != source {
-                throw PersonalSettingsError.invalidPayload("来源 ID 声明冲突")
+                throw PersonalSettingsError.invalidPayload(String(localized: "Source ID Declaration Conflict"))
             }
             declarations[source.reference] = source
             _ = try merge(source)
@@ -166,7 +166,7 @@ nonisolated enum LibraryPersonalSettings {
     private static func validate(_ source: PersonalSettingsLocalSource) throws {
         guard [.videoLibrary, .staticImageLibrary].contains(source.reference.provider),
               !source.reference.sourceID.isEmpty, !source.path.isEmpty else {
-            throw PersonalSettingsError.invalidPayload("本地来源引用")
+            throw PersonalSettingsError.invalidPayload(String(localized: "Local Source Reference"))
         }
     }
 
@@ -176,47 +176,47 @@ nonisolated enum LibraryPersonalSettings {
         for playlist in payload.playlists {
             guard ids.insert(playlist.id).inserted, !playlist.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, playlist.sidebarRank >= 0,
                   playlist.createdAt.timeIntervalSince1970.isFinite, playlist.modifiedAt.timeIntervalSince1970.isFinite else {
-                throw PersonalSettingsError.invalidPayload("播放列表")
+                throw PersonalSettingsError.invalidPayload(String(localized: "Playlist"))
             }
             if let id = playlist.customCoverAssetID, covers[id] == nil {
-                throw PersonalSettingsError.invalidPayload("列表封面副本缺失")
+                throw PersonalSettingsError.invalidPayload(String(localized: "The list cover copy is missing."))
             }
         }
         for member in payload.members {
             guard ids.contains(member.playlistID), !member.reference.sourceID.isEmpty, member.position >= 0,
-                  member.addedAt.timeIntervalSince1970.isFinite else { throw PersonalSettingsError.invalidPayload("列表成员") }
+                  member.addedAt.timeIntervalSince1970.isFinite else { throw PersonalSettingsError.invalidPayload(String(localized: "List Members")) }
         }
         let previous = try aliasMap(state.aliases)
         var aliases = Dictionary(uniqueKeysWithValues: state.aliases.map { ($0.alias, $0) })
         var incoming = Set<WallpaperReference>()
         for alias in payload.aliases {
-            guard incoming.insert(alias.alias).inserted else { throw PersonalSettingsError.invalidPayload("重复身份声明") }
+            guard incoming.insert(alias.alias).inserted else { throw PersonalSettingsError.invalidPayload(String(localized: "Duplicate Identity Declaration")) }
             let existing = previous[alias.alias] ?? alias.alias
             let target = previous[alias.canonical] ?? alias.canonical
-            guard existing == alias.alias || existing == target else { throw PersonalSettingsError.invalidPayload("身份声明冲突") }
+            guard existing == alias.alias || existing == target else { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration Conflict")) }
             if let prior = aliases[alias.alias] {
-                guard (previous[prior.canonical] ?? prior.canonical) == target else { throw PersonalSettingsError.invalidPayload("身份声明冲突") }
+                guard (previous[prior.canonical] ?? prior.canonical) == target else { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration Conflict")) }
             } else { aliases[alias.alias] = alias }
         }
         let canonical = try aliasMap(Array(aliases.values))
         for alias in state.aliases {
-            guard canonical[alias.alias] == previous[alias.alias] else { throw PersonalSettingsError.invalidPayload("身份声明重定向") }
+            guard canonical[alias.alias] == previous[alias.alias] else { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration Redirect")) }
         }
         var states: [WallpaperReference: Bool] = [:]
         for favorite in payload.favoriteStates {
             guard !favorite.reference.sourceID.isEmpty,
-                  favorite.favoritedAt?.timeIntervalSince1970.isFinite != false else { throw PersonalSettingsError.invalidPayload("特别喜爱") }
+                  favorite.favoritedAt?.timeIntervalSince1970.isFinite != false else { throw PersonalSettingsError.invalidPayload(String(localized: "Favorite")) }
             let reference = canonical[favorite.reference] ?? favorite.reference
-            if let previous = states[reference], previous != favorite.isFavorite { throw PersonalSettingsError.invalidPayload("喜爱状态冲突") }
+            if let previous = states[reference], previous != favorite.isFavorite { throw PersonalSettingsError.invalidPayload(String(localized: "Favorite Status Conflict")) }
             states[reference] = favorite.isFavorite
         }
-        guard payload.locators.allSatisfy({ !$0.reference.sourceID.isEmpty }) else { throw PersonalSettingsError.invalidPayload("来源提示") }
+        guard payload.locators.allSatisfy({ !$0.reference.sourceID.isEmpty }) else { throw PersonalSettingsError.invalidPayload(String(localized: "Source Hint")) }
         var exclusions: [WallpaperReference: Bool] = [:]
         for item in payload.libraryExclusionStates {
-            guard !item.reference.sourceID.isEmpty else { throw PersonalSettingsError.invalidPayload("库隐藏引用") }
+            guard !item.reference.sourceID.isEmpty else { throw PersonalSettingsError.invalidPayload(String(localized: "Library Hidden Reference")) }
             let reference = canonical[item.reference] ?? item.reference
             if let previous = exclusions.updateValue(item.isExcluded, forKey: reference), previous != item.isExcluded {
-                throw PersonalSettingsError.invalidPayload("库隐藏状态冲突")
+                throw PersonalSettingsError.invalidPayload(String(localized: "Library Hidden State Conflict"))
             }
         }
         return canonical
@@ -225,9 +225,9 @@ nonisolated enum LibraryPersonalSettings {
     private static func checkedCoverAssets(_ assets: [WallpaperPlaylistCoverAsset]) throws -> [UUID: WallpaperPlaylistCoverAsset] {
         var result: [UUID: WallpaperPlaylistCoverAsset] = [:]
         for asset in assets {
-            guard asset.isValidControlledCopy else { throw PersonalSettingsError.invalidPayload("列表封面副本") }
+            guard asset.isValidControlledCopy else { throw PersonalSettingsError.invalidPayload(String(localized: "List Cover Copy")) }
             if let previous = result.updateValue(asset, forKey: asset.id), previous != asset {
-                throw PersonalSettingsError.invalidPayload("列表封面副本 ID 冲突")
+                throw PersonalSettingsError.invalidPayload(String(localized: "List Cover Copy ID Conflict"))
             }
         }
         return result
@@ -237,15 +237,15 @@ nonisolated enum LibraryPersonalSettings {
         var edges: [WallpaperReference: WallpaperReference] = [:]
         for alias in aliases {
             guard !alias.alias.sourceID.isEmpty, !alias.canonical.sourceID.isEmpty,
-                  alias.alias != alias.canonical else { throw PersonalSettingsError.invalidPayload("身份声明") }
-            if let previous = edges[alias.alias], previous != alias.canonical { throw PersonalSettingsError.invalidPayload("身份声明冲突") }
+                  alias.alias != alias.canonical else { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration")) }
+            if let previous = edges[alias.alias], previous != alias.canonical { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration Conflict")) }
             edges[alias.alias] = alias.canonical
         }
         var resolved: [WallpaperReference: WallpaperReference] = [:]
         for source in edges.keys {
             var cursor = source, seen = Set<WallpaperReference>()
             while let next = edges[cursor] {
-                guard seen.insert(cursor).inserted else { throw PersonalSettingsError.invalidPayload("身份声明环") }
+                guard seen.insert(cursor).inserted else { throw PersonalSettingsError.invalidPayload(String(localized: "Identity Declaration Cycle")) }
                 cursor = next
             }
             resolved[source] = cursor

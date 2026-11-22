@@ -125,6 +125,7 @@
 				Native/SystemWallpaperRuntime.swift,
 				Native/SystemWallpaperVideoSurface.swift,
 				Native/SystemWallpaperWire.swift,
+				Resources/Localizable.xcstrings,
 			);
 			target = 98CED6382F6AF877005688A8 /* MyWallpaperX */;
 		};
@@ -350,8 +351,11 @@
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				de,
+				en,
+				fr,
+				ru,
 				"zh-Hans",
 			);
 			mainGroup = 98CED6302F6AF877005688A8;

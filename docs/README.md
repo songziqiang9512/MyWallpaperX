@@ -49,6 +49,7 @@
 - [UI正确性与交互链审查](development/ui-quality-audit.md)：本轮审查、修复与验证入口；[前轮结算](history/cross-topic/ui-quality-audit-completed-2026-10-27.md)，稳定职责归AppKit合同。
 - [代码精简专项](development/code-slimming-program.md)：先读当前范围、最近验证和未解决项；已结批次沿页内历史指针按需回查。
 - [全模块缩略图交付与复用](development/thumbnail-delivery-design.md#overview)：网格、详情、picker、列表小图的统一请求与代码复用；本地/在线获取分界、旧链退出及呈现验收。
+- [语言适配（本地化）标准](development/localization-contract.md)：英文源语言与系统语言选择、String Catalog、禁译边界、术语与字符长度布局、源码文案变更的译文同步检查；[迁移计划](development/localization-plan.md)管理分批实施、验收与退出。
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
 - [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。
 - [Agent 自动发布与签名](release/release-signing.md)：一句话发布、正式更新日志、Developer ID、notarization 与发布结果核验。

@@ -107,14 +107,14 @@ extension SteamWorkshopService {
         // 阻止后续 filter 属性 didSet 触发 navigateToBrowse()，避免在作者工坊语境下误抓取
         suppressAutomaticBrowseNavigation = true
         browseContext = .authorWorkshop(
-            authorName: item.author.isEmpty ? "未知作者" : item.author,
+            authorName: item.author,
             workshopURL: workshopURL
         )
         setBrowserQuery("")
         navigationVersion += 1
         currentWorkshopItemID = nil
         currentPageTitle = browseContext.isAuthorWorkshop ? browseContext.title : source.pageTitle
-        statusMessage = "正在加载作者工坊列表…"
+        statusMessage = String(localized: "Loading author's Workshop list…")
         fetchBrowserItems()
         requestSteamWorkshopBrowserSelection()
     }
@@ -231,7 +231,7 @@ extension SteamWorkshopService {
             fetchBrowserItems(forceRefresh: true)
             return
         }
-        statusMessage = "已加载 \(browserItems.count) 项。排序和筛选仅作用于已加载项目。"
+        statusMessage = String(localized: "Loaded \(browserItems.count) items. Sorting and filtering apply only to loaded items.")
     }
 
     func makeDiscoveryBrowseSnapshot() -> SteamWorkshopDiscoveryBrowseSnapshot {
@@ -241,7 +241,7 @@ extension SteamWorkshopService {
             browserState: browserState,
             hasMoreBrowserItems: hasMoreBrowserItems,
             browserLoadMoreFailureMessage: browserLoadMoreFailureMessage,
-            statusMessage: isRefreshingBrowserFeed ? "已加载 \(browserItems.count) 项。" : statusMessage,
+            statusMessage: isRefreshingBrowserFeed ? String(localized: "Loaded \(browserItems.count) items.") : statusMessage,
             currentPageTitle: currentPageTitle,
             browserQuery: browserQuery,
             currentWorkshopItemID: currentWorkshopItemID,

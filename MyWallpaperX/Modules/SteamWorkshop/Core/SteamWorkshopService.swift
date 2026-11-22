@@ -130,10 +130,12 @@ final class SteamWorkshopService: ObservableObject {
     @Published var facetFilters: SteamWorkshopBrowseFacetFilters = .none {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
-    @Published var statusMessage: String = "浏览页使用 SteamKit 结构化数据展示 Wallpaper Engine 创意工坊内容。"
+    @Published var statusMessage: String = String(localized: "The Browse page uses SteamKit structured data to show Wallpaper Engine Workshop content.")
+    /// Browsing was refused because the account is not signed in; drives toolbar attention.
+    @Published var browsingNeedsSignIn: Bool = false
     @Published var currentWorkshopItemID: String?
-    @Published var currentPageTitle: String = "Steam 创意工坊"
-    @Published var browserSectionTitle: String = "Steam 创意工坊"
+    @Published var currentPageTitle: String = String(localized: "Steam Workshop")
+    @Published var browserSectionTitle: String = String(localized: "Steam Workshop")
     @Published var isBrowsingAuthorWorkshop = false
     @Published var activeAuthorWorkshopName: String?
     @Published var navigationVersion: Int = 0
@@ -165,7 +167,7 @@ final class SteamWorkshopService: ObservableObject {
             read: { [weak self] id in
                 guard let self else { throw CancellationError() }
                 let states = try await self.steamWorkshopQueryClient.subscriptionStates(ids: [id])
-                guard let value = states[id] else { throw SteamServiceClient.RequestError.helperError(code: "protocolMismatch", message: "订阅状态缺失。") }
+                guard let value = states[id] else { throw SteamServiceClient.RequestError.helperError(code: "protocolMismatch", message: String(localized: "Subscription status is missing.")) }
                 return value
             },
             write: { [weak self] id, desired in
@@ -215,7 +217,7 @@ final class SteamWorkshopService: ObservableObject {
                 )
                 guard self.steamAuth.client.accountEpoch == restoreEpoch else { return }
                 if saved.accountName.isEmpty == false {
-                    self.statusMessage = "已恢复 Steam 登录（\(saved.accountName)）。"
+                    self.statusMessage = String(localized: "Steam sign-in restored (\(saved.accountName)).")
                 }
                 _ = steamId
             } catch is CancellationError {
@@ -226,20 +228,20 @@ final class SteamWorkshopService: ObservableObject {
                 // 账号不一致与过期都删令牌+标过期，但文案区分（不能匹配
                 // localizedDescription——Swift 枚举错误默认不含关联 message）。
                 var mismatch = false
-                if case let .helperError(_, message) = error as? SteamServiceClient.RequestError,
-                   message.contains("不一致") {
+                if case let .helperError(code, _) = error as? SteamServiceClient.RequestError,
+                   code == "accountMismatch" {
                     mismatch = true
                 }
                 switch SteamAuthRoute.disposition(for: error) {
                 case .deleteToken:
                     self.statusMessage = mismatch
-                        ? "保存的登录与实际账号不一致，已停止恢复。请重新登录。"
-                        : "保存的 Steam 登录已过期。请使用工具栏的「登录 Steam」重新登录。"
+                        ? String(localized: "The saved login doesn’t match the actual account, so restoring stopped. Sign in again.")
+                        : String(localized: "The saved Steam login has expired. Sign in again with “Sign In to Steam” in the toolbar.")
                     if self.steamAuth.tokenDeletionFailed {
-                        self.statusMessage += " 已禁止自动恢复，但 Keychain 清理失败。"
+                        self.statusMessage += String(localized: " Automatic restore has been disabled, but Keychain cleanup failed.")
                     }
                 case .keepToken:
-                    self.statusMessage = "已保存的 Steam 登录暂无法恢复（网络原因），保留登录信息，下次启动再试。"
+                    self.statusMessage = String(localized: "The saved Steam sign-in can’t be restored right now (network issue). Sign-in details are kept and will be retried at next launch.")
                 }
             }
         }
@@ -252,10 +254,10 @@ final class SteamWorkshopService: ObservableObject {
         let hasActiveDownloads = !activeDownloadTasks.isEmpty || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
             let alert = NSAlert()
-            alert.messageText = "退出 Steam 登录？"
-            alert.informativeText = "进行中和排队中的下载任务将被停止；已下载的文件和当前壁纸不受影响。"
-            alert.addButton(withTitle: "退出登录")
-            alert.addButton(withTitle: "取消")
+            alert.messageText = String(localized: "Sign Out of Steam?")
+            alert.informativeText = String(localized: "Downloads in progress and queued will be stopped. Downloaded files and the current wallpaper aren’t affected.")
+            alert.addButton(withTitle: String(localized: "Sign Out"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
             if runAppAlert(alert) != .alertFirstButtonReturn { return }
         }
         guard steamAuth.client.accountEpoch == accountEpoch, steamAuth.steamId == accountID else { return }
@@ -270,12 +272,12 @@ final class SteamWorkshopService: ObservableObject {
                 self.steamJobItemPayloads.removeValue(forKey: workshopID)
             }
             if !self.downloadJobStore.lastSaveSucceeded {
-                self.downloadError = "取消队列未能保存；任务执行已停止，请检查磁盘后重试。"
+                self.downloadError = String(localized: "The cancellation queue couldn’t be saved. Task execution has stopped; check the disk and try again.")
             }
             let cleared = await self.steamAuth.signOut()
             guard self.steamAuth.client.accountEpoch == accountEpoch + 1, self.steamAuth.phase == .idle else { return }
-            self.statusMessage = cleared ? "已退出 Steam 登录。"
-                : "已退出并禁止自动恢复，但 Keychain 中的旧令牌清理失败。"
+            self.statusMessage = cleared ? String(localized: "Signed out of Steam.")
+                : String(localized: "Signed out and automatic restore disabled, but the old token couldn’t be removed from Keychain.")
         }
     }
 

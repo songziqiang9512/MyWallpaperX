@@ -23,7 +23,7 @@ import AppKit
     title: String,
     message: String = "",
     style: NSAlert.Style = .informational,
-    buttons: [String] = ["确定"],
+    buttons: [String] = [String(localized: "OK")],
     accessoryView: NSView? = nil
 ) -> NSAlert {
     // AppKit owns the alert window, material and layout. Callers own the
@@ -83,7 +83,7 @@ import AppKit
     // NSAlert recognizes English Cancel automatically. Keep explicit Escape
     // keys and give the App's Chinese no-op choices the same public shortcut.
     guard !alert.buttons.contains(where: { $0.keyEquivalent == "\u{1b}" }) else { return nil }
-    if let cancel = alert.buttons.first(where: { ["取消", "保留", "稍后"].contains($0.title) })
+    if let cancel = alert.buttons.first(where: { [String(localized: "Cancel"), String(localized: "Keep"), String(localized: "Later")].contains($0.title) })
         ?? (alert.buttons.count == 1 ? alert.buttons.first : nil) {
         if cancel === alert.buttons.first {
             // A native button has one key equivalent. Preserve its original

@@ -362,8 +362,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         if reusable { preparedProcess = nil; prepared?.timeout?.cancel() }
         else { discardPreparedProcess() }
         guard let transport = reusable ? prepared?.transport : makeTransport(requestID: request.id) else {
-            switchFailed?(ticket, "Web 宿主可执行文件不可用")
-            eventHandler?(.failed(message: "Web 宿主可执行文件不可用", requestID: request.id)); return
+            switchFailed?(ticket, String(localized: "The web host executable isn’t available"))
+            eventHandler?(.failed(message: String(localized: "The web host executable isn’t available"), requestID: request.id)); return
         }
         let session = Session(request: request, state: state, transport: transport,
             recoveryAttempt: recoveryAttempt, ticket: ticket)
@@ -380,7 +380,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             guard let self, let session else { return }
             self.didExit(session)
         }
-        armSessionTimeout(session, after: 45, message: "Web 壁纸准备超时，保留原壁纸")
+        armSessionTimeout(session, after: 45, message: String(localized: "Web wallpaper preparation timed out; keeping the current wallpaper"))
         publishAudioDemand(force: true)
         if reusable {
             if prepared?.hello == true { receive(.hello, from: session) }
@@ -508,12 +508,12 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                   let envelope = try? JSONDecoder().decode(WebDaemonEnvelope<WebDaemonEvent>.self, from: frame),
                   envelope.version == WebDaemonProtocol.version,
                   envelope.requestID == session.request.id else {
-                fail(session, message: "Web 宿主返回了无效协议数据"); return
+                fail(session, message: String(localized: "The Web host returned invalid protocol data")); return
             }
             receive(envelope.payload, from: session)
         }
         if session.frames.pendingByteCount > WebDaemonProtocol.maximumFrameBytes {
-            fail(session, message: "Web 宿主协议数据超出限制")
+            fail(session, message: String(localized: "Web host protocol data exceeds the limit"))
         }
     }
 
@@ -530,7 +530,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             NSLog("MWX WEB STARTUP request=%@ stage=process elapsedMs=%.1f", session.request.id.uuidString,
                   (ProcessInfo.processInfo.systemUptime - session.startedAt) * 1_000)
 #endif
-            guard !session.hello else { fail(session, message: "Web 宿主重复握手"); return }
+            guard !session.hello else { fail(session, message: String(localized: "Duplicate Web host handshake")); return }
             session.hello = true
 #if DEBUG
             if session.startupTiming != nil, session.startupTiming?.helloReceivedAt == nil {
@@ -643,10 +643,10 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         guard !session.isRetiring else { return }
         guard let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: session.request.id, payload: command)),
               data.count <= WebDaemonProtocol.maximumFrameBytes else {
-            fail(session, message: "Web 宿主命令编码失败或超出限制"); return
+            fail(session, message: String(localized: "Failed to encode the Web host command, or it exceeds the limit")); return
         }
         let sent = command.isLatestValue ? session.transport.sendLatest(data) : session.transport.sendRequired(data)
-        if !sent { fail(session, message: "Web 宿主命令通道不可用") }
+        if !sent { fail(session, message: String(localized: "The Web host command channel is unavailable")) }
     }
 
     func fail(_ session: Session, message: String) {
@@ -714,7 +714,7 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         cancelling.removeValue(forKey: ObjectIdentifier(session))
         retiring.removeValue(forKey: ObjectIdentifier(session))
         if session.isRetiring && !session.shouldRecoverOnExit { return }
-        if candidate === session { fail(session, message: "Web 壁纸准备进程意外退出"); return }
+        if candidate === session { fail(session, message: String(localized: "The Web wallpaper preparation process exited unexpectedly")); return }
         guard active === session else { return }
         active = nil
         updateSpectrumTargets()
@@ -723,8 +723,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         } ?? session.recoveryAttempt
         guard attempt < 2 else {
             eventHandler?(.stopped(requestID: session.request.id))
-            switchLost?(session.ticket, "Web 宿主反复退出")
-            eventHandler?(.failed(message: "Web 宿主反复退出", requestID: session.request.id))
+            switchLost?(session.ticket, String(localized: "The web host keeps exiting"))
+            eventHandler?(.failed(message: String(localized: "The web host keeps exiting"), requestID: session.request.id))
             return
         }
         pendingRecovery = (session, attempt + 1)

@@ -142,7 +142,7 @@ extension SceneDesktopWallpaperHost {
             let recordID = self.activeSession?.activeRecordID
             self.rollbackUnconfirmedPromotion()
             self.publishLaunchState(.init(requestID: requestID, recordID: recordID,
-                phase: .failed, message: "Scene 首帧未能显示，已恢复之前的壁纸"))
+                phase: .failed, message: String(localized: "The first Scene frame couldn’t be shown; the previous wallpaper was restored.")))
         }
         presentationDeadline = deadline
         DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: deadline)
@@ -186,7 +186,7 @@ extension SceneDesktopWallpaperHost {
             let recordID = activeSession?.activeRecordID
             rollbackUnconfirmedPromotion()
             publishLaunchState(.init(requestID: requestID, recordID: recordID,
-                phase: .cancelled, message: "已取消 Scene 壁纸准备"))
+                phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled")))
         } else if launchState?.requestID == requestID {
             cancelPendingLaunch()
         }

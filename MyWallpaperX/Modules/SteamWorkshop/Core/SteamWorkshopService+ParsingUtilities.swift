@@ -60,21 +60,21 @@ extension SteamWorkshopService {
     nonisolated static func visibilityText(for visibility: Int?) -> String? {
         guard let visibility else { return nil }
         switch visibility {
-        case 0: return "公开"
-        case 1: return "好友可见"
-        case 2: return "私有"
-        case 3: return "未列出"
-        default: return "可见性 \(visibility)"
+        case 0: return String(localized: "Public")
+        case 1: return String(localized: "Friends Only")
+        case 2: return String(localized: "Private")
+        case 3: return String(localized: "Unlisted")
+        default: return String(localized: "Visibility \(visibility)")
         }
     }
 
     nonisolated static func moderationText(banned: Int?, banReason: String?) -> String? {
         guard let banned else { return nil }
         if banned == 0 {
-            return "正常"
+            return String(localized: "Normal")
         }
         let reason = normalizeText(banReason ?? "")
-        return reason.isEmpty ? "已封禁" : "已封禁 · \(reason)"
+        return reason.isEmpty ? String(localized: "Banned") : String(localized: "Banned · \(reason)")
     }
 
     nonisolated static func preferredTag(in tags: [String], matching candidates: [String]) -> String? {

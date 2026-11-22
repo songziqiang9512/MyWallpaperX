@@ -29,7 +29,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private var currentTitle = ""
     private var currentMetadata = ""
     private let thumbnailImageView = NSImageView()
-    private let placeholderLabel = NSTextField(labelWithString: "生成中...")
+    private let placeholderLabel = NSTextField(labelWithString: String(localized: "Generating..."))
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = WallpaperLibraryControlStyle.selectionCheckmark()
     private var controlBar: WallpaperCardControlsView?
@@ -96,7 +96,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         isMultiSelectMode = false
         isSelectedState = false
         thumbnailImageView.image = nil
-        placeholderLabel.stringValue = "生成中..."
+        placeholderLabel.stringValue = String(localized: "Generating...")
         placeholderLabel.toolTip = nil
         placeholderLabel.isHidden = true
         multiSelectBadge.isHidden = true
@@ -199,7 +199,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         imageTaskID = requestID
         let loading = DispatchWorkItem { [weak self] in
             guard let self, self.imageTaskID == requestID, self.thumbnailImageView.image == nil else { return }
-            self.placeholderLabel.stringValue = "生成中..."
+            self.placeholderLabel.stringValue = String(localized: "Generating...")
             self.placeholderLabel.isHidden = false
         }
         loadingPlaceholderWorkItem = loading
@@ -223,16 +223,16 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
                 self.placeholderLabel.isHidden = false
                 let normalizedPath = wallpaperManager.normalizedPath(wallpaper.path)
                 if !wallpaperManager.normalizedSourcePathExists(wallpaper.path) {
-                    self.placeholderLabel.stringValue = "请检查文件路径"
+                    self.placeholderLabel.stringValue = String(localized: "Check the file path")
                     self.placeholderLabel.toolTip = nil
                 } else if wallpaperManager.isThumbnailGenerationInFlight(for: normalizedPath) {
-                    self.placeholderLabel.stringValue = "生成中..."
+                    self.placeholderLabel.stringValue = String(localized: "Generating...")
                     self.placeholderLabel.toolTip = nil
                 } else if wallpaperManager.hasRecentThumbnailGenerationFailure(for: normalizedPath) {
-                    self.placeholderLabel.stringValue = "缩略图生成失败"
+                    self.placeholderLabel.stringValue = String(localized: "Couldn’t Generate Thumbnail")
                     self.placeholderLabel.toolTip = nil
                 } else {
-                    self.placeholderLabel.stringValue = "生成中..."
+                    self.placeholderLabel.stringValue = String(localized: "Generating...")
                     self.placeholderLabel.toolTip = nil
                 }
             }

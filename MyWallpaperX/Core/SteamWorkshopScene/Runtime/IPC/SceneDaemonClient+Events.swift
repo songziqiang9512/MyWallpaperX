@@ -429,7 +429,7 @@ extension SceneDaemonClient {
                 requestID: requestID,
                 recordID: recordID,
                 phase: .failed,
-                message: "Scene daemon 连续启动失败，已停止自动重试"
+                message: String(localized: "Scene daemon failed to start repeatedly. Automatic retry stopped.")
             )
             launchState = state
             let ticket = pendingSwitchTicket

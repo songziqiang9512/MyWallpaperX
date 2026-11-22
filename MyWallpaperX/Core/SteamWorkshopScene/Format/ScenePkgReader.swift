@@ -41,19 +41,19 @@ nonisolated struct ScenePkgReader {
         var errorDescription: String? {
             switch self {
             case .fileTooSmall:
-                return "Scene 资源包过小，无法读取 PKGV 头。"
+                return String(localized: "The Scene resource pack is too small to read the PKGV header.")
             case let .invalidMagic(magic):
-                return "Scene 资源包 magic 不匹配：\(magic)"
+                return String(localized: "Scene resource pack magic mismatch: \(magic)")
             case .truncatedTable:
-                return "Scene 资源包文件表不完整。"
+                return String(localized: "The Scene resource pack file table is incomplete.")
             case .invalidPathData:
-                return "Scene 资源包文件表包含无法解析的路径。"
+                return String(localized: "The Scene resource pack file table contains an unparsable path.")
             case let .limitExceeded(name):
-                return "Scene 资源包读取超过预算：\(name)"
+                return String(localized: "Scene resource pack read exceeded its budget: \(name)")
             case .invalidSource:
-                return "Scene 资源包来源不是可读取的普通文件。"
+                return String(localized: "The Scene resource pack source isn’t a readable regular file.")
             case .sourceChanged:
-                return "Scene 资源包在读取期间发生变化或被截断。"
+                return String(localized: "The Scene resource bundle changed or was truncated while being read.")
             }
         }
     }

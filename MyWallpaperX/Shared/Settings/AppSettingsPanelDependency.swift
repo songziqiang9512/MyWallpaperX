@@ -7,10 +7,10 @@ struct AppSettingsActions {
     var applyEngineSettings: (_ reloadWallpaper: Bool) -> Void = { _ in }
     var clearAllCaches: () async -> Void = {}
     var exportPersonalSettings: (_ url: URL) async throws -> PersonalSettingsExportSummary = { _ in
-        throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪")
+        throw PersonalSettingsError.recoveryRequired(String(localized: "Settings export isn’t ready yet"))
     }
     var importPersonalSettings: (_ url: URL) async throws -> PersonalSettingsImportSummary = { _ in
-        throw PersonalSettingsError.recoveryRequired("设置导入尚未就绪")
+        throw PersonalSettingsError.recoveryRequired(String(localized: "Settings import isn’t ready yet"))
     }
     var refreshAutoSwitchTimerIfNeeded: () -> Void = {}
     var resetToFreshInstallState: () -> Void = {}

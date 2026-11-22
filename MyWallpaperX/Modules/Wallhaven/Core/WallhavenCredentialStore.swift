@@ -35,6 +35,6 @@ actor WallhavenCredentialStore {
         guard added == errSecSuccess else { throw failure(added) }
     }
     private func failure(_ status: OSStatus) -> Error {
-        NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: [NSLocalizedDescriptionKey: "无法读写 Wallhaven API Key，请检查钥匙串权限。"])
+        NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: [NSLocalizedDescriptionKey: String(localized: "Couldn’t read or write the Wallhaven API key. Check Keychain permissions.")])
     }
 }

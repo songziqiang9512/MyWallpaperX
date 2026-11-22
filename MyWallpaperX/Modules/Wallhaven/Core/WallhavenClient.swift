@@ -40,13 +40,13 @@ actor WallhavenClient {
 
     func page(query: WallhavenQuery, request: OnlineImagePageRequest = .init()) async throws -> OnlineImagePage {
         if query.purity.last == "1", apiKey == nil {
-            throw OnlineImageError.message("访问 NSFW 内容需要填写 Wallhaven API Key。")
+            throw OnlineImageError.message(String(localized: "Accessing NSFW content requires a Wallhaven API key."))
         }
         let items = try query.queryItems(page: request.page, seed: request.seed)
         let random = query.sorting == .random
         if random, request.page > 1, request.seed?.isEmpty != false {
             return OnlineImagePage(items: [], next: nil,
-                notice: "缺少随机分页种子，已停止连续翻页；请刷新获取新一批。")
+                notice: String(localized: "The random paging seed is missing, so continuous paging has stopped. Refresh to get a new batch."))
         }
         let data = try await fetch(path: "/api/v1/search", items: items)
         let response: WallhavenSearchResponse = try decode(data)
@@ -56,12 +56,12 @@ actor WallhavenClient {
         // W0 observed the service ignoring seeds. Never append a different random batch.
         if random, request.page > 1, seed != request.seed {
             return OnlineImagePage(items: [], next: nil, total: response.meta.total,
-                notice: "Wallhaven 未保持随机分页种子，已停止连续翻页；请刷新获取新一批。")
+                notice: String(localized: "Wallhaven didn’t preserve the random paging seed, so paging stopped. Refresh to get a new batch."))
         }
         let artworks = response.data.compactMap { $0.artwork() }
-        var notice = artworks.count < response.data.count ? "本页部分作品暂不可读取。" : nil
+        var notice = artworks.count < response.data.count ? String(localized: "Some items on this page can’t be read right now.") : nil
         if random, seed == nil {
-            notice = (notice.map { $0 + " " } ?? "") + "Wallhaven 未提供随机分页种子；刷新可获取新一批。"
+            notice = (notice.map { $0 + " " } ?? "") + String(localized: "Wallhaven didn’t provide a random paging seed. Refresh to get a new batch.")
         }
         return OnlineImagePage(items: artworks,
             next: (!random || seed != nil) && request.page < response.meta.lastPage
@@ -73,7 +73,7 @@ actor WallhavenClient {
     /// Official authenticated collections endpoint. A successful empty array
     /// describes an account with no collections; it does not invent a username.
     func collections() async throws -> [WallhavenCollection] {
-        guard apiKey != nil else { throw OnlineImageError.message("请先配置 Wallhaven API Key。") }
+        guard apiKey != nil else { throw OnlineImageError.message(String(localized: "Configure a Wallhaven API key first.")) }
         let response: WallhavenCollectionsResponse = try decode(await fetch(path: "/api/v1/collections", items: []))
         return response.data
     }
@@ -136,15 +136,15 @@ actor WallhavenClient {
         guard let http = response as? HTTPURLResponse else { throw OnlineImageError.invalidResponse }
         switch http.statusCode {
         case 200: return data
-        case 401: throw OnlineImageError.message("Wallhaven API Key 无效或此内容需要 API Key。")
+        case 401: throw OnlineImageError.message(String(localized: "The Wallhaven API key is invalid, or this content requires an API key."))
         case 403: throw OnlineImageError.forbidden
-        case 404: throw OnlineImageError.message("此 Wallhaven 壁纸已不存在或不可访问。")
+        case 404: throw OnlineImageError.message(String(localized: "This Wallhaven wallpaper no longer exists or is unavailable."))
         case 429:
             if let delay = Self.retryDelay(http.value(forHTTPHeaderField: "Retry-After")) {
                 nextStart = clock.now.advanced(by: .seconds(delay))
             }
             throw OnlineImageError.rateLimited
-        default: throw OnlineImageError.message("Wallhaven 请求失败（HTTP \(http.statusCode)）。")
+        default: throw OnlineImageError.message(String(localized: "Wallhaven request failed (HTTP \(http.statusCode))."))
         }
     }
 

@@ -333,7 +333,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Before hello no wire UUID exists yet, but the product still needs a
         // terminal record observation to clear its loading state.
         let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
-            recordID: pending.recordID, phase: .cancelled, message: "已取消 Scene 壁纸准备")
+            recordID: pending.recordID, phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled"))
         launchState = state
         NotificationCenter.default.post(name: .sceneWallpaperLaunchStateDidChange, object: state)
     }
@@ -422,7 +422,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                     requestID: stoppedRequestID,
                     recordID: stoppedRecordID,
                     phase: .stopped,
-                    message: "Scene 壁纸已停止"
+                    message: String(localized: "Scene wallpaper stopped")
                 )
             )
         }
@@ -496,7 +496,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             let requestID = UUID()
             pendingRequestID = requestID
             var failure: [String: Any] = ["phase": "failed", "requestID": requestID.uuidString,
-                "message": "Scene 受管来源缺少同版本资源租约"]
+                "message": String(localized: "The managed Scene source has no resource lease for the same version")]
             if let recordID = request.recordID { failure["recordID"] = recordID }
             handleLaunchState(failure)
             return
@@ -664,12 +664,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         do {
             guard request.source?.managed == nil || sourceSchemaVersion == 1 else {
                 throw NSError(domain: "SceneSourceProtocol", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Scene daemon 不支持受管来源协议"])
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "Scene daemon doesn’t support the managed source protocol")])
             }
             sourceObject = try request.source.map(SceneDaemonProtocol.sourceObject)
         } catch {
             var failure: [String: Any] = ["phase": "failed", "requestID": requestID.uuidString,
-                "message": "Scene 来源编码失败：\(error.localizedDescription)"]
+                "message": String(localized: "Failed to encode the Scene source: \(error.localizedDescription)")]
             if let recordID = request.recordID { failure["recordID"] = recordID }
             handleLaunchState(failure)
             return

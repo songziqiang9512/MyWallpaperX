@@ -352,12 +352,12 @@ final class AppKitPlaylistDirectoryController: NSViewController, NSCollectionVie
             menu.addItem(item)
         }
         if let index, let target = entry(at: index) {
-            add("打开播放列表", action: #selector(openFromMenu(_:)), id: target.id)
-            add("编辑列表…", action: #selector(renameFromMenu(_:)), id: target.id)
-            add("复制列表", action: #selector(duplicateFromMenu(_:)), id: target.id)
+            add(String(localized: "Open Playlist"), action: #selector(openFromMenu(_:)), id: target.id)
+            add(String(localized: "Edit Playlist…"), action: #selector(renameFromMenu(_:)), id: target.id)
+            add(String(localized: "Duplicate Playlist"), action: #selector(duplicateFromMenu(_:)), id: target.id)
             menu.addItem(.separator())
-            add("删除列表…", action: #selector(deleteFromMenu(_:)), id: target.id)
-        } else { add("新建列表…", action: #selector(createFromMenu(_:))) }
+            add(String(localized: "Delete Playlist…"), action: #selector(deleteFromMenu(_:)), id: target.id)
+        } else { add(String(localized: "New Playlist…"), action: #selector(createFromMenu(_:))) }
         for item in menu.items where item.action != #selector(openFromMenu(_:)) { item.isEnabled = canEdit }
         menu.autoenablesItems = false
         return menu
@@ -577,13 +577,13 @@ private final class PlaylistDirectoryItem: NSCollectionViewItem, WallpaperGridHo
     func configure(entry: WallpaperPlaylistDirectoryEntry?, cover: WallpaperPlaylistArtwork?, canCreate: Bool = true) {
         loadViewIfNeeded()
         let isCreate = entry == nil
-        name.stringValue = entry?.name ?? "新建列表"
+        name.stringValue = entry?.name ?? String(localized: "New List")
         name.textColor = isCreate && !canCreate ? .disabledControlTextColor : .labelColor
         count.stringValue = entry.map { "\($0.count)" } ?? ""
         count.isHidden = isCreate
-        card.setAccessibilityLabel(entry.map { "打开播放列表，\($0.name)，\($0.count) 张壁纸" } ?? "新建列表")
+        card.setAccessibilityLabel(entry.map { String(localized: "Open playlist \($0.name), \($0.count) wallpapers") } ?? String(localized: "New List"))
         card.setAccessibilityEnabled(!isCreate || canCreate)
-        card.toolTip = entry?.name ?? (canCreate ? "新建播放列表" : "资料库当前只读，暂时不能新建列表")
+        card.toolTip = entry?.name ?? (canCreate ? String(localized: "New Playlist") : String(localized: "The library is read-only right now, so a new list can’t be created yet"))
         card.setAccessibilityHelp(card.toolTip)
         if let image = cover?.image {
             artwork.image = image

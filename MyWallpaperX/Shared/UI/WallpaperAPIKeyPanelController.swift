@@ -91,7 +91,7 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         icon.translatesAutoresizingMaskIntoConstraints = false
         let heading = NSTextField(labelWithString: title)
         heading.font = .systemFont(ofSize: 22, weight: .semibold)
-        let subtitle = NSTextField(labelWithString: "管理 API Key")
+        let subtitle = NSTextField(labelWithString: String(localized: "Manage API Key"))
         subtitle.font = .systemFont(ofSize: 12)
         subtitle.textColor = .secondaryLabelColor
         let titles = NSStackView(views: [heading, subtitle])
@@ -105,10 +105,10 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
 
         let cancel = WallpaperPanelCloseButton()
         cancel.target = self; cancel.action = #selector(closeFromButton)
-        cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭 API Key 面板")
+        cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close API Key Panel"))
         cancel.keyEquivalent = "\u{1b}"
-        cancel.toolTip = "关闭（Esc）"
-        cancel.setAccessibilityLabel("关闭 API Key 面板")
+        cancel.toolTip = String(localized: "Close (Esc)")
+        cancel.setAccessibilityLabel(String(localized: "Close API Key Panel"))
         cancel.translatesAutoresizingMaskIntoConstraints = false
         surface.bodyView.addSubview(cancel)
         NSLayoutConstraint.activate([
@@ -124,13 +124,13 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         explanation.textColor = .secondaryLabelColor
         addFullWidth(explanation, to: content)
 
-        let fieldTitle = NSTextField(labelWithString: "新的 API Key")
+        let fieldTitle = NSTextField(labelWithString: String(localized: "New API Key"))
         fieldTitle.font = .systemFont(ofSize: 11, weight: .semibold)
         fieldTitle.textColor = .secondaryLabelColor
         let field = WallpaperFormSecureField()
         field.font = .systemFont(ofSize: 14)
-        field.placeholderString = "粘贴 API Key"
-        field.setAccessibilityLabel("新的 API Key")
+        field.placeholderString = String(localized: "Paste API Key")
+        field.setAccessibilityLabel(String(localized: "New API Key"))
         field.delegate = self
         field.target = self
         field.action = #selector(saveFromButton)
@@ -150,12 +150,12 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         status.maximumNumberOfLines = 3
         status.setAccessibilityElement(true)
         status.setAccessibilityRole(.staticText)
-        status.setAccessibilityLabel("API Key 保存状态")
+        status.setAccessibilityLabel(String(localized: "API Key Save Status"))
         addFullWidth(status, to: content)
         status.heightAnchor.constraint(equalToConstant: 44).isActive = true
         statusLabel = status
 
-        let save = NSButton(title: "保存 API Key", target: self, action: #selector(saveFromButton))
+        let save = NSButton(title: String(localized: "Save API Key"), target: self, action: #selector(saveFromButton))
         WallpaperLibraryControlStyle.sheetCapsule(save)
         save.font = .systemFont(ofSize: 13, weight: .semibold)
         save.bezelColor = .controlAccentColor
@@ -165,15 +165,15 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         save.heightAnchor.constraint(equalToConstant: 38).isActive = true
         saveButton = save
 
-        let remove = NSButton(title: "移除 API Key", target: self, action: #selector(removeFromButton))
+        let remove = NSButton(title: String(localized: "Remove API Key"), target: self, action: #selector(removeFromButton))
         WallpaperLibraryControlStyle.sheetCapsule(remove)
         remove.font = .systemFont(ofSize: 12)
         remove.isEnabled = hasStoredKey != false
-        remove.setAccessibilityHelp("移除当前来源已保存的 API Key，不会影响其他来源。")
-        let help = NSButton(title: "获取 API Key", target: self, action: #selector(openHelp))
+        remove.setAccessibilityHelp(String(localized: "Removes the API key saved for the current source; other sources aren’t affected."))
+        let help = NSButton(title: String(localized: "Get API Key"), target: self, action: #selector(openHelp))
         WallpaperLibraryControlStyle.sheetCapsule(help)
         help.font = .systemFont(ofSize: 12)
-        help.setAccessibilityHelp("在系统浏览器中打开官方 API Key 说明。")
+        help.setAccessibilityHelp(String(localized: "Open the official API key documentation in your browser."))
         let actions = NSStackView(views: [remove, NSView(), help])
         actions.orientation = .horizontal
         actions.alignment = .centerY
@@ -185,9 +185,9 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
 
     private var initialStatus: String {
         switch hasStoredKey {
-        case .some(true): return "已保存 API Key，内容不会回显。留空不会更改当前设置。"
-        case .some(false): return "尚未保存 API Key。输入后点击保存。"
-        case nil: return "已保存的 Key 不会回显。留空不会更改当前设置。"
+        case .some(true): return String(localized: "API key saved; its value isn’t shown. Leave blank to keep the current setting.")
+        case .some(false): return String(localized: "No API key saved yet. Enter one, then click Save.")
+        case nil: return String(localized: "Saved keys aren’t shown. Leave blank to keep the current setting.")
         }
     }
 
@@ -225,7 +225,7 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         keyField?.isEnabled = false
         saveButton?.isEnabled = false
         removeButton?.isEnabled = false
-        setStatus(value == nil ? "正在移除 API Key…" : "正在保存 API Key…")
+        setStatus(value == nil ? String(localized: "Removing API Key…") : String(localized: "Saving API Key…"))
         let saveKey = saveKey
         saveTask = Task { @MainActor [weak self, weak panel] in
             do {

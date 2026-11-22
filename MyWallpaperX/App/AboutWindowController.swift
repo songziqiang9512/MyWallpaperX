@@ -19,7 +19,7 @@ final class AboutWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "关于 MyWallpaperX"
+        window.title = String(localized: "About MyWallpaperX")
         window.identifier = NSUserInterfaceItemIdentifier("AboutWindow")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -108,10 +108,10 @@ private final class AboutContentView: NSView {
         )
         githubButton.bezelStyle = .rounded
         githubButton.controlSize = .large
-        githubButton.toolTip = "查看项目、反馈问题或在 GitHub 点 Star"
+        githubButton.toolTip = String(localized: "View the project, report issues, or star it on GitHub")
 
         let updateButton = NSButton(
-            title: "检查更新",
+            title: String(localized: "Check for Updates"),
             target: target,
             action: #selector(AboutWindowController.checkForUpdates(_:))
         )
@@ -150,7 +150,7 @@ private final class AboutContentView: NSView {
     }
 
     private var informationText: String {
-        "初心至简，保持纯粹。\n为MacOS设计的原生壁纸管理应用。"
+        String(localized: "Simple by intention, pure by design.\nA native wallpaper manager built for macOS.")
     }
 
     private var versionText: String {

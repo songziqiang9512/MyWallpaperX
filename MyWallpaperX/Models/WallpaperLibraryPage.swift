@@ -3,9 +3,9 @@ import Foundation
 extension WallpaperProvider {
     nonisolated var libraryDisplayName: String {
         switch self {
-        case .videoLibrary: return "本地视频"
-        case .staticImageLibrary: return "本地图片"
-        case .steamWorkshop: return "创意工坊"
+        case .videoLibrary: return String(localized: "Local Videos")
+        case .staticImageLibrary: return String(localized: "Local Images")
+        case .steamWorkshop: return String(localized: "Workshop")
         case .pixabay: return "Pixabay"
         case .wallhaven: return "Wallhaven"
         case .pixiv: return "Pixiv"
@@ -14,9 +14,9 @@ extension WallpaperProvider {
 
     nonisolated var librarySearchTerms: [String] {
         switch self {
-        case .videoLibrary: return [rawValue, libraryDisplayName, "我的视频", "视频库"]
-        case .staticImageLibrary: return [rawValue, libraryDisplayName, "我的图片", "图片库"]
-        case .steamWorkshop: return [rawValue, libraryDisplayName, "Steam 创意工坊", "工坊订阅"]
+        case .videoLibrary: return [rawValue, libraryDisplayName, String(localized: "My Videos"), String(localized: "Video Library")]
+        case .staticImageLibrary: return [rawValue, libraryDisplayName, String(localized: "My Images"), String(localized: "Image Library")]
+        case .steamWorkshop: return [rawValue, libraryDisplayName, String(localized: "Steam Workshop"), String(localized: "Workshop Subscriptions")]
         case .pixabay, .wallhaven, .pixiv: return [rawValue, libraryDisplayName]
         }
     }
@@ -31,17 +31,17 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
 
     func title(playlistName: String? = nil) -> String {
         switch self {
-        case .videos: return "我的视频"
-        case .images: return "我的图片"
-        case .downloads: return "我的下载"
-        case .recent: return "最近使用"
-        case .workshop: return "创意工坊"
+        case .videos: return String(localized: "My Videos")
+        case .images: return String(localized: "My Images")
+        case .downloads: return String(localized: "My Downloads")
+        case .recent: return String(localized: "Recently Used")
+        case .workshop: return String(localized: "Workshop")
         case .pixabay: return "Pixabay"
         case .wallhaven: return "Wallhaven"
         case .pixiv: return "Pixiv"
-        case .playlists: return "所有播放列表"
-        case .favorites: return "特别喜爱"
-        case .playlist: return playlistName ?? "播放列表"
+        case .playlists: return String(localized: "All Playlists")
+        case .favorites: return String(localized: "Favorite")
+        case .playlist: return playlistName ?? String(localized: "Playlist")
         }
     }
 
@@ -192,10 +192,10 @@ nonisolated enum WallpaperLibraryVideoSortError: Error, LocalizedError {
     case unsupported, readOnly, changed, persistenceFailed
     var errorDescription: String? {
         switch self {
-        case .unsupported: return "视频库排序无法用于个人设置。"
-        case .readOnly: return "界面状态无法恢复，原设置已保留；不能覆盖视频库排序。"
-        case .changed: return "视频库排序已在导入后发生变化，不能覆盖后来的选择。"
-        case .persistenceFailed: return "视频库排序未能持久保存，导入恢复记录已保留。"
+        case .unsupported: return String(localized: "The video library sort order can’t be used for personal settings.")
+        case .readOnly: return String(localized: "The interface state couldn't be restored; your original settings were kept and the video library sort order was not changed.")
+        case .changed: return String(localized: "The video library sort order changed after import and can’t overwrite the later choice.")
+        case .persistenceFailed: return String(localized: "The video library sort order couldn’t be saved persistently; the import recovery record was kept.")
         }
     }
 }

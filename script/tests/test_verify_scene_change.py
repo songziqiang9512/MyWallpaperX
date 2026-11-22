@@ -194,7 +194,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "scene-structure", "scene-dependencies", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"],
+            ["focused-tests", "scene-structure", "scene-dependencies", "localization", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"],
         )
         self.assertIn("render-graph", groups)
         self.assertEqual(
@@ -210,7 +210,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "scene-structure", "scene-dependencies", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"],
+            ["focused-tests", "scene-structure", "scene-dependencies", "localization", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"],
         )
         self.assertEqual(
             gates[-1].command,
@@ -258,7 +258,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "scene-structure", "scene-dependencies", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify", "targeted-sample"],
+            ["focused-tests", "scene-structure", "scene-dependencies", "localization", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify", "targeted-sample"],
         )
         self.assertIn("test_scene_frame_texture_registry", gates[0].command)
         self.assertNotIn("--keyword", gates[0].command)
@@ -518,7 +518,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                     arguments(ci=True, test_scope=scope), self.registry,
                 )
                 self.assertEqual([gate.gate_id for gate in gates],
-                                 [f"{scope}-tests", *(["scene-structure"] if scope == "release" else []), "scene-dependencies", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"])
+                                 [f"{scope}-tests", *(["scene-structure"] if scope == "release" else []), "scene-dependencies", "localization", "repository-residue", "code-health", "scene-defense", "design-gate", "build-verify"])
                 self.assertIn(scope, gates[0].command)
                 self.assertIn("--fail-fast", gates[0].command)
 

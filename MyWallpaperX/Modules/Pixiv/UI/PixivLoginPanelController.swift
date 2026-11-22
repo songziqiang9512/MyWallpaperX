@@ -29,7 +29,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
             width: max(520, min(860, host.frame.width - 40)),
             height: max(480, min(740, host.frame.height - 40))),
             styleMask: [.borderless], backing: .buffered, defer: false)
-        panel.title = settings ? "Pixiv 账号设置" : "登录 Pixiv"
+        panel.title = settings ? String(localized: "Pixiv Account Settings") : String(localized: "Sign In to Pixiv")
         panel.isMovable = false
         panel.isMovableByWindowBackground = false
         panel.isReleasedWhenClosed = false
@@ -56,7 +56,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         origin.font = .systemFont(ofSize: 12)
         origin.textColor = .secondaryLabelColor
         origin.lineBreakMode = .byTruncatingMiddle
-        origin.setAccessibilityLabel("Pixiv 官方页面地址")
+        origin.setAccessibilityLabel(String(localized: "Pixiv Official Page URL"))
         let titleStack = NSStackView(views: [heading, origin])
         titleStack.orientation = .vertical
         titleStack.alignment = .leading
@@ -67,25 +67,25 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         header.translatesAutoresizingMaskIntoConstraints = false
         let cancel = WallpaperPanelCloseButton()
         cancel.target = self; cancel.action = #selector(closeFromButton)
-        cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭 Pixiv 页面")
+        cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close Pixiv Page"))
         cancel.keyEquivalent = "\u{1b}"
-        cancel.toolTip = "关闭 Pixiv 页面（Esc）"
-        cancel.setAccessibilityLabel("关闭 Pixiv 页面")
+        cancel.toolTip = String(localized: "Close Pixiv Page (Esc)")
+        cancel.setAccessibilityLabel(String(localized: "Close Pixiv Page"))
         cancel.translatesAutoresizingMaskIntoConstraints = false
-        let done = NSButton(title: "完成", target: self, action: #selector(closeFromButton))
+        let done = NSButton(title: String(localized: "Done"), target: self, action: #selector(closeFromButton))
         // Enter belongs to the site's login forms, not to the panel's Done button.
         WallpaperLibraryControlStyle.sheetCapsule(done)
         done.font = .systemFont(ofSize: 13, weight: .semibold)
         done.bezelColor = .controlAccentColor
-        done.setAccessibilityHelp("关闭官方页面，返回壁纸库并检查 Pixiv 账号状态。")
+        done.setAccessibilityHelp(String(localized: "Close the official page, return to the wallpaper library, and check the Pixiv account status."))
         done.translatesAutoresizingMaskIntoConstraints = false
-        let status = NSTextField(wrappingLabelWithString: "在 Pixiv 官方页面完成操作后，点击“完成”返回并检查账号状态。")
+        let status = NSTextField(wrappingLabelWithString: String(localized: "After finishing on the official Pixiv page, click “Done” to return and check the account status."))
         status.font = .systemFont(ofSize: 12)
         status.textColor = .secondaryLabelColor
         status.maximumNumberOfLines = 3
         status.setAccessibilityElement(true)
         status.setAccessibilityRole(.staticText)
-        status.setAccessibilityLabel("Pixiv 页面状态")
+        status.setAccessibilityLabel(String(localized: "Pixiv Page Status"))
         status.translatesAutoresizingMaskIntoConstraints = false
         surface.bodyView.addSubview(header)
         surface.bodyView.addSubview(browser)
@@ -187,7 +187,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
             decisionHandler(.cancel)
             if navigationAction.navigationType == .linkActivated || navigationAction.navigationType == .formSubmitted {
                 openExternal(url)
-            } else { statusLabel?.stringValue = "官方页面跳转到了外部网站。请通过页面中的链接在浏览器中打开。" }
+            } else { statusLabel?.stringValue = String(localized: "The official page redirected to an external website. Use the link on the page to open it in your browser.") }
         }
     }
 
@@ -222,13 +222,13 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
 
     private func showNavigationError(_ browser: WKWebView, _ error: Error) {
         guard webView === browser, (error as NSError).code != NSURLErrorCancelled else { return }
-        statusLabel?.stringValue = "官方页面暂时无法加载，请检查网络后重新打开。"
+        statusLabel?.stringValue = String(localized: "The official page can’t be loaded right now. Check your network connection and open it again.")
     }
 
     private func openExternal(_ url: URL) {
         guard url.scheme == "https" || url.scheme == "http" else { return }
         NSWorkspace.shared.open(url)
-        statusLabel?.stringValue = "外部链接已在系统浏览器中打开；浏览器会话不会导入 MyWallpaperX。"
+        statusLabel?.stringValue = String(localized: "External link opened in your default browser; the browser session won’t be imported into MyWallpaperX.")
     }
 
     private static func isOfficial(_ url: URL) -> Bool {

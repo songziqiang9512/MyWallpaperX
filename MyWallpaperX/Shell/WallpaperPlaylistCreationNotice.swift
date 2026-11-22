@@ -14,14 +14,14 @@ import AppKit
         let controller = NSViewController()
         let content = NSView()
         controller.view = content
-        let label = NSTextField(wrappingLabelWithString: "已创建“\(name)”")
+        let label = NSTextField(wrappingLabelWithString: String(localized: "Created “\(name)”"))
         label.maximumNumberOfLines = 2
         label.lineBreakMode = .byTruncatingTail
         label.toolTip = label.stringValue
         label.setAccessibilityLabel(label.stringValue)
-        let openButton = NSButton(title: "打开列表", target: self, action: #selector(openPlaylist(_:)))
+        let openButton = NSButton(title: String(localized: "Open List"), target: self, action: #selector(openPlaylist(_:)))
         openButton.bezelStyle = .rounded
-        let closeButton = NSButton(title: "关闭", target: self, action: #selector(closeNotice(_:)))
+        let closeButton = NSButton(title: String(localized: "Close"), target: self, action: #selector(closeNotice(_:)))
         closeButton.bezelStyle = .rounded
         let buttons = NSStackView(views: [openButton, closeButton])
         buttons.spacing = 8

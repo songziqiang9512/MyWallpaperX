@@ -132,9 +132,9 @@ nonisolated enum SteamWorkshopWebPropertySource: Codable, Equatable, Hashable {
     var displayName: String {
         switch self {
         case .ownProject:
-            return "本体项目"
+            return String(localized: "Base Project")
         case let .dependencyHost(itemID):
-            return "宿主项目 \(itemID)"
+            return String(localized: "Host Project \(itemID)")
         }
     }
 

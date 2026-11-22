@@ -6,19 +6,19 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
 
         var displayName: String {
             switch self {
-            case .latest: return "最新"
-            case .popular: return "热门"
-            case .relevance: return "相关"
-            case .random: return "随机"
-            case .views: return "浏览量"
-            case .favorites: return "收藏量"
+            case .latest: return String(localized: "Newest")
+            case .popular: return String(localized: "Popular")
+            case .relevance: return String(localized: "Related")
+            case .random: return String(localized: "Random")
+            case .views: return String(localized: "Views")
+            case .favorites: return String(localized: "Favorites Count")
             }
         }
     }
 
     enum Order: String, CaseIterable, Codable, Sendable {
         case desc, asc
-        var displayName: String { self == .desc ? "降序" : "升序" }
+        var displayName: String { self == .desc ? String(localized: "Descending") : String(localized: "Ascending") }
     }
 
     enum TopRange: String, CaseIterable, Codable, Sendable {
@@ -27,13 +27,13 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
 
         var displayName: String {
             switch self {
-            case .day: return "今天"
-            case .threeDays: return "三天内"
-            case .week: return "本周"
-            case .month: return "本月"
-            case .threeMonths: return "三个月内"
-            case .sixMonths: return "六个月内"
-            case .year: return "一年内"
+            case .day: return String(localized: "Today")
+            case .threeDays: return String(localized: "Within Three Days")
+            case .week: return String(localized: "This Week")
+            case .month: return String(localized: "This Month")
+            case .threeMonths: return String(localized: "Within Three Months")
+            case .sixMonths: return String(localized: "Last 6 Months")
+            case .year: return String(localized: "Within One Year")
             }
         }
     }
@@ -52,12 +52,12 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
 
     func queryItems(page: Int, seed: String? = nil) throws -> [URLQueryItem] {
         guard page > 0, Self.validMask(categories), Self.validMask(purity) else {
-            throw OnlineImageError.message("请选择有效的 Wallhaven 分类、分级与页码。")
+            throw OnlineImageError.message(String(localized: "Choose a valid Wallhaven category, purity, and page number."))
         }
         let minimum = minimumResolution?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (minimum.map { $0.isEmpty || Self.validDimensions($0) } ?? true),
               ratios.allSatisfy(Self.validDimensions) else {
-            throw OnlineImageError.message("Wallhaven 分辨率或比例格式无效。")
+            throw OnlineImageError.message(String(localized: "The Wallhaven resolution or ratio format is invalid."))
         }
         var items: [URLQueryItem] = [
             .init(name: "categories", value: categories), .init(name: "purity", value: purity),

@@ -12,14 +12,14 @@ import AppKit
         segmentStyle = .capsule
         target = self
         action = #selector(activate(_:))
-        for (index, symbol, label) in [(0, "minus.magnifyingglass", "缩小卡片"), (1, "plus.magnifyingglass", "放大卡片")] {
+        for (index, symbol, label) in [(0, "minus.magnifyingglass", String(localized: "Make Cards Smaller")), (1, "plus.magnifyingglass", String(localized: "Enlarge Card"))] {
             setImage(NSImage(systemSymbolName: symbol, accessibilityDescription: label), forSegment: index)
             setToolTip(label, forSegment: index)
             setWidth(28, forSegment: index)
             setEnabled(false, forSegment: index)
         }
-        toolTip = "调整卡片大小"
-        setAccessibilityLabel("调整卡片大小")
+        toolTip = String(localized: "Adjust Card Size")
+        setAccessibilityLabel(String(localized: "Adjust Card Size"))
     }
 
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
@@ -31,17 +31,17 @@ import AppKit
         setEnabled(ready && availability.canZoomOut, forSegment: 0)
         setEnabled(ready && availability.canZoomIn, forSegment: 1)
         let columns = WallpaperLibraryGridMetrics(clipWidth: clipWidth, preferredColumns: preferredColumns).columns
-        let description = !ready ? "内容区域尚未就绪" : (columns == preferredColumns ? "当前每行 \(columns) 张卡片"
-            : "当前窗口每行可显示 \(columns) 张卡片，保留每行 \(preferredColumns) 张的偏好")
-        toolTip = "调整卡片大小：\(description)"
+        let description = !ready ? String(localized: "The content area isn’t ready yet.") : (columns == preferredColumns ? String(localized: "\(columns) cards per row")
+            : String(localized: "This window can show \(columns) cards per row; your preference of \(preferredColumns) per row is kept."))
+        toolTip = String(localized: "Adjust Card Size: \(description)")
         setAccessibilityHelp(description)
     }
 
     func menuRepresentation() -> NSMenuItem {
-        let entry = NSMenuItem(title: "缩放", action: nil, keyEquivalent: "")
+        let entry = NSMenuItem(title: String(localized: "Zoom"), action: nil, keyEquivalent: "")
         let menu = NSMenu()
         menu.autoenablesItems = false
-        for (segment, delta, title, symbol) in [(0, -1, "缩小卡片", "minus.magnifyingglass"), (1, 1, "放大卡片", "plus.magnifyingglass")] {
+        for (segment, delta, title, symbol) in [(0, -1, String(localized: "Make Cards Smaller"), "minus.magnifyingglass"), (1, 1, String(localized: "Enlarge Card"), "plus.magnifyingglass")] {
             let command = isEnabled && isEnabled(forSegment: segment) ? makeAction?(delta) : nil
             let item = ActionMenuItem(title: title, symbol: symbol) { command?() }
             item.isEnabled = command != nil

@@ -95,17 +95,46 @@ final class SteamServiceClient {
         var errorDescription: String? {
             switch self {
             case .notReady:
-                return "Steam 服务组件不可用，请重新安装或更新 App 后重试。"
+                return String(localized: "The Steam service component is unavailable. Reinstall or update the app and try again.")
             case .cancelled:
-                return "操作已取消。"
+                return String(localized: "The operation was canceled.")
             case .requestTimedOut:
-                return "Steam 服务响应超时，请稍后重试。"
+                return String(localized: "The Steam service timed out. Try again later.")
             case .connectionLost:
-                return "Steam 服务连接已中断，请重试。"
+                return String(localized: "The connection to the Steam service was lost. Try again.")
             case .incompatibleProtocol:
-                return "Steam 服务版本不兼容，请更新或重新安装 App。"
-            case .helperError(_, let message):
-                return message
+                return String(localized: "The Steam service version is incompatible. Update or reinstall the app.")
+            case .helperError(let code, _):
+                // The helper's message is diagnostic text (Chinese by contract);
+                // user-facing copy is chosen by code so every language sees its own.
+                return Self.helperDescription(for: code)
+            }
+        }
+
+        private static func helperDescription(for code: String) -> String {
+            switch code {
+            case "network":
+                return String(localized: "The Steam service had a network problem. Try again later.")
+            case "accessDenied":
+                return String(localized: "Steam denied access. Sign in again and retry.")
+            case "authExpired":
+                return String(localized: "The saved Steam sign-in expired. Sign in again.")
+            case "accountMismatch":
+                return String(localized: "The saved sign-in doesn’t match this account. Sign in again.")
+            case "helperUnavailable":
+                return String(localized: "The Steam service component is unavailable. Reinstall or update the app.")
+            case "integrity":
+                return String(localized: "The downloaded files failed the integrity check. Retry the download.")
+            case "unsupportedContent":
+                return String(localized: "This Workshop item contains unsupported content.")
+            case "cancelled":
+                return String(localized: "The operation was canceled.")
+            case "protocolMismatch":
+                return String(localized: "The Steam service returned an unexpected response. Update or reinstall the app.")
+            case "rateLimited":
+                return String(localized: "Too many Steam requests. Wait a moment and try again.")
+            default:
+                return String(localized: "The Steam service reported an error.")
             }
         }
     }

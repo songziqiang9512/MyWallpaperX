@@ -49,20 +49,20 @@ struct SceneRuntimeModelBuilder {
         var errorDescription: String? {
             switch self {
             case .missingProject:
-                return "无法构建 Scene runtime：项目未解析。"
+                return String(localized: "Couldn’t build the Scene runtime: the project wasn’t parsed.")
             case let .missingSceneDocument(detail):
                 if let detail, !detail.isEmpty {
-                    return "无法构建 Scene runtime：\(detail)"
+                    return String(localized: "Couldn’t build the Scene runtime: \(detail)")
                 }
-                return "无法构建 Scene runtime：scene.json 未解析。"
+                return String(localized: "Couldn’t build the Scene runtime: scene.json wasn’t parsed.")
             case .missingAssetCatalog:
-                return "无法构建 Scene runtime：资产摘要未解析。"
+                return String(localized: "Couldn’t build the Scene runtime: the asset catalog wasn’t parsed.")
 #if DEBUG
             case .missingResourceReferences:
-                return "无法构建 Scene runtime：资源引用索引未建立。"
+                return String(localized: "Couldn’t build the Scene runtime: the resource reference index wasn’t created.")
 #endif
             case .missingRenderDescriptor:
-                return "无法构建 Scene runtime：renderer 输入描述未建立。"
+                return String(localized: "Couldn’t build the Scene runtime: the renderer input descriptor wasn’t created.")
             }
         }
     }

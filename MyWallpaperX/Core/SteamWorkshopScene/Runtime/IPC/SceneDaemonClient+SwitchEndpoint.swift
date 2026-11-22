@@ -183,7 +183,7 @@ extension SceneDaemonClient {
         }
         if let pending {
             let state = SceneWallpaperLaunchState(requestID: requestID ?? UUID(),
-                recordID: pending.recordID, phase: .cancelled, message: "已取消 Scene 壁纸准备")
+                recordID: pending.recordID, phase: .cancelled, message: String(localized: "Scene wallpaper preparation canceled"))
             launchState = state
             NotificationCenter.default.post(name: .sceneWallpaperLaunchStateDidChange, object: state)
         }

@@ -135,11 +135,11 @@ nonisolated enum OnlineImageError: LocalizedError, Sendable {
     case invalidResponse, unsupported, loginRequired, forbidden, rateLimited, message(String)
     var errorDescription: String? {
         switch self {
-        case .invalidResponse: return "网站返回了无法识别的内容，请稍后重试。"
-        case .unsupported: return "当前作品类型暂不支持下载或设为壁纸。"
-        case .loginRequired: return "请登录后继续访问此内容。"
-        case .forbidden: return "此内容目前不可访问，请检查账号权限或打开原站。"
-        case .rateLimited: return "请求过于频繁，请稍后重试。"
+        case .invalidResponse: return String(localized: "The website returned unrecognized content. Try again later.")
+        case .unsupported: return String(localized: "This item type can’t be downloaded or set as wallpaper yet.")
+        case .loginRequired: return String(localized: "Sign in to continue viewing this content.")
+        case .forbidden: return String(localized: "This content is currently unavailable. Check your account permissions or open the original site.")
+        case .rateLimited: return String(localized: "Too many requests. Try again later.")
         case .message(let message): return message
         }
     }

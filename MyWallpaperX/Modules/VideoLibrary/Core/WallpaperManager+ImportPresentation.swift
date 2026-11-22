@@ -18,15 +18,15 @@ extension WallpaperManager {
         var lines: [String] = []
 
         if duplicateCount > 0 {
-            lines.append("\(duplicateCount) 个文件已存在于列表中")
+            lines.append(String(localized: "\(duplicateCount) files are already in the list"))
         }
 
         if missingFileCount > 0 {
-            lines.append("\(missingFileCount) 个文件不存在")
+            lines.append(String(localized: "\(missingFileCount) files are missing"))
         }
 
         if unreadableFileCount > 0 {
-            lines.append("\(unreadableFileCount) 个文件无法读取")
+            lines.append(String(localized: "\(unreadableFileCount) files can’t be read"))
         }
 
         return lines
@@ -35,7 +35,7 @@ extension WallpaperManager {
     func presentImportSummary(_ summary: ImportSummary, in window: NSWindow?) {
         // 导入结果只负责呈现，不在这里再改任何模型状态。
         let alert = makeAppAlert(
-            title: "导入结果",
+            title: String(localized: "Import Results"),
             message: summary.informativeText
         )
         presentAppAlert(alert, in: window ?? appModalHostWindow())

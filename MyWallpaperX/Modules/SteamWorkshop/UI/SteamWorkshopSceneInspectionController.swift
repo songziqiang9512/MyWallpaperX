@@ -154,8 +154,8 @@ final class SteamWorkshopSceneInspectionController {
     }
 
     private func preparePropertyEditor(for record: SteamWorkshopDownloadRecord) {
-        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: "Scene 属性调节", subtitle: record.title,
-            message: "正在准备 Scene 属性…", retaining: self)
+        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: String(localized: "Scene Property Adjustments"), subtitle: record.title,
+            message: String(localized: "Preparing Scene Properties…"), retaining: self)
         let identity = inspectionIdentity(for: record)
         presentedIdentity = identity
         propertyMessage = nil
@@ -306,8 +306,8 @@ final class SteamWorkshopSceneInspectionController {
     private func presentPropertyUnavailable(record: SteamWorkshopDownloadRecord) {
         guard let propertyPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
-        propertyMessage = "当前 Scene 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
-        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: "Scene 属性调节", subtitle: record.title,
+        propertyMessage = String(localized: "This Scene has no adjustable supported properties,\nor its property model couldn’t be parsed.")
+        self.propertyPanelToken = SteamWorkshopPropertyPanelController.shared.showMessage(title: String(localized: "Scene Property Adjustments"), subtitle: record.title,
             message: propertyMessage!, retaining: self)
     }
 

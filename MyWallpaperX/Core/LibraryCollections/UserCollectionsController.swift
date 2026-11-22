@@ -132,7 +132,7 @@ import Foundation
                         members: [WallpaperOrganizationItem] = [], at date: Date = Date(),
                         expectedEpoch: UUID? = nil) async throws -> UUID {
         let id = UUID()
-        _ = try await enqueueOperation(expectedEpoch: expectedEpoch, undoName: "新建播放列表") { state, epoch in
+        _ = try await enqueueOperation(expectedEpoch: expectedEpoch, undoName: String(localized: "New Playlist")) { state, epoch in
             let playlist = WallpaperPlaylist(id: id, name: metadata.name.trimmingCharacters(in: .whitespacesAndNewlines),
                 createdAt: date, sidebarRank: state.playlists.count,
                 descriptionText: metadata.descriptionText, customCoverAssetID: metadata.customCoverAssetID)
@@ -149,7 +149,7 @@ import Foundation
                               coverAsset: WallpaperPlaylistCoverAsset? = nil, at date: Date = Date(),
                               expectedEpoch: UUID) async throws -> UserCollectionsSnapshot {
         try await perform(.editPlaylistMetadata(id: id, expected: expected, replacement: replacement,
-            coverAsset: coverAsset, at: date), undoName: "编辑播放列表", expectedEpoch: expectedEpoch)
+            coverAsset: coverAsset, at: date), undoName: String(localized: "Edit Playlist"), expectedEpoch: expectedEpoch)
     }
 
     func playlistCoverAsset(id: UUID, expectedEpoch: UUID) async throws -> WallpaperPlaylistCoverAsset? {
@@ -171,8 +171,8 @@ import Foundation
     @discardableResult
     func duplicatePlaylist(_ sourceID: UUID, at date: Date = Date()) async throws -> UUID {
         let id = UUID()
-        _ = try await enqueueOperation(undoName: "复制播放列表") { state, epoch in
-            let name = (state.playlists.first { $0.id == sourceID }?.name ?? "播放列表") + " 副本"
+        _ = try await enqueueOperation(undoName: String(localized: "Duplicate Playlist")) { state, epoch in
+            let name = (state.playlists.first { $0.id == sourceID }?.name ?? String(localized: "Playlist")) + String(localized: " Copy")
             let playlist = WallpaperPlaylist(id: id, name: name, createdAt: date, sidebarRank: state.playlists.count)
             let commands: [UserCollectionsCommand] = [.duplicatePlaylist(sourceID: sourceID, playlist: playlist),
                 .reorderPlaylists(state.playlists.map(\.id) + [id])]

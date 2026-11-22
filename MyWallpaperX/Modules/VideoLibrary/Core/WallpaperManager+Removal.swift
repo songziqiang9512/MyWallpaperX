@@ -33,7 +33,7 @@ extension WallpaperManager {
             let url = URL(fileURLWithPath: target.path).standardizedFileURL
             do {
                 guard !isLocalSourceFileInUse(url.path) else {
-                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源视频正在播放或准备，请先停止播放后重试"])
+                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: String(localized: "The source video is playing or being prepared. Stop playback first, then try again.")])
                 }
                 requests.append((reference, try WallpaperSourceFileDeletion.prepare(url)))
             } catch {
@@ -53,7 +53,7 @@ extension WallpaperManager {
                         && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && self.normalizedPath($0.path) == self.normalizedPath(request.url.path) })
                         && !self.isLocalSourceFileInUse(request.url.path) else {
                         return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,
-                            failureMessage: "资料库或播放状态已变化，未删除源文件")
+                            failureMessage: String(localized: "The library or playback state changed; the source file was not deleted"))
                     }
                     // The original playback admission is MainActor-isolated.
                     // Nothing can accept this source between this guard and unlink.
@@ -198,7 +198,7 @@ extension WallpaperManager {
                 WallpaperDeletionFailure(
                     title: title,
                     path: path,
-                    reason: "缓存清理失败"
+                    reason: String(localized: "Cache cleanup failed")
                 )
             )
         }

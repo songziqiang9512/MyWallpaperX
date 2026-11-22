@@ -34,7 +34,7 @@ nonisolated enum LibraryCollectionsStartupOutcome: Sendable {
         CFRunLoopRunInMode(.defaultMode, timeout, false)
         guard let result = completion.outcome else {
             task.cancel()
-            throw CocoaError(.userCancelled, userInfo: [NSLocalizedDescriptionKey: "资料库读取尚未完成，本次启动已停止，请重新启动。"])
+            throw CocoaError(.userCancelled, userInfo: [NSLocalizedDescriptionKey: String(localized: "The library hasn’t finished loading, so this launch was stopped. Please restart.")])
         }
         return result
     }

@@ -1,0 +1,74 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleHelpBookName": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX Help"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX 帮助"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справка MyWallpaperX"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX-Hilfe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aide MyWallpaperX"
+          }
+        }
+      }
+    },
+    "NSAudioCaptureUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access system audio to render spectrum visualizations on the desktop."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要访问系统音频以生成桌面频谱可视化。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к системному звуку для визуализации спектра на рабочем столе."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugriff auf Systemaudio, um Spektrum-Visualisierungen auf dem Schreibtisch darzustellen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accéder à l’audio du système pour afficher des visualisations de spectre sur le bureau."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -48,7 +48,7 @@ struct SystemWallpaperCatalog: Encodable {
         let provider = SystemWallpaperCatalog.provider
         let identifier = "saved-video"
         let name: String
-        let localizedDescription = "视频动态锁屏"
+        let localizedDescription = String(localized: "Video Lock Screen")
         let thumbnail: Thumbnail
         let isDownloaded = true
         let options: [String] = []
@@ -63,7 +63,7 @@ struct SystemWallpaperCatalog: Encodable {
         let sortOrder = 0
         let disposability = ["none": [String: String]()]
         init(media: SystemWallpaperMedia) {
-            localizedName = media.configuration.content?.title ?? "视频动态锁屏"
+            localizedName = media.configuration.content?.title ?? String(localized: "Video Lock Screen")
             thumbnail = Thumbnail(url: media.poster)
             choice = Choice(name: localizedName, thumbnail: thumbnail)
         }

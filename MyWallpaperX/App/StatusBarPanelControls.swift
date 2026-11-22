@@ -55,7 +55,7 @@ final class StatusBarPanelCoverView: NSView {
     static let transitionKey = kCATransition
     private let imageView = NSImageView()
     private let placeholder = NSImageView()
-    let properties = StatusBarPanelSymbolButton(symbol: "paintbrush", help: "属性调节", surface: .overlay, size: 14)
+    let properties = StatusBarPanelSymbolButton(symbol: "paintbrush", help: String(localized: "Adjust Properties"), surface: .overlay, size: 14)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -67,7 +67,7 @@ final class StatusBarPanelCoverView: NSView {
         imageView.imageAlignment = .alignCenter
         imageView.animates = false
         imageView.wantsLayer = true
-        placeholder.image = NSImage(systemSymbolName: "photo", accessibilityDescription: "暂无壁纸预览")
+        placeholder.image = NSImage(systemSymbolName: "photo", accessibilityDescription: String(localized: "No Wallpaper Preview"))
         placeholder.contentTintColor = .tertiaryLabelColor
         placeholder.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 28 * StatusBarPanelPresentation.scale, weight: .light)
         addSubview(imageView)

@@ -22,9 +22,9 @@ import UniformTypeIdentifiers
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private let errorScroll = NSScrollView()
     private var errorHeight: NSLayoutConstraint!
-    private let save = NSButton(title: "完成", target: nil, action: nil)
-    private let choose = NSButton(title: "选择封面…", target: nil, action: nil)
-    private let automatic = NSButton(title: "恢复自动封面", target: nil, action: nil)
+    private let save = NSButton(title: String(localized: "Done"), target: nil, action: nil)
+    private let choose = NSButton(title: String(localized: "Choose Cover…"), target: nil, action: nil)
+    private let automatic = NSButton(title: String(localized: "Restore Automatic Cover"), target: nil, action: nil)
     private var coverID: UUID?
     private var preparedCover: WallpaperPlaylistCoverAsset?
     private var imageGeneration = UUID()
@@ -51,7 +51,7 @@ import UniformTypeIdentifiers
     }
 
     private func configure() {
-        panel.title = original == nil ? "新建播放列表" : "编辑播放列表"
+        panel.title = original == nil ? String(localized: "New Playlist") : String(localized: "Edit Playlist")
         panel.delegate = self
         panel.isReleasedWhenClosed = false
         let root = WallpaperPanelSurface()
@@ -62,19 +62,19 @@ import UniformTypeIdentifiers
         preview.wantsLayer = true
         preview.layer?.cornerRadius = 14
         preview.layer?.masksToBounds = true
-        preview.setAccessibilityLabel("播放列表封面")
+        preview.setAccessibilityLabel(String(localized: "Playlist Cover"))
         preview.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([preview.widthAnchor.constraint(equalToConstant: 112), preview.heightAnchor.constraint(equalTo: preview.widthAnchor)])
         showAutomaticPreview()
         choose.target = self; choose.action = #selector(chooseCover(_:))
         automatic.target = self; automatic.action = #selector(useAutomatic(_:))
         let imageActions = NSStackView(views: [choose, automatic]); imageActions.spacing = 12
-        name.stringValue = original?.name ?? "未命名列表"
+        name.stringValue = original?.name ?? String(localized: "Untitled List")
         name.font = .systemFont(ofSize: 16)
         name.delegate = self
-        name.setAccessibilityLabel("播放列表名称")
+        name.setAccessibilityLabel(String(localized: "Playlist Name"))
         let nameSurface = WallpaperFormFieldStyle.wrapping(name, height: 34)
-        let descriptionTitle = NSTextField(labelWithString: "描述（可选）")
+        let descriptionTitle = NSTextField(labelWithString: String(localized: "Description (Optional)"))
         descriptionTitle.textColor = .secondaryLabelColor
         descriptionInput.isRichText = false
         descriptionInput.font = .systemFont(ofSize: 14)
@@ -89,7 +89,7 @@ import UniformTypeIdentifiers
         descriptionInput.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         descriptionInput.textContainer?.containerSize = NSSize(width: panel.frame.width - 40, height: CGFloat.greatestFiniteMagnitude)
         descriptionInput.textContainer?.widthTracksTextView = true
-        descriptionInput.setAccessibilityLabel("播放列表描述，可选")
+        descriptionInput.setAccessibilityLabel(String(localized: "Playlist Description, Optional"))
         let descriptionScroll = NSScrollView()
         descriptionScroll.borderType = .noBorder
         descriptionScroll.drawsBackground = false
@@ -119,7 +119,7 @@ import UniformTypeIdentifiers
         errorScroll.isHidden = true
         errorHeight = errorScroll.heightAnchor.constraint(equalToConstant: 0)
         errorHeight.isActive = true
-        let cancel = NSButton(title: "取消", target: self, action: #selector(cancel(_:)))
+        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
         cancel.keyEquivalent = "\u{1b}"
         save.target = self; save.action = #selector(accept(_:)); save.keyEquivalent = "\r"
         for button in [choose, automatic, cancel, save] { WallpaperLibraryControlStyle.sheetCapsule(button) }
@@ -150,7 +150,7 @@ import UniformTypeIdentifiers
         guard WallpaperLibrarySheetPresentation.present(panel, in: host) else {
             close()
             guard host == nil || WallpaperLibrarySheetPresentation.permitsInput(in: host) else { return }
-            presentAppAlert(makeAppAlert(title: "无法打开列表编辑", message: "请先打开主窗口，再重试。"))
+            presentAppAlert(makeAppAlert(title: String(localized: "Couldn’t open the list editor"), message: String(localized: "Open the main window first, then try again.")))
             return
         }
         guard let assetID = coverID else { return }
@@ -161,7 +161,7 @@ import UniformTypeIdentifiers
                 let asset = try await collections.playlistCoverAsset(id: assetID, expectedEpoch: epoch)
                 guard !isClosed, imageGeneration == generation, coverID == assetID, collections.snapshot.resetEpoch == epoch else { return }
                 guard let asset, let image = NSImage(data: asset.imageData) else {
-                    report("原封面暂不可用，可以重新选择或恢复自动封面。"); return
+                    report(String(localized: "The original cover isn’t available right now; choose a new one or restore the automatic cover.")); return
                 }
                 preview.image = image; preview.contentTintColor = nil
             } catch { if !isClosed, imageGeneration == generation { report(error.localizedDescription) } }
@@ -195,7 +195,7 @@ import UniformTypeIdentifiers
 
     private func prepareCover(_ url: URL) {
         let generation = UUID(); imageGeneration = generation
-        isPreparing = true; report("正在准备封面…", isError: false); refreshAvailability()
+        isPreparing = true; report(String(localized: "Preparing Cover…"), isError: false); refreshAvailability()
         Task { @MainActor [weak self] in
             do {
                 let asset = try await Task.detached(priority: .userInitiated) { try PlaylistCoverPreparation.prepare(url) }.value
@@ -220,7 +220,7 @@ import UniformTypeIdentifiers
         imageGeneration = UUID(); isPreparing = false
         preparedCover = nil; coverID = nil
         showAutomaticPreview()
-        if automaticImage == nil { report("保存后将自动使用列表成员的缩略图。", isError: false) }
+        if automaticImage == nil { report(String(localized: "Once saved, thumbnails from the list’s items will be used automatically."), isError: false) }
         else { clearReport() }
         refreshAvailability()
     }
@@ -235,7 +235,7 @@ import UniformTypeIdentifiers
         let metadata = WallpaperPlaylistMetadata(name: name.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
             descriptionText: descriptionInput.string, customCoverAssetID: coverID)
         let cover = preparedCover
-        isSaving = true; report("正在保存…", isError: false); refreshAvailability()
+        isSaving = true; report(String(localized: "Saving…"), isError: false); refreshAvailability()
         Task { @MainActor [self] in
             do {
                 let id: UUID

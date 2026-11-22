@@ -17,21 +17,21 @@ struct ImportSummary {
 
     var informativeText: String {
         var lines: [String] = [
-            "总选择：\(requestedCount) 个",
-            "新增导入：\(importedCount) 个"
+            String(localized: "Total selected: \(requestedCount)"),
+            String(localized: "Newly imported: \(importedCount)")
         ]
 
         if linkedCount > 0 {
-            lines.append("已加入当前列表：\(linkedCount) 个")
+            lines.append(String(localized: "Added to the current list: \(linkedCount)"))
         }
 
-        lines.append("未处理：\(skippedCount) 个")
+        lines.append(String(localized: "Skipped: \(skippedCount)"))
 
         if importedCount > 0 {
             if thumbnailFailureCount > 0 {
-                lines.append("缩略图未生成：\(thumbnailFailureCount) 个")
+                lines.append(String(localized: "Thumbnails not generated: \(thumbnailFailureCount)"))
             } else {
-                lines.append("缩略图与静帧已开始后台生成")
+                lines.append(String(localized: "Thumbnails and still frames are being generated in the background"))
             }
         }
 
@@ -87,14 +87,14 @@ func loadWallpaperInspectorDetails(
 ) -> Task<Void, Never> {
     let url = URL(fileURLWithPath: wallpaper.path, isDirectory: false)
     let path = wallpaper.path
-    let formatText = url.pathExtension.isEmpty ? "未知" : url.pathExtension.uppercased()
+    let formatText = url.pathExtension.isEmpty ? String(localized: "Unknown") : url.pathExtension.uppercased()
 
     // Keep every section present before mounting; file facts arrive with AV metadata.
     completion(WallpaperInspectorDetails(
-        fileSizeText: wallpaper.fileSize.map { String(format: "%.2f MB", Double($0) / (1024 * 1024)) } ?? "读取中…",
-        formatText: formatText, durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? "读取中…",
-        codecText: "读取中…", resolutionText: wallpaper.resolution ?? "读取中…",
-        addedDateText: "读取中…", pathText: path, isLoading: true))
+        fileSizeText: wallpaper.fileSize.map { String(format: "%.2f MB", Double($0) / (1024 * 1024)) } ?? String(localized: "Reading…"),
+        formatText: formatText, durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? String(localized: "Reading…"),
+        codecText: String(localized: "Reading…"), resolutionText: wallpaper.resolution ?? String(localized: "Reading…"),
+        addedDateText: String(localized: "Reading…"), pathText: path, isLoading: true))
 
     return Task { @MainActor in
         guard !Task.isCancelled,
@@ -109,7 +109,7 @@ nonisolated private func prepareWallpaperInspectorDetails(for wallpaper: VideoWa
     guard !Task.isCancelled else { return nil }
     let path = wallpaper.path
     let url = URL(fileURLWithPath: path, isDirectory: false)
-    let formatText = url.pathExtension.isEmpty ? "未知" : url.pathExtension.uppercased()
+    let formatText = url.pathExtension.isEmpty ? String(localized: "Unknown") : url.pathExtension.uppercased()
     let attributes = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
     let fileSize = attributes[.size] as? Int64 ?? 0
     let fileSizeText = String(format: "%.2f MB", Double(fileSize) / (1024 * 1024))
@@ -121,7 +121,7 @@ nonisolated private func prepareWallpaperInspectorDetails(for wallpaper: VideoWa
     guard !Task.isCancelled else { return nil }
 
     let asset = AVURLAsset(url: url)
-    var durationText = wallpaper.duration.map { formattedDuration(Double($0)) } ?? "未知"
+    var durationText = wallpaper.duration.map { formattedDuration(Double($0)) } ?? String(localized: "Unknown")
     if let duration = try? await asset.load(.duration) {
         let durationSeconds = CMTimeGetSeconds(duration)
         if durationSeconds.isFinite && durationSeconds > 0 {
@@ -160,17 +160,17 @@ nonisolated private func formattedDuration(_ seconds: Double) -> String {
 nonisolated private func videoResolutionText(for asset: AVAsset, fallback: String? = nil) async -> String {
     guard let tracks = try? await asset.loadTracks(withMediaType: .video),
           !Task.isCancelled, let track = tracks.first else {
-        return fallback ?? "未知"
+        return fallback ?? String(localized: "Unknown")
     }
     guard let naturalSize = try? await track.load(.naturalSize),
           !Task.isCancelled,
           let preferredTransform = try? await track.load(.preferredTransform) else {
-        return fallback ?? "未知"
+        return fallback ?? String(localized: "Unknown")
     }
     let transformedSize = naturalSize.applying(preferredTransform)
     let width = Int(abs(transformedSize.width).rounded())
     let height = Int(abs(transformedSize.height).rounded())
-    guard width > 0, height > 0 else { return fallback ?? "未知" }
+    guard width > 0, height > 0 else { return fallback ?? String(localized: "Unknown") }
     return "\(width) × \(height)"
 }
 
@@ -179,7 +179,7 @@ nonisolated private func videoCodecText(for asset: AVAsset) async -> String {
           !Task.isCancelled, let track = tracks.first,
           let formatDescriptions = try? await track.load(.formatDescriptions),
           let formatDescription = formatDescriptions.first else {
-        return "未知"
+        return String(localized: "Unknown")
     }
     let codec = CMFormatDescriptionGetMediaSubType(formatDescription)
     switch codec {

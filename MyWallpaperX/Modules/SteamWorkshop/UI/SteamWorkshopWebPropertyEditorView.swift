@@ -12,7 +12,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     private let record: SteamWorkshopDownloadRecord
     private let contentStack = NSStackView()
     private let scrollView = WorkshopPropertyScrollView()
-    private let reset = NSButton(title: "恢复默认", target: nil, action: nil)
+    private let reset = NSButton(title: String(localized: "Restore Defaults"), target: nil, action: nil)
     private lazy var resetRow = WorkshopPropertyPanelLayout.resetRow(reset)
     private(set) var emptyStateMessage: String?
     var presentsOnlyMessage: Bool { reset.isHidden && emptyStateMessage != nil }
@@ -38,7 +38,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         setContentHuggingPriority(.defaultLow, for: .vertical)
         reset.target = self
         reset.action = #selector(resetProperties)
-        reset.toolTip = "恢复这个 Web 壁纸的默认属性"
+        reset.toolTip = String(localized: "Restore Default Properties for This Web Wallpaper")
         WorkshopPropertyPanelLayout.install(in: self, scrollView: scrollView)
         emptyMessage.alignment = .center
         emptyMessage.translatesAutoresizingMaskIntoConstraints = false
@@ -82,7 +82,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         emptyStateMessage = nil
         guard let descriptor = service.resolvedWebProjectDescriptor(for: record) else {
             reset.isHidden = true
-            emptyStateMessage = "当前壁纸的属性暂不可用，\n请先完成依赖下载。"
+            emptyStateMessage = String(localized: "Properties for this wallpaper are unavailable.\nDownload its dependencies first.")
             return
         }
         let values = service.effectiveWebPropertyValues(for: record, descriptor: descriptor)
@@ -95,7 +95,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
                 && service.shouldRenderWebPropertyControl($0, staticContentSummary: descriptor.staticContentSummary)
         }
         if definitions.isEmpty {
-            emptyStateMessage = "当前 Web 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
+            emptyStateMessage = String(localized: "This Web wallpaper has no adjustable supported properties,\nor its property model couldn’t be parsed.")
         }
         for definition in definitions {
             let titleContent = displayContent(definition)
@@ -112,7 +112,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             contentStack.insertArrangedSubview(resetRow, at: 0)
             resetRow.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
         } else if contentStack.arrangedSubviews.isEmpty {
-            emptyStateMessage = "当前 Web 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
+            emptyStateMessage = String(localized: "This Web wallpaper has no adjustable supported properties,\nor its property model couldn’t be parsed.")
         }
         layoutSubtreeIfNeeded()
         if preservingScrollPosition { scrollView.contentView.scroll(to: origin) }
@@ -188,7 +188,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         let content = definition.displayTitleMarkup.map { WorkshopPropertyTextContent(markup: $0) }
             ?? definition.displayTitle.map { WorkshopPropertyTextContent(text: $0) }
             ?? WorkshopPropertyTextContent(markup: WorkshopPropertyDisplayResolver().string(definition.title))
-        return content.isEmpty && definition.kind != .label && definition.kind != .group ? .init(text: "未命名属性") : content
+        return content.isEmpty && definition.kind != .label && definition.kind != .group ? .init(text: String(localized: "Unnamed Property")) : content
     }
 
     private func controlView(
@@ -229,12 +229,12 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             popup.lineBreakMode = .byTruncatingTail
             popup.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             if visibleOptions.isEmpty {
-                popup.addItem(withTitle: "当前没有可选项")
+                popup.addItem(withTitle: String(localized: "No options available"))
                 popup.isEnabled = false
             } else {
                 var selectedValueID: String?
                 if visibleOptions.contains(where: { $0.value == value }) == false {
-                    popup.addItem(withTitle: "当前值：\(valueSummary(value, definition: definition))（不可选）")
+                    popup.addItem(withTitle: String(localized: "Current value: \(valueSummary(value, definition: definition)) (not selectable)"))
                     popup.lastItem?.isEnabled = false
                     popup.selectItem(at: 0)
                 }
@@ -264,14 +264,14 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             row.alignment = .trailing
             row.spacing = 8
             let path = value.stringValue ?? ""
-            let name = label(path.isEmpty ? (definition.kind == .directory ? "未选择文件夹" : "未选择文件") : URL(fileURLWithPath: path).lastPathComponent,
+            let name = label(path.isEmpty ? (definition.kind == .directory ? String(localized: "No Folder Selected") : String(localized: "No File Selected")) : URL(fileURLWithPath: path).lastPathComponent,
                 font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 1)
             name.lineBreakMode = .byTruncatingMiddle
             let buttons = NSStackView()
             buttons.orientation = .horizontal
             buttons.spacing = 8
             let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
-            let choose = NSButton(title: definition.kind == .directory ? "选择文件夹" : "选择文件", target: target,
+            let choose = NSButton(title: definition.kind == .directory ? String(localized: "Choose Folder") : String(localized: "Choose File"), target: target,
                 action: #selector(WebPropertyActionTarget.choosePath(_:)))
             choose.bezelStyle = .rounded
             choose.controlSize = .small
@@ -280,9 +280,9 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             retainActionTarget(target, for: choose)
             if !path.isEmpty {
                 let clear = NSButton(title: "", target: target, action: #selector(WebPropertyActionTarget.clearPath(_:)))
-                clear.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: "清空选择")
+                clear.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: String(localized: "Clear Selection"))
                 clear.isBordered = false
-                clear.toolTip = "清空当前选择"
+                clear.toolTip = String(localized: "Clear Selection")
                 buttons.addArrangedSubview(clear)
             }
             buttons.addArrangedSubview(choose)
@@ -402,7 +402,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     private func valueSummary(_ value: SteamWorkshopWebPropertyValue, definition: SteamWorkshopWebPropertyDefinition) -> String {
         if let stringValue = value.stringValue { return SteamWorkshopService.normalizedWebDisplayText(stringValue) }
         if let numberValue = value.numberValue { return formattedNumber(numberValue, allowsFractional: definition.allowsFractionalValues, precision: definition.fractionalPrecision) }
-        if let boolValue = value.boolValue { return boolValue ? "开" : "关" }
+        if let boolValue = value.boolValue { return boolValue ? String(localized: "On") : String(localized: "Off") }
         return "-"
     }
 
@@ -520,7 +520,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             panel.allowsMultipleSelection = false
             panel.resolvesAliases = true
             panel.canCreateDirectories = selectsDirectories
-            panel.prompt = selectsDirectories ? "选择目录" : "选择文件"
+            panel.prompt = selectsDirectories ? String(localized: "Choose Folder") : String(localized: "Choose File")
             if !selectsDirectories {
                 panel.allowedContentTypes = view?.allowedContentTypes(for: definition.fileType) ?? []
             }

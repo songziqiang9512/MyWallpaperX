@@ -224,47 +224,47 @@ enum ResolvedWebRuntimeRiskFlag: String, Codable, Equatable, Hashable {
     var displayName: String {
         switch self {
         case .highLoadStructure:
-            return "高负载结构"
+            return String(localized: "High-Load Structure")
         case .externalServiceDependency:
-            return "外部服务依赖"
+            return String(localized: "External Service Dependencies")
         case .localhostDependency:
-            return "本地服务依赖"
+            return String(localized: "Local Service Dependency")
         case .webMHeavyMedia:
-            return "WebM 媒体风险"
+            return String(localized: "WebM Media Risk")
         case .hoverOnlyInteraction:
-            return "Hover 交互风险"
+            return String(localized: "Hover Interaction Risk")
         case .persistentBrowserStorageUsage:
-            return "持久化存储依赖"
+            return String(localized: "Persistent Storage Dependency")
         case .pluginBridgeApproximation:
-            return "Plugin/RGB 占位兼容"
+            return String(localized: "Plugin/RGB Placeholder Compatibility")
         case .unsupportedDisplayConditionFallback:
-            return "Display Condition 回退"
+            return String(localized: "Display Condition Fallback")
         case .incompleteLocalizationTokens:
-            return "Localization 不完整"
+            return String(localized: "Incomplete Localization")
         case .implicitFractionalSliderPrecision:
-            return "Fractional Slider 默认精度"
+            return String(localized: "Fractional Slider Default Precision")
         case .knownSafariBaselineIncompatibility:
-            return "Safari 基线可疑"
+            return String(localized: "Suspicious Safari Baseline")
         case .missingAccessibleFileBinding:
-            return "缺少可访问文件"
+            return String(localized: "No accessible file")
         case .missingAccessibleDirectoryBinding:
-            return "缺少可访问目录"
+            return String(localized: "No accessible folder")
         case .serviceWorkerRegistration:
-            return "Service Worker 依赖"
+            return String(localized: "Service Worker Dependency")
         case .esModuleDependency:
-            return "ES Module 依赖"
+            return String(localized: "ES Module Dependency")
         case .dynamicImportUsage:
-            return "动态 import 依赖"
+            return String(localized: "Dynamic Import Dependency")
         case .wasmUsage:
-            return "WASM 依赖"
+            return String(localized: "WASM Dependency")
         case .wasmStreamingUsage:
-            return "WASM Streaming 依赖"
+            return String(localized: "WASM Streaming Dependency")
         case .customSchemeSensitiveWebGL:
-            return "WebGL/纹理 Origin 敏感"
+            return String(localized: "WebGL/Texture Origin Sensitivity")
         case .iframeCrossFrameAccess:
-            return "iframe 跨 frame DOM 访问"
+            return String(localized: "Cross-Frame DOM Access via iframe")
         case .truncatedStaticAnalysis:
-            return "大型脚本静态分析截断"
+            return String(localized: "Large Script Static Analysis Truncated")
         }
     }
 }

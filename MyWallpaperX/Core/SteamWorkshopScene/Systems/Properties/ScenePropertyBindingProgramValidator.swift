@@ -20,7 +20,7 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                 code: .duplicateProgramDefinition,
                 instruction: instructionsByTarget[target]?.first,
                 target: target,
-                message: "绑定程序包含重复 target definition。"
+                message: String(localized: "The binding program contains a duplicate target definition.")
             ))
         }
         for (target, instructions) in instructionsByTarget where instructions.count > 1 {
@@ -28,7 +28,7 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                 code: .duplicateProgramInstruction,
                 instruction: Self.sorted(instructions).first,
                 target: target,
-                message: "绑定程序包含重复 target instruction。"
+                message: String(localized: "The binding program contains a duplicate target instruction.")
             ))
         }
 
@@ -40,7 +40,7 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                     code: .missingProgramDefinition,
                     instruction: instruction,
                     target: target,
-                    message: "instruction 没有对应的 target definition。"
+                    message: String(localized: "The instruction has no matching target definition.")
                 ))
                 continue
             }
@@ -52,7 +52,7 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                     code: .programTypeMismatch,
                     instruction: instruction,
                     target: target,
-                    message: "instruction 与 target definition 的值类型不一致。"
+                    message: String(localized: "The instruction and target definition value types don’t match.")
                 ))
                 continue
             }
@@ -61,7 +61,7 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                     code: .programTypeMismatch,
                     instruction: instruction,
                     target: target,
-                    message: "conditional instruction 必须生成 Boolean target。"
+                    message: String(localized: "A conditional instruction must produce a Boolean target.")
                 ))
                 continue
             }
@@ -243,10 +243,10 @@ extension ScenePropertyBindingCompiler {
         _ error: ScenePropertyBindingProgram.ValueError
     ) -> String {
         switch error {
-        case .typeMismatch: "authored fallback 类型与目标不匹配。"
-        case .invalidFormat: "authored 颜色必须由三个空白分隔的数字组成。"
-        case .nonFinite: "authored fallback 包含非有限数字。"
-        case .unsupportedType: "binding program 不支持该 authored 类型。"
+        case .typeMismatch: String(localized: "Authored fallback type doesn’t match the target.")
+        case .invalidFormat: String(localized: "Authored colors must consist of three whitespace-separated numbers.")
+        case .nonFinite: String(localized: "Authored fallback contains a non-finite number.")
+        case .unsupportedType: String(localized: "The binding program doesn’t support this authored type.")
         }
     }
 
@@ -264,10 +264,10 @@ extension ScenePropertyBindingCompiler {
         _ error: ScenePropertyBindingProgram.ValueError
     ) -> String {
         switch error {
-        case .typeMismatch: "属性默认值类型与目标不匹配。"
-        case .invalidFormat: "颜色属性默认值必须由三个空白分隔的数字组成。"
-        case .nonFinite: "属性默认值包含非有限数字。"
-        case .unsupportedType: "binding program 不支持该属性默认值类型。"
+        case .typeMismatch: String(localized: "The property default type doesn’t match the target.")
+        case .invalidFormat: String(localized: "A color property default must be three numbers separated by whitespace.")
+        case .nonFinite: String(localized: "The property default contains a non-finite number.")
+        case .unsupportedType: String(localized: "The binding program doesn’t support this property default type.")
         }
     }
 
@@ -275,6 +275,6 @@ extension ScenePropertyBindingCompiler {
         _ target: SceneUserPropertyBindingTarget
     ) -> String {
         if case let .unsupported(reason) = target { return reason }
-        return "当前 binding program 不支持该属性目标或执行 profile。"
+        return String(localized: "The current binding program doesn’t support this property target or execution profile.")
     }
 }

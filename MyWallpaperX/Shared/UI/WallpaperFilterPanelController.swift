@@ -15,14 +15,14 @@ import AppKit
     }
     static let panelWidth: CGFloat = 400
     static let minimumResolutions: [(title: String, width: Int, height: Int)] = [
-        ("不限", 0, 0), ("1080p 及以上", 1920, 1080), ("2K 及以上", 2560, 1440), ("4K 及以上", 3840, 2160)
+        (String(localized: "Any"), 0, 0), (String(localized: "1080p and Up"), 1920, 1080), (String(localized: "2K and Up"), 2560, 1440), (String(localized: "4K and Up"), 3840, 2160)
     ]
     private let sections: () -> [Section]
     private let summary: () -> String
     private let canClear: () -> Bool
     private let clear: () -> Void
     private var checkboxes: [(NSButton, Option)] = []
-    private lazy var clearButton = NSButton(title: "清空筛选", target: nil, action: nil)
+    private lazy var clearButton = NSButton(title: String(localized: "Clear Filters"), target: nil, action: nil)
     private lazy var summaryLabel = NSTextField(labelWithString: "")
     private(set) var preferredPanelHeight: CGFloat = 240
 
@@ -67,7 +67,7 @@ import AppKit
         }
         clearButton.bezelStyle = .rounded; clearButton.controlSize = .small
         clearButton.target = self; clearButton.action = #selector(clearFilters)
-        clearButton.setAccessibilityLabel("清空全部筛选")
+        clearButton.setAccessibilityLabel(String(localized: "Clear All Filters"))
         summaryLabel.font = .systemFont(ofSize: 11); summaryLabel.textColor = .secondaryLabelColor
         summaryLabel.lineBreakMode = .byTruncatingTail
         let footer = NSStackView(views: [clearButton, summaryLabel])
@@ -106,7 +106,7 @@ import AppKit
             button.state = option.isSelected() ? .on : .off
         }
         clearButton.isEnabled = canClear()
-        summaryLabel.stringValue = "当前筛选：" + summary()
+        summaryLabel.stringValue = String(localized: "Current filter:") + summary()
     }
 
     @objc private func toggle(_ sender: NSButton) {

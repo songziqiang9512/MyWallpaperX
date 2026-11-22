@@ -21,7 +21,7 @@ extension WallpaperManager {
         if let admission, !acceptsImportedVideoPlayback(admission) { return }
         let targetPath = normalizedPath(wallpaper.path)
         guard pathExists(targetPath) else {
-            switchFailed(libraryPending.ticket, reason: "视频文件已不可用，已保留原壁纸")
+            switchFailed(libraryPending.ticket, reason: String(localized: "The video file is no longer available; the original wallpaper was kept"))
             return
         }
         pendingWallpaper = wallpaper
@@ -360,14 +360,14 @@ extension WallpaperManager {
         guard !titles.isEmpty else { return }
         let preview = titles.prefix(5).joined(separator: "\n")
         let remaining = max(0, titles.count - 5)
-        let suffix = remaining > 0 ? "\n还有 \(remaining) 个未显示" : ""
-        let message = "源文件已缺失，可重新定位或导入：\n\(preview)\(suffix)"
+        let suffix = remaining > 0 ? String(localized: "\n\(remaining) more not shown") : ""
+        let message = String(localized: "Source file is missing. You can relocate or import it:\n\(preview)\(suffix)")
 
         let alert = makeAppAlert(
-            title: "发现失效文件",
+            title: String(localized: "Invalid Files Found"),
             message: message,
             style: .warning,
-            buttons: ["知道了"]
+            buttons: [String(localized: "OK")]
         )
         presentAppAlert(alert, in: appModalHostWindow())
     }
@@ -376,14 +376,14 @@ extension WallpaperManager {
         guard !titles.isEmpty else { return }
         let preview = titles.prefix(5).joined(separator: "\n")
         let remaining = max(0, titles.count - 5)
-        let suffix = remaining > 0 ? "\n还有 \(remaining) 个未显示" : ""
-        let message = "已从视频库移除缺失文件：\n\(preview)\(suffix)"
+        let suffix = remaining > 0 ? String(localized: "\n\(remaining) more not shown") : ""
+        let message = String(localized: "Removed missing files from the video library:\n\(preview)\(suffix)")
 
         let alert = makeAppAlert(
-            title: "已移除失效文件",
+            title: String(localized: "Removed Missing Files"),
             message: message,
             style: .warning,
-            buttons: ["知道了"]
+            buttons: [String(localized: "OK")]
         )
         presentAppAlert(alert, in: appModalHostWindow())
     }

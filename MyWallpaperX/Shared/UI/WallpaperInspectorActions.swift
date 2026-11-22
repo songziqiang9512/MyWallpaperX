@@ -12,7 +12,7 @@ struct WallpaperInspectorActions {
         let canOrganize: Bool
         let playlistNames: [String]
 
-        var primaryTitle: String { isPlaying ? "停止播放" : "设为壁纸" }
+        var primaryTitle: String { isPlaying ? String(localized: "Stop Playback") : String(localized: "Set as Wallpaper") }
         var primarySymbolName: String { isPlaying ? "stop.fill" : "photo.fill" }
     }
 

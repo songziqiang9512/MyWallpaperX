@@ -76,7 +76,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                 diagnostics.append(.runtime(
                     code: .missingEffectiveValue,
                     instruction: instruction,
-                    message: "属性没有有效值。"
+                    message: String(localized: "The property has no effective value.")
                 ))
                 continue
             }
@@ -103,7 +103,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                     diagnostics.append(.runtime(
                         code: .invalidRuntimeValue,
                         instruction: instruction,
-                        message: "属性值超出作者声明的数值域。"
+                        message: String(localized: "The property value is outside the range declared by the author.")
                     ))
                     continue
                 }
@@ -150,7 +150,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                     diagnostics.append(.runtime(
                         code: .invalidRuntimeValue,
                         instruction: instruction,
-                        message: "Combo 选择必须命中声明域并原子解析完整 Boolean 目标组。"
+                        message: String(localized: "A Combo selection must stay within the declared domain and atomically resolve the complete Boolean target group.")
                     ))
                 }
                 continue
@@ -360,10 +360,10 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
 
         var runtimeMessage: String {
             switch self {
-            case .typeMismatch: "属性值类型与目标不匹配。"
-            case .invalidFormat: "颜色值必须由三个空白分隔的数字组成。"
-            case .nonFinite: "属性值包含非有限数字。"
-            case .unsupportedType: "绑定程序不支持该动态值类型。"
+            case .typeMismatch: String(localized: "The property value type doesn’t match the target.")
+            case .invalidFormat: String(localized: "A color value must be three numbers separated by whitespace.")
+            case .nonFinite: String(localized: "The property value contains a non-finite number.")
+            case .unsupportedType: String(localized: "The binding program doesn’t support this dynamic value type.")
             }
         }
     }
@@ -425,7 +425,7 @@ nonisolated struct ScenePropertyBindingCompiler {
             if case let .cameraPathZoom(id) = binding.target, id != cameraInputLayerID {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 diagnostics.append(Self.compileDiagnostic(code: .unsupportedTarget,
-                    binding: binding, target: nil, message: "缩放绑定没有唯一合法的默认二维相机。"))
+                    binding: binding, target: nil, message: String(localized: "The zoom binding has no unique valid default 2D camera.")))
                 continue
             }
             let propertyDefinitions = propertiesByKey[binding.reference.key] ?? []
@@ -455,7 +455,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     code: .conditionalBinding,
                     binding: binding,
                     target: mapped.target,
-                    message: "conditional binding 未形成有效的 Combo Boolean 选择组。"
+                    message: String(localized: "The conditional binding doesn’t form a valid Boolean combo selection group.")
                 ))
             }
             switch propertyDefinitions.count {
@@ -465,7 +465,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     code: .missingPropertyDefinition,
                     binding: binding,
                     target: mapped.target,
-                    message: "绑定引用的属性未定义。"
+                    message: String(localized: "The property referenced by the binding is undefined.")
                 ))
             case 1:
                 break
@@ -475,7 +475,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     code: .duplicatePropertyDefinition,
                     binding: binding,
                     target: mapped.target,
-                    message: "绑定引用的属性定义不唯一。"
+                    message: String(localized: "The property referenced by the binding isn't uniquely defined.")
                 ))
             }
             if let property = propertyDefinitions.first, propertyDefinitions.count == 1 {
@@ -485,7 +485,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                         code: .propertyKindMismatch,
                         binding: binding,
                         target: mapped.target,
-                        message: "属性 kind 与绑定目标不匹配。"
+                        message: String(localized: "Property kind doesn’t match the binding target.")
                     ))
                 } else if let defaultValue = property.defaultValue {
                     let defaultValidation = binding.reference.isConditional
@@ -516,7 +516,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                         code: .missingPropertyDefault,
                         binding: binding,
                         target: mapped.target,
-                        message: "绑定引用的属性没有默认值。"
+                        message: String(localized: "The property referenced by the binding has no default value.")
                     ))
                 }
             }
@@ -526,7 +526,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     code: .missingAuthoredValue,
                     binding: binding,
                     target: mapped.target,
-                    message: "绑定缺少可用的 authored fallback。"
+                    message: String(localized: "The binding has no usable authored fallback.")
                 ))
                 continue
             }
@@ -570,7 +570,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     rebuildRequiredKeys.insert(binding.reference.key)
                     diagnostics.append(Self.compileDiagnostic(code: .unsupportedTarget,
                         binding: binding, target: mapped.target,
-                        message: "二维相机缩放需有限的 0.01…100 Slider 域及 authored fallback。"))
+                        message: String(localized: "2D camera zoom requires a finite 0.01…100 Slider range and an authored fallback.")))
                     continue
                 }
             }
@@ -589,7 +589,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                     rebuildRequiredKeys.insert(binding.reference.key)
                     diagnostics.append(Self.compileDiagnostic(
                         code: .unsupportedTarget, binding: binding, target: mapped.target,
-                        message: "动态文字宽度需有限的 1…16384 slider 域及 authored fallback。"
+                        message: String(localized: "Dynamic text width requires a finite 1…16384 slider range and an authored fallback.")
                     ))
                     continue
                 }
@@ -631,7 +631,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                 code: .duplicateTarget,
                 binding: binding,
                 target: target,
-                message: "多个绑定写入同一动态目标，已全部禁用。"
+                message: String(localized: "Multiple bindings write to the same dynamic target; all were disabled.")
             ))
         }
 

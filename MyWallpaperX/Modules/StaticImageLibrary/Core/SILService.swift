@@ -212,17 +212,17 @@ final class SILService: ObservableObject {
             let removedNames = removed.prefix(3).map {
                 URL(fileURLWithPath: $0.path).lastPathComponent
             }
-            var lines = ["启动时已自动从图库移除 \(removed.count) 个本地不存在的文件。"]
+            var lines = [String(localized: "At launch, \(removed.count) files that no longer exist locally were removed from the library.")]
             if !removedNames.isEmpty {
                 lines.append(removedNames.joined(separator: "\n"))
             }
             if removed.count > removedNames.count {
-                lines.append("其余 \(removed.count - removedNames.count) 个文件也已同步移除。")
+                lines.append(String(localized: "The other \(removed.count - removedNames.count) files were removed as well."))
             }
             let alert = makeAppAlert(
-                title: "图库已清理失效文件",
+                title: String(localized: "Library Cleaned Up Invalid Files"),
                 message: lines.joined(separator: "\n\n"),
-                buttons: ["好"]
+                buttons: [String(localized: "OK")]
             )
             presentAppAlert(alert, in: hostWindow)
         }
@@ -266,12 +266,12 @@ final class SILService: ObservableObject {
                     }
                     if previousCount == fileURLs.count {
                         rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,
-                                              failureMessage: "目录无法读取或没有支持的图片"))
+                                              failureMessage: String(localized: "The folder can't be read or contains no supported images")))
                     }
                 } else if Self.isSupportedImage(url) {
                     fileURLs.append(url)
                 } else {
-                    rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: "不支持的图片格式"))
+                    rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: String(localized: "Unsupported Image Format")))
                 }
             }
             let requestedCount = fileURLs.count
@@ -291,7 +291,7 @@ final class SILService: ObservableObject {
                     candidates.append((url, wallpaper, fm.isReadableFile(atPath: path)))
                 } else {
                     rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,
-                                          failureMessage: isDirectory.boolValue ? "该路径是目录，不是图片文件" : "文件不存在"))
+                                          failureMessage: isDirectory.boolValue ? String(localized: "That path is a folder, not an image file") : String(localized: "File not found")))
                 }
             }
             let missingCount = requestedCount - candidates.count
@@ -351,7 +351,7 @@ final class SILService: ObservableObject {
                    let saved = try? JSONDecoder().decode([SILWallpaper].self, from: data) {
                     wallpapers = saved
                 }
-                persistenceFailure = "图片资料库未获保存确认：" + error.localizedDescription
+                persistenceFailure = String(localized: "Image library didn’t confirm the save:") + error.localizedDescription
                 added = 0
             }
         } else {
@@ -363,15 +363,15 @@ final class SILService: ObservableObject {
         guard metadataLoadGeneration == importEpoch else { return }
         if presentsSummary {
             var lines: [String] = [
-                "总选择：\(requestedCount) 个",
-                "新增导入：\(added) 个"
+                String(localized: "Total selected: \(requestedCount)"),
+                String(localized: "Newly imported: \(added)")
             ]
             let skipped = requestedCount - added - duplicateCount - missingCount
-            if duplicateCount > 0 { lines.append("\(duplicateCount) 个文件已存在于列表中") }
-            if missingCount > 0  { lines.append("\(missingCount) 个文件不存在") }
-            if skipped > 0       { lines.append("未处理：\(skipped) 个") }
+            if duplicateCount > 0 { lines.append(String(localized: "\(duplicateCount) files are already in the list")) }
+            if missingCount > 0  { lines.append(String(localized: "\(missingCount) files are missing")) }
+            if skipped > 0       { lines.append(String(localized: "Skipped: \(skipped)")) }
             if let persistenceFailure { lines.append(persistenceFailure) }
-            let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
+            let alert = makeAppAlert(title: String(localized: "Import Results"), message: lines.joined(separator: "\n"))
             presentAppAlert(alert, in: window ?? appModalHostWindow())
             guard metadataLoadGeneration == importEpoch else { return }
         }
@@ -385,7 +385,7 @@ final class SILService: ObservableObject {
                 let key = Self.normalizedPath(candidate.url.path)
                 guard let index = indexByNormalizedPath[key], wallpapers.indices.contains(index) else {
                     return .init(sourceURL: candidate.url, disposition: .failed, organizationItem: nil,
-                                 failureMessage: "资料库内容已变化，未完成入库")
+                                 failureMessage: String(localized: "Library contents changed; the import didn’t complete"))
                 }
                 let item = wallpapers[index]
                 let disposition: WallpaperSourceImportResult.Disposition = addedPaths.contains(key) && reportedNew.insert(key).inserted ? .added : .existing
@@ -393,7 +393,7 @@ final class SILService: ObservableObject {
                     organizationItem: .init(reference: .init(provider: .staticImageLibrary, sourceID: item.id),
                         locator: .init(path: item.path, titleHint: item.title, mediaKind: .image),
                         isPublishedLocally: true, isAvailable: candidate.available),
-                    failureMessage: candidate.available ? nil : "图片已入库但无法读取，未加入列表")
+                    failureMessage: candidate.available ? nil : String(localized: "The image was added to the library but couldn’t be read, so it wasn’t added to the list."))
             }
             completion(.init(items: accepted + rejected))
         }
@@ -428,7 +428,7 @@ final class SILService: ObservableObject {
             let url = URL(fileURLWithPath: item.path).standardizedFileURL
             do {
                 guard !isInUse(url) else {
-                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源图片正在播放或准备，请先停止播放后重试"])
+                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: String(localized: "The source image is playing or being prepared. Stop playback first, then try again.")])
                 }
                 requests.append((reference, try WallpaperSourceFileDeletion.prepare(url)))
             } catch {
@@ -448,7 +448,7 @@ final class SILService: ObservableObject {
                         && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && Self.normalizedPath($0.path) == Self.normalizedPath(request.url.path) })
                         && !isInUse(request.url) else {
                         return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,
-                            failureMessage: "资料库或播放状态已变化，未删除源文件")
+                            failureMessage: String(localized: "The library or playback state changed; the source file was not deleted"))
                     }
                     // The original playback admission is MainActor-isolated.
                     // Nothing can accept this source between this guard and unlink.

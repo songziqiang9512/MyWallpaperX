@@ -24,17 +24,17 @@ import AppKit
                 $0.minWidth = clear ? 0 : size.width; $0.minHeight = clear ? 0 : size.height
             })
         }
-        return Panel(sections: [.init(title: "分类", columns: 3, options: categories),
-            .init(title: "视频类型", columns: 3, options: types), .init(title: "最低分辨率", columns: 2, options: resolutions),
-            .init(title: "内容", columns: 2, options: [
-                option("编辑精选", selected: { $0.editorsChoice }, toggle: { $0.editorsChoice.toggle() }),
-                option("安全搜索", selected: { $0.safeSearch }, toggle: { $0.safeSearch.toggle() })])], summary: {
+        return Panel(sections: [.init(title: String(localized: "Categories"), columns: 3, options: categories),
+            .init(title: String(localized: "Video Type"), columns: 3, options: types), .init(title: String(localized: "Minimum Resolution"), columns: 2, options: resolutions),
+            .init(title: String(localized: "Content"), columns: 2, options: [
+                option(String(localized: "Editor’s Choice"), selected: { $0.editorsChoice }, toggle: { $0.editorsChoice.toggle() }),
+                option(String(localized: "Safe Search"), selected: { $0.safeSearch }, toggle: { $0.safeSearch.toggle() })])], summary: {
                 let query = service.currentParams
-                var values = [query.category == .all ? "全部分类" : query.category.displayName]
+                var values = [query.category == .all ? String(localized: "All Categories") : query.category.displayName]
                 if query.videoType != .all { values.append(query.videoType.displayName) }
-                if query.minWidth > 0 || query.minHeight > 0 { values.append("\(query.minWidth) × \(query.minHeight) 及以上") }
-                if query.editorsChoice { values.append("精选") }
-                if query.safeSearch { values.append("安全") }
+                if query.minWidth > 0 || query.minHeight > 0 { values.append(String(localized: "\(query.minWidth) × \(query.minHeight) and up")) }
+                if query.editorsChoice { values.append(String(localized: "Editor’s Choice")) }
+                if query.safeSearch { values.append(String(localized: "Safe")) }
                 return values.joined(separator: " · ")
             }, canClear: { service.currentParams.hasFilters }, clear: { edit { $0.clearFilters() } })
     }

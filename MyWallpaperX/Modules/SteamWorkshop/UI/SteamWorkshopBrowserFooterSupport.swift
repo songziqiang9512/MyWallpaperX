@@ -37,13 +37,13 @@ enum SteamWorkshopBrowserFooterSupport {
         case .hidden:
             return ""
         case .ready:
-            return "已加载 \(itemCount) 个作品"
+            return String(localized: "Loaded \(itemCount) items")
         case .loading:
-            return "正在加载更多项目"
+            return String(localized: "Loading more items")
         case .failed(let message):
             return message
         case .exhausted:
-            return "已加载 \(itemCount) 个作品"
+            return String(localized: "Loaded \(itemCount) items")
         }
     }
 

@@ -118,7 +118,7 @@ final class InspectorHostCardView: NSView {
     private let headerRow = NSStackView()
     private let titleContainer = NSStackView()
     private let iconView = NSImageView()
-    private let infoTitleLabel = NSTextField(labelWithString: "详情")
+    private let infoTitleLabel = NSTextField(labelWithString: String(localized: "Details"))
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
     private let closeButton = WallpaperPanelCloseButton()
@@ -147,7 +147,7 @@ final class InspectorHostCardView: NSView {
         let isInfoPanel = request.chromeStyle == .infoPanel
         stackView.spacing = compactHeader ? 8 : 14
         stackView.edgeInsets.top = 18
-        infoTitleLabel.stringValue = headerTitleOverride ?? "详情"
+        infoTitleLabel.stringValue = headerTitleOverride ?? String(localized: "Details")
         centeredHeaderConstraint?.isActive = headerTitleOverride != nil
         iconWidthConstraint?.constant = headerTitleOverride == nil ? 18 : 32
         headerSpacer.isHidden = headerTitleOverride != nil
@@ -160,8 +160,8 @@ final class InspectorHostCardView: NSView {
         titleContainer.isHidden = isInfoPanel
 
         let closeSymbolName = isInfoPanel ? "xmark" : "xmark.circle.fill"
-        closeButton.image = NSImage(systemSymbolName: closeSymbolName, accessibilityDescription: "关闭详情")
-        closeButton.toolTip = "关闭详情"
+        closeButton.image = NSImage(systemSymbolName: closeSymbolName, accessibilityDescription: String(localized: "Close Details"))
+        closeButton.toolTip = String(localized: "Close Details")
 
         contentContainer.hostedContentView = hostedContentView
         progressIndicator.isHidden = hostedContentView != nil
@@ -245,7 +245,7 @@ final class InspectorHostCardView: NSView {
         )
         headerRow.setHuggingPriority(headerHugging, for: .vertical)
 
-        iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: "详情")
+        iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: String(localized: "Details"))
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: 18)

@@ -45,14 +45,14 @@ extension WallpaperManager {
         guard let ticket = playbackSwitch.pending?.selection.ticket, ticket.epoch == epoch else { return nil }
         guard libraryPlaybackSequence.stage(proposal, ticket: ticket), let pending = libraryPlaybackSequence.pending else {
             libraryRotationDeadline.preparationFailed(now: CACurrentMediaTime())
-            switchFailed(ticket, reason: "播放来源已变化，已保留原壁纸")
+            switchFailed(ticket, reason: String(localized: "Playback source changed; the original wallpaper was kept"))
             return nil
         }
         // Publish the accepted target before source preparation. UI consumes
         // the original ticket; it never guesses pending from a timer or file.
         libraryPlaybackPendingChanged?()
         guard dispatch(pending) else {
-            switchFailed(ticket, reason: "壁纸当前不可用，已保留原壁纸")
+            switchFailed(ticket, reason: String(localized: "The wallpaper isn’t available right now; the original wallpaper was kept"))
             return nil
         }
         return ticket
@@ -226,7 +226,7 @@ extension WallpaperManager {
 
     func setStaticWallpaper(_ url: URL, libraryPending: WallpaperPlaybackSequence.Pending) {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            switchFailed(libraryPending.ticket, reason: "图片文件已不可用，已保留原壁纸")
+            switchFailed(libraryPending.ticket, reason: String(localized: "The image file is no longer available; the original wallpaper was kept"))
             return
         }
         guard libraryPending.ticket.runtime == .systemStill, acceptsLibraryPlayback(libraryPending) else { return }
@@ -251,15 +251,16 @@ extension WallpaperManager {
                         do {
                             try workspace.setDesktopImageURL(oldURL, for: screen, options: options)
                             continue
-                        } catch { failures.append("恢复失败：\(error.localizedDescription)") }
-                    } else { failures.append("无法恢复原系统壁纸") }
+                        } catch { failures.append(String(localized: "Restore failed: \(error.localizedDescription)")) }
+                    } else { failures.append(String(localized: "Couldn’t restore the original system wallpaper")) }
                     // This screen still contains a successful App image write.
                     // Keep its first baseline even though the whole selection
                     // failed and must not become the committed wallpaper.
                     self.rememberSystemDesktopWrite(url, on: screen, previousURL: oldURL, options: options)
                     self.didApplySystemStillThisRun = true
                 }
-                self.switchFailed(ticket, reason: "设置系统壁纸失败：\(failures.joined(separator: "；"))")
+                let failureDetail = failures.joined(separator: "; ")
+                self.switchFailed(ticket, reason: String(localized: "Couldn’t set the system wallpaper: \(failureDetail)"))
                 return
             }
             for (screen, oldURL, options) in previous {
@@ -291,7 +292,7 @@ extension WallpaperManager {
 
     func scheduleSwitchDeadline(_ ticket: PlaybackSwitchTicket) {
         switchDeadline?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.switchFailed(ticket, reason: "壁纸准备或显示超时，已保留原壁纸") }
+        let work = DispatchWorkItem { [weak self] in self?.switchFailed(ticket, reason: String(localized: "Preparing or showing the wallpaper timed out; the original wallpaper was kept")) }
         switchDeadline = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 40, execute: work)
     }
@@ -332,7 +333,7 @@ extension WallpaperManager {
                 }
             case let .activate(selection):
                 guard let id = selection.executionID, let endpoint = switchEndpoints[id] else {
-                    switchFailed(selection.ticket, reason: "播放端点已失效"); continue
+                    switchFailed(selection.ticket, reason: String(localized: "Playback endpoint is no longer valid")); continue
                 }
                 endpoint.activate()
             case let .commit(selection, recovery): commitSwitch(selection, recovery: recovery)
@@ -510,7 +511,7 @@ extension WallpaperManager {
             // An explicit removal is not a failed automatic candidate/replay.
             // Revoke its sequence attempt before the original failed effects.
             let cancelled = libraryPlaybackSequence.cancel(pending.ticket)
-            switchFailed(pending.ticket, reason: "已取消正在删除的 Scene 壁纸准备")
+            switchFailed(pending.ticket, reason: String(localized: "Canceled preparing the Scene wallpaper that is being deleted"))
             if cancelled { libraryPlaybackPendingChanged?() }
         }
         for ticket in tickets { finishSwitchSettlementObservers(ticket) }

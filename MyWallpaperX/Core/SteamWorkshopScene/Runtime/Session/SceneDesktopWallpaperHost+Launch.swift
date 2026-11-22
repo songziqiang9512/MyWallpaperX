@@ -42,7 +42,7 @@ extension SceneDesktopWallpaperHost {
             requestID: requestID,
             recordID: recordID,
             phase: .accepted,
-            message: "已接受 Scene 壁纸请求"
+            message: String(localized: "Scene wallpaper request accepted")
         ))
 
 #if DEBUG
@@ -98,7 +98,7 @@ extension SceneDesktopWallpaperHost {
                             requestID: requestID,
                             recordID: recordID,
                             phase: .preparingSurfaces,
-                            message: "正在准备显示器与 Scene 表面"
+                            message: String(localized: "Preparing displays and Scene surfaces")
                         ))
                         try self.beginCandidate(
                             context,
@@ -122,7 +122,7 @@ extension SceneDesktopWallpaperHost {
                                             definitions: model.project.userProperties.definitions))
                                 } else { reachability = nil }
                                 self.publishLaunchState(.init(requestID: requestID,
-                                    recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换",
+                                    recordID: recordID, phase: .launched, message: String(localized: "First Scene frame rendered and applied"),
                                     callbackPropertyReachability: reachability))
                                 complete(.success(model))
                             case let .failure(error):
@@ -173,7 +173,7 @@ extension SceneDesktopWallpaperHost {
             requestID: state.requestID,
             recordID: state.recordID,
             phase: .cancelled,
-            message: "已取消 Scene 壁纸准备"
+            message: String(localized: "Scene wallpaper preparation canceled")
         ))
     }
 
@@ -231,7 +231,7 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        progress?(.preparingModel, "正在读取资源并解析场景")
+        progress?(.preparingModel, String(localized: "Reading resources and parsing the scene"))
         var preparedStaticModels: [String: SceneMdlStaticModel.PreparedSource] = [:]
         var preparedParticleDefinitions: [String: SceneParticleAssetGraphLoader.PreparedDefinition] = [:]
         let model = try SceneRuntimeModelBuilder().build(
@@ -246,7 +246,7 @@ extension SceneDesktopWallpaperHost {
         let modelBuildMs = (CACurrentMediaTime() - prepareEntry) * 1_000
 #endif
         try cancellation?.check()
-        progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
+        progress?(.preparingPrograms, String(localized: "Preparing materials, scripts and render plan"))
         let privateMediaCacheDirectory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Caches/MyWallpaperX/SteamWorkshopScene", isDirectory: true)
         var runtimeInput = model.runtimeInput
@@ -476,7 +476,7 @@ extension SceneDesktopWallpaperHost {
         logPrepareStage("prepare-catalog")
 #endif
         try cancellation?.check()
-        progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
+        progress?(.preparingResources, String(localized: "Loading textures and preflighting Metal resources"))
 #if DEBUG
         let resourcesStageStart = CACurrentMediaTime()
         NSLog(
@@ -928,7 +928,7 @@ extension SceneDesktopWallpaperHost {
             requestID: requestID,
             recordID: recordID,
             phase: cancelled ? .cancelled : .failed,
-            message: cancelled ? "已取消 Scene 壁纸准备" : "Scene 壁纸准备失败"
+            message: cancelled ? String(localized: "Scene wallpaper preparation canceled") : String(localized: "Scene Wallpaper Preparation Failed")
         ))
         completion(.failure(error))
     }

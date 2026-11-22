@@ -33,10 +33,10 @@ extension SteamWorkshopService {
         if case let .missing(itemID) = record.dependencyStatus {
             clearLaunchPending(matching: record.id)
             let alert = makeAppAlert(
-                title: "缺少依赖项",
-                message: "“\(record.title)”缺少依赖项 \(itemID)。下载完成后可重新播放。",
+                title: String(localized: "Missing Dependencies"),
+                message: String(localized: "“\(record.title)” is missing dependency \(itemID). You can play it again after the download finishes."),
                 style: .warning,
-                buttons: ["取消", "下载依赖项"]
+                buttons: [String(localized: "Cancel"), String(localized: "Download Dependencies")]
             )
             presentAppAlert(alert, in: appModalHostWindow()) { [weak self] response in
                 guard let self, response == .alertSecondButtonReturn else { return }
@@ -66,8 +66,8 @@ extension SteamWorkshopService {
         guard canLaunchDownloadRecord(record) else {
             clearLaunchPending(matching: record.id)
             downloadError = record.contentType == .web
-                ? "当前 WEB 样本仍存在运行阻断问题，暂时不能直接播放。"
-                : "当前项目暂时不可播放。"
+                ? String(localized: "The current WEB sample still has a runtime blocker, so it can’t be played directly yet.")
+                : String(localized: "This item can’t be played right now.")
             return false
         }
 
@@ -103,7 +103,7 @@ extension SteamWorkshopService {
                 }
                 guard let preparation else {
                     self.clearLaunchPending(matching: record.id)
-                    self.downloadError = "没有找到可播放的 HTML 入口文件。"
+                    self.downloadError = String(localized: "No playable HTML entry file found.")
                     return
                 }
                 let playbackContext = preparation.context
@@ -127,7 +127,7 @@ extension SteamWorkshopService {
                         "resourceLifetime": playbackResourceLifetime as Any
                     ]
                 )
-                self.statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
+                self.statusMessage = String(localized: "Sent \(record.title) to the HTML Web wallpaper experiment host")
                 self.scheduleLaunchPendingFallbackClear(recordID: record.id)
             }
             return true
@@ -145,13 +145,13 @@ extension SteamWorkshopService {
 
         guard let videoURL = record.videoURL else {
             clearLaunchPending(matching: record.id)
-            downloadError = "没有找到可播放的视频文件。"
+            downloadError = String(localized: "No playable video file found.")
             return false
         }
         guard let admission = prepareVideoPlaybackIntent?(
             WallpaperReference(provider: .steamWorkshop, sourceID: record.id), libraryPending) else {
             clearLaunchPending(matching: record.id)
-            downloadError = "视频播放入口尚未就绪。"
+            downloadError = String(localized: "The video playback entry point isn’t ready yet.")
             return false
         }
         ImportedVideoPlaybackRequest(
@@ -160,7 +160,7 @@ extension SteamWorkshopService {
             resourceLifetime: resourceLifetime
         )
             .post(name: .steamWorkshopVideoReadyToPlay)
-        statusMessage = "已将 \(record.title) 发送到视频库并准备播放"
+        statusMessage = String(localized: "Sent \(record.title) to the video library and prepared it for playback")
         scheduleLaunchPendingFallbackClear(recordID: record.id)
         return true
     }

@@ -13,19 +13,19 @@ nonisolated enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Ha
     var displayName: String {
         switch self {
         case .dependencyBackedShell:
-            return "依赖壳样本"
+            return String(localized: "Dependency Shell Sample")
         case .spineWebCharacter:
-            return "Spine 角色壁纸"
+            return String(localized: "Spine Character Wallpaper")
         case .shaderOrCanvasWeb:
-            return "Shader / Canvas 壁纸"
+            return String(localized: "Shader / Canvas Wallpaper")
         case .multimediaDashboardWeb:
-            return "多媒体面板壁纸"
+            return String(localized: "Multimedia Dashboard Wallpaper")
         case .megaConfigDashboardWeb:
-            return "大型配置面板壁纸"
+            return String(localized: "Large Config Dashboard Wallpaper")
         case .propertyDrivenHTMLWeb:
-            return "属性驱动 HTML 壁纸"
+            return String(localized: "Property-Driven HTML Wallpaper")
         case .basicHTMLWeb:
-            return "基础 HTML 壁纸"
+            return String(localized: "Basic HTML Wallpaper")
         }
     }
 }

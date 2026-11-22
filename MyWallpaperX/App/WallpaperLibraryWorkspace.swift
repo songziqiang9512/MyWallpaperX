@@ -194,7 +194,7 @@ import Foundation
             let target = try playbackContent(for: reference)
             let snapshot = try makeSnapshot(source: .single(target.reference), items: [target], query: nil)
             guard manager.requestLibraryPlayback(reference: target.reference, from: snapshot, cause: .userSelection) != nil else {
-                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "壁纸当前不可用，请定位文件或重新下载。"])
+                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: String(localized: "The wallpaper is currently unavailable. Locate the file or download it again.")])
             }
         } catch { presentation.report(error) }
     }
@@ -240,7 +240,7 @@ import Foundation
             let snapshot = try captured ?? capturePlaybackSnapshot(for: reference)
             let requested = snapshot.entries.contains(where: { $0.reference == reference }) ? reference : target.reference
             guard manager.requestLibraryPlayback(reference: requested, from: snapshot, cause: cause) != nil else {
-                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "壁纸当前不可用，请定位文件或重新下载。"])
+                throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: String(localized: "The wallpaper is currently unavailable. Locate the file or download it again.")])
             }
         } catch { presentation.report(error) }
     }

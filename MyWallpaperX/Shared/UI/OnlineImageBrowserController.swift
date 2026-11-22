@@ -197,8 +197,8 @@ import Combine
         resetScroll = false
         emptyState.isHidden = !items.isEmpty
         emptyState.arrangedSubviews.first?.isHidden = state.isLoading
-        empty.stringValue = state.isLoading ? "正在加载…" : (state.error ?? (state.next != nil
-            ? "本页没有符合条件的作品\n向下滚动以继续获取" : (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…")))
+        empty.stringValue = state.isLoading ? String(localized: "Loading…") : (state.error ?? (state.next != nil
+            ? String(localized: "No matching items on this page\nScroll down to load more") : (state.hasLoaded ? String(localized: "No items to show\nTry different keywords or filters") : String(localized: "Preparing to browse…"))))
         updateTint()
     }
 
@@ -320,10 +320,10 @@ import Combine
 
     private func footerText(_ state: OnlineImageBrowserSession.State, count: Int) -> String? {
         guard count > 0 else { return nil }
-        if state.isLoading { return "正在加载更多项目" }
-        if state.error != nil { return "暂未获取到更多内容，继续下滑可重试" }
+        if state.isLoading { return String(localized: "Loading more items") }
+        if state.error != nil { return String(localized: "No more content yet. Scroll down to retry.") }
         if let notice = state.notice { return notice }
-        return state.hasLoaded ? "已加载 \(count) 个作品" : nil
+        return state.hasLoaded ? String(localized: "Loaded \(count) items") : nil
     }
 }
 

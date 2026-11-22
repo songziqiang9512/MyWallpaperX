@@ -147,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  self.terminationReplyPending = false
  MyWallpaperXApplication.cancelLibraryTermination()
  sender.reply(toApplicationShouldTerminate: false)
- presentAppAlert(makeAppAlert(title: "资料库尚未保存", message: error + "\n请重试退出。"), in: MainWindowCoordinator.mainWindow())
+ presentAppAlert(makeAppAlert(title: String(localized: "The library hasn’t been saved yet"), message: error + String(localized: "\nPlease try quitting again.")), in: MainWindowCoordinator.mainWindow())
  return
  }
  // No await separates the successful metadata barrier from revoking the

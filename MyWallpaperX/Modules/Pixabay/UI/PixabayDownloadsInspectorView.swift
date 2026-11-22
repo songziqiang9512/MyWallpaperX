@@ -34,7 +34,7 @@ final class PixabayDownloadsInspectorView: NSView {
         // The downloaded-content owner has already prepared these values.
         // Build the final top-aligned layout before mounting; no loading-size pass.
         snapshot = PixabayDownloadsInspectorSnapshot.load(itemID: itemID, service: self.service)
-        previewSurface.setAccessibilityLabel("在线图库下载项预览 \(itemID)")
+        previewSurface.setAccessibilityLabel(String(localized: "Online Gallery Download Preview \(itemID)"))
         setup()
         previewSurface.onSizeChange = { [weak self] in self?.loadPreviewImage() }
         loadPreviewImage()
@@ -110,8 +110,8 @@ final class PixabayDownloadsInspectorView: NSView {
         guard let snapshot else {
             return remoteItem.map { [$0.fileSizeString, $0.durationString].compactMap { $0 }.joined(separator: "  ·  ") }
         }
-        return [snapshot.fileSizeText, snapshot.durationText, snapshot.fileExtension]
-            .filter { !$0.isEmpty && $0 != "未知" }
+        let parts: [String?] = [snapshot.fileSizeText, snapshot.durationText, snapshot.fileExtension]
+        return parts.compactMap { $0 }.filter { !$0.isEmpty }
             .joined(separator: "  ·  ")
             .nilIfEmpty
     }
@@ -119,31 +119,32 @@ final class PixabayDownloadsInspectorView: NSView {
     private var metadataFacts: [(String, String)] {
         guard let snapshot else {
             guard let remoteItem else { return [] }
-            return [("分辨率", remoteItem.resolutionString ?? ""), ("作者", remoteItem.user), ("来源平台", "Pixabay")]
+            return [(String(localized: "Resolution"), remoteItem.resolutionString ?? ""), (String(localized: "Artist"), remoteItem.user), (String(localized: "Source Platform"), "Pixabay")]
                 .filter { !$0.1.isEmpty }
         }
-        return [
-            ("分辨率", snapshot.resolutionText),
-            ("添加时间", snapshot.creationDateText),
-            ("来源平台", snapshot.platformText)
+        let facts: [(String, String?)] = [
+            (String(localized: "Resolution"), snapshot.resolutionText),
+            (String(localized: "Date Added"), snapshot.creationDateText),
+            (String(localized: "Source Platform"), snapshot.platformText)
         ]
-        .filter { !$0.1.isEmpty && $0.1 != "未知" }
+        return facts.compactMap { label, value in value.map { (label, $0) } }
+            .filter { !$0.1.isEmpty }
     }
 
     private var heroBadges: [String] {
-        guard let snapshot else { return remoteItem == nil ? [] : ["Pixabay", "在线视频"] }
+        guard let snapshot else { return remoteItem == nil ? [] : ["Pixabay", String(localized: "Online Video")] }
         return [
             snapshot.platformText,
             snapshot.fileExtension,
-            "已下载"
+            String(localized: "Downloaded")
         ]
     }
 
     private var statusFactText: String? {
         guard let snapshot else { return nil }
         return [
-            snapshot.resolutionText == "未知" ? nil : snapshot.resolutionText,
-            snapshot.durationText == "未知" ? nil : snapshot.durationText,
+            snapshot.resolutionText,
+            snapshot.durationText,
             "Pixabay ID \(snapshot.id)"
         ]
         .compactMap { $0 }
@@ -303,7 +304,7 @@ final class PixabayDownloadsInspectorView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         stack.addArrangedSubview(
-            PixabayDownloadsInspectorViews.makeLabel("文件位置", font: .systemFont(ofSize: 11, weight: .semibold), color: .secondaryLabelColor)
+            PixabayDownloadsInspectorViews.makeLabel(String(localized: "File Location"), font: .systemFont(ofSize: 11, weight: .semibold), color: .secondaryLabelColor)
         )
 
         let path = PixabayDownloadsInspectorViews.makeLabel(snapshot.path, font: .systemFont(ofSize: 13), color: .labelColor)
@@ -324,13 +325,13 @@ final class PixabayDownloadsInspectorView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "文件缺失")
+        icon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: String(localized: "File Missing"))
         icon.contentTintColor = .secondaryLabelColor
         icon.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(icon)
 
         let label = PixabayDownloadsInspectorViews.makeLabel(
-            "当前下载项文件可能已被移动或删除。",
+            String(localized: "The current download’s file may have been moved or deleted."),
             font: .systemFont(ofSize: 12),
             color: .secondaryLabelColor
         )
@@ -346,14 +347,14 @@ final class PixabayDownloadsInspectorView: NSView {
 
     private func makeFooterActions() -> NSView {
         let setButton = PixabayDownloadsInspectorViews.makeFooterButton(
-            title: "设为壁纸",
+            title: String(localized: "Set as Wallpaper"),
             symbolName: "photo.fill",
             target: self,
             action: #selector(setAsWallpaper),
             kind: .primary
         )
         let revealButton = PixabayDownloadsInspectorViews.makeFooterButton(
-            title: "查看文件",
+            title: String(localized: "Reveal in Finder"),
             symbolName: "folder.fill",
             target: self,
             action: #selector(revealInFinder)
@@ -397,14 +398,14 @@ final class PixabayDownloadsInspectorView: NSView {
         let busy = remote != nil && service.downloadingIDs.contains(itemID)
         let title: String
         let symbol: String
-        if remote != nil { title = busy ? "正在下载" : "下载视频"; symbol = busy ? "hourglass" : "arrow.down" }
-        else if libraryActions?.state.isSwitching == true { title = "正在切换"; symbol = "hourglass" }
-        else if libraryActions?.state.isPlaying == true { title = "停止播放"; symbol = "stop.fill" }
-        else { title = "设为壁纸"; symbol = "play.fill" }
+        if remote != nil { title = busy ? String(localized: "Downloading") : String(localized: "Download Video"); symbol = busy ? "hourglass" : "arrow.down" }
+        else if libraryActions?.state.isSwitching == true { title = String(localized: "Switching"); symbol = "hourglass" }
+        else if libraryActions?.state.isPlaying == true { title = String(localized: "Stop Playback"); symbol = "stop.fill" }
+        else { title = String(localized: "Set as Wallpaper"); symbol = "play.fill" }
         primaryButton?.setTitle(title)
         primaryButton?.setSymbol(symbol, accessibilityDescription: title)
         primaryButton?.isEnabled = remote != nil ? !busy : libraryActions?.state.canPerformPrimary ?? (snapshot != nil)
-        let revealTitle = remote == nil ? "查看文件" : "打开原网页"
+        let revealTitle = remote == nil ? String(localized: "Reveal in Finder") : String(localized: "Open Original Page")
         revealButton?.setTitle(revealTitle)
         revealButton?.setSymbol(remote == nil ? "folder.fill" : "safari", accessibilityDescription: revealTitle)
         revealButton?.isEnabled = snapshot != nil || remote.flatMap { URL(string: $0.pageURL) } != nil

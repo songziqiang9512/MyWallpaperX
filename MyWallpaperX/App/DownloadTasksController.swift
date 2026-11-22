@@ -22,11 +22,11 @@ import Combine
          historyURL: URL? = nil) {
         self.steam = steam; self.pixabay = pixabay; self.images = images
         do { history = try DownloadHistoryStore(persistenceURL: historyURL) }
-        catch { history = nil; historyError = "下载历史无法读取：" + error.localizedDescription }
+        catch { history = nil; historyError = String(localized: "Couldn’t read download history:") + error.localizedDescription }
         Publishers.Merge(pixabay.downloadTerminals, images.downloadTerminals).sink { [weak self] receipt in
             guard let self, let history else { return }
             do { try history.record(receipt); historyError = nil }
-            catch { historyError = "下载已结算，但历史无法保存：" + error.localizedDescription; changed.send() }
+            catch { historyError = String(localized: "The download was finalized, but the history couldn’t be saved:") + error.localizedDescription; changed.send() }
         }.store(in: &subscriptions)
         steam.$downloadError.compactMap { $0 }.filter { !$0.isEmpty }
             .receive(on: DispatchQueue.main).sink { [weak self] message in
@@ -34,7 +34,7 @@ import Combine
                 self.steam.downloadError = nil
                 guard !NSApp.isHidden, let window = MainWindowCoordinator.mainWindow(),
                       window.isVisible, !window.isMiniaturized else { return }
-                presentAppAlert(makeAppAlert(title: "操作失败", message: message, style: .warning),
+                presentAppAlert(makeAppAlert(title: String(localized: "Action Failed"), message: message, style: .warning),
                     in: window, useProvidedWindowAsHost: true)
             }.store(in: &subscriptions)
         let publishers: [AnyPublisher<Void, Never>] = [
@@ -140,7 +140,7 @@ import Combine
             if available { actions.insert(.revealFile) }
             else if !activeReferences.contains(reference) { actions.insert(.retry) }
             return .init(id: receipt.id, title: receipt.title, phase: receipt.outcome.phase,
-                statusText: receipt.outcome == .existingLocal ? "本地已有" : receipt.failureMessage,
+                statusText: receipt.outcome == .existingLocal ? String(localized: "Already Local") : receipt.failureMessage,
                 recordedAt: receipt.recordedAt, thumbnailKey: available ? localKey : nil, actions: actions)
         }
         var value = DownloadTaskProjection.snapshot(current: current, history: terminal)
@@ -173,7 +173,7 @@ import Combine
             }
         } else if action == .removeHistory {
             do { try history?.remove(row.id); if history != nil { historyError = nil } }
-            catch { historyError = "下载历史无法清除：" + error.localizedDescription }
+            catch { historyError = String(localized: "Couldn’t clear download history:") + error.localizedDescription }
         } else if reference.provider == .pixabay, let id = Int(reference.sourceID) {
             switch action {
             case .retry: pixabay.retryDownload(id: id)
@@ -200,7 +200,7 @@ import Combine
 
     private func clearHistory() {
         do { try history?.clear(); if history != nil { historyError = nil } }
-        catch { historyError = "下载历史无法清除：" + error.localizedDescription }
+        catch { historyError = String(localized: "Couldn’t clear download history:") + error.localizedDescription }
         steam.downloadJobStore.clearHistory()
         changed.send()
     }

@@ -185,12 +185,12 @@ import Combine
             for (index, id) in requested.enumerated() { toolbar.insertItem(withItemIdentifier: id, at: index) }
             lastIdentifiers = requested
         }
-        updateTitle(state.isSelecting ? "\(title) · 已选 \(state.references.count) 项" : title)
+        updateTitle(state.isSelecting ? String(localized: "\(title) · \(state.references.count) selected") : title)
         let model = workspace.presentation
         if searchField.stringValue != model.queryState.search { searchField.stringValue = model.queryState.search }
-        searchField.placeholderString = "在\(title)中查找"
+        searchField.placeholderString = String(localized: "Search in \(title)")
         searchField.setAccessibilityLabel(searchField.placeholderString)
-        items[.select]?.label = model.selectionState.isSelecting ? "完成选择" : "选择"
+        items[.select]?.label = model.selectionState.isSelecting ? String(localized: "Done") : String(localized: "Select")
         items[.select]?.image = NSImage(systemSymbolName: model.selectionState.isSelecting ? "checkmark.circle.fill" : "checkmark.circle", accessibilityDescription: nil)
         items[.remove]?.label = commands.removalTitle
         items[.remove]?.toolTip = commands.removalTitle
@@ -218,7 +218,7 @@ import Combine
     private func updateDownloads() {
         guard let item = items[.downloadTasks] else { return }
         let count = downloads.unfinishedCount
-        let title = count > 0 ? "下载管理 · \(count) 项进行中" : "下载管理"
+        let title = count > 0 ? String(localized: "Downloads · \(count) in progress") : String(localized: "Downloads")
         item.label = title; item.paletteLabel = title; item.toolTip = title
         item.image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: title)
         item.menuFormRepresentation = actionMenuRepresentation(.downloadTasks, title: title,
@@ -230,9 +230,9 @@ import Combine
         let summary: String?
         if model.page.isRemoteBrowse { summary = nil }
         else if model.page == .playlists {
-            summary = "显示 \(model.directoryEntries.count) / 共 \(workspace.relationships.playlists.count) 个播放列表"
+            summary = String(localized: "Showing \(model.directoryEntries.count) of \(workspace.relationships.playlists.count) playlists")
         } else {
-            summary = "显示 \(model.queryResult.items.count) / 共 \(model.queryResult.unfilteredCount) 张壁纸"
+            summary = String(localized: "Showing \(model.queryResult.items.count) of \(model.queryResult.unfilteredCount) wallpapers")
         }
         if titleLabel.stringValue != value {
             if !titleLabel.stringValue.isEmpty, titleLabel.window?.occlusionState.contains(.visible) == true,
@@ -297,7 +297,7 @@ import Combine
         let item: NSToolbarItem
         if action == .back {
             item = NSToolbarItem(itemIdentifier: id)
-            let button = NSButton(title: "返回", target: self, action: #selector(returnToDirectory))
+            let button = NSButton(title: String(localized: "Back"), target: self, action: #selector(returnToDirectory))
             WallpaperLibraryControlStyle.capsule(button)
             button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: nil)
             button.imagePosition = .imageLeading
@@ -316,7 +316,7 @@ import Combine
             item = NSToolbarItem(itemIdentifier: id)
             let button = NSButton(title: "", target: self, action: #selector(toggleFilter))
             WallpaperLibraryControlStyle.capsule(button)
-            button.image = NSImage(systemSymbolName: symbol(action), accessibilityDescription: "筛选")
+            button.image = NSImage(systemSymbolName: symbol(action), accessibilityDescription: String(localized: "Filter"))
             button.imagePosition = .imageOnly
             item.view = button
         } else if [.more, .sort, .addToPlaylist].contains(action) {
@@ -361,20 +361,20 @@ import Combine
     private func label(_ action: Action) -> String {
         switch action {
         case .title: return title
-        case .back: return "返回所有播放列表"
-        case .importFiles: return "导入"
-        case .select: return "选择"
+        case .back: return String(localized: "Back to All Playlists")
+        case .importFiles: return String(localized: "Import")
+        case .select: return String(localized: "Select")
         case .remove: return commands.removalTitle
         case .favorite: return commands.favoriteActionState.title
-        case .addToPlaylist: return "添加到列表"
-        case .downloadTasks: return "下载管理"
-        case .more: return "更多"
-        case .filter: return "筛选"
-        case .sort: return "排序"
-        case .zoom: return "缩放"
-        case .zoomOut: return "缩小"
-        case .zoomIn: return "放大"
-        case .search: return "搜索"
+        case .addToPlaylist: return String(localized: "Add to Playlist")
+        case .downloadTasks: return String(localized: "Downloads")
+        case .more: return String(localized: "More")
+        case .filter: return String(localized: "Filter")
+        case .sort: return String(localized: "Sort")
+        case .zoom: return String(localized: "Zoom")
+        case .zoomOut: return String(localized: "Zoom Out")
+        case .zoomIn: return String(localized: "Zoom In")
+        case .search: return String(localized: "Search")
         }
     }
 
@@ -521,7 +521,7 @@ import Combine
         }
         if case .playlist(let id) = workspace.presentation.page {
             let epoch = workspace.relationships.resetEpoch
-            for (title, symbol, action) in [("添加壁纸…", "plus", 0), ("编辑列表…", "pencil", 1), ("复制列表", "doc.on.doc", 2), ("删除列表…", "trash", 3)] {
+            for (title, symbol, action) in [(String(localized: "Add Wallpaper…"), "plus", 0), (String(localized: "Edit Playlist…"), "pencil", 1), (String(localized: "Duplicate Playlist"), "doc.on.doc", 2), (String(localized: "Delete Playlist…"), "trash", 3)] {
                 menu.addItem(ActionMenuItem(title: title, symbol: symbol) { [weak commands] in
                     guard let commands, commands.canOrganize, commands.workspace.relationships.resetEpoch == epoch else { return }
                     switch action { case 0: commands.onAddWallpapers?(id); case 1: commands.playlists?.handle(.rename(id))
@@ -535,17 +535,17 @@ import Combine
     private func sortOptions(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) -> [(WallpaperLibrarySort, String)] {
         var sorts: [(WallpaperLibrarySort, String)]
         switch page {
-        case .playlist: sorts = [(.createdAt, "创建时间"), (.name, "文件名称"), (.fileSize, "文件大小"), (.lastUsed, "最近使用"), (.addedAt, "加入时间")]
-        case .favorites: sorts = [(.favoritedAt, "标记喜爱时间"), (.name, "文件名称"), (.lastUsed, "最近使用"), (.fileSize, "文件大小")]
-        case .downloads: sorts = [(.createdAt, "创建时间"), (.name, "文件名称"), (.fileSize, "文件大小"), (.lastUsed, "最近使用")]
-        default: sorts = [(.sourceOrder, "默认顺序"), (.name, "文件名称"), (.fileSize, "文件大小"), (.createdAt, "创建时间"), (.lastUsed, "最近使用")]
+        case .playlist: sorts = [(.createdAt, String(localized: "Date Created")), (.name, String(localized: "File Name")), (.fileSize, String(localized: "File Size")), (.lastUsed, String(localized: "Recently Used")), (.addedAt, String(localized: "Date Added"))]
+        case .favorites: sorts = [(.favoritedAt, String(localized: "Date Favorited")), (.name, String(localized: "File Name")), (.lastUsed, String(localized: "Recently Used")), (.fileSize, String(localized: "File Size"))]
+        case .downloads: sorts = [(.createdAt, String(localized: "Date Created")), (.name, String(localized: "File Name")), (.fileSize, String(localized: "File Size")), (.lastUsed, String(localized: "Recently Used"))]
+        default: sorts = [(.sourceOrder, String(localized: "Default Order")), (.name, String(localized: "File Name")), (.fileSize, String(localized: "File Size")), (.createdAt, String(localized: "Date Created")), (.lastUsed, String(localized: "Recently Used"))]
         }
         return sorts
     }
 
     private func refreshQueryDescriptions() {
         let page = workspace.presentation.page, query = workspace.presentation.queryState
-        let description = "筛选：" + filterSummary
+        let description = String(localized: "Filter:") + filterSummary
         items[.filter]?.toolTip = description
         items[.filter]?.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol,
             accessibilityDescription: description)
@@ -553,8 +553,8 @@ import Combine
             button.toolTip = description; button.setAccessibilityLabel(description)
         }
         let (sort, ascending) = WallpaperLibraryQuery.resolvedSort(page: page, state: query)
-        let name = sortOptions(page: page, query: query).first { $0.0 == sort }?.1 ?? "默认顺序"
-        items[.sort]?.toolTip = "排序：\(name)" + (sort == .sourceOrder ? "" : (ascending ? "，升序" : "，降序"))
+        let name = sortOptions(page: page, query: query).first { $0.0 == sort }?.1 ?? String(localized: "Default Order")
+        items[.sort]?.toolTip = String(localized: "Sort: \(name)") + (sort == .sourceOrder ? "" : (ascending ? String(localized: ", ascending") : String(localized: ", descending")))
     }
 
     private var filterSummary: String {
@@ -562,14 +562,14 @@ import Combine
         var filters: [String] = []
         for provider in WallpaperProvider.allCases where query.providers.contains(provider) { filters.append(provider.libraryDisplayName) }
         for kind in [WallpaperMediaKind.image, .video, .web, .scene, .unknown] where query.kinds.contains(kind) {
-            filters.append([WallpaperMediaKind.image: "图片", .video: "视频", .web: "Web", .scene: "Scene", .unknown: "未知类型"][kind] ?? kind.rawValue)
+            filters.append([WallpaperMediaKind.image: String(localized: "Images"), .video: String(localized: "Videos"), .web: "Web", .scene: "Scene", .unknown: String(localized: "Unknown Type")][kind] ?? kind.rawValue)
         }
         for status in [WallpaperLibraryStatusFilter.playable, .unavailable, .transferring, .failed] where query.statuses.contains(status) {
-            filters.append([WallpaperLibraryStatusFilter.playable: "可播放", .unavailable: "不可用",
-                .transferring: "正在下载或更新", .failed: "下载或更新失败"][status] ?? status.rawValue)
+            filters.append([WallpaperLibraryStatusFilter.playable: String(localized: "Playable"), .unavailable: String(localized: "Unavailable"),
+                .transferring: String(localized: "Downloading or Updating"), .failed: String(localized: "Download or Update Failed")][status] ?? status.rawValue)
         }
-        if page == .downloads, !query.showsAdultContent { filters.append("隐藏成人内容") }
-        return filters.isEmpty ? "全部内容" : filters.joined(separator: "、")
+        if page == .downloads, !query.showsAdultContent { filters.append(String(localized: "Hide Adult Content")) }
+        return filters.isEmpty ? String(localized: "All Content") : filters.joined(separator: "、")
     }
 
     private func makeSortMenu() -> NSMenu {
@@ -591,7 +591,7 @@ import Combine
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let direction = ActionMenuItem(title: ascending ? "改为降序" : "改为升序", symbol: "arrow.up.arrow.down") { [weak workspace] in
+        let direction = ActionMenuItem(title: ascending ? String(localized: "Switch to Descending") : String(localized: "Switch to Ascending"), symbol: "arrow.up.arrow.down") { [weak workspace] in
             guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
             var query = workspace.presentation.queryState; query.sort = effective; query.ascending = !ascending
             _ = workspace.presentation.setQueryState(query)
@@ -616,7 +616,7 @@ import Combine
                 workspace.map { selected($0.presentation.queryState) } ?? false
             }, toggle: { [weak self] in self?.editFilter(page: page, epoch: epoch, mutate) })
         }
-        var sources = [option("全部来源", selected: { $0.providers.isEmpty }) { $0.providers.removeAll() }]
+        var sources = [option(String(localized: "All Sources"), selected: { $0.providers.isEmpty }) { $0.providers.removeAll() }]
         let providers: [WallpaperProvider] = page == .downloads ? [.steamWorkshop, .wallhaven, .pixiv, .pixabay] : WallpaperProvider.allCases
         for provider in providers {
             sources.append(option(provider.libraryDisplayName, selected: { $0.providers.contains(provider) }) { query in
@@ -625,16 +625,16 @@ import Combine
             })
         }
         let counts = workspace.presentation.mediaKindCounts
-        var kinds = [option("全部类型（\(counts.values.reduce(0, +))）", selected: { $0.kinds.isEmpty }) { $0.kinds.removeAll() }]
-        for (kind, title) in [(WallpaperMediaKind.image, "图片"), (.video, "视频"), (.web, "Web"), (.scene, "Scene")] {
+        var kinds = [option(String(localized: "All Types (\(counts.values.reduce(0, +)))"), selected: { $0.kinds.isEmpty }) { $0.kinds.removeAll() }]
+        for (kind, title) in [(WallpaperMediaKind.image, String(localized: "Images")), (.video, String(localized: "Videos")), (.web, "Web"), (.scene, "Scene")] {
             kinds.append(option("\(title)（\(counts[kind, default: 0])）", selected: { $0.kinds.contains(kind) }) { query in
                 if page == .downloads { query.kinds.formSymmetricDifference([kind]) }
                 else { query.kinds = [kind] }
             })
         }
-        var statuses = [option("全部状态", selected: { $0.statuses.isEmpty }) { $0.statuses.removeAll() }]
-        var choices = [(WallpaperLibraryStatusFilter.playable, "可播放"), (.unavailable, "不可用")]
-        if page != .downloads { choices += [(.transferring, "正在下载或更新"), (.failed, "下载或更新失败")] }
+        var statuses = [option(String(localized: "All Statuses"), selected: { $0.statuses.isEmpty }) { $0.statuses.removeAll() }]
+        var choices = [(WallpaperLibraryStatusFilter.playable, String(localized: "Playable")), (.unavailable, String(localized: "Unavailable"))]
+        if page != .downloads { choices += [(.transferring, String(localized: "Downloading or Updating")), (.failed, String(localized: "Download or Update Failed"))] }
         for (status, title) in choices {
             statuses.append(option(title, selected: { $0.statuses.contains(status) }) { query in
                 if page == .downloads { query.statuses.formSymmetricDifference([status]) }
@@ -642,12 +642,12 @@ import Combine
             })
         }
         var sections: [WallpaperFilterPanelController.Section] = [
-            .init(title: "来源", columns: 2, options: sources), .init(title: "类型", columns: 2, options: kinds),
-            .init(title: "状态", columns: 2, options: statuses)
+            .init(title: String(localized: "Source"), columns: 2, options: sources), .init(title: String(localized: "Type"), columns: 2, options: kinds),
+            .init(title: String(localized: "Status"), columns: 2, options: statuses)
         ]
         if page == .downloads {
-            sections.append(.init(title: "内容", columns: 1, options: [
-                option("显示成人内容", selected: { $0.showsAdultContent }) { $0.showsAdultContent.toggle() }
+            sections.append(.init(title: String(localized: "Content"), columns: 1, options: [
+                option(String(localized: "Show Adult Content"), selected: { $0.showsAdultContent }) { $0.showsAdultContent.toggle() }
             ]))
         }
         return sections
@@ -676,7 +676,7 @@ import Combine
             }
         }
         rows.append(.separator())
-        rows.append(.init(title: "清空筛选", kind: .action, isEnabled: hasFilters, handler: { [weak self] in
+        rows.append(.init(title: String(localized: "Clear Filters"), kind: .action, isEnabled: hasFilters, handler: { [weak self] in
             self?.clearFilters(page: .downloads, epoch: epoch)
         }))
         return ToolbarMenu.makeMenu(rows: rows)
@@ -686,7 +686,7 @@ import Combine
         let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
         return WallpaperFilterPanelController(sections: { [weak self] in
             self?.filterSections(page: page, epoch: epoch) ?? []
-        }, summary: { [weak self] in self?.filterSummary ?? "全部内容" },
+        }, summary: { [weak self] in self?.filterSummary ?? String(localized: "All Content") },
             canClear: { [weak self] in self?.hasFilters == true }, clear: { [weak self] in
                 self?.clearFilters(page: page, epoch: epoch)
             })

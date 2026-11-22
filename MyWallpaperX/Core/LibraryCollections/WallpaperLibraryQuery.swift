@@ -432,7 +432,7 @@ nonisolated enum WallpaperLibraryQueryError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedDirectoryFilter: return "播放列表目录仅支持名称搜索。"
+        case .unsupportedDirectoryFilter: return String(localized: "Playlist folders only support searching by name.")
         }
     }
 }

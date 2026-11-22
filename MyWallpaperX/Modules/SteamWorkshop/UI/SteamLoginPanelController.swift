@@ -77,11 +77,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             target: self,
             action: #selector(showZoomWindow)
         ))
-        qrImageView.toolTip = "点击放大二维码"
+        qrImageView.toolTip = String(localized: "Click to enlarge the QR code")
         qrImageView.setAccessibilityElement(true)
         qrImageView.setAccessibilityRole(.image)
-        qrImageView.setAccessibilityLabel("Steam 登录二维码")
-        qrImageView.setAccessibilityHelp("使用 Steam 手机应用扫码确认；也可按 Tab 移到“放大二维码”查看大图。")
+        qrImageView.setAccessibilityLabel(String(localized: "Steam Sign-In QR Code"))
+        qrImageView.setAccessibilityHelp(String(localized: "Scan the code with the Steam mobile app to confirm; you can also press Tab to move to “Enlarge QR Code” for a larger view."))
     }
 
     /// 二维码放大窗：只复用当前挑战的图，独立关闭，不影响面板认证（§3.2）。
@@ -97,15 +97,16 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "二维码"
+        window.title = String(localized: "QR Code")
         window.level = .normal
         window.isReleasedWhenClosed = false
         let imageView = SteamLoginQRCodeImageView(frame: NSRect(x: 20, y: 12, width: 280, height: 280))
         imageView.image = image
         imageView.imageScaling = .scaleProportionallyUpOrDown
-        let hint = NSTextField(labelWithString: "使用 Steam 手机应用扫码确认")
-        hint.frame = NSRect(x: 20, y: 300, width: 280, height: 20)
+        let hint = NSTextField(wrappingLabelWithString: String(localized: "Scan with the Steam mobile app to confirm."))
+        hint.frame = NSRect(x: 20, y: 286, width: 280, height: 44)
         hint.alignment = .center
+        hint.maximumNumberOfLines = 2
         hint.textColor = .secondaryLabelColor
         let content = NSView()
         content.addSubview(imageView)
@@ -153,7 +154,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         window.isMovableByWindowBackground = false
         window.hidesOnDeactivate = false
         window.level = .normal
-        window.title = "登录 Steam"
+        window.title = String(localized: "Sign In to Steam")
         window.isReleasedWhenClosed = false
         window.delegate = self
         self.window = window
@@ -168,7 +169,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             // 已在线的「切换账号」：进密码页（避免空白二维码页），说明会替换当前
             // 会话；新登录在 helper 侧顶替旧会话，成功后 steamId/accountName 更新。
             showPage(.password)
-            setStatus("当前已登录 \(auth.accountName ?? "Steam 账号")；重新登录将切换账号。")
+            setStatus(String(localized: "Currently signed in as \(auth.accountName ?? String(localized: "Steam Account")); signing in again will switch accounts."))
         } else if let saved = savedSession {
             startSilentRestore(saved)
         } else {
@@ -228,32 +229,33 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case .idle, .cancelled:
             break
         case .connecting:
-            setStatus("正在连接 Steam…")
+            setStatus(String(localized: "Connecting to Steam…"))
         case .authenticating:
-            setStatus("正在验证凭据…")
+            setStatus(String(localized: "Verifying credentials…"))
         case .qrChallenge(let url):
             showPage(.qr)
             renderQR(url: url)
-            setStatus("等待扫码确认…")
+            setStatus(String(localized: "Waiting for QR code confirmation…"))
         case .awaitingDeviceConfirmation:
             showPage(.guardInput(.deviceConfirmation))
-            setStatus("请在 Steam 手机应用中确认本次登录")
+            setStatus(String(localized: "Confirm this sign-in in the Steam mobile app"))
         case .awaitingDeviceCode(let previousIncorrect):
             showPage(.guardInput(.deviceCode(previousIncorrect: previousIncorrect)))
             panelView.guardSubmitButton.isEnabled = true
             // 重新进入验证码页（被拒/重发/换方式）时旧码已失效，先清空再聚焦，
             // 避免残留输入诱导一键重提再次失败。
             codeField.stringValue = ""
-            setStatus(previousIncorrect ? "上一枚验证码被拒绝，请重新输入" : "已进入 Steam 令牌验证")
+            setStatus(previousIncorrect ? String(localized: "The previous code was rejected. Enter it again.") : String(localized: "Entered Steam Guard verification"))
             window?.makeFirstResponder(codeField)
         case .awaitingEmailCode(let emailDomain, let previousIncorrect):
             showPage(.guardInput(.emailCode(emailDomain: emailDomain, previousIncorrect: previousIncorrect)))
             panelView.guardSubmitButton.isEnabled = true
             // 同上：进入验证码页必须丢弃失效旧码。
             codeField.stringValue = ""
+            let domainText = emailDomain ?? String(localized: "Unknown")
             setStatus(previousIncorrect
-                ? "上一枚验证码被拒绝，请重新输入"
-                : "验证码已发送到邮箱 \(emailDomain ?? "(未知)")")
+                ? String(localized: "The previous code was rejected. Enter it again.")
+                : String(localized: "Verification code sent to \(domainText)"))
             window?.makeFirstResponder(codeField)
         case .online:
             // §3.3：Keychain 保存失败必须可见，不伪报已保存——面板不自动关闭。
@@ -261,12 +263,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             isRestoringSavedSession = false
             if auth?.tokenSaveResult == .failed {
                 showPage(.completed)
-                setStatus(wasSilentRestore ? "已恢复上次登录，但 Keychain 保存失败。" : "本次会话可正常使用。")
+                setStatus(wasSilentRestore ? String(localized: "Previous sign-in restored, but saving to the Keychain failed.") : String(localized: "This session is working normally."))
             } else {
                 if wasSilentRestore {
                     // 与启动静默恢复同源的服务级状态提示（restore 不重写令牌，
                     // 正常不会进入 tokenSaveResult == .failed 分支）。
-                    SteamWorkshopService.shared.statusMessage = "已恢复 Steam 登录。"
+                    SteamWorkshopService.shared.statusMessage = String(localized: "Steam sign-in restored.")
                 }
                 window?.close()
             }
@@ -281,7 +283,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             if wasSilentRestore {
                 setRestoreFailureStatus()
             } else {
-                setStatus("登录未完成：\(message)")
+                setStatus(String(localized: "Sign-in didn't finish: \(message)"))
             }
             loginButton.isEnabled = true
         }
@@ -324,12 +326,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let password = passwordField.stringValue
         if username.isEmpty {
-            setStatus("请输入 Steam 账号。")
+            setStatus(String(localized: "Enter your Steam account."))
             window?.makeFirstResponder(usernameField)
             return
         }
         if password.isEmpty {
-            setStatus("请输入密码。")
+            setStatus(String(localized: "Enter your password."))
             window?.makeFirstResponder(passwordField)
             return
         }
@@ -347,7 +349,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self?.loginButton.isEnabled = true
-                    self?.setStatus("登录失败（\(code)）：\(message)")
+                    self?.setStatus(String(localized: "Sign-in failed (\(code)): \(message)"))
                     self?.window?.makeFirstResponder(self?.passwordField)
                 }
             } catch is CancellationError {
@@ -356,7 +358,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self?.loginButton.isEnabled = true
-                    self?.setStatus("登录失败：\(error.localizedDescription)")
+                    self?.setStatus(String(localized: "Sign-in failed: \(error.localizedDescription)"))
                     self?.window?.makeFirstResponder(self?.passwordField)
                 }
             }
@@ -392,7 +394,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         isRestoringSavedSession = true
         modeSegment.setSelected(true, forSegment: 0)
         showPage(.qr)
-        setStatus("正在恢复上次登录…")
+        setStatus(String(localized: "Restoring previous sign-in…"))
         loginTask?.cancel()
         loginTask = Task { [weak self] in
             do {
@@ -420,9 +422,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     /// 其余按 keepToken 处理（令牌保留，网络原因下次再试）。
     private func setRestoreFailureStatus() {
         if auth?.expired == true {
-            setStatus("保存的登录已失效，请重新扫码登录。")
+            setStatus(String(localized: "The saved sign-in has expired. Scan the QR code to sign in again."))
         } else {
-            setStatus("暂时无法恢复上次登录（网络原因）；已保留登录信息，可扫码登录或稍后重试。")
+            setStatus(String(localized: "Couldn’t restore your last sign-in (network issue). Your sign-in info was kept; scan the QR code to sign in or try again later."))
         }
     }
 
@@ -440,7 +442,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         guard let auth else { return }
         modeSegment.setSelected(true, forSegment: 0)
         showPage(.qr)
-        setStatus("正在生成二维码…")
+        setStatus(String(localized: "Generating QR code…"))
         loginTask?.cancel()
         auth.cancelPendingAuthentication()
         loginTask = Task { [weak self] in
@@ -452,7 +454,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
                 await MainActor.run {
                     self?.panelView.setQRImage(nil)
                     self?.panelView.stopQRLoading()
-                    self?.setStatus("二维码登录未完成：\(error.localizedDescription)")
+                    self?.setStatus(String(localized: "QR code sign-in wasn’t completed: \(error.localizedDescription)"))
                 }
             }
         }
@@ -474,11 +476,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         guard acceptsInput, panelView.guardSubmitButton.isEnabled, let auth else { return }
         let code = codeField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty else {
-            setStatus("请输入验证码。")
+            setStatus(String(localized: "Enter the verification code."))
             window?.makeFirstResponder(codeField)
             return
         }
-        setStatus("正在提交验证码…")
+        setStatus(String(localized: "Submitting verification code…"))
         panelView.guardSubmitButton.isEnabled = false
         Task { [weak self] in
             await auth.submit(code: code)

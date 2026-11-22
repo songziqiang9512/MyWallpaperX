@@ -171,7 +171,7 @@ extension WallpaperManager {
     /// barrier, so an older pending snapshot cannot overwrite the imported one.
     func persistWallpaperIndexNow(_ snapshot: [VideoWallpaper]) throws {
         guard didFinishInitialIndexLoad else {
-            throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "资料库仍在载入，请载入完成后再保存完整索引。"])
+            throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: String(localized: "The library is still loading. Save the full index after loading finishes.")])
         }
         wallpapersAutoSaveWorkItem?.cancel()
         wallpapersAutoSaveWorkItem = nil

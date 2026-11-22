@@ -23,11 +23,11 @@ import Combine
                 apply { var selection = service.browserContentMode; selection.toggle(mode); service.browserContentMode = selection }
             })
         }
-        let themes = [facet("全部", marked: { $0.themes.isEmpty }, toggle: { $0.themes = [] })]
+        let themes = [facet(String(localized: "All"), marked: { $0.themes.isEmpty }, toggle: { $0.themes = [] })]
             + SteamWorkshopThemeFilter.allCases.filter { $0 != .all }.map { value in
                 facet(value.displayName, marked: { $0.themes.contains(value) }, toggle: { $0.themes.formSymmetricDifference([value]) })
             }
-        let ratings = [facet("全部", marked: { $0.ageRating == .all }, toggle: { $0.ageRating = .all })]
+        let ratings = [facet(String(localized: "All"), marked: { $0.ageRating == .all }, toggle: { $0.ageRating = .all })]
             + SteamWorkshopAgeRatingFilter.selectableRatings.map { value in
                 facet(value.displayName, marked: { $0.ageRating != .all && $0.ageRating.contains(value) }, toggle: { filters in
                     if filters.ageRating == .all { filters.ageRating = value; return }
@@ -35,14 +35,14 @@ import Combine
                     if filters.ageRating.isEmpty { filters.ageRating = .all }
                 })
             }
-        let resolutions = [facet("全部", marked: { $0.resolutions.isEmpty }, toggle: { $0.resolutions = [] })]
+        let resolutions = [facet(String(localized: "All"), marked: { $0.resolutions.isEmpty }, toggle: { $0.resolutions = [] })]
             + SteamWorkshopResolutionFilter.allCases.filter { $0 != .all }.map { value in
                 facet(value.displayName, marked: { $0.resolutions.contains(value) }, toggle: { $0.resolutions.formSymmetricDifference([value]) })
             }
-        super.init(sections: { [.init(title: "分类", columns: 4, options: content),
-            .init(title: "类型", columns: 4, options: themes), .init(title: "分级", columns: 2, options: ratings),
-            .init(title: "分辨率", columns: 3, options: resolutions)] },
-            summary: { [weak service] in service?.activeFilterSummary ?? "全部" },
+        super.init(sections: { [.init(title: String(localized: "Categories"), columns: 4, options: content),
+            .init(title: String(localized: "Type"), columns: 4, options: themes), .init(title: String(localized: "Rating"), columns: 2, options: ratings),
+            .init(title: String(localized: "Resolution"), columns: 3, options: resolutions)] },
+            summary: { [weak service] in service?.activeFilterSummary ?? String(localized: "All") },
             canClear: { [weak service] in service.map { !$0.facetFilters.isEmpty || !$0.browserContentMode.isAll } ?? false },
             clear: { [weak service] in apply { service?.clearFilters() } })
         service.$facetFilters.combineLatest(service.$browserContentMode)

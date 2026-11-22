@@ -82,12 +82,12 @@ extension SteamWorkshopService {
     func reloadInstalledItems() -> Task<Void, Never> {
         do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
             retaining: referencedLibraryStorageIdentities()) }
-        catch { statusMessage = "入库恢复失败：\(error.localizedDescription)" }
+        catch { statusMessage = String(localized: "Failed to restore the library: \(error.localizedDescription)") }
         installedLibraryScanGeneration += 1
         let managed: [String: SteamWorkshopDownloadMetadataSnapshot]
         do { managed = try loadManagedDownloadSnapshots(requireComplete: false) }
         catch {
-            statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
+            statusMessage = String(localized: "Couldn’t load local wallpapers; keeping the current content: \(error.localizedDescription)")
             return installedLibraryScanFlight.task ?? Task { }
         }
         reconcileDownloadCommits(managed)
@@ -131,7 +131,7 @@ extension SteamWorkshopService {
                 self.installedLibraryScanFlight.rescanRequested = false
                 do { managed = try self.loadManagedDownloadSnapshots(requireComplete: false) }
                 catch {
-                    self.statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
+                    self.statusMessage = String(localized: "Couldn’t load local wallpapers; keeping the current content: \(error.localizedDescription)")
                     self.installedLibraryScanFlight.task = nil
                     return
                 }
@@ -154,7 +154,7 @@ extension SteamWorkshopService {
             applyInstalledLibraryRecords(records)
             await saveInstalledLibrarySnapshot(records, libraryRoot: libraryRoot, generation: generation)
         case .failure(let error):
-            statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
+            statusMessage = String(localized: "Couldn’t load local wallpapers; keeping the current content: \(error.localizedDescription)")
         }
     }
 
@@ -289,7 +289,7 @@ extension SteamWorkshopService {
     func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
         commit prepared: SteamWorkshopLibraryCommit, libraryRoot: URL) throws {
         guard !removingDownloadIDs.contains(request.id) else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸正在删除，已停止入库。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "This wallpaper is being deleted; importing has stopped."))
         }
         let commit = try SteamWorkshopLibraryTransaction.canonicalCommit(prepared)
         let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
@@ -318,7 +318,7 @@ extension SteamWorkshopService {
         if let previousIdentity {
             guard !referencedLibraryStorageIdentities().contains(previousIdentity),
                   steamLibraryVersionLeaseRegistry.beginReclamation(previousIdentity) else {
-                throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸仍被播放器或视频库引用，请解除引用后重试更新。")
+                throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "This wallpaper is still referenced by the player or video library. Remove the references, then try updating again."))
             }
         }
         defer {
@@ -337,7 +337,7 @@ extension SteamWorkshopService {
            let occupant = try? SteamWorkshopLibraryTransaction.absoluteDirectory(content),
            (try? SteamWorkshopLibraryTransaction.markerCommit(in: occupant)) == nil {
             if let record = latestDownloadRecord(for: request.id), isRecordCurrentlyPlaying(record) {
-                throw SteamWorkshopLibraryTransaction.Failure(message: "旧版样本正在播放，请先停止播放再更新。")
+                throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "A sample from the previous version is playing. Stop playback before updating."))
             }
             let aside = content.deletingLastPathComponent()
                 .appendingPathComponent(".retired-legacy-\(request.id)-\(UUID().uuidString)", isDirectory: true)
@@ -346,7 +346,7 @@ extension SteamWorkshopService {
         }
         let item = request.item ?? browserItemForDownload(id: request.id)
             ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
-                author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
+                author: "", authorProfileURL: nil, authorWorkshopURL: nil)
         var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
             sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
             previewRelativePath: nil,
@@ -395,13 +395,13 @@ extension SteamWorkshopService {
         var result: [String: SteamWorkshopDownloadMetadataSnapshot] = [:]
         for (itemID, data) in entries {
             guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
-                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引不完整，已暂停版本回收。") }
+                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download index is incomplete, so version reclamation is paused.")) }
                 continue
             }
             guard let commit = snapshot.commit else {
                 if includeLegacy || snapshot.legacyRemoved == true {
                     guard snapshot.item.id == itemID else {
-                        if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。") }
+                        if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download index identity is invalid, so version reclamation is paused.")) }
                         continue
                     }
                     result[itemID] = snapshot
@@ -413,7 +413,7 @@ extension SteamWorkshopService {
                   itemID == commit.workshopId,
                   let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot),
                   snapshot.legacyFolderURL == content else {
-                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。") }
+                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download index identity is invalid, so version reclamation is paused.")) }
                 continue
             }
             result[commit.workshopId] = snapshot
@@ -434,10 +434,10 @@ extension SteamWorkshopService {
         )
         guard let data = entries[String(filename.dropLast(5))] else { return nil }
         guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "旧版视频下载索引不完整，拒绝移除。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The legacy video download index is incomplete. Removal refused."))
         }
         guard snapshot.commit == nil else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "旧版视频下载索引身份无效，拒绝移除。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The legacy video download index identity is invalid. Removal refused."))
         }
         return snapshot
     }
@@ -464,7 +464,7 @@ extension SteamWorkshopService {
             do {
                 try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(updated),
                     itemID: id, libraryRoot: steamDownloadLibraryRootURL)
-            } catch { statusMessage = "下载元数据更新失败：\(error.localizedDescription)" }
+            } catch { statusMessage = String(localized: "Couldn’t update download metadata: \(error.localizedDescription)") }
             return
         }
         if let record = latestDownloadRecord(for: id),

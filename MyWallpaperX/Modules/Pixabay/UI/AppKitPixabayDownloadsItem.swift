@@ -152,7 +152,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
     private let imageContainer = AppearanceAwareContainerView()
     private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView = NSImageView()
-    private let placeholderLabel = NSTextField(labelWithString: "加载中...")
+    private let placeholderLabel = NSTextField(labelWithString: String(localized: "Loading…"))
     private let selectionTintView = NSView()
     private let hoverOutlineView = NSView()
     private var currentTitle = ""
@@ -212,7 +212,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         presentedEntry = nil
         currentEntryID = -1
         thumbnailView.image = nil
-        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.stringValue = String(localized: "Loading…")
         placeholderLabel.isHidden = false
         currentTitle = ""
         currentMetadata = ""
@@ -266,7 +266,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         }
         if imageChanged {
             thumbnailView.image = nil
-            placeholderLabel.stringValue = "加载中..."
+            placeholderLabel.stringValue = String(localized: "Loading…")
             placeholderLabel.isHidden = true
         }
         if isThumbnailDemandActive && needsThumbnail { beginDisplayingThumbnail() }
@@ -326,7 +326,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
     /// 缩略图生成失败态：占位文案替换为失败提示并重新排版居中。
     /// 此卡片没有加载动画可停（placeholder 是静态 label），文案即失败态本体。
     private func showThumbnailFailureState() {
-        placeholderLabel.stringValue = "无法生成预览"
+        placeholderLabel.stringValue = String(localized: "Couldn’t generate a preview")
         placeholderLabel.isHidden = false
         view.needsLayout = true
     }

@@ -164,8 +164,8 @@ public enum LibraryBackgroundStyle: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .listCoverTint: return "按列表取色"
-        case .macOSNative: return "macOS原生"
+        case .listCoverTint: return String(localized: "Pick Colors from List")
+        case .macOSNative: return String(localized: "Native macOS")
         }
     }
 }
@@ -173,7 +173,7 @@ public enum LibraryBackgroundStyle: String, Codable, CaseIterable, Sendable {
 public enum LibraryCardClickAction: String, Codable, CaseIterable, Sendable {
     case selectOnly, openDetails
 
-    var title: String { self == .selectOnly ? "仅选中" : "打开详情" }
+    var title: String { self == .selectOnly ? String(localized: "Selected Only") : String(localized: "Open Details") }
 }
 
 public enum TimeUnit: String, Codable, CaseIterable, Identifiable {
@@ -221,8 +221,8 @@ public enum SystemAudioSpectrumStyle: String, Codable, CaseIterable, Identifiabl
 
     public var displayName: String {
         switch self {
-        case .balanced: return "均衡跳动"
-        case .banded: return "频带起伏"
+        case .balanced: return String(localized: "Even Pulse")
+        case .banded: return String(localized: "Band Fluctuation")
         }
     }
 }
@@ -236,9 +236,9 @@ public enum SystemAudioSpectrumSensitivity: String, Codable, CaseIterable, Ident
 
     public var displayName: String {
         switch self {
-        case .soft: return "柔和"
-        case .normal: return "标准"
-        case .lively: return "增强"
+        case .soft: return String(localized: "Soft")
+        case .normal: return String(localized: "Standard")
+        case .lively: return String(localized: "Enhanced")
         }
     }
 }

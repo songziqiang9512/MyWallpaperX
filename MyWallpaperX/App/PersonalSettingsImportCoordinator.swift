@@ -70,7 +70,7 @@ import ImageIO
         try admitImport()
         guard recoveryMessage == nil else { throw PersonalSettingsError.recoveryRequired(recoveryMessage ?? "") }
         do {
-            if let _ = try readRecovery() { throw PersonalSettingsError.recoveryRequired("存在待恢复导入") }
+            if let _ = try readRecovery() { throw PersonalSettingsError.recoveryRequired(String(localized: "An import is waiting to be restored")) }
         } catch {
             recoveryMessage = error.localizedDescription
             throw error
@@ -130,11 +130,11 @@ import ImageIO
                   let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
                   WallpaperPlaylistCoverAsset.allowsCopy(encodedByteCount: asset.imageData.count, pixelWidth: width, pixelHeight: height),
                   width == asset.pixelWidth, height == asset.pixelHeight else {
-                throw PersonalSettingsError.invalidPayload("列表封面副本尺寸或数据预算无效")
+                throw PersonalSettingsError.invalidPayload(String(localized: "The list cover copy’s size or data budget is invalid."))
             }
             guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
                   image.width == width, image.height == height else {
-                throw PersonalSettingsError.invalidPayload("列表封面副本无法解码")
+                throw PersonalSettingsError.invalidPayload(String(localized: "The list cover copy can’t be decoded."))
             }
         }
     }
@@ -187,7 +187,7 @@ import ImageIO
     private func admitImport() throws {
         guard !isApplying else { throw PersonalSettingsError.importInProgress }
         guard !collections.isResetting else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "资料库正在重置，请稍后重试。"])
+            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: String(localized: "The library is resetting. Try again later.")])
         }
         guard manager.didFinishInitialIndexLoad else { throw PersonalSettingsError.indexLoading }
     }
@@ -309,7 +309,7 @@ import ImageIO
         catch let error as CocoaError where error.code == .fileReadNoSuchFile { return nil }
         let record = try JSONDecoder().decode(Recovery.self, from: data)
         guard record.schemaVersion == 3 else {
-            throw PersonalSettingsError.invalidPayload("导入恢复版本")
+            throw PersonalSettingsError.invalidPayload(String(localized: "Import Restored Version"))
         }
         return record
     }

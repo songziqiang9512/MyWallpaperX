@@ -17,7 +17,7 @@ enum SteamWorkshopDownloadGridSupport {
         SteamWorkshopBrowserItem(
             id: record.id,
             title: record.title,
-            author: "未知作者",
+            author: "",
             authorProfileURL: nil,
             authorWorkshopURL: nil,
             hasAdultContent: false,

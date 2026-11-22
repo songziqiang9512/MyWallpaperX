@@ -66,7 +66,7 @@ extension WallpaperManager {
                                resourceLifetime: PlaybackResourceLifetime? = nil,
                                presentsSummary: Bool = true, completion: ((WallpaperSourceImportResult) -> Void)? = nil) {
         guard !urls.isEmpty else {
-            if let admission { failImportedVideoPlayback(admission, reason: "没有可导入的视频，已保留原壁纸") }
+            if let admission { failImportedVideoPlayback(admission, reason: String(localized: "No videos to import; the original wallpaper was kept")) }
             return
         }
         let indexEpoch = wallpaperIndexSaveEpoch
@@ -255,7 +255,7 @@ extension WallpaperManager {
                 urls.append(source); continue
             }
             guard let enumerator = FileManager.default.enumerator(at: source, includingPropertiesForKeys: [.isRegularFileKey]) else {
-                folderFailures[source.path] = "无法读取文件夹"; urls.append(source); continue
+                folderFailures[source.path] = String(localized: "Couldn’t read the folder"); urls.append(source); continue
             }
             let first = urls.count
             for (index, candidate) in enumerator.enumerated() {
@@ -267,7 +267,7 @@ extension WallpaperManager {
                 urls.append(file)
             }
             if urls.count == first {
-                folderFailures[source.path] = "文件夹中未找到支持的视频"; urls.append(source)
+                folderFailures[source.path] = String(localized: "No supported videos found in the folder"); urls.append(source)
             }
         }
         // 分块 + 取消检查点：大批次导入要可中断，不能在单轮扫描里长时间占住后台队列。
@@ -319,11 +319,11 @@ extension WallpaperManager {
                         )
                     case .missing(let path):
                         counters.missing += 1
-                        counters.failures[path] = "文件不存在"
+                        counters.failures[path] = String(localized: "File not found")
                         if recordsResults { orderedPaths.append(path) }
                     case .unreadable(let path):
                         counters.unreadable += 1
-                        counters.failures[path] = "文件无法读取"
+                        counters.failures[path] = String(localized: "Couldn’t read the file")
                         if recordsResults { orderedPaths.append(path) }
                     }
                 }
@@ -444,12 +444,12 @@ extension WallpaperManager {
                           let existing = wallpapers.first(where: { normalizedPath($0.path) == path }) {
                     setAsWallpaper(existing, admission: admission)
                 } else {
-                    failImportedVideoPlayback(admission, reason: "视频无法导入或已不可用，已保留原壁纸")
+                    failImportedVideoPlayback(admission, reason: String(localized: "The video couldn’t be imported or is no longer available; the original wallpaper was kept"))
                 }
             } else {
                 // Silent import remains valid after Stop/a newer choice, but its
                 // old admission never gets a fresh ticket or starts playback.
-                failImportedVideoPlayback(admission, reason: "视频播放请求已取消")
+                failImportedVideoPlayback(admission, reason: String(localized: "Video playback request canceled"))
             }
         }
 
@@ -483,7 +483,7 @@ extension WallpaperManager {
                 }
                 guard let matchedIndex else {
                     return .init(sourceURL: url, disposition: .failed, organizationItem: nil,
-                                 failureMessage: counters.failures[path] ?? "资料库内容已变化，未完成入库")
+                                 failureMessage: counters.failures[path] ?? String(localized: "Library contents changed; the import didn’t complete"))
                 }
                 let item = currentWallpapers[matchedIndex]
                 let disposition: WallpaperSourceImportResult.Disposition = added.contains(path) && reportedNew.insert(path).inserted ? .added : .existing

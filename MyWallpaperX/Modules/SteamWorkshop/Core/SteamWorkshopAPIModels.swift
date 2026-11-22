@@ -14,9 +14,9 @@ enum SteamWorkshopAuthorReturnDestination {
 
     var title: String {
         switch self {
-        case .discovery: return "返回创意工坊"
-        case .personal: return "返回我的订阅"
-        case .downloads: return "返回已下载"
+        case .discovery: return String(localized: "Back to Workshop")
+        case .personal: return String(localized: "Back to My Subscriptions")
+        case .downloads: return String(localized: "Back to Downloaded")
         }
     }
 }
@@ -35,9 +35,9 @@ enum SteamWorkshopBrowseContext: Equatable {
     var title: String {
         switch self {
         case .discovery:
-            return "Steam 创意工坊"
+            return String(localized: "Steam Workshop")
         case .authorWorkshop(let authorName, _):
-            return "\(authorName) 的工坊"
+            return String(localized: "\(authorName)’s Workshop")
         }
     }
 

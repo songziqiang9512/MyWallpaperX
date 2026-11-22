@@ -12,7 +12,7 @@ extension SteamWorkshopService {
         presentItemDetail(SteamWorkshopBrowserItem(
             id: itemID,
             title: title,
-            author: "未知作者",
+            author: "",
             authorProfileURL: nil,
             authorWorkshopURL: nil,
             hasAdultContent: false,
@@ -58,7 +58,7 @@ extension SteamWorkshopService {
         selectedBrowserItemError = nil
         currentWorkshopItemID = resolvedItem.id
         currentPageTitle = resolvedItem.title
-        statusMessage = "已加载 \(resolvedItem.title)"
+        statusMessage = String(localized: "Loaded \(resolvedItem.title)")
         refreshSelectedBrowserItemDetailIfNeeded(forceRefresh: false)
     }
 
@@ -182,7 +182,7 @@ extension SteamWorkshopService {
         inFlightDetailItemID = item.id
         isRefreshingSelectedDownloadDetailItem = true
         selectedDownloadDetailError = nil
-        statusMessage = "本地缺少作者工坊链接，正在按作品 ID 查询作者信息…"
+        statusMessage = String(localized: "The creator Workshop link is missing locally; looking up author info by item ID…")
 
         selectedItemDetailTask = Task(priority: .userInitiated) { [weak self] in
             let resolved = await self?.resolveCachedDownloadAuthorMetadata(
@@ -205,7 +205,7 @@ extension SteamWorkshopService {
                 self.isRefreshingSelectedDownloadDetailItem = false
                 self.selectedDownloadDetailError = nil
                 guard Self.resolvedAuthorWorkshopURL(for: resolved) != nil else {
-                    self.statusMessage = "没有获取到作者工坊链接。"
+                    self.statusMessage = String(localized: "Couldn't get the author's Workshop link.")
                     return
                 }
                 self.openAuthorWorksPage(for: resolved)
@@ -229,7 +229,7 @@ extension SteamWorkshopService {
                 into: fallback,
                 id: itemID,
                 title: title,
-                author: "未知作者",
+                author: "",
                 authorProfileURL: nil,
                 authorWorkshopURL: nil
             )
@@ -252,7 +252,7 @@ extension SteamWorkshopService {
         let base = fallback ?? SteamWorkshopBrowserItem(
             id: id,
             title: title ?? "Workshop #\(id)",
-            author: "未知作者",
+            author: "",
             authorProfileURL: nil,
             authorWorkshopURL: nil,
             hasAdultContent: false,
@@ -285,7 +285,7 @@ extension SteamWorkshopService {
         return SteamWorkshopBrowserItem(
             id: base.id,
             title: base.title,
-            author: author == "未知作者" ? base.author : author,
+            author: author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? base.author : author,
             authorProfileURL: authorProfileURL ?? base.authorProfileURL,
             authorWorkshopURL: authorWorkshopURL ?? base.authorWorkshopURL,
             hasAdultContent: base.hasAdultContent,

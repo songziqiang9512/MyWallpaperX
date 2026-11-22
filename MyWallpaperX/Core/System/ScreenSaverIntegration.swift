@@ -83,14 +83,14 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
             let result = Result {
                 let root = try rootURL()
                 guard let current = try readConfiguration(in: root), let content = current.content else {
-                    throw Failure.message("尚未保存可用的视频，请先选择视频。")
+                    throw Failure.message(String(localized: "No usable video is saved yet. Choose a video first."))
                 }
                 let media = try ScreenSaverPaths.mediaRoot(in: root, generation: content.mediaGeneration)
                 let video = try ScreenSaverPaths.resource(content.entryRelativePath, in: media)
                 let poster = try ScreenSaverPaths.resource(content.posterRelativePath, in: media)
                 guard FileManager.default.isReadableFile(atPath: video.path),
                       FileManager.default.isReadableFile(atPath: poster.path) else {
-                    throw Failure.message("已保存的视频或静帧不可读取，请重新保存视频。")
+                    throw Failure.message(String(localized: "The saved video or still frame can’t be read. Save the video again."))
                 }
                 let value = ScreenSaverConfiguration(content: content, fillMode: fillMode,
                                                       playsOnBattery: playsOnBattery)
@@ -177,7 +177,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         let url = root.appendingPathComponent(name)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let value = try JSONDecoder().decode(ScreenSaverConfiguration.self, from: Data(contentsOf: url))
-        guard value.schemaVersion == 1 else { throw Failure.message("此屏保配置版本无法由当前 App 修改") }
+        guard value.schemaVersion == 1 else { throw Failure.message(String(localized: "This screensaver configuration version can't be modified by this app")) }
         return value
     }
 
@@ -233,7 +233,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         guard input.videoURL.isFileURL else { throw CocoaError(.fileReadUnsupportedScheme) }
         let source = input.videoURL.resolvingSymlinksInPath().standardizedFileURL
         guard try source.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
-            throw Failure.message("所选视频不是可读取的文件，已保留原屏保。")
+            throw Failure.message(String(localized: "The selected video isn’t a readable file; the previous screen saver was kept."))
         }
         let entry = "Video/" + source.lastPathComponent
         let destination = media.appendingPathComponent(entry)
@@ -246,7 +246,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
                                           isCancelled: { !self.requests.isCurrent(request) })
         } catch {
             try requests.check(request)
-            throw Failure.message("视频静帧生成失败，已保留原屏保。")
+            throw Failure.message(String(localized: "Couldn’t generate the video still frame; the previous screensaver was kept."))
         }
         try requests.check(request)
         return .init(kind: .video, mediaGeneration: generation, title: input.title,
@@ -334,7 +334,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
     }
 
     private nonisolated func prepareStorage(request: UInt64) throws {
-        guard hasBundledComponent else { throw Failure.message("App 内缺少系统墙纸组件，请使用完整的 App。") }
+        guard hasBundledComponent else { throw Failure.message(String(localized: "The system wallpaper component is missing from this app. Use the full app.")) }
         let root = try rootURL()
         try requests.commit(request) {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,

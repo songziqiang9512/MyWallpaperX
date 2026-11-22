@@ -14,7 +14,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private let list = NSCollectionView()
     private let flowLayout = NSCollectionViewFlowLayout()
     private let scrollView = WorkshopPropertyScrollView()
-    private let reset = NSButton(title: "恢复默认", target: nil, action: nil)
+    private let reset = NSButton(title: String(localized: "Restore Defaults"), target: nil, action: nil)
     private lazy var resetRow = WorkshopPropertyPanelLayout.resetRow(reset)
     private var subscription: AnyCancellable?
     private var titles: [Int: String] = [:]
@@ -108,7 +108,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
     private func setupList() {
         reset.target = self
         reset.action = #selector(resetProperties)
-        reset.toolTip = "恢复这个 Scene 壁纸的默认属性"
+        reset.toolTip = String(localized: "Restore Default Properties for This Scene Wallpaper")
         reset.isHidden = !context.hasEditorControls
         textureStatus.font = .systemFont(ofSize: 11)
         textureStatus.textColor = .secondaryLabelColor
@@ -137,13 +137,13 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         for (index, definition) in context.definitions.enumerated() {
             var content = WorkshopPropertyTextContent(markup: displayResolver.string(definition.title))
             if definition.kind == .unsupported {
-                let status = definition.runtimeType.isEmpty ? "缺少类型" : "不支持的类型：\(definition.runtimeType)"
-                if content.isEmpty { content = .init(text: "未命名属性") }
+                let status = definition.runtimeType.isEmpty ? String(localized: "Missing Type") : String(localized: "Unsupported type: \(definition.runtimeType)")
+                if content.isEmpty { content = .init(text: String(localized: "Unnamed Property")) }
                 content = content.appendingLine(status)
             } else if definition.kind == .group || definition.kind == .text {
                 guard !content.isEmpty else { continue }
             } else if content.isEmpty {
-                content = .init(text: "未命名属性")
+                content = .init(text: String(localized: "Unnamed Property"))
             }
             titles[index] = content.text
             titleContents[index] = content
@@ -375,7 +375,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 self.clearTextureStatus()
                 self.refreshAcceptedValues(forceRows: Set(self.titles.keys))
             case .failed(_), .unavailable:
-                self.showTextureStatus("部分属性未能恢复默认，已保留原选择。", index: nil)
+                self.showTextureStatus(String(localized: "Some properties couldn’t be reset to defaults, so your original choices were kept."), index: nil)
             case .superseded:
                 break
             }
@@ -394,7 +394,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [.png, .jpeg, .mpeg4Movie, .quickTimeMovie]
             + [UTType(filenameExtension: "m4v")].compactMap { $0 }
-        panel.prompt = "选择"
+        panel.prompt = String(localized: "Select")
         panel.beginSheetModal(for: window) { [weak self, weak window, weak panel] response in
             guard let self, let window, let panel, self.window === window,
                   self.textureSelection?.id == requestID else { return }
@@ -436,14 +436,14 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
         }
         if web {
             let alert = NSAlert()
-            alert.messageText = "配置网址快捷方式"
-            alert.informativeText = "仅支持 HTTP 或 HTTPS 网址，不支持命令或其他协议。"
-            alert.addButton(withTitle: "保存")
-            alert.addButton(withTitle: "取消")
+            alert.messageText = String(localized: "Configure URL Shortcut")
+            alert.informativeText = String(localized: "Only HTTP and HTTPS URLs are supported. Commands and other protocols aren’t.")
+            alert.addButton(withTitle: String(localized: "Save"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
             let field = WallpaperFormTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
             let reference = service.sceneShortcutReference(forKey: context.definitions[index].key, record: record)
             field.stringValue = reference?.kind == .webURL ? reference!.url.absoluteString : "https://"
-            field.setAccessibilityLabel("HTTP 或 HTTPS 网址")
+            field.setAccessibilityLabel(String(localized: "HTTP or HTTPS URL"))
             let surface = WallpaperFormFieldStyle.wrapping(field)
             surface.widthAnchor.constraint(equalToConstant: 360).isActive = true
             alert.accessoryView = surface
@@ -457,7 +457,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 guard let url = URL(string: text), ScenePlaybackShortcutReference(
                     kind: .webURL, url: url, bookmarkData: nil).isValid else {
                     self.shortcutSelection = nil
-                    self.showTextureStatus("请输入不含账户信息的 HTTP(S) 网址。", index: index)
+                    self.showTextureStatus(String(localized: "Enter an HTTP(S) URL without account information."), index: index)
                     return
                 }
                 finish(.OK, url)
@@ -468,7 +468,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             panel.canChooseFiles = true
             panel.canChooseDirectories = true
             panel.allowsMultipleSelection = false
-            panel.prompt = "选择"
+            panel.prompt = String(localized: "Select")
             shortcutSelection = (requestID, index, panel)
             panel.beginSheetModal(for: window) { [weak panel] response in finish(response, panel?.url) }
         }
@@ -491,7 +491,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 self.clearTextureStatus()
                 self.refreshAcceptedValues(forceRows: [index])
             case let .failed(message): self.showTextureStatus(message, index: index)
-            case .unavailable: self.showTextureStatus("当前播放会话未接受快捷方式配置，已保留原选择。", index: index)
+            case .unavailable: self.showTextureStatus(String(localized: "The current playback session didn’t accept the shortcut configuration; the previous choice was kept."), index: index)
             case .superseded: break
             }
         }
@@ -518,7 +518,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 }
                 self.refreshAcceptedValues(forceRows: [index])
             case .failed(_), .unavailable:
-                self.showTextureStatus("“\(self.titles[index] ?? definition.key)”图像或视频无法更新，已保留原选择。请选择可读取的 PNG/JPEG 图像或 MP4/MOV/M4V 视频。", index: index)
+                self.showTextureStatus(String(localized: "“\(self.titles[index] ?? definition.key)” image or video couldn’t be updated; your previous selection was kept. Choose a readable PNG/JPEG image or MP4/MOV/M4V video."), index: index)
             case .superseded:
                 break
             }
@@ -654,18 +654,18 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 buttons.orientation = .horizontal
                 buttons.spacing = 8
                 let shortcut = kind == .userShortcut
-                let choose = NSButton(title: shortcut ? "文件或目录" : "选择文件", target: self,
+                let choose = NSButton(title: shortcut ? String(localized: "File or Folder") : String(localized: "Choose File"), target: self,
                     action: shortcut ? #selector(chooseShortcut) : #selector(chooseTexture))
                 choose.bezelStyle = .rounded; choose.controlSize = .small
                 choose.image = NSImage(systemSymbolName: shortcut ? "folder.badge.plus" : "photo.badge.plus", accessibilityDescription: nil)
                 choose.imagePosition = .imageLeading
-                choose.toolTip = shortcut ? "选择本机文件或目录，配置后从壁纸按钮点击打开" : "选择 PNG/JPEG 图像或 MP4/MOV/M4V 视频"
+                choose.toolTip = shortcut ? String(localized: "Choose a local file or folder, then open it from the wallpaper button once configured") : String(localized: "Choose a PNG/JPEG image or an MP4/MOV/M4V video")
                 let restore = NSButton(title: "", target: self, action: shortcut ? #selector(clearShortcut) : #selector(clearTexture))
-                restore.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: shortcut ? "清除快捷方式" : "恢复默认纹理")
-                restore.isBordered = false; restore.toolTip = shortcut ? "清除此设备的快捷方式配置" : "恢复作者提供的默认纹理"
+                restore.image = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: shortcut ? String(localized: "Remove Shortcuts") : String(localized: "Restore Default Textures"))
+                restore.isBordered = false; restore.toolTip = shortcut ? String(localized: "Remove Shortcut Configuration for This Device") : String(localized: "Restore Author’s Default Textures")
                 buttons.addArrangedSubview(restore); buttons.addArrangedSubview(choose)
                 if shortcut {
-                    let web = NSButton(title: "网址", target: self, action: #selector(chooseShortcutWeb))
+                    let web = NSButton(title: String(localized: "URL"), target: self, action: #selector(chooseShortcutWeb))
                     web.bezelStyle = .rounded; web.controlSize = .small
                     buttons.addArrangedSubview(web); chooseWeb = web
                 }
@@ -714,7 +714,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                     let current = definition.options.firstIndex(where: { $0.value == value })
                         .map { editor.optionLabels[index]![$0] }
                         ?? String(describing: value?.foundationValue ?? "")
-                    popup.addItem(withTitle: "当前值：\(current)（不可选）")
+                    popup.addItem(withTitle: String(localized: "Current value: \(current) (not selectable)"))
                     popup.lastItem?.isEnabled = false
                 }
                 for (offset, option) in options.enumerated() {
@@ -728,14 +728,14 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             if let resourceName {
                 if kind == .userShortcut {
                     let reference = editor.shortcutConfiguration.references[definition.key]
-                    resourceName.stringValue = reference?.displayName ?? "未配置（仅保存在此设备）"
+                    resourceName.stringValue = reference?.displayName ?? String(localized: "Not configured (stored on this device only)")
                     resourceName.toolTip = reference?.url.absoluteString
                     clear?.isHidden = reference == nil
                 } else {
                     let url = editor.service.resolvedSceneTexturePropertyURL(forKey: definition.key, record: editor.record)
                     let hasSelection = url != nil || editor.overrides[definition.key] != nil
                     resourceName.stringValue = url?.lastPathComponent
-                        ?? (hasSelection ? "已选图像暂不可用" : "使用作者默认纹理")
+                        ?? (hasSelection ? String(localized: "The selected image isn’t available right now") : String(localized: "Use Author’s Default Texture"))
                     clear?.isHidden = !hasSelection
                 }
             }

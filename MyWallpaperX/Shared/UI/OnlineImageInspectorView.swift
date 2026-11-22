@@ -21,11 +21,11 @@ final class OnlineImageInspectorView: NSView {
     private let facts = SILInspectorViews.makeVerticalStack(spacing: 12)
     private let notice = SILInspectorViews.makeLabel("", font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
     private let pageLabel = NSTextField(labelWithString: "")
-    private let authorButton = SILInspectorViews.makeFooterButton(title: "作者信息暂缺", symbolName: "person.crop.circle", target: nil, action: #selector(openAuthor))
+    private let authorButton = SILInspectorViews.makeFooterButton(title: String(localized: "Artist Info Unavailable"), symbolName: "person.crop.circle", target: nil, action: #selector(openAuthor))
     private let previousButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "chevron.left", target: nil, action: #selector(previousPage))
     private let nextButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "chevron.right", target: nil, action: #selector(nextPage))
-    private let primaryButton = SILInspectorViews.makeFooterButton(title: "下载图片", symbolName: "arrow.down.to.line", target: nil, action: #selector(performPrimary), kind: .primary)
-    private let sourceButton = SILInspectorViews.makeFooterButton(title: "打开原网页", symbolName: "safari", target: nil, action: #selector(openSource))
+    private let primaryButton = SILInspectorViews.makeFooterButton(title: String(localized: "Download Image"), symbolName: "arrow.down.to.line", target: nil, action: #selector(performPrimary), kind: .primary)
+    private let sourceButton = SILInspectorViews.makeFooterButton(title: String(localized: "Open Original Page"), symbolName: "safari", target: nil, action: #selector(openSource))
     private let localThumbnails = SILThumbnailProvider()
     private var detailTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
@@ -132,13 +132,13 @@ final class OnlineImageInspectorView: NSView {
         pager.spacing = 8
         previousButton.target = self; previousButton.action = #selector(previousPage)
         nextButton.target = self; nextButton.action = #selector(nextPage)
-        previousButton.setAccessibilityLabel("上一张"); previousButton.toolTip = "上一张"
-        nextButton.setAccessibilityLabel("下一张"); nextButton.toolTip = "下一张"
+        previousButton.setAccessibilityLabel(String(localized: "Previous")); previousButton.toolTip = String(localized: "Previous")
+        nextButton.setAccessibilityLabel(String(localized: "Next")); nextButton.toolTip = String(localized: "Next")
         pageLabel.font = .systemFont(ofSize: 11, weight: .medium)
         pageLabel.textColor = .secondaryLabelColor
         notice.maximumNumberOfLines = 0
         primaryButton.target = self; sourceButton.target = self
-        sourceButton.setAccessibilityLabel("在浏览器打开作品"); sourceButton.toolTip = "在浏览器打开作品"
+        sourceButton.setAccessibilityLabel(String(localized: "Open Artwork in Browser")); sourceButton.toolTip = String(localized: "Open Artwork in Browser")
         for section in [preview, titleLabel, authorRow, pager, WallpaperLibraryControlStyle.sectionDivider(), facts, notice] as [NSView] {
             content.addArrangedSubview(section)
             section.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
@@ -194,7 +194,7 @@ final class OnlineImageInspectorView: NSView {
             firstThumbnailURL = nil
             artwork = OnlineImageArtwork(source: .pixiv, artworkID: artwork.artworkID,
                 title: "Pixiv #\(artwork.artworkID)", sourceURL: artwork.sourceURL)
-            errorText = "账号会话已变化，请关闭详情后重新打开。"
+            errorText = String(localized: "The account session has changed. Close the details and open them again.")
             refreshContent(); loadPreview()
         }
     }
@@ -237,7 +237,7 @@ final class OnlineImageInspectorView: NSView {
         let record = currentRecord, asset = currentAsset
         titleLabel.stringValue = record?.title ?? asset?.title ?? artwork.title
         let author = record?.author ?? asset?.author ?? artwork.author ?? ""
-        authorButton.setTitle(author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "作者信息暂缺" : author)
+        authorButton.setTitle(author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Artist Info Unavailable") : author)
         authorButton.isEnabled = onAuthor != nil && resolvedAuthor != nil
         let indices = pageIndices
         let position = indices.firstIndex(of: pageIndex) ?? 0
@@ -245,17 +245,17 @@ final class OnlineImageInspectorView: NSView {
         nextButton.isEnabled = position + 1 < indices.count
         previousButton.isHidden = indices.count < 2; nextButton.isHidden = indices.count < 2
         pageLabel.stringValue = asset != nil
-            ? "第\(pageIndex + 1) / 共\(assets.count)张" : "第\(pageIndex + 1)张\(record == nil ? "" : " · 本地图片")"
+            ? String(localized: "Image \(pageIndex + 1) of \(assets.count)") : String(localized: "Image \(pageIndex + 1)\(record == nil ? "" : String(localized: " · Local Image"))")
         facts.arrangedSubviews.forEach { facts.removeArrangedSubview($0); $0.removeFromSuperview() }
-        var values: [(String, String)] = [("来源", artwork.source.displayName)]
+        var values: [(String, String)] = [(String(localized: "Source"), artwork.source.displayName)]
         if let width = record?.pixelWidth ?? asset?.width ?? (pageIndex == 0 ? artwork.width : nil),
-           let height = record?.pixelHeight ?? asset?.height ?? (pageIndex == 0 ? artwork.height : nil) { values.append(("分辨率", "\(width) × \(height)")) }
+           let height = record?.pixelHeight ?? asset?.height ?? (pageIndex == 0 ? artwork.height : nil) { values.append((String(localized: "Resolution"), "\(width) × \(height)")) }
         if let bytes = record?.fileSizeBytes ?? asset?.expectedBytes ?? (pageIndex == 0 ? artwork.fileSizeBytes : nil) {
-            values.append(("文件大小", ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)))
+            values.append((String(localized: "File Size"), ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)))
         }
         let rating: String
-        switch artwork.rating { case .safe: rating = "全年龄"; case .sensitive: rating = "可能含敏感内容"; case .adult: rating = "年龄限制"; case .unknown: rating = "暂未确认" }
-        values.append(("内容分级", rating))
+        switch artwork.rating { case .safe: rating = String(localized: "All Ages"); case .sensitive: rating = String(localized: "May Contain Sensitive Content"); case .adult: rating = String(localized: "Age Restricted"); case .unknown: rating = String(localized: "Unconfirmed") }
+        values.append((String(localized: "Content Rating"), rating))
         let grid = WallpaperLibraryControlStyle.inspectorFacts(values)
         facts.addArrangedSubview(grid); grid.widthAnchor.constraint(equalTo: facts.widthAnchor).isActive = true
         let tags = record?.tags ?? asset?.tags ?? artwork.tags
@@ -269,10 +269,10 @@ final class OnlineImageInspectorView: NSView {
         if let fresh = makeLibraryActions(assetID.reference) { boundActions = (assetID.reference, fresh) }
         else { boundActions = nil }
         if let errorText { notice.stringValue = "\(errorText)\(isLocalAvailable ? " 已下载图片仍可使用。" : "")" }
-        else if !isLocalAvailable, artwork.kind == .animation { notice.stringValue = "动图暂不支持下载或应用，可打开原站查看。" }
-        else if !isLocalAvailable, artwork.kind == .unknown, !isResolving { notice.stringValue = "作品类型尚未确认，暂不支持下载或应用。" }
-        else if !isLocalAvailable, artwork.isMasked == true { notice.stringValue = "此作品受当前站内显示权限限制，请打开原站检查设置。" }
-        else { notice.stringValue = isResolving ? "正在获取作品详情…" : "" }
+        else if !isLocalAvailable, artwork.kind == .animation { notice.stringValue = String(localized: "Animated images can’t be downloaded or applied yet. You can view them on the original site.") }
+        else if !isLocalAvailable, artwork.kind == .unknown, !isResolving { notice.stringValue = String(localized: "The artwork type isn’t confirmed yet, so it can’t be downloaded or applied.") }
+        else if !isLocalAvailable, artwork.isMasked == true { notice.stringValue = String(localized: "This item is restricted by the site's display permissions. Open the original site to check your settings.") }
+        else { notice.stringValue = isResolving ? String(localized: "Fetching item details…") : "" }
         notice.isHidden = notice.stringValue.isEmpty
         updateControls()
     }
@@ -290,7 +290,7 @@ final class OnlineImageInspectorView: NSView {
         if renderedProgress != progress { renderedProgress = progress; primaryButton.setProgressFill(progress) }
         guard state != renderedControls else { return }
         renderedControls = state
-        let title = switching ? "正在切换壁纸" : local ? actions?.primaryTitle ?? "设为壁纸" : progress != nil ? "取消下载" : "下载图片"
+        let title = switching ? String(localized: "Switching Wallpaper") : local ? actions?.primaryTitle ?? String(localized: "Set as Wallpaper") : progress != nil ? String(localized: "Cancel Download") : String(localized: "Download Image")
         primaryButton.setTitle(title)
         primaryButton.setSymbol(switching ? "hourglass" : local ? actions?.primarySymbolName ?? "photo.fill" : progress != nil ? "xmark" : "arrow.down.to.line", accessibilityDescription: title)
         primaryButton.isEnabled = state.canApply || progress != nil

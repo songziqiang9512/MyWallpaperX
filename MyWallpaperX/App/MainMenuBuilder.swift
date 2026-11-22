@@ -86,13 +86,13 @@ enum MainMenuBuilder {
         let appName = ProcessInfo.processInfo.processName
 
         appMenu.addItem(
-            title: "关于 \(appName)",
+            title: String(localized: "About \(appName)"),
             action: #selector(AppDelegate.showAboutMenuAction(_:)),
             keyEquivalent: "",
             systemImageName: "info.circle"
         )
         appMenu.addItem(
-            title: "检查更新…",
+            title: String(localized: "Check for Updates…"),
             action: #selector(AppUpdateController.checkForUpdates(_:)),
             keyEquivalent: "",
             target: AppUpdateController.shared,
@@ -100,34 +100,34 @@ enum MainMenuBuilder {
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            title: "偏好设置",
+            title: String(localized: "Settings"),
             action: #selector(AppDelegate.showSettingsMenuAction(_:)),
             keyEquivalent: ",",
             systemImageName: "gearshape"
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            title: "隐藏 \(appName)",
+            title: String(localized: "Hide \(appName)"),
             action: #selector(NSApplication.hide(_:)),
             keyEquivalent: "h",
             target: NSApp
         )
         appMenu.addItem(
-            title: "隐藏其他",
+            title: String(localized: "Hide Others"),
             action: #selector(NSApplication.hideOtherApplications(_:)),
             keyEquivalent: "h",
             modifierMask: [.command, .option],
             target: NSApp
         )
         appMenu.addItem(
-            title: "全部显示",
+            title: String(localized: "Show All"),
             action: #selector(NSApplication.unhideAllApplications(_:)),
             keyEquivalent: "",
             target: NSApp
         )
         appMenu.addItem(.separator())
         appMenu.addItem(
-            title: "退出 \(appName)",
+            title: String(localized: "Quit \(appName)"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q",
             target: NSApp
@@ -137,169 +137,169 @@ enum MainMenuBuilder {
     }
 
     private static func addFileMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "文件")
+        let menu = NSMenu(title: String(localized: "File"))
         menu.addItem(
-            title: "新建播放列表…",
+            title: String(localized: "New Playlist…"),
             action: #selector(AppDelegate.createPlaylistMenuAction(_:)),
             keyEquivalent: "n"
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "导入",
+            title: String(localized: "Import"),
             action: #selector(AppDelegate.importMenuAction(_:)),
             keyEquivalent: "o"
         )
-        mainMenu.addItem(withTitle: "文件", submenu: menu)
+        mainMenu.addItem(withTitle: String(localized: "File"), submenu: menu)
     }
 
     private static func addEditMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "编辑")
-        menu.addItem(title: "撤销", action: #selector(AppDelegate.undoMenuAction(_:)), keyEquivalent: "z")
-        menu.addItem(title: "重做", action: #selector(AppDelegate.redoMenuAction(_:)), keyEquivalent: "z", modifierMask: [.command, .shift])
+        let menu = NSMenu(title: String(localized: "Edit"))
+        menu.addItem(title: String(localized: "Undo"), action: #selector(AppDelegate.undoMenuAction(_:)), keyEquivalent: "z")
+        menu.addItem(title: String(localized: "Redo"), action: #selector(AppDelegate.redoMenuAction(_:)), keyEquivalent: "z", modifierMask: [.command, .shift])
         menu.addItem(.separator())
         menu.addItem(
-            title: "剪切",
+            title: String(localized: "Cut"),
             action: #selector(NSText.cut(_:)),
             keyEquivalent: "x",
             target: nil
         )
         menu.addItem(
-            title: "拷贝",
+            title: String(localized: "Copy"),
             action: #selector(NSText.copy(_:)),
             keyEquivalent: "c",
             target: nil
         )
         menu.addItem(
-            title: "粘贴",
+            title: String(localized: "Paste"),
             action: #selector(NSText.paste(_:)),
             keyEquivalent: "v",
             target: nil
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "全选",
+            title: String(localized: "Select All"),
             action: #selector(NSText.selectAll(_:)),
             keyEquivalent: "a",
             target: nil
         )
         menu.addItem(
-            title: "进入 / 退出多选",
+            title: String(localized: "Toggle Multiple Selection"),
             action: #selector(AppDelegate.toggleMultiSelectMenuAction(_:)),
             keyEquivalent: "e"
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "删除选中",
+            title: String(localized: "Delete Selected"),
             action: #selector(AppDelegate.deleteSelectedMenuAction(_:)),
             keyEquivalent: "\u{8}"
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "搜索",
+            title: String(localized: "Search"),
             action: #selector(AppDelegate.focusSearchMenuAction(_:)),
             keyEquivalent: "f"
         )
-        mainMenu.addItem(withTitle: "编辑", submenu: menu)
+        mainMenu.addItem(withTitle: String(localized: "Edit"), submenu: menu)
     }
 
     private static func addViewMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "显示")
+        let menu = NSMenu(title: String(localized: "View"))
         menu.addItem(
-            title: "放大缩略图",
+            title: String(localized: "Larger Thumbnails"),
             action: #selector(AppDelegate.zoomInMenuAction(_:)),
             keyEquivalent: "+"
         )
         menu.addItem(
-            title: "缩小缩略图",
+            title: String(localized: "Smaller Thumbnails"),
             action: #selector(AppDelegate.zoomOutMenuAction(_:)),
             keyEquivalent: "-"
         )
         menu.addItem(.separator())
-        let navigation = NSMenu(title: "前往")
-        for (command, title) in [(MainMenuCommand.videos, "我的视频"), (.images, "我的图片"), (.downloads, "我的下载"),
-                                  (.recent, "最近使用"), (.workshop, "创意工坊"),
-                                  (.wallhaven, "Wallhaven"), (.pixiv, "Pixiv"), (.pixabay, "Pixabay"), (.playlists, "所有播放列表"), (.favorites, "特别喜爱")] {
+        let navigation = NSMenu(title: String(localized: "Go"))
+        for (command, title) in [(MainMenuCommand.videos, String(localized: "My Videos")), (.images, String(localized: "My Images")), (.downloads, String(localized: "My Downloads")),
+                                  (.recent, String(localized: "Recently Used")), (.workshop, String(localized: "Workshop")),
+                                  (.wallhaven, "Wallhaven"), (.pixiv, "Pixiv"), (.pixabay, "Pixabay"), (.playlists, String(localized: "All Playlists")), (.favorites, String(localized: "Favorite"))] {
             navigation.addItem(title: title, action: command.action, keyEquivalent: "", command: command)
         }
-        menu.addItem(withTitle: "前往", submenu: navigation)
-        mainMenu.addItem(withTitle: "显示", submenu: menu)
+        menu.addItem(withTitle: String(localized: "Go"), submenu: navigation)
+        mainMenu.addItem(withTitle: String(localized: "View"), submenu: menu)
     }
 
     private static func addWallpaperMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "壁纸")
+        let menu = NSMenu(title: String(localized: "Wallpaper"))
         menu.addItem(
-            title: "设为当前壁纸",
+            title: String(localized: "Set as Wallpaper"),
             action: #selector(AppDelegate.setAsWallpaperMenuAction(_:)),
             keyEquivalent: "\r",
             modifierMask: []
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "切换下一张",
+            title: String(localized: "Next Wallpaper"),
             action: #selector(AppDelegate.nextWallpaperMenuAction(_:)),
             keyEquivalent: NSRightArrowFunctionKey.unicodeScalarString
         )
         menu.addItem(
-            title: "切换上一张",
+            title: String(localized: "Previous Wallpaper"),
             action: #selector(AppDelegate.previousWallpaperMenuAction(_:)),
             keyEquivalent: NSLeftArrowFunctionKey.unicodeScalarString
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "特别喜爱 / 取消特别喜爱",
+            title: String(localized: "Toggle Favorite"),
             action: #selector(AppDelegate.toggleFavoriteMenuAction(_:)),
             keyEquivalent: "d"
         )
         menu.addItem(
-            title: "添加到列表…",
+            title: String(localized: "Add to Playlist…"),
             action: #selector(AppDelegate.addToPlaylistMenuAction(_:)),
             keyEquivalent: "t"
         )
         menu.addItem(
-            title: "查看信息",
+            title: String(localized: "Get Info"),
             action: #selector(AppDelegate.showInfoMenuAction(_:)),
             keyEquivalent: "i"
         )
         menu.addItem(
-            title: "预览",
+            title: String(localized: "Preview"),
             action: #selector(AppDelegate.previewMenuAction(_:)),
             keyEquivalent: " ",
             modifierMask: []
         )
         menu.addItem(
-            title: "查看文件",
+            title: String(localized: "Reveal in Finder"),
             action: #selector(AppDelegate.revealInFinderMenuAction(_:)),
             keyEquivalent: "r"
         )
-        mainMenu.addItem(withTitle: "壁纸", submenu: menu)
+        mainMenu.addItem(withTitle: String(localized: "Wallpaper"), submenu: menu)
     }
 
     private static func addWindowMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "窗口")
+        let menu = NSMenu(title: String(localized: "Window"))
         menu.addItem(
-            title: "最小化",
+            title: String(localized: "Minimize"),
             action: #selector(NSWindow.performMiniaturize(_:)),
             keyEquivalent: "m",
             target: nil
         )
         menu.addItem(
-            title: "关闭窗口",
+            title: String(localized: "Close Window"),
             action: #selector(AppDelegate.closeWindowMenuAction(_:)),
             keyEquivalent: "w"
         )
-        mainMenu.addItem(withTitle: "窗口", submenu: menu)
+        mainMenu.addItem(withTitle: String(localized: "Window"), submenu: menu)
         NSApp.windowsMenu = menu
     }
 
     private static func addHelpMenu(to mainMenu: NSMenu) {
-        let menu = NSMenu(title: "帮助")
+        let menu = NSMenu(title: String(localized: "Help"))
         menu.addItem(
-            title: "MyWallpaperX 帮助",
+            title: String(localized: "MyWallpaperX Help"),
             action: #selector(NSApplication.showHelp(_:)),
             keyEquivalent: "?",
             target: NSApp
         )
-        mainMenu.addItem(withTitle: "帮助", submenu: menu)
+        mainMenu.addItem(withTitle: String(localized: "Help"), submenu: menu)
         NSApp.helpMenu = menu
     }
 }

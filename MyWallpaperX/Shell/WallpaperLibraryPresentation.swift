@@ -523,7 +523,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
         } catch {
             // Keep the original bytes for a future supported reader/recovery.
             mayWriteSettings = false
-            settingsError = "界面状态无法恢复，原设置已保留。"
+            settingsError = String(localized: "The interface state couldn't be restored; your original settings were kept.")
             var next = state
             next.lastError = settingsError
             state = next

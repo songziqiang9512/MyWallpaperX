@@ -56,13 +56,13 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
             titleLabel.stringValue = ""
         case .loading:
             isHidden = false
-            titleLabel.stringValue = "加载中"
+            titleLabel.stringValue = String(localized: "Loading")
         case .retrying:
             isHidden = false
-            titleLabel.stringValue = "加载中"
+            titleLabel.stringValue = String(localized: "Loading")
         case .unavailable:
             isHidden = false
-            titleLabel.stringValue = "暂无缩略图"
+            titleLabel.stringValue = String(localized: "No Thumbnail")
         }
     }
 

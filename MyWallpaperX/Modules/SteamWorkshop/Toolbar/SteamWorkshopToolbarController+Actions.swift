@@ -49,7 +49,7 @@ extension SteamWorkshopToolbarController {
     func personalListRows() -> [ToolbarMenu.Row] {
         let service = SteamWorkshopService.shared
         return SteamWorkshopSource.personalSources.map { source in
-            .init(title: source == .myFavorites ? "Steam 收藏" : source.toolbarDisplayName, kind: .action, isChecked: service.source == source,
+            .init(title: source == .myFavorites ? String(localized: "Steam Favorites") : source.toolbarDisplayName, kind: .action, isChecked: service.source == source,
                 isEnabled: service.source.isPersonal && !service.isBrowsingAuthorWorkshop,
                 handler: { [weak self] in
                     guard let self, self.isSteamWorkshopMode,
@@ -108,13 +108,13 @@ extension SteamWorkshopToolbarController {
                 rows.append(ToolbarMenu.Row(title: "SteamID：\(steamId)", kind: .info))
             }
             rows.append(.separator())
-            rows.append(ToolbarMenu.Row(title: "我的订阅", kind: .action, handler: { [weak self] in
+            rows.append(ToolbarMenu.Row(title: String(localized: "My Subscriptions"), kind: .action, handler: { [weak self] in
                 guard let self, self.isSteamWorkshopMode, auth.isOnline, auth.steamId == accountID else { return }
                 SteamWorkshopService.shared.showMySubscriptions()
             }))
             rows.append(.separator())
             rows.append(ToolbarMenu.Row(
-                title: "切换账号",
+                title: String(localized: "Switch Account"),
                 kind: .action,
                 handler: { [weak self] in
                     guard auth.isOnline, auth.steamId == accountID else { return }
@@ -122,7 +122,7 @@ extension SteamWorkshopToolbarController {
                 }
             ))
             rows.append(ToolbarMenu.Row(
-                title: "退出登录",
+                title: String(localized: "Sign Out"),
                 kind: .action,
                 handler: { [weak self] in
                     guard auth.isOnline, auth.steamId == accountID else { return }
@@ -131,7 +131,7 @@ extension SteamWorkshopToolbarController {
             ))
         } else {
             rows.append(ToolbarMenu.Row(
-                title: auth.expired ? "重新登录" : "登录 Steam",
+                title: auth.expired ? String(localized: "Sign In Again") : String(localized: "Sign In to Steam"),
                 kind: .action,
                 handler: { [weak self] in
                     guard !auth.isOnline, auth.steamId == accountID else { return }

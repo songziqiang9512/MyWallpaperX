@@ -178,7 +178,7 @@ nonisolated struct PlaybackSwitchTransaction {
         } else if !operation.active, let pending {
             cancel(pending.selection, into: &effects)
             self.pending = nil
-            effects.append(.failed(pending.selection.ticket, "旧壁纸未能确认暂停输出，已取消切换"))
+            effects.append(.failed(pending.selection.ticket, String(localized: "Couldn’t confirm that the old wallpaper stopped output; the switch was canceled")))
         }
         // Failed restoration must not produce an unbounded immediate retry loop.
         if !succeeded, operation.active { return effects }

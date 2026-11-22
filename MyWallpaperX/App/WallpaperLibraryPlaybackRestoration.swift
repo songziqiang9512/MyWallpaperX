@@ -86,7 +86,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             let providers = try requiredProviders(includingStopped: true)
             prepareProviders(providers)
             guard relationshipsReady, providers.isSubset(of: loadedProviders) else {
-                report(Failure.message("资料库仍在载入，请稍后重试。"))
+                report(Failure.message(String(localized: "The library is still loading. Try again later.")))
                 return false
             }
         } catch { report(error); return false }
@@ -96,7 +96,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         if let pending = manager.libraryPlaybackSequence.pending, pending.proposal.cause == .restore {
             manualReplayFailure = (pending.ticket, onFailure)
         } else if manager.playbackSwitch.committed == nil {
-            report(Failure.message("上次成功播放的壁纸恢复失败，请重新选择壁纸。"))
+            report(Failure.message(String(localized: "Couldn’t restore the wallpaper that last played successfully. Choose a wallpaper again.")))
             return false
         }
         return true
@@ -143,7 +143,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         guard !preservesUnrecognizedInput else {
             if !didReportUnrecognizedInput {
                 didReportUnrecognizedInput = true
-                report(Failure.message("保存的播放来源版本未知或已损坏，已保留原数据；请手动选择壁纸。"))
+                report(Failure.message(String(localized: "The saved playback source has an unknown version or is damaged. The original data was kept; select a wallpaper manually.")))
             }
             return
         }
@@ -193,7 +193,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         guard let failure = manualReplayFailure, failure.ticket == pending.ticket,
               manager.playbackIntentEpoch == pending.ticket.epoch else { return }
         manualReplayFailure = nil
-        report(Failure.message("上次成功播放的壁纸恢复失败，请重新选择壁纸。"))
+        report(Failure.message(String(localized: "Couldn’t restore the wallpaper that last played successfully. Choose a wallpaper again.")))
         failure.notify()
     }
 
@@ -260,7 +260,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         let intentEpoch = manager.playbackIntentEpoch
         do {
             guard let content = try playableContent(reference) else {
-                report(Failure.message("上次成功播放的壁纸当前不可用，已保留系统画面。"))
+                report(Failure.message(String(localized: "The wallpaper that last played successfully is unavailable; the system picture is kept.")))
                 return false
             }
             let target = content.reference
@@ -281,7 +281,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             applyUserPause(userPaused ?? saved.userPaused)
             guard manager.playbackIntentEpoch == intentEpoch else { return false }
             guard manager.requestLibraryPlayback(reference: target, from: snapshot, cause: .restore) != nil else {
-                report(Failure.message("上次成功播放的壁纸恢复失败，已保留系统画面。"))
+                report(Failure.message(String(localized: "Couldn’t restore the wallpaper that last played successfully; the system picture is kept.")))
                 return false
             }
             return true

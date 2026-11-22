@@ -34,27 +34,27 @@ enum PixabayCategory: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .all:            return "全部"
-        case .backgrounds:    return "背景"
-        case .fashion:        return "时尚"
-        case .nature:         return "自然"
-        case .science:        return "科学"
-        case .education:      return "教育"
-        case .feelings:       return "情感"
-        case .health:         return "健康"
-        case .people:         return "人物"
-        case .religion:       return "宗教"
-        case .places:         return "地点"
-        case .animals:        return "动物"
-        case .industry:       return "工业"
-        case .computer:       return "科技"
-        case .food:           return "美食"
-        case .sports:         return "运动"
-        case .transportation: return "交通"
-        case .travel:         return "旅行"
-        case .buildings:      return "建筑"
-        case .business:       return "商业"
-        case .music:          return "音乐"
+        case .all:            return String(localized: "All")
+        case .backgrounds:    return String(localized: "Background")
+        case .fashion:        return String(localized: "Fashion")
+        case .nature:         return String(localized: "Nature")
+        case .science:        return String(localized: "Science")
+        case .education:      return String(localized: "Education")
+        case .feelings:       return String(localized: "Feelings")
+        case .health:         return String(localized: "Health")
+        case .people:         return String(localized: "People")
+        case .religion:       return String(localized: "Religion")
+        case .places:         return String(localized: "Location")
+        case .animals:        return String(localized: "Animals")
+        case .industry:       return String(localized: "Industry")
+        case .computer:       return String(localized: "Technology")
+        case .food:           return String(localized: "Food")
+        case .sports:         return String(localized: "Sports")
+        case .transportation: return String(localized: "Transportation")
+        case .travel:         return String(localized: "Travel")
+        case .buildings:      return String(localized: "Architecture")
+        case .business:       return String(localized: "Business")
+        case .music:          return String(localized: "Music")
         }
     }
 }
@@ -67,8 +67,8 @@ enum PixabayOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var displayName: String {
         switch self {
-        case .popular: return "热门"
-        case .latest:  return "最新"
+        case .popular: return String(localized: "Popular")
+        case .latest:  return String(localized: "Newest")
         }
     }
 }
@@ -78,7 +78,7 @@ enum PixabayOrder: String, CaseIterable, Identifiable {
 enum PixabayVideoType: String, CaseIterable {
     case all, film, animation
     var displayName: String {
-        switch self { case .all: "全部"; case .film: "实拍"; case .animation: "动画" }
+        switch self { case .all: String(localized: "All"); case .film: String(localized: "Film"); case .animation: String(localized: "Animation") }
     }
 }
 

@@ -161,6 +161,13 @@
       "cost": "one Swift class compile and the existing shared GPU probe",
       "serialized": true,
       "retirement": "Retire only when the existing rendering coverage is replaced; inner CPU selection does not claim GPU coverage."
+    },
+    "localization": {
+      "risk": "Interface copy changes without the String Catalog staying in sync: a language silently regresses to English, a translation loses the key, or a format string breaks at runtime.",
+      "trigger": "Swift interface sources, String Catalog resources, help pages or the localization checker change.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Replace only with an equivalent mandatory gate that still proves source/catalog synchronization, placeholder safety and absence of unlocalized interface text."
     }
   },
   "path_groups": [
@@ -2888,7 +2895,8 @@
         "script/repository_artifact_baseline.json",
         "script/commit_preflight.py",
         "script/repository_residue.py",
-        "script/check_code_health.py"
+        "script/check_code_health.py",
+        "script/check_localization.py"
       ],
       "modules": [
         "test_scene_governance_contract",

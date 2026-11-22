@@ -19,18 +19,18 @@ enum SteamWorkshopItemMenu {
             menu.addItem(entry)
         }
         if includePrimary {
-            add("查看详情", "info.circle") { service.presentItemDetail(item) }
+            add(String(localized: "View Details"), "info.circle") { service.presentItemDetail(item) }
             if service.isDownloading(itemID: item.id) || service.isQueuedForDownload(itemID: item.id) {
-                add("查看下载进度", "list.bullet.rectangle") { service.presentDownloadTaskDetail(itemID: item.id, title: item.title) }
+                add(String(localized: "View Download Progress"), "list.bullet.rectangle") { service.presentDownloadTaskDetail(itemID: item.id, title: item.title) }
             } else if let record = service.latestDownloadRecord(for: item.id), record.status == .ready {
-                add("设为壁纸", "play.circle", enabled: !service.isLaunchPending(item.id)) {
+                add(String(localized: "Set as Wallpaper"), "play.circle", enabled: !service.isLaunchPending(item.id)) {
                     guard let current = service.latestDownloadRecord(for: item.id), current.status == .ready,
                           !service.isLaunchPending(item.id) else { return }
                     service.setAsWallpaper(current)
                 }
             } else {
                 let failed = service.latestDownloadRecord(for: item.id)?.failureMessage != nil
-                add(failed ? "重试下载" : "下载壁纸", "arrow.down.circle", accountBound: true) {
+                add(failed ? String(localized: "Retry Download") : String(localized: "Download Wallpaper"), "arrow.down.circle", accountBound: true) {
                     guard !service.isDownloading(itemID: item.id), service.canRequestDownload(id: item.id) else { return }
                     service.requestDownloadForBrowserItem(item)
                 }
@@ -39,7 +39,7 @@ enum SteamWorkshopItemMenu {
         if service.isDownloading(itemID: item.id) || service.isQueuedForDownload(itemID: item.id) {
             let key = service.downloadProgressStore.snapshot(for: item.id)?.jobKey
             let jobID = service.downloadJobStore.activeJob(forWorkshopItemId: item.id)?.id
-            add("取消下载", "xmark.circle", enabled: service.downloadProgressStore.snapshot(for: item.id)?.phase != .saving,
+            add(String(localized: "Cancel Download"), "xmark.circle", enabled: service.downloadProgressStore.snapshot(for: item.id)?.phase != .saving,
                 accountBound: true) {
                 guard service.downloadProgressStore.snapshot(for: item.id)?.phase != .saving,
                       service.downloadProgressStore.snapshot(for: item.id)?.jobKey == key,
@@ -51,20 +51,20 @@ enum SteamWorkshopItemMenu {
         if let job = service.downloadJobStore.jobs.first(where: {
             $0.workshopItemId == item.id && $0.state == .failed && $0.accountSteamId == service.steamAuth.steamId
         }) {
-            add("放弃失败任务", "xmark.bin", accountBound: true) { service.discardFailedDownload(jobID: job.id) }
+            add(String(localized: "Discard Failed Job"), "xmark.bin", accountBound: true) { service.discardFailedDownload(jobID: job.id) }
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
         menu.addItem(subscription(item: item, service: service, navigationVersion: navigationVersion))
         menu.addItem(.separator())
-        add("查看作者工坊", "person.crop.circle", enabled: SteamWorkshopService.resolvedAuthorWorkshopURL(for: item) != nil) {
+        add(String(localized: "View Author’s Workshop"), "person.crop.circle", enabled: SteamWorkshopService.resolvedAuthorWorkshopURL(for: item) != nil) {
             service.openAuthorWorksPage(for: item)
         }
-        add("打开工坊页面", "safari") { service.openWorkshopDetailPage(for: item) }
-        add("复制作品链接", "link") { copy(item.detailURL.absoluteString) }
-        add("复制作品 ID", "number") { copy(item.id) }
+        add(String(localized: "Open Workshop Page"), "safari") { service.openWorkshopDetailPage(for: item) }
+        add(String(localized: "Copy Artwork Link"), "link") { copy(item.detailURL.absoluteString) }
+        add(String(localized: "Copy Artwork ID"), "number") { copy(item.id) }
         if includeReveal, service.latestDownloadRecord(for: item.id)?.status == .ready {
             menu.addItem(.separator())
-            add("在 Finder 中显示", "folder") {
+            add(String(localized: "Show in Finder"), "folder") {
                 guard let current = service.latestDownloadRecord(for: item.id), current.status == .ready else { return }
                 FinderRevealCoordinator.shared.reveal([current.folderURL])
             }
@@ -84,19 +84,19 @@ enum SteamWorkshopItemMenu {
         let state = service.steamSubscriptions.state(for: item.id)
         let title: String
         var enabled = true
-        if !online { title = "加入订阅" }
+        if !online { title = String(localized: "Subscribe") }
         else {
             switch state {
-            case .known(let subscribed): title = subscribed ? "取消订阅" : "加入订阅"
-            case .unknown, .unconfirmed: title = "查询订阅状态"
-            case .loading: title = "正在查询订阅…"; enabled = false
-            case .writing, .reconciling: title = "正在核对订阅…"; enabled = false
+            case .known(let subscribed): title = subscribed ? String(localized: "Unsubscribe") : String(localized: "Subscribe")
+            case .unknown, .unconfirmed: title = String(localized: "Check Subscription Status")
+            case .loading: title = String(localized: "Checking subscription…"); enabled = false
+            case .writing, .reconciling: title = String(localized: "Verifying subscription…"); enabled = false
             }
         }
         let entry = ActionMenuItem(title: title, symbol: "bookmark") {
             if let navigationVersion, service.navigationVersion != navigationVersion { return }
             guard service.steamServiceClient.accountEpoch == epoch else { return }
-            guard service.steamAuth.isOnline else { service.presentSteamLoginForUserAction(context: "订阅"); return }
+            guard service.steamAuth.isOnline else { service.presentSteamLoginForUserAction(context: String(localized: "Subscribe")); return }
             guard service.steamSubscriptions.state(for: item.id) == state else { return }
             switch state {
             case .known: service.steamSubscriptions.toggle(item.id)
@@ -105,7 +105,7 @@ enum SteamWorkshopItemMenu {
             }
         }
         entry.isEnabled = enabled
-        if state == .known(true) { entry.toolTip = "取消订阅不会删除本地文件或中断播放。" }
+        if state == .known(true) { entry.toolTip = String(localized: "Unsubscribing won’t delete local files or stop playback.") }
         return entry
     }
 

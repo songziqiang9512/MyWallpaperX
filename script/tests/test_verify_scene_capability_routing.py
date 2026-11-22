@@ -200,7 +200,7 @@ class SceneValidationRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "scene-structure", "repository-artifacts", "scene-dependencies", "repository-residue", "code-health", "design-gate", "build-verify"],
+            ["focused-tests", "scene-structure", "repository-artifacts", "scene-dependencies", "localization", "repository-residue", "code-health", "design-gate", "build-verify"],
         )
         self.assertIn("steam-download-control", groups)
         focused = gates[0]

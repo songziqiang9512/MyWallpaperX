@@ -151,7 +151,7 @@ import Combine
         let action = favoriteActionState(for: items)
         guard action.canExecute, expectingRemoval == nil || expectingRemoval == action.isRemoving else { return }
         let enabled = !action.isRemoving
-        perform(items.map { .setFavorite($0.organizationItem, enabled, Date()) }, name: enabled ? "特别喜爱" : "取消特别喜爱",
+        perform(items.map { .setFavorite($0.organizationItem, enabled, Date()) }, name: enabled ? String(localized: "Favorite") : String(localized: "Unfavorite"),
                 page: .favorites, collections: collections, selectedReferences: Set(items.map(\.reference)))
     }
 
@@ -188,7 +188,7 @@ import Combine
             })
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        menu.addItem(ActionMenuItem(title: "新建列表…", symbol: "plus") { [weak self] in
+        menu.addItem(ActionMenuItem(title: String(localized: "New Playlist…"), symbol: "plus") { [weak self] in
             guard permitsAction?() != false, let self, self.canOrganize, self.workspace.relationships.resetEpoch == epoch,
                   self.workspace.presentation.page == page, self.workspace.presentation.selectionState.sessionID == session,
                   let current = self.resolveSelection(items.map(\.reference)) else { return }
@@ -205,7 +205,7 @@ import Combine
         guard (target ?? workspace.presentation.page) == .recent else { return nil }
         let epoch = workspace.relationships.resetEpoch, page = workspace.presentation.page
         let menu = NSMenu()
-        let item = ActionMenuItem(title: "清空最近使用…", symbol: "clock.badge.xmark") { [weak self] in
+        let item = ActionMenuItem(title: String(localized: "Clear Recent…"), symbol: "clock.badge.xmark") { [weak self] in
             guard let self, self.workspace.relationships.resetEpoch == epoch,
                   self.workspace.presentation.page == page else { return }
             self.clearRecent()
@@ -221,8 +221,8 @@ import Combine
         let epoch = workspace.relationships.resetEpoch
         let page = workspace.presentation.page, session = workspace.presentation.selectionState.sessionID
         let selected = page == .recent ? workspace.presentation.selectionState.references : []
-        let alert = makeAppAlert(title: "清空最近使用？", message: "仅清除播放记录。原始壁纸、播放列表和特别喜爱均会保留。",
-            style: .warning, buttons: ["清空最近使用", "取消"])
+        let alert = makeAppAlert(title: String(localized: "Clear Recent?"), message: String(localized: "Only playback history is cleared. Original wallpapers, playlists and favorites are kept."),
+            style: .warning, buttons: [String(localized: "Clear Recent"), String(localized: "Cancel")])
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn, self.canOrganize,
                   self.workspace.relationships.resetEpoch == epoch, self.workspace.presentation.page == page,
@@ -304,11 +304,11 @@ import Combine
     var removalTitle: String { removalTitle(for: workspace.presentation.page) }
     private func removalTitle(for page: WallpaperLibraryPage) -> String {
         switch page {
-        case .playlist: return "从列表移除"
-        case .favorites: return "取消特别喜爱"
-        case .recent: return "从最近移除"
-        case .downloads: return "从我的下载移除"
-        default: return "移出资料库"
+        case .playlist: return String(localized: "Remove from Playlist")
+        case .favorites: return String(localized: "Unfavorite")
+        case .recent: return String(localized: "Remove from Recent")
+        case .downloads: return String(localized: "Remove from My Downloads")
+        default: return String(localized: "Remove from Library")
         }
     }
 
@@ -323,20 +323,20 @@ import Combine
         let title = removalTitle(for: page)
         let scope: String
         switch page {
-        case .favorites: scope = "移除喜爱标记及最近使用记录，源文件和其他列表保留。"
-        case .recent: scope = "仅移除播放记录，源文件和其他列表保留。"
-        case .playlist: scope = "移除当前列表项目及最近使用记录，源文件和其他列表保留。"
-        case .downloads: scope = "移除下载项目及最近使用记录，源文件和其他列表保留。"
-        default: scope = "移除资料库项目及最近使用记录，源文件和其他列表保留。"
+        case .favorites: scope = String(localized: "Removes the favorite mark and recent history. Source files and other playlists are kept.")
+        case .recent: scope = String(localized: "Removes only the playback record. Source files and other playlists are kept.")
+        case .playlist: scope = String(localized: "Removes this item from the playlist and from recent history. Source files and other playlists are kept.")
+        case .downloads: scope = String(localized: "Removes the download and recent history. Source files and other playlists are kept.")
+        default: scope = String(localized: "Removes the library item and recent history. Source files and other playlists are kept.")
         }
         let saver = ScreenSaverIntegration.shared.configuration?.content
         let retainedSaver = fixed.contains { $0.reference.storageKey == saver?.sourceIdentity }
-        let message = scope + "勾选会删除源文件，无法撤销。"
-            + (retainedSaver ? "\n已保存的屏保副本会保留，可在「锁屏与屏保」中清除。" : "")
-        let alert = makeAppAlert(title: "\(title) \(fixed.count) 项？", message: message, style: .warning, buttons: ["移除", "取消"])
+        let message = scope + String(localized: "Checking this deletes the source file. This cannot be undone.")
+            + (retainedSaver ? String(localized: "\nThe saved screen saver copy is kept; you can remove it in Lock Screen & Screen Saver.") : "")
+        let alert = makeAppAlert(title: String(localized: "\(title) — \(fixed.count) items?"), message: message, style: .warning, buttons: [String(localized: "Remove"), String(localized: "Cancel")])
         alert.showsSuppressionButton = true
         let deleteFiles = alert.suppressionButton!
-        deleteFiles.title = "删除磁盘的源文件"
+        deleteFiles.title = String(localized: "Delete source files from disk")
         deleteFiles.state = .off
         deleteFiles.sizeToFit()
         deleteFiles.alignment = .left
@@ -369,9 +369,9 @@ import Combine
             var undoName: String?
             switch page {
             case .playlist(let id):
-                commands = [.removeMembers(id, accepted.map(\.reference), Date())]; undoName = "从列表移除"
+                commands = [.removeMembers(id, accepted.map(\.reference), Date())]; undoName = String(localized: "Remove from Playlist")
             case .favorites:
-                commands = accepted.map { .setFavorite($0.organizationItem, false, Date()) }; undoName = "取消特别喜爱"
+                commands = accepted.map { .setFavorite($0.organizationItem, false, Date()) }; undoName = String(localized: "Unfavorite")
             case .recent: break
             case .videos, .images, .downloads: break
             default: self.workspace.presentation.completeRemoval(receipt, succeeded: []); return
@@ -391,16 +391,16 @@ import Combine
             } catch {
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
                 self.workspace.presentation.completeRemoval(receipt, succeeded: [])
-                let prefix = physical?.items.contains(where: { $0.sourceFileDeleted }) == true ? "源文件已删除，但 App 移除记录未能保存。其他关系将显示文件缺失。\n" : ""
+                let prefix = physical?.items.contains(where: { $0.sourceFileDeleted }) == true ? String(localized: "The source file was deleted, but the app could not save the removal record. Other references will show the file as missing.\n") : ""
                 self.workspace.presentation.report(CocoaError(.fileWriteUnknown,
                     userInfo: [NSLocalizedDescriptionKey: prefix + error.localizedDescription]))
             }
             if let physical {
                 let failures = physical.items.filter { !$0.succeeded }.map {
-                    $0.sourceURL.lastPathComponent + "：" + ($0.failureMessage ?? "源文件未删除")
+                    $0.sourceURL.lastPathComponent + "：" + ($0.failureMessage ?? String(localized: "Source file not deleted"))
                 }
                 if !failures.isEmpty {
-                    presentAppAlert(makeAppAlert(title: "部分源文件未完成删除", message: failures.joined(separator: "\n")), in: self.hostWindow())
+                    presentAppAlert(makeAppAlert(title: String(localized: "Some source files were not deleted"), message: failures.joined(separator: "\n")), in: self.hostWindow())
                 }
             }
         }
@@ -420,7 +420,7 @@ import Combine
                     return path == root || path.hasPrefix(root + "/")
                 }) {
                     results.append(.init(reference: item.reference, sourceURL: url, succeeded: false, sourceFileDeleted: false,
-                        failureMessage: "该文件由下载来源管理，请从我的下载删除；不会根据路径推断别名"))
+                        failureMessage: String(localized: "This file is managed by a download source. Remove it from My Downloads; aliases are not inferred from paths.")))
                     continue
                 }
             }
@@ -429,7 +429,7 @@ import Combine
                   current.locator.path.map({ Data($0.utf8) }) == item.locator.path.map({ Data($0.utf8) }),
                   current.publishedAvailability == .available, item.locator.path?.isEmpty == false else {
                 results.append(.init(reference: item.reference, sourceURL: url, succeeded: false, sourceFileDeleted: false,
-                    failureMessage: "源文件不可用或条目已变化，未删除"))
+                    failureMessage: String(localized: "The source file is unavailable or the entry changed; nothing was deleted.")))
                 continue
             }
             targets.append(current)
@@ -464,7 +464,7 @@ import Combine
                     let result = bySource[item.providerReference]
                     results.append(.init(reference: item.reference, sourceURL: URL(fileURLWithPath: item.locator.path!),
                         succeeded: result?.succeeded == true, sourceFileDeleted: result?.sourceFileDeleted == true,
-                        failureMessage: result?.failureMessage ?? (result == nil ? "来源条目已不存在" : nil)))
+                        failureMessage: result?.failureMessage ?? (result == nil ? String(localized: "The source entry no longer exists") : nil)))
                 }
             case .steamWorkshop:
                 let removed: WallpaperSourceDeletionResult = await withCheckedContinuation { continuation in
@@ -475,7 +475,7 @@ import Combine
                     let result = byReference[item.reference]
                     results.append(.init(reference: item.reference, sourceURL: URL(fileURLWithPath: item.locator.path!),
                         succeeded: result?.succeeded == true, sourceFileDeleted: result?.sourceFileDeleted == true,
-                        failureMessage: result?.failureMessage ?? (result == nil ? "Steam 源文件删除未完成" : nil)))
+                        failureMessage: result?.failureMessage ?? (result == nil ? String(localized: "Steam source file was not deleted") : nil)))
                 }
             case .pixabay:
                 let removed = pixabay.deleteLocalFiles(at: group.map { URL(fileURLWithPath: $0.locator.path!) }, isInUse: { [weak manager = self.manager] url in
@@ -486,7 +486,7 @@ import Combine
                     let url = URL(fileURLWithPath: item.locator.path!).standardizedFileURL
                     let result = byPath[Data(url.path.utf8)]
                     results.append(.init(reference: item.reference, sourceURL: url, succeeded: result?.succeeded == true,
-                        sourceFileDeleted: result?.sourceFileDeleted == true, failureMessage: result?.failureMessage ?? (result == nil ? "下载文件已变化" : nil)))
+                        sourceFileDeleted: result?.sourceFileDeleted == true, failureMessage: result?.failureMessage ?? (result == nil ? String(localized: "The downloaded file changed") : nil)))
                 }
             case .wallhaven, .pixiv:
                 for item in group {
@@ -494,7 +494,7 @@ import Combine
                     let url = URL(fileURLWithPath: item.locator.path!)
                     do {
                         guard let revision = item.metadata.resourceRevision.flatMap(UUID.init(uuidString:)) else {
-                            throw OnlineImageError.message("下载记录已变化，请重新打开列表后再删除。")
+                            throw OnlineImageError.message(String(localized: "The download record changed. Reopen the list and try again."))
                         }
                         try await OnlineImageLibrary.shared.delete(item.reference, expectedRevision: revision,
                             permitsDeletion: { [weak workspace = self.workspace] in
@@ -549,26 +549,26 @@ import Combine
         }
         if items.count == 1, let item = items.first {
             if workspace.isPlaying(item.reference), let ticket = manager.playbackSwitch.committed?.ticket {
-                add("停止播放", "stop.fill") { [weak self] in self?.stop(item.reference, expectedTicket: ticket) }
+                add(String(localized: "Stop Playback"), "stop.fill") { [weak self] in self?.stop(item.reference, expectedTicket: ticket) }
             } else {
-                add("设为壁纸", "play.fill", enabled: item.capabilities.contains(.play)) { [weak self] in
+                add(String(localized: "Set as Wallpaper"), "play.fill", enabled: item.capabilities.contains(.play)) { [weak self] in
                     self?.workspace.play(item.reference, from: source)
                 }
             }
             if item.kind == .video {
-                add("用作屏保", "display") { [weak self] in
+                add(String(localized: "Use as Screen Saver"), "display") { [weak self] in
                     guard let self else { return }
                     guard item.publishedAvailability.isAvailable, item.capabilities.contains(.play) else {
-                        presentAppAlert(makeAppAlert(title: "视频暂不可用", message: "请重新定位本地文件或完成下载后，再将此视频保存为系统屏保。"), in: self.hostWindow())
+                        presentAppAlert(makeAppAlert(title: String(localized: "Video unavailable"), message: String(localized: "Relocate the local file or finish the download, then save this video as the system screen saver.")), in: self.hostWindow())
                         return
                     }
                     ScreenSaverWindowController.shared.show(reference: item.reference, relativeTo: self.hostWindow())
                 }
             }
-            add("查看信息", "info.circle") { [weak self] in self?.onInspect?(item) }
-            add("预览", "eye", enabled: item.capabilities.contains(.quickLook) || item.kind == .web || item.kind == .scene) { [weak self] in self?.onPreview?(item) }
+            add(String(localized: "Get Info"), "info.circle") { [weak self] in self?.onInspect?(item) }
+            add(String(localized: "Preview"), "eye", enabled: item.capabilities.contains(.quickLook) || item.kind == .web || item.kind == .scene) { [weak self] in self?.onPreview?(item) }
             if WallpaperLibraryImportCoordinator.canRelocate(item, relationships: workspace.relationships) {
-                add("重新定位文件…", "folder.badge.questionmark", enabled: canOrganize) { [weak self] in
+                add(String(localized: "Relocate File…"), "folder.badge.questionmark", enabled: canOrganize) { [weak self] in
                     self?.imports.chooseReplacement(for: item.reference)
                 }
             }
@@ -578,7 +578,7 @@ import Combine
             }
             if let assetID = OnlineImageAssetID(reference: item.providerReference),
                OnlineImageLibrary.shared.progress[assetID] != nil {
-                add("取消下载", "xmark") { OnlineImageLibrary.shared.cancel(assetID) }
+                add(String(localized: "Cancel Download"), "xmark") { OnlineImageLibrary.shared.cancel(assetID) }
             }
         }
         if includeFavorite {
@@ -586,7 +586,7 @@ import Combine
             let action = makeFavoriteAction(resolved: (items, state))
             add(state.title, state.isRemoving ? "heart.fill" : "heart", enabled: state.canExecute) { action?() }
         }
-        let playlistItem = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
+        let playlistItem = NSMenuItem(title: String(localized: "Add to Playlist"), action: nil, keyEquivalent: "")
         playlistItem.image = NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
         playlistItem.submenu = makePlaylistMenu(items.map(\.reference))
         playlistItem.isEnabled = playlistItem.submenu != nil
@@ -602,7 +602,7 @@ import Combine
         }, reportError: { [weak self] in self?.workspace.presentation.report($0) }) {
             menu.addItem(openWith)
         }
-        add("在 Finder 中显示", "folder", enabled: items.contains { $0.capabilities.contains(.reveal) }) { [weak self] in self?.reveal(items) }
+        add(String(localized: "Show in Finder"), "folder", enabled: items.contains { $0.capabilities.contains(.reveal) }) { [weak self] in self?.reveal(items) }
         if items.count == 1, let item = items.first, item.providerReference.provider == .steamWorkshop,
            let record = steam.latestDownloadRecord(for: item.providerReference.sourceID) {
             menu.addItem(.separator())
@@ -610,7 +610,7 @@ import Combine
                 includePrimary: false, includeReveal: false)
             for entry in source.items { source.removeItem(entry); menu.addItem(entry) }
             if item.capabilities.contains(.retryUpdate) || item.capabilities.contains(.retryDownload) {
-                add(item.capabilities.contains(.retryUpdate) ? "重试更新" : "重试下载", "arrow.clockwise") { [weak self] in
+                add(item.capabilities.contains(.retryUpdate) ? String(localized: "Retry Update") : String(localized: "Retry Download"), "arrow.clockwise") { [weak self] in
                     guard let self, self.steam.steamServiceClient.accountEpoch == accountEpoch else { return }
                     self.steam.downloadWorkshopItem(id: record.id, pageTitle: record.title)
                 }
@@ -622,7 +622,7 @@ import Combine
             return record
         }
         if items.count > 1, !retryable.isEmpty {
-            add("重试 \(retryable.count) 项", "arrow.clockwise") { [weak self] in
+            add(String(localized: "Retry \(retryable.count) items"), "arrow.clockwise") { [weak self] in
                 guard let self, self.steam.steamServiceClient.accountEpoch == accountEpoch else { return }
                 for record in retryable {
                     guard let current = self.steam.latestDownloadRecord(for: record.id), SteamWorkshopDownloadGridSupport.isRetryEligible(current) else { continue }
@@ -646,7 +646,7 @@ import Combine
 nonisolated struct WallpaperLibraryFavoriteActionState: Equatable, Sendable {
     let isRemoving: Bool
     let canExecute: Bool
-    var title: String { isRemoving ? "取消特别喜爱" : "特别喜爱" }
+    var title: String { isRemoving ? String(localized: "Unfavorite") : String(localized: "Favorite") }
 
     init(canEdit: Bool, hasItems: Bool, allFavorite: Bool, allOrganizable: Bool) {
         isRemoving = hasItems && allFavorite

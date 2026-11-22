@@ -458,6 +458,16 @@ def build_plan(
         gates.append(Gate('scene-dependencies',
                           (sys.executable, '-B', 'script/check_scene_dependencies.py', '--check', '--base-ref', args.base),
                           registry['gates']['scene-dependencies']['trigger'], False))
+    if any(
+        (path.startswith(('MyWallpaperX/', 'ScreenSaverSources/')) and path.endswith('.swift'))
+        or path.endswith('.xcstrings')
+        or path.startswith('MyWallpaperXHelp/')
+        or path == 'script/check_localization.py'
+        for path in paths
+    ):
+        gates.append(Gate('localization',
+                          (sys.executable, '-B', 'script/check_localization.py', '--hardcoded', '--compile'),
+                          registry['gates']['localization']['trigger'], False))
     if 'documentation' in groups:
         gates.append(Gate('document-health',
                           (sys.executable, '-B', 'script/document_health.py', '--check', '--base', args.base),

@@ -70,12 +70,12 @@ nonisolated struct SceneDocumentLoader {
         var errorDescription: String? {
             switch self {
             case .missingSceneJSON:
-                return "未找到可解析的 scene.json。"
+                return String(localized: "No parsable scene.json found.")
             case let .invalidSceneJSON(path):
-                return "无法解析 Scene 入口文件：\(path)"
+                return String(localized: "Couldn’t parse the Scene entry file: \(path)")
             case let .duplicateObjectIDs(path, ids):
                 let values = ids.map(String.init).joined(separator: ", ")
-                return "Scene 入口包含重复对象 ID（\(values)）：\(path)"
+                return String(localized: "The Scene entry contains duplicate object IDs (\(values)): \(path)")
             }
         }
     }

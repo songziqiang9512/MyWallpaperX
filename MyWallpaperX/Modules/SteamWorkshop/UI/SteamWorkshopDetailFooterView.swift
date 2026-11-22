@@ -39,7 +39,7 @@ final class SteamWorkshopTagStripView: NSScrollView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         drawsBackground = false
-        setAccessibilityLabel("标签")
+        setAccessibilityLabel(String(localized: "Tags"))
         hasHorizontalScroller = false
         hasVerticalScroller = false
         autohidesScrollers = true

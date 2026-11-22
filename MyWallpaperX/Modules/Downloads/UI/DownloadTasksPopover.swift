@@ -57,13 +57,13 @@ import Combine
     private var statesByID: [DownloadTaskIdentity: DownloadTaskRowPresentation] = [:]
     private var dataSource: NSTableViewDiffableDataSource<Section, Item>!
     private let countLabel = NSTextField(labelWithString: "")
-    private let retryButton = NSButton(title: "重试全部", target: nil, action: nil)
-    private let clearButton = NSButton(title: "清空历史", target: nil, action: nil)
-    private let emptyLabel = NSTextField(labelWithString: "暂无下载任务")
+    private let retryButton = NSButton(title: String(localized: "Retry All"), target: nil, action: nil)
+    private let clearButton = NSButton(title: String(localized: "Clear History"), target: nil, action: nil)
+    private let emptyLabel = NSTextField(labelWithString: String(localized: "No Download Tasks"))
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
-    private let activeLabel = NSTextField(labelWithString: "进行中")
-    private let historyLabel = NSTextField(labelWithString: "历史记录")
+    private let activeLabel = NSTextField(labelWithString: String(localized: "In Progress"))
+    private let historyLabel = NSTextField(labelWithString: String(localized: "History"))
     private let noticeLabel = NSTextField(wrappingLabelWithString: "")
     private lazy var activeCell = DownloadTasksTableCell(content: activeLabel, identifier: NSUserInterfaceItemIdentifier("active"))
     private lazy var historyCell = DownloadTasksTableCell(content: historyLabel, identifier: NSUserInterfaceItemIdentifier("history"))
@@ -107,9 +107,9 @@ import Combine
             button.isEnabled = false
         }
         retryButton.action = #selector(handleRetryAll)
-        retryButton.toolTip = "经原来源重试失败任务"
+        retryButton.toolTip = String(localized: "Retry Failed Tasks via Original Source")
         clearButton.action = #selector(handleClearHistory)
-        clearButton.toolTip = "只清除历史记录，保留活动任务和已下载文件"
+        clearButton.toolTip = String(localized: "Only the history will be cleared. Active tasks and downloaded files will be kept.")
         emptyLabel.alignment = .center
         emptyLabel.font = .systemFont(ofSize: 13)
         emptyLabel.textColor = .secondaryLabelColor
@@ -197,8 +197,8 @@ import Combine
         }
         let noticeChanged = noticeLabel.stringValue != (value.notice ?? "")
         noticeLabel.stringValue = value.notice ?? ""
-        activeLabel.stringValue = "进行中 · \(value.active.count)"
-        historyLabel.stringValue = "历史记录 · \(value.history.count)"
+        activeLabel.stringValue = String(localized: "In Progress · \(value.active.count)")
+        historyLabel.stringValue = String(localized: "History · \(value.history.count)")
         var ordered: [Item] = []
         if value.notice != nil { ordered.append(.notice) }
         if !value.active.isEmpty { ordered.append(.activeHeader) }
@@ -214,7 +214,7 @@ import Combine
         } else if noticeChanged {
             updateNoticeHeight()
         }
-        countLabel.stringValue = "下载任务 · \(value.count) 项"
+        countLabel.stringValue = String(localized: "Download Tasks · \(value.count) items")
         retryButton.isEnabled = retryAllFailed != nil && value.history.contains { $0.phase == .failed && $0.actions.contains(.retry) }
         clearButton.isEnabled = clearHistory != nil && !value.history.isEmpty
         emptyLabel.isHidden = value.count != 0

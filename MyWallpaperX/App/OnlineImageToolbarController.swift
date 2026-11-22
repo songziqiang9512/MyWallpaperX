@@ -24,7 +24,7 @@ import AppKit
         super.init()
         search.delegate = self; search.sendsSearchStringImmediately = true
         search.sendsWholeSearchString = false
-        search.placeholderString = "搜索作品"
+        search.placeholderString = String(localized: "Search Items")
         search.widthAnchor.constraint(equalToConstant: WallpaperLibraryControlStyle.toolbarSearchWidth).isActive = true
     }
     var identifiers: [NSToolbarItem.Identifier] {
@@ -49,7 +49,7 @@ import AppKit
             debounce?.cancel(); debounce = nil; observedQuery = session.state.query
         }
         if search.currentEditor() == nil { search.stringValue = session.state.query.search }
-        search.placeholderString = next == .wallhaven ? "搜索 Wallhaven" : "搜索 Pixiv"
+        search.placeholderString = next == .wallhaven ? String(localized: "Search Wallhaven") : String(localized: "Search Pixiv")
         for type in [Item.account, .sort] {
             guard items[type]?.menuFormRepresentation == nil || queryChanged || (type == .account && accountChanged) else { continue }
             items[type]?.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: label(type), rows: rows(type))
@@ -72,7 +72,7 @@ import AppKit
         } else { item = NSToolbarItem(itemIdentifier: id) }
         item.label = label(type); item.paletteLabel = label(type); item.toolTip = label(type)
         if type != .search {
-            let button = NSButton(title: type == .filter ? "筛选" : type == .back ? "返回" : "", target: self, action: #selector(invoke(_:)))
+            let button = NSButton(title: type == .filter ? String(localized: "Filter") : type == .back ? String(localized: "Back") : "", target: self, action: #selector(invoke(_:)))
             button.identifier = .init(type.rawValue)
             button.image = NSImage(systemSymbolName: symbol(type), accessibilityDescription: label(type))
             button.toolTip = label(type)
@@ -106,7 +106,7 @@ import AppKit
 
     private func filterMenuRepresentation() -> NSMenuItem {
         let page = workspace.presentation.page
-        return ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
+        return ActionMenuItem(title: String(localized: "Filter"), symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
             guard let self, self.workspace.presentation.page == page else { return }
             self.showFilter()
         }
@@ -174,21 +174,21 @@ import AppKit
             var rows = images.accountStatus(for: session.source).map { ToolbarMenu.Row(title: $0, kind: .info) }
             rows.append(.separator())
             if session.source == .wallhaven {
-                rows.append(.init(title: "管理 API Key…", kind: .action, handler: { [weak images] in images?.presentAccount() }))
+                rows.append(.init(title: String(localized: "Manage API Key…"), kind: .action, handler: { [weak images] in images?.presentAccount() }))
             } else {
                 if images.hasPixivIdentity {
-                    rows.append(.init(title: "我的作品", kind: .action, handler: { [weak images] in images?.openMyPixivWorks() }))
-                    rows.append(.init(title: "个人主页（网页）", kind: .action, handler: { [weak images] in images?.openPixivProfile() }))
+                    rows.append(.init(title: String(localized: "My Works"), kind: .action, handler: { [weak images] in images?.openMyPixivWorks() }))
+                    rows.append(.init(title: String(localized: "Profile (Web Page)"), kind: .action, handler: { [weak images] in images?.openPixivProfile() }))
                 }
-                rows.append(.init(title: images.hasPixivIdentity ? "切换账号…" : "登录 Pixiv…", kind: .action,
+                rows.append(.init(title: images.hasPixivIdentity ? String(localized: "Switch Account…") : String(localized: "Sign In to Pixiv…"), kind: .action,
                     handler: { [weak images] in images?.presentAccount() }))
-                rows.append(.init(title: "账号内容设置…", kind: .action, handler: { [weak images] in images?.presentAccount(settings: true) }))
+                rows.append(.init(title: String(localized: "Account Content Settings…"), kind: .action, handler: { [weak images] in images?.presentAccount(settings: true) }))
             }
-            rows.append(.init(title: "刷新账号信息", kind: .action, isEnabled: images.canRefreshAccount(session.source),
+            rows.append(.init(title: String(localized: "Refresh Account Info"), kind: .action, isEnabled: images.canRefreshAccount(session.source),
                 handler: { [weak images] in images?.refreshAccountInformation(session.source) }))
             if session.source == .pixiv {
                 rows.append(.separator())
-                rows.append(.init(title: "退出当前会话", kind: .action, isEnabled: images.canLogoutPixiv,
+                rows.append(.init(title: String(localized: "Sign Out of Current Session"), kind: .action, isEnabled: images.canLogoutPixiv,
                     handler: { [weak images] in images?.logout() }))
             }
             return rows
@@ -216,12 +216,12 @@ import AppKit
                 return .wallhaven(value)
             }
         }
-        var rows: [ToolbarMenu.Row] = [.header("排序方式")]
+        var rows: [ToolbarMenu.Row] = [.header(String(localized: "Sort By"))]
         rows += WallhavenQuery.Sorting.allCases.map { value in
             row(value.displayName, selected: query.sorting == value) { $0.sorting = value }
         }
         if query.sorting != .random {
-            rows += [.separator(), .header("排序方向")]
+            rows += [.separator(), .header(String(localized: "Sort Direction"))]
             rows += WallhavenQuery.Order.allCases.map { value in
                 row(value.displayName, selected: query.order == value) {
                     if $0.sorting != .random { $0.order = value }
@@ -229,7 +229,7 @@ import AppKit
             }
         }
         if query.sorting == .popular {
-            rows += [.separator(), .header("热门范围")]
+            rows += [.separator(), .header(String(localized: "Popularity Range"))]
             rows += WallhavenQuery.TopRange.allCases.map { value in
                 row(value.displayName, selected: query.topRange == value) {
                     if $0.sorting == .popular { $0.topRange = value }
@@ -250,21 +250,21 @@ import AppKit
         let author = query.authorID?.isEmpty == false
         let chronological = author || !query.searchWord.isEmpty
         if chronological {
-            return [.header("作品顺序")] + [(PixivOrder.newest, "最新优先"), (.oldest, "最早优先")].map { order, title in
+            return [.header(String(localized: "Artwork Order"))] + [(PixivOrder.newest, String(localized: "Newest First")), (.oldest, String(localized: "Oldest First"))].map { order, title in
                 row(title, selected: query.order == order) {
                     if $0.authorID?.isEmpty == false || !$0.searchWord.isEmpty { $0.order = order }
                 }
             }
         }
-        return [.header("排行")] + [(PixivRankingMode.daily, "每日排行"), (.weekly, "每周排行"), (.monthly, "每月排行")].map { mode, title in
+        return [.header(String(localized: "Ranking"))] + [(PixivRankingMode.daily, String(localized: "Daily Ranking")), (.weekly, String(localized: "Weekly Ranking")), (.monthly, String(localized: "Monthly Ranking"))].map { mode, title in
             row(title, selected: query.ranking == mode) {
                 if $0.authorID?.isEmpty != false && $0.searchWord.isEmpty { $0.ranking = mode }
             }
-        } + [.init(title: "按站点排名显示", kind: .info)]
+        } + [.init(title: String(localized: "Show by Site Ranking"), kind: .info)]
     }
 
     private func label(_ item: Item) -> String {
-        switch item { case .back: "返回"; case .account: "账号"; case .sort: "排序"; case .filter: "筛选"; case .search: "搜索" }
+        switch item { case .back: String(localized: "Back"); case .account: String(localized: "Account"); case .sort: String(localized: "Sort"); case .filter: String(localized: "Filter"); case .search: String(localized: "Search") }
     }
     private func symbol(_ item: Item) -> String {
         switch item { case .back: "chevron.backward"; case .account: "person.crop.circle"; case .sort: WallpaperLibraryControlStyle.sortSymbol; case .filter: WallpaperLibraryControlStyle.filterSymbol; case .search: "magnifyingglass" }

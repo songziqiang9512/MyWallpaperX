@@ -180,11 +180,11 @@ final class WallpaperPlaylistHeaderView: NSView {
         descriptionLabel.stringValue = description
         descriptionLabel.isHidden = description.isEmpty
         descriptionLabel.setAccessibilityLabel(description)
-        cover.image = image ?? NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: "播放列表封面")
+        cover.image = image ?? NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: String(localized: "Playlist Cover"))
         cover.contentTintColor = image == nil ? .controlAccentColor : nil
         actions = [play, random, add]
         if buttons.arrangedSubviews.isEmpty {
-            for (tag, label, symbol, accessible) in [(1, "", "shuffle", "随机播放"), (0, "播放", "play.fill", "播放"), (2, "", "plus", "添加壁纸")] {
+            for (tag, label, symbol, accessible) in [(1, "", "shuffle", String(localized: "Shuffle")), (0, String(localized: "Play"), "play.fill", String(localized: "Play")), (2, "", "plus", String(localized: "Add Wallpaper"))] {
                 let button = NSButton(title: label, target: self, action: #selector(invoke(_:)))
                 WallpaperLibraryControlStyle.capsule(button, bezelStyle: .flexiblePush)
                 button.controlSize = .large
@@ -200,8 +200,8 @@ final class WallpaperPlaylistHeaderView: NSView {
         }
         for case let button as NSButton in buttons.arrangedSubviews {
             button.isEnabled = button.tag == 2 ? canAdd : canPlay
-            let scope = playableCount.map { "当前显示结果中可播放的 \($0) 张壁纸" } ?? "当前显示的壁纸"
-            let help = button.tag == 2 ? "从本地或已下载内容添加壁纸" : (button.tag == 1 ? "随机播放" : "播放") + scope
+            let scope = playableCount.map { String(localized: " the \($0) playable wallpapers in the current results") } ?? String(localized: " the currently displayed wallpaper")
+            let help = button.tag == 2 ? String(localized: "Add wallpapers from local files or downloads") : (button.tag == 1 ? String(localized: "Shuffle") : String(localized: "Play")) + scope
             button.toolTip = help
             button.setAccessibilityHelp(help)
         }

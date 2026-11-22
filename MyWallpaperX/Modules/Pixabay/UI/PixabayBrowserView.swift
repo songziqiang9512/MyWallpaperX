@@ -164,7 +164,7 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
             contentView = makeAPIKeyPromptView()
             fillsHost = false
         case .loadingInitial:
-            contentView = WallpaperLibraryControlStyle.gridState(label: NSTextField(labelWithString: "正在加载…"))
+            contentView = WallpaperLibraryControlStyle.gridState(label: NSTextField(labelWithString: String(localized: "Loading…")))
             fillsHost = false
         case .initialError(let message):
             contentView = makeErrorStateView(message: message)
@@ -172,8 +172,8 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         case .emptyLoaded:
             contentView = WallpaperLibraryControlStyle.gridState(
                 symbol: "video.slash",
-                label: NSTextField(labelWithString: "没有找到相关视频"),
-                message: "试试其他关键词或分类"
+                label: NSTextField(labelWithString: String(localized: "No related videos found")),
+                message: String(localized: "Try different keywords or a category")
             )
             fillsHost = false
         case .startPrompt:
@@ -210,10 +210,10 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         stack.edgeInsets = NSEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
 
         stack.addArrangedSubview(PixabayBrowserViews.makeSymbol("key.fill", pointSize: 44, color: .controlAccentColor))
-        stack.addArrangedSubview(PixabayBrowserViews.makeLabel("需要 API Key", font: .systemFont(ofSize: 16, weight: .semibold), color: .labelColor))
+        stack.addArrangedSubview(PixabayBrowserViews.makeLabel(String(localized: "API Key Required"), font: .systemFont(ofSize: 16, weight: .semibold), color: .labelColor))
 
         let message = PixabayBrowserViews.makeLabel(
-            "请前往 Pixabay 获取免费 API Key，即可开始浏览 Pixabay 视频。",
+            String(localized: "Get a free API key from Pixabay to start browsing Pixabay videos."),
             font: .systemFont(ofSize: 13),
             color: .secondaryLabelColor
         )
@@ -222,7 +222,7 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         stack.addArrangedSubview(message)
         message.widthAnchor.constraint(lessThanOrEqualToConstant: 360).isActive = true
 
-        let button = PixabayBrowserViews.makeButton(title: "填写 API Key", target: self, action: #selector(presentAPIKeyEdit))
+        let button = PixabayBrowserViews.makeButton(title: String(localized: "Enter API Key"), target: self, action: #selector(presentAPIKeyEdit))
         button.bezelStyle = .rounded
         button.keyEquivalent = "\r"
         stack.addArrangedSubview(button)
@@ -241,9 +241,9 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         buttonRow.alignment = .centerY
         buttonRow.spacing = 12
         buttonRow.translatesAutoresizingMaskIntoConstraints = false
-        buttonRow.addArrangedSubview(PixabayBrowserViews.makeButton(title: "重试", target: self, action: #selector(retrySearch)))
+        buttonRow.addArrangedSubview(PixabayBrowserViews.makeButton(title: String(localized: "Retry"), target: self, action: #selector(retrySearch)))
         if message.contains("API Key") {
-            buttonRow.addArrangedSubview(PixabayBrowserViews.makeButton(title: "更改 API Key", target: self, action: #selector(presentAPIKeyEditFromAction)))
+            buttonRow.addArrangedSubview(PixabayBrowserViews.makeButton(title: String(localized: "Change API Key"), target: self, action: #selector(presentAPIKeyEditFromAction)))
         }
         stack.addArrangedSubview(buttonRow)
         return stack
@@ -252,11 +252,11 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
     private func makeStartPromptView() -> NSView {
         let stack = WallpaperLibraryControlStyle.gridState(
             symbol: "play.rectangle.on.rectangle",
-            label: NSTextField(labelWithString: "探索 Pixabay 海量免费视频"),
+            label: NSTextField(wrappingLabelWithString: String(localized: "Explore a huge library of free Pixabay videos")),
             message: nil
         )
         stack.addArrangedSubview(
-            PixabayBrowserViews.makeButton(title: "开始浏览", target: self, action: #selector(startBrowsing))
+            PixabayBrowserViews.makeButton(title: String(localized: "Start Browsing"), target: self, action: #selector(startBrowsing))
         )
         return stack
     }
@@ -290,7 +290,7 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         let previous = lastGridError
         lastGridError = message
         if let message {
-            notice.update(messages: [message], actions: [("重试", { [weak self] in self?.service.searchWithCurrentContext() })])
+            notice.update(messages: [message], actions: [(String(localized: "Retry"), { [weak self] in self?.service.searchWithCurrentContext() })])
         } else if let previous { notice.clear(message: previous) }
     }
 
@@ -310,7 +310,7 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
         guard let host = window ?? appModalHostWindow() else { return }
         if keyPanel == nil {
             keyPanel = WallpaperAPIKeyPanelController(title: "Pixabay API Key",
-                message: "填写 Pixabay 账号的 API Key 后即可浏览和下载视频。保存后会刷新当前列表。",
+                message: String(localized: "Enter the API key for your Pixabay account to browse and download videos. The current list refreshes after saving."),
                 helpURL: URL(string: "https://pixabay.com/api/docs/")!, hasStoredKey: service.hasValidAPIKey) { [weak self] key in
                     guard let self else { return }
                     if let key {
@@ -333,7 +333,7 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
 
     private func presentDownloadToast(message: String) {
         notice.update(messages: [])
-        notice.update(messages: [message], actions: [("设为壁纸", { [weak self] in
+        notice.update(messages: [message], actions: [(String(localized: "Set as Wallpaper"), { [weak self] in
             guard let self else { return }
             if let id = service.lastDownloadedItemID { service.setLocalFileAsWallpaper(id: id) }
             notice.clear(message: message)

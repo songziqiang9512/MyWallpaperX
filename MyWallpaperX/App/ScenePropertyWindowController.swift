@@ -6,7 +6,7 @@ final class ScenePropertyWindowController {
     static let shared = ScenePropertyWindowController()
     func show(record: SteamWorkshopDownloadRecord, context: SteamWorkshopScenePropertyContext) {
         let editor = SteamWorkshopScenePropertyEditorView(record: record, context: context)
-        SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: editor)
+        SteamWorkshopPropertyPanelController.shared.show(title: String(localized: "Scene Property Adjustments"), subtitle: record.title, content: editor)
     }
 }
 

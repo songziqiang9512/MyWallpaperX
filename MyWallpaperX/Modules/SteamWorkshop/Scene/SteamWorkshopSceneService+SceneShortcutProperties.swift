@@ -70,7 +70,7 @@ extension SteamWorkshopService {
         completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void
     ) {
         guard definition.kind == .userShortcut, !definition.key.isEmpty else {
-            completion(.failed("此属性不能配置快捷方式")); return
+            completion(.failed(String(localized: "This property doesn’t support shortcuts"))); return
         }
         let reference: ScenePlaybackShortcutReference?
         if let url {
@@ -79,12 +79,12 @@ extension SteamWorkshopService {
                 defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                 guard FileManager.default.isReadableFile(atPath: url.path),
                       let bookmark = Self.sceneShortcutBookmark(for: url) else {
-                    completion(.failed("无法读取所选文件或目录，请重新选择")); return
+                    completion(.failed(String(localized: "Couldn’t read the selected file or folder — choose again"))); return
                 }
                 reference = .init(kind: .file, url: url, bookmarkData: bookmark)
             } else { reference = .init(kind: .webURL, url: url, bookmarkData: nil) }
             guard reference?.isValid == true else {
-                completion(.failed("仅支持本机文件、目录或不含账户信息的 HTTP(S) 网址")); return
+                completion(.failed(String(localized: "Only local files, folders, or HTTP(S) URLs without account information are supported"))); return
             }
         } else { reference = nil }
         var references = pendingSceneShortcutProperties[record.id]?.configuration.references
@@ -109,12 +109,12 @@ extension SteamWorkshopService {
         let stored = storedSceneShortcutConfiguration(for: record)
         let revision = max(scenePropertyCommandRevision, stored.revision,
             previous?.configuration.revision ?? 0).addingReportingOverflow(1)
-        guard !revision.overflow else { completion(.failed("快捷方式配置版本已耗尽")); return }
+        guard !revision.overflow else { completion(.failed(String(localized: "Shortcut configuration revision limit reached"))); return }
         scenePropertyCommandRevision = revision.partialValue
         let configuration = ScenePlaybackShortcutConfiguration(
             revision: revision.partialValue, references: references)
         guard let encoded = try? JSONEncoder().encode(configuration) else {
-            completion(.failed("无法保存快捷方式配置")); return
+            completion(.failed(String(localized: "Couldn’t save the shortcut configuration"))); return
         }
         pendingSceneShortcutProperties[record.id] = .init(configuration: configuration,
             encodedConfiguration: encoded, completion: completion)

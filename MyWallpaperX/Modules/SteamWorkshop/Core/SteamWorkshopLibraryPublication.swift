@@ -104,7 +104,7 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         let journal = try directory(library, publicationsName, create: true)
         let journalName = current.workshopId + ".json"
         try require(fstatat(journal.value, journalName, &value, AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT,
-                    "此项目有待恢复的入库事务，请重新扫描后重试。")
+                    String(localized: "This item has a pending import transaction. Rescan, then try again."))
         try atomicWrite(try JSONEncoder().encode(intent), name: journalName, in: journal)
         try finishPublication(intent, libraryRoot: libraryRoot)
     }
@@ -122,18 +122,18 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         deletedCommit?.removed = false
         let deleted = indexedCommit?.removed == true && deletedCommit == current
         try require(indexed == intent.previousMetadata || committed || deleted,
-                    "下载索引已变化，拒绝覆盖其他入库事务。")
+                    String(localized: "The download index changed; refusing to overwrite another import transaction."))
         let installed = try? markerCommit(in: directory(type, current.directoryName))
         try require(!committed || installed == current)
         if !deleted && installed != current {
-            try require(installed == intent.previous, "目标 ID 目录已变化，拒绝覆盖本地内容。")
+            try require(installed == intent.previous, String(localized: "The target ID folder changed; overwriting local content is refused."))
             let candidate = try directory(type, intent.prepared.directoryName)
             let marker = try markerCommit(in: candidate)
             try require(marker == intent.prepared || marker == current)
             try atomicWrite(try JSONEncoder().encode(current), name: ownershipMarkerName, in: candidate)
             let flags = intent.previous == nil ? RENAME_EXCL : RENAME_SWAP
             try require(renameatx_np(type.value, intent.prepared.directoryName, type.value,
-                current.directoryName, UInt32(flags)) == 0, "下载目录发布失败，入库事务保留以供恢复。")
+                current.directoryName, UInt32(flags)) == 0, String(localized: "Publishing the download directory failed; the library transaction is kept for recovery."))
             try require(fsync(type.value) == 0)
         }
         // A crash between directory exchange and metadata publication is replayed from
@@ -160,7 +160,7 @@ nonisolated extension SteamWorkshopLibraryTransaction {
             // Retire the old generation under a hidden spelling, without deleting
             // its payload on the caller's actor. The existing version GC owns cleanup.
             try require(previous.version == 3)
-            guard let generation = previous.generation else { throw Failure(message: "旧版本缺少代际身份。") }
+            guard let generation = previous.generation else { throw Failure(message: String(localized: "The previous version is missing its generation identity.")) }
             let retired = SteamWorkshopLibraryCommit(version: 2, workshopId: previous.workshopId,
                 jobId: previous.jobId, attempt: previous.attempt,
                 directoryName: previous.workshopId + "-" + generation,

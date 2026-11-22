@@ -28,11 +28,11 @@ nonisolated struct SceneProjectLoader {
         var errorDescription: String? {
             switch self {
             case let .missingProjectFile(url):
-                return "缺少 Scene project.json：\(url.path)"
+                return String(localized: "Missing Scene project.json: \(url.path)")
             case let .invalidProjectJSON(url):
-                return "无法解析 Scene project.json：\(url.path)"
+                return String(localized: "Couldn’t parse Scene project.json: \(url.path)")
             case .notSceneProject:
-                return "project.json 未声明 scene 类型。"
+                return String(localized: "project.json doesn’t declare a scene type.")
             }
         }
     }

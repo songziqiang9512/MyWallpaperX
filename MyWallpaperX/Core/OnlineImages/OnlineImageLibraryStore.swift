@@ -13,10 +13,10 @@ actor OnlineImageLibraryStore {
 
         var errorDescription: String? {
             switch self {
-            case .unsupportedSchema(let version): return "在线图片记录版本 \(version) 暂不支持，原文件已保留。"
-            case .invalidManifest: return "在线图片记录无法读取，原文件已保留。"
-            case .invalidPath: return "在线图片记录包含无效文件位置。"
-            case .changedRecord: return "在线图片记录已变化，请刷新后重试。"
+            case .unsupportedSchema(let version): return String(localized: "Online image record version \(version) isn’t supported yet; the original file was kept.")
+            case .invalidManifest: return String(localized: "The online image record couldn’t be read; the original file was kept.")
+            case .invalidPath: return String(localized: "The online image record contains an invalid file location.")
+            case .changedRecord: return String(localized: "The online image record changed; refresh and try again.")
             }
         }
     }
@@ -233,7 +233,7 @@ actor OnlineImageLibraryStore {
               let height = props[kCGImagePropertyPixelHeight] as? Int, height > 0,
               CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceThumbnailMaxPixelSize: 32, kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil else {
-            throw OnlineImageError.message("下载内容不是可读取的静态原图，未加入资料库。")
+            throw OnlineImageError.message(String(localized: "The downloaded content isn’t a readable static original image, so it wasn’t added to the library."))
         }
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         return (width, height, Int64(size), ext)

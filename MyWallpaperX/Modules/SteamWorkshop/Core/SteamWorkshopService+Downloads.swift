@@ -12,7 +12,7 @@ extension SteamWorkshopService {
 
         let itemID = rawItemID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isValidWorkshopItemID(itemID), itemID != record.id else {
-            let message = "`\(record.title)` 声明的依赖项 ID 无效，无法下载。"
+            let message = String(localized: "`\(record.title)` declares an invalid dependency ID and can’t be downloaded.")
             downloadError = message
             statusMessage = message
             return
@@ -26,7 +26,7 @@ extension SteamWorkshopService {
 
     func downloadWorkshopItem(id: String, pageTitle: String? = nil, item: SteamWorkshopBrowserItem? = nil) {
         guard !removingDownloadIDs.contains(id) else {
-            statusMessage = "此壁纸正在删除，请稍后重试。"
+            statusMessage = String(localized: "This wallpaper is being deleted. Try again later.")
             return
         }
         guard downloadAdmissionAccount() != nil else { return }
@@ -40,7 +40,7 @@ extension SteamWorkshopService {
                 processNextQueuedDownloadIfPossible()
             }
             if !activeDownloadItemIDs.contains(id) {
-                statusMessage = "\(title) 已在下载任务中。"
+                statusMessage = String(localized: "\(title) already has an active download.")
             }
             return
         }
@@ -67,7 +67,7 @@ extension SteamWorkshopService {
     /// 只读新账号 owner，不读旧密码/网页登录，也不触发恢复或登录 UI。
     private func downloadAdmissionAccount() -> String? {
         guard steamAuth.isOnline, let account = steamAuth.steamId, !account.isEmpty else {
-            presentSteamLoginForUserAction(context: "下载")
+            presentSteamLoginForUserAction(context: String(localized: "Downloads"))
             return nil
         }
         return account
@@ -115,7 +115,7 @@ extension SteamWorkshopService {
                 && failed.stagingLeaseIdentity?.isComplete == true
                 ? .resumed : .started
             guard let retried = downloadJobStore.apply(event, toID: failed.id) else {
-                statusMessage = "下载重试任务无法保存，未开始下载。"
+                statusMessage = String(localized: "The download retry task couldn’t be saved, so the download didn’t start.")
                 return
             }
             job = retried
@@ -128,7 +128,7 @@ extension SteamWorkshopService {
                 accountSteamId: account
             )
             guard downloadJobStore.lastSaveSucceeded else {
-                statusMessage = "下载任务无法保存，未开始下载。"
+                statusMessage = String(localized: "The download task couldn’t be saved, so the download didn’t start.")
                 return
             }
             guard enqueued.accountSteamId == account else { return }
@@ -141,7 +141,7 @@ extension SteamWorkshopService {
         }
         guard job.accountSteamId == account else { return }
         guard downloadJobStore.lastSaveSucceeded else {
-            statusMessage = "下载任务无法保存，未开始下载。"
+            statusMessage = String(localized: "The download task couldn’t be saved, so the download didn’t start.")
             return
         }
         beginDownloadWorkflow(request)
@@ -156,7 +156,7 @@ extension SteamWorkshopService {
         downloadProgressStore.begin(itemID: request.id, jobKey: key, attempt: job.attempt)
         activeDownloadItemIDs.insert(request.id)
         activeDownloadJobKeysByItemID[request.id] = key
-        statusMessage = "正在通过 Steam 下载 \(job.title)…"
+        statusMessage = String(localized: "Downloading \(job.title) via Steam…")
         upsertTransientRecord(id: request.id, title: job.title, status: .downloading,
                               accountSteamID: job.accountSteamId, sizeText: downloadStatusSizeText(for: request.id))
         let observer = steamServiceClient.addEventObserver { [weak self] frame in
@@ -302,7 +302,7 @@ extension SteamWorkshopService {
                     if !persistedIdentityIsCurrent {
                         guard self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id) != nil else {
                             throw SteamWorkshopLibraryTransaction.Failure(
-                                message: "无法保存失效的下载暂存身份，未开始下载。"
+                                message: String(localized: "Couldn’t save the invalidated download staging identity. The download wasn’t started.")
                             )
                         }
                         resumePath = nil
@@ -324,7 +324,7 @@ extension SteamWorkshopService {
                       let allocatedIdentity = self.downloadJobStore.job(id: job.id)?.stagingLeaseIdentity,
                       helperIdentity == allocatedIdentity else {
                     throw SteamWorkshopLibraryTransaction.Failure(
-                        message: "下载暂存身份未在内容写入前持久化，拒绝收养终态路径。"
+                        message: String(localized: "The download staging identity wasn’t persisted before writing content, so adopting the final path was refused.")
                     )
                 }
                 let localIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
@@ -333,11 +333,11 @@ extension SteamWorkshopService {
                 )
                 guard localIdentity == helperIdentity else {
                     throw SteamWorkshopLibraryTransaction.Failure(
-                        message: "下载暂存目录在 helper 完成后发生替换。"
+                        message: String(localized: "The download staging directory was replaced after the helper finished.")
                     )
                 }
                 guard self.downloadJobStore.apply(.staged(receipt), toID: job.id) != nil else {
-                    throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存下载凭证，尚未入库。")
+                    throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "Couldn’t save the download receipt. Nothing was imported."))
                 }
                 self.downloadProgressStore.markSaving(itemID: request.id, jobKey: key)
                 try await self.claimLibraryCopyCapacity(jobKey: key)
@@ -365,7 +365,7 @@ extension SteamWorkshopService {
                 } onCancel: { preparation.cancel() }
                 try checkCurrent()
                 guard self.downloadJobStore.apply(.committing(try SteamWorkshopLibraryTransaction.canonicalCommit(commit)), toID: job.id) != nil else {
-                    throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存入库事务，旧版本保持不变。")
+                    throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "Couldn’t save the import transaction. The previous version is unchanged."))
                 }
                 // No suspension between the final identity check and the metadata rename.
                 try checkCurrent()
@@ -379,8 +379,8 @@ extension SteamWorkshopService {
                 // 自然完成不会经过 catch：清掉可能残留的暂停标记（正常暂停流程
                 // 会保留标记等待恢复），防止该 item 重新入队后被自动出队永久跳过。
                 self.pausedDownloadItemIDs.remove(request.id)
-                self.statusMessage = recorded ? "已完成 \(job.title) 下载"
-                    : "内容已入库；任务记录保存失败，下次启动将对账。"
+                self.statusMessage = recorded ? String(localized: "Finished downloading \(job.title)")
+                    : String(localized: "The content was added to the library, but the task record couldn’t be saved; it will be reconciled at the next launch.")
                 if recorded, commit.contentType == "scene" {
                     // 下载完成即预热 daemon（契约 responsiveness §5 的低优先
                     // 预热投影）；App 装配层观察后调 warmSession，best-effort。
@@ -409,7 +409,7 @@ extension SteamWorkshopService {
                             accountSteamID: job.accountSteamId,
                             sizeText: self.downloadStatusSizeText(for: request.id)
                         )
-                        self.statusMessage = "已暂停 \(job.title)，可稍后继续。"
+                        self.statusMessage = String(localized: "Paused \(job.title); you can resume later.")
                         return
                     }
                     // .paused 被拒（任务已被并发置终态，如登出 cancelAll）：
@@ -439,7 +439,7 @@ extension SteamWorkshopService {
                         }
                     } catch {
                         terminalError = SteamWorkshopLibraryTransaction.Failure(
-                            message: "下载已停止，但暂存目录无法安全清理：\(error.localizedDescription)"
+                            message: String(localized: "The download stopped, but the staging directory can’t be cleaned up safely: \(error.localizedDescription)")
                         )
                         if wasDurablyCancelled {
                             cancellationCleanupFailed = true
@@ -479,7 +479,7 @@ extension SteamWorkshopService {
                 }
                 self.reloadInstalledItems()
                 if cancelled {
-                    if cancellationShowsFeedback { self.statusMessage = "已取消下载。" }
+                    if cancellationShowsFeedback { self.statusMessage = String(localized: "Download canceled.") }
                 } else {
                     self.statusMessage = failureMessage
                 }
@@ -494,14 +494,14 @@ extension SteamWorkshopService {
               let leaseIdentity = job.stagingLeaseIdentity,
               leaseIdentity.isComplete else {
             throw SteamWorkshopLibraryTransaction.Failure(
-                message: "下载暂存缺少稳定身份，拒绝按路径清理。"
+                message: String(localized: "The download staging area has no stable identity, so path-based cleanup was refused.")
             )
         }
         guard let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
             path: path,
             stagingRoot: stagingRoot.path
         ) else {
-            throw SteamWorkshopLibraryTransaction.Failure(message: "下载暂存身份无效。")
+            throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download staging identity is invalid."))
         }
         try await Task.detached(priority: .utility) {
             try SteamWorkshopLibraryTransaction.removeStagingLease(
@@ -522,7 +522,7 @@ extension SteamWorkshopService {
             if job.stagingPath != nil { try await removeOwnedDownloadStaging(job) }
             return downloadJobStore.apply(.resourcesReleased, toID: jobID) != nil
         } catch {
-            downloadError = "内容状态已保存，但下载暂存清理失败，稍后将重试：\(error.localizedDescription)"
+            downloadError = String(localized: "The content state was saved, but cleaning up the download staging area failed. It will be retried later: \(error.localizedDescription)")
             return false
         }
     }
@@ -559,7 +559,7 @@ extension SteamWorkshopService {
         }
         for failure in failures {
             guard downloadJobStore.cancel(id: failure.id) != nil else {
-                downloadError = "放弃下载任务无法保存，请重试。"
+                downloadError = String(localized: "Couldn’t save the abandoned download task. Try again.")
                 scheduleTerminalDownloadCleanup()
                 return false
             }
@@ -591,7 +591,7 @@ extension SteamWorkshopService {
             alreadyReserved: reserved
         ) else {
             throw SteamWorkshopLibraryTransaction.Failure(
-                message: "磁盘空间不足，下载暂存已保留；释放空间后可重试。"
+                message: String(localized: "Not enough disk space. The download staging data has been kept; free up space and try again.")
             )
         }
         reservedLibraryCopyBytesByJobKey[jobKey] = required
@@ -610,7 +610,7 @@ extension SteamWorkshopService {
     private func downloadFailureMessage(_ error: Error) -> String {
         if case let .helperError(code, _) = error as? SteamServiceClient.RequestError,
            code == "diskFull" {
-            return "磁盘空间不足，下载暂存已保留；释放空间后可重试。"
+            return String(localized: "Not enough disk space. The download staging data has been kept; free up space and try again.")
         }
         return error.localizedDescription
     }
@@ -627,7 +627,7 @@ extension SteamWorkshopService {
               job.accountSteamId == steamAuth.steamId else { return }
         pausedDownloadItemIDs.insert(itemID)
         activeDownloadTasks[key]?.cancel()
-        statusMessage = "正在暂停 \(job.title)…"
+        statusMessage = String(localized: "Pausing \(job.title)…")
     }
 
     /// 用户恢复：移出暂停集合并推活既有出队路径；下载槽位忙时任务保持
@@ -649,7 +649,7 @@ extension SteamWorkshopService {
         guard let account = steamAuth.steamId,
               downloadJobStore.promote(workshopItemId: itemID, forAccount: account) != nil else { return }
         if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
-            statusMessage = "已将 \(job.title) 调整为下一个下载。"
+            statusMessage = String(localized: "Set \(job.title) to download next.")
         }
     }
 
@@ -667,7 +667,7 @@ extension SteamWorkshopService {
                     steamJobItemPayloads.removeValue(forKey: itemID)
                     removeTransientRecord(id: itemID)
                     scheduleTerminalDownloadCleanup()
-                    if showFeedback { statusMessage = "已移出下载队列。" }
+                    if showFeedback { statusMessage = String(localized: "Removed from the download queue.") }
                 }
                 return
             }
@@ -680,7 +680,7 @@ extension SteamWorkshopService {
             activeDownloadTasks[key]?.cancel()
         }
         if showFeedback {
-            statusMessage = keys.count == 1 ? "正在取消当前下载…" : "正在取消 \(keys.count) 个下载…"
+            statusMessage = keys.count == 1 ? String(localized: "Canceling current download…") : String(localized: "Canceling \(keys.count) downloads…")
         }
     }
 
@@ -695,11 +695,11 @@ extension SteamWorkshopService {
             accountSteamId: account
         )
         guard downloadJobStore.lastSaveSucceeded else {
-            statusMessage = "下载任务无法保存，未加入队列。"
+            statusMessage = String(localized: "The download task couldn’t be saved, so it wasn’t queued.")
             return
         }
         guard isNew else {
-            statusMessage = "\(title) 已在下载队列中。"
+            statusMessage = String(localized: "\(title) is already in the download queue.")
             return
         }
         // The existing request payload lifetime also carries the admitted
@@ -712,7 +712,7 @@ extension SteamWorkshopService {
             accountSteamID: account,
             sizeText: downloadStatusSizeText(for: id)
         )
-        statusMessage = "已将 \(title) 加入下载队列。"
+        statusMessage = String(localized: "Added \(title) to the download queue.")
     }
 
     private func processNextQueuedDownloadIfPossible() {
@@ -747,7 +747,7 @@ extension SteamWorkshopService {
         if let browserSize = browserItemForDownload(id: id)?.fileSizeText, !browserSize.isEmpty {
             return browserSize
         }
-        return "未知大小"
+        return ""
     }
 
     func removeTransientRecord(id: String) {

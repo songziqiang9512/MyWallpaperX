@@ -18,7 +18,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private init() {
         let window = NSWindow(contentViewController: contentController)
         window.identifier = NSUserInterfaceItemIdentifier("SettingsWindow")
-        window.title = "设置"
+        window.title = String(localized: "Settings")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = false
@@ -140,12 +140,12 @@ private final class SettingsContentViewController: NSViewController {
                 await OnlineImageLibrary.shared.clearOriginalPreviewCache(after: preview).value
             },
             exportPersonalSettings: { [weak self] url in
-                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪") }
+                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired(String(localized: "Settings export isn’t ready yet")) }
                 return try await coordinator.exportPersonalSettings(to: url)
             },
             importPersonalSettings: { [weak self] url in
                 ScreenSaverCoordinator.shared.cancel()
-                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导入尚未就绪") }
+                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired(String(localized: "Settings import isn’t ready yet")) }
                 return try await coordinator.importPersonalSettings(from: url)
             },
             refreshAutoSwitchTimerIfNeeded: { manager.refreshAutoSwitchTimerIfNeeded() },

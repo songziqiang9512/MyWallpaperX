@@ -182,17 +182,17 @@ nonisolated struct SceneTexContainerReader {
         var errorDescription: String? {
             switch self {
             case .invalidHeader:
-                return "无效的 TEXV0005 纹理头。"
+                return String(localized: "Invalid TEXV0005 texture header.")
             case .invalidMipTable:
-                return "无效的 TEX mip 数据表。"
+                return String(localized: "Invalid TEX mip data table.")
             case .invalidSpriteTable:
-                return "无效的 TEX sprite 帧数据表。"
+                return String(localized: "Invalid TEX sprite frame data table.")
             case .decodedDataBudgetExceeded:
-                return "TEX 解码数据总量超过预算。"
+                return String(localized: "The total decoded TEX data exceeds the budget.")
             case let .unsupportedCompression(code):
-                return "不支持的 TEX mip 压缩方式: \(code)。"
+                return String(localized: "Unsupported TEX mip compression: \(code).")
             case let .decompressionFailed(expectedSize, actualSize):
-                return "LZ4 解压失败，期望 \(expectedSize) 字节，实际得到 \(actualSize) 字节。"
+                return String(localized: "LZ4 decompression failed. Expected \(expectedSize) bytes, got \(actualSize) bytes.")
             }
         }
     }

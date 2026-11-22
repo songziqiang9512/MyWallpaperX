@@ -2250,6 +2250,16 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "app-localization",
+      "title": "界面语言适配与本地化（英文源语言、String Catalog、译文同步检查）",
+      "owner": "UI presentation points / SteamService error-code boundary",
+      "status": "approved",
+      "designDoc": "docs/development/localization-contract.md",
+      "design_notes": "Standards live in localization-contract, batching in localization-plan. English is the source language and the lookup key, so editing a source string changes the key; String Catalog (Localizable.xcstrings / InfoPlist.xcstrings) carries en plus translations, plural variations and per-entry extraction/translation state. developmentRegion and CFBundleDevelopmentRegion stay en, so unsupported locales fall back to English. Localization is enforced by a check module, not by IDE sync: Xcode 27.2 XCStrings build task only compiles and does not rewrite the catalog, and SWIFT_EMIT_LOC_STRINGS serves localization export, so this repository owns the sync gate itself. Three layers: source literal keys vs en table, en table vs each translation (keys, placeholders, state), and compile-time authority via exportLocalizations XLIFF. Text must not act as logic: helper errors move to codes, unknown-value sentinels move to Optional/state, status strings become structured states before translation. Diagnostics stay untranslated. Layout must follow content-driven widths and be verified with an English, Chinese and longer-language sample. Existing violations, batch order, acceptance and retirement are owned by localization-plan.",
+      "matchPatterns": [],
+      "contentPatterns": []
     }
   ]
 }

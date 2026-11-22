@@ -75,7 +75,7 @@ extension AppKitSteamWorkshopBrowserItem {
         controlBar.alphaValue = 0
         controlBar.glass.setAccessibilityElement(true)
         controlBar.glass.setAccessibilityRole(.progressIndicator)
-        controlBar.glass.setAccessibilityLabel("下载进度")
+        controlBar.glass.setAccessibilityLabel(String(localized: "Download Progress"))
         // Keep the shared glass bar detached until the original visibility policy reveals it.
         refreshThemeAwareAppearance()
     }

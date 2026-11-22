@@ -283,7 +283,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
                 return cell
             }()
             cell.identifier = id
-            cell.textField?.stringValue = group == .library ? "资料库" : group == .browse ? "浏览" : "播放列表"
+            cell.textField?.stringValue = group == .library ? String(localized: "Library") : group == .browse ? String(localized: "Browse") : String(localized: "Playlist")
             return cell
         }
         guard case .page(let page) = node.kind else { return nil }
@@ -300,7 +300,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         if case .playlist(let id) = page { cover = covers[id] } else { cover = nil }
         cell.configure(title: title, symbolName: symbol(for: page), count: nil, coverImage: cover, symbolTint: .controlAccentColor)
         let count = counts[page].flatMap { $0 >= 0 ? $0 : nil }
-        let unit = page == .playlists ? "个播放列表" : "张壁纸"
+        let unit = page == .playlists ? String(localized: "playlists") : String(localized: "wallpapers")
         cell.setAccessibilityLabel(count.map { title + "，\($0) \(unit)" } ?? title)
     }
 
@@ -347,7 +347,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     private func creationMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        add("新建列表…", action: .create, to: menu, enabled: canEdit && onPlaylistAction != nil)
+        add(String(localized: "New Playlist…"), action: .create, to: menu, enabled: canEdit && onPlaylistAction != nil)
         return menu
     }
     private func menu(forRow row: Int) -> NSMenu? {
@@ -356,11 +356,11 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         if case .page(.playlist(let id)) = node.kind {
             let menu = NSMenu()
             menu.autoenablesItems = false
-            add("打开播放列表", action: .open(id), to: menu, enabled: onNavigate != nil)
-            add("编辑列表…", action: .rename(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
-            add("复制列表", action: .duplicate(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
+            add(String(localized: "Open Playlist"), action: .open(id), to: menu, enabled: onNavigate != nil)
+            add(String(localized: "Edit Playlist…"), action: .rename(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
+            add(String(localized: "Duplicate Playlist"), action: .duplicate(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
             menu.addItem(.separator())
-            add("删除列表…", action: .delete(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
+            add(String(localized: "Delete Playlist…"), action: .delete(id), to: menu, enabled: canEdit && onPlaylistAction != nil)
             return menu
         }
         if case .group(.playlists) = node.kind { return creationMenu() }

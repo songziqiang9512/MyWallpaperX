@@ -88,21 +88,21 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cancelled:
-            "Scene 启动请求已取消。"
+            String(localized: "Scene launch request was canceled.")
         case .conflictingBoundedSceneScriptTargets(let details):
-            "Scene 有界脚本目标存在冲突，已停止启动。\(details)"
+            String(localized: "The bounded Scene script target has a conflict; launch stopped. \(details)")
         case .invalidBoundedSceneScriptProgramAt(let phase):
-            "Scene 有界脚本目标在 \(phase) 无法形成，已停止启动。"
+            String(localized: "The bounded Scene script target couldn’t be formed in \(phase); launch stopped.")
         case .requiredImagePipelineUnavailable:
-            "Scene 必需的图像合成 pipeline 无法形成，已保留当前壁纸。"
+            String(localized: "The image compositing pipeline required by Scene couldn’t be built; the current wallpaper was kept.")
         case .requiredUserTextureUnavailable:
-            "Scene 所选图像未能完整准备，已保留当前壁纸。"
+            String(localized: "The images selected by Scene couldn’t be fully prepared; the current wallpaper was kept.")
         case .firstFrameFailed:
-            "Scene 候选首帧执行失败，已保留当前壁纸。"
+            String(localized: "The Scene candidate’s first frame failed to run; the current wallpaper was kept.")
         case .firstFrameTimeout:
-            "Scene 候选首帧等待超时，已保留当前壁纸。"
+            String(localized: "Timed out waiting for the Scene candidate’s first frame; the current wallpaper was kept.")
         case .noSurface:
-            "Scene 宿主未能创建可播放表面。"
+            String(localized: "The Scene host couldn’t create a playable surface.")
         }
     }
 }

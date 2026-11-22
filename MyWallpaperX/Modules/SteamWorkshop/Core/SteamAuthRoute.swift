@@ -195,11 +195,11 @@ final class SteamAuthRoute: ObservableObject {
                 _ = revokeStoredSession()
                 accountSession.clearSessionTokens()
                 expired = true
-                phase = .failed(code: "authExpired", message: "恢复的会话与保存的账号不一致")
+                phase = .failed(code: "accountMismatch", message: String(localized: "The restored session doesn’t match the saved account"))
                 client.accountEpoch += 1
                 mismatchEpoch = client.accountEpoch
                 _ = try? await client.request(command: "logout")
-                throw SteamServiceClient.RequestError.helperError(code: "authExpired", message: "恢复的会话与保存的账号不一致")
+                throw SteamServiceClient.RequestError.helperError(code: "accountMismatch", message: String(localized: "The restored session doesn’t match the saved account"))
             }
             adoptOnline(steamId: id)
             phase = accountSession.phase
@@ -238,7 +238,7 @@ final class SteamAuthRoute: ObservableObject {
         client.accountEpoch += 1
         steamId = nil
         accountName = nil
-        phase = .failed(code: "network", message: "Steam 连接已断开，请使用工具栏重新登录。")
+        phase = .failed(code: "network", message: String(localized: "Steam is disconnected. Sign in again from the toolbar."))
     }
 
     /// Stop restoration before touching Keychain; failed deletion cannot authorize startup login.
@@ -271,7 +271,7 @@ final class SteamAuthRoute: ObservableObject {
     nonisolated static func disposition(for error: Error) -> RestoreFailureDisposition {
         switch error as? SteamServiceClient.RequestError {
         case .helperError(let code, _):
-            return (code == "authExpired" || code == "accessDenied") ? .deleteToken : .keepToken
+            return (code == "authExpired" || code == "accessDenied" || code == "accountMismatch") ? .deleteToken : .keepToken
         default:
             return .keepToken
         }

@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="AppleTitle" content="MyWallpaperX-Hilfe"><meta name="description" content="Hilfe durchsuchen: Video, Web, Scene, Steam Workshop"><title>MyWallpaperX-Hilfe</title><link rel="stylesheet" href="../styles.css"><script src="../help.js" defer></script></head>
+<body id="top"><a class="skip" href="#main">Zum Inhalt springen</a><div class="layout">
+<aside class="sidebar">
+<a class="brand" href="#top"><img src="../icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>DESKTOP-LEITFADEN</small></span></a>
+<div>
+<nav aria-label="Hilfe-Inhalt">
+<span class="nav-group">ERSTE SCHRITTE</span><a href="#start">Erste Schritte</a><a href="#video">Video-Wallpapers</a><a href="#web">Web-Wallpapers</a><a href="#scene">Scene-Wallpapers</a><span class="nav-group">ANLEITUNG</span><a href="#toolbars">Modul-Symbolleisten</a><a href="#search-tips">Workshop-Suchtipps</a><a href="#workshop">Downloads &amp; Abonnements</a><a href="#library">Deine Bibliotheken</a><a href="#playback">Wiedergabe &amp; Energie</a><a href="#shortcuts">Tastaturkürzel</a><span class="nav-group">FEHLERBEHEBUNG</span><a href="#login">Hilfe zur Anmeldung</a><a href="#downloads">Download-Fehler</a><a href="#faq">Weitere Fragen</a>
+</nav>
+</div>
+<div class="sidebar-bottom"><p>Offline verfügbar · Immer zur Hand</p><a class="language" href="../en.lproj/index.html" lang="en" hreflang="en">English ↗</a><a class="language" href="../zh-Hans.lproj/index.html" lang="zh-Hans" hreflang="zh-Hans">简体中文 ↗</a><a class="language" href="../ru.lproj/index.html" lang="ru" hreflang="ru">Русский ↗</a><a class="language" href="../fr.lproj/index.html" lang="fr" hreflang="fr">Français ↗</a></div>
+</aside>
+
+<main id="main" tabindex="-1">
+<div class="topbar"><span>Ein Desktop in deinem Tempo.</span><label class="search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke-width="1.7"/><path d="m15 15 5 5" stroke-width="1.7"/></svg><input id="help-search" type="search" placeholder="Hilfe durchsuchen, z. B. „pausieren“" aria-label="Hilfe durchsuchen" autocomplete="off"></label></div>
+<header class="hero">
+<div class="eyebrow">MYWALLPAPERX · DER DESKTOP-LEITFADEN</div><h1>Ein wenig mehr Leben.<br><span>Auf deinem Desktop.</span></h1><p class="hero-description">Lerne Video, Web und Scene kennen.<br>Vom ersten Wallpaper bis zu jedem Bedienelement, Kürzel und Fehler.</p><div class="gallery"><a class="preview" href="#video"><div class="art video" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="219" cy="64" r="26" fill="#f4dfad"/><path d="M0 139 Q70 100 143 149 T300 127 V220 H0Z" fill="#7e9fb9"/><path d="M0 183 Q88 118 185 179 T300 159 V220 H0Z" fill="#506f8f"/><path d="M0 210 Q100 167 193 202 T300 190 V220 H0Z" fill="#2d4b68"/></svg><span class="play" aria-hidden="true">▶ ━━━━━</span></div><div class="preview-label"><strong>Video ↗</strong><span>Bewegte Bilder</span></div></a><a class="preview" href="#web"><div class="art web" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><span class="clock" aria-hidden="true">09:41<small>EIN MOMENT DER RUHE</small></span></div><div class="preview-label"><strong>Web ↗</strong><span>Seiten &amp; Interaktion</span></div></a><a class="preview" href="#scene"><div class="art scene" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="185" cy="70" r="38" fill="#e7e8bc"/><path d="M0 171 L71 59 129 142 175 96 265 170 300 145 V220 H0Z" fill="#7ba796"/><path d="M0 214 L44 143 84 168 154 109 231 184 300 127 V220 H0Z" fill="#457e70"/><path d="M0 220 L0 193 75 175 127 220 204 165 300 207 V220Z" fill="#2b5c52"/><g fill="#fff6d5"><circle cx="56" cy="81" r="2"/><circle cx="123" cy="53" r="2"/><circle cx="227" cy="107" r="2"/><circle cx="245" cy="47" r="1.5"/></g></svg><span class="layers" aria-hidden="true">◇ ◇ ◇</span></div><div class="preview-label"><strong>Scene ↗</strong><span>Ebenen &amp; Live-Effekte</span></div></a></div><div class="quick-links"><a href="#toolbars"><span>Bedienelement finden</span><b aria-hidden="true">↗</b></a><a href="#search-tips"><span>Artikel per ID finden</span><b aria-hidden="true">↗</b></a><a href="#downloads"><span>Download beheben</span><b aria-hidden="true">↗</b></a></div>
+</header>
+<div class="search-status" id="search-status" hidden><span id="search-message" role="status" aria-live="polite"></span><button id="clear-search" type="button">Alle Kapitel anzeigen</button></div>
+<section class="guide-section" id="start">
+<div class="section-heading"><h2>Beginne mit einem Wallpaper, das du liebst</h2><span class="tag">ERSTE SCHRITTE</span></div>
+<p class="lead">Ein lokales Video, ein Web-Projekt oder eine Echtzeit-Scene kann dein Desktop werden. Wähle deine Inhalte und passe die Wiedergabe an deinen Tag an.</p>
+<ol class="steps"><li><h3>Finde etwas</h3><p>Importiere lokale Videos in Meine Videos. Durchstöbere den Workshop nach Web- und Scene-Projekten.</p></li><li><h3>Wende es an</h3><p>Wähle in der jeweiligen Bibliothek einen Eintrag und dann Als aktuelles Wallpaper festlegen. Workshop-Einträge müssen zuerst fertig heruntergeladen werden.</p></li><li><h3>Mach es zu deinem</h3><p>Passe die Lautstärke an und pausiere die Wiedergabe. Öffne bei Web und Scene in den Artikeldetails die Eigenschaften, um die Optionen des Autors zu sehen.</p></li></ol>
+</section>
+
+<section class="guide-section" id="video">
+<div class="section-heading"><h2>Video · Ein bewegtes Bild</h2><span class="tag">VIDEO-WALLPAPERS</span></div>
+<p class="lead">Landschaften, Animationsclips und nahtlose Schleifen. Eine Videodatei liefert das Bild – der direkteste Einstieg.</p>
+<div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Importiere lokale Dateien in Meine Videos und ordne sie mit Favoriten, Wiedergabelisten und Zuletzt verwendet.</li><li>Wähle in den Einstellungen Endlosschleife, sequenzielle Wiedergabe oder Zufallswiedergabe, bei Bedarf mit automatischem Wechsel.</li><li>Passe die Wiedergabegeschwindigkeit an und wähle, ob das Video in das Display passt oder es ausfüllt.</li></ul></div><div><h3>So klappt es gut</h3><ul><li>Passe das Seitenverhältnis des Videos an dein Display an. Ausfüllen kann Ränder beschneiden; Einpassen kann leere Ränder lassen.</li><li>Wähle Clips mit einem natürlichen Übergang zwischen letztem und erstem Bild für eine flüssigere Schleife.</li><li>Der Codec in einer MP4- oder MOV-Datei muss auch von macOS unterstützt werden. Öffne die Datei in einem systemeigenen Videoplayer, wenn sie nicht abgespielt wird.</li></ul></div></div>
+<aside class="tip">
+<strong>Wiedergabeeinstellungen statt Eigenschaften des Autors</strong>Videos nutzen die Lautstärke-, Geschwindigkeits- und Wiedergabemodus-Einstellungen der App. Sie haben keine vom Autor definierten Eigenschaftsfelder wie Web- und Scene-Projekte. Video-Geschwindigkeit und Füllmodus gelten nur für Videos.
+</aside>
+
+</section>
+
+<section class="guide-section" id="web">
+<div class="section-heading"><h2>Web · Ein Desktop mit Live-Ansicht</h2><span class="tag web">WEB-WALLPAPERS</span></div>
+<p class="lead">Uhren, Informationsanzeigen, Web-Animationen und interaktive Layouts. Jedes Projekt verbindet eine Webseite mit ihren Ressourcen; der Autor bestimmt, was sie tut.</p>
+<div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Filtere Workshop-Inhalte nach Web, lade ein Projekt herunter und spiele es aus „Meine Downloads“ ab.</li><li>Öffne in den Artikeldetails die Eigenschaften, um Farben, Text, Schalter und andere bereitgestellte Optionen des Autors zu ändern.</li><li>Unterstützte Projekte können auf Zeiger oder Audio reagieren, wenn der Autor diese Verhaltensweisen eingebaut hat.</li></ul></div><div><h3>Bewährte Vorgehensweisen</h3><ul><li>Beginne mit den Standardeigenschaften und ändere dann jeweils eine Einstellung.</li><li>Wetter, entfernte Bilder und andere Online-Inhalte können eine Verbindung benötigen, auch nachdem das Projekt heruntergeladen wurde.</li><li>Bei einer leeren oder unvollständigen Seite prüfe die Download-Aufgaben und etwaige Fehlermeldungen oder Meldungen zu fehlenden Abhängigkeiten in der Liste. Halte beim Melden eines Problems den Artikel-Link und die Symptome fest.</li></ul></div></div>
+<aside class="tip">
+<strong>Halte das ganze Projekt zusammen</strong>Ein Web-Wallpaper besteht meist aus mehr als einer HTML-Datei. Verschiebe einzelne Seiten, Bilder oder Skripte nicht aus ihrem Ordner. Presets, die von einem anderen Projekt abhängen, brauchen auch dessen Basisinhalt. Die Kompatibilität variiert je nach Projekt.
+</aside>
+
+</section>
+
+<section class="guide-section" id="scene">
+<div class="section-heading"><h2>Scene · Eine Welt in Echtzeit</h2><span class="tag scene">ECHTZEIT-SCENES</span></div>
+<p class="lead">Ebenen, Materialien und Animation werden beim Laufen des Wallpapers zusammengesetzt. Unterstützte Projekte können Tiefe, Partikel, dynamischen Text und reaktive Effekte statt eines vorab aufgezeichneten Videos enthalten.</p>
+<div class="two-column"><div><h3>Was du tun kannst</h3><ul><li>Filtere Workshop-Inhalte nach Scene, lade einen Eintrag herunter und wende ihn auf den Desktop an.</li><li>Nutze die Eigenschaften, um vom Autor bereitgestellte Farben, Schalter, Werte, Text- oder Bildoptionen zu ändern.</li><li>Steuere Wiedergabe, Pause und Lautstärke über die gemeinsamen Bedienelemente, bei Bedarf mit Energiesparregeln.</li></ul></div><div><h3>Bewährte Vorgehensweisen</h3><ul><li>Wähle unter „Maximale Bildrate“ (Scene-Engine) den Wert 30, um das Laufzeitbudget zu senken; 60 erlaubt eine höhere Bildraten-Obergrenze.</li><li>Probiere die Standarddarstellung, bevor du Effekte anpasst. Die Leistung hängt auch von der Komplexität des Projekts ab.</li><li>Bei fehlenden Ebenen oder unerwarteten Effekten vergleiche die Standardeigenschaften und halte beim Melden des Problems Artikel-Link, Screenshot und Symptome fest.</li></ul></div></div>
+<aside class="tip">
+<strong>Kompatibilität ist projektspezifisch</strong>Die Scene-Kompatibilität wird noch entwickelt. Ein abgeschlossener Download garantiert nicht jeden Effekt, jedes Skript oder jede Interaktion und keine exakte Übereinstimmung mit Wallpaper Engine. Eine fehlende Eigenschaft kann einfach bedeuten, dass der Autor sie nicht bereitgestellt hat.
+</aside>
+
+</section>
+
+<section class="guide-section" id="toolbars">
+<div class="section-heading"><h2>Kenne deine Symbolleiste</h2><span class="tag">Nach Modul</span></div>
+<p>Prüfe vor dem Nutzen einer Symbolleiste das ausgewählte Seitenleistenmodul. Ähnliche Symbole wirken auf verschiedene Listen; eine deaktivierte Schaltfläche braucht meist eine unterstützte Auswahl. Zeige auf ein Symbol, um den Tooltip zu lesen.</p>
+<details>
+
+<summary>
+Meine Videos
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Funktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Plus · Importieren</th><td data-label="Funktion">Wähle lokale Videodateien. Nutze Auswählen, um die Mehrfachauswahl zu starten.</td>
+</tr>
+
+<tr>
+<th scope="row">Häkchen im Kreis · Auswählen</th><td data-label="Funktion">Aktiviere oder beende den Auswahlmodus, um Einträge zu favorisieren, sie zu Wiedergabelisten hinzuzufügen oder sie gesammelt zu entfernen.</td>
+</tr>
+
+<tr>
+<th scope="row">Pfeile links / rechts</th><td data-label="Funktion">Folgt der aktuellen Wiedergabesequenz durch abspielbare Bilder, Video-, Web- oder Scene-Wallpapers; das sind keine Seitensteuerungen.</td>
+</tr>
+
+<tr>
+<th scope="row">Papierkorb · Entfernen</th><td data-label="Funktion">Entfernt Einträge aus „Meine Videos“ und behält standardmäßig Quelldateien und andere Wiedergabelisten. Dateien werden nur gelöscht, wenn die Option „Quelldateien vom Datenträger löschen“ aktiviert ist; das lässt sich nicht rückgängig machen.</td>
+</tr>
+
+<tr>
+<th scope="row">Herz · Favorit</th><td data-label="Funktion">Fügt ausgewählte Videos zu den Favoriten hinzu oder entfernt ihren Favoritenstatus.</td>
+</tr>
+
+<tr>
+<th scope="row">Zu Wiedergabeliste hinzufügen</th><td data-label="Funktion">Fügt ausgewählte Videos einer oder mehreren Wiedergabelisten hinzu. Erstelle eine Wiedergabeliste in der Seitenleiste oder unter „Alle Wiedergabelisten“.</td>
+</tr>
+
+<tr>
+<th scope="row">Sortieren / Miniatur ± / Suchen</th><td data-label="Funktion">Wähle Sortierfeld und -richtung, ändere die Kartengröße oder durchsuche die aktuelle Videoliste.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Meine Bilder
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Funktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Plus · Importieren</th><td data-label="Funktion">Wähle lokale Bilder. Nutze Auswählen, um die Mehrfachauswahl zu starten.</td>
+</tr>
+
+<tr>
+<th scope="row">Auswählen / Papierkorb</th><td data-label="Funktion">Wähle mehrere Bilder aus. Das Entfernen betrifft nur „Meine Bilder“ und behält standardmäßig Originale und andere Wiedergabelisten. Aktiviere „Quelldateien vom Datenträger löschen“, um die Originale zu löschen.</td>
+</tr>
+
+<tr>
+<th scope="row">Zu Wiedergabeliste hinzufügen</th><td data-label="Funktion">Fügt ausgewählte Bilder zu Wiedergabelisten hinzu. Dieselbe Wiedergabeliste kann Videos und heruntergeladene Web- oder Scene-Wallpapers enthalten.</td>
+</tr>
+
+<tr>
+<th scope="row">Sortieren / Miniatur ± / Suchen</th><td data-label="Funktion">Ändere die Reihenfolge der Bildliste, die Kartengröße oder den Suchbegriff. Die Originalabmessungen der Bilder bleiben unverändert.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Pixabay · Entdecken
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Funktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Einstellungen · API-Schlüssel</th><td data-label="Funktion">Ändere den API-Schlüssel oder lösche ihn und kehre zur Anmeldeansicht zurück. Dieser Schlüssel ist unabhängig von der Steam-Anmeldung.</td>
+</tr>
+
+<tr>
+<th scope="row">Kreispfeil · Aktualisieren</th><td data-label="Funktion">Ruft die aktuelle Online-Liste erneut ab.</td>
+</tr>
+
+<tr>
+<th scope="row">Kategorie / Sortieren</th><td data-label="Funktion">Wähle eine Kategorie und die Reihenfolge der Online-Ergebnisse.</td>
+</tr>
+
+<tr>
+<th scope="row">Miniatur ± / Suchen</th><td data-label="Funktion">Ändere die Kartengröße oder durchsuche Pixabay nach Stichwort.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Workshop · Entdecken und persönliche Listen
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Funktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam-Konto</th><td data-label="Funktion">Öffnet die Anmeldung, wenn du nicht angemeldet bist. Nach der Anmeldung kannst du Meine Abonnements öffnen, das Konto wechseln oder dich abmelden.</td>
+</tr>
+
+<tr>
+<th scope="row">Pfeil nach unten · Download-Aufgaben</th><td data-label="Funktion">Öffnet die Warteschlange, den Fortschritt, Fehlermeldungen und die Wiederholungssteuerung.</td>
+</tr>
+
+<tr>
+<th scope="row">Quelle</th><td data-label="Funktion">Durchstöbere Beliebteste, Neueste, Meistabonniert oder Zuletzt aktualisiert. Meine Abonnements findest du im Steam-Kontomenü; sie erfordern eine Anmeldung und sind von den lokalen Favoriten getrennt.</td>
+</tr>
+
+<tr>
+<th scope="row">Zeitraum / Sortieren</th><td data-label="Funktion">Wähle den Zeitraum für das Beliebtheits-Ranking, keinen Filter für das Veröffentlichungsdatum. Persönliche Listen bieten eine Sortierung nach Name, Größe, Abonnementdatum oder letzter Aktualisierung.</td>
+</tr>
+
+<tr>
+<th scope="row">Filter-Symbol im Kreis</th><td data-label="Funktion">Filtere nach Typ, Altersfreigabe, Auflösung und anderen verfügbaren Facetten. Optionen innerhalb einer Facette sind Alternativen; verschiedene Facetten werden kombiniert.</td>
+</tr>
+
+<tr>
+<th scope="row">Miniatur ± / Suchen</th><td data-label="Funktion">Ändere die Kartengröße. Nutze Stichwörter für Themen oder <code>ID=Artikelnummer</code> für eine direkte Suche. Siehe <a href="#search-tips">Suchtipps</a>.</td>
+</tr>
+
+<tr>
+<th scope="row">Pfeil zurück</th><td data-label="Funktion">Kehrt vom Workshop eines Autors oder von „Meine Abonnements“ zur vorherigen Entdeckenseite zurück. Die Suche auf einer Autorenseite filtert die Werke dieses Autors.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Meine Downloads
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Funktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam-Konto / Download-Aufgaben</th><td data-label="Funktion">Verwendet dasselbe Konto und dieselbe Warteschlange wie Entdecken. Öffne das Aufgabenfenster, um Fehler zu prüfen und zu wiederholen.</td>
+</tr>
+
+<tr>
+<th scope="row">Auswählen / Papierkorb</th><td data-label="Funktion">Verwalte Downloads aus Workshop, Pixabay und anderen Quellen gemeinsam. Entfernen behält standardmäßig Quelldateien und andere Wiedergabelisten; nur die Option „Quelldateien vom Datenträger löschen“ löscht die Dateien. Verwalte aktive Aufgaben im Aufgabenfenster.</td>
+</tr>
+
+<tr>
+<th scope="row">Filter</th><td data-label="Funktion">Filtere nach Quelle; Typ Bild, Video, Web oder Scene; und Status (abspielbar, nicht verfügbar, wird heruntergeladen bzw. aktualisiert oder fehlgeschlagen). Die Sichtbarkeit von Inhalten für Erwachsene hat eine eigene Option.</td>
+</tr>
+
+<tr>
+<th scope="row">Sortieren</th><td data-label="Funktion">Sortiere nach lokaler Erfassungszeit, Name, Dateigröße oder letzter erfolgreicher Nutzung, auf- oder absteigend.</td>
+</tr>
+
+<tr>
+<th scope="row">Miniatur ± / Suchen</th><td data-label="Funktion">Ändere die Kartengröße; suche nach Titel, Quellenname oder Wiedergabelistenname. Workshop-Einträge unterstützen auch Beschreibungen, Workshop-Tags, Autor und Steam-Artikel-IDs. Die Suche startet keinen Download.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<aside class="tip">
+<strong>In den Artikeldetails</strong>Eigenschaften für Web und Scene öffnet die Steuerung des Autors; Im Finder zeigen findet lokale Dateien; der Name eines Autors öffnet dessen Workshop. Herzen stehen für lokale Favoriten, während Steam-Abonnements eine eigene Lesezeichen-Aktion nutzen. Nach dem Beenden eines Abonnements bleiben lokale Dateien und die aktuelle Wiedergabe erhalten.
+</aside>
+<p>Das MyWallpaperX-Symbol in der Menüleiste öffnet das Hauptfenster, wechselt Wallpapers, steuert Wiedergabe/Pause, Stummschaltung und Lautstärke, öffnet Eigenschaften oder Einstellungen und beendet die App.</p>
+</section>
+
+<section class="guide-section" id="search-tips">
+<div class="section-heading"><h2>Eine ID bringt dich direkt ans Ziel</h2><span class="tag">Workshop-Suche</span></div>
+<p>Wenn du eine Artikel-ID kennst, kannst du das Durchblättern der Ergebnisse überspringen. Kehre zum Haupt-Workshop-Feed zurück und gib eine dieser Formen in das Steam-Suchfeld ein. Verlasse zuvor eine Autorenseite mit der Zurück-Schaltfläche.</p><div class="search-demo"><span>Einen bestimmten Artikel finden</span><code>ID=1234567890</code><small>Nur ein Beispiel · durch eine echte Artikel-ID ersetzen</small></div><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Eingabe</th><th scope="col">Beispiel</th><th scope="col">Tipp</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Stichwörter</th><td data-label="Beispiel"><code>stars</code>, <code>landscape</code></td><td data-label="Tipp">Suche ein Thema und schränke dann nach Video / Web / Scene und Auflösung ein.</td>
+</tr>
+
+<tr>
+<th scope="row">ID=Nummer</th><td data-label="Beispiel"><code>ID=1234567890</code></td><td data-label="Tipp">ID ist unabhängig von Groß-/Kleinschreibung. Setze keine Leerzeichen um das Gleichheitszeichen.</td>
+</tr>
+
+<tr>
+<th scope="row">Nur Ziffern</th><td data-label="Beispiel"><code>1234567890</code></td><td data-label="Tipp">Mindestens 6 Ziffern werden als Artikel-ID interpretiert, nicht als Stichwort.</td>
+</tr>
+
+<tr>
+<th scope="row">Vollständiger Artikel-Link</th><td data-label="Beispiel"><code>https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890</code></td><td data-label="Tipp">Die Artikelnummer wird aus id= in der URL entnommen.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div>
+<aside class="tip">
+<strong>Artikel-ID ≠ SteamID des Kontos</strong>Nutze die Nummer aus dem Detaillink des Workshop-Eintrags. Eine direkte Suche garantiert weder öffentlichen Zugriff noch einen Download. Bei leeren Stichwort-Ergebnissen: lösche die Abfrage und reduziere die Filter. Die Suche in „Meine Downloads“ filtert nur lokale Inhalte; sie akzeptiert ID-Formen, ruft aber keine Einträge von Steam ab.
+</aside>
+
+</section>
+
+<section class="guide-section" id="workshop">
+<div class="section-heading"><h2>Workshop &amp; Downloads</h2><span class="tag">ENTDECKEN &amp; VERWALTEN</span></div>
+<p class="lead">Nutze dein Steam-Konto, um Projekte zu durchstöbern, Abonnements zu verwalten und Wallpapers herunterzuladen. Video, Web und Scene teilen diesen Ablauf.</p>
+<div class="flow" aria-label="Download-Schritte"><span>Suchen &amp; filtern</span><b aria-hidden="true">→</b><span>Bei Aufforderung anmelden</span><b aria-hidden="true">→</b><span>Download</span><b aria-hidden="true">→</b><span>Aus „Meine Downloads“ abspielen</span></div>
+<div class="two-column"><div><h3>Das richtige Projekt finden</h3><ul><li>Öffne das Steam-Konto-Steuerelement in der Symbolleiste und folge den QR- oder Kontoverifizierungs-Hinweisen.</li><li>Wähle einen Inhaltstyp, bevor du ein Thema suchst. Meine Abonnements zeigen die abonnierten Einträge des Kontos.</li><li>Öffne die Details eines Eintrags, um mehr zu erfahren oder die Arbeit seines Autors zu entdecken.</li></ul></div><div><h3>Die Warteschlange verstehen</h3><ul><li>Die Download-Schaltfläche der Symbolleiste zeigt wartende Aufgaben, Fortschritt und Fehlermeldungen.</li><li>Fehlgeschlagene Einträge haben eine Wiederholen-Schaltfläche. Behebe Verbindungs-, Anmelde- oder Speicherprobleme, bevor du es erneut versuchst.</li><li>Alle löschen entfernt den Verlauf aus abgeschlossenen, fehlgeschlagenen und abgebrochenen Aufgaben. Aktive Aufgaben laufen weiter und heruntergeladene Dateien bleiben erhalten.</li></ul></div></div>
+<aside class="tip">
+<strong>Entfernen, Löschen von Quelldateien und Abonnements sind getrennt</strong>Beim Entfernen eines Eintrags aus „Meine Downloads“ bleiben seine Dateien auf dem Datenträger und andere Wiedergabelisten standardmäßig erhalten. Nur die Option „Quelldateien vom Datenträger löschen“ entfernt Dateien, was nicht rückgängig zu machen ist. Nach dem Beenden eines Abonnements bleiben lokale Dateien erhalten; Alle löschen im Download-Bereich löscht nur den Aufgabenverlauf.
+</aside>
+<h3 class="subheading">Bedienelemente in den Download-Aufgaben</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Bedienelement</th><th scope="col">Aktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">× in einer Zeile</th><td data-label="Aktion">Bricht eine abbrechbare wartende oder laufende Download-Aufgabe ab oder entfernt einen fehlgeschlagenen Eintrag bzw. Verlaufseintrag. Diese Schaltfläche kann während nicht abbrechbarer Phasen wie dem Speichern deaktiviert sein.</td>
+</tr>
+
+<tr>
+<th scope="row">Wiederholen</th><td data-label="Aktion">Wird bei Fehlern angezeigt. Behebe die Ursache und stelle sicher, dass du noch beim Steam-Konto der Aufgabe angemeldet bist, bevor du erneut herunterlädst.</td>
+</tr>
+
+<tr>
+<th scope="row">Alle löschen</th><td data-label="Aktion">Entfernt abgeschlossene, fehlgeschlagene und abgebrochene Einträge. Aktive wartende, laufende oder speichernde Aufgaben und heruntergeladene Dateien bleiben erhalten.</td>
+</tr>
+
+<tr>
+<th scope="row">Fehlertext</th><td data-label="Aktion">Zeige auf die Fehlermeldung, um einen ausführlicheren Fehler zu lesen, und ordne ihn dem Abschnitt zur Fehlerbehebung unten zu.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div>
+</section>
+
+<section class="guide-section" id="library">
+<div class="section-heading"><h2>Ein Platz für jede Sammlung</h2><span class="tag">DEINE BIBLIOTHEKEN</span></div>
+<div class="module-list"><div><h3>Meine Videos / Meine Bilder</h3><p>Importiere und verwalte lokale Videos und Bilder getrennt. Ziehe eine Wallpaper-Karte auf eine Wiedergabeliste in der Seitenleiste, um sie schnell hinzuzufügen.</p></div><div><h3>Meine Downloads</h3><p>Verwalte heruntergeladene Inhalte aus Workshop, Pixabay und anderen Online-Quellen gemeinsam. Durchstöbere den Bereich Entdecken, um Projekte zu finden; nutze die Bibliothek zum Abspielen und Ordnen.</p></div><div><h3>Alle Wiedergabelisten</h3><p>Die erste Karte erstellt eine Wiedergabeliste. Mische Bilder, Videos sowie Web- und Scene-Wallpapers; klicke mit der rechten Maustaste auf eine Wiedergabeliste, um Name, Cover und Beschreibung zu bearbeiten.</p></div><div><h3>Favoriten / Zuletzt verwendet</h3><p>In Favoriten sammeln sich mit Herz markierte lokale und heruntergeladene Wallpapers. In Zuletzt verwendet bleiben die letzten 50 verschiedenen erfolgreich abgespielten Wallpapers. Lade Online-Ergebnisse herunter, bevor du sie hinzufügst.</p></div></div>
+<aside class="tip">
+<strong>Entfernen betrifft die Beziehung auf der aktuellen Seite</strong>In Favoriten entfernt es das Herz; in Zuletzt verwendet löscht es den Wiedergabeeintrag; in einer eigenen Wiedergabeliste entfernt es die Zugehörigkeit. Quelldateien und andere Wiedergabelisten bleiben standardmäßig erhalten. Ablage → Importieren akzeptiert lokale Videos oder Bilder, keine Web- oder Scene-Projekte.
+</aside>
+
+</section>
+
+<section class="guide-section" id="playback">
+<div class="section-heading"><h2>Wiedergabe, Ton &amp; Energie</h2><span class="tag">GEMEINSAME STEUERUNG</span></div>
+<p class="lead">Video, Web und Scene teilen Wiedergabe/Pause, Lautstärke und Stummschaltung sowie diese vier Energiesparregeln. Stelle sie einmal für alle drei Engines ein.</p>
+<div class="table-wrap">
+<table>
+<caption>Einstellungen → Energiesparen &amp; Pausieren</caption>
+<thead>
+
+<tr>
+<th scope="col">Einstellung</th><th scope="col">Wann die Wiedergabe pausiert</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Pausieren, wenn eine andere App im Vordergrund ist</th><td data-label="Wann die Wiedergabe pausiert">Wenn du in einer anderen normalen App arbeitest. MyWallpaperX und der Finder sind ausgenommen.</td>
+</tr>
+
+<tr>
+<th scope="row">Pausieren, wenn eine andere App im Vollbild ist</th><td data-label="Wann die Wiedergabe pausiert">Wenn der aktive Space von einer anderen Vollbild-App belegt ist.</td>
+</tr>
+
+<tr>
+<th scope="row">Pausieren im Akkubetrieb</th><td data-label="Wann die Wiedergabe pausiert">Wenn der Mac im Akkubetrieb läuft.</td>
+</tr>
+
+<tr>
+<th scope="row">Pausieren bei Inaktivität</th><td data-label="Wann die Wiedergabe pausiert">Nach dem gewählten Zeitraum ohne Aktivität. Passe die Wartezeit unter dem Schalter an.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div>
+<div class="two-column"><div><h3>Wiedergabe fortsetzen</h3><p>Die Wiedergabe bleibt pausiert, solange eine aktivierte Bedingung zutrifft. Sie kann automatisch fortgesetzt werden, sobald diese Bedingungen entfallen. Ein manuell pausiertes Wallpaper musst du weiterhin manuell fortsetzen.</p></div><div><h3>Ton und Audioreaktion</h3><p>Die Lautstärke steuert den eigenen Ton des Wallpapers; sie kann einem stummen Projekt keine Audiospur hinzufügen. Reaktionen auf Systemaudio erfordern zudem ein kompatibles Wallpaper, die passende Einstellung und macOS-Berechtigungen.</p></div></div>
+<aside class="tip">
+<strong>Beginne mit einem einfachen Energiespar-Setup</strong>Wenn du oft im Vollbild arbeitest, aktiviere zuerst die Vollbild-Pause. Auf einem Laptop ergänze bei Bedarf die Akku-Pause. Die Einstellung Scene 30/60 wirkt nur auf Scene; sie ändert nicht die ursprüngliche Bildrate von Videos.
+</aside>
+
+</section>
+
+<section class="guide-section" id="shortcuts">
+<div class="section-heading"><h2>Tastaturkürzel und ihr Kontext</h2><span class="tag">Kurzübersicht</span></div>
+<p>⌘ steht für Befehl, ⌥ für Option und ⌫ für Löschen. Diese Kürzel stammen aus den App-Menüs. Die Verfügbarkeit hängt von Modul, Auswahl und Textfeldfokus ab; orientiere dich am aktivierten Zustand im Menü.</p><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Tasten</th><th scope="col">Aktion</th><th scope="col">Wo und wie</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>⌘ O</kbd></th><td data-label="Aktion">Importieren</td><td data-label="Wo und wie">Öffnet eine Dateiauswahl in einem unterstützten lokalen Video- oder Bildmodul.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ N</kbd></th><td data-label="Aktion">Neue Wiedergabeliste</td><td data-label="Wo und wie">Öffnet den Wiedergabelisten-Editor. Du kannst auch über das Kontextmenü der Seitenleiste oder die erste Karte unter „Alle Wiedergabelisten“ eine erstellen.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ F</kbd></th><td data-label="Aktion">Suchen</td><td data-label="Wo und wie">Fokussiert das Suchfeld des aktuellen Moduls.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ E</kbd></th><td data-label="Aktion">Auswahlmodus umschalten</td><td data-label="Wo und wie">In Listen verwenden, die Mehrfachauswahl unterstützen.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ A</kbd></th><td data-label="Aktion">Alles auswählen</td><td data-label="Wo und wie">Wählt Text in einem Textfeld oder Einträge in einer unterstützten Bibliothek oder Wiedergabeliste aus.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="Aktion">Auswahl entfernen</td><td data-label="Wo und wie">Öffnet eine Bestätigung. Quelldateien bleiben standardmäßig erhalten; entfernt nur den aktuellen Bibliothekseintrag bzw. die Seitenbeziehung. Dateien werden nur gelöscht, wenn das Kontrollkästchen aktiviert ist.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ + / ⌘ −</kbd></th><td data-label="Aktion">Größere / kleinere Miniaturen</td><td data-label="Wo und wie">Ändert die Kartengröße, nicht das Wallpaper. Für + ist je nach Tastatur Shift nötig.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return ↵</kbd></th><td data-label="Aktion">Als Wallpaper festlegen</td><td data-label="Wo und wie">Für bereite Einträge, die diesen Befehl unterstützen. Workshop-Raster nutzen die Hauptaktion des Eintrags, die Details öffnen oder eine Abhängigkeit abrufen kann.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="Aktion">Nächstes / vorheriges Wallpaper</td><td data-label="Wo und wie">Folgt der aktuellen Wiedergabesequenz durch abspielbare Bilder, Video-, Web- oder Scene-Wallpapers; nicht der Browser-Historie.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ D</kbd></th><td data-label="Aktion">Favorit umschalten</td><td data-label="Wo und wie">Wirkt auf die aktuelle Auswahl, wo Favoriten unterstützt werden.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ T</kbd></th><td data-label="Aktion">Zu Wiedergabeliste hinzufügen</td><td data-label="Wo und wie">Fügt ausgewählte lokale oder heruntergeladene Wallpapers zu Wiedergabelisten hinzu.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ I</kbd></th><td data-label="Aktion">Informationen anzeigen</td><td data-label="Wo und wie">Öffnet Informationen zu einem unterstützten ausgewählten Eintrag.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Space</kbd></th><td data-label="Aktion">Vorschau</td><td data-label="Wo und wie">Zeigt eine Vorschau eines unterstützten ausgewählten Eintrags. Das ist keine globale Wiedergabe/Pause-Taste.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ R</kbd></th><td data-label="Aktion">Datei anzeigen</td><td data-label="Wo und wie">Findet unterstützte lokale Inhalte im Finder. Das ist nicht Aktualisieren.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ X / C / V</kbd></th><td data-label="Aktion">Ausschneiden / kopieren / einsetzen</td><td data-label="Wo und wie">In Textfeldern verwenden, die diese Bearbeitungsaktionen unterstützen.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ,</kbd></th><td data-label="Aktion">Einstellungen</td><td data-label="Wo und wie">Öffnet die App-Einstellungen.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ M / ⌘ W</kbd></th><td data-label="Aktion">Fenster minimieren / schließen</td><td data-label="Wo und wie">Das Hauptfenster zu schließen ist nicht dasselbe wie die App zu beenden.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ H / ⌥ ⌘ H</kbd></th><td data-label="Aktion">App ausblenden / andere ausblenden</td><td data-label="Wo und wie">Blendet MyWallpaperX oder andere Programme aus.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ Q</kbd></th><td data-label="Aktion">Beenden</td><td data-label="Wo und wie">Beendet MyWallpaperX.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ?</kbd></th><td data-label="Aktion">Hilfe</td><td data-label="Wo und wie">Öffnet dieses Hilfehandbuch; üblich ist auch ⌘ Shift /.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div><h3 class="subheading">Tasten in Workshop-Rastern und Dialogen</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Tasten</th><th scope="col">Aktion</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>↑ ↓ ← →</kbd></th><td data-label="Aktion">Bewegt den Tastaturfokus in Workshop-Rastern oder wechselt Einträge in unterstützten Vorschaufenstern.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Shift F5</kbd></th><td data-label="Aktion">Öffnet das Kontextmenü für den per Tastatur fokussierten Eintrag im Workshop-Browser-Raster.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Esc</kbd></th><td data-label="Aktion">Kontextabhängig: bricht die Authentifizierung in der Anmeldung ab, schließt eine Vorschau oder leert die Suche dieser Hilfeseite.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return</kbd></th><td data-label="Aktion">Sendet Anmeldedaten auf der Passwortseite oder einen Code auf der Verifizierungsseite. Der Eingabefokus hat Vorrang vor Wallpaper-Aktionen.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div>
+<aside class="tip">
+<strong>Konfiguriere zuerst die globalen Kürzel</strong>Aktiviere in den Einstellungen die System-Hotkeys und belege F1–F12 mit Vorheriges, Nächstes, Wiedergabe/Pause und Stummschalten. Standardmäßig sind sie aus und nicht belegt. Sie funktionieren, während eine andere App im Vordergrund ist: Vorheriges/Nächstes wechselt installierte Video-, Web- und Scene-Wallpapers und überspringt automatisch Einträge mit fehlenden Abhängigkeiten oder nicht abspielbare Einträge; Wiedergabe/Pause und Stummschalten steuern die aktive dynamische Engine. Wenn eine Taste nichts bewirkt, prüfe, ob sie aktiviert und belegt ist und nicht mit einem anderen Kürzel kollidiert.
+</aside>
+
+</section>
+
+<section class="guide-section" id="login">
+<div class="section-heading"><h2>Anmeldung, Schritt für Schritt</h2><span class="tag">Steam-Anmeldung</span></div>
+<p>Beginne beim Steam-Konto-Steuerelement. Die QR-Anmeldung erfordert Scannen und Bestätigen in der Steam-Mobile-App. Die Passwortanmeldung kann danach eine mobile Bestätigung, einen Authenticator-Code oder einen E-Mail-Code verlangen. Folge dem aktuellen Hinweis.</p>
+<aside class="tip">
+<strong>Anmeldung merken</strong>Aktiviere bei Bedarf Angemeldet bleiben. Wenn du beim nächsten Mal zur Anmeldung aufgefordert wirst und das nicht aktiviert war, ist das nicht unbedingt ein Fehler. Eine ausdrückliche Meldung „Sitzung konnte nicht gespeichert werden“ weist jedoch auf einen Speicherfehler hin. Halte Passwörter, Codes, QR-Bilder und Sitzungstoken aus Berichten heraus.
+</aside>
+
+<details>
+
+<summary>
+QR-Code lässt sich nicht scannen / Warten auf Bestätigung
+</summary>
+<div class="answer"><p>Scanne mit der Steam-Mobile-App. Klicke auf den Code oder die Vergrößern-Schaltfläche für eine größere Ansicht. Aktualisiere einen unbrauchbaren Code und scanne den neuen. Ein Wechsel der Anmeldemethode bricht den vorherigen Versuch ab.</p></div>
+</details>
+
+<details>
+
+<summary>
+Bestätige diese Anmeldung in der Steam-Mobile-App
+</summary>
+<div class="answer"><p>Ein gescannter Code oder ein akzeptiertes Passwort kann dennoch eine mobile Bestätigung erfordern. Lass das Anmeldefenster offen und bestätige in Steam. Schließen oder Esc bricht die Authentifizierung ab.</p></div>
+</details>
+
+<details>
+
+<summary>
+Der vorherige Verifizierungscode wurde abgelehnt
+</summary>
+<div class="answer"><p>Prüfe, ob Steam einen Authenticator-Code oder einen E-Mail-Code verlangt. Gib für diesen Versuch einen frischen Code ein; alte Codes, Tippfehler oder die falsche Quelle können abgelehnt werden. Prüfe bei E-Mail die angezeigte E-Mail-Domain.</p></div>
+</details>
+
+<details>
+
+<summary>
+Anmeldung fehlgeschlagen · InvalidPassword / accessDenied
+</summary>
+<div class="answer"><p>Steam hat Anmeldedaten oder Zugriff abgelehnt. Nutze den Kontonamen und das Passwort des Steam-Logins, nicht den Anzeigenamen des Profils. Auch Kontoberechtigungen können eine Rolle spielen. Prüfe Anmeldedaten und Kontostatus im offiziellen Steam-Client.</p></div>
+</details>
+
+<details>
+
+<summary>
+authExpired / Steam-Token abgelehnt
+</summary>
+<div class="answer"><p>Die gespeicherte Sitzung ist abgelaufen, wurde widerrufen oder abgelehnt. Melde dich über das Kontomenü mit dem gewünschten Konto erneut an.</p></div>
+</details>
+
+<details>
+
+<summary>
+Authentifizierungs-Timeout / Dienst-Timeout / Netzwerk
+</summary>
+<div class="answer"><p>Die Authentifizierung wurde nicht rechtzeitig abgeschlossen. Verbindung, ein Proxy, die Verfügbarkeit von Steam oder eine verzögerte mobile Bestätigung können eine Rolle spielen. Prüfe Bestätigung und Verbindung und versuche es dann erneut. Ein Timeout allein beweist kein falsches Passwort.</p></div>
+</details>
+
+<details>
+
+<summary>
+rateLimited / RateLimitExceeded
+</summary>
+<div class="answer"><p>Steam begrenzt Anfragen vorübergehend. Warte, bevor du es erneut versuchst, statt wiederholt Codes zu aktualisieren oder Anmeldedaten zu senden.</p></div>
+</details>
+
+<details>
+
+<summary>
+Angemeldet, aber die Sitzung konnte nicht gespeichert werden
+</summary>
+<div class="answer"><p>Die aktuelle Sitzung ist nutzbar, aber das Speichern ist fehlgeschlagen und beim nächsten Mal ist eventuell eine erneute Anmeldung nötig. Das ist etwas anderes, als Angemeldet bleiben auszulassen. Wenn es wiederholt auftritt, melde die Meldung und die App-Version; lösche nicht als Erstes deinen Schlüsselbund.</p></div>
+</details>
+
+<details>
+
+<summary>
+Steam-Dienst nicht verfügbar / inkompatible Version / Verbindung verloren
+</summary>
+<div class="answer"><p>Eine nicht verfügbare oder inkompatible Komponente erfordert meist ein Update oder eine Neuinstallation der vollständigen App; mische keine Komponenten aus verschiedenen Builds. Bei einer verlorenen Verbindung starte neu und versuche es erneut; wenn es bleibt, melde die laufende Version und Quelle.</p></div>
+</details>
+
+</section>
+
+<section class="guide-section" id="downloads">
+<div class="section-heading"><h2>Einen fehlgeschlagenen Download verstehen</h2><span class="tag">Ursachen &amp; nächste Schritte</span></div>
+<p>Öffne die Download-Aufgaben und ermittle die fehlgeschlagene Phase: Manifest-Download, CDN-Autorisierung, Datenblöcke oder Speichern lokaler Dateien. Dieselbe Fehlernummer kann in verschiedenen Phasen unterschiedliche Prüfungen erfordern.</p><div class="error-example"><span>So könnte eine Meldung aussehen · Formatbeispiel</span><samp>Manifest-Download fehlgeschlagen (HTTP 503, Knoten &lt;server&gt;, &lt;count&gt; Versuche). Prüfe die Netzwerk- und Proxy-Einstellungen und versuche es später erneut.</samp></div>
+<details>
+
+<summary>
+HTTP 503 / 500 / 502 / 504 · Netzwerk
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Ein Dienst, Inhaltsknoten oder eine Zwischenverbindung ist vorübergehend nicht verfügbar. Das Durchstöbern kann funktionieren, während Downloads fehlschlagen; 503 allein weist nicht auf einen Defekt der App-Version oder von SteamKit hin.</p></div><div><h3>So geht es weiter</h3><p>Versuche es später erneut. Prüfe, ob dein Proxy die Download-Verbindungen der App abdeckt, oder vergleiche in einem anderen Netzwerk. Wenn mehrere Einträge fehlschlagen, halte Knoten, Zeit und vollständige Meldung fest.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 401 · authExpired
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Die Download-Autorisierung oder die Anmeldesitzung ist nicht mehr gültig.</p></div><div><h3>So geht es weiter</h3><p>Melde dich über das Kontomenü erneut an und wiederhole dann die fehlgeschlagene Aufgabe.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 403 · accessDenied / fehlende CDN-Autorisierung
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Der Zugriff wurde verweigert. Inhaltsberechtigungen, CDN-Autorisierung oder ein Proxy können eine Rolle spielen; das bedeutet nicht immer ein falsches Passwort.</p></div><div><h3>So geht es weiter</h3><p>Prüfe Inhaltszugriff, Netzwerk und Proxy-Einstellungen. Melde dich erneut an und versuche es noch einmal. Eine Meldung über verweigerten Zugriff beim Bereitstellen weist dagegen auf lokale Ordnerberechtigungen hin.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 429 · rateLimited
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Steam hat die Anfragenrate begrenzt.</p></div><div><h3>So geht es weiter</h3><p>Warte, bevor du es erneut versuchst, und erzeuge nicht wiederholt neue Aufgaben. Die App führt bei manchen temporären Fehlern bereits eine begrenzte Zahl von Wiederholungsversuchen aus.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 404 · unsupportedContent / Eintrag ohne Inhaltsmanifest
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Dem Knoten fehlt der Inhalt, oder der Eintrag hat kein herunterladbares Manifest. Auch aktualisierte, nicht zugängliche oder nicht von Wallpaper Engine stammende Inhalte können nicht verfügbar sein.</p></div><div><h3>So geht es weiter</h3><p>Öffne den Eintrag erneut und prüfe Link und Zugriff. Wiederholte Downloads können einen gelöschten, nicht unterstützten oder leeren Eintrag nicht reparieren.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+diskFull · Nicht genügend Speicherplatz
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Der Datenträger für Bereitstellung oder Ziel hat nicht genügend Speicherplatz.</p></div><div><h3>So geht es weiter</h3><p>Gib auf dem betroffenen Datenträger Speicherplatz frei und wiederhole die ursprüngliche Aufgabe. Wenn die Meldung besagt, dass Teildaten behalten wurden, bewahre sie für den erneuten Versuch auf. Plane zusätzlichen Platz über die angegebene Archivgröße hinaus ein.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+integrity · Validierung fehlgeschlagen / Identität der Bereitstellung geändert
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Inhaltsprüfungen, Dateilängen oder Ordneridentität stimmen nicht mehr überein; Verschieben oder Bearbeiten von Bereitstellungsdaten kann das verursachen. Die App stoppt das unsichere Speichern.</p></div><div><h3>So geht es weiter</h3><p>Unterlasse externe Änderungen an den betroffenen Ordnern und versuche es dann erneut. Wenn es wiederholt auftritt, melde die vollständige Meldung und die Artikel-ID. Bearbeite keine Validierungsdaten, um Prüfungen zu umgehen.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+Manifest erfordert eine nicht leere project.json im Stamm / Manifestpfad…
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Erforderlicher Inhalt fehlt, oder Manifestpfade bzw. -größen bestehen die Sicherheitsprüfungen nicht. Ein reiner Netzwerk-Wiederholungsversuch löst das möglicherweise nicht.</p></div><div><h3>So geht es weiter</h3><p>Prüfe, ob der Eintrag ein vollständiges Wallpaper-Engine-Projekt ist. Melde den genauen Fehler, statt einen Ordner zusammenzustellen und als abgeschlossenen Download zu behandeln.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+Dienst-Timeout / Verbindung verloren / helperUnavailable / protocolMismatch
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Der Helper wurde möglicherweise nicht gestartet, wurde beendet, ist inkompatibel oder hat eine Anfrage nicht abgeschlossen. Diese Meldungen allein belegen keinen Steam-Ausfall.</p></div><div><h3>So geht es weiter</h3><p>Starte bei einer verlorenen Verbindung neu. Aktualisiere oder installiere die vollständige App bei nicht verfügbaren oder inkompatiblen Komponenten neu. Nenne beim Melden andere installierte App-Versionen.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+Download gestoppt, aber Bereinigung der Bereitstellung fehlgeschlagen
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Mögliche Ursache</h3><p>Die Aufgabe wurde gestoppt oder der Inhaltsstatus gespeichert, aber die Bereinigung temporärer Dateien ist fehlgeschlagen. Das ist keine Aufforderung, die Wallpaper-Bibliothek zu löschen.</p></div><div><h3>So geht es weiter</h3><p>Prüfe zuerst Aufgabe und Zustand der heruntergeladenen Inhalte. Halte die Meldung fest und prüfe Berechtigungen oder externe Dateioperationen; melde anhaltende Fehler.</p></div></div></div>
+</details>
+
+<aside class="tip">
+<strong>Warte auf „Abgeschlossen“, auch bei 100 %</strong>Nach der Übertragung folgen Validierung und Speichern. Aufgaben in der Warteschlange, beim Verbindungsaufbau oder beim Speichern zeigen möglicherweise keine kontinuierliche Geschwindigkeit. Behebe die Ursache, bevor du Wiederholen wählst. Alle löschen entfernt den Verlauf abgeschlossener Aufgaben und behält aktive Aufgaben und heruntergeladene Dateien.
+</aside>
+<p>Wenn einem abgeschlossenen Web- oder Scene-Eintrag eine Abhängigkeit fehlt, wähle in „Meine Downloads“ Nicht verfügbar oder öffne seine Details, um den erforderlichen Basiseintrag zu prüfen. Das unterscheidet sich von einem HTTP-Übertragungsfehler. Berichte sollten App-Version und Ausführungsort, Artikel-Link/ID, Zeit, vollständigen Fehler, ob ein oder alle Einträge fehlschlagen, sowie Netzwerk-/Proxy-Nutzung enthalten.</p>
+</section>
+
+<section class="guide-section" id="faq">
+<div class="section-heading"><h2>Wenn etwas geprüft werden muss</h2><span class="tag">FEHLERBEHEBUNG</span></div>
+<details>
+
+<summary>
+Das Wallpaper bewegt sich nicht mehr. Ist die App eingefroren?
+</summary>
+<p>Prüfe zuerst die manuelle Pause, dann die Regeln für Fokus, Vollbild, Akku und Inaktivität. Scene folgt diesen Schaltern ebenfalls; es erfordert nicht, dass der Finder oder MyWallpaperX im Vordergrund bleiben, um abzuspielen.</p>
+</details>
+
+<details>
+
+<summary>
+Warum ist ein Web-Wallpaper leer oder zeigt Inhalte nicht an?
+</summary>
+<p>Stelle sicher, dass der Download vollständig ist, und prüfe die Download-Aufgaben sowie etwaige Fehlermeldungen oder Meldungen zu fehlenden Abhängigkeiten in der Liste. Wetter, entfernte Bilder und andere Dienste sind offline möglicherweise nicht verfügbar. Eine einzelne HTML-Datei enthält möglicherweise nicht das gesamte Projekt.</p>
+</details>
+
+<details>
+
+<summary>
+Eine Scene läuft, sieht aber anders aus als die Workshop-Vorschau.
+</summary>
+<p>Vergleiche deine Eigenschaftsänderungen mit den Standardwerten des Autors. Manche Effekte, Skripte und Interaktionen sind eventuell noch nicht vollständig kompatibel. Füge deinem Bericht Artikel-Link, App-Version, einen Screenshot und den betroffenen Bildbereich bei.</p>
+</details>
+
+<details>
+
+<summary>
+Ein Download ist mit Fehler 503 fehlgeschlagen. Was soll ich tun?
+</summary>
+<p>Ein 503 bedeutet meist, dass ein Dienst im Anfragepfad vorübergehend nicht verfügbar ist; die Nummer allein nennt aber nicht die Ursache. Halte die Fehlermeldung fest, prüfe Kontostatus, Verbindung und freien Speicherplatz und versuche es später erneut. Wenn mehrere Einträge weiterhin fehlschlagen, melde den vollständigen Fehler, die Zeit und die App-Version.</p>
+</details>
+
+<details>
+
+<summary>
+Warum ist ein Wallpaper noch vorhanden, nachdem die Warteschlange geleert wurde?
+</summary>
+<p>Aufgabenverlauf und lokale Inhalte werden getrennt verwaltet. Alle löschen behält heruntergeladene Dateien. Entferne Wallpapers in „Meine Downloads“; Quelldateien bleiben erhalten, sofern die Option „Quelldateien vom Datenträger löschen“ nicht aktiviert ist. Auch das Beenden eines Abonnements behält lokale Dateien.</p>
+</details>
+
+<details>
+
+<summary>
+Wie prüfe ich auf Updates oder melde ein Problem?
+</summary>
+<p>Wähle Nach Updates suchen… im MyWallpaperX-Menü. Über MyWallpaperX zeigt die App-Informationen. Gib Wallpaper-Typ, Schritte zum Nachvollziehen, Artikel-Link oder lokales Dateiformat und die Fehlermeldung an. Gib niemals dein Steam-Passwort oder Verifizierungscodes weiter.</p>
+</details>
+
+</section>
+
+<footer>
+<span>MyWallpaperX-Leitfaden · Mit der App aktualisiert</span><a href="#top">Nach oben ↑</a>
+</footer>
+
+</main>
+</div></body></html>

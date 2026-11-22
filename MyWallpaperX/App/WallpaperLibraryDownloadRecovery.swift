@@ -71,10 +71,10 @@ import AppKit
                   steam.latestDownloadRecord(for: reference.sourceID) == nil else { return nil }
             let account = steam.steamServiceClient.accountEpoch
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
-                menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
+                menu.addItem(ActionMenuItem(title: String(localized: "Redownload"), symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {
-                menu.addItem(ActionMenuItem(title: "查看创意工坊页面", symbol: "safari") { [weak workspace, weak steam] in
+                menu.addItem(ActionMenuItem(title: String(localized: "View Workshop Page"), symbol: "safari") { [weak workspace, weak steam] in
                     guard let workspace, let steam, workspace.relationships.resetEpoch == epoch,
                           workspace.presentation.page == page, steam.steamServiceClient.accountEpoch == account,
                           eligible(reference, in: workspace) != nil else { return }
@@ -87,10 +87,10 @@ import AppKit
             // The source resolves a fresh asset by stable ID; recovery does not
             // depend on the current browse page or persist a temporary CDN URL.
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
-                menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
+                menu.addItem(ActionMenuItem(title: String(localized: "Redownload"), symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {
-                menu.addItem(ActionMenuItem(title: "查看 Pixabay 原网页", symbol: "safari") { [weak workspace, weak pixabay] in
+                menu.addItem(ActionMenuItem(title: String(localized: "View Original Page on Pixabay"), symbol: "safari") { [weak workspace, weak pixabay] in
                     guard let workspace, let pixabay, workspace.relationships.resetEpoch == epoch,
                           workspace.presentation.page == page, eligible(reference, in: workspace) != nil else { return }
                     pixabay.openVideoSourcePage(id: id)
@@ -100,10 +100,10 @@ import AppKit
             let library = OnlineImageLibrary.shared
             guard library.record(for: reference) != nil else { return nil }
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
-                menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
+                menu.addItem(ActionMenuItem(title: String(localized: "Redownload"), symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {
-                menu.addItem(ActionMenuItem(title: "查看原网页", symbol: "safari") { [weak workspace, weak library] in
+                menu.addItem(ActionMenuItem(title: String(localized: "View Original Page"), symbol: "safari") { [weak workspace, weak library] in
                     guard let workspace, let library, workspace.relationships.resetEpoch == epoch,
                           workspace.presentation.page == page, eligible(reference, in: workspace) != nil,
                           let record = library.record(for: reference) else { return }

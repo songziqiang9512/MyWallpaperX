@@ -37,8 +37,8 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         statusItem = item
         item.button?.target = self
         item.button?.action = #selector(togglePanel)
-        item.button?.toolTip = "MyWallpaperX · 壁纸控制"
-        item.button?.setAccessibilityLabel("MyWallpaperX 壁纸控制")
+        item.button?.toolTip = String(localized: "MyWallpaperX · Wallpaper Control")
+        item.button?.setAccessibilityLabel(String(localized: "MyWallpaperX Wallpaper Control"))
         SystemMonitor.shared.refreshRuntimeStats()
         updateStatusBarIcon()
         let timer = DispatchSource.makeTimerSource(queue: .main)
@@ -82,7 +82,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         image.isTemplate = true
         button.image = image
         button.imagePosition = .imageOnly
-        button.toolTip = hasUpdate ? "MyWallpaperX · 有可用更新，请从应用菜单检查更新" : "MyWallpaperX · 壁纸控制"
+        button.toolTip = hasUpdate ? String(localized: "MyWallpaperX · An update is available. Check for updates from the app menu.") : String(localized: "MyWallpaperX · Wallpaper Control")
         displayedIconLabel = label
         displayedIconAppearance = appearance
     }
@@ -246,7 +246,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 defer { self?.favoriteInFlight = false; self?.scheduleRefresh() }
                 do {
                     try await collections.perform(.setFavorite(item.organizationItem, enabled, Date()),
-                        undoName: enabled ? "特别喜爱" : "取消特别喜爱")
+                        undoName: enabled ? String(localized: "Favorite") : String(localized: "Unfavorite"))
                 } catch { workspace.presentation.report(error) }
             }
         } catch { workspace.presentation.report(error) }
@@ -285,9 +285,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         } else if record.contentType == .web {
             let editor = SteamWorkshopWebPropertyEditorView(record: record)
             if editor.presentsOnlyMessage, let message = editor.emptyStateMessage {
-                SteamWorkshopPropertyPanelController.shared.showMessage(title: "Web 属性调节", subtitle: record.title, message: message)
+                SteamWorkshopPropertyPanelController.shared.showMessage(title: String(localized: "Web Property Adjustments"), subtitle: record.title, message: message)
             } else {
-                SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title, content: editor)
+                SteamWorkshopPropertyPanelController.shared.show(title: String(localized: "Web Property Adjustments"), subtitle: record.title, content: editor)
             }
         }
     }
@@ -310,7 +310,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         NSApp.activate(ignoringOtherApps: true)
         // A no-window alert runs synchronously. Holding the main dispatch
         // queue here would block the async flush after terminateLater.
-        let alert = makeAppAlert(title: "确定要退出吗？", message: "壁纸将停止播放。", buttons: ["退出", "取消"])
+        let alert = makeAppAlert(title: String(localized: "Are you sure you want to quit?"), message: String(localized: "Wallpaper playback will stop."), buttons: [String(localized: "Quit"), String(localized: "Cancel")])
         presentAppAlert(alert, in: appModalHostWindow()) { response in
             if response == .alertFirstButtonReturn { NSApp.terminate(nil) }
         }

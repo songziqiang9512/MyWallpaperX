@@ -19,8 +19,8 @@ import Combine
     private let search = NSSearchField()
     private let source = NSSegmentedControl()
     private let zoom = WallpaperLibraryZoomControl()
-    private let count = NSTextField(labelWithString: "未选择壁纸")
-    private let add = NSButton(title: "添加", target: nil, action: nil)
+    private let count = NSTextField(labelWithString: String(localized: "No Wallpaper Selected"))
+    private let add = NSButton(title: String(localized: "Add"), target: nil, action: nil)
     private var preferredColumns = 5
     private var selection = WallpaperLibrarySelectionState(isSelecting: true)
     private var items: [WallpaperContentItem] = []
@@ -91,11 +91,11 @@ import Combine
     }
 
     private func configure() {
-        panel.title = isVideoSelection ? "选择屏保视频" : "添加壁纸"
+        panel.title = isVideoSelection ? String(localized: "Choose Screensaver Video") : String(localized: "Add Wallpaper")
         panel.minSize = NSSize(width: 680, height: 480)
         panel.delegate = self
         panel.isReleasedWhenClosed = false
-        let sources = isVideoSelection ? ["全部", "我的视频", "我的下载"] : ["全部", "我的视频", "我的图片", "我的下载"]
+        let sources = isVideoSelection ? [String(localized: "All"), String(localized: "My Videos"), String(localized: "My Downloads")] : [String(localized: "All"), String(localized: "My Videos"), String(localized: "My Images"), String(localized: "My Downloads")]
         source.segmentCount = sources.count
         for (index, title) in sources.enumerated() { source.setLabel(title, forSegment: index) }
         source.trackingMode = .selectOne
@@ -105,14 +105,14 @@ import Combine
         zoom.borderShape = .capsule
         source.target = self; source.action = #selector(filterChanged(_:))
         search.delegate = self
-        search.placeholderString = isVideoSelection ? "查找本地或已下载视频" : "查找本地或已下载壁纸"
+        search.placeholderString = isVideoSelection ? String(localized: "Find Local or Downloaded Videos") : String(localized: "Find Local or Downloaded Wallpapers")
         search.sendsSearchStringImmediately = true
         search.widthAnchor.constraint(equalToConstant: 220).isActive = true
         zoom.makeAction = { [weak self] in self?.makeZoomAction($0) }
         let top = NSStackView(views: [source, zoom, search])
         top.spacing = 16
         top.distribution = .fill
-        let cancel = NSButton(title: "取消", target: self, action: #selector(cancel(_:)))
+        let cancel = NSButton(title: String(localized: "Cancel"), target: self, action: #selector(cancel(_:)))
         WallpaperLibraryControlStyle.sheetCapsule(cancel)
         cancel.keyEquivalent = "\u{1b}"
         add.target = self; add.action = #selector(accept(_:)); WallpaperLibraryControlStyle.sheetCapsule(add)
@@ -140,7 +140,7 @@ import Combine
         guard WallpaperLibrarySheetPresentation.present(panel, in: host) else {
             close()
             guard host == nil || WallpaperLibrarySheetPresentation.permitsInput(in: host) else { return }
-            presentAppAlert(makeAppAlert(title: "无法打开壁纸选择", message: "请先打开主窗口，再重试。"))
+            presentAppAlert(makeAppAlert(title: String(localized: "Couldn’t open the wallpaper picker"), message: String(localized: "Open the main window first, then try again.")))
             return
         }
         refreshZoom()
@@ -233,17 +233,17 @@ import Combine
     private func refreshCount() {
         let selected = items.filter { selection.references.contains($0.reference) }
         if isVideoSelection {
-            count.stringValue = selected.first?.title ?? (items.isEmpty ? "暂无可用视频，请先导入或下载" : "选择一段视频作为屏保")
+            count.stringValue = selected.first?.title ?? (items.isEmpty ? String(localized: "No videos available. Import or download some first.") : String(localized: "Choose a Video as the Screensaver"))
             count.lineBreakMode = .byTruncatingTail
             count.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            add.title = "选择视频"
+            add.title = String(localized: "Choose Video")
             add.isEnabled = selected.count == 1
             return
         }
         let already = selected.filter { existingReferences.contains($0.reference) }.count
         let added = selected.count - already
-        count.stringValue = "已选 \(selected.count) 项 · 将新增 \(added) 项 · \(already) 项已在列表"
-        add.title = "添加 \(added) 项"
+        count.stringValue = String(localized: "\(selected.count) selected · \(added) to add · \(already) already in the list")
+        add.title = String(localized: "Added \(added) items")
         add.isEnabled = added > 0 && !isApplying
     }
 
@@ -277,7 +277,7 @@ import Combine
                     return
                 }
                 guard current.allSatisfy({ $0.capabilities.contains(.organize) }) else { throw UserCollectionsError.unavailableForOrganization }
-                try await collections.perform(.addMembers(target, current.map(\.organizationItem), Date()), undoName: "添加到列表", expectedEpoch: epoch)
+                try await collections.perform(.addMembers(target, current.map(\.organizationItem), Date()), undoName: String(localized: "Add to Playlist"), expectedEpoch: epoch)
                 guard workspace.relationships.resetEpoch == epoch, !collections.isResetting else { close(); return }
                 workspace.didEditMembers(of: .playlist(target))
                 close()
@@ -285,7 +285,7 @@ import Combine
                 guard !isClosed else { return }
                 if workspace.relationships.resetEpoch == epoch {
                     isApplying = false; refreshCount()
-                    presentAppAlert(makeAppAlert(title: "添加壁纸未完成", message: error.localizedDescription), in: panel)
+                    presentAppAlert(makeAppAlert(title: String(localized: "Adding wallpaper didn't finish"), message: error.localizedDescription), in: panel)
                 } else { close() }
             }
         }
@@ -340,7 +340,7 @@ import Combine
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true; layer?.cornerRadius = 5
         setAccessibilityElement(false)
-        let text = NSTextField(labelWithString: "已在列表")
+        let text = NSTextField(labelWithString: String(localized: "Already in List"))
         text.font = .systemFont(ofSize: 10, weight: .medium)
         text.setAccessibilityElement(false)
         text.translatesAutoresizingMaskIntoConstraints = false

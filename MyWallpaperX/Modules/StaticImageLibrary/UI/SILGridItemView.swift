@@ -20,7 +20,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private let imageContainer   = AppearanceAwareContainerView()
     private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView    = NSImageView()
-    private let placeholderLabel = NSTextField(labelWithString: "加载中...")
+    private let placeholderLabel = NSTextField(labelWithString: String(localized: "Loading…"))
     private let selectionTint    = NSView()
     private let hoverOutline     = NSView()
     private let overlayView      = NSView()
@@ -152,7 +152,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         isHovering = false
         isSelectedState = false; isMultiSelect = false
         thumbnailView.image = nil
-        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.stringValue = String(localized: "Loading…")
         placeholderLabel.isHidden = true
         multiSelectBadge.isHidden = true; multiSelectIcon.isHidden = true
         hoverOutline.alphaValue = 0; isHoverOutlineVisible = false
@@ -211,7 +211,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
             thumbnailView.image = cachedThumbnail
             updateThumbnailFrame()
         }
-        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.stringValue = String(localized: "Loading…")
         placeholderLabel.isHidden = true
         beginThumbnailLoad()
     }
@@ -232,7 +232,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
 
     private func beginThumbnailLoad() {
         guard isThumbnailVisible, let wallpaperID, let thumbnailLoader else { return }
-        placeholderLabel.stringValue = "加载中..."
+        placeholderLabel.stringValue = String(localized: "Loading…")
         placeholderLabel.isHidden = true
         let cancellation = ThumbnailCacheRequestCancellation()
         thumbnailCancellation = cancellation
@@ -255,11 +255,11 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
                 self.placeholderLabel.isHidden = true
             case .missingFile:
                 self.thumbnailView.image = nil
-                self.placeholderLabel.stringValue = "原文件不存在"
+                self.placeholderLabel.stringValue = String(localized: "Original File Not Found")
                 self.placeholderLabel.isHidden = false
             case .unavailable:
                 self.thumbnailView.image = nil
-                self.placeholderLabel.stringValue = "缩略图不可用"
+                self.placeholderLabel.stringValue = String(localized: "Thumbnail Unavailable")
                 self.placeholderLabel.isHidden = false
             }
             self.updateThumbnailFrame()

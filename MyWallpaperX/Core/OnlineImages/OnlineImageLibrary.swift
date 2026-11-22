@@ -639,15 +639,15 @@ import Foundation
         guard permitsDeletion(), let record = record(for: reference),
               expectedRevision == nil || expectedRevision == record.revision,
               let url = localURL(for: record), transfers[record.id] == nil else {
-            throw OnlineImageError.message("该图片正在下载或记录已变化，请稍后重试。")
+            throw OnlineImageError.message(String(localized: "This image is downloading or its record has changed. Try again later."))
         }
         if !snapshot.unavailable.contains(record.id) {
             let prepared = try await Task.detached(priority: .utility) { try WallpaperSourceFileDeletion.prepare(url) }.value
             guard permitsDeletion(), self.record(for: reference)?.revision == record.revision, isFileInUse?(url.path) != true else {
-                throw OnlineImageError.message("该图片正在作为壁纸使用，请先切换后再删除。")
+                throw OnlineImageError.message(String(localized: "This image is in use as a wallpaper. Switch to another wallpaper before deleting it."))
             }
             let result = WallpaperSourceFileDeletion.unlinkPrepared(prepared)
-            guard result.sourceFileDeleted else { throw OnlineImageError.message(result.failureMessage ?? "删除失败") }
+            guard result.sourceFileDeleted else { throw OnlineImageError.message(result.failureMessage ?? String(localized: "Delete Failed")) }
             let sync = await Task.detached(priority: .utility) { WallpaperSourceFileDeletion.synchronizeDirectory(after: prepared) }.value
             if let message = sync.failureMessage { errorMessage = message }
         }

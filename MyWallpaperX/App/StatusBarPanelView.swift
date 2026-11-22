@@ -7,22 +7,22 @@ final class StatusBarPanelView: NSView {
     /// The popover panel owns keyboard focus so Tab/Esc work without a click.
     override var acceptsFirstResponder: Bool { true }
     let cover = StatusBarPanelCoverView()
-    let openMain = StatusBarPanelSymbolButton(symbol: "house", help: "打开主界面", size: 18)
-    let previous = StatusBarPanelSymbolButton(symbol: "backward.end.fill", help: "上一张", size: 18)
-    let playback = StatusBarPanelSymbolButton(symbol: "pause.fill", help: "暂停壁纸", surface: .primary, size: 18)
-    let next = StatusBarPanelSymbolButton(symbol: "forward.end.fill", help: "下一张", size: 18)
-    let mute = StatusBarPanelSymbolButton(symbol: "speaker.wave.2.fill", help: "静音", size: 16)
-    let quit = StatusBarPanelSymbolButton(symbol: "power", help: "退出 MyWallpaperX", surface: .subtle, size: 12)
-    let mode = StatusBarPanelSymbolButton(symbol: "repeat.1", help: "播放方式", size: 16)
-    let favorite = StatusBarPanelSymbolButton(symbol: "heart", help: "添加到特别喜爱", surface: .favorite, size: 16)
-    let compactProperties = StatusBarPanelSymbolButton(symbol: "paintbrush", help: "属性调节", size: 16)
-    let settings = NSButton(title: "打开设置", target: nil, action: nil)
+    let openMain = StatusBarPanelSymbolButton(symbol: "house", help: String(localized: "Open Main Window"), size: 18)
+    let previous = StatusBarPanelSymbolButton(symbol: "backward.end.fill", help: String(localized: "Previous"), size: 18)
+    let playback = StatusBarPanelSymbolButton(symbol: "pause.fill", help: String(localized: "Pause Wallpaper"), surface: .primary, size: 18)
+    let next = StatusBarPanelSymbolButton(symbol: "forward.end.fill", help: String(localized: "Next"), size: 18)
+    let mute = StatusBarPanelSymbolButton(symbol: "speaker.wave.2.fill", help: String(localized: "Mute"), size: 16)
+    let quit = StatusBarPanelSymbolButton(symbol: "power", help: String(localized: "Quit MyWallpaperX"), surface: .subtle, size: 12)
+    let mode = StatusBarPanelSymbolButton(symbol: "repeat.1", help: String(localized: "Playback Method"), size: 16)
+    let favorite = StatusBarPanelSymbolButton(symbol: "heart", help: String(localized: "Add to Favorites"), surface: .favorite, size: 16)
+    let compactProperties = StatusBarPanelSymbolButton(symbol: "paintbrush", help: String(localized: "Adjust Properties"), size: 16)
+    let settings = NSButton(title: String(localized: "Open Settings"), target: nil, action: nil)
     let volume = NSSlider(value: 50, minValue: 0, maxValue: 100, target: nil, action: nil)
     let titleLabel = NSTextField(labelWithString: "")
     let statusLabel = NSTextField(labelWithString: "")
     private let appLabel = NSTextField(labelWithString: "MyWallpaperX")
     private let volumeLabel = NSTextField(labelWithString: "50%")
-    private let metricTitles = ["CPU", "GPU", "内存"].map { NSTextField(labelWithString: $0) }
+    private let metricTitles = ["CPU", "GPU", String(localized: "Memory")].map { NSTextField(labelWithString: $0) }
     private let metricValues = (0..<3).map { _ in NSTextField(labelWithString: "—") }
     private let upload = NSTextField(labelWithString: "")
     private let download = NSTextField(labelWithString: "")
@@ -52,22 +52,22 @@ final class StatusBarPanelView: NSView {
         volumeLabel.font = .monospacedDigitSystemFont(ofSize: 11 * scale, weight: .regular)
         volumeLabel.textColor = .secondaryLabelColor
         volumeLabel.alignment = .right
-        quit.title = "退出"
+        quit.title = String(localized: "Quit")
         quit.font = .systemFont(ofSize: 12 * scale)
-        quit.attributedTitle = NSAttributedString(string: "退出", attributes: [
+        quit.attributedTitle = NSAttributedString(string: String(localized: "Quit"), attributes: [
             .font: NSFont.systemFont(ofSize: 12 * scale), .foregroundColor: NSColor.labelColor
         ])
         quit.imagePosition = .imageLeading
         quit.imageHugsTitle = true
         volume.isContinuous = true
         volume.controlSize = .small
-        volume.setAccessibilityLabel("音量")
+        volume.setAccessibilityLabel(String(localized: "Volume"))
         volume.setAccessibilityIdentifier("status-panel-volume")
         settings.isBordered = false
         settings.bezelStyle = .regularSquare
         settings.font = .systemFont(ofSize: 12 * scale)
         settings.alignment = .left
-        settings.attributedTitle = NSAttributedString(string: "打开设置", attributes: [
+        settings.attributedTitle = NSAttributedString(string: String(localized: "Open Settings"), attributes: [
             .font: NSFont.systemFont(ofSize: 12 * scale), .foregroundColor: NSColor.labelColor
         ])
         settings.contentTintColor = .labelColor
@@ -75,7 +75,7 @@ final class StatusBarPanelView: NSView {
         settings.imagePosition = .imageLeading
         settings.imageHugsTitle = true
         settings.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13 * scale, weight: .regular)
-        settings.setAccessibilityLabel("打开设置")
+        settings.setAccessibilityLabel(String(localized: "Open Settings"))
         for label in metricTitles {
             label.font = .systemFont(ofSize: 12 * scale)
             label.textColor = .secondaryLabelColor
@@ -102,14 +102,14 @@ final class StatusBarPanelView: NSView {
            instant < selectedAt.advanced(by: .seconds(3600)) { return }
         let messages: [String]
         switch calendar.component(.hour, from: date) {
-        case 5..<8: messages = ["早安，又是新一天", "把晨光带进桌面"]
-        case 8..<12: messages = ["今天也有好风景", "给今天一点新鲜感"]
-        case 12..<14: messages = ["歇一会儿，看看风景", "留片刻给好心情"]
-        case 14..<18: messages = ["午后适合换个风景", "偶尔走神也不错"]
-        case 18..<23: messages = ["把晚风留在桌面", "今晚，就慢一点吧"]
-        default: messages = ["留一盏温柔的光", "让喜欢的画面陪你"]
+        case 5..<8: messages = [String(localized: "Good morning, a new day begins"), String(localized: "Bring the morning light to your desktop")]
+        case 8..<12: messages = [String(localized: "Good views today, too."), String(localized: "A fresh look for today")]
+        case 12..<14: messages = [String(localized: "Take a moment to enjoy the view"), String(localized: "Make room for a good mood")]
+        case 14..<18: messages = [String(localized: "The afternoon is a good time for a change of scenery."), String(localized: "Drifting off now and then is nice, too.")]
+        case 18..<23: messages = [String(localized: "Keep the evening breeze on your desktop"), String(localized: "Tonight, take it slow.")]
+        default: messages = [String(localized: "Leave a gentle light on"), String(localized: "Let the views you love keep you company")]
         }
-        let authorPrompt = "给作者点个星标吧"
+        let authorPrompt = String(localized: "Give the author a star")
         if appLabel.stringValue != authorPrompt && Int.random(in: 0..<10) == 0 {
             appLabel.stringValue = authorPrompt
         } else {
@@ -137,10 +137,10 @@ final class StatusBarPanelView: NSView {
         favorite.isEnabled = presentation.canFavorite
         favorite.state = presentation.isFavorite ? .on : .off
         favorite.image = NSImage(systemSymbolName: presentation.isFavorite ? "heart.fill" : "heart", accessibilityDescription: nil)
-        let favoriteHelp = presentation.isFavorite ? "取消喜爱" : "添加到喜爱"
+        let favoriteHelp = presentation.isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites")
         favorite.toolTip = favoriteHelp
         favorite.setAccessibilityLabel(favoriteHelp)
-        favorite.setAccessibilityValue(presentation.isFavorite ? "已喜爱" : "未喜爱")
+        favorite.setAccessibilityValue(presentation.isFavorite ? String(localized: "Favorited") : String(localized: "Not in Favorites"))
         previous.isEnabled = presentation.canNavigate
         next.isEnabled = presentation.canNavigate
         playback.isEnabled = presentation.canTogglePlayback
@@ -148,10 +148,10 @@ final class StatusBarPanelView: NSView {
         playback.toolTip = presentation.playbackHelp
         playback.setAccessibilityLabel(presentation.playbackHelp)
         mute.image = NSImage(systemSymbolName: presentation.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", accessibilityDescription: nil)
-        let muteHelp = presentation.isMuted ? "取消静音" : "开启静音"
+        let muteHelp = presentation.isMuted ? String(localized: "Unmute") : String(localized: "Mute")
         mute.toolTip = muteHelp
         mute.setAccessibilityLabel(muteHelp)
-        mute.setAccessibilityValue(presentation.isMuted ? "已静音" : "未静音")
+        mute.setAccessibilityValue(presentation.isMuted ? String(localized: "Muted") : String(localized: "Unmuted"))
         // The volume is preserved behind the independent mute gate.
         volume.doubleValue = presentation.displayedVolume
         volumeLabel.stringValue = "\(Int(presentation.displayedVolume.rounded()))%"
@@ -167,16 +167,16 @@ final class StatusBarPanelView: NSView {
         metricValues[0].stringValue = stats.cpuUsageString
         metricValues[1].stringValue = stats.gpuUsageString
         metricValues[2].stringValue = stats.memUsedString
-        metricValues[0].toolTip = "本应用、播放进程及其子进程 CPU 使用率；100% 为一个核心（不含无法归属的系统 XPC 服务）"
-        metricValues[1].toolTip = "系统全部 GPU 使用率"
-        metricValues[2].toolTip = "本应用、播放进程及其子进程物理内存（不含无法归属的系统 XPC 服务）"
+        metricValues[0].toolTip = String(localized: "CPU usage of this app, the playback process, and their child processes; 100% is one core (excluding system XPC services that can’t be attributed)")
+        metricValues[1].toolTip = String(localized: "System-Wide GPU Usage")
+        metricValues[2].toolTip = String(localized: "Physical memory of this app, the playback process, and their child processes (excluding system XPC services that can’t be attributed)")
         let uploadText = stats.netUpString
         let downloadText = stats.netDownString
         upload.stringValue = "↑  \(uploadText)"
         download.stringValue = "↓  \(downloadText)"
         download.alignment = .right
-        upload.setAccessibilityLabel("网络上传速度 \(uploadText)")
-        download.setAccessibilityLabel("网络下载速度 \(downloadText)")
+        upload.setAccessibilityLabel(String(localized: "Network upload speed \(uploadText)"))
+        download.setAccessibilityLabel(String(localized: "Network download speed \(downloadText)"))
     }
 
     override func layout() {

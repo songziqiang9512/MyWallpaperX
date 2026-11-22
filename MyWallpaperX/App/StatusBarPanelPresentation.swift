@@ -16,10 +16,10 @@ struct StatusBarPanelPresentation {
 
         var title: String {
             switch self {
-            case .none: return "还没有正在播放的壁纸"
+            case .none: return String(localized: "No Wallpaper Playing")
             case let .video(item): return item.displayTitle
             case let .workshop(item): return item.title
-            case let .remembered(_, item): return item?.title ?? "上次播放的壁纸"
+            case let .remembered(_, item): return item?.title ?? String(localized: "Last Played Wallpaper")
             case let .still(url): return url.deletingPathExtension().lastPathComponent
             }
         }
@@ -31,13 +31,13 @@ struct StatusBarPanelPresentation {
             case let .workshop(item): return item.contentType == .scene ? "Scene" : "Web"
             case let .remembered(_, item):
                 switch item?.kind {
-                case .image: return "静态壁纸"
+                case .image: return String(localized: "Static Wallpaper")
                 case .video: return "Video"
                 case .web: return "Web"
                 case .scene: return "Scene"
-                default: return "壁纸"
+                default: return String(localized: "Wallpaper")
                 }
-            case .still: return "静态壁纸"
+            case .still: return String(localized: "Static Wallpaper")
             }
         }
 
@@ -71,14 +71,14 @@ struct StatusBarPanelPresentation {
     var canFavorite = false
 
     var status: String {
-        if isSwitching { return content == .none ? "正在准备壁纸…" : "\(content.kind) · 正在切换…" }
-        if content == .none { return "打开主界面，选择一张喜欢的壁纸" }
-        if isStandby { return "\(content.kind) · 上次播放 · 点按恢复" }
+        if isSwitching { return content == .none ? String(localized: "Preparing Wallpaper…") : String(localized: "\(content.kind) · Switching…") }
+        if content == .none { return String(localized: "Open the main window and choose a wallpaper you like") }
+        if isStandby { return String(localized: "\(content.kind) · Last Played · Click to Restore") }
         if !content.isDynamic {
-            if isRotating { return isSystemPaused ? "系统已暂停轮换" : isUserPaused ? "已暂停轮换" : "正在轮换" }
-            return "已设为系统桌面"
+            if isRotating { return isSystemPaused ? String(localized: "Rotation Paused by the System") : isUserPaused ? String(localized: "Rotation paused") : String(localized: "Rotating") }
+            return String(localized: "Set as system desktop")
         }
-        let state = isSystemPaused ? "系统已暂停" : isUserPaused ? "已暂停" : isPlaying ? "正在播放" : "正在恢复…"
+        let state = isSystemPaused ? String(localized: "Paused by the system") : isUserPaused ? String(localized: "Paused") : isPlaying ? String(localized: "Playing") : String(localized: "Restoring…")
         return "\(content.kind) · \(state)"
     }
 
@@ -91,9 +91,9 @@ struct StatusBarPanelPresentation {
     var hasPlaybackControls: Bool { isStandby || content.isDynamic || isRotating }
 
     var playbackHelp: String {
-        if isStandby { return "恢复上次播放的壁纸" }
-        if isRotating { return isUserPaused ? "继续轮换" : "暂停轮换" }
-        return isUserPaused ? "继续播放壁纸" : "暂停壁纸"
+        if isStandby { return String(localized: "Resume Last Played Wallpaper") }
+        if isRotating { return isUserPaused ? String(localized: "Resume Rotation") : String(localized: "Pause Rotation") }
+        return isUserPaused ? String(localized: "Resume Wallpaper") : String(localized: "Pause Wallpaper")
     }
 
     var modeSymbol: String {
@@ -107,10 +107,10 @@ struct StatusBarPanelPresentation {
 
     var modeHelp: String {
         switch playbackMode {
-        case .loop: return "单循环；点按切换为顺序播放"
-        case .sequential: return "顺序播放；点按切换为随机播放"
-        case .random: return "随机播放；点按切换为单循环"
-        case nil: return "播放方式"
+        case .loop: return String(localized: "Single loop; click to switch to sequential playback")
+        case .sequential: return String(localized: "Play in order; click to switch to shuffle")
+        case .random: return String(localized: "Shuffle; click to switch to repeat one")
+        case nil: return String(localized: "Playback Method")
         }
     }
 

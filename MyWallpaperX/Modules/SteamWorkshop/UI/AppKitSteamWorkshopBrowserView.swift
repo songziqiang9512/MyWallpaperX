@@ -215,8 +215,8 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
     private var loadingText: String {
         service.isBrowsingAuthorWorkshop
-            ? "正在抓取 \(service.activeAuthorWorkshopName ?? "作者") 的工坊列表..."
-            : "正在抓取创意工坊\(service.browserContentMode.displayName)列表..."
+            ? String(localized: "Fetching the Workshop list for \(service.activeAuthorWorkshopName ?? String(localized: "Author"))…")
+            : String(localized: "Fetching Workshop \(service.browserContentMode.displayName) list...")
     }
 
     private var emptyStateMessage: String {
@@ -224,11 +224,11 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         if service.isBrowsingAuthorWorkshop,
            !trimmedQuery.isEmpty,
            !service.browserItems.isEmpty {
-            return "已加载的作者作品中没有匹配项"
+            return String(localized: "No matches among the loaded artwork by this author")
         }
         return service.isBrowsingAuthorWorkshop
-            ? "\(service.activeAuthorWorkshopName ?? "该作者") 当前没有可访问的作品"
-            : "当前条件下没有抓取到\(service.browserContentMode.displayName)项目"
+            ? String(localized: "\(service.activeAuthorWorkshopName ?? String(localized: "Unknown Author")) has no accessible items")
+            : String(localized: "No \(service.browserContentMode.displayName) items were fetched with the current filters")
     }
 
     /// The account route remains the sole authentication authority. This view
@@ -239,7 +239,7 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
               !service.steamAuth.isOnline else {
             return nil
         }
-        return "登录 Steam 后可查看当前账号的「\(service.source.displayName)」。请使用工具栏的「登录 Steam」。"
+        return String(localized: "Sign in to Steam to view “\(service.source.displayName)” for the current account. Use “Sign In to Steam” in the toolbar.")
     }
 
     private func syncContent(force: Bool = false) {
@@ -297,8 +297,8 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
     private func makeErrorStateView(message: String) -> NSView {
         let stack = WallpaperLibraryControlStyle.gridState(symbol: "wifi.exclamationmark",
-            label: NSTextField(labelWithString: service.isBrowsingAuthorWorkshop ? "抓取作者工坊信息失败" : "抓取创意工坊信息失败"), message: message)
-        let retryButton = NSButton(title: "重试", target: self, action: #selector(retryBrowserFetch))
+            label: NSTextField(labelWithString: service.isBrowsingAuthorWorkshop ? String(localized: "Couldn’t Fetch Creator Workshop Info") : String(localized: "Couldn’t Fetch Workshop Info")), message: message)
+        let retryButton = NSButton(title: String(localized: "Retry"), target: self, action: #selector(retryBrowserFetch))
         retryButton.bezelStyle = .rounded
         stack.addArrangedSubview(retryButton)
         return stack

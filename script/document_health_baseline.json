@@ -223,6 +223,14 @@
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 563,
       "bytes": 160652
+    },
+    "docs/development/localization-contract.md": {
+      "lines": 390,
+      "bytes": 29766
+    },
+    "docs/development/localization-plan.md": {
+      "lines": 201,
+      "bytes": 20368
     }
   },
   "archives": [
@@ -538,6 +546,24 @@
       "owner": "Existing Scene model evidence and Spot volume dispatch owners",
       "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/localization-contract.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "1fe06626d4935615677fc4d5186f467398dfbed07e544a973a3960da37fc3484",
+      "owner": "Localization contract/plan owner",
+      "reason": "Record the five supported languages and their measured length ratios in the standard.",
+      "decision": "docs/development/localization-contract.md#source-language"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/localization-plan.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "2991fa74e408110c9874e42ee74f79fe4ab2ba62451ea8de4e800b36cbbe049a",
+      "owner": "Localization migration plan owner",
+      "reason": "Record the four-language real-window walkthrough that closed the last acceptance gap.",
+      "decision": "docs/development/localization-plan.md#current-state"
     }
   ]
 }

@@ -9,13 +9,13 @@ nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatab
     var displayName: String {
         switch self {
         case .video:
-            return "视频壁纸"
+            return String(localized: "Video Wallpaper")
         case .web:
-            return "Web壁纸"
+            return String(localized: "Web Wallpaper")
         case .scene:
-            return "场景壁纸"
+            return String(localized: "Scene Wallpaper")
         case .unknown:
-            return "未知类型"
+            return String(localized: "Unknown Type")
         }
     }
 }
@@ -125,13 +125,13 @@ nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable, Codable
     var statusText: String {
         switch status {
         case .queued:
-            return "等待下载"
+            return String(localized: "Waiting to Download")
         case .downloading:
-            return "下载中"
+            return String(localized: "Downloading")
         case .ready:
-            return "已下载"
+            return String(localized: "Downloaded")
         case .failed:
-            return "下载失败"
+            return String(localized: "Download Failed")
         }
     }
 
@@ -185,7 +185,7 @@ nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable, Codable
         return displayItem ?? SteamWorkshopBrowserItem(
             id: id,
             title: title,
-            author: "未知作者",
+            author: "",
             authorProfileURL: nil,
             authorWorkshopURL: nil,
             hasAdultContent: false,

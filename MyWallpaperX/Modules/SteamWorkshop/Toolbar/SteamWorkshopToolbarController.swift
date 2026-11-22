@@ -137,8 +137,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
-        SteamWorkshopService.shared.$statusMessage
-            .map { $0.hasPrefix("需要登录") }
+        SteamWorkshopService.shared.$browsingNeedsSignIn
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -226,9 +225,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var personalListToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamPersonalList)
-        item.label = "列表"
-        item.paletteLabel = "个人列表"
-        item.toolTip = "切换 Steam 个人列表"
+        item.label = String(localized: "List")
+        item.paletteLabel = String(localized: "Personal List")
+        item.toolTip = String(localized: "Switch Steam Personal List")
         item.autovalidates = false
         item.view = personalListButton
         return item
@@ -245,9 +244,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var zoomToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamZoom)
-        item.label = "缩放"
-        item.paletteLabel = "缩放"
-        item.toolTip = "调整条目卡片大小"
+        item.label = String(localized: "Zoom")
+        item.paletteLabel = String(localized: "Zoom")
+        item.toolTip = String(localized: "Resize Item Cards")
         item.autovalidates = false
         item.view = zoomControl
         item.visibilityPriority = .low
@@ -255,18 +254,18 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     }()
 
     lazy var authorBackButton: NSButton = {
-        let button = NSButton(title: "返回", target: self, action: #selector(handleBackToDiscovery))
+        let button = NSButton(title: String(localized: "Back"), target: self, action: #selector(handleBackToDiscovery))
         WallpaperLibraryControlStyle.capsule(button)
-        button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: "返回")
+        button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: String(localized: "Back"))
         button.imagePosition = .imageLeading
         return button
     }()
 
     lazy var authorBackToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamAuthorBack)
-        item.label = "返回"
-        item.paletteLabel = "返回"
-        item.toolTip = "返回上一级工坊浏览"
+        item.label = String(localized: "Back")
+        item.paletteLabel = String(localized: "Back")
+        item.toolTip = String(localized: "Back to the Previous Workshop Page")
         item.autovalidates = false
         item.view = authorBackButton
         return item
@@ -274,16 +273,16 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var sortButton: NSButton = {
         let button = NSButton(title: "", target: self, action: #selector(handleSortAction(_:)))
-        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.sortSymbol, accessibilityDescription: "排序")
+        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.sortSymbol, accessibilityDescription: String(localized: "Sort"))
         WallpaperLibraryControlStyle.capsule(button)
         return button
     }()
 
     lazy var sortToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamSort)
-        item.label = "浏览来源"
-        item.paletteLabel = "浏览来源"
-        item.toolTip = "切换创意工坊浏览来源"
+        item.label = String(localized: "Browse Sources")
+        item.paletteLabel = String(localized: "Browse Sources")
+        item.toolTip = String(localized: "Switch Workshop Browsing Source")
         item.autovalidates = false
         item.view = sortButton
         return item
@@ -296,27 +295,27 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var trendingWindowToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamTrendingWindow)
-        item.label = "时间段"
-        item.paletteLabel = "时间段"
-        item.toolTip = "切换最热门榜单的时间范围"
+        item.label = String(localized: "Time Range")
+        item.paletteLabel = String(localized: "Time Range")
+        item.toolTip = String(localized: "Change Most Popular Time Range")
         item.autovalidates = false
         item.view = trendingWindowButton
         return item
     }()
 
     lazy var filterButton: NSButton = {
-        let button = NSButton(title: "筛选", target: self, action: #selector(handleFilterMenu))
+        let button = NSButton(title: String(localized: "Filter"), target: self, action: #selector(handleFilterMenu))
         button.bezelStyle = .rounded
-        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol, accessibilityDescription: "筛选")
+        button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol, accessibilityDescription: String(localized: "Filter"))
         button.imagePosition = .imageLeading
         return button
     }()
 
     lazy var filterToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamFilter)
-        item.label = "筛选"
-        item.paletteLabel = "筛选"
-        item.toolTip = "选择类型、年龄分级和分辨率筛选规则"
+        item.label = String(localized: "Filter")
+        item.paletteLabel = String(localized: "Filter")
+        item.toolTip = String(localized: "Choose type, age rating, and resolution filter rules")
         item.autovalidates = false
         item.view = filterButton
         return item
@@ -325,7 +324,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "搜索"
+        field.placeholderString = String(localized: "Search")
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.recentsAutosaveName = nil
@@ -341,9 +340,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var searchToolbarItem: NSSearchToolbarItem = {
         let item = NSSearchToolbarItem(itemIdentifier: .steamSearch)
-        item.label = "搜索创意工坊"
-        item.paletteLabel = "搜索创意工坊"
-        item.toolTip = "搜索创意工坊"
+        item.label = String(localized: "Search Workshop")
+        item.paletteLabel = String(localized: "Search Workshop")
+        item.toolTip = String(localized: "Search Workshop")
         item.autovalidates = false
         item.searchField = searchField
         searchField.widthAnchor.constraint(equalToConstant: WallpaperLibraryControlStyle.toolbarSearchWidth).isActive = true
@@ -363,9 +362,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var accountToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamAccount)
-        item.label = "账号"
-        item.paletteLabel = "Steam 账号"
-        item.toolTip = "打开 Steam 登录页"
+        item.label = String(localized: "Account")
+        item.paletteLabel = String(localized: "Steam Account")
+        item.toolTip = String(localized: "Open Steam Sign-In Page")
         item.autovalidates = false
         item.view = accountButton
         return item

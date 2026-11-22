@@ -13,20 +13,20 @@ nonisolated struct SteamWorkshopBrowserContentMode: OptionSet, CaseIterable, Ide
 
     nonisolated var displayName: String {
         switch self {
-        case .all: return "全部壁纸"
-        case .video: return "视频壁纸"
-        case .web: return "WEB壁纸"
-        case .scene: return "场景壁纸"
+        case .all: return String(localized: "All Wallpapers")
+        case .video: return String(localized: "Video Wallpaper")
+        case .web: return String(localized: "Web Wallpaper")
+        case .scene: return String(localized: "Scene Wallpaper")
         default: return Self.allCases.dropFirst().filter { contains($0) }.map(\.displayName).joined(separator: "、")
         }
     }
 
     nonisolated var shortDisplayName: String {
         switch self {
-        case .all: return "全部"
-        case .video: return "视频"
+        case .all: return String(localized: "All")
+        case .video: return String(localized: "Videos")
         case .web: return "WEB"
-        case .scene: return "场景"
+        case .scene: return String(localized: "Scene")
         default: return displayName
         }
     }
@@ -79,19 +79,19 @@ enum SteamWorkshopSource: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .featured: return "最热门"
-        case .recent: return "最新发布"
-        case .mostSubscribed: return "最多订阅"
-        case .updated: return "最后更新"
-        case .mySubscriptions: return "我的订阅"
-        case .myFavorites: return "我的收藏"
+        case .featured: return String(localized: "Most Popular")
+        case .recent: return String(localized: "Latest Published")
+        case .mostSubscribed: return String(localized: "Most Subscribed")
+        case .updated: return String(localized: "Last Updated")
+        case .mySubscriptions: return String(localized: "My Subscriptions")
+        case .myFavorites: return String(localized: "My Favorites")
         }
     }
 
     nonisolated var toolbarDisplayName: String {
         switch self {
-        case .mySubscriptions: return "订阅"
-        case .myFavorites: return "收藏"
+        case .mySubscriptions: return String(localized: "Subscribe")
+        case .myFavorites: return String(localized: "Favorites")
         default: return displayName
         }
     }
@@ -107,9 +107,9 @@ enum SteamWorkshopSource: String, CaseIterable, Identifiable {
 
     nonisolated var pageTitle: String {
         switch self {
-        case .mySubscriptions: return "我的订阅"
-        case .myFavorites: return "我的收藏"
-        default: return "Steam 创意工坊"
+        case .mySubscriptions: return String(localized: "My Subscriptions")
+        case .myFavorites: return String(localized: "My Favorites")
+        default: return String(localized: "Steam Workshop")
         }
     }
 }
@@ -127,10 +127,10 @@ enum SteamWorkshopPersonalSort: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .name: return "文件名称"
-        case .fileSize: return "文件大小"
-        case .subscriptionDate: return "订阅日期"
-        case .lastUpdated: return "最近更新"
+        case .name: return String(localized: "File Name")
+        case .fileSize: return String(localized: "File Size")
+        case .subscriptionDate: return String(localized: "Subscription Date")
+        case .lastUpdated: return String(localized: "Recently Updated")
         }
     }
 }
@@ -148,13 +148,13 @@ enum SteamWorkshopTrendingWindow: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .today: return "今天"
-        case .week: return "一周"
-        case .month: return "30 天"
-        case .quarter: return "三个月"
-        case .halfYear: return "半年"
-        case .year: return "一年"
-        case .allTime: return "有史以来"
+        case .today: return String(localized: "Today")
+        case .week: return String(localized: "One Week")
+        case .month: return String(localized: "30 days")
+        case .quarter: return String(localized: "Three Months")
+        case .halfYear: return String(localized: "Six Months")
+        case .year: return String(localized: "One Year")
+        case .allTime: return String(localized: "All Time")
         }
     }
 
@@ -200,27 +200,27 @@ enum SteamWorkshopThemeFilter: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .all: return "全部"
-        case .abstract: return "抽象"
-        case .anime: return "动漫"
-        case .animal: return "动物"
-        case .city: return "城市"
-        case .technology: return "科技"
-        case .landscape: return "风景"
-        case .space: return "太空"
-        case .scifi: return "科幻"
+        case .all: return String(localized: "All")
+        case .abstract: return String(localized: "Abstract")
+        case .anime: return String(localized: "Anime")
+        case .animal: return String(localized: "Animals")
+        case .city: return String(localized: "City")
+        case .technology: return String(localized: "Technology")
+        case .landscape: return String(localized: "Landscape")
+        case .space: return String(localized: "Space")
+        case .scifi: return String(localized: "Sci-Fi")
         case .cgi: return "CGI"
-        case .cyberpunk: return "赛博"
-        case .fantasy: return "奇幻"
-        case .game: return "游戏"
-        case .movie: return "影视"
-        case .music: return "音乐"
-        case .nature: return "自然"
-        case .relaxing: return "治愈"
-        case .cartoon: return "卡通"
-        case .cute: return "可爱"
-        case .vehicle: return "汽车"
-        case .girls: return "人物"
+        case .cyberpunk: return String(localized: "Cyberpunk")
+        case .fantasy: return String(localized: "Fantasy")
+        case .game: return String(localized: "Games")
+        case .movie: return String(localized: "Movies")
+        case .music: return String(localized: "Music")
+        case .nature: return String(localized: "Nature")
+        case .relaxing: return String(localized: "Relaxing")
+        case .cartoon: return String(localized: "Cartoon")
+        case .cute: return String(localized: "Cute")
+        case .vehicle: return String(localized: "Vehicles")
+        case .girls: return String(localized: "People")
         }
     }
 
@@ -240,10 +240,10 @@ struct SteamWorkshopAgeRatingFilter: OptionSet, Hashable {
 
     nonisolated var displayName: String {
         switch self {
-        case .everyone: return "大众级 (G)"
-        case .questionable: return "家长指导级 (PG-13)"
-        case .mature: return "限制级 / 成人级 (R-18)"
-        default: return "全部年龄"
+        case .everyone: return String(localized: "Everyone (G)")
+        case .questionable: return String(localized: "PG-13 (Parental Guidance)")
+        case .mature: return String(localized: "Restricted / Adult (R-18)")
+        default: return String(localized: "All Ages")
         }
     }
 
@@ -271,7 +271,7 @@ enum SteamWorkshopResolutionFilter: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .all: return "全部分辨率"
+        case .all: return String(localized: "All Resolutions")
         default: return rawValue
         }
     }
@@ -292,11 +292,11 @@ enum SteamWorkshopCategoryFilter: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .all: return "全部分类"
-        case .wallpaper: return "壁纸"
-        case .scene: return "场景"
-        case .web: return "网页"
-        case .application: return "应用"
+        case .all: return String(localized: "All Categories")
+        case .wallpaper: return String(localized: "Wallpaper")
+        case .scene: return String(localized: "Scene")
+        case .web: return String(localized: "Web")
+        case .application: return String(localized: "Application")
         }
     }
 

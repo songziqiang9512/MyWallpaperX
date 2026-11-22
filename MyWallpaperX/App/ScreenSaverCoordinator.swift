@@ -21,7 +21,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
     func save(_ preferences: ScreenSaverPreferences, optionsOnly: Bool = false, prepareSharedStorage: Bool = true,
               completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
         guard workspace?.presentation.canEditCollections == true else {
-            let error = Failure.message("资料库正在同步或重置，请稍后再保存屏保。")
+            let error = Failure.message(String(localized: "The library is syncing or resetting. Save the screensaver later."))
             errorMessage = error.localizedDescription
             completion(.failure(error))
             return
@@ -64,8 +64,8 @@ public final class ScreenSaverCoordinator: ObservableObject {
                 } else {
                     guard let reference = accepted.reference else {
                         throw Failure.message(accepted.mode == .followDesktop
-                            ? "还没有可跟随的视频，请先选择或播放一个本地视频。"
-                            : "请选择一个本地视频。")
+                            ? String(localized: "There’s no video to follow yet. Select or play a local video first.")
+                            : String(localized: "Choose a local video."))
                     }
                     let resolved = try self.resolveInput(reference)
                     defer { withExtendedLifetime(resolved) {} }
@@ -195,11 +195,11 @@ public final class ScreenSaverCoordinator: ObservableObject {
     }
 
     private func resolveInput(_ reference: WallpaperReference) throws -> ResolvedInput {
-        guard let workspace else { throw Failure.message("壁纸库尚未就绪。") }
+        guard let workspace else { throw Failure.message(String(localized: "The wallpaper library isn’t ready yet.")) }
         let content = try workspace.content(for: reference)
-        guard content.kind == .video else { throw Failure.message("屏保仅支持本地视频，请重新选择。") }
+        guard content.kind == .video else { throw Failure.message(String(localized: "The screen saver only supports local videos. Choose a different file.")) }
         guard content.publishedAvailability.isPublishedLocally, content.publishedAvailability.isAvailable else {
-            throw Failure.message("这个视频当前没有可用的本地文件，请先定位文件或完成下载。")
+            throw Failure.message(String(localized: "This video has no local file available right now. Locate the file or finish downloading it first."))
         }
         let url: URL
         let lifetime: PlaybackResourceLifetime?
@@ -209,12 +209,12 @@ public final class ScreenSaverCoordinator: ObservableObject {
             guard let record = service.latestDownloadRecord(for: owner.sourceID),
                   record.id.utf8.elementsEqual(owner.sourceID.utf8), record.status == .ready,
                   record.contentType == .video, let video = record.videoURL else {
-                throw Failure.message("创意工坊视频来源已变化或不可用，请刷新后重试。")
+                throw Failure.message(String(localized: "The Workshop video source has changed or is unavailable. Refresh and try again."))
             }
             url = video
             lifetime = try service.libraryVersionLifetime(recordID: record.id, consumedRoots: [record.folderURL, video])
         } else {
-            guard let path = content.locator.path else { throw Failure.message("本地视频位置不可用。") }
+            guard let path = content.locator.path else { throw Failure.message(String(localized: "The local video location is unavailable.")) }
             url = URL(fileURLWithPath: path)
             lifetime = nil
         }

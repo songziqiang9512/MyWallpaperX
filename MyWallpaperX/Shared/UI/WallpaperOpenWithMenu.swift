@@ -18,7 +18,7 @@ import AppKit
         }
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let item = NSMenuItem(title: "打开方式", action: nil, keyEquivalent: "")
+        let item = NSMenuItem(title: String(localized: "Open With"), action: nil, keyEquivalent: "")
         item.submenu = menu
         item.isEnabled = !applications.isEmpty
         guard !applications.isEmpty else { return item }
@@ -31,7 +31,7 @@ import AppKit
         }
         for application in applications {
             let name = FileManager.default.displayName(atPath: application.path)
-            let title = application == defaultApplication ? "\(name)（默认）" : name
+            let title = application == defaultApplication ? String(localized: "\(name) (Default)") : name
             let item = ActionMenuItem(title: title, symbol: "") {
                 guard permitsAction() else { return }
                 workspace.open(files, withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { _, error in

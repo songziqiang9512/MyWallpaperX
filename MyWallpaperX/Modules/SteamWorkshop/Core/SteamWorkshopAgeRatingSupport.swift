@@ -35,7 +35,7 @@ extension SteamWorkshopAgeRatingFilter {
 
     var activeDisplayName: String? {
         guard self != .all else { return nil }
-        guard !isEmpty else { return "不显示任何年龄分级" }
+        guard !isEmpty else { return String(localized: "Don’t Show Any Age Ratings") }
         return Self.selectableRatings
             .filter(contains)
             .map(\.displayName)

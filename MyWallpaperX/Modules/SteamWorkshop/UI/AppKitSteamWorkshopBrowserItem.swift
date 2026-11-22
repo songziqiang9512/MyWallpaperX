@@ -212,14 +212,14 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(item.title)
         view.setAccessibilityCustomActions((onOpen.map { action in [
-            NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
+            NSAccessibilityCustomAction(name: String(localized: "View Details"), handler: { [weak self] in
                 guard let self, self.onOpen != nil, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true else { return false }
                 action()
                 return true
             })
         ] } ?? []) + (displayContext == .browser ? [
-            NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
+            NSAccessibilityCustomAction(name: String(localized: "Artwork Actions Menu"), handler: { [weak self] in
                 guard let self, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
                       let menu = self.currentContextMenu() else { return false }
@@ -280,14 +280,14 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(item.title)
         view.setAccessibilityCustomActions((onOpen.map { action in [
-            NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
+            NSAccessibilityCustomAction(name: String(localized: "View Details"), handler: { [weak self] in
                 guard let self, self.onOpen != nil, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true else { return false }
                 action()
                 return true
             })
         ] } ?? []) + (displayContext == .browser ? [
-            NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
+            NSAccessibilityCustomAction(name: String(localized: "Artwork Actions Menu"), handler: { [weak self] in
                 guard let self, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
                       let menu = self.currentContextMenu() else { return false }
@@ -600,24 +600,23 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         downloadRecord: SteamWorkshopDownloadRecord?,
         barState: BarState
     ) -> String {
-        let trimmedRecordSize = downloadRecord?.sizeText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sizeText = (trimmedRecordSize?.isEmpty == false ? trimmedRecordSize : nil)
+        let sizeText = (downloadRecord?.sizeText.isEmpty == false ? downloadRecord?.sizeText : nil)
             ?? item.fileSizeText
-            ?? "未知大小"
+            ?? String(localized: "Unknown size")
 
         switch barState {
         case .connecting, .preparing, .transferring, .validating, .saving, .waiting:
             let compact = view.bounds.width > 0 && view.bounds.width < 230
-            return currentProgressSnapshot?.statusText(compact: compact) ?? "下载中  ·  \(sizeText)"
+            return currentProgressSnapshot?.statusText(compact: compact) ?? String(localized: "Downloading · \(sizeText)")
         case .queued:
-            return "等待下载  ·  \(sizeText)"
+            return String(localized: "Waiting to download  ·  \(sizeText)")
         case .failed:
-            return currentProgressSnapshot?.statusText() ?? "下载失败 · 重试"
+            return currentProgressSnapshot?.statusText() ?? String(localized: "Download failed · Retry")
         case .idle, .ready:
             // D7：已存在 ready 产物又发生更新失败时保留 ready 卡，仅附加
             // 「更新失败」状态；播放动作仍走旧有效文件。
             if resolvedUpdateFailedMessage(downloadRecord: downloadRecord) != nil {
-                return "已下载 · 更新失败"
+                return String(localized: "Downloaded · Update Failed")
             }
             return item.title
         }
@@ -685,22 +684,22 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         switch actionKind {
         case .download:
             controlBar.primaryState = .download
-            title = "下载：\(itemTitle)"
+            title = String(localized: "Download: \(itemTitle)")
         case .retry:
             controlBar.primaryState = .download
-            title = "重新下载：\(itemTitle)"
+            title = String(localized: "Redownload: \(itemTitle)")
         case .cancel:
             controlBar.primaryState = .switching
-            title = "取消下载：\(itemTitle)"
+            title = String(localized: "Cancel Download: \(itemTitle)")
         case .setAsWallpaper:
             controlBar.primaryState = isLaunchPending ? .switching : .apply
-            title = isLaunchPending ? "正在切换壁纸：\(itemTitle)" : "设为壁纸：\(itemTitle)"
+            title = isLaunchPending ? String(localized: "Switching wallpaper: \(itemTitle)") : String(localized: "Set as Wallpaper: \(itemTitle)")
         case .saving:
             controlBar.primaryState = .switching
-            title = "正在保存：\(itemTitle)"
+            title = String(localized: "Saving: \(itemTitle)")
         case .stop:
             controlBar.primaryState = .playing
-            title = "停止播放：\(itemTitle)"
+            title = String(localized: "Stop Playback: \(itemTitle)")
         }
         let failure = currentProgressSnapshot?.failureMessage ?? currentDownloadRecord?.failureMessage
             ?? resolvedUpdateFailedMessage(downloadRecord: currentDownloadRecord)

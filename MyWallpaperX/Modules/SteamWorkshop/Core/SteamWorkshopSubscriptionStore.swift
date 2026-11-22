@@ -86,7 +86,7 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
                 self.states[id] = .known(value)
             } catch {
                 guard self.isCurrent(epoch) else { return }
-                self.states[id] = .unconfirmed("订阅状态暂时无法确认，请点击重新查询。")
+                self.states[id] = .unconfirmed(String(localized: "Subscription status can’t be confirmed right now. Click to check again."))
             }
             self.tasks[id] = nil
         }
@@ -113,7 +113,7 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
                 self.didReconcileWrite?(id, actual)
             } catch {
                 guard self.isCurrent(epoch) else { return }
-                self.states[id] = .unconfirmed("操作结果待确认，请重新查询后再操作。")
+                self.states[id] = .unconfirmed(String(localized: "The operation’s result is unconfirmed. Refresh and try again."))
             }
             self.tasks[id] = nil
         }

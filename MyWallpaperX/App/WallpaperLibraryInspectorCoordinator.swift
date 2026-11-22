@@ -330,7 +330,7 @@ import QuickLookUI
         stack.alignment = .leading
         stack.spacing = 12
         stack.addArrangedSubview(NSTextField(wrappingLabelWithString: content.title))
-        stack.addArrangedSubview(NSTextField(wrappingLabelWithString: "原始文件当前不可用，播放列表中的引用已保留。"))
+        stack.addArrangedSubview(NSTextField(wrappingLabelWithString: String(localized: "The original file isn’t available right now. References in playlists have been kept.")))
         if let path = content.locator.path {
             let label = NSTextField(wrappingLabelWithString: path)
             label.isSelectable = true

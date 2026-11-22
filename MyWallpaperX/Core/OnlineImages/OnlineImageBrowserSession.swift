@@ -147,7 +147,7 @@ import Foundation
                 if background && !replacesScope {
                     let byID = Dictionary(page.items.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
                     state.items = state.items.map { byID[$0.id] ?? $0 }
-                    if state.firstPageIDs != page.items.map(\.id) { state.notice = "有新内容可刷新" }
+                    if state.firstPageIDs != page.items.map(\.id) { state.notice = String(localized: "New content available") }
                 } else if reset || replacesScope {
                     state.items = Self.unique(page.items)
                     state.firstPageIDs = page.items.map(\.id)
@@ -164,7 +164,7 @@ import Foundation
                     if !page.items.isEmpty { state.items = merged }
                     state.next = page.next; state.notice = page.notice
                     if state.items.count == previousCount, state.query.authorIdentifier != nil {
-                        state.notice = page.notice ?? "暂未获取到更多内容"
+                        state.notice = page.notice ?? String(localized: "No more content yet")
                     }
                 }
                 scope = currentScope

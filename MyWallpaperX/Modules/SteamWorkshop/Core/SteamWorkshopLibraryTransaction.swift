@@ -48,7 +48,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         "scene": "Scene",
     ]
     typealias FD = SteamWorkshopStorageTree.FD
-    static func require(_ condition: Bool, _ message: String = "下载内容或文件路径校验失败。") throws {
+    static func require(_ condition: Bool, _ message: String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
         guard condition else { throw Failure(message: message) }
     }
     private static func parts(_ path: String) throws -> [String] {
@@ -75,7 +75,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     static func publicTypeDirectoryName(for contentType: String) throws -> String {
         guard let name = publicTypeDirectories[contentType] else {
-            throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
+            throw Failure(message: String(localized: "The downloaded project doesn’t have a valid scene/web/video type."))
         }
         return name
     }
@@ -135,7 +135,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             birthNanoseconds: Int64(value.st_birthtimespec.tv_nsec)
         )
         try require(identity.isComplete,
-                    "文件系统未提供完整创建身份，拒绝写入或删除。")
+                    String(localized: "The file system didn’t provide a complete creation identity; writing and deleting are refused."))
         return identity
     }
 
@@ -166,31 +166,31 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         let data = try readData(marker, maximumBytes: 16 * 1024)
         let commit = try JSONDecoder().decode(SteamWorkshopLibraryCommit.self, from: data)
         try require((commit.version == 2 || commit.version == 3) && storageIdentity(for: commit) != nil,
-                    "受管下载版本标记无效。")
+                    String(localized: "The managed download version marker is invalid."))
         return commit
     }
 
     private static func writeMarker(_ commit: SteamWorkshopLibraryCommit, to root: FD) throws {
         let file = try openFile(root, ownershipMarkerName, create: true)
         let data = try JSONEncoder().encode(commit)
-        try require(data.count <= 16 * 1024, "下载版本标记超过预算。")
+        try require(data.count <= 16 * 1024, String(localized: "The download version marker exceeds the budget."))
         try write(data, to: file)
-        try require(fsync(file.value) == 0, "下载版本标记无法同步到磁盘。")
+        try require(fsync(file.value) == 0, String(localized: "The download version marker couldn’t be synced to disk."))
     }
 
     static func childNames(_ root: FD, limit: Int = 1_024) throws -> [String] {
         let duplicate = dup(root.value)
-        guard duplicate >= 0 else { throw Failure(message: "无法枚举下载目录。") }
+        guard duplicate >= 0 else { throw Failure(message: String(localized: "Couldn’t enumerate the Downloads folder.")) }
         guard let stream = fdopendir(duplicate) else {
             close(duplicate)
-            throw Failure(message: "无法枚举下载目录。")
+            throw Failure(message: String(localized: "Couldn’t enumerate the Downloads folder."))
         }
         defer { closedir(stream) }
         var names: [String] = []
         while true {
             errno = 0
             guard let entry = readdir(stream) else {
-                try require(errno == 0, "下载目录枚举失败。")
+                try require(errno == 0, String(localized: "Failed to enumerate the Downloads folder."))
                 break
             }
             let name = withUnsafePointer(to: &entry.pointee.d_name) {
@@ -201,7 +201,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             if name == "." || name == ".." { continue }
             try require(!name.isEmpty && !name.contains("/") && !name.utf8.contains(0))
             names.append(name)
-            try require(names.count <= limit, "保留的下载/版本目录超过回收扫描预算。")
+            try require(names.count <= limit, String(localized: "The retained download/version directory exceeds the cleanup scan budget."))
         }
         return names.sorted()
     }
@@ -219,7 +219,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     ) throws {
         var named = stat()
         try require(fstatat(parent.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0)
-        try require((named.st_mode & S_IFMT) == S_IFDIR, "仅回收受管版本目录。")
+        try require((named.st_mode & S_IFMT) == S_IFDIR, String(localized: "Only managed version folders are reclaimed."))
         guard (try? validatedFilesystemIdentity(named)) != nil else {
             throw OwnedDirectoryChanged()
         }
@@ -269,7 +269,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                       sameFilesystemObject(currentFileInfo, openedFileInfo) else {
                     throw OwnedDirectoryChanged()
                 }
-                try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
+                try require(unlinkat(opened.value, child, 0) == 0, String(localized: "Version file cleanup failed."))
             } else {
                 // Symlinks and other non-directory entries are never followed.
                 // They still need a complete birth-qualified pathname identity
@@ -283,7 +283,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                       sameFilesystemObject(currentEntryInfo, value) else {
                     throw OwnedDirectoryChanged()
                 }
-                try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
+                try require(unlinkat(opened.value, child, 0) == 0, String(localized: "Version file cleanup failed."))
             }
         }
 
@@ -293,13 +293,13 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             && sameFilesystemObject(current, openedInfo) else {
             throw OwnedDirectoryChanged()
         }
-        try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, "版本目录回收失败。")
+        try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, String(localized: "Couldn't reclaim the version directory."))
     }
     static func availableDiskBytes(at root: URL) throws -> Int64 {
         _ = try absoluteDirectory(root, create: true)
         let attributes = try FileManager.default.attributesOfFileSystem(forPath: root.path)
         guard let value = attributes[.systemFreeSize] as? NSNumber else {
-            throw Failure(message: "无法读取下载磁盘的剩余空间。")
+            throw Failure(message: String(localized: "Couldn’t read the free space on the download disk."))
         }
         return value.int64Value
     }
@@ -309,7 +309,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         _ = try absoluteDirectory(rhs, create: true)
         let left = try FileManager.default.attributesOfFileSystem(forPath: lhs.path)[.systemNumber] as? NSNumber
         let right = try FileManager.default.attributesOfFileSystem(forPath: rhs.path)[.systemNumber] as? NSNumber
-        guard let left, let right else { throw Failure(message: "无法识别下载目录所在磁盘。") }
+        guard let left, let right else { throw Failure(message: String(localized: "Couldn’t identify the disk that contains the Downloads folder.")) }
         return left == right
     }
 
@@ -341,9 +341,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 for part in components.dropFirst(count) { result.appendPathComponent(part, isDirectory: true) }
                 return result
             }
-            try require(errno == ENOENT, "配置的下载目录无法访问。")
+            try require(errno == ENOENT, String(localized: "The configured downloads folder is inaccessible."))
         }
-        throw Failure(message: "配置的下载目录无法解析。")
+        throw Failure(message: String(localized: "The configured download folder can’t be resolved."))
     }
     /// Capture the exact helper lease identity when its allocated event is accepted.
     /// The persisted identity is later required by ack, preparation and cleanup.
@@ -356,18 +356,18 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             path: stagingURL.path,
             stagingRoot: configured.path
         ), validated.path == stagingURL.path else {
-            throw Failure(message: "拒绝清理不属于当前下载任务的暂存目录。")
+            throw Failure(message: String(localized: "Refusing to clean up a staging folder that doesn’t belong to the current download task."))
         }
         let root = try absoluteDirectory(configured)
         let name = validated.lastPathComponent
         var named = stat()
         try require(fstatat(root.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0,
-                    "无法检查下载暂存目录。")
-        try require((named.st_mode & S_IFMT) == S_IFDIR, "下载暂存目录身份无效。")
+                    String(localized: "Couldn’t inspect the download staging folder."))
+        try require((named.st_mode & S_IFMT) == S_IFDIR, String(localized: "The download staging folder has an invalid identity."))
         let opened = try directory(root, name)
         let openedInfo = try info(opened, regular: false)
         try require(sameFilesystemObject(named, openedInfo),
-                    "下载暂存目录在验收期间发生变化。")
+                    String(localized: "The download staging folder changed during validation."))
         return try validatedFilesystemIdentity(openedInfo)
     }
 
@@ -379,32 +379,32 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         expectedIdentity: SteamWorkshopStagingLeaseIdentity
     ) throws {
         try require(expectedIdentity.isComplete,
-                    "下载暂存缺少完整创建身份，拒绝按路径清理。")
+                    String(localized: "The download staging lacks a complete creation identity; cleanup by path refused."))
         let configured = try configuredRoot(stagingRoot)
         guard let validated = SteamWorkshopStagedReceipt.validatedStagingURL(
             path: stagingURL.path,
             stagingRoot: configured.path
         ), validated.path == stagingURL.path else {
-            throw Failure(message: "拒绝清理不属于当前下载任务的暂存目录。")
+            throw Failure(message: String(localized: "Refusing to clean up a staging folder that doesn’t belong to the current download task."))
         }
         let root = try absoluteDirectory(configured)
         let name = validated.lastPathComponent
         var value = stat()
         if fstatat(root.value, name, &value, AT_SYMLINK_NOFOLLOW) != 0 {
             if errno == ENOENT { return }
-            throw Failure(message: "无法检查下载暂存目录。")
+            throw Failure(message: String(localized: "Couldn’t inspect the download staging folder."))
         }
         do {
             try removeOwnedTree(parent: root, name: name, expectedIdentity: expectedIdentity)
         } catch is OwnedDirectoryChanged {
-            throw Failure(message: "下载暂存目录已被同名替换，拒绝清理。")
+            throw Failure(message: String(localized: "The download staging directory was replaced by an item with the same name, so cleanup was refused."))
         }
     }
 
     static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int,
                         libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
         guard receipt.version == 2, let sourceIdentity = receipt.stagingLeaseIdentity, sourceIdentity.isComplete else {
-            throw Failure(message: "下载凭证缺少稳定的暂存目录身份。")
+            throw Failure(message: String(localized: "The download receipt is missing a stable staging directory identity."))
         }
         return try prepareSource(
             sourceURL: receipt.stagingURL,
@@ -432,10 +432,10 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         let source = try absoluteDirectory(sourceURL)
         let sourceInfo = try info(source, regular: false)
         try require(sameDirectory(sourceInfo, as: expectedSourceIdentity),
-                    "下载暂存目录已被同名替换，拒绝入库。")
+                    String(localized: "The download staging folder was replaced by one with the same name; import refused."))
         let inventory = try SteamWorkshopStorageTree.files(source,
             checkCancellation: { try Task.checkCancellation() })
-        try require(!inventory.contains { $0.path == ownershipMarkerName }, "下载内容使用了保留标记名。")
+        try require(!inventory.contains { $0.path == ownershipMarkerName }, String(localized: "The downloaded content uses a reserved marker name."))
         let library = try absoluteDirectory(libraryRoot, create: true)
         let incoming = try directory(library, incomingName, create: true)
         // Reject volumes without stable birth identity before creating an
@@ -467,7 +467,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         // Parse the small project first; the complete download digest below
         // still folds every copied author file in the original NFC/UTF8 order.
         guard let projectEntry = inventory.first(where: { $0.path == "project.json" && !$0.isDirectory }) else {
-            throw Failure(message: "下载项目缺少 project.json。")
+            throw Failure(message: String(localized: "The downloaded project is missing project.json."))
         }
         var project: [String: Any] = [:]
         var contentType = ""
@@ -484,25 +484,25 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             let output = try openFile(destination, entry.path, create: true, readableOutput: true)
             let fact = try SteamWorkshopStorageTree.streamFile(input, entry: entry, output: output,
                                                               checkCancellation: { try Task.checkCancellation() })
-            try require(fsync(output.value) == 0, "下载文件无法同步到磁盘。")
+            try require(fsync(output.value) == 0, String(localized: "The downloaded file couldn’t be synced to disk."))
             fileFacts.append(fact)
             total += entry.size
             if entry.path == "project.json" {
-                try require(entry.size > 0 && entry.size <= 1024 * 1024, "project.json 超出解析预算。")
+                try require(entry.size > 0 && entry.size <= 1024 * 1024, String(localized: "project.json exceeds the parsing budget."))
                 let data = try SteamWorkshopStorageTree.readData(output, maximumBytes: 1024 * 1024,
                                                                  checkCancellation: { try Task.checkCancellation() })
                 guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let rawType = value["type"] as? String else {
-                    throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
+                    throw Failure(message: String(localized: "The downloaded project doesn’t have a valid scene/web/video type."))
                 }
                 project = value
                 contentType = rawType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                try require(["scene", "web", "video"].contains(contentType), "下载项目缺少有效的 scene/web/video 类型。")
+                try require(["scene", "web", "video"].contains(contentType), String(localized: "The downloaded project doesn’t have a valid scene/web/video type."))
             }
         }
         let digest = try SteamWorkshopStorageTree.treeDigest(fileFacts)
-        try require(total == verifiedBytes, "下载内容在入库前发生变化。")
-        try require(digest == expectedDigest, "下载内容在入库前发生变化。")
+        try require(total == verifiedBytes, String(localized: "The download changed before it was added to the library."))
+        try require(digest == expectedDigest, String(localized: "The download changed before it was added to the library."))
         let entry = (project["file"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
@@ -524,7 +524,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         } else if contentType == "web", entry == nil, dependency != nil {
             // A dependency-only web project has no local HTML entry.
         } else {
-            guard let entry else { throw Failure(message: "下载项目缺少入口文件。") }
+            guard let entry else { throw Failure(message: String(localized: "The downloaded project is missing its entry file.")) }
             let ext = URL(fileURLWithPath: entry).pathExtension.lowercased()
             try require((contentType == "web" ? ["html", "htm"] : ["mp4", "webm", "mov", "m4v"]).contains(ext))
             _ = try openFile(destination, entry)
@@ -546,10 +546,10 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             committedAt: committedAt
         )
         try writeMarker(commit, to: destination)
-        try require(fsync(destination.value) == 0, "下载版本目录无法同步到磁盘。")
+        try require(fsync(destination.value) == 0, String(localized: "The download version folder couldn’t be synced to disk."))
         try require(renameatx_np(version.value, "content", typeDirectory.value, finalDirectoryName, UInt32(RENAME_EXCL)) == 0,
-                    "下载版本发布失败；旧版本保持不变。")
-        try require(fsync(typeDirectory.value) == 0, "下载类型目录无法同步到磁盘。")
+                    String(localized: "Publishing the downloaded version failed; the old version is unchanged."))
+        try require(fsync(typeDirectory.value) == 0, String(localized: "The download type folder couldn’t be synced to disk."))
         return commit
     }
     static func validID(_ id: String) -> Bool {

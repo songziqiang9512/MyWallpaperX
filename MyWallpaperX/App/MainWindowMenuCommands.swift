@@ -46,25 +46,25 @@ import AppKit
         case .about, .settings: return true
         case .closeWindow: return inputWindow != nil
         case .undo:
-            item.title = undoManager?.undoMenuItemTitle ?? "撤销"
+            item.title = undoManager?.undoMenuItemTitle ?? String(localized: "Undo")
             return undoManager?.canUndo == true
         case .redo:
-            item.title = undoManager?.redoMenuItemTitle ?? "重做"
+            item.title = undoManager?.redoMenuItemTitle ?? String(localized: "Redo")
             return undoManager?.canRedo == true
         case .createPlaylist: return commands?.canOrganize == true
         case .importFiles:
             switch page {
-            case .videos, .recent: item.title = "导入视频…"
-            case .images: item.title = "导入图片…"
-            default: item.title = "导入壁纸…"
+            case .videos, .recent: item.title = String(localized: "Import Videos…")
+            case .images: item.title = String(localized: "Import Images…")
+            default: item.title = String(localized: "Import Wallpapers…")
             }
             return commands?.canImport == true
         case .toggleSelection: return commands?.canToggleSelection == true
         case .deleteSelected:
             item.representedObject = nil
-            if textView != nil { item.title = "删除"; return editableText != nil }
-            if page == .playlists { item.title = "删除列表…"; return controller?.canDeleteSelectedPlaylist == true }
-            item.title = commands?.removalTitle ?? "移除所选"
+            if textView != nil { item.title = String(localized: "Delete"); return editableText != nil }
+            if page == .playlists { item.title = String(localized: "Delete Playlist…"); return controller?.canDeleteSelectedPlaylist == true }
+            item.title = commands?.removalTitle ?? String(localized: "Remove Selected")
             guard let commands, commands.canOrganize else { return false }
             let selection = commands.selection
             guard !selection.isEmpty else { return false }
@@ -75,7 +75,7 @@ import AppKit
         case .zoomOut: return picker.map { $0.canZoom(-1) } ?? (controller?.canZoomLibrary(-1) == true)
         case .applyWallpaper:
             item.representedObject = nil
-            item.title = "设为壁纸"
+            item.title = String(localized: "Set as Wallpaper")
             if editableText != nil { return true }
             if let defaultButton { item.title = defaultButton.title; return true }
             if textView != nil { return false }
@@ -89,7 +89,7 @@ import AppKit
             let playing = commands.workspace.isPlaying(selection[0].reference)
             guard let primary = commands.makePrimaryAction(for: selection[0], renderedPlaying: playing,
                 renderedTicket: commands.manager.playbackSwitch.committed?.ticket) else { return false }
-            item.title = playing ? "停止播放" : "设为壁纸"
+            item.title = playing ? String(localized: "Stop Playback") : String(localized: "Set as Wallpaper")
             item.representedObject = localAction(for: selection.map(\.reference), perform: primary)
             return true
         case .nextWallpaper, .previousWallpaper:
@@ -98,10 +98,10 @@ import AppKit
             return textView != nil || controller != nil
         case .favorite:
             item.representedObject = nil
-            item.title = "特别喜爱"
+            item.title = String(localized: "Favorite")
             if page?.isRemoteBrowse == true {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canFavorite else { return false }
-                item.title = actions.state.isFavorite ? "取消特别喜爱" : "特别喜爱"
+                item.title = actions.state.isFavorite ? String(localized: "Unfavorite") : String(localized: "Favorite")
                 item.representedObject = actions.onToggleFavorite
                 return true
             }
@@ -145,7 +145,7 @@ import AppKit
             return true
         case .revealOrRefresh:
             item.representedObject = nil
-            item.title = "在 Finder 中显示"
+            item.title = String(localized: "Show in Finder")
             guard page?.isRemoteBrowse != true, let commands else { return false }
             let selection = commands.selection
             guard selection.contains(where: { $0.capabilities.contains(.reveal) }) else { return false }

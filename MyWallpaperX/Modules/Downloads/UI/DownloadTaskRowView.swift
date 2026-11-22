@@ -105,7 +105,7 @@ import Combine
     private func renderContent() {
         guard let row = presentation?.row else { clearContent(); return }
         titleLabel.stringValue = row.title
-        progressBar.setAccessibilityLabel("下载进度：\(row.title)")
+        progressBar.setAccessibilityLabel(String(localized: "Download progress: \(row.title)"))
         for action in DownloadTaskAction.allCases where row.actions.contains(action) { _ = button(for: action) }
         for (action, button) in buttons {
             button.isHidden = !row.actions.contains(action)
@@ -194,13 +194,13 @@ import Combine
 
     private static func title(_ action: DownloadTaskAction) -> String {
         switch action {
-        case .promote: return "优先下载"
-        case .pause: return "暂停"
-        case .resume: return "继续"
-        case .retry: return "重试"
-        case .revealFile: return "在访达中显示"
-        case .cancel: return "取消下载"
-        case .removeHistory: return "清除记录"
+        case .promote: return String(localized: "Download Priority")
+        case .pause: return String(localized: "Pause")
+        case .resume: return String(localized: "Continue")
+        case .retry: return String(localized: "Retry")
+        case .revealFile: return String(localized: "Show in Finder")
+        case .cancel: return String(localized: "Cancel Download")
+        case .removeHistory: return String(localized: "Clear Records")
         }
     }
 }

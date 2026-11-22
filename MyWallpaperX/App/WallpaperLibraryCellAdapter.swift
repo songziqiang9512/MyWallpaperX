@@ -382,7 +382,7 @@ final class WallpaperLibraryUnavailableItem: NSCollectionViewItem, WallpaperGrid
     private let card = AppearanceAwareContainerView()
     private let symbol = NSImageView()
     private let titleLabel = NSTextField(wrappingLabelWithString: "")
-    private let status = NSTextField(labelWithString: "原文件不可用")
+    private let status = NSTextField(labelWithString: String(localized: "Original File Unavailable"))
     private let selection = NSImageView()
     private var selectedState = false
     private var hovered = false
@@ -393,12 +393,13 @@ final class WallpaperLibraryUnavailableItem: NSCollectionViewItem, WallpaperGrid
         card.layer?.cornerRadius = 14; card.layer?.borderWidth = 1; card.layer?.masksToBounds = true
         card.appearanceDidChangeHandler = { [weak self] in self?.refreshAppearance() }
         view.addSubview(card)
-        symbol.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "原文件不可用")
+        symbol.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: String(localized: "Original File Unavailable"))
         symbol.contentTintColor = .secondaryLabelColor
         titleLabel.alignment = .center; titleLabel.maximumNumberOfLines = 2
         titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
         status.alignment = .center; status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor
-        selection.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: "已选中")
+        status.toolTip = String(localized: "Original File Unavailable")
+        selection.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: String(localized: "Selected"))
         selection.contentTintColor = .controlAccentColor
         [symbol, titleLabel, status, selection].forEach { card.addSubview($0) }
         refreshAppearance()
@@ -408,10 +409,10 @@ final class WallpaperLibraryUnavailableItem: NSCollectionViewItem, WallpaperGrid
         self.selectedState = selected
         titleLabel.stringValue = content.title
         selection.isHidden = !selecting
-        selection.image = NSImage(systemSymbolName: selected ? "checkmark.circle.fill" : "circle", accessibilityDescription: selected ? "已选中" : "未选中")
+        selection.image = NSImage(systemSymbolName: selected ? "checkmark.circle.fill" : "circle", accessibilityDescription: selected ? String(localized: "Selected") : String(localized: "Not Selected"))
         view.toolTip = nil
         view.setAccessibilityElement(true); view.setAccessibilityRole(.group)
-        view.setAccessibilityLabel("\(content.title)，原文件不可用")
+        view.setAccessibilityLabel(String(localized: "\(content.title), original file unavailable"))
         refreshAppearance()
     }
     override func viewDidLayout() {

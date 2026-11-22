@@ -416,19 +416,19 @@ nonisolated enum UserCollectionsError: Error, LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .database(let message): return "用户资料库读写失败：\(message)"
-        case .unsupportedSchema(let version): return "用户资料库版本 \(version) 不受本 App 支持，请保留原文件。"
-        case .corruptData(let field): return "用户资料库内容无法读取：\(field)"
-        case .invalidReference: return "壁纸引用无效。"
-        case .invalidName: return "播放列表名称不能为空。"
-        case .missingPlaylist: return "播放列表已不存在。"
-        case .invalidOrder: return "播放列表成员已变化，请重新排序。"
-        case .unavailableForOrganization: return "仅可添加已下载或本地可用的壁纸。"
-        case .staleResetEpoch: return "该操作已被资料库重置撤销。"
-        case .organizationConflict: return "列表、喜爱或身份关系已变化，无法安全恢复该次整理操作。"
-        case .personalSettingsConflict: return "个人设置导入的恢复状态已变化，请保留恢复文件后重新检查。"
-        case .playlistMetadataConflict: return "播放列表信息已变化，请重新打开编辑窗口。"
-        case .invalidCoverAsset: return "列表封面无法保存，原封面已保留。"
+        case .database(let message): return String(localized: "Couldn't read or write the user library: \(message)")
+        case .unsupportedSchema(let version): return String(localized: "User library version \(version) isn’t supported by this app. Keep the original file.")
+        case .corruptData(let field): return String(localized: "Couldn’t read the user library contents: \(field)")
+        case .invalidReference: return String(localized: "The wallpaper reference is invalid.")
+        case .invalidName: return String(localized: "Playlist name can’t be empty.")
+        case .missingPlaylist: return String(localized: "The playlist no longer exists.")
+        case .invalidOrder: return String(localized: "Playlist members have changed. Please reorder them.")
+        case .unavailableForOrganization: return String(localized: "Only downloaded or locally available wallpapers can be added.")
+        case .staleResetEpoch: return String(localized: "The operation was undone by a library reset.")
+        case .organizationConflict: return String(localized: "The lists, Favorites, or identity relations changed, so this organizing action can’t be safely restored.")
+        case .personalSettingsConflict: return String(localized: "The recovery state of the personal settings import changed; keep the recovery file and check again.")
+        case .playlistMetadataConflict: return String(localized: "Playlist details have changed. Reopen the edit window.")
+        case .invalidCoverAsset: return String(localized: "The playlist cover couldn’t be saved; the original cover was kept.")
         }
     }
 }

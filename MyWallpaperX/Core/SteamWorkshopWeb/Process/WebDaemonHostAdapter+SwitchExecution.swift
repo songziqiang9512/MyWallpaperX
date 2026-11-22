@@ -79,7 +79,7 @@ extension WebDaemonHostAdapter {
                       session.executionID == executionID, !session.isCancelling, !session.activationSent,
                       session.activationIdentity == identity, let cohort = session.preparedCohort else { return }
                 session.activationSent = true
-                self.armSessionTimeout(session, after: 8, message: "Web 可见确认超时")
+                self.armSessionTimeout(session, after: 8, message: String(localized: "Web Visibility Confirmation Timed Out"))
 #if DEBUG
                 session.startupTiming?.activationSentAt = ProcessInfo.processInfo.systemUptime
 #endif

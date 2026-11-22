@@ -121,9 +121,9 @@ final class VideoLibraryInspectorView: NSView {
     private var metadataFacts: [(String, String)] {
         guard let details else { return [] }
         return [
-            ("编解码器", details.codecText),
-            ("分辨率", details.resolutionText),
-            ("添加时间", details.addedDateText)
+            (String(localized: "Codec"), details.codecText),
+            (String(localized: "Resolution"), details.resolutionText),
+            (String(localized: "Date Added"), details.addedDateText)
         ].filter { !$0.1.isEmpty }
     }
 
@@ -299,7 +299,7 @@ final class VideoLibraryInspectorView: NSView {
     private func makeContentSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("原数据"))
+        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle(String(localized: "Original Data")))
         stack.addArrangedSubview(makeMetadataGrid(metadataFacts))
         metadataSection = stack
         return stack
@@ -308,7 +308,7 @@ final class VideoLibraryInspectorView: NSView {
     private func makeTagsSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("播放列表"))
+        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle(String(localized: "Playlist")))
         stack.addArrangedSubview(makePlaylistContent())
         playlistSection = stack
         return stack
@@ -323,7 +323,7 @@ final class VideoLibraryInspectorView: NSView {
     private func makePlaylistContent() -> NSView {
         let names = libraryActions.state.playlistNames
         if names.isEmpty {
-            return VideoLibraryInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
+            return VideoLibraryInspectorViews.makeLabel(String(localized: "Not in any playlist"), font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
         }
         let row = NSStackView()
         row.orientation = .horizontal
@@ -337,7 +337,7 @@ final class VideoLibraryInspectorView: NSView {
     private func makeFileLocationSection(for wallpaper: VideoWallpaper) -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("文件位置"))
+        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle(String(localized: "File Location")))
 
         let path = VideoLibraryInspectorViews.makeLabel(
             details?.pathText ?? wallpaper.path,
@@ -358,7 +358,7 @@ final class VideoLibraryInspectorView: NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 8)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeNotice(
-            icon: "exclamationmark.triangle.fill", text: "源文件不存在，详情信息可能不是最新状态"))
+            icon: "exclamationmark.triangle.fill", text: String(localized: "The source file is missing; details may be out of date.")))
         stack.isHidden = !missing
         noticeSection = stack
         return stack
@@ -374,7 +374,7 @@ final class VideoLibraryInspectorView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let setButton = VideoLibraryInspectorViews.makeFooterButton(
-            title: "设为壁纸",
+            title: String(localized: "Set as Wallpaper"),
             symbolName: "photo.fill",
             target: self,
             action: #selector(setAsWallpaper),
@@ -382,21 +382,21 @@ final class VideoLibraryInspectorView: NSView {
         )
         self.setAsWallpaperButton = setButton
         let revealButton = VideoLibraryInspectorViews.makeFooterButton(
-            title: "查看文件",
+            title: String(localized: "Reveal in Finder"),
             symbolName: "folder.fill",
             target: self,
             action: #selector(revealInFinder)
         )
         let favoriteButton = VideoLibraryInspectorViews.makeIconButton(
             symbolName: libraryActions.state.isFavorite ? "heart.fill" : "heart",
-            title: libraryActions.state.isFavorite ? "取消特别喜爱" : "特别喜爱",
+            title: libraryActions.state.isFavorite ? String(localized: "Unfavorite") : String(localized: "Favorite"),
             target: self,
             action: #selector(toggleFavorite)
         )
         self.favoriteButton = favoriteButton
         let tagButton = VideoLibraryInspectorViews.makeIconButton(
             symbolName: "tag",
-            title: "添加到列表",
+            title: String(localized: "Add to Playlist"),
             target: self,
             action: #selector(presentTagPicker)
         )
@@ -475,7 +475,7 @@ final class VideoLibraryInspectorView: NSView {
 
     private func refreshFooterActions() {
         let favorite = libraryActions.state.isFavorite
-        let title = favorite ? "取消特别喜爱" : "特别喜爱"
+        let title = favorite ? String(localized: "Unfavorite") : String(localized: "Favorite")
         favoriteButton?.setSymbol(
             favorite ? "heart.fill" : "heart",
             accessibilityDescription: title
@@ -488,10 +488,10 @@ final class VideoLibraryInspectorView: NSView {
         favoriteButton?.isEnabled = libraryActions.state.canFavorite
         playlistButton?.isEnabled = libraryActions.state.canOrganize
         setAsWallpaperButton?.isEnabled = libraryActions.state.canPerformPrimary
-        setAsWallpaperButton?.setTitle(isPlaying ? "停止播放" : "设为壁纸")
+        setAsWallpaperButton?.setTitle(isPlaying ? String(localized: "Stop Playback") : String(localized: "Set as Wallpaper"))
         setAsWallpaperButton?.setSymbol(
             isPlaying ? "stop.fill" : "photo.fill",
-            accessibilityDescription: isPlaying ? "停止播放" : "设为壁纸"
+            accessibilityDescription: isPlaying ? String(localized: "Stop Playback") : String(localized: "Set as Wallpaper")
         )
     }
 

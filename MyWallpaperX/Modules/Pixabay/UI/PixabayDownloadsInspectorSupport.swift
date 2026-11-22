@@ -11,9 +11,9 @@ struct PixabayDownloadsInspectorSnapshot {
     let title: String
     let fileExtension: String
     let fileSizeText: String
-    let durationText: String
-    let resolutionText: String
-    let creationDateText: String
+    let durationText: String?
+    let resolutionText: String?
+    let creationDateText: String?
     let platformText: String
     let path: String
     let fileURL: URL
@@ -35,9 +35,9 @@ struct PixabayDownloadsInspectorSnapshot {
         title = url.lastPathComponent
         fileExtension = url.pathExtension.uppercased()
         fileSizeText = ByteCountFormatter.string(fromByteCount: Int64(entry.fileSize), countStyle: .file)
-        durationText = entry.duration.map(PixabayDownloadedAssetMetadata.formatDuration) ?? "未知"
-        resolutionText = entry.resolutionString ?? "未知"
-        creationDateText = entry.creationDate.map(formatter.string(from:)) ?? "未知"
+        durationText = entry.duration.map(PixabayDownloadedAssetMetadata.formatDuration)
+        resolutionText = entry.resolutionString
+        creationDateText = entry.creationDate.map(formatter.string(from:))
         platformText = "Pixabay"
         path = url.path
         fileURL = url

@@ -27,7 +27,7 @@ extension SteamWorkshopToolbarController {
     func configureAuthItems() {
         let service = SteamWorkshopService.shared
         let auth = service.steamAuth
-        let requiresLoginAttention = service.statusMessage.hasPrefix("需要登录")
+        let requiresLoginAttention = service.browsingNeedsSignIn
 
         // SK2.2：账号按钮状态由新登录路线驱动（§3.1）。
         let symbolName: String
@@ -37,33 +37,33 @@ extension SteamWorkshopToolbarController {
         case .online:
             symbolName = "person.crop.circle.badge.checkmark"
             tint = .controlAccentColor
-            tooltip = "Steam 账号菜单"
+            tooltip = String(localized: "Steam Account Menu")
         case .connecting, .awaitingInput:
             symbolName = "hourglass"
             tint = .secondaryLabelColor
-            tooltip = "正在登录 Steam…"
+            tooltip = String(localized: "Signing in to Steam…")
         case .expired:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
-            tooltip = "重新登录"
+            tooltip = String(localized: "Sign In Again")
         case .failed:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
-            tooltip = "登录出现问题，点击重新登录"
+            tooltip = String(localized: "Something went wrong signing in. Click to sign in again.")
         case .signedOut:
             symbolName = "person.crop.circle"
             tint = requiresLoginAttention ? .systemOrange : .labelColor
-            tooltip = requiresLoginAttention ? service.statusMessage : "登录 Steam"
+            tooltip = String(localized: "Sign in to Steam")
         }
-        accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Steam 账号")
+        accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: String(localized: "Steam Account"))
         accountButton.contentTintColor = tint
         accountButton.toolTip = tooltip
-        accountButton.setAccessibilityLabel("Steam 账号，\(tooltip)")
+        accountButton.setAccessibilityLabel(String(localized: "Steam account, \(tooltip)"))
         let canExecute = accountActionsEnabled
         accountButton.isEnabled = canExecute
         accountToolbarItem.isEnabled = canExecute
         accountToolbarItem.toolTip = accountButton.toolTip
-        accountToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "Steam 账号", rows: accountRows())
+        accountToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: String(localized: "Steam Account"), rows: accountRows())
         accountToolbarItem.menuFormRepresentation?.isEnabled = canExecute
         accountToolbarItem.visibilityPriority = .low
     }
@@ -75,10 +75,10 @@ extension SteamWorkshopToolbarController {
         authorBackButton.isEnabled = canReturn
         authorBackButton.alphaValue = canReturn ? 1.0 : 0.45
         authorBackButton.toolTip = canReturn
-            ? (service.isBrowsingAuthorWorkshop ? service.authorWorkshopReturnDestination?.title ?? "返回创意工坊" : "返回创意工坊")
-            : "当前不在二级浏览页"
+            ? (service.isBrowsingAuthorWorkshop ? service.authorWorkshopReturnDestination?.title ?? String(localized: "Back to Workshop") : String(localized: "Back to Workshop"))
+            : String(localized: "Not on a secondary browse page")
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
-        let back = ActionMenuItem(title: authorBackButton.toolTip ?? "返回创意工坊", symbol: "chevron.backward") { [weak self] in self?.handleBackToDiscovery() }
+        let back = ActionMenuItem(title: authorBackButton.toolTip ?? String(localized: "Back to Workshop"), symbol: "chevron.backward") { [weak self] in self?.handleBackToDiscovery() }
         back.isEnabled = canReturn
         authorBackToolbarItem.menuFormRepresentation = back
     }
@@ -89,11 +89,11 @@ extension SteamWorkshopToolbarController {
         let isEnabled = !service.isBrowsingAuthorWorkshop
         sortToolbarItem.isEnabled = isEnabled
         sortButton.isEnabled = isEnabled
-        sortToolbarItem.label = source.isPersonal ? "排序" : "浏览来源"
+        sortToolbarItem.label = source.isPersonal ? String(localized: "Sort") : String(localized: "Browse Sources")
         sortToolbarItem.paletteLabel = sortToolbarItem.label
         sortToolbarItem.toolTip = isEnabled
-            ? (source.isPersonal ? "当前个人库排序：\(service.personalSort.displayName)" : "当前浏览来源：\(source.displayName)")
-            : "作者工坊模式暂不支持切换浏览来源"
+            ? (source.isPersonal ? String(localized: "Current personal library sort: \(service.personalSort.displayName)") : String(localized: "Current browsing source: \(source.displayName)"))
+            : String(localized: "Author Workshop mode doesn’t support switching the browsing source yet")
         sortButton.toolTip = sortToolbarItem.toolTip
         sortButton.sizeToFit()
         sortToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: sortToolbarItem.label, rows: sortRows())
@@ -102,15 +102,15 @@ extension SteamWorkshopToolbarController {
     func syncPersonalListPopup() {
         let service = SteamWorkshopService.shared
         let isEnabled = service.source.isPersonal && !service.isBrowsingAuthorWorkshop
-        personalListButton.title = service.source == .myFavorites ? "Steam 收藏" : service.source.toolbarDisplayName
+        personalListButton.title = service.source == .myFavorites ? String(localized: "Steam Favorites") : service.source.toolbarDisplayName
         personalListToolbarItem.isEnabled = isEnabled
         personalListButton.isEnabled = isEnabled
         personalListToolbarItem.toolTip = isEnabled
-            ? "当前个人列表：\(service.source.displayName)"
-            : "进入「我的订阅」后选择个人列表"
+            ? String(localized: "Current personal list: \(service.source.displayName)")
+            : String(localized: "In “My Subscriptions”, select a personal list")
         personalListButton.toolTip = personalListToolbarItem.toolTip
         personalListButton.sizeToFit()
-        personalListToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "个人列表", rows: personalListRows())
+        personalListToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: String(localized: "Personal List"), rows: personalListRows())
     }
 
     func syncTrendingWindowPopup() {
@@ -121,20 +121,20 @@ extension SteamWorkshopToolbarController {
         trendingWindowToolbarItem.isEnabled = isEnabled
         trendingWindowButton.isEnabled = isEnabled
         trendingWindowButton.sizeToFit()
-        trendingWindowToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "时间段", rows: trendingWindowRows())
+        trendingWindowToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: String(localized: "Time Range"), rows: trendingWindowRows())
     }
 
     func configureFilterItem() {
         let service = SteamWorkshopService.shared
-        filterButton.title = "筛选"
+        filterButton.title = String(localized: "Filter")
         let isEnabled = !service.isBrowsingAuthorWorkshop
         filterButton.toolTip = service.isBrowsingAuthorWorkshop
-            ? "作者工坊模式暂不支持排序筛选"
-            : "当前内容：\(service.browserContentMode.displayName) · 当前筛选：\(service.activeFilterSummary)"
+            ? String(localized: "Author Workshop mode doesn’t support sorting or filtering yet")
+            : String(localized: "Content: \(service.browserContentMode.displayName) · Filter: \(service.activeFilterSummary)")
         filterToolbarItem.isEnabled = isEnabled
         filterButton.isEnabled = isEnabled
         filterToolbarItem.toolTip = filterButton.toolTip
-        let filter = ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in self?.handleFilterMenu() }
+        let filter = ActionMenuItem(title: String(localized: "Filter"), symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in self?.handleFilterMenu() }
         filter.isEnabled = isEnabled
         filterToolbarItem.menuFormRepresentation = filter
     }
@@ -150,7 +150,7 @@ extension SteamWorkshopToolbarController {
         searchToolbarItem.isEnabled = true
         searchField.isEnabled = true
         searchField.placeholderString = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
-            ? "在已加载作品中查找" : "在\(SteamWorkshopService.shared.browserSectionTitle)中查找"
+            ? String(localized: "Search Loaded Artworks") : String(localized: "Search in \(SteamWorkshopService.shared.browserSectionTitle)")
         searchField.setAccessibilityLabel(searchField.placeholderString)
     }
 

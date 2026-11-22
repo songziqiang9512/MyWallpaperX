@@ -50,7 +50,7 @@ enum SystemWallpaperWire {
         guard frameworkAvailable,
               let type = NSClassFromString(className) as? (NSObject & NSSecureCoding).Type else {
             throw NSError(domain: "MyWallpaperX.SystemWallpaper", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "系统动态锁屏接口不可用。"])
+                          userInfo: [NSLocalizedDescriptionKey: String(localized: "The system lock screen interface is unavailable.")])
         }
         let archiver = NSKeyedArchiver(requiringSecureCoding: true)
         archiver.setClassName(className, for: ValueArchive.self)

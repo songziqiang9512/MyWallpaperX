@@ -64,8 +64,8 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         let file = try openFile(index, name, create: true)
         defer { unlinkat(index.value, name, 0) }
         try write(metadata, to: file)
-        try require(fsync(file.value) == 0, "下载记录无法同步到磁盘。")
-        try require(renameat(index.value, name, index.value, itemID + ".json") == 0, "下载记录提交失败；旧版本保持不变。")
+        try require(fsync(file.value) == 0, String(localized: "The download record couldn’t be synced to disk."))
+        try require(renameat(index.value, name, index.value, itemID + ".json") == 0, String(localized: "Failed to commit the download record; the previous version is unchanged."))
         _ = fsync(index.value)
     }
 
@@ -131,7 +131,7 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         guard (value.st_mode & S_IFMT) == S_IFREG,
               let current = try? validatedFilesystemIdentity(value),
               current == identity else { return false }
-        try require(unlinkat(index.value, name, 0) == 0, "下载索引清理失败。")
+        try require(unlinkat(index.value, name, 0) == 0, String(localized: "Couldn’t clean up the download index."))
         _ = fsync(index.value)
         return true
     }

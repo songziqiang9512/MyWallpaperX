@@ -46,12 +46,12 @@ extension SteamWorkshopService {
             browserFetchTask?.cancel()
             browserFetchTask = nil
             browserItems = []
-            browserState = .failed("作者标识不可用")
+            browserState = .failed(String(localized: "Author ID unavailable"))
             hasMoreBrowserItems = false
             isLoadingMoreBrowserItems = false
             browserLoadMoreFailureMessage = nil
             isRefreshingBrowserFeed = false
-            statusMessage = "无法解析该作者的 SteamID，请从作品详情重新进入作者工坊。"
+            statusMessage = String(localized: "Couldn’t resolve this creator’s SteamID. Open the creator Workshop again from the item details.")
             return
         }
         let key: SteamKitBrowseStore.Key
@@ -91,14 +91,14 @@ extension SteamWorkshopService {
             browserItems = []
             hasMoreBrowserItems = true
             switch key.route {
-            case .author: statusMessage = "正在加载作者工坊列表…"
-            case .details(let itemID): statusMessage = "正在按 ID 加载创意工坊项目 \(itemID)…"
-            case .discovery, .personal: statusMessage = "正在加载 Steam 创意工坊…"
+            case .author: statusMessage = String(localized: "Loading author's Workshop list…")
+            case .details(let itemID): statusMessage = String(localized: "Loading Workshop item \(itemID) by ID…")
+            case .discovery, .personal: statusMessage = String(localized: "Loading Steam Workshop…")
             }
         } else {
             // §4.1：同 key 刷新不闪回空白，旧页上方轻量状态。保留既有
             // hasMore，避免已到底的 feed 在刷新期间再次触发 loadMore。
-            statusMessage = "正在刷新…"
+            statusMessage = String(localized: "Refreshing…")
         }
 
         browserFetchTask = Task(priority: .userInitiated) { [weak self] in
@@ -115,12 +115,13 @@ extension SteamWorkshopService {
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
                     self.browserState = .loaded
+                    self.browsingNeedsSignIn = false
                     self.hasMoreBrowserItems = result.hasMore
                     self.isRefreshingBrowserFeed = false
                     if result.total > 0 {
-                        self.statusMessage = "已加载 \(filtered.count) 项 / 共 \(result.total) 项。"
+                        self.statusMessage = String(localized: "Loaded \(filtered.count) of \(result.total) items.")
                     } else {
-                        self.statusMessage = "已加载 \(filtered.count) 项。"
+                        self.statusMessage = String(localized: "Loaded \(filtered.count) items.")
                     }
                     self.appendSteamKitPartialNotice()
                 }
@@ -131,9 +132,9 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.browserFetchTask = nil
                     if self.browserItems.isEmpty {
-                        self.browserState = .failed("加载失败：\(error.localizedDescription)")
+                        self.browserState = .failed(String(localized: "Loading failed: \(error.localizedDescription)"))
                     }
-                    self.statusMessage = "加载失败，请稍后重试。"
+                    self.statusMessage = String(localized: "Loading failed. Try again later.")
                     self.isRefreshingBrowserFeed = false
                 }
             }
@@ -177,7 +178,7 @@ extension SteamWorkshopService {
                     if filtered.count <= previousVisibleCount {
                         self.consecutiveEmptyLoadMorePages += 1
                         if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
-                            self.statusMessage = "暂未获取到更多内容，可继续下滑或调整筛选。"
+                            self.statusMessage = String(localized: "No more content yet. Scroll further or adjust the filters.")
                         }
                     } else {
                         self.consecutiveEmptyLoadMorePages = 0
@@ -185,12 +186,12 @@ extension SteamWorkshopService {
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
                         && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
-                        ? "暂未获取到更多内容，继续下滑可获取" : nil
+                        ? String(localized: "No more content yet — keep scrolling to load more") : nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     if self.hasMoreBrowserItems {
                         self.statusMessage = result.total > 0
-                            ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
-                            : "已加载 \(self.browserItems.count) 项。"
+                            ? String(localized: "Loaded \(self.browserItems.count) of \(result.total) items.")
+                            : String(localized: "Loaded \(self.browserItems.count) items.")
                         self.appendSteamKitPartialNotice()
                     }
                 }
@@ -200,11 +201,11 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.isLoadingMoreBrowserItems = false
                     self.hasMoreBrowserItems = true
-                    self.browserLoadMoreFailureMessage = "加载失败 · 重试"
+                    self.browserLoadMoreFailureMessage = String(localized: "Load Failed · Retry")
                     self.browserLoadMoreRetryAfter = Date().addingTimeInterval(
                         Constants.loadMoreRetryCooldown
                     )
-                    self.statusMessage = "加载下一页失败，稍后继续下滑会重试。"
+                    self.statusMessage = String(localized: "Loading the next page failed. Scrolling down again will retry.")
                 }
             }
         }
@@ -224,11 +225,13 @@ extension SteamWorkshopService {
             steamKitBrowseStore.clear()
             browserItems = []
             browserState = .loaded
+            browsingNeedsSignIn = false
             hasMoreBrowserItems = false
             isLoadingMoreBrowserItems = false
             browserLoadMoreFailureMessage = nil
             isRefreshingBrowserFeed = false
-            statusMessage = "需要登录，请使用工具栏的「登录 Steam」。"
+            browsingNeedsSignIn = true
+            statusMessage = String(localized: "Sign in to Steam to browse the Workshop.")
             return
         }
         let key = steamKitBrowseStore.makePersonalKey(
@@ -258,13 +261,13 @@ extension SteamWorkshopService {
             browserItems = []
             hasMoreBrowserItems = true
             statusMessage = source == .mySubscriptions
-                ? "正在加载「我的订阅」…"
-                : "正在加载「我的收藏」…"
+                ? String(localized: "Loading “My Subscriptions”…")
+                : String(localized: "Loading “My Favorites”…")
         } else {
             // §4.1：同 key 刷新不闪回空白，旧页上方轻量状态。保留既有
             // hasMore，避免已到底的 feed 在刷新期间再次触发 loadMore
             // （与 discovery route 的 SK3.2 修复对齐）。
-            statusMessage = "正在刷新…"
+            statusMessage = String(localized: "Refreshing…")
         }
 
         browserFetchTask = Task(priority: .userInitiated) { [weak self] in
@@ -285,11 +288,12 @@ extension SteamWorkshopService {
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = processed
                     self.browserState = .loaded
+                    self.browsingNeedsSignIn = false
                     self.hasMoreBrowserItems = result.hasMore
                     self.isRefreshingBrowserFeed = false
                     self.statusMessage = result.total > 0
-                        ? "已加载 \(processed.count) 项 / 共 \(result.total) 项。"
-                        : "已加载 \(processed.count) 项。"
+                        ? String(localized: "Loaded \(processed.count) of \(result.total) items.")
+                        : String(localized: "Loaded \(processed.count) items.")
                     self.appendSteamKitPartialNotice()
                 }
             } catch {
@@ -299,9 +303,9 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.browserFetchTask = nil
                     if self.browserItems.isEmpty {
-                        self.browserState = .failed("加载失败：\(error.localizedDescription)")
+                        self.browserState = .failed(String(localized: "Loading failed: \(error.localizedDescription)"))
                     }
-                    self.statusMessage = "加载失败，请稍后重试。"
+                    self.statusMessage = String(localized: "Loading failed. Try again later.")
                     self.isRefreshingBrowserFeed = false
                 }
             }
@@ -346,7 +350,7 @@ extension SteamWorkshopService {
                     if processed.count <= previousVisibleCount {
                         self.consecutiveEmptyLoadMorePages += 1
                         if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
-                            self.statusMessage = "暂未获取到更多内容，可继续下滑或调整筛选。"
+                            self.statusMessage = String(localized: "No more content yet. Scroll further or adjust the filters.")
                         }
                     } else {
                         self.consecutiveEmptyLoadMorePages = 0
@@ -354,12 +358,12 @@ extension SteamWorkshopService {
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
                         && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
-                        ? "暂未获取到更多内容，继续下滑可获取" : nil
+                        ? String(localized: "No more content yet — keep scrolling to load more") : nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     if self.hasMoreBrowserItems {
                         self.statusMessage = result.total > 0
-                            ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
-                            : "已加载 \(self.browserItems.count) 项。"
+                            ? String(localized: "Loaded \(self.browserItems.count) of \(result.total) items.")
+                            : String(localized: "Loaded \(self.browserItems.count) items.")
                         self.appendSteamKitPartialNotice()
                     }
                 }
@@ -369,11 +373,11 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.isLoadingMoreBrowserItems = false
                     self.hasMoreBrowserItems = true
-                    self.browserLoadMoreFailureMessage = "加载失败 · 重试"
+                    self.browserLoadMoreFailureMessage = String(localized: "Load Failed · Retry")
                     self.browserLoadMoreRetryAfter = Date().addingTimeInterval(
                         Constants.loadMoreRetryCooldown
                     )
-                    self.statusMessage = "加载下一页失败，稍后继续下滑会重试。"
+                    self.statusMessage = String(localized: "Loading the next page failed. Scrolling down again will retry.")
                 }
             }
         }
@@ -389,7 +393,7 @@ extension SteamWorkshopService {
         let page = try await steamWorkshopQueryClient.details(ids: [fallback.id])
         guard let item = page.items.first(where: { $0.publishedFileId == fallback.id }) else {
             throw SteamServiceClient.RequestError.helperError(
-                code: "unsupportedContent", message: "作品不存在或当前账号无权访问。")
+                code: "unsupportedContent", message: String(localized: "This artwork doesn’t exist or your account doesn’t have access to it."))
         }
         let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
         // Preview decoding has its own cache/loader. A MIME probe must not
@@ -400,15 +404,15 @@ extension SteamWorkshopService {
 
     private func appendSteamKitPartialNotice() {
         if shouldUseSteamKitAuthor {
-            statusMessage += " 搜索仅作用于已加载作品。"
+            statusMessage += String(localized: " Search applies only to loaded items.")
         }
         if steamKitBrowseStore.currentKey?.route == .personal {
-            statusMessage += " 排序和筛选仅作用于已加载项目。"
+            statusMessage += String(localized: " Sorting and filtering apply only to loaded items.")
         }
         let errors = steamKitBrowseStore.partialErrors
         guard !errors.isEmpty else { return }
         let ids = errors.prefix(5).map(\.publishedFileId).joined(separator: "、")
-        statusMessage += " 另有 \(errors.count) 项暂不可用（\(ids)），可刷新重试。"
+        statusMessage += String(localized: " \(errors.count) more items are temporarily unavailable (\(ids)); refresh to retry.")
     }
 
     private func steamKitStructuredPostProcess(
@@ -606,7 +610,7 @@ extension SteamWorkshopBrowserItem {
             updatedText: updatedText,
             favoritesText: favoritesText,
             subscriptionsText: subscriptionsText,
-            scoreText: item.views.map { "浏览 \($0)" },
+            scoreText: item.views.map { String(localized: "Browse \($0)") },
             lifetimeFavoritesText: lifetimeFavoritesText,
             lifetimeSubscriptionsText: lifetimeSubscriptionsText,
             visibilityText: visibilityText,

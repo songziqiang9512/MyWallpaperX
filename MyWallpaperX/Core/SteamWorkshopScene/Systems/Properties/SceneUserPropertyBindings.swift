@@ -284,7 +284,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                   let height = SceneUserPropertyValue.parse(projection["height"])?.numberValue,
                   width.isFinite, height.isFinite, width > 0, height > 0,
                   !(root["objects"] as? [[String: Any]] ?? []).contains(where: { $0["camera"] != nil }) else {
-                return .unsupported(reason: "场景缩放没有独立的二维相机输入或存在冲突动态来源")
+                return .unsupported(reason: String(localized: "Scene zoom has no separate 2D camera input or has a conflicting dynamic source"))
             }
             return .scene(field: "zoom")
         }
@@ -295,7 +295,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                   let wrapper = general["clearcolor"] as? [String: Any],
                   wrapper["script"] == nil || wrapper["script"] is NSNull,
                   wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
-                return .unsupported(reason: "清屏颜色存在冲突动态来源")
+                return .unsupported(reason: String(localized: "The clear color has conflicting dynamic sources"))
             }
             return .scene(field: "clearcolor")
         }
@@ -323,7 +323,7 @@ nonisolated struct SceneUserPropertyBindingParser {
               let objectIndex = Self.index(components[1]),
               let object = Self.object(at: objectIndex, root: root),
               let layerID = Self.integer(object["id"]) else {
-            return .unsupported(reason: "未识别的绑定路径")
+            return .unsupported(reason: String(localized: "Unrecognized binding path"))
         }
         if components.count == 3, Self.key(components[2]) == "visible" {
             return .layerVisibility(layerID: layerID)
@@ -348,7 +348,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                   let wrapper = object["brightness"] as? [String: Any],
                   wrapper["script"] == nil || wrapper["script"] is NSNull,
                   wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
-                return .unsupported(reason: "图片亮度存在不支持的宿主或冲突动态来源")
+                return .unsupported(reason: String(localized: "Image brightness has an unsupported host or a conflicting dynamic source"))
             }
             return .layerBrightness(layerID: layerID)
         }
@@ -390,7 +390,7 @@ nonisolated struct SceneUserPropertyBindingParser {
            let wrapper = override[field] as? [String: Any] {
             guard wrapper["script"] == nil || wrapper["script"] is NSNull,
                   wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
-                return .unsupported(reason: "粒子 instance override 存在冲突动态来源")
+                return .unsupported(reason: String(localized: "The particle instance override has conflicting dynamic sources"))
             }
             switch field {
             case "alpha": return .particle(layerID: layerID, field: .alpha)
@@ -440,7 +440,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                       let wrapper = object["maxwidth"] as? [String: Any],
                       wrapper["script"] == nil || wrapper["script"] is NSNull,
                       wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
-                    return .unsupported(reason: "文字宽度未固定启用或存在冲突动态来源")
+                    return .unsupported(reason: String(localized: "Text width isn’t fixed and enabled, or it has conflicting dynamic sources"))
                 }
                 return .text(layerID: layerID, field: .maxWidth)
             case "color": return .text(layerID: layerID, field: .color)
@@ -473,7 +473,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                 path: SceneScriptPropertyTargetPath.encoded(components)
             )
         }
-        return .unsupported(reason: "当前核心层未分类该绑定目标")
+        return .unsupported(reason: String(localized: "The core layer hasn’t classified this binding target"))
     }
 
     enum ReferenceError: Error {
@@ -539,7 +539,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                 kind: .malformedUserReference,
                 path: propertyPath,
                 propertyKey: nil,
-                message: error == .invalidCondition ? "条件绑定值无法解析。" : "user 绑定缺少有效 key。"
+                message: error == .invalidCondition ? String(localized: "The conditional binding value can’t be resolved.") : String(localized: "The user binding is missing a valid key.")
             ))
             return false
         case let .success(reference?):
@@ -579,7 +579,7 @@ nonisolated struct SceneUserPropertyBindingParser {
                     kind: .unsupportedConditionalTarget,
                     path: propertyPath,
                     propertyKey: reference.key,
-                    message: "条件绑定仅对 visibility 等布尔目标求值。"
+                    message: String(localized: "Conditional bindings are evaluated only for Boolean targets such as visibility.")
                 ))
             }
             return ownsProviderFallback

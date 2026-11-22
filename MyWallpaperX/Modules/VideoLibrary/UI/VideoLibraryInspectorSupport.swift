@@ -103,7 +103,7 @@ final class VideoLibraryInspectorPreviewSurfaceView: NSView {
     var onSizeChange: (() -> Void)?
     private var image: NSImage?
     private let placeholderView = NSImageView()
-    private let missingLabel = NSTextField(wrappingLabelWithString: "当前未找到缩略图，正在使用占位预览")
+    private let missingLabel = NSTextField(wrappingLabelWithString: String(localized: "No thumbnail found; showing a placeholder preview"))
 
     init(image: NSImage?) {
         self.image = image

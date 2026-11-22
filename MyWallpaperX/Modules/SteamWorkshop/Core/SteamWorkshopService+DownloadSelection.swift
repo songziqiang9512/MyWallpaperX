@@ -33,7 +33,7 @@ extension SteamWorkshopService {
         selectedDownloadDetailError = nil
         currentWorkshopItemID = resolvedItem.id
         currentPageTitle = resolvedItem.title
-        statusMessage = "已加载 \(resolvedItem.title)"
+        statusMessage = String(localized: "Loaded \(resolvedItem.title)")
         refreshSelectedDownloadInspectorDetailIfNeeded(
             forceRefresh: false,
             metadataIsStale: SteamWorkshopDetailRefreshSupport.isDownloadedMetadataStale(fetchedAt: fetchedAt)
@@ -45,7 +45,7 @@ extension SteamWorkshopService {
         guard hasCompletedInstalledLibraryLoad else {
             completion(.init(items: itemIDs.map { .init(reference: .init(provider: .steamWorkshop, sourceID: $0),
                 sourceURL: steamDownloadLibraryRootURL, succeeded: false, sourceFileDeleted: false,
-                failureMessage: "本地壁纸仍在载入，请稍后重试删除") }))
+                failureMessage: String(localized: "Local wallpapers are still loading. Try deleting again later.")) }))
             return
         }
         var seen = Set<WallpaperReference>()
@@ -64,11 +64,11 @@ extension SteamWorkshopService {
                 let succeeded = await self.deleteDownloadIfPossible(itemID: id)
                 results.append(.init(reference: .init(provider: .steamWorkshop, sourceID: id), sourceURL: url,
                     succeeded: succeeded, sourceFileDeleted: succeeded && record?.status == .ready,
-                    failureMessage: succeeded ? nil : "Steam 源文件删除未完成；资源可能仍在使用或版本已变化"))
+                    failureMessage: succeeded ? nil : String(localized: "Steam source file deletion didn’t finish; the resource may still be in use or its version may have changed")))
             }
             self.reloadInstalledItems()
             let removed = results.filter(\.succeeded).count
-            if removed == ids.count { self.statusMessage = "已删除 \(removed) 个壁纸及本地文件" }
+            if removed == ids.count { self.statusMessage = String(localized: "Deleted \(removed) wallpapers and their local files") }
             completion(.init(items: results))
         }
     }
@@ -92,11 +92,11 @@ extension SteamWorkshopService {
                     readySnapshot = try loadLegacyVideoDownloadSnapshot(matching: record)
                 }
             } catch {
-                statusMessage = "移除失败：下载记录无法安全读取；内容保持不变。"
+                statusMessage = String(localized: "Remove failed: the download record can't be read safely; the content is unchanged.")
                 return false
             }
             if let snapshot = readySnapshot, snapshot.commit == nil, !legacyDownloadSnapshot(snapshot, matches: record) {
-                statusMessage = "移除失败：旧版下载身份不一致；内容保持不变。"
+                statusMessage = String(localized: "Remove failed: the legacy download identity doesn't match; the content is unchanged.")
                 return false
             }
         case .failed:
@@ -110,7 +110,7 @@ extension SteamWorkshopService {
         // Fence new downloads before stopping consumers or touching disk.
         if let activeJob = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
             guard downloadJobStore.cancel(id: activeJob.id) != nil else {
-                statusMessage = "删除失败：下载取消状态无法保存。"
+                statusMessage = String(localized: "Delete failed: the download cancellation state couldn’t be saved.")
                 return false
             }
             steamJobItemPayloads.removeValue(forKey: itemID)
@@ -118,14 +118,14 @@ extension SteamWorkshopService {
         }
         if record.contentType == .scene, SceneDaemonClient.shared.hasIntent(for: record.id) {
             guard let prepareSceneDownloadRemoval else {
-                statusMessage = "删除失败：Scene 播放控制尚未就绪，请稍后重试。"
+                statusMessage = String(localized: "Delete failed: Scene playback controls aren’t ready yet. Try again shortly.")
                 return false
             }
             let released = await withCheckedContinuation { continuation in
                 prepareSceneDownloadRemoval(record.id) { continuation.resume(returning: $0) }
             }
             guard released else {
-                statusMessage = "删除失败：壁纸资源仍在切换，请完成切换后重试。"
+                statusMessage = String(localized: "Delete failed: wallpaper resources are still switching. Finish the switch and try again.")
                 return false
             }
         } else if isRecordCurrentlyPlaying(record) {
@@ -137,7 +137,7 @@ extension SteamWorkshopService {
         let identity = readySnapshot?.commit.flatMap(SteamWorkshopLibraryTransaction.storageIdentity(for:))
         if let identity {
             guard steamLibraryVersionLeaseRegistry.beginReclamation(identity) else {
-                statusMessage = "删除失败：壁纸资源尚未释放，请停止播放后重试。"
+                statusMessage = String(localized: "Delete failed: wallpaper resources haven’t been released. Stop playback and try again.")
                 return false
             }
         }
@@ -149,7 +149,7 @@ extension SteamWorkshopService {
                 libraryRoot: library, matchingItemID: itemID)
             guard try loadManagedDownloadSnapshots(requireComplete: true, matchingItemID: itemID,
                 includeLegacy: true)[itemID]?.commit == readySnapshot?.commit else {
-                throw SteamWorkshopLibraryTransaction.Failure(message: "下载版本已变化，请刷新后重试删除。")
+                throw SteamWorkshopLibraryTransaction.Failure(message: String(localized: "The download version changed. Refresh and try deleting again."))
             }
             if var snapshot = readySnapshot {
                 if var commit = snapshot.commit {
@@ -173,7 +173,7 @@ extension SteamWorkshopService {
                     itemID: itemID, libraryRoot: library)
             }
             if let identity { steamLibraryVersionLeaseRegistry.reclamationFailed(identity) }
-            statusMessage = "删除失败：\(error.localizedDescription)"
+            statusMessage = String(localized: "Delete failed: \(error.localizedDescription)")
             return false
         }
 
