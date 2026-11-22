@@ -2895,7 +2895,8 @@
         "script/format_swift_changed.py",
         "script/scene_puppet_interaction_matrix.json",
         "script/tests/fixtures/SceneSignalCapabilitySupport.swift",
-        "script/web_wallpaper_property_replay_gate.json"
+        "script/web_wallpaper_property_replay_gate.json",
+        "script/check_test_mapping.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -5833,13 +5834,52 @@
       "patterns": [
         "script/web_benchmark_capture.py",
         "script/scene_preview_visual_evidence.py",
-        "script/scene_sample_snapshot.py"
+        "script/scene_sample_snapshot.py",
+        "script/scene_puppet_interaction_evidence.py"
       ],
       "modules": [
         "test_web_benchmark_capture",
         "test_web_benchmark_scoring",
         "test_scene_wallpaper_sample_run",
-        "test_scene_wallpaper_preview"
+        "test_scene_wallpaper_preview",
+        "test_scene_puppet_interaction_evidence",
+        "test_scene_sample_snapshot"
+      ]
+    },
+    {
+      "id": "web-tooling-tests",
+      "patterns": [
+        "script/web_audio_restart_benchmark.py",
+        "script/web_failure_state_benchmark.py",
+        "script/web_property_persistence_gate.py",
+        "script/web_runtime_switch_benchmark.py",
+        "script/web_space_lifecycle_benchmark.py",
+        "script/web_system_state_benchmark.py"
+      ],
+      "modules": [
+        "test_web_audio_restart_benchmark",
+        "test_web_failure_state_benchmark",
+        "test_web_property_persistence_gate",
+        "test_web_runtime_switch_benchmark",
+        "test_web_space_lifecycle_benchmark",
+        "test_web_system_state_benchmark"
+      ]
+    },
+    {
+      "id": "script-entrypoint-tests",
+      "patterns": [
+        "script/extract_wallpaper_engine_client_evidence.py",
+        "script/promote_scene_evidence.py",
+        "script/scene_helper_qualification_sites.py",
+        "script/steam_auth_gate.py",
+        "script/wallpaper_startup_benchmark.py"
+      ],
+      "modules": [
+        "test_extract_wallpaper_engine_client_evidence",
+        "test_promote_scene_evidence",
+        "test_scene_helper_qualification_sites",
+        "test_steam_auth_gate",
+        "test_wallpaper_startup_benchmark"
       ]
     }
   ],

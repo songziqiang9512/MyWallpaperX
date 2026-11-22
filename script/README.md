@@ -18,6 +18,7 @@
 | 代码健康 | `check_code_health.py`、`check_scene_defense.py`、`check_scene_dependencies.py`、`check_test_assertions.py`、`check_repository_artifacts.py`、`check_design_gate.py` | 只读治理门；命令参数见各自 `--help` |
 | 文档与仓库健康 | `document_health.py`、`document_links.py`、`document_registry.py`、`repository_health.py`、`repository_residue.py` | 文档预算、链接、角色、结构债与残留 |
 | 提交预检 | `commit_preflight.py` | 读取暂存 blob，提示或拒绝不完整批次；不代替构建/测试 |
+| 测试映射报告 | `check_test_mapping.py` | 列出未被任何验证路径组选中的测试；默认只报告，`--strict` 才拒绝 |
 | Swift 格式 | `format_swift_changed.py` | 只处理改动/未跟踪 Swift 文件；`--lint` 为严格检查 |
 | Scene 能力普查 | `scene_capability_census.py`、`scene_material_program_census.py`、`scene_shader_preparation_census.py`、`scene_effect_census.py` | 只读样本/材质/编译覆盖统计；输出不写入样本 |
 | Scene 诊断与证据 | `scene_diagnostic_report.py`、`scene_sample_acceptance_ledger.py`、`scene_sample_debug_archive.py`、`scene_sample_snapshot.py`、`scene_helper_qualification_sites.py` | 证据归档、验收台账、快照与资格点 |
