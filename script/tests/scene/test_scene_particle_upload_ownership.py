@@ -8,7 +8,7 @@ from script.tests.support.scene_particle_render_test_support import run_particle
 from script.tests.scene.test_scene_particle_rendering import HARNESS_SUPPORT_SOURCE, SWIFT_SOURCES
 
 
-FIXTURE = Path(__file__).resolve().parents[3] / "fixtures/SceneParticleUploadOwnershipHarness.swift"
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/SceneParticleUploadOwnershipHarness.swift"
 SOURCES = tuple(path for path in SWIFT_SOURCES if path.name not in {
     "SceneParticleFixedGeometryHarness.swift", "SceneParticleCameraRenderingHarness.swift",
 })

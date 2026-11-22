@@ -46,7 +46,7 @@ SOURCES = tuple(REPO / path for path in (
     "script/tests/scene/test_scene_static_model_reader.py",
     "script/tests/support/scene_pkg_fixture.py",
     "script/tests/scene/test_scene_reflection_history_integration.py",
-    "script/web_benchmark_capture.py"))
+    "script/web/web_benchmark_capture.py"))
 
 
 def fixture_entries(arm: str, topology_action: str | None = None) -> dict[str, bytes]:

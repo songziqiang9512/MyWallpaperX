@@ -1,4 +1,8 @@
 """Real pipe delivery while AppKit main is blocked; product codecs and mailbox."""
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "web"))
+
 import shutil
 import importlib.util
 import json
@@ -14,7 +18,7 @@ from script.tests.web.test_web_compat_parity import source_block
 
 ROOT = Path(__file__).resolve().parents[3]
 
-with patch.object(sys, "path", [str(ROOT / "script"), *sys.path]):
+with patch.object(sys, "path", [str(ROOT / "script"), str(ROOT / "script/web"), *sys.path]):
     import playback_process_isolation_benchmark as benchmark
     from web_debug_defaults import DEBUG_DEFAULTS_PREFIX, make_debug_defaults_suite
 
@@ -350,9 +354,9 @@ app.run()
                     self.assertIn("renderer-focus-pass", result.stdout)
 
     def test_native_gate_does_not_promote_missing_preconditions_to_pass(self):
-        spec = importlib.util.spec_from_file_location("isolation_benchmark", ROOT / "script/playback_process_isolation_benchmark.py")
+        spec = importlib.util.spec_from_file_location("isolation_benchmark", ROOT / "script/web/playback_process_isolation_benchmark.py")
         module = importlib.util.module_from_spec(spec)
-        with patch.object(sys, "path", [str(ROOT / "script"), *sys.path]):
+        with patch.object(sys, "path", [str(ROOT / "script"), str(ROOT / "script/web"), *sys.path]):
             spec.loader.exec_module(module)
         report = {"checks": {"first": True, "second": True}, "notCovered": {},
                   "outcome": "passed", "passed": True}

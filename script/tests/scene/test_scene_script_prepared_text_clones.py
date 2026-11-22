@@ -846,7 +846,7 @@ class PreparedTextCloneTests(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         binary = compile_vector_harness(Path(cls.directory.name), HARNESS, "prepared-text", preamble=PREAMBLE,
             extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
-                Path(__file__).resolve().parents[3] / "fixtures/SceneScriptBooleanTextCloneChecks.swift"),
+                Path(__file__).resolve().parents[1] / "fixtures/SceneScriptBooleanTextCloneChecks.swift"),
             whole_module_optimization=True,
         )
         execution = subprocess.run([str(binary)], capture_output=True, text=True)

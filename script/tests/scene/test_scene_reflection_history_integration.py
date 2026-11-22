@@ -301,7 +301,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         sources = [Path(__file__), REPO / "script/tests/support/scene_pkg_fixture.py",
                    REPO / "script/tests/scene/test_scene_static_model_reader.py",
                    REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
-                   REPO / "script/web_benchmark_capture.py",
+                   REPO / "script/web/web_benchmark_capture.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",

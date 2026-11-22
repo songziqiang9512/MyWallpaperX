@@ -40,7 +40,7 @@ from web_benchmark_capture import (
 )
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WORKSHOP_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊"
 DEFAULT_DERIVED_DATA = REPO_ROOT / ".codex/DerivedData"
 DEFAULT_APP_BINARY = (

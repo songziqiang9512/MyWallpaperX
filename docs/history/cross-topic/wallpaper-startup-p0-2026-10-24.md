@@ -10,7 +10,7 @@
 
 Web 旧观测混入提交后的轮询延迟。。Web 绑定产品 intent epoch、execution 和原 `Session.committedAt`。。观测不提交、激活或发布输出。
 
-统一脚本 `script/wallpaper_startup_benchmark.py` 固定签名 App、样本路径和条件，核输入前后摘要，记录原始运行、实际 HOME/cache、父子进程及退出结果。Web 每个 App 序列的第一项只建立 active，不计 W0；后六次设置属于同组相关观测，不能称为六个独立 App 样本。
+统一脚本 `script/web/wallpaper_startup_benchmark.py` 固定签名 App、样本路径和条件，核输入前后摘要，记录原始运行、实际 HOME/cache、父子进程及退出结果。Web 每个 App 序列的第一项只建立 active，不计 W0；后六次设置属于同组相关观测，不能称为六个独立 App 样本。
 
 Release 不启用这些观测；没有安装、替换生产 App，也没有提交本批实现。最初方案文档已按用户要求提交 `ae0ac798c`；实现始于该提交的干净独立工作树。
 

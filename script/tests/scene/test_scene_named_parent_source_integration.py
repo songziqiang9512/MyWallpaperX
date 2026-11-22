@@ -412,7 +412,7 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="named-parent-source-", dir=destination))
         sources = [Path(__file__), Path(app_runner.__file__),
             REPO / "script/tests/scene/test_scene_authored_sampling_integration.py",
-            REPO / "script/tests/support/scene_pkg_fixture.py", REPO / "script/web_benchmark_capture.py"]
+            REPO / "script/tests/support/scene_pkg_fixture.py", REPO / "script/web/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
         preregistered = {str(i): {"protocol": protocol(i), "entries": {
             name: hashlib.sha256(data).hexdigest() for name, data in fixture_entries(i).items()}} for i in range(6)}

@@ -37,7 +37,7 @@ SOURCES = tuple(REPO / "script/tests" / name for name in (
     "scene_pkg_fixture.py", "test_scene_fullscreen_visibility_integration.py",
     "test_scene_named_model_shadow.py", "scene_color_blend_capture_test_support.py",
     "test_scene_native_world_composition.py"
-)) + (REPO / "script/web_benchmark_capture.py",)
+)) + (REPO / "script/web/web_benchmark_capture.py",)
 
 
 def encoded(value):

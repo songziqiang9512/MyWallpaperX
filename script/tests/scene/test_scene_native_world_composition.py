@@ -589,7 +589,7 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                    REPO / "script/tests/scene/test_scene_static_model_reader.py",
                    REPO / "script/tests/scene/test_scene_static_model_parts.py",
                    REPO / "script/tests/support/scene_pkg_fixture.py",
-                   REPO / "script/web_benchmark_capture.py"]
+                   REPO / "script/web/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
         entries = fixture_entries()
         protocol = {"app": cls.app_identity, "sources": cls.source_identity,

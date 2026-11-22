@@ -21,7 +21,7 @@
 | 进程入口 | 同一 App 可执行文件 `--mwx-web-daemon` | 产品装配前进入专用 AppKit run loop；Video helper 与 Scene daemon 保持原播放 owner。主 App 不再创建生产 WebView；没有可切换的双生产 route |
 | 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | GET 由同一 FD 完成实际 grants、长度/Range、转换与发送，HEAD/304 保元数据快路；排队取消不再做 IO。loopback 按本租约 token 或 `SameSite=Strict` cookie 和原 root/grants 准入 |
 | 持久化 WebKit store 回收 | `WebWallpaperDataStoreReclaimer`（装配层注入在用事实） | 只按「曾见过 + 新投影缺席 + 模块删除意图」判删除（`confirmedDeletedRecordIDs`，`WebWallpaperHostTypes.swift:471`）；宽限期末按实时在用事实复核，未回收必有 `MWX WEB DATASTORE REMOVAL` 日志；派生标识为 SHA256（`+Surface.swift:370`）。用户可见后果：highCompatibility 用户既有 scoped store（旧模 256 派生的 localStorage）不会被新算法再次命中，等于重置，旧 store 由孤儿退役清理；未接入显示器期间创建的 scoped store 也按孤儿回收，该屏重连后 store 重建 |
-| 评测工具 | `script/web_wallpaper_benchmark.py` 及矩阵 | 采集 App 身份、日志、DOM/窗口/动画证据；没有 fixture 时不能伪造 PASS |
+| 评测工具 | `script/web/web_wallpaper_benchmark.py` 及矩阵 | 采集 App 身份、日志、DOM/窗口/动画证据；没有 fixture 时不能伪造 PASS |
 
 当前生产 Web 播放链为：
 

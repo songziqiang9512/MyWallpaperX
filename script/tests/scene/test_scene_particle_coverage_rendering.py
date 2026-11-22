@@ -15,7 +15,7 @@ from script.tests.scene.test_scene_particle_material_coverage import (
 )
 
 
-FIXTURE = Path(__file__).resolve().parents[3] / "fixtures/SceneParticleCoverageRenderingHarness.swift"
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/SceneParticleCoverageRenderingHarness.swift"
 COVERAGE_MAIN = r'''
     static func main() throws {
         try printJSON(SceneParticleCoverageRenderingHarness.run())

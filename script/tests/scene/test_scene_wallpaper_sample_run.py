@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "web"))
+
 import json
 import hashlib
 import os
@@ -11,7 +15,7 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[3]
+SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_wallpaper_benchmark as benchmark

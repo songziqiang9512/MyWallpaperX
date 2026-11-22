@@ -13,7 +13,7 @@ from pathlib import Path
 
 from script.tests.scene.test_scene_particle_simulator import SWIFT_SOURCES
 
-FIXTURE = Path(__file__).resolve().parents[3] / "fixtures/SceneParticlePrewarmWorkHarness.swift"
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/SceneParticlePrewarmWorkHarness.swift"
 
 
 class SceneParticlePrewarmWorkTests(unittest.TestCase):

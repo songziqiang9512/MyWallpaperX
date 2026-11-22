@@ -3654,7 +3654,20 @@
         "script/tests/test_daemon_process_transport.py",
         "script/tests/test_debug_scene_product_entry_policy.py",
         "script/tests/test_imported_video_admission.py",
-        "script/tests/test_imported_video_autoplay_gate.py"
+        "script/tests/test_imported_video_autoplay_gate.py",
+        "script/web/**",
+        "script/web_audio_restart_benchmark.py",
+        "script/web_benchmark_capture.py",
+        "script/web_debug_defaults.py",
+        "script/web_failure_state_benchmark.py",
+        "script/web_property_persistence_gate.py",
+        "script/web_runtime_switch_benchmark.py",
+        "script/web_space_lifecycle_benchmark.py",
+        "script/web_system_state_benchmark.py",
+        "script/web_wallpaper_benchmark.py",
+        "script/playback_process_isolation_benchmark.py",
+        "script/wallpaper_startup_benchmark.py",
+        "script/steam_auth_gate.py"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -4743,7 +4756,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift",
-        "script/playback_process_isolation_benchmark.py",
+        "script/web/playback_process_isolation_benchmark.py",
         "MyWallpaperX/App/Debug/DebugWebFailureStateRunner.swift"
       ],
       "modules": [
@@ -6590,7 +6603,7 @@
     {
       "id": "visual-evidence-tools",
       "patterns": [
-        "script/web_benchmark_capture.py",
+        "script/web/web_benchmark_capture.py",
         "script/scene_preview_visual_evidence.py",
         "script/scene_sample_snapshot.py",
         "script/scene_puppet_interaction_evidence.py"
@@ -6607,12 +6620,12 @@
     {
       "id": "web-tooling-tests",
       "patterns": [
-        "script/web_audio_restart_benchmark.py",
-        "script/web_failure_state_benchmark.py",
-        "script/web_property_persistence_gate.py",
-        "script/web_runtime_switch_benchmark.py",
-        "script/web_space_lifecycle_benchmark.py",
-        "script/web_system_state_benchmark.py"
+        "script/web/web_audio_restart_benchmark.py",
+        "script/web/web_failure_state_benchmark.py",
+        "script/web/web_property_persistence_gate.py",
+        "script/web/web_runtime_switch_benchmark.py",
+        "script/web/web_space_lifecycle_benchmark.py",
+        "script/web/web_system_state_benchmark.py"
       ],
       "modules": [
         "test_web_audio_restart_benchmark",
@@ -6629,8 +6642,8 @@
         "script/evidence/extract_wallpaper_engine_client_evidence.py",
         "script/evidence/promote_scene_evidence.py",
         "script/scene_helper_qualification_sites.py",
-        "script/steam_auth_gate.py",
-        "script/wallpaper_startup_benchmark.py"
+        "script/governance/steam_auth_gate.py",
+        "script/web/wallpaper_startup_benchmark.py"
       ],
       "modules": [
         "test_extract_wallpaper_engine_client_evidence",

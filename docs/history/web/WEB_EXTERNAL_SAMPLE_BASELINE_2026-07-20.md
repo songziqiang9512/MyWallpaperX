@@ -82,7 +82,7 @@ AudiOrbits 的作者 production webpack 配置要求本地 HTTPS 证书，准备
 第三方测试包应准备到隔离目录 `<external-root>/Web/<id>`，不得直接使用或修改 `~/Movies/MyWallpaperX/创意工坊`。运行命令：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app <debug-app>/Contents/MacOS/MyWallpaperX \
   --workshop-root <external-root>/Web \
   --runtime-workshop-root <external-root> \

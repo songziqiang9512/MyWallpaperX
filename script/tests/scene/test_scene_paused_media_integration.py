@@ -38,7 +38,7 @@ SOURCE_PATHS = [ROOT / path for path in (
     "script/tests/scene/test_scene_composition_authored_order_integration.py",
     "script/tests/scene/test_scene_fullscreen_visibility_integration.py",
     "script/tests/support/scene_pkg_fixture.py",
-    "script/web_benchmark_capture.py",
+    "script/web/web_benchmark_capture.py",
 )] + [Path(__file__).resolve()]
 PROTOCOL = {"canvas": [256, 256], "surfaces": 2, "requestedDurationSeconds": 6,
             "pausedDecodeDelaySeconds": 2, "centerRGB": [0, 255, 255],

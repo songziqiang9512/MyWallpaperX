@@ -56,7 +56,7 @@
 ## 5. 复现
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app <debug-app>/Contents/MacOS/MyWallpaperX \
   --workshop-root <steam-sample-root>/Web \
   --runtime-workshop-root <steam-sample-root> \

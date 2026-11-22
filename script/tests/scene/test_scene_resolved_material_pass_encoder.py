@@ -172,7 +172,7 @@ HARNESS = (FIXTURE_ROOT / "SceneResolvedMaterialPassHarness.swift").read_text(
 
 HARNESS = HARNESS.replace(
     "// TERMINAL_REPLAY_PROBE",
-    (Path(__file__).resolve().parents[2] / "fixtures/SceneTerminalMaterialReplayProbe.swift").read_text(),
+    (Path(__file__).resolve().parents[1] / "fixtures/SceneTerminalMaterialReplayProbe.swift").read_text(),
 )
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

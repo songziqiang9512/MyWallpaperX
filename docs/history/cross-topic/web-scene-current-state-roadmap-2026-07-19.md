@@ -143,10 +143,10 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 #### 诊断和评测
 
 - Runtime 事件按 record、display、type 和 severity 记录。
-- `script/web_wallpaper_benchmark.py` 可以启动真实 App、聚合日志、评分、生成 coverage，并与 baseline 比较；每次正式运行拒绝非空输出目录，只接受本次日志声明且位于当前样本目录内的截图路径。
+- `script/web/web_wallpaper_benchmark.py` 可以启动真实 App、聚合日志、评分、生成 coverage，并与 baseline 比较；每次正式运行拒绝非空输出目录，只接受本次日志声明且位于当前样本目录内的截图路径。
 - benchmark 会严格验证签名 App、复制到独立 runtime bundle，并在运行前后核对 bundle/Team/CDHash/版本/可执行文件 SHA-256；报告记录这组身份，不再把被原地改写或来源不明的 App 当作本轮证据。
 - 已定义启动、导航、资源、属性、媒体、交互、视觉和性能八个评分维度。
-- 代码入口：[WebRuntimeDiagnosticsStore.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift)、[web_wallpaper_benchmark.py](../../../script/web_wallpaper_benchmark.py)。
+- 代码入口：[WebRuntimeDiagnosticsStore.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift)、[web_wallpaper_benchmark.py](../../../script/web/web_wallpaper_benchmark.py)。
 
 #### 已关闭：文件属性类型与资源路径闭环
 
@@ -157,7 +157,7 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 - 持久化 gate 对 `1509243786` 的 file、directory 和目录模式调用生产更新，连续运行 A/B/A；首进程退出后把两类 fixture 改名，第二进程以旧 raw value 通过 bookmark 恢复到新 resolved/payload，随后 reset，第三进程确认 bookmark 不复活、值为空且模式回到 1。存在外部覆盖时不生成 execution cache，清除后普通 cache 恢复。
 
 ```bash
-python3 script/web_property_persistence_gate.py \
+python3 script/web/web_property_persistence_gate.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --runtime-workshop-root <isolated-workshop-root> \
   --runtime-home <empty-temporary-home>
@@ -250,7 +250,7 @@ benchmark 现在要求像素统计、DOM 状态和 pointer/click/drag/wheel 注�
 固定矩阵：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --workshop-root <isolated-workshop-root>/Web \
   --runtime-workshop-root <isolated-workshop-root> \
@@ -262,7 +262,7 @@ python3 script/web_wallpaper_benchmark.py \
 生命周期：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --workshop-root <isolated-workshop-root>/Web \
   --runtime-workshop-root <isolated-workshop-root> \
@@ -273,7 +273,7 @@ python3 script/web_wallpaper_benchmark.py \
 系统中断与真实采集恢复：
 
 ```bash
-python3 script/web_system_state_benchmark.py \
+python3 script/web/web_system_state_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --runtime-workshop-root <isolated-workshop-root> \
   --runtime-home <temporary-home> \
@@ -283,7 +283,7 @@ python3 script/web_system_state_benchmark.py \
 Space 路由、屏幕 burst 与 observer 释放：
 
 ```bash
-python3 script/web_space_lifecycle_benchmark.py \
+python3 script/web/web_space_lifecycle_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --runtime-workshop-root <isolated-workshop-root> \
   --runtime-home <temporary-home> \
@@ -293,7 +293,7 @@ python3 script/web_space_lifecycle_benchmark.py \
 当前 34 样本完整门：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --workshop-root <isolated-workshop-root>/Web \
   --runtime-workshop-root <isolated-workshop-root> \
@@ -306,7 +306,7 @@ python3 script/web_wallpaper_benchmark.py \
 外部 5 样本能力门：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --workshop-root <external-sample-root>/Web \
   --runtime-workshop-root <external-sample-root> \
@@ -319,7 +319,7 @@ python3 script/web_wallpaper_benchmark.py \
 Steam CDN 3 样本能力门：
 
 ```bash
-python3 script/web_wallpaper_benchmark.py \
+python3 script/web/web_wallpaper_benchmark.py \
   --app .codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX \
   --workshop-root <steam-sample-root>/Web \
   --runtime-workshop-root <steam-sample-root> \
