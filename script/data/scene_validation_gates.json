@@ -3668,7 +3668,7 @@
         "script/playback_process_isolation_benchmark.py",
         "script/wallpaper_startup_benchmark.py",
         "script/steam_auth_gate.py",
-        "script/steam-auth-gate.sh",
+        "script/governance/steam-auth-gate.sh",
         "script/scene/**",
         "script/scene_capability_census.py",
         "script/scene_capability_census_contracts.py",
@@ -3730,7 +3730,11 @@
         "script/scene_wallpaper_sample_lifecycle.py",
         "script/scene_wallpaper_sample_run.py",
         "script/scene_wallpaper_typed_publications.py",
-        "script/scene_wallpaper_utility_capture.py"
+        "script/scene_wallpaper_utility_capture.py",
+        "script/build/**",
+        "script/governance/**",
+        "script/scene_diagnostic_build.xcconfig",
+        "script/steam-auth-gate.sh"
       ],
       "modules": [
         "test_scene_governance_contract",
@@ -5044,7 +5048,7 @@
       "id": "release-signature-permissions",
       "patterns": [
         "script/release/sign-steam-helper.sh",
-        "script/scene_diagnostic_build.xcconfig",
+        "script/build/scene_diagnostic_build.xcconfig",
         "script/release/validate_apple_silicon_release.py",
         "MyWallpaperX/HardenedRuntime.entitlements",
         "SteamService/SteamService.entitlements"

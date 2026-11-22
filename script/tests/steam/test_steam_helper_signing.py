@@ -223,7 +223,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         self.assert_published(result, output, timestamp="--timestamp=none", identity="-", options="0")
 
     def test_publish_diagnostic_xcconfig_explicit_policy(self):
-        config = (ROOT / "script/scene_diagnostic_build.xcconfig").read_text()
+        config = (ROOT / "script/build/scene_diagnostic_build.xcconfig").read_text()
         policy = re.findall(r"^MWX_STEAM_HELPER_TIMESTAMP_POLICY\s*=\s*(\w+)\s*$", config, re.MULTILINE)
         self.assertEqual(policy, ["none"])
         result, output = self.publish(overrides={"CONFIGURATION": "Release",

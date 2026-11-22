@@ -6,7 +6,7 @@
 // Promoting this profile to formal comparison requires new same-profile B/C.
 //
 // Example screening build, after shared build/runtime work is idle:
-// xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release -xcconfig script/scene_diagnostic_build.xcconfig -derivedDataPath <isolated-diagnostic-path> -showBuildTimingSummary build
+// xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release -xcconfig script/build/scene_diagnostic_build.xcconfig -derivedDataPath <isolated-diagnostic-path> -showBuildTimingSummary build
 // Existing WMO acceptance build (do not pass this xcconfig):
 // xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Release SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG SWIFT_OPTIMIZATION_LEVEL=-O GCC_OPTIMIZATION_LEVEL=s -derivedDataPath <isolated-wmo-path> build
 //

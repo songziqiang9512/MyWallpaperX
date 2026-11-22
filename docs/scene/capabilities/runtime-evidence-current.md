@@ -5,7 +5,7 @@
 <a id="scope"></a>
 ## 冻结身份
 
-2026-11-07已知/新增复测基于`d47a8fa112c6fb189ccd58bd19dd20322967e080`，4414个源码/构建输入前后一致。沿现有`script/scene_diagnostic_build.xcconfig`构建：Release加DEBUG、Swift `-O`/C `-Os`、single-file，Developer ID Team `H9QWU9XN8R`、无时间戳，arm64/macOS27.2/Xcode27.2。实际编译argv及有效设置已冻结；该诊断配置不授正式Release或跨配置性能结论。
+2026-11-07已知/新增复测基于`d47a8fa112c6fb189ccd58bd19dd20322967e080`，4414个源码/构建输入前后一致。沿现有`script/build/scene_diagnostic_build.xcconfig`构建：Release加DEBUG、Swift `-O`/C `-Os`、single-file，Developer ID Team `H9QWU9XN8R`、无时间戳，arm64/macOS27.2/Xcode27.2。实际编译argv及有效设置已冻结；该诊断配置不授正式Release或跨配置性能结论。
 
 本轮唯一签名App的CDHash为`a2b7f09dba92dac5ab1006276aa5b041be6f9036`，实际代码在executable，SHA-256 `147a38795a23feb1043e664150351ebc1051412fbd101108bed07a6abf1a1264`；metallib为`737cb9f479e32620d604b67f172c71760333716dc8b2dba90987a8f1d624cf11`。冻结输入、原始分组报告、独审及有界归档均在当前worktree的`.artifacts/scene-problem-retest-20261107/`；旧635基线仅用于目录差集、原条件和输入身份对账，不与本轮raw计数比较。
 

@@ -22,7 +22,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <�
 
 真实 Workshop 目录只读。输入副本、HOME、TMPDIR、缓存、App staging 和报告放任务隔离目录；记录实际 App、输入、工具和环境身份。共享构建目录、原生窗口、GPU、真实鼠标、音频与系统媒体实验串行协调。只退出精确归属本次任务的进程。
 
-`script/scene_diagnostic_build.xcconfig` 供短筛查和交互诊断，保留 DEBUG 入口并使用优化 Swift/C；它的 single-file 配置不代表正式 Release WMO。性能对照使用相同 Swift/C 参数、诊断开关、输入、音源、viewport、帧率与热状态，不能新配置候选配旧配置基线。测量及停止标准见[性能工作卡](../roadmap/performance-convergence-card.md)。
+`script/build/scene_diagnostic_build.xcconfig` 供短筛查和交互诊断，保留 DEBUG 入口并使用优化 Swift/C；它的 single-file 配置不代表正式 Release WMO。性能对照使用相同 Swift/C 参数、诊断开关、输入、音源、viewport、帧率与热状态，不能新配置候选配旧配置基线。测量及停止标准见[性能工作卡](../roadmap/performance-convergence-card.md)。
 
 DEBUG direct-host、产品 client→daemon 和正常桌面有不同覆盖范围。截图入口可能改变目标的 framebuffer-only 权限或使用合成 provider；桌面、真实媒体和终端 attachment 的修改还要走正常桌面路径。产品控制链的测试必须实际经过 App 服务、client 与 daemon，不能用独立 Host 代替。
 

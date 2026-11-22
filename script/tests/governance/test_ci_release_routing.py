@@ -34,7 +34,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         registry = verify.load_registry()
         cases = {
             'script/release/sign-steam-helper.sh': 'test_steam_helper_signing',
-            'script/scene_diagnostic_build.xcconfig': 'test_steam_helper_signing',
+            'script/build/scene_diagnostic_build.xcconfig': 'test_steam_helper_signing',
             'script/web/playback_process_isolation_benchmark.py': 'test_playback_process_isolation',
             'script/tests/fixtures/SceneAudioSpectrumInputHarness.swift': 'test_scene_audio_spectrum_input',
             'script/tests/fixtures/SceneDefault2DCameraInputChecks.swift': 'test_scene_default_2d_camera_inputs',
