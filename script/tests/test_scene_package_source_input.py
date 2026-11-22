@@ -19,7 +19,7 @@ import unittest
 
 from script.tests import test_scene_static_model_parts as parts
 from script.tests.support.scene_pkg_fixture import make_package
-from script.tests.test_steam_library_transaction import SOURCES as LIBRARY_SOURCES, digest
+from script.tests.steam.test_steam_library_transaction import SOURCES as LIBRARY_SOURCES, digest
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'

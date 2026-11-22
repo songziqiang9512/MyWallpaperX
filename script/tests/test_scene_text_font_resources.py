@@ -226,7 +226,7 @@ class SceneTextFontResourcesTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS)
         binary = directory / "font-resources"
-        inputs = [*SOURCES, Path(__file__), Path(__file__).with_name("scene_pkg_fixture.py"),
+        inputs = [*SOURCES, Path(__file__), (Path(__file__).parent / "support/scene_pkg_fixture.py"),
                   harness, font, alternate, package]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         command = ["xcrun", "--sdk", "macosx", "swiftc", *map(str, SOURCES), str(harness),

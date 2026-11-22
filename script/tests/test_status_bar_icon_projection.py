@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_steam_library_interactions import method
+from script.tests.steam.test_steam_library_interactions import method
 
 
 ROOT = Path(__file__).resolve().parents[2]

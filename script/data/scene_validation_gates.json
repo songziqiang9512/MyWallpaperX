@@ -2966,7 +2966,18 @@
         "script/tests/scene_video_segment_delegate_fixture.py",
         "script/tests/scene_framebuffer_source_test_support.py",
         "script/tests/scene_pkg_fixture.py",
-        "script/tests/support/**"
+        "script/tests/support/**",
+        "script/tests/release/**",
+        "script/tests/web/**",
+        "script/tests/steam/**",
+        "script/tests/test_apple_silicon_release_contract.py",
+        "script/tests/test_checkpoint_build.py",
+        "script/tests/test_publish_release.py",
+        "script/tests/test_release_diagnostic_isolation.py",
+        "script/tests/test_release_version.py",
+        "script/tests/test_stock_asset_packaging.py",
+        "script/tests/test_validate_release_notes.py",
+        "script/tests/test_workshop_property_display_localization.py"
       ],
       "modules": [
         "test_scene_governance_contract",

@@ -10,7 +10,7 @@ import unittest
 from script.tests.support.library_catalog_fixture import assemble_catalog_fixture, write_catalog_sources
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_ui_library_algorithms import declaration
-from script.tests.test_steam_library_legacy_discovery import prepare_legacy_discovery_sources
+from script.tests.steam.test_steam_library_legacy_discovery import prepare_legacy_discovery_sources
 
 ROOT = Path(__file__).resolve().parents[2]
 

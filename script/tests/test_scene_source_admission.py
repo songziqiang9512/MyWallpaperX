@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_steam_library_transaction import ROOT, CORE, SOURCES
-from script.tests.test_steam_library_interactions import method
+from script.tests.steam.test_steam_library_transaction import ROOT, CORE, SOURCES
+from script.tests.steam.test_steam_library_interactions import method
 
 IPC = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC'
 SOURCE = ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift'

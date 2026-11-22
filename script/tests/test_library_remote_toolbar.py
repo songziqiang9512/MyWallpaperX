@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
-from script.tests.test_steam_library_interactions import method
+from script.tests.steam.test_steam_library_interactions import method
 from script.tests.support.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 
@@ -137,7 +137,7 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
             'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift', 'Core/OnlineImages/OnlineImageModels.swift',
             'Core/OnlineImages/OnlineImageContentProjection.swift']]
         observed = [app, commands, recovery, fixture, *sources, Path(__file__),
-                    ROOT / 'script/tests/test_steam_library_interactions.py',
+                    ROOT / 'script/tests/steam/test_steam_library_interactions.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         actual = '\n'.join(method(app.read_text(), name) for name in (
@@ -223,7 +223,7 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
     def test_signout_service_keeps_confirmed_account_intent(self):
         service = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
         fixture = ROOT / 'script/tests/fixtures/LibraryToolbarSignoutHarness.swift'
-        parser = ROOT / 'script/tests/test_steam_library_interactions.py'
+        parser = ROOT / 'script/tests/steam/test_steam_library_interactions.py'
         paths = [service, fixture, parser, Path(__file__)]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         actual = method(service.read_text(), '    func signOutEverywhere(')

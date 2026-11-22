@@ -21,7 +21,7 @@ import threading
 import time
 import unittest
 
-from script.tests.test_steam_library_interactions import method
+from script.tests.steam.test_steam_library_interactions import method
 from script.tests.test_ui_request_schedulers import declaration
 
 ROOT = Path(__file__).resolve().parents[2]

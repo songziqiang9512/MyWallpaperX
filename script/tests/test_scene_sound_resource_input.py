@@ -812,7 +812,7 @@ class SceneSoundResourceInputTests(unittest.TestCase):
         ]))
         cls.inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                       for p in (*SOURCES, Path(__file__), Path(__file__).with_name("test_scene_sound_playback_program.py"),
-                                Path(__file__).with_name("scene_pkg_fixture.py"))}
+                                (Path(__file__).parent / "support/scene_pkg_fixture.py"))}
         carrier, harness = cls.directory / "Carriers.swift", cls.directory / "Harness.swift"
         carrier.write_text(CARRIERS)
         harness.write_text(HARNESS)

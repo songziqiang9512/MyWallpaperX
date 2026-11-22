@@ -565,7 +565,7 @@ class SceneParticleAncestorTranslationIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires an explicitly frozen Debug App executable")
         cls.app = Path(configured).resolve(strict=True)
         cls.app_identity = app_hashes(cls.app)
-        paths = [Path(__file__), Path(runner.__file__), Path(__file__).with_name("scene_pkg_fixture.py"),
+        paths = [Path(__file__), Path(runner.__file__), (Path(__file__).parent / "support/scene_pkg_fixture.py"),
                  Path(__file__).parents[1] / "web_benchmark_capture.py",
                  Path(__file__).parents[1] / "scene_wallpaper_graph_output_metrics.py"]
         cls.source_identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}

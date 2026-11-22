@@ -19,9 +19,7 @@ SUPPORT = EXECUTOR_FIXTURE["SUPPORT"]
 compile_harness = EXECUTOR_FIXTURE["compile_harness"]
 
 
-FIXTURE_GATE = Path(__file__).with_name(
-    "scene_preserved_channel_history_fixture.py"
-)
+FIXTURE_GATE = (Path(__file__).parent / "support/scene_preserved_channel_history_fixture.py")
 FIXTURE = runpy.run_path(str(FIXTURE_GATE))
 HARNESS_SUPPORT = FIXTURE["HARNESS_SUPPORT"]
 

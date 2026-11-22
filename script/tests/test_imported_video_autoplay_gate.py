@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from script.tests.test_steam_library_interactions import method
+from script.tests.steam.test_steam_library_interactions import method
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTROL = REPO_ROOT / "MyWallpaperX/Core/PlaybackControl"

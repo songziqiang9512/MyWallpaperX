@@ -153,7 +153,7 @@ class SceneImageTerminalRenderStateTests(unittest.TestCase):
         output.mkdir(parents=True, exist_ok=True)
         paths = [Path(__file__), shared.HARNESS, shared.PROJECTION_SOURCE, *shared.SOURCES,
                  shared.SHADER, shared.FOG, Path(shared.__file__),
-                 Path(__file__).with_name("scene_color_blend_capture_test_support.py")]
+                 (Path(__file__).parent / "support/scene_color_blend_capture_test_support.py")]
         identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix="terminal-", dir=output) as directory:
             root = Path(directory)

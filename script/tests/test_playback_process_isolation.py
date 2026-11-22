@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from script.tests.test_web_compat_parity import source_block
+from script.tests.web.test_web_compat_parity import source_block
 
 ROOT = Path(__file__).resolve().parents[2]
 
