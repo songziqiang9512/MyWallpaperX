@@ -1,136 +1,74 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "CFBundleHelpBookName" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MyWallpaperX-Hilfe"
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleHelpBookName": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX Help"
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MyWallpaperX Help"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX 帮助"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aide MyWallpaperX"
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Справка MyWallpaperX"
           }
         },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Справка MyWallpaperX"
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MyWallpaperX-Hilfe"
           }
         },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MyWallpaperX 帮助"
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aide MyWallpaperX"
           }
         }
       }
     },
-    "CFBundleName" : {
-      "comment" : "Bundle name",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "MyWallpaperX"
-          }
-        }
-      }
-    },
-    "NSAppleEventsUsageDescription" : {
-      "comment" : "Privacy - AppleEvents Sending Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "用于桌面集成，并读取你选择的播放器的歌曲和封面"
-          }
-        }
-      }
-    },
-    "NSAudioCaptureUsageDescription" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zugriff auf Systemaudio, um Spektrum-Visualisierungen auf dem Schreibtisch darzustellen."
+    "NSAudioCaptureUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access system audio to render spectrum visualizations on the desktop."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Access system audio to render spectrum visualizations on the desktop."
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要访问系统音频以生成桌面频谱可视化。"
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accéder à l’audio du système pour afficher des visualisations de spectre sur le bureau."
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к системному звуку для визуализации спектра на рабочем столе."
           }
         },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Доступ к системному звуку для визуализации спектра на рабочем столе."
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugriff auf Systemaudio, um Spektrum-Visualisierungen auf dem Schreibtisch darzustellen."
           }
         },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要访问系统音频以生成桌面频谱可视化。"
-          }
-        }
-      }
-    },
-    "NSDesktopFolderUsageDescription" : {
-      "comment" : "Privacy - Desktop Folder Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "需要访问桌面以设置动态壁纸"
-          }
-        }
-      }
-    },
-    "NSDocumentsFolderUsageDescription" : {
-      "comment" : "Privacy - Documents Folder Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "需要访问文档以保存动态壁纸"
-          }
-        }
-      }
-    },
-    "NSHumanReadableCopyright" : {
-      "comment" : "Copyright (human-readable)",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : ""
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accéder à l’audio du système pour afficher des visualisations de spectre sur le bureau."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
