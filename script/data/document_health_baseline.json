@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 514,
-      "bytes": 119099
+      "lines": 523,
+      "bytes": 120352
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 217,
-      "bytes": 67491
+      "lines": 218,
+      "bytes": 67765
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -222,7 +222,7 @@
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 600,
-      "bytes": 171421
+      "bytes": 172493
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,20 +487,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "e42da6869da9c2f8355199ace225a3ba6d126f38ce8a9ccc5f9ea2ebf4204060",
-      "after": "2451917a891d52acc6330cbc6a3ff12af816fd0a1b55ab0b943de7bee1c78dbb",
-      "owner": "Scene directional shadow footprint evidence",
-      "reason": "Record the live full-caster reference and its verified receiver domain.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-fragment-taps"
+      "before": "2451917a891d52acc6330cbc6a3ff12af816fd0a1b55ab0b943de7bee1c78dbb",
+      "after": "9f2dd0457ba96e77b708fb4863cbbc7990109781463d4a66177fb042e4175923",
+      "owner": "Scene model runtime",
+      "reason": "Record isolated model movement, cover integration and existing gate limits.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-perspective-parallax-370"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "e6ee3b93c58a2089eee2dd94c5f76b25fceff49532800dbe045ab9bb4bb7cf3a",
-      "after": "3e316ed30c776a0585d30fd70cc39f18b1d792cd90580a20c40039f1b1823bc5",
-      "owner": "Scene native image terminal",
-      "reason": "Specify the stock unlit RGB overwrite, preserved destination alpha and shared scene depth.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#stock-image-normal-depth"
+      "before": "3e316ed30c776a0585d30fd70cc39f18b1d792cd90580a20c40039f1b1823bc5",
+      "after": "313bc78f07b83e3cf9162d1df802baa3bf81237cc946be48359ed1ef17c635ed",
+      "owner": "Scene static model projection",
+      "reason": "Define inherited perspective parallax at the shared model camera projection.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-perspective-parallax"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2b7526baf42f72f7466d0fae37437482e9a7e3937683ed87abeb2efcdefa8711",
-      "after": "242bbd595473496e30ca9651875df01f6c45b4c6045502ebffc35f476af67d01",
+      "before": "242bbd595473496e30ca9651875df01f6c45b4c6045502ebffc35f476af67d01",
+      "after": "57d7ef560d8d0dcbd3e58709fcd1474105a604d619e235e334fddf21b880da05",
       "owner": "Scene open breakpoint queue",
-      "reason": "Replace stale feedback and separate two independent ray issues.",
+      "reason": "Track the remaining measured artwork margin after model and cover co-motion.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

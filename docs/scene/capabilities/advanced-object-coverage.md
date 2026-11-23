@@ -56,6 +56,15 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 动态骨骼输出由原 mesh owner 提供按 layer/surface 隔离的有界 vertex slots；index/material 可共享，可写 pose stream 不按 path 共享。color 与 shadow 消费同一 frame binding；编码开始后不能偷偷更换 pose。未准备、lease/encode 失败跳过受影响 draw，不能读取未持有旧 buffer。
 
+<a id="model-perspective-parallax"></a>
+### 透视模型与附属图像的共同视差
+
+透视 Direct MDL 的显示位置使用同一帧、同一层级视差解析。父层的有效深度及当前原点随现有传播规则供模型、封面和同组面片。官版只隔离实体并分别关视差、关实体，足以分辨 3708363772 的实体移动；本机旧封面与实体没有共用可见位移。
+
+现有模型相机 VP 在投影前接同一 XY 偏移，供颜色、主深度、体积遮挡和定向阴影接收区的可见范围。灯空间 caster、表面世界坐标、脚本与骨骼读取仍使用原 world。视差关闭或解析为零时沿原投影；透视与局部目标复用原 clip 映射，正交模型保既有投影范围。无需第二个帧缓存、材质、资源、矩阵源或后置屏幕平移。
+
+验收先核原包及隔离实体的左右两点、反复保持与关视差对照，确保位移实际发生且封面和同组实体不再分离。近门验证继承、断开传播、原有深度遮挡、改名与等价资源，另取独立作者。真实媒体封面身份与模型定位分别记录，普通静态封面可证明几何关系。 [实机结果](model-runtime-evidence.md#model-perspective-parallax-370)。
+
 ### 模型GPU顶点存储 <a id="model-gpu-vertex-storage"></a>
 
 目标是在原模型上传和pose发布边界减少不承载通道的存储，保持颜色、相机深度与三灯阴影逐值相同。CPU Reader/skinning的64B Vertex及冻结帧不变；GPU采用唯一48B记录：三个Float4依次存position.xyz/uv.x、normal.xyz/uv.y、tangent.xyzw。只移动原Float32位，不量化、归一化或改几何。直接改CPU布局会同时触及Reader、skin与热点向量读取，当前收益不足以承担该范围；也不保两套GPU格式或按模型选择stride。

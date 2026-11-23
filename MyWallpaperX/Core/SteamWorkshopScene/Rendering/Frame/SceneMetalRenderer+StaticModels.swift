@@ -54,6 +54,7 @@ extension SceneMetalRenderer {
         private let commandBuffer: MTLCommandBuffer
         let collectsVolumeOccluders: Bool
         var volumeOccluders: [VolumeOccluder] = []
+        var cameraParallaxOffset: ((SceneRenderDescriptor.Layer) -> SIMD2<Float>)?
         // A present nil rejects this frame's direct draw; absence preserves the
         // immutable static resource. All passes consume this one publication.
         private var directMeshes: [Int: SceneStaticModelMesh?] = [:]
@@ -74,6 +75,17 @@ extension SceneMetalRenderer {
         init(commandBuffer: MTLCommandBuffer, collectsVolumeOccluders: Bool = false) {
             self.commandBuffer = commandBuffer
             self.collectsVolumeOccluders = collectsVolumeOccluders
+        }
+
+        func cameraClipProjection(for layer: SceneRenderDescriptor.Layer,
+                                  camera: SceneParticleCameraFrame, usesPerspective: Bool,
+                                  pass: SceneMainPassEncoder) -> simd_float4x4 {
+            var projection = camera.reverseDepthViewProjection(usesPerspective: usesPerspective)
+            if usesPerspective, let shift = cameraParallaxOffset?(layer), shift != .zero {
+                // VP * T(shift) keeps the raw model world and light geometry.
+                projection.columns.3 += projection.columns.0 * shift.x + projection.columns.1 * shift.y
+            }
+            return pass.rasterClipProjection(projection)
         }
 
         func publishDirectModelMesh(_ mesh: SceneStaticModelMesh?, for layerID: Int,
@@ -276,8 +288,8 @@ extension SceneMetalRenderer {
         let draws = state.prepared?[layer.id]
             ?? staticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: frameContext.dynamicValues, state: state) ?? []
         let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
-        let viewProjection = pass.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
-            usesPerspective: usesPerspective))
+        let viewProjection = state.cameraClipProjection(for: layer, camera: cameraFrame,
+            usesPerspective: usesPerspective, pass: pass)
         let frontFacing = pass.rasterFrontFacing
         var encodedLit = false
         for draw in draws {
@@ -821,13 +833,16 @@ extension SceneMetalRenderer {
             if draws.isEmpty { continue }
             // Native models use Y-up world winding. Canvas and fitted cameras
             // retain their reflected authored convention in the same light map.
+            let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
             let frontFacing: MTLWinding = cameraFrame.defaultsToPerspective
-                && cameraFrame.resolvesPerspective(for: layer) ? .clockwise : .counterClockwise
+                && usesPerspective ? .clockwise : .counterClockwise
             let receiverClip: simd_float4x4?
             if includesDirectional && draws.contains(where: { $0.material.receivesLighting }) {
                 let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil)
-                receiverClip = pass?.rasterClipProjection(cameraFrame.reverseDepthViewProjection(
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)))
+                receiverClip = pass.map {
+                    state.cameraClipProjection(for: layer, camera: cameraFrame,
+                        usesPerspective: usesPerspective, pass: $0)
+                }
                 if let extent = pass?.targetExtent {
                     receiverExtent = max(receiverExtent, extent.width, extent.height)
                 }

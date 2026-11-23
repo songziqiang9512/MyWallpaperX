@@ -91,6 +91,12 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
+        if parallaxConfiguration.enabled && !staticModelResources.isEmpty {
+            modelFrame.cameraParallaxOffset = { layer in
+                self.parallaxOffset(for: layer, worldFramesByLayerID: frameWorldFrames,
+                    mouseNormalized: parallaxMouseNormalized, configuration: parallaxConfiguration)
+            }
+        }
         let activeStaticModelNamedAlbedoLayerIDs = Set(frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs).filter { layerID in
                 staticModelResources[layerID]?.contains { entry in

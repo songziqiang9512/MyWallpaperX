@@ -142,7 +142,7 @@ extension SceneMetalRenderer {
         )
     }
 
-    private func parallaxOffset(
+    func parallaxOffset(
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
         mouseNormalized: SIMD2<Float>,
