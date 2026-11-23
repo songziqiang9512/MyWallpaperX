@@ -105,7 +105,7 @@
 | 输入 | 当前起点 |
 |---|---|
 | 3437487219 | Cloud共同MR、颜色/HDR与pigment的自有受光合同已沿[模型正文](../capabilities/advanced-object-coverage.md#model-chroma-surface)接通，冻结云资产有可见贡献，退出这些具体缺口。旧精确受光、闪烁/collision反馈仍待同条件ROI/活动producer，不由noise或默认完整图关闭，不按旧参考调灯。 |
-| 3455121165 | 默认自然墙钟时钟/星期正常；[条件资格与停止线](../capabilities/runtime-evidence-current.md#authored-text-depth)确认107关闭深度的官/本差异及84参与，未证错误opaque分类。旧采集绑定已恢复，静态v2及补作者常量字段的v3均见七绿框、却所有官方glyph正控缺失；当前为字体carrier资格STOP，off未开，不据此改产品。不重跑四开关/84、旧采集或猜字段；先取得字形正控，再裁disabled写深度/排序/font批次，保opacity与近远观察，不预选writeOnly/统一overlay，不重开默认缺钟。 |
+| 3455121165 | 默认自然墙钟时钟/星期正常；[条件资格与停止线](../capabilities/runtime-evidence-current.md#authored-text-depth)确认107关闭深度的官/本差异及84参与，未证错误opaque分类。旧v2/v3只有七绿框，off未开。官方原包已实际读出时钟和星期，未观察到命令后的改色。后续用原包或先通过字形正控的最小变体，取得296同帧读取中早字及晚实体的可区分像素，再裁disabled写深度、排序或字形批次。保opacity与近远观察。 |
 
 ### 基础画面与基本交互优先
 

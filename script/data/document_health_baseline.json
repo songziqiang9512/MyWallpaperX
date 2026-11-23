@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 273338
+      "bytes": 273819
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59233
+      "bytes": 59159
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b77763645cded3af14c2c0540225d4f09a35874305089f3f174fbb1bd1816fb0",
-      "after": "cbcd7edcd67c0402f5bd2519320074a2d1251bcaecc386e99d43241c5eaf877e",
+      "before": "cbcd7edcd67c0402f5bd2519320074a2d1251bcaecc386e99d43241c5eaf877e",
+      "after": "d3bde9b74504e80aebce026afe6c100ea84698ffa64d8e4d1056354cd126ceca",
       "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Record candidate eye-phase pixels, signed position and coverage controls, and independent authored playback in the existing evidence row.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-mdmp-oracle"
+      "reason": "Record official original glyph pixels, local capture identity and the property-control boundary.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-text-depth"
     },
     {
       "section": "bodies",
