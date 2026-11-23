@@ -17,6 +17,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 环形 Vortex 与动态控制点 · 3653620838 | 259使用世界空间 `vortex_v2`、CP1 三秒角度时间线和作者 ring 参数。现役准备拒绝这些组合，原包仍有其余粒子与强外围放射。官版单删该算子可重现内场丢失。沿原粒子计划与 CP 快照先用冻结及动画轴、环半径/宽度/拉力的独立可辨控制验证，再保留作者在 Movement 后和 Radius/Force 前的次序。[实际画面](../capabilities/runtime-evidence-current.md#vortex-ring-author) · [官方参数](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#vortex) |
 | Fullscreen 子树后处理 · 3804689861 | 143默认有 Twirl 和两项 Shake，两个 mask 均存在。带子层的 Fullscreen 在 SourceRoute 被拒绝，F185中视频319、贴图184直接进主画布，父级缺实际 source 与 Program。新增库存86个 Fullscreen 中此例具有该活动子树。先用官版切换父效果定位 enclosing-prefix 或 descendants 的输入，再沿现有组来源职责验证。 |
 | 默认隐藏图层的共享颜色生产者 · 3461057594 | 388有普通图片颜色消费者，作者 init 建立 `shared.miPrimaryColor`，媒体事件可开启图层。颜色候选按 authored false 提前淘汰388，408的 `mix` 因缺生产者首帧报错。默认媒体组隐藏。开启 `mediainfo`，用已知封面颜色核共享值、408回调及当前帧实际回绘。 |
 | 材质项目属性的空种子 · 3777047217 | 28/e4的 Shake 有真实 slider 默认.07和完整纹理，`{user,value:null}` 被 binding compiler 作为缺 authored fallback 淘汰；同 key、同材质 e5 带显式种子，实际写入.07。e4回退后后继材质仍实际回绘。先验项目属性优先级、空值及坏 key 反例，再沿原 typed producer 覆盖初始值、热更和可见幅度。 |

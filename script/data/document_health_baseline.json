@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 275597
+      "bytes": 276341
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 205,
-      "bytes": 61710
+      "lines": 206,
+      "bytes": 62325
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b637a7b3c89f8e620239b0471dff9452ba6ccfdd048341a9b40e57ab759d5fc4",
-      "after": "814e12c36f1430d8e78e5f2b45ff7785ad2b25ce157247bc29990139c7d36879",
-      "owner": "Existing Scene texture and evidence owners",
-      "reason": "Record the two original material readers, the rename and independent author, and original Windows playback.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author"
+      "before": "814e12c36f1430d8e78e5f2b45ff7785ad2b25ce157247bc29990139c7d36879",
+      "after": "c4153e7e41e1bd555bcffe232e6c01d628ee6fd44380f06c2a2596e8933f3ee5",
+      "owner": "Scene particle execution and runtime evidence",
+      "reason": "Archive the original and one-axis official tests locating the visual effect.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vortex-ring-author"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e0c32b4afeb7c29d0f104f126321634b13c908d4b33d0d205de0e106d66a567e",
-      "after": "85b6fa1f01d3e4b3c4ee57fd19370425cc79e4fa5c5f915f576033c6dc2610f8",
-      "owner": "Current Scene open breakpoint queue",
-      "reason": "Replace the older intake scope and record current author startup, compositor, shader and property defects.",
+      "before": "32e35898acbfb3aec2add6d9cc0d364aacc97408549df03203bac79ceaa710e4",
+      "after": "15fcb973cbb00763b6c05a96d3807411155a38aaf4407d96a33478f6996eb88f",
+      "owner": "Scene particle execution and runtime evidence",
+      "reason": "Record the live unresolved ring Vortex and the tests needed before changing admission.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
