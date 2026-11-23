@@ -26,7 +26,7 @@ def compressed_tex(image_count=2):
 
 class SceneTexCacheBudgetTests(unittest.TestCase):
     def test_prepared_tex_request_reuses_denied_payload_and_preserves_failure_boundaries(self):
-        scene = SOURCE.parents[3]
+        scene = SOURCE.parents[2]
         candidate_sources = [scene / 'Resources/Textures' / name for name in (
             'SceneTextureSampling.swift', 'SceneTextureUVTransform.swift',
             'SceneTextureCandidate.swift', 'SceneTextureLoader+Candidate.swift')]
