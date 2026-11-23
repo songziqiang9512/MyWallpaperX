@@ -615,6 +615,10 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
     fileprivate let dynamicTransformLayerIDs: Set<Int>
     fileprivate let authoredDiagnostics: [SceneDynamicSnapshotDiagnostic]
 
+    nonisolated func contains(_ target: SceneDynamicTarget) -> Bool {
+        definitionsByTarget[target] != nil
+    }
+
     fileprivate init(definitions: [SceneDynamicTargetDefinition]) {
         var definitionsByTarget: [
             SceneDynamicTarget: SceneDynamicTargetDefinition

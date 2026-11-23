@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 323,
-      "bytes": 63706
+      "bytes": 63941
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 382,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 270608
+      "bytes": 271349
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 202,
-      "bytes": 62559
+      "lines": 201,
+      "bytes": 62180
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -222,7 +222,7 @@
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 569,
-      "bytes": 162578
+      "bytes": 162539
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c67639f455cc31ae9cf7192260897d16f86864a9d12399a8b91cf0687f2f85e6",
-      "after": "0e9637e18575420f5d6978f31db4ed437443f1ef4e5f087cdf9493a77d7ea6c5",
-      "owner": "Existing Scene Rope plan and runtime evidence",
-      "reason": "Separate incoming and outgoing UV at repeated geometry within the existing Rope owner, replacing the shared endpoint. Record fixed-threshold official controls, actual candidate and independent author regression evidence; retire the solved queue item and retain A2C limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-span-uv"
+      "before": "0e9637e18575420f5d6978f31db4ed437443f1ef4e5f087cdf9493a77d7ea6c5",
+      "after": "a3967bf6aa8a8682ef9fc84f932773dfeeeacb53738e8df350b1906cdeaa489b",
+      "owner": "Existing Scene particle emission and runtime evidence owners",
+      "reason": "Define and verify the existing call-time transform path for a first change on an indexed particle hierarchy.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-emit-prefix-first-transform"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4390ca0c38634c0a11b5cc85fc5d82b970d30b21ee68297f38bd47cc0250280c",
-      "after": "a548b3195857374efa26f09aff8965019bd8392a96d732dadf927ed79d24d55e",
-      "owner": "repository-governance",
-      "reason": "Move remaining script files into collections and update paths.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md"
+      "before": "a548b3195857374efa26f09aff8965019bd8392a96d732dadf927ed79d24d55e",
+      "after": "f177e8970536c88702921744ddf3cad3db45d14bf2364e28d33a83c93f932458",
+      "owner": "Existing Scene particle emission and runtime evidence owners",
+      "reason": "Define and verify the existing call-time transform path for a first change on an indexed particle hierarchy.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-emit-prefix-first-transform"
     },
     {
       "section": "bodies",

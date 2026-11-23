@@ -311,7 +311,7 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 <a id="playback"></a>
 ## 播放命令
 
-`play/pause/stop/isPlaying/emitParticles` 沿原 typed handle 和 PlaybackState 生效。pause 保实例，stop 清其活动播放/出生；显式 emit 的参数与 transform 取调用点，不能被稍后的 callback 返回值追改。同 cadence 的命令、GPU deferred 和缺 drawable 不得重放出生。
+`play/pause/stop/isPlaying/emitParticles` 沿原 typed handle 和 PlaybackState 生效。pause 保实例，stop 清活动播放和出生。显式 emit 取当前回调前缀的值及已提交祖先链。粒子或祖先缺索引且 world Float 变换偏离作者值时，沿原描述补本次快照的 seed，交原 typed resolver 和 world resolver。相等则保静态帧。固定点重建复用调用上下文，晚写不修改已捕获位置，渲染重试不重放出生。沿既有空间资格验证两次调用位置及尾部再写反例。
 
 新 Surface、重建、暂停恢复、退出与失败延续原 Scene clock/transaction，不另建粒子播放时钟。完整 Sound/media/UI 不属于 Particle 的输出 owner。
 

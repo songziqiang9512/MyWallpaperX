@@ -34,7 +34,7 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
     def run_particle(self, init, update="", screens=1, fault=None, continuous=False,
                      script_field="alpha", return_expression="value",
                      directional_births=False, initial_value=1, retirement=None, removal=None, transition=None,
-                     texture_update=None):
+                     texture_update=None, cold_transform_target=None):
         def chunk(kind, payload):
             return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
         png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
@@ -56,6 +56,24 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             definition["operator"] = [{"name": "movement", "flags": 1, "gravity": "0 0 0"}]
             definition["initializer"][1].update(min=6, max=6)
             definition["initializer"].append({"name": "velocityrandom", "min": "6 0 0", "max": "6 0 0"})
+        if cold_transform_target:
+            particle = scene["objects"][1]
+            particle.pop("instanceoverride")
+            particle["parent"] = 9
+            definition["flags"] = 1
+            definition["initializer"][1].update(min=6, max=6)
+            scene["objects"].insert(1, {"id": 9, "name": "Prepared translation",
+                "origin": {"value": "0 0 0", "script": "export function update(v){return v;}"}})
+            if cold_transform_target.startswith("parent"):
+                particle.update(parent=8, origin="0 0 0", name="Renamed burst")
+                scene["objects"].insert(2, {"id": 8, "name": "Renamed anchor", "parent": 9,
+                    "image": "models/util/solidlayer.json", "origin": "64 64 0",
+                    "size": "1 1", "alpha": 0})
+                if cold_transform_target == "parent-static-angle":
+                    particle["angles"] = "0 0 -2.45"
+            scene["objects"].append({"id": 7, "name": "Emitter controller",
+                "image": "models/util/solidlayer.json", "size": "1 1", "alpha": 0,
+                "visible": {"value": True, "script": script}})
         extra_definitions = []
         if retirement or removal or transition:
             destroy_update = 1 if retirement == "held" else 75
@@ -160,6 +178,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "8" if removal == "paused" or transition else "7",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if cold_transform_target:
+                command.append("--mwx-debug-scene-background")
             if retirement == "held":
                 command += ["--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "0.5:0.8"]
             if removal or transition:
@@ -204,6 +224,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                     saved /= retirement
                 if texture_update:
                     saved /= texture_update
+                if cold_transform_target:
+                    saved /= cold_transform_target
                 saved.mkdir(parents=True, exist_ok=True)
                 (saved / "app.log").write_text(log)
                 if retirement_qualification:
@@ -234,6 +256,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             final_surfaces = (1 if transition == "disjoint-playing" else 2) if transition else 1 if removal else screens
             self.assertIn(f"phase=stopped surfacesBefore={final_surfaces} surfacesAfter=0", log)
             self.assertGreaterEqual(len(captures), 2)
+            if cold_transform_target:
+                self.assertTrue((evidence / "scene-after-window.png").is_file())
             if retirement:
                 self.assertRegex(log, r"phase=stopped[^\n]*gpuDrained=true")
                 self.assertIsNotNone(retirement_qualification["retirementLine"], retirement_qualification)
@@ -505,6 +529,16 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                     self.assertTrue(points, capture.name)
                     self.assertGreater(max(x for x, _ in points) - min(x for x, _ in points), width * 0.1)
                     self.assertGreater(max(y for _, y in points) - min(y for _, y in points), height * 0.1)
+                if cold_transform_target and "after" in capture.name:
+                    columns = {x for row in rows for x in range(width)
+                               if row[x * 3] > 160 and row[x * 3 + 1] < 80 and row[x * 3 + 2] < 80}
+                    scale = max(width, height) / 128
+                    for position in (40, 88):
+                        center = width / 2 + (position - 64) * scale
+                        self.assertTrue(any(abs(x - center) < scale for x in columns),
+                                        f"{cold_transform_target}: extents {min(columns, default=-1)}, {max(columns, default=-1)}")
+                    self.assertFalse(any(abs(x - width / 2) < 3 * scale for x in columns))
+                    self.assertFalse(any(abs(x - (width / 2 + 36 * scale)) < 3 * scale for x in columns))
             consumed = [tuple(map(int, row)) for row in re.findall(
                 r"phase=particle-transition-consumed frame=(\d+) layer=(\d+) revision=(\d+) action=(\d+) surface=(\d+)", log)]
             if retirement or removal or transition:
@@ -689,6 +723,23 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             directional_births=True)
         self.assertTrue(all(red > 0 for red in colors))
         self.assert_live_at_teardown(log, 2)
+
+    def test_first_cross_layer_transform_is_available_at_each_emit(self):
+        for mode, bindings, left, right in (
+            ("particle", "const burst=thisScene.getLayerByID(42), target=burst;", "40", "88"),
+            ("parent", "const burst=thisScene.getLayer('Renamed burst');"
+                       "const target=thisScene.getLayer('Renamed anchor');", "80/2", "44*2"),
+            ("parent-static-angle", "const burst=thisScene.getLayerByID(42), "
+                                    "target=thisScene.getLayerByID(8);", "40", "88"),
+        ):
+            with self.subTest(mode=mode):
+                log, _, _, _, _ = self.run_particle(
+                    bindings + "burst.stop();"
+                    f"target.origin=new Vec3({left},64,0); burst.emitParticles(1);"
+                    f"target.origin=new Vec3({right},64,0); burst.emitParticles(1);"
+                    "target.origin=new Vec3(100,64,0);",
+                    cold_transform_target=mode)
+                self.assert_live_at_teardown(log, 2)
 
     def test_explicit_births_are_not_replayed_after_drawable_failure(self):
         log, _, colors, consumed, completed = self.run_particle(

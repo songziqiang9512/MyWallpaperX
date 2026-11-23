@@ -410,6 +410,7 @@ extension SceneDesktopWallpaperSession {
         }
         let particleEmission = beginParticleEmissionFrame(context: launchContext, timing: timing,
             preliminary: preliminarySceneScriptResolution, topology: layerMutationSnapshot,
+            layersByID: sceneScriptTopology.layersByID, definitionIndex: definitionIndex,
             poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(surfaces.keys))
         defer {
             particleEmission?.discard()

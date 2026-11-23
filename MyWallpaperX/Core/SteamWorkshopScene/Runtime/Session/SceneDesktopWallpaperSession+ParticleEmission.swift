@@ -5,6 +5,8 @@ extension SceneDesktopWallpaperSession {
         context: SceneDesktopWallpaperLaunchContext, timing: SceneFrameTiming,
         preliminary: SceneDynamicSnapshotResolution,
         topology: SceneScriptLayerTopologySnapshot,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        definitionIndex: SceneDynamicSnapshotDefinitionIndex,
         poses: [UInt32: ScenePuppetScriptPoseFrame], audio: SceneAudioSpectrumSnapshot,
         inputSurfaceIDs: Set<UInt32>
     ) -> SceneParticlePlaybackTransaction? {
@@ -72,12 +74,13 @@ extension SceneDesktopWallpaperSession {
                     let bytes = (preliminary.snapshot.count + layerCount + 16) * 512
                     try domain.chargeParticleWork(UInt64((bytes + 63) / 64), bytes: bytes)
                     defer { domain.releaseParticleStorage(bytes) }
-                    let values = try surface.particleEmissionInputValues(
-                        owner: owner, layerID: instance.layerID)
+                    let input = try Self.particleEmissionInputs(owner: owner,
+                        layerID: instance.layerID, layersByID: layersByID, index: definitionIndex,
+                        cameraOriginLayerID: context.runtimeInput.renderDescriptor.camera.default2DOriginInputLayerID)
                     let snapshot = SceneDynamicSnapshotResolver().resolve(
                         frameIndex: timing.frameIndex, generation: 0,
-                        index: context.dynamicDefinitionIndex, base: preliminary,
-                        sceneScriptValues: values).snapshot
+                        index: definitionIndex, base: preliminary,
+                        sceneScriptValues: input.values, candidateDefinitions: input.definitions).snapshot
                     return try surface.particleEmissionContext(layerID: instance.layerID,
                         timing: timing, dynamicValues: snapshot, topology: topology,
                         attachments: poses[instance.surfaceID]?.attachmentFrames ?? .empty, audio: audio)
@@ -85,6 +88,55 @@ extension SceneDesktopWallpaperSession {
             }
         }
         return transaction
+    }
+
+    private static func particleEmissionInputs(
+        owner: OpaquePointer, layerID: Int,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        index: SceneDynamicSnapshotDefinitionIndex, cameraOriginLayerID: Int?
+    ) throws -> (values: [SceneDynamicTarget: SceneDynamicValue],
+                 definitions: [SceneDynamicTarget: SceneDynamicTargetDefinition]) {
+        var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        var definitions: [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
+        var visited = Set<Int>()
+        var current: Int? = layerID
+        while let id = current {
+            guard visited.insert(id).inserted, let layer = layersByID[id] else {
+                throw SceneScriptScalarRuntimeFailure.staleOwner
+            }
+            var origin = [Double](repeating: 0, count: 3)
+            var scale = origin, angles = origin
+            guard mwx_scene_quickjs_owner_particle_transform(owner, Int64(id), &origin, &scale, &angles) == MWX_SCENE_QUICKJS_OK else {
+                throw SceneScriptScalarRuntimeFailure.staleOwner
+            }
+            func record(_ field: SceneDynamicLayerField, _ value: SIMD3<Double>) {
+                let target = SceneScriptDynamicLayerRuntime.authoredTransformTarget(
+                    layerID: id, field: field, cameraOriginInputLayerID: cameraOriginLayerID)
+                guard case .layer = target else { return }
+                if !index.contains(target) {
+                    // The world resolver consumes Float. A degrees/radians
+                    // round trip alone must not turn a static angle dynamic.
+                    guard let definition = SceneScriptDynamicLayerRuntime.definition(for: target, layer: layer),
+                          case let .vector3(x, y, z) = definition.authoredValue,
+                          SIMD3<Float>(value) != SIMD3(Float(x), Float(y), Float(z)) else { return }
+                    definitions[target] = definition
+                }
+                values[target] = .vector3(value.x, value.y, value.z)
+            }
+            record(.origin, .init(origin[0], origin[1], origin[2]))
+            record(.scale, .init(scale[0], scale[1], scale[2]))
+            record(.angles, .init(SceneScriptAngleUnits.radians(fromDegrees: angles[0]),
+                SceneScriptAngleUnits.radians(fromDegrees: angles[1]),
+                SceneScriptAngleUnits.radians(fromDegrees: angles[2])))
+            current = layer.parentID
+        }
+        var alpha = 1.0
+        guard mwx_scene_quickjs_owner_particle_instance_alpha(owner, Int64(layerID), &alpha) == MWX_SCENE_QUICKJS_OK,
+              alpha.isFinite else {
+            throw SceneScriptScalarRuntimeFailure.staleOwner
+        }
+        values[.particle(layerID: layerID, field: .alpha)] = .scalar(alpha)
+        return (values, definitions)
     }
 }
 

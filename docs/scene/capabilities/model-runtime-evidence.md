@@ -100,7 +100,7 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
-按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal供后继入参与自身getter，准入TRS进入同帧world snapshot；init/主动返回归原journal，passive Timeline保原投影。显式粒子发射调用点仍待证。
+按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal供后继入参与自身getter，准入TRS进入同帧world snapshot；init/主动返回归原journal，passive Timeline保原投影。
 
 当前原生4方法的9回调顺序变体与6个init/timer/Timeline邻例通过，覆盖改名、当前input/getter、后返回/后setter、无update、坏返回/失败peer；旧同输入7项红保留。原20组实际输出严格不变，未将其冒为当前完整18方法重跑；C/Bool/返回诊断/timer最近门保实际原身份。Debug67.578s，十产品/project/锁文件前后相同，签名及原helpers验证通过；exe115ef63a…a2b0、dylibed363a0c…5ba4，metallib仍cd47906e…30b4。四同输入App控制各F77/request1完整到main/seal/GPUcompleted、trunc0并排空，红体与青标记质心距离从359.5–479.54降至0.539–0.542 PNG像素，低于事前1.5门限；绿色peer完整，未改输入/阈值或按相位拟合。
 

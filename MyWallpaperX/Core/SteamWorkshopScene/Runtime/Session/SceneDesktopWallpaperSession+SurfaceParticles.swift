@@ -86,36 +86,6 @@ extension SceneDesktopWallpaperSession.Surface {
         )
 #endif
     }
-    func particleEmissionInputValues(owner: OpaquePointer, layerID: Int) throws
-        -> [SceneDynamicTarget: SceneDynamicValue] {
-        var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
-        var visited = Set<Int>()
-        var current: Int? = layerID
-        while let id = current {
-            guard visited.insert(id).inserted, let layer = metalView.renderer.layersByID[id] else {
-                throw SceneScriptScalarRuntimeFailure.staleOwner
-            }
-            var origin = [Double](repeating: 0, count: 3)
-            var scale = origin, angles = origin
-            guard mwx_scene_quickjs_owner_particle_transform(owner, Int64(id), &origin, &scale, &angles) == MWX_SCENE_QUICKJS_OK else {
-                throw SceneScriptScalarRuntimeFailure.staleOwner
-            }
-            values[.layer(layerID: id, field: .origin)] = .vector3(origin[0], origin[1], origin[2])
-            values[.layer(layerID: id, field: .scale)] = .vector3(scale[0], scale[1], scale[2])
-            values[.layer(layerID: id, field: .angles)] = .vector3(
-                SceneScriptAngleUnits.radians(fromDegrees: angles[0]),
-                SceneScriptAngleUnits.radians(fromDegrees: angles[1]),
-                SceneScriptAngleUnits.radians(fromDegrees: angles[2]))
-            current = layer.parentID
-        }
-        var alpha = 1.0
-        guard mwx_scene_quickjs_owner_particle_instance_alpha(owner, Int64(layerID), &alpha) == MWX_SCENE_QUICKJS_OK,
-              alpha.isFinite else {
-            throw SceneScriptScalarRuntimeFailure.staleOwner
-        }
-        values[.particle(layerID: layerID, field: .alpha)] = .scalar(alpha)
-        return values
-    }
 }
 
 #if DEBUG
