@@ -86,9 +86,7 @@ Swift 格式用 Xcode 自带 `swift-format`：`script/governance/format_swift_ch
 
 ## 本地化提交检查
 
-`git config core.hooksPath .githooks` 启用仓库自带的 `pre-commit`：`check_localization.py --changed` 只读取本次暂存的 Swift 新增行，检查新增的 `String(localized:)` key 是否已进入 `Localizable.xcstrings`，并要求 en/zh-Hans/de/fr/ru 都有翻译；缺失时拒绝提交。存量 key 不参与，避免历史遗留阻塞日常提交。
-
-它与上面的 `commit_preflight.py --install` 共用 `core.hooksPath`，两者不能同时启用；先用 `git config --unset core.hooksPath` 再切换。hooksPath为共享仓库配置，会影响其全部worktree，hook的owned快照由common Git目录保存，不绑定安装checkout；每次按提交所在工作树解析index，可从其他worktree卸载。现有有效hooksPath、默认hooks、用户追加内容和符号链接均受保护，工具拒绝覆盖。`MWX_OWNED_PATHS`可给hook传JSON路径清单；不提供时诚实提示归属未验证。
+可用 `git config core.hooksPath .githooks` 启用提交检查。钩子读取暂存 Swift 和对应的 catalog，CI 检查各 target 源码与资源。详见[本地化门禁](localization-contract.md#sync)。两个可选 hook 共用 Git 配置，安装约束见上节。
 
 ## 规则退出
 

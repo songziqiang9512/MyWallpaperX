@@ -34,8 +34,8 @@ nonisolated enum SteamWorkshopStorageTree {
         let size: Int64
         let isDirectory: Bool
     }
-    static func require(_ condition: Bool, _ message: String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
-        guard condition else { throw Failure(message: message) }
+    static func require(_ condition: Bool, _ message: @autoclosure () -> String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
+        guard condition else { throw Failure(message: message()) }
     }
     static func parts(_ path: String) throws -> [String] {
         let values = path.replacingOccurrences(of: "\\", with: "/")

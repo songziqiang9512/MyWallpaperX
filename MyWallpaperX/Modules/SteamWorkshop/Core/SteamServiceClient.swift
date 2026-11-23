@@ -90,6 +90,7 @@ final class SteamServiceClient {
         case requestTimedOut
         case connectionLost
         case incompatibleProtocol
+        case itemUnavailable
         case helperError(code: String, message: String)
 
         var errorDescription: String? {
@@ -104,6 +105,8 @@ final class SteamServiceClient {
                 return String(localized: "The connection to the Steam service was lost. Try again.")
             case .incompatibleProtocol:
                 return String(localized: "The Steam service version is incompatible. Update or reinstall the app.")
+            case .itemUnavailable:
+                return String(localized: "This artwork doesn’t exist or your account doesn’t have access to it.")
             case .helperError(let code, _):
                 // The helper's message is diagnostic text (Chinese by contract);
                 // user-facing copy is chosen by code so every language sees its own.

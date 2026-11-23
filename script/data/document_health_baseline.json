@@ -14,11 +14,11 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 37,
-      "bytes": 9355
+      "bytes": 9385
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18213
+      "bytes": 18243
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 42,
@@ -53,8 +53,8 @@
       "bytes": 23241
     },
     "docs/development/repository-workflow.md": {
-      "lines": 106,
-      "bytes": 15216
+      "lines": 110,
+      "bytes": 15110
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 111,
@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 476,
-      "bytes": 110978
+      "bytes": 111002
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -118,15 +118,15 @@
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
-      "bytes": 7381
+      "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 323,
-      "bytes": 63916
+      "bytes": 63940
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 382,
-      "bytes": 80109
+      "bytes": 80181
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
@@ -134,7 +134,7 @@
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
-      "bytes": 27695
+      "bytes": 27725
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 223,
-      "bytes": 41277
+      "bytes": 41301
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 60233
+      "bytes": 60239
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -206,7 +206,7 @@
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
-      "bytes": 8377
+      "bytes": 8380
     },
     "docs/development/thumbnail-delivery-design.md": {
       "lines": 180,
@@ -226,11 +226,11 @@
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
-      "bytes": 29777
+      "bytes": 29190
     },
     "docs/development/localization-plan.md": {
-      "lines": 201,
-      "bytes": 21525
+      "lines": 200,
+      "bytes": 20777
     }
   },
   "archives": [
@@ -379,11 +379,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
-      "after": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
-      "owner": "Scene material video acquisition and playback",
-      "reason": "Document the exclusive inactive effect acquisition rule, paused readiness, and bounded real-work reduction; retire the completed queue item without extending AV behavior.",
-      "decision": "docs/scene/capabilities/material-video-assets.md#inactive-material-frame-acquisition"
+      "before": "6d639b0c454eba5ff55af2316f3f37177975fab790e72b539cc3e80ab513bce2",
+      "after": "0ef76e52d15f4f20c7fb565d7e3f208785a929b46f4a8bb9ba2fd93d52089094",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -433,38 +433,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "0e9637e18575420f5d6978f31db4ed437443f1ef4e5f087cdf9493a77d7ea6c5",
-      "after": "a3967bf6aa8a8682ef9fc84f932773dfeeeacb53738e8df350b1906cdeaa489b",
-      "owner": "Existing Scene particle emission and runtime evidence owners",
-      "reason": "Define and verify the existing call-time transform path for a first change on an indexed particle hierarchy.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-emit-prefix-first-transform"
+      "before": "fc3d6f55d0da3034161e22b2456bf619746919eea38b93737680d35e5d641c26",
+      "after": "2a812288708b0e7b4795a1fc17785d63987bd443f1520116ea2e467c81bdc9c1",
+      "owner": "repository governance",
+      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "42699450cc631119185864daaee61f46d2351306640e7a966e5bbff7ac3b043d",
-      "after": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
-      "owner": "Existing Scene Timeline, Script Domain and typed frame owners",
-      "reason": "Natural property events replace the Puppet-only transport and source-text writer mask after fixed official qualification; retain alpha/Puppet regression repairs, frozen real author outcomes and existing proof ceilings. Reconcile solved queue items and correct the prior authored yeshu branch; no new authority or runtime owner.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#timeline-events"
+      "before": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
+      "after": "4d8763da370b65936018b654a84eb82598f54925a678daf95d34e04053a2ee51",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "05027282060c03d788c72dfa5245296ba2ffd6924329ddc2b3010275ace3b947",
-      "after": "a3ed5f57ff7ef2bf8d04f5412b1843af03e7052df1fad9630aa13ba0d9edbe1a",
-      "owner": "Existing SceneScript journal, frame admission and model runtime evidence owners",
-      "reason": "Define current admitted authored TRS callback inputs, raw init/return journal ownership, passive Timeline and explicit retirement; keep init getter and first-definition limits.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#current-frame-authored-transforms"
+      "before": "617d2526dfd95eacd3ad8a1572a9f079ef2ca2fff3668089c3ee0839ad19a76d",
+      "after": "7076c0ae38699743dde2c6b4416677034c84e9cccb43b194483082541c92a235",
+      "owner": "repository governance",
+      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "bd9247a60b7e768dc5a9e6650fd0066e91e5c38e79ce96108fb87fd2f78678c0",
-      "after": "91ee58d7b12a12aa7676878b4cb4d410bc4b3c5f353bbd12532f76cd06e2ad2c",
-      "owner": "Existing Scene Bloom post-process and graph design owners",
-      "reason": "Record bounded current-Ultra uniform/spatial observations, retain unknown provenance of the original13, withdraw an unsupported reconstruction proposal before implementation, and continue actual model reflection/radiance/resolution research.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#hdr-bloom-extraction"
+      "before": "a5f983394e329d300ee5ed3890dbe17c8a75641acf9ec04f59ab10dafe7bf96b",
+      "after": "4cc0567c1e9700b32452a6ea8dce5dc0c4102328769cf41cb549b36afe73643d",
+      "owner": "repository governance",
+      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2cdd7ad6530c2872f5412ab8a79de16ab444034063f196cf9351a64c89712a80",
-      "after": "38df7130c99a6ed4ea279fa28028fb7744ef778b09b42a229e279df6f8a7fdcb",
-      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
-      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#spot-light-frame"
+      "before": "63a7455642f0d19004d383529dcabe0e55e5dbaae74c9993b9e44e4623808ec5",
+      "after": "486074fd25002811135ff8f24ca2ca6100593074d10ef09a838cc9b5eaaf5823",
+      "owner": "repository governance",
+      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -514,11 +514,11 @@
     {
       "section": "bodies",
       "path": "docs/development/repository-workflow.md",
-      "before": "c28ec1a65020719e0976948c37ecb8d67e5f4f0e5a4467d53d6d31b2cacb22d8",
-      "after": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
-      "owner": "repository-governance",
-      "reason": "Move governance tools into script/governance and update relative paths.",
-      "decision": "docs/development/repository-workflow.md"
+      "before": "4e02c759ee869deaa87affa5e0ebe5dbaa832b1b2ca7898c1dc6b4cfcf6c7332",
+      "after": "d7abfe8f8ae37f9880c99d2bc939904c5a0e9419e9f0e90c482733969486c106",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -541,11 +541,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "7efef470265ba1bd60a9def2de881a7d3ceae167e5d0849a61bb3f4720562b69",
-      "after": "2cd621a6fd5b5db869c6d44d9acc2d1ad06d03eea87cf6e898d38c03b1f9c98f",
-      "owner": "repository-governance",
-      "reason": "Move web tools into script/web and update paths.",
-      "decision": "docs/architecture/steam-workshop-acquisition-contract.md"
+      "before": "2cd621a6fd5b5db869c6d44d9acc2d1ad06d03eea87cf6e898d38c03b1f9c98f",
+      "after": "106b7f3cf498969caea81ac69b40f9f636908c833a3598c3a8b38ca7d1c614f9",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     },
     {
       "section": "bodies",
@@ -640,11 +640,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cda7138e13393590cb09b20ed78355851858f2e673f939ecfb66f678511ac602",
-      "after": "68b2b53ef6ac5ac10b4565b4e336197363393ceb008b390a5a653fcde5a374c0",
-      "owner": "Existing Scene author view evidence and open queue owners",
-      "reason": "Qualify the timed Sun-label interaction on the original Scene package and narrow the remaining input and transition claims.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-label-double-click"
+      "before": "dfecae9f6aa50825d835a1b61dbd84ab8bf1e182c1b98187de0176dbbb030cd1",
+      "after": "861db8014bbb48b356617002a0d73660b151e90a8ea55064906d17f56553f69f",
+      "owner": "repository governance",
+      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
+      "after": "200372bd1a218f3d7b9e3b93d3d11a4d0d2c0c60c42eaa3f9d933cde556ac938",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-wallpaper-benchmark-standard.md",
+      "before": "4a6342b0d7cc82163bb072487a1200708438523fa1c1636afa46f5ec9e8cce23",
+      "after": "f7787e87ae620589aa418402ede996add07bd4512d2a2d14f75763886da1a765",
+      "owner": "repository governance",
+      "reason": "Use the current test collection paths and repair the navigation after the script move.",
+      "decision": "docs/development/repository-workflow.md#并行与验证"
     }
   ]
 }

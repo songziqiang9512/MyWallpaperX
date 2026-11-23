@@ -62,7 +62,7 @@
 - 文件必须能被 `xcstringstool compile` 成功编译；编译失败等同于资源损坏。
 - 翻译未完成时保留条目但不得标记为已翻译；不得用源语言文本冒充译文来"凑满"。唯一的例外是专有名词与非译词（见[第 10 节](#terminology)），它们由译文语言显式填写同一文本，并保持 `state` 为已翻译。
 
-哪些文案进 `Localizable` 与 `InfoPlist` 两张表：界面文案进 `Localizable`；plist 可见键（`CFBundleHelpBookName`、权限用途描述、将来加入的 `CFBundleDisplayName`）进 `InfoPlist`。不进表的内容见[第 5 节](#scope)。
+哪些文案进 `Localizable` 与 `InfoPlist` 两张表：界面文案进 `Localizable`；plist 可见键（权限用途描述、将来加入的 `CFBundleDisplayName`）进 `InfoPlist`。不进表的内容见[第 5 节](#scope)。
 
 <a id="api"></a>
 ## 4. 代码入口与 key 规则
@@ -126,7 +126,7 @@ String(localized: "menu.file.open", defaultValue: "Open", comment: "File menu it
 - 窗口、面板、菜单、菜单项、工具栏按钮与溢出菜单、分段控件、标签、占位符、表头、页脚。
 - 弹窗标题、正文与按钮、确认文案、错误提示、空状态、进度描述、状态行、提示条。
 - tooltip、`NSImage` 的无障碍描述、`setAccessibilityLabel`、`setAccessibilityHelp`、`setAccessibilityDescription`。
-- 源 `Info.plist` 中出现的可见键：`CFBundleHelpBookName`、权限用途描述，以及将来加入的 `CFBundleDisplayName` 等。
+- 源 `Info.plist` 中的权限用途描述及将来加入的 `CFBundleDisplayName` 等可见键。
 - 系统设置里显示的扩展名称与帮助书正文。
 
 禁止本地化（必须保持现状并登记到[第 15 节](#exceptions)）：
@@ -284,7 +284,7 @@ String(localized: "menu.file.open", defaultValue: "Open", comment: "File menu it
 
 | 检查 | 失败含义 |
 |---|---|
-| 源码 key 集合 = 源表 key 集合 | 新增文案未进表，或源码改文案后旧条目未清理。阻断合入 |
+| 源码 key 有资源条目，编译器提取时再核对孤立条目 | 新文案缺资源，或有可移除的旧条目 |
 | 各译文语言的 key 集合 = 源表 key 集合 | 缺条目会让用户回退到源语言；多余条目是失效翻译。阻断 |
 | 同一 key 的占位符集合、类型、顺序一致（只允许位置序号差异） | 类型不匹配会在运行时崩溃；顺序不一致会显示错值。阻断 |
 | catalog 无 `extractionState == stale` 条目 | 源码已删除该文案，表中仍有残留。阻断合入 |
@@ -314,13 +314,13 @@ String(localized: "menu.file.open", defaultValue: "Open", comment: "File menu it
 | B：资源表之间 | 各语言 key 集合、占位符、翻译状态是否与源表一致 | 直接读取 catalog JSON | 每次提交、合入前 |
 | C：编译期权威 | 编译器实际提取的 key 与占位符类型是否与源表一致 | `xcodebuild -exportLocalizations` 导出的 XLIFF（内部使用编译期 stringsdata） | 里程碑、发布前、批次验收 |
 
-- 层 A 用轻量解析，是为了不要求每次提交都构建整个 App；它覆盖"key 文本与占位符位置"，但对实参类型变化不敏感（`%lld` 与 `%@` 在归一化后相同）。
+- 层 A 覆盖字面量和插值位置。提交钩子 `--changed` 以 Git index 的源码和资源为准。CI 用 `--source --hardcoded --compile` 校验两个 target 的字面量及各自资源，实参类型仍归层 C。
 - 层 C 是唯一能证明"占位符类型与源码实参匹配"的检查，代价是需要构建，因此不作为提交级门禁。
 - 层 A 与层 C 结论冲突时以层 C 为准，并修正层 A 的解析规则。
 
-检查与修复分离：脚本默认只读检查并报告；显式的修复模式只做机械部分——把源码新增的 key 以未翻译状态写入 `en` 条目、把源码已无的 key 标为 `extractionState: stale`——不生成任何译文内容。`xcstringstool sync` 可依据 `.stringsdata` 标记 stale，但不会新增 key（2026-11-23 实测），因此新增条目仍由脚本完成。
+脚本只读报告。新增 key 与译文在同一变更里写入对应 catalog。
 
-层 C 实测结论（2026-11-23，Xcode 27.2）：主 App 的 Debug 配置已含 `SWIFT_EMIT_LOC_STRINGS = YES`，普通构建即生成 `.stringsdata`，其 key 已是 `%lld`/`%@` 等精确形式；`script/governance/check_localization.py --extraction <DerivedData 路径>` 直接读取这些文件与 catalog 比对，不需要先 `-exportLocalizations`。XLIFF 导出保留为发布前的补充校验，不作为日常门禁。实测中 1459 个编译期 key 与 catalog 完全一致。
+普通构建关闭字符串提取。显式传 `SWIFT_EMIT_LOC_STRINGS=YES` 构建后，用 `check_localization.py --extraction <主 App 的 .stringsdata 目录>` 校验精确 key。XLIFF 导出可用于发布前补充核对。
 
 ### 13.3 检查模块必须报出的结论
 
@@ -335,7 +335,7 @@ String(localized: "menu.file.open", defaultValue: "Open", comment: "File menu it
 ### 13.4 一次改文案的完整责任链
 
 1. 修改源码英文文案 → key 变化。
-2. 构建或跑检查 → 层 A 报出旧 key 消失、新 key 缺失。
+2. 跑层 A 检查新增 key，按需用层 C 查验孤立条目。
 3. 在同一提交内更新 `en` 条目（新增、删除旧条目）。
 4. 同步更新所有译文语言；未完成的条目不得标为已翻译。
 5. 层 B 全绿后合入。
@@ -355,7 +355,7 @@ Xcode 的 catalog 自动同步发生在 IDE 内。已核对 Xcode 27.2 的构建
 <a id="help-book"></a>
 ## 14. 帮助书
 
-帮助书位于 `MyWallpaperXHelp/<lang>.lproj/index.html`，通过 `CFBundleHelpBookFolder`/`CFBundleHelpBookName` 由系统打开。
+帮助书位于 `MyWallpaperXHelp/<lang>.lproj/index.html`，由系统按固定的 `CFBundleHelpBookName` 注册，显示标题来自该语言目录的 `InfoPlist.strings`。
 
 - 每个支持语言必须有对应目录，语言切换链接指向对应目录，不得依赖重定向占位页。
 - 帮助书正文的术语必须与[第 10 节](#terminology)一致，且与 App 界面同一事实只维护一处：界面文案变化导致帮助书失真时，同批修正帮助书。

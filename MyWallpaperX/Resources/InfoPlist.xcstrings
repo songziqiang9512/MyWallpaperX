@@ -1,40 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "CFBundleHelpBookName": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MyWallpaperX Help"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MyWallpaperX 帮助"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Справка MyWallpaperX"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MyWallpaperX-Hilfe"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aide MyWallpaperX"
-          }
-        }
-      }
-    },
     "NSAudioCaptureUsageDescription": {
       "localizations": {
         "en": {

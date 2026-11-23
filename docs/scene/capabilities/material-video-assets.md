@@ -65,4 +65,4 @@ Bridge 对同源的各 Surface 采用同一绑定与共享帧快照，在取像�
 
 全部容器/codec、seek/loop/负相位、group/named/effect 组合、长时间 AV 驻留以及所有播放器源都未由短窗代表证明。真实系统 Media metadata/封面见[provider](runtime-input-property-coverage.md#providers)；具体未闭项见[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
-最近行为入口：[材质视频资产](../../../script/tests/test_scene_material_video_asset.py)、[视频 source](../../../script/tests/test_scene_video_texture_source.py)、[重复命令](../../../script/tests/test_scene_video_repeated_commands.py)、[初始呈现](../../../script/tests/test_scene_initial_video_presentation.py)、[Sound 命令](../../../script/tests/test_scene_sound_script_commands.py)。
+最近行为入口：[材质视频资产](../../../script/tests/scene/test_scene_material_video_asset.py)、[视频 source](../../../script/tests/scene/test_scene_video_texture_source.py)、[重复命令](../../../script/tests/scene/test_scene_video_repeated_commands.py)、[初始呈现](../../../script/tests/scene/test_scene_initial_video_presentation.py)、[Sound 命令](../../../script/tests/scene/test_scene_sound_script_commands.py)。

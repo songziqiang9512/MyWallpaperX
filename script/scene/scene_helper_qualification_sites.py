@@ -42,12 +42,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import importlib
 import re
 import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Iterable, Sequence
 
 
@@ -84,35 +85,19 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def load_module(path: Path):
-    """Import the harness module as `script.tests.<name>`.
-
-    The harnesses import each other by package-relative name (`from .test_x import ...`)
-    and by repository path (`import script.scene.scene_swift_source_sets`); loading them under
-    a bare stem makes both forms fail, which silently removes those source sets from the
-    sweep. The package form resolves both, and the bare load stays as a fallback.
-    """
+    module_name = ".".join(path.relative_to(REPOSITORY_ROOT).with_suffix("").parts)
     try:
-        return importlib.import_module(f"script.tests.{path.stem}"), None
-    except Exception as package_error:  # pragma: no cover - depends on the module under test
-        spec = importlib.util.spec_from_file_location(path.stem, path)
-        if spec is None or spec.loader is None:
-            return None, "no import spec"
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[path.stem] = module
-        try:
-            spec.loader.exec_module(module)
-        except Exception as error:
-            return None, f"{type(error).__name__}: {error} (as package: {package_error})"
-        return module, None
+        return importlib.import_module(module_name), None
+    except Exception as error:
+        return None, f"{type(error).__name__}: {error}"
 
 
 def harness_sets(prefixes: tuple[str, ...]) -> tuple[list[tuple[str, list[Path], str]], list[tuple[str, str]]]:
     sys.path.insert(0, str(REPOSITORY_ROOT))
-    sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
-    sys.path.insert(0, str(TESTS_ROOT))
+    sys.path[:0] = [str(REPOSITORY_ROOT / "script" / section) for section in ("", "scene", "web")]
     sets: list[tuple[str, list[Path], str]] = []
     skipped: list[tuple[str, str]] = []
-    for test_path in sorted(TESTS_ROOT.glob("test_*.py")):
+    for test_path in sorted(TESTS_ROOT.rglob("test_*.py")):
         text = test_path.read_text(encoding="utf-8", errors="ignore")
         if "SWIFT_SOURCES" not in text and "scene_swift_source" not in text:
             continue
@@ -138,18 +123,20 @@ def harness_sets(prefixes: tuple[str, ...]) -> tuple[list[tuple[str, list[Path],
 def scan_sites(names: Sequence[str], sets) -> tuple[list[tuple[str, int, int, str]], list[tuple[str, str]]]:
     records: set[tuple[str, int, int, str]] = set()
     failures: list[tuple[str, str]] = []
-    scratch = Path("/private/tmp")
-    for stem, sources, harness_text in sets:
-        harness = scratch / f"mwx-qualification-{stem}.swift"
-        harness.write_text(harness_text, encoding="utf-8")
-        completed = subprocess.run(
-            ["swiftc", "-parse-as-library", "-typecheck", *map(str, sources), str(harness)],
-            capture_output=True,
-            text=True,
-        )
-        if completed.returncode != 0 and not completed.stderr:
-            failures.append((stem, f"swiftc exited {completed.returncode} without diagnostics"))
-        records.update(parse_sites(completed.stderr.splitlines(), names))
+    with TemporaryDirectory(prefix="mwx-qualification-") as temporary:
+        scratch = Path(temporary)
+        for stem, sources, harness_text in sets:
+            harness = scratch / f"{stem}.swift"
+            harness.write_text(harness_text, encoding="utf-8")
+            completed = subprocess.run(
+                ["swiftc", "-parse-as-library", "-typecheck", "-module-cache-path",
+                 str(scratch / "modules"), *map(str, sources), str(harness)],
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0 and not completed.stderr:
+                failures.append((stem, f"swiftc exited {completed.returncode} without diagnostics"))
+            records.update(parse_sites(completed.stderr.splitlines(), names))
     return sorted(records), failures
 
 

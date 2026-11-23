@@ -75,6 +75,6 @@ v2 仍是当前准备事务与退休 generation 的身份格式，不是可随�
 
 SteamCMD、PTY/输出解析、自动社区登录、Cookie/个人 HTML 抓取和旧密码读取都不再是产品获取 fallback；公开网页只保用户主动外链。原精确退役器已随旧获取链退出（服务启动不再调用），其旧凭据、缓存与运行目录不再由产品迁移或清理；不读 Cookie 转 token，不触系统浏览器、Steam 客户端或用户壁纸库，也不借迁移清理未知目录。
 
-后续修复按当前 owner 的普通维护处理。协议/进程最近门为 [protocol golden](../../script/tests/test_steam_protocol_golden.py)、[client lifecycle](../../script/tests/test_steam_client_lifecycle.py)；任务/文件最近门为 [download execution](../../script/tests/test_steam_download_execution.py)、[library transaction](../../script/tests/test_steam_library_transaction.py)、[publication](../../script/tests/test_steam_library_publication.py)。账号取证入口为 [steam_auth_gate.py](../../script/governance/steam_auth_gate.py)，按当次授权、隔离状态与脱敏输出执行。
+后续修复按当前 owner 的普通维护处理。协议/进程最近门为 [protocol golden](../../script/tests/steam/test_steam_protocol_golden.py)、[client lifecycle](../../script/tests/steam/test_steam_client_lifecycle.py)；任务/文件最近门为 [download execution](../../script/tests/steam/test_steam_download_execution.py)、[library transaction](../../script/tests/steam/test_steam_library_transaction.py)、[publication](../../script/tests/steam/test_steam_library_publication.py)。账号取证入口为 [steam_auth_gate.py](../../script/governance/steam_auth_gate.py)，按当次授权、隔离状态与脱敏输出执行。
 
 离线 fixture、Debug 构建、匿名查询或 QR challenge 都有各自证明范围，不能替代账号终态、真实下载、播放、完整交互/VoiceOver、长期恢复、跨卷/断电或 Release 验收。发行门继续归发布流程；当前故障须绑定实际 App/helper identity 和输入，历史成功与旧 HTTP 403 观察不能自动归因到新构建。本合同不创建新迁移阶段、通用平台或第二运行权威。

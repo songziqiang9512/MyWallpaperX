@@ -29,7 +29,7 @@
 
 - 纯结构/单元：运行直接命中的 Python/Swift harness，确认实际 selection。
 - Swift 产品变更：在共享 build/runtime 空闲时串行执行当前 checkpoint build。
-- build + run/debug/logs：先读当前 `script/build_and_run.sh` 行为，确认 kill 范围、scheme、DerivedData、App 路径和 mode；只读任务不能运行。
+- build + run/debug/logs：先读当前 `script/build/build_and_run.sh` 行为，确认 kill 范围、scheme、DerivedData、App 路径和 mode；只读任务不能运行。
 - Scene/Web runtime：使用各自 current gate/benchmark 和隔离 output，不能用普通 App 存活替代 host/GPU/visible evidence。
 - release：读取 `docs/release/release-signing.md` 和当前 CI/export workflow。
 
@@ -40,8 +40,8 @@
 只在任务需要运行证据时进入本节。先按用户行为确定要经过的入口，再准备 App、输入和输出；避免先跑容易启动的 runner，随后把结果外推到另一条链。
 
 1. **选入口与最近门。** 从仓库工作流的验证预览和相应 benchmark 的 `--help` 取得参数，沿当前 runner 调用核对覆盖范围。Scene 的内部 Program/GPU 反例可用直接 Host 入口；IPC、崩溃恢复须经过 client → daemon；普通选择、参数和跨引擎切换须经过实际 App 分发 → client → daemon。入口职责与接线查 `docs/scene/architecture/runtime-architecture.md`，Web 查 `docs/web/current-state.md`，Video 查仓库地图的 App/helper 两端。直接 Host 或直接 client 的成功只覆盖其经过的链。
-2. **准备本轮候选。** 核对 gate 的构建条件、App 参数形状与签名要求。默认 checkpoint 是禁签名且退出清理的纯构建门；需要运行 App 时，在独立 DerivedData 按当前项目 Debug/签名配置生成并保留本轮候选，从真实构建输出取得可执行文件路径。Scene/Web benchmark 的 App staging 与验签沿现有 `script/web_benchmark_capture.py` 调用复用；不另造安装器，也不以旧已安装 App 代替新候选。DEBUG runner 要确认实际编入；性能优化级别查 Scene 工作流。
-3. **准备输入并闭合结果。** 只复制当前正反例所需内容；Scene 副本/manifest 的创建与核验查 `script/scene_sample_snapshot.py --help`，Scene 运行查 `script/scene_wallpaper_benchmark.py --help`，Web 查 `script/web_wallpaper_benchmark.py --help`。按各工具实际要求设置隔离样本、HOME、Workshop 与全新输出，核对真实启动命令和本轮报告中的 App/input/request 身份、结果及失败反例；再按产物规则保留必要证据、清理已结束的环境。某入口不支持目标场景时，记录该边界并沿真实产品链验证，不虚构通用 flag 或将较低证据阶段升级。
+2. **准备本轮候选。** 核对 gate 的构建条件、App 参数形状与签名要求。默认 checkpoint 是禁签名且退出清理的纯构建门；需要运行 App 时，在独立 DerivedData 按当前项目 Debug/签名配置生成并保留本轮候选，从真实构建输出取得可执行文件路径。Scene/Web benchmark 的 App staging 与验签沿现有 `script/web/web_benchmark_capture.py` 调用复用；不另造安装器，也不以旧已安装 App 代替新候选。DEBUG runner 要确认实际编入；性能优化级别查 Scene 工作流。
+3. **准备输入并闭合结果。** 只复制当前正反例所需内容；Scene 副本/manifest 的创建与核验查 `script/scene/scene_sample_snapshot.py --help`，Scene 运行查 `script/scene/scene_wallpaper_benchmark.py --help`，Web 查 `script/web/web_wallpaper_benchmark.py --help`。按各工具实际要求设置隔离样本、HOME、Workshop 与全新输出，核对真实启动命令和本轮报告中的 App/input/request 身份、结果及失败反例；再按产物规则保留必要证据、清理已结束的环境。某入口不支持目标场景时，记录该边界并沿真实产品链验证，不虚构通用 flag 或将较低证据阶段升级。
 
 ## 失败分诊
 

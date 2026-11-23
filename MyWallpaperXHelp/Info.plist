@@ -30,8 +30,6 @@
 	<string>index.html</string>
 	<key>HPDBookKBProduct</key>
 	<string>MyWallpaperX</string>
-	<key>HPDBookLocale</key>
-	<string>zh-Hans</string>
 	<key>HPDBookRemoteURL</key>
 	<string></string>
 	<key>HPDBookTitle</key>

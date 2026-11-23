@@ -392,8 +392,7 @@ extension SteamWorkshopService {
         let navigation = navigationVersion
         let page = try await steamWorkshopQueryClient.details(ids: [fallback.id])
         guard let item = page.items.first(where: { $0.publishedFileId == fallback.id }) else {
-            throw SteamServiceClient.RequestError.helperError(
-                code: "unsupportedContent", message: String(localized: "This artwork doesn’t exist or your account doesn’t have access to it."))
+            throw SteamServiceClient.RequestError.itemUnavailable
         }
         let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
         // Preview decoding has its own cache/loader. A MIME probe must not

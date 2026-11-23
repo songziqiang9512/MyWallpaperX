@@ -220,4 +220,4 @@ Destroy 从 committed owner 变化进入原程序退出；资源、VM、活动�
 
 全部官方 handle/API、任意动态资源 recipe、跨 pass/无真实 target 的 Combined/Event-only 动画、所有复杂骨骼/几何/媒体组合仍未覆盖。缺口和下一资格归[队列](../roadmap/scene-open-breakpoint-queue.md)，不由官方 d.ts 数量计算支持率。
 
-最近行为入口：[真实 QuickJS](../../../script/tests/test_scene_script_quickjs.py)、[owner 预算](../../../script/tests/test_scene_script_quickjs_owner_budget.py)、[动画](../../../script/tests/test_scene_timeline_runtime.py)、[TEX 播放](../../../script/tests/test_scene_texture_animation_script.py)。
+最近行为入口：[真实 QuickJS](../../../script/tests/scene/test_scene_script_quickjs.py)、[owner 预算](../../../script/tests/scene/test_scene_script_quickjs_owner_budget.py)、[动画](../../../script/tests/scene/test_scene_timeline_runtime.py)、[TEX 播放](../../../script/tests/scene/test_scene_texture_animation_script.py)。

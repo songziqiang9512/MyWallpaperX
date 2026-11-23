@@ -28,7 +28,6 @@ DEBUG_ARGUMENTS_RUNNER_SOURCE = (
 
 from script.scene import scene_wallpaper_benchmark as benchmark
 from script.scene import scene_preview_visual_evidence as visual
-from script.scene import scene_wallpaper_sample_lifecycle as lifecycle
 from script.assets import generate_scene_full_matrix as matrix_generator
 from script.tests.support.scene_wallpaper_graph_output_test_support import (
     assert_named_graph_output_publication_has_one_terminal_owner,
@@ -126,9 +125,16 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 real_run_sample = benchmark.run_sample
 
                 def stage(app, runtime):
-                    binary = runtime / "signed-app"
+                    stage_root = runtime / "runtime-app-test"
+                    bundle = stage_root / "Fixture.app"
+                    bundle.mkdir(parents=True)
+                    binary = bundle / "signed-app"
                     binary.write_bytes(b"owned-stage")
-                    return binary, {"fixture": str(binary)}
+                    return binary, {
+                        "runtime_root_path": str(stage_root),
+                        "runtime_bundle_path": str(bundle),
+                        "runtime_executable_path": str(binary),
+                    }
 
                 def run(**arguments):
                     identity = arguments["sample"]["id"]
@@ -182,8 +188,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         mock.patch.object(sys, "stdout", io.StringIO()), \
                         mock.patch.object(benchmark, "stage_signed_app", side_effect=stage) as staged, \
                         mock.patch.object(benchmark, "verify_staged_app", side_effect=verify_identity) as verified, \
-                        mock.patch.object(benchmark, "run_sample", side_effect=run), \
-                        mock.patch.object(lifecycle, "discard_staged_app") as discarded:
+                        mock.patch.object(benchmark, "run_sample", side_effect=run):
                     if tool_error:
                         with self.assertRaisesRegex(RuntimeError, "unknown tool fault"):
                             benchmark.main()
@@ -202,7 +207,6 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         for row in report["samples"]:
                             self.assertEqual(json.loads((output / "results" / row["id"] / "result.json").read_text()), row)
                         verified.assert_called_once()
-                        discarded.assert_called_once()
                     staged.assert_called_once()
                 self.assertEqual(set(events[:2]), {"11", "22"})
                 self.assertTrue(peer_finished.is_set())

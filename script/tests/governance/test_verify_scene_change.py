@@ -735,10 +735,8 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
 
     def test_every_emitted_gate_has_registration_and_all_registered_gates_are_reachable(self) -> None:
         emitted = set()
-        # Dedicated method gates need their real test input, rather than an
-        # unrelated generic renderer input that cannot reach those contracts.
-        paths = [self.doc, self.swift, "script/scene/scene_matrix_contract.py",
-                 "script/unmapped_fixture.json", "script/tests/test_removed_fixture.py",
+        paths = [self.doc, self.swift, "script/scene/scene_matrix_contract.py", "script/help-assets/help.js",
+                 "script/unmapped_fixture.json", "script/tests/test_removed_fixture.py", "MyWallpaperX/App/Debug/DebugWebPlaybackRunner.swift",
                  "script/tests/scene/test_scene_independent_signal_carrier.py"]
         for phase in verify.PHASES:
             for scope in ("changed", "release", "all"):
@@ -747,12 +745,9 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
                         phase=phase, test_scope=scope, matrix_tier=tier,
                     ), self.registry)
                     emitted.update(gate.gate_id for gate in gates)
-        # A deleted test replaces focused and Scene-wide tests, so also cover
-        # the corresponding normal milestone plan.
+        # The deleted test path changes milestone selection.
         gates, _ = verify.build_plan([self.swift], arguments(phase="milestone"), self.registry)
         emitted.update(gate.gate_id for gate in gates)
-        debug_gates, _ = verify.build_plan(["MyWallpaperX/App/Debug/DebugWebPlaybackRunner.swift"], arguments(phase="inner"), self.registry)
-        emitted.update(gate.gate_id for gate in debug_gates)
         self.assertEqual(emitted, set(self.registry["gates"]))
 
     def test_missing_registration_rejects_an_actual_emitted_gate(self) -> None:
@@ -804,7 +799,8 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
                 self.assertNotIn("test_scene_semantics_coverage", focused.command)
                 structure = next(gate for gate in gates if gate.gate_id == "scene-structure")
                 self.assertIn("unittest", structure.command)
-                self.assertTrue(all("markdown" not in value for value in structure.command))
+                self.assertTrue(all(value.startswith("script.tests.scene.test_scene_semantics_coverage.")
+                                    for value in structure.command[4:]))
 
     def test_ci_method_gates_use_unittest_flag_and_checker_receives_no_runner_flag(self) -> None:
         gates, _ = verify.build_plan(["script/tests/scene/test_scene_semantics_coverage.py"], arguments(ci=True), self.registry)
