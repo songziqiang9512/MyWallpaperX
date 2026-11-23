@@ -163,7 +163,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <a class="brand" href="#top"><img src="icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>DESKTOP GUIDE</small></span></a>
 <div>
 <nav aria-label="Help contents">
-<span class="nav-group">GET STARTED</span><a href="#start">Getting started</a><a href="#video">Video wallpapers</a><a href="#web">Web wallpapers</a><a href="#scene">Scene wallpapers</a><span class="nav-group">HOW TO</span><a href="#toolbars">Module toolbars</a><a href="#search-tips">Workshop search tips</a><a href="#workshop">Downloads & subscriptions</a><a href="#library">Your libraries</a><a href="#playback">Playback & energy</a><a href="#shortcuts">Keyboard shortcuts</a><span class="nav-group">TROUBLESHOOTING</span><a href="#login">Sign-in help</a><a href="#downloads">Download errors</a><a href="#faq">More questions</a>
+<span class="nav-group">GET STARTED</span><a href="#start">Getting started</a><a href="#video">Video wallpapers</a><a href="#web">Web wallpapers</a><a href="#scene">Scene wallpapers</a><span class="nav-group">HOW TO</span><a href="#toolbars">Module toolbars</a><a href="#search-tips">Workshop search tips</a><a href="#workshop">Downloads & subscriptions</a><a href="#library">Your libraries</a><a href="#playback">Playback & energy</a><a href="#system">System &amp; screen saver</a><a href="#shortcuts">Keyboard shortcuts</a><span class="nav-group">TROUBLESHOOTING</span><a href="#login">Sign-in help</a><a href="#downloads">Download errors</a><a href="#faq">More questions</a>
 </nav>
 </div>
 <div class="sidebar-bottom"><p>Available offline · Always nearby</p><a class="language" href="../zh-Hans.lproj/index.html" lang="zh-Hans" hreflang="zh-Hans">简体中文 ↗</a><a class="language" href="../ru.lproj/index.html" lang="ru" hreflang="ru">Русский ↗</a><a class="language" href="../de.lproj/index.html" lang="de" hreflang="de">Deutsch ↗</a><a class="language" href="../fr.lproj/index.html" lang="fr" hreflang="fr">Français ↗</a></div>
@@ -178,7 +178,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="start">
 <div class="section-heading"><h2>Start with a wallpaper you love</h2><span class="tag">GET STARTED</span></div>
 <p class="lead">A local video, a web project or a real-time scene can become your desktop. Choose your content, then make playback fit your day.</p>
-<ol class="steps"><li><h3>Find something</h3><p>Import local videos in My Videos. Browse the Workshop for Web and Scene projects.</p></li><li><h3>Apply it</h3><p>Select an item in its library and choose Set as Current Wallpaper. Workshop items must finish downloading first.</p></li><li><h3>Make it yours</h3><p>Adjust volume and pause playback. For Web and Scene, open Properties in the item details to see the author’s options.</p></li></ol>
+<ol class="steps"><li><h3>Find something</h3><p>Import local videos in My Videos. Browse the Workshop for Web and Scene projects.</p></li><li><h3>Apply it</h3><p>Select an item in its library and choose Set as Wallpaper. Workshop items must finish downloading first.</p></li><li><h3>Make it yours</h3><p>Adjust volume and pause playback. For Web and Scene, open Properties in the item details to see the author’s options.</p></li></ol>
 </section>
 
 <section class="guide-section" id="video">
@@ -204,7 +204,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · A world built in real time</h2><span class="tag scene">REAL-TIME SCENES</span></div>
 <p class="lead">Layers, materials and animation are composed as the wallpaper runs. Supported projects can include depth, particles, dynamic text and reactive effects instead of a prerecorded video.</p>
-<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Maximum Frame Rate (Scene Engine) to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, compare the default properties and keep the item link, screenshot and symptoms when reporting the issue.</li></ul></div></div>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Scene Frame Rate Cap to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, compare the default properties and keep the item link, screenshot and symptoms when reporting the issue.</li></ul></div></div>
 <aside class="tip">
 <strong>Compatibility is project-specific</strong>Scene compatibility is still being developed. A completed download does not guarantee every effect, script or interaction, or an exact match with Wallpaper Engine. An absent property may simply mean the author did not expose it.
 </aside>
@@ -212,240 +212,100 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 </section>
 
 <section class="guide-section" id="toolbars">
-<div class="section-heading"><h2>Know your toolbar</h2><span class="tag">By module</span></div>
-<p>Check the selected sidebar module before using a toolbar. Similar icons act on different lists; a disabled button usually needs a supported selection. Hover over an icon to read its tooltip.</p>
-<details>
+<div class="section-heading"><h2>Know your toolbar</h2><span class="tag">By page</span></div>
+<p>Toolbar buttons change with the page. A disabled button usually needs a supported selection or a finished download; hover an icon to read its tooltip. Playback commands such as next and previous live in the Wallpaper menu, not in the toolbar.</p>
 
+<details>
 <summary>
-My videos
+Any library page
 </summary>
 <div class="answer"><div class="table-wrap">
 <table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
+<thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Plus · Import</th><td data-label="What it does">Choose local video files. Use Select to enter multiple selection.</td>
-</tr>
-
-<tr>
-<th scope="row">Circled check · Select</th><td data-label="What it does">Enter or leave selection mode to favorite items, add them to playlists or remove them in batches.</td>
-</tr>
-
-<tr>
-<th scope="row">Left / right arrows</th><td data-label="What it does">Follow the current playback sequence through playable images, Video, Web or Scene wallpapers; these are not page controls.</td>
-</tr>
-
-<tr>
-<th scope="row">Trash · Remove</th><td data-label="What it does">Remove items from My Videos while keeping source files and other playlists by default. Files are deleted only when Delete source files from disk is checked; that cannot be undone.</td>
-</tr>
-
-<tr>
-<th scope="row">Heart · Favorite</th><td data-label="What it does">Add selected videos to favorites, or remove their favorite status.</td>
-</tr>
-
-<tr>
-<th scope="row">Add to playlist</th><td data-label="What it does">Add selected videos to one or more playlists. Create a playlist from the sidebar or All Playlists.</td>
-</tr>
-
-<tr>
-<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Choose a sort field and direction, resize cards, or search the current video list.</td>
-</tr>
-
+<tr><th scope="row">Import</th><td data-label="What it does">Add local videos or images to the current page. The picker accepts only the media type the page shows; Web and Scene projects are not imported this way.</td></tr>
+<tr><th scope="row">Select · Done</th><td data-label="What it does">Enter or leave multiple selection, then act on several items at once.</td></tr>
+<tr><th scope="row">Add to Playlist</th><td data-label="What it does">Put the selected items in one or more playlists. A playlist can mix images, videos and downloaded Web or Scene wallpapers.</td></tr>
+<tr><th scope="row">Downloads</th><td data-label="What it does">Open the download queue with progress, failure messages and retry controls.</td></tr>
+<tr><th scope="row">Filter</th><td data-label="What it does">Narrow the current page. Filter facets differ per page; options inside one facet are alternatives, and different facets combine.</td></tr>
+<tr><th scope="row">Sort</th><td data-label="What it does">Choose the ordering field and direction for the current list.</td></tr>
+<tr><th scope="row">Zoom · Zoom In · Zoom Out</th><td data-label="What it does">Resize cards. This changes the grid, not the wallpaper.</td></tr>
+<tr><th scope="row">Search</th><td data-label="What it does">Filter the current page as you type. Searching never starts a download.</td></tr>
+<tr><th scope="row">More</th><td data-label="What it does">Secondary actions for the current selection or page, such as playlist editing.</td></tr>
 </tbody>
-
 </table>
 </div></div>
 </details>
 
 <details>
-
 <summary>
-My images
+Workshop · Browse
 </summary>
 <div class="answer"><div class="table-wrap">
 <table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
+<thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Plus · Import</th><td data-label="What it does">Choose local images. Use Select to enter multiple selection.</td>
-</tr>
-
-<tr>
-<th scope="row">Select / Trash</th><td data-label="What it does">Select multiple images. Removal affects My Images only and keeps originals and other playlists by default. Check Delete source files from disk to delete the originals.</td>
-</tr>
-
-<tr>
-<th scope="row">Add to playlist</th><td data-label="What it does">Add selected images to playlists. The same playlist can contain videos and downloaded Web or Scene wallpapers.</td>
-</tr>
-
-<tr>
-<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Change the image list order, card size or search query. Original image dimensions stay the same.</td>
-</tr>
-
+<tr><th scope="row">Steam account</th><td data-label="What it does">Open sign-in when offline. Once signed in, open My Subscriptions, switch accounts or sign out.</td></tr>
+<tr><th scope="row">Downloads</th><td data-label="What it does">Open the queue shared with My Downloads: progress, failures and retry.</td></tr>
+<tr><th scope="row">Back</th><td data-label="What it does">Leave an author’s workshop or My Subscriptions and return to the previous page. Search on an author page filters that author’s works.</td></tr>
+<tr><th scope="row">Filter</th><td data-label="What it does">Filter by type, age rating, resolution and other facets.</td></tr>
+<tr><th scope="row">Sort</th><td data-label="What it does">Order results, including newest first. There is no separate popularity time-window control.</td></tr>
+<tr><th scope="row">Search · Zoom</th><td data-label="What it does">Search by theme, or use <code>ID=item number</code> for a direct lookup (see <a href="#search-tips">search tips</a>). Zoom resizes cards.</td></tr>
 </tbody>
-
 </table>
 </div></div>
 </details>
 
 <details>
-
 <summary>
-Pixabay · Browse
+Online sources · Pixabay, Wallhaven, Pixiv
 </summary>
 <div class="answer"><div class="table-wrap">
 <table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
+<thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Settings · API Key</th><td data-label="What it does">Change the API key, or clear it and return to the sign-in screen. This key is separate from Steam login.</td>
-</tr>
-
-<tr>
-<th scope="row">Circular arrow · Refresh</th><td data-label="What it does">Fetch the current online list again.</td>
-</tr>
-
-<tr>
-<th scope="row">Category / Sort</th><td data-label="What it does">Choose a category and the ordering of online results.</td>
-</tr>
-
-<tr>
-<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards or search Pixabay by keyword.</td>
-</tr>
-
+<tr><th scope="row">API key</th><td data-label="What it does">Pixabay and Wallhaven each use their own API key, separate from the Steam sign-in. Wallhaven browses anonymously without a key; adult content requires one.</td></tr>
+<tr><th scope="row">Content scope · Type · Aspect ratio · Categories</th><td data-label="What it does">Filter results. Pixiv and Wallhaven expose different facets than Pixabay, including adult-content visibility for Wallhaven.</td></tr>
+<tr><th scope="row">Sort</th><td data-label="What it does">Order the online results. Pixiv follows its own ranking and search ordering.</td></tr>
+<tr><th scope="row">Search · Zoom</th><td data-label="What it does">Search the service by keyword and resize cards. Results are not downloaded until you choose a download action.</td></tr>
+<tr><th scope="row">Download · Download Original</th><td data-label="What it does">Fetch the file into My Downloads, or apply it right away with Download and Set as Wallpaper. Cancel Download stops a running transfer.</td></tr>
 </tbody>
-
 </table>
 </div></div>
 </details>
 
 <details>
-
-<summary>
-Workshop · Browse and personal lists
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Steam account</th><td data-label="What it does">Open sign-in when offline. Once signed in, open My Subscriptions, switch accounts or sign out.</td>
-</tr>
-
-<tr>
-<th scope="row">Down arrow · Download tasks</th><td data-label="What it does">Open the queue, progress, failure messages and retry controls.</td>
-</tr>
-
-<tr>
-<th scope="row">Source</th><td data-label="What it does">Browse Most popular, Newest, Most subscribed or Last updated. My Subscriptions is in the Steam account menu and requires sign-in; it is separate from local Favorites.</td>
-</tr>
-
-<tr>
-<th scope="row">Time window / Sort</th><td data-label="What it does">Choose the popularity ranking period, not a publication-date filter. Personal lists offer name, size, subscription date or last update ordering.</td>
-</tr>
-
-<tr>
-<th scope="row">Circled filter icon</th><td data-label="What it does">Filter by type, age rating, resolution and other available facets. Options within a facet are alternatives; different facets are combined.</td>
-</tr>
-
-<tr>
-<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards. Use keywords for themes, or <code>ID=item number</code> for a direct lookup. See <a href="#search-tips">search tips</a>.</td>
-</tr>
-
-<tr>
-<th scope="row">Back arrow</th><td data-label="What it does">Return from an author’s workshop or My Subscriptions to the previous browse page. Search on an author page filters that author’s works.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
 <summary>
 My Downloads
 </summary>
 <div class="answer"><div class="table-wrap">
 <table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
+<thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Steam account / Download tasks</th><td data-label="What it does">Use the same account and queue as Browse. Open the task panel to inspect and retry failures.</td>
-</tr>
-
-<tr>
-<th scope="row">Select / Trash</th><td data-label="What it does">Manage downloads from Workshop, Pixabay and other sources together. Removal keeps source files and other playlists by default; only Delete source files from disk deletes the files. Manage active tasks in the task panel.</td>
-</tr>
-
-<tr>
-<th scope="row">Filter</th><td data-label="What it does">Filter by source; image, Video, Web or Scene type; and playable, unavailable, downloading or updating, or failed status. Adult-content visibility has its own option.</td>
-</tr>
-
-<tr>
-<th scope="row">Sort</th><td data-label="What it does">Sort by local record time, name, file size or last successful use, in ascending or descending order.</td>
-</tr>
-
-<tr>
-<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards; search by title, source name or playlist name. Workshop items also support descriptions, Workshop tags, author and Steam item IDs. Searching does not start a download.</td>
-</tr>
-
+<tr><th scope="row">Select · Add to Playlist</th><td data-label="What it does">Manage downloads from Workshop, Pixabay, Wallhaven and Pixiv together.</td></tr>
+<tr><th scope="row">Filter</th><td data-label="What it does">Filter by source, media type and state: playable, unavailable, downloading or updating, failed.</td></tr>
+<tr><th scope="row">Sort</th><td data-label="What it does">Order by local record time, name, file size or last successful use.</td></tr>
+<tr><th scope="row">Search</th><td data-label="What it does">Search by title, source name or playlist name. Workshop items also match descriptions, tags, author and item ID.</td></tr>
+<tr><th scope="row">Removal</th><td data-label="What it does">Use Remove from My Downloads in the context menu; the toolbar has no trash button. Source files and other playlists are kept unless you check Delete source files from disk.</td></tr>
 </tbody>
-
 </table>
 </div></div>
 </details>
 
-<aside class="tip">
-<strong>Inside item details</strong>Properties for Web and Scene opens the author’s controls; Reveal in Finder locates local files; an author’s name opens their workshop. Hearts mean local Favorites, while Steam subscriptions use a separate bookmark action. Unsubscribing keeps local files and current playback.
-</aside>
-<p>The MyWallpaperX menu bar icon opens the main window, switches wallpapers, controls play/pause, mute and volume, opens Properties or settings, and quits.</p>
+<details>
+<summary>
+All Playlists
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+<thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead>
+<tbody>
+<tr><th scope="row">More</th><td data-label="What it does">Add Wallpaper…, Edit Playlist…, Duplicate Playlist or Delete Playlist for the selected playlist.</td></tr>
+<tr><th scope="row">Select · Zoom · Search</th><td data-label="What it does">Select several playlists, resize playlist cards, or search playlist names.</td></tr>
+</tbody>
+</table>
+</div></div>
+</details>
 </section>
 
 <section class="guide-section" id="search-tips">
@@ -534,9 +394,9 @@ My Downloads
 
 <section class="guide-section" id="library">
 <div class="section-heading"><h2>A place for every collection</h2><span class="tag">YOUR LIBRARIES</span></div>
-<div class="module-list"><div><h3>My Videos / My Images</h3><p>Import and manage local videos and images separately. Drag a wallpaper card to a playlist in the sidebar to add it quickly.</p></div><div><h3>My Downloads</h3><p>Manage downloaded content from Workshop, Pixabay and other online sources together. Browse to discover projects; use the library to play and organize them.</p></div><div><h3>All Playlists</h3><p>The first card creates a playlist. Mix images, videos, Web and Scene wallpapers; right-click a playlist to edit its name, cover and description.</p></div><div><h3>Favorites / Recently Used</h3><p>Favorites collects heart-marked local and downloaded wallpapers. Recently Used keeps the latest 50 distinct successfully played wallpapers. Download online results before adding them.</p></div></div>
+<div class="module-list"><div><h3>My Videos / My Images</h3><p>Import and manage local videos and images separately. Drag a wallpaper card to a playlist in the sidebar to add it quickly.</p></div><div><h3>My Downloads</h3><p>Manage downloaded content from Workshop, Pixabay and other online sources together. Browse to discover projects; use the library to play and organize them.</p></div><div><h3>All Playlists</h3><p>The first card creates a playlist. Mix images, videos, Web and Scene wallpapers; right-click a playlist to edit its name, cover and description.</p></div><div><h3>Favorite / Recently Used</h3><p>Favorite collects heart-marked local and downloaded wallpapers. Recently Used keeps the most recent successful plays. Download online results before adding them.</p></div></div>
 <aside class="tip">
-<strong>Removal affects the relationship on the current page</strong>In Favorites it clears the heart; in Recently Used it removes the playback record; in a custom playlist it removes that membership. Source files and other playlists are kept by default. File → Import accepts local videos or images, not Web or Scene projects.
+<strong>Removal affects the relationship on the current page</strong>In Favorite it clears the heart; in Recently Used it removes the playback record; in a custom playlist it removes that membership. Source files and other playlists are kept by default. File → Import accepts local videos or images, not Web or Scene projects.
 </aside>
 
 </section>
@@ -546,7 +406,7 @@ My Downloads
 <p class="lead">Video, Web and Scene share play/pause, volume and mute, along with these four energy-saving policies. Set them once for all three engines.</p>
 <div class="table-wrap">
 <table>
-<caption>Settings → Energy Saving &amp; Pause</caption>
+<caption>Settings → Energy Saving &amp; Pausing</caption>
 <thead>
 
 <tr>
@@ -582,6 +442,38 @@ My Downloads
 <strong>Start with a simple energy-saving setup</strong>If you often work full screen, enable full-screen pause first. On a laptop, add battery pause as needed. The Scene 30/60 setting only affects Scene; it does not change the original frame rate of videos.
 </aside>
 
+</section>
+
+<section class="guide-section" id="system">
+<div class="section-heading"><h2>System &amp; screen saver</h2><span class="tag">Beyond the desktop</span></div>
+<p>The wallpaper does not live alone. These settings connect it to extra displays, the macOS desktop picture, the lock screen and startup.</p>
+
+<h3 class="subheading">Multiple displays</h3>
+<p><strong>Multiple Displays</strong> in Display Settings shows the wallpaper on every display. With it off, the main display plays and the others keep the system picture.</p>
+
+<h3 class="subheading">System wallpaper sync</h3>
+<p><strong>Sync System Wallpaper</strong> updates the macOS desktop picture whenever the wallpaper changes: a still frame for video, and one frame captured after the launch transition for Web and Scene. Mission Control, spaces and the login screen then match what you see. Static images are always applied directly.</p>
+
+<h3 class="subheading">Screen saver</h3>
+<p>The app ships a system screen saver extension. Enable MyWallpaperX under <strong>System Settings › Screen Saver</strong> and pick a local video; it loops muted. The screen saver keeps its own copy of the file, so removing a wallpaper from the library does not break it — the app keeps that copy and tells you where it is when you delete the item.</p>
+
+<h3 class="subheading">At login</h3>
+<p><strong>Launch at Login</strong> starts the app with your session. <strong>Resume Playback at Launch</strong> restores the last video, Web or Scene wallpaper; with it off, nothing plays at launch and the system picture stays. Static images are handled by macOS and are not affected by either switch.</p>
+
+<h3 class="subheading">Appearance and click</h3>
+<p><strong>App Theme</strong> follows the system appearance or pins light or dark. <strong>Card Click Action</strong> decides whether clicking a card plays it immediately or opens its details first; the return key and the context menu keep their own actions.</p>
+
+<h3 class="subheading">Video fill mode</h3>
+<p><strong>Video Fill Mode</strong> chooses how a video meets the display: Fill crops the edges, Fit keeps the whole frame with borders, Stretch distorts. Match it to the clip’s aspect ratio before blaming playback quality.</p>
+
+<h3 class="subheading">Audio spectrum</h3>
+<p>The spectrum draws bars from system audio at the bottom of the desktop. It applies to Video wallpapers only and needs audio-capture permission the first time. Bar count, colour, X and Y position and peak caps are adjustable; the feature adds a small per-frame cost.</p>
+
+<h3 class="subheading">Song info</h3>
+<p><strong>Wallpaper Song Info</strong> shows the current track and artwork on supported Scene and Web wallpapers. macOS asks for Automation access to Apple Music the first time; until you allow it, the setting stays off. If you denied it, re-enable it in <strong>Privacy &amp; Security › Automation</strong> and turn the switch back on.</p>
+
+<h3 class="subheading">Scene HDR</h3>
+<p><strong>Scene HDR</strong> renders into an extended-range target when the project supports it. It only makes sense on an HDR display and raises power draw noticeably; the app warns once when you enable it and never turns it off by itself.</p>
 </section>
 
 <section class="guide-section" id="shortcuts">
@@ -936,9 +828,27 @@ Why is a wallpaper still present after clearing the queue?
 <details>
 
 <summary>
+
+
 How do I check for updates or report an issue?
 </summary>
 <p>Choose Check for Updates… in the MyWallpaperX menu. About MyWallpaperX shows app information. Include the wallpaper type, steps to reproduce, item link or local file format, and the error message. Never include your Steam password or verification codes.</p>
+</details>
+
+<details>
+
+<summary>
+The screen saver plays nothing after I removed the wallpaper
+</summary>
+<p>The screen saver uses its own copy of the file, kept when you delete the library item. Re-select the video in System Settings › Screen Saver; if that copy was removed as well, add the item again and choose it.</p>
+</details>
+
+<details>
+
+<summary>
+The second display keeps a still picture
+</summary>
+<p>Enable Multiple Displays in Settings › Display Settings. With it off, only the main display plays; the others keep the macOS desktop picture, which Sync System Wallpaper may be updating.</p>
 </details>
 
 </section>

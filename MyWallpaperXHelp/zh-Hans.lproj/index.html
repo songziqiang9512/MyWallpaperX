@@ -163,7 +163,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <a class="brand" href="#top"><img src="icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>使用手册</small></span></a>
 <div>
 <nav aria-label="帮助目录">
-<span class="nav-group">开始使用</span><a href="#start">快速上手</a><a href="#video">Video 视频壁纸</a><a href="#web">Web 网页壁纸</a><a href="#scene">Scene 实时场景</a><span class="nav-group">操作指南</span><a href="#toolbars">各模块工具栏</a><a href="#search-tips">工坊搜索技巧</a><a href="#workshop">下载与订阅</a><a href="#library">素材管理</a><a href="#playback">播放与节能</a><a href="#shortcuts">快捷键速查</a><span class="nav-group">遇到问题</span><a href="#login">登录问题</a><a href="#downloads">下载报错</a><a href="#faq">其他常见问题</a>
+<span class="nav-group">开始使用</span><a href="#start">快速上手</a><a href="#video">Video 视频壁纸</a><a href="#web">Web 网页壁纸</a><a href="#scene">Scene 实时场景</a><span class="nav-group">操作指南</span><a href="#toolbars">各模块工具栏</a><a href="#search-tips">工坊搜索技巧</a><a href="#workshop">下载与订阅</a><a href="#library">素材管理</a><a href="#playback">播放与节能</a><a href="#system">系统与屏保</a><a href="#shortcuts">快捷键速查</a><span class="nav-group">遇到问题</span><a href="#login">登录问题</a><a href="#downloads">下载报错</a><a href="#faq">其他常见问题</a>
 </nav>
 </div>
 <div class="sidebar-bottom"><p>离线阅读 · 随时查阅</p><a class="language" href="../en.lproj/index.html" lang="en" hreflang="en">English ↗</a><a class="language" href="../ru.lproj/index.html" lang="ru" hreflang="ru">Русский ↗</a><a class="language" href="../de.lproj/index.html" lang="de" hreflang="de">Deutsch ↗</a><a class="language" href="../fr.lproj/index.html" lang="fr" hreflang="fr">Français ↗</a></div>
@@ -178,7 +178,7 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 <section class="guide-section" id="start">
 <div class="section-heading"><h2>从一张喜欢的壁纸开始</h2><span class="tag">快速上手</span></div>
 <p class="lead">本地视频、网页作品、实时场景，都可以成为桌面。先选内容，再按自己的习惯调整播放。</p>
-<ol class="steps"><li><h3>找到内容</h3><p>本地视频从「我的视频」导入；Web 与 Scene 作品从「创意工坊」浏览和下载。</p></li><li><h3>设为壁纸</h3><p>在对应素材列表中选中作品，使用「设为当前壁纸」。工坊作品需要先完成下载。</p></li><li><h3>调整到舒服</h3><p>用音量和暂停控制桌面；Web、Scene 可在详情的「属性调节」中查看作者提供的选项。</p></li></ol>
+<ol class="steps"><li><h3>找到内容</h3><p>本地视频从「我的视频」导入；Web 与 Scene 作品从「创意工坊」浏览和下载。</p></li><li><h3>设为壁纸</h3><p>在对应素材列表中选中作品，使用「设为壁纸」。工坊作品需要先完成下载。</p></li><li><h3>调整到舒服</h3><p>用音量和暂停控制桌面；Web、Scene 可在详情的「属性调节」中查看作者提供的选项。</p></li></ol>
 </section>
 
 <section class="guide-section" id="video">
@@ -212,240 +212,70 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 </section>
 
 <section class="guide-section" id="toolbars">
-<div class="section-heading"><h2>工具栏，每个按钮都用明白</h2><span class="tag">按模块查找</span></div>
-<p>先看侧边栏选中了哪个模块，再对照下面的按钮。相似图标在不同列表的操作对象不同；按钮灰色时，通常需要先选中可操作的素材。将鼠标停在图标上也能看到提示。</p>
-<details>
+<div class="section-heading"><h2>认清你的工具栏</h2><span class="tag">按页面</span></div>
+<p>工具栏按钮随页面变化。按钮变灰通常是没有选中项，或内容还没下载完；把指针停在图标上可以看说明。下一张、上一张这类播放命令在「壁纸」菜单里，不在工具栏。</p>
 
-<summary>
-我的视频
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
-</tr>
-
-</thead>
-
+<details><summary>所有素材页面</summary>
+<div class="answer"><div class="table-wrap"><table>
+<thead><tr><th scope="col">控件</th><th scope="col">作用</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">加号 · 导入</th><td data-label="点击后可以做什么">选择本地视频文件；「选择」按钮用于进入多选。</td>
-</tr>
-
-<tr>
-<th scope="row">圆圈勾选 · 选择</th><td data-label="点击后可以做什么">进入／退出多选，用于批量特别喜爱、添加到列表或移除。</td>
-</tr>
-
-<tr>
-<th scope="row">左右箭头 · 上一张／下一张</th><td data-label="点击后可以做什么">按当前播放序列切换可播放的图片、Video、Web 或 Scene；不是列表翻页按钮。</td>
-</tr>
-
-<tr>
-<th scope="row">垃圾桶 · 移除</th><td data-label="点击后可以做什么">默认只从「我的视频」移除，保留源视频和其他列表。仅勾选「删除磁盘的源文件」才会删除文件，无法撤销。</td>
-</tr>
-
-<tr>
-<th scope="row">爱心 · 特别喜爱</th><td data-label="点击后可以做什么">把选中视频加入「特别喜爱」，再次点击取消喜爱。</td>
-</tr>
-
-<tr>
-<th scope="row">添加到列表</th><td data-label="点击后可以做什么">把选中视频加入一个或多个播放列表；可在侧边栏或「所有播放列表」中新建列表。</td>
-</tr>
-
-<tr>
-<th scope="row">排序／缩略图 ±／搜索</th><td data-label="点击后可以做什么">排序菜单选择排序字段及升降序；放大镜 ± 调整卡片大小；搜索筛选当前视频列表。</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
+<tr><th scope="row">导入</th><td data-label="作用">把本地视频或图片加到当前页面。选择器只接受当前页面显示的类型；Web 和 Scene 项目不走这里导入。</td></tr>
+<tr><th scope="row">选择 · 完成</th><td data-label="作用">进入或退出多选，然后批量操作。</td></tr>
+<tr><th scope="row">添加到列表</th><td data-label="作用">把选中项放进一个或多个播放列表。一个列表里可以混放图片、视频和下载来的 Web 或 Scene 壁纸。</td></tr>
+<tr><th scope="row">下载</th><td data-label="作用">打开下载队列，查看进度、失败信息和重试。</td></tr>
+<tr><th scope="row">筛选</th><td data-label="作用">缩小当前页面的范围。各页面的筛选项不同；同一项内的选项互斥，不同项之间叠加。</td></tr>
+<tr><th scope="row">排序</th><td data-label="作用">选择当前列表的排序字段和方向。</td></tr>
+<tr><th scope="row">缩放 · 放大 · 缩小</th><td data-label="作用">改变卡片大小。只影响网格，不影响壁纸本身。</td></tr>
+<tr><th scope="row">搜索</th><td data-label="作用">随输入过滤当前页面。搜索不会触发下载。</td></tr>
+<tr><th scope="row">更多</th><td data-label="作用">针对当前选中项或页面的次要操作，例如编辑列表。</td></tr>
+</tbody></table></div></div>
 </details>
 
-<details>
-
-<summary>
-我的图片
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
-</tr>
-
-</thead>
-
+<details><summary>创意工坊 · 浏览</summary>
+<div class="answer"><div class="table-wrap"><table>
+<thead><tr><th scope="col">控件</th><th scope="col">作用</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">加号 · 导入</th><td data-label="点击后可以做什么">选择本地图片；「选择」按钮用于进入多选。</td>
-</tr>
-
-<tr>
-<th scope="row">选择／垃圾桶</th><td data-label="点击后可以做什么">选择用于批量操作；移除默认只影响「我的图片」，保留原图和其他列表。勾选「删除磁盘的源文件」才会删除原图。</td>
-</tr>
-
-<tr>
-<th scope="row">添加到列表</th><td data-label="点击后可以做什么">把选中图片加入播放列表；同一个列表也可加入视频及已下载的 Web、Scene。</td>
-</tr>
-
-<tr>
-<th scope="row">排序／缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整当前图片列表的顺序、卡片尺寸或搜索条件，不改变原图尺寸。</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
+<tr><th scope="row">Steam 账号</th><td data-label="作用">离线时打开登录。登录后可进入「我的订阅」、切换账号或退出。</td></tr>
+<tr><th scope="row">下载</th><td data-label="作用">打开与「我的下载」共用的队列，查看进度、失败和重试。</td></tr>
+<tr><th scope="row">返回</th><td data-label="作用">从作者主页或「我的订阅」回到上一页。在作者页搜索只过滤该作者的作品。</td></tr>
+<tr><th scope="row">筛选</th><td data-label="作用">按类型、年龄分级、分辨率等条件过滤。</td></tr>
+<tr><th scope="row">排序</th><td data-label="作用">调整结果顺序，包括最新在前。没有单独的热度时间窗控件。</td></tr>
+<tr><th scope="row">搜索 · 缩放</th><td data-label="作用">按主题搜索，或用 <code>ID=作品编号</code> 直接定位（见 <a href="#search-tips">搜索技巧</a>）。缩放改变卡片大小。</td></tr>
+</tbody></table></div></div>
 </details>
 
-<details>
-
-<summary>
-Pixabay · 浏览
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
-</tr>
-
-</thead>
-
+<details><summary>在线来源 · Pixabay、Wallhaven、Pixiv</summary>
+<div class="answer"><div class="table-wrap"><table>
+<thead><tr><th scope="col">控件</th><th scope="col">作用</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">设置 · API Key</th><td data-label="点击后可以做什么">打开菜单，可更改 API Key，或清空密钥并返回登录界面。这里的密钥与 Steam 登录无关。</td>
-</tr>
-
-<tr>
-<th scope="row">环形箭头 · 刷新</th><td data-label="点击后可以做什么">重新请求当前素材列表。</td>
-</tr>
-
-<tr>
-<th scope="row">分类／排序</th><td data-label="点击后可以做什么">选定素材分类与在线结果排序方式。</td>
-</tr>
-
-<tr>
-<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">改变素材卡片大小，或输入关键词搜索 Pixabay 素材。</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
+<tr><th scope="row">API Key</th><td data-label="作用">Pixabay 和 Wallhaven 各用自己的密钥，与 Steam 登录无关。Wallhaven 没有密钥时匿名浏览；成人内容必须配置密钥。</td></tr>
+<tr><th scope="row">内容范围 · 类型 · 比例 · 分类</th><td data-label="作用">过滤结果。Pixiv 与 Wallhaven 暴露的筛选项和 Pixabay 不同，Wallhaven 还有成人内容开关。</td></tr>
+<tr><th scope="row">排序</th><td data-label="作用">调整在线结果的顺序。Pixiv 使用自己的排行榜与搜索排序。</td></tr>
+<tr><th scope="row">搜索 · 缩放</th><td data-label="作用">按关键词搜索并调整卡片大小。在你选择下载之前，结果不会落盘。</td></tr>
+<tr><th scope="row">下载 · 下载原图</th><td data-label="作用">把文件取回「我的下载」，或用「下载并设为壁纸」直接应用。「取消下载」停止进行中的传输。</td></tr>
+</tbody></table></div></div>
 </details>
 
-<details>
-
-<summary>
-创意工坊 · 浏览与个人列表
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
-</tr>
-
-</thead>
-
+<details><summary>我的下载</summary>
+<div class="answer"><div class="table-wrap"><table>
+<thead><tr><th scope="col">控件</th><th scope="col">作用</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Steam 账号</th><td data-label="点击后可以做什么">未登录时打开登录面板；登录后可进入「我的订阅」、切换账号或退出登录。</td>
-</tr>
-
-<tr>
-<th scope="row">向下箭头 · 下载任务</th><td data-label="点击后可以做什么">打开任务面板，查看队列、进度、失败提示与重试入口。</td>
-</tr>
-
-<tr>
-<th scope="row">浏览来源</th><td data-label="点击后可以做什么">总榜可选最热门、最新发布、最多订阅、最后更新。「我的订阅」在 Steam 账号菜单中，登录后可用，与本地「特别喜爱」分开。</td>
-</tr>
-
-<tr>
-<th scope="row">时间段／排序</th><td data-label="点击后可以做什么">最热门榜单可选热度统计时间段，并非作品发布日期范围。个人列表按菜单中的名称、大小、订阅时间或更新时间排序。</td>
-</tr>
-
-<tr>
-<th scope="row">圆形筛选图标</th><td data-label="点击后可以做什么">打开类型、分级、分辨率等筛选；同一类中的多项可任选其一匹配，不同类的条件需要同时满足。</td>
-</tr>
-
-<tr>
-<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整卡片大小；关键词查主题，<code>ID=作品编号</code> 精确查找作品。详见<a href="#search-tips">搜索技巧</a>。</td>
-</tr>
-
-<tr>
-<th scope="row">返回箭头</th><td data-label="点击后可以做什么">从作者工坊或「我的订阅」返回上一浏览页。作者页的搜索用于筛选该作者作品。</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
+<tr><th scope="row">选择 · 添加到列表</th><td data-label="作用">把创意工坊、Pixabay、Wallhaven、Pixiv 的下载放在一起管理。</td></tr>
+<tr><th scope="row">筛选</th><td data-label="作用">按来源、媒体类型和状态过滤：可播放、不可用、下载中或更新中、失败。</td></tr>
+<tr><th scope="row">排序</th><td data-label="作用">按本地记录时间、名称、文件大小或最近一次成功使用排序。</td></tr>
+<tr><th scope="row">搜索</th><td data-label="作用">按标题、来源名称或列表名搜索。创意工坊内容还支持描述、标签、作者和作品编号。</td></tr>
+<tr><th scope="row">移除</th><td data-label="作用">用右键菜单里的「从我的下载移除」；工具栏没有垃圾桶按钮。默认保留源文件和其他列表，只有勾选「删除磁盘源文件」才会删文件。</td></tr>
+</tbody></table></div></div>
 </details>
 
-<details>
-
-<summary>
-我的下载
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
-</tr>
-
-</thead>
-
+<details><summary>所有播放列表</summary>
+<div class="answer"><div class="table-wrap"><table>
+<thead><tr><th scope="col">控件</th><th scope="col">作用</th></tr></thead>
 <tbody>
-
-<tr>
-<th scope="row">Steam 账号／下载任务</th><td data-label="点击后可以做什么">与浏览页共用账号和任务面板；失败任务到下载面板查看并重试。</td>
-</tr>
-
-<tr>
-<th scope="row">选择／垃圾桶</th><td data-label="点击后可以做什么">统一管理创意工坊、Pixabay 等来源的下载内容。移除默认保留源文件和其他列表；勾选「删除磁盘的源文件」才删除文件。活动任务请在任务面板处理。</td>
-</tr>
-
-<tr>
-<th scope="row">筛选</th><td data-label="点击后可以做什么">按来源、图片／视频／Web／Scene 类型，以及可播放、不可用、正在下载或更新、失败状态筛选；也可切换成人内容显示。</td>
-</tr>
-
-<tr>
-<th scope="row">排序</th><td data-label="点击后可以做什么">按本地记录时间、名称、文件大小或成功使用时间排序，可选择升序或降序。</td>
-</tr>
-
-<tr>
-<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整卡片尺寸；按标题、来源名或所属列表名搜索。工坊项还支持描述、工坊标签、作者与 Steam 作品 ID；搜索不会发起下载。</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
+<tr><th scope="row">更多</th><td data-label="作用">对选中的列表执行添加壁纸…、编辑列表…、复制列表、删除列表…。</td></tr>
+<tr><th scope="row">选择 · 缩放 · 搜索</th><td data-label="作用">多选列表、调整列表卡片大小，或按名称搜索列表。</td></tr>
+</tbody></table></div></div>
 </details>
-
-<aside class="tip">
-<strong>详情里的按钮也值得认识</strong>Web、Scene 的「属性调节」打开作者提供的选项；「查看文件」在访达中定位本地内容；点击作者名字进入作者工坊。爱心表示本地「特别喜爱」，Steam 订阅使用独立书签入口。取消订阅不删除本地文件、不停止当前播放。
-</aside>
-<p>屏幕顶部的 MyWallpaperX 菜单栏图标可打开主界面、切换壁纸、播放／暂停、静音、调节音量、打开属性调节或设置，以及退出应用。</p>
 </section>
 
 <section class="guide-section" id="search-tips">
@@ -584,6 +414,38 @@ Pixabay · 浏览
 
 </section>
 
+<section class="guide-section" id="system">
+<div class="section-heading"><h2>系统与屏保</h2><span class="tag">桌面之外</span></div>
+<p>壁纸不只活在桌面上。下面这些设置把它接到额外的显示器、系统桌面图片、锁屏和开机启动。</p>
+
+<h3 class="subheading">多屏</h3>
+<p>「显示设置」里的<strong>多屏支持</strong>让壁纸出现在每一块显示器上。关掉后只有主屏播放，其他屏幕保留系统图片。</p>
+
+<h3 class="subheading">同步系统壁纸</h3>
+<p><strong>同步系统壁纸</strong>会在壁纸变化时更新 macOS 桌面图片：视频取一帧静态画面，Web 和 Scene 取启动过渡之后的一帧。这样调度中心、空间和登录界面看到的都一致。静态图片始终直接应用。</p>
+
+<h3 class="subheading">屏保</h3>
+<p>应用自带系统屏保扩展。在<strong>系统设置 › 屏保</strong>里选择 MyWallpaperX，再挑一个本地视频，它会静音循环。屏保读的是自己那份拷贝，所以从资料库删掉壁纸不会弄坏它——删除时应用会保留这份拷贝，并告诉你它在哪里。</p>
+
+<h3 class="subheading">开机与启动</h3>
+<p><strong>开机自启动</strong>让应用随登录启动。<strong>启动时恢复播放</strong>恢复上一次的视频、Web 或 Scene 壁纸；关掉后启动时不播放，桌面保留系统图片。静态图片由 macOS 处理，不受这两个开关影响。</p>
+
+<h3 class="subheading">外观与单击</h3>
+<p><strong>APP界面色调</strong>跟随系统外观，也可以固定浅色或深色。<strong>卡片单击操作</strong>决定单击卡片是立即播放还是先打开详情；回车键和右键菜单各有自己的动作。</p>
+
+<h3 class="subheading">视频填充模式</h3>
+<p><strong>视频填充模式</strong>决定视频怎么贴合屏幕：填充会裁掉边缘，适应保留完整画面并留边，拉伸会变形。先确认和片源比例匹配，再怀疑播放质量。</p>
+
+<h3 class="subheading">音频频谱</h3>
+<p>频谱把系统音频画成柱状，贴在桌面底部。只对视频壁纸生效，第一次开启需要音频采集权限。柱子数量、颜色、X/Y 位置和峰值帽都可调；这个效果会带来少量每帧开销。</p>
+
+<h3 class="subheading">歌曲信息</h3>
+<p><strong>壁纸歌曲信息</strong>在支持的 Scene 和 Web 壁纸上显示当前曲目与封面。macOS 第一次会请求访问 Apple Music 的「自动化」权限；在授权之前开关不会生效。如果你拒绝过，去<strong>隐私与安全性 › 自动化</strong>重新允许，再把开关打开。</p>
+
+<h3 class="subheading">场景壁纸HDR</h3>
+<p><strong>场景壁纸HDR</strong>在项目支持时渲染到扩展亮度范围。它只在 HDR 显示器上有意义，功耗会明显上升；开启时应用提醒一次，之后不会自己关掉。</p>
+</section>
+
 <section class="guide-section" id="shortcuts">
 <div class="section-heading"><h2>快捷键，连同生效条件</h2><span class="tag">完整速查</span></div>
 <p>⌘ 是 Command，⌥ 是 Option，⌫ 是 Delete。以下是应用菜单中的快捷键；当前模块不支持、未选中合适素材或焦点在输入框时，操作可能不可用或交给文字编辑。以菜单是否可用为准。</p><div class="table-wrap">
@@ -628,7 +490,7 @@ Pixabay · 浏览
 </tr>
 
 <tr>
-<th scope="row"><kbd>Return ↵</kbd></th><td data-label="操作">设为当前壁纸</td><td data-label="生效位置与说明">适用于支持该命令的已就绪素材；工坊网格按当前条目的主操作处理，可能打开详情或下载依赖。</td>
+<th scope="row"><kbd>Return ↵</kbd></th><td data-label="操作">设为壁纸</td><td data-label="生效位置与说明">适用于支持该命令的已就绪素材；工坊网格按当前条目的主操作处理，可能打开详情或下载依赖。</td>
 </tr>
 
 <tr>
@@ -935,10 +797,28 @@ Scene 能播放，但与工坊预览不一样？
 
 <details>
 
+
+
 <summary>
 如何检查更新或反馈问题？
 </summary>
 <p>从 MyWallpaperX 菜单选择「检查更新…」；「关于 MyWallpaperX」可查看应用信息。反馈请说明壁纸类型、复现步骤、作品链接或本地文件格式，附上错误提示。不要提供 Steam 密码或验证码。</p>
+</details>
+
+<details>
+
+<summary>
+删掉壁纸后屏保不播了
+</summary>
+<p>屏保用的是它自己那份拷贝，删除资料库条目时会保留。到系统设置 › 屏保里重新选一次视频；如果那份拷贝也被清掉了，重新添加该作品再选一次。</p>
+</details>
+
+<details>
+
+<summary>
+副屏一直是静态图片
+</summary>
+<p>打开设置 › 显示设置里的「多屏支持」。关掉时只有主屏播放，其他屏幕保留 macOS 桌面图片，而那个图片可能正被「同步系统壁纸」更新。</p>
 </details>
 
 </section>
