@@ -603,6 +603,11 @@ extension SceneMetalRenderer {
                 ) else {
                     return invalid("layer-\(layerID)-source-uniforms-invalid")
                 }
+                if capturesMainTarget {
+                    // The captured attachment extends its viewport edges. An
+                    // authored repeat still applies when the Program samples it.
+                    uniforms.sourceSampling.x &= ~UInt32(1)
+                }
                 uniforms.projectSourceCapture(utilityCaptureGeometry?.sourceProjection)
                 sourceUniforms = uniforms
             }

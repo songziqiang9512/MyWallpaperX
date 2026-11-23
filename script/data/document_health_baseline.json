@@ -125,12 +125,12 @@
       "bytes": 64513
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 394,
-      "bytes": 82161
+      "lines": 401,
+      "bytes": 83036
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 294390
+      "bytes": 295429
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "86d7bd586f16934fd64be85f5ee32efc912c39736a958d2313eba30dc80a3008",
-      "after": "5303a5ded12b9e2d7d1dbe5346ce57df4e49928ee48d402deda0a4b7b6d5d57d",
-      "owner": "Scene local effect composition",
-      "reason": "Define childless orthographic Composition local raster ownership and preserve the main prefix, quad and replay scope.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#childless-composition-local-effect-raster"
+      "before": "5303a5ded12b9e2d7d1dbe5346ce57df4e49928ee48d402deda0a4b7b6d5d57d",
+      "after": "ba98a725e7d8a4493602b951f2a7691b567d59acbc221d5ea071d9d86817c225",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Specify bounded attachment source addressing separately from the authored effect.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#background-capture-addressing"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6dd9910bd55172200dc3b1acf2b0c1d40a44320597d4be01c10090d3593f1f80",
-      "after": "7d5ecbc944cd88d235fb18600c9e3ad64f595b65fcdbe3f2f95462141905d988",
-      "owner": "Scene authored texture and property preparation",
-      "reason": "Record both clients and both single-texture controls for the visible author mask.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-mask-376"
+      "before": "7d5ecbc944cd88d235fb18600c9e3ad64f595b65fcdbe3f2f95462141905d988",
+      "after": "365b6bf8845afda3fad1d314ff41e1ff952f27d87f3116ca4fe81601fdc41734",
+      "owner": "Scene captured attachment and material graph",
+      "reason": "Record paired direct captures, original hot zoom/Scroll, and the independent graphical source.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-collage-edge-358"
     },
     {
       "section": "bodies",

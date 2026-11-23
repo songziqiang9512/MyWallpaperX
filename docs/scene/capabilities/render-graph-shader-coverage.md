@@ -269,6 +269,13 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 先以官版方形与同角点的非方形输入核工作尺寸。近门用非等比放置、背景读前后次序、原名/改名及透明邻例验证同帧实际槽和像素，再沿原包 314 的两道弧、平移对照、保持开启的 Spin 与独立已有真实场景核画面。同一采样域只随作者尺寸改变，不由无声/裁屏冒充效果恢复。绝对帧率与其他来源尺寸另有各自证据。
 
+<a id="background-capture-addressing"></a>
+### 画布捕获的边缘寻址
+
+按现有 UV 从实际当前附件复制局部背景时，附件自身的有限范围使用 clamp-to-edge。离屏 quad 的坐标保持，越界区域延伸该次捕获的边缘。作者图层与 Program 保留声明的过滤、重复和效果局部坐标，Scroll 继续按自身周期取样。原 FramePreflight 在固定 source capture 绑定时选择边缘寻址，显式 framebuffer material 的采样继续由其 Program 处理。复用同一源、目标和提交，退出把普通图层 repeat 沿用于附件复制的旧边界。
+
+用两侧不同的主画布核越界采样经作者 Program 又回到可见区，保改名、过滤、常规来源、组和透视邻例。原包以同 zoom、固定 Scroll 和 off 的实际末端区分左缘回卷、右缘延伸及完整作者画布预测。
+
 <a id="named-source-execution-cuts"></a>
 ### Named 来源的执行截点设计
 

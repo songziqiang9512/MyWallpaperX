@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from script.web.web_benchmark_capture import png_rgb_pixels
 from script.scene.scene_wallpaper_graph_output_metrics import (
@@ -797,6 +798,47 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def test_childless_true_copybackground_inverts_yellow_base(self):
         self.run_case(childless=True, copy_background=True)
+
+    def run_childless_framebuffer_edge(self, *, renamed):
+        project, entries = fixture_entries(copy_background=True, childless=True, renamed=renamed)
+        scene = json.loads(entries["scene.json"])
+        background, root = scene["objects"]
+        background["color"] = "1 0 0"
+        right = dict(background, id=875, origin="192 128 0", size="128 256", color="0 1 0")
+        root.update(origin="256 128 0", size="160 128", alpha=.5,
+                    clampuvs=False, nointerpolation=renamed)
+        scene["objects"] = [background, right, root]
+        entries["scene.json"] = encoded(scene)
+        fragment, = [name for name in entries if name.endswith(".frag")]
+        coordinate = b"vec2(1.0 - .07,v_TexCoord.y)" if renamed else b"vec2(.93,v_TexCoord.y)"
+        entries[fragment] = FRAGMENT.replace(b"g_Texture0,v_TexCoord", b"g_Texture0," + coordinate)
+        if renamed:
+            vertex = fragment.removesuffix(".frag") + ".vert"
+            for key in (fragment, vertex):
+                entries[key] = entries[key].replace(b"v_TexCoord", b"v_SourceUV")
+        protocol = {"canvas": CANVAS, "layerIDs": {"composition": root["id"]},
+                    "oracle": {"capturedRightEdge": {"canvasRect": (195, 116, 209, 140), "expectedRGB": (128, 128, 128)},
+                               "unchangedLeft": {"canvasRect": (60, 116, 76, 140), "expectedRGB": RED}},
+                    "channelTolerance": CHANNEL_TOLERANCE}
+        with patch(__name__ + ".fixture_entries", return_value=(project, entries)), \
+                patch(__name__ + ".preregistration", return_value=protocol):
+            log, _ = self.run_case(effect=True)
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        events = [event for event in observations["events"] if event.get("captureRequestID")]
+        self.assertGreaterEqual(len(events), 2)
+        for event in events:
+            self.assertEqual((event["gpuStatus"], event["truncatedRows"]), ("completed", 0))
+            rows = [row for row in event["rows"] if row.get("layerID") == root["id"]]
+            source, = [row for row in rows if row["kind"] == "sourceCapture" and row["outcome"] == "encoded"]
+            material, = [row for row in rows if row["kind"] == "material" and row.get("slot") == 0]
+            self.assertEqual(source["target"]["textureToken"], material["source"]["textureToken"])
+
+    def test_childless_framebuffer_reads_clamped_attachment_edge(self):
+        self.run_childless_framebuffer_edge(renamed=False)
+
+    def test_renamed_nearest_capture_keeps_the_same_attachment_edge(self):
+        self.run_childless_framebuffer_edge(renamed=True)
 
     def test_hidden_next_frame_child_reveals_fresh_copied_background(self):
         self.run_case(hide_child_next_frame=True)
