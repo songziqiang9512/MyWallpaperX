@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 281287
+      "bytes": 282106
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 210,
-      "bytes": 64218
+      "lines": 211,
+      "bytes": 64657
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d9dbe10d1732c7cfd7e393a1f59d0f581a0c84e7a6ca89af0fe0927c3e0f37c4",
-      "after": "a2bc720257dbbe2b8383baf466db9e754c363bbdfcfa73c148c92126c97de4f1",
-      "owner": "Scene control point and runtime evidence",
-      "reason": "Record the official and current candidate pointer-follow controls and measured remaining tint difference.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-zero-angles-author"
+      "before": "a2bc720257dbbe2b8383baf466db9e754c363bbdfcfa73c148c92126c97de4f1",
+      "after": "1346100b61f493b1c57b5a32581ff194b4dace899cd9b98ca7bf06650e8dd06b",
+      "owner": "Scene effect composition and runtime evidence",
+      "reason": "Record the author visibility controls, matched draw receipts and thin-line contrast on both engines.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-silk-raster-345"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "818a2cc45cdf4c8dd4ef07e3fafe50f9fdc20670ba504fb3d2d9a9b452eb853d",
-      "after": "37b0e489a6ce4970201ba1e8d0c30307a6da58c52c4ac2e0cd7928d90de29b3e",
-      "owner": "Scene control point and runtime evidence",
-      "reason": "Carry the verified independent tint discrepancy after the follow fix.",
+      "before": "37b0e489a6ce4970201ba1e8d0c30307a6da58c52c4ac2e0cd7928d90de29b3e",
+      "after": "94b2536191b4f3d342f7b61d074a566a937705616856aed9af8f8956e5f95106",
+      "owner": "Scene effect composition and runtime evidence",
+      "reason": "Track the measured thin-line contrast at the first distinguishable resource boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
