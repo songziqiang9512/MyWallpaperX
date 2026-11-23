@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 288065
+      "bytes": 289108
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 66590
+      "bytes": 66701
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c9cf23fbf83f96ef0a1fbc582bceecaaa1fa03076a7327d345e53ef0c6c62280",
-      "after": "ceb7d32dcec5909b7c325f7d0818fa416ef4baedb263ddaaeb5803fd95886cb3",
-      "owner": "Scene audio input and composition",
-      "reason": "Record same-signal author pulse, Window negative control and native stage proof.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-forefront-pulse-346"
+      "before": "ceb7d32dcec5909b7c325f7d0818fa416ef4baedb263ddaaeb5803fd95886cb3",
+      "after": "cac6c5fcda90ac808dcfe53854677fd4145229f810575b4f586d186c81aeb5c9",
+      "owner": "Scene local effect composition",
+      "reason": "Record paired real Godrays evidence, same-phase Gaussian footprint result, and failed carrier cause.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-godrays-286"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c0787b7c3a23a05ba6dac56b55d972f94d4c00a9469753146a644a42d491a3cf",
-      "after": "49471b3d5b13436ee8b96c494adea20cf98372bc2d6e8eba66ae96c346f8a223",
-      "owner": "Scene audio input and composition",
-      "reason": "Consolidate measured independent pulse consumer into the existing shared band acquisition issue.",
+      "before": "49471b3d5b13436ee8b96c494adea20cf98372bc2d6e8eba66ae96c346f8a223",
+      "after": "71bcbd887276fda894a9ad51164b16818c7842db29f2ba48278f8684db44434a",
+      "owner": "Scene local effect composition",
+      "reason": "Replace the unlocalized chain observation with a measured Godrays processing boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
