@@ -51,6 +51,7 @@ struct SceneImageLayerPipeline {
     }
     private let depthBindings: [DepthMode: (pipeline: MTLRenderPipelineState, stencil: MTLDepthStencilState)]
     private let additiveMaterialState: MTLRenderPipelineState?
+    private let normalDepthMaterialState: MTLRenderPipelineState?
     private let disabledDepthStencilState: MTLDepthStencilState
     private let supportsTranslucentMaterialState: Bool
     var supportsReadOnlyDepth: Bool {
@@ -75,7 +76,8 @@ struct SceneImageLayerPipeline {
         blendMode: SceneLayerBlendMode = .sourceOver,
         library injectedLibrary: MTLLibrary? = nil,
         preparesDepth: Bool = false,
-        preparesAdditive: Bool = false
+        preparesAdditive: Bool = false,
+        preparesNormalDepth: Bool = false
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
@@ -147,13 +149,29 @@ struct SceneImageLayerPipeline {
                 }
             }
             depthBindings = bindings
+            if preparesNormalDepth {
+                var overwritesStraightRGB = true
+                constants.setConstantValue(&overwritesStraightRGB, type: .bool, index: 2)
+                descriptor.colorAttachments[0].isBlendingEnabled = false
+                descriptor.colorAttachments[0].writeMask = [.red, .green, .blue]
+                if let fragment = try? library.makeFunction(
+                    name: "sceneImageLayerFrag", constantValues: constants
+                ) {
+                    descriptor.fragmentFunction = fragment
+                    normalDepthMaterialState = try? device.makeRenderPipelineState(descriptor: descriptor)
+                } else { normalDepthMaterialState = nil }
+            } else { normalDepthMaterialState = nil }
         } else {
             depthBindings = [:]
+            normalDepthMaterialState = nil
         }
     }
 
     func supports(_ renderState: SceneMaterialRenderState) -> Bool {
         if renderState.supportsImageAdditiveRGB { return additiveMaterialState != nil }
+        if renderState.supportsImageNormalDepth, let mode = Self.depthMode(for: renderState) {
+            return normalDepthMaterialState != nil && depthBindings[mode] != nil
+        }
         guard supportsTranslucentMaterialState, renderState.blending == .translucent,
               renderState.alphaWriting == .unspecified else { return false }
         guard let mode = Self.depthMode(for: renderState) else { return true }
@@ -205,17 +223,19 @@ struct SceneImageLayerPipeline {
             encoder.setCullMode(cullMode)
             return true
         }
-        return bindDepth(encoder: encoder, mode: mode, cullMode: cullMode)
+        return bindDepth(encoder: encoder, mode: mode, cullMode: cullMode,
+            pipeline: renderState.supportsImageNormalDepth ? normalDepthMaterialState : nil)
     }
 
     private func bindDepth(
-        encoder: MTLRenderCommandEncoder, mode: DepthMode, cullMode: MTLCullMode
+        encoder: MTLRenderCommandEncoder, mode: DepthMode, cullMode: MTLCullMode,
+        pipeline: MTLRenderPipelineState? = nil
     ) -> Bool {
         guard let binding = depthBindings[mode] else { return false }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(binding.pipeline)
+        encoder.setRenderPipelineState(pipeline ?? binding.pipeline)
         encoder.setDepthStencilState(binding.stencil)
         encoder.setFrontFacing(.counterClockwise)
         encoder.setCullMode(cullMode)

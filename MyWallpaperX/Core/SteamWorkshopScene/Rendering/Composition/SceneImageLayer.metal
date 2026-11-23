@@ -4,6 +4,7 @@ using namespace metal;
 
 constant bool weightsSourceAlpha [[function_constant(0)]];
 constant bool discardsEmptyDepthWrites [[function_constant(1)]];
+constant bool overwritesStraightRGB [[function_constant(2)]];
 
 // Fixed product shader for the sole image/source compositor. The Swift mirror
 // is SceneLayerFragmentUniforms in SceneMetalPipeline.swift.
@@ -154,6 +155,10 @@ fragment float4 sceneImageLayerFrag(
     default:
         color = sourceTexture.sample(linearClampSampler, sourceUV);
         break;
+    }
+
+    if (is_function_constant_defined(overwritesStraightRGB) && overwritesStraightRGB) {
+        return float4(color.rgb * uniforms.tint.rgb, 0.0);
     }
 
     if (uniforms.usesDependencyBlend != 0u) {

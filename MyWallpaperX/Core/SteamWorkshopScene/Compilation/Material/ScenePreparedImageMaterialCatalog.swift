@@ -32,7 +32,7 @@ nonisolated struct ScenePreparedImageMaterialCatalog {
         self.profiles = profiles
         builtinModelPaths = builtinModels
         renderStates = (descriptor.preparedImageMaterialStatesByModelPath ?? [:]).filter {
-            profiles[$0.key] != nil
+            profiles[$0.key] != nil || $0.value.supportsImageNormalDepth
         }
     }
 

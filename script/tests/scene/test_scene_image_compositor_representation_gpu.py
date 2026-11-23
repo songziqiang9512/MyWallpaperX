@@ -182,7 +182,55 @@ func pixel(_ texture: MTLTexture) -> [Float] {
                 }
             }
         }
-        let payload: [String: Any] = ["metalAvailable": true, "cases": results, "captureCases": captureResults]
+        let depthPipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
+            library: library, preparesDepth: true, preparesNormalDepth: true)!
+        let depthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .depth32Float, width: 1, height: 1, mipmapped: false)
+        depthDescriptor.storageMode = .private
+        depthDescriptor.usage = .renderTarget
+        let depth = device.makeTexture(descriptor: depthDescriptor)!
+        var normalCases: [[String: Any]] = []
+        for coverage: Float in [0, 0.0625, 0.5, 1] {
+            for opacity: Float in [0.5, 1] {
+                for writesDepth in [true, false] {
+                    let input = texture(device, SIMD4(authored.x, authored.y, authored.z, coverage))
+                    let marker = texture(device, SIMD4(0.25, 0.5, 0.75, 1))
+                    let output = texture(device, background)
+                    let command = queue.makeCommandBuffer()!
+                    let pass = MTLRenderPassDescriptor()
+                    pass.colorAttachments[0].texture = output
+                    pass.colorAttachments[0].loadAction = .load
+                    pass.colorAttachments[0].storeAction = .store
+                    pass.depthAttachment.texture = depth
+                    pass.depthAttachment.clearDepth = 0
+                    pass.depthAttachment.loadAction = .clear
+                    let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
+                    let state = SceneMaterialRenderState.compile(blending: "normal", depthTest: "enabled",
+                        depthWrite: writesDepth ? "enabled" : "disabled", cullMode: "nocull",
+                        alphaWriting: "default")!
+                    precondition(depthPipeline.bind(encoder: encoder, renderState: state))
+                    var mvp = simd_float4x4(diagonal: SIMD4(2, 2, 1, 1))
+                    mvp.columns.3.z = 0.8
+                    var uniforms = SceneLayerFragmentUniforms(time: 0, alpha: opacity,
+                        dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
+                        sourceSampling: SIMD2(0, 1), tint: SIMD4(tint.x, tint.y, tint.z, 1),
+                        textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
+                    depthPipeline.drawLayer(texture: input, mvp: mvp, uniforms: uniforms, encoder: encoder)
+                    precondition(depthPipeline.bind(encoder: encoder, renderState: state.withoutDepthWrite))
+                    mvp.columns.3.z = 0.4
+                    uniforms.tint = SIMD4(repeating: 1)
+                    depthPipeline.drawLayer(texture: marker, mvp: mvp, uniforms: uniforms, encoder: encoder)
+                    encoder.endEncoding()
+                    command.commit()
+                    command.waitUntilCompleted()
+                    normalCases.append(["completed": command.status == .completed && command.error == nil,
+                        "coverage": coverage, "opacity": opacity, "writesDepth": writesDepth,
+                        "actual": pixel(output)])
+                }
+            }
+        }
+        let payload: [String: Any] = ["metalAvailable": true, "cases": results,
+            "captureCases": captureResults, "normalCases": normalCases]
         print(String(data: try JSONSerialization.data(withJSONObject: payload,
             options: [.sortedKeys]), encoding: .utf8)!)
     }
@@ -246,6 +294,12 @@ class SceneImageCompositorRepresentationGPUTests(unittest.TestCase):
         for ordinary, prepared in zip(payload["captureCases"][:108],
                                       payload["captureCases"][108:], strict=True):
             self.assertEqual(ordinary["actual"], prepared["actual"])
+        self.assertEqual(len(payload["normalCases"]), 16)
+        for case in payload["normalCases"]:
+            self.assertTrue(case["completed"], case)
+            expected = [1, 0.15, 0.1875, 0.2] if case["writesDepth"] else [0.25, 0.5, 0.75, 0.2]
+            for actual, component in zip(case["actual"], expected, strict=True):
+                self.assertAlmostEqual(actual, component, delta=0.002, msg=case)
 
 
 if __name__ == "__main__":

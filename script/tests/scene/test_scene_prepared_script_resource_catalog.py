@@ -19,6 +19,8 @@ RESOURCE = SCENE / "Runtime/Session/ScenePreparedDeviceResources.swift"
 PROFILE = SCENE / "Compilation/Material/SceneBaseMaterialLightingProfile.swift"
 TOPOLOGY = SCENE / "Systems/Script/SceneScriptLayerTopologyModels.swift"
 IDENTITY = SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"
+STATE = SCENE / "Runtime/Frame/SceneMaterialRenderState.swift"
+STATE_COMPILER = SCENE / "Compilation/Material/SceneMaterialRenderState+Compilation.swift"
 FIXTURE = ROOT / "script/tests/fixtures/ScenePreparedScriptResourceCatalogHarness.swift"
 
 
@@ -58,7 +60,7 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
             source.write_text(production, encoding="utf-8")
             binary = temporary / "join"
             compiled = subprocess.run([
-                "swiftc", str(IDENTITY), str(source), str(FIXTURE),
+                "swiftc", str(IDENTITY), str(STATE), str(STATE_COMPILER), str(source), str(FIXTURE),
                 "-module-cache-path", str(temporary / "cache"), "-o", str(binary),
             ], cwd=ROOT, text=True, capture_output=True, timeout=60)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
@@ -72,7 +74,7 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
             "models/plain.json", "models/lit.json", "models/full-source.json",
             "models/lowered.json", "models/autosize.json", "models/puppet.json",
             "models/composition.json", "models/video.json", "models/video-autosize.json",
-            "models/video-source.json",
+            "models/video-source.json", "models/normal-depth.json",
         })
         self.assertEqual(set(result["profiles"]), {
             "models/plain.json", "models/lit.json", "models/autosize.json", "models/puppet.json",
@@ -94,6 +96,7 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
                 self.assertNotIn(key, result["profiles"])
         self.assertEqual(templates["models/full-source.json"]["modelPath"], "MODELS\\FULL-SOURCE.JSON")
         self.assertEqual(result["unprovedSourceTemplates"], [])
+        self.assertTrue(result["normalDepthInherited"])
         for name, passed in result["rejected"].items():
             with self.subTest(rejected=name):
                 self.assertTrue(passed)

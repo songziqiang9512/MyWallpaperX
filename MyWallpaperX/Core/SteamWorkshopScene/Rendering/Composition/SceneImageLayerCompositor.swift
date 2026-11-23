@@ -132,6 +132,13 @@ struct SceneImageLayerCompositor {
                   needsDepth == (request.terminalMVP != nil),
                   request.geometryProduct == nil,
                   (request.layer.colorBlendMode ?? 0) == 0 else { return .failed }
+            if state.supportsImageNormalDepth {
+                guard request.baseTextureCandidate?.content == .color(.resolved(.straightAlpha)),
+                      request.layer.effects.isEmpty, request.sourceLighting == nil,
+                      !request.requiresSourceCopy, !request.requiresDependencyEffect,
+                      request.dependencyEffects.isEmpty,
+                      request.resolvedMaterialFrameTargetPlan == nil else { return .failed }
+            }
         } else if request.terminalDepth != nil || request.terminalMVP != nil {
             return .failed
         }

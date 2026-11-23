@@ -74,7 +74,8 @@ final class ScenePreparedDeviceResourcesTask {
                     device: device,
                     pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
                     preparesDepth: descriptor.requiresImageDepthAttachment,
-                    preparesAdditive: descriptor.requiresImageAdditiveRGB
+                    preparesAdditive: descriptor.requiresImageAdditiveRGB,
+                    preparesNormalDepth: descriptor.requiresImageNormalDepth
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable

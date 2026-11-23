@@ -430,7 +430,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             // A puppet or static-model layer is consumed by its model/material
             // owner. Preparing it here only produced a shape failure for a
             // layer this catalog never serves, so skip it before any lookup.
-            guard layer.puppetMeshPath == nil, layer.staticModelPath == nil else { continue }
+            guard layer.puppetMeshPath == nil, layer.staticModelPath == nil,
+                  layer.imageMaterialRenderState?.supportsImageNormalDepth != true else { continue }
             let capturesMainTarget = layer.utilityLayer?.framebufferSource != nil
             guard let modelPath = layer.imagePath,
                   capturesMainTarget || !loweredModelPaths.contains(normalized(modelPath)),

@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 507,
-      "bytes": 117685
+      "lines": 514,
+      "bytes": 119099
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 299209
+      "bytes": 300446
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "fa4f12bef4115b794dd6125a8a9ff0b74a6bf3570611dcbae0220dd8a14184c1",
-      "after": "e6ee3b93c58a2089eee2dd94c5f76b25fceff49532800dbe045ab9bb4bb7cf3a",
-      "owner": "Scene Puppet mesh color and clipping",
-      "reason": "Define stable local target color order using admitted clipping dependencies.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#clipping"
+      "before": "e6ee3b93c58a2089eee2dd94c5f76b25fceff49532800dbe045ab9bb4bb7cf3a",
+      "after": "3e316ed30c776a0585d30fd70cc39f18b1d792cd90580a20c40039f1b1823bc5",
+      "owner": "Scene native image terminal",
+      "reason": "Specify the stock unlit RGB overwrite, preserved destination alpha and shared scene depth.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#stock-image-normal-depth"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "10841973fd983d1a9437e3a294fab436f48b8795241c61b7df33af4c72e900da",
-      "after": "7e2c270050e6e53fafe7a2d408481e6e7ebe6db8b8a45acb805082d4e796b13f",
-      "owner": "Scene author video and text ordering",
-      "reason": "Record original clock layering, current visible control, and independent official insertion oracle.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
+      "before": "7e2c270050e6e53fafe7a2d408481e6e7ebe6db8b8a45acb805082d4e796b13f",
+      "after": "bd8ea638337dbccbb671bb54b74201fcbe11449457181db44b059a67fc85a543",
+      "owner": "Scene dynamic image material",
+      "reason": "Retain official material and author trails, actual hot replay and independent dynamic image evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-normal-depth-trails-350"
     },
     {
       "section": "bodies",

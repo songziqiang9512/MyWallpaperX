@@ -63,6 +63,10 @@ nonisolated struct SceneMaterialRenderState: Codable, Equatable, Hashable, Senda
             && (alphaWriting == .unspecified || alphaWriting == .default)
     }
 
+    var supportsImageNormalDepth: Bool {
+        blending == .normal && depthTest == .enabled && cullMode == .noCull && alphaWriting == .default
+    }
+
     func matchesFullscreenOverwrite(
         alphaWriting expectedAlphaWriting: AlphaWriting
     ) -> Bool {

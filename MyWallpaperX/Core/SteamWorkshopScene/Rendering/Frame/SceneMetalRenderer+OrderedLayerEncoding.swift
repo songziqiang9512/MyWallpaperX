@@ -81,7 +81,9 @@ extension SceneMetalRenderer {
             case "image", "solid", "text":
                 guard (layer.colorBlendMode ?? 0) == 0,
                       cameraFrame.resolvesPerspective(for: layer) else { return true }
-                let testsDepth = modelFrame.imageMaterialStates[layer.id].map {
+                let state = modelFrame.imageMaterialStates[layer.id]
+                if state?.supportsImageNormalDepth == true { return true }
+                let testsDepth = state.map {
                     $0.depthTest == .enabled && (layer.contentKind != "text" || $0.rawValues.depthTest != nil)
                 } ?? false
                 guard layer.effects.contains(where: { $0.visible != false }) else { return !testsDepth }

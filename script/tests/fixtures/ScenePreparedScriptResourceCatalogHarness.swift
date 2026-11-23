@@ -15,7 +15,6 @@ final class MTLTexture {
 struct SceneTextureCandidate { let texture: MTLTexture }
 enum SceneTextureLoader { struct SourceKey: Hashable { let token: String } }
 final class SceneVideoOwnedFile {}
-struct SceneMaterialRenderState: Equatable, Sendable {}
 enum ScenePuppetLayerLoad { struct PreparedPose {} }
 struct SceneAssetTextureIdentity: Equatable, Sendable { let token: String }
 struct SceneDynamicTarget: Equatable, Sendable { let token: String }
@@ -48,10 +47,14 @@ enum ScenePreparedScriptResourceCatalogHarness {
         typealias Resource = ScenePreparedDynamicImageResource
         typealias Profile = SceneBaseMaterialLightingProfile
         let lit = Profile(lightingEnabled: true, scalarMaterial: SIMD2(0.21, 0.79), normalSource: .disabled)
+        let normalDepth = SceneMaterialRenderState.compile(blending: "normal", depthTest: "enabled",
+            depthWrite: "enabled", cullMode: "nocull", alphaWriting: "default")!
         func resource(_ path: String, profile: Profile? = nil,
-                      natural: [Float]? = nil, mesh: String? = nil) -> Resource {
+                      natural: [Float]? = nil, mesh: String? = nil,
+                      state: SceneMaterialRenderState? = nil) -> Resource {
             .init(modelPath: path, product: .image(.init(texture: MTLTexture())),
-                naturalSizeWH: natural, puppetMeshPath: mesh, lightingProfile: profile)
+                naturalSizeWH: natural, puppetMeshPath: mesh, lightingProfile: profile,
+                imageMaterialRenderState: state)
         }
         let videoSource = SceneTextureLoader.SourceKey(token: "prepared-video")
         let videoFile = SceneVideoOwnedFile()
@@ -67,6 +70,7 @@ enum ScenePreparedScriptResourceCatalogHarness {
             "models/full-source.json": resource("MODELS\\FULL-SOURCE.JSON"),
             "models/lowered.json": resource("models/lowered.json"),
             "models/unknown.json": resource("models/unknown.json"),
+            "models/normal-depth.json": resource("models/normal-depth.json", state: normalDepth),
             "models/autosize.json": resource("models/autosize.json", profile: lit, natural: [800, 600]),
             "models/autosize-missing.json": resource("models/autosize-missing.json", profile: lit),
             "models/video.json": video("models/video.json"),
@@ -126,6 +130,8 @@ enum ScenePreparedScriptResourceCatalogHarness {
                 (path, joined.templates[path] == nil && joined.lightingProfiles[path] == nil)
             }),
             "unprovedSourceTemplates": unprovedSources.templates.keys.sorted(),
+            "normalDepthInherited": joined.templates["models/normal-depth.json"]?.imageMaterialRenderState
+                == normalDepth && joined.lightingProfiles["models/normal-depth.json"] == nil,
             "compositionOnlyProfiles": compositionOnly.lightingProfiles.keys.sorted(),
             "compositionRequiresOrthographicHeight": noOrthoComposition,
             "inputProfilesPreserved": joined.lightingProfiles["models/plain.json"] == .disabled

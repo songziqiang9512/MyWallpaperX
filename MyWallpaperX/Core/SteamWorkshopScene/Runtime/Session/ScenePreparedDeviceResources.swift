@@ -311,6 +311,7 @@ final class ScenePreparedBaseImageResources {
                 // Puppet resources enter below through mesh + straight atlas, never a quad.
                 if models[modelPath]?.puppetPath != nil { continue }
                 let modelIdentity = SceneModelResourceIdentity(modelPath).value
+                let materialState = imageMaterials.renderStates[modelIdentity]
                 // Built-in literal and indirect requests require the same recipe.
                 // Non-built-in source Programs retain their existing preparation.
                 if imageMaterials.builtinModelPaths.contains(modelIdentity),
@@ -344,7 +345,7 @@ final class ScenePreparedBaseImageResources {
                         product: .video(source: declaration.source, file: file, sizeWH: sizeWH),
                         naturalSizeWH: sizeWH,
                         lightingProfile: imageMaterials.profiles[modelIdentity],
-                        imageMaterialRenderState: imageMaterials.renderStates[modelIdentity])
+                        imageMaterialRenderState: materialState?.supportsImageNormalDepth == true ? nil : materialState)
                     loadedCount += 1
                     continue
                 }
@@ -364,6 +365,8 @@ final class ScenePreparedBaseImageResources {
                 case let .loaded(loaded):
                     guard loaded.animation == nil, let candidate = loaded.candidate,
                           candidate.texture === loaded.texture else { continue }
+                    if materialState?.supportsImageNormalDepth == true,
+                       candidate.content != .color(.resolved(.straightAlpha)) { continue }
                     dynamicImageResources[modelPath.lowercased()] = .init(
                         modelPath: modelPath, product: .image(candidate),
                         naturalSizeWH: try (direct.map {
@@ -371,7 +374,7 @@ final class ScenePreparedBaseImageResources {
                         } ?? container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) })
                             .map { [Float($0.width), Float($0.height)] },
                         lightingProfile: imageMaterials.profiles[modelIdentity],
-                        imageMaterialRenderState: imageMaterials.renderStates[modelIdentity]
+                        imageMaterialRenderState: materialState
                     )
                     loadedCount += 1
                 case .failed:

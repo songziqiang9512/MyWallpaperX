@@ -92,6 +92,10 @@ struct SceneRenderDescriptor: Codable {
     nonisolated var requiresImageAdditiveRGB: Bool {
         layers.contains { $0.imageMaterialRenderState?.supportsImageAdditiveRGB == true }
     }
+
+    nonisolated var requiresImageNormalDepth: Bool {
+        preparedImageMaterialStatesByModelPath?.values.contains(where: \.supportsImageNormalDepth) == true
+    }
 #if DEBUG
     var firstStageRendererGaps: [String] = []
 #endif
@@ -285,10 +289,16 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 )
                 let facts = object.imagePath.flatMap { imageMaterialFacts[SceneModelResourceIdentity($0).value] }
                 layer.proceduralSolidSource = facts?.procedural
-                let additiveImage = facts?.state?.supportsImageAdditiveRGB == true
-                    && layer.contentKind == "image" && object.materialInstance == nil
-                let acceptsMaterialState = facts?.state?.supportsImageAdditiveRGB == true
-                    ? additiveImage : preparesNativeImageState
+                let plainImage = layer.contentKind == "image" && object.materialInstance == nil
+                let acceptsMaterialState: Bool
+                if facts?.state?.supportsImageNormalDepth == true {
+                    acceptsMaterialState = preparesNativeImageState && layer.usesPerspective != false
+                        && plainImage && layer.effects.isEmpty
+                        && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                } else {
+                    acceptsMaterialState = facts?.state?.supportsImageAdditiveRGB == true
+                        ? plainImage : preparesNativeImageState
+                }
                 if acceptsMaterialState, layer.isImageRenderable, utilityLayer == nil,
                    puppetMeshPath == nil, object.staticModelPath == nil,
                    object.shape == nil || object.shape == "quad",
@@ -373,7 +383,6 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 && pass.userShaderValues.isEmpty && pass.combos.isEmpty
                 && (pass.shader == nil || builtinImage
                     || (shader.map(SceneBuiltinShaderIdentity.isNeutralSolid) == true && stockSource))
-            guard builtinImage || neutral else { continue }
             let state = SceneMaterialRenderState.compile(
                 blending: pass.blending, depthTest: pass.depthTest,
                 depthWrite: pass.depthWrite, cullMode: pass.cullMode,
@@ -381,19 +390,26 @@ nonisolated struct SceneRenderDescriptorBuilder {
             let input = pass.textureSlots.first.flatMap { $0 }.map {
                 SceneModelResourceIdentity($0).value
             }
-            let additiveImage = builtinImage && shader == "genericimage2"
-                && !model.isSolidLayer && model.passthrough != true
+            let plainImageInput = !model.isSolidLayer && model.passthrough != true
+                && pass.textureSlots.count == 1
+                && input.map { !$0.isEmpty && !$0.hasPrefix("_rt_") && !$0.hasPrefix("$") } == true
+                && pass.userTextureInputs.allSatisfy { $0 == nil }
+                && pass.constantShaderValues.isEmpty && pass.userShaderValues.isEmpty
+            let normalDepth = shader == "genericimage3" && stockSource && plainImageInput
+                && pass.combos["FOG"] == 0 && pass.combos["LIGHTING"] == 0
+                && pass.combos.allSatisfy { key, value in
+                    value == 0 && (key == "FOG" || key == "LIGHTING" || key == "REFLECTION")
+                } && state?.supportsImageNormalDepth == true
+            guard builtinImage || neutral || normalDepth else { continue }
+            let additiveImage = builtinImage && shader == "genericimage2" && plainImageInput
                 && pass.combos["VERSION"] == 2
                 && pass.combos.allSatisfy {
                     ($0.key == "VERSION" && $0.value == 2)
                         || ($0.key == "LIGHTING" && $0.value == 0)
                 }
-                && pass.textureSlots.count == 1
-                && input.map { !$0.isEmpty && !$0.hasPrefix("_rt_") && !$0.hasPrefix("$") } == true
-                && pass.userTextureInputs.allSatisfy { $0 == nil }
-                && pass.constantShaderValues.isEmpty && pass.userShaderValues.isEmpty
             facts[identity] = (
                 state.flatMap {
+                    if normalDepth { return $0 }
                     if $0.blending == .translucent, $0.alphaWriting == .unspecified {
                         return $0.withoutDepthWrite
                     }
