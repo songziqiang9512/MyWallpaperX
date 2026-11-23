@@ -422,7 +422,7 @@ enum CacheClearOption {
         ScanGate.gate { ScanGate.failNextScan = true }
         await reopened.reloadInstalledItems().value
         precondition(reopened.downloads.map(\.id) == ["100001"] && !reopened.hasCompletedInstalledLibraryLoad
-            && reopened.statusMessage.contains("保留现有内容"), "a failed scan must retain the warm rows and unknown freshness")
+            && reopened.statusMessage.contains("keeping the current content"), "a failed scan must retain the warm rows and unknown freshness")
         try removeItem("100001")
         await reopened.reloadInstalledItems().value
         let emptySnapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
