@@ -129,7 +129,7 @@
 | 条件 TEX · 附属消费者 | [3766299002 面具与独立3791967416袖标](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已沿作者基图与Puppet事务恢复。3747492842的附属材质同时带三路Combo；后续确认该消费者的选择、供货与实际画面，动态构造和图层发射源保各自的生命周期。重叠条件次序待作者正例。 |
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | [同轨迹实机与888显隐](../capabilities/runtime-evidence-current.md#pointer-halo-378)确认红色 halo 在两端有效跟踪，白方未在六点、持留与窗口中央复现。重启须能重现的指针位置、画幅或桌面版本，再判888采样与独立395/e16。 |
-| 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
+| 3306942838 · 图2 | [原包、只关身体槽与两端实绘](../capabilities/runtime-evidence-current.md#puppet-body-slot-330)确认本机缺1632→1606，使同一clip内可用的祖先横移失供。state1→pose仍待官方可变轨敏感性对照；核骨29 payload与骨2正常相位，再判局部接纳或参考基。 |
 | Puppet 后置标量轨 · 3842265910 | [双瞳已恢复](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384)。身体36的2448/2518仍因后置标量轨降到bind。官版只关两槽仍见双瞳；身体实动需对照标量作用与同根普通TRS，不复用眼部排序规则。 |
 | 3382111183 | [原包与六层显隐对照](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已定位脚边水平彩条。六层未通过指数计划，还需核可实际触发出生的供值和运动；先取运行端实际PCM、原始/准备频谱和同窗出生，再确定域和计划范围。频谱供值与338321同查，各自保运行验收。 |
 | 3383210272 / 3463406101 | [原曲目](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机成熟帧各2颗。[同帧对照](../capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)已将幅值差定位至准备64档，同帧16档支持取峰。暂收口供值研究，转可直接归因的开放项。重启须有可配对的运行端PCM、原始64谱与准备值，沿[设计](../../architecture/system-audio-spectrum-design.md)裁决分析窗及分域，再验原曲目宽双束、闪烁及相邻消费者。不重跑旧板/同WAV或单改取峰、增益和出生。 [独立前景](../capabilities/runtime-evidence-current.md#author-forefront-pulse-346)已用同WAV确定75/e265材质执行，阈值下移只作诊断，排在同一共享频谱供值阶段。 |
@@ -162,7 +162,8 @@
 | 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
 | 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321首焦点、持续按住的作者行为与多步跟随分别待验证。 |
 | 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
-| 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
+| 1315486372 | 光线宽软、渐隐及水波位置。 |
+| 3769761761 | [隔离根、删子与高alpha跨端](../capabilities/runtime-evidence-current.md#ember-root-footprint-376)将缺失归到429根SpriteTrail的跨度和斜率。下一项保出生、力与变换，用稀疏Sprite中心对照分开运动/投影和尾迹扩形，随后才选算法。 |
 | 3113287126 | 小提琴方向/密度反馈仍开。原R0五活动root均到main/GPU、无child，全随parent500；Directions普通量/默认，旧bounded不作缺图，当前未见可证重复world转换。重启须明确root/ROI、发射与父Puppet同phase及当帧pos/vel→attachment/model/VP，不能由单图或几何实例数调count/speed；薄事实在`.artifacts/scene-violin-311-next-20261109/`。 |
 | 3743305891 | 原R0活动十字为child1的22个Sprite几何实例；root/child各取自身size空间flags，child2.5与父layer10是不同声明，当前静态消费链未见同一scale重复乘。缺同phase尺寸oracle与当帧instance.size/MVP，反馈仍开；重启须官方子world继承资格或可归属size/空间→像素错配，不调size拟合或无差别重跑。原输入、三batch/main/GPU及链路在`.artifacts/scene-cross-size-374-next-20261109/`。 |
 | 3768229922 /3770444459 | 376原R0的4秒片头与16秒后续均未定位黑滴ROI；1103/1144玻璃各30实例、color/normal/background→main与GPU已有实际供货，不判完全未执行。反馈仍开，重启须明确哪颗/哪个ROI、相位和对应活动source，不追加无差别第三场或由名称推PMA/混合；薄事实在`.artifacts/scene-droplet-3768229922-next-20261109/`。377主体/眼部完整过渡仍须同相位合成ROI。 |

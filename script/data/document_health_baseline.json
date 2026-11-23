@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 300446
+      "bytes": 301911
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 216,
-      "bytes": 67374
+      "lines": 217,
+      "bytes": 67491
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7e2c270050e6e53fafe7a2d408481e6e7ebe6db8b8a45acb805082d4e796b13f",
-      "after": "bd8ea638337dbccbb671bb54b74201fcbe11449457181db44b059a67fc85a543",
-      "owner": "Scene dynamic image material",
-      "reason": "Retain official material and author trails, actual hot replay and independent dynamic image evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-normal-depth-trails-350"
+      "before": "bd8ea638337dbccbb671bb54b74201fcbe11449457181db44b059a67fc85a543",
+      "after": "3d7b0513cbc93441eb1d855cecc3506461c0cfeb0c6061c3f9d90519773058fe",
+      "owner": "Scene compatibility evidence",
+      "reason": "Record causal body clip removal and root trail footprint with separate failure bounds.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-body-slot-330"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b335b2766da4995ce3dcc3ecd487679a346060f99e72f7f3442017ef88010363",
-      "after": "2b7526baf42f72f7466d0fae37437482e9a7e3937683ed87abeb2efcdefa8711",
-      "owner": "Scene Puppet mesh color and clipping",
-      "reason": "Track the independent authored body track gap after pupil restoration.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384"
+      "before": "2b7526baf42f72f7466d0fae37437482e9a7e3937683ed87abeb2efcdefa8711",
+      "after": "242bbd595473496e30ca9651875df01f6c45b4c6045502ebffc35f476af67d01",
+      "owner": "Scene open breakpoint queue",
+      "reason": "Replace stale feedback and separate two independent ray issues.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
