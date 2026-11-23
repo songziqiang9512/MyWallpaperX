@@ -124,13 +124,19 @@ enum ScenePuppetLayerLoad {
         let rig: Result<SceneMdlPuppetRig, Error> = Result {
             try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
         }
-        let animationSet = Result { try SceneMdlPuppetAnimationReader.read(data: data) }
+        let animationSet = Result {
+            try SceneMdlPuppetAnimationReader.read(data: data, imageMorphLayout: .init(
+                vertexOffset: mesh.vertexDataOffset, stride: mesh.vertexStride,
+                count: mesh.vertices.count))
+        }
         let evaluator: Result<ScenePuppetAnimationEvaluator, Error> = Result {
-            let animations = ((try? animationSet.get())?.animations ?? []).filter {
+            let source = try? animationSet.get()
+            let animations = (source?.animations ?? []).filter {
                 $0.isSingleCreationCandidate || authoredAnimationIDs.contains($0.id)
             }
             return try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig.get(),
-                additiveAnimations: animations, optionalAnimationIDs: Set(animations.map(\.id)))
+                additiveAnimations: animations, optionalAnimationIDs: Set(animations.map(\.id)),
+                morphVertexAddresses: source?.morphVertexAddresses)
         }
         let initialBones: BoneConfiguration?
         if case let .success(value) = rig {
@@ -314,7 +320,9 @@ enum ScenePuppetLayerLoad {
             }
             selection = .init(clips: clips, composition: clips.count == 1
                 && clips[0].layer.additive == false ? .singleAbsolute : .layered)
-            let poseMessage = clips.contains { $0.animation.hasAuxiliaryScalarTrack }
+            let poseMessage = clips.contains {
+                $0.animation.hasAuxiliaryScalarTrack && $0.animation.morphTargets.isEmpty
+            }
                 ? (unavailableMessage.map { $0 + "; " } ?? "")
                     + "skeletal playback only: pre-bounds morph curves unavailable"
                 : unavailableMessage

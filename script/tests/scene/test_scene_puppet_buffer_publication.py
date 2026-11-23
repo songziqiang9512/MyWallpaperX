@@ -58,6 +58,7 @@ def static_model_carrier_source() -> str:
 
 
 FIXTURE = (Path(__file__).resolve().parents[1] / "fixtures") / "ScenePuppetBufferPublicationHarness.swift"
+MORPH_CASES = FIXTURE.with_name("ScenePuppetMorphPublicationCases.swift")
 HARNESS = FIXTURE.read_text()
 
 
@@ -68,6 +69,49 @@ class PuppetBufferPublicationTests(unittest.TestCase):
                     "gpuDoesNotPrepareCPU"):
             with self.subTest(check=key):
                 self.assertTrue(facts[key], facts)
+
+    def test_image_morph_alone_updates_gpu_geometry_and_coverage(self):
+        facts = self.result["morphPublication"]
+        start, half, repeated, full, hidden, blended = (
+            facts[key] for key in ("start", "half", "repeated", "full", "hidden", "blended")
+        )
+        self.assertGreater(half["revision"], start["revision"])
+        self.assertGreater(full["revision"], half["revision"])
+        self.assertEqual(repeated, half)
+        self.assertTrue(facts["repeatedBuffersUnchanged"])
+        self.assertEqual(blended["vertices"], half["vertices"])
+        self.assertEqual(blended["gpu"], half["gpu"])
+        self.assertEqual(hidden["vertices"], start["vertices"])
+        self.assertEqual(hidden["gpu"], start["gpu"])
+        self.assertNotEqual(half["gpu"]["imageSHA256"], start["gpu"]["imageSHA256"])
+        for row, x, coverage, alpha in ((start, -0.5, 1, 255), (half, -0.40625, 0.5625, 143),
+                                        (full, -0.3125, 0.25, 64)):
+            with self.subTest(frame=row):
+                self.assertEqual(row["vertices"][0], [x, -0.5, coverage, 0, 0])
+                self.assertEqual(row["vertices"][-1], [0.75, 0.75, 1, 0.25, 0.75])
+                self.assertTrue(row["gpu"]["drew"] and row["gpu"]["ready"])
+                self.assertAlmostEqual(row["gpu"]["centerAlpha"], alpha, delta=1)
+
+    def test_image_morph_is_before_skin_and_conflicts_keep_bones(self):
+        facts = self.result["morphPublication"]
+        self.assertEqual(facts["rotatedBefore"], [0, -0.5, 0.5, 0, 0])
+        self.assertEqual(facts["rotatedAfter"], [0.25, -0.5, 0.125, 0, 0])
+        inactive, conflict, resumed = (facts[key] for key in ("zeroPeer", "conflict", "resumed"))
+        self.assertEqual(inactive["vertices"][0], [-0.1875, -0.5, 0.25, 0, 0])
+        self.assertEqual(conflict["vertices"][0], [-0.375, -0.5, 1, 0, 0])
+        self.assertTrue(conflict["gpu"]["drew"] and conflict["gpu"]["ready"])
+        self.assertEqual(conflict["gpu"]["centerAlpha"], 255)
+        self.assertEqual(resumed["vertices"], facts["full"]["vertices"])
+        self.assertEqual(resumed["gpu"], facts["full"]["gpu"])
+
+    def test_overflowing_image_morph_publishes_current_bone_position_and_coverage(self):
+        facts = self.result["morphPublication"]
+        before, after = facts["beforeOverflow"], facts["afterOverflow"]
+        self.assertEqual(before["vertices"][0], [-0.5, -0.5, 0.75, 0, 0])
+        self.assertGreater(after["revision"], before["revision"])
+        self.assertEqual(after["vertices"][0], [-0.375, -0.5, 0.5, 0, 0])
+        self.assertTrue(after["gpu"]["drew"] and after["gpu"]["ready"])
+        self.assertAlmostEqual(after["gpu"]["centerAlpha"], 128, delta=1)
 
     def test_direct_publication_uses_frozen_cpu_bytes_bounds_and_independent_surfaces(self):
         facts = self.result["directPublication"]
@@ -148,7 +192,7 @@ class PuppetBufferPublicationTests(unittest.TestCase):
             raise unittest.SkipTest("Swift/Metal toolchain unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-puppet-publication-") as directory:
             root = Path(directory)
-            identity_paths = [Path(__file__), FIXTURE, PIPELINE, Path(static_model_carrier_source.__code__.co_filename), *SWIFT_SOURCES,
+            identity_paths = [Path(__file__), FIXTURE, MORPH_CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename), *SWIFT_SOURCES,
                 *(SCENE_ROOT / path for path in PLAYBACK_SOURCES), FOG_HEADER,
                 SCENE_ROOT / "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
                 SCENE_ROOT / "Rendering/Composition/SceneImageLayer.metal"]
@@ -170,7 +214,7 @@ class PuppetBufferPublicationTests(unittest.TestCase):
                 ["xcrun", "--sdk", "macosx", "metallib", str(air), "-o", str(library)],
                 ["swiftc", "-D", "DEBUG", *map(str, SWIFT_SOURCES),
                  *(str(SCENE_ROOT / path) for path in PLAYBACK_SOURCES),
-                 str(color_blend), str(source), "-o", str(binary)],
+                 str(color_blend), str(source), str(MORPH_CASES), "-o", str(binary)],
             ]
             for command in commands:
                 run = subprocess.run(command, capture_output=True, text=True, timeout=120)

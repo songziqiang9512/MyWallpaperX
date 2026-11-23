@@ -89,6 +89,16 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         let trailer: TrailerContract
     }
 
+    private struct MorphShape {
+        let positions: [SIMD3<Float>]
+        let coverages: [Float]?
+    }
+
+    private struct ImageMorphs {
+        let addresses: [Int]
+        let groups: [UInt32: [MorphShape]]
+    }
+
     private static let versionContracts = [
         "MDLV0013": VersionContract(
             skeletonMarker: Data("MDLS0001\0".utf8),
@@ -129,6 +139,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         Data("MDLA0006\0".utf8),
     ]
     private static let attachmentMarker = Data("MDAT0001\0".utf8)
+    private static let morphFamily = Data("MDMP".utf8)
+    private static let morphMarker = Data("MDMP0001\0".utf8)
     private static let markerSize = 9
     private static let maxBoneCount = 4096
     private static let maxAnimationCount = 1024
@@ -143,18 +155,34 @@ nonisolated enum SceneMdlPuppetAnimationReader {
     private static let maxTotalEvents = 4096
     private static let maxEventPayloadBytes = 4096
 
-    static func read(data rawData: Data) throws -> SceneMdlPuppetAnimationSet? {
+    static func read(
+        data rawData: Data, imageMorphLayout: SceneMdlPuppetAnimationSet.ImageMorphLayout? = nil
+    ) throws -> SceneMdlPuppetAnimationSet? {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
-        let presentMarkers = knownAnimationMarkers.filter { data.range(of: $0) != nil }
+        let presentMarkers = knownAnimationMarkers.compactMap { marker in
+            data.range(of: marker).map { (marker: marker, offset: $0.lowerBound) }
+        }
         guard presentMarkers.isEmpty == false else {
             return nil
         }
         let magic = String(decoding: data.prefix(8), as: UTF8.self)
         guard let contract = versionContracts[magic],
-              presentMarkers.count == 1,
-              presentMarkers[0] == contract.animationMarker,
-              let animationOffset = data.range(of: contract.animationMarker)?.lowerBound
+              let animationOffset = presentMarkers.first(where: {
+                  $0.marker == contract.animationMarker
+              })?.offset
         else {
+            throw SceneMdlPuppetAnimationReadError.unsupportedMagic(magic)
+        }
+        let animationHeader = animationOffset + markerSize
+        let endOffset = animationHeader + 8 <= data.count
+            ? Int(readUInt32(data, at: animationHeader)) : 0
+        // Optional MDMP starts only at the declared MDLA boundary. Its opaque
+        // payload is outside the version-matched animation-marker search.
+        let hasMorphTail = imageMorphLayout != nil && contract.trailer == .modernBoundsAuxiliary
+            && endOffset >= animationHeader + 8 && matches(morphFamily, in: data, at: endOffset)
+        guard presentMarkers.count == 1 || (hasMorphTail && presentMarkers.allSatisfy {
+            $0.marker == contract.animationMarker || $0.offset >= endOffset
+        }) else {
             throw SceneMdlPuppetAnimationReadError.unsupportedMagic(magic)
         }
         guard let skeletonOffset = data.range(of: contract.skeletonMarker)?.lowerBound,
@@ -167,11 +195,21 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             skeletonOffset: skeletonOffset,
             animationOffset: animationOffset
         )
+        let imageMorphs: ImageMorphs?
+        if hasMorphTail, let imageMorphLayout {
+            imageMorphs = readImageMorphs(data, at: endOffset, layout: imageMorphLayout,
+                                         meshBound: skeletonOffset)
+        } else {
+            imageMorphs = nil
+        }
         let records = try readAnimations(
             data: data,
-            blockOffset: animationOffset,
+            headerOffset: animationHeader,
+            endOffset: endOffset,
             boneCount: boneCount,
-            trailerContract: contract.trailer
+            trailerContract: contract.trailer,
+            hasMorphTail: hasMorphTail,
+            morphGroups: imageMorphs?.groups
         )
         // Exported source-take IDs and addressable clip IDs belong to distinct domains.
         let derived = records.filter { $0.derivedSource != nil }
@@ -181,8 +219,111 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             throw SceneMdlPuppetAnimationReadError.duplicateAnimationID(animation.id)
         }
         return SceneMdlPuppetAnimationSet(
-            boneCount: boneCount, animations: animations, records: records
+            boneCount: boneCount, animations: animations, records: records,
+            morphVertexAddresses: imageMorphs.flatMap { morphs in
+                animations.contains { !$0.morphTargets.isEmpty } ? morphs.addresses : nil
+            }
         )
+    }
+
+    private static func readImageMorphs(
+        _ data: Data, at offset: Int, layout: SceneMdlPuppetAnimationSet.ImageMorphLayout,
+        meshBound: Int
+    ) -> ImageMorphs? {
+        var cursor = offset + markerSize + 4
+        // In the qualified MDLV0023 84-byte stream, the fourth position
+        // component is independent of the trailing texture coordinates.
+        guard cursor <= data.count, matches(morphMarker, in: data, at: offset),
+              layout.stride == 84, layout.count > 0, layout.vertexOffset >= 0,
+              layout.vertexOffset <= meshBound,
+              layout.count <= (meshBound - layout.vertexOffset) / layout.stride else { return nil }
+        let end = Int(readUInt32(data, at: offset + markerSize))
+        guard end > cursor, end <= data.count else { return nil }
+        let rowLimit = Float((end - cursor) / 8)
+        var addresses: [Int] = []
+        addresses.reserveCapacity(layout.count)
+        var maxAddress = 0
+        for vertex in 0 ..< layout.count {
+            let value = readFloat(data, at: layout.vertexOffset + vertex * layout.stride + 12)
+            guard value >= 0, value <= rowLimit, value == value.rounded(.towardZero) else {
+                return nil
+            }
+            let address = Int(value)
+            addresses.append(address)
+            maxAddress = max(maxAddress, address)
+        }
+        guard maxAddress > 0 else { return nil }
+
+        var groups: [UInt32: [MorphShape]] = [:]
+        var seenLinks: Set<UInt32> = []
+        while cursor < end {
+            guard cursor + 10 <= end else { return nil }
+            let count = Int(readUInt16(data, at: cursor))
+            let link = readUInt32(data, at: cursor + 2)
+            let gain = Float(bitPattern: link)
+            let flags = readUInt16(data, at: cursor + 8)
+            let unique = seenLinks.insert(link).inserted
+            cursor += 10
+            var shapes: [MorphShape]? = count > 0 && flags == 0 && unique && gain.isFinite ? [] : nil
+            for _ in 0 ..< count {
+                guard readMorphShape(data, cursor: &cursor, end: end, gain: gain,
+                                     minRows: maxAddress, shapes: &shapes) else {
+                    return nil
+                }
+            }
+            groups[link] = shapes
+        }
+        return ImageMorphs(addresses: addresses, groups: groups)
+    }
+
+    private static func readMorphShape(
+        _ data: Data, cursor: inout Int, end: Int, gain: Float, minRows: Int,
+        shapes: inout [MorphShape]?
+    ) -> Bool {
+        let nameStart = cursor + 8
+        guard nameStart < end, let nameEnd = data[nameStart ..< end].firstIndex(of: 0),
+              nameEnd + 5 <= end else { return false }
+        let pointBytes = Int(readUInt32(data, at: nameEnd + 1))
+        let pointOffset = nameEnd + 5
+        let coverageHeader = pointOffset + pointBytes
+        guard coverageHeader + 4 <= end else { return false }
+        let coverageBytes = Int(readUInt32(data, at: coverageHeader))
+        let coverageOffset = coverageHeader + 4
+        guard coverageOffset + coverageBytes <= end else { return false }
+        cursor = coverageOffset + coverageBytes
+
+        guard shapes != nil else { return true }
+        let rowCount = pointBytes / 6
+        guard pointBytes % 6 == 0, rowCount >= minRows, coverageBytes == rowCount * 2 else {
+            shapes = nil
+            return true
+        }
+        let fullCoverage = UInt16(Int16.max)
+        let fullScale = Float(fullCoverage)
+        var positions: [SIMD3<Float>] = []
+        var coverages: [Float]?
+        positions.reserveCapacity(rowCount)
+        for vertex in 0 ..< rowCount {
+            let point = pointOffset + vertex * 6
+            let x = Int16(bitPattern: readUInt16(data, at: point))
+            let y = Int16(bitPattern: readUInt16(data, at: point + 2))
+            let z = Int16(bitPattern: readUInt16(data, at: point + 4))
+            let normalized = SIMD3<Float>(Float(x), Float(y), Float(z)) / fullScale
+            positions.append(SIMD3(max(-1, normalized.x), max(-1, normalized.y),
+                                   max(-1, normalized.z)) * gain)
+            let coverage = readUInt16(data, at: coverageOffset + vertex * 2)
+            guard coverage <= fullCoverage else {
+                shapes = nil
+                return true
+            }
+            if coverage != fullCoverage, coverages == nil {
+                coverages = Array(repeating: 1, count: vertex)
+                coverages?.reserveCapacity(rowCount)
+            }
+            coverages?.append(Float(coverage) / fullScale)
+        }
+        shapes?.append(MorphShape(positions: positions, coverages: coverages))
+        return true
     }
 
     private static func readBoneCount(
@@ -215,16 +356,14 @@ nonisolated enum SceneMdlPuppetAnimationReader {
 
     private static func readAnimations(
         data: Data,
-        blockOffset: Int,
+        headerOffset: Int,
+        endOffset: Int,
         boneCount: Int,
-        trailerContract: TrailerContract
+        trailerContract: TrailerContract,
+        hasMorphTail: Bool,
+        morphGroups: [UInt32: [MorphShape]]?
     ) throws -> [SceneMdlPuppetAnimation] {
-        var cursor = blockOffset + markerSize
-        guard cursor + 8 <= data.count else {
-            throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
-        }
-        let endOffset = Int(readUInt32(data, at: cursor))
-        cursor += 4
+        var cursor = headerOffset + 4
         guard endOffset > cursor, endOffset <= data.count else {
             throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
         }
@@ -326,7 +465,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 mode: mode,
                 isDerived: isDerived,
                 eventBudget: maxTotalEvents - totalEvents,
-                contract: trailerContract
+                contract: trailerContract,
+                morphGroups: morphGroups
             )
             if let source = trailer.derivedSource {
                 guard source.sourceRecordOrdinal < animations.count,
@@ -354,13 +494,13 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 hasAuxiliaryScalarTrack: trailer.hasAuxiliaryScalarTrack,
                 hasPostBoundsScalarTrack: trailer.hasPostBoundsScalarTrack,
                 recordOrdinal: index, rawMode: rawMode, rawFlags: rawFlags,
-                derivedSource: trailer.derivedSource
+                derivedSource: trailer.derivedSource, morphTargets: trailer.morphTargets
             ))
         }
         guard cursor == endOffset else {
             throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
         }
-        if requiresPhysicalEnd {
+        if requiresPhysicalEnd, !hasMorphTail {
             guard endOffset == data.count
                 || (data.count - endOffset == 1 && data[endOffset] == 0) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
@@ -440,18 +580,20 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         mode: String,
         isDerived: Bool,
         eventBudget: Int,
-        contract: TrailerContract
+        contract: TrailerContract,
+        morphGroups: [UInt32: [MorphShape]]?
     ) throws -> (
         alphaByBone: [[Float]]?, events: [SceneMdlPuppetAnimation.Event],
         bounds: SceneMdlPuppetAnimation.Bounds?, hasAuxiliaryScalarTrack: Bool,
         hasPostBoundsScalarTrack: Bool,
-        derivedSource: SceneMdlPuppetAnimation.DerivedSource?
+        derivedSource: SceneMdlPuppetAnimation.DerivedSource?,
+        morphTargets: [SceneMdlPuppetAnimation.MorphTarget]
     ) {
         if case let .legacyZeros(count) = contract {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: count) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (nil, [], nil, false, false, nil)
+            return (nil, [], nil, false, false, nil, [])
         }
         let alphaByBone = try readPerBoneAlphaTracks(
             data: data,
@@ -465,24 +607,28 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [], nil, false, false, nil)
+            return (alphaByBone, [], nil, false, false, nil, [])
         }
         if contract == .perBoneAlphaZeros29 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [], nil, false, false, nil)
+            return (alphaByBone, [], nil, false, false, nil, [])
         }
         guard cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
         let hasAuxiliaryTrack = data[cursor]
         cursor += 1
+        let morphTargets: [SceneMdlPuppetAnimation.MorphTarget]
         if hasAuxiliaryTrack == 1 {
-            try skipPreBoundsCurves(data, cursor: &cursor, bound: bound,
-                animationID: animationID, sampleCount: sampleCount)
-        } else if hasAuxiliaryTrack != 0 {
-            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            morphTargets = try readPreBoundsCurves(data, cursor: &cursor, bound: bound,
+                animationID: animationID, sampleCount: sampleCount, groups: morphGroups)
+        } else {
+            guard hasAuxiliaryTrack == 0 else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            morphTargets = []
         }
         let bounds: SceneMdlPuppetAnimation.Bounds?
         let hasPostBoundsScalarTrack: Bool
@@ -550,31 +696,67 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             frameCount: frameCount, mode: mode, eventBudget: eventBudget
         )
         return (alphaByBone, events, bounds, hasAuxiliaryTrack == 1,
-                hasPostBoundsScalarTrack, derivedSource)
+                hasPostBoundsScalarTrack, derivedSource, morphTargets)
     }
 
-    private static func skipPreBoundsCurves(
-        _ data: Data, cursor: inout Int, bound: Int, animationID: Int, sampleCount: Int
-    ) throws {
+    private static func readPreBoundsCurves(
+        _ data: Data, cursor: inout Int, bound: Int, animationID: Int, sampleCount: Int,
+        groups: [UInt32: [MorphShape]]?
+    ) throws -> [SceneMdlPuppetAnimation.MorphTarget] {
         let failure = SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         guard cursor + 4 <= bound else { throw failure }
         let eventCount = Int(readUInt32(data, at: cursor))
         cursor += 4
         guard eventCount > 0 else { throw failure }
         let sampleBytes = sampleCount * 4
+        // Only one linkage group per clip has qualified deformation semantics.
+        var targets: [SceneMdlPuppetAnimation.MorphTarget]? = eventCount == 1
+            ? groups.map { _ in [] } : nil
         for _ in 0 ..< eventCount {
             guard cursor + 8 <= bound else { throw failure }
-            // The linkage and flags belong to the unconsumed morph channel.
-            let curveCount = Int(readUInt32(data, at: cursor + 4) & 0xffff)
-            cursor += 8
+            let curveCount = Int(readUInt16(data, at: cursor + 4))
             guard curveCount > 0 else { throw failure }
+            let shapes: [MorphShape]?
+            if targets != nil, let groups {
+                let link = readUInt32(data, at: cursor)
+                shapes = groups[link]
+                if shapes?.count != curveCount || readUInt16(data, at: cursor + 6) != 0 {
+                    targets = nil
+                }
+            } else {
+                shapes = nil
+            }
+            cursor += 8
             for curve in 0 ..< curveCount {
-                if curve > 0 { cursor += 2 } // The first curve ID is implicit.
-                guard cursor + 4 + sampleBytes <= bound,
-                      Int(readUInt32(data, at: cursor)) == sampleBytes else { throw failure }
-                cursor += 4 + sampleBytes
+                // The first curve ID is implicit, and each later ID names its group ordinal.
+                let lengthOffset = curve == 0 ? cursor : cursor + 2
+                let samplesOffset = lengthOffset + 4
+                let curveEnd = samplesOffset + sampleBytes
+                guard curveEnd <= bound,
+                      Int(readUInt32(data, at: lengthOffset)) == sampleBytes else { throw failure }
+                if let shapes, targets != nil {
+                    if curve > 0, Int(readUInt16(data, at: cursor)) != curve {
+                        targets = nil
+                    } else {
+                        var weights: [Float] = []
+                        weights.reserveCapacity(sampleCount)
+                        for offset in stride(from: samplesOffset, to: curveEnd, by: 4) {
+                            let weight = readFloat(data, at: offset)
+                            guard weight.isFinite else { break }
+                            weights.append(weight)
+                        }
+                        if weights.count == sampleCount {
+                            targets?.append(.init(weights: weights, positions: shapes[curve].positions,
+                                                  coverages: shapes[curve].coverages))
+                        } else {
+                            targets = nil
+                        }
+                    }
+                }
+                cursor = curveEnd
             }
         }
+        return targets ?? []
     }
 
     private static func readEvents(
@@ -715,6 +897,10 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             data.copyBytes(to: buffer, from: offset ..< (offset + 4))
         }
         return UInt32(littleEndian: value)
+    }
+
+    private static func readUInt16(_ data: Data, at offset: Int) -> UInt16 {
+        UInt16(data[offset]) | UInt16(data[offset + 1]) << 8
     }
 
     private static func readFloat(_ data: Data, at offset: Int) -> Float {

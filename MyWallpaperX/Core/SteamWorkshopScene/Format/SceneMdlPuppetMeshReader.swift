@@ -44,6 +44,8 @@ struct SceneMdlPuppetMesh {
     let drawParts: [DrawPart]
     let clipRecords: [ClipRecord]
 
+    var vertexDataOffset: Int { meshBlockOffset + SceneMdlPuppetMeshReader.meshHeaderSize }
+
     init(
         version: String, vertexStride: Int, meshBlockOffset: Int,
         vertices: [Vertex], indices: [UInt16],
@@ -117,7 +119,7 @@ enum SceneMdlPuppetMeshReader {
     private static let magicLength = 8
     // Magic + trailing NUL, matching the audited player's marker size.
     private static let markerSize = 9
-    private static let meshHeaderSize = 8
+    fileprivate static let meshHeaderSize = 8
     // Verified vertex layouts: 52 bytes across MDLV0013/0014/0016 assets, 80 bytes
     // across MDLV0017/0023 assets, 84 bytes for the verified skinned base
     // asset, and 48 bytes proven by the real Workshop puppet asset in sample

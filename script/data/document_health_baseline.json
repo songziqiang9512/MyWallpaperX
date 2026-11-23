@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 494,
-      "bytes": 115841
+      "bytes": 115239
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 272709
+      "bytes": 273338
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59222
+      "bytes": 59233
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "16656f590ea8dd9746fe24020fd75a4294284c70b792ef29e7bcc87fbdfdeb7b",
-      "after": "b77763645cded3af14c2c0540225d4f09a35874305089f3f174fbb1bd1816fb0",
+      "before": "b77763645cded3af14c2c0540225d4f09a35874305089f3f174fbb1bd1816fb0",
+      "after": "cbcd7edcd67c0402f5bd2519320074a2d1251bcaecc386e99d43241c5eaf877e",
       "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Record official fixed frames and signed deformation/coverage controls with the matching local failure baseline.",
+      "reason": "Record candidate eye-phase pixels, signed position and coverage controls, and independent authored playback in the existing evidence row.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-mdmp-oracle"
     },
     {
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0f97ec622592b222fe88350bdf99868460a01f9e1c918b1629bae6708688f0a2",
-      "after": "5405914bed31008c2589a4fa9c0371dd1d5b4fb2f1d777a25289cb74f9960fda",
+      "before": "5405914bed31008c2589a4fa9c0371dd1d5b4fb2f1d777a25289cb74f9960fda",
+      "after": "4a22f0fb0a9bf52340268b7b9f3fa295f6f1e1bcb1a31bfcd7ccd50c9b0de8a2",
       "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Advance the queue from format qualification to the confirmed image geometry consumer.",
+      "reason": "Close the fixed-phase image Puppet defect and retain the separate visible coverage boundary.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#puppet-morph-peer-fallback"
     },
     {

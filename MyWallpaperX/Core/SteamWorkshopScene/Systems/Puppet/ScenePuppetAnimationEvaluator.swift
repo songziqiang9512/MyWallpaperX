@@ -30,6 +30,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         let alphaVaries: Bool
         let hasAlphaContribution: Bool
         let alphaByBone: [[Float]]?
+        let morphVaries: Bool
     }
 
     /// Vertex data that is invariant for the lifetime of a playback state.
@@ -37,7 +38,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     /// sum, so normalize once at load instead of repeating four additions and
     /// divisions for every animated frame.
     private struct PreparedVertex {
-        let bindPoint: SIMD4<Float>
+        let bindPoint: SIMD3<Float>
         let boneIndices: SIMD4<UInt32>
         let normalizedWeights: SIMD4<Float>
     }
@@ -49,22 +50,27 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     let hasAffineBindTransforms: Bool
     private let preparedAnimationsByID: [Int: Result<PreparedAnimation, Error>]
     private let preparedVertices: [PreparedVertex]
+    private let morphVertexAddresses: [Int]?
+    private let morphTargetCapacity: Int
 
     /// Launch-stable skeleton size used by the playback owner's reusable
     /// matrix storage.  The rig itself remains private so callers cannot
     /// bypass the evaluator's hierarchy and validation contracts.
     var boneCount: Int { rig.bones.count }
     var vertexCount: Int { preparedVertices.count }
+    var hasMorphGeometry: Bool { morphVertexAddresses != nil }
 
     init(
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
         additiveAnimations: [SceneMdlPuppetAnimation] = [],
-        optionalAnimationIDs: Set<Int> = []
+        optionalAnimationIDs: Set<Int> = [],
+        morphVertexAddresses: [Int]? = nil
     ) throws {
         try self.init(bindPositions: mesh.vertices.map { SIMD3($0.x, $0.y, $0.z) },
                       rig: rig, additiveAnimations: additiveAnimations,
-                      optionalAnimationIDs: optionalAnimationIDs)
+                      optionalAnimationIDs: optionalAnimationIDs,
+                      morphVertexAddresses: morphVertexAddresses)
     }
 
     /// Direct models supply their validated XYZ channel without an image mesh.
@@ -72,7 +78,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         bindPositions: [SIMD3<Float>],
         rig: SceneMdlPuppetRig,
         additiveAnimations: [SceneMdlPuppetAnimation] = [],
-        optionalAnimationIDs: Set<Int> = []
+        optionalAnimationIDs: Set<Int> = [],
+        morphVertexAddresses: [Int]? = nil
     ) throws {
         guard bindPositions.count == rig.vertexWeights.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -160,7 +167,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             vertexData.append(.init(
                 // Preserve source depth until skinning: X/Y bone rotation
                 // can project it into the final image-space position.
-                bindPoint: SIMD4<Float>(position, 1),
+                bindPoint: position,
                 boneIndices: source.boneIndices,
                 normalizedWeights: SIMD4<Float>(
                     source.boneWeights.x / totalWeight,
@@ -171,6 +178,9 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             ))
         }
         preparedVertices = vertexData
+        morphTargetCapacity = morphVertexAddresses == nil ? 0 :
+            additiveAnimations.reduce(0) { max($0, $1.morphTargets.count) }
+        self.morphVertexAddresses = morphTargetCapacity == 0 ? nil : morphVertexAddresses
 
         var preparedAnimations: [Int: Result<PreparedAnimation, Error>] = [:]
         var sourceIDs: Set<Int> = []
@@ -198,6 +208,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             return false
         }
         return prepared.drivenBones.isEmpty && !prepared.alphaVaries
+            && (!prepared.morphVaries || !hasMorphGeometry)
     }
 
     func hasAlphaContribution(animationID: Int) -> Bool {
@@ -390,7 +401,9 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         skinMatricesScratch: inout [simd_float4x4],
         worldMatricesScratch: inout [simd_float4x4],
         boneOverrides: [Int: simd_float4x4] = [:],
-        blends: [Double]? = nil
+        blends: [Double]? = nil,
+        morphCoverage: UnsafeMutableBufferPointer<Float>? = nil,
+        combinesBoneCoverage: Bool = false
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -400,9 +413,83 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             skinMatricesScratch: &skinMatricesScratch,
             worldMatricesScratch: &worldMatricesScratch,
             boneOverrides: boneOverrides, blends: blends)
+        if let addresses = morphVertexAddresses,
+           try writeMorphedPositions(selection: selection, frameSamples: frameSamples, blends: blends,
+                addresses: addresses, skinMatrices: skinMatricesScratch, into: output,
+                coverage: morphCoverage, combinesBoneCoverage: combinesBoneCoverage) {
+            return
+        }
+        if !combinesBoneCoverage { morphCoverage?.update(repeating: 1) }
         for vertexIndex in preparedVertices.indices {
             let point = try skinnedVertex(at: vertexIndex, skinMatrices: skinMatricesScratch).position
             output[vertexIndex] = SIMD2(point.x, point.y)
+        }
+    }
+
+    private func writeMorphedPositions(
+        selection: ScenePuppetAnimationSelection, frameSamples: [FrameSample?], blends: [Double]?,
+        addresses: [Int], skinMatrices: [simd_float4x4],
+        into output: UnsafeMutableBufferPointer<SIMD2<Float>>,
+        coverage: UnsafeMutableBufferPointer<Float>?, combinesBoneCoverage: Bool
+    ) throws -> Bool {
+        try withUnsafeTemporaryAllocation(of: (ordinal: Int, weight: Float).self,
+                                          capacity: morphTargetCapacity) { sampled in
+            var activeTargets: [SceneMdlPuppetAnimation.MorphTarget] = []
+            var activeCount = 0
+            for (index, clip) in selection.clips.enumerated() {
+                let targets = clip.animation.morphTargets
+                guard !targets.isEmpty, let frame = frameSamples[index] else { continue }
+                let blend = blends?[index] ?? clip.layer.blend ?? 1
+                guard blend > 0, blend.isFinite else { continue }
+                guard (0...clip.animation.frameCount).contains(frame.frameA),
+                      (0...clip.animation.frameCount).contains(frame.frameB),
+                      (0...1).contains(frame.fraction) else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(frame.frameA)
+                }
+                let hasAnotherContributor = activeCount > 0
+                for (ordinal, target) in targets.enumerated() {
+                    let a = Double(target.weights[frame.frameA])
+                    let b = Double(target.weights[frame.frameB])
+                    let weight = Float((a + (b - a) * Double(frame.fraction)) * blend)
+                    guard weight.isFinite else { return false }
+                    guard weight != 0 else { continue }
+                    if hasAnotherContributor { return false }
+                    sampled.initializeElement(at: activeCount, to: (ordinal, weight))
+                    activeCount += 1
+                }
+                if !hasAnotherContributor && activeCount > 0 { activeTargets = targets }
+            }
+            guard activeCount > 0 else { return false }
+            for (index, vertex) in preparedVertices.enumerated() {
+                var bind = vertex.bindPoint
+                var shapeCoverage: Float = 1
+                if addresses[index] > 0 {
+                    let address = addresses[index] - 1
+                    for sampleIndex in 0..<activeCount {
+                        let (ordinal, weight) = sampled[sampleIndex]
+                        let target = activeTargets[ordinal]
+                        bind += target.positions[address] * weight
+                        if let values = target.coverages {
+                            shapeCoverage *= 1 + (values[address] - 1) * weight
+                        }
+                    }
+                }
+                let point: SIMD3<Float>
+                do {
+                    point = try skinnedVertex(vertex, bindPoint: bind, skinMatrices: skinMatrices).position
+                } catch ScenePuppetAnimationEvaluationFailure.invalidDeformedVertex {
+                    // An overflowing shape must not freeze the skeletal pose.
+                    point = try skinnedVertex(vertex, bindPoint: vertex.bindPoint,
+                                              skinMatrices: skinMatrices).position
+                    shapeCoverage = 1
+                }
+                if let coverage {
+                    coverage[index] = (combinesBoneCoverage ? coverage[index] : 1)
+                        * (shapeCoverage.isFinite ? shapeCoverage : 1)
+                }
+                output[index] = SIMD2(point.x, point.y)
+            }
+            return true
         }
     }
 
@@ -675,7 +762,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             referenceBones: referenceBones,
             alphaVaries: alphaVaries,
             hasAlphaContribution: animation.hasAlphaContribution,
-            alphaByBone: animation.alphaByBone
+            alphaByBone: animation.alphaByBone,
+            morphVaries: animation.morphTargets.contains { target in
+                target.weights.dropFirst().contains { $0 != target.weights[0] }
+            }
         )
     }
 
@@ -801,11 +891,18 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         includesLinear: Bool = false
     ) throws -> SkinnedVertex {
         let vertex = preparedVertices[vertexIndex]
+        return try skinnedVertex(vertex, bindPoint: vertex.bindPoint, skinMatrices: skinMatrices,
+                                 includesLinear: includesLinear)
+    }
+
+    @inline(__always)
+    private func skinnedVertex(
+        _ vertex: PreparedVertex, bindPoint: SIMD3<Float>,
+        skinMatrices: [simd_float4x4], includesLinear: Bool = false
+    ) throws -> SkinnedVertex {
         var point = SIMD3<Float>.zero
         var linear = simd_float3x3(columns: (.zero, .zero, .zero))
-        let bindX = vertex.bindPoint.x
-        let bindY = vertex.bindPoint.y
-        let bindZ = vertex.bindPoint.z
+        let (bindX, bindY, bindZ) = (bindPoint.x, bindPoint.y, bindPoint.z)
         for influence in 0..<4 {
             let weight = vertex.normalizedWeights[influence]
             guard weight > 0 else { continue }

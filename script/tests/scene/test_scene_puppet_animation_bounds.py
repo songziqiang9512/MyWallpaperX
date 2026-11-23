@@ -148,6 +148,112 @@ class SceneMdlPuppetAnimationBoundsTests(legacy.SceneMdlPuppetAnimationReaderTes
         for label in ("bad-count", "bad-size", "truncated"):
             self.assertFalse(self.results[f"pre-bounds-{label}.mdl"]["ok"])
 
+    def test_mdmp_image_targets_bind_by_link_and_ordinal_with_local_fallback(self):
+        original_curves = struct.pack("<IIHHI3f", 1, 0x418A55D5, 1, 0, 12, 0, 0.5, 1)
+
+        def event(link, samples, *, second_id=1, flags=0, sample_bytes=12):
+            payload = struct.pack("<fHHI3f", link, len(samples), flags, sample_bytes, *samples[0])
+            if len(samples) == 2:
+                payload += struct.pack("<HI3f", second_id, 12, *samples[1])
+            return payload
+
+        def clip(clip_id, *events):
+            record = legacy.animation_record(clip_id, f"Renamed {clip_id} λ", 2, 2,
+                auxiliary=True, modern_prefix=struct.pack("<6fB", *self.bounds, 0))
+            assert record.count(original_curves) == 1
+            return record.replace(original_curves, struct.pack("<I", len(events)) + b"".join(events))
+
+        def shape(shape_id, name, rows, coverages, *, point_length=None):
+            points = b"".join(struct.pack("<3h", *row) for row in rows)
+            return (struct.pack("<II", shape_id, 43) + name.encode() + b"\0"
+                + struct.pack("<I", len(points) if point_length is None else point_length) + points
+                + struct.pack("<I", len(coverages) * 2)
+                + struct.pack(f"<{len(coverages)}H", *coverages))
+
+        def group(link, *shapes, flags=0):
+            return struct.pack("<HfHH", len(shapes), link, 3202, flags) + b"".join(shapes)
+
+        first_weights = [(0.0, 0.25, 1.0), (1.0, 0.5, 0.0)]
+        first_clip = clip(601, event(16, first_weights))
+        second_clip = clip(603, event(40, [(0.25, 1.0, 0.5)]))
+        following = legacy.animation_record(607, "Motion after shapes", 2, 2, fps=24)
+        points = [(32767, 0, -32768), (0, -32767, 0)]
+        full = [32767, 32767]
+        first_shape = shape(72, "renamed-first", points, full)
+        second_shape = shape(42, "renamed-second", [(0, 32767, 0), (-32767, 0, 32767)], [16384, 0])
+        group16 = group(16, first_shape, second_shape)
+        group40 = group(40, shape(731, "independent", points, full))
+        mdle_tail = b"MDLE0002\0" + struct.pack("<I", 0) + b"unconsumed\0"
+
+        def model(main_clip=first_clip, groups=group16 + group40, *,
+                  marker=b"MDMP0001\0", addresses=(0.0, 2.0, 1.0), end_delta=0, tail=mdle_tail):
+            vertices = b"".join(struct.pack("<4f", 10, 20, 30, address) + b"\0" * 68
+                                for address in addresses)
+            mdla = legacy.build_mdl([main_clip, second_clip, following], mesh_prefix=vertices)
+            end = len(mdla) + 13 + len(groups) + end_delta
+            return mdla + marker + struct.pack("<I", end) + groups + tail
+
+        variants = {
+            "bound": model(),
+            "short-rows": model(groups=group(16, shape(72, "short", points[:1], full[:1]),
+                                              second_shape) + group40),
+            "unsupported-coverage": model(groups=group(16, shape(72, "coverage", points, [32768, 0]),
+                                                        second_shape) + group40),
+            "wrong-ordinal": model(clip(601, event(16, first_weights, second_id=2))),
+            "unknown-flags": model(clip(601, event(16, first_weights, flags=1))),
+            "unknown-group-flags": model(groups=group(16, first_shape, second_shape, flags=1) + group40),
+            "empty-group": model(groups=group(16) + group40),
+            "nonfinite-curve": model(clip(601, event(16, [(0, float("nan"), 1), first_weights[1]]))),
+            "multiple-events": model(clip(601, event(16, first_weights), event(40, [(0, 1, 0)]))),
+            "repeated-link": model(groups=group16 + group40 + group16),
+            "broken-mdmp-length": model(groups=group(16, shape(72, "broken", points, full,
+                                                                 point_length=0xffffffff)) + group40),
+            "wrong-mdmp-end": model(end_delta=999),
+            "unknown-mdmp": model(marker=b"MDMP0002\0", tail=b"MDLA0005\0"),
+            "wrong-vertex-address": model(addresses=(0.0, 3.0, 1.0)),
+            "huge-vertex-address": model(addresses=(0.0, 1.0e30, 1.0)),
+            "foreign-tail": model(marker=b"WRNG0001\0"),
+            "broken-mdla-length": model(clip(601, event(16, first_weights, sample_bytes=8))),
+        }
+        paths = []
+        for name, data in variants.items():
+            target = Path(self._tmp.name) / name
+            target.write_bytes(data)
+            paths.append(target)
+        completed = subprocess.run([str(self.binary), "--image-morph", "33", "84", "3",
+                                    *map(str, paths)], capture_output=True, text=True, check=True)
+        by_case = {entry["file"]: entry for entry in json.loads(completed.stdout)}
+        for name, entry in by_case.items():
+            with self.subTest(name=name):
+                if name in ("foreign-tail", "broken-mdla-length"):
+                    self.assertFalse(entry["ok"], entry)
+                    continue
+                self.assertTrue(entry["ok"], entry)
+                authored, peer, motion = entry["animations"]
+                self.assertEqual([authored["id"], peer["id"], motion["id"]], [601, 603, 607])
+                self.assertEqual(motion["fps"], 24)
+                self.assertEqual(motion["sampleCounts"], [3, 3])
+                self.assertTrue(authored["hasAuxiliaryScalarTrack"])
+                self.assertEqual(motion["morphTargets"], [])
+                if name == "bound":
+                    a, b = authored["morphTargets"]
+                    self.assertEqual(a, {"weights": list(first_weights[0]),
+                        "positions": [[16, 0, -16], [0, -16, 0]], "coverages": None})
+                    self.assertEqual(b["weights"], list(first_weights[1]))
+                    self.assertEqual(b["positions"], [[0, 16, 0], [-16, 0, 16]])
+                    self.assertAlmostEqual(b["coverages"][0], 16384 / 32767, places=6)
+                    self.assertEqual(b["coverages"][1], 0)
+                else:
+                    self.assertEqual(authored["morphTargets"], [])
+                if name in ("broken-mdmp-length", "wrong-mdmp-end", "unknown-mdmp",
+                            "wrong-vertex-address", "huge-vertex-address"):
+                    self.assertEqual(peer["morphTargets"], [])
+                    self.assertNotIn("morphVertexAddresses", entry)
+                else:
+                    self.assertEqual(peer["morphTargets"][0]["positions"][0], [40, 0, -40])
+                    self.assertEqual(entry["morphVertexAddresses"], [0, 2, 1])
+        self.assertEqual(self.results["valid.mdl"]["animations"][1]["morphTargets"], [])
+
     def test_invalid_bounds_and_scalar_flags_fail_closed(self):
         for name in self.bounds_fixtures:
             if name.startswith(("bounds-bad-", "bounds-short-")) and "next" not in name:

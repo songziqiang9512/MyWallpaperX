@@ -32,6 +32,12 @@ nonisolated struct SceneMdlPuppetAnimation {
         let rootSelector: Int32
     }
 
+    struct MorphTarget: Sendable {
+        let weights: [Float]
+        let positions: [SIMD3<Float>]
+        let coverages: [Float]?
+    }
+
     let id: Int
     let name: String
     let mode: String
@@ -52,10 +58,11 @@ nonisolated struct SceneMdlPuppetAnimation {
     let hasAlphaContribution: Bool
     let events: [Event]
     let bounds: Bounds?
-    /// Framed pre-bounds curves whose deformation remains unconsumed.
+    /// Framed pre-bounds curves, including curves bound only for image playback.
     let hasAuxiliaryScalarTrack: Bool
     /// Structurally decoded, but has no qualified pose consumer yet.
     let hasPostBoundsScalarTrack: Bool
+    let morphTargets: [MorphTarget]
 
     init(
         id: Int,
@@ -73,7 +80,8 @@ nonisolated struct SceneMdlPuppetAnimation {
         recordOrdinal: Int? = nil,
         rawMode: String? = nil,
         rawFlags: UInt32 = 0,
-        derivedSource: DerivedSource? = nil
+        derivedSource: DerivedSource? = nil,
+        morphTargets: [MorphTarget] = []
     ) {
         self.id = id
         self.name = name
@@ -93,6 +101,7 @@ nonisolated struct SceneMdlPuppetAnimation {
         self.bounds = bounds
         self.hasAuxiliaryScalarTrack = hasAuxiliaryScalarTrack
         self.hasPostBoundsScalarTrack = hasPostBoundsScalarTrack
+        self.morphTargets = morphTargets
     }
 
     nonisolated var durationSeconds: Float {
@@ -105,15 +114,24 @@ nonisolated struct SceneMdlPuppetAnimation {
 }
 
 nonisolated struct SceneMdlPuppetAnimationSet {
+    struct ImageMorphLayout {
+        let vertexOffset: Int
+        let stride: Int
+        let count: Int
+    }
+
     let boneCount: Int
     let animations: [SceneMdlPuppetAnimation]
     /// Full ordered source records; only `animations` is addressable by exported ID.
     let records: [SceneMdlPuppetAnimation]
+    /// Zero bypasses morphing. Positive addresses index the target's one-based rows.
+    let morphVertexAddresses: [Int]?
 
     init(boneCount: Int, animations: [SceneMdlPuppetAnimation],
-         records: [SceneMdlPuppetAnimation]? = nil) {
+         records: [SceneMdlPuppetAnimation]? = nil, morphVertexAddresses: [Int]? = nil) {
         self.boneCount = boneCount
         self.animations = animations
         self.records = records ?? animations
+        self.morphVertexAddresses = morphVertexAddresses
     }
 }

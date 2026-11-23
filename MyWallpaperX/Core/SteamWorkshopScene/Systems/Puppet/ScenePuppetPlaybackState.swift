@@ -62,7 +62,9 @@ final class ScenePuppetPlaybackState {
 
     final class ImagePose {
         let mesh: SceneMdlPuppetMesh
-        var hasBoneAlpha: Bool
+        private(set) var hasBoneAlpha = false
+        private(set) var hasMorphCoverage = false
+        var hasVertexCoverage: Bool { hasBoneAlpha || hasMorphCoverage }
         var positionScratch: [SIMD2<Float>]
         var vertexScratch: [SceneQuadVertex]
         var coverageScratch: [Float]
@@ -71,14 +73,25 @@ final class ScenePuppetPlaybackState {
         init(mesh: SceneMdlPuppetMesh, evaluator: ScenePuppetAnimationEvaluator,
              selection: ScenePuppetAnimationSelection) {
             self.mesh = mesh
-            hasBoneAlpha = selection.clips.contains {
-                evaluator.hasAlphaContribution(animationID: $0.animation.id)
-            }
             positionScratch = Array(repeating: .zero, count: mesh.vertices.count)
             coverageScratch = Array(repeating: 1, count: mesh.vertices.count)
             boneAlphaScratch = Array(repeating: 1, count: evaluator.boneCount)
             vertexScratch = mesh.vertices.map {
                 SceneQuadVertex(position: .zero, texcoord: SIMD2($0.u, $0.v))
+            }
+            adopt(selection, evaluator: evaluator)
+        }
+
+        func adopt(_ selection: ScenePuppetAnimationSelection, evaluator: ScenePuppetAnimationEvaluator) {
+            let hadVertexCoverage = hasVertexCoverage
+            hasBoneAlpha = selection.clips.contains {
+                evaluator.hasAlphaContribution(animationID: $0.animation.id)
+            }
+            hasMorphCoverage = evaluator.hasMorphGeometry && selection.clips.contains {
+                $0.animation.morphTargets.contains { $0.coverages != nil }
+            }
+            if hadVertexCoverage && !hasVertexCoverage {
+                coverageScratch.withUnsafeMutableBufferPointer { $0.update(repeating: 1) }
             }
         }
     }
@@ -142,7 +155,7 @@ final class ScenePuppetPlaybackState {
         let output: RenderFrame.Geometry
         switch geometry {
         case let .image(image):
-            output = .image(vertices: image.vertexScratch, vertexCoverageVaries: image.hasBoneAlpha)
+            output = .image(vertices: image.vertexScratch, vertexCoverageVaries: image.hasVertexCoverage)
         case let .direct(direct):
             output = .direct(vertices: direct.outputVertices, status: direct.status)
         }
@@ -212,29 +225,36 @@ final class ScenePuppetPlaybackState {
                 ? (ScenePuppetAttachmentPoseProjection.frames(attachments: attachments,
                     boneWorldMatrices: worldMatrixScratch) ?? [:]) : [:]
         case let .image(image):
-            let evaluated = image.positionScratch.withUnsafeMutableBufferPointer {
-                positions in
-                (try? evaluator.writeDeformedPositions(
-                    selection: selection,
-                    frameSamples: frameSamples,
-                    into: positions,
-                    localMatricesScratch: &localMatrixScratch,
-                    skinMatricesScratch: &skinMatrixScratch,
-                    worldMatricesScratch: &worldMatrixScratch,
-                    boneOverrides: renderBoneOverrides,
-                    blends: animationFrame.blends
-                )) != nil
-            }
-            guard evaluated else { return preparedAttachmentFrames }
-            if image.hasBoneAlpha {
-                do {
+            do {
+                if image.hasBoneAlpha {
                     try evaluator.writeVertexCoverages(
                         selection: selection, frameSamples: frameSamples,
                         blends: animationFrame.blends,
                         into: &image.coverageScratch, boneScratch: &image.boneAlphaScratch
                     )
-                } catch { return preparedAttachmentFrames }
-            }
+                }
+                let hasBoneAlpha = image.hasBoneAlpha
+                func writePositions(morphCoverage: UnsafeMutableBufferPointer<Float>?) throws {
+                    try image.positionScratch.withUnsafeMutableBufferPointer { positions in
+                        try evaluator.writeDeformedPositions(
+                            selection: selection, frameSamples: frameSamples, into: positions,
+                            localMatricesScratch: &localMatrixScratch,
+                            skinMatricesScratch: &skinMatrixScratch,
+                            worldMatricesScratch: &worldMatrixScratch,
+                            boneOverrides: renderBoneOverrides, blends: animationFrame.blends,
+                            morphCoverage: morphCoverage,
+                            combinesBoneCoverage: hasBoneAlpha
+                        )
+                    }
+                }
+                if image.hasMorphCoverage {
+                    try image.coverageScratch.withUnsafeMutableBufferPointer {
+                        try writePositions(morphCoverage: $0)
+                    }
+                } else {
+                    try writePositions(morphCoverage: nil)
+                }
+            } catch { return preparedAttachmentFrames }
             if let frames = ScenePuppetAttachmentPoseProjection.frames(
                 attachments: attachments,
                 boneWorldMatrices: worldMatrixScratch
@@ -371,14 +391,7 @@ final class ScenePuppetPlaybackState {
             count: next.clips.count)
         preparedFrameSignature = nil
         if case let .image(image) = geometry {
-            let hasAlpha = next.clips.contains {
-                evaluator.hasAlphaContribution(animationID: $0.animation.id)
-            }
-            if image.hasBoneAlpha && !hasAlpha {
-                image.coverageScratch = Array(repeating: 1, count: image.coverageScratch.count)
-                image.boneAlphaScratch = Array(repeating: 1, count: image.boneAlphaScratch.count)
-            }
-            image.hasBoneAlpha = hasAlpha
+            image.adopt(next, evaluator: evaluator)
         }
     }
 

@@ -160,10 +160,11 @@ struct Playback {
 func makePlayback(_ fixture: (SceneMdlPuppetMesh, SceneMdlPuppetRig,
                               ScenePuppetAnimationSelection),
                   device: MTLDevice, pipeline: SceneImageLayerPipeline,
-                  atlas: MTLTexture, clipping: ScenePuppetClipping? = nil) throws -> Playback {
+                  atlas: MTLTexture, clipping: ScenePuppetClipping? = nil,
+                  morphVertexAddresses: [Int]? = nil) throws -> Playback {
     let identity = columns(matrix_identity_float4x4)
     let evaluator = try ScenePuppetAnimationEvaluator(mesh: fixture.0, rig: fixture.1,
-        additiveAnimations: fixture.2.clips.map(\.animation))
+        additiveAnimations: fixture.2.clips.map(\.animation), morphVertexAddresses: morphVertexAddresses)
     let state = ScenePuppetPlaybackState.make(layerID: 42, mesh: fixture.0,
         evaluator: evaluator, selection: fixture.2,
         attachments: [.init(boneIndex: 0, name: "tip", isNamedBinding: true,
@@ -865,9 +866,11 @@ func directPublicationChecks(device: MTLDevice, queue: MTLCommandQueue) throws -
         let queryRenderTranslation = try translationPoseChecks(device: device, queue: queue,
             pipeline: pipeline, atlas: atlas)
         let frozenImage = try frozenImageChecks(device: device, queue: queue, pipeline: pipeline)
+        let morphPublication = try morphPublicationChecks(device: device, queue: queue, pipeline: pipeline, atlas: atlas)
         let directPublication = try directPublicationChecks(device: device, queue: queue)
         let result: [String: Any] = [
             "frozenImage": frozenImage, "directPublication": directPublication,
+            "morphPublication": morphPublication,
             "queryRenderTranslation": queryRenderTranslation,
             "metalDevice": device.name,
             "dynamicHalfBlend": dynamicHalfBlend.report,

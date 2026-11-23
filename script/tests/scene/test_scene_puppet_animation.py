@@ -76,6 +76,10 @@ enum Harness {
             } ?? NSNull(),
             "hasAuxiliaryScalarTrack": animation.hasAuxiliaryScalarTrack,
             "hasPostBoundsScalarTrack": animation.hasPostBoundsScalarTrack,
+            "morphTargets": animation.morphTargets.map {
+                ["weights": $0.weights, "positions": $0.positions.map { [$0.x, $0.y, $0.z] },
+                 "coverages": $0.coverages.map { $0 as Any } ?? NSNull()] as [String: Any]
+            },
             "hasAlphaContribution": animation.hasAlphaContribution,
             "selectedTracks": [0, 1, 11, 12, 16, 17].filter {
                 animation.transformsByBone.indices.contains($0)
@@ -108,11 +112,16 @@ enum Harness {
 
     static func main() throws {
         var results: [[String: Any]] = []
-        for path in CommandLine.arguments.dropFirst() {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        let hasLayout = arguments.first == "--image-morph"
+        let layout: SceneMdlPuppetAnimationSet.ImageMorphLayout? = hasLayout
+            ? .init(vertexOffset: Int(arguments[1])!, stride: Int(arguments[2])!,
+                    count: Int(arguments[3])!) : nil
+        for path in arguments.dropFirst(hasLayout ? 4 : 0) {
             let data = try Data(contentsOf: URL(fileURLWithPath: path))
             var entry: [String: Any] = ["file": (path as NSString).lastPathComponent]
             do {
-                guard let set = try SceneMdlPuppetAnimationReader.read(data: data) else {
+                guard let set = try SceneMdlPuppetAnimationReader.read(data: data, imageMorphLayout: layout) else {
                     entry["ok"] = true
                     entry["absent"] = true
                     results.append(entry)
@@ -122,6 +131,7 @@ enum Harness {
                 entry["boneCount"] = set.boneCount
                 entry["animations"] = set.animations.map(summary)
                 entry["records"] = set.records.map(summary)
+                entry["morphVertexAddresses"] = set.morphVertexAddresses
             } catch let error as SceneMdlPuppetAnimationReadError {
                 entry["ok"] = false
                 entry["error"] = error.description
@@ -270,10 +280,11 @@ def build_mdl(
     animation_marker: bytes = b"MDLA0006\0",
     declared_animation_count: int | None = None,
     corrupt_end_offset: bool = False,
+    mesh_prefix: bytes = b"",
 ) -> bytes:
     if animations is None:
         animations = [animation_record(101, "Idle", 2, bone_count)]
-    prefix = bytearray(magic + b"\0" + b"\0" * 24)
+    prefix = bytearray(magic + b"\0" + b"\0" * 24 + mesh_prefix)
     mdls_offset = len(prefix)
     mdls = bytearray(skeleton_marker + b"\0" * 4 + struct.pack("<I", bone_count))
     mdat = bytearray(b"MDAT0001\0" + b"\0" * 4) if include_attachment_boundary else bytearray()
