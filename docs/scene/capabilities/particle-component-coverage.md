@@ -58,7 +58,7 @@ General `instanceoverride.color`（0…255）与 `colorn`（0…1）是初始化
 
 普通控制点的位置按当前 typed 动态值、instance override、definition offset 的顺序取一个值；前两者覆盖 definition 位置，不与它相加。Emitter、Force、位置 initializer 与距离约束使用同一取值语义。组件自己的 origin/offset 仍在取得控制点之后叠加，emitter 的 origin 继续按原角度旋转，不能与 definition 的默认位置混为一项。
 
-鼠标绑定的 definition offset 是指针偏移，仍叠加当前有效指针；缺指针的真实消费者局部不可用，不回到系统原点。位置选择与空间转换分开：world 点经当前 `SceneParticleControlPointFrame` 的同一逆矩阵转到实际模拟空间，child 再复合原 origin/scale。冷计划和 typed 帧继续拥有字段、identity 与当前供货；没有位置 registry、缓存、第二时钟或每粒子的元数据校验。CP parent/angles 的未资格语义不能由位置覆盖实验外推。
+鼠标绑定的 definition offset 是指针偏移，仍叠加当前有效指针；缺指针的真实消费者局部不可用，不回到系统原点。位置选择与空间转换分开：world 点经当前 `SceneParticleControlPointFrame` 的同一逆矩阵转到实际模拟空间，child 再复合原 origin/scale。冷计划和 typed 帧继续拥有字段、identity 与当前供货；没有位置 registry、缓存、第二时钟或每粒子的元数据校验。CP parent/angles 的未资格语义不能由位置覆盖实验外推。现有指针位置范围内，flags 恰为1、无 parent 且 offset 为省略或三维零的有效控制点，在 DefinitionParser 把静态三分量零角字面归入已有省略角度表示，Emitter、Around 和 Force 继续共用原 pointer 位置。带绑定的角度、非零和错型字段、父绑定及其它 flags 保原规则，动态角度仍走现有输入。本次不新增帧内比较、RNG 或 renderer 分支。验收固定移动路径，对照作者零角与省略，覆盖无指针、非零和改名，分别观察 SpriteTrail 与 Rope 的真实跟随。
 
 Emitter frame 与 Simulator 共享同一纯位置选择；被普通位置覆盖替代的 definition offset 不参与 emitter offset 幅度检查。带角度 emitter 也不能因未消费的默认 offset 错型而拒绝。原 DefinitionParser 入口分别保存 offset 与其余 id/flags/angles/parent 的不可变解析错误，替换旧聚合；角度消费者只取后者，带角度 emitter 的默认位置仍被选中时在原 offset 分支消费前者，不能让坏位置冒充省略。位置覆盖不放开坏角度、flags、parent 或被选中的坏位置。world Force、ReduceMovement 与 Vortex 保原两类字段的拒绝范围；未读聚合的 static/pointer 分支不借此新增检查或授予资格。不增加兼容聚合 wrapper、供值链或逐粒子检查，RNG、出生顺序和显式发射事务仍由原 owner 执行。
 

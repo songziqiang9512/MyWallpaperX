@@ -338,17 +338,23 @@ nonisolated struct SceneParticleDefinitionParser {
         let id = Self.integer(root["id"])
         let flags = Self.integer(root["flags"])
         let offset = Self.numericValue(root["offset"])
-        let angles = Self.numericValue(root["angles"])
+        let authoredAngles = root["angles"]
+        let angles = Self.numericValue(authoredAngles)
         let parent = Self.integer(root["parentcontrolpoint"])
+        let malformedOffset = malformed("offset", parsed: offset)
+        let malformedMetadata = malformed("id", parsed: id)
+            || malformed("flags", parsed: flags)
+            || malformed("angles", parsed: angles)
+            || malformed("parentcontrolpoint", parsed: parent)
+        let neutralPointerAngles = flags == 1 && (0 ... 7).contains(id ?? -1)
+            && parent == nil && !malformedOffset && !malformedMetadata
+            && !(authoredAngles is [String: Any]) && angles == .vector([0, 0, 0])
+            && (offset == nil || offset == angles)
         return .init(
-            id: id, rawFlags: flags ?? 0, offset: offset, angles: angles,
+            id: id, rawFlags: flags ?? 0, offset: offset, angles: neutralPointerAngles ? nil : angles,
             parentControlPoint: parent,
-            hasAuthoredAngles: root["angles"] != nil && !(root["angles"] is NSNull),
-            hasMalformedOffset: malformed("offset", parsed: offset),
-            hasMalformedMetadata: malformed("id", parsed: id)
-                || malformed("flags", parsed: flags)
-                || malformed("angles", parsed: angles)
-                || malformed("parentcontrolpoint", parsed: parent)
+            hasAuthoredAngles: !neutralPointerAngles && authoredAngles != nil && !(authoredAngles is NSNull),
+            hasMalformedOffset: malformedOffset, hasMalformedMetadata: malformedMetadata
         )
     }
 

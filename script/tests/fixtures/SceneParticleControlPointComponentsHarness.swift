@@ -273,6 +273,54 @@ enum SceneParticleControlPointComponentsHarness {
             record("emitter-cp\(source)-valid-instance", validInstance)
             record("emitter-cp\(source)-valid-dynamic", validDynamic)
         }
+
+        let pointer = SIMD3<Double>(64, 32, 0)
+        let point = ["id": 0, "flags": 1]
+        let omitted = try simulator(root(instantaneous: 1, controlPoints: [point]))
+        omitted.advance(by: 0.25, dynamicControlPoints: [0: pointer])
+        results["emitter/pointer-without-angles-follows-live-position"] =
+            matches(points(omitted.particles), [[64, 32, 0]])
+        let zeroAngles: [(String, Any)] = [("serialized", "0 0 0"), ("numeric", [0.0, -0.0, 0.0])]
+        for (name, angle) in zeroAngles {
+            var raw = root(instantaneous: 1, controlPoints: [
+                ["id": 0, "flags": 1, "angles": angle, "offset": "0 0 0"],
+            ])
+            raw["material"] = "renamed/pointer.json"
+            let explicit = try simulator(raw)
+            let outside = try simulator(raw)
+            explicit.advance(by: 0.25, dynamicControlPoints: [0: pointer])
+            outside.advance(by: 0.25)
+            results["emitter/pointer-zero-angle-\(name)-matches-omission"] =
+                explicit.particles == omitted.particles && outside.particles.isEmpty
+                && explicit.frameSnapshot().random.state == omitted.frameSnapshot().random.state
+        }
+        for (name, angle) in [("nonzero", "0 0 1"), ("short", "0 0")] {
+            let raw = root(instantaneous: 1, controlPoints: [["id": 0, "flags": 1, "angles": angle]])
+            results["emitter/pointer-\(name)-angle-is-not-identity"] =
+                try !definition(raw).controlPoints[0].hasBoundedPointerInput
+        }
+        for key in ["offset", "parentcontrolpoint"] {
+            let raw = root(instantaneous: 1, controlPoints: [
+                ["id": 0, "flags": 1, "angles": "0 0 0", key: "bad"],
+            ])
+            results["emitter/pointer-zero-does-not-hide-malformed-\(key)"] =
+                try !definition(raw).controlPoints[0].hasBoundedPointerInput
+        }
+        let nonPointerFields: [(String, [String: Any])] = [
+            ("nonzero-offset", ["offset": "10 20 0"]),
+            ("short-offset", ["offset": "1 2"]),
+            ("bound-angle", ["angles": ["value": "0 0 0", "user": "live_angle"]]),
+        ]
+        for (name, fields) in nonPointerFields {
+            let typedPoint: [String: Any] = ["id": 0, "flags": 1, "angles": "0 0 0"]
+            var raw = root(instantaneous: 1, controlPoints: [typedPoint.merging(fields) { _, new in new }])
+            var emitters = raw["emitter"] as! [[String: Any]]
+            emitters[0]["controlpoint"] = 0
+            raw["emitter"] = emitters
+            let rejected = try simulator(raw)
+            rejected.advance(by: 0.25, dynamicControlPoints: [0: pointer])
+            results["emitter/pointer-zero-keeps-\(name)-outside-bounded-route"] = rejected.particles.isEmpty
+        }
     }
 
     static func sequenceCases() throws {

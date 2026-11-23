@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 323,
-      "bytes": 63940
+      "bytes": 64513
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 385,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 280250
+      "bytes": 281287
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 209,
-      "bytes": 63798
+      "lines": 210,
+      "bytes": 64218
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "fc3d6f55d0da3034161e22b2456bf619746919eea38b93737680d35e5d641c26",
-      "after": "2a812288708b0e7b4795a1fc17785d63987bd443f1520116ea2e467c81bdc9c1",
-      "owner": "repository governance",
-      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "2a812288708b0e7b4795a1fc17785d63987bd443f1520116ea2e467c81bdc9c1",
+      "after": "cb3b5fb15684b53964c55ab4897bca5a150a0597e05a76105787e18b82ee07b3",
+      "owner": "Scene control point and runtime evidence",
+      "reason": "Document cold literal zero normalization at the existing bounded pointer definition ingress.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-position"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "add7d061a2c4221c9cdfbc82cc25d8cf8adc8e6a738dc2fb465ff951f945d4e3",
-      "after": "d9dbe10d1732c7cfd7e393a1f59d0f581a0c84e7a6ca89af0fe0927c3e0f37c4",
-      "owner": "Scene current authored orb motion evidence",
-      "reason": "Record paired actual observer controls separating authored texture rotation from the parent pose.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#orb-spin-parent-motion-376"
+      "before": "d9dbe10d1732c7cfd7e393a1f59d0f581a0c84e7a6ca89af0fe0927c3e0f37c4",
+      "after": "a2bc720257dbbe2b8383baf466db9e754c363bbdfcfa73c148c92126c97de4f1",
+      "owner": "Scene control point and runtime evidence",
+      "reason": "Record the official and current candidate pointer-follow controls and measured remaining tint difference.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-zero-angles-author"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "48b94a2e2045203a00c938bae05243388a5e4e718c95efbde87eee21ad7a0403",
-      "after": "818a2cc45cdf4c8dd4ef07e3fafe50f9fdc20670ba504fb3d2d9a9b452eb853d",
-      "owner": "Scene Puppet rig and current runtime evidence",
-      "reason": "Close the visual pose symptom and track the independently observed MDLA auxiliary rejection.",
+      "before": "818a2cc45cdf4c8dd4ef07e3fafe50f9fdc20670ba504fb3d2d9a9b452eb853d",
+      "after": "37b0e489a6ce4970201ba1e8d0c30307a6da58c52c4ac2e0cd7928d90de29b3e",
+      "owner": "Scene control point and runtime evidence",
+      "reason": "Carry the verified independent tint discrepancy after the follow fix.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
