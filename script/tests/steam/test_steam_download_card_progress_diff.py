@@ -236,7 +236,7 @@ private final class ProgressProbeWindow: NSWindow {
         precondition(card.controlBar.primaryState == .switching && card.controlBar.playButton.isEnabled,
             "an active transfer must retain the pending icon and original cancel command")
         card.controlBar.playButton.performClick(nil)
-        precondition(cancelledTransfers == 1 && card.controlBar.playButton.accessibilityLabel()?.contains("取消下载") == true,
+        precondition(cancelledTransfers == 1 && card.controlBar.playButton.accessibilityLabel()?.contains("Cancel Download") == true,
             "the pending shared button must dispatch the original transfer cancellation once")
         // Long byte strings keep the marquee text wider than its row so the
         // scroll is actually running.
@@ -320,7 +320,7 @@ private final class ProgressProbeWindow: NSWindow {
         launchCard()
         assertSymbolSize(card.controlBar.playButton.image, named: "hourglass")
         precondition(card.currentBarVisibility, "pending launch must pin the bar before playback starts")
-        precondition(card.controlBar.playButton.accessibilityLabel()?.contains("正在切换") == true,
+        precondition(card.controlBar.playButton.accessibilityLabel()?.contains("Switching wallpaper") == true,
                      "pending keeps the launch badge; stop styling still waits for playback")
         card.cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
             func rgba(_ color: NSColor?) -> String {
@@ -354,7 +354,7 @@ private final class ProgressProbeWindow: NSWindow {
         service.steamSubscriptions.states[item.id] = .known(true)
         assertSymbolSize(card.controlBar.detailButton.image, named: "exclamationmark.circle")
         card.controlBar.detailButton.performClick(nil)
-        precondition(browserDetails == 1 && card.controlBar.detailButton.accessibilityLabel() == "详细信息"
+        precondition(browserDetails == 1 && card.controlBar.detailButton.accessibilityLabel() == "View Details"
             && service.steamSubscriptions.toggles.isEmpty && service.steamSubscriptions.refreshes.isEmpty,
             "the fixed detail control must not borrow account membership actions")
         var remoteFavorites = 0, remotePrimaries = 0, remoteDetails = 0
@@ -383,7 +383,7 @@ private final class ProgressProbeWindow: NSWindow {
         card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
         precondition(localFavorites == 0 && localStops == 1 && localDetails == 1,
                      "details and stop must use their current-content commands without consuming menu favorites")
-        precondition(card.controlBar.detailButton.accessibilityLabel() == "详细信息",
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "View Details",
                      "details must never advertise Steam account subscription: \(String(describing: card.controlBar.detailButton.accessibilityLabel()))")
         organizationCard(canFavorite: false, canPlay: false, canInspect: false)
         card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
@@ -395,7 +395,7 @@ private final class ProgressProbeWindow: NSWindow {
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
             onFavorite: { localFavorites += 1 }, onPrimary: { localStops += 1 }),
             isPlaying: false, isMultiSelectMode: false, isKeyboardFocused: true)
-        precondition(card.controlBar.detailButton.accessibilityLabel() == "详细信息"
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "View Details"
                      && card.controlBar.playButton.accessibilityLabel()?.contains("设为壁纸") == true,
                      "state-only organization updates must reach the original native controls")
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true, isSwitching: true,
