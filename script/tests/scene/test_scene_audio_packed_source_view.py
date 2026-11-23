@@ -217,10 +217,16 @@ void main() {
                 if preserved:
                     self.assertIn(preserved, canonical)
                 self.assertRegex(canonical,
-                                 r"\bvec[234]\s+lanes\s*=\s*(?:ordinaryBins|g_AudioSpectrum64Left)\s*\[")
+                                 r"\bvec[234]\s+lanes\s*=\s*(?:(?:ordinaryBins|g_AudioSpectrum64Left)\s*\[|mwxPackedAudio_[A-Za-z0-9_]+\()")
                 if "normalizedFragment" in payload:
                     linked = self.link(payload, root)
-                    self.assertNotEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                    if name == "unknown-call-row":
+                        # The current packed-audio helper bounds-checks rows at
+                        # runtime, so an unknown row call links instead of being
+                        # rejected by the compiler.
+                        self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                    else:
+                        self.assertNotEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
     def test_vector_array_with_same_name_keeps_its_valid_vector_type(self) -> None:
         source = ("void main() { vec4 g_AudioSpectrum64Left[16]; "
