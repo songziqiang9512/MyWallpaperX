@@ -120,7 +120,7 @@ final class PlaybackCommandMultiplexer {
 }
 
 // Mirror of the Web/Core validation enum referenced by the shared models.
-enum SteamWorkshopWebDependencyStatus: Equatable {
+enum SteamWorkshopWebDependencyStatus: Equatable, Codable {
     case none
     case available(itemID: String)
     case missing(itemID: String)
