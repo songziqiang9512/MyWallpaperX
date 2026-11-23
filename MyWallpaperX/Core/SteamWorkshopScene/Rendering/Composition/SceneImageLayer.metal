@@ -43,6 +43,10 @@ static float2 sceneImageLayerTextureFrameUV(
         + uv.y * uniforms.textureFrame1.xy;
 }
 
+static float2 sceneImageLayerProjectedUV(float4 clip) {
+    return clip.xy / clip.w * float2(0.5, -0.5) + 0.5;
+}
+
 // Preserve ordinary arithmetic, but do not let intermediate overflow or
 // underflow erase a finite HDR contribution after opacity/coverage. Unlike the lit storage
 // calculation this product is signed and has no radiance clamp.
@@ -128,10 +132,14 @@ fragment float4 sceneImageLayerFrag(
         : clipMask.sample(linearClipSampler,
             input.modelPosition * clipTransform.zw + clipTransform.xy).r;
 
-    const float2 sourceUV = sceneImageLayerTextureFrameUV(
-        clamp(input.texcoord, 0.0, 1.0),
-        uniforms
-    );
+    float2 sourceUV;
+    if ((uniforms.sourceSampling.y & 8u) != 0u) {
+        const float4 clip = uniforms.sourceCaptureProjection * float4(input.modelPosition, 0, 1);
+        if (clip.w <= 0.0) return float4(0.0);
+        sourceUV = sceneImageLayerProjectedUV(clip);
+    } else {
+        sourceUV = sceneImageLayerTextureFrameUV(clamp(input.texcoord, 0.0, 1.0), uniforms);
+    }
     float4 color;
     switch (uniforms.sourceSampling.x) {
     case 1u:
@@ -178,7 +186,7 @@ fragment float4 sceneImageLayerFrag(
     if ((uniforms.sourceSampling.y & 4u) != 0u) {
         const float4 prefixClip = uniforms.sourceCaptureProjection
             * float4(input.modelPosition, 0.0, 1.0);
-        const float2 prefixUV = prefixClip.xy / prefixClip.w * float2(0.5, -0.5) + 0.5;
+        const float2 prefixUV = sceneImageLayerProjectedUV(prefixClip);
         result.rgb += dependencyTexture.sample(linearClampSampler, prefixUV).rgb * (1.0 - result.a);
     }
     if (is_function_constant_defined(discardsEmptyDepthWrites)

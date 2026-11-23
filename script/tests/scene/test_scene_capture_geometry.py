@@ -459,6 +459,11 @@ enum Harness {
             SIMD4(0, 0, 1, 0), SIMD4(0.1, -0.2, 0.4, 1))
         var tinyProjective = rotated
         tinyProjective.columns.0.w = 0.00001
+        let tiltedSource = simd_float4x4(
+            SIMD4(1, 0, 0, 0.5), SIMD4(0, 0.75, 0, 0.25),
+            SIMD4(0, 0, 1, 0), SIMD4(0.125, -0.125, 0.5, 1))
+        var verticalTilt = tiltedSource
+        verticalTilt.columns.0.w = 0
         func resolve(_ mvp: simd_float4x4, kind: SceneUtilityLayer.Kind = .composition,
                      size: CGSize = viewport, capture: simd_float4x4? = nil,
                      members: [Int]? = nil, authored: [Float]? = nil,
@@ -468,6 +473,33 @@ enum Harness {
                 compositionSourceMemberLayerIDs: members, authoredRenderSizeWH: authored,
                 usesMaterialSource: material)
         }
+        let sourceSize = CGSize(width: 800, height: 608)
+        let tilted = resolve(rotated, size: sourceSize, capture: tiltedSource)!
+        let uv = SIMD2<Float>(0.625, 0.25)
+        let projected = tilted.sourceProjection.map { projection in
+            let clip = projection * SIMD4(uv.x - 0.5, 0.5 - uv.y, 0, 1)
+            return SIMD2(0.5 + clip.x / clip.w * 0.5, 0.5 - clip.y / clip.w * 0.5)
+        }
+        let affine = tilted.sourceUV.origin + tilted.sourceUV.xAxis * uv.x + tilted.sourceUV.yAxis * uv.y
+        func texel(_ coordinate: SIMD2<Float>) -> [Int] {
+            [Int(coordinate.x * Float(sourceSize.width)), Int(coordinate.y * Float(sourceSize.height))]
+        }
+        let projectiveSource: [String: Any] = [
+            "preserved": tilted.sourceProjection.map(matrix) ?? [],
+            "output": matrix(tilted.outputMVP),
+            "projectedUV": projected.map(vector) ?? [],
+            "projectedTexel": projected.map(texel) ?? [],
+            "affineTexel": texel(affine),
+            "sourceFromLayer": resolve(tiltedSource)!.sourceProjection.map(matrix) ?? [],
+            "verticalWOnly": resolve(rotated, capture: verticalTilt)!.sourceProjection != nil,
+            "affineSource": resolve(projective, capture: rotated)!.sourceProjection == nil,
+            "constantW": resolve(constantW)!.sourceProjection == nil,
+            "project": resolve(tiltedSource, kind: .project)!.sourceProjection == nil,
+            "fullscreen": resolve(tiltedSource, kind: .fullscreen)!.sourceProjection == nil,
+            "members": resolve(tiltedSource, members: [9001])!.sourceProjection == nil,
+            "transparent": resolve(tiltedSource, members: [], authored: [665, 151])!.sourceProjection == nil,
+            "material": resolve(tiltedSource, authored: [665, 151], material: true)!.sourceProjection == nil,
+        ]
         var nonfinite = flat
         nonfinite.columns.0.x = .nan
         var zeroW = flat
@@ -495,6 +527,7 @@ enum Harness {
             "flatCaptureProjectiveOutput": geometry(resolve(projective, capture: rotated)!),
             "projective": geometry(resolve(projective)!),
             "tinyProjective": geometry(resolve(tinyProjective)!),
+            "projectiveSource": projectiveSource,
             "project": geometry(resolve(rotated, kind: .project)!),
             "fullscreen": geometry(resolve(rotated, kind: .fullscreen)!),
             "members": geometry(resolve(rotated, members: [9001])!),
@@ -745,6 +778,27 @@ class SceneCaptureGeometryTests(unittest.TestCase):
                          cases["quarterTurn"]["sourceUV"])
         self.assertEqual(cases["flatCaptureProjectiveOutput"]["outputMVP"],
                          cases["projective"]["outputMVP"])
+
+    def test_projective_background_capture_selects_the_homogeneous_source_texel(self) -> None:
+        cases = self.result["backgroundCopyAxes"]
+        source = cases["projectiveSource"]
+        expected = [1, 0, 0, 0.5, 0, 0.75, 0, 0.25,
+                    0, 0, 1, 0, 0.125, -0.125, 0.5, 1]
+        self.assertEqual(source["preserved"], expected)
+        self.assertEqual(source["sourceFromLayer"], expected)
+        self.assertEqual(source["output"], cases["quarterTurn"]["outputMVP"])
+        # (5/8, 1/4) is inside the corner triangle, so both mappings
+        # address legal source pixels yet give different texel identities.
+        self.assert_float_tree(source["projectedUV"], [11 / 18, 17 / 36])
+        self.assertEqual(source["projectedTexel"], [488, 287])
+        self.assertEqual(source["affineTexel"], [432, 319])
+        self.assertTrue(source["verticalWOnly"])
+
+    def test_projective_source_is_kept_only_for_local_background_copy(self) -> None:
+        source = self.result["backgroundCopyAxes"]["projectiveSource"]
+        for name in ("affineSource", "constantW", "project", "fullscreen", "members",
+                     "transparent", "material"):
+            self.assertTrue(source[name], name)
 
     def test_background_copy_does_not_change_projective_or_other_source_routes(self) -> None:
         cases = self.result["backgroundCopyAxes"]

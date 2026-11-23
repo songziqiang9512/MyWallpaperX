@@ -430,17 +430,53 @@ NAMED_MAIN = r'''
 LIT_MAIN = r'''
 @main enum LitSourceColorProbe {
     static func texture(_ d: MTLDevice, _ value: SIMD4<Float>) -> MTLTexture {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
-            width: 1, height: 1, mipmapped: false)
-        descriptor.storageMode = .shared; descriptor.usage = [.shaderRead, .renderTarget]
-        let result = d.makeTexture(descriptor: descriptor)!, bytes = [value.x, value.y, value.z, value.w].map(Float16.init)
-        bytes.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
-            withBytes: $0.baseAddress!, bytesPerRow: 8) }; return result
+        texture(d, [value], width: 1)
     }
-    static func pixel(_ t: MTLTexture) -> [Float] {
+    static func texture(_ d: MTLDevice, _ values: [SIMD4<Float>], width: Int) -> MTLTexture {
+        let height = values.count / width
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float,
+            width: width, height: height, mipmapped: false)
+        descriptor.storageMode = .shared; descriptor.usage = [.shaderRead, .renderTarget]
+        let result = d.makeTexture(descriptor: descriptor)!
+        let bytes = values.flatMap { [Float16($0.x), Float16($0.y), Float16($0.z), Float16($0.w)] }
+        bytes.withUnsafeBytes { result.replace(region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: width * 8) }
+        return result
+    }
+    static func pixel(_ t: MTLTexture, x: Int = 0, y: Int = 0) -> [Float] {
         var values = [Float16](repeating: 0, count: 4)
         values.withUnsafeMutableBytes { t.getBytes($0.baseAddress!, bytesPerRow: 8,
-            from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0) }; return values.map(Float.init)
+            from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0) }; return values.map(Float.init)
+    }
+    static func projectiveCapture(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                                  _ pipeline: SceneImageLayerPipeline) -> [[String: Any]] {
+        let blue = SIMD4<Float>(0, 0, 1, 1), green = SIMD4<Float>(0, 1, 0, 1)
+        let source = texture(device, (0..<64).map { $0 < 32 ? blue : green }, width: 8)
+        let tilted = simd_float4x4(
+            SIMD4(1, 0, 0, 0.5), SIMD4(0, 0.75, 0, 0.25),
+            SIMD4(0, 0, 1, 0), SIMD4(0.125, -0.125, 0.5, 1))
+        // The same tilted card's three projected corners give this affine frame.
+        let affine = SceneTextureUVTransform(origin: SIMD2(2 / 7, 5 / 14),
+            xAxis: SIMD2(34 / 77, 4 / 77), yAxis: SIMD2(-3 / 35, 19 / 35))
+        let sampler = SceneTextureSampling.linearClamp.applying(clampUVs: true, noInterpolation: true)
+        let encoder = SceneGraphResourcePassEncoder(commandQueue: queue)
+        return [false, true].map { projective in
+            var uniforms = SceneLayerFragmentUniforms(time: 0, alpha: 1, dependencyBlendMode: 0,
+                usesDependencyBlend: 0, cursorUV: .zero,
+                sourceSampling: SIMD2(sampler.imageLayerUniformMode, 0), tint: .init(repeating: 1),
+                textureFrame0: affine.uniform0, textureFrame1: affine.uniform1)
+            uniforms.projectSourceCapture(projective ? tilted : nil)
+            let target = texture(device, Array(repeating: .zero, count: 8), width: 4)
+            let buffer = queue.makeCommandBuffer()!
+            let prepared = encoder.prepareSourceCapture(source: source, target: target,
+                                                        uniforms: uniforms, pipeline: pipeline)
+            let encoded = prepared.map { encoder.encode($0, commandBuffer: buffer) } ?? false
+            buffer.commit(); buffer.waitUntilCompleted()
+            // Destination (2, 0) centers at (5/8, 1/4); the source V is
+            // 17/36 with projection and 809/1540 with the affine frame.
+            return ["projective": projective, "pixel": pixel(target, x: 2, y: 0),
+                    "completed": encoded && buffer.status == .completed && buffer.error == nil]
+        }
     }
     static func main() throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue(), let library = d.makeDefaultLibrary(),
@@ -477,7 +513,8 @@ LIT_MAIN = r'''
                     "expected": [expectedRGB.x, expectedRGB.y, expectedRGB.z, alpha * opacity]])
             }
         } } }
-        print(String(decoding: try JSONSerialization.data(withJSONObject: ["rows": rows], options: [.sortedKeys]), as: UTF8.self))
+        let report: [String: Any] = ["rows": rows, "projectiveCapture": projectiveCapture(d, q, base)]
+        print(String(decoding: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), as: UTF8.self))
     }
 }
 '''
@@ -524,6 +561,10 @@ enum SceneMatrix { static func scale(_ value: SIMD3<Float>) -> simd_float4x4 { s
 ''' + LIT_MAIN
         report = run_frozen(sources, support, "lit-source-color", [SCENE / f"Rendering/Composition/{name}.metal"
                             for name in ("SceneImageLayer", "SceneLitImageLayer")])
+        self.assertEqual(report["projectiveCapture"], [
+            {"projective": False, "pixel": [0, 1, 0, 1], "completed": True},
+            {"projective": True, "pixel": [0, 0, 1, 1], "completed": True},
+        ])
         self.assertEqual(len(report["rows"]), 36)
         for row in report["rows"]:
             for key in ("completed", "actualOutputContract", "sourceUnchanged"):

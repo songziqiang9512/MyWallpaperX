@@ -341,6 +341,7 @@ enum Harness {
         }
         var scriptSnapshot = perspectiveSnapshot(.bool(true))
         let scriptedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
+        let nativeScriptedFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: scriptSnapshot)
         scriptSnapshot = perspectiveSnapshot(.bool(false))
         let flatFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: scriptSnapshot)
         let nativeFlatFrame = SceneParticleCameraFrame(camera: nativeCamera, viewportSize: viewport, dynamicValues: scriptSnapshot)
@@ -350,6 +351,20 @@ enum Harness {
         let utilityOverride = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: true)
         var composition = utilityOverride
         composition.hasPerspectiveGeometryConsumer = true
+        let inheritedComposition = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: nil,
+            hasPerspectiveGeometryConsumer: true)
+        let flatComposition = SceneRenderDescriptor.Layer(id: 91, utilityLayer: true, usesPerspective: false,
+            hasPerspectiveGeometryConsumer: true)
+        func utilityProjection(_ frame: SceneParticleCameraFrame, _ layer: SceneRenderDescriptor.Layer) -> [String: Any] {
+            func kind(_ matrix: simd_float4x4) -> String {
+                if matrix == frame.perspectiveViewProjection { return "perspective" }
+                if matrix == frame.orthographicViewProjection { return "flat" }
+                return "unexpected"
+            }
+            return ["perspective": frame.resolvesPerspective(for: layer),
+                "output": kind(frame.viewProjection(for: layer)),
+                "capture": kind(frame.captureViewProjection(for: layer))]
+        }
         let invalidSnapshot = perspectiveSnapshot(.scalar(1))
         let wrongTypedFrame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport, dynamicValues: invalidSnapshot)
         let missingFOVCamera = SceneRenderDescriptor.CameraDescriptor(
@@ -477,15 +492,18 @@ enum Harness {
                 == frame.orthographicViewProjection,
             "compositionCaptureRemainsFlat": scriptedFrame.captureViewProjection(for: composition)
                 == frame.orthographicViewProjection,
-            "compositionNativeRemainsUnsupported": !nativeFrame.resolvesPerspective(for: composition),
+            "nativeCompositionCamera": [
+                "inherited": utilityProjection(nativeFrame, inheritedComposition),
+                "authoredOn": utilityProjection(nativeFrame, composition),
+                "authoredOff": utilityProjection(nativeFrame, flatComposition),
+                "scriptOn": utilityProjection(nativeScriptedFrame, flatComposition),
+                "scriptOff": utilityProjection(nativeFlatFrame, composition),
+                "ordinaryUtility": utilityProjection(nativeScriptedFrame, utilityOverride),
+            ],
             "nativeMaterialSourceCamera": [
                 "usesPerspective": nativeFrame.resolvesPerspective(for: nativeMaterialSourceLayer),
                 "output": ndc(nativeFrame.viewProjection(for: nativeMaterialSourceLayer), nativeWorldUp),
                 "capture": ndc(nativeFrame.captureViewProjection(for: nativeMaterialSourceLayer), nativeWorldUp),
-                "ordinaryOutputStaysFlat": nativeFrame.viewProjection(for: composition)
-                    == nativeFrame.orthographicViewProjection,
-                "ordinaryCaptureStaysFlat": nativeFrame.captureViewProjection(for: composition)
-                    == nativeFrame.orthographicViewProjection,
             ],
             "ordinaryImageCaptureFollowsOutput": scriptedFrame.captureViewProjection(for: scriptedLayer)
                 == scriptedFrame.viewProjection(for: scriptedLayer),

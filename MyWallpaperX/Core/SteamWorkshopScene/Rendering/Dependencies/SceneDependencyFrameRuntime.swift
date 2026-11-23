@@ -521,6 +521,7 @@ final class SceneDependencyFrameRuntime {
                 var uniforms = SceneLayerFragmentUniforms.neutral()
                 uniforms.textureFrame0 = geometry.sourceUV.uniform0
                 uniforms.textureFrame1 = geometry.sourceUV.uniform1
+                uniforms.projectSourceCapture(geometry.sourceProjection)
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
                     sourceTexture: mainTexture,
                     target: target,

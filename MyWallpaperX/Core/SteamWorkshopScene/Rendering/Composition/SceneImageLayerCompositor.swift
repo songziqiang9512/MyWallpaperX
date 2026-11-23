@@ -286,7 +286,7 @@ struct SceneImageLayerCompositor {
                 reasonCode: "layer-effect-source-extent-unavailable")
             return .failed
         }
-        guard let directUniforms = sourceFragmentUniforms(
+        guard var directUniforms = sourceFragmentUniforms(
             for: request,
             routesOffscreen: routesOffscreen
         ) else {
@@ -294,6 +294,7 @@ struct SceneImageLayerCompositor {
                 reasonCode: "base-texture-frame-invalid")
             return .failed
         }
+        directUniforms.projectSourceCapture(request.sourceCaptureProjection)
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
             var renderedTexture: MTLTexture?

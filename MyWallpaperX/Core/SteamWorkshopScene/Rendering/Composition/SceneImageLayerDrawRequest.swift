@@ -274,6 +274,7 @@ struct SceneImageLayerDrawRequest {
     var terminalMVP: simd_float4x4? = nil
     var sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
     var distanceFog: SceneImageDistanceFogUniforms = .init()
+    var sourceCaptureProjection: simd_float4x4? = nil
 
     nonisolated func effectiveSourceSampling(
         for sampling: SceneTextureSampling

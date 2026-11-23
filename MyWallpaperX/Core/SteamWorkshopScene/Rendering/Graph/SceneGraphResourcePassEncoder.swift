@@ -97,7 +97,7 @@ final class SceneGraphResourcePassEncoder {
             var uniforms = uniforms
             // A text carrier preserves prefix RGB independently of glyph A;
             // the glyph keeps its real input representation during modulation.
-            uniforms.sourceSampling.y &= 1
+            uniforms.sourceSampling.y &= 0b1001
             if let prefix {
                 guard lighting == nil, prefix.texture !== target,
                       prefix.texture.device.registryID == device.registryID,
@@ -105,8 +105,8 @@ final class SceneGraphResourcePassEncoder {
                       prefix.texture.usage.contains(.shaderRead) else { return nil }
                 uniforms.sourceSampling.y |= 4
                 uniforms.sourceCaptureProjection = prefix.modelViewProjection
-            } else if lighting == nil, uniforms.sourceSampling.y == 1 {
-                uniforms.sourceSampling.y = 3
+            } else if lighting == nil, (uniforms.sourceSampling.y & 1) != 0 {
+                uniforms.sourceSampling.y |= 2
             }
             return PreparedCommand(
                 kind: .sourceCapture,

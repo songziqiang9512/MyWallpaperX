@@ -113,8 +113,8 @@
       "bytes": 115239
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 95,
-      "bytes": 14244
+      "lines": 97,
+      "bytes": 14982
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 273819
+      "bytes": 274796
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59159
+      "bytes": 59363
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -388,10 +388,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "2520cf2d89a9a91c33bab54e13456a36e621748958f5826a53db2b23aee473f1",
-      "after": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
-      "owner": "Scene composition source and projection",
-      "reason": "Describe childless passthrough and flat capture through the original perspective consumer.",
+      "before": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
+      "after": "3f3967ffa9a6bf5badd0e70383d075cc24c0ba33942cbf0f47546a34974dd7f9",
+      "owner": "Existing Scene composition and evidence authorities",
+      "reason": "Specify native childless composition capture and replay in one world projection.",
       "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cbcd7edcd67c0402f5bd2519320074a2d1251bcaecc386e99d43241c5eaf877e",
-      "after": "d3bde9b74504e80aebce026afe6c100ea84698ffa64d8e4d1056354cd126ceca",
-      "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Record official original glyph pixels, local capture identity and the property-control boundary.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#authored-text-depth"
+      "before": "d3bde9b74504e80aebce026afe6c100ea84698ffa64d8e4d1056354cd126ceca",
+      "after": "eca423d86d6bed221c297c6c664b18d8617414702694cd01a7c2ca0768602091",
+      "owner": "Existing Scene composition and evidence authorities",
+      "reason": "Record native captured-main projection, same-command-buffer overwrite, and the qualified official order witness.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-composition-audio-prefix"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5405914bed31008c2589a4fa9c0371dd1d5b4fb2f1d777a25289cb74f9960fda",
-      "after": "4a22f0fb0a9bf52340268b7b9f3fa295f6f1e1bcb1a31bfcd7ccd50c9b0de8a2",
-      "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Close the fixed-phase image Puppet defect and retain the separate visible coverage boundary.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#puppet-morph-peer-fallback"
+      "before": "38f38eb0f815e0cb8321ebcf3e7cb0f062b52e34ee6eb89dc7f723a405a12423",
+      "after": "2552ae5ef0282e47a3faf43d6a788631312af81be93d41c6539375b0ef35c968",
+      "owner": "Existing Scene composition and evidence authorities",
+      "reason": "Replace missing prefix qualification with the proven sort-dependent opaque ordering gap.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     },
     {
       "section": "bodies",

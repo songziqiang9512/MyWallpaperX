@@ -78,6 +78,7 @@ struct SceneRenderDescriptor {
         let utilityLayer: SceneUtilityLayer?
         let alpha: Double?
         let colorRGB: [Double]?
+        let dependencyLayerIDs: [Int] = []
         var effects: [Effect] = []
         let clampUVs: Bool? = nil
         let noInterpolation: Bool? = nil
@@ -349,8 +350,8 @@ struct SceneLayerFragmentUniforms {
     var sourceSampling = SIMD2<UInt32>.zero
     var alpha: Float = 1
     var tint = SIMD4<Float>(repeating: 1)
-    // This scaffold creates only raw sources; completed material-source
-    // modulation is covered by the production compositor tests.
+    // The graph output scaffold uses only affine raw sources.
+    mutating func projectSourceCapture(_ projection: simd_float4x4?) {}
     mutating func consumeCompletedMaterialSource(_ identity: StubSourceIdentity?) {}
     static func neutral() -> Self { .init() }
 }
@@ -432,14 +433,13 @@ enum SceneCaptureGeometryResolver {
     struct Geometry {
         let pixelSize: CGSize
         let sourceUV: SceneTextureUVTransform
+        let sourceProjection: simd_float4x4? = nil
     }
     static func resolve(
         kind: SceneUtilityLayer.Kind,
         layerMVP: simd_float4x4,
         viewportSize: CGSize
     ) -> Geometry? {
-        _ = kind
-        _ = layerMVP
         return .init(pixelSize: viewportSize, sourceUV: .identity)
     }
 }

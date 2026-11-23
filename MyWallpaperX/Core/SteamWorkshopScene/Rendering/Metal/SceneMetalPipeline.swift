@@ -34,7 +34,7 @@ struct SceneLayerFragmentUniforms {
     var usesDependencyBlend: UInt32
     var cursorUV: SIMD2<Float>   // cursor in layer-local UV space ([0..1])
     /// x: 0 linear-clamp, 1 linear-repeat, 2 nearest-clamp, 3 nearest-repeat.
-    /// y: bit 0 straight input; bit 1 preserve straight RGB; bit 2 text prefix capture.
+    /// y: straight input, preserve straight RGB, glyph prefix, and projective source bits.
     var sourceSampling: SIMD2<UInt32>
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>

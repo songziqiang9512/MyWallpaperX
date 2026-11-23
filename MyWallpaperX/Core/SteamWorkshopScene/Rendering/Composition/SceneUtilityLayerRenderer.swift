@@ -124,7 +124,8 @@ enum SceneUtilityLayerRenderer {
                     requiresDependencyEffect: requiresDependencyEffect,
                     dynamicValues: dynamicValues,
                     audioSpectrum: audioSpectrum,
-                    terminalDepth: terminalDepth
+                    terminalDepth: terminalDepth,
+                    sourceCaptureProjection: geometry.sourceProjection
                 )
             return compositor.drawOutcome(
                 request,

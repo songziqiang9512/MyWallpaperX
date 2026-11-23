@@ -47,6 +47,8 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 
 无子层的顶层 composition 在正交场景复制背景时，沿现有局部捕获与回绘接收透视值。此时 passthrough 无成员可透传，开启或关闭均取同一背景截点。有已准备 Program 时，原相机以平面 VP 供局部采样，以输出 VP 回绘一次。有子层、透明输入、依赖和 framebuffer source 各沿原准入边界。
 
+同一无子层背景源在原生透视场景继承当前场景相机，显式平面值仍走平面。背景截取和终端用同一世界卡片、同一视图投影，按投影像素尺寸进入原资源预算。齐次 W 沿卡片变化时，原 source capture 按局部像素做齐次投影来采样当前主画布，避免把斜卡片拉成仿射平行四边形。正对卡片沿用原仿射采样。捕获、Program 和回绘保作者截点及原图层顺序，无独立相机或离屏链。原生世界长度按正交画布像素截取的旧通路退出该形状。验收比较 3455121165/296 的真实 Program 输入、钟下音条和官方位置，用固定音频、斜卡片、显式平面及独立正交作者核影响范围。
+
 具备实际正交画布和局部尺寸的顶层分组 composition 可接收作者透视值。首屏材质准备后的 SourceRoute 由 LaunchFrameSchema 共享给 Script 和 RuntimePlanner。子组范围限直接成员、各有已准备 Program 的 composition。含复制背景的内组要求外组复制开启。保留 native-camera、有成员 passthrough 和无内组 Program 的原路径。
 
 - 原 CameraFrame 以平面 VP 构建局部源逆映射，保各组 world TRS 与 extent。子图、内组 Program 和 tail 写最近的组 attachment。外组在作者位置用 output VP 回绘一次，无 FX 的根用既有局部回绘。

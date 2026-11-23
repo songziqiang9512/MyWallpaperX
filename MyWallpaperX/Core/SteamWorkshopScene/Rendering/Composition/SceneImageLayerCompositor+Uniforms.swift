@@ -3,6 +3,12 @@ import Metal
 import simd
 
 extension SceneLayerFragmentUniforms {
+    mutating func projectSourceCapture(_ projection: simd_float4x4?) {
+        guard let projection else { return }
+        sourceSampling.y |= 8
+        sourceCaptureProjection = projection
+    }
+
     /// A completed material already owns its output color and coverage.
     /// Keep geometry, visibility and explicit final composition independent.
     mutating func consumeCompletedMaterialSource(_ identity: SceneTextureResourceIdentity?) {

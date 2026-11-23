@@ -299,9 +299,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// A utility needs a prepared local replay or the childless geometry path.
     func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
         if layer.hasFramebufferMaterialSource { return defaultsToPerspective }
-        if layer.utilityLayer != nil,
-           defaultsToPerspective || !(layer.hasPerspectiveGeometryConsumer
-            || perspectiveReplayRootIDs.contains(layer.id)) { return false }
+        if layer.utilityLayer != nil, !layer.hasPerspectiveGeometryConsumer,
+           defaultsToPerspective || !perspectiveReplayRootIDs.contains(layer.id) { return false }
         if let resolved = dynamicValues?[.layer(layerID: layer.id, field: .perspective)],
            resolved.source != .authored, case let .bool(value) = resolved.value {
             return value
@@ -316,7 +315,9 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// Capture the same flat local background before replaying its texture
     /// through the output projection. Ordinary image/utility routes agree.
     func captureViewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-        if layer.hasFramebufferMaterialSource { return viewProjection(for: layer) }
+        if defaultsToPerspective || layer.hasFramebufferMaterialSource {
+            return viewProjection(for: layer)
+        }
         if layer.utilityLayer != nil, layer.hasPerspectiveGeometryConsumer
             || perspectiveReplayRootIDs.contains(layer.id) {
             return orthographicViewProjection

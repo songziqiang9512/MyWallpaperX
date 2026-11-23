@@ -583,12 +583,13 @@ extension SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil
                 )
-                guard let uniforms = imageCompositor.sourceFragmentUniforms(
+                guard var uniforms = imageCompositor.sourceFragmentUniforms(
                     for: request,
                     routesOffscreen: true
                 ) else {
                     return invalid("layer-\(layerID)-source-uniforms-invalid")
                 }
+                uniforms.projectSourceCapture(utilityCaptureGeometry?.sourceProjection)
                 sourceUniforms = uniforms
             }
             let sceneBackgroundResource: SceneFrameTextureResource?

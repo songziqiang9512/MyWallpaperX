@@ -233,16 +233,24 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
     def test_local_composition_separates_flat_capture_from_typed_output(self) -> None:
         for key in ("compositionStaticOutputIsPerspective", "compositionTypedOutputIsPerspective",
                     "compositionTypedFalseRestoresFlat", "compositionCaptureRemainsFlat",
-                    "compositionNativeRemainsUnsupported", "ordinaryImageCaptureFollowsOutput"):
+                    "ordinaryImageCaptureFollowsOutput"):
             self.assertTrue(self.result[key], key)
+
+    def test_native_childless_composition_uses_one_projection_for_output_and_capture(self) -> None:
+        result = self.result["nativeCompositionCamera"]
+        for case in ("inherited", "authoredOn", "authoredOff", "scriptOn", "scriptOff", "ordinaryUtility"):
+            with self.subTest(case=case):
+                native = case in ("inherited", "authoredOn", "scriptOn")
+                projection = "perspective" if native else "flat"
+                self.assertEqual(result[case], {
+                    "perspective": native, "output": projection, "capture": projection,
+                })
 
     def test_native_material_source_keeps_native_output_and_capture_projection(self) -> None:
         result = self.result["nativeMaterialSourceCamera"]
         self.assertTrue(result["usesPerspective"])
         self.assertEqual(result["output"], self.result["nativeWorldUpNDC"])
         self.assertEqual(result["capture"], result["output"])
-        self.assertTrue(result["ordinaryOutputStaysFlat"])
-        self.assertTrue(result["ordinaryCaptureStaysFlat"])
 
     def test_native_camera_preserves_world_up_through_metal_clip_space(self) -> None:
         world_up = self.result["nativeWorldUpNDC"]

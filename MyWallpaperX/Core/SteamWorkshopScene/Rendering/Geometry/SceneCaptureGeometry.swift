@@ -8,6 +8,8 @@ struct SceneCaptureGeometry {
     /// Present only when the emitted card retains an authored world plane.
     /// Canonical fullscreen raster geometry cannot supply one by inversion.
     var outputUnitModelMatrix: simd_float4x4? = nil
+    /// Non-affine mapping of a childless card back to the current main texture.
+    var sourceProjection: simd_float4x4? = nil
 
     /// The caller supplies the output matrix after the actual enclosing pass's
     /// raster transform, and that attachment's pixel extent, not the graph size.
@@ -240,6 +242,8 @@ enum SceneCaptureGeometryResolver {
               let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: sourceMVP) else {
             return nil
         }
+        let localComposition = kind == .composition && compositionSourceMemberLayerIDs == nil
+        let isAffine = sourceMVP.columns.0.w == 0 && sourceMVP.columns.1.w == 0
         let pixelSize: CGSize
         if compositionSourceMemberLayerIDs?.isEmpty == true,
            let authoredRenderSizeWH {
@@ -251,8 +255,7 @@ enum SceneCaptureGeometryResolver {
             ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
                Int(exactly: extent.pixelSize.height.rounded(.up)) != nil else { return nil }
             pixelSize = extent.pixelSize
-        } else if kind == .composition, compositionSourceMemberLayerIDs == nil,
-                  sourceMVP.columns.0.w == 0, sourceMVP.columns.1.w == 0 {
+        } else if localComposition && isAffine {
             // An affine background copy preserves the quad's local pixel axes.
             // Screen AABB sizing would exchange them under a quarter turn.
             let viewport = SIMD2(Double(viewportSize.width), Double(viewportSize.height))
@@ -279,7 +282,8 @@ enum SceneCaptureGeometryResolver {
             ),
             outputMVP: layerMVP,
             pixelSize: pixelSize,
-            outputUnitModelMatrix: outputUnitModelMatrix
+            outputUnitModelMatrix: outputUnitModelMatrix,
+            sourceProjection: localComposition && !isAffine ? sourceMVP : nil
         )
     }
 
