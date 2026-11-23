@@ -422,6 +422,8 @@ MDLA 和 MDMP 以四字节关联值的位模式配对，同一值按 Float32 解
 
 原 `ScenePuppetClipping` 在准备期去重 source、排除当前 target/self 与空 part，建立 nested coverage 顺序；cycle 及真实下游局部不可用，独立分量保持。普通帧只准备当前变形后的 coverage，不重读格式/paint 或重建关系。
 
+颜色终端沿同一组已准备的裁剪依赖，将在 source 前的 target 移至其最后一个有效 source 之后。原在依赖之后的部件及无关部件沿作者顺序，嵌套 target 继承 source 的插入位置。顺序只在原几何资源准备时计算，实际颜色绘制与现有 R8 采样同一路径。原包验收同时保瞳孔、眼睑和裁剪边界；仅关效果、仅去裁剪、索引后绘与独立作者为判别对照。
+
 main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度取得 R8 coverage，保透明边界。opaque source 重叠采用当前 max coverage、paint red 与 nested coverage 相交；source vertex coverage 非一的合并语义未完整资格。target alpha 与裁剪 coverage 在原 mesh 合成中只乘一次，后继普通 draw 关闭裁剪状态。
 
 每个 target 使用自己的 ROI；pose 相同不能授权跨 consumer 复用 mask。R8 lease/pin 由原 pool、预算和 submission 保留；缺 paint、预算或 encoder/ROI 失败只隐藏相关 target/下游，不用无裁剪画面回退。

@@ -71,6 +71,7 @@ final class ScenePuppetClipping {
     private let allocate: Allocator
     private let targetIndexByPart: [Int: Int]
     private let preparationOrder: [Int]
+    private let colorOrder: [SceneMdlPuppetMesh.DrawPart]?
     private let targets: [Target]
     private var prepared: [Int: Mask] = [:]
     private var opaqueSources: [Int: Bool] = [:]
@@ -117,6 +118,42 @@ final class ScenePuppetClipping {
             }
         }
         preparationOrder = order
+
+        var movedParts: [Int: Int] = [:]
+        for index in order {
+            let part = targets[index]
+            let anchor = part.sourceParts.reduce(part.partOrdinal) { latest, source in
+                max(latest, movedParts[source] ?? source)
+            }
+            if anchor > part.partOrdinal {
+                movedParts[part.partOrdinal] = anchor
+            }
+        }
+        guard !movedParts.isEmpty else { colorOrder = nil; return }
+        let partsAfterSource = Dictionary(grouping: mesh.drawParts.indices.filter { movedParts[$0] != nil }) {
+            movedParts[$0]!
+        }
+        var colorOrder: [SceneMdlPuppetMesh.DrawPart] = []
+        var visited: Set<Int> = []
+        for part in mesh.drawParts {
+            if movedParts[part.ordinal] == nil { colorOrder.append(part) }
+            guard let delayed = partsAfterSource[part.ordinal] else { continue }
+            // Walk the authored peers first; a source sharing this anchor
+            // must still precede any peer that reads its clipping coverage.
+            var stack = delayed.reversed().map { (ordinal: $0, emit: false) }
+            while let step = stack.popLast() {
+                if step.emit {
+                    colorOrder.append(mesh.drawParts[step.ordinal])
+                } else if visited.insert(step.ordinal).inserted {
+                    stack.append((step.ordinal, true))
+                    let target = targets[byTarget[step.ordinal]!]
+                    for source in target.sourceParts.sorted(by: >) where movedParts[source] == part.ordinal {
+                        stack.append((source, false))
+                    }
+                }
+            }
+        }
+        self.colorOrder = colorOrder
     }
 
     /// Always prepares against this consumer and submission. No cross-frame
@@ -195,7 +232,7 @@ final class ScenePuppetClipping {
     }
 
     func draw(encoder: MTLRenderCommandEncoder, sourceTexture: MTLTexture, indexBuffer: MTLBuffer) {
-        for part in mesh.drawParts where part.indexCount > 0 {
+        for part in colorOrder ?? mesh.drawParts where part.indexCount > 0 {
             let mask = prepared[part.ordinal]
             // Ordinary auxiliary failure hides only the dependent target.
             if targetIndexByPart[part.ordinal] != nil && mask == nil { continue }

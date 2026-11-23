@@ -226,6 +226,18 @@ final class Allocations {
                              records: [record(1, [0]), record(2, [1])])
         let nestedAlloc = Allocations(device)
         let nestedFrame = render(nested, owner(nested, [0: white, 1: white], nestedAlloc))
+        let lateSource = fixture([full, full, left, healthy], colors: [1, 2, 1, 2],
+                                 records: [record(1, [2]), record(0, [2])])
+        let lateSourceFrame = render(lateSource,
+            owner(lateSource, [0: white, 1: white], Allocations(device)))
+        let nestedLate = fixture([full, full, left, healthy], colors: [1, 2, 2, 2],
+                                 records: [record(0, [1]), record(1, [2])])
+        let nestedLateFrame = render(nestedLate,
+            owner(nestedLate, [0: white, 1: white], Allocations(device)))
+        let sharedAnchor = fixture([full, full, full, left, healthy], colors: [0, 1, 2, 1, 2],
+            records: [record(0, [2, 1]), record(1, [3]), record(2, [3])])
+        let sharedAnchorFrame = render(sharedAnchor,
+            owner(sharedAnchor, [0: white, 1: white, 2: white], Allocations(device)))
         // An empty clipped source contributes zero geometry, not an
         // unavailable dependency that hides its healthy union sibling.
         let emptySource = Mesh(version: nested.version, vertexStride: nested.vertexStride,
@@ -351,6 +363,7 @@ final class Allocations {
             "overlap": overlapFrame, "unsupportedAlpha": unsupportedAlphaFrame,
             "unsupportedAlphaAttempts": unsupportedAlphaAttempts, "restoredAlpha": restoredAlphaFrame,
             "nested": nestedFrame, "cycle": cycleFrame, "missingPaint": unavailableFrame,
+            "lateSource": lateSourceFrame, "nestedLate": nestedLateFrame, "sharedAnchor": sharedAnchorFrame,
             "emptySource": emptySourceFrame, "emptySourceAttempts": emptySourceAlloc.attempts,
             "movementReleases": movement.releases, "movementAttempts": movement.attempts,
             "nestedAttempts": nestedAlloc.attempts, "cycleAttempts": cycleAlloc.attempts,
@@ -479,6 +492,14 @@ class ScenePuppetClippingRenderTests(unittest.TestCase):
         for point in ("left", "right"):
             self.assert_pixel("cycle", point, [0, 0, 0, 0])
         for frame in ("nested", "cycle"):
+            self.assert_pixel(frame, "healthy", [0, 200, 0, 255])
+
+    def test_color_targets_follow_late_sources_without_reversing_independent_peers(self):
+        self.assert_pixel("lateSource", "left", [0, 200, 0, 255])
+        self.assert_pixel("nestedLate", "left", [160, 80, 40, 255])
+        self.assert_pixel("sharedAnchor", "left", [0, 200, 0, 255])
+        for frame in ("lateSource", "nestedLate", "sharedAnchor"):
+            self.assert_pixel(frame, "right", [0, 0, 0, 0])
             self.assert_pixel(frame, "healthy", [0, 200, 0, 255])
 
     def test_missing_paint_dependency_does_not_spend_independent_component_budget(self):

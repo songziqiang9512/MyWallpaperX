@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 505,
-      "bytes": 117228
+      "lines": 507,
+      "bytes": 117685
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 297065
+      "bytes": 298044
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 215,
-      "bytes": 67065
+      "lines": 216,
+      "bytes": 67374
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "fbd8ccbc4332fe87499b02c636216c8ff509cfa5ffeda5a6c50ae7940f021e90",
-      "after": "fa4f12bef4115b794dd6125a8a9ff0b74a6bf3570611dcbae0220dd8a14184c1",
-      "owner": "Scene native world text and depth",
-      "reason": "Define omitted text read-only depth and preserve explicit and framebuffer prefix rules.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
+      "before": "fa4f12bef4115b794dd6125a8a9ff0b74a6bf3570611dcbae0220dd8a14184c1",
+      "after": "e6ee3b93c58a2089eee2dd94c5f76b25fceff49532800dbe045ab9bb4bb7cf3a",
+      "owner": "Scene Puppet mesh color and clipping",
+      "reason": "Define stable local target color order using admitted clipping dependencies.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#clipping"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "006b9059292935d5f90e5375e386058e0b92aacf1bef7b9043e617823aa5e7ca",
-      "after": "640ac24c272efe5e04e6512528e4fefc1e7a315fe7c78729b19da23b1470b692",
-      "owner": "Scene native world text and depth",
-      "reason": "Record actual near/far glyphs, same original, and TEX-independent scene comparisons.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-text-occlusion-333"
+      "before": "640ac24c272efe5e04e6512528e4fefc1e7a315fe7c78729b19da23b1470b692",
+      "after": "10841973fd983d1a9437e3a294fab436f48b8795241c61b7df33af4c72e900da",
+      "owner": "Scene Puppet mesh color and clipping",
+      "reason": "Record the author pupil outcome with layered controls and actual Metal drawing.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "051a6674c70d1edaa2afe83453c78e09c3fab1220f653f13351871ded876a294",
-      "after": "b335b2766da4995ce3dcc3ecd487679a346060f99e72f7f3442017ef88010363",
-      "owner": "Scene native world text and depth",
-      "reason": "Retire the resolved text-occlusion part of the queue.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-text-occlusion-333"
+      "before": "b335b2766da4995ce3dcc3ecd487679a346060f99e72f7f3442017ef88010363",
+      "after": "2b7526baf42f72f7466d0fae37437482e9a7e3937683ed87abeb2efcdefa8711",
+      "owner": "Scene Puppet mesh color and clipping",
+      "reason": "Track the independent authored body track gap after pupil restoration.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384"
     },
     {
       "section": "bodies",
