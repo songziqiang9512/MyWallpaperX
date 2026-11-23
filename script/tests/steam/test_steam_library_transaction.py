@@ -392,7 +392,7 @@ import Darwin
             && allocated.job(id: job.id)?.stagingPath == allocatedPath
             && allocated.job(id: job.id)?.stagingManifestId == "123"
             && allocated.job(id: job.id)?.stagingLeaseIdentity == allocatedIdentity
-            && allocated.job(id: job.id)?.failureMessage?.contains("校验并恢复") == true,
+            && allocated.job(id: job.id)?.failureMessage?.contains("verify and recover") == true,
             "manifest-bound staging must survive a crash behind explicit retry")
         let key = job.id + "-1"
         var frame = frame
