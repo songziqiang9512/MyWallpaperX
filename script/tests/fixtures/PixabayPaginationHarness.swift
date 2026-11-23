@@ -318,11 +318,11 @@ nonisolated private final class ControlledPageProtocol: URLProtocol, @unchecked 
         let rejectedTask = owner.task()
         owner.apiKey = ""
         owner.search(params: .init(query: "empty-key", perPage: 2))
-        let rejectedSettledSynchronously = !owner.isLoading && owner.errorMessage == "请先填写 Pixabay API Key"
+        let rejectedSettledSynchronously = !owner.isLoading && owner.errorMessage == "Enter your Pixabay API key first"
         await rejectedTask?.value
         checks["empty-key-admission-settles-loading-without-waiting-for-the-old-cancelled-request"] = rejectedSettledSynchronously
             && !owner.isLoading && owner.items.isEmpty && owner.auditIndex() && owner.currentParams.query == "empty-key"
-            && owner.errorMessage == "请先填写 Pixabay API Key" && transport.count("empty-key:1") == 0
+            && owner.errorMessage == "Enter your Pixabay API key first" && transport.count("empty-key:1") == 0
         owner.apiKey = "fixture-key"
         owner.search(params: .init(query: "reset", perPage: 2))
         await wait("reset started") { transport.count("reset:1") == 1 }
