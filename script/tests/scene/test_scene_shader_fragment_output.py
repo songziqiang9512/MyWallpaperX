@@ -18,7 +18,7 @@ import tempfile
 import time
 import unittest
 
-from script.generate_scene_shader_cache_identity import build_identity, write_identity
+from script.assets.generate_scene_shader_cache_identity import build_identity, write_identity
 from script.tests.scene import test_scene_shader_color_contract as color
 from script.tests.scene import test_scene_shader_preprocessor as preprocessor
 

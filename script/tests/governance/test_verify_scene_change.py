@@ -73,7 +73,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             ('script/data/scene_dependency_baseline.json', {'scene-dependencies'}),
             ('script/data/document_health_baseline.json', {'document-health'}),
             ('script/tests/governance/test_document_health.py', {'scene-dependencies', 'document-health', 'repository-residue'}),
-            ('script/scene/scene_wallpaper_benchmark.py', set()),
+            ('script/scene/scene_wallpaper_benchmark.py', {'repository-residue'}),
         ]
         for path, expected in cases:
             for phase in ('inner', 'checkpoint'):
@@ -406,7 +406,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_milestone_matrix_contract_without_tier_is_blocked(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/scene/scene_wallpaper_benchmark.py"],
+            ["script/scene/scene_matrix_contract.py"],
             arguments(phase="milestone"),
             self.registry,
         )
@@ -423,7 +423,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                         "--phase",
                         "milestone",
                         "--path",
-                        "script/scene/scene_wallpaper_benchmark.py",
+                        "script/scene/scene_matrix_contract.py",
                         "--run",
                     ]
                 )
@@ -737,7 +737,7 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
         emitted = set()
         # Dedicated method gates need their real test input, rather than an
         # unrelated generic renderer input that cannot reach those contracts.
-        paths = [self.doc, self.swift, "script/scene/scene_wallpaper_benchmark.py",
+        paths = [self.doc, self.swift, "script/scene/scene_matrix_contract.py",
                  "script/unmapped_fixture.json", "script/tests/test_removed_fixture.py",
                  "script/tests/scene/test_scene_independent_signal_carrier.py"]
         for phase in verify.PHASES:
@@ -784,7 +784,10 @@ class OwnedPathsAndGateRegistryTests(unittest.TestCase):
             selections.setdefault(identity, []).extend(selection['methods'])
         for (module_name, class_name), selected in selections.items():
             with self.subTest(module=module_name, test_class=class_name):
-                module = importlib.import_module(f'script.tests.{module_name}')
+                module_path = next((verify.ROOT / 'script/tests').rglob(f'{module_name}.py'))
+                module = importlib.import_module(
+                    '.'.join(module_path.relative_to(verify.ROOT).with_suffix('').parts)
+                )
                 test_class = getattr(module, class_name)
                 expected = set(unittest.defaultTestLoader.getTestCaseNames(test_class))
                 self.assertEqual(set(selected), expected)

@@ -26,7 +26,7 @@ STOCK_ROOT = (
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from script.scene.scene_swift_source_sets import scene_swift_sources  # noqa: E402
-from generate_scene_shader_cache_identity import build_identity, write_identity  # noqa: E402
+from script.assets.generate_scene_shader_cache_identity import build_identity, write_identity  # noqa: E402
 
 
 def unique_sources(*groups: list[Path] | tuple[Path, ...]) -> list[Path]:

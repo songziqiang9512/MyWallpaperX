@@ -13,7 +13,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "script"))
-from generate_scene_shader_cache_identity import (
+from script.assets.generate_scene_shader_cache_identity import (
     SEMANTIC_DIRECTORIES, SEMANTIC_FILES, TOOLCHAIN_FILES,
     build_identity, write_identity,
 )
