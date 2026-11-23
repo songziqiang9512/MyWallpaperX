@@ -57,7 +57,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
                          "the native glass must own the surface shape without a second wrapper contour")
             precondition(glass.contentView?.subviews.isEmpty == false,
                          "panel controls must be inside the native glass content view")
-            let close = descendants(card, NSButton.self).first { $0.toolTip == "关闭详情" }!
+            let close = descendants(card, NSButton.self).first { $0.toolTip == "Close Details" }!
             let row = close.superview!
             // AppKit constrains alignment rects; NSButton's frame includes
             // native cell insets and need not have the same height.
@@ -137,7 +137,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
                     if properties { precondition(body.frame.height > 500, "property editor must receive spare height") }
                     var closes = 0
                     card.onClose = { closes += 1 }
-                    let close = descendants(card, NSButton.self).first { $0.toolTip == "关闭详情" }!
+                    let close = descendants(card, NSButton.self).first { $0.toolTip == "Close Details" }!
                     close.performClick(nil)
                     precondition(closes == 1, "close action must still reach its owner")
                     if width == 360 {
@@ -203,7 +203,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
                 let message = descendants(panel.contentView!, NSTextField.self).first { $0.stringValue == text }!
                 panel.contentView!.layoutSubtreeIfNeeded()
                 checkHeader(panel.contentView as! InspectorHostCardView)
-                let close = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "关闭详情" }!
+                let close = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "Close Details" }!
                 let header = panel.contentView!.convert(close.bounds, from: close)
                 let messageRect = panel.contentView!.convert(message.bounds, from: message)
                 precondition(header.maxY > panel.frame.height - 80, "empty/loading header must stay at panel top")
@@ -226,7 +226,7 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         let subtitle = descendants(panel.contentView!, NSTextField.self).first { $0.stringValue == "测试" }!
         precondition(subtitle.frame.height < 40, "fixed subtitle must not absorb spare panel height")
         precondition(traversal.frame.height > 550, "property viewport must receive spare panel height")
-        let header = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "关闭详情" }!
+        let header = descendants(panel.contentView!, NSButton.self).first { $0.toolTip == "Close Details" }!
         checkHeader(panel.contentView as! InspectorHostCardView)
         precondition(panel.contentView!.convert(header.bounds, from: header).maxY > panel.frame.height - 80, "header must stay at panel top")
         print("headerTop", panel.contentView!.convert(header.bounds, from: header).maxY, "subtitle", subtitle.frame.height, "viewport", traversal.frame.height)

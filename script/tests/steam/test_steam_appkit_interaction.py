@@ -184,7 +184,7 @@ final class TestItem: NSCollectionViewItem {
         layout(controller)
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460))
         precondition(controller.clearButton.frame.maxX <= 384)
-        precondition(controller.retryButton.title == "重试全部")
+        precondition(controller.retryButton.title == "Retry All")
         precondition(controller.scrollView.frame.height > 350)
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460), "long titles must not enlarge queue")
