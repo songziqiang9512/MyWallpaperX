@@ -650,6 +650,47 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
     def test_perspective_image_effect_keeps_authored_order_without_sorting(self):
         self.run_perspective_image_depth_case(sorting=False)
 
+    def test_plain_perspective_image_and_solid_blend_in_camera_order(self):
+        for sorting, image_id, solid_id, stem in ((False, 61, 62, "near"), (True, 61, 62, "near"),
+                                                   (True, 927, 843, "renamed-front")):
+            with self.subTest(sorting=sorting, image=image_id):
+                model, material, texture = (f"{folder}/{stem}.{ext}" for folder, ext in
+                                            (("models", "json"), ("materials", "json"), ("materials", "png")))
+                solid = "models/renamed-back.json" if image_id == 927 else "models/util/solidlayer_depthtest.json"
+                scene = native_world_scene([
+                    {"id": image_id, "image": model, "origin": "0 0 0.2", "size": "2 2",
+                     "alpha": .5, "perspective": True},
+                    {"id": solid_id, "image": solid, "origin": "0 0 -1",
+                     "size": "2 2", "color": "0 0 1", "perspective": True},
+                ])
+                scene["general"]["transparentsorting"] = sorting
+                entries = {"scene.json": encoded(scene), model: encoded({"material": material}),
+                    texture: png(4, 4, lambda _x, _y: (255, 0, 0)),
+                    material: encoded({"passes": [{"shader": "genericimage4", "textures": [texture],
+                        "combos": {"LIGHTING": 0, "REFLECTION": 0, "NORMALMAP": 0}, "blending": "translucent",
+                        "depthtest": "enabled", "depthwrite": "enabled", "cullmode": "nocull"}]})}
+                if image_id == 927:
+                    back_material = "materials/renamed-back.json"
+                    entries[solid] = encoded({"material": back_material, "solidlayer": True})
+                    entries[back_material] = encoded({"passes": [{"blending": "translucent",
+                        "depthtest": "enabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+                name = f"plain-perspective-order-{sorting}-{image_id}"
+                regions = {"overlap": {"world": [0, 0, 0]}}
+                with patch.object(app_runner, "measure_capture", measure_capture):
+                    result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, 0, capture=True,
+                        name=name, entries=entries, rois=regions, material_input_path=material)
+                work = self.evidence_root / name
+                for path, event in self.composition_captures(work, (work / "app.log").read_text()):
+                    terminals = [row for row in event["rows"] if row["kind"] == "ordinary"
+                                 and row.get("outcome") == "draw-encoded"]
+                    order = [solid_id, image_id] if sorting else [image_id, solid_id]
+                    self.assertEqual([row["layerID"] for row in terminals], order)
+                    self.assertEqual({row["target"]["role"] for row in terminals}, {"main-color"})
+                    self.assertEqual(len({row["target"]["textureToken"] for row in terminals}), 1)
+                    measured = result["pixels"][path.name]["overlap"]["mean"]
+                    for actual, expected in zip(measured, (128, 0, 127) if sorting else (0, 0, 255), strict=True):
+                        self.assertAlmostEqual(actual, expected, delta=TOLERANCE, msg=str(measured))
+
     def test_model_depth_test_write_combinations_and_complete_resource_rename(self):
         expected = {name: rgb for name, _, _, rgb in MODEL_DEPTH_STATES}
         for renamed in (False, True):

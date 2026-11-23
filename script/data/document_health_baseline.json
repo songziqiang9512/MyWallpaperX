@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 503,
-      "bytes": 116650
+      "bytes": 116596
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 282106
+      "bytes": 283508
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 211,
-      "bytes": 64657
+      "lines": 212,
+      "bytes": 65137
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "731b81ddf0a051b081523230dac633ab96ea510102fe4b4d54ba9b673fe2fbb3",
-      "after": "89eb3504f7eef7e03a75f8493e5adfdd3039cd49574d6822e760cd63782754b9",
-      "owner": "Scene Puppet rig and current runtime evidence",
-      "reason": "Describe the verified counted MDLS0002 envelope, cold ownership and fallback boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-counted-reference-envelope"
+      "before": "89eb3504f7eef7e03a75f8493e5adfdd3039cd49574d6822e760cd63782754b9",
+      "after": "fbd8ccbc4332fe87499b02c636216c8ff509cfa5ffeda5a6c50ae7940f021e90",
+      "owner": "Scene world terminal composition",
+      "reason": "Replace the graph-only transparency eligibility with the existing plain-source and local-graph routes, keeping the current main-pass barriers.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a2bc720257dbbe2b8383baf466db9e754c363bbdfcfa73c148c92126c97de4f1",
-      "after": "1346100b61f493b1c57b5a32581ff194b4dace899cd9b98ca7bf06650e8dd06b",
-      "owner": "Scene effect composition and runtime evidence",
-      "reason": "Record the author visibility controls, matched draw receipts and thin-line contrast on both engines.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-silk-raster-345"
+      "before": "1346100b61f493b1c57b5a32581ff194b4dace899cd9b98ca7bf06650e8dd06b",
+      "after": "d59c11c243026e39f75fe8dca5f306df2eff0d6ab59508bb7690bdba0ad2d53b",
+      "owner": "Scene world terminal composition",
+      "reason": "Record real Windows and native arrow recovery, retained cover and independent same-target regression.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#moon-arrow-and-veil-345"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "37b0e489a6ce4970201ba1e8d0c30307a6da58c52c4ac2e0cd7928d90de29b3e",
-      "after": "94b2536191b4f3d342f7b61d074a566a937705616856aed9af8f8956e5f95106",
-      "owner": "Scene effect composition and runtime evidence",
-      "reason": "Track the measured thin-line contrast at the first distinguishable resource boundary.",
+      "before": "94b2536191b4f3d342f7b61d074a566a937705616856aed9af8f8956e5f95106",
+      "after": "c7d6e7657b1fcc63f32966f31750a9c871dd68d0529414037052e657bacb4d44",
+      "owner": "Scene world terminal composition",
+      "reason": "Retain the bounded open moon veil cause after the separate arrow repair.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

@@ -156,7 +156,7 @@ extension SceneMetalRenderer {
         // Only prepared policy IDs are inspected. Source/effect programs retain
         // their coordinate ABI; this policy belongs to the ordinary terminal.
         var ordinaryDepthLayerIDs: Set<Int> = []
-        var imageDepths: [Int: Float] = [:]
+        var layerDepths: [Int: Float] = [:]
         var mayOrderText = false
         let sortsTransparency = frameDescriptor.transparentSorting == true
         if let imagePipeline {
@@ -173,7 +173,7 @@ extension SceneMetalRenderer {
                 } else {
                     guard cameraFrame.defaultsToPerspective,
                           cameraFrame.resolvesPerspective(for: layer) else { continue }
-                    if layer.contentKind != "image", layer.contentKind != "text",
+                    if layer.contentKind != "image", layer.contentKind != "text", !layer.effects.isEmpty,
                        imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution?
                         .supportsTerminalMaterialReplay == true {
                         continue
@@ -188,9 +188,11 @@ extension SceneMetalRenderer {
                 modelFrame.imageMaterialStates[id] = state
                 if groups == nil, layer.contentKind == "text", imagePipeline.supportsReadOnlyDepth {
                     mayOrderText = true
-                } else if groups == nil, sortsTransparency, layer.contentKind == "image" {
-                    imageDepths[id] = worldTransparencyDepth(layer, state: state, cameraFrame: cameraFrame,
-                        worldFrame: frameWorldFrames[id], utility: frameProjection.utilityExecution)
+                } else if groups == nil, sortsTransparency,
+                          layer.contentKind == "image" || (layer.contentKind == "solid" && layer.effects.isEmpty) {
+                    layerDepths[id] = worldTransparencyDepth(layer, state: state, cameraFrame: cameraFrame,
+                        worldFrame: frameWorldFrames[id], utility: frameProjection.utilityExecution,
+                        allowsPlainLayerSource: true)
                 }
                 if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
             }
@@ -208,8 +210,8 @@ extension SceneMetalRenderer {
                     && claim.dependencyOwnership == .none && claim.sceneBackgroundRequirement == nil
             }
         }
-        let reorderedLayers = mayOrderText || !imageDepths.isEmpty || !backgroundCuts.isEmpty
-            ? worldTransparencyOrder(frameProjection.orderedLayers, imageDepths: imageDepths,
+        let reorderedLayers = mayOrderText || !layerDepths.isEmpty || !backgroundCuts.isEmpty
+            ? worldTransparencyOrder(frameProjection.orderedLayers, layerDepths: layerDepths,
                 sorting: sortsTransparency, mayOrderText: mayOrderText, modelFrame: modelFrame,
                 visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
                 worldFrames: frameWorldFrames, utility: utilityExecution,

@@ -328,11 +328,11 @@ SourceRoute 不再整类拒绝 model，不追加材质/效果/几何名单。typ
 
 原生透视的普通 PMA 终端（已接纳的 builtin image、neutral solid）不写相机深度，测试仍消费作者声明，与 `general.transparentsorting`、alpha是否为1和图层有无效果独立。原 Builder 的 preparedImageMaterialFacts 一次准备有效状态，动态 image 模板复制同值，Frame 与唯一 compositor 只消费；保原 raw 材质及 source/graph，不按名称、资产或微小Z差选择算法。粒子、custom Program、Puppet、Framebuffer source 及灯空间深度各归原 owner，不由此扩域。
 
-在既有帧顺序内，只重排由合格效果、不透明写深度模型和无绘制项组成的区间。效果按相机深度远到近，同深保作者顺序。实绘但未接入的层、组、供货及画布观察都截断区间。资源准备和实际编码消费同一顺序，命名供货及观察点的位置保持原相对顺序。该范围不接入跨组、透明模型、粒子或依赖当前画布的效果重排。
+排序开启时，无效果的普通贴图和 neutral solid 用独立 unclaimed source 资格，局部效果沿原 Graph source route。两者在同一主画布区间按当前 world 原点的相机深度由远到近，同深保作者顺序。不透明写深度模型与无绘制项保原资格。组、画布混合与截点、具名供货及实绘未接入层保原分界。资源准备和编码消费同一顺序。
 
 原 MainPass 的 reverse-depth 域由模型和普通终端共享，深度附件不依赖模型颜色纹理就绪。命名颜色尚未发布时，先保已知必需前缀的分配顺序；有已就绪主域模型时仍推进至该模型，否则走完整已知前缀。普通终端自身的深度需求可在原 StaticModelFrame 建立同一主域，不要求另一个模型先可绘制；晚到模型继续在作者位置解析颜色并复用同一 lease，前缀不发布为完整 draw set。Framebuffer source 继续要求完整准备，组、粒子及其他域保原优先级。原按 pass/command buffer 的单次分配、失败粘滞、busy 延后、容量局部失败和首个实际 encoder 清零不变，不新增资源或状态 owner；退出以首个模型颜色就绪作为普通终端播放许可的关卡。验收覆盖首模型待 named 供货时的文字/效果文字、改名、遮挡与暴露、晚模型复用，以及无 ordinary 的原拒绝、物理失败和容量邻例；真实水滴须恢复字钟，独立模型文字样本保持原画面。
 
-普通image的排序只改变顺序，末端直接消费冷准备的无深度/只读状态。其可重放能力不等于实际placement replay。native solid确有source Program直达main的入口，由实际replay owner承接。颜色、PMA和来源捕获保原。
+普通贴图与 solid 的末端消费冷准备状态，关排序保作者顺序。独立的 native solid source Program 仍由实际 replay owner 直达 main。验收含近图远底的排序开/关与同主图混合像素。
 
 验收用完整取景及健康peer的六图像/四文字官方颜色类别，保实体前/透明后测试开关；alpha1模型另作边界。复用实际App门的排序开/关、改名、单pass可replay效果、neutral solid、实体遮挡与后绘模型、透明留白、真正solid replay、待供货/清零/局部容量失败，不保旧写入或跳测试的像素预期。原366自然第二段须不改资产/Z/时钟恢复说明文字，独立原作者保模型与文字；neutral普通终端统一策略是本引擎算法，不由有限官方控制授全部solid/FX像素或完整样本一致。
 

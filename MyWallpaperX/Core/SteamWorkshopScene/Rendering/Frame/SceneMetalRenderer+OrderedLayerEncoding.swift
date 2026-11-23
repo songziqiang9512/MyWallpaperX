@@ -19,24 +19,29 @@ extension SceneMetalRenderer {
     func worldTransparencyDepth(
         _ layer: SceneRenderDescriptor.Layer, state: SceneMaterialRenderState,
         cameraFrame: SceneParticleCameraFrame, worldFrame: simd_float4x4?,
-        utility: SceneUtilityLayerRuntimePlanner.Execution
+        utility: SceneUtilityLayerRuntimePlanner.Execution, allowsPlainLayerSource: Bool = false
     ) -> Float? {
         guard state.blending == .translucent, state.depthTest == .enabled,
               !hasWorldOrderDependency(layer.id, utility: utility),
               let origin = worldFrame?.columns.3 else { return nil }
         if layer.contentKind != "text" || !layer.effects.isEmpty {
-            guard let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: layer.id).execution,
-                  claim.sourceRoute == .capturedLayerTexture, claim.dependencyOwnership == .none,
-                  claim.sceneBackgroundRequirement == nil,
-                  imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: layer.id) != true
-            else { return nil }
+            let route = imageCompositor.preflightResolvedMaterialClaim(layerID: layer.id)
+            let plainSource = allowsPlainLayerSource && layer.effects.isEmpty
+                && route.allowsLayerSourcePassthrough
+            if !plainSource {
+                guard let claim = route.execution,
+                      claim.sourceRoute == .capturedLayerTexture, claim.dependencyOwnership == .none,
+                      claim.sceneBackgroundRequirement == nil,
+                      imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: layer.id) != true
+                else { return nil }
+            }
         }
         let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
         return depth.isFinite ? depth : nil
     }
 
     func worldTransparencyOrder(
-        _ authored: [SceneRenderDescriptor.Layer], imageDepths: [Int: Float],
+        _ authored: [SceneRenderDescriptor.Layer], layerDepths: [Int: Float],
         sorting: Bool, mayOrderText: Bool, modelFrame: StaticModelFrame,
         visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
         worldFrames: [Int: simd_float4x4],
@@ -86,7 +91,7 @@ extension SceneMetalRenderer {
             }
         }
 
-        var depths = imageDepths
+        var depths = layerDepths
         if mayOrderText {
             // A flush before a later draw or prefix reader still needs the
             // earlier glyph's depth to protect its original contribution.
