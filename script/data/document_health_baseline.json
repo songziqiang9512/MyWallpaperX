@@ -125,12 +125,12 @@
       "bytes": 63940
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 382,
-      "bytes": 80181
+      "lines": 385,
+      "bytes": 80670
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 274896
+      "bytes": 275597
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 206,
-      "bytes": 62044
+      "lines": 205,
+      "bytes": 61710
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -460,11 +460,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "a5f983394e329d300ee5ed3890dbe17c8a75641acf9ec04f59ab10dafe7bf96b",
-      "after": "4cc0567c1e9700b32452a6ea8dce5dc0c4102328769cf41cb549b36afe73643d",
-      "owner": "repository governance",
-      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "4cc0567c1e9700b32452a6ea8dce5dc0c4102328769cf41cb549b36afe73643d",
+      "after": "86d7bd586f16934fd64be85f5ee32efc912c39736a958d2313eba30dc80a3008",
+      "owner": "Existing Scene texture and evidence owners",
+      "reason": "Recognize evidenced storage metadata at the original TEX sampler admission.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#tex-alpha-channel-priority"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eca423d86d6bed221c297c6c664b18d8617414702694cd01a7c2ca0768602091",
-      "after": "b637a7b3c89f8e620239b0471dff9452ba6ccfdd048341a9b40e57ab759d5fc4",
-      "owner": "Existing Scene composition and evidence authorities",
-      "reason": "Record the measured original playback, live observer controls, and independent author regression.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-composition-audio-prefix"
+      "before": "b637a7b3c89f8e620239b0471dff9452ba6ccfdd048341a9b40e57ab759d5fc4",
+      "after": "814e12c36f1430d8e78e5f2b45ff7785ad2b25ce157247bc29990139c7d36879",
+      "owner": "Existing Scene texture and evidence owners",
+      "reason": "Record the two original material readers, the rename and independent author, and original Windows playback.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#tex-alpha-channel-priority-author"
     },
     {
       "section": "bodies",

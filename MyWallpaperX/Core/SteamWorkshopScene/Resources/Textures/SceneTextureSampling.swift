@@ -63,9 +63,8 @@ nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
     /// metadata bit after frame-provider lowering. All other bits fail closed.
     var isResolvedForMaterialProgram: Bool {
         guard let rawFlags else { return true }
-        // Bits 20...23 are the four authored component-channel selectors;
-        // they are metadata, not unknown sampler behavior.
-        let known = UInt32(0b111) | (UInt32(0b1111) << 20)
+        // Bit 19 records alpha-channel priority. Bits 20...23 select the authored channels.
+        let known = UInt32(0b111) | (UInt32(0b1_1111) << 19)
         return rawFlags & ~known == 0
     }
 

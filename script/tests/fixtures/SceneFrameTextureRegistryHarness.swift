@@ -41,6 +41,7 @@ enum Harness {
             staleDynamicTexture: staleDynamicTexture
         )
         let directSampling = SceneTextureSampling.linearClamp
+        let alphaChannelPriority = SceneTextureSampling(texFlags: 0x00080002)
         let programSamplerAdmissionIsBounded =
             directSampling.rawFlags == nil
             && directSampling.isResolvedForMaterialProgram
@@ -50,11 +51,12 @@ enum Harness {
             && SceneTextureSampling(texFlags: 3).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 2) == .linearClamp
             && SceneTextureSampling(texFlags: 4).isResolvedForMaterialProgram
-            // Authored component selectors occupy bits 20...23 and are
-            // metadata consumed by the material path, not unknown sampler
-            // behavior. Keep this admission contract explicit.
+            && alphaChannelPriority.rawFlags == 0x00080002
+            && alphaChannelPriority == .linearClamp
+            && alphaChannelPriority.isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 0x00A00002).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 0x00F00000).isResolvedForMaterialProgram
+            && !SceneTextureSampling(texFlags: 0x00080012).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 0x00100008).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 8).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 16).isResolvedForMaterialProgram

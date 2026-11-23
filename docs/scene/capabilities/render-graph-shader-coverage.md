@@ -183,6 +183,9 @@ Lit TextureInput在原SlotBinding已准备完整双轴后仅保原sampler/format
 
 验收使用原 loader 的混合灰度 JPEG/RGB mip 链、每级实际 GPU 读回、资源改名、透明 GA/RGBA 与 RGB/灰度及坏后续 mip；随后核原作者失败槽恢复真实材质、publication、下游采样和 terminal，另用受控 mask 值及独立作者邻例验证可见输出。输入布局转换成功不授全部颜色格式、任意特效或逐资产最终贡献。
 
+<a id="tex-alpha-channel-priority"></a>
+TEX bit19 是 `alphachannelpriority` 的打包元数据。现有 `SceneTextureSampling` 保留原始位，将 bit19 与已知通道元数据一起准入。实际像素格式继续归原解码，过滤与寻址继续由实际采样位决定。未知位和未支持的边界寻址保原失败范围。用同一 RG88 纹理的单 bit 正反例、改名引用、真实 Light Shafts 两个消费者的首帧与终端验证，另验相邻健康作者。
+
 <a id="framebuffer-source-declarations"></a>
 ### Framebuffer 来源与声明依赖
 
