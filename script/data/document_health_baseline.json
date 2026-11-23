@@ -230,7 +230,7 @@
     },
     "docs/development/localization-plan.md": {
       "lines": 201,
-      "bytes": 20390
+      "bytes": 20693
     }
   },
   "archives": [
@@ -612,21 +612,21 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/localization-plan.md",
-      "before": "2991fa74e408110c9874e42ee74f79fe4ab2ba62451ea8de4e800b36cbbe049a",
-      "after": "9d18a19f93a648349baeccdbcd928d1671c3233c8f560c11c36ce724ab999cf7",
-      "owner": "repository-governance",
-      "reason": "Merge the codex localization work with the script collection migration.",
-      "decision": "docs/development/localization-plan.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/release/release-signing.md",
       "before": "727947c6ffbb7b9f875251e4938bbdb5eab4aa53a6a8b38b76d03e387cc8c218",
       "after": "1f3e40eedcb290a7aefad571d62288783f367b85fd9ad6c5b3588dadb9aa9c20",
       "owner": "repository-governance",
       "reason": "Merge the codex localization work with the script collection migration.",
       "decision": "docs/release/release-signing.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/localization-plan.md",
+      "before": "9d18a19f93a648349baeccdbcd928d1671c3233c8f560c11c36ce724ab999cf7",
+      "after": "e1c50a6f6a05d60e7d0709d7eb328993d4e3a1b0d60cc46412303699f878711e",
+      "owner": "Localization migration plan owner",
+      "reason": "Record the rebuilt help book: new visual world, ten factual sections, five languages and the detector result.",
+      "decision": "docs/development/localization-plan.md#current-state"
     }
   ]
 }

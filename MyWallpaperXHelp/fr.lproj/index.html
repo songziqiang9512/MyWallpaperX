@@ -1,793 +1,572 @@
-<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="AppleTitle" content="Aide MyWallpaperX"><meta name="description" content="Aide : Video, Web, Scene, Atelier Steam"><title>Aide MyWallpaperX</title><link rel="stylesheet" href="../styles.css"><script src="../help.js" defer></script></head>
-<body id="top"><a class="skip" href="#main">Aller au contenu</a><div class="layout">
-<aside class="sidebar">
-<a class="brand" href="#top"><img src="../icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>GUIDE DU BUREAU</small></span></a>
-<div>
-<nav aria-label="Sommaire de l’aide">
-<span class="nav-group">POUR COMMENCER</span><a href="#start">Premiers pas</a><a href="#video">Fonds d’écran Video</a><a href="#web">Fonds d’écran Web</a><a href="#scene">Fonds d’écran Scene</a><span class="nav-group">MODE D’EMPLOI</span><a href="#toolbars">Barres d’outils des modules</a><a href="#search-tips">Astuces de recherche dans l’Atelier</a><a href="#workshop">Téléchargements et abonnements</a><a href="#library">Vos bibliothèques</a><a href="#playback">Lecture et énergie</a><a href="#shortcuts">Raccourcis clavier</a><span class="nav-group">DÉPANNAGE</span><a href="#login">Aide à la connexion</a><a href="#downloads">Erreurs de téléchargement</a><a href="#faq">Autres questions</a>
-</nav>
-</div>
-<div class="sidebar-bottom"><p>Disponible hors ligne · Toujours à portée de main</p><a class="language" href="../en.lproj/index.html" lang="en" hreflang="en">English ↗</a><a class="language" href="../zh-Hans.lproj/index.html" lang="zh-Hans" hreflang="zh-Hans">简体中文 ↗</a><a class="language" href="../ru.lproj/index.html" lang="ru" hreflang="ru">Русский ↗</a><a class="language" href="../de.lproj/index.html" lang="de" hreflang="de">Deutsch ↗</a></div>
-</aside>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyWallpaperX — Guide de terrain</title>
+<meta name="description" content="Comment MyWallpaperX lit des fonds d’écran vidéo, web et Scène sur macOS, et comment y ajouter du contenu.">
+<link rel="stylesheet" href="../styles.css">
+<script src="../help.js" defer></script>
+</head>
+<body>
 
-<main id="main" tabindex="-1">
-<div class="topbar"><span>Un bureau à votre rythme.</span><label class="search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke-width="1.7"/><path d="m15 15 5 5" stroke-width="1.7"/></svg><input id="help-search" type="search" placeholder="Rechercher, ex. « pause »" aria-label="Rechercher dans l’aide" autocomplete="off"></label></div>
-<header class="hero">
-<div class="eyebrow">MYWALLPAPERX · LE GUIDE DU BUREAU</div><h1>Un peu plus de vie.<br><span>Sur votre bureau.</span></h1><p class="hero-description">Découvrez Video, Web et Scene.<br>De votre premier fond d’écran à chaque commande, raccourci et erreur.</p><div class="gallery"><a class="preview" href="#video"><div class="art video" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="219" cy="64" r="26" fill="#f4dfad"/><path d="M0 139 Q70 100 143 149 T300 127 V220 H0Z" fill="#7e9fb9"/><path d="M0 183 Q88 118 185 179 T300 159 V220 H0Z" fill="#506f8f"/><path d="M0 210 Q100 167 193 202 T300 190 V220 H0Z" fill="#2d4b68"/></svg><span class="play" aria-hidden="true">▶ ━━━━━</span></div><div class="preview-label"><strong>Video ↗</strong><span>Images en mouvement</span></div></a><a class="preview" href="#web"><div class="art web" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><span class="clock" aria-hidden="true">09:41<small>UN INSTANT DE CALME</small></span></div><div class="preview-label"><strong>Web ↗</strong><span>Pages et interaction</span></div></a><a class="preview" href="#scene"><div class="art scene" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="185" cy="70" r="38" fill="#e7e8bc"/><path d="M0 171 L71 59 129 142 175 96 265 170 300 145 V220 H0Z" fill="#7ba796"/><path d="M0 214 L44 143 84 168 154 109 231 184 300 127 V220 H0Z" fill="#457e70"/><path d="M0 220 L0 193 75 175 127 220 204 165 300 207 V220Z" fill="#2b5c52"/><g fill="#fff6d5"><circle cx="56" cy="81" r="2"/><circle cx="123" cy="53" r="2"/><circle cx="227" cy="107" r="2"/><circle cx="245" cy="47" r="1.5"/></g></svg><span class="layers" aria-hidden="true">◇ ◇ ◇</span></div><div class="preview-label"><strong>Scene ↗</strong><span>Calques et effets en direct</span></div></a></div><div class="quick-links"><a href="#toolbars"><span>Trouver une commande</span><b aria-hidden="true">↗</b></a><a href="#search-tips"><span>Trouver un élément par ID</span><b aria-hidden="true">↗</b></a><a href="#downloads"><span>Réparer un téléchargement</span><b aria-hidden="true">↗</b></a></div>
+<div class="world" aria-hidden="true">
+  <canvas id="field"></canvas>
+  <div class="horizon"></div>
+</div>
+
+<header class="mast">
+  <a class="brand" href="#top">MyWallpaperX <small>Guide de terrain</small></a>
+  <span class="mast-spacer"></span>
+  <label class="search">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.4"></circle><path d="M10.4 10.4 14 14"></path></svg>
+    <input id="q" type="search" placeholder="Rechercher dans ce guide" autocomplete="off" spellcheck="false" aria-label="Rechercher dans ce guide">
+  </label>
+  <nav class="langs" aria-label="Langue">
+    <a href="../en.lproj/index.html">EN</a>
+    <a href="../zh-Hans.lproj/index.html" lang="zh-Hans">中文</a>
+    <a href="../ru.lproj/index.html" lang="ru">RU</a>
+    <a href="../de.lproj/index.html" lang="de">DE</a>
+    <a href="../fr.lproj/index.html" lang="fr" aria-current="true">FR</a>
+  </nav>
 </header>
-<div class="search-status" id="search-status" hidden><span id="search-message" role="status" aria-live="polite"></span><button id="clear-search" type="button">Afficher tous les chapitres</button></div>
-<section class="guide-section" id="start">
-<div class="section-heading"><h2>Commencez avec un fond d’écran qui vous plaît</h2><span class="tag">POUR COMMENCER</span></div>
-<p class="lead">Une vidéo locale, un projet web ou une scène en temps réel peuvent devenir votre bureau. Choisissez votre contenu, puis adaptez la lecture à votre journée.</p>
-<ol class="steps"><li><h3>Trouvez un contenu</h3><p>Importez des vidéos locales dans Mes vidéos. Parcourez l’Atelier pour trouver des projets Web et Scene.</p></li><li><h3>Appliquez-le</h3><p>Sélectionnez un élément dans sa bibliothèque et choisissez Définir comme fond d’écran actuel. Les éléments de l’Atelier doivent d’abord finir de se télécharger.</p></li><li><h3>Personnalisez-le</h3><p>Réglez le volume et mettez la lecture en pause. Pour Web et Scene, ouvrez Propriétés dans les détails de l’élément pour voir les options de l’auteur.</p></li></ol>
-</section>
-
-<section class="guide-section" id="video">
-<div class="section-heading"><h2>Video · Une image en mouvement</h2><span class="tag">FONDS D’ÉCRAN VIDEO</span></div>
-<p class="lead">Paysages, animations et boucles sans coupure. Un fichier vidéo fournit l’image : c’est le moyen le plus direct de commencer.</p>
-<div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Importez des fichiers locaux dans Mes vidéos, puis organisez-les avec les Favoris, les listes de lecture et Utilisés récemment.</li><li>Choisissez une lecture en boucle, séquentielle ou aléatoire dans les Réglages, avec un changement automatique si nécessaire.</li><li>Réglez la vitesse de lecture et choisissez si la vidéo s’adapte à l’écran ou le remplit.</li></ul></div><div><h3>Pour un bon résultat</h3><ul><li>Adaptez les proportions de la vidéo à votre écran. Remplir peut rogner les bords ; Ajuster peut laisser des bandes vides.</li><li>Choisissez des clips dont la transition entre la dernière et la première image est naturelle, pour une boucle plus fluide.</li><li>Le codec contenu dans un MP4 ou MOV doit aussi être pris en charge par macOS. Essayez le fichier dans un lecteur vidéo du système s’il ne se lit pas.</li></ul></div></div>
-<aside class="tip">
-<strong>Des réglages de lecture, pas des propriétés d’auteur</strong>Les vidéos utilisent les réglages de volume, de vitesse et de mode de lecture de l’app. Elles n’ont pas les panneaux de propriétés définis par l’auteur des projets Web et Scene. La vitesse et le mode de remplissage sont spécifiques à la vidéo.
-</aside>
 
-</section>
-
-<section class="guide-section" id="web">
-<div class="section-heading"><h2>Web · Un bureau avec une vue en direct</h2><span class="tag web">FONDS D’ÉCRAN WEB</span></div>
-<p class="lead">Horloges, affichages d’informations, animations web et mises en page interactives. Chaque projet associe une page web à ses ressources ; l’auteur décide de son comportement.</p>
-<div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Filtrez le contenu de l’Atelier par Web, téléchargez un projet, puis lancez-le depuis Mes téléchargements.</li><li>Ouvrez Propriétés dans les détails de l’élément pour modifier les couleurs, le texte, les interrupteurs et les autres options proposées par l’auteur.</li><li>Les projets compatibles peuvent réagir au pointeur ou à l’audio, lorsque l’auteur a prévu ces comportements.</li></ul></div><div><h3>Bonnes habitudes</h3><ul><li>Commencez avec les propriétés par défaut, puis modifiez un réglage à la fois.</li><li>La météo, les images distantes et d’autres contenus en ligne peuvent nécessiter une connexion, même une fois le projet téléchargé.</li><li>Si la page est vide ou incomplète, vérifiez les tâches de téléchargement ainsi que tout message d’échec ou de dépendance manquante dans la liste. Conservez le lien de l’élément et les symptômes lorsque vous signalez un problème.</li></ul></div></div>
-<aside class="tip">
-<strong>Gardez le projet complet ensemble</strong>Un fond d’écran Web est généralement composé de plusieurs fichiers HTML. Ne déplacez pas les pages, images ou scripts individuellement hors de son dossier. Les préréglages qui dépendent d’un autre projet ont aussi besoin de ce contenu de base. La compatibilité varie d’un projet à l’autre.
-</aside>
-
-</section>
-
-<section class="guide-section" id="scene">
-<div class="section-heading"><h2>Scene · Un monde construit en temps réel</h2><span class="tag scene">SCÈNES EN TEMPS RÉEL</span></div>
-<p class="lead">Les calques, matériaux et animations sont composés pendant l’exécution du fond d’écran. Les projets compatibles peuvent inclure de la profondeur, des particules, du texte dynamique et des effets réactifs au lieu d’une vidéo préenregistrée.</p>
-<div class="two-column"><div><h3>Ce que vous pouvez faire</h3><ul><li>Filtrez le contenu de l’Atelier par Scene, téléchargez un élément et appliquez-le au bureau.</li><li>Utilisez Propriétés pour modifier les couleurs, interrupteurs, valeurs, textes ou options d’image fournis par l’auteur.</li><li>Contrôlez la lecture, la pause et le volume avec les commandes communes, avec des règles d’économie d’énergie si nécessaire.</li></ul></div><div><h3>Bonnes habitudes</h3><ul><li>Sous Fréquence d’images maximale (moteur Scene), choisissez 30 pour réduire la charge ; 60 autorise un plafond plus élevé.</li><li>Essayez l’apparence par défaut avant de modifier les effets. Les performances dépendent aussi de la complexité du projet.</li><li>En cas de calques manquants ou d’effets inattendus, comparez avec les propriétés par défaut et conservez le lien de l’élément, une capture d’écran et les symptômes lorsque vous signalez le problème.</li></ul></div></div>
-<aside class="tip">
-<strong>La compatibilité dépend du projet</strong>La compatibilité Scene est encore en cours de développement. Un téléchargement terminé ne garantit pas chaque effet, script ou interaction, ni une correspondance exacte avec Wallpaper Engine. Une propriété absente peut simplement signifier que l’auteur ne l’a pas exposée.
-</aside>
-
-</section>
-
-<section class="guide-section" id="toolbars">
-<div class="section-heading"><h2>Connaissez votre barre d’outils</h2><span class="tag">Par module</span></div>
-<p>Vérifiez le module sélectionné dans la barre latérale avant d’utiliser une barre d’outils. Des icônes similaires agissent sur des listes différentes ; un bouton désactivé attend généralement une sélection compatible. Survolez une icône pour lire son infobulle.</p>
-<details>
-
-<summary>
-Mes vidéos
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Rôle</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Plus · Importer</th><td data-label="Rôle">Choisissez des fichiers vidéo locaux. Utilisez Sélectionner pour passer en sélection multiple.</td>
-</tr>
-
-<tr>
-<th scope="row">Coche cerclée · Sélectionner</th><td data-label="Rôle">Activez ou quittez le mode sélection pour ajouter des éléments aux favoris, les placer dans des listes de lecture ou les supprimer par lots.</td>
-</tr>
-
-<tr>
-<th scope="row">Flèches gauche / droite</th><td data-label="Rôle">Suivent la séquence de lecture en cours parmi les images lisibles et les fonds d’écran Video, Web ou Scene ; ce ne sont pas des commandes de pagination.</td>
-</tr>
-
-<tr>
-<th scope="row">Corbeille · Supprimer</th><td data-label="Rôle">Retirez des éléments de Mes vidéos tout en conservant par défaut les fichiers sources et les autres listes de lecture. Les fichiers ne sont supprimés que si Supprimer les fichiers sources du disque est coché ; cette action est irréversible.</td>
-</tr>
-
-<tr>
-<th scope="row">Cœur · Favori</th><td data-label="Rôle">Ajoutez les vidéos sélectionnées aux favoris, ou retirez-leur ce statut.</td>
-</tr>
-
-<tr>
-<th scope="row">Ajouter à une liste de lecture</th><td data-label="Rôle">Ajoutez les vidéos sélectionnées à une ou plusieurs listes de lecture. Créez une liste depuis la barre latérale ou Toutes les listes de lecture.</td>
-</tr>
-
-<tr>
-<th scope="row">Trier / vignettes ± / Rechercher</th><td data-label="Rôle">Choisissez un champ et un sens de tri, redimensionnez les cartes ou recherchez dans la liste vidéo actuelle.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
-<summary>
-Mes images
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Rôle</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Plus · Importer</th><td data-label="Rôle">Choisissez des images locales. Utilisez Sélectionner pour passer en sélection multiple.</td>
-</tr>
-
-<tr>
-<th scope="row">Sélectionner / Corbeille</th><td data-label="Rôle">Sélectionnez plusieurs images. La suppression ne touche que Mes images et conserve par défaut les originaux et les autres listes de lecture. Cochez Supprimer les fichiers sources du disque pour supprimer les originaux.</td>
-</tr>
-
-<tr>
-<th scope="row">Ajouter à une liste de lecture</th><td data-label="Rôle">Ajoutez les images sélectionnées à des listes de lecture. Une même liste peut contenir des vidéos et des fonds d’écran Web ou Scene téléchargés.</td>
-</tr>
-
-<tr>
-<th scope="row">Trier / vignettes ± / Rechercher</th><td data-label="Rôle">Modifiez l’ordre de la liste d’images, la taille des cartes ou la recherche. Les dimensions d’origine des images restent inchangées.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
-<summary>
-Pixabay · Parcourir
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Rôle</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Réglages · Clé API</th><td data-label="Rôle">Modifiez la clé API, ou effacez-la pour revenir à l’écran de connexion. Cette clé est indépendante de la connexion Steam.</td>
-</tr>
-
-<tr>
-<th scope="row">Flèche circulaire · Actualiser</th><td data-label="Rôle">Récupérez à nouveau la liste en ligne actuelle.</td>
-</tr>
-
-<tr>
-<th scope="row">Catégorie / Trier</th><td data-label="Rôle">Choisissez une catégorie et l’ordre des résultats en ligne.</td>
-</tr>
-
-<tr>
-<th scope="row">Vignettes ± / Rechercher</th><td data-label="Rôle">Redimensionnez les cartes ou recherchez sur Pixabay par mot-clé.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
-<summary>
-Atelier · Parcourir et listes personnelles
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Rôle</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Compte Steam</th><td data-label="Rôle">Ouvrez la connexion lorsque vous êtes hors ligne. Une fois connecté, ouvrez Mes abonnements, changez de compte ou déconnectez-vous.</td>
-</tr>
-
-<tr>
-<th scope="row">Flèche vers le bas · Tâches de téléchargement</th><td data-label="Rôle">Ouvrez la file d’attente, la progression, les messages d’échec et les commandes de nouvelle tentative.</td>
-</tr>
-
-<tr>
-<th scope="row">Source</th><td data-label="Rôle">Parcourez les catégories « Les plus populaires », « Les plus récents », « Les plus abonnés » ou « Dernière mise à jour ». Mes abonnements se trouvent dans le menu du compte Steam et nécessitent une connexion ; ils sont distincts des Favoris locaux.</td>
-</tr>
-
-<tr>
-<th scope="row">Période / Trier</th><td data-label="Rôle">Choisissez la période de classement par popularité, pas un filtre de date de publication. Les listes personnelles proposent un tri par nom, taille, date d’abonnement ou dernière mise à jour.</td>
-</tr>
-
-<tr>
-<th scope="row">Icône de filtre cerclée</th><td data-label="Rôle">Filtrez par type, classification par âge, résolution et autres facettes disponibles. Les options d’une même facette sont alternatives ; les facettes différentes se combinent.</td>
-</tr>
-
-<tr>
-<th scope="row">Vignettes ± / Rechercher</th><td data-label="Rôle">Redimensionnez les cartes. Utilisez des mots-clés pour les thèmes, ou <code>ID=numéro</code> pour une recherche directe. Voir <a href="#search-tips">astuces de recherche</a>.</td>
-</tr>
-
-<tr>
-<th scope="row">Flèche de retour</th><td data-label="Rôle">Revenez de l’atelier d’un auteur ou de Mes abonnements à la page de navigation précédente. La recherche sur la page d’un auteur filtre ses œuvres.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
-<summary>
-Mes téléchargements
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Rôle</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Compte Steam / Tâches de téléchargement</th><td data-label="Rôle">Utilisez le même compte et la même file d’attente que dans Parcourir. Ouvrez le panneau des tâches pour examiner les échecs et réessayer.</td>
-</tr>
-
-<tr>
-<th scope="row">Sélectionner / Corbeille</th><td data-label="Rôle">Gérez ensemble les téléchargements de l’Atelier, de Pixabay et d’autres sources. La suppression conserve par défaut les fichiers sources et les autres listes de lecture ; seul Supprimer les fichiers sources du disque efface les fichiers. Gérez les tâches actives dans le panneau des tâches.</td>
-</tr>
-
-<tr>
-<th scope="row">Filtrer</th><td data-label="Rôle">Filtrez par source ; par type image, Video, Web ou Scene ; et par état lisible, indisponible, en téléchargement ou mise à jour, ou en échec. La visibilité du contenu adulte a sa propre option.</td>
-</tr>
-
-<tr>
-<th scope="row">Trier</th><td data-label="Rôle">Triez par date d’enregistrement locale, nom, taille de fichier ou dernière utilisation réussie, dans l’ordre croissant ou décroissant.</td>
-</tr>
-
-<tr>
-<th scope="row">Vignettes ± / Rechercher</th><td data-label="Rôle">Redimensionnez les cartes ; recherchez par titre, nom de source ou nom de liste de lecture. Les éléments de l’Atelier prennent aussi en charge les descriptions, les mots-clés de l’Atelier, l’auteur et les ID d’élément Steam. Une recherche ne lance pas de téléchargement.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<aside class="tip">
-<strong>Dans les détails d’un élément</strong>Le bouton Propriétés pour Web et Scene ouvre les commandes de l’auteur ; l’action Afficher dans le Finder localise les fichiers locaux ; le nom d’un auteur ouvre son atelier. Les cœurs désignent les Favoris locaux, tandis que les abonnements Steam utilisent une action de signet distincte. Se désabonner conserve les fichiers locaux et la lecture en cours.
-</aside>
-<p>L’icône de la barre des menus de MyWallpaperX ouvre la fenêtre principale, change de fond d’écran, contrôle la lecture/pause, la sourdine et le volume, ouvre Propriétés ou les Réglages, et permet de quitter l’app.</p>
-</section>
-
-<section class="guide-section" id="search-tips">
-<div class="section-heading"><h2>Un ID vous y mène directement</h2><span class="tag">Recherche dans l’Atelier</span></div>
-<p>Si vous connaissez l’ID d’un élément, évitez de parcourir les résultats page par page. Revenez au fil principal de l’Atelier et saisissez l’une de ces formes dans le champ de recherche Steam. Quittez d’abord la page d’un auteur avec le bouton de retour.</p><div class="search-demo"><span>Trouver un élément précis</span><code>ID=1234567890</code><small>Exemple uniquement · remplacez par un ID d’élément réel</small></div><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Saisie</th><th scope="col">Exemple</th><th scope="col">Astuce</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Mots-clés</th><td data-label="Exemple"><code>stars</code>, <code>landscape</code></td><td data-label="Astuce">Recherchez un thème, puis affinez par Video / Web / Scene et résolution.</td>
-</tr>
-
-<tr>
-<th scope="row">ID=numéro</th><td data-label="Exemple"><code>ID=1234567890</code></td><td data-label="Astuce">ID n’est pas sensible à la casse. N’ajoutez pas d’espaces autour du signe égal.</td>
-</tr>
-
-<tr>
-<th scope="row">Chiffres uniquement</th><td data-label="Exemple"><code>1234567890</code></td><td data-label="Astuce">Au moins 6 chiffres sont interprétés comme un ID d’élément, et non comme un mot-clé.</td>
-</tr>
-
-<tr>
-<th scope="row">Lien complet de l’élément</th><td data-label="Exemple"><code>https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890</code></td><td data-label="Astuce">Le numéro d’élément est extrait de id= dans l’URL.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div>
-<aside class="tip">
-<strong>ID d’élément ≠ SteamID du compte</strong>Utilisez le numéro du lien de détail de l’élément de l’Atelier. Une recherche directe ne garantit ni l’accès public ni le téléchargement. Si aucun résultat n’apparaît pour un mot-clé, effacez la requête et réduisez les filtres. La recherche dans Mes téléchargements ne filtre que le contenu local ; elle accepte les formes ID mais ne récupère pas d’éléments depuis Steam.
-</aside>
-
-</section>
-
-<section class="guide-section" id="workshop">
-<div class="section-heading"><h2>Atelier et téléchargements</h2><span class="tag">DÉCOUVRIR ET GÉRER</span></div>
-<p class="lead">Utilisez votre compte Steam pour parcourir les projets, gérer vos abonnements et télécharger des fonds d’écran. Video, Web et Scene partagent ce fonctionnement.</p>
-<div class="flow" aria-label="Étapes de téléchargement"><span>Rechercher et filtrer</span><b aria-hidden="true">→</b><span>Se connecter si demandé</span><b aria-hidden="true">→</b><span>Télécharger</span><b aria-hidden="true">→</b><span>Lire depuis Mes téléchargements</span></div>
-<div class="two-column"><div><h3>Trouver le bon projet</h3><ul><li>Ouvrez le bouton du compte Steam dans la barre d’outils et suivez les instructions de vérification par QR code ou par compte.</li><li>Choisissez un type de contenu avant de rechercher un thème. Mes abonnements affiche les éléments abonnés du compte.</li><li>Ouvrez les détails d’un élément pour en savoir plus ou explorer le travail de son auteur.</li></ul></div><div><h3>Comprendre la file d’attente</h3><ul><li>Le bouton de téléchargement de la barre d’outils affiche les tâches en file d’attente, la progression et les messages d’échec.</li><li>Les éléments en échec disposent d’un bouton Réessayer. Réglez tout problème de connexion, de compte ou de stockage avant de réessayer.</li><li>Tout effacer supprime l’historique des tâches terminées, en échec et annulées. Les tâches actives continuent de s’exécuter et les fichiers téléchargés sont conservés.</li></ul></div></div>
-<aside class="tip">
-<strong>La suppression, l’effacement des fichiers sources et les abonnements sont des actions distinctes</strong>Retirer un élément de Mes téléchargements conserve par défaut ses fichiers sur le disque et les autres listes de lecture. Seul Supprimer les fichiers sources du disque efface les fichiers, de façon irréversible. Se désabonner conserve les fichiers locaux ; Tout effacer dans le panneau de téléchargement ne vide que l’historique des tâches.
-</aside>
-<h3 class="subheading">Commandes du panneau Tâches de téléchargement</h3><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Commande</th><th scope="col">Action</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">× sur une ligne</th><td data-label="Action">Annulez une tâche en file d’attente ou en téléchargement si elle est annulable, ou retirez un enregistrement en échec ou de l’historique. Ce bouton peut être désactivé pendant des étapes non annulables comme l’enregistrement.</td>
-</tr>
-
-<tr>
-<th scope="row">Réessayer</th><td data-label="Action">Affiché en cas d’échec. Corrigez la cause et vérifiez que vous êtes toujours connecté au compte Steam de la tâche avant de télécharger à nouveau.</td>
-</tr>
-
-<tr>
-<th scope="row">Tout effacer</th><td data-label="Action">Retirez les enregistrements terminés, en échec et annulés. Conservez les tâches actives en file d’attente, en téléchargement ou en enregistrement, ainsi que les fichiers téléchargés.</td>
-</tr>
-
-<tr>
-<th scope="row">Texte d’échec</th><td data-label="Action">Survolez le message d’échec pour lire une erreur plus détaillée, puis comparez-la à la section de dépannage ci-dessous.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div>
-</section>
-
-<section class="guide-section" id="library">
-<div class="section-heading"><h2>Une place pour chaque collection</h2><span class="tag">VOS BIBLIOTHÈQUES</span></div>
-<div class="module-list"><div><h3>Mes vidéos / Mes images</h3><p>Importez et gérez séparément les vidéos et images locales. Faites glisser une carte de fond d’écran vers une liste de lecture dans la barre latérale pour l’ajouter rapidement.</p></div><div><h3>Mes téléchargements</h3><p>Gérez ensemble le contenu téléchargé depuis l’Atelier, Pixabay et d’autres sources en ligne. Parcourez le catalogue pour découvrir des projets ; utilisez la bibliothèque pour les lire et les organiser.</p></div><div><h3>Toutes les listes de lecture</h3><p>La première carte crée une liste de lecture. Mélangez images, vidéos et fonds d’écran Web et Scene ; faites un clic droit sur une liste pour modifier son nom, sa couverture et sa description.</p></div><div><h3>Favoris / Utilisés récemment</h3><p>Favoris regroupe les fonds d’écran locaux et téléchargés marqués d’un cœur. Utilisés récemment conserve les 50 derniers fonds d’écran distincts lus avec succès. Téléchargez les résultats en ligne avant de les ajouter.</p></div></div>
-<aside class="tip">
-<strong>La suppression agit sur la relation de la page actuelle</strong>Dans Favoris, elle retire le cœur ; dans Utilisés récemment, elle efface l’enregistrement de lecture ; dans une liste personnalisée, elle retire l’élément de cette liste. Les fichiers sources et les autres listes de lecture sont conservés par défaut. Fichier → Importer accepte les vidéos ou images locales, pas les projets Web ou Scene.
-</aside>
-
-</section>
-
-<section class="guide-section" id="playback">
-<div class="section-heading"><h2>Lecture, son et énergie</h2><span class="tag">COMMANDES COMMUNES</span></div>
-<p class="lead">Video, Web et Scene partagent la lecture/pause, le volume et la sourdine, ainsi que ces quatre règles d’économie d’énergie. Configurez-les une fois pour les trois moteurs.</p>
-<div class="table-wrap">
-<table>
-<caption>Réglages → Économie d’énergie et pause</caption>
-<thead>
-
-<tr>
-<th scope="col">Réglage</th><th scope="col">Quand la lecture se met en pause</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Mettre en pause quand une autre app est active</th><td data-label="Quand la lecture se met en pause">Lorsque vous travaillez dans une autre app standard. MyWallpaperX et Finder sont exclus.</td>
-</tr>
-
-<tr>
-<th scope="row">Mettre en pause quand une autre app est en plein écran</th><td data-label="Quand la lecture se met en pause">Lorsque l’espace actif est occupé par une autre app en plein écran.</td>
-</tr>
-
-<tr>
-<th scope="row">Mettre en pause sur batterie</th><td data-label="Quand la lecture se met en pause">Lorsque le Mac fonctionne sur sa batterie.</td>
-</tr>
-
-<tr>
-<th scope="row">Mettre en pause en cas d’inactivité</th><td data-label="Quand la lecture se met en pause">Après la période d’inactivité choisie. Réglez le délai sous l’interrupteur.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div>
-<div class="two-column"><div><h3>Reprise de la lecture</h3><p>La lecture reste en pause tant qu’une condition activée est remplie. Elle peut reprendre automatiquement une fois ces conditions levées. Un fond d’écran mis en pause manuellement doit toujours être relancé manuellement.</p></div><div><h3>Son et réaction audio</h3><p>Le volume contrôle le son propre du fond d’écran ; il ne peut pas ajouter de piste audio à un projet silencieux. Les réactions au son du système exigent aussi un fond d’écran compatible, le réglage correspondant et les autorisations macOS.</p></div></div>
-<aside class="tip">
-<strong>Commencez par une configuration d’économie d’énergie simple</strong>Si vous travaillez souvent en plein écran, activez d’abord la pause en plein écran. Sur un portable, ajoutez la pause sur batterie selon vos besoins. Le réglage 30/60 de Scene ne concerne que Scene ; il ne change pas la fréquence d’images d’origine des vidéos.
-</aside>
-
-</section>
-
-<section class="guide-section" id="shortcuts">
-<div class="section-heading"><h2>Des raccourcis, avec leur contexte</h2><span class="tag">Référence rapide</span></div>
-<p>⌘ désigne Commande, ⌥ Option et ⌫ Suppr. Ces raccourcis proviennent des menus de l’app. Leur disponibilité dépend du module, de la sélection et du focus dans un champ de texte ; fiez-vous à l’état activé du menu.</p><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Touches</th><th scope="col">Action</th><th scope="col">Où et comment</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row"><kbd>⌘ O</kbd></th><td data-label="Action">Importer</td><td data-label="Où et comment">Ouvrez un sélecteur de fichiers dans un module local de vidéos ou d’images compatible.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ N</kbd></th><td data-label="Action">Nouvelle liste de lecture</td><td data-label="Où et comment">Ouvrez l’éditeur de liste de lecture. Vous pouvez aussi en créer une depuis le menu contextuel de la barre latérale ou la première carte de Toutes les listes de lecture.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ F</kbd></th><td data-label="Action">Rechercher</td><td data-label="Où et comment">Placez le focus sur le champ de recherche du module actuel.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ E</kbd></th><td data-label="Action">Activer/désactiver le mode sélection</td><td data-label="Où et comment">Utilisez-le dans les listes qui prennent en charge la sélection multiple.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ A</kbd></th><td data-label="Action">Tout sélectionner</td><td data-label="Où et comment">Sélectionnez du texte dans un champ, ou des éléments dans une bibliothèque ou une liste de lecture compatible.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="Action">Supprimer la sélection</td><td data-label="Où et comment">Ouvrez une confirmation. Les fichiers sources sont conservés par défaut ; seule l’entrée de la bibliothèque ou la relation de la page actuelle est retirée. Les fichiers ne sont supprimés que si la case est cochée.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ + / ⌘ −</kbd></th><td data-label="Action">Vignettes plus grandes / plus petites</td><td data-label="Où et comment">Redimensionnez les cartes, pas le fond d’écran. La saisie de + peut nécessiter Maj sur votre clavier.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>Entrée ↵</kbd></th><td data-label="Action">Définir comme fond d’écran</td><td data-label="Où et comment">Pour les éléments prêts qui prennent en charge cette commande. Les grilles de l’Atelier utilisent l’action principale de l’élément, qui peut ouvrir les détails ou récupérer une dépendance.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="Action">Fond d’écran suivant / précédent</td><td data-label="Où et comment">Suivez la séquence de lecture en cours parmi les images lisibles et les fonds d’écran Video, Web ou Scene ; pas l’historique du navigateur.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ D</kbd></th><td data-label="Action">Activer/désactiver le favori</td><td data-label="Où et comment">Agissez sur la sélection actuelle là où les favoris sont pris en charge.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ T</kbd></th><td data-label="Action">Ajouter à une liste de lecture</td><td data-label="Où et comment">Ajoutez les fonds d’écran locaux ou téléchargés sélectionnés à des listes de lecture.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ I</kbd></th><td data-label="Action">Afficher les informations</td><td data-label="Où et comment">Ouvrez les informations d’un élément sélectionné compatible.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>Espace</kbd></th><td data-label="Action">Aperçu</td><td data-label="Où et comment">Affichez un aperçu d’un élément sélectionné compatible. Ce n’est pas une touche lecture/pause globale.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ R</kbd></th><td data-label="Action">Afficher le fichier</td><td data-label="Où et comment">Localisez le contenu local compatible dans le Finder. Ce n’est pas Actualiser.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ X / C / V</kbd></th><td data-label="Action">Couper / copier / coller</td><td data-label="Où et comment">À utiliser dans les champs de texte qui prennent en charge ces actions d’édition.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ ,</kbd></th><td data-label="Action">Réglages</td><td data-label="Où et comment">Ouvrez les réglages de l’application.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ M / ⌘ W</kbd></th><td data-label="Action">Réduire / fermer la fenêtre</td><td data-label="Où et comment">Fermer la fenêtre principale est distinct de quitter l’app.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ H / ⌥ ⌘ H</kbd></th><td data-label="Action">Masquer l’app / masquer les autres</td><td data-label="Où et comment">Masquez MyWallpaperX, ou masquez les autres applications.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ Q</kbd></th><td data-label="Action">Quitter</td><td data-label="Où et comment">Quittez MyWallpaperX.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>⌘ ?</kbd></th><td data-label="Action">Aide</td><td data-label="Où et comment">Ouvrez ce guide d’aide ; il est généralement saisi avec ⌘ Maj /.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div><h3 class="subheading">Touches dans les grilles et boîtes de dialogue de l’Atelier</h3><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Touches</th><th scope="col">Action</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row"><kbd>↑ ↓ ← →</kbd></th><td data-label="Action">Déplacez le focus clavier dans les grilles de l’Atelier, ou change d’élément dans les fenêtres d’aperçu compatibles.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>Maj F5</kbd></th><td data-label="Action">Ouvrez le menu contextuel de l’élément sélectionné au clavier dans la grille de navigation de l’Atelier.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>Esc</kbd></th><td data-label="Action">Selon le contexte : annulez l’authentification lors de la connexion, fermez un aperçu ou effacez la recherche de cette page d’aide.</td>
-</tr>
-
-<tr>
-<th scope="row"><kbd>Entrée</kbd></th><td data-label="Action">Validez les identifiants sur la page du mot de passe ou un code sur la page de vérification. Le focus dans un champ prime sur les actions de fond d’écran.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div>
-<aside class="tip">
-<strong>Configurez d’abord les raccourcis globaux</strong>Activez les raccourcis système dans les Réglages et affectez les touches F1–F12 à Précédent, Suivant, Lecture/pause et Sourdine. Ils sont désactivés et non affectés par défaut. Ils fonctionnent lorsqu’une autre app est active : Précédent/Suivant change de fond d’écran Video, Web ou Scene installé, en ignorant automatiquement les éléments dont les dépendances manquent ou qui ne peuvent pas être lus ; Lecture/pause et Sourdine contrôlent le moteur dynamique actif. Si une touche ne fait rien, vérifiez qu’elle est activée, affectée et sans conflit avec un autre raccourci.
-</aside>
-
-</section>
-
-<section class="guide-section" id="login">
-<div class="section-heading"><h2>Connexion, une étape à la fois</h2><span class="tag">Connexion Steam</span></div>
-<p>Commencez par le bouton du compte Steam. La connexion par QR code nécessite un scan et une approbation dans l’app mobile Steam. La connexion par mot de passe peut ensuite demander une approbation mobile, un code d’authentificateur ou un code par e-mail. Suivez l’instruction affichée.</p>
-<aside class="tip">
-<strong>Mémoriser une connexion</strong>Activez Se souvenir de moi si vous le souhaitez. Une demande de connexion ultérieure n’est pas forcément un échec si l’option était décochée. Un message explicite « la session n’a pas pu être enregistrée » indique bien un échec d’enregistrement. Ne joignez jamais mots de passe, codes, images QR ou jetons de session à un signalement.
-</aside>
-
-<details>
-
-<summary>
-Impossible de scanner le QR code / en attente d’approbation
-</summary>
-<div class="answer"><p>Scannez avec l’app mobile Steam. Cliquez sur le code ou sur le bouton d’agrandissement pour l’afficher en plus grand. Actualisez un code inutilisable et scannez le nouveau. Changer de méthode de connexion annule la tentative précédente.</p></div>
-</details>
-
-<details>
-
-<summary>
-Confirmez cette connexion dans l’app mobile Steam
-</summary>
-<div class="answer"><p>Un code scanné ou un mot de passe accepté peut encore nécessiter une approbation mobile. Laissez le panneau de connexion ouvert et approuvez dans Steam. Le fermer ou le fait d’appuyer sur Esc annule l’authentification.</p></div>
-</details>
-
-<details>
-
-<summary>
-Le code de vérification précédent a été refusé
-</summary>
-<div class="answer"><p>Vérifiez si Steam demande un code d’authentificateur ou un code par e-mail. Saisissez un nouveau code pour cette tentative ; les anciens codes, les fautes de frappe ou une mauvaise source peuvent être refusés. Pour l’e-mail, vérifiez le domaine affiché.</p></div>
-</details>
-
-<details>
-
-<summary>
-Échec de la connexion · InvalidPassword / accessDenied
-</summary>
-<div class="answer"><p>Steam a refusé les identifiants ou l’accès. Utilisez le nom de compte et le mot de passe de connexion Steam, pas le nom affiché du profil. Les autorisations du compte peuvent aussi entrer en jeu. Vérifiez les identifiants et l’état du compte dans le client Steam officiel.</p></div>
-</details>
-
-<details>
-
-<summary>
-authExpired / jeton Steam refusé
-</summary>
-<div class="answer"><p>La session enregistrée a expiré, a été révoquée ou refusée. Reconnectez-vous depuis le menu du compte, avec le compte souhaité.</p></div>
-</details>
-
-<details>
-
-<summary>
-Délai d’authentification / délai du service / réseau
-</summary>
-<div class="answer"><p>L’authentification ne s’est pas terminée à temps. La connectivité, un proxy, la disponibilité de Steam ou une approbation mobile tardive peuvent être en cause. Vérifiez l’approbation et la connexion, puis réessayez. Un délai dépassé ne prouve pas à lui seul un mot de passe erroné.</p></div>
-</details>
-
-<details>
-
-<summary>
-rateLimited / RateLimitExceeded
-</summary>
-<div class="answer"><p>Steam limite temporairement les requêtes. Patientez avant de réessayer plutôt que d’actualiser les codes ou de soumettre les identifiants en boucle.</p></div>
-</details>
-
-<details>
-
-<summary>
-Connexion réussie, mais la session n’a pas pu être enregistrée
-</summary>
-<div class="answer"><p>La session actuelle est utilisable, mais son enregistrement a échoué et vous devrez peut-être vous reconnecter la prochaine fois. Cela diffère d’une option Se souvenir de moi laissée décochée. Si le problème se répète, signalez le message et la version de l’app ; ne commencez pas par supprimer votre trousseau.</p></div>
-</details>
-
-<details>
-
-<summary>
-Service Steam indisponible / version incompatible / connexion perdue
-</summary>
-<div class="answer"><p>Un composant indisponible ou incompatible nécessite généralement une mise à jour ou une réinstallation complète de l’app ; ne mélangez pas des composants de versions différentes. En cas de connexion perdue, redémarrez et réessayez, puis signalez la version en cours et la source si le problème persiste.</p></div>
-</details>
-
-</section>
-
-<section class="guide-section" id="downloads">
-<div class="section-heading"><h2>Comprendre un téléchargement échoué</h2><span class="tag">Causes et étapes suivantes</span></div>
-<p>Ouvrez la fenêtre Tâches de téléchargement et identifiez l’étape en échec : téléchargement du manifeste, autorisation CDN, blocs de données ou enregistrement des fichiers locaux. Un même numéro d’erreur peut appeler des vérifications différentes selon l’étape.</p><div class="error-example"><span>Un message peut ressembler à ceci · exemple de format</span><samp>Échec du téléchargement du manifeste (HTTP 503, nœud &lt;server&gt;, &lt;count&gt; tentatives). Vérifiez vos réglages réseau et proxy, puis réessayez plus tard.</samp></div>
-<details>
-
-<summary>
-HTTP 503 / 500 / 502 / 504 · réseau
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Un service, un nœud de contenu ou une connexion intermédiaire est temporairement indisponible. La navigation peut fonctionner alors que les téléchargements échouent ; un 503 seul n’identifie pas un défaut de version de l’app ou de SteamKit.</p></div><div><h3>Que faire ensuite</h3><p>Réessayez plus tard. Vérifiez si votre proxy couvre les connexions de téléchargement de l’app, ou comparez sur un autre réseau. Si plusieurs éléments échouent, conservez le nœud, l’heure et le message complet.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-HTTP 401 · authExpired
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>L’autorisation de téléchargement ou la session de connexion n’est plus valide.</p></div><div><h3>Que faire ensuite</h3><p>Reconnectez-vous depuis le menu du compte, puis relancez la tâche en échec.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-HTTP 403 · accessDenied / autorisation CDN manquante
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>L’accès a été refusé. Les autorisations de contenu, l’autorisation CDN ou un proxy peuvent être en cause ; cela ne signifie pas toujours un mot de passe erroné.</p></div><div><h3>Que faire ensuite</h3><p>Vérifiez l’accès au contenu, le réseau et les réglages du proxy. Reconnectez-vous et réessayez. Un message d’accès refusé lors de la préparation indique plutôt un problème d’autorisations du dossier local.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-HTTP 429 · rateLimited
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Steam a limité le débit des requêtes.</p></div><div><h3>Que faire ensuite</h3><p>Patientez avant de réessayer et évitez de créer des tâches en boucle. L’app effectue déjà un nombre limité de nouvelles tentatives pour certains échecs temporaires.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-HTTP 404 · unsupportedContent / l’élément n’a pas de manifeste de contenu
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Le nœud ne contient pas le contenu, ou l’élément n’a pas de manifeste téléchargeable. Un contenu mis à jour, inaccessible ou non issu de Wallpaper Engine peut aussi être indisponible.</p></div><div><h3>Que faire ensuite</h3><p>Rouvrez l’élément et vérifiez le lien et l’accès. Des téléchargements répétés ne peuvent pas corriger un élément supprimé, non pris en charge ou vide.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-diskFull · Espace disque insuffisant
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Le disque de préparation ou de destination n’a pas assez d’espace.</p></div><div><h3>Que faire ensuite</h3><p>Libérez de l’espace sur le disque concerné et relancez la tâche d’origine. Si le message indique que des données partielles ont été conservées, gardez-les pour réessayer. Prévoyez un espace de travail supérieur à la taille d’archive annoncée.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-integrity · Échec de validation / identité de préparation modifiée
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Les contrôles de contenu, les longueurs de fichiers ou l’identité du dossier ne concordent plus ; déplacer ou modifier les données de préparation peut en être la cause. L’app interrompt l’enregistrement risqué.</p></div><div><h3>Que faire ensuite</h3><p>Arrêtez les modifications externes des dossiers concernés, puis réessayez. Si le problème se répète, signalez le message complet et l’ID de l’élément. Ne modifiez pas les données de validation pour contourner les contrôles.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-Manifeste : un project.json racine non vide est requis / chemin de manifeste…
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>Le contenu requis est manquant, ou les chemins ou tailles du manifeste échouent aux contrôles de sécurité. Une simple nouvelle tentative réseau peut ne pas suffire.</p></div><div><h3>Que faire ensuite</h3><p>Vérifiez que l’élément est un projet Wallpaper Engine complet. Signalez l’erreur exacte au lieu d’assembler un dossier et de le considérer comme un téléchargement terminé.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-Délai du service / connexion perdue / helperUnavailable / protocolMismatch
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>L’assistant (helper) n’a peut-être pas démarré, s’est peut-être arrêté, est peut-être incompatible ou n’a pas terminé une requête. Ces messages seuls n’établissent pas une panne de Steam.</p></div><div><h3>Que faire ensuite</h3><p>Redémarrez en cas de connexion perdue. Mettez à jour ou réinstallez l’app complète pour les composants indisponibles ou incompatibles. Mentionnez les autres versions de l’app installées lors d’un signalement.</p></div></div></div>
-</details>
-
-<details>
-
-<summary>
-Téléchargement arrêté mais nettoyage de la préparation échoué
-</summary>
-<div class="answer"><div class="diagnosis"><div><h3>Cause possible</h3><p>La tâche s’est arrêtée ou l’état du contenu a été enregistré, mais le nettoyage des fichiers temporaires a échoué. Il ne s’agit pas d’une demande de suppression de la bibliothèque de fonds d’écran.</p></div><div><h3>Que faire ensuite</h3><p>Vérifiez d’abord l’état de la tâche et du contenu téléchargé. Conservez le message et vérifiez les autorisations ou les opérations de fichiers externes ; signalez les échecs persistants.</p></div></div></div>
-</details>
-
-<aside class="tip">
-<strong>Attendez Terminé, même à 100 %</strong>Le transfert est suivi d’une validation et d’un enregistrement. Les tâches en file d’attente, en connexion ou en enregistrement peuvent ne pas afficher une vitesse continue. Corrigez la cause avant de réessayer. Tout effacer supprime l’historique des tâches terminées tout en conservant les tâches actives et les fichiers téléchargés.
-</aside>
-<p>Si un élément Web ou Scene terminé manque d’une dépendance, sélectionnez Indisponible dans Mes téléchargements ou ouvrez ses détails pour examiner l’élément de base requis. Cela diffère d’un échec de transfert HTTP. Un signalement doit inclure la version de l’app et l’emplacement d’exécution, le lien/ID de l’élément, l’heure, l’erreur complète, si un seul ou tous les éléments échouent, et l’usage d’un réseau ou d’un proxy.</p>
-</section>
-
-<section class="guide-section" id="faq">
-<div class="section-heading"><h2>Quand quelque chose doit être vérifié</h2><span class="tag">DÉPANNAGE</span></div>
-<details>
-
-<summary>
-Le fond d’écran s’est arrêté. L’app a-t-elle planté ?
-</summary>
-<p>Vérifiez d’abord la pause manuelle, puis les règles de focus, plein écran, batterie et inactivité. Scene suit aussi ces interrupteurs ; il n’exige pas que Finder ou MyWallpaperX reste actif pour se lire.</p>
-</details>
-
-<details>
-
-<summary>
-Pourquoi un fond d’écran Web est-il vide ou incomplet ?
-</summary>
-<p>Assurez-vous que le téléchargement est terminé et vérifiez les tâches de téléchargement ainsi que tout message d’échec ou de dépendance manquante dans la liste. La météo, les images distantes et d’autres services peuvent être indisponibles hors ligne. Un fichier HTML isolé peut ne pas contenir tout le projet.</p>
-</details>
-
-<details>
-
-<summary>
-Une scène Scene se lit, mais diffère de l’aperçu de l’Atelier.
-</summary>
-<p>Comparez vos modifications de propriétés aux valeurs par défaut de l’auteur. Certains effets, scripts et interactions peuvent ne pas encore être entièrement compatibles. Joignez à votre signalement le lien de l’élément, la version de l’app, une capture d’écran et la partie concernée de l’image.</p>
-</details>
-
-<details>
-
-<summary>
-Un téléchargement a échoué avec une erreur 503. Que faire ?
-</summary>
-<p>Un 503 indique généralement qu’un service sur le chemin de la requête est temporairement indisponible, mais le numéro seul n’identifie pas la cause. Conservez le message d’erreur, vérifiez l’état du compte, la connexion et l’espace libre, puis réessayez plus tard. Si plusieurs éléments continuent d’échouer, signalez l’erreur complète, l’heure et la version de l’app.</p>
-</details>
-
-<details>
-
-<summary>
-Pourquoi un fond d’écran est-il encore présent après avoir vidé la file d’attente ?
-</summary>
-<p>L’historique des tâches et le contenu local sont gérés séparément. Tout effacer conserve les fichiers téléchargés. Retirez les fonds d’écran dans Mes téléchargements ; les fichiers sources restent, sauf si Supprimer les fichiers sources du disque est coché. Se désabonner conserve aussi les fichiers locaux.</p>
-</details>
-
-<details>
-
-<summary>
-Comment vérifier les mises à jour ou signaler un problème ?
-</summary>
-<p>Choisissez Rechercher les mises à jour… dans le menu MyWallpaperX. À propos de MyWallpaperX affiche les informations de l’app. Indiquez le type de fond d’écran, les étapes de reproduction, le lien de l’élément ou le format du fichier local, et le message d’erreur. N’incluez jamais votre mot de passe Steam ni vos codes de vérification.</p>
-</details>
-
-</section>
-
-<footer>
-<span>Guide MyWallpaperX · Mis à jour avec l’app</span><a href="#top">Retour en haut ↑</a>
-</footer>
-
+<main id="top" class="frame">
+  <nav class="rail" aria-label="Sommaire">
+    <p class="rail-title">Sommaire</p>
+    <ol>
+      <li><a href="#start">Premiers pas</a></li>
+      <li><a href="#video">Fonds d’écran vidéo</a></li>
+      <li><a href="#web">Fonds d’écran web</a></li>
+      <li><a href="#scene">Fonds d’écran Scène</a></li>
+      <li><a href="#workshop">Atelier et Steam</a></li>
+      <li><a href="#galleries">Pixabay, Wallhaven, Pixiv</a></li>
+      <li><a href="#library">Votre bibliothèque</a></li>
+      <li><a href="#energy">Lecture et énergie</a></li>
+      <li><a href="#system">Écrans et système</a></li>
+      <li><a href="#reference">Référence</a></li>
+    </ol>
+    <span class="rail-scroll" aria-hidden="true"><span></span></span>
+  </nav>
+
+  <article class="doc">
+
+    <header class="hero">
+      <h1>Le bureau,<br><em>gardé en vie.</em></h1>
+      <p class="hero-lede">
+        MyWallpaperX anime un fond d’écran derrière tout ce que vous faites — une vidéo
+        en boucle, une page web vivante ou une scène rendue par Metal. Ce guide décrit ce
+        que l’app fait réellement, où se trouve chaque commande et ce qu’elle refuse de faire.
+      </p>
+      <div class="hero-doors">
+        <a class="door door--video" href="#video">
+          <svg class="door-art" viewBox="0 0 300 170" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="v1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffb26b" stop-opacity=".85"/>
+                <stop offset=".55" stop-color="#ff7a59" stop-opacity=".25"/>
+                <stop offset="1" stop-color="#1b0f08" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M-20 150 C 60 60, 120 190, 200 90 S 300 40, 330 70" fill="none" stroke="url(#v1)" stroke-width="26" stroke-linecap="round" opacity=".55"/>
+            <path d="M-20 128 C 60 38, 120 168, 200 68 S 300 18, 330 48" fill="none" stroke="#ffd9a8" stroke-width="1.2" opacity=".5"/>
+          </svg>
+          <span class="door-name">Vidéo</span>
+          <span class="door-note">MP4 · MOV · M4V</span>
+        </a>
+        <a class="door door--web" href="#web">
+          <svg class="door-art" viewBox="0 0 300 170" preserveAspectRatio="none" aria-hidden="true">
+            <g stroke="#6ee7ff" fill="none" opacity=".6">
+              <path d="M0 40 H300 M0 85 H300 M0 130 H300" stroke-opacity=".25"/>
+              <path d="M40 0 V170 M120 0 V170 M200 0 V170 M280 0 V170" stroke-opacity=".18"/>
+            </g>
+            <circle cx="200" cy="85" r="52" fill="none" stroke="#6ee7ff" stroke-opacity=".5"/>
+            <circle cx="200" cy="85" r="26" fill="#6ee7ff" fill-opacity=".22"/>
+            <path d="M40 140 L 90 120 L 130 132 L 175 96 L 220 108 L 265 62" stroke="#a5f3ff" stroke-width="1.4" fill="none" opacity=".75"/>
+          </svg>
+          <span class="door-name">Web</span>
+          <span class="door-note">HTML · URL · audio</span>
+        </a>
+        <a class="door door--scene" href="#scene">
+          <svg class="door-art" viewBox="0 0 300 170" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <radialGradient id="s1" cx=".5" cy=".5" r=".5">
+                <stop offset="0" stop-color="#e9d5ff" stop-opacity=".9"/>
+                <stop offset=".5" stop-color="#c084fc" stop-opacity=".35"/>
+                <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="150" cy="85" rx="120" ry="46" fill="url(#s1)"/>
+            <g stroke="#e9d5ff" fill="none" opacity=".55">
+              <ellipse cx="150" cy="85" rx="96" ry="34" stroke-dasharray="2 7"/>
+              <ellipse cx="150" cy="85" rx="58" ry="20" stroke-dasharray="2 5"/>
+            </g>
+            <circle cx="150" cy="85" r="6" fill="#f5e8ff"/>
+          </svg>
+          <span class="door-name">Scène</span>
+          <span class="door-note">Wallpaper Engine · Metal</span>
+        </a>
+      </div>
+      <p class="hero-foot"><span class="beat"></span> macOS 26 ou ultérieur · ce guide est fourni avec l’app</p>
+    </header>
+
+    <section class="section" id="start" data-accent="#7dd3fc">
+      <div class="section-head"><h2>Premiers pas</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Ce qu’est l’app, ce dont elle a besoin et où tout se trouve.</p>
+
+      <p>
+        MyWallpaperX maintient un bureau en mouvement derrière vos fenêtres. Ce n’est ni un
+        économiseur d’écran ni un diaporama : l’app lit un seul fond d’écran à la fois, sur un
+        ou plusieurs écrans, et s’efface quand vous le lui demandez. L’app compte trois moteurs —
+        vidéo, web et Scène — auxquels s’ajoutent les images fixes, que l’app confie à macOS
+        et n’anime pas elle-même.
+      </p>
+
+      <h3>Ce qu’il faut</h3>
+      <ul>
+        <li><strong>macOS 26 ou ultérieur.</strong> L’app est compilée pour macOS 26 et ne fonctionne pas sur les versions plus anciennes.</li>
+        <li><strong>Aucune autorisation d’accessibilité n’est requise.</strong> L’app ne lit l’audio du système que si vous activez le spectre, et demande l’autorisation à ce moment-là.</li>
+        <li><strong>Un compte Steam</strong> uniquement si vous parcourez l’Atelier. Tout le reste fonctionne sans connexion.</li>
+      </ul>
+
+      <h3>Votre premier fond d’écran</h3>
+      <ol class="steps">
+        <li>Ouvrez <strong>Mes vidéos</strong>, <strong>Mes images</strong> ou <strong>Atelier</strong> dans la barre latérale. <strong>Pixabay</strong>, <strong>Wallhaven</strong> et <strong>Pixiv</strong> se trouvent sous Parcourir.</li>
+        <li>Cliquez sur une carte pour la lire comme fond d’écran. Le survol affiche la taille et la source de l’élément.</li>
+        <li>Définissez une autre action au clic dans <strong>Réglages › Modes de lecture</strong> si vous préférez d’abord ouvrir les détails.</li>
+      </ol>
+
+      <div class="note">
+        <span class="note-label">Où va le contenu</span>
+        <p>
+          Les imports et les téléchargements arrivent dans <strong>Mes téléchargements</strong>.
+          Tout ce que vous avez lu apparaît dans <strong>Récemment utilisés</strong>. Les listes
+          de lecture que vous créez se trouvent sous <strong>Toutes les listes de lecture</strong> ;
+          les favoris apparaissent sous <strong>Favoris</strong>. Les fichiers sont copiés dans
+          le dossier de bibliothèque de l’app : déplacer ou supprimer ensuite le fichier d’origine
+          ne casse pas votre fond d’écran.
+        </p>
+      </div>
+
+      <h3>La barre des menus</h3>
+      <p>
+        L’icône de la barre des menus ouvre un panneau avec le fond d’écran actuel, lecture ou
+        pause, précédent et suivant, et un accès aux Réglages. Fermer la fenêtre principale laisse
+        le fond d’écran en lecture ; l’app continue de tourner jusqu’à ce que vous la quittiez
+        depuis la barre des menus ou avec <kbd>⌘Q</kbd>.
+      </p>
+    </section>
+
+    <section class="section" id="video" data-accent="#ffb26b">
+      <div class="section-head"><h2>Fonds d’écran vidéo</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Fichiers locaux, clips téléchargés et tout ce qui possède une piste vidéo.</p>
+
+      <p>
+        Le moteur vidéo lit en boucle un seul fichier, avec son audio, dans une fenêtre qui suit
+        le bureau. Il accepte <strong>MP4</strong>, <strong>MOV</strong> et <strong>M4V</strong>.
+        Les codecs pris en charge par le système sont lus ; une piste audio ou vidéo non
+        prise en charge échoue au chargement et laisse le fond d’écran précédent en lecture.
+      </p>
+
+      <h3>Ajouter des fichiers</h3>
+      <p>
+        Utilisez <strong>Fichier › Importer</strong> ou déposez des fichiers sur la fenêtre.
+        Les fichiers importés sont copiés dans la bibliothèque : l’app continue de les lire même
+        si vous déplacez les originaux. Les téléchargements depuis Pixabay, Wallhaven et
+        l’Atelier arrivent de la même façon.
+      </p>
+
+      <h3>Ce que vous pouvez changer pendant la lecture</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Commande</th><th>Où</th><th>Effet</th></tr></thead>
+          <tbody>
+            <tr><td>Lecture en boucle</td><td>Réglages › Modes de lecture</td><td>Relance le fichier à la fin. Désactivée, le fond d’écran s’arrête sur la dernière image.</td></tr>
+            <tr><td>Volume / Muet</td><td>Réglages › Modes de lecture</td><td>Règle le niveau audio de lecture pour tous les fonds d’écran vidéo.</td></tr>
+            <tr><td>Vitesse de lecture</td><td>Réglages › Modes de lecture</td><td>Multiplie la cadence de lecture une fois la vitesse de lecture activée.</td></tr>
+            <tr><td>Mode de remplissage vidéo</td><td>Réglages › Réglages d’affichage</td><td>Comment l’image s’ajuste à l’écran : remplir, ajuster ou étirer.</td></tr>
+            <tr><td>Spectre audio</td><td>Réglages › Comportement du système</td><td>Un visualiseur en barres piloté par l’audio du système. Fonds d’écran vidéo uniquement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note--warn">
+        <span class="note-label">Énergie</span>
+        <p>
+          Une vidéo 4K en boucle décode en continu et maintient le GPU éveillé. Si un portable
+          chauffe sur batterie, activez <strong>Pause sur batterie</strong> dans
+          Réglages › Comportement du système, ou utilisez un fichier plus léger. Le spectre ajoute
+          un coût modeste : il capture l’audio du système et anime un affichage en barres à
+          chaque image.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="web" data-accent="#6ee7ff">
+      <div class="section-head"><h2>Fonds d’écran web</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Une page rendue derrière votre travail, qui peut bouger et produire du son.</p>
+
+      <p>
+        Les fonds d’écran web tournent dans un processus hôte séparé : une page qui se bloque ou
+        plante n’emporte pas l’app avec elle. Un fond d’écran peut être une URL distante ou un
+        dossier HTML local ; l’hôte suit le bureau et peut lire de l’audio si la page en produit.
+      </p>
+
+      <h3>Ajouter une page</h3>
+      <ol class="steps">
+        <li>Choisissez <strong>Fichier › Importer</strong> et sélectionnez un fichier HTML ou un dossier contenant <code>index.html</code>.</li>
+        <li>Pour une page distante, collez son URL dans la même feuille d’import.</li>
+        <li>La page se charge une fois et continue de tourner tant qu’elle est le fond d’écran actif.</li>
+      </ol>
+
+      <div class="note">
+        <span class="note-label">Pages qui demandent une connexion</span>
+        <p>
+          Une page distante s’exécute sans les cookies ni les extensions de votre navigateur.
+          Si un site exige une session connectée, il ne sera pas connecté ici. Utilisez une page
+          locale pour tout ce qui dépend de votre compte.
+        </p>
+      </div>
+
+      <h3>L’échec reste discret</h3>
+      <p>
+        Si l’hôte ne démarre pas, si la page ne se charge pas ou si elle est fermée, l’app
+        conserve le fond d’écran précédent et indique la raison au lieu d’afficher un bureau vide.
+        Recharger le fond d’écran relance le même hôte.
+      </p>
+
+      <h3>Infos morceau</h3>
+      <p>
+        Les fonds d’écran web et Scène peuvent afficher le morceau en cours, avec sa pochette,
+        si le fond d’écran le prend en charge. L’app lit Apple Music lorsque vous activez
+        <strong>Infos morceau sur le fond d’écran</strong> ; macOS demande l’autorisation
+        d’automatisation la première fois, et le réglage reste désactivé tant que l’autorisation
+        n’est pas accordée.
+      </p>
+    </section>
+
+    <section class="section" id="scene" data-accent="#c084fc">
+      <div class="section-head"><h2>Fonds d’écran Scène</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Des projets Wallpaper Engine, rendus par Metal, dont les propriétés sont modifiables ici.</p>
+
+      <p>
+        Les fonds d’écran Scène sont des projets Wallpaper Engine : un dossier contenant
+        <code>project.json</code> et les ressources qu’il référence, empaqueté en
+        <code>.pkg</code> ou importé depuis l’Atelier. L’app les rend avec Metal au lieu
+        d’exécuter Wallpaper Engine.
+      </p>
+
+      <h3>Propriétés</h3>
+      <p>
+        Sélectionnez un fond d’écran Scène et ouvrez <strong>Configurer</strong> pour modifier les
+        propriétés exposées par le projet — couleurs, curseurs, listes déroulantes, cases à cocher
+        et texte. Les modifications s’appliquent à l’image suivante ; inutile de recharger le fond
+        d’écran. Une propriété hors de la plage déclarée est refusée, avec la plage indiquée dans
+        le message.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Réglage</th><th>Effet</th><th>Quand le changer</th></tr></thead>
+          <tbody>
+            <tr><td>HDR pour Scène</td><td>Effectue le rendu dans une cible à plage étendue lorsque le projet le prend en charge.</td><td>Uniquement sur un écran HDR, et seulement si le projet a été conçu pour cela. La consommation augmente nettement.</td></tr>
+            <tr><td>Limite de fréquence d’images Scène</td><td>Limite le rendu de Scène à 30 ou 60 fps.</td><td>Laissez 30 pour l’usage quotidien ; augmentez-la pour des scènes rapides sur un ordinateur de bureau branché sur secteur.</td></tr>
+            <tr><td>Plusieurs écrans</td><td>Affiche les fonds d’écran Scène, web et vidéo sur chaque écran.</td><td>Quand vous voulez un seul fond d’écran sur tout le bureau plutôt qu’une image fixe sur l’écran secondaire.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note--warn">
+        <span class="note-label">Si une scène échoue</span>
+        <p>
+          Un projet qui ne peut pas être analysé, qui référence une ressource manquante ou qui
+          utilise une fonction non implémentée par le moteur de rendu laisse le fond d’écran
+          précédent en lecture. Le message nomme le projet et l’étape qui a échoué — analyse,
+          préparation des ressources ou première image.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="workshop" data-accent="#fbbf24">
+      <div class="section-head"><h2>Atelier et Steam</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Parcourir, s’abonner et télécharger des éléments Wallpaper Engine avec un compte Steam.</p>
+
+      <p>
+        Le navigateur de l’Atelier dialogue avec Steam via un assistant intégré à l’app. Vous
+        vous connectez une fois ; l’app conserve la session et affiche vos éléments possédés et
+        abonnés à côté du catalogue public.
+      </p>
+
+      <h3>Se connecter</h3>
+      <ol class="steps">
+        <li>Ouvrez <strong>Atelier</strong> dans la barre latérale.</li>
+        <li>Connectez-vous avec le code QR — scannez-le dans l’app mobile Steam — ou avec votre mot de passe et un code Steam Guard.</li>
+        <li>Si la session expire, le navigateur vous invite à vous reconnecter au lieu d’afficher une liste vide.</li>
+      </ol>
+
+      <h3>Parcourir et télécharger</h3>
+      <p>
+        La recherche et les filtres s’appliquent au catalogue au fil de la frappe. Ouvrir un
+        élément affiche ses captures d’écran, sa taille et le moteur requis. S’abonner l’ajoute à vos
+        téléchargements ; la file de téléchargement tourne en arrière-plan et peut être annulée
+        élément par élément. Les éléments téléchargés apparaissent sous
+        <strong>Mes téléchargements</strong> et peuvent être lus sans que Steam soit lancé.
+      </p>
+
+      <div class="note">
+        <span class="note-label">Comptes</span>
+        <p>
+          Une connexion enregistrée est liée au compte Steam qui l’a créée. Si l’assistant
+          signale un autre compte, l’app vous invite à vous reconnecter plutôt que de mélanger
+          les bibliothèques.
+        </p>
+      </div>
+
+      <h3>Quand Steam est absent</h3>
+      <p>
+        Si l’assistant ne démarre pas ou si Steam est injoignable, la navigation et les
+        téléchargements échouent avec un message qui nomme l’étape. Tout ce qui est déjà
+        téléchargé continue de fonctionner — une fois sur le disque, les fonds d’écran de
+        l’Atelier sont des fichiers locaux.
+      </p>
+    </section>
+
+    <section class="section" id="galleries" data-accent="#34d399">
+      <div class="section-head"><h2>Pixabay, Wallhaven, Pixiv</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Trois sources en ligne, chacune avec sa propre clé ou connexion.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Source</th><th>Nécessite</th><th>Ce que vous obtenez</th></tr></thead>
+          <tbody>
+            <tr><td>Pixabay</td><td>Une clé API de votre compte Pixabay</td><td>Des vidéos et photos gratuites, avec recherche ; les vidéos se téléchargent directement dans Mes téléchargements.</td></tr>
+            <tr><td>Wallhaven</td><td>Une clé API ; obligatoire pour le contenu NSFW</td><td>Des fonds d’écran et des filtres, dont la pureté et la catégorie. Sans clé, vous parcourez en mode anonyme.</td></tr>
+            <tr><td>Pixiv</td><td>Votre connexion Pixiv</td><td>Classements, recherche et pages d’artistes. Les téléchargements conservent le fichier dans votre bibliothèque.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Les clés restent sur votre Mac</h3>
+      <p>
+        Les clés API sont stockées dans les réglages de l’app et envoyées uniquement au service
+        concerné. <strong>Réglages › Modes de lecture</strong> indique si une clé est définie sans
+        l’afficher. Retirer une clé empêche la source de se charger jusqu’à ce que vous en
+        ajoutiez une autre.
+      </p>
+
+      <div class="note">
+        <span class="note-label">Limites de requêtes</span>
+        <p>
+          Chaque service limite la fréquence des requêtes. Lorsqu’une requête est limitée, l’app
+          affiche le message du service au lieu de réessayer en boucle. Si une recherche ne
+          renvoie plus rien, patientez un instant et réessayez.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="library" data-accent="#93c5fd">
+      <div class="section-head"><h2>Votre bibliothèque</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Un seul endroit pour tout ce que vous avez importé, téléchargé ou lu.</p>
+
+      <p>
+        La barre latérale regroupe votre contenu selon sa provenance et ce que vous en avez fait.
+        Les cartes affichent une vignette ; les vignettes sont générées en arrière-plan, un
+        fichier tout juste importé peut donc afficher un espace réservé pendant quelques secondes.
+      </p>
+
+      <h3>Pages</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Page</th><th>Contenu</th></tr></thead>
+          <tbody>
+            <tr><td>Mes vidéos</td><td>Tous les fonds d’écran vidéo de la bibliothèque.</td></tr>
+            <tr><td>Mes images</td><td>Les images fixes, y compris les images capturées depuis un fond d’écran.</td></tr>
+            <tr><td>Mes téléchargements</td><td>Tout ce qui a été téléchargé depuis l’Atelier ou une source en ligne.</td></tr>
+            <tr><td>Récemment utilisés</td><td>Les fonds d’écran lus le plus récemment, du plus récent au plus ancien.</td></tr>
+            <tr><td>Atelier</td><td>Le catalogue Steam, vos abonnements et vos propres éléments.</td></tr>
+            <tr><td>Toutes les listes de lecture</td><td>Les listes de lecture que vous avez créées, chacune avec ses fonds d’écran.</td></tr>
+            <tr><td>Favoris</td><td>Les éléments que vous avez marqués comme favoris, toutes sources confondues.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Travailler avec de nombreux éléments</h3>
+      <ul>
+        <li><strong>Rechercher</strong> filtre la page courante au fil de la frappe ; <strong>Édition › Rechercher</strong> place le curseur dans le champ.</li>
+        <li><strong>Tout sélectionner</strong> et <strong>Basculer la sélection multiple</strong> permettent d’agir sur plusieurs éléments ; <strong>Supprimer la sélection</strong> les retire de la bibliothèque.</li>
+        <li>Les vues, le tri et la taille des vignettes se trouvent dans <strong>Présentation</strong> ; ils s’appliquent à la page où vous êtes.</li>
+        <li>Une liste de lecture se crée avec <strong>Fichier › Nouvelle liste de lecture…</strong> et se remplit en y faisant glisser des éléments.</li>
+      </ul>
+
+      <div class="note">
+        <span class="note-label">Suppression</span>
+        <p>
+          Retirer un élément de la bibliothèque supprime la copie de l’app, pas le fichier que
+          vous avez importé au départ. Si l’élément est en cours de lecture, le fond d’écran
+          s’arrête et le bureau revient à l’image de bureau de macOS.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="energy" data-accent="#f472b6">
+      <div class="section-head"><h2>Lecture et énergie</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Comment le fond d’écran avance, et comment éviter qu’il coûte plus qu’il ne devrait.</p>
+
+      <h3>Enchaînement</h3>
+      <p>
+        <strong>Dans l’ordre</strong> et <strong>Aléatoire</strong> décident de ce qui est lu
+        ensuite dans une liste de lecture. <strong>Changement automatique</strong> passe au fond
+        d’écran suivant selon un intervalle que vous définissez en minutes ; désactivé, le fond
+        d’écran actuel reste jusqu’à ce que vous en choisissiez un autre.
+      </p>
+
+      <h3>Mise en pause</h3>
+      <p>
+        Quatre règles peuvent mettre le fond d’écran en pause sans l’arrêter. Elles sont
+        indépendantes ; chacune suspend la lecture tant que sa condition est remplie.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Règle</th><th>Met en pause quand</th><th>Remarques</th></tr></thead>
+          <tbody>
+            <tr><td>Pause au focus d’une autre app</td><td>Une autre app est au premier plan.</td><td>Finder sur le bureau et MyWallpaperX lui-même sont exclus.</td></tr>
+            <tr><td>Pause en plein écran d’une autre app</td><td>Une app occupe l’écran principal en plein écran.</td><td>Utile pour les jeux et les appels vidéo.</td></tr>
+            <tr><td>Pause sur batterie</td><td>Le Mac fonctionne sur batterie.</td><td>Le moyen le plus simple d’éviter qu’un portable chauffe.</td></tr>
+            <tr><td>Pause en cas d’inactivité</td><td>Vous n’avez pas touché au Mac pendant la durée d’inactivité définie.</td><td>Réglable entre 1 minute et une heure.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note--warn">
+        <span class="note-label">HDR et fréquence d’images</span>
+        <p>
+          HDR pour Scène et un plafond à 60 fps augmentent tous deux la consommation. L’app
+          avertit au sujet du HDR lorsque vous l’activez ; elle ne le désactive pas d’elle-même
+          ensuite. Si la machine chauffe, ramenez d’abord le plafond à 30, puis désactivez le HDR.
+        </p>
+      </div>
+
+      <h3>À l’ouverture de session</h3>
+      <p>
+        <strong>Lancer à l’ouverture de session</strong> démarre l’app avec votre session.
+        <strong>Reprendre la lecture au démarrage</strong> restaure le dernier fond d’écran
+        vidéo, web ou Scène ; désactivé, aucun fond d’écran n’est lu au démarrage et l’image de
+        bureau de macOS reste en place. Les images fixes sont gérées par macOS et ne dépendent
+        d’aucun des deux réglages.
+      </p>
+    </section>
+
+    <section class="section" id="system" data-accent="#a3e635">
+      <div class="section-head"><h2>Écrans et système</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Plusieurs écrans, l’image de bureau de macOS, l’écran de verrouillage et le clavier.</p>
+
+      <h3>Écrans</h3>
+      <p>
+        <strong>Plusieurs écrans</strong> affiche le fond d’écran sur chaque écran. Désactivé,
+        l’écran principal le lit et les autres conservent l’image de bureau de macOS. Chaque
+        écran garde sa propre fenêtre : déplacer une fenêtre d’un écran à l’autre ne relance pas
+        la lecture.
+      </p>
+
+      <h3>Synchronisation du fond d’écran système</h3>
+      <p>
+        <strong>Synchroniser le fond d’écran système</strong> met à jour l’image de bureau de
+        macOS à chaque changement de fond d’écran : une image fixe pour la vidéo, et une image
+        capturée après la transition de lancement pour le web et la Scène. Mission Control, les
+        espaces et l’écran de connexion restent ainsi alignés sur ce que vous regardez. Les fonds
+        d’écran d’image fixe sont toujours appliqués directement, avec ou sans ce réglage.
+      </p>
+
+      <h3>L’économiseur d’écran</h3>
+      <p>
+        L’app fournit une extension d’économiseur d’écran système qui lit des vidéos locales en
+        boucle et sans son. Activez-la dans <strong>Réglages Système › Économiseur d’écran</strong>,
+        choisissez MyWallpaperX, puis sélectionnez la vidéo. L’économiseur lit sa propre copie du
+        fichier : supprimer le fond d’écran de la bibliothèque ne le casse pas — l’app conserve la
+        copie de l’économiseur et vous indique où elle se trouve si vous la retirez.
+      </p>
+
+      <h3>Clavier</h3>
+      <p>
+        <strong>Raccourcis de lecture</strong> associe <kbd>F1</kbd>–<kbd>F12</kbd> à quatre
+        actions : précédent, suivant, lecture ou pause, et muet. Chaque touche ne peut porter
+        qu’une action. Comme ce sont des raccourcis globaux, les touches de fonction cessent
+        d’atteindre les autres apps tant qu’elles sont associées.
+      </p>
+
+      <div class="note">
+        <span class="note-label">Autorisations</span>
+        <p>
+          L’app demande l’accès à l’automatisation la première fois qu’elle lit Apple Music pour
+          les infos morceau, et l’autorisation de capture audio la première fois que vous activez le spectre.
+          Si vous refusez l’un ou l’autre, désactivez puis réactivez la fonction après avoir
+          accordé l’accès dans <strong>Réglages Système › Confidentialité et sécurité</strong>.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="reference" data-accent="#cbd5e1">
+      <div class="section-head"><h2>Référence</h2><span class="section-mark" aria-hidden="true"></span></div>
+      <p class="section-lede">Les réglages, les raccourcis et les échecs que vous rencontrerez le plus probablement.</p>
+
+      <h3>Les réglages, par section</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Section</th><th>Contenu</th></tr></thead>
+          <tbody>
+            <tr><td>Modes de lecture</td><td>Lecture en boucle, dans l’ordre, aléatoire, changement automatique et son intervalle, volume, vitesse de lecture, clés API, action au clic sur une carte.</td></tr>
+            <tr><td>Réglages d’affichage</td><td>Mode de remplissage vidéo, plusieurs écrans, HDR pour Scène, limite de fréquence d’images Scène.</td></tr>
+            <tr><td>Comportement du système</td><td>Lancer à l’ouverture de session, reprendre la lecture au démarrage, synchronisation du fond d’écran système, spectre audio, règles de pause, raccourcis de lecture, infos morceau, thème de l’app, économiseur d’écran.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Raccourcis</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Touches</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>⌘O</kbd></td><td>Importer des fichiers</td></tr>
+            <tr><td><kbd>⌘N</kbd></td><td>Nouvelle liste de lecture</td></tr>
+            <tr><td><kbd>⌘F</kbd></td><td>Rechercher dans la page courante</td></tr>
+            <tr><td><kbd>⌘A</kbd></td><td>Sélectionner tous les éléments</td></tr>
+            <tr><td><kbd>⌫</kbd></td><td>Supprimer les éléments sélectionnés</td></tr>
+            <tr><td><kbd>F1</kbd>–<kbd>F12</kbd></td><td>Actions de lecture que vous avez assignées</td></tr>
+            <tr><td><kbd>⌘,</kbd></td><td>Réglages</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Quand quelque chose échoue</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Symptôme</th><th>Cause probable</th><th>Que faire</th></tr></thead>
+          <tbody>
+            <tr><td>L’Atelier n’affiche aucun élément</td><td>La session Steam a expiré ou l’assistant n’a pas démarré.</td><td>Reconnectez-vous depuis la page Atelier. Si l’assistant est absent, réinstallez l’app.</td></tr>
+            <tr><td>Le fond d’écran web est vide</td><td>La page n’a pas pu se charger ou nécessite une connexion.</td><td>Rechargez le fond d’écran ; pour les sites qui exigent une session, utilisez plutôt une page locale.</td></tr>
+            <tr><td>La scène reste noire</td><td>Des ressources du projet manquent ou le projet utilise une fonction non prise en charge.</td><td>Réimportez le projet ; le message d’erreur nomme l’étape qui a échoué.</td></tr>
+            <tr><td>Aucune barre de spectre</td><td>L’autorisation de capture audio a été refusée.</td><td>Accordez l’accès dans Confidentialité et sécurité, puis désactivez et réactivez le spectre.</td></tr>
+            <tr><td>Le fond d’écran se met en pause tout seul</td><td>L’une des quatre règles de pause est active.</td><td>Vérifiez si le Mac est sur batterie, inactif, ou si une autre app est au premier plan.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Ce que l’app ne fait pas</h3>
+      <ul>
+        <li>Elle n’anime pas les images fixes ; celles-ci sont appliquées via macOS.</li>
+        <li>Elle n’exécute pas Wallpaper Engine elle-même. Les projets Scène sont rendus par le moteur Metal de l’app, et les projets construits autour de fonctions exclusives au moteur peuvent ne pas s’afficher comme dans Wallpaper Engine.</li>
+        <li>Elle ne synchronise pas les listes de lecture ni les réglages entre plusieurs Macs. Les réglages peuvent être exportés et importés sous forme de fichier depuis l’app.</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <span>MyWallpaperX — Guide de terrain</span>
+      <span>macOS 26 ou ultérieur</span>
+      <a href="#top">Retour en haut</a>
+    </footer>
+
+  </article>
 </main>
-</div></body></html>
+
+</body>
+</html>
