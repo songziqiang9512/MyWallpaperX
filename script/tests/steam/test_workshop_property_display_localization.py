@@ -149,7 +149,7 @@ class WorkshopPropertyDisplayLocalizationTests(unittest.TestCase):
             return result
         resource = json.loads(RESOURCE.read_text(), object_pairs_hook=unique_object)
         self.assertEqual(resource['schemaVersion'], 1)
-        self.assertEqual(set(resource['languages']), {'en-us', 'zh-chs', 'zh-cht'})
+        self.assertEqual(set(resource['languages']), {'en-us', 'zh-chs', 'zh-cht', 'de-de', 'fr-fr', 'ru-ru'})
         english = resource['languages']['en-us']
         self.assertGreaterEqual(len(english), 15)
         self.assertEqual(resource['languages']['zh-chs']['ui_editor_properties_pivot_offset_x'], '水平轴心偏移')
