@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 58829
+      "bytes": 58844
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 599,
-      "bytes": 170888
+      "lines": 600,
+      "bytes": 171421
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,11 +487,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "b692bd7cd1781c7110fc4456c97b40969c3883d73b6d70141ce2610b99263eef",
-      "after": "e42da6869da9c2f8355199ace225a3ba6d126f38ce8a9ccc5f9ea2ebf4204060",
-      "owner": "Existing Scene author playback evidence and open queue",
-      "reason": "Record targeted Quartz/AppKit authored entry and return, including the timing control and remaining desktop scope.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-label-double-click"
+      "before": "e42da6869da9c2f8355199ace225a3ba6d126f38ce8a9ccc5f9ea2ebf4204060",
+      "after": "2451917a891d52acc6330cbc6a3ff12af816fd0a1b55ab0b943de7bee1c78dbb",
+      "owner": "Scene directional shadow footprint evidence",
+      "reason": "Record the live full-caster reference and its verified receiver domain.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-fragment-taps"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "38f38eb0f815e0cb8321ebcf3e7cb0f062b52e34ee6eb89dc7f723a405a12423",
-      "after": "2552ae5ef0282e47a3faf43d6a788631312af81be93d41c6539375b0ef35c968",
-      "owner": "Existing Scene composition and evidence authorities",
-      "reason": "Replace missing prefix qualification with the proven sort-dependent opaque ordering gap.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "76d633fa6e9860423051aa91595de70ce0f5388356174c7f5b443613dd226965",
+      "after": "e0c32b4afeb7c29d0f104f126321634b13c908d4b33d0d205de0e106d66a567e",
+      "owner": "Scene directional shadow footprint evidence",
+      "reason": "Bound the remaining ring filter decision by the reference and opposing local observations.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
