@@ -183,7 +183,9 @@ class SceneModelMaterialScriptTests(unittest.TestCase):
         root = Path(cls.directory.name)
         # Compile the complete value owner, excluding unrelated GPU buffer/PSO construction.
         consumer = SCENE / "Rendering/Metal/SceneStaticModelMaterial.swift"
-        binary = compile_vector_harness(root,HARNESS,"model-material",extra_swift_sources=(consumer,))
+        textures = (SCENE / "Resources/Textures/SceneTextureSampling.swift",
+                    SCENE / "Resources/Textures/SceneTextureUVTransform.swift")
+        binary = compile_vector_harness(root,HARNESS,"model-material",extra_swift_sources=(consumer, *textures))
         result = subprocess.run([str(binary)],capture_output=True,text=True,check=True,timeout=15)
         cls.result = json.loads(result.stdout)
 
