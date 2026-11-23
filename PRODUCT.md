@@ -48,8 +48,9 @@ opened from the Help menu, in the system language.
 
 - The product's own materials: dark desktop light, metal, glass, deep space, and
   motion in the background. Nothing bright-white and clinical.
-- The help book should feel like the app's world without becoming a toy: the world
-  owns the frame and the wayfinding; the reading column stays calm and legible.
+- The help book follows the system appearance rather than inventing its own world:
+  macOS semantic surfaces, the system accent, native type, and light/dark variants
+  that switch with the OS. It reads as documentation first.
 - No invented features, prices, benchmarks, or customer names.
 
 ## Assumptions
