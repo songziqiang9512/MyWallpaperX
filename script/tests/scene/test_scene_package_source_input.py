@@ -123,7 +123,10 @@ class ScenePackageSourceInputTests(unittest.TestCase):
         cls.executables = {}
         cls.build('producer', list(LIBRARY_SOURCES), PRODUCER)
         sources = list(dict.fromkeys([*parts.builder.SWIFT_SOURCES, *parts.reader.SWIFT_SOURCES,
-                                     SCENE / 'Runtime/Session/SceneDesktopWallpaperLaunchModels.swift']))
+                                     SCENE / 'Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
+                                     SCENE / 'Systems/Particles/SceneParticleSimulationDiagnostic.swift',
+                                     SCENE / 'Systems/Particles/SceneParticleBoids.swift',
+                                     SCENE / 'Systems/Particles/SceneParticleCapVelocity.swift']))
         text = support(parts.builder.HARNESS_SOURCE) + HARNESS.read_text()
         cls.metadata_sources, cls.metadata_harness = sources, text
         cls.build('current', sources, text, current=True)
