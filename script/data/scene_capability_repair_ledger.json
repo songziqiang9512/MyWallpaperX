@@ -60,7 +60,7 @@
    "regression_gates": [
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_resolved_material_program_finalizer.py#historicalFramebufferWithoutHidden"
+     "reference": "script/tests/scene/test_scene_resolved_material_program_finalizer.py#historicalFramebufferWithoutHidden"
     }
    ],
    "events": [
@@ -81,7 +81,7 @@
      "commit": "uncommitted-working-tree",
      "evidence_refs": [
       "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift#usesGraphInputMaterialAlias",
-      "script/tests/test_scene_resolved_material_graph_executor.py"
+      "script/tests/scene/test_scene_resolved_material_graph_executor.py"
      ],
      "notes": "Current sampler-alias implementation is located in the shared SamplerPurpose owner. This record has no qualified current-build positive GPU/output case paired with its negative regression boundary."
     }
@@ -107,7 +107,7 @@
    "regression_gates": [
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_resolved_material_program_finalizer.py#unknownEditorMaterialAlias"
+     "reference": "script/tests/scene/test_scene_resolved_material_program_finalizer.py#unknownEditorMaterialAlias"
     }
    ],
    "events": [
@@ -128,7 +128,7 @@
      "commit": "uncommitted-working-tree",
      "evidence_refs": [
       "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift#usesGraphInputMaterialAlias",
-      "script/tests/test_scene_resolved_material_graph_executor.py"
+      "script/tests/scene/test_scene_resolved_material_graph_executor.py"
      ],
      "notes": "Current sampler-alias implementation is located in the shared SamplerPurpose owner. This record has no qualified current-build positive GPU/output case paired with its negative regression boundary."
     }
@@ -161,7 +161,7 @@
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_shader_color_contract.py#straightRGBHiddenHelperMutation"
+     "reference": "script/tests/scene/test_scene_shader_color_contract.py#straightRGBHiddenHelperMutation"
     },
     {
      "kind": "targeted-runtime",
@@ -207,7 +207,7 @@
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_shader_color_contract.py#wholeColorFilterDynamicDivision"
+     "reference": "script/tests/scene/test_scene_shader_color_contract.py#wholeColorFilterDynamicDivision"
     },
     {
      "kind": "targeted-runtime",
@@ -262,11 +262,11 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
+     "reference": "script/tests/scene/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_shader_color_contract.py#test_scalar_auxiliaries_can_only_modulate_sampled_alpha"
+     "reference": "script/tests/scene/test_scene_shader_color_contract.py#test_scalar_auxiliaries_can_only_modulate_sampled_alpha"
     },
     {
      "kind": "targeted-runtime",
@@ -304,24 +304,24 @@
     "The shader proof covers only one sampled source RGB mixed with one fragment-uniform RGB by a finite bounded scalar while preserving that sample's alpha; second color sources, alpha rewrites, varying tint, custom or shadowed builtins, unbounded weights and ambiguous source identities remain rejected.",
     "The captured-main proof requires one exact layerSource identity across the complete launch envelope; competing graph candidates, authored defaults, non-regular samplers, wrong source modes, mixed variants and independent alpha signals remain rejected.",
     "This repair does not implement the head-click SceneScript toggle, other dynamic overlay effects, unrelated particle families, or Wallpaper Engine pixel and timing equivalence.",
-    "Retired a dangling synthetic-negative gate script/tests/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope: 87d254c8 retired the dedicated effect runtime and removed that test with it; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
+    "Retired a dangling synthetic-negative gate script/tests/scene/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope: 87d254c8 retired the dedicated effect runtime and removed that test with it; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
    ],
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_authored_shader_frontend.py#test_uniform_rgb_scan_band_compiles_with_one_straight_boundary"
+     "reference": "script/tests/scene/test_scene_authored_shader_frontend.py#test_uniform_rgb_scan_band_compiles_with_one_straight_boundary"
     },
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
+     "reference": "script/tests/scene/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
     },
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_capture_geometry.py#test_project_uses_wallpaper_aligned_projected_geometry"
+     "reference": "script/tests/scene/test_scene_capture_geometry.py#test_project_uses_wallpaper_aligned_projected_geometry"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_shader_color_contract.py#test_scanline_uniform_rgb_mix_rejects_unproven_shapes"
+     "reference": "script/tests/scene/test_scene_shader_color_contract.py#test_scanline_uniform_rgb_mix_rejects_unproven_shapes"
     },
     {
      "kind": "targeted-runtime",
@@ -364,11 +364,11 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
     },
     {
      "kind": "targeted-runtime",
@@ -409,11 +409,11 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
     },
     {
      "kind": "targeted-runtime",
@@ -455,11 +455,11 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+     "reference": "script/tests/scene/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
     },
     {
      "kind": "targeted-runtime",
@@ -501,16 +501,16 @@
     "The Steam preview comparison is advisory and not fixed-phase official pixel or timing equivalence.",
     "The -Onone observation-enabled diagnostic run is not product-performance evidence. A separate optimized no-observation steady-state probe held 30 FPS on the current M4 single-display environment, while the 60 FPS profile remained GPU-limited at about 48.99 FPS; low-end devices, multi-display, long-stability, Release equivalence and the AS3 60 FPS closure remain unverified.",
     "The current uncommitted candidate has not been rerun across all 159 samples. The old full-set baseline plus targeted closure of its two failures cannot be reported as a fresh 159/159 candidate run.",
-    "Retired a dangling synthetic-negative gate script/tests/test_scene_resolved_material_runtime_bridge.py#test_resolved_material_runtime_bridge_compiles_and_executes: that test name never existed as a test definition in any commit (the string only ever appeared as ledger text), and the file's actual tests are positive or unrelated; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
+    "Retired a dangling synthetic-negative gate script/tests/scene/test_scene_resolved_material_runtime_bridge.py#test_resolved_material_runtime_bridge_compiles_and_executes: that test name never existed as a test definition in any commit (the string only ever appeared as ledger text), and the file's actual tests are positive or unrelated; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
    ],
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_dependency_graph_output_runtime.py#test_graph_output_copies_into_distinct_reservation_and_publishes_once"
+     "reference": "script/tests/scene/test_scene_dependency_graph_output_runtime.py#test_graph_output_copies_into_distinct_reservation_and_publishes_once"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_dependency_render_plan.py#test_puppet_atlas_cannot_publish_as_flat_image_provider"
+     "reference": "script/tests/scene/test_scene_dependency_render_plan.py#test_puppet_atlas_cannot_publish_as_flat_image_provider"
     },
     {
      "kind": "targeted-runtime",
@@ -575,11 +575,11 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_offscreen_texture_resident_budget.py#test_measured_requirement_crosses_only_the_device_share"
+     "reference": "script/tests/scene/test_scene_offscreen_texture_resident_budget.py#test_measured_requirement_crosses_only_the_device_share"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_graph_render_target_table.py#test_refuses_the_whole_allocation_before_exceeding_budget"
+     "reference": "script/tests/scene/test_scene_graph_render_target_table.py#test_refuses_the_whole_allocation_before_exceeding_budget"
     },
     {
      "kind": "targeted-runtime",
@@ -633,27 +633,27 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key"
+     "reference": "script/tests/scene/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key"
     },
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_host_accepts_scripted_and_property_bound_wrappers"
+     "reference": "script/tests/scene/test_scene_dynamic_text_binding.py#test_text_host_accepts_scripted_and_property_bound_wrappers"
     },
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works"
+     "reference": "script/tests/scene/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works"
     },
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_property_vector_script.py#test_text_wrapper_admission_follows_the_shared_host_contract"
+     "reference": "script/tests/scene/test_scene_property_vector_script.py#test_text_wrapper_admission_follows_the_shared_host_contract"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key (the same four-key wrapper with a String user stays rejected for objectVector and objectScalar)"
+     "reference": "script/tests/scene/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key (the same four-key wrapper with a String user stays rejected for objectVector and objectScalar)"
     },
     {
      "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works (a text scriptproperties binding without a script source stays unsupported)"
+     "reference": "script/tests/scene/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works (a text scriptproperties binding without a script source stays unsupported)"
     },
     {
      "kind": "targeted-runtime",

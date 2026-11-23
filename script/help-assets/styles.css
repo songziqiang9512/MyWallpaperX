@@ -96,4 +96,3 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 @media print {
   :root { color-scheme:light; --paper:#fff; --ink:#000; --muted:#333; --glass:#fff; --line:#ccc; }body::before { display:none; }.layout { display:block; }.sidebar,.topbar,.search-status,.skip,.quick-links { display:none; }main { padding:0; }.guide-section { border:0; box-shadow:none; break-inside:avoid; }.art { print-color-adjust:exact; }
 }
-

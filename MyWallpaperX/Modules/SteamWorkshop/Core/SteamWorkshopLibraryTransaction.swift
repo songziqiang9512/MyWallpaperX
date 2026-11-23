@@ -48,8 +48,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         "scene": "Scene",
     ]
     typealias FD = SteamWorkshopStorageTree.FD
-    static func require(_ condition: Bool, _ message: String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
-        guard condition else { throw Failure(message: message) }
+    static func require(_ condition: Bool, _ message: @autoclosure () -> String = String(localized: "Validation of the downloaded content or file path failed.")) throws {
+        guard condition else { throw Failure(message: message()) }
     }
     private static func parts(_ path: String) throws -> [String] {
         try SteamWorkshopStorageTree.parts(path)

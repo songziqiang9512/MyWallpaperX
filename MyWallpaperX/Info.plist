@@ -7,7 +7,7 @@
 	<key>CFBundleHelpBookFolder</key>
 	<string>MyWallpaperXHelp</string>
 	<key>CFBundleHelpBookName</key>
-	<string>MyWallpaperX Help</string>
+	<string>com.mywallpaper.MyWallpaperX.help</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>

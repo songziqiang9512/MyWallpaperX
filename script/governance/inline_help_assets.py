@@ -6,8 +6,8 @@ style and script inline. This keeps one editable source in script/help-assets/
 and stamps it into all five pages, so a palette or behaviour change never has
 to be repeated by hand.
 
-    python3 script/build/inline_help_assets.py           # write
-    python3 script/build/inline_help_assets.py --check   # report drift only
+    python3 script/governance/inline_help_assets.py           # write
+    python3 script/governance/inline_help_assets.py --check   # report drift only
 """
 from __future__ import annotations
 

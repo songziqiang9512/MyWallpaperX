@@ -21,12 +21,14 @@ def inspect() -> dict:
     readme = README.read_text() if README.is_file() else ""
     entries: list[str] = []
     libraries: list[str] = []
-    for path in sorted(SCRIPT.glob("*.py")):
+    for path in sorted(SCRIPT.rglob("*.py")):
+        if "__pycache__" in path.parts or path.is_relative_to(SCRIPT / "tests"):
+            continue
         text = path.read_text(errors="ignore")
         (entries if "__main__" in text else libraries).append(path.name)
     oversized = [
         {"path": str(path.relative_to(ROOT)), "lines": lines}
-        for path in sorted((SCRIPT / "tests").glob("test_*.py"))
+        for path in sorted((SCRIPT / "tests").rglob("test_*.py"))
         if (lines := read_lines(path)) > LINE_LIMIT
     ]
     oversized.sort(key=lambda item: item["lines"], reverse=True)

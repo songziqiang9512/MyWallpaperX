@@ -77,9 +77,8 @@ def discover_modules(
     scope: str = "all",
     keywords: Sequence[str] = (),
     requested_modules: Sequence[str] = (),
-    module_map: dict[str, str] | None = None,
 ) -> list[str]:
-    """Select fully qualified unittest modules without reading global state."""
+    """Select test basenames without reading global state."""
     if scope not in {"all", "scene", "release"}:
         raise ValueError(f"unsupported test scope: {scope}")
 
@@ -115,8 +114,7 @@ def discover_modules(
         selected.update(keyword_matches)
     elif keywords:
         selected.update(keyword_matches)
-    mapping = module_map or {}
-    return [mapping.get(name, f"script.tests.{name}") for name in sorted(selected)]
+    return sorted(selected)
 
 
 def positive_job_count(value: str) -> int:
@@ -199,24 +197,26 @@ def run_module(module: str) -> tuple[str, int, float, str]:
     return module, completed.returncode, elapsed, output
 
 
+def test_module_paths(root: Path) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for path in (root / "script/tests").rglob("test_*.py"):
+        if path.stem in paths:
+            raise ValueError(f"duplicate test module basename: {path.stem}")
+        paths[path.stem] = path.relative_to(root)
+    return paths
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_arguments(argv)
-    module_map: dict[str, str] = {}
-    for path in TESTS_DIRECTORY.rglob("test_*.py"):
-        basename = path.stem
-        if basename in module_map:
-            raise SystemExit(f"duplicate test module basename: {basename}")
-        relative = path.relative_to(REPOSITORY_ROOT).with_suffix("")
-        module_map[basename] = ".".join(relative.parts)
-    available_modules = sorted(module_map)
     try:
-        modules = discover_modules(
-            available_modules,
+        paths = test_module_paths(REPOSITORY_ROOT)
+        selected = discover_modules(
+            paths,
             scope=args.scope,
             keywords=args.keyword,
             requested_modules=args.module,
-            module_map=module_map,
         )
+        modules = [".".join(paths[name].with_suffix("").parts) for name in selected]
     except ValueError as error:
         print(f"测试选择失败: {error}", file=sys.stderr)
         return 2

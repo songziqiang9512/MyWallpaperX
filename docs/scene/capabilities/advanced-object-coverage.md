@@ -461,7 +461,7 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 
 MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消费的 scalar/shape 仍由 Selection/Evaluator 拒绝；某个恒定数值不能证明它是深度或绘制顺序。bounds 前的 timed morph 曲线与 MDMP 几何尚无 prepared/evaluator 消费者，不能丢弃曲线后把静态 TRS 视为完整动画。更广 dense/reference composition、多 opaque alpha、Direct attachment/多 part 动画、fractional source clipping、未知 MDL profiles、全部光照/物理/阴影组合仍有边界。
 
-最近行为入口：[bind 几何](../../../script/tests/test_scene_direct_model_bind_geometry.py)、[动画消费者](../../../script/tests/test_scene_direct_model_animation_live_consumers.py)、[裁剪 GPU](../../../script/tests/test_scene_puppet_clipping_render.py)、[普通 effect 受光](../../../script/tests/test_scene_ordinary_effect_lighting.py)。未闭项的下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。
+最近行为入口：[bind 几何](../../../script/tests/scene/test_scene_direct_model_bind_geometry.py)、[动画消费者](../../../script/tests/scene/test_scene_direct_model_animation_live_consumers.py)、[裁剪 GPU](../../../script/tests/scene/test_scene_puppet_clipping_render.py)、[普通 effect 受光](../../../script/tests/scene/test_scene_ordinary_effect_lighting.py)。未闭项的下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
 <a id="spot-light-frame"></a>
 ## 可见 SpotLight 的准备与帧消费

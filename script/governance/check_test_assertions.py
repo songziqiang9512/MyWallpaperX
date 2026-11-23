@@ -21,6 +21,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = ROOT / "script/data/test_assertion_baseline.json"
 BASELINE_RELATIVE = "script/data/test_assertion_baseline.json"
+LEGACY_BASELINE = "script/test_assertion_baseline.json"
 DETECTOR = {
     "id": "python-unittest-swift-declaration-literal-v1",
     "methods": ["assertIn", "assertNotIn"],
@@ -152,17 +153,30 @@ def baseline_at_ref(root: Path, base_ref: str) -> Counter[Identity] | None:
         ["git", "rev-parse", "--verify", "--end-of-options", f"{base_ref}^{{commit}}"],
         cwd=root, capture_output=True, text=True, check=True,
     ).stdout.strip()
-    listing = subprocess.run(
-        ["git", "ls-tree", "-z", resolved, "--", BASELINE_RELATIVE],
-        cwd=root, capture_output=True, check=True,
-    )
-    if not listing.stdout:
+    listing = subprocess.check_output(
+        ["git", "ls-tree", "--name-only", resolved, "--", BASELINE_RELATIVE, LEGACY_BASELINE],
+        cwd=root, text=True,
+    ).splitlines()
+    if not listing:
         return None
-    previous = subprocess.run(
-        ["git", "show", f"{resolved}:{BASELINE_RELATIVE}"],
-        cwd=root, capture_output=True, text=True, check=True,
-    )
-    return parse_baseline(previous.stdout)
+    path = BASELINE_RELATIVE if BASELINE_RELATIVE in listing else LEGACY_BASELINE
+    return parse_baseline(subprocess.check_output(
+        ["git", "show", f"{resolved}:{path}"], cwd=root, text=True,
+    ))
+
+
+def align_previous_paths(previous: Counter[Identity], baseline: Counter[Identity]) -> Counter[Identity]:
+    # The runner requires unique module basenames across collections.
+    paths = {name for name, *_ in baseline}
+    by_module = {PurePosixPath(path).name: path for path in paths}
+    if len(by_module) != len(paths):
+        raise ValueError("duplicate test module basename in assertion baseline")
+    aligned: Counter[Identity] = Counter()
+    for (path, *identity), count in previous.items():
+        if PurePosixPath(path).parent.as_posix() == "script/tests":
+            path = by_module.get(PurePosixPath(path).name, path)
+        aligned[(path, *identity)] += count
+    return aligned
 
 
 def compare(current: Counter[Identity], baseline: Counter[Identity]) -> tuple[list[str], list[str]]:
@@ -195,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"BOOTSTRAP: {args.base_ref} has no {BASELINE_RELATIVE}; "
                   "this first baseline requires review of its detector and inventory.")
         else:
-            baseline_growth, _ = compare(baseline, previous)
+            baseline_growth, _ = compare(baseline, align_previous_paths(previous, baseline))
             if baseline_growth:
                 for finding in baseline_growth:
                     print(f"ERROR baseline expansion against {args.base_ref}: {finding}", file=sys.stderr)

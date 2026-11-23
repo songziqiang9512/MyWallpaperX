@@ -80,6 +80,8 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
 @main struct SteamServiceClientLifecycleHarness {
     @MainActor static func main() async throws {
         try helperLocationLifecycle()
+        let missingItem: Error = SteamServiceClient.RequestError.itemUnavailable
+        precondition(missingItem.localizedDescription == "This artwork doesn’t exist or your account doesn’t have access to it.")
         let first = FakeSteamTransport()
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in first })
         let response = try await client.request(command: "queryBrowse")
@@ -762,7 +764,7 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         )
         precondition(
             SteamServiceClient.RequestError.notReady.localizedDescription
-                == "Steam 服务组件不可用，请重新安装或更新 App 后重试。"
+                == "The Steam service component is unavailable. Reinstall or update the app and try again."
         )
 
         let transport = FakeSteamTransport()

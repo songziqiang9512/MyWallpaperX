@@ -104,7 +104,7 @@ Program仍准备一个数值binding，主身份供原ABI/语义身份、直user�
 
 窄化必须包住已完成的实参：`dot(normalize(vec4(...)), vec3(...))` 先完成四维 normalize，再取前三分量，不能把截断推进子调用。转换不重复求值，不改写 helper 的 out/inout 实参。typed 整数/布尔向量及矩阵不借本浮点规则强转；整数字面量需要浮点签名时显式构造，保留八进制等原值。原四次广播分析、简单 mix 端点和复合 mix 的分散职责由一次分析/转换计划取代；其他 owner 所需的表达式类型查询保留；raw frontend复用同一计划中可完整编码的窄化，保原直接编译能力，不重新lex或创建另一套规则。不增加完整编译器、运行状态或帧内工作。
 
-方言依据为 [Wallpaper Engine 的 HLSL/GLSL 映射](https://docs.wallpaperengine.io/en/scene/shader/mobile.html)及 [Microsoft intrinsic 声明](https://github.com/microsoft/DirectXShaderCompiler/blob/ea3489109cc8a968b36e36ca20a698a68b516d32/utils/hct/gen_intrin_main.txt)；普通 arithmetic 的 [HLSL 转换规则](https://microsoft.github.io/hlsl-specs/specs/5-Expr.html)不能单独代替 intrinsic 资格。验收覆盖不同宽度、scalar、嵌套构造、完整复合求值、改名/alias/helper、用户 overload 和局部失败，经真实双 backend Metal 数值、作者内容与独立邻例验证。官方固定客户端的最终像素一致性另需对照，编译资格不作 parity 声明。 行为门见[双backend数值](../../../script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py)、[作用域与复合参数](../../../script/tests/test_scene_smoothstep_vector_broadcast.py)和[uniform逐draw更新](../../../script/tests/test_scene_uniform_invariant_shader_constants.py)。
+方言依据为 [Wallpaper Engine 的 HLSL/GLSL 映射](https://docs.wallpaperengine.io/en/scene/shader/mobile.html)及 [Microsoft intrinsic 声明](https://github.com/microsoft/DirectXShaderCompiler/blob/ea3489109cc8a968b36e36ca20a698a68b516d32/utils/hct/gen_intrin_main.txt)；普通 arithmetic 的 [HLSL 转换规则](https://microsoft.github.io/hlsl-specs/specs/5-Expr.html)不能单独代替 intrinsic 资格。验收覆盖不同宽度、scalar、嵌套构造、完整复合求值、改名/alias/helper、用户 overload 和局部失败，经真实双 backend Metal 数值、作者内容与独立邻例验证。官方固定客户端的最终像素一致性另需对照，编译资格不作 parity 声明。 行为门见[双backend数值](../../../script/tests/scene/test_scene_shader_scalar_vector_builtin_canonicalization.py)、[作用域与复合参数](../../../script/tests/scene/test_scene_smoothstep_vector_broadcast.py)和[uniform逐draw更新](../../../script/tests/scene/test_scene_uniform_invariant_shader_constants.py)。
 
 <a id="execution"></a>
 ## Prepared 到每帧
@@ -222,7 +222,7 @@ source 的角色由模型、材质及实际编译输入决定。已声明 passth
 
 Utility graph provider 在原 utility 触发点取 source、执行与发布，不再由普通 provider prepass 重复执行。原 compositor 的发布回调消费同一 graph ticket；当前可见输出继续主合成，隐藏输出只完成 named publication。发布统计的 named/visible 类别不改变取源时机。普通供货缺失沿既有局部 discard，错误 identity 仍拒绝；不以 alpha=0 代替隐藏，也不另存可见状态或恢复命令。
 
-回归沿[依赖计划](../../../script/tests/test_scene_dependency_render_plan.py)、[真实 Metal 执行](../../../script/tests/test_scene_resolved_material_graph_executor.py)、[提交生命周期](../../../script/tests/test_scene_resolved_material_runtime_bridge.py)和[签名 App 输入贡献](../../../script/tests/test_scene_mixed_provider_abi_integration.py)分别核对准备、供货、执行与像素。绑定或非黑不足以证明每个输入贡献；实际覆盖与未取得的资格归[运行证据](runtime-evidence-current.md#coverage)。
+回归沿[依赖计划](../../../script/tests/scene/test_scene_dependency_render_plan.py)、[真实 Metal 执行](../../../script/tests/scene/test_scene_resolved_material_graph_executor.py)、[提交生命周期](../../../script/tests/scene/test_scene_resolved_material_runtime_bridge.py)和[签名 App 输入贡献](../../../script/tests/scene/test_scene_mixed_provider_abi_integration.py)分别核对准备、供货、执行与像素。绑定或非黑不足以证明每个输入贡献；实际覆盖与未取得的资格归[运行证据](runtime-evidence-current.md#coverage)。
 
 <a id="named-parent-base"></a>
 ### 普通父层的自身 named 输出
@@ -297,7 +297,7 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 source identity、采样用途、颜色表示及物理格式是不同事实。颜色与数据、二维与volume不能因存储相似而互换。
 
 <a id="scalar-data-read"></a>
-已证明只读红通道作phase权重的shader接纳非volume二维data。ShaderSchema在准备期区分读取角色与资产用途，保选中noise、normal等原purpose；TextureSlotPurpose复用该关系验证candidate链后直接生成事实，退出无source proof的继承检查。其他source proof保持原合同，颜色/volume冲突局部拒绝；后续Program、selection与binding仍消费精确purpose、publication和二维data表示，普通帧不重新证明。回归见[标量数据GPU](../../../script/tests/test_scene_scalar_mask_data_purpose.py)。
+已证明只读红通道作phase权重的shader接纳非volume二维data。ShaderSchema在准备期区分读取角色与资产用途，保选中noise、normal等原purpose；TextureSlotPurpose复用该关系验证candidate链后直接生成事实，退出无source proof的继承检查。其他source proof保持原合同，颜色/volume冲突局部拒绝；后续Program、selection与binding仍消费精确purpose、publication和二维data表示，普通帧不重新证明。回归见[标量数据GPU](../../../script/tests/scene/test_scene_scalar_mask_data_purpose.py)。
 
 Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原通道。有限 HDR RGB 保留到作者运算与终端，不能提前裁到 0–1；零 alpha 和输出 coverage 沿现表示合同。作者显式饱和仍执行。
 
@@ -310,7 +310,7 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 <a id="hdr-bloom-extraction"></a>
 HDR Bloom 的亮度阈值作用于已完成 source 的物理像素，随后才做空间降采样；同一峰值不能因高光变窄或移动一个像素而先被均值降到阈值下。输入保持当前项目颜色域，不插入未经验证的 gamma 转换。首级半尺寸 pass 按每个目标像素覆盖的源像素面积，平均逐源像素的 soft-threshold 贡献；常规尺寸为2×2，奇数尺寸最多3×3，完整覆盖末行列。它替换旧的先 tent 均值再提取，不叠加补偿增益；后续金字塔、重建权重、作者 threshold/feather/strength/scatter/iterations、alpha 与唯一终端保持原职责。
 
-该修正留在现有 `SceneBloomPostProcess`/Metal 首级pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量owner。中间失败不写回source，零strength不编码，非HDR保原算法。原[真实Bloom门](../../../script/tests/test_scene_bloom_post_process.py)保宽块/细线、相位、奇数边界、软阈值、alpha及局部失败；13项旧均匀场原始采集质量仍unknown，仅作历史回归，不授整组Ultra身份或限制默认Ultra目标。新6组明确Ultra控制中，5个已有对应量化点与Native相同，另一个低亮关闭正控单列；不是给旧13补造身份。当前Ultra宽块off/on/off-repeat的近中远轮廓与Native接近，细线/单点受JPEG低码与串光限制，未给改变当前空间重建的明显反证。总响应仍不能唯一确定各层权重/核；替代空间重建提案已撤回且无产品实现，现有owner/算法不变，不继续靠泛光调参补偿水滴。后继沿模型反射、辐射与分辨率的真实消费者取得可区分证据；未授官方精确HDR浮点、空间核、全水滴或性能一致。
+该修正留在现有 `SceneBloomPostProcess`/Metal 首级pass，不新增全尺寸纹理、pass、PSO、uniform ABI、缓存或质量owner。中间失败不写回source，零strength不编码，非HDR保原算法。原[真实Bloom门](../../../script/tests/scene/test_scene_bloom_post_process.py)保宽块/细线、相位、奇数边界、软阈值、alpha及局部失败；13项旧均匀场原始采集质量仍unknown，仅作历史回归，不授整组Ultra身份或限制默认Ultra目标。新6组明确Ultra控制中，5个已有对应量化点与Native相同，另一个低亮关闭正控单列；不是给旧13补造身份。当前Ultra宽块off/on/off-repeat的近中远轮廓与Native接近，细线/单点受JPEG低码与串光限制，未给改变当前空间重建的明显反证。总响应仍不能唯一确定各层权重/核；替代空间重建提案已撤回且无产品实现，现有owner/算法不变，不继续靠泛光调参补偿水滴。后继沿模型反射、辐射与分辨率的真实消费者取得可区分证据；未授官方精确HDR浮点、空间核、全水滴或性能一致。
 
 <a id="history"></a>
 ## Target、copy 与 history
@@ -366,7 +366,7 @@ Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 
 
 任意 Shader 方言、所有数组/动态控制流、全部 sampler/provider/颜色组合、LUT 材质 consumer 与完整 HDR/官方像素等价未覆盖。具体未闭项归[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
-最近行为入口：[PassEncoder/GPU](../../../script/tests/test_scene_resolved_material_pass_encoder.py)、[copy/history](../../../script/tests/test_scene_material_copy_history_rendering.py)、[准备取消](../../../script/tests/test_scene_source_preparation_cancellation.py)。这些门分别验证其真实输入，不能相互代验全部语言或画面。
+最近行为入口：[PassEncoder/GPU](../../../script/tests/scene/test_scene_resolved_material_pass_encoder.py)、[copy/history](../../../script/tests/scene/test_scene_material_copy_history_rendering.py)、[准备取消](../../../script/tests/scene/test_scene_source_preparation_cancellation.py)。这些门分别验证其真实输入，不能相互代验全部语言或画面。
 
 <a id="material-affine-frame-evidence"></a>
 ### 完整仿射源帧的运行范围

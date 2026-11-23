@@ -139,10 +139,12 @@ class HarnessSetReportingTests(unittest.TestCase):
     def test_skipped_sets_report_their_reason(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "test_fixture.py").write_text(
+            tests = root / "script/tests/scene"
+            tests.mkdir(parents=True)
+            (tests / "test_missing_qualification_dependency.py").write_text(
                 "import missing_dependency_xyz\nSWIFT_SOURCES = []\n", encoding="utf-8"
             )
-            with patch.object(TOOL, "TESTS_ROOT", root):
+            with patch.multiple(TOOL, REPOSITORY_ROOT=root, TESTS_ROOT=tests):
                 sets, skipped = TOOL.harness_sets(("Compilation/Anything",))
 
         self.assertEqual([], sets)
@@ -152,14 +154,16 @@ class HarnessSetReportingTests(unittest.TestCase):
     def test_empty_sets_are_skipped_with_a_reason(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "test_fixture.py").write_text(
+            tests = root / "script/tests/scene"
+            tests.mkdir(parents=True)
+            (tests / "test_empty_qualification_sources.py").write_text(
                 "SWIFT_SOURCES = []  # Compilation/ShaderPreparation family\n", encoding="utf-8"
             )
-            with patch.object(TOOL, "TESTS_ROOT", root):
+            with patch.multiple(TOOL, REPOSITORY_ROOT=root, TESTS_ROOT=tests):
                 sets, skipped = TOOL.harness_sets(("Compilation/ShaderPreparation",))
 
         self.assertEqual([], sets)
-        self.assertEqual([("test_fixture", "empty SWIFT_SOURCES")], skipped)
+        self.assertEqual([("test_empty_qualification_sources", "empty SWIFT_SOURCES")], skipped)
 
 
 class ReportQualificationTests(unittest.TestCase):

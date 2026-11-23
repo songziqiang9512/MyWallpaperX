@@ -196,7 +196,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not 1 <= args.timeout <= 600:
         parser.error('--timeout must be between 1 and 600 seconds')
-    path = os.environ.get('STEAM_HELPER', str(Path(__file__).resolve().parents[1] / 'SteamService/bin/publish/SteamService'))
+    path = os.environ.get('STEAM_HELPER', str(Path(__file__).resolve().parents[2] / 'SteamService/bin/publish/SteamService'))
     if not Path(path).is_file() or not os.access(path, os.X_OK):
         parser.error('helper missing; build it or set STEAM_HELPER')
     def alarm(_signal, _frame):

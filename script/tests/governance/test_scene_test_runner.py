@@ -109,8 +109,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
     def test_release_scope_is_bounded_and_requires_every_declared_module(self) -> None:
         available = sorted(runner.RELEASE_MODULES | {"test_scene_unrelated_effect"})
         selected = runner.discover_modules(available, scope="release")
-        self.assertEqual(set(selected), {f"script.tests.{name}" for name in runner.RELEASE_MODULES})
-        self.assertNotIn("script.tests.test_scene_unrelated_effect", selected)
+        self.assertEqual(set(selected), runner.RELEASE_MODULES)
+        self.assertNotIn("test_scene_unrelated_effect", selected)
         with self.assertRaisesRegex(ValueError, "missing release test"):
             runner.discover_modules(available[1:], scope="release")
 
@@ -157,10 +157,10 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         self.assertEqual(
             runner.discover_modules(AVAILABLE_MODULES),
             [
-                "script.tests.scene.test_scene_audio_spectrum_input",
-                "script.tests.scene.test_scene_particle_runtime",
-                "script.tests.ui.test_system_audio_spectrum",
-                "script.tests.web.test_web_runtime_switch_benchmark",
+                "test_scene_audio_spectrum_input",
+                "test_scene_particle_runtime",
+                "test_system_audio_spectrum",
+                "test_web_runtime_switch_benchmark",
             ],
         )
 
@@ -168,8 +168,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         self.assertEqual(
             runner.discover_modules(AVAILABLE_MODULES, scope="scene"),
             [
-                "script.tests.scene.test_scene_audio_spectrum_input",
-                "script.tests.scene.test_scene_particle_runtime",
+                "test_scene_audio_spectrum_input",
+                "test_scene_particle_runtime",
             ],
         )
 
@@ -180,8 +180,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 keywords=["particle", "web_runtime"],
             ),
             [
-                "script.tests.scene.test_scene_particle_runtime",
-                "script.tests.web.test_web_runtime_switch_benchmark",
+                "test_scene_particle_runtime",
+                "test_web_runtime_switch_benchmark",
             ],
         )
 
@@ -197,8 +197,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 ],
             ),
             [
-                "script.tests.scene.test_scene_particle_runtime",
-                "script.tests.ui.test_system_audio_spectrum",
+                "test_scene_particle_runtime",
+                "test_system_audio_spectrum",
             ],
         )
 
@@ -213,8 +213,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 ],
             ),
             [
-                "script.tests.scene.test_scene_audio_spectrum_input",
-                "script.tests.ui.test_system_audio_spectrum",
+                "test_scene_audio_spectrum_input",
+                "test_system_audio_spectrum",
             ],
         )
 
@@ -292,9 +292,8 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
         for arguments, message in cases:
             with self.subTest(arguments=arguments):
                 error = io.StringIO()
-                directory = mock.Mock()
-                directory.rglob.return_value = [runner.REPOSITORY_ROOT / "script/tests/test_scene_known_fixture.py"]
-                with mock.patch.object(runner, "TESTS_DIRECTORY", directory), \
+                paths = {"test_scene_known_fixture": Path("script/tests/scene/test_scene_known_fixture.py")}
+                with mock.patch.object(runner, "test_module_paths", return_value=paths), \
                      mock.patch.object(runner, "run_module") as run, \
                      contextlib.redirect_stderr(error):
                     self.assertEqual(runner.main(arguments), 2)
@@ -302,12 +301,13 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 self.assertIn(message, error.getvalue())
 
     def test_fail_fast_reports_failure_and_cancels_unstarted_work(self) -> None:
-        modules = [f"script.tests.test_case_{index}" for index in range(30)]
+        paths = {f"test_case_{index:02d}": Path(f"script/tests/scene/test_case_{index:02d}.py") for index in range(30)}
+        modules = [".".join(path.with_suffix("").parts) for path in paths.values()]
         def execute(module):
             time.sleep(0.01)
             return module, 1 if module == modules[0] else 0, 0.01, "actionable failure"
         output = io.StringIO()
-        with mock.patch.object(runner, "discover_modules", return_value=modules), \
+        with mock.patch.object(runner, "test_module_paths", return_value=paths), \
              mock.patch.object(runner, "run_module", side_effect=execute) as run, \
              contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             self.assertEqual(runner.main(["--fail-fast", "--jobs", "1"]), 1)

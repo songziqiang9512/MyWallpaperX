@@ -99,7 +99,7 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7047c0f8cd61c15cd33765bee7bc6b0cf0e08324196d5f4404b8df7406caee74",
+        "sourceSHA256": "09022ee25167f21daa4f2e656b75b204528b0c0ea756a5d8a72772f5c684c79d",
         "method": "document_registry --audit + document_health --check",
         "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
         "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
@@ -133,7 +133,7 @@
       "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "39e1b0efd72d060d4c8dc069c4407d583ac8af637f71e2fa7e285b886121aafc",
+        "sourceSHA256": "e45567d061333245dd7c2899b070e8d956113829c7e4bed67f3e03fa615eb2eb",
         "method": "document_registry --audit + document_health --check",
         "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
         "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
@@ -147,7 +147,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3fce92131bdc6d88ef51c12ce7ea9af3268548c0f1b51a1f9f774913c812c168",
+        "sourceSHA256": "b1b108107882e47547c453d4db29bd27163fba80a9f1778aa56973c771dd6b0d",
         "method": "document_registry --audit + document_health --check",
         "scope": "Current unused non-Scene entry cleanup, preserved live playback/acquisition consumers, current JobStore v5/ready v3 ownership, and the retired-file link now pointing at the current Steam acquisition boundary.",
         "limitations": "Source/caller and document audit. Frozen build and bounded behavior results are separate; no real account, user-library, FPS or unresolved native-card success claim."
@@ -215,7 +215,7 @@
       "lastReviewed": "2026-11-13",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eaa6968d04339eff3c21dfaad569718a9c19f34081d42392f68bd16f752995d0",
+        "sourceSHA256": "c8b0898fd0851fcab98e5c1c2c821fa9459bc2f59d564c78cd64bcb704376080",
         "method": "document_registry --audit + document_health --check",
         "scope": "P0 参考源码、当前功能入口、视觉规范与分阶段退役/验收设计；用户确认前无产品 UI 实施。",
         "limitations": "设计与导航审查，不证明 AppKit 画布、性能、真实在线账号、下载、播放或系统宿主已验收。"
@@ -235,7 +235,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7501f76e7f1b1acbed6ca52a3d07485bba80e3a92c02e4cfc77b49ee9b918937",
+        "sourceSHA256": "eb396d4b955cb3a47ae456da9ba67b9927ace331951de1b73f8115bf5bb09302",
         "method": "document_registry --audit + document_health --check",
         "scope": "英文源语言与回退、String Catalog 资源格式、入口与 key 规则、禁译边界、失败消息分层、字符长度布局（含更长语言样张）、区域格式、术语、新增语言流程、校验门与源码文案变更同步检查；2026-11-23 实施后补记编译期提取实测结论与资源规模。",
         "limitations": "文档与索引核对；构建已验证，但界面截图、中文逐屏回归、帮助书与场景属性名译文、译文人工审校未完成。"
@@ -295,7 +295,7 @@
       "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "85b4f43c69eaf9e5aec04fe00fb3443944994d79d60cdf681c99291debc0b491",
+        "sourceSHA256": "484f7204faba2808514ec3b5bc03c7a695213c55ea3a5b52014c30a66ce8e105",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

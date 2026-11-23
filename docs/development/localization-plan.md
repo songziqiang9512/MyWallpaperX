@@ -21,7 +21,7 @@
 | 项 | 现状 |
 |---|---|
 | 支持语言 | `en`（源）、`zh-Hans`、`ru`、`de`、`fr`；`knownRegions`、`CFBundleLocalizations`、`CFBundleDevelopmentRegion` 已同步 |
-| 资源 | `MyWallpaperX/Resources/Localizable.xcstrings` 1460 条 key × 5 语言；`InfoPlist.xcstrings` 2 条；屏保扩展独立 `ScreenSaverSources/Resources/Localizable.xcstrings` 2 条 |
+| 资源 | `MyWallpaperX/Resources/Localizable.xcstrings` 1460 条 key × 5 语言；`InfoPlist.xcstrings` 1 条；屏保扩展独立 `ScreenSaverSources/Resources/Localizable.xcstrings` 2 条 |
 | 界面文案 | 1993 处中文字面量改为 `String(localized:)` 英文源文案；中文、俄文、德文、法文译文写入 catalog |
 | 结构解耦 | 账号不一致改为 `accountMismatch` 错误码；登录提示改为 `browsingNeedsSignIn` 状态；`未知作者`/`未知大小` 哨兵改为空值判断；Pixabay 元数据改为可选字段；`创意工坊` 与用户媒体目录保持路径字面量 |
 | 检查模块 | `script/governance/check_localization.py`：catalog 完整性/占位符/复数、`--extraction` 对比编译期 `.stringsdata`、`--hardcoded` 检测、`--compile` 校验 catalog 可编译 |
@@ -30,7 +30,6 @@
 | 帮助书 | 保留原有内容与结构，配色改为 macOS 原生语义色（跟随浅色/深色）。内容按当前代码补齐：工具栏章节按页面重写，新增「系统与屏保」章节，补齐 Wallhaven/Pixiv，修正过时命名。Steam 登录与下载按 SteamKit 重写：双入口（二维码/密码）、手机确认设备名 `MyWallpaperX SteamService`、去掉不存在的 `InvalidPassword`、超时归入 `network`、补充免登录可浏览范围；下载补充 CDN 客户端、manifest 上限 8 GiB/20 万文件、3 次重试与 403 重新鉴权。样式与脚本以 `script/help-assets/` 为单一源，由 `script/governance/inline_help_assets.py` 注入五份页面，`check_help_bundle.py` 校验一致 |
 | 中文回归 | catalog 的 1460 条 `zh-Hans` 全部可追溯到迁移前源码原文；3 条因扫描器无法解析嵌套插值/转义引号而人工核对一致，未发现改写导致的文案变化 |
 | 布局静态审查 | 58 处固定宽度约束逐条判定：邻近文案控件的 28 处均为图标、缩略图、数值标签或输入框，没有"固定宽度装文案"的违规。译文相对英文长度实测：中文 0.35×、俄语 1.12×、德语 1.27×、法语 1.30×，单条最大 2.70×（德语 `Connecting`）；布局按德语/法语核对，最大膨胀集中在自适应菜单项。已把三处承载长文案的单行标签改为可换行（Steam 扫码提示两处、Pixabay 空状态）；设置行副标题改为最多三行换行、宽度上限 430pt，标题与副标题都带 tooltip 兜底。另用 AppKit 离屏渲染了五语言面板样张（同一批真实文案在 760pt 宽度下的排版），英文/德文/俄文/法文均无截断、长说明正确换行 |
-| 帮助书 | 按“桌面即世界”重做：深空粒子场、章节色随阅读切换、左侧章节导航与安静阅读列；自托管 Bodoni Moda / Spectral / JetBrains Mono 子集共 72KB；十节内容按代码事实重写（三引擎、四类来源、资料库、能耗与暂停规则、显示器与系统、参考资料），五语言各 10 节且结构一致、`aria-current` 正确；Apple Help 语言声明补齐五种并设英文为源。页面在 WebKit 的 `file://` 下会被拒绝加载父目录资源，因此样式与脚本内联进每份页面、字体留在各自语言目录，另加 `script/governance/check_help_bundle.py` 校验五份样式一致；设计检测器只剩斜体标题与破折号两类刻意选择 |
 | 复数 | 21 条含单一数量占位符的高频文案已加复数变体：英文/德文/法文 `one`+`other`、俄文 `one`/`few`/`many`/`other`、中文只 `other`；编译产物为 5 份 `Localizable.stringsdict`（每条含 `NSStringPluralRuleType`） |
 | 复数限制 | 约 8 条含多个数字占位符的文案（如 `Showing %lld of %lld wallpapers`）无法交给 String Catalog 的复数机制——`xcstringstool` 明确警告无法推断复数作用于哪个参数。它们保留单一形式，数量为 1 时英文会出现 "1 wallpapers" 这类语法瑕疵；要修必须改写源码文案（把第二参数拆出），属于后续批次 |
 | 术语一致性 | 统计关键概念译法：德文壁纸统一 `Wallpaper`（164 次，无 `Hintergrundbild`）、法文 `fond d’écran`（117 次）、俄文 `обои/обоев` 词形变化一致；playlist、Workshop、Settings 各语言均统一。修正了两处不一致：法语 `parcourir le Workshop` → `l’Atelier`，英文源 `Preferences changed…` → `Settings changed…`（旧术语已在标准中废止） |
@@ -39,7 +38,7 @@
 | 失败消息分层 | 复查发现 `helperError.errorDescription` 直接把 helper 的中文 `message` 当用户文案返回——英文/俄德法用户会看到中文错误。已改为按错误码映射：network、accessDenied、authExpired、accountMismatch、helperUnavailable、integrity、unsupportedContent、cancelled、protocolMismatch、rateLimited 加默认共 11 条本地化文案，`message` 只保留作诊断 |
 | 验收演练 | 门禁：注入占位符漂移与缺翻译 fixture，检查器分别报出 `placeholder mismatch` / `untranslated` 并返回退出码 1。新增语言：只给 3 条 key 加意大利语资源、不改任何代码，重建 bundle 后运行时正确显示 `Impostazioni` 等，未翻译条目回退英文。回退：bundle 只有 `en` 时，中文系统显示英文。三项均符合标准预期 |
 | 运行时验证 | 用只装载单一语言的测试 app bundle（`Bundle.main` 指向产物 lproj）逐语言实测：`Settings`、`Check for Updates…`、`Unknown size`、验证码错误、`About %@`、`%lld wallpapers` 的 1/3 取值、`Showing %lld of %lld wallpapers` 在 en/de/ru/fr/zh-Hans 下全部返回预期译文；俄语 `one`/`few`/`many`、英德法 `one`/`other` 规则均生效，证明 `CFBundleLocalizations` 与 stringsdict 在真实 main bundle 下工作 |
-| 门禁 | `localization` 已注册到 `script/scene_validation_gates.json` 并接入 `verify_scene_change.py`：Swift、String Catalog、帮助书或检查脚本改动都会触发，常规命令为 `check_localization.py --hardcoded --compile`；构建后另用 `--extraction <DerivedData>` 做源码与译文的权威比对 |
+| 门禁 | `localization` 已注册到 `script/data/scene_validation_gates.json` 并接入 `verify_scene_change.py`：CI 检查 Swift 字面量和 catalog，暂存钩子核对同一 Git index 的源码与资源，帮助书单独校验标识和页面。命令见[本地化标准](localization-contract.md#sync) |
 | 已知残余 | 译文人工审校（母语润色）；约 8 条多占位符文案的复数改写 |
 
 迁移前的差距记录保留在下方，作为对照，不再代表现状。
@@ -185,7 +184,7 @@ SteamService helper ──► 错误码 + 诊断 message ──► App 映射为
 
 - 本批（标准与计划）只新增文档并登记索引，不修改 `script/tests/**`、不移动脚本。
 - 检查脚本与门禁条目已落地为 `script/governance/check_localization.py`、`scene_validation_gates.json`（`localization`）与 `verify_scene_change.py` 的触发条件；若并行任务重构 `script/` 结构，合并时以对方的新结构为准迁移这三处，不保留旧位置副本。
-- 共享 JSON（`docs/document-role-index.json`、`script/design_gated_areas.json`、`script/document_health_baseline.json`）由本计划单点写入并复核，不与其他任务并行修改同一文件。
+- 共享 JSON（`docs/document-role-index.json`、`script/data/design_gated_areas.json`、`script/data/document_health_baseline.json`）由本计划单点写入并复核，不与其他任务并行修改同一文件。
 
 <a id="retirement"></a>
 ## 9. 退出条件

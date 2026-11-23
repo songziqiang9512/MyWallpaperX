@@ -32,8 +32,8 @@
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/capabilities/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/development/source-index.md` |
 | 官方黑盒、参考研究与独立实现 | `docs/scene/development/official-client-behavior-research-workflow.md` |
-| corpus 中作者实际声明了什么 | `script/scene_capability_census.py` 的本次生成报告；不证明运行支持 |
-| gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
+| corpus 中作者实际声明了什么 | `script/scene/scene_capability_census.py` 的本次生成报告；不证明运行支持 |
+| gate 成员、phase、readiness | 当前脚本 `--help`、`script/data/scene_validation_gates.json`、`script/data/scene_fast_suite.json` |
 
 不要每次 Scene 任务读取所有入口。由当前问题队列和性能工作卡定位一个主结果与验收；能力表和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
@@ -65,7 +65,7 @@ authored project/scene/package/resource
 
 所有effect沿实际编译、接口/表示、资源与执行合同准入；不要把效果名、固定源码形状、pass数量或kernel/方向/scale组合当播放许可。已由原owner接纳的事实直接传递。遗留源码形状补偿按[技术栈合同](../../../../docs/architecture/technology-stack-boundaries.md)作为待通用化债务处理，不能以继续扩大模式名单代替通用能力。
 
-目录和二级职责从 `script/scene_source_layout.json`、当前源码和自动测试获取。不要把旧目录表当长期 owner；新增或移动类型族时同步所有现役 standalone source lists/harnesses。
+目录和二级职责从 `script/data/scene_source_layout.json`、当前源码和自动测试获取。不要把旧目录表当长期 owner；新增或移动类型族时同步所有现役 standalone source lists/harnesses。
 
 ## 定义 correctness atom
 

@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Any, Sequence
 try:
     from script.governance.source_relocations import unchanged_source_relocations
-    from script.run_scene_tests import RELEASE_MODULES
+    from script.run_scene_tests import RELEASE_MODULES, test_module_paths
 except ModuleNotFoundError:
     from governance.source_relocations import unchanged_source_relocations
-    from run_scene_tests import RELEASE_MODULES
+    from run_scene_tests import RELEASE_MODULES, test_module_paths
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -348,8 +348,8 @@ def build_plan(
     registry: dict[str, Any],
 ) -> tuple[list[Gate], set[str]]:
     modules, keywords, groups = mapped_tests(paths, registry)
-    missing_modules = sorted(module for module in modules
-                             if not next(iter((ROOT / "script/tests").rglob(f"{module}.py")), None) is not None)
+    module_paths = test_module_paths(ROOT)
+    missing_modules = sorted(modules - module_paths.keys())
     if missing_modules:
         raise ValueError("mapped test modules no longer exist: " + ", ".join(missing_modules))
     # These modules have registered method-level gates; never also execute
@@ -430,10 +430,13 @@ def build_plan(
                    for path in paths for pattern in selection.get("patterns", []))
         ):
             continue
+        module_path = module_paths.get(selection["module"])
+        if module_path is None:
+            raise ValueError(f"mapped test module no longer exists: {selection['module']}")
+        qualified_class = ".".join((*module_path.with_suffix("").parts, selection["class"]))
         command = (
             sys.executable, "-B", "-m", "unittest",
-            *(f"script.tests.{selection['module']}.{selection['class']}.{method}"
-              for method in selection["methods"]),
+            *(f"{qualified_class}.{method}" for method in selection["methods"]),
         )
         gates.append(Gate(gate_id, command, registry["gates"][gate_id]["trigger"], False))
     if any(
@@ -460,16 +463,18 @@ def build_plan(
         gates.append(Gate('scene-dependencies',
                           (sys.executable, '-B', 'script/governance/check_scene_dependencies.py', '--check', '--base-ref', args.base),
                           registry['gates']['scene-dependencies']['trigger'], False))
-    if any(
+    if 'app-localization' in groups or any(
         (path.startswith(('MyWallpaperX/', 'ScreenSaverSources/')) and path.endswith('.swift'))
         or path.endswith('.xcstrings')
-        or path.startswith('MyWallpaperXHelp/')
-        or path == 'script/governance/check_localization.py'
         for path in paths
     ):
         gates.append(Gate('localization',
-                          (sys.executable, '-B', 'script/governance/check_localization.py', '--hardcoded', '--compile'),
+                          (sys.executable, '-B', 'script/governance/check_localization.py', '--source', '--hardcoded', '--compile'),
                           registry['gates']['localization']['trigger'], False))
+    if 'help-book' in groups:
+        gates.append(Gate('help-book',
+                          (sys.executable, '-B', 'script/governance/check_help_bundle.py'),
+                          registry['gates']['help-book']['trigger'], False))
     if 'documentation' in groups:
         gates.append(Gate('document-health',
                           (sys.executable, '-B', 'script/governance/document_health.py', '--check', '--base', args.base),
@@ -644,7 +649,7 @@ def validation_payload(
 ) -> dict[str, Any]:
     mapping = product_test_mapping(
         paths, registry if registry is not None else load_registry(),
-        [path.stem for path in (ROOT / "script/tests").rglob("test_*.py")],
+        test_module_paths(ROOT),
     )
     # A byte-identical move has no new behavior to test. Preserve its missing
     # focused mapping in the report; only an actual successful product build

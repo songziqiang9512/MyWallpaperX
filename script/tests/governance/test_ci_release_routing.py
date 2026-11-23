@@ -83,7 +83,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         selected = runner.discover_modules(modules, scope='release')
         for module in ['test_steam_helper_signing', 'test_release_diagnostic_isolation',
                        'test_ci_release_routing', 'test_screen_saver_integration']:
-            self.assertIn('script.tests.' + module, selected)
+            self.assertIn(module, selected)
 
     def test_project_changes_include_release_core_before_publication(self):
         modules, _, _ = verify.mapped_tests(['MyWallpaperX.xcodeproj/project.pbxproj'], verify.load_registry())

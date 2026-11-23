@@ -320,4 +320,4 @@ Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹�
 
 双端点的弧向/周期重启、更多 CP 约束、Position Around 的 Mirror、复杂 nested/event/非均匀 child 变换与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
 
-最近行为入口：[真实 CPU runtime](../../../script/tests/test_scene_particle_runtime.py)、[事务](../../../script/tests/test_scene_particle_playback_transaction.py)、[Metal renderer](../../../script/tests/test_scene_particle_rendering.py)、[App 生命周期](../../../script/tests/test_scene_particle_playback_integration.py)。具体下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。
+最近行为入口：[真实 CPU runtime](../../../script/tests/scene/test_scene_particle_runtime.py)、[事务](../../../script/tests/scene/test_scene_particle_playback_transaction.py)、[Metal renderer](../../../script/tests/scene/test_scene_particle_rendering.py)、[App 生命周期](../../../script/tests/scene/test_scene_particle_playback_integration.py)。具体下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。

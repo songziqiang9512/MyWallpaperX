@@ -18,7 +18,7 @@ from typing import Any, Iterator
 
 
 DEFAULT_SAMPLES = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
-DEFAULT_STOCK = Path(__file__).resolve().parent.parent / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
+DEFAULT_STOCK = Path(__file__).resolve().parents[2] / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
 
 
 class PkgArchive:

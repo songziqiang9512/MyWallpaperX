@@ -158,4 +158,4 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 
 完整平台输入/播放器覆盖、全部 target 组合、原生屏幕映射、任意字体排版及所有跨 owner 事件顺序不能由单个合成输入门推出。开放项见[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
-最近行为入口：[属性准备复用](../../../script/tests/test_scene_property_preparation_reuse.py)、[Timeline](../../../script/tests/test_scene_timeline_runtime.py)、[Default2D](../../../script/tests/test_scene_default_2d_camera_inputs.py)、[动态文字](../../../script/tests/test_scene_dynamic_text_generation.py)、[媒体 Store](../../../script/tests/test_scene_media_thumbnail_provider.py)。
+最近行为入口：[属性准备复用](../../../script/tests/scene/test_scene_property_preparation_reuse.py)、[Timeline](../../../script/tests/scene/test_scene_timeline_runtime.py)、[Default2D](../../../script/tests/scene/test_scene_default_2d_camera_inputs.py)、[动态文字](../../../script/tests/scene/test_scene_dynamic_text_generation.py)、[媒体 Store](../../../script/tests/scene/test_scene_media_thumbnail_provider.py)。

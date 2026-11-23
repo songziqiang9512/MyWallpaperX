@@ -6,6 +6,7 @@ its own <style>, <script> and icon. This check makes sure they never drift apart
 """
 from __future__ import annotations
 
+import plistlib
 import re
 import sys
 from pathlib import Path
@@ -20,7 +21,17 @@ SCRIPT = re.compile(r"<script defer>\n(.*?)\n</script>", re.S)
 
 def main() -> int:
     problems: list[str] = []
-    reference: tuple[str, str] | None = None
+    assets = ROOT / "script/help-assets"
+    reference = tuple((assets / name).read_text(encoding="utf-8").rstrip("\n")
+                      for name in ("styles.css", "help.js"))
+    app = ROOT / "MyWallpaperX"
+    app_info = plistlib.loads((app / "Info.plist").read_bytes())
+    help_info = plistlib.loads((HELP / "Info.plist").read_bytes())
+    book_id = help_info["CFBundleIdentifier"]
+    if app_info.get("CFBundleHelpBookName") != book_id or app_info.get("CFBundleHelpBookFolder") != HELP.name:
+        problems.append("app Info.plist must identify the help bundle")
+    if "CFBundleHelpBookName" in (app / "Resources/InfoPlist.xcstrings").read_text(encoding="utf-8"):
+        problems.append("help book identifier must be language independent")
 
     for lang in LANGS:
         folder = HELP / f"{lang}.lproj"
@@ -29,10 +40,13 @@ def main() -> int:
         if not style or not script:
             problems.append(f"{lang}: missing inlined <style> or <script>")
             continue
-        if reference is None:
-            reference = (style.group(1), script.group(1))
-        elif (style.group(1), script.group(1)) != reference:
-            problems.append(f"{lang}: inlined style/script differs from {LANGS[0]}")
+        if (style.group(1), script.group(1)) != reference:
+            problems.append(f"{lang}: inlined style/script differs from script/help-assets")
+        if f'<meta name="AppleTitle" content="{book_id}">' not in text:
+            problems.append(f"{lang}: help access page does not use the registered book identifier")
+        title = folder / "InfoPlist.strings"
+        if not title.is_file() or not re.search(r'"HPDBookTitle"\s*=\s*"[^"]+";', title.read_text(encoding="utf-8")):
+            problems.append(f"{lang}: missing localized HPDBookTitle")
         if not (folder / "icon.png").exists():
             problems.append(f"{lang}: icon.png missing")
 

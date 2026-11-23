@@ -36,7 +36,7 @@ def main() -> int:
     args = parser.parse_args()
 
     modules, keywords = mapped_modules(load_registry())
-    tests = sorted(path.stem for path in (ROOT / "script/tests").glob("test_*.py"))
+    tests = sorted(path.stem for path in (ROOT / "script/tests").rglob("test_*.py"))
     unmapped = [name for name in tests if name not in modules and not any(key in name for key in keywords)]
     payload = {
         "testModules": len(tests),

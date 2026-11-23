@@ -1,6 +1,6 @@
 # MyWallpaperX 文档入口
 
-> 本仓库的开发文档以简体中文为主，面向贡献者；面向使用者的说明在根目录 [README](../README.md)，并提供 [English](../README.en.md)、[Русский](../README.ru.md)、[Deutsch](../README.de.md)、[Français](../README.fr.md) 版本。
+> 本仓库的开发文档以简体中文为主，面向贡献者；面向使用者的说明在根目录 [README](../README.md)，并提供 [English](../README.en.md) 版本。
 
 这里把当前事实、目标合同、任务顺序与历史分开。跨模块任务从[仓库开发工作流](development/repository-workflow.md)和[源码职责图](architecture/repository-map.md)定位；Scene 细节从[开发工作流](scene/development/development-workflow.md)进入。历史资料保留在[历史索引](history/README.md)，不决定当前任务。
 

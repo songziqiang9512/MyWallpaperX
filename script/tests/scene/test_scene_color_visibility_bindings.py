@@ -10,14 +10,9 @@ import subprocess
 import tempfile
 import unittest
 
-try:
-    from . import test_scene_user_properties as properties
-    from . import test_scene_property_binding_program as bindings
-    from . import test_scene_property_live_update_state as live
-except ImportError:
-    import test_scene_user_properties as properties
-    import test_scene_property_binding_program as bindings
-    import test_scene_property_live_update_state as live
+from script.tests.scene import test_scene_user_properties as properties
+from script.tests.scene import test_scene_property_binding_program as bindings
+from script.tests.scene import test_scene_property_live_update_state as live
 
 
 ROOT = Path(__file__).resolve().parents[3]

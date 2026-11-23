@@ -10,10 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-if __package__:
-    from . import test_scene_spot_light_plan as plan_fixture
-else:
-    import test_scene_spot_light_plan as plan_fixture
+from script.tests.scene import test_scene_spot_light_plan as plan_fixture
 
 ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
