@@ -26,7 +26,7 @@
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 200,
-      "bytes": 21689
+      "bytes": 21685
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -627,6 +627,15 @@
       "owner": "repository-governance",
       "reason": "Reconcile localization plan budget after the script collection and l10n merge.",
       "decision": "docs/development/localization-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "96336635bdea8a2a76cbaf27eabc97f9a35a2656df6ac0ddaaaa6200c022313d",
+      "after": "2f18fe7dfce095161a4a737db37d4cc4ec0bb991296fc8e01b2240b19e7fd807",
+      "owner": "architecture owner",
+      "reason": "Drop a stale V0 milestone reference from the stack contract; the body shrinks and the baseline ratchets down.",
+      "decision": "docs/architecture/technology-stack-boundaries.md"
     }
   ]
 }

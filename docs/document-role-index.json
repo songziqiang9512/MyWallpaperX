@@ -164,10 +164,10 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aea36e0ee7aac8974f4f080a79d89b62cc002dd2b37f42928b0d0e8e06783bbd",
+        "sourceSHA256": "21b32aabab5df37524fb267756b55019cc8a24e58015cb435983010851e5fd5c",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

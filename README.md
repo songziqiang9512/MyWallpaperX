@@ -5,7 +5,15 @@
 <h1 align="center">MyWallpaperX</h1>
 
 <p align="center"><strong>初心至简，保持纯粹。</strong></p>
-<p align="center">抛却任何复杂操作的Wallpaper Engine壁纸引擎，上手即用。<br>原生体验 · 动态壁纸 · 开源自由</p>
+<p align="center">抛却任何复杂操作的 Wallpaper Engine 壁纸引擎，上手即用。<br>原生体验 · 动态壁纸 · 开源自由</p>
+
+<p align="center">
+  <a href="README.md">简体中文</a> ·
+  <a href="README.en.md">English</a> ·
+  <a href="README.ru.md">Русский</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
+</p>
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest"><img src="https://img.shields.io/github/v/release/songziqiang9512/MyWallpaperX?style=flat-square&color=5b6ee1" alt="最新正式版本"></a>
@@ -23,7 +31,7 @@
 
 ---
 
-**MyWallpaperX** 是一款为 Apple Silicon Mac 专属适配开发的开源壁纸引擎应用。根据Windows平台官方语义，在macOS上实现完全重写，完全兼容Wallpaper Engine场景壁纸/web壁纸等。还可以自由导入本地视频和图片，创建你自己的播放列表。定时切换，自动更换屏保。主交互系统以 macOS 系统原生风格构建，让浏览与日常控制自然融入系统。
+**MyWallpaperX** 是一款为 Apple Silicon Mac 开发的开放源代码壁纸引擎。它按 Wallpaper Engine 官方作品的语义在 macOS 上实现，兼容受支持的场景壁纸与 Web 壁纸；也可以导入本地视频和图片，建立自己的播放列表，定时切换、跟随屏保。主交互以 macOS 原生风格构建，让浏览与日常控制自然融入系统。
 
 ## 看见喜欢的桌面
 
@@ -40,7 +48,7 @@
   </tr>
   <tr>
     <td width="50%" align="center">
-      <a href="Screenshot/桌面效果+cai'dan'kong'zhi.png"><img src="Screenshot/桌面效果+cai'dan'kong'zhi.png" width="480" alt="动态桌面效果与菜单栏播放控制"></a>
+      <a href="Screenshot/桌面效果+菜单栏控制.png"><img src="Screenshot/桌面效果+菜单栏控制.png" width="480" alt="动态桌面效果与菜单栏播放控制"></a>
       <br><sub>动态桌面 · 常用控制触手可及</sub>
     </td>
     <td width="50%" align="center">
@@ -61,7 +69,7 @@
 | **实时场景** | 以 Metal 渲染 Scene 壁纸中的图层、粒子、文字，以及已支持的模型动画、视频纹理与脚本交互。 |
 | **静态图片** | 导入本地图片，或下载在线作品，预览后设为系统桌面。通过应用自动切换能力，自动轮换。 |
 
-Scene 兼容范围持续完善，上千作品测试还原Windows官方99%+。部分复杂作品仍可能存在特效、动画或交互差异；支持某类能力不代表所有同类作品均已兼容。
+Scene 兼容范围在持续扩展：以 Wallpaper Engine 官方作品为对照逐项校准，覆盖材质、光照、粒子与脚本交互。部分复杂作品仍可能存在特效、动画或交互差异；支持某类能力不代表所有同类作品均已兼容。遇到差异时，欢迎带作品 ID 与截图反馈。
 
 ### 从发现到收藏
 
@@ -78,7 +86,7 @@ Scene 兼容范围持续完善，上千作品测试还原Windows官方99%+。部
 - **恢复与节能**：按需恢复上次播放内容，并根据全屏、焦点、电池供电和电脑不活跃等状态暂停播放。
 - **音频与歌曲响应**：兼容的 Web、Scene 作品可响应系统音频；启用歌曲信息后，可按作品实现展示标题、封面与进度。
 - **HDR 场景**：在支持的屏幕上呈现兼容 Scene 作品的 HDR 高光，也可切换回普通亮度。
-- **视频屏保**：从“锁屏与屏保”设置或本地视频卡片选择视频，保存后在系统设置中启用。可固定视频或跟随最近播放的视频；主 App 退出后仍可独立播放，使用电池时默认显示静帧。
+- **视频屏保**：从"锁屏与屏保"设置或本地视频卡片选择视频，保存后在系统设置中启用。可固定视频或跟随最近播放的视频；主 App 退出后仍可独立播放，使用电池时默认显示静帧。
 
 ## 技术栈与播放引擎
 
@@ -103,6 +111,8 @@ Scene 兼容范围持续完善，上千作品测试还原Windows官方99%+。部
 4. 选择壁纸开始使用，按需要调整作品属性、播放列表和节能选项。
 
 正式发行包采用 Developer ID 签名并经过 Apple 公证；应用内可通过「检查更新…」获取后续版本。已发布版本及安装包以 [GitHub Releases](https://github.com/songziqiang9512/MyWallpaperX/releases) 为准。
+
+应用内「帮助」菜单提供随版本更新的离线手册，覆盖三引擎、创意工坊、在线来源、播放与能耗、显示器与系统设置。界面支持简体中文、English、Русский、Deutsch、Français，跟随系统语言切换。
 
 <details>
 <summary><strong>使用提示</strong></summary>

@@ -184,7 +184,7 @@ QuickJS-NG core和本地维护补丁位于`Systems/Script/QuickJSNG`，固定上
 
 依赖升级重新执行其保护风险相关的合同门，不能只因包管理器解析成功就合入。
 
-这些规则适用于 glslang、SPIRV-Cross、QuickJS-NG 及以后确有必要的 compiler/VM 依赖；采用通用语言库不等于授权引入第二套 renderer，也不改变 MirageWallpaper 的 clean-room 边界。开发门只保护第一次受控执行所需的来源、预算和故障隔离，完整 source archive、发行架构核验、签名和公证不阻塞 V0 第一张真实画面。
+这些规则适用于 glslang、SPIRV-Cross、QuickJS-NG 及以后确有必要的 compiler/VM 依赖；采用通用语言库不等于授权引入第二套 renderer，也不改变 MirageWallpaper 的 clean-room 边界。开发门只保护第一次受控执行所需的来源、预算和故障隔离，完整 source archive、发行架构核验、签名和公证不阻塞首个可运行画面。
 
 ## 10. 工具链与语言模式
 

@@ -1,5 +1,7 @@
 # MyWallpaperX 文档入口
 
+> 本仓库的开发文档以简体中文为主，面向贡献者；面向使用者的说明在根目录 [README](../README.md)，并提供 [English](../README.en.md)、[Русский](../README.ru.md)、[Deutsch](../README.de.md)、[Français](../README.fr.md) 版本。
+
 这里把当前事实、目标合同、任务顺序与历史分开。跨模块任务从[仓库开发工作流](development/repository-workflow.md)和[源码职责图](architecture/repository-map.md)定位；Scene 细节从[开发工作流](scene/development/development-workflow.md)进入。历史资料保留在[历史索引](history/README.md)，不决定当前任务。
 
 任务查询：`python3.12 -B script/governance/document_registry.py --list`，或 `--query scene`、`--query 发布`、`--query 设计`。查询复用下方角色索引和现役 design area，仅返回指针；查询返回 `firstRead`、owner、分阶段 gate 引用与动态解析的最近测试；先读 `firstRead`，其余 `documents` 按首断点选取，不是整组必读；支持 `--query "修复 Scene 视觉缺陷"`、`--query "发布新版本"`、`--query "设计前置判定"`，不会自动执行命令。术语可查 `named source taxonomy`、`owned paths`、`家族/防御面`，每项只转到一个权威。

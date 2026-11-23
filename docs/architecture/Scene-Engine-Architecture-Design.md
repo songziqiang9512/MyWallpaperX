@@ -335,7 +335,7 @@ SceneSession 保存一个播放时钟，输入来自单调时间。FrameContext 
 
 保留 `init(value)` 与 `update(value)` 的 typed return 写回语义，同时支持脚本直接修改其他属性。脚本产生的修改直接作用于同一个 SceneInstance，避免维护第二棵脚本场景树。
 
-作者初值与当前运行值分别有用途。字符串是否表示向量，需要结合目标属性类型判断；普通文本中存在空格不构成向量识别条件。授权 binding-target 研究提供了上述输入形态与反例。[内联脚本与绑定目标研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/scenescript-binding-target-forensics.md)
+作者初值与当前运行值分别有用途。字符串是否表示向量，需要结合目标属性类型判断；普通文本中存在空格不构成向量识别条件。授权 binding-target 研究提供了上述输入形态与反例。[内联脚本与绑定目标研究](../scene/development/reference/scenescript-binding-target-forensics.md)
 
 ### 10.2 按实际事件注册
 
@@ -366,7 +366,7 @@ SceneSession 保存一个播放时钟，输入来自单调时间。FrameContext 
 | 存储 | 每壁纸、每屏幕和共享范围的持久化 |
 | 用户操作 | 仅用户配置的快捷方式，通过宿主执行 |
 
-声明文件中的继承聚合便于作者使用，不要求内部创建一个同时包含所有类型字段的巨大 Layer 类。外部表面保持兼容，内部按实际类型分派。[本地 v2.8 声明快照](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/lib.sceneScript-v2.8.d.ts)
+声明文件中的继承聚合便于作者使用，不要求内部创建一个同时包含所有类型字段的巨大 Layer 类。外部表面保持兼容，内部按实际类型分派。[本地 v2.8 声明快照](../scene/development/reference/lib.sceneScript-v2.8.d.ts)
 
 ### 10.5 Timer 与销毁
 
@@ -398,7 +398,7 @@ JS 与 Swift 对象的持有关系单独设计，避免回调闭包与上下文�
 
 为材质绘制、copy、swap 和显式函数调用建立明确表达，保留定义 Pass 的 ordinal 与实例 override 对应关系。资源槽位保留空槽和稀疏编号。
 
-copy 表达内容传递；swap 表达逻辑资源映射交换；compose 表达合成链的可见边界。授权静态研究说明它们在固定客户端并非同一种执行操作，具体像素、别名和错误输入结果仍需独立验证。[客户端运行结构研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/client-runtime-static-forensics.md)
+copy 表达内容传递；swap 表达逻辑资源映射交换；compose 表达合成链的可见边界。授权静态研究说明它们在固定客户端并非同一种执行操作，具体像素、别名和错误输入结果仍需独立验证。[客户端运行结构研究](../scene/development/reference/client-runtime-static-forensics.md)
 
 同一逻辑目标的不同写入拥有明确前后关系。历史资源、资源映射与底层纹理分开管理；resize 是否保留逻辑映射、重载是否重置历史，都进入生命周期用例。
 
@@ -412,7 +412,7 @@ copy 表达内容传递；swap 表达逻辑资源映射交换；compose 表达�
 
 至少分别表达指定尺寸的子对象合成、对齐整个壁纸的合成、对齐屏幕的后处理，以及内建后处理控制位置。背景捕获、子层预渲染和特效启用是可组合的语义，不能合成一个“全屏图层”标志。
 
-屏幕对齐层不随壁纸相机移动，壁纸对齐层参与相应映射。各类型的确切范围通过作者定义和正反场景确定。[合成层作者面研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/editor-string-table-forensics.md)
+屏幕对齐层不随壁纸相机移动，壁纸对齐层参与相应映射。各类型的确切范围通过作者定义和正反场景确定。[合成层作者面研究](../scene/development/reference/editor-string-table-forensics.md)
 
 ### 11.5 Clear 与历史
 
@@ -492,7 +492,7 @@ glslang 提供 GLSL 前端及 SPIR-V 生成，SPIRV-Cross 提供 MSL 生成和�
 
 每个纹理槽拥有解析后的资源与 sampler policy。过滤、寻址、mip 和 comparison 等影响采样的字段进入对应 sampler 身份。某张纹理被多个材质使用时，各槽的消费方式可以不同。
 
-纹理物理尺寸、有效内容尺寸、图集区域与最终显示尺寸沿绑定传播。跨平台方向规范化只在确定的边界完成，不根据“图片曾经翻转”再对所有 TEX 统一翻转。[纹理与采样研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/client-runtime-static-forensics.md)
+纹理物理尺寸、有效内容尺寸、图集区域与最终显示尺寸沿绑定传播。跨平台方向规范化只在确定的边界完成，不根据“图片曾经翻转”再对所有 TEX 统一翻转。[纹理与采样研究](../scene/development/reference/client-runtime-static-forensics.md)
 
 ### 13.3 动态资源
 
@@ -571,7 +571,7 @@ Puppet 包括部件顺序、深度、纹理通道、嵌套裁剪、附件点、b
 
 推荐优先使用 Core Text 完成 macOS 字体解析和 shaping，并验证与参考字体度量的差异；需要更精确的跨平台度量时再选择有实证收益的排版基础。[Core Text](https://developer.apple.com/documentation/coretext)
 
-字形呈现根据目标兼容用例确定。授权 changelog 指向固定客户端的 MSDF 与轮廓、阴影、模糊特效演进；这要求验证距离场语义、padding 和缩放质量，但不能单凭它断言所有位图路径错误或复制其公式。[文字与字体演进研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/client-changelog-forensics.md)
+字形呈现根据目标兼容用例确定。授权 changelog 指向固定客户端的 MSDF 与轮廓、阴影、模糊特效演进；这要求验证距离场语义、padding 和缩放质量，但不能单凭它断言所有位图路径错误或复制其公式。[文字与字体演进研究](../scene/development/reference/client-changelog-forensics.md)
 
 对同一字体样式复用字形或排版结果；文本或排版参数不变时不每帧重新栅格化。字体缺失、替换和不支持字符应可诊断，使用系统替代字体时明确不保证像素一致。字体分发授权随资源方案确认。
 
@@ -1069,13 +1069,13 @@ P0 建立实际基线后确定各内容级别预算。现阶段不写未经测�
 
 | 资料 | 本方案使用的内容 |
 | --- | --- |
-| [官方页面逐页映射](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/official-page-map.md) | 区分播放、输入产物、编辑器和平台职责，核对能力广度 |
-| [客户端运行结构静态研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/client-runtime-static-forensics.md) | 资源、采样、图命令、时间、脚本、粒子、媒体及未知通道的研究问题 |
-| [客户端 changelog 研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/client-changelog-forensics.md) | 默认值省略、VM、文字、粒子、图形及格式演进 |
-| [编辑器字符串表研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/editor-string-table-forensics.md) | 作者可见的组件分类、合成层、属性来源及参数范围线索 |
-| [内联脚本与绑定目标研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/scenescript-binding-target-forensics.md) | 属性绑定位置、作者值、类型和纯事件脚本 |
-| [SceneScript v2.8 声明快照](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/lib.sceneScript-v2.8.d.ts) | API、事件、动态几何、局部存储、媒体与宿主对象 |
-| [MirageWallpaper 固定版本结构研究](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/development/reference/miragewallpaper-rendering-reference.md) | 尺寸传播、工作空间、最终状态恢复、输入与平台边界，以及第三方实现的反例 |
+| [官方页面逐页映射](../scene/development/reference/official-page-map.md) | 区分播放、输入产物、编辑器和平台职责，核对能力广度 |
+| [客户端运行结构静态研究](../scene/development/reference/client-runtime-static-forensics.md) | 资源、采样、图命令、时间、脚本、粒子、媒体及未知通道的研究问题 |
+| [客户端 changelog 研究](../scene/development/reference/client-changelog-forensics.md) | 默认值省略、VM、文字、粒子、图形及格式演进 |
+| [编辑器字符串表研究](../scene/development/reference/editor-string-table-forensics.md) | 作者可见的组件分类、合成层、属性来源及参数范围线索 |
+| [内联脚本与绑定目标研究](../scene/development/reference/scenescript-binding-target-forensics.md) | 属性绑定位置、作者值、类型和纯事件脚本 |
+| [SceneScript v2.8 声明快照](../scene/development/reference/lib.sceneScript-v2.8.d.ts) | API、事件、动态几何、局部存储、媒体与宿主对象 |
+| [MirageWallpaper 固定版本结构研究](../scene/development/reference/miragewallpaper-rendering-reference.md) | 尺寸传播、工作空间、最终状态恢复、输入与平台边界，以及第三方实现的反例 |
 
 官方客户端静态观察不提供完整数值真值，第三方结构研究不决定官方语义。资料内关于项目现役合同和能力等级的链接不构成本方案对当前实现的确认。未知字段、公式和顺序通过独立用例确认，不复制或移植参考实现。
 
