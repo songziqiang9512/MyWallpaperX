@@ -86,7 +86,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 259,
-      "bytes": 48289
+      "bytes": 48377
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 292321
+      "bytes": 293341
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 161,
-      "bytes": 27725
+      "lines": 170,
+      "bytes": 29291
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 66210
+      "lines": 214,
+      "bytes": 66564
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -442,11 +442,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "d3aa814f87733948528ff99ece439fd2dd124c46ace5bec8ea10560c0decadc9",
-      "after": "4d8763da370b65936018b654a84eb82598f54925a678daf95d34e04053a2ee51",
-      "owner": "repository governance",
-      "reason": "Use the current test collection paths and repair the navigation after the script move.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "4d8763da370b65936018b654a84eb82598f54925a678daf95d34e04053a2ee51",
+      "after": "10aab4ed5ec094511a7c206612ef79fa410608ea6bd6f48378a625924c702f96",
+      "owner": "Scene shared pointer, Script and Puppet frame owner",
+      "reason": "Define FIFO selection, matched shared input and bone pose, retirement, and retained single screen layer attachments.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
     },
     {
       "section": "bodies",
@@ -478,11 +478,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "9659e9ddef345be96b091bb9cae2ae167cb00f34ec22eda5875523e4c6425220",
-      "after": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
-      "owner": "Existing Scene model, property and resource owners",
-      "reason": "Define and qualify actual direct-model still-image controls, same-session swap/failure/reset and independent author regression through existing owners; retire unsupported shadow-area and authored-scroll hypotheses and preserve unresolved video/tool/gate boundaries. No new runtime/cache/output owner.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-user-albedo"
+      "before": "465fe388dd1d88a203936e8d2f1006e6f808007f2b1d685bfc5fd99a54aeaf83",
+      "after": "41638a6833e265b374af91cb9c3b3b6af536fd4dbb53a9d51b153e248929ea7c",
+      "owner": "Scene shared pointer, Script and Puppet frame owner",
+      "reason": "Link the shared frame order to its one cursor-selected surface contract.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#frame-order"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2c2d9724e25c406fcb889eb821bbeaa80343bbc5e6ec8e68cfd67da5d6736662",
-      "after": "7a65db5766a72620cf115b4e651a543eab954f35a1f5fe263c23ee3fa8b71b7d",
-      "owner": "Scene performance and ordering",
-      "reason": "Record official motion history, comparable native presentation and GPU metrics, and the two texture copies observed in the effect toggle.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-motion-history-367"
+      "before": "7a65db5766a72620cf115b4e651a543eab954f35a1f5fe263c23ee3fa8b71b7d",
+      "after": "6dd9910bd55172200dc3b1acf2b0c1d40a44320597d4be01c10090d3593f1f80",
+      "owner": "Scene shared pointer, Script and Puppet frame owner",
+      "reason": "Record actual GPU signed dual-surface motion, old comparison, close variant, and author peer.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-drag-surface-318"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f6a5507632e46c89f3dd1ce7488711df613a1adc6c3d0a8c9b8bb9fdc605510d",
-      "after": "bb03e34e7f4a8d29a6bdff76c7d259d6f3ff0272e71133e5ac30abe614703d49",
-      "owner": "Scene performance and ordering",
-      "reason": "Route 367 performance to the proven default snapshot and inactive-history boundaries.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
+      "before": "bb03e34e7f4a8d29a6bdff76c7d259d6f3ff0272e71133e5ac30abe614703d49",
+      "after": "9d34d0063edec99fc3fb7cf3f3b7ba82261d2262f529b1a9163b8151e62d3a7e",
+      "owner": "Scene shared pointer, Script and Puppet frame owner",
+      "reason": "Keep the physical and official qualification gap tied to the already verified dual-surface repair.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",

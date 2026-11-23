@@ -64,6 +64,10 @@ extension SceneMetalView {
         sceneScriptPointerEvents.drain()
     }
 
+    func restoreSceneScriptPointerEvents(_ batch: SceneSurfacePointerEventBatch) {
+        sceneScriptPointerEvents.restore(batch)
+    }
+
     private func updatePointer(
         _ windowPoint: CGPoint,
         primaryButtonIsDown: Bool? = nil

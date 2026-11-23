@@ -3,8 +3,8 @@ import QuartzCore
 import simd
 
 extension SceneDesktopWallpaperSession {
-    /// Drain physical input once for this simulation frame. Presentation retry
-    /// consumes the evaluated frame and cannot replay its cursor callbacks.
+    /// Prepare the physical stream and its shared script input surface from the
+    /// same routing pass. A failed script snapshot can return the drained edges.
     func prepareSceneScriptCursorBatch(
         launchContext: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
@@ -15,22 +15,23 @@ extension SceneDesktopWallpaperSession {
         dynamicLayerIDs: Set<Int>,
         perspectiveReplayRootIDs: Set<Int>,
         puppetAttachmentFramesBySurface: [CGDirectDisplayID: ScenePuppetAttachmentFrameSnapshot],
-        worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]],
-        layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
-    ) -> SceneScriptCursorFrameBatch {
-        guard layerSnapshotFailure == nil else {
-            return .init(samples: [], overflowed: false)
-        }
+        worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]]
+    ) -> (batch: SceneScriptCursorFrameBatch, surfaceID: CGDirectDisplayID?, surface: SceneScriptSurfaceInput?,
+          drainedEvents: [CGDirectDisplayID: SceneSurfacePointerEventBatch]) {
         let program = launchContext.sceneScriptCursorProgram
         let edge = program.edgeStateSnapshot()
         let monitorsPrimaryButton = localPointerEventMonitor != nil || globalPointerEventMonitor != nil
         let displayIDs = surfaces.keys.sorted()
         var groups: [Double: [CGDirectDisplayID: SceneSurfacePointerEvent]] = [:]
         var current: [CGDirectDisplayID: SceneSurfacePointerEvent] = [:]
+        var drainedEvents: [CGDirectDisplayID: SceneSurfacePointerEventBatch] = [:]
         var overflowed = false
         for displayID in displayIDs {
             guard let view = surfaces[displayID]?.metalView else { continue }
             let drained = view.drainSceneScriptPointerEvents()
+            if drained.overflowed || !drained.events.isEmpty {
+                drainedEvents[displayID] = drained
+            }
             overflowed = overflowed || drained.overflowed
             for event in drained.events {
                 groups[event.timestamp, default: [:]][displayID] = event
@@ -48,6 +49,7 @@ extension SceneDesktopWallpaperSession {
         // state. Any lost surface queue rejects the whole physical batch.
         let ordered = (overflowed ? [] : groups.keys.sorted().compactMap { groups[$0] }) + [current]
         var capturedSurfaceID = edge.capturedSurfaceID
+        var frameSurfaceID = capturedSurfaceID.flatMap { current[$0] == nil ? nil : $0 }
         var captureCandidates = Set(edge.capturedHits.keys)
         var previousSurfaceID = edge.previousSurfaceID
         var wasDown = edge.previousPrimaryButtonIsDown
@@ -115,6 +117,7 @@ extension SceneDesktopWallpaperSession {
             samples.append(sample)
             if pointer.primaryButtonIsDown && !wasDown && !sample.hits.isEmpty {
                 capturedSurfaceID = displayID
+                if frameSurfaceID == nil { frameSurfaceID = displayID }
                 captureCandidates = Set(sample.hits.keys)
             } else if !pointer.primaryButtonIsDown {
                 capturedSurfaceID = nil
@@ -123,6 +126,34 @@ extension SceneDesktopWallpaperSession {
             wasDown = pointer.primaryButtonIsDown
             previousSurfaceID = displayID
         }
-        return .init(samples: samples, overflowed: overflowed)
+        if frameSurfaceID == nil {
+            frameSurfaceID = displayIDs.count == 1
+                ? displayIDs.first : displayIDs.first { current[$0]?.isInside == true }
+        }
+        let surface: SceneScriptSurfaceInput?
+        if let displayID = frameSurfaceID, let pointer = current[displayID],
+           let view = surfaces[displayID]?.metalView {
+            if previousSurfaceID == displayID, previousInput == pointer {
+                surface = samples.last?.surface
+            } else {
+                surface = view.sceneScriptSurfaceInput(
+                    pointer: pointer, timing: timing,
+                    dynamicValues: preliminaryForSceneScript,
+                    descriptor: descriptor, layersByID: layersByID,
+                    worldFrames: worldFrames(for: displayID, view: view, requiresOwnerProjections: false)
+                )
+            }
+        } else {
+            surface = nil
+        }
+        return (.init(samples: samples, overflowed: overflowed), frameSurfaceID, surface, drainedEvents)
+    }
+
+    func restoreSceneScriptCursorEvents(
+        _ drainedEvents: [CGDirectDisplayID: SceneSurfacePointerEventBatch]
+    ) {
+        for (displayID, events) in drainedEvents {
+            surfaces[displayID]?.metalView.restoreSceneScriptPointerEvents(events)
+        }
     }
 }

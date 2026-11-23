@@ -75,6 +75,7 @@ final class SceneDesktopWallpaperSession {
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var launchContext: SceneDesktopWallpaperLaunchContext?
+    var sceneScriptPuppetPoseSurface: ObjectIdentifier?
     private var activeSpaceObserver: NSObjectProtocol?
     var localPointerEventMonitor: Any?
     let userShortcutOpener: (URL) -> Bool
@@ -181,6 +182,7 @@ final class SceneDesktopWallpaperSession {
             epoch: nextVideoProviderEpoch,
             capturesLifecycleObservations: context.capturesExecutionObservations
         )
+        sceneScriptPuppetPoseSurface = nil
         launchContext = context
         mediaThumbnailTextures = SceneMediaThumbnailTextureStore(
             device: context.preparedDeviceResources.device,

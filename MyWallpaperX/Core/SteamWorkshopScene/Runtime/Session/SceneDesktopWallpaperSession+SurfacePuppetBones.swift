@@ -13,6 +13,36 @@ struct ScenePuppetScriptPoseFrame {
     let worldFrames: [Int: simd_float4x4]
 }
 
+extension SceneDesktopWallpaperSession {
+    func publishSceneScriptPuppetSource(
+        _ surface: Surface?,
+        pose: ScenePuppetScriptPoseFrame,
+        context: SceneDesktopWallpaperLaunchContext,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        worldFrames: [Int: simd_float4x4]
+    ) throws {
+        let source = pose.posesByLayerID.isEmpty ? nil : surface
+        let identity = source.map(ObjectIdentifier.init)
+        if let prior = sceneScriptPuppetPoseSurface, prior != identity {
+            try context.configurePreparedPuppetBones()
+            sceneScriptPuppetPoseSurface = nil
+        }
+        guard let source else { return }
+        let hadPose = sceneScriptPuppetPoseSurface != nil
+        // A publication can fail after configuring an earlier owner.
+        sceneScriptPuppetPoseSurface = identity
+        if try source.publishSceneScriptPuppetPoseFrame(
+            pose, context: context, timing: timing, dynamicValues: dynamicValues,
+            descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames
+        ) { return }
+        if hadPose { try context.configurePreparedPuppetBones() }
+        sceneScriptPuppetPoseSurface = nil
+    }
+}
+
 extension SceneDesktopWallpaperSession.Surface {
     /// Prepares the current animated hierarchy once before SceneScript. The
     /// resulting typed frame is also the attachment authority for layer world
@@ -90,9 +120,7 @@ extension SceneDesktopWallpaperSession.Surface {
         )
     }
 
-    /// Publishes bones through the same current layer/attachment world frames
-    /// already installed in the SceneScript layer snapshot. No asset parsing
-    /// or second hierarchy evaluation occurs here.
+    /// Publishes the selected Surface's prepared pose to the shared Script VM.
     func publishSceneScriptPuppetPoseFrame(
         _ poseFrame: ScenePuppetScriptPoseFrame,
         context: SceneDesktopWallpaperLaunchContext,
@@ -101,8 +129,8 @@ extension SceneDesktopWallpaperSession.Surface {
         descriptor: SceneRenderDescriptor,
         layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
-    ) throws {
-        guard !poseFrame.posesByLayerID.isEmpty else { return }
+    ) throws -> Bool {
+        var published = false
 #if DEBUG
         let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
@@ -122,6 +150,7 @@ extension SceneDesktopWallpaperSession.Surface {
                 // Names were installed at launch; frame refresh never reallocates them.
                 names: [], parents: bones.parentIndices.map(Int32.init),
                 layerToWorld: transform)
+            published = published || configured
 #if DEBUG
             if configured, SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                recordedPuppetPoseLayerIDs.insert(layerID).inserted,
@@ -169,5 +198,6 @@ extension SceneDesktopWallpaperSession.Surface {
             }
 #endif
         }
+        return published
     }
 }

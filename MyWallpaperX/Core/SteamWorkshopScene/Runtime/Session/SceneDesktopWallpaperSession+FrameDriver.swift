@@ -326,26 +326,26 @@ extension SceneDesktopWallpaperSession {
                 dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs
             )
         }
-        let sceneScriptPuppetPoseFrame = surfaces.count == 1
-            ? puppetPoseFrames.values.first ?? .empty : .empty
         // One phase-local hierarchy serves callback surface, bones and cursor.
         // Rendering resolves the subsequently committed typed snapshot separately.
-        var sceneScriptWorldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
-        if surfaces.count == 1, let (displayID, surface) = surfaces.first,
-           surface.metalView.requiresSceneScriptCameraWorldFrames || !sceneScriptPuppetPoseFrame.posesByLayerID.isEmpty {
-            sceneScriptWorldFramesBySurface[displayID] = sceneScriptPuppetPoseFrame.worldFrames.isEmpty
-                ? surface.metalView.sceneScriptCursorWorldFrames(
-                dynamicValues: preliminaryForSceneScript,
-                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
-                staticWorldFrames: sceneScriptTopology.staticWorldFrames,
-                dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
-                puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
-                : sceneScriptPuppetPoseFrame.worldFrames
+        var scriptWorldFrames: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
+        for (displayID, pose) in puppetPoseFrames where !pose.worldFrames.isEmpty {
+            scriptWorldFrames[displayID] = pose.worldFrames
         }
-        let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
-            dynamicValues: preliminaryForSceneScript,
+        let cursor = prepareSceneScriptCursorBatch(
+            launchContext: launchContext, timing: timing,
+            preliminaryForSceneScript: preliminaryForSceneScript,
             descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
-            worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:])
+            staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+            dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
+            perspectiveReplayRootIDs: sceneScriptTopology.utilityExecution.perspectiveReplayRootIDs,
+            puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
+            worldFramesBySurface: &scriptWorldFrames
+        )
+        let scriptSurface = cursor.surfaceID.flatMap { surfaces[$0] }
+        let sceneScriptPuppetPoseFrame = cursor.surfaceID.flatMap { puppetPoseFrames[$0] } ?? .empty
+        let worldFrames = cursor.surfaceID.flatMap { scriptWorldFrames[$0] } ?? [:]
+        let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing, surface: cursor.surface)
         let particleObservations = particlePlaybackObservations(
             context: launchContext,
             committed: layerMutationSnapshot.particlePlayback
@@ -369,7 +369,7 @@ extension SceneDesktopWallpaperSession {
                     particlePlaybackObservations: particleObservations,
                     particleInstanceLayerIDs: particleInstanceLayerIDs,
                     puppetAttachmentFrames:
-                        sceneScriptPuppetPoseFrame.attachmentFrames,
+                        surfaces.count == 1 ? sceneScriptPuppetPoseFrame.attachmentFrames : .empty,
                     destroyedAuthoredLayerIDs:
                         layerMutationSnapshot.destroyedAuthoredLayerIDs,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
@@ -382,16 +382,12 @@ extension SceneDesktopWallpaperSession {
                 failures: puppetAnimationFrame.eventFailures,
                 timelineEvents: timelineSample.animationEvents)
             launchContext.timelinePlaybackRuntime.acceptPublishedEvents(from: timelineSample)
-            if surfaces.count == 1 {
-                try surfaces.values.first?.publishSceneScriptPuppetPoseFrame(
-                    sceneScriptPuppetPoseFrame,
-                    context: launchContext,
-                    timing: timing,
-                    dynamicValues: preliminaryForSceneScript,
-                    descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
-                    worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
-                )
-            }
+            try publishSceneScriptPuppetSource(
+                scriptSurface, pose: sceneScriptPuppetPoseFrame, context: launchContext,
+                timing: timing, dynamicValues: preliminaryForSceneScript,
+                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                worldFrames: worldFrames
+            )
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
             sceneScriptLayerSnapshotFailure = failure
@@ -401,6 +397,7 @@ extension SceneDesktopWallpaperSession {
             )
         }
         if let failure = sceneScriptLayerSnapshotFailure {
+            restoreSceneScriptCursorEvents(cursor.drainedEvents)
 #if DEBUG
         NSLog(
                 "MWX SceneScript VM: family=shared-domain frame=%llu failure=%@ code=%@ fallback=previous-current",
@@ -444,18 +441,6 @@ extension SceneDesktopWallpaperSession {
         } else {
             initialization = ([:], [])
         }
-        let cursorBatch = prepareSceneScriptCursorBatch(
-            launchContext: launchContext,
-            timing: timing,
-            preliminaryForSceneScript: preliminaryForSceneScript,
-            descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
-            staticWorldFrames: sceneScriptTopology.staticWorldFrames,
-            dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
-            perspectiveReplayRootIDs: sceneScriptTopology.utilityExecution.perspectiveReplayRootIDs,
-            puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
-            worldFramesBySurface: &sceneScriptWorldFramesBySurface,
-            layerSnapshotFailure: sceneScriptLayerSnapshotFailure
-        )
         let sceneScriptProgramFrameState = self.sceneScriptProgramFrameState(
             launchContext
         )
@@ -473,7 +458,7 @@ extension SceneDesktopWallpaperSession {
         } else {
             let shortcutDispatch: SceneScriptUserShortcutDispatch = userShortcutDispatch(frameIndex: timing.frameIndex)
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
-                batch: cursorBatch, frame: sceneScriptFrame,
+                batch: cursor.batch, frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
                 propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum,

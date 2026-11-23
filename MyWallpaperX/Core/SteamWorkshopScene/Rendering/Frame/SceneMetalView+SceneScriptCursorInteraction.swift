@@ -13,32 +13,8 @@ extension SceneMetalView {
         return camera.orthoWidth == nil && camera.orthoHeight == nil
     }
 
-    /// Publishes one immutable callback snapshot from the same surface camera
-    /// and pointer state used by rendering. The host only calls this when a
-    /// scene has exactly one output surface, so no screen identity is guessed.
     func sceneScriptSurfaceInput(
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot,
-        descriptor: SceneRenderDescriptor,
-        layersByID: [Int: SceneRenderDescriptor.Layer],
-        worldFrames: [Int: simd_float4x4]
-    ) -> SceneScriptSurfaceInput? {
-        sceneScriptSurfaceInput(
-            pointer: .init(
-                normalizedPosition: pointerState.sceneScriptCurrent,
-                isInside: pointerState.isInside,
-                primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
-            ),
-            timing: timing,
-            dynamicValues: dynamicValues,
-            descriptor: descriptor,
-            layersByID: layersByID,
-            worldFrames: worldFrames
-        )
-    }
-
-    func sceneScriptSurfaceInput(
-        pointer: SceneSurfacePointerEvent,
+        pointer: SceneSurfacePointerEvent? = nil,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
@@ -47,6 +23,11 @@ extension SceneMetalView {
     ) -> SceneScriptSurfaceInput? {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0 else { return nil }
+        let pointer = pointer ?? SceneSurfacePointerEvent(
+            normalizedPosition: pointerState.sceneScriptCurrent,
+            isInside: pointerState.isInside,
+            primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
+        )
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,

@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from script.tests.support.scene_vector_vm_test_support import compile_vector_harness, ROOT
-from script.tests.scene.test_scene_cursor_owner_transaction import HARNESS
+from script.tests.scene.test_scene_cursor_owner_transaction import CURSOR_HARNESS_COMMON
 
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 SUPPORT = r'''
@@ -40,6 +40,7 @@ final class SceneMetalView {
     var pointerState = SceneSurfacePointerState()
     var events = SceneSurfacePointerEventBuffer()
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch { events.drain() }
+    func restoreSceneScriptPointerEvents(_ batch:SceneSurfacePointerEventBatch) { events.restore(batch) }
     func sceneScriptSurfaceInput(pointer:SceneSurfacePointerEvent,timing:SceneFrameTiming,
         dynamicValues:SceneDynamicSnapshot,descriptor:SceneRenderDescriptor,
         layersByID:[Int:SceneRenderDescriptor.Layer],worldFrames:[Int:simd_float4x4]) -> SceneScriptSurfaceInput? {
@@ -73,6 +74,8 @@ final class SceneDesktopWallpaperSession {
     var surfaces:[UInt32:Surface] = [20:.init(metalView:.init(20)),10:.init(metalView:.init())]
     var localPointerEventMonitor:Bool?
     var globalPointerEventMonitor:Bool?
+    var frameSurfaceID:UInt32?
+    var frameSurface:SceneScriptSurfaceInput?
     func feed(_ time:Double,_ down:Bool,inside:UInt32,position:Float=0.2,source:PointerSource = .edge) {
         for (id,surface) in surfaces {
             let x:Float = id == inside ? position : 2
@@ -92,13 +95,19 @@ final class SceneDesktopWallpaperSession {
     func prepare(_ program:SceneScriptCursorProgram,failed:Bool=false,
         puppetAttachmentFramesBySurface:[UInt32:ScenePuppetAttachmentFrameSnapshot]=[:],
         worldFramesBySurface:inout [UInt32:[Int:simd_float4x4]]) -> SceneScriptCursorFrameBatch {
-        prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
+        let prepared = prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
             timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1),
             preliminaryForSceneScript:.empty(frameIndex:0),descriptor:.init(layers:[]),layersByID:[:],
             staticWorldFrames:[:],dynamicLayerIDs:[],perspectiveReplayRootIDs:[],
             puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
-            worldFramesBySurface:&worldFramesBySurface,
-            layerSnapshotFailure:failed ? .invalidArgument("test") : nil)
+            worldFramesBySurface:&worldFramesBySurface)
+        if failed {
+            restoreSceneScriptCursorEvents(prepared.drainedEvents)
+            return .init(samples:[],overflowed:false)
+        }
+        frameSurfaceID = prepared.surfaceID
+        frameSurface = prepared.surface
+        return prepared.batch
     }
 }
 '''
@@ -229,10 +238,21 @@ CHECKS = r'''
         host.feed(6,true,inside:20);host.feed(7,false,inside:20)
         let cross = host.prepare(drag)
         out["crossSurfaces"] = cross.samples.compactMap(\.surfaceID)
+        out["crossOrdinaryScreen"] = host.frameSurface?.screenSize.x ?? 0
+        out["crossOrdinaryPositionX"] = host.frameSurface?.cursorWorldPosition.x ?? 0
         out["crossPositions"] = cross.samples.map { Double($0.pointerPosition!.x) }
         out["crossDrag"] = values(dispatch(drag,cross.samples))
         drag.finalizeLayerMutations(committing:true)
         out["captureReleased"] = drag.edgeStateSnapshot().capturedSurfaceID == nil
+        let newCaptureHost = SceneDesktopWallpaperSession()
+        let (newCapture,_) = try make([(.origin,script)])
+        newCaptureHost.feed(12,true,inside:20);newCaptureHost.feed(13,false,inside:10)
+        _ = newCaptureHost.prepare(newCapture)
+        out["newPressScreen"] = newCaptureHost.frameSurfaceID ?? 0
+        out["newPressOrdinaryScreen"] = newCaptureHost.frameSurface?.screenSize.x ?? 0
+        newCaptureHost.feed(14,false,inside:99,source:.poll)
+        _ = newCaptureHost.prepare(newCapture)
+        out["outsideHasOrdinarySurface"] = newCaptureHost.frameSurface != nil
         let buttonScript = """
           let trace=0, releaseX=0;
           function report(e,kind,held) {
@@ -424,8 +444,7 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         product = '\n'.join((SCENE / p).read_text() for p in (
             'Runtime/Frame/SceneSurfacePointerState.swift',
             'Runtime/Session/SceneDesktopWallpaperSession+FrameDriverCursor.swift'))
-        helpers = HARNESS.split('    static func main() throws {')[0]
-        source = SUPPORT + product + helpers + 'static func main() throws { var out:[String:Any] = [:]\n' + CHECKS + '\nprint(String(data:try JSONSerialization.data(withJSONObject:out),encoding:.utf8)!)\n}\n}'
+        source = SUPPORT + product + CURSOR_HARNESS_COMMON + 'static func main() throws { var out:[String:Any] = [:]\n' + CHECKS + '\nprint(String(data:try JSONSerialization.data(withJSONObject:out),encoding:.utf8)!)\n}\n}'
         with tempfile.TemporaryDirectory(prefix='mwx-cursor-surfaces-') as tmp:
             binary = compile_vector_harness(Path(tmp), source, 'surfaces')
             result = subprocess.run([str(binary)],capture_output=True,text=True,timeout=45)
@@ -438,12 +457,12 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['denseFrameMarkers'],[31]*64)
         self.assertEqual(self.result['unusedSurfaceResolves'],0)
 
-    def test_next_batch_refreshes_frames_and_failed_or_empty_consumers_do_no_work(self):
+    def test_next_batch_refreshes_frames_and_idle_consumers_reuse_the_existing_route(self):
         self.assertEqual(self.result['nextBatchResolves'],2)
         self.assertEqual(self.result['nextFrameMarkers'],[47,47])
-        self.assertEqual(self.result['failedSnapshotResolves'],2)
-        self.assertEqual(self.result['noOwnerResolves'],2)
-        self.assertEqual(self.result['outsideIdleResolves'],2)
+        self.assertEqual(self.result['failedSnapshotResolves'],3)
+        self.assertEqual(self.result['noOwnerResolves'],3)
+        self.assertEqual(self.result['outsideIdleResolves'],3)
         self.assertEqual(self.result['outsideThenEntryResolves'],1)
         self.assertEqual(self.result['outsideThenEntryFrames'],[-1,31])
 
@@ -453,14 +472,14 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['secondSurface'],[2,2,2])
 
     def test_native_camera_without_owners_resolves_active_and_leaving_surface_once(self):
-        self.assertEqual(self.result['cameraFailedResolveCounts'],[1,0])
+        self.assertEqual(self.result['cameraFailedResolveCounts'],[2,1])
         self.assertTrue(self.result['cameraFailedHasNoSamples'])
         self.assertEqual(self.result['cameraNoOwnerSurfaces'],[20,20])
         self.assertEqual(self.result['cameraNoOwnerWorldMarkers'],[113,113])
         self.assertEqual(self.result['cameraLeavingWorldMarkers'],[97])
-        self.assertEqual(self.result['cameraNoOwnerResolveCounts'],[2,1])
-        self.assertEqual(self.result['cameraLeavingInputMarkers'],[97])
-        self.assertEqual(self.result['cameraActiveInputMarkers'],[113,113])
+        self.assertEqual(self.result['cameraNoOwnerResolveCounts'],[3,2])
+        self.assertEqual(self.result['cameraLeavingInputMarkers'],[97,97])
+        self.assertEqual(self.result['cameraActiveInputMarkers'],[113,113,113,113])
 
     def test_preseeded_phase_worlds_are_reused_and_next_phase_refreshes(self):
         self.assertEqual(self.result['seededWorldMarkers'],[151,179])
@@ -494,6 +513,13 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
         self.assertEqual(self.result['crossPositions'][:2],[2,2])
         self.assertEqual(self.result['crossDrag'],[1,1,0])
         self.assertTrue(self.result['captureReleased'])
+        self.assertEqual(self.result['crossOrdinaryScreen'],10)
+        self.assertEqual(self.result['crossOrdinaryPositionX'],2)
+
+    def test_new_press_selects_its_surface_even_when_poll_has_crossed(self):
+        self.assertEqual(self.result['newPressScreen'],20)
+        self.assertEqual(self.result['newPressOrdinaryScreen'],20)
+        self.assertFalse(self.result['outsideHasOrdinarySurface'])
 
     def test_monitored_button_edges_own_capture_until_actual_release(self):
         for monitor, released in (('local',[123,-0.5,-0.5]),('global',[12,2,2])):

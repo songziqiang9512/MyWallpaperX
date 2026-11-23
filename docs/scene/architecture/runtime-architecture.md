@@ -97,7 +97,7 @@ Direct model 的冷 MaterialPlan 从 descriptor 已准备材料链接固定首�
 ## 一帧与可见时间
 
 1. Session 固定单调时间、wall date、音频、媒体和输入，读取已提交 topology，并求得属性/Timeline 的前置值。
-2. 在 VM 前同步 Puppet 成员并采样会话动画 clock；各 Surface 推进骨骼 physics，准备 pre-script pose、attachment/world 观察，沿原单屏/多屏资格发布给脚本。这里不能推迟到 VM 后。
+2. 在 VM 前同步 Puppet 成员并采样会话动画 clock。各 Surface 推进骨骼 physics 并准备 pose、attachment/world；本帧 [光标路由](../capabilities/runtime-input-property-coverage.md#cursor-puppet-surface)确定共享骨查询和 `input` 的来源。随后一次发布共享脚本快照。
 3. SceneScript 按原阶段执行回调，收集 owner effects、typed 值和骨骼等命令。模块 heap、副作用与 typed mutation 不是同一种事务。
 4. 形成准入后的最终 typed snapshot；各 Surface 先应用骨骼写入，再完成 skinning/attachment、当前 world/camera 和粒子模拟，冻结 SimulationFrame。没有 drawable 仍推进一次模拟。
 5. 每个 Surface 独立准备资源、编码和提交。未提交候选取消自身资源，不撤销另一屏已提交工作。

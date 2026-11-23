@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from script.tests.support.scene_vector_vm_test_support import SCENE, compile_vector_harness
 
-HARNESS = r'''
+CURSOR_HARNESS_COMMON = r'''
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1))
     static func target(_ field: SceneDynamicLayerField = .origin, _ id: Int = 1) -> SceneDynamicTarget { .layer(layerID:id,field:field) }
@@ -43,6 +43,9 @@ HARNESS = r'''
       let xs=[];
       export function cursorClick(e) { xs.push(e.localPosition.x); thisLayer.origin=new Vec3(xs.length,xs.length>1?xs[xs.length-2]:0,input.cursorWorldPosition.x); }
       """
+'''
+
+HARNESS = CURSOR_HARNESS_COMMON + r'''
     static func primaryButtonCases() throws -> [[String:Any]] {
         try (0..<2).map { variant in
             let argument = variant == 0 ? "event" : "pointerEvent"
