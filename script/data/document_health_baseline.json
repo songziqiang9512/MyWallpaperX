@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 298044
+      "bytes": 299209
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "640ac24c272efe5e04e6512528e4fefc1e7a315fe7c78729b19da23b1470b692",
-      "after": "10841973fd983d1a9437e3a294fab436f48b8795241c61b7df33af4c72e900da",
-      "owner": "Scene Puppet mesh color and clipping",
-      "reason": "Record the author pupil outcome with layered controls and actual Metal drawing.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384"
+      "before": "10841973fd983d1a9437e3a294fab436f48b8795241c61b7df33af4c72e900da",
+      "after": "7e2c270050e6e53fafe7a2d408481e6e7ebe6db8b8a45acb805082d4e796b13f",
+      "owner": "Scene author video and text ordering",
+      "reason": "Record original clock layering, current visible control, and independent official insertion oracle.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-video-order-337"
     },
     {
       "section": "bodies",
