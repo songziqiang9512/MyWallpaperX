@@ -292,7 +292,7 @@ void main() {
         )
         expected = (
             "vec2 helper(float scalar) { vec2 result = vec2(scalar); return result; }\n"
-            "void main() { vec3 scalar = vec3(0.1); vec2 result = vec2(0.25); "
+            "void main() {                          vec2 result = vec2(0.25); "
             "gl_FragColor = vec4(result + helper(0.5), 0.0, 1.0); }"
         )
         with tempfile.TemporaryDirectory() as directory:
