@@ -67,8 +67,9 @@ def run_probe(directory: Path) -> dict:
     sources = list(dict.fromkeys([*vm.SWIFT_SOURCES, *EXTRA_SOURCES]))
     source_root = Path(os.environ.get("MWX_SCENE_TEST_SOURCE_ROOT", ROOT))
     headers = list((source_root / vm.VM.relative_to(ROOT)).rglob("*.h"))
+    evaluator_source = vm.SCENE / 'Systems/Puppet/ScenePuppetAnimationEvaluator.swift'
     product_inputs = [source_root / p.relative_to(ROOT)
-                      for p in [*sources, *vm.C_SOURCES]] + headers
+                      for p in [*sources, *vm.C_SOURCES, evaluator_source]] + headers
     inputs = [*product_inputs, FIXTURE, SETTER_FIXTURE, GENERAL_ZOOM_FIXTURE, Path(__file__),
               Path(vm.__file__), Path(timeline.__file__)]
     before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
