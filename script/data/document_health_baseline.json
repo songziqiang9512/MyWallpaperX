@@ -230,7 +230,7 @@
     },
     "docs/development/localization-plan.md": {
       "lines": 201,
-      "bytes": 21520
+      "bytes": 21525
     }
   },
   "archives": [
@@ -622,11 +622,11 @@
     {
       "section": "bodies",
       "path": "docs/development/localization-plan.md",
-      "before": "57ef1aaf83a9cd0440057365097beacbb5155c8a93cc60b413703f262d9e439e",
-      "after": "cf88d25a0370617f958dd354dfb0baf47331bcf3d00dfec6d5bcc34751245aac",
-      "owner": "Localization migration plan owner",
-      "reason": "Record the SteamKit sign-in/download rewrite and the single-source help assets pipeline.",
-      "decision": "docs/development/localization-plan.md#current-state"
+      "before": "cf88d25a0370617f958dd354dfb0baf47331bcf3d00dfec6d5bcc34751245aac",
+      "after": "affcacee5d6921f666cafadf9bba513f165c61c146865e68162010c1d9d1b549",
+      "owner": "repository-governance",
+      "reason": "Reconcile localization plan budget after the script collection and l10n merge.",
+      "decision": "docs/development/localization-plan.md"
     }
   ]
 }
