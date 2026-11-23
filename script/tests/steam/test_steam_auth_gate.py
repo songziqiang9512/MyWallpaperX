@@ -93,6 +93,6 @@ class SteamAuthGateTests(unittest.TestCase):
         self.assertGreaterEqual(panel.count('window?.makeFirstResponder(codeField)'), 3)
         self.assertIn('let zoomQRButton', presentation)
         self.assertIn('zoomQRButton.action = #selector(showZoomWindow)', panel)
-        self.assertIn('qrImageView.setAccessibilityLabel("Steam 登录二维码")', panel)
+        self.assertIn('qrImageView.setAccessibilityLabel(String(localized: "Steam Sign-In QR Code"))', panel)
         self.assertIn('statusLabel.setAccessibilityRole(.staticText)', presentation)
         self.assertIn('NSAccessibility.post(element: statusLabel, notification: .valueChanged)', panel)
