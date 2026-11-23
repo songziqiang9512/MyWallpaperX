@@ -35,6 +35,7 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                  "MyWallpaperX/Shell/WallpaperPlaylistEditorController.swift",
                  "MyWallpaperX/Shell/PlaylistOrganizationActions.swift", "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift",
                  "script/tests/fixtures/NativeAppHarness.swift", "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift"]
+        paths = [*paths, "MyWallpaperX/Shared/ThumbnailRequest.swift", "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift"]
         observed = paths + [ str(Path(__file__).relative_to(ROOT)), "script/tests/ui/test_ui_library_algorithms.py"]
         identities = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in observed}
         with tempfile.TemporaryDirectory(prefix="mwx-library-sidebar-", dir="/private/tmp") as folder:
