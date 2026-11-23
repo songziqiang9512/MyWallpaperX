@@ -279,7 +279,7 @@ nonisolated private final class ControlledPageProtocol: URLProtocol, @unchecked 
             await owner.task()?.value
             schemaErrors[label] = owner.errorMessage
             checks["http-required-field-rejection-" + label] = owner.items.isEmpty && owner.auditIndex()
-                && !owner.isLoading && !owner.hasMore && owner.errorMessage?.hasPrefix("网络错误：") == true
+                && !owner.isLoading && !owner.hasMore && owner.errorMessage?.hasPrefix("Network error:") == true
         }
         let errorsJSON = String(decoding: try! JSONSerialization.data(withJSONObject: schemaErrors, options: [.sortedKeys]), as: UTF8.self)
         FileHandle.standardError.write(Data("Pixabay schema errors: \(errorsJSON)\n".utf8))
