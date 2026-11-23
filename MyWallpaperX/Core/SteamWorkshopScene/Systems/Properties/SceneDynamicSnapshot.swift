@@ -299,6 +299,15 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
 }
 
 private extension SceneDynamicTarget {
+    nonisolated var transformLayerID: Int? {
+        switch self {
+        case let .layer(layerID, .origin), let .layer(layerID, .scale), let .layer(layerID, .angles):
+            layerID
+        default:
+            nil
+        }
+    }
+
     nonisolated func acceptsRepresentableValue(_ value: SceneDynamicValue) -> Bool {
         switch self {
         case .layer(_, .fov):
@@ -488,9 +497,16 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         frameIndex: UInt64,
         generation: UInt64,
         values: [SceneDynamicTarget: SceneDynamicResolvedValue],
-        dynamicTransformLayerIDs: Set<Int>
+        dynamicTransformLayerIDs: Set<Int>,
+        addedDefinitions: [SceneDynamicTargetDefinition] = []
     ) -> SceneDynamicSnapshot {
-        SceneDynamicSnapshot(
+        var authoredValues = self.authoredValues
+        var userPropertyNumericRanges = self.userPropertyNumericRanges
+        for definition in addedDefinitions {
+            authoredValues[definition.target] = definition.authoredValue
+            userPropertyNumericRanges[definition.target] = definition.userPropertyNumericRange
+        }
+        return SceneDynamicSnapshot(
             frameIndex: frameIndex,
             generation: generation,
             values: values,
@@ -564,6 +580,22 @@ nonisolated struct SceneDynamicSnapshotDiagnostic: Equatable, Sendable {
     let source: SceneDynamicSource
 }
 
+private extension SceneDynamicTargetDefinition {
+    nonisolated var authoredDiagnostic: SceneDynamicSnapshotDiagnostic? {
+        let code: SceneDynamicSnapshotDiagnostic.Code
+        if authoredValue.valueType != valueType {
+            code = .authoredTypeMismatch
+        } else if !authoredValue.isFinite {
+            code = .nonFiniteValue
+        } else if !target.acceptsRepresentableValue(authoredValue) {
+            code = .valueOutOfRange
+        } else {
+            return nil
+        }
+        return .init(code: code, target: target, source: .authored)
+    }
+}
+
 /// Launch/revision-stable projection of dynamic target definitions.
 ///
 /// The definition list is authored topology.  Building its target index and
@@ -609,25 +641,8 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
         var authoredDiagnostics: [SceneDynamicSnapshotDiagnostic] = []
         for definition in definitions where
             !duplicateTargets.contains(definition.target) {
-            guard definition.authoredValue.valueType == definition.valueType else {
-                authoredDiagnostics.append(.init(
-                    code: .authoredTypeMismatch,
-                    target: definition.target,
-                    source: .authored
-                ))
-                continue
-            }
-            guard definition.authoredValue.isFinite else {
-                authoredDiagnostics.append(.init(
-                    code: .nonFiniteValue,
-                    target: definition.target,
-                    source: .authored
-                ))
-                continue
-            }
-            guard definition.target.acceptsRepresentableValue(definition.authoredValue) else {
-                authoredDiagnostics.append(.init(code: .valueOutOfRange,
-                    target: definition.target, source: .authored))
+            if let diagnostic = definition.authoredDiagnostic {
+                authoredDiagnostics.append(diagnostic)
                 continue
             }
             authoredValues[definition.target] = .init(
@@ -638,9 +653,7 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
             if let range = definition.userPropertyNumericRange {
                 userPropertyNumericRanges[definition.target] = range
             }
-            if case let .layer(layerID, field) = definition.target,
-               definition.valueType == .vector3,
-               field == .origin || field == .scale || field == .angles {
+            if definition.valueType == .vector3, let layerID = definition.target.transformLayerID {
                 dynamicTransformLayerIDs.insert(layerID)
             }
         }
@@ -704,11 +717,7 @@ nonisolated struct SceneDynamicSnapshotResolver {
 
         var resolved = base.resolvedValuesForPreparation()
         for (target, value) in selected { resolved[target] = value }
-        let affectedTransformLayerIDs = Set(targets.compactMap { target -> Int? in
-            guard case let .layer(layerID, field) = target,
-                  field == .origin || field == .scale || field == .angles else { return nil }
-            return layerID
-        })
+        let affectedTransformLayerIDs = Set(targets.compactMap(\.transformLayerID))
         let dynamicTransformLayerIDs = base.dynamicTransformLayerIDsForFrame
             .subtracting(affectedTransformLayerIDs)
             .union(Self.dynamicTransformLayerIDs(
@@ -805,7 +814,8 @@ nonisolated struct SceneDynamicSnapshotResolver {
         index: SceneDynamicSnapshotDefinitionIndex,
         base: SceneDynamicSnapshotResolution,
         timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
-        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue]
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue],
+        candidateDefinitions: [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
     ) -> SceneDynamicSnapshotResolution {
         var diagnostics = base.diagnostics
         var resolved = base.snapshot.resolvedValuesForPreparation()
@@ -819,13 +829,18 @@ nonisolated struct SceneDynamicSnapshotResolver {
             resolved: &resolved,
             diagnostics: &diagnostics
         )
-        apply(
+        let addedDefinitions = apply(
             sceneScriptValues,
             source: .sceneScript,
             definitions: index.definitionsByTarget,
             resolved: &resolved,
-            diagnostics: &diagnostics
+            diagnostics: &diagnostics,
+            candidateDefinitions: candidateDefinitions
         )
+        var transformLayers = index.dynamicTransformLayerIDs
+        for definition in addedDefinitions where definition.valueType == .vector3 {
+            if let layerID = definition.target.transformLayerID { transformLayers.insert(layerID) }
+        }
         let orderedDiagnostics = Self.orderedDiagnostics(diagnostics)
         return SceneDynamicSnapshotResolution(
             snapshot: base.snapshot.replacingResolvedValues(
@@ -834,8 +849,9 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 values: resolved,
                 dynamicTransformLayerIDs: Self.dynamicTransformLayerIDs(
                     in: resolved,
-                    candidates: index.dynamicTransformLayerIDs
-                )
+                    candidates: transformLayers
+                ),
+                addedDefinitions: addedDefinitions
             ),
             diagnostics: orderedDiagnostics
         )
@@ -877,19 +893,33 @@ nonisolated struct SceneDynamicSnapshotResolver {
         }
     }
 
+    @discardableResult
     private nonisolated func apply(
         _ values: [SceneDynamicTarget: SceneDynamicValue],
         source: SceneDynamicSource,
         definitions: [SceneDynamicTarget: SceneDynamicTargetDefinition],
         resolved: inout [SceneDynamicTarget: SceneDynamicResolvedValue],
-        diagnostics: inout [SceneDynamicSnapshotDiagnostic]
-    ) {
+        diagnostics: inout [SceneDynamicSnapshotDiagnostic],
+        candidateDefinitions: [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
+    ) -> [SceneDynamicTargetDefinition] {
+        var addedDefinitions: [SceneDynamicTargetDefinition] = []
         for (target, value) in values {
-            guard let definition = definitions[target] else {
+            let definition: SceneDynamicTargetDefinition
+            if let prepared = definitions[target] {
+                guard resolved[target] != nil else { continue }
+                definition = prepared
+            } else if let candidate = candidateDefinitions[target] {
+                if let diagnostic = candidate.authoredDiagnostic {
+                    diagnostics.append(diagnostic)
+                    continue
+                }
+                resolved[target] = .init(value: candidate.authoredValue, source: .authored)
+                addedDefinitions.append(candidate)
+                definition = candidate
+            } else {
                 diagnostics.append(.init(code: .unknownTarget, target: target, source: source))
                 continue
             }
-            guard resolved[target] != nil else { continue }
             guard value.valueType == definition.valueType else {
                 diagnostics.append(.init(code: .valueTypeMismatch, target: target, source: source))
                 continue
@@ -918,5 +948,6 @@ nonisolated struct SceneDynamicSnapshotResolver {
             }
             resolved[target] = .init(value: value, source: source)
         }
+        return addedDefinitions
     }
 }

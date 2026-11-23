@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 223,
-      "bytes": 41662
+      "bytes": 41505
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 62989
+      "bytes": 62853
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 563,
-      "bytes": 160652
+      "lines": 565,
+      "bytes": 161204
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,11 +487,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "99552847cd0a0bc30f0f499d65955b865df47ba193c98a7bf7c85fcde39597a7",
-      "after": "56567c4da3023e300941010c4b1f139dbf8f3f900ee1dfc2c9e6f3a3eaa903fa",
-      "owner": "Existing Scene model evidence and Spot volume dispatch owners",
-      "reason": "Record same-fit full-caster color/depth attribution with explicit non-fix and official failure limits; qualify unrequested-volume diagnostic correction through unchanged surface pixels, actual requested-volume success/failure and an independent author. No new runtime/resource/output owner.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-complete-contribution"
+      "before": "56567c4da3023e300941010c4b1f139dbf8f3f900ee1dfc2c9e6f3a3eaa903fa",
+      "after": "4a7b8320ae5fc49ecfdd7374c3d1f3e40ffb40fdcb8ba9c11c43c3fa44ab0937",
+      "owner": "Existing Scene model runtime evidence",
+      "reason": "Record first-cadence authored transform red/green terminal pixels, actual creator Saturn world draws, team-signed independent playback, and remaining coverage.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#current-authored-transforms"
     },
     {
       "section": "bodies",

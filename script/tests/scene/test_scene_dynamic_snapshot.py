@@ -419,6 +419,24 @@ enum Harness {
         } else {
             sceneScriptNonFiniteRetained = false
         }
+        let lateOrigin = SceneDynamicTarget.layer(layerID: 21, field: .origin)
+        let lateScale = SceneDynamicTarget.layer(layerID: 22, field: .scale)
+        let lateAngles = SceneDynamicTarget.layer(layerID: 23, field: .angles)
+        let unused = SceneDynamicTarget.layer(layerID: 24, field: .origin)
+        let candidates: [SceneDynamicTarget: SceneDynamicTargetDefinition] = [
+            lateOrigin: .init(target: lateOrigin, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+            lateScale: .init(target: lateScale, valueType: .vector3, authoredValue: .vector3(1, 1, 1)),
+            lateAngles: .init(target: lateAngles, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+            unused: .init(target: unused, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+            alpha: .init(target: alpha, valueType: .scalar, authoredValue: .scalar(0.9)),
+            duplicate: .init(target: duplicate, valueType: .scalar, authoredValue: .scalar(0)),
+        ]
+        let current = resolver.resolve(frameIndex: 42, generation: 7,
+            index: SceneDynamicSnapshotResolver.prepare(definitions: definitions),
+            base: first, sceneScriptValues: [lateOrigin: .vector3(2, 3, 4),
+                lateScale: .vector3(2, 2, 2), lateAngles: .vector3(0, 0, .pi / 2),
+                alpha: .scalar(0.6), duplicate: .scalar(1), unknown: .scalar(1)],
+            candidateDefinitions: candidates)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
             "valueTypes": values.map { $0.valueType.rawValue },
@@ -441,6 +459,13 @@ enum Harness {
             "incrementalEquivalent": incremental == full,
             "incrementalValue": String(describing: incremental.snapshot[incrementalAlpha]!.value),
             "incrementalDiagnostics": incremental.diagnostics.map { diagnostic($0) },
+            "currentTransforms": [lateOrigin, lateScale, lateAngles].map { resolved(current.snapshot[$0]) },
+            "currentTransformLayers": current.snapshot.dynamicTransformLayerIDsForFrame.sorted(),
+            "currentScaleSeed": String(describing: current.snapshot.authoredValue(for: lateScale)!),
+            "currentAlphaSeed": String(describing: current.snapshot.authoredValue(for: alpha)!),
+            "unusedTransformAbsent": current.snapshot[unused] == nil && current.snapshot.authoredValue(for: unused) == nil,
+            "currentDuplicateAbsent": current.snapshot[duplicate] == nil,
+            "currentUnknownAbsent": current.snapshot[unknown] == nil,
             "sameFrameMultiply": resolved(sameFrame.snapshot[multiply]),
             "sameFrameVisible": resolved(sameFrame.snapshot[effectVisible]),
             "sameFrameExistingScript": resolved(sameFrame.snapshot[incrementalAlpha]),
@@ -597,6 +622,19 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertTrue(self.result["mismatchMissing"])
         self.assertTrue(self.result["nonFiniteMissing"])
         self.assertEqual(self.result["count"], 3)
+
+    def test_first_admitted_transform_expands_only_its_current_snapshot(self) -> None:
+        self.assertEqual(self.result["currentTransforms"], [
+            ["vector3(2.0, 3.0, 4.0)", "sceneScript"],
+            ["vector3(2.0, 2.0, 2.0)", "sceneScript"],
+            ["vector3(0.0, 0.0, 1.5707963267948966)", "sceneScript"],
+        ])
+        self.assertEqual(self.result["currentTransformLayers"], [21, 22, 23])
+        self.assertEqual(self.result["currentScaleSeed"], "vector3(1.0, 1.0, 1.0)")
+        self.assertEqual(self.result["currentAlphaSeed"], "scalar(0.1)")
+        self.assertTrue(self.result["unusedTransformAbsent"])
+        self.assertTrue(self.result["currentDuplicateAbsent"])
+        self.assertTrue(self.result["currentUnknownAbsent"])
 
     def test_only_scene_script_scalars_may_publish_non_finite_values(self) -> None:
         self.assertEqual(

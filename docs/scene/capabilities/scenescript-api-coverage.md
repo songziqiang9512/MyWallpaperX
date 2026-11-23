@@ -57,7 +57,7 @@ Layer `color` setter接受有限三分量原值；[公开颜色教程](https://d
 
 继续沿原回调顺序、owner journal/准入、typed snapshot及唯一world resolver执行。后继变换回调的update(value)应读它开始时的当前值；同一目标的局部TRS getter与该入参一致，pre-script getTransformMatrix/骨骼观察保原阶段。前一回调setter与后一回调主动返回按真实先后写入同一变换职责，同次值回调中新setter仍保原优先规则；不能在末端无条件令setter覆盖后来主动返回，也不能按return value的源码形状识别passthrough。最终准入后的变换进入本帧世界/相机与原渲染消费者，原下一cadence仍保已提交状态；退出变换的额外一帧延迟及其旧冻结入参。不能另加时钟、模型/大气同步缓存、名称派发、shader延时或改作者层级；现pre-script骨骼/getTransformMatrix观察和其它命令的阶段各自保持，不统一改成全部立即可见。
 
-原Coordinator/VectorProgram仅增量折入成功TRS journal，供后继callback的当前入参。有效init/值返回归同owner journal，退出重复返回map和TRS pending初始化值，避免早init盖过晚setter。无新值不伪造setter；passive Timeline仍投影原动画当前值，有当帧已准入TRS写入时以原layerPlan canonical值为准。最终snapshot复用plan已算值，不再次解码journal。首次未声明TRS定义的当帧消费仍归[开放队列](../roadmap/scene-open-breakpoint-queue.md#implementation-gaps)，暖态资格不能覆盖它。
+Coordinator增量折入成功TRS journal，供后继回调入参；有效init/返回归同owner journal。passive Timeline仍投影动画，当帧准入值取自layerPlan。首次跨层写入缺定义时，最终typed overlay从已收敛的plan取该定义及seed，同帧发布值与world变换资格；其余目标复用原索引，提交后按revision刷新。未知目标、阶段前缀及拓扑生效时机保持。
 
 原vector C入口只追加已准备target的field选择值，在实际update前消费timer/事件前缀并统一自身getter；Bool读值作用域收敛到LayerValueHost，Core旧副本退出。raw vector返回进入既有journal，angles只沿原bridge转换一次，不做Swift完整mutation镜像。explicit init返回也入journal并推进当前入参，C init getter未接此read scope。其它field、pre-script骨骼/getTransformMatrix及owner寿命保原阶段。不新增持久状态、仲裁表、时钟、图重建或逐回调全journal重扫。
 

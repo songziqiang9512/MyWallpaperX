@@ -842,7 +842,8 @@ extension SceneDesktopWallpaperSession {
         let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
             base: preliminarySceneScriptResolution, timelineValues: settledTimelineValues,
-            sceneScriptValues: admittedScriptValues)
+            sceneScriptValues: admittedScriptValues,
+            candidateDefinitions: admission.layerPlan.authoredDefinitionsByTarget)
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution
