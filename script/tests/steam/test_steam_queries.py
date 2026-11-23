@@ -13,7 +13,7 @@ class SteamQueryTests(unittest.TestCase):
         guidance = view[view.index('    private var personalLoginGuidance: String?'):]
         self.assertIn('service.shouldUseSteamKitPersonal', guidance)
         self.assertIn('!service.steamAuth.isOnline', guidance)
-        self.assertIn('请使用工具栏的「登录 Steam」', guidance)
+        self.assertIn('Sign in to Steam', guidance)
         self.assertIn('service.steamAuth.$steamId.map', view)
         self.assertNotIn('service.showLoginPanel()', guidance)
 
