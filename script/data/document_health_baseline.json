@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 485,
-      "bytes": 113659
+      "lines": 494,
+      "bytes": 115841
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 272055
+      "bytes": 272709
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59158
+      "bytes": 59222
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "b9e3159b1187abae7c90e43484bf8dfeff14dd1c055ffc7ac2d803fb0a8981e7",
-      "after": "f9d8644d45ac5bdd7bf9b10d10f2798907b40b9505c3b50d314ce15b007883fc",
-      "owner": "Existing MDLA reader and Puppet authored pose",
-      "reason": "Define pre-bounds curve framing, authored skeletal and Direct boundaries and link actual evidence.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-prebounds-curves"
+      "before": "f9d8644d45ac5bdd7bf9b10d10f2798907b40b9505c3b50d314ce15b007883fc",
+      "after": "e2d240fbea14eee8e6090dbb0d9119b8534fa95fcca1dfeb9db3b09aaf213185",
+      "owner": "Existing Scene image Puppet and authored runtime evidence",
+      "reason": "Define measured image MDMP decoding, shared pose execution and explicit unsupported composition boundaries.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdmp-morph"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a439d54e28a61fbe57cfc140b250512530394b7e6bd72e451f1dc9e4173cc47d",
-      "after": "16656f590ea8dd9746fe24020fd75a4294284c70b792ef29e7bcc87fbdfdeb7b",
-      "owner": "Existing Scene image Puppet runtime evidence",
-      "reason": "Record paired final pixels, actual authored clip commands and independent GPU results.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence"
+      "before": "16656f590ea8dd9746fe24020fd75a4294284c70b792ef29e7bcc87fbdfdeb7b",
+      "after": "b77763645cded3af14c2c0540225d4f09a35874305089f3f174fbb1bd1816fb0",
+      "owner": "Existing Scene image Puppet and authored runtime evidence",
+      "reason": "Record official fixed frames and signed deformation/coverage controls with the matching local failure baseline.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-mdmp-oracle"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "df5a36566f7c1d511e60e90baed1168077ed7e844e54b81a0102a089b712765e",
-      "after": "70c1b56aab31ae5812a7f451efffa060ca2932b59c67b896ecae01d3df338194",
-      "owner": "Existing Scene author playback open queue",
-      "reason": "Attach the live authored Puppet failure and the evidence needed to recover independent clips.",
+      "before": "0f97ec622592b222fe88350bdf99868460a01f9e1c918b1629bae6708688f0a2",
+      "after": "5405914bed31008c2589a4fa9c0371dd1d5b4fb2f1d777a25289cb74f9960fda",
+      "owner": "Existing Scene image Puppet and authored runtime evidence",
+      "reason": "Advance the queue from format qualification to the confirmed image geometry consumer.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#puppet-morph-peer-fallback"
     },
     {

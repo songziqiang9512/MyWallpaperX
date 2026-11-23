@@ -371,7 +371,16 @@ Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备
 
 MDLA6 的 bounds 前辅助区按有序事件、曲线数、隐式首曲线编号与后续显式编号、每曲线字节长推进原游标。三个原包的记录精确落到后继 clip 与 MDLA 声明末端；关联字段在 MDMP 中复现，尚无播放时钟或变形语义。移除固定标识和单曲线许可，保持当前 dense 采样长度、声明块边界及后续 bounds/普通事件。曲线来由记在原辅助通道字段；准备骨骼时无曲线消费者，无需复制样本或校验其权重范围。计数或长度无法确定记录边界时继续拒绝该动画块，不扫描猜测后继起点。
 
-图片的作者动画按原有 ID、opaque 骨骼基底及叠加顺序保留可解 TRS/骨 alpha/普通事件，沿原冷准备、会话 cadence、Surface pose 和主图几何。含未消费曲线的作者槽继续控制已接入通道，原 pose 诊断标出仅支持骨骼部分。DirectModel 可按原规则注册已准备的骨骼与时间元数据；活动曲线仍让可见网格使用 bind，并沿原属性准入边界。脚本动态创建 Single 只接可完整执行的源。未知后置 scalar、坏骨骼和不明 framing 保原降级；不将必需基底变成可选槽。没有新增 owner、时钟、缓存或帧内解析。验收用真实 MDLA 的多曲线及后继动画、改名与畸形长度、按实际参考保护 opaque 次序，再以固定两姿态的 App 主图和独立作者核对。MDMP 形变、采样语义及官方形变画面留后续。 [App 与原作者证据](runtime-evidence-current.md#puppet-prebounds-curve-evidence)。
+图片的作者动画按原有 ID、opaque 骨骼基底及叠加顺序保留可解 TRS/骨 alpha/普通事件，沿原冷准备、会话 cadence、Surface pose 和主图几何。含未消费曲线的作者槽继续控制已接入通道，原 pose 诊断标出仅支持骨骼部分。DirectModel 可按原规则注册已准备的骨骼与时间元数据；活动曲线仍让可见网格使用 bind，并沿原属性准入边界。脚本动态创建 Single 只接可完整执行的源。未知后置 scalar、坏骨骼和不明 framing 保原降级；不将必需基底变成可选槽。没有新增 owner、时钟、缓存或帧内解析。验收用真实 MDLA 的多曲线及后继动画、改名与畸形长度、按实际参考保护 opaque 次序，再以固定两姿态的 App 主图和独立作者核对。后续形变接入见[MDMP 设计](#puppet-mdmp-morph)。 [App 与原作者证据](runtime-evidence-current.md#puppet-prebounds-curve-evidence)。
+
+<a id="puppet-mdmp-morph"></a>
+### 图片 Puppet 的 MDMP 形变
+
+目标是让已绑定的作者形态随原动画相位改变图片网格和覆盖度。MDLA 和 MDMP 以四字节关联值的位模式配对，同一值按 Float32 解释为位移尺度。MDMP0001 在声明结束前按 shape 读两个独立计长的向量，依次是小端 signed 16-bit XYZ 与每点 u16 覆盖量。用实际顶点第四 Float 分量选择一基形态地址，0 跳过。已验证的连续曲线编号对应同组形态顺序，形态编辑器 ID 不作索引。按实际样本确定计长、索引、组边界与匹配帧数的有限权重；不把后继 MDLE 或末尾字节当变形数据。
+
+冷准备沿原图片 asset/evaluator 一次绑定曲线和形态地址，保持同 mesh 资源共享。活动 clip 从既有 FrameSample 与 blend 求各形态权重，每形态只采样一次。局部 XYZ 位移用有符号归一分量、组尺度及权重累加到原 bind position 后再蒙皮；覆盖量以 0x7fff 为满量程，形态覆盖按 `1 + (目标覆盖 − 1) × 权重` 逐项相乘，再和原骨覆盖合成。同一现有发布将顶点与覆盖交给绘制、裁剪、命名输出和唯一合成。首批接入单个当前有有效权重的形态 clip，可与普通骨骼同播。Direct、动态 Single 和 modifier 留原路径；多个活动形态 clip 或映射不明时保已准备的骨骼及局部诊断。
+
+现有 image pose 签名计入已绑定曲线的变化，纯形态也要重新发布实际几何；重复相位及休眠保持原快路。无形态的资源继续原 skin/coverage 循环，无 per-vertex 新检查、scratch、纹理或新时钟。形态准备与采样由原图片 pose owner 承接，预脚本骨查询和附件矩阵不消费形态。验收有两个零相位对一个峰值的真实眼周画面、shape隔离、符号/比例/覆盖/slot blend，以及一基地址零对照、带旋转骨的前后次序、同相位复用、隐藏、独立 MDMP 坏长度后健康骨骼、改名及独立作者。MDLA 本身失去可信记录边界时仍沿原拒绝。数值与当前实现差异见[官方对照](runtime-evidence-current.md#puppet-mdmp-oracle)。
 
 <a id="puppet-instances"></a>
 ### 运行时 Single 实例
