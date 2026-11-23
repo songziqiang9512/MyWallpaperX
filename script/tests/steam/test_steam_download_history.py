@@ -361,7 +361,7 @@ import Foundation
         let stagedImport = matrix.job(id: jobsByWorkshop["411"]!)!
         precondition(stagedImport.state == .failed
             && stagedImport.receipt == nil
-            && stagedImport.failureMessage?.contains("缺少创建时间") == true)
+            && stagedImport.failureMessage?.contains("has no creation time") == true)
         let failedImport = matrix.job(id: jobsByWorkshop["413"]!)!
         precondition(failedImport.state == .failed
             && failedImport.failureMessage == "network"
