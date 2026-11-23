@@ -119,8 +119,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         configure = function_body(self.coordinator, "static func configure(")
         self.assertIn(".sceneWallpaperLaunchStateDidChange", configure)
         self.assertIn("SteamWorkshopService.shared.statusMessage", configure)
-        self.assertIn("当前壁纸会继续播放", configure)
-        self.assertIn("正在等待首帧显示", configure)
+        self.assertIn("the current wallpaper will keep playing", configure)
+        self.assertIn("waiting for the first frame", configure)
 
     def test_progress_uses_truthful_indeterminate_stages(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
