@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 277802
+      "bytes": 278461
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 207,
-      "bytes": 63066
+      "lines": 208,
+      "bytes": 63362
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c4153e7e41e1bd555bcffe232e6c01d628ee6fd44380f06c2a2596e8933f3ee5",
-      "after": "723033e36e8e117b474d2a9b51477edbb33820e8be78e558ce8f4342c485d161",
-      "owner": "Scene material extent, audio, and runtime evidence",
-      "reason": "Record canonical actual visual, audio, resolution and raster controls for the authored solid effect.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-oscilloscope-local-extent"
+      "before": "723033e36e8e117b474d2a9b51477edbb33820e8be78e558ce8f4342c485d161",
+      "after": "1536f3abb90b6f6a3b54e70e4632c8b0d05918067c1cfff18d7788e778d9c9a3",
+      "owner": "Current Scene pointer visual evidence",
+      "reason": "Preserve the calibrated official pointer and candidate same-layer control with the visual limit.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-halo-378"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "15fcb973cbb00763b6c05a96d3807411155a38aaf4407d96a33478f6996eb88f",
-      "after": "ef281d56075895687d2ea65c1639e786dc782898a25d9bd0bc4585e55d5c8954",
-      "owner": "Scene material extent, audio, and runtime evidence",
-      "reason": "Record verified source and final raster obligations and the independent shared audio qualification.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "ef281d56075895687d2ea65c1639e786dc782898a25d9bd0bc4585e55d5c8954",
+      "after": "48b94a2e2045203a00c938bae05243388a5e4e718c95efbde87eee21ad7a0403",
+      "owner": "Current Scene pointer visual evidence",
+      "reason": "Mark the user white patch observation as unconfirmed while recording the verified authored trail.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
       "section": "bodies",
