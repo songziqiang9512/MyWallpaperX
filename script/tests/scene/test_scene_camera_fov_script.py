@@ -50,7 +50,7 @@ def camera_preamble() -> str:
     # frame schema without pulling device-resource preparation into this test.
     schema = schema.replace(swift_declaration(
         schema, "    static func preparedResourceCatalog("), "", 1)
-    return preamble.replace(camera, camera_with_fov, 1) + schema + "\n" + swift_declaration(
+    return preamble.replace(camera, camera_with_fov, 1) + "\n" + schema + "\n" + swift_declaration(
         TIMELINE_COMPILER.read_text(), "nonisolated struct SceneTimelineBinding:") + """
 extension SceneRenderDescriptor.Layer {
     var displayScriptOwnership: SceneLayerDisplayScriptOwnership? { nil }

@@ -535,7 +535,7 @@ def compile_vector_harness(
         objects.append(output)
 
     swift_sources = list(dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources]))
-    fixture = preamble + harness_source
+    fixture = preamble.rstrip() + "\n\n" + harness_source.lstrip()
     evaluator_source = SCENE / "Systems/Puppet/ScenePuppetAnimationEvaluator.swift"
     if evaluator_source.resolve() not in {source.resolve() for source in swift_sources}:
         sample = swift_declaration(evaluator_source.read_text(encoding="utf-8"), "    struct FrameSample:")
