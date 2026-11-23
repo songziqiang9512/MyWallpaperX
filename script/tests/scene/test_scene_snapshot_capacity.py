@@ -352,7 +352,7 @@ FRAME_MAIN=r'''
   let entry=ScenePreparedStaticModelResources.Entry(materialPath:"self",dynamicMaterialPath:"",mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))
   let utility=mode=="utility-trigger",hidden=mode=="hidden-no-demand"
-  let layers=[SceneRenderDescriptor.Layer(id:1),.init(id:6,contentKind:"image",colorBlendMode:1),.init(id:42,contentKind:"particle"),.init(id:7,contentKind:"utility",colorBlendMode:1),.init(id:8,visible:false,contentKind:"trigger")]
+  let layers=[SceneRenderDescriptor.Layer(id:1,alpha:1),.init(id:6,contentKind:"image",colorBlendMode:1),.init(id:42,contentKind:"particle"),.init(id:7,contentKind:"utility",colorBlendMode:1),.init(id:8,visible:false,contentKind:"trigger")]
   renderer.layersByID=Dictionary(uniqueKeysWithValues:layers.map{($0.id,$0)})
   if utility {renderer.utilityExecution = .init(plansByTriggerLayerID:[8:[.init(layerID:7,usesIsolatedGroupTarget:false)]])}
   let visible:Set<Int>=hidden || utility ? [1]:[1,6,42]
