@@ -24,6 +24,12 @@ final class FixtureResources {
     func deferredStatus(for layerID: Int) -> SceneDeferredBaseImageStatus {
         statuses[layerID] ?? .notDeferred
     }
+    func conditionalSelections(values: [String: SceneUserPropertyValue], changedKeys: Set<String>)
+        -> [Int: Set<UInt32>] { [:] }
+    func requestConditionalAtlases(_ selections: [Int: Set<UInt32>], generation: UInt64) {}
+    func conditionalStatus(generation: UInt64) -> SceneDeferredBaseImageStatus { .notDeferred }
+    @discardableResult
+    func finishConditionalAtlases(generation: UInt64, commit: Bool) -> [Int: Bool] { [:] }
 }
 
 final class FixtureAdoption {
@@ -62,18 +68,29 @@ final class FixtureView {
         committed.formUnion(layerIDs)
         staged.subtract(layerIDs)
     }
+    func replaceConditionalAtlases(_ updates: [Int: Bool]) {}
 }
 
 final class FixtureSound {
     var accepts = true
     var applies = 0
     func canApply(userValues: [SceneDynamicTarget: SceneDynamicValue]) -> Bool { accepts }
-    func apply(userValues: [SceneDynamicTarget: SceneDynamicValue]) { applies += 1 }
+    func apply(userValues: [SceneDynamicTarget: SceneDynamicValue], committedSnapshot: SceneDynamicSnapshot?,
+               committedHandleVolumeLayerIDs: Set<Int>) { applies += 1 }
 }
 
 struct FixtureRuntimeInput { let propertyBindingProgram: ScenePropertyBindingProgram }
-struct FixtureDeviceResources { let baseImages: FixtureResources }
+struct FixtureStaticModels { var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> = [] }
+struct FixtureDeviceResources {
+    let baseImages: FixtureResources
+    let staticModels = FixtureStaticModels()
+}
 struct FixtureScriptProgram { var generation: UInt64 = 1 }
+struct FixtureLayerRuntime {
+    struct Snapshot { var destroyedAuthoredLayerIDs: Set<Int> = [] }
+    var committedHandleVolumeLayerIDs: Set<Int> = []
+    func snapshot() -> Snapshot { .init() }
+}
 struct SceneDesktopWallpaperLaunchContext {
     let recordID: String?
     var liveState: ScenePropertyLiveUpdateState
@@ -85,6 +102,13 @@ struct SceneDesktopWallpaperLaunchContext {
         Set(particleVisibilityRequirements.values.joined())
     }
     var propertyVectorScriptProgram = FixtureScriptProgram()
+    var sceneScriptScalarProgram = FixtureScriptProgram()
+    var sceneScriptStringProgram = FixtureScriptProgram()
+    var sceneScriptDynamicLayerRuntime = FixtureLayerRuntime()
+    var sceneScriptStatefulTargets: Set<SceneDynamicTarget> = []
+    var dynamicDefinitionIndex: SceneDynamicSnapshotDefinitionIndex {
+        SceneDynamicSnapshotResolver.prepare(definitions: [])
+    }
     var unavailable: Set<SceneDynamicTarget> = []
 }
 
@@ -99,6 +123,10 @@ final class SceneDesktopWallpaperSession {
     struct Surface {
         let metalView: FixtureView
         var scriptGeneration: UInt64 = 1
+        var particlePlayback: (preparedLayerIDs: Set<Int>, fixture: Void)? {
+            (metalView.preparedParticleLayerIDs, ())
+        }
+        var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget> = []
     }
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var surfaces: [Int: Surface] = [:]
@@ -106,7 +134,13 @@ final class SceneDesktopWallpaperSession {
     var soundPlaybackRegistry: FixtureSound? = FixtureSound()
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate: PendingDeferredLayerVisibilityUpdate?
+    var evaluationTransaction = SceneEvaluationTransaction()
     init(_ context: SceneDesktopWallpaperLaunchContext) { launchContext = context }
+    func commitSceneDynamicEvaluation(_ pending: SceneEvaluationTransaction.PendingEvaluation) {
+        evaluationTransaction.commit(pending)
+    }
+    func refreshPausedSoundProperties(in context: SceneDesktopWallpaperLaunchContext,
+        candidate: ScenePropertyLiveUpdateState, changedPropertyKeys: Set<String>) -> Bool { true }
 
     // PRODUCT_PENDING_DECLARATION
 }

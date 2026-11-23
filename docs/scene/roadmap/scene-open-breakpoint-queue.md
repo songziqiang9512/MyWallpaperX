@@ -126,7 +126,7 @@
 
 | 输入 | 精确待核位置 |
 |---|---|
-| 3766299002 · 条件图集 | [原包两端热切与单 TEX 双向对照](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已定位面具图块。先接原TEX准备与属性事务，从实际基图/各mip矩形发布原尺寸图集，配对眼层和人物writer。用独立3791967416验证非零矩形和共享源，另外保缺键、Combo和附属材质的证据边界。 |
+| 条件 TEX · 附属消费者 | [3766299002 面具与独立3791967416袖标](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已沿作者基图与Puppet事务恢复。3747492842的附属材质同时带三路Combo；后续确认该消费者的选择、供货与实际画面，动态构造和图层发射源保各自的生命周期。重叠条件次序待作者正例。 |
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
 | 3781003282 | [同轨迹实机与888显隐](../capabilities/runtime-evidence-current.md#pointer-halo-378)确认红色 halo 在两端有效跟踪，白方未在六点、持留与窗口中央复现。重启须能重现的指针位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |

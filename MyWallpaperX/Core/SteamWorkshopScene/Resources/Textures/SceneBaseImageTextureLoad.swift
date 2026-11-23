@@ -235,7 +235,8 @@ struct SceneBaseImageTextureStore {
         contentGeneration &+= 1
         textures[layerID] = samplingAtlas
         geometryProducts[layerID] = product.installing(
-            resourceGeneration: contentGeneration
+            resourceGeneration: contentGeneration,
+            samplingTexture: samplingAtlas
         )
         candidates[layerID] = samplingCandidate.flatMap {
             $0.texture === samplingAtlas ? $0 : nil

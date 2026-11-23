@@ -25,6 +25,7 @@ PROPERTY_SOURCES = [
     SCENE / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE / "Systems/Properties/SceneUserPropertyBindings.swift",
     SCENE / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SCENE / "Systems/Properties/SceneEvaluationTransaction.swift",
     SCENE / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SCENE / "Systems/Properties/ScenePropertyBindingProgram.swift",
     SCENE / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
@@ -64,7 +65,10 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
         extension = owner_source.read_text(encoding="utf-8")
         pending = declaration(session, "struct PendingDeferredLayerVisibilityUpdate {")
         shell = directory / "SessionShell.swift"
-        shell.write_text(SHELL.replace("// PRODUCT_PENDING_DECLARATION", pending), encoding="utf-8")
+        layer_bridge = SCENE / "Systems/Script/SceneScriptLayerHandleBridge.swift"
+        layer_id = declaration(layer_bridge.read_text(encoding="utf-8"), "static func layerID(for target:")
+        shell.write_text(SHELL.replace("// PRODUCT_PENDING_DECLARATION", pending)
+                         + "\nenum SceneScriptLayerMutationBridge {\n" + layer_id + "\n}\n", encoding="utf-8")
         # The pre-fix owner may still contain apply. This assembles that exact
         # method without copying its algorithm into the test's fixture.
         if "func applyUserPropertyValues(" not in extension:
@@ -235,12 +239,12 @@ class SceneDeferredPropertyIntentTests(unittest.TestCase):
         self.assertEqual(result["final"]["revision"], 1)
         self.assertEqual(result["final"]["soundApplies"], 1)
 
-    def test_parent_key_requires_every_particle_on_every_current_surface_even_for_false(self) -> None:
+    def test_parent_key_requires_particle_resources_for_a_changed_value(self) -> None:
         for fault in ("missing-first-leaf", "missing-second-leaf", "generation", "surface-set", "no-surfaces"):
             for incoming in ("off", "on"):
                 with self.subTest(fault=fault, incoming=incoming):
                     result = self.result[f"parentAdmission-{fault}-{incoming}"]
-                    self.assertFalse(result["accepted"])
+                    self.assertEqual(result["accepted"], incoming == "off")
                     self.assertEqual(result["final"], result["before"])
                     self.assertFalse(result["final"]["particleParentVisible"])
                     self.assertEqual(result["final"]["visible"], [False, False])

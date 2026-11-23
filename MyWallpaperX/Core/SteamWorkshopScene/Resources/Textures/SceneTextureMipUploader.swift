@@ -203,6 +203,31 @@ nonisolated enum SceneTextureMipUploader {
         return images.count == payloads.count ? images : nil
     }
 
+    static func overwriteConditionalPatches(
+        _ patches: [SceneTexContainer.ConditionalPatch],
+        texture: MTLTexture,
+        purpose: SceneTextureLoadPurpose
+    ) {
+        // Decode one whole variant before touching the candidate, so a bad
+        // image in a later mip cannot leave only part of that variant active.
+        var pixels: [Data] = []
+        pixels.reserveCapacity(patches.count)
+        for patch in patches {
+            guard let image = SceneImageTextureUploader.decodeSourceImage(
+                patch.data, requiringSupported2DExtent: true
+            ), image.width == patch.width, image.height == patch.height,
+                let rgba = SceneImageTextureUploader.rgbaData(
+                    image: image, width: patch.width, height: patch.height, purpose: purpose
+                ) else { return }
+            pixels.append(rgba)
+        }
+        for (patch, rgba) in zip(patches, pixels) {
+            replace(texture: texture, level: patch.mipLevel,
+                    width: patch.width, height: patch.height, bytesPerRow: patch.width * 4,
+                    data: rgba, x: patch.x, y: patch.y)
+        }
+    }
+
     static func uploadRaw(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
@@ -349,11 +374,13 @@ nonisolated enum SceneTextureMipUploader {
         width: Int,
         height: Int,
         bytesPerRow: Int,
-        data: Data
+        data: Data,
+        x: Int = 0,
+        y: Int = 0
     ) {
         data.withUnsafeBytes { buffer in
             texture.replace(
-                region: MTLRegionMake2D(0, 0, width, height),
+                region: MTLRegionMake2D(x, y, width, height),
                 mipmapLevel: level,
                 withBytes: buffer.baseAddress!,
                 bytesPerRow: bytesPerRow

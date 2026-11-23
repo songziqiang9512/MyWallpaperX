@@ -63,10 +63,10 @@ struct SceneGeometryProduct {
         self.effectSourceExtentContract = effectSourceExtentContract
     }
 
-    func installing(resourceGeneration: UInt64) -> Self {
+    func installing(resourceGeneration: UInt64, samplingTexture replacement: MTLTexture? = nil) -> Self {
         Self(
             ownerLayerID: ownerLayerID,
-            samplingTexture: samplingTexture,
+            samplingTexture: replacement ?? samplingTexture,
             resourceGeneration: resourceGeneration,
             prepare: prepare,
             isPreparedForPublication: isPreparedForPublication,

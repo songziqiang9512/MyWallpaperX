@@ -50,6 +50,26 @@ nonisolated struct SceneTexContainer {
         let mips: [Mip]
     }
 
+    enum Condition: Hashable, Sendable {
+        case boolean(propertyKey: String)
+        case equals(propertyKey: String, value: String)
+    }
+
+    struct ConditionalPatch: Sendable {
+        let mipLevel: Int
+        let x: Int
+        let y: Int
+        let width: Int
+        let height: Int
+        let data: Data
+    }
+
+    struct ConditionalVariant: Sendable {
+        let id: UInt32
+        let condition: Condition
+        let mipPatches: [ConditionalPatch]
+    }
+
     static func maximum2DMipCount(width: Int, height: Int) -> Int {
         guard width > 0, height > 0 else { return 0 }
         return Int.bitWidth - max(width, height).leadingZeroBitCount
@@ -92,6 +112,7 @@ nonisolated struct SceneTexContainer {
     let isVideoMp4: Bool
     let images: [Image]
     let spriteFrames: [SpriteFrame]
+    let conditionalVariants: [ConditionalVariant]
 
     init(
         format: UInt32,
@@ -105,7 +126,8 @@ nonisolated struct SceneTexContainer {
         freeImageFormat: Int32,
         isVideoMp4: Bool,
         images: [Image],
-        spriteFrames: [SpriteFrame]
+        spriteFrames: [SpriteFrame],
+        conditionalVariants: [ConditionalVariant] = []
     ) {
         self.format = format
         self.flags = flags
@@ -119,6 +141,7 @@ nonisolated struct SceneTexContainer {
         self.isVideoMp4 = isVideoMp4
         self.images = images
         self.spriteFrames = spriteFrames
+        self.conditionalVariants = conditionalVariants
     }
 
     var imageCount: Int { images.count }
@@ -198,8 +221,8 @@ nonisolated struct SceneTexContainerReader {
     }
 
     private static let maximumImageCount = 512
-    private static let maximumMipCount = 32
-    private static let maximumMipMetadataEntryCount = 32
+    static let maximumMipCount = 32
+    static let maximumMipMetadataEntryCount = 32
     static let maximumMipByteCount = 250_000_000
     static let maximumSpriteFrameCount = 65_536
     static let maximumVolumeDimension = 256
@@ -294,36 +317,39 @@ nonisolated struct SceneTexContainerReader {
         // Bound retained payloads across all images and levels before each
         // copy/decompression, independently of optional cache admission.
         var remainingDecodedBytes = max(0, maximumDecodedByteCount)
-        images.reserveCapacity(imageCount)
         var imageSizes: [SIMD2<Float>] = []
-        for _ in 0..<imageCount {
-            guard offset + 4 <= data.count else {
-                throw ReadError.invalidMipTable
-            }
-            let mipCount = Int(data.uint32LE(at: offset))
-            offset += 4
-            guard mipCount > 0, mipCount <= Self.maximumMipCount else {
-                throw ReadError.invalidMipTable
-            }
-
-            var parsedMips: [SceneTexContainer.Mip] = []
-            for mipIndex in 0..<mipCount {
-                let mip = try readMip(
-                    data: data,
-                    offset: &offset,
-                    containerVersion: effectiveContainerVersion,
-                    metadataEntryCount: mipMetadataEntryCount,
-                    volumeHeader: volumeHeader,
-                    permitsLargeVideoPayload: format == 0 && !volumeHeader
-                        && flags & 4 == 0 && imageCount == 1 && mipCount == 1,
-                    remainingDecodedBytes: &remainingDecodedBytes
-                )
-                if mipIndex == 0 {
-                    imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
+        var conditionalVariants: [SceneTexContainer.ConditionalVariant] = []
+        if mipMetadataEntryCount > 0, format == 0, freeImageFormat == 13,
+           !volumeHeader, flags & 4 == 0, imageCount == 1,
+           let table = conditionalTable(data: data, offset: offset, count: mipMetadataEntryCount) {
+            offset = table.mipCountOffset
+            let parsed = try readConditionalMips(data: data, offset: &offset,
+                declarations: table.declarations, remainingDecodedBytes: &remainingDecodedBytes)
+            images.append(.init(mips: parsed.mips))
+            conditionalVariants = parsed.variants
+        } else {
+            images.reserveCapacity(imageCount)
+            for _ in 0..<imageCount {
+                let mipCount = try readMipCount(data: data, offset: &offset)
+                var parsedMips: [SceneTexContainer.Mip] = []
+                for mipIndex in 0..<mipCount {
+                    let mip = try readMip(
+                        data: data,
+                        offset: &offset,
+                        containerVersion: effectiveContainerVersion,
+                        metadataEntryCount: mipMetadataEntryCount,
+                        volumeHeader: volumeHeader,
+                        permitsLargeVideoPayload: format == 0 && !volumeHeader
+                            && flags & 4 == 0 && imageCount == 1 && mipCount == 1,
+                        remainingDecodedBytes: &remainingDecodedBytes
+                    )
+                    if mipIndex == 0 {
+                        imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
+                    }
+                    parsedMips.append(mip)
                 }
-                parsedMips.append(mip)
+                images.append(.init(mips: parsedMips))
             }
-            images.append(.init(mips: parsedMips))
         }
 
         if volumeHeader {
@@ -357,7 +383,8 @@ nonisolated struct SceneTexContainerReader {
                 images.first?.mips.first?.data
             ),
             images: images,
-            spriteFrames: spriteFrames
+            spriteFrames: spriteFrames,
+            conditionalVariants: conditionalVariants
         )
     }
 

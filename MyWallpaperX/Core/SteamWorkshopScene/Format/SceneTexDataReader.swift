@@ -27,6 +27,19 @@ nonisolated extension Data {
 }
 
 nonisolated extension SceneTexContainerReader {
+    typealias ConditionalDeclaration = (id: UInt32, condition: SceneTexContainer.Condition)
+
+    private struct ConditionalPatchRecord {
+        let mipLevel: Int
+        let x: Int
+        let y: Int
+        let width: Int
+        let height: Int
+        let payload: Range<Int>
+    }
+
+    private static let pngSignature: [UInt8] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
     private enum SpriteVersion: String {
         case texs0001 = "TEXS0001"
         case texs0002 = "TEXS0002"
@@ -95,6 +108,135 @@ nonisolated extension SceneTexContainerReader {
             ))
         }
         return frames
+    }
+
+    func readMipCount(data: Data, offset: inout Int) throws -> Int {
+        guard data.count - offset >= 4 else { throw ReadError.invalidMipTable }
+        let count = Int(data.uint32LE(at: offset))
+        offset += 4
+        guard count > 0, count <= Self.maximumMipCount else { throw ReadError.invalidMipTable }
+        return count
+    }
+
+    func conditionalTable(
+        data: Data, offset: Int, count: Int
+    ) -> (mipCountOffset: Int, declarations: [ConditionalDeclaration])? {
+        // Older TEXB0004 entries instead start with a mip count and carry
+        // metadata inside that mip. A positive metadata count alone is ambiguous.
+        guard data.count - offset >= 12,
+              data.uint32LE(at: offset) == 1, data.uint32LE(at: offset + 4) > 0 else { return nil }
+        var cursor = offset
+        var declarations: [ConditionalDeclaration] = []
+        var seenIDs: Set<UInt32> = []
+        var ambiguousIDs: Set<UInt32> = []
+        for _ in 0..<count {
+            guard data.count - cursor >= 12 else { return nil }
+            let kind = data.uint32LE(at: cursor)
+            let id = data.uint32LE(at: cursor + 4)
+            cursor += 12
+            guard let end = data[cursor...].firstIndex(of: 0) else { return nil }
+            // A declaration is a typed key and an optional literal, not a
+            // general JSON document. Large unknown metadata need not be parsed.
+            if kind == 1, end - cursor <= 4096,
+               let object = (try? JSONSerialization.jsonObject(with: data.subdata(in: cursor..<end)))
+                    as? [String: Any],
+               id != 0, object.count == 1, let raw = object["condition"],
+               let condition = conditionalPredicate(raw) {
+                declarations.append((id, condition))
+            }
+            if !seenIDs.insert(id).inserted { ambiguousIDs.insert(id) }
+            cursor = end + 1
+        }
+        // Match the mip count and full-size base PNG framing. Unrecognized
+        // conditions can still leave a well-framed ordinary base.
+        guard data.count - cursor >= 32,
+              (1...Self.maximumMipCount).contains(Int(data.uint32LE(at: cursor))),
+              data[(cursor + 24)...].starts(with: Self.pngSignature) else { return nil }
+        return (cursor, declarations.filter { !ambiguousIDs.contains($0.id) })
+    }
+
+    private func conditionalPredicate(_ value: Any) -> SceneTexContainer.Condition? {
+        if let key = value as? String, !key.isEmpty { return .boolean(propertyKey: key) }
+        guard let comparison = value as? [String: Any], comparison.count == 2,
+              let key = comparison["name"] as? String, !key.isEmpty,
+              let literal = comparison["condition"] as? String else { return nil }
+        return .equals(propertyKey: key, value: literal)
+    }
+
+    func readConditionalMips(
+        data: Data,
+        offset: inout Int,
+        declarations: [ConditionalDeclaration],
+        remainingDecodedBytes: inout Int
+    ) throws -> (mips: [SceneTexContainer.Mip], variants: [SceneTexContainer.ConditionalVariant]) {
+        let count = try readMipCount(data: data, offset: &offset)
+        var mips: [SceneTexContainer.Mip] = []
+        var packets: [UInt32: [ConditionalPatchRecord]] = [:]
+        let knownIDs = Set(declarations.map(\.id))
+        var unavailableIDs: Set<UInt32> = []
+        var hasPNGChain = true
+        for mipLevel in 0..<count {
+            let mip = try readMip(data: data, offset: &offset, containerVersion: .texb0003,
+                metadataEntryCount: 0, volumeHeader: false, permitsLargeVideoPayload: false,
+                remainingDecodedBytes: &remainingDecodedBytes)
+            mips.append(mip)
+            hasPNGChain = hasPNGChain && mip.data.starts(with: Self.pngSignature)
+            guard readConditionalPatches(data: data, offset: &offset, mip: mip, mipLevel: mipLevel,
+                    knownIDs: knownIDs, packets: &packets, unavailableIDs: &unavailableIDs) else {
+                // An unbounded optional tail prevents reaching later records.
+                // Earlier, fully read base mips remain usable on their own.
+                return (mips, [])
+            }
+        }
+        guard hasPNGChain else { return (mips, []) }
+        // Base mips take priority; validate ranges before copying optional data.
+        let variants: [SceneTexContainer.ConditionalVariant] = declarations.compactMap { declaration in
+            guard !unavailableIDs.contains(declaration.id), let patches = packets[declaration.id] else { return nil }
+            let bytes = patches.reduce(0) { $0 + $1.payload.count }
+            guard bytes <= remainingDecodedBytes else { return nil }
+            remainingDecodedBytes -= bytes
+            return .init(id: declaration.id, condition: declaration.condition, mipPatches: patches.map {
+                .init(mipLevel: $0.mipLevel, x: $0.x, y: $0.y, width: $0.width, height: $0.height,
+                    data: data.subdata(in: $0.payload))
+            })
+        }
+        return (mips, variants)
+    }
+
+    private func readConditionalPatches(
+        data: Data, offset: inout Int, mip: SceneTexContainer.Mip, mipLevel: Int,
+        knownIDs: Set<UInt32>, packets: inout [UInt32: [ConditionalPatchRecord]],
+        unavailableIDs: inout Set<UInt32>
+    ) -> Bool {
+        guard data.count - offset >= 8, data.uint32LE(at: offset) == 1 else { return false }
+        let count = Int(data.uint32LE(at: offset + 4))
+        offset += 8
+        guard count <= Self.maximumMipMetadataEntryCount else { return false }
+        for _ in 0..<count {
+            guard data.count - offset >= 32 else { return false }
+            let kind = data.uint32LE(at: offset)
+            let id = data.uint32LE(at: offset + 4)
+            let x = Int(data.uint32LE(at: offset + 8))
+            let y = Int(data.uint32LE(at: offset + 12))
+            let width = Int(data.uint32LE(at: offset + 16))
+            let height = Int(data.uint32LE(at: offset + 20))
+            let encoding = data.uint32LE(at: offset + 24)
+            let bytes = Int(data.uint32LE(at: offset + 28))
+            offset += 32
+            guard bytes <= data.count - offset else { return false }
+            let payload = offset..<(offset + bytes)
+            offset = payload.upperBound
+            guard knownIDs.contains(id), !unavailableIDs.contains(id) else { continue }
+            guard kind == 1, encoding == 13, bytes <= Self.maximumMipByteCount,
+                  width > 0, height > 0, width <= mip.width - x, height <= mip.height - y,
+                  data[payload].starts(with: Self.pngSignature) else {
+                unavailableIDs.insert(id)
+                continue
+            }
+            packets[id, default: []].append(.init(mipLevel: mipLevel, x: x, y: y,
+                width: width, height: height, payload: payload))
+        }
+        return true
     }
 
     func readMip(

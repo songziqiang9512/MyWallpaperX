@@ -56,6 +56,7 @@ final class SceneDesktopWallpaperSession {
         let replacements: [String: SceneUserPropertyValue]
         let changedPropertyKeys: Set<String>
         let layerIDs: Set<Int>
+        let hasConditionalAtlases: Bool
         let recordID: String?
     }
 

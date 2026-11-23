@@ -6,6 +6,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
     let scriptUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
     private let unboundBooleanPropertyKeys: Set<String>
+    let preparedConditionalAtlasPropertyKeys: Set<String>
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
     /// Monotonic content revision. Bumped only when `effectiveValues` is
@@ -19,7 +20,8 @@ nonisolated struct ScenePropertyLiveUpdateState {
         activeConsumerTargets: Set<SceneDynamicTarget>,
         scriptUserPropertyConsumerTargetsByKey:
             [String: Set<SceneDynamicTarget>] = [:],
-        propertyDefinitions: [SceneUserPropertyDefinition] = []
+        propertyDefinitions: [SceneUserPropertyDefinition] = [],
+        conditionalAtlasPropertyKeys: Set<String> = []
     ) {
         self.program = program
         self.activeConsumerTargets = activeConsumerTargets
@@ -29,6 +31,15 @@ nonisolated struct ScenePropertyLiveUpdateState {
         // type evidence here; effective values alone cannot distinguish a
         // resource key or an unknown/malformed definition.
         let definitionsByKey = Dictionary(grouping: propertyDefinitions, by: \.key)
+        self.preparedConditionalAtlasPropertyKeys = Set(conditionalAtlasPropertyKeys.filter { key in
+            guard let definitions = definitionsByKey[key], definitions.count == 1,
+                  let definition = definitions.first, let value = effectiveValues[key] else { return false }
+            switch (definition.kind, definition.defaultValue, value) {
+            case (.bool, .bool?, .bool), (.combo, .bool?, .bool), (.combo, .string?, .string),
+                 (.combo, .number?, .number): return true
+            default: return false
+            }
+        })
         self.unboundBooleanPropertyKeys = Set(definitionsByKey.compactMap { key, definitions -> String? in
             guard definitions.count == 1, let definition = definitions.first,
                   definition.kind == .bool, case .bool? = definition.defaultValue else { return nil }
@@ -70,6 +81,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
                guard let current = effectiveValues[key], let replacement = replacements[key] else { return false }
                let known = program.instructionsByPropertyKey[key]?.isEmpty == false
                    || scriptUserPropertyConsumerTargetsByKey[key]?.isEmpty == false
+                   || preparedConditionalAtlasPropertyKeys.contains(key)
                    || program.rebuildRequiredKeys.contains(key)
                if !known {
                    guard unboundBooleanPropertyKeys.contains(key),
@@ -103,7 +115,8 @@ nonisolated struct ScenePropertyLiveUpdateState {
                case .bool? = effectiveValues[propertyKey] {
                 valueOnlyBoolean = true
             } else { valueOnlyBoolean = false }
-            guard !consumerTargets.isEmpty || preparedTexture || valueOnlyBoolean,
+            guard !consumerTargets.isEmpty || preparedTexture || valueOnlyBoolean
+                    || preparedConditionalAtlasPropertyKeys.contains(propertyKey),
                   consumerTargets.allSatisfy({
                       activeConsumerTargets.contains($0)
                           && !unavailableConsumerTargets.contains($0)

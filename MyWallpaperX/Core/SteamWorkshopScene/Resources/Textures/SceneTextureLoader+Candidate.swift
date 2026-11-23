@@ -106,10 +106,12 @@ nonisolated extension SceneTextureLoader {
 
     func loadCandidate(
         from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        conditionalVariantIDs: Set<UInt32>? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneTextureCandidateLoadOutcome {
         try loadCandidate(from: prepared.input, source: prepared.source, prepared: prepared,
-            purpose: purpose, device: device, checkCancellation: checkCancellation)
+            purpose: purpose, device: device, conditionalVariantIDs: conditionalVariantIDs,
+            checkCancellation: checkCancellation)
     }
 
     func loadCandidate(
@@ -124,6 +126,7 @@ nonisolated extension SceneTextureLoader {
         from input: Input, source: SourceKey, prepared: PreparedTexSource?,
         preparedDirect: PreparedDirectImageSource? = nil,
         purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        conditionalVariantIDs: Set<UInt32>? = nil,
         checkCancellation: (() throws -> Void)?
     ) throws -> SceneTextureCandidateLoadOutcome {
         let isTex = input.pathExtension.lowercased() == "tex"
@@ -144,9 +147,16 @@ nonisolated extension SceneTextureLoader {
             }
             spriteFrame = nil
         }
-        let outcome = try load(from: input, source: source, purpose: purpose, device: device,
-            preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
-            checkCancellation: checkCancellation)
+        let outcome: SceneTextureLoadOutcome
+        if let prepared, let conditionalVariantIDs {
+            try checkCancellation?()
+            outcome = loadConditionalAtlas(from: prepared, selectedIDs: conditionalVariantIDs,
+                purpose: purpose, device: device)
+        } else {
+            outcome = try load(from: input, source: source, purpose: purpose, device: device,
+                preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
+                checkCancellation: checkCancellation)
+        }
         guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
             purpose: purpose, spriteFrame: spriteFrame, checkCancellation: checkCancellation)

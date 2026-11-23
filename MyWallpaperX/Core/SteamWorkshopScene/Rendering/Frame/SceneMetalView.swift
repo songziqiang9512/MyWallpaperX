@@ -297,7 +297,9 @@ class SceneMetalView: NSView {
             }
             let videoSource: SceneVideoTextureSource?
             do {
-                if let modelPath = layer.imagePath,
+                if case .loaded? = preparedBaseImage {
+                    videoSource = nil
+                } else if let modelPath = layer.imagePath,
                    case let .video(sourceKey, file, _)? = preparedBaseImages.dynamicImageResources[modelPath.lowercased()]?.product,
                    url == resolver.resolvePrimaryTexture(modelPath: modelPath) {
                     videoSource = try videoSourceRegistry.source(sourceKey: sourceKey, preparedFile: file,
@@ -520,6 +522,18 @@ class SceneMetalView: NSView {
     func commitPreparedDeferredBaseImages(layerIDs: Set<Int>) {
         for layerID in layerIDs {
             adoptedDeferredBaseImageURLs.removeValue(forKey: layerID)
+        }
+    }
+
+    func replaceConditionalAtlases(_ updates: [Int: SceneBaseImageTextureLoad.Loaded]) {
+        for (layerID, loaded) in updates where imageTextures[layerID] != nil {
+            if let product = imageTextures.geometryProducts[layerID] {
+                imageTextures.setPuppetGeometry(product, samplingAtlas: loaded.texture,
+                    samplingCandidate: loaded.candidate, layerID: layerID)
+            } else {
+                imageTextures.set(loaded.texture, candidate: loaded.candidate, layerID: layerID)
+            }
+            specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling
         }
     }
 

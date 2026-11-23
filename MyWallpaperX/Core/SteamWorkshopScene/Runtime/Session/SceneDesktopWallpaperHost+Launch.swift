@@ -266,6 +266,7 @@ extension SceneDesktopWallpaperHost {
             device: device,
             sceneGeneration: sceneScriptGeneration,
             cacheDirectory: privateMediaCacheDirectory,
+            effectivePropertyValues: runtimeInput.effectivePropertyValues,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             imageGeometryModels: model.assetCatalog.models,
             preparedStaticModels: preparedStaticModels,
@@ -876,7 +877,8 @@ extension SceneDesktopWallpaperHost {
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram,
-                propertyDefinitions: model.project.userProperties.definitions
+                propertyDefinitions: model.project.userProperties.definitions,
+                conditionalAtlasPropertyKeys: preparedDeviceResources.baseImages.conditionalPropertyKeys
             ),
             privateMediaCacheDirectory: privateMediaCacheDirectory,
             resourceView: model.resourceView,

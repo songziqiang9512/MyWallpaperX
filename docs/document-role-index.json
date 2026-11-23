@@ -861,10 +861,11 @@
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
       "lastReviewed": "2026-11-24",
       "reviewBasis": {
-        "kind": "git-document-change",
-        "revision": "4a68cab1090b025f73b23c5a3a6b5bf4dc7b50d7",
-        "scope": "审阅原资源准备、发布与条件 TEX 设计的现行职责。",
-        "limitations": "条件图集的原包对照已完成，运行实现和热供货仍在开放队列。"
+        "kind": "navigation-audit",
+        "sourceSHA256": "4089b1162a27d8f211c91b31b808debd919866b624525e62423d93341399158b",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对资源准备、发布、预算与条件 TEX 图集的现行职责。",
+        "limitations": "导航复核。作者基图与Puppet热接入的实机范围由运行证据记载，附属消费者仍在开放队列。"
       }
     },
     {

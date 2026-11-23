@@ -17,10 +17,12 @@ extension SceneDesktopWallpaperSession {
             in: context, propertyKeys: Set(definitions.map(\.key)))
         let rebuild = state.program.rebuildRequiredKeys
         let instructions = state.program.instructionsByPropertyKey
+        let conditionalKeys = state.preparedConditionalAtlasPropertyKeys
         return Set(Dictionary(grouping: definitions, by: \.key).compactMap { key, definitions in
+            let targets = state.scriptUserPropertyConsumerTargetsByKey[key]?
+                .subtracting(retiredCallbacks) ?? []
             guard definitions.count == 1, let definition = definitions.first,
-                  let targets = state.scriptUserPropertyConsumerTargetsByKey[key]?
-                    .subtracting(retiredCallbacks), !targets.isEmpty,
+                  !targets.isEmpty || conditionalKeys.contains(key),
                   !rebuild.contains(key),
                   targets.union((instructions[key] ?? []).map(\.target)).allSatisfy({
                       state.activeConsumerTargets.contains($0) && !unavailable.contains($0)
@@ -152,6 +154,11 @@ extension SceneDesktopWallpaperSession {
 #endif
             return false
         }
+        let pending = pendingDeferredLayerVisibilityUpdate
+        if candidateLiveState.revision == context.liveState.revision,
+           pending?.changedPropertyKeys.isDisjoint(with: changedPropertyKeys) != false {
+            return true
+        }
         guard soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
         ) != false else {
@@ -167,11 +174,14 @@ extension SceneDesktopWallpaperSession {
             userValues: candidateLiveState.userValues,
             changedPropertyKeys: changedPropertyKeys
         )
+        let resources = context.preparedDeviceResources.baseImages
+        var conditionalSelections = resources.conditionalSelections(
+            values: candidateLiveState.effectiveValues, changedKeys: changedPropertyKeys)
         var acceptedReplacements = replacements
         var acceptedKeys = changedPropertyKeys
-        let pending = pendingDeferredLayerVisibilityUpdate
         let mergesPending = pending.map {
             !deferredLayerIDs.isEmpty
+                || !conditionalSelections.isEmpty
                 || !$0.changedPropertyKeys.isDisjoint(with: changedPropertyKeys)
         } ?? false
         if mergesPending, let pending {
@@ -200,14 +210,18 @@ extension SceneDesktopWallpaperSession {
                 userValues: candidateLiveState.userValues,
                 changedPropertyKeys: acceptedKeys
             )
+            conditionalSelections = resources.conditionalSelections(
+                values: candidateLiveState.effectiveValues, changedKeys: acceptedKeys)
         }
-        if !deferredLayerIDs.isEmpty {
+        if !deferredLayerIDs.isEmpty || !conditionalSelections.isEmpty {
             guard nextDeferredPropertyGeneration < UInt64.max else {
                 return false
             }
             nextDeferredPropertyGeneration += 1
             let generation = nextDeferredPropertyGeneration
-            let resources = context.preparedDeviceResources.baseImages
+            if !conditionalSelections.isEmpty || pending?.hasConditionalAtlases == true {
+                resources.requestConditionalAtlases(conditionalSelections, generation: generation)
+            }
             for layerID in deferredLayerIDs.sorted() {
                 resources.requestDeferredBaseImage(
                     layerID: layerID,
@@ -228,6 +242,7 @@ extension SceneDesktopWallpaperSession {
                 replacements: acceptedReplacements,
                 changedPropertyKeys: acceptedKeys,
                 layerIDs: deferredLayerIDs,
+                hasConditionalAtlases: !conditionalSelections.isEmpty,
                 recordID: recordID
             )
 #if DEBUG
@@ -237,10 +252,16 @@ extension SceneDesktopWallpaperSession {
                 state: "pending"
             )
 #endif
-            promotePendingDeferredLayerVisibilityIfReady()
+            if conditionalSelections.isEmpty { promotePendingDeferredLayerVisibilityIfReady() }
             return true
         }
+        let changesValues = candidateLiveState.revision != context.liveState.revision
+        if changesValues, !refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
+            changedPropertyKeys: acceptedKeys) { return false }
         if mergesPending, let pending {
+            if pending.hasConditionalAtlases {
+                resources.finishConditionalAtlases(generation: pending.generation, commit: false)
+            }
 #if DEBUG
             logDeferredLayerVisibilityTransition(
                 generation: pending.generation,
@@ -250,8 +271,7 @@ extension SceneDesktopWallpaperSession {
 #endif
             pendingDeferredLayerVisibilityUpdate = nil
         }
-        guard refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
-            changedPropertyKeys: acceptedKeys) else { return false }
+        guard changesValues else { return true }
         reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
@@ -307,13 +327,19 @@ extension SceneDesktopWallpaperSession {
               var context = launchContext,
               context.recordID == pending.recordID else { return }
         let resources = context.preparedDeviceResources.baseImages
-        let statuses = pending.layerIDs.map {
+        var statuses = pending.layerIDs.map {
             resources.deferredStatus(for: $0)
+        }
+        if pending.hasConditionalAtlases {
+            statuses.append(resources.conditionalStatus(generation: pending.generation))
         }
         if let failure = statuses.compactMap({ status -> String? in
             guard case let .failed(code) = status else { return nil }
             return code
         }).first {
+            if pending.hasConditionalAtlases {
+                resources.finishConditionalAtlases(generation: pending.generation, commit: false)
+            }
             pendingDeferredLayerVisibilityUpdate = nil
 #if DEBUG
             logDeferredLayerVisibilityTransition(
@@ -361,6 +387,9 @@ extension SceneDesktopWallpaperSession {
                     layerIDs: pending.layerIDs
                 )
             }
+            if pending.hasConditionalAtlases {
+                resources.finishConditionalAtlases(generation: pending.generation, commit: false)
+            }
             pendingDeferredLayerVisibilityUpdate = nil
 #if DEBUG
             logDeferredLayerVisibilityTransition(
@@ -373,6 +402,10 @@ extension SceneDesktopWallpaperSession {
         }
         reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
+        if pending.hasConditionalAtlases {
+            let updates = resources.finishConditionalAtlases(generation: pending.generation, commit: true)
+            for surface in adoptedSurfaces { surface.metalView.replaceConditionalAtlases(updates) }
+        }
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues,
             committedSnapshot: evaluationTransaction.committedSnapshot,
             committedHandleVolumeLayerIDs: context.sceneScriptDynamicLayerRuntime.committedHandleVolumeLayerIDs)

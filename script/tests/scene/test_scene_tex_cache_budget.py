@@ -25,6 +25,116 @@ def compressed_tex(image_count=2):
 
 
 class SceneTexCacheBudgetTests(unittest.TestCase):
+    def test_conditional_atlas_upload_preserves_exact_storage_and_whole_variants(self):
+        def png(width, height, rgba):
+            def chunk(kind, payload):
+                return (struct.pack('>I', len(payload)) + kind + payload
+                        + struct.pack('>I', zlib.crc32(kind + payload)))
+            row_bytes = width * 4
+            scanlines = b''.join(b'\0' + rgba[i:i + row_bytes] for i in range(0, len(rgba), row_bytes))
+            return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>2I5B', width, height, 8, 6, 0, 0, 0))
+                    + chunk(b'IDAT', zlib.compress(scanlines)) + chunk(b'IEND', b''))
+
+        base_pixel = bytes([8, 32, 72, 255])
+        tile = png(2, 2, bytes([200, 100, 50, 128, 91, 92, 93, 0, 40, 50, 60, 255, 90, 110, 120, 255]))
+        lower_tile = png(1, 1, bytes([0, 0, 255, 255]))
+        tex = b'TEXV0005\0TEXI0001\0' + struct.pack('<7I', 0, 2, 8, 8, 8, 8, 0)
+        tex += b'TEXB0004\0' + struct.pack('<3I', 1, 13, 2)
+        for variant_id, condition in [(1, 'showOverlay'), (2, 'showBroken')]:
+            tex += struct.pack('<3I', 1, variant_id, 0) + json.dumps({'condition': condition}).encode() + b'\0'
+        tex += struct.pack('<I', 3)
+        payload_bytes = 0
+        mip_headers, patch_tables = [], []
+        for size, patches in [(8, [(1, 2, 3, 2, 2, tile), (2, 6, 6, 1, 1, lower_tile)]),
+                              (4, [(1, 1, 2, 1, 1, lower_tile), (2, 2, 1, 2, 2, lower_tile)]), (2, [])]:
+            base = png(size, size, base_pixel * size * size)
+            mip_headers.append(len(tex))
+            tex += struct.pack('<5I', size, size, 0, 0, len(base)) + base
+            tex += struct.pack('<2I', 1, len(patches))
+            patch_tables.append(len(tex))
+            payload_bytes += len(base)
+            for variant_id, x, y, width, height, data in patches:
+                tex += struct.pack('<8I', 1, variant_id, x, y, width, height, 13, len(data)) + data
+                payload_bytes += len(data)
+
+        with tempfile.TemporaryDirectory(prefix='mwx-conditional-atlas-upload-') as directory:
+            root = Path(directory)
+            atlas = root / 'atlas.tex'
+            atlas.write_bytes(tex)
+            mismatched = bytearray(tex)
+            # The declared lower mip fits a patch at x=4. Its actual PNG and
+            # Metal mip are only 4 pixels wide, so the chain must stay base.
+            struct.pack_into('<I', mismatched, mip_headers[1], 5)
+            struct.pack_into('<I', mismatched, patch_tables[1] + 8, 4)
+            mismatch_atlas = root / 'mismatched-atlas.tex'
+            mismatch_atlas.write_bytes(mismatched)
+            harness = root / 'Harness.swift'
+            harness.write_text(r'''
+import Foundation
+import Metal
+
+@main enum Harness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { print("SKIP"); return }
+        let cache = SceneTextureDecodeCacheBudget(maximumBytes: 64 * 1024)
+        let loader = SceneTextureLoader(decodeCacheBudget: cache)
+        let url = URL(fileURLWithPath: CommandLine.arguments[1])
+        let prepared = try loader.prepareTexSource(from: url)!
+        let accounted = cache.residentBytes == Int(CommandLine.arguments[2])
+        func load(_ ids: Set<UInt32>, purpose: SceneTextureLoadPurpose = .premultipliedColor,
+                  source: SceneTextureLoader.PreparedTexSource? = nil) -> MTLTexture {
+            guard case let .loaded(texture) = loader.loadConditionalAtlas(
+                from: source ?? prepared, selectedIDs: ids, purpose: purpose, device: device
+            ) else { fatalError("no conditional atlas texture") }
+            return texture
+        }
+        func pixel(_ texture: MTLTexture, _ x: Int, _ y: Int, _ level: Int = 0) -> [UInt8] {
+            var rgba = [UInt8](repeating: 0, count: 4)
+            texture.getBytes(&rgba, bytesPerRow: 4, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: level)
+            return rgba
+        }
+        let base = load([]), selected = load([1, 2]), invalid = load([2]), preserved = load([1], purpose: .preservedChannels)
+        let mismatch = try loader.prepareTexSource(from: URL(fileURLWithPath: CommandLine.arguments[3]))!
+        let mismatchedBase = load([1], source: mismatch)
+        let original: [UInt8] = [8, 32, 72, 255]
+        guard case let .loaded(ordinary) = try loader.load(from: url, purpose: .premultipliedColor, device: device) else {
+            fatalError("no ordinary atlas texture")
+        }
+        let records: [String: Bool] = [
+            "payloadBudget": accounted && prepared.container?.conditionalVariants.map(\.id) == [1, 2],
+            "baseChain": [base, selected, invalid, preserved, ordinary].allSatisfy {
+                $0.width == 8 && $0.height == 8 && $0.mipmapLevelCount == 3 && pixel($0, 1, 1, 2) == original
+            },
+            "storedCoordinates": pixel(selected, 2, 3) == [100, 50, 25, 128]
+                && pixel(selected, 2, 4) == [40, 50, 60, 255] && pixel(selected, 2, 2) == original
+                && pixel(selected, 1, 2, 1) == [0, 0, 255, 255],
+            "clearOverwrite": pixel(selected, 3, 3) == [0, 0, 0, 0]
+                && pixel(preserved, 3, 3) == [91, 92, 93, 0],
+            "rawDataPurpose": pixel(preserved, 2, 3) == [200, 100, 50, 128],
+            "badLaterMipDropsOnlyItsVariant": pixel(selected, 6, 6) == original
+                && pixel(invalid, 6, 6) == original && pixel(invalid, 2, 3) == original,
+            "mismatchedMipMetadataKeepsBase": mismatch.container?.conditionalVariants.count == 2
+                && mismatchedBase.mipmapLevelCount == 3 && pixel(mismatchedBase, 2, 3) == original
+                && pixel(mismatchedBase, 3, 2, 1) == original,
+            "ordinaryAndEmptySelectionAreIndependent": [base, ordinary].allSatisfy {
+                $0 !== selected && pixel($0, 2, 3) == original && pixel($0, 1, 2, 1) == original
+            }
+        ]
+        print(String(decoding: try JSONEncoder().encode(records), as: UTF8.self))
+    }
+}
+''')
+            binary = root / 'harness'
+            compiled = subprocess.run(['swiftc', str(SOURCE), str(RESAMPLE_SOURCE), *map(str, LOADER_SOURCES),
+                                       str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            run = subprocess.run([str(binary), str(atlas), str(payload_bytes), str(mismatch_atlas)],
+                                 capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            if run.stdout.strip() == 'SKIP':
+                self.skipTest('requires actual Metal device')
+            self.assertEqual([key for key, passed in json.loads(run.stdout).items() if not passed], [])
+
     def test_prepared_tex_request_reuses_denied_payload_and_preserves_failure_boundaries(self):
         scene = SOURCE.parents[2]
         candidate_sources = [scene / 'Resources/Textures' / name for name in (
@@ -131,9 +241,13 @@ enum TextureMetadataProbe { static var calls = 0 }
         if case let .loaded(atlas) = (try loader.loadAnimatedMaterialCandidate(from: animated, purpose: .preservedChannels, device: device)) {
             results["animatedPreparedWithoutReparse"] = atlas.frames.count == 1 && atlas.frames[0].xAxis == SIMD2(0.5, 0) &&
                 pixel(atlas.candidate.texture) == [65, 65, 65, 65] && budget.rejectionCount == 3
-        }
-        if case .failed(.decodeFailed) = (try loader.loadCandidate(from: animated, purpose: .preservedChannels, device: device)) {
-            results["animatedOrdinaryCandidateRefused"] = true
+            if let frame = atlas.frames.first,
+               case let .loaded(still) = try loader.loadCandidate(from: animated, purpose: .preservedChannels, device: device) {
+                results["constantSpriteCandidateReusesPreparedAtlas"] = still.texture === atlas.candidate.texture
+                    && still.isSpriteSheet && still.uvTransform.origin == frame.origin
+                    && still.uvTransform.xAxis == frame.xAxis && still.uvTransform.yAxis == frame.yAxis
+                    && budget.rejectionCount == 3
+            }
         }
         let video = (try loader.prepareTexSource(from: root.appendingPathComponent("video.tex")))!
         let declaration = (try loader.videoSourceDeclaration(from: video))
@@ -287,7 +401,7 @@ enum TextureMetadataProbe { static var calls = 0 }
                 'samePreparedRetryWithoutReparse', 'purposeSeparated', 'geometryAndSampler',
                 'twoDimensionalLookupRefused', 'deniedCacheReleased', 'ordinaryWarmLoadDoesNotReparse', 'publishedTextureSurvivesEviction',
                 'renamedSourceSamePixelsDistinctIdentity', 'animatedPreparedWithoutReparse',
-                'animatedOrdinaryCandidateRefused', 'videoPreparedWithoutReparse', 'videoOrdinaryCandidateRefused',
+                'constantSpriteCandidateReusesPreparedAtlas', 'videoPreparedWithoutReparse', 'videoOrdinaryCandidateRefused',
                 'directHeaderIsLazy', 'directDeniedRetentionKeepsCurrentRequest', 'directPreparedReusesOneDecodeForPurposes',
                 'decodedDirectCannotReenterMetadataQueue', 'directPublishedCacheSurvivesDecodedEviction',
                 'directCachedImageNotChargedTwice', 'directCachedPreparedReusesDecode',

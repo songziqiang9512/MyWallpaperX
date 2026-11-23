@@ -69,7 +69,8 @@ extension SceneDesktopWallpaperHost {
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram,
-        propertyDefinitions: [SceneUserPropertyDefinition] = []
+        propertyDefinitions: [SceneUserPropertyDefinition] = [],
+        conditionalAtlasPropertyKeys: Set<String> = []
     ) -> ScenePropertyLiveUpdateState {
         let scriptUserPropertyConsumerTargetsByKey = [
             propertyVectorScriptProgram.liveUserPropertyConsumerTargetsByKey,
@@ -103,7 +104,8 @@ extension SceneDesktopWallpaperHost {
             ),
             scriptUserPropertyConsumerTargetsByKey:
                 scriptUserPropertyConsumerTargetsByKey,
-            propertyDefinitions: propertyDefinitions
+            propertyDefinitions: propertyDefinitions,
+            conditionalAtlasPropertyKeys: conditionalAtlasPropertyKeys
         )
     }
 

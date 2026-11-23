@@ -22,6 +22,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
+    private let effectivePropertyValues: [String: SceneUserPropertyValue]
     private let imageGeometryModels: [SceneAssetCatalog.ModelAsset]
     private let deferredBaseImageLayerIDs: Set<Int>
     private let sceneGeneration: UInt64
@@ -40,6 +41,7 @@ final class ScenePreparedDeviceResourcesTask {
         device: MTLDevice,
         sceneGeneration: UInt64,
         cacheDirectory: URL,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
         preparedStaticModels: [String: SceneMdlStaticModel.PreparedSource] = [:],
@@ -53,6 +55,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
+        self.effectivePropertyValues = effectivePropertyValues
         self.sceneGeneration = sceneGeneration
         self.textureUploadCommandQueue = textureUploadCommandQueue
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
@@ -102,6 +105,7 @@ final class ScenePreparedDeviceResourcesTask {
                     spriteTextureLoader: spriteTextureLoader,
                     sceneGeneration: sceneGeneration,
                     cacheDirectory: cacheDirectory,
+                    effectivePropertyValues: effectivePropertyValues,
                     dynamicImageModelPathsProvider: plannedDynamicImageModelPaths,
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,

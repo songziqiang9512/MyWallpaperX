@@ -98,7 +98,7 @@
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 92,
-      "bytes": 12866
+      "bytes": 13050
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 295429
+      "bytes": 295891
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66964
+      "bytes": 66961
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -469,10 +469,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "b3acce96026612220dfbcb21ab7fa7eb4b0a758d091a3465b98cbba8247085ed",
-      "after": "d080bbd9a3bda80b3236976e01d5c8a419f5ec4d96ca8563562a538a7fcd6bf9",
+      "before": "d080bbd9a3bda80b3236976e01d5c8a419f5ec4d96ca8563562a538a7fcd6bf9",
+      "after": "2731b347d82b356ce22a39188d370970d18be4f973545a00ac6671c88f8647cb",
       "owner": "Scene authored texture and property preparation",
-      "reason": "Define each authored mip rectangle, prepared atlas selection and the original property/resource commit boundary.",
+      "reason": "Record exact transparent replacement, baseline budget priority and authored publication scope.",
       "decision": "docs/scene/architecture/scene-resource-admission.md#conditional-tex-atlas"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7d5ecbc944cd88d235fb18600c9e3ad64f595b65fcdbe3f2f95462141905d988",
-      "after": "365b6bf8845afda3fad1d314ff41e1ff952f27d87f3116ca4fe81601fdc41734",
-      "owner": "Scene captured attachment and material graph",
-      "reason": "Record paired direct captures, original hot zoom/Scroll, and the independent graphical source.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-collage-edge-358"
+      "before": "365b6bf8845afda3fad1d314ff41e1ff952f27d87f3116ca4fe81601fdc41734",
+      "after": "8f323ec134ceabeea1b40e245e4785288719c331f46a37cb59fdf0dcd3f159ca",
+      "owner": "Scene authored texture and property preparation",
+      "reason": "Record original hot edits, official transparent control, independent logo and capture receipts.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-mask-376"
     },
     {
       "section": "bodies",

@@ -62,6 +62,33 @@ final class ScenePreparedBaseImageResources {
         case failed(SceneTextureLoadOutcome, String)
     }
 
+    private struct ConditionalAtlas {
+        let input: SceneResourceView.FileInput
+        let conditions: [UInt32: SceneUserPropertyBindingReference]
+        var layerIDs: Set<Int> = []
+
+        func selection(_ values: [String: SceneUserPropertyValue]) -> Set<UInt32> {
+            Set(conditions.compactMap { id, reference in
+                guard let value = values[reference.key] else { return nil }
+                let matches = reference.condition.map { value.matches($0) } ?? (value.boolValue == true)
+                return matches ? id : nil
+            })
+        }
+    }
+
+    private struct ConditionalProduct {
+        let selection: Set<UInt32>
+        let loaded: SceneBaseImageTextureLoad.Loaded
+    }
+
+    typealias ConditionalSelections = [SceneTextureLoader.SourceKey: Set<UInt32>]
+
+    private struct ConditionalRequest {
+        let generation: UInt64
+        var selections: ConditionalSelections
+        var result: Result<[SceneTextureLoader.SourceKey: ConditionalProduct], Error>?
+    }
+
     let textureLoader: SceneTextureLoader
     let puppets: ScenePreparedPuppetResources
     let puppetClipping: [String: PuppetClippingPreparation]
@@ -73,6 +100,10 @@ final class ScenePreparedBaseImageResources {
     private let device: MTLDevice
     private let deviceRegistryID: UInt64
     private let entries: [Int: Entry]
+    private let conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas]
+    let conditionalPropertyKeys: Set<String>
+    private var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct]
+    private var conditionalRequest: ConditionalRequest?
     private let deferredRequests: [Int: DeferredRequest]
     private var deferredStates: [Int: DeferredState]
     private var requestedGenerations: [Int: UInt64] = [:]
@@ -92,6 +123,8 @@ final class ScenePreparedBaseImageResources {
         device: MTLDevice,
         deviceRegistryID: UInt64,
         entries: [Int: Entry],
+        conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas],
+        conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct],
         dynamicImageResources: [String: ScenePreparedDynamicImageResource],
         deferredRequests: [Int: DeferredRequest],
         loadedCount: Int,
@@ -108,6 +141,9 @@ final class ScenePreparedBaseImageResources {
         self.device = device
         self.deviceRegistryID = deviceRegistryID
         self.entries = entries
+        self.conditionalAtlases = conditionalAtlases
+        self.conditionalProducts = conditionalProducts
+        self.conditionalPropertyKeys = Set(conditionalAtlases.values.flatMap { $0.conditions.values.map(\.key) })
         self.dynamicImageResources = dynamicImageResources
         self.deferredRequests = deferredRequests
         self.deferredStates = deferredRequests.mapValues { _ in .pending }
@@ -127,6 +163,7 @@ final class ScenePreparedBaseImageResources {
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         sceneGeneration: UInt64,
         cacheDirectory: URL,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         dynamicImageModelPaths: Set<String> = [],
         dynamicImageModelPathsProvider: (() throws -> Set<String>)? = nil,
         deferredBaseImageLayerIDs: Set<Int> = [],
@@ -154,6 +191,9 @@ final class ScenePreparedBaseImageResources {
             var loadedCount = 0
             var failedCount = 0
             var deferredRequests: [Int: DeferredRequest] = [:]
+            var conditionalAtlases: [SceneTextureLoader.SourceKey: ConditionalAtlas] = [:]
+            var conditionalProducts: [SceneTextureLoader.SourceKey: ConditionalProduct] = [:]
+            var conditionalInputs: [SceneTextureLoader.SourceKey: SceneTextureLoader.PreparedTexSource] = [:]
             let models = Dictionary(uniqueKeysWithValues: imageGeometryModels.map {
                 ($0.relativePath, $0)
             })
@@ -200,7 +240,22 @@ final class ScenePreparedBaseImageResources {
                         geometry[layer.id] = [1, 1]
                     }
                 }
-                if deferredBaseImageLayerIDs.contains(layer.id) {
+                if let preparedTex, let variants = container?.conditionalVariants, !variants.isEmpty {
+                    if conditionalAtlases[source] == nil {
+                        let conditions = Dictionary(uniqueKeysWithValues: variants.map { variant in
+                            let reference: SceneUserPropertyBindingReference
+                            switch variant.condition {
+                            case let .boolean(key): reference = .init(key: key, condition: nil)
+                            case let .equals(key, value): reference = .init(key: key, condition: .string(value))
+                            }
+                            return (variant.id, reference)
+                        })
+                        conditionalAtlases[source] = .init(input: url, conditions: conditions)
+                        conditionalInputs[source] = preparedTex
+                    }
+                    conditionalAtlases[source]?.layerIDs.insert(layer.id)
+                    continue
+                } else if deferredBaseImageLayerIDs.contains(layer.id) {
                     deferredRequests[layer.id] = .init(
                         layerID: layer.id,
                         url: url,
@@ -214,6 +269,18 @@ final class ScenePreparedBaseImageResources {
             geometryPrepared(geometry)
             // GPU uploads continue after metadata publication on the same worker.
             uploadCommandQueue.beginMipmapBatch()
+            for (source, atlas) in conditionalAtlases {
+                try cancellationCheck()
+                let selection = atlas.selection(effectivePropertyValues)
+                if let loaded = try prepareConditionalAtlas(conditionalInputs.removeValue(forKey: source)!,
+                    selection: selection, loader: textureLoader, device: device,
+                    checkCancellation: cancellationCheck) {
+                    conditionalProducts[source] = loaded
+                    loadedCount += atlas.layerIDs.count
+                } else {
+                    failedCount += atlas.layerIDs.count
+                }
+            }
             for layer in descriptor.layers {
                 guard let request = imageRequests.removeValue(forKey: layer.id) else { continue }
                 try cancellationCheck()
@@ -344,6 +411,7 @@ final class ScenePreparedBaseImageResources {
             for layer in descriptor.layers where layer.isImageRenderable
                 && particleImageProviders.contains(layer.id) && deferredRequests[layer.id] == nil {
                 if case .loaded? = entries[layer.id]?.outcome { continue }
+                if let source = entries[layer.id]?.source, conditionalProducts[source] != nil { continue }
                 try cancellationCheck()
                 guard let url = resolver.resolvePrimaryTexture(for: layer),
                       let source = try entries[layer.id]?.source
@@ -402,6 +470,8 @@ final class ScenePreparedBaseImageResources {
                 device: device,
                 deviceRegistryID: device.registryID,
                 entries: entries,
+                conditionalAtlases: conditionalAtlases.filter { conditionalProducts[$0.key] != nil },
+                conditionalProducts: conditionalProducts,
                 dynamicImageResources: dynamicImageResources,
                 deferredRequests: deferredRequests,
                 loadedCount: loadedCount,
@@ -413,8 +483,9 @@ final class ScenePreparedBaseImageResources {
     func particleLayerImageCompilation(descriptor: SceneRenderDescriptor, destroyedIDs: Set<Int> = [])
         -> SceneParticleLayerImageEmitterCompilation {
         let loaded: [Int: SceneBaseImageTextureLoad.Loaded] = entries
-            .filter { !destroyedIDs.contains($0.key) }.compactMapValues {
-                guard case let .loaded(value)? = $0.outcome else { return nil }
+            .filter { !destroyedIDs.contains($0.key) }.compactMapValues { entry in
+                if let atlas = conditionalOutcome(for: entry.source) { return atlas }
+                guard case let .loaded(value)? = entry.outcome else { return nil }
                 return value
             }
         return SceneParticleLayerImageEmitterCompiler.compile(descriptor: descriptor,
@@ -430,6 +501,9 @@ final class ScenePreparedBaseImageResources {
     ) -> SceneBaseImageTextureLoad.Outcome? {
         guard device.registryID == deviceRegistryID else { return nil }
         let entry: Entry?
+        if let prepared = entries[layerID], let atlas = conditionalOutcome(for: prepared.source) {
+            return prepared.input == url ? .loaded(atlas) : .failed(.resourceReadFailed(SceneResourceView.ReadError.invalidHandle))
+        }
         if let prepared = entries[layerID], prepared.outcome != nil {
             entry = prepared
         } else {
@@ -448,6 +522,110 @@ final class ScenePreparedBaseImageResources {
         guard entry.input == url else { return .failed(.resourceReadFailed(SceneResourceView.ReadError.invalidHandle)) }
         return entry.outcome
     }
+
+    private func conditionalOutcome(for source: SceneTextureLoader.SourceKey) -> SceneBaseImageTextureLoad.Loaded? {
+        guard conditionalAtlases[source] != nil else { return nil }
+        deferredLock.lock()
+        defer { deferredLock.unlock() }
+        return conditionalProducts[source]?.loaded
+    }
+
+    func conditionalSelections(
+        values: [String: SceneUserPropertyValue], changedKeys: Set<String>
+    ) -> ConditionalSelections {
+        guard !conditionalPropertyKeys.isDisjoint(with: changedKeys) else { return [:] }
+        deferredLock.lock()
+        defer { deferredLock.unlock() }
+        return conditionalAtlases.reduce(into: [:]) { result, entry in
+            let (source, atlas) = entry
+            guard atlas.conditions.values.contains(where: { changedKeys.contains($0.key) }) else { return }
+            let selection = atlas.selection(values)
+            if selection != conditionalProducts[source]?.selection { result[source] = selection }
+        }
+    }
+
+    func requestConditionalAtlases(_ selections: ConditionalSelections, generation: UInt64) {
+        deferredLock.lock()
+        defer { deferredLock.unlock() }
+        conditionalRequest = nil
+        guard !selections.isEmpty, !cancelled else { return }
+        conditionalRequest = .init(generation: generation, selections: selections)
+        scheduleDeferredWorkerLocked()
+    }
+
+    func conditionalStatus(generation: UInt64) -> SceneDeferredBaseImageStatus {
+        deferredLock.lock()
+        defer { deferredLock.unlock() }
+        guard let request = conditionalRequest, request.generation == generation else { return .notDeferred }
+        switch request.result {
+        case .success?: return .ready
+        case .failure?: return .failed("conditional-atlas")
+        case nil: return .loading
+        }
+    }
+
+    @discardableResult
+    func finishConditionalAtlases(
+        generation: UInt64, commit: Bool
+    ) -> [Int: SceneBaseImageTextureLoad.Loaded] {
+        deferredLock.lock()
+        defer { deferredLock.unlock() }
+        guard let request = conditionalRequest, request.generation == generation else { return [:] }
+        conditionalRequest = nil
+        guard commit, case let .success(products)? = request.result else { return [:] }
+        var updates: [Int: SceneBaseImageTextureLoad.Loaded] = [:]
+        for (source, product) in products {
+            conditionalProducts[source] = product
+            for layerID in conditionalAtlases[source]!.layerIDs { updates[layerID] = product.loaded }
+        }
+        return updates
+    }
+
+    private static func prepareConditionalAtlas(
+        _ prepared: SceneTextureLoader.PreparedTexSource,
+        selection: Set<UInt32>, loader: SceneTextureLoader, device: MTLDevice,
+        checkCancellation: () throws -> Void
+    ) throws -> ConditionalProduct? {
+        try withoutActuallyEscaping(checkCancellation) { checkCancellation in
+            let outcome = try SceneBaseImageTextureLoad.loadOrdinaryCandidate(from: prepared.input,
+                loader: loader, device: device, preparedTexSource: prepared,
+                conditionalVariantIDs: selection, checkCancellation: checkCancellation)
+            switch outcome {
+            case let .loaded(loaded):
+                return .init(selection: selection, loaded: loaded)
+            case let .failed(failure):
+                try failure.rethrowResourceReadFailure()
+                return nil
+            }
+        }
+    }
+
+    private func prepareRequestedConditionalAtlases(_ request: ConditionalRequest) {
+        let checkCancellation = {
+            self.deferredLock.lock()
+            let valid = !self.cancelled && self.conditionalRequest?.generation == request.generation
+            self.deferredLock.unlock()
+            if !valid { throw CancellationError() }
+        }
+        let result = Result {
+            try request.selections.reduce(into: [SceneTextureLoader.SourceKey: ConditionalProduct]()) { products, entry in
+                let (source, selection) = entry
+                try checkCancellation()
+                defer { deferredTextureLoader.evictDecodedCaches() }
+                guard let prepared = try deferredTextureLoader.prepareTexSource(
+                    from: conditionalAtlases[source]!.input, source: source, checkCancellation: checkCancellation),
+                      let product = try Self.prepareConditionalAtlas(prepared,
+                    selection: selection, loader: deferredTextureLoader, device: device,
+                    checkCancellation: checkCancellation) else { throw ConditionalAtlasPreparationError.unavailable }
+                products[source] = product
+            }
+        }
+        deferredLock.lock()
+        if conditionalRequest?.generation == request.generation { conditionalRequest?.result = result }
+        deferredLock.unlock()
+    }
+
+    private enum ConditionalAtlasPreparationError: Error { case unavailable }
 
     @discardableResult
     func requestDeferredBaseImage(
@@ -477,10 +655,7 @@ final class ScenePreparedBaseImageResources {
             }
             requestedGenerations[layerID] = requestGeneration
             preferredLayerID = layerID
-            if !workerScheduled {
-                workerScheduled = true
-                deferredQueue.async { [weak self] in self?.runDeferredWorker() }
-            }
+            scheduleDeferredWorkerLocked()
         }
         deferredLock.unlock()
         return status
@@ -512,8 +687,15 @@ final class ScenePreparedBaseImageResources {
 
     private func cancelDeferredPreparationLocked() {
         cancelled = true
+        conditionalRequest = nil
         requestedGenerations.removeAll(keepingCapacity: false)
         preferredLayerID = nil
+    }
+
+    private func scheduleDeferredWorkerLocked() {
+        guard !workerScheduled else { return }
+        workerScheduled = true
+        deferredQueue.async { [weak self] in self?.runDeferredWorker() }
     }
 
     private func runDeferredWorker() {
@@ -521,6 +703,12 @@ final class ScenePreparedBaseImageResources {
             let request: DeferredRequest
             let generation: UInt64
             deferredLock.lock()
+            if let conditionalRequest, !conditionalRequest.selections.isEmpty {
+                self.conditionalRequest?.selections.removeAll()
+                deferredLock.unlock()
+                prepareRequestedConditionalAtlases(conditionalRequest)
+                continue
+            }
             guard !cancelled,
                   let selectedLayerID = nextRequestedLayerIDLocked(),
                   let selectedRequest = deferredRequests[selectedLayerID] else {

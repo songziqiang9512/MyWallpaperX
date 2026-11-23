@@ -193,6 +193,13 @@ nonisolated final class SceneTextureLoader {
                     total = next
                 }
             }
+            for variant in container.conditionalVariants {
+                for patch in variant.mipPatches {
+                    let (next, overflow) = total.addingReportingOverflow(patch.data.count)
+                    guard !overflow else { return nil }
+                    total = next
+                }
+            }
             return total
         }
     }
@@ -447,6 +454,33 @@ nonisolated final class SceneTextureLoader {
     func prepareTexSource(from url: URL, source: SourceKey? = nil,
                           checkCancellation: (() throws -> Void)? = nil) throws -> PreparedTexSource? {
         try prepareTexSource(from: .externalFile(url), source: source, checkCancellation: checkCancellation)
+    }
+
+    func loadConditionalAtlas(
+        from prepared: PreparedTexSource,
+        selectedIDs: Set<UInt32>,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard let container = prepared.container, container.format == 0 else {
+            return .decodeFailed("conditional atlas requires an embedded TEX")
+        }
+        let base = loadFormatZeroContainer(
+            container, embeddedMipChainIsValid: prepared.resource.hasValidTexb3EmbeddedMipChain,
+            source: prepared.source, purpose: purpose, device: device
+        )
+        // Patch coordinates address the declared mip rectangles. Keep the
+        // base if the PNG headers disagree or a loose-image upload resizes it.
+        guard !selectedIDs.isEmpty, prepared.resource.hasValidTexb3EmbeddedMipChain,
+              case let .loaded(texture) = base,
+              let first = container.mips.first,
+              texture.width == first.width, texture.height == first.height else { return base }
+        for variant in container.conditionalVariants where selectedIDs.contains(variant.id) {
+            SceneTextureMipUploader.overwriteConditionalPatches(
+                variant.mipPatches, texture: texture, purpose: purpose
+            )
+        }
+        return base
     }
 
     /// Header metadata and parsing consume the same captured bytes as their
