@@ -42,7 +42,10 @@ class PixabayDownloadedThumbnailGenerationTests(unittest.TestCase):
             inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in (SOURCE, FIXTURE)}
             binary = work / 'video-generation'
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
-                str(source), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                str(source),
+                str(ROOT / 'MyWallpaperX/Shared/ThumbnailRequest.swift'),
+                str(ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift'),
+                '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=120)
             proof = None
             if destination := os.environ.get('MWX_ONLINE_IMAGE_THUMBNAIL_SCHEDULING_PROOF_DIR'):
