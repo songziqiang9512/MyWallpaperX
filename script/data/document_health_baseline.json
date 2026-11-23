@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 494,
-      "bytes": 115215
+      "lines": 503,
+      "bytes": 116650
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 278461
+      "bytes": 279514
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 208,
-      "bytes": 63362
+      "lines": 209,
+      "bytes": 63798
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "f9d8644d45ac5bdd7bf9b10d10f2798907b40b9505c3b50d314ce15b007883fc",
-      "after": "e2d240fbea14eee8e6090dbb0d9119b8534fa95fcca1dfeb9db3b09aaf213185",
-      "owner": "Existing Scene image Puppet and authored runtime evidence",
-      "reason": "Define measured image MDMP decoding, shared pose execution and explicit unsupported composition boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-mdmp-morph"
+      "before": "731b81ddf0a051b081523230dac633ab96ea510102fe4b4d54ba9b673fe2fbb3",
+      "after": "89eb3504f7eef7e03a75f8493e5adfdd3039cd49574d6822e760cd63782754b9",
+      "owner": "Scene Puppet rig and current runtime evidence",
+      "reason": "Describe the verified counted MDLS0002 envelope, cold ownership and fallback boundaries.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-counted-reference-envelope"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "723033e36e8e117b474d2a9b51477edbb33820e8be78e558ce8f4342c485d161",
-      "after": "1536f3abb90b6f6a3b54e70e4632c8b0d05918067c1cfff18d7788e778d9c9a3",
-      "owner": "Current Scene pointer visual evidence",
-      "reason": "Preserve the calibrated official pointer and candidate same-layer control with the visual limit.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#pointer-halo-378"
+      "before": "1536f3abb90b6f6a3b54e70e4632c8b0d05918067c1cfff18d7788e778d9c9a3",
+      "after": "add7d061a2c4221c9cdfbc82cc25d8cf8adc8e6a738dc2fb465ff951f945d4e3",
+      "owner": "Scene Puppet rig and current runtime evidence",
+      "reason": "Record the original and controlled assembled pose on both clients with preserved animation limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-counted-reference-317"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ef281d56075895687d2ea65c1639e786dc782898a25d9bd0bc4585e55d5c8954",
-      "after": "48b94a2e2045203a00c938bae05243388a5e4e718c95efbde87eee21ad7a0403",
-      "owner": "Current Scene pointer visual evidence",
-      "reason": "Mark the user white patch observation as unconfirmed while recording the verified authored trail.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "48b94a2e2045203a00c938bae05243388a5e4e718c95efbde87eee21ad7a0403",
+      "after": "818a2cc45cdf4c8dd4ef07e3fafe50f9fdc20670ba504fb3d2d9a9b452eb853d",
+      "owner": "Scene Puppet rig and current runtime evidence",
+      "reason": "Close the visual pose symptom and track the independently observed MDLA auxiliary rejection.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",

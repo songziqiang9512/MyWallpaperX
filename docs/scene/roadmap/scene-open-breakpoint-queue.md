@@ -17,6 +17,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| Puppet 旧动画的辅助轨 · 3174321827 / 3139661653 | [组装姿态与实际画面](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317)已恢复317胸前双臂。原317的 MDLA0005/171 和独立 MDLA0004/965、970仍未越过辅助轨准备。先对照真正活动轨的计数、字节跨度和官版关轨后的连续姿态，保本次静态reference及已有完整动画。不从初始 pose 推断 IK。 |
 | 环形 Vortex 与动态控制点 · 3653620838 | 259使用世界空间 `vortex_v2`、CP1 三秒角度时间线和作者 ring 参数。现役准备拒绝这些组合，原包仍有其余粒子与强外围放射。官版单删该算子可重现内场丢失。沿原粒子计划与 CP 快照先用冻结及动画轴、环半径/宽度/拉力的独立可辨控制验证，再保留作者在 Movement 后和 Radius/Force 前的次序。[实际画面](../capabilities/runtime-evidence-current.md#vortex-ring-author) · [官方参数](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#vortex) |
 | 局部固体效果的尺寸与背景依赖 · 3612940332 | [四通道尺寸与无声圆线](../capabilities/runtime-evidence-current.md#author-oscilloscope-local-extent)确认坐标差先出现在 slot0 尺寸。现役预检把来源尺寸与 terminal replay 资格耦合，含主画布读取的四个前置色图走屏幕投影。非方作者变体确认官版源尺寸随作者面变，末端沿放置栅格。沿原固体 extent、pair 与唯一末端 Program 分开规划，固定中间工作纹理和主画布截点，保显式 FBO、非固体、具名及深度。独立的32档供值差沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)验证，使用端点后混音与同帧标定，保显示谱响应。 |
 | Fullscreen 子树后处理 · 3804689861 | 143默认有 Twirl 和两项 Shake，两个 mask 均存在。带子层的 Fullscreen 在 SourceRoute 被拒绝，F185中视频319、贴图184直接进主画布，父级缺实际 source 与 Program。新增库存86个 Fullscreen 中此例具有该活动子树。先用官版切换父效果定位 enclosing-prefix 或 descendants 的输入，再沿现有组来源职责验证。 |

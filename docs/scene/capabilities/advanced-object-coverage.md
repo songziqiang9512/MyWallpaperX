@@ -366,6 +366,15 @@ Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备
 
 源码：[Selection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)、[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)、[Surface 装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)。
 
+<a id="puppet-counted-reference-envelope"></a>
+### MDLS0002 的约束记录与组装姿态
+
+MDLS0002 的骨记录状态低两位用于已见布局，实测 1 与 3 共用父索引、矩阵和权重结构。骨表后的两字节小端计数标明组装姿态前的记录数。已证每条为零标识、骨索引、0/1选择字段及64字节记录数据，共73字节。原 RigReader 在声明的 skeleton 末界内推进这一段，只把其后的组装姿态标志及骨数对应矩阵交给现有 reference 消费者。计数表越界或记录形状未知时沿原诊断保留骨架。声明存在且矩阵段损坏时保原错误，父索引与权重的合法边界保持。
+
+此处的记录只用于找到现有组装矩阵。IK 目标、时序和求解不执行，骨 metadata 的独立诊断保持。保空名的骨索引及已有 skinning bind。MDLS0001/0003/0004 沿原状态、骨尾和 reference 规则，attachment reader 保其已证范围。不增加资源、缓存、普通帧工作或第二姿态路径。
+
+验收以官版原包与只关作者动画时的实际组装为依据。对照本机仅接纳状态与完整读取组装矩阵，保真实 texture、动态 mesh、主合成与排空。近门覆盖空表、非空表有无组装矩阵、改名与可变条数、坏形状、越过后继 MDLA 的坏长度、现有 reference 及相邻版本拒绝。原包的独立 MDLV0017 手臂与健康 MDLV0019 再核播放。
+
 <a id="puppet-prebounds-curves"></a>
 ### 带未消费曲线的骨骼动画
 

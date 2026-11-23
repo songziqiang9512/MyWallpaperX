@@ -106,6 +106,7 @@ def build_rig_mdl(
     bind_matrices: list[list[float]] | None = None,
     skeleton_tail: bytes = b"",
     bone_names: tuple[str, ...] | None = None,
+    bone_states: tuple[int, ...] | None = None,
     bone_metadata: bytes = b"{}",
     prefix_noise: bytes = b"\0" * 24,
 ) -> bytes:
@@ -144,7 +145,7 @@ def build_rig_mdl(
         mdls += bone_name + b"\0"
         mdls += struct.pack(
             "<IiI16f",
-            1,
+            bone_states[bone] if bone_states is not None else 1,
             parent,
             64,
             *(bind_matrices[bone] if bind_matrices is not None else
@@ -249,6 +250,28 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
                 magic=version, stride=stride, skeleton_marker=b"MDLS0002\0",
                 animation_marker=animation_marker, skeleton_tail=reference_tail + b"remaining author fields")
         cls.fixtures["absent-reference.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0\0ignored tail")
+        constraints = [
+            struct.pack("<BII16f", 0, 1, 1, *matrix(127, 11)),
+            struct.pack("<BII16f", 0, 0, 0, *matrix(60, -5)),
+            struct.pack("<BII16f", 0, 1, 0, *matrix(-3, 2)),
+        ]
+        cls.fixtures["counted-reference.mdl"] = build_rig_mdl(
+            **{**legacy, "magic": b"MDLV0019", "animation_marker": b"MDLA0005\0"},
+            bone_names=("assembly-origin", "renamed-hinge"), bone_states=(3, 1),
+            skeleton_tail=b"\2\0" + b"".join(constraints[:2]) + reference_tail[2:])
+        cls.fixtures["counted-without-reference.mdl"] = build_rig_mdl(
+            **legacy, bone_states=(1, 3),
+            skeleton_tail=b"\3\0" + b"".join(constraints) + b"\0")
+        cls.fixtures["truncated-constraint-table.mdl"] = build_rig_mdl(
+            **legacy, skeleton_tail=b"\2\0" + b"".join(constraints[:2])[:-1] + b"\0")
+        bad_target = struct.pack("<BII16f", 0, 2, 0, *matrix())
+        cls.fixtures["unknown-constraint-target.mdl"] = build_rig_mdl(
+            **legacy, skeleton_tail=b"\2\0" + constraints[0] + bad_target + reference_tail[2:])
+        cls.fixtures["unverified-counted-table.mdl"] = build_rig_mdl(
+            magic=b"MDLV0021", skeleton_marker=b"MDLS0003\0",
+            skeleton_tail=b"\2\0" + b"".join(constraints[:2]) + reference_tail[2:])
+        cls.fixtures["unknown-reference-bone-flags.mdl"] = build_rig_mdl(
+            **legacy, bone_states=(4, 1))
         cls.fixtures["unknown-reference-prefix.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\1\0\1" + reference_tail[3:])
         cls.fixtures["unknown-reference-flag.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0\2" + reference_tail[3:])
         cls.fixtures["short-unrecognized-tail.mdl"] = build_rig_mdl(**legacy, skeleton_tail=b"\0\0")
@@ -405,9 +428,26 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
                 self.assertEqual(row["referenceTranslations"], [[20, 30], [7, 9]])
                 self.assertEqual(row["referenceDiagnostic"], "")
 
+    def test_mdls0002_counted_records_precede_the_optional_reference(self):
+        reference = self.results["counted-reference.mdl"]
+        self.assertTrue(reference["ok"], reference)
+        self.assertEqual(reference["boneNames"], ["assembly-origin", "renamed-hinge"])
+        self.assertEqual(reference["parents"], [-1, 0])
+        self.assertEqual(reference["bindTranslations"], [[0, 0], [10, 20]])
+        self.assertEqual(reference["referenceTranslations"], [[20, 30], [7, 9]])
+        self.assertEqual(reference["referenceDiagnostic"], "")
+
+        absent = self.results["counted-without-reference.mdl"]
+        self.assertTrue(absent["ok"], absent)
+        self.assertIsNone(absent["referenceTranslations"])
+        self.assertEqual(absent["referenceDiagnostic"], "")
+        self.assertIn("bone record 0", self.results["unknown-reference-bone-flags.mdl"]["error"])
+
     def test_absent_reference_and_unknown_prefix_preserve_existing_rig(self):
         for name in ("stride80.mdl", "absent-reference.mdl", "unknown-reference-prefix.mdl",
-                     "unknown-reference-flag.mdl", "short-unrecognized-tail.mdl"):
+                     "unknown-reference-flag.mdl", "short-unrecognized-tail.mdl",
+                     "truncated-constraint-table.mdl", "unknown-constraint-target.mdl",
+                     "unverified-counted-table.mdl"):
             row = self.results[name]
             self.assertTrue(row["ok"], row)
             self.assertIsNone(row["referenceTranslations"])

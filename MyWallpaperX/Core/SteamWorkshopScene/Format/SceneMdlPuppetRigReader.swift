@@ -165,7 +165,7 @@ nonisolated enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equ
 
 /// Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
 /// fields. MDLV0013/MDLS0001, MDLV0014/MDLS0002,
-/// MDLV0016/MDLS0002, MDLV0017/MDLS0002, and
+/// MDLV0016, MDLV0017 and MDLV0019 with MDLS0002, and
 /// MDLV0021/MDLS0003 and MDLV0023/MDLS0004 use the same validated record shape; the version
 /// pair is still checked before any bone data is consumed. The index fields
 /// begin at stride - 40 and weights at stride - 24 for the verified 52-, 80-,
@@ -217,6 +217,7 @@ nonisolated enum SceneMdlPuppetRigReader {
     ]
     private static let markerSize = 9
     private static let matrixByteCount = 64
+    private static let preReferenceRecordByteCount = 1 + 4 + 4 + matrixByteCount
     private static let maxBoneCount = 4096
     private static let maxNameBytes = 1024
     private static let maxMetadataBytes = 64 * 1024
@@ -261,7 +262,7 @@ nonisolated enum SceneMdlPuppetRigReader {
             throw SceneMdlPuppetRigReadError.skeletonBlockMissing
         }
         let skeleton = try readBones(data: data, blockOffset: skeletonOffset,
-            permitsReferencePose: contract.skeletonMarker == Data("MDLS0002\0".utf8))
+            isMDLS0002: contract.skeletonMarker == Data("MDLS0002\0".utf8))
         let weights = try readVertexWeights(
             data: data,
             layout: vertexLayout,
@@ -276,7 +277,7 @@ nonisolated enum SceneMdlPuppetRigReader {
     private static func readBones(
         data: Data,
         blockOffset: Int,
-        permitsReferencePose: Bool
+        isMDLS0002: Bool
     ) throws -> (bones: [SceneMdlPuppetRig.Bone], reference: [[Float]]?, diagnostic: String?) {
         var cursor = blockOffset + markerSize
         guard cursor + 8 <= data.count else {
@@ -295,6 +296,7 @@ nonisolated enum SceneMdlPuppetRigReader {
 
         var bones: [SceneMdlPuppetRig.Bone] = []
         bones.reserveCapacity(boneCount)
+        let maximumBoneFlags: UInt32 = isMDLS0002 ? 3 : 1
         for boneIndex in 0 ..< boneCount {
             guard let nameEnd = nullTerminator(
                 in: data,
@@ -310,11 +312,11 @@ nonisolated enum SceneMdlPuppetRigReader {
             guard cursor + 12 + matrixByteCount <= endOffset else {
                 throw SceneMdlPuppetRigReadError.invalidBoneRecord(boneIndex)
             }
-            let state = readUInt32(data, at: cursor)
+            let flags = readUInt32(data, at: cursor)
             let parentIndex = Int(readInt32(data, at: cursor + 4))
             let byteCount = Int(readUInt32(data, at: cursor + 8))
             cursor += 12
-            guard state <= 1, byteCount == matrixByteCount else {
+            guard flags <= maximumBoneFlags, byteCount == matrixByteCount else {
                 throw SceneMdlPuppetRigReadError.invalidBoneRecord(boneIndex)
             }
             guard parentIndex >= -1, parentIndex < boneIndex else {
@@ -356,20 +358,18 @@ nonisolated enum SceneMdlPuppetRigReader {
                 physicsDiagnostic: physicsDiagnostic
             ))
         }
-        // Existing assets and fixtures may end immediately after the bone records.
-        // Only the verified flag prefix identifies the optional matrix segment;
-        // subsequent MDLS fields retain their existing, unprojected behavior.
         guard cursor < endOffset else { return (bones, nil, nil) }
-        guard endOffset - cursor >= 3,
-              data[cursor] == 0, data[cursor + 1] == 0,
-              data[cursor + 2] <= 1 else {
+        guard let referenceFlag = referenceFlagOffset(
+            in: data, after: cursor, end: endOffset,
+            boneCount: boneCount, isMDLS0002: isMDLS0002
+        ) else {
             return (bones, nil, "unsupported-reference-pose-prefix")
         }
-        guard data[cursor + 2] == 1 else { return (bones, nil, nil) }
-        guard permitsReferencePose else {
+        guard data[referenceFlag] == 1 else { return (bones, nil, nil) }
+        guard isMDLS0002 else {
             throw SceneMdlPuppetRigReadError.unsupportedReferencePose
         }
-        cursor += 3
+        cursor = referenceFlag + 1
         guard boneCount * matrixByteCount <= endOffset - cursor else {
             throw SceneMdlPuppetRigReadError.invalidReferenceBounds
         }
@@ -384,6 +384,28 @@ nonisolated enum SceneMdlPuppetRigReader {
             cursor += matrixByteCount
         }
         return (bones, reference, nil)
+    }
+
+    private static func referenceFlagOffset(
+        in data: Data, after bonesEnd: Int, end: Int, boneCount: Int, isMDLS0002: Bool
+    ) -> Int? {
+        guard end - bonesEnd >= 3 else { return nil }
+        let recordCount = Int(data[bonesEnd]) | (Int(data[bonesEnd + 1]) << 8)
+        var cursor = bonesEnd + 2
+        if recordCount > 0 {
+            guard isMDLS0002,
+                  recordCount <= (end - cursor - 1) / preReferenceRecordByteCount
+            else { return nil }
+            // These records identify the matrix segment only. The IK data is not evaluated here.
+            for _ in 0..<recordCount {
+                guard data[cursor] == 0,
+                      readUInt32(data, at: cursor + 1) < UInt32(boneCount),
+                      readUInt32(data, at: cursor + 5) <= 1
+                else { return nil }
+                cursor += preReferenceRecordByteCount
+            }
+        }
+        return data[cursor] <= 1 ? cursor : nil
     }
 
     private static func readVertexWeights(
