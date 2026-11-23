@@ -15,7 +15,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 原包粒子预热阻断 · 3337494481 / 3292370168 | 333普通Debug默认在前81秒及修复后206秒的监督内均无Ready；作者Particle Off也无Ready，活进程3秒栈定位在私有Surface的`warmUp→step→Turbulence/gradientNoise`，准备线程124次采样落在warmUp。329在98秒内无Ready，旧栈为Vortex/Movement，505实际消费仍未证。不同监督上限只授超时。下一步同原包默认关闭执行观测，在签名优化Debug核实际预热和Ready，再决定是否有可移除的热循环工作，保隐藏态的后续RNG、时间和显示语义。收据见[来源复验](../capabilities/runtime-evidence-current.md#framebuffer-source-purpose)。 |
 | 3589454154 环黑点/快速闪烁（持续开放） | [已交付的接收面、微影滤波与固定网格](../capabilities/model-runtime-evidence.md#model-directional-shadow-grid)保现役；[无影颜色覆盖](../capabilities/model-runtime-evidence.md#model-raster-coverage)与[完整投影域控制](../capabilities/model-runtime-evidence.md#model-shadow-complete-contribution)确认亚像素碎石跳变及阴影相关暗纹并存。本轮没有新生产算法修复；729848环面约7.085%阻权来自479，728848的最终叠加片元仍待定位，不归环自影。旧局部与新full fit不同，禁止拼旧clear作新增caster因果。官方关259的两次控制失败，无关影正控。恢复后先沿同fit实际接收片元/有限tap补归因；保主影、合法cast及原材质，不续调任意bias、五点滤波，默认N2仍按原播放/驻留停止线撤回。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | 模型用户视频与其它贴图slot（待证） | [用户静图slot0已接通](../capabilities/model-runtime-evidence.md#model-user-albedo)；现用户视频仅PMA，模型straight需求会拒绝同key视频并保旧，尚无作者选视频像素证据，不按后缀放宽用途。静图现仍沿旧declared-key兜底准备PMA与straight两用途，后续核实际消费者和物理纹理是否冗余再裁剪，不把ready计数当驻留量。其它slot的provider/动画仍需实际消费者与独立样本，不由slot0静图推广。 |
@@ -172,7 +171,7 @@
 
 | 输入 | 当前证据与重启条件 |
 |---|---|
-| 密集预热 · 3337494481 | [同作者包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认首屏缩短，余下仍以完整粒子预热为主。只在有新证据指出可避免的工作时重启，保作者步进、随机、历史和首帧；不重复本次采样或以删粒子、缩时长、扩大预算求速度。 |
+| 密集预热 · 3337494481 | [原包交错实测](../capabilities/runtime-evidence-current.md#particle-turbulence-borrow)确认签名优化态可启动，普通Debug超时仅限该取证配置。单root去隐藏轨迹的隔离计时重叠，候选退出。实际首屏仍以完整预热为主；继续依据可移除的工作，保作者时序、随机、历史和首帧。 |
 | 3749463715 | [现役历史结算唤醒](../capabilities/runtime-evidence-current.md#gpu-admission-wake-374)已降低等待。[末端消融](../capabilities/runtime-evidence-current.md#terminal-main-ablation)每帧去掉五个离屏材质，实呈与GPU时间持平，候选已撤回。后续只追有新证据的显著成本，保跨帧历史与回滚；不重跑末端消融、不放宽容量或按重叠时戳删材质。 |
 | 3420215721 | [同包实测](../capabilities/runtime-evidence-current.md#scene-playback-triage-342)确认 GPU 超预算，稳定帧 history split 已减少 seed copy。[运行时失败反例](../capabilities/runtime-evidence-current.md#stale-history-seed)补查历史保持；后续只补同 scene-time 像素 A/B、真实 descriptor/reset 与 activation 切换的未覆盖范围，不重复已有效的构建和稳定帧测量，不增 pin 或 history owner。 |
 

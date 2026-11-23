@@ -296,14 +296,11 @@ nonisolated enum SceneParticleSimulationMath {
         hash ^= hash >> 29
         hash &*= 0x9FB21C651E98DF25
         hash ^= hash >> 32
-        let signX = (hash & 1) == 0 ? 1.0 : -1.0
-        let signY = (hash & 2) == 0 ? 1.0 : -1.0
-        let signZ = (hash & 4) == 0 ? 1.0 : -1.0
-        switch Int((hash >> 3) % 3) {
-        case 0: return signX * offsetX + signY * offsetY
-        case 1: return signX * offsetX + signZ * offsetZ
-        default: return signY * offsetY + signZ * offsetZ
-        }
+        let x = (hash & 1) == 0 ? offsetX : -offsetX
+        let y = (hash & 2) == 0 ? offsetY : -offsetY
+        let z = (hash & 4) == 0 ? offsetZ : -offsetZ
+        let axes = (hash >> 3) % 3
+        return (axes == 2 ? y : x) + (axes == 0 ? y : z)
     }
 
     @inline(__always)
