@@ -797,7 +797,7 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
 class SceneZeroOpacityReceiverRoleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        main = (Path(__file__).with_name('fixtures') / 'SceneZeroOpacityReceiverRoleChecks.swift').read_text()
+        main = (Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneZeroOpacityReceiverRoleChecks.swift').read_text()
         support = pool_fixture.HARNESS.split('@main', 1)[0] + SHELL + UNUSED_ORDERED_SUPPORT + main
         cls.report = shadow_fixture.run_swift(SOURCES, support, label='zero-opacity-receiver-role',
                          metal_sources=[SCENE/'Rendering/Composition/SceneStaticModel.metal'])
@@ -911,7 +911,7 @@ class SceneDirectionalShadowDensityTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        fixture = Path(__file__).with_name('fixtures') / 'SceneDirectionalShadowDensityChecks.swift'
+        fixture = Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneDirectionalShadowDensityChecks.swift'
         support = (pool_fixture.HARNESS.split('@main', 1)[0] + SHELL
                    + UNUSED_ORDERED_SUPPORT + fixture.read_text())
         cls.cases = model_shadow_density_cases()

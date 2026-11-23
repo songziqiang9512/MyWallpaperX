@@ -11,7 +11,7 @@ import unittest
 from script.tests.scene import test_scene_directional_shadow as shared
 from script.tests.scene import test_scene_static_model_pipeline as model
 
-FIXTURE = Path(__file__).with_name('fixtures') / 'SceneDirectionalShadowPrimitiveCoverageChecks.swift'
+FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneDirectionalShadowPrimitiveCoverageChecks.swift'
 DEPTH_TOLERANCE = 2e-5
 
 

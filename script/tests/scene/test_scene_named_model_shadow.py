@@ -371,7 +371,7 @@ def ordered_support():
     return dep+prepared+group+'struct SceneEffectStageExecutionPlan'+stage+ORDERED_RENDERER
 
 
-_ORDERED_HARNESS=(Path(__file__).with_name('fixtures')/'SceneNamedModelShadowOrderedHarness.swift').read_text(encoding='utf-8')
+_ORDERED_HARNESS=(Path(__file__).resolve().parents[1] / 'fixtures'/'SceneNamedModelShadowOrderedHarness.swift').read_text(encoding='utf-8')
 _ORDERED_MAIN_OFFSET=_ORDERED_HARNESS.index('\n@main enum OrderedProbe {')
 ORDERED_RENDERER=_ORDERED_HARNESS[:_ORDERED_MAIN_OFFSET]
 ORDERED_MAIN=_ORDERED_HARNESS[_ORDERED_MAIN_OFFSET:]
@@ -478,7 +478,7 @@ def admission_support():
     return s+RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT+ADMISSION_EXTRA
 
 
-ADMISSION_EXTRA=(Path(__file__).with_name('fixtures')/'SceneNamedModelShadowAdmissionSupport.swift').read_text(encoding='utf-8')
+ADMISSION_EXTRA=(Path(__file__).resolve().parents[1] / 'fixtures'/'SceneNamedModelShadowAdmissionSupport.swift').read_text(encoding='utf-8')
 
 
 def typecheck_admission_support():

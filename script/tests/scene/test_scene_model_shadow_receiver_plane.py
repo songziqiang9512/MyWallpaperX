@@ -10,7 +10,7 @@ import unittest
 from script.tests.scene import test_scene_directional_shadow as shared
 
 MODEL = shared.model_fixture
-CASES = Path(__file__).with_name('fixtures') / 'scene_model_shadow_receiver_plane_cases.json'
+CASES = Path(__file__).resolve().parents[1] / 'fixtures' / 'scene_model_shadow_receiver_plane_cases.json'
 
 
 def vectors():

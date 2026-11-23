@@ -6,7 +6,7 @@ import struct
 import subprocess
 import unittest
 
-import test_scene_puppet_animation as legacy
+from script.tests.scene import test_scene_puppet_animation as legacy
 
 
 class SceneMdlPuppetAnimationBoundsTests(legacy.SceneMdlPuppetAnimationReaderTests):

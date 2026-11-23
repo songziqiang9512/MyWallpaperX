@@ -6,7 +6,7 @@ import unittest
 from script.tests.scene import test_scene_offscreen_texture_pool as pool_fixture
 from script.tests.scene.test_scene_directional_shadow import run_swift
 
-FIXTURE = Path(__file__).with_name('fixtures') / 'SceneAllocationRecoveryHarness.swift'
+FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneAllocationRecoveryHarness.swift'
 
 
 class SceneAllocationRecoveryTests(unittest.TestCase):

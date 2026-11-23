@@ -16,7 +16,7 @@ from script.tests.fixtures.scene_directional_shadow_oracle import freeze_vectors
 
 REPO = Path(__file__).resolve().parents[3]
 SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'
-COHORT_FIXTURE = Path(__file__).with_name('fixtures') / 'SceneShadowCohortResourceChecks.swift'
+COHORT_FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneShadowCohortResourceChecks.swift'
 
 POOL_MAIN = r'''
 @main enum ShadowPoolProbe {
@@ -486,7 +486,7 @@ kernel void shadowFilterProbe(constant float4 *points [[buffer(0)]],
 }
 '''
 
-FILTER_FIXTURE = Path(__file__).with_name('fixtures') / 'SceneShadowFilterChecks.swift'
+FILTER_FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneShadowFilterChecks.swift'
 
 class SceneShadowFilterFootprintTests(unittest.TestCase):
     @classmethod

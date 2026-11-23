@@ -9,7 +9,7 @@ import unittest
 
 from script.tests.scene import test_scene_directional_shadow_frame_owner as frame
 
-MAIN = (Path(__file__).with_name('fixtures') / 'SceneStaticModelDepthPendingChecks.swift').read_text()
+MAIN = (Path(__file__).resolve().parents[1] / 'fixtures' / 'SceneStaticModelDepthPendingChecks.swift').read_text()
 
 
 class SceneStaticModelDepthPendingTests(unittest.TestCase):
