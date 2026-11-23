@@ -38,7 +38,7 @@ quad 由已编译 launch envelope 的完整准备结果、实际 sampler 与 gra
 
 Utility provider 在原 source 触发点执行一次，由同一 compositor 发布；当前可见输出继续主合成，隐藏输出只供 named consumer。资源与 ticket 合同见[Named 输入职责](render-graph-shader-coverage.md#named-input-ownership)。
 
-无 child 的 captured-main source Program 只在作者顺序截点捕获并编码，不移到整个层循环前批处理，不拿历史 framebuffer 充当当前背景。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定，不强行改成普通 quad。声明依赖与实际来源的区分见[Framebuffer 来源合同](render-graph-shader-coverage.md#framebuffer-source-declarations)。
+无 child 的 captured-main source Program 在帧顺序中的当前层截点捕获并编码，读取同一 attachment 上已提交的颜色。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定。声明依赖与实际来源的区分见[Framebuffer 来源合同](render-graph-shader-coverage.md#framebuffer-source-declarations)。
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
 
@@ -47,7 +47,11 @@ Utility provider 在原 source 触发点执行一次，由同一 compositor 发�
 
 无子层的顶层 composition 在正交场景复制背景时，沿现有局部捕获与回绘接收透视值。此时 passthrough 无成员可透传，开启或关闭均取同一背景截点。有已准备 Program 时，原相机以平面 VP 供局部采样，以输出 VP 回绘一次。有子层、透明输入、依赖和 framebuffer source 各沿原准入边界。
 
-同一无子层背景源在原生透视场景继承当前场景相机，显式平面值仍走平面。背景截取和终端用同一世界卡片、同一视图投影，按投影像素尺寸进入原资源预算。齐次 W 沿卡片变化时，原 source capture 按局部像素做齐次投影来采样当前主画布，避免把斜卡片拉成仿射平行四边形。正对卡片沿用原仿射采样。捕获、Program 和回绘保作者截点及原图层顺序，无独立相机或离屏链。原生世界长度按正交画布像素截取的旧通路退出该形状。验收比较 3455121165/296 的真实 Program 输入、钟下音条和官方位置，用固定音频、斜卡片、显式平面及独立正交作者核影响范围。
+同一无子层背景源在原生透视场景继承当前场景相机，显式平面值仍走平面。背景截取和终端用同一世界卡片、同一视图投影，按投影像素尺寸进入原资源预算。齐次 W 沿卡片变化时，原 source capture 按局部像素做齐次投影来采样当前主画布。正对卡片沿用原仿射采样。原生世界长度按正交画布像素截取的旧通路退出该形状。验收比较 3455121165/296 的实际 Program 输入、钟下音条和官方位置，并覆盖斜卡片、显式平面及独立正交作者。
+
+开启 `transparentsorting` 时，原生主画布中可见的无子层背景 Composition 若已有独立的 captured-main Program，以其位置作为透明阶段的背景截点。同区段内晚到的独立不透明透视模型按原相对顺序整次提交到最早截点之前，统一写入原颜色和深度。模型所有已准备部件须为 alpha=1 实体路径并测试及写入深度。可跨原生深度测试的普通图像、文字、已准备独立局部回绘的 solid，以及无折射、无深度附件的 additive 粒子。真实命名供需、其它当前主色观察、分组、非独立模型与未资格终端分界。继续沿该层一次 source capture、原 Program 与一次终端回绘。关闭排序保作者顺序，原文字终端与 Composition 深度政策独立于此调度。
+
+原 Frame 排序输出同一顺序给必需深度前缀、命名准备和实际编码。验证排序开关及独立实体前移后的真实采样和终图音条、保留其它背景截点和非写深度模型，并以本机原作者与已冻结官版见证裁定。较近实体对 Composition 终端的遮挡规则另需画面对照。
 
 具备实际正交画布和局部尺寸的顶层分组 composition 可接收作者透视值。首屏材质准备后的 SourceRoute 由 LaunchFrameSchema 共享给 Script 和 RuntimePlanner。子组范围限直接成员、各有已准备 Program 的 composition。含复制背景的内组要求外组复制开启。保留 native-camera、有成员 passthrough 和无内组 Program 的原路径。
 

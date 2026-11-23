@@ -195,11 +195,25 @@ extension SceneMetalRenderer {
                 if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
             }
         }
-        let reorderedLayers = mayOrderText || !imageDepths.isEmpty
+        let utilityExecution = frameProjection.utilityExecution
+        var backgroundCuts: Set<Int> = []
+        if sortsTransparency, cameraFrame.defaultsToPerspective, imagePipeline != nil {
+            backgroundCuts = utilityExecution.captureLayerIDs.filter { id in
+                guard frameVisibleLayerIDs.contains(id), let layer = frameLayersByID[id],
+                      layer.hasPerspectiveGeometryConsumer, cameraFrame.resolvesPerspective(for: layer),
+                      !hasWorldOrderTextureDependency(id), (layer.colorBlendMode ?? 0) == 0,
+                      let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
+                else { return false }
+                return claim.sourceRoute == .capturedMainTargetTexture
+                    && claim.dependencyOwnership == .none && claim.sceneBackgroundRequirement == nil
+            }
+        }
+        let reorderedLayers = mayOrderText || !imageDepths.isEmpty || !backgroundCuts.isEmpty
             ? worldTransparencyOrder(frameProjection.orderedLayers, imageDepths: imageDepths,
                 sorting: sortsTransparency, mayOrderText: mayOrderText, modelFrame: modelFrame,
                 visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
-                worldFrames: frameWorldFrames, utility: frameProjection.utilityExecution) : nil
+                worldFrames: frameWorldFrames, utility: utilityExecution,
+                backgroundCuts: backgroundCuts, particleBatches: particleBatchesByID) : nil
         let orderedLayers = reorderedLayers ?? frameProjection.orderedLayers
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,

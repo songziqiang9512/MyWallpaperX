@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A current typed native-camera transform reaches fixed two-depth models.
+"""Native camera matrices and ordered background capture through the Debug App.
 
 Both arms have identical authored transforms and differ only in the constant
 Vec3 returned by the camera's angles script. This checks owned geometry and
@@ -17,7 +17,9 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from script.tests.scene import test_scene_native_world_composition as world
 from script.tests.scene.test_scene_native_world_composition import encoded, mdl_quad, model_material, png
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.scene.test_scene_reflection_history_integration import METAL_FAILURE, sha256
@@ -96,6 +98,79 @@ def fixture_entries(arm: str, topology_action: str | None = None) -> dict[str, b
                          "green": MARKS["farGreen"]["RGB"]}.items():
         entries[f"materials/{label}.json"] = model_material(f"materials/{label}.png")
         entries[f"materials/{label}.png"] = png(4, 4, lambda _x, _y, c=color: c)
+    return entries
+
+
+def background_cut_entries(*, sorting: bool, writes_depth: bool,
+                           main_observer: bool = False, named_albedo: bool = False) -> dict[str, bytes]:
+    scene = world.native_world_scene([
+        {"id": 1, "model": "models/red_field.mdl", "perspective": True, "castshadow": False},
+        {"id": 20, "image": "models/util/composelayer.json", "config": {"passthrough": True},
+         "origin": "0 0 0", "size": "128 96", "scale": f"{2.4 / 128} {1.6 / 96} 1",
+         "perspective": True, "effects": [{"id": 200, "file": "effects/shift_invert/effect.json",
+                                          "visible": True}]},
+        {"id": 21, "text": "HH", "font": "systemfont_arial", "pointsize": 24, "padding": 40,
+         "color": "1 1 1", "origin": "-1.7 1.15 0", "scale": ".0055 .0055 1",
+         "horizontalalign": "center", "verticalalign": "center",
+         "depthtest": "enabled", "perspective": True},
+        {"id": 30, "model": "models/green_marker.mdl", "perspective": True, "castshadow": False},
+    ])
+    scene["general"]["transparentsorting"] = sorting
+    if main_observer:
+        scene["objects"].insert(3, {"id": 22, "image": "models/prefix_filter.json",
+            "origin": ".36 .56 0", "size": "128 96", "scale": f"{.38 / 128} {.24 / 96} 1",
+            "perspective": True, "colorBlendMode": 2})
+    marker = json.loads(model_material("_rt_imageLayerComposite_41_a" if named_albedo
+                                      else "materials/green_marker.png"))
+    if named_albedo:
+        scene["objects"][-1]["dependencies"] = [41]
+        scene["objects"].append({"id": 41, "image": "models/named_marker_source.json",
+            "origin": "0 0 0", "size": "4 4", "visible": False,
+            "effects": [{"id": 410, "file": "effects/named_marker/effect.json", "visible": True}]})
+    if not writes_depth:
+        marker["passes"][0]["depthwrite"] = "disabled"
+    entries = {
+        "scene.json": encoded(scene),
+        "models/red_field.mdl": mdl_quad(-9, 9, -6, 6, -2, "materials/red_field.json"),
+        "models/green_marker.mdl": mdl_quad(.14, 1.7, -.24, .24, -.6, "materials/green_marker.json"),
+        "materials/red_field.json": model_material("materials/red_field.png"),
+        "materials/green_marker.json": encoded(marker),
+        "materials/red_field.png": png(4, 4, lambda _x, _y: (255, 0, 0)),
+        "effects/shift_invert/effect.json": encoded({"passes": [{"material": "materials/shift_invert.json"}]}),
+        "materials/shift_invert.json": encoded({"passes": [{
+            "shader": "shift_invert", "textures": [None], "blending": "normal",
+            "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+        "shaders/shift_invert.vert": world.EFFECT_VERTEX,
+        "shaders/shift_invert.frag": b"""uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec3 color = texSample2D(g_Texture0, v_TexCoord + vec2(0.25, 0.0)).rgb;
+    gl_FragColor = vec4(vec3(1.0) - color, 1.0);
+}
+""",
+    }
+    if not named_albedo or main_observer:
+        entries["materials/green_marker.png"] = png(4, 4, lambda _x, _y: (0, 255, 0))
+    if main_observer:
+        entries["models/prefix_filter.json"] = encoded({"material": "materials/prefix_filter.json"})
+        entries["materials/prefix_filter.json"] = encoded({"passes": [{
+            "shader": "genericimage", "textures": ["materials/green_marker.png"]}]})
+    if named_albedo:
+        # Green exists only in the hidden provider's completed graph output.
+        entries.update({
+            "models/named_marker_source.json": encoded({"material": "materials/named_marker_source.json"}),
+            "materials/named_marker_source.json": encoded({"passes": [{
+                "shader": "genericimage", "textures": ["materials/red_field.png"]}]}),
+            "effects/named_marker/effect.json": encoded({"passes": [{"material": "materials/named_marker.json"}]}),
+            "materials/named_marker.json": encoded({"passes": [{
+                "shader": "named_marker", "textures": [None], "blending": "normal",
+                "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+            "shaders/named_marker.vert": world.EFFECT_VERTEX,
+            "shaders/named_marker.frag": b"""uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord).brga; }
+""",
+        })
     return entries
 
 
@@ -253,6 +328,101 @@ class SceneNativeCameraFrameIntegrationTests(unittest.TestCase):
         checks = pixel_checks(results, TOPOLOGY_OFFSETS, selections)
         (self.evidence_root / "topology-pixel-checks.json").write_bytes(encoded(checks))
         self.assertTrue(all(c["passed"] for c in checks), [c for c in checks if not c["passed"]])
+
+    def test_native_background_cut_admits_only_the_sorted_depth_writer(self):
+        self.app_identity, self.source_identity = self.app_hashes, self.source_hashes
+        for name, sorting, writes_depth, observer, named_albedo in (
+            ("sort-off", False, True, False, False), ("sort-on", True, True, False, False),
+            ("read-only-model", True, False, False, False), ("main-reader", True, True, True, False),
+            ("named-writer", True, True, False, True),
+        ):
+            with self.subTest(name=name):
+                moves = sorting and writes_depth and not (observer or named_albedo)
+                entries = background_cut_entries(sorting=sorting, writes_depth=writes_depth,
+                                                 main_observer=observer, named_albedo=named_albedo)
+                # Shift the right-side source marker to a witness the model
+                # cannot subsequently cover. World x=-.36 maps to source
+                # x=.24 on the card and x=.264 at the marker's depth.
+                rois = {
+                    "sampled-prefix": {"world": [-.36, 0., 0.],
+                        "expectedRGB": (255, 0, 255) if moves else (0, 255, 255)},
+                    "marker-outside-cut": {"world": [1.5, 0., -.6], "expectedRGB": (0, 255, 0)},
+                    "background-outside-cut": {"world": [-2., 0., -2.], "expectedRGB": (255, 0, 0)},
+                }
+                if observer:
+                    rois["main-reader"] = {"world": [.36, .56, 0.], "expectedRGB": (0, 255, 0)}
+                label = "native-background-cut-" + name
+                (self.evidence_root / f"{label}-preregistration.json").write_bytes(encoded({
+                    "sorting": sorting, "modelWritesDepth": writes_depth, "modelBeforeSource": moves,
+                    "mainColorObserver": 22 if observer else None,
+                    "namedModelAlbedoProvider": 41 if named_albedo else None,
+                    "regions": rois, "tolerance": TOLERANCE,
+                    "entries": {path: hashlib.sha256(data).hexdigest() for path, data in entries.items()},
+                }))
+                with patch.object(world.app_runner, "measure_capture", world.measure_capture):
+                    result = world.app_runner.SceneReflectionHistoryIntegrationTests.run_case(
+                        self, 0, name=label, capture=True, entries=entries, rois=rois,
+                        material_input_path="materials/green_marker.json")
+                work = self.evidence_root / label
+                log = (work / "app.log").read_text()
+                if named_albedo:
+                    self.assertIn("phase=named-graph-output-publication layer=41 status=succeeded", log)
+                    self.assertIn("phase=named-target-binding layer=30 status=succeeded", log)
+                captures = list(world.SceneNativeWorldCompositionTests.composition_captures(self, work, log))
+                self.assertCountEqual([path.name for path, _ in captures], result["pixels"])
+                for path, event in captures:
+                    rows = event["rows"]
+                    source, = (r for r in rows if r["kind"] == "sourceCapture"
+                               and r.get("layerID") == 20 and r.get("outcome") == "encoded")
+                    paint, = (r for r in rows if r["kind"] == "material"
+                              and r.get("layerID") == 20 and r.get("effectIndex") == 0
+                              and r.get("outcome") == "draw-encoded")
+                    group, = (r for r in rows if r["kind"] == "group"
+                              and r.get("layerID") == 20 and r.get("outcome") == "draw-encoded")
+                    model, = (r for r in rows if r["kind"] == "model"
+                              and r.get("layerID") == 30 and r.get("outcome") == "draw-encoded")
+                    seal, = (r for r in rows if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+                    self.assertEqual(source["source"]["textureToken"], model["target"]["textureToken"])
+                    self.assertEqual(source["target"]["textureToken"], paint["source"]["textureToken"])
+                    self.assertEqual(paint["target"]["textureToken"], group["source"]["textureToken"])
+                    self.assertEqual(group["target"]["textureToken"], seal["target"]["textureToken"])
+                    reads = ()
+                    if observer:
+                        copy, = (r for r in rows if r["kind"] == "background-copy"
+                                 and r.get("layerID") == 22 and r.get("outcome") == "encoded")
+                        blend, = (r for r in rows if r["kind"] == "color-blend-background"
+                                  and r.get("layerID") == 22 and r.get("outcome") == "draw-encoded")
+                        self.assertEqual(copy["source"]["textureToken"], source["source"]["textureToken"])
+                        self.assertEqual(copy["target"]["textureToken"], blend["source"]["textureToken"])
+                        self.assertEqual(blend["target"]["textureToken"], seal["target"]["textureToken"])
+                        reads = (copy, blend)
+                    if named_albedo:
+                        provider_paint, = (r for r in rows if r["kind"] == "material" and r.get("layerID") == 41
+                                           and r.get("effectIndex") == 0 and r.get("outcome") == "draw-encoded")
+                        published, = (r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == 41
+                                      and r.get("access") == "named-publication-only"
+                                      and r.get("outcome") == "terminal-consumed")
+                        self.assertEqual(provider_paint["target"]["textureToken"], published["source"]["textureToken"])
+                        self.assertLess(rows.index(provider_paint), rows.index(published))
+                        self.assertLess(rows.index(published), rows.index(model))
+                        self.assertEqual(model["slot"], 0)
+                        self.assertNotEqual(model["source"]["textureToken"],
+                                            provider_paint["source"]["textureToken"])
+                        for axis in ("width", "height"):
+                            self.assertEqual(model["source"][axis], published["source"][axis])
+                        self.assertEqual(model["details"]["depthTest"], "true")
+                        self.assertEqual(model["details"]["depthWrite"], "true")
+                    cut = (source, paint, group)
+                    timeline = (model, *cut, seal) if moves else (*cut, *reads, model, seal)
+                    positions = [rows.index(row) for row in timeline]
+                    self.assertEqual(positions, sorted(positions))
+                    for name, info in rois.items():
+                        measured = result["pixels"][path.name][name]
+                        self.assertGreater(measured["count"], 0, (label, path.name, name))
+                        for bound in ("minimum", "maximum"):
+                            for actual, expected in zip(measured[bound], info["expectedRGB"], strict=True):
+                                self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
+                                    msg=str((label, path.name, name, measured)))
 
 
 if __name__ == "__main__":

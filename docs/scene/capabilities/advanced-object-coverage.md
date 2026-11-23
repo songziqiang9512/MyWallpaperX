@@ -340,7 +340,7 @@ SourceRoute 不再整类拒绝 model，不追加材质/效果/几何名单。typ
 
 显式 `depthtest: enabled` 的原生透视文字，在主画布最后一段独立世界绘制内，与普通透贴共用顺序及已有只读相机深度。该区间只含自身字形、已准备的局部捕获效果、同域透明图像、合格不透明写深度模型和无绘制项。组、供货、当前主画布读取以及其他实绘层划开区间。开启 `transparentsorting` 时，区间内不透明模型先画，透明终端按相机距离远到近，同深保作者顺序。关闭时保作者顺序，文字仍测试已有实体深度，后继实体在无文字写入的深度上照常绘制。CoreText、Script、局部效果与最终PMA世界quad沿原路径，原终端请求承接帧选定的有效状态。
 
-前区间和不独立文字继续消费写深度及其零覆盖discard。3455121165早绘时钟和84实体之间有真实copyBackground/passthrough、Program和粒子，移动任一颜色越过读取点都会改变输入。该域仍需跨前缀的官方对照来退出旧writer。验收须覆盖顺序开关、显式测试近远、半透明字形与改名局部效果、共享目标内只画一次，以及真实前缀和345默认钟日、独立作者。事实与待解边界归[运行证据](runtime-evidence-current.md#authored-text-depth)和唯一开放队列。
+前区间和不独立文字继续消费写深度及其零覆盖 discard。符合资格的实体可进入 [Composition 背景截点](effect-execution-coverage.md#perspective-composition-prefix)。3455121165 的背景读取范围与早绘时钟字形分离，退出该类文字的旧 writer 仍需实际覆盖字形的官版对照。验收覆盖顺序开关、显式测试近远、半透明字形与改名局部效果、共享目标内只画一次、真实前缀及独立作者。[运行证据](runtime-evidence-current.md#authored-text-depth)
 
 <a id="legacy-bind-mesh"></a>
 ### 旧版 Puppet 的网格与动画

@@ -6,7 +6,11 @@ import simd
 extension SceneMetalRenderer {
     func hasWorldOrderDependency(_ id: Int, utility: SceneUtilityLayerRuntimePlanner.Execution) -> Bool {
         utility.memberRootsByLayerID[id] != nil || utility.plansByTriggerLayerID[id] != nil
-            || utility.captureLayerIDs.contains(id) || dependencyRuntime.requiresCapture(for: id)
+            || utility.captureLayerIDs.contains(id) || hasWorldOrderTextureDependency(id)
+    }
+
+    func hasWorldOrderTextureDependency(_ id: Int) -> Bool {
+        dependencyRuntime.requiresCapture(for: id)
             || dependencyRuntime.requiresGraphOutputCapture(for: id)
             || dependencyRuntime.plan.namedReferenceConsumerLayerIDs.contains(id)
             || staticModelResources.namedAlbedoLayerIDs.contains(id)
@@ -36,8 +40,18 @@ extension SceneMetalRenderer {
         sorting: Bool, mayOrderText: Bool, modelFrame: StaticModelFrame,
         visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
         worldFrames: [Int: simd_float4x4],
-        utility: SceneUtilityLayerRuntimePlanner.Execution
+        utility: SceneUtilityLayerRuntimePlanner.Execution, backgroundCuts: Set<Int>,
+        particleBatches: [Int: [SceneParticleMetalPipeline.PreparedBatch]]
     ) -> [SceneRenderDescriptor.Layer]? {
+        func drawsOpaqueModel(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+            layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
+                && SceneDynamicLayerValues.alpha(layerID: layer.id,
+                    authoredValue: layer.alpha, snapshot: snapshot) == 1
+                && staticModelResources[layer.id]?.allSatisfy {
+                    $0.testsDepth && $0.writesDepth && $0.materialBlending == .normal
+                } == true
+        }
+
         func isBarrier(_ layer: SceneRenderDescriptor.Layer) -> Bool {
             if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility) { return true }
             switch layer.contentKind {
@@ -46,12 +60,30 @@ extension SceneMetalRenderer {
             default: break
             }
             if !visible.contains(layer.id) { return false }
-            return !(layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
-                && SceneDynamicLayerValues.alpha(layerID: layer.id,
-                    authoredValue: layer.alpha, snapshot: snapshot) == 1
-                && staticModelResources[layer.id]?.allSatisfy {
-                    $0.testsDepth && $0.writesDepth && $0.materialBlending == .normal
-                } == true)
+            return !drawsOpaqueModel(layer)
+        }
+
+        func endsOpaquePrefix(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+            if layer.utilityLayer != nil { return true }
+            switch layer.contentKind {
+            case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
+            case "spotLight": return layer.spotLight?.castsVolumetrics == true
+            case "particle":
+                return particleBatches[layer.id]?.contains {
+                    $0.draw.refraction != nil || $0.draw.renderState.depthWriteEnabled
+                        || $0.draw.renderState.blendMode != .additive
+                } ?? false
+            case "image", "solid", "text":
+                guard (layer.colorBlendMode ?? 0) == 0,
+                      cameraFrame.resolvesPerspective(for: layer) else { return true }
+                let testsDepth = modelFrame.imageMaterialStates[layer.id]?.depthTest == .enabled
+                guard layer.effects.contains(where: { $0.visible != false }) else { return !testsDepth }
+                guard let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: layer.id).execution,
+                      claim.sourceRoute == .capturedLayerTexture, claim.dependencyOwnership == .none,
+                      claim.sceneBackgroundRequirement == nil else { return true }
+                return !(testsDepth || (layer.contentKind == "solid" && claim.supportsTerminalMaterialReplay))
+            default: return true
+            }
         }
 
         var depths = imageDepths
@@ -72,11 +104,25 @@ extension SceneMetalRenderer {
                 } else if isBarrier(layer) { break }
             }
         }
-        guard !depths.isEmpty else { return nil }
+        let hasBackgroundCuts = !backgroundCuts.isEmpty
+        guard !depths.isEmpty || hasBackgroundCuts else { return nil }
 
         var ordered: [SceneRenderDescriptor.Layer] = []
         ordered.reserveCapacity(authored.count)
         var transparent: [(layer: SceneRenderDescriptor.Layer, depth: Float)] = []
+        var firstBackgroundCut: Int?
+        var lateOpaque: [SceneRenderDescriptor.Layer] = []
+        var movedOpaque = false
+
+        func finishOpaquePrefix() {
+            if let firstBackgroundCut, !lateOpaque.isEmpty {
+                ordered.insert(contentsOf: lateOpaque, at: firstBackgroundCut)
+                lateOpaque.removeAll(keepingCapacity: true)
+                movedOpaque = true
+            }
+            firstBackgroundCut = nil
+        }
+
         func finishRange() {
             if transparent.count > 1 {
                 // Swift sort is stable. Equal-depth cards keep their input order.
@@ -86,15 +132,31 @@ extension SceneMetalRenderer {
             transparent.removeAll(keepingCapacity: true)
         }
         for layer in authored {
+            let isBackgroundCut = hasBackgroundCuts && backgroundCuts.contains(layer.id)
+            if firstBackgroundCut != nil, !isBackgroundCut {
+                if hasWorldOrderDependency(layer.id, utility: utility) {
+                    finishOpaquePrefix()
+                } else if visible.contains(layer.id) {
+                    if drawsOpaqueModel(layer) {
+                        lateOpaque.append(layer)
+                        continue
+                    }
+                    if endsOpaquePrefix(layer) { finishOpaquePrefix() }
+                }
+            }
             if let depth = depths[layer.id] {
                 transparent.append((layer, depth))
                 continue
             }
             if !transparent.isEmpty, isBarrier(layer) { finishRange() }
+            if isBackgroundCut && firstBackgroundCut == nil {
+                firstBackgroundCut = ordered.count
+            }
             ordered.append(layer)
         }
         finishRange()
-        return ordered
+        finishOpaquePrefix()
+        return movedOpaque || !depths.isEmpty ? ordered : nil
     }
 
     /// Owns prepared frame order and each layer's utility defer. Closing group

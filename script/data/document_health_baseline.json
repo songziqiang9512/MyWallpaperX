@@ -110,11 +110,11 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 494,
-      "bytes": 115239
+      "bytes": 115215
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 97,
-      "bytes": 14982
+      "lines": 101,
+      "bytes": 15909
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 68,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 274796
+      "bytes": 274896
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59363
+      "bytes": 58829
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -388,10 +388,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "38b6406602a1e3fec63191d045db280ff33e1c9c12ecd185638bf212ae1b4aba",
-      "after": "3f3967ffa9a6bf5badd0e70383d075cc24c0ba33942cbf0f47546a34974dd7f9",
+      "before": "3f3967ffa9a6bf5badd0e70383d075cc24c0ba33942cbf0f47546a34974dd7f9",
+      "after": "2b9097552ec62841fde0f36c1795e368080c423d39dd20206c71fb9d36ec5009",
       "owner": "Existing Scene composition and evidence authorities",
-      "reason": "Specify native childless composition capture and replay in one world projection.",
+      "reason": "Specify sort-dependent placement of eligible opaque models at the native Composition capture.",
       "decision": "docs/scene/capabilities/effect-execution-coverage.md#perspective-composition-prefix"
     },
     {
@@ -577,10 +577,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d3bde9b74504e80aebce026afe6c100ea84698ffa64d8e4d1056354cd126ceca",
-      "after": "eca423d86d6bed221c297c6c664b18d8617414702694cd01a7c2ca0768602091",
+      "before": "eca423d86d6bed221c297c6c664b18d8617414702694cd01a7c2ca0768602091",
+      "after": "b637a7b3c89f8e620239b0471dff9452ba6ccfdd048341a9b40e57ab759d5fc4",
       "owner": "Existing Scene composition and evidence authorities",
-      "reason": "Record native captured-main projection, same-command-buffer overwrite, and the qualified official order witness.",
+      "reason": "Record the measured original playback, live observer controls, and independent author regression.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#native-composition-audio-prefix"
     },
     {
