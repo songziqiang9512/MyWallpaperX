@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 276341
+      "bytes": 277802
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 206,
-      "bytes": 62325
+      "lines": 207,
+      "bytes": 63066
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "814e12c36f1430d8e78e5f2b45ff7785ad2b25ce157247bc29990139c7d36879",
-      "after": "c4153e7e41e1bd555bcffe232e6c01d628ee6fd44380f06c2a2596e8933f3ee5",
-      "owner": "Scene particle execution and runtime evidence",
-      "reason": "Archive the original and one-axis official tests locating the visual effect.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vortex-ring-author"
+      "before": "c4153e7e41e1bd555bcffe232e6c01d628ee6fd44380f06c2a2596e8933f3ee5",
+      "after": "723033e36e8e117b474d2a9b51477edbb33820e8be78e558ce8f4342c485d161",
+      "owner": "Scene material extent, audio, and runtime evidence",
+      "reason": "Record canonical actual visual, audio, resolution and raster controls for the authored solid effect.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-oscilloscope-local-extent"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "32e35898acbfb3aec2add6d9cc0d364aacc97408549df03203bac79ceaa710e4",
-      "after": "15fcb973cbb00763b6c05a96d3807411155a38aaf4407d96a33478f6996eb88f",
-      "owner": "Scene particle execution and runtime evidence",
-      "reason": "Record the live unresolved ring Vortex and the tests needed before changing admission.",
+      "before": "15fcb973cbb00763b6c05a96d3807411155a38aaf4407d96a33478f6996eb88f",
+      "after": "ef281d56075895687d2ea65c1639e786dc782898a25d9bd0bc4585e55d5c8954",
+      "owner": "Scene material extent, audio, and runtime evidence",
+      "reason": "Record verified source and final raster obligations and the independent shared audio qualification.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
