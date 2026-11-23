@@ -4,7 +4,9 @@
 
 本页维护未闭问题、输入定位和下一步。按画面合成/正常播放、可证性能成本、属性接线、工具资格排序。架构归[当前主链](../architecture/runtime-architecture.md)，领域合同归[能力入口](../capabilities/README.md)，冻结身份与覆盖范围归[运行证据](../capabilities/runtime-evidence-current.md)。
 
-2026-11-13 定向复筛：764个目录中762份project可解析、2份缺失；这不是全包合法输入数。两项未STOP的已知反馈与16个近期目录候选共18份完整入口可解析，默认短窗均取得Ready、终端PNG与GPU排空。缺11-07完整身份快照，16项不认领严格新增；各阶段事实及剩余条件归[运行证据](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)。旧R0分母与原CHECK保在同证据页，不作当前缺陷数。
+2026-11-24 增量筛查以现库859个目录与仓库旧归档522个 ID 对账，旧3个已不在库，340个待核。9个复用 project、包和树摘要均一致的既有实际运行。本轮331个输入进入签名候选 `740bf83d…d3016f` 的默认4秒流程，329个取得匹配终端 GPU 回执。3736952187 缺 project，3822067395 缺首帧。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放，后续仍须实际音频、媒体、交互、成熟时段及官版对照。
+
+11-24 的31项用户观察按首个可见断点复核。先看已重现的启动阻断，再沿实际画面合成和交互分组取证。3455121165 的钟下音条已用原包闭合，官版排序边界见[实际背景截点](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix)。缩略图有而两客户端当前均未见的效果保留触发条件待查。
 
 先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，及时清除已修或已证为作者行为的条目。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
 
@@ -15,6 +17,13 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 启动阻断 · 3822067395 | 原包在并发和串行均停在97/e12、作者 Light Shafts 421 的纹理 finalizer `textureMetadataIncomplete`。stage12 每次首帧资格均未成立，候选约5秒后退出并排空，原有壁纸保留。定位实际 shader slot、资源 publication 与所需元数据，再比较官版原包及同资源健康消费者。 |
+| Fullscreen 子树后处理 · 3804689861 | 143默认有 Twirl 和两项 Shake，两个 mask 均存在。带子层的 Fullscreen 在 SourceRoute 被拒绝，F185中视频319、贴图184直接进主画布，父级缺实际 source 与 Program。新增库存86个 Fullscreen 中此例具有该活动子树。先用官版切换父效果定位 enclosing-prefix 或 descendants 的输入，再沿现有组来源职责验证。 |
+| 默认隐藏图层的共享颜色生产者 · 3461057594 | 388有普通图片颜色消费者，作者 init 建立 `shared.miPrimaryColor`，媒体事件可开启图层。颜色候选按 authored false 提前淘汰388，408的 `mix` 因缺生产者首帧报错。默认媒体组隐藏。开启 `mediainfo`，用已知封面颜色核共享值、408回调及当前帧实际回绘。 |
+| 材质项目属性的空种子 · 3777047217 | 28/e4的 Shake 有真实 slider 默认.07和完整纹理，`{user,value:null}` 被 binding compiler 作为缺 authored fallback 淘汰；同 key、同材质 e5 带显式种子，实际写入.07。e4回退后后继材质仍实际回绘。先验项目属性优先级、空值及坏 key 反例，再沿原 typed producer 覆盖初始值、热更和可见幅度。 |
+| 向量右值写入标量成员 · 3201593389 | 161/204 的 Hue Shift 默认活动 cursor 分支把 `frac` 的向量结果写入单个成员。strict GLSL 与 bounded Metal 在同一赋值失败，原图经局部旁路仍写主画布。26的同源关闭分支实际绘制。沿现有 typed 转换验证首分量与明确只取 X 的等价写法、改名和不应降阶的反例，官版原包画面待查。[Wallpaper Engine 方言](https://docs.wallpaperengine.io/en/scene/shader/syntax.html) · [HLSL 转换](https://microsoft.github.io/hlsl-specs/specs/4-Conv.html#Conv.vtrunc) |
+| 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |
+| 筛查分母 · 3843644227 | 288作者自身 true，但父20使有效可见为 false，默认仅雾层298实际绘制。两次报告1/2、终端GPU正常，候选计数包含隐藏项。点击切换父层后再核288的实际绘制。 |
 | 3589454154 环黑点/快速闪烁（持续开放） | [全投影部件的实际足迹](../capabilities/model-runtime-evidence.md#model-shadow-fragment-taps)确认一处暗跳由共同接收三角形以外的真实阴影 tap 引起；直接收窄在另一处放大阶跃。再改滤波须先补实际子像素获胜域、相邻反例、宽主影与可比播放成本；颜色覆盖保原N2停止线。旧728848与官方关影待查。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | 模型用户视频与其它贴图slot（待证） | [用户静图slot0已接通](../capabilities/model-runtime-evidence.md#model-user-albedo)；现用户视频仅PMA，模型straight需求会拒绝同key视频并保旧，尚无作者选视频像素证据，不按后缀放宽用途。静图现仍沿旧declared-key兜底准备PMA与straight两用途，后续核实际消费者和物理纹理是否冗余再裁剪，不把ready计数当驻留量。其它slot的provider/动画仍需实际消费者与独立样本，不由slot0静图推广。 |

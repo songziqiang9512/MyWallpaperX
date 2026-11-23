@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 197,
-      "bytes": 58844
+      "lines": 206,
+      "bytes": 62044
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "76d633fa6e9860423051aa91595de70ce0f5388356174c7f5b443613dd226965",
-      "after": "e0c32b4afeb7c29d0f104f126321634b13c908d4b33d0d205de0e106d66a567e",
-      "owner": "Scene directional shadow footprint evidence",
-      "reason": "Bound the remaining ring filter decision by the reference and opposing local observations.",
+      "before": "e0c32b4afeb7c29d0f104f126321634b13c908d4b33d0d205de0e106d66a567e",
+      "after": "85b6fa1f01d3e4b3c4ee57fd19370425cc79e4fa5c5f915f576033c6dc2610f8",
+      "owner": "Current Scene open breakpoint queue",
+      "reason": "Replace the older intake scope and record current author startup, compositor, shader and property defects.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
