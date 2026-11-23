@@ -14,7 +14,7 @@
             print("{\"metalAvailable\":true,\"failure\":\"captured-main-admission\"}"); return
         }
         let original = template(for: raw.nodes[0])
-        let contract = shaderContract(nodeIndex: 710, pass: false, fragmentOverride: """
+        let fragments = ["program": """
         varying vec2 v_TexCoord;
         uniform sampler2D g_Texture0; // {"hidden":true}
         void main() {
@@ -23,30 +23,43 @@
             sampled.a = 0.5;
             gl_FragColor = sampled;
         }
-        """)
+        """, "pma-copy": """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        """]
         var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
         slots[0] = .init(index: 0, candidates: [.init(
             reference: .provider(.sceneBackground(consumerLayerID: layerID)), provenance: .material)])
-        guard let sourceTemplate = Template.validated(textureSlots: slots, combos: [],
-            uniformDeclarations: [], renderState: original.renderState,
-            graphRole: .init(effectInput: .layerSource, effectOutput: .layerSource,
-                nodeTarget: .layerSource, bindings: []),
-            shaderContract: contract,
-            diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: contract.identity,
-                contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
-                textureSources: [], uniformSources: [])),
-              case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate), maximumVariantCount: 32, assetFormatFacts: [:]) else {
-            print("{\"metalAvailable\":true,\"failure\":\"source-template\"}"); return
+        var sourceVariants: [String: SceneResolvedMaterialVariantCache] = [:]
+        for (index, name) in fragments.keys.sorted().enumerated() {
+            let contract = shaderContract(nodeIndex: 710 + index, pass: false, fragmentOverride: fragments[name]!)
+            guard let sourceTemplate = Template.validated(textureSlots: slots, combos: [],
+                uniformDeclarations: [], renderState: original.renderState,
+                graphRole: .init(effectInput: .layerSource, effectOutput: .layerSource,
+                    nodeTarget: .layerSource, bindings: []),
+                shaderContract: contract,
+                diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: contract.identity,
+                    contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
+                    textureSources: [], uniformSources: [])),
+                  case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
+                    template: sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate), maximumVariantCount: 32, assetFormatFacts: [:]) else {
+                print("{\"metalAvailable\":true,\"failure\":\"source-template\"}"); return
+            }
+            guard case .success = variants.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
+                outputIsRGBA8Unorm: true, assetStates: [:]) else {
+                print("{\"metalAvailable\":true,\"failure\":\"source-envelope\"}"); return
+            }
+            sourceVariants[name] = variants
         }
-        guard case .success = variants.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
-            outputIsRGBA8Unorm: true, assetStates: [:]) else {
-            print("{\"metalAvailable\":true,\"failure\":\"source-envelope\"}"); return
-        }
-        let sourcePipelinePlans = variants.launchEnvelopeCapabilitySnapshot().variants.map {
-            SceneResolvedMaterialPassEncoder.WarmupPlan(identity: "framebuffer-source-fixture",
-                prepared: $0.preparedAssembly, pixelFormat: .bgra8Unorm,
-                writeMask: .all, device: device)!
+        let sourcePipelinePlans = sourceVariants.values.flatMap { variants in
+            variants.launchEnvelopeCapabilitySnapshot().variants.map {
+                SceneResolvedMaterialPassEncoder.WarmupPlan(identity: "framebuffer-source-fixture",
+                    prepared: $0.preparedAssembly, pixelFormat: .bgra8Unorm,
+                    writeMask: .all, device: device)!
+            }
         }
         let sourceWarmup = executor.materialEncoder.warmup(sourcePipelinePlans)
         guard sourceWarmup.failedKeyCount == 0, sourceWarmup.readyKeyCount > 0 else {
@@ -54,8 +67,9 @@
         }
         let pipeline = makeSourcePipeline(device)
         var rows: [[String: Any]] = []
-        for (ordinal, name) in ["program", "wrong-epoch", "wrong-consumer", "wrong-texture", "fixed",
+        for (ordinal, name) in ["program", "pma-copy", "wrong-epoch", "wrong-consumer", "wrong-texture", "fixed",
                                 "bind-color", "bind-frame", "pass-color"].enumerated() {
+            let variants = sourceVariants[name] ?? sourceVariants["program"]!
             let epoch = UInt64(300 + ordinal)
             let lease = makeLease(requirePlan(raw), device: device, generation: epoch)
             guard clear(lease, queue: queue), let buffer = queue.makeCommandBuffer() else {
@@ -101,7 +115,7 @@
                 sourcePipeline: pipeline, framebufferSourceMaterial: name == "fixed" ? nil : source,
                 frameInputs: .init(), commandBuffer: buffer, previousStates: [:], previousGraphResources: [:],
                 effectGeneration: epoch, resetGeneration: 1)
-            if name != "program" && name != "fixed" {
+            if sourceVariants[name] == nil && name != "fixed" {
                 let untouched = [lease.fullFramePair.first, lease.fullFramePair.second].compactMap { token in
                     lease.texturesByToken[token].flatMap { appendReadback($0, commandBuffer: buffer) }
                 }
@@ -139,8 +153,11 @@
             }
             // This is the actual earlier-main write. Preparation must not
             // sample/encode the old black main contents before this boundary.
+            let prefix = name == "pma-copy"
+                ? MTLClearColorMake(96.0 / 255, 48.0 / 255, 16.0 / 255, 128.0 / 255)
+                : MTLClearColorMake(0.8, 0.4, 0.2, 1)
             let pass = SceneMainPassEncoder(commandBuffer: buffer, target: main,
-                clearColor: .init(red: 0.8, green: 0.4, blue: 0.2, alpha: 1), clearEnabled: true)
+                clearColor: prefix, clearEnabled: true)
             guard pass.withReadableTarget({ $0 === main && $1 === buffer }) == true,
                   executor.encode(prepared, commandBuffer: buffer),
                   let baseRead = appendReadback(base, commandBuffer: buffer),
@@ -148,8 +165,12 @@
                 rows.append(["name": name, "failure": "actual-encode"]); continue
             }
             buffer.commit(); buffer.waitUntilCompleted()
-            let expectedBase: [UInt8] = name == "program" ? [204, 102, 51, 128] : [51, 102, 204, 255]
-            let expectedFinal: [UInt8] = name == "program" ? [51, 204, 102, 128] : [204, 51, 102, 255]
+            let expectedBase: [UInt8] = switch name {
+            case "program": [204, 102, 51, 128]
+            case "pma-copy": [32, 96, 191, 128]
+            default: [51, 102, 204, 255]
+            }
+            let expectedFinal = [expectedBase[2], expectedBase[0], expectedBase[1], expectedBase[3]]
             rows.append(["name": name,
                 "gpu": buffer.status == .completed && buffer.error == nil,
                 "prepareDidNotWrite": before.allTexels.allSatisfy { matches($0, [255, 0, 0, 255]) },

@@ -25,7 +25,8 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
         in slot: Template.TextureSlot,
         candidateOrdinal: Int,
         sampler: Sampler,
-        mixedProvider: SceneResolvedMaterialCompiledVariant.MixedProviderSlot?
+        mixedProvider: SceneResolvedMaterialCompiledVariant.MixedProviderSlot?,
+        isLayerSourceMaterial: Bool = false
     ) -> Fact? {
         guard slot.index == sampler.slot,
               slot.candidates.indices.contains(candidateOrdinal) else {
@@ -42,14 +43,15 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             )
         }
         let directPurpose = SceneResolvedMaterialShaderSchema.purpose(for: candidate.reference, sampler: sampler)
-        let sourceProvenGraphColor: Bool
-        if case .graph = candidate.reference {
-            sourceProvenGraphColor = directPurpose == .premultipliedColor
-                && sampler.sourceProvenPurpose == .straightAlbedo
-        } else {
-            sourceProvenGraphColor = false
+        let hasPublishedColor: Bool
+        switch candidate.reference {
+        case .graph: hasPublishedColor = true
+        case .provider(.sceneBackground): hasPublishedColor = isLayerSourceMaterial
+        default: hasPublishedColor = false
         }
-        if candidate.reference.isRendererColorProvider || sourceProvenGraphColor {
+        if candidate.reference.isRendererColorProvider
+            || (hasPublishedColor && sampler.sourceProvenPurpose == .straightAlbedo
+                && directPurpose == .premultipliedColor) {
             // This candidate fact keeps the nominal PMA transport purpose.
             // The actual publication and storage representation stay unchanged;
             // the compiled Program's typed boundary handles input conversion.

@@ -63,6 +63,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         graphInputSourceSlotFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact]
     ) -> Variant.TextureSelectionFacts {
         let mixed = mixedProviderSlotFacts(in: template, samplers: samplers)
+        let isLayerSourceMaterial = template.effectContext == nil
         var purposes: [Int: [SceneTextureLoadPurpose?]] = [:]
         var candidates: [Int: [Variant.TextureSelectionFacts.Candidate]] = [:]
         for slot in template.textureSlots.compactMap({ $0 }) {
@@ -70,7 +71,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 purposes[slot.index] = slot.candidates.indices.map {
                     SceneResolvedMaterialTextureSlotPurpose.fact(
                         in: slot, candidateOrdinal: $0, sampler: sampler,
-                        mixedProvider: mixed[slot.index]
+                        mixedProvider: mixed[slot.index], isLayerSourceMaterial: isLayerSourceMaterial
                     )?.purpose
                 }
             }

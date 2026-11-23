@@ -39,6 +39,13 @@ class SceneFramebufferSourceGraphTests(unittest.TestCase):
                     "finalIsStraight", "effectProgramExecuted"):
             self.assertTrue(row[key], (key, row))
 
+    def test_whole_rgba_read_adapts_the_actual_premultiplied_main_once(self):
+        row = self.rows["pma-copy"]
+        self.assertNotIn("failure", row, row)
+        for key in ("gpu", "prepareDidNotWrite", "usesOriginalPair", "baseMatches", "effectMatches",
+                    "finalIsStraight", "effectProgramExecuted"):
+            self.assertTrue(row[key], (key, row))
+
     def test_wrong_frame_consumer_and_texture_reject_before_any_pair_write(self):
         for name in ("wrong-epoch", "wrong-consumer", "wrong-texture"):
             with self.subTest(name=name):

@@ -46,9 +46,7 @@ extension ScenePreparedDeviceResources {
                       template.textureSlots.dropFirst().allSatisfy({ $0 == nil }),
                       envelope.variants.allSatisfy({ variant in
                           variant.activeSamplers.count == 1
-                              && variant.activeSamplers[0].flatMap({
-                                  SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: $0)
-                              }) == .premultipliedColor
+                              && variant.textureSelectionFacts.candidatePurposes[0] == [.premultipliedColor]
                       }) else {
                     reject("framebuffer-source-domain-unproven"); continue
                 }

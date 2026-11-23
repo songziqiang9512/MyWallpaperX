@@ -186,11 +186,11 @@ Lit TextureInput在原SlotBinding已准备完整双轴后仅保原sampler/format
 <a id="framebuffer-source-declarations"></a>
 ### Framebuffer 来源与声明依赖
 
-source 的角色由模型、材质及实际编译输入决定。已声明 passthrough、单一 source pass 和 typed framebuffer 输入的模型，由 RenderDescriptor 提名沿原 framebuffer source 路径准备；RuntimeCatalog 仍编译原 source Program，并要求它实际保留的候选只能是本层的 slot0 `sceneBackground`。普通资产、named layer、其他 framebuffer 或动态来源不能被当成本层当前主附件。原形状、render state、透视与 child 范围不因本条扩张。
+RenderDescriptor 提名声明 passthrough、单一 source pass 和 typed framebuffer 输入的模型；RuntimeCatalog 将 source Program 的候选限定为本层 slot0 `sceneBackground`。主画布的 PMA 传输与着色器的直色读取独立。已准入的独立 source 在冷变体保留候选的 PMA 用途，颜色边界按实际 publication 适配，准备直接消费该变体结果。效果背景、数据、普通资产、命名层与其他来源各保原役；同层、帧和纹理身份在借用处核。原几何、render state、子层及透视范围保持。
 
 图层的 `dependencyLayerIDs` / `authoredDependencies` 不替换 source material 的输入，非空声明不能独立取消合法 source。effect 真正采样的 named 输入继续由已选 Program/DependencyPlan、当帧预约、供货及局部失败承接；不把当前 main prefix 冒充某个命名层的最终输出。声明指向较晚层也不移动本层 source 的作者捕获点。Descriptor 与 Catalog 的两处空依赖许可退出，其余准备、资源与实际读取仍归原 owner，不新建状态或普通帧校验。
 
-验证沿原角色解析门和完整 native-world App：无依赖、只声明早层、只声明晚层及资源改名保持同一 source/effect/父变换/深度像素和健康 peer；实际改成 named source 的材质必须保持自己的输入语义，不能借声明等价取得 framebuffer 身份。已有 named/late-miss 门各保自身供货范围，不能代 native-world 与任意 named 组合资格。带依赖 utility 的 effect 热显隐仍有原准入门；layer 显隐使用原消费者，本条不授 native-world 与声明依赖组合的热切换资格。
+验证沿原角色解析门和 native-world App：无依赖、只声明早层、只声明晚层及资源改名保持 source/effect/父变换/深度像素和健康 peer；错用 named 资源保自身输入语义。独立 Metal 门向真实主纹理写非满 alpha 的 PMA，核 source 输出、effect 及错帧/错消费者/错纹理；保数据反例和独立真实作者。热显隐沿各自现役入口。
 
 <a id="shared-source-image-scroll"></a>
 ### 共享图片源材质的滚动与作者值

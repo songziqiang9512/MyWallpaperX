@@ -15,7 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| Framebuffer源首帧阻断（下一优先） | 原生主画布source Program的Ref0同输入曾有最终像素，当前在编码前稳定因slot0的`variant-purpose-slot-0-non-graph`无首帧。本层借到同帧main PMA，完整向量颜色证明却让准备候选失去用途。先沿[Framebuffer来源合同](../capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations)修冷准备交接，以原source/effect/只读深度及改名、前后依赖、错源、数据和独立作者核像素。失败日志与输入归`.artifacts/scene-framebuffer-borrowed-source-20261123/evidence.zip`。 |
+| 原包粒子预热阻断 · 3337494481 / 3292370168 | 333普通Debug默认在前81秒及修复后206秒的监督内均无Ready；作者Particle Off也无Ready，活进程3秒栈定位在私有Surface的`warmUp→step→Turbulence/gradientNoise`，准备线程124次采样落在warmUp。329在98秒内无Ready，旧栈为Vortex/Movement，505实际消费仍未证。不同监督上限只授超时。下一步同原包默认关闭执行观测，在签名优化Debug核实际预热和Ready，再决定是否有可移除的热循环工作，保隐藏态的后续RNG、时间和显示语义。收据见[来源复验](../capabilities/runtime-evidence-current.md#framebuffer-source-purpose)。 |
 | 3589454154 环黑点/快速闪烁（持续开放） | [已交付的接收面、微影滤波与固定网格](../capabilities/model-runtime-evidence.md#model-directional-shadow-grid)保现役；[无影颜色覆盖](../capabilities/model-runtime-evidence.md#model-raster-coverage)与[完整投影域控制](../capabilities/model-runtime-evidence.md#model-shadow-complete-contribution)确认亚像素碎石跳变及阴影相关暗纹并存。本轮没有新生产算法修复；729848环面约7.085%阻权来自479，728848的最终叠加片元仍待定位，不归环自影。旧局部与新full fit不同，禁止拼旧clear作新增caster因果。官方关259的两次控制失败，无关影正控。恢复后先沿同fit实际接收片元/有限tap补归因；保主影、合法cast及原材质，不续调任意bias、五点滤波，默认N2仍按原播放/驻留停止线撤回。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | 模型用户视频与其它贴图slot（待证） | [用户静图slot0已接通](../capabilities/model-runtime-evidence.md#model-user-albedo)；现用户视频仅PMA，模型straight需求会拒绝同key视频并保旧，尚无作者选视频像素证据，不按后缀放宽用途。静图现仍沿旧declared-key兜底准备PMA与straight两用途，后续核实际消费者和物理纹理是否冗余再裁剪，不把ready计数当驻留量。其它slot的provider/动画仍需实际消费者与独立样本，不由slot0静图推广。 |
@@ -190,7 +190,6 @@
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
-| 3292370168普通Debug准备与505资格 | 观测误判已归[原合同](../capabilities/runtime-evidence-current.md#execution-observation-history)。实际Popen/Python3.12及3秒栈解除旧PID未知STOP，准备窗口确在粒子warmUp（Vortex/Movement含诊断），不是主线程卡死。Movement重复首事实已退役，[单root DEBUG成本](../capabilities/runtime-evidence-current.md#movement-first-fact-cost)下降；原作者普通Debug在同4+60监督下仍无Ready/PNG、11条缺证据为同超时后果，505实际消费仍未知。后续只查有资格的优化配置实际预热工作或明确无消费者计算；不原样重跑/延长Debug预算、不跳预热，不用空Rope历史或未闭动态初值的harness推全App收益。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 周期终端截图与收尾 | 366首15 A有8次superseded，后续四矮行星B在teardown拒绝series-0011/request14，均使整轮采集FAIL；已选各目标HOLD内的成功帧不受此自动否定，也不能将整轮改记PASS。沿原截图请求owner核周期请求与结束排空，只在有实际目标缺帧时补对应目标，不为采集失败改播放或延时重跑全轮。 |
