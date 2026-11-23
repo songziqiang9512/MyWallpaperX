@@ -344,6 +344,17 @@
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
     },
     {
+      "path": "docs/history/architecture/Scene-Engine-Architecture-Design.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "AGENTS.md",
+        "docs/README.md",
+        "docs/architecture/technology-stack-boundaries.md"
+      ]
+    },
+    {
       "path": "docs/history/architecture/framework-architecture-memo.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

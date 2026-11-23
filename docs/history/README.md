@@ -42,6 +42,7 @@
 | 2026-10-02 | 仓库治理 | 调研 | [治理调研](cross-topic/repo-improvement-program-2026-10-02.md) | 文档、门禁与代码职责的治理研究 | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
 | 2026-10-02 | 全项目 | 审查记录 | [全项目 Bug 与优化机会审查](cross-topic/project-wide-review-2026-10-02.md) | 16 车道并行静态审查、逐条独立核实后的 50 条确认问题与 7 条驳回候选全档（bug: high 4/medium 9/low 11；optimization: high 0/medium 6/low 20；741 文件） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
 | 2026-09-30 | App 全端 UI | 审查记录 | [UI 代码全面审查](cross-topic/ui-code-review-2026-09-30.md) | 163 个 UI Swift 文件、12 区域并行评审+逐条独立复核的 41 条问题清单与完整证据（1 high / 20 medium / 19 low / 1 存疑） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |
+| 2026-11-01 | Architecture | early design proposal | [Scene 引擎架构设计](architecture/Scene-Engine-Architecture-Design.md) | 早期 Scene 引擎设计的独立提案，用于解释当时的取舍 | [AGENTS](../../AGENTS.md)、[文档入口](../README.md)、[技术栈边界](../architecture/technology-stack-boundaries.md) |
 | 2026-05-05 | Architecture | architecture snapshot | [框架架构备忘](architecture/framework-architecture-memo.md) | 早期模块接入和目录约定 | [AGENTS](../../AGENTS.md)、[文档入口](../README.md)、[技术栈边界](../architecture/technology-stack-boundaries.md) |
 | 2026-07-19 至 2026-07-25 | Web | runtime review | [Web历史评估](cross-topic/web-scene-current-state-roadmap-2026-07-19.md) | 当时的Web评估和证据来源 | [Web现役状态](../web/current-state.md) |
 | 2026-07-20 | Web | runtime baseline | [外部代表样本基线](web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) | 5 个外部样本的当时运行证据 | [Web 现役状态](../web/current-state.md) |

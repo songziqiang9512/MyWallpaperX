@@ -1,5 +1,10 @@
 # macOS 原生 Scene 壁纸引擎架构设计
 
+> **历史证据 — 非现役入口**
+> 本文是 2026-11-01 的独立设计提案，不是当前实现、也不是任务来源；文中的目录、类型与接口都只是建议设计。
+> 现役依据：[文档入口](../../README.md)、[技术栈边界](../../architecture/technology-stack-boundaries.md)、[Scene 能力](../../scene/capabilities/README.md)；全部历史材料见[历史索引](../README.md)。
+
+
 日期：2026 年 11 月 1 日  
 版本：1.0 设计提案  
 目标平台：macOS 26 及以上，Apple Silicon arm64  

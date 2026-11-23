@@ -104,4 +104,4 @@ P1 是原生可行性的先验切片：若 NSCollectionView 有界副本窗口�
 
 待用户审阅的提议：暗色烟紫玻璃与柔玫瑰强调；近方角、6 pt 紧缝；底部 460 × 64 pt 轻控制；单击选择、双击/明确按钮应用；少量内容和搜索结果采用有界墙，其余双向周期漫游。它们是本轮补齐的设计选择，不冒充用户已逐项同意；可依效果图反馈直接修订。
 
-开工前文档基线：`document_health.py --check` 通过；`document_registry.py --audit` 已存在一项失败：`docs/architecture/Scene-Engine-Architecture-Design.md` 未登记。该 Scene 文档不属于本批，不借 UI 设计修改它；本批新增文档与路由需全部正确，结算时保留这项存量边界。
+开工前文档基线：`document_health.py --check` 通过；`document_registry.py --audit` 当时有一项未登记文档（Scene 引擎早期设计稿，现已归档）。本批新增文档与路由需全部正确。

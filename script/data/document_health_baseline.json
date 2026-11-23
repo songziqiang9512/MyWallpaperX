@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 63040
+      "bytes": 62989
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -218,7 +218,7 @@
     },
     "docs/development/immersive-ui-execution-plan.md": {
       "lines": 107,
-      "bytes": 14476
+      "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
       "lines": 563,
@@ -417,15 +417,6 @@
       "path": "docs/development/immersive-ui-design.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "dc82c296fa06f08ccfe64b7facf57e674f7fe10ea1551ae46fad70906baa205f",
-      "owner": "App/Shell immersive UI design",
-      "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
-      "decision": "docs/development/immersive-ui-execution-plan.md#entry"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/immersive-ui-execution-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b89c7df2ade0e4b58c2176560beabd20c7576a5751f315aa5b342d4267e6bbb5",
       "owner": "App/Shell immersive UI design",
       "reason": "User-requested complete P0 visual specification, function map and execution/retirement plan plus reviewed generated proposals. Replace old visual authority; product UI implementation remains blocked until user approval.",
       "decision": "docs/development/immersive-ui-execution-plan.md#entry"
@@ -636,6 +627,24 @@
       "owner": "architecture owner",
       "reason": "Drop a stale V0 milestone reference from the stack contract; the body shrinks and the baseline ratchets down.",
       "decision": "docs/architecture/technology-stack-boundaries.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/immersive-ui-execution-plan.md",
+      "before": "b89c7df2ade0e4b58c2176560beabd20c7576a5751f315aa5b342d4267e6bbb5",
+      "after": "bb6adc2f0e1e5d95052bce759af6f90c02ec8c948d70f8fdb5363cb4ff7777f7",
+      "owner": "repository-governance",
+      "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
+      "decision": "docs/development/immersive-ui-execution-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "2504a6069a8ca65c2e20a030b45a196e7a9f2573c65b2bf6d104614b0ea66de1",
+      "after": "6ea89a19f35d838835463679f1dc8bc683a978262b5ea1d59f7bb72bc1a40133",
+      "owner": "repository-governance",
+      "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
     }
   ]
 }

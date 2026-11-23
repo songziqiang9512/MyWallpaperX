@@ -9,10 +9,7 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> ·
-  <a href="README.en.md">English</a> ·
-  <a href="README.ru.md">Русский</a> ·
-  <a href="README.de.md">Deutsch</a> ·
-  <a href="README.fr.md">Français</a>
+  <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
@@ -38,21 +35,21 @@
 <table align="center">
   <tr>
     <td width="50%" align="center">
-      <a href="Screenshot/本地视频.png"><img src="Screenshot/本地视频.png" width="480" alt="本地视频资料库与播放列表"></a>
+      <a href="Screenshot/local-videos.png"><img src="Screenshot/local-videos.png" width="480" alt="本地视频资料库与播放列表"></a>
       <br><sub>本地视频 · 收藏与整理喜欢的影像</sub>
     </td>
     <td width="50%" align="center">
-      <a href="Screenshot/创意工坊.png"><img src="Screenshot/创意工坊.png" width="480" alt="Steam 创意工坊浏览与作品详情"></a>
+      <a href="Screenshot/workshop.png"><img src="Screenshot/workshop.png" width="480" alt="Steam 创意工坊浏览与作品详情"></a>
       <br><sub>创意工坊 · 发现与下载更多作品</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <a href="Screenshot/桌面效果+菜单栏控制.png"><img src="Screenshot/桌面效果+菜单栏控制.png" width="480" alt="动态桌面效果与菜单栏播放控制"></a>
+      <a href="Screenshot/desktop-menu-bar.png"><img src="Screenshot/desktop-menu-bar.png" width="480" alt="动态桌面效果与菜单栏播放控制"></a>
       <br><sub>动态桌面 · 常用控制触手可及</sub>
     </td>
     <td width="50%" align="center">
-      <a href="Screenshot/桌面效果+属性调节+菜单控制.png"><img src="Screenshot/桌面效果+属性调节+菜单控制.png" width="480" alt="Scene 壁纸属性调节与菜单栏面板"></a>
+      <a href="Screenshot/desktop-properties.png"><img src="Screenshot/desktop-properties.png" width="480" alt="Scene 壁纸属性调节与菜单栏面板"></a>
       <br><sub>作品属性 · 调整属于自己的桌面</sub>
     </td>
   </tr>
@@ -142,8 +139,8 @@ Scene 兼容范围在持续扩展：以 Wallpaper Engine 官方作品为对照�
 <summary>自愿支持项目开发</summary>
 
 <p align="center">
-  <img src="Screenshot/IMG_3047.JPG" width="220" alt="项目支持收款码一">
-  <img src="Screenshot/IMG_3048.JPG" width="220" alt="项目支持收款码二">
+  <img src="Screenshot/support-1.jpg" width="220" alt="项目支持收款码一">
+  <img src="Screenshot/support-2.jpg" width="220" alt="项目支持收款码二">
 </p>
 
 感谢支持。赞助完全自愿，不改变开源许可证授予的权利。

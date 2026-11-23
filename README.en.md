@@ -9,10 +9,7 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> ·
-  <a href="README.en.md">English</a> ·
-  <a href="README.ru.md">Русский</a> ·
-  <a href="README.de.md">Deutsch</a> ·
-  <a href="README.fr.md">Français</a>
+  <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
@@ -38,21 +35,21 @@
 <table align="center">
   <tr>
     <td width="50%" align="center">
-      <a href="Screenshot/本地视频.png"><img src="Screenshot/本地视频.png" width="480" alt="Local video library and playlists"></a>
+      <a href="Screenshot/local-videos.png"><img src="Screenshot/local-videos.png" width="480" alt="Local video library and playlists"></a>
       <br><sub>Local video · keep the clips you like</sub>
     </td>
     <td width="50%" align="center">
-      <a href="Screenshot/创意工坊.png"><img src="Screenshot/创意工坊.png" width="480" alt="Steam Workshop browsing and item details"></a>
+      <a href="Screenshot/workshop.png"><img src="Screenshot/workshop.png" width="480" alt="Steam Workshop browsing and item details"></a>
       <br><sub>Workshop · discover and download more</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <a href="Screenshot/桌面效果+菜单栏控制.png"><img src="Screenshot/桌面效果+菜单栏控制.png" width="480" alt="Animated desktop with menu bar controls"></a>
+      <a href="Screenshot/desktop-menu-bar.png"><img src="Screenshot/desktop-menu-bar.png" width="480" alt="Animated desktop with menu bar controls"></a>
       <br><sub>Live desktop · controls within reach</sub>
     </td>
     <td width="50%" align="center">
-      <a href="Screenshot/桌面效果+属性调节+菜单控制.png"><img src="Screenshot/桌面效果+属性调节+菜单控制.png" width="480" alt="Scene properties and the menu bar panel"></a>
+      <a href="Screenshot/desktop-properties.png"><img src="Screenshot/desktop-properties.png" width="480" alt="Scene properties and the menu bar panel"></a>
       <br><sub>Properties · make it yours</sub>
     </td>
   </tr>
@@ -142,8 +139,8 @@ If you like MyWallpaperX, a [Star](https://github.com/songziqiang9512/MyWallpape
 <summary>Support the project voluntarily</summary>
 
 <p align="center">
-  <img src="Screenshot/IMG_3047.JPG" width="220" alt="Support QR code one">
-  <img src="Screenshot/IMG_3048.JPG" width="220" alt="Support QR code two">
+  <img src="Screenshot/support-1.jpg" width="220" alt="Support QR code one">
+  <img src="Screenshot/support-2.jpg" width="220" alt="Support QR code two">
 </p>
 
 Thank you. Supporting is voluntary and changes nothing about the rights the licence grants you.
