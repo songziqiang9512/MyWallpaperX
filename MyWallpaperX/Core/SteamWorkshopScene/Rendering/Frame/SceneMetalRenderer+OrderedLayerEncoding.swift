@@ -12,11 +12,68 @@ extension SceneMetalRenderer {
             || staticModelResources.namedAlbedoLayerIDs.contains(id)
     }
 
-    func sortedWorldImageOrder(
-        _ authored: [SceneRenderDescriptor.Layer], depths: [Int: Float], visible: Set<Int>,
-        cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
+    func worldTransparencyDepth(
+        _ layer: SceneRenderDescriptor.Layer, state: SceneMaterialRenderState,
+        cameraFrame: SceneParticleCameraFrame, worldFrame: simd_float4x4?,
         utility: SceneUtilityLayerRuntimePlanner.Execution
-    ) -> [SceneRenderDescriptor.Layer] {
+    ) -> Float? {
+        guard state.blending == .translucent, state.depthTest == .enabled,
+              !hasWorldOrderDependency(layer.id, utility: utility),
+              let origin = worldFrame?.columns.3 else { return nil }
+        if layer.contentKind != "text" || !layer.effects.isEmpty {
+            guard let claim = imageCompositor.preflightResolvedMaterialClaim(layerID: layer.id).execution,
+                  claim.sourceRoute == .capturedLayerTexture, claim.dependencyOwnership == .none,
+                  claim.sceneBackgroundRequirement == nil,
+                  imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: layer.id) != true
+            else { return nil }
+        }
+        let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
+        return depth.isFinite ? depth : nil
+    }
+
+    func worldTransparencyOrder(
+        _ authored: [SceneRenderDescriptor.Layer], imageDepths: [Int: Float],
+        sorting: Bool, mayOrderText: Bool, modelFrame: StaticModelFrame,
+        visible: Set<Int>, cameraFrame: SceneParticleCameraFrame, snapshot: SceneDynamicSnapshot,
+        worldFrames: [Int: simd_float4x4],
+        utility: SceneUtilityLayerRuntimePlanner.Execution
+    ) -> [SceneRenderDescriptor.Layer]? {
+        func isBarrier(_ layer: SceneRenderDescriptor.Layer) -> Bool {
+            if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility) { return true }
+            switch layer.contentKind {
+            case "container", "sound", "pointLight", "directionalLight", "tubeLight": return false
+            case "spotLight" where layer.spotLight?.castsVolumetrics != true: return false
+            default: break
+            }
+            if !visible.contains(layer.id) { return false }
+            return !(layer.contentKind == "model" && cameraFrame.resolvesPerspective(for: layer)
+                && SceneDynamicLayerValues.alpha(layerID: layer.id,
+                    authoredValue: layer.alpha, snapshot: snapshot) == 1
+                && staticModelResources[layer.id]?.allSatisfy {
+                    $0.testsDepth && $0.writesDepth && $0.materialBlending == .normal
+                } == true)
+        }
+
+        var depths = imageDepths
+        if mayOrderText {
+            // A flush before a later draw or prefix reader still needs the
+            // earlier glyph's depth to protect its original contribution.
+            for layer in authored.reversed() {
+                if depths[layer.id] != nil { continue }
+                let isText = layer.contentKind == "text"
+                if isText || (!sorting && layer.contentKind == "image"),
+                   let state = modelFrame.imageMaterialStates[layer.id],
+                   let depth = worldTransparencyDepth(layer, state: state, cameraFrame: cameraFrame,
+                       worldFrame: worldFrames[layer.id], utility: utility) {
+                    if isText {
+                        modelFrame.imageMaterialStates[layer.id] = state.withoutDepthWrite
+                        if sorting { depths[layer.id] = depth }
+                    }
+                } else if isBarrier(layer) { break }
+            }
+        }
+        guard !depths.isEmpty else { return nil }
+
         var ordered: [SceneRenderDescriptor.Layer] = []
         ordered.reserveCapacity(authored.count)
         var transparent: [(layer: SceneRenderDescriptor.Layer, depth: Float)] = []
@@ -33,22 +90,7 @@ extension SceneMetalRenderer {
                 transparent.append((layer, depth))
                 continue
             }
-            if !transparent.isEmpty {
-                let kind = layer.contentKind
-                let nonDrawing = !visible.contains(layer.id) || kind == "container"
-                    || kind == "pointLight" || kind == "directionalLight" || kind == "tubeLight"
-                let opaqueModel = !nonDrawing && kind == "model"
-                    && cameraFrame.resolvesPerspective(for: layer)
-                    && SceneDynamicLayerValues.alpha(layerID: layer.id,
-                        authoredValue: layer.alpha, snapshot: snapshot) == 1
-                    && staticModelResources[layer.id]?.allSatisfy {
-                        $0.testsDepth && $0.writesDepth && $0.materialBlending == .normal
-                    } == true
-                if layer.utilityLayer != nil || hasWorldOrderDependency(layer.id, utility: utility)
-                    || !(nonDrawing || opaqueModel) {
-                    finishRange()
-                }
-            }
+            if !transparent.isEmpty, isBarrier(layer) { finishRange() }
             ordered.append(layer)
         }
         finishRange()

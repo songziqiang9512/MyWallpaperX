@@ -42,6 +42,7 @@ FOV = math.radians(60)
 GRID_SIZE = (256, 192)
 ORANGE = (232, 95, 20)
 GREEN = (20, 220, 60)
+PREFIX_TINT = (205, 45, 235)
 TOLERANCE = 4
 DEPTH_CARD_IDS = (20, 21, 22)
 DEPTH_CARD_COLORS = ((40, 80, 225), (45, 190, 75), (70, 95, 210))
@@ -415,7 +416,7 @@ TEXT_DEPTH_CASES = (
 )
 
 
-def perspective_text_depth_entries(*, named_first=False, renamed=False):
+def perspective_text_depth_entries(*, named_first=False, renamed=False, sorting=True, prefix=False):
     objects = [{"id": 2, "model": "models/near.mdl", "castshadow": False}]
     entries = {
         "models/near.mdl": mdl_quad(-5, 5, .38, 1.18, 1, "materials/orange.json"),
@@ -447,7 +448,8 @@ void main() {{
     gl_FragColor = {output};
 }}
 '''.encode()
-    for layer, name, x, y, depth_test, effect in TEXT_DEPTH_CASES:
+    cases = TEXT_DEPTH_CASES if named_first else (TEXT_DEPTH_CASES[3], *TEXT_DEPTH_CASES[:3], *TEXT_DEPTH_CASES[4:])
+    for layer, name, x, y, depth_test, effect in cases:
         obj = {"id": layer, "name": name, "text": "HH", "font": "systemfont_arial",
                "pointsize": 24, "padding": 40, "color": "1 1 1", "origin": f"{x} {y} 0",
                "scale": "0.0055 0.0055 1", "horizontalalign": "center",
@@ -458,7 +460,7 @@ void main() {{
         objects.append(obj)
     objects.append({"id": 30, "model": "models/far.mdl", "castshadow": False})
     scene = native_world_scene(objects)
-    scene["general"]["transparentsorting"] = True
+    scene["general"]["transparentsorting"] = sorting
     if named_first:
         provider = 901 if renamed else 11
         stem = "retitled_depth_feed" if renamed else "depth_feed"
@@ -475,6 +477,14 @@ void main() {{
         # The real provider schedule must publish it before the model encodes.
         scene["objects"].append({"id": provider, "image": model, "origin": "0 0 0",
                                  "size": "4 4", "visible": False})
+    if prefix:
+        scene["objects"].insert(3, {"id": TARGET_LAYER, "image": "models/prefix_tint.json",
+            "origin": "-1.8 -0.8 0", "size": "128 96", "scale": f"{1 / 128} {.56 / 96} 1",
+            "perspective": True, "colorBlendMode": 2})
+        entries["models/prefix_tint.json"] = encoded({"material": "materials/prefix_tint.json"})
+        entries["materials/prefix_tint.json"] = encoded({"passes": [{"shader": "genericimage",
+            "textures": ["materials/prefix_tint.png"]}]})
+        entries["materials/prefix_tint.png"] = png(4, 4, lambda _x, _y: PREFIX_TINT)
     entries["scene.json"] = encoded(scene)
     return entries
 
@@ -489,7 +499,11 @@ def measure_perspective_text_depth(path):
                   for row in range(math.ceil(y0), math.floor(y1))
                   for column in range(math.ceil(x0), math.floor(x1))]
         result[name] = {"count": len(pixels), "green": pixels.count(GREEN), "orange": pixels.count(ORANGE),
+                        "tinted": sum(all(abs(actual - expected) <= TOLERANCE
+                                          for actual, expected in zip(pixel, PREFIX_TINT, strict=True)) for pixel in pixels),
                         "white": sum(min(pixel) >= 230 for pixel in pixels),
+                        "halfGreen": sum(all(abs(actual - (255 + base) / 2) <= TOLERANCE
+                                             for actual, base in zip(pixel, GREEN, strict=True)) for pixel in pixels),
                         "halfGray": sum(104 <= min(pixel) <= max(pixel) <= 152
                                         and max(pixel) - min(pixel) <= 3 for pixel in pixels)}
     return result
@@ -693,31 +707,36 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                         self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
                             msg=str((name, path.name, region, measurement)))
 
-    def test_perspective_text_preserves_covered_depth_through_direct_and_effect_draws(self):
-        self.run_perspective_text_depth_case()
+    def test_independent_perspective_text_blends_over_world_only_with_sorting(self):
+        for sorting in (False, True):
+            with self.subTest(sorting=sorting):
+                self.run_perspective_text_depth_case(sorting=sorting)
+
+    def test_world_text_order_preserves_actual_main_prefix_reader(self):
+        self.run_perspective_text_depth_case(prefix=True)
 
     def test_late_named_first_model_preserves_direct_and_effect_text_depth(self):
         for renamed in (False, True):
             with self.subTest(renamed=renamed):
                 self.run_perspective_text_depth_case(named_first=True, renamed=renamed)
 
-    def run_perspective_text_depth_case(self, *, named_first=False, renamed=False):
-        entries = perspective_text_depth_entries(named_first=named_first, renamed=renamed)
-        name = ("late-named-text-renamed" if renamed else "late-named-text") if named_first else None
-        if name:
-            (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
-                "entries": {k: hashlib.sha256(v).hexdigest() for k, v in entries.items()},
-                "firstModel": 2, "lateHiddenProvider": 901 if renamed else 11,
-                "textCases": TEXT_DEPTH_CASES, "renamedProviderResources": renamed,
-                "oracle": "Original direct/effect HH pixel masks and near/far coverage, unchanged.",
-                "scope": "Real named provider publication/model binding plus actual model/text draw and pixels; no inferred intermediate named-copy token."}))
+    def run_perspective_text_depth_case(self, *, named_first=False, renamed=False, sorting=True, prefix=False):
+        entries = perspective_text_depth_entries(named_first=named_first, renamed=renamed, sorting=sorting, prefix=prefix)
+        name = (("late-named-text-renamed" if renamed else "late-named-text") if named_first
+                else "text-prefix" if prefix else f"text-sort-{sorting}")
+        provider = (901 if renamed else 11) if named_first else None
+        (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
+            "entries": {k: hashlib.sha256(v).hexdigest() for k, v in entries.items()},
+            "firstModel": 2, "lateHiddenProvider": provider, "sorting": sorting,
+            "prefixReader": TARGET_LAYER if prefix else None, "prefixTint": PREFIX_TINT if prefix else None,
+            "textCases": TEXT_DEPTH_CASES, "renamedProviderResources": renamed}))
         with patch.object(app_runner, "measure_capture", measure_perspective_text_depth):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(
                 self, 8, capture=True, entries=entries, name=name, material_input_path="materials/owned_ink.json")
-        work = self.evidence_root / (name or "Ref8-capture-on")
+        work = self.evidence_root / name
         log = (work / "app.log").read_text()
         if named_first:
-            self.assertIn(f"phase=named-target-capture layer={901 if renamed else 11} status=succeeded", log)
+            self.assertIn(f"phase=named-target-capture layer={provider} status=succeeded", log)
             self.assertIn("phase=named-target-binding layer=2 status=succeeded", log)
         identity = json.loads((work / "identity.json").read_text())
         self.assertEqual(app_runner.sha256(work / "content/scene.pkg"), identity["package"])
@@ -727,10 +746,16 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                 rows = event["rows"]
                 terminals = [row for row in rows if row["kind"] in ("ordinary", "model")
                              and row.get("outcome") == "draw-encoded"]
-                self.assertEqual([row["layerID"] for row in terminals],
-                                 [2, *(case[0] for case in TEXT_DEPTH_CASES), 30])
+                if named_first:
+                    order = [2, *(case[0] for case in TEXT_DEPTH_CASES), 30]
+                elif prefix:
+                    order = [2, 74, 71, TARGET_LAYER, 30, 72, 73, 81, 82]
+                else:
+                    order = [2, 74, 30, 71, 72, 73, 81, 82] if sorting else [2, 74, 71, 72, 73, 81, 82, 30]
+                self.assertEqual([row["layerID"] for row in terminals], order)
                 self.assertEqual(len({row["target"]["textureToken"] for row in terminals}), 1)
-                for terminal, (layer, _, _, _, _, effect) in zip(terminals[1:-1], TEXT_DEPTH_CASES, strict=True):
+                for layer, _, _, _, _, effect in TEXT_DEPTH_CASES:
+                    terminal, = (row for row in terminals if row["layerID"] == layer)
                     self.assertEqual(terminal["kind"], "ordinary")
                     self.assertEqual(terminal["details"]["contentKind"], "text")
                     layer_rows = [row for row in rows if row.get("layerID") == layer]
@@ -747,13 +772,27 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                         self.assertLess(layer_rows.index(material), layer_rows.index(terminal))
                     self.assertEqual(terminal["source"]["textureToken"], source_token)
                 pixels = result["pixels"][path.name]
-                for name, color in (("direct-far", "white"), ("effect-far", "halfGray"),
-                                    ("renamed-effect-far", "halfGray")):
-                    self.assertGreater(pixels[name][color], 30, (name, pixels))
-                    self.assertGreater(pixels[name]["green"], pixels[name]["count"] / 2, (name, pixels))
-                for name, color in (("disabled-far", "green"), ("direct-near", "orange"), ("effect-near", "orange")):
-                    self.assertGreater(pixels[name]["count"], 100, (name, pixels))
-                    self.assertEqual(pixels[name][color], pixels[name]["count"], (name, pixels))
+                for case, color in (("direct-far", "tinted" if prefix else "white"),
+                                    ("effect-far", "halfGray" if named_first else "halfGreen"),
+                                    ("renamed-effect-far", "halfGray" if named_first else "halfGreen")):
+                    pixel = pixels[case]
+                    if sorting:
+                        self.assertGreater(pixel[color], 30, (case, pixels))
+                        self.assertGreater(pixel["green"], pixel["count"] / 2, (case, pixels))
+                    else:
+                        self.assertEqual(pixel["green"], pixel["count"], (case, pixels))
+                for case, color in (("disabled-far", "green"), ("direct-near", "orange"), ("effect-near", "orange")):
+                    self.assertGreater(pixels[case]["count"], 100, (case, pixels))
+                    self.assertEqual(pixels[case][color], pixels[case]["count"], (case, pixels))
+                if prefix:
+                    read, = (r for r in rows if r["kind"] == "background-copy"
+                             and r.get("layerID") == TARGET_LAYER and r.get("outcome") == "encoded")
+                    blend, = (r for r in rows if r["kind"] == "color-blend-background"
+                              and r.get("layerID") == TARGET_LAYER and r.get("outcome") == "draw-encoded")
+                    self.assertEqual(read["source"]["textureToken"], blend["target"]["textureToken"])
+                    self.assertEqual(read["target"]["textureToken"], blend["source"]["textureToken"])
+                    self.assertLess(rows.index(terminals[2]), rows.index(read))
+                    self.assertLess(rows.index(blend), rows.index(terminals[4]))
 
     def run_perspective_image_depth_case(self, *, sorting):
         label = 6 if sorting else 7

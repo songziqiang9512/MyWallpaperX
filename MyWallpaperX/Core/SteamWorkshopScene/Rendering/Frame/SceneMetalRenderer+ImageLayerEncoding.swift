@@ -94,8 +94,12 @@ extension SceneMetalRenderer {
                 candidateMappedSize: baseSource.candidate?.mappedSize
             )
         }
+        var terminalLayer = layer
+        if layer.contentKind == "text", terminalMaterialState?.depthWrite == .disabled {
+            terminalLayer.imageMaterialRenderState = terminalMaterialState
+        }
         var request = SceneImageLayerDrawRequest(
-            layer: layer,
+            layer: terminalLayer,
             texture: texture,
             baseTextureCandidate: baseSource.candidate,
             baseTextureSampling: specializedBaseTextureSamplings[layer.id],

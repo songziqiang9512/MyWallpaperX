@@ -156,7 +156,9 @@ extension SceneMetalRenderer {
         // Only prepared policy IDs are inspected. Source/effect programs retain
         // their coordinate ABI; this policy belongs to the ordinary terminal.
         var ordinaryDepthLayerIDs: Set<Int> = []
-        var sortableImageDepths: [Int: Float] = [:]
+        var imageDepths: [Int: Float] = [:]
+        var mayOrderText = false
+        let sortsTransparency = frameDescriptor.transparentSorting == true
         if let imagePipeline {
             for id in frameProjection.imageMaterialStateLayerIDs.intersection(frameVisibleLayerIDs) {
                 guard let layer = frameLayersByID[id],
@@ -165,29 +167,15 @@ extension SceneMetalRenderer {
                       (compositionGroupRuntime?.renderPass(forLayerID: id) === mainPass
                         || compositionGroupRuntime == nil) else { continue }
                 let additiveImage = state.supportsImageAdditiveRGB
-                var sortDepth: Float?
                 if additiveImage {
                     guard !dependencyRuntime.requiresGraphOutputCapture(for: id),
                           !dependencyRuntime.requiresEffect(for: id) else { continue }
                 } else {
                     guard cameraFrame.defaultsToPerspective,
                           cameraFrame.resolvesPerspective(for: layer) else { continue }
-                    // Native text composites its captured color through the world quad.
-                    let claim = layer.contentKind == "text" ? nil
-                        : imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution
-                    if frameDescriptor.transparentSorting == true, groups == nil,
-                       layer.contentKind == "image", state.blending == .translucent,
-                       state.depthTest == .enabled, (layer.colorBlendMode ?? 0) == 0,
-                       let claim, claim.sourceRoute == .capturedLayerTexture,
-                       claim.dependencyOwnership == .none, claim.sceneBackgroundRequirement == nil,
-                       imageCompositor.resolvedMaterialRuntime?.requiresSceneEnvironment(layerID: id) != true,
-                       !hasWorldOrderDependency(id, utility: frameProjection.utilityExecution),
-                       let world = frameWorldFrames[id] {
-                        let origin = world.columns.3
-                        let depth = simd_dot(SIMD3(origin.x, origin.y, origin.z), cameraFrame.cameraForward)
-                        guard depth.isFinite else { continue }
-                        sortDepth = depth
-                    } else if layer.contentKind != "image", claim?.supportsTerminalMaterialReplay == true {
+                    if layer.contentKind != "image", layer.contentKind != "text",
+                       imageCompositor.preflightResolvedMaterialClaim(layerID: id).execution?
+                        .supportsTerminalMaterialReplay == true {
                         continue
                     }
                 }
@@ -198,15 +186,21 @@ extension SceneMetalRenderer {
                     continue
                 }
                 modelFrame.imageMaterialStates[id] = state
-                if let sortDepth { sortableImageDepths[id] = sortDepth }
+                if groups == nil, layer.contentKind == "text", imagePipeline.supportsReadOnlyDepth {
+                    mayOrderText = true
+                } else if groups == nil, sortsTransparency, layer.contentKind == "image" {
+                    imageDepths[id] = worldTransparencyDepth(layer, state: state, cameraFrame: cameraFrame,
+                        worldFrame: frameWorldFrames[id], utility: frameProjection.utilityExecution)
+                }
                 if state.requiresDepthAttachment { ordinaryDepthLayerIDs.insert(id) }
             }
         }
-        let authoredLayers = frameProjection.orderedLayers
-        let orderedLayers = sortableImageDepths.isEmpty ? authoredLayers
-            : sortedWorldImageOrder(authoredLayers, depths: sortableImageDepths,
+        let reorderedLayers = mayOrderText || !imageDepths.isEmpty
+            ? worldTransparencyOrder(frameProjection.orderedLayers, imageDepths: imageDepths,
+                sorting: sortsTransparency, mayOrderText: mayOrderText, modelFrame: modelFrame,
                 visible: frameVisibleLayerIDs, cameraFrame: cameraFrame, snapshot: frameContext.dynamicValues,
-                utility: frameProjection.utilityExecution)
+                worldFrames: frameWorldFrames, utility: frameProjection.utilityExecution) : nil
+        let orderedLayers = reorderedLayers ?? frameProjection.orderedLayers
         let unavailableDepthConsumers = unavailableSharedTerminalDepthLayers(
             requestedFramebufferSources, state: modelFrame, orderedLayers: orderedLayers,
             ordinaryLayerIDs: ordinaryDepthLayerIDs,
@@ -245,7 +239,7 @@ extension SceneMetalRenderer {
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
         guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
-            authoredLayerIDs: sortableImageDepths.isEmpty ? frameProjection.orderedLayerIDs : orderedLayers.map(\.id),
+            authoredLayerIDs: reorderedLayers?.map(\.id) ?? frameProjection.orderedLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs,
             visibleRootLayerIDs: frameVisibleLayerIDs,
             activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs,

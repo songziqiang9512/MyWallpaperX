@@ -330,15 +330,15 @@ SourceRoute 不再整类拒绝 model，不追加材质/效果/几何名单。typ
 
 原 MainPass 的 reverse-depth 域由模型和普通终端共享，深度附件不依赖模型颜色纹理就绪。命名颜色尚未发布时，先保已知必需前缀的分配顺序；有已就绪主域模型时仍推进至该模型，否则走完整已知前缀。普通终端自身的深度需求可在原 StaticModelFrame 建立同一主域，不要求另一个模型先可绘制；晚到模型继续在作者位置解析颜色并复用同一 lease，前缀不发布为完整 draw set。Framebuffer source 继续要求完整准备，组、粒子及其他域保原优先级。原按 pass/command buffer 的单次分配、失败粘滞、busy 延后、容量局部失败和首个实际 encoder 清零不变，不新增资源或状态 owner；退出以首个模型颜色就绪作为普通终端播放许可的关卡。验收覆盖首模型待 named 供货时的文字/效果文字、改名、遮挡与暴露、晚模型复用，以及无 ordinary 的原拒绝、物理失败和容量邻例；真实水滴须恢复字钟，独立模型文字样本保持原画面。
 
-排序只决定合格区间的顺序，不再逐帧覆写depth state；普通image的可重放能力不等于实际placement replay，退出凭该能力跳过其终端测试的旧门。native solid确有source Program直达main的入口，继续由实际replay owner承接，不安装重复普通终端状态。末端精确消费冷状态，退出第二份withoutDepthWrite等值fallback。普通image只消费无深度/只读状态；nativeText仍是原writing fragment PSO、写stencil与零覆盖discard的现役消费者，本批保留其原合同及后端，不以有限glyph对照提前退役。保原颜色、PMA和来源捕获，无新ABI、资源、owner或逐帧分析。
+普通image的排序只改变顺序，末端直接消费冷准备的无深度/只读状态。其可重放能力不等于实际placement replay。native solid确有source Program直达main的入口，由实际replay owner承接。颜色、PMA和来源捕获保原。
 
 验收用完整取景及健康peer的六图像/四文字官方颜色类别，保实体前/透明后测试开关；alpha1模型另作边界。复用实际App门的排序开/关、改名、单pass可replay效果、neutral solid、实体遮挡与后绘模型、透明留白、真正solid replay、待供货/清零/局部容量失败，不保旧写入或跳测试的像素预期。原366自然第二段须不改资产/Z/时钟恢复说明文字，独立原作者保模型与文字；neutral普通终端统一策略是本引擎算法，不由有限官方控制授全部solid/FX像素或完整样本一致。
 
 #### 作者文字深度
 
-显式 `depthtest: enabled` 的原生文字当前保留 test/write 有效状态与零覆盖片元丢弃；CoreText、Script、效果与最终世界quad仍归原链。普通image的冷nonwriter不能直接升级为字形的迁移许可。新官方实际HH正控支持sort-off时先画字形不挡后画实体、sort-on时近字形在交叠处覆盖实体，后方字形仍被遮挡；现有image-only排序未接入文字，后续须解决该开关下的组合差异，但尚未覆盖跨画布前缀的完整调度。
+显式 `depthtest: enabled` 的原生透视文字，在主画布最后一段独立世界绘制内，与普通透贴共用顺序及已有只读相机深度。该区间只含自身字形、已准备的局部捕获效果、同域透明图像、合格不透明写深度模型和无绘制项。组、供货、当前主画布读取以及其他实绘层划开区间。开启 `transparentsorting` 时，区间内不透明模型先画，透明终端按相机距离远到近，同深保作者顺序。关闭时保作者顺序，文字仍测试已有实体深度，后继实体在无文字写入的深度上照常绘制。CoreText、Script、局部效果与最终PMA世界quad沿原路径，原终端请求承接帧选定的有效状态。
 
-迁移须同时处理原顺序owner：3455121165的时钟与后绘背景实体之间存在实际copyBackground/passthrough、source Program replay及粒子，不能以移除屏障或全局提前opaque偷换其前缀。当前readonly候选缺钟，单隐84诊断才恢复，故先保原文字消费者；不移动作者Z、禁测试、隐藏实体或另造overlay。后续用真实字形、近远/排序开关、局部效果/改名及这些依赖反例建立调度合同，再让旧write职责同批退出。普通image变更须核原366片头、345默认钟日与独立模型作者；图像资格不能代替文字迁移验收。事实与待解边界归[运行证据](runtime-evidence-current.md#authored-text-depth)和唯一开放队列。
+前区间和不独立文字继续消费写深度及其零覆盖discard。3455121165早绘时钟和84实体之间有真实copyBackground/passthrough、Program和粒子，移动任一颜色越过读取点都会改变输入。该域仍需跨前缀的官方对照来退出旧writer。验收须覆盖顺序开关、显式测试近远、半透明字形与改名局部效果、共享目标内只画一次，以及真实前缀和345默认钟日、独立作者。事实与待解边界归[运行证据](runtime-evidence-current.md#authored-text-depth)和唯一开放队列。
 
 <a id="legacy-bind-mesh"></a>
 ### 旧版 Puppet 的网格与动画
