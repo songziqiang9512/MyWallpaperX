@@ -6,7 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
-from script.steam_auth_gate import GateError, run_gate
+from script.governance.steam_auth_gate import GateError, run_gate
 
 ROOT = Path(__file__).resolve().parents[3]
 LOGIN_PANEL = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift'
