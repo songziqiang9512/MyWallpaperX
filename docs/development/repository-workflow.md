@@ -82,7 +82,13 @@ Swift 格式用 Xcode 自带 `swift-format`：`script/governance/format_swift_ch
 
 `python3.12 -B script/governance/commit_preflight.py --owned-file /private/tmp/<批次路径数组>.json` 秒级读取当前worktree的暂存blob，核对owned、JSON和gate元数据，默认提示，`--strict`才拒绝。它不暂存、不运行构建或测试；未暂存修复不会掩盖暂存错误。可用 `--message-file` 检查实际Git trailers，`Area: Scene` 等值由工具公开白名单约束，发布工具仅复用解析结果做分组，不自动发布。
 
-如需自动提示，可显式 `--install`，用 `--uninstall`恢复；这里未默认安装。hooksPath为共享仓库配置，会影响其全部worktree，hook的owned快照由common Git目录保存，不绑定安装checkout；每次按提交所在工作树解析index，可从其他worktree卸载。现有有效hooksPath、默认hooks、用户追加内容和符号链接均受保护，工具拒绝覆盖。`MWX_OWNED_PATHS`可给hook传JSON路径清单；不提供时诚实提示归属未验证。
+如需自动提示，可显式 `--install`，用 `--uninstall`恢复；这里未默认安装。
+
+## 本地化提交检查
+
+`git config core.hooksPath .githooks` 启用仓库自带的 `pre-commit`：`check_localization.py --changed` 只读取本次暂存的 Swift 新增行，检查新增的 `String(localized:)` key 是否已进入 `Localizable.xcstrings`，并要求 en/zh-Hans/de/fr/ru 都有翻译；缺失时拒绝提交。存量 key 不参与，避免历史遗留阻塞日常提交。
+
+它与上面的 `commit_preflight.py --install` 共用 `core.hooksPath`，两者不能同时启用；先用 `git config --unset core.hooksPath` 再切换。hooksPath为共享仓库配置，会影响其全部worktree，hook的owned快照由common Git目录保存，不绑定安装checkout；每次按提交所在工作树解析index，可从其他worktree卸载。现有有效hooksPath、默认hooks、用户追加内容和符号链接均受保护，工具拒绝覆盖。`MWX_OWNED_PATHS`可给hook传JSON路径清单；不提供时诚实提示归属未验证。
 
 ## 规则退出
 

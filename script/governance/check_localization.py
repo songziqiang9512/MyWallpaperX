@@ -51,13 +51,15 @@ def placeholder_signature(value: str) -> list[str]:
     return PLACEHOLDER.findall(value)
 
 
-def catalog_errors(catalog: dict) -> list[str]:
+def catalog_errors(catalog: dict, only_keys: set[str] | None = None) -> list[str]:
     errors: list[str] = []
     entries = catalog.get('strings', {})
     source_language = catalog.get('sourceLanguage')
     if source_language != 'en':
         errors.append(f'sourceLanguage must be en, found {source_language!r}')
     for key, entry in sorted(entries.items()):
+        if only_keys is not None and key not in only_keys:
+            continue
         expected = placeholder_signature(key)
         localizations = entry.get('localizations', {})
         if not localizations:
@@ -85,6 +87,26 @@ def catalog_errors(catalog: dict) -> list[str]:
                 if found != expected and sorted(found) != sorted(expected):
                     errors.append(f'{language} placeholder mismatch: {key} -> {value}')
     return errors
+
+
+LOCALIZED_KEY = re.compile(
+    r'(?:String\s*\(\s*localized\s*:\s*|LocalizedStringResource\s*\(\s*)'
+    r'"((?:[^"\\]|\\.)*)"')
+
+
+def changed_keys() -> set[str]:
+    """Keys introduced by staged Swift source lines, for the pre-commit hook."""
+    result = subprocess.run(
+        ['git', 'diff', '--cached', '--unified=0', '--diff-filter=ACM', '--', '*.swift'],
+        capture_output=True, text=True, cwd=ROOT)
+    if result.returncode != 0:
+        return set()
+    keys: set[str] = set()
+    for line in result.stdout.splitlines():
+        if not line.startswith('+') or line.startswith('+++'):
+            continue
+        keys.update(LOCALIZED_KEY.findall(line))
+    return keys
 
 
 def compile_errors(catalog_path: Path, tmp: Path) -> list[str]:
@@ -138,6 +160,8 @@ def hardcoded_hits() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--catalog', default=str(CATALOG))
+    parser.add_argument('--changed', action='store_true',
+                        help='only check keys added by staged Swift sources (pre-commit)')
     parser.add_argument('--extraction', help='directory with build .stringsdata files')
     parser.add_argument('--hardcoded', action='store_true')
     parser.add_argument('--compile', action='store_true', help='also run xcstringstool compile')
@@ -150,7 +174,16 @@ def main() -> int:
     catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
     entries = catalog.get('strings', {})
 
-    errors = catalog_errors(catalog)
+    if args.changed:
+        keys = changed_keys()
+        if not keys:
+            print('no new localized strings in the staged Swift sources')
+            return 0
+        missing = sorted(keys - set(entries))
+        errors = [f'missing key (source uses it, catalog has none): {key}' for key in missing]
+        errors.extend(catalog_errors(catalog, only_keys=keys))
+    else:
+        errors = catalog_errors(catalog)
 
     if args.extraction:
         extracted = extraction_keys(Path(args.extraction))

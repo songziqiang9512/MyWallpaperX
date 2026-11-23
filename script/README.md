@@ -24,6 +24,7 @@
 - 顶层 `*.py` 分两类：带 `if __name__ == "__main__"` 的 CLI 入口，和被其他脚本 import 的库模块。新增 CLI 必须带模块 docstring，并在下方"入口索引"登记。
 - 一次性研究脚本不留在顶层；中间产物写 `.artifacts/` 或任务临时目录，完成后清理。
 - 新测试必须能用 `script/run_scene_tests.py --module <name>` 独立运行，并在 `script/data/scene_validation_gates.json` 映射到产品路径；确实只属于全量回归的，在提交说明中标注。
+- 翻译完整性：`git config core.hooksPath .githooks` 启用 pre-commit；新增 `String(localized:)` 必须在 `Localizable.xcstrings` 补齐 en/zh-Hans/de/fr/ru 才允许提交。`--changed` 只检查本次暂存新增的 key，不阻塞存量。
 - 数据台账只保留当前消费者；历史结论从 Git 查询，不靠新增台账文件保留。
 
 ## 入口索引
@@ -35,6 +36,7 @@
 | 代码健康 | `check_code_health.py`、`check_scene_defense.py`、`check_scene_dependencies.py`、`check_test_assertions.py`、`check_repository_artifacts.py`、`check_design_gate.py` | 只读治理门；命令参数见各自 `--help` |
 | 文档与仓库健康 | `document_health.py`、`document_links.py`、`document_registry.py`、`repository_health.py`、`repository_residue.py` | 文档预算、链接、角色、结构债与残留 |
 | 提交预检 | `commit_preflight.py` | 读取暂存 blob，提示或拒绝不完整批次；不代替构建/测试 |
+| 本地化提交检查 | `governance/check_localization.py --changed` | 只检查暂存 Swift 新增的 `String(localized:)` key；缺 key 或缺任意语言翻译时拒绝提交 |
 | 测试映射报告 | `check_test_mapping.py` | 列出未被任何验证路径组选中的测试；默认只报告，`--strict` 才拒绝 |
 | 脚本布局报告 | `check_script_layout.py` | 列出未登记入口与超过 1000 行的测试；默认只报告 |
 | Swift 格式 | `format_swift_changed.py` | 只处理改动/未跟踪 Swift 文件；`--lint` 为严格检查 |
