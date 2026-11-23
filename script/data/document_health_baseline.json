@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59041
+      "bytes": 59428
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "40c8877d1efc9c28e46ed15adc7b0deb2a4128b2961162ab03965d4ba9a1adc9",
-      "after": "df5a36566f7c1d511e60e90baed1168077ed7e844e54b81a0102a089b712765e",
-      "owner": "Existing Scene author playback evidence and open queue",
-      "reason": "Record targeted Quartz/AppKit authored entry and return, including the timing control and remaining desktop scope.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "df5a36566f7c1d511e60e90baed1168077ed7e844e54b81a0102a089b712765e",
+      "after": "70c1b56aab31ae5812a7f451efffa060ca2932b59c67b896ecae01d3df338194",
+      "owner": "Existing Scene author playback open queue",
+      "reason": "Attach the live authored Puppet failure and the evidence needed to recover independent clips.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#puppet-morph-peer-fallback"
     },
     {
       "section": "bodies",
