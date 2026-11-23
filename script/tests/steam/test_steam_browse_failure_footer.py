@@ -47,7 +47,8 @@ class SteamBrowseFailureFooterTests(unittest.TestCase):
         components = (UI / "AppKitSteamWorkshopBrowserFooterComponents.swift").read_text()
 
         self.assertIn("@Published var browserLoadMoreFailureMessage: String?", service)
-        self.assertEqual(browse.count('browserLoadMoreFailureMessage = "加载失败 · 重试"'), 2)
+        self.assertIn('browserLoadMoreFailureMessage = String(localized: "Load Failed · Retry")', browse)
+        self.assertIn('String(localized: "No more content yet — keep scrolling to load more")', browse)
         retry = page_loading[page_loading.index("    func retryLoadingMoreBrowserItems()") :]
         self.assertIn("consecutiveEmptyLoadMorePages = 0", retry)
         self.assertIn("browserLoadMoreRetryAfter = .distantPast", retry)

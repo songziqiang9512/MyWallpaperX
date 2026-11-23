@@ -94,9 +94,9 @@ struct SteamBrowseFooterHarness {
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         let views = descendants(item.view)
         precondition(!views.contains { $0 is NSButton || $0 is NSProgressIndicator })
-        precondition(views.compactMap { $0 as? NSTextField }.first?.stringValue == "已加载 24 个作品")
+        precondition(views.compactMap { $0 as? NSTextField }.first?.stringValue == "Loaded 24 items")
         SteamWorkshopBrowserFooterSupport.configure(item, state: .loading, itemCount: 24)
-        precondition(views.compactMap { $0 as? NSTextField }.first?.stringValue == "正在加载更多项目")
+        precondition(views.compactMap { $0 as? NSTextField }.first?.stringValue == "Loading more items")
         print("Steam browse failure footer state PASS")
     }
 }
