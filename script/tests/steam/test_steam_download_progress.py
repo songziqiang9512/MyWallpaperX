@@ -69,13 +69,13 @@ import Foundation
             "an old completion cannot clear a newer attempt")
         precondition(store.receiveHelperEvent(itemID: "A", jobKey: "job-2", attempt: 2,
             sequence: 1, stage: "preparing", totalBytes: nil, verifiedBytes: nil))
-        precondition(store.snapshot(for: "A")?.statusText() == "正在获取文件信息")
+        precondition(store.snapshot(for: "A")?.statusText() == "Fetching file information")
 
         let countBeforeRemoval = itemAEvents.count
         store.removeObserver(observerA)
         store.markSaving(itemID: "A", jobKey: "job-2")
         precondition(store.snapshot(for: "A")?.phase == .saving)
-        precondition(store.snapshot(for: "A")?.statusText() == "正在保存")
+        precondition(store.snapshot(for: "A")?.statusText() == "Saving")
         precondition(itemAEvents.count == countBeforeRemoval)
 
         final class Owner {}
