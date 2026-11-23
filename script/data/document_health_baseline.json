@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 291097
+      "bytes": 292321
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 212,
-      "bytes": 65684
+      "lines": 213,
+      "bytes": 66210
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eb37fea159e6b8bd2bbeab7849add596f2972073edc9f5392a8e70ccca9eeb59",
-      "after": "2c2d9724e25c406fcb889eb821bbeaa80343bbc5e6ec8e68cfd67da5d6736662",
-      "owner": "Scene author conditions and visual evidence",
-      "reason": "Qualify the current published package with both clients and the visible preview ring evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#preview-ring-361744"
+      "before": "2c2d9724e25c406fcb889eb821bbeaa80343bbc5e6ec8e68cfd67da5d6736662",
+      "after": "7a65db5766a72620cf115b4e651a543eab954f35a1f5fe263c23ee3fa8b71b7d",
+      "owner": "Scene performance and ordering",
+      "reason": "Record official motion history, comparable native presentation and GPU metrics, and the two texture copies observed in the effect toggle.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-motion-history-367"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4ce200dc4f27fc0da0b52afd2a99154e2b27cdcea935eca8c83dc80f07160cab",
-      "after": "f6a5507632e46c89f3dd1ce7488711df613a1adc6c3d0a8c9b8bb9fdc605510d",
-      "owner": "Scene author conditions and visual evidence",
-      "reason": "Retire the absent current effect as an engine breakpoint.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "f6a5507632e46c89f3dd1ce7488711df613a1adc6c3d0a8c9b8bb9fdc605510d",
+      "after": "bb03e34e7f4a8d29a6bdff76c7d259d6f3ff0272e71133e5ac30abe614703d49",
+      "owner": "Scene performance and ordering",
+      "reason": "Route 367 performance to the proven default snapshot and inactive-history boundaries.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance"
     },
     {
       "section": "bodies",
