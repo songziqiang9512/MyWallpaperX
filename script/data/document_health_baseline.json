@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 198,
-      "bytes": 59887
+      "bytes": 59818
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 571,
-      "bytes": 163694
+      "lines": 578,
+      "bytes": 165487
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,11 +487,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "f3cdb32b1a43d766621c5818774d7919d8a9c79ab4bbcc6b338bfc9c54e83f9d",
-      "after": "995b599fda4ee055c3c6a7a066076a94a9e1b7e1b3c1234c1ed42c8e881c9024",
+      "before": "995b599fda4ee055c3c6a7a066076a94a9e1b7e1b3c1234c1ed42c8e881c9024",
+      "after": "2a789dd025509c1cd2584d19edd67ff8c22ed1c0bceb9827374c60318df93241",
       "owner": "Existing Scene direct model runtime evidence",
-      "reason": "Qualify which real draws darken the illuminated Saturn ring with fixed shadow-map identity and an uninterrupted Metal pass control.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-complete-contribution"
+      "reason": "Record mature adjacent presented-frame causes and counterexamples from actual authored static geometry with a live shadow binding.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-temporal-contribution"
     },
     {
       "section": "bodies",
