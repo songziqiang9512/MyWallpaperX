@@ -67,6 +67,11 @@ final class SceneMetalRenderer {
   for mode in ["cold-full","cold-prefix-quota","resize-prefix-quota","partial-mesh"] {
    rows.append(try autoreleasepool {try run(mode,d,q)})
   }
+  if rows.first?["mode"] as? String == "cold-full" {
+   rows.append(try autoreleasepool {try run("late-mixed-model",d,q)})
+   rows.append(try autoreleasepool {try run("late-group-depth",d,q)})
+   rows.append(try autoreleasepool {try run("retired-group-provider",d,q)})
+  }
   print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows]),as:UTF8.self))
  }
  static func texture(_ d:MTLDevice,_ size:Int,_ rgba:[UInt8])->MTLTexture {
@@ -104,12 +109,20 @@ final class SceneMetalRenderer {
     albedo:named ? nil:PreparedTexture(texture:white),namedAlbedo:named ? reference:nil,material:material(color))
   }
   let partial=mode=="partial-mesh"
+  let lateMixed=mode=="late-mixed-model"
+  let retiredProvider=mode=="retired-group-provider"
+  let separateDomain=mode=="late-group-depth" || retiredProvider
   let provider=SceneRenderDescriptor.Layer(id:11,visible:false,contentKind:"image")
   let layers:[SceneRenderDescriptor.Layer]=partial ? [.init(id:1)] : [.init(id:1),provider,.init(id:2)]
-  let entries:[Int:[ScenePreparedStaticModelResources.Entry]]=partial
+  let renderLayers:[SceneRenderDescriptor.Layer]=lateMixed
+   ? [.init(id:1,modelShadowCastIntent:.disabled),.init(id:2),provider]
+   : (separateDomain ? [.init(id:1),.init(id:2),provider] : layers)
+  var entries:[Int:[ScenePreparedStaticModelResources.Entry]]=partial
    ? [1:[entry(a,SIMD3(1,0,0)),entry(a,SIMD3(0,1,0)),entry(b,SIMD3(0,0,1))]]
    : [1:[entry(a,SIMD3(1,0,0))],2:[entry(b,SIMD3(repeating:1),named:true)]]
-  let descriptor=SceneRenderDescriptor(layers:layers,renderOrderLayerIDs:layers.map(\.id),staticModelConsumerProviders:partial ? [:]:[2:11])
+  if lateMixed {entries[2]?.insert(entry(quad(26),SIMD3(0,0,1)),at:0)}
+  let descriptor=SceneRenderDescriptor(layers:renderLayers,renderOrderLayerIDs:renderLayers.map(\.id),staticModelConsumerProviders:partial ? [:]:[2:11])
+  let currentLayers=retiredProvider ? renderLayers.filter{$0.id != 11} : renderLayers
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:pipeline,entries:entries),descriptor:descriptor)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:16*1024*1024)
   let light=SceneLightSnapshot.Directional(layerID:3,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0)
@@ -121,25 +134,37 @@ final class SceneMetalRenderer {
   for size in (mode=="resize-prefix-quota" ? [64,256]:[256]) {
    let output=texture(d,size,[0,0,0,255]),green=texture(d,size,[0,255,0,255]),cb=q.makeCommandBuffer()!
    let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
+   let memberTarget=separateDomain ? texture(d,size,[0,0,0,255]) : nil
+   let memberPass=memberTarget.map { SceneMainPassEncoder(commandBuffer:cb,target:$0,
+    clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true) }
+   let groups=memberPass.map { SceneCompositionGroupFrameRuntime(passesByLayer:[1:pass,2:$0,11:pass]) }
    let sources=SceneBaseImageTextureSnapshot(sources:partial ? [:]:[11:source(green)])
    let epoch=renderer.textureRegistry.beginFrame(frameIndex:UInt64(size),layerSources:[:],assetStates:renderer.fixtureAssetStates())
    let frame=SceneFrameContext(dynamicValues:.empty(frameIndex:UInt64(size),generation:1))
    let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
-   let pressured=size==256 && mode != "cold-full"
+   let pressured=size==256 && mode != "cold-full" && !lateMixed
    let dd=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:size,height:size,mipmapped:false)
    dd.storageMode = .private;dd.usage = .renderTarget
    let nativeDepth=d.heapTextureSizeAndAlign(descriptor:dd).size
    var held=0
    if pressured {
-    held=SceneResourceBudget.shared.maximumBytes-SceneResourceBudget.shared.snapshot.residentBytes-nativeDepth
+    var free=nativeDepth
+    if separateDomain {
+     let provider=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:size,height:size,mipmapped:false)
+     provider.storageMode = .private;provider.usage=[.renderTarget,.shaderRead]
+     let map=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false)
+     map.storageMode = .private;map.usage=[.renderTarget,.shaderRead]
+     free += d.heapTextureSizeAndAlign(descriptor:provider).size+d.heapTextureSizeAndAlign(descriptor:map).size
+    }
+    held=SceneResourceBudget.shared.maximumBytes-SceneResourceBudget.shared.snapshot.residentBytes-free
     precondition(SceneResourceBudget.shared.reserve(held,kind:.gpu))
    }
    defer {if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu)}}
    let captureStart=captures(),rejectionStart=SceneResourceBudget.shared.snapshot.rejectionCount
-   let error=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,visible:Set(layers.filter{$0.visible != false}.map(\.id)),
+   let error=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:currentLayers,visible:Set(currentLayers.filter{$0.visible != false}.map(\.id)),
     activeNamedModels:partial ? []:[2],forwardGraphProviders:[],framePlans:[:],imageTextures:sources,imagePipeline:image,
     frameContext:frame,worldFrames:world,cameraFrame:camera,parallax:.init(),viewportSize:CGSize(width:size,height:size),
-    batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,
+    batches:[:],particlePipeline:nil,mainPass:pass,groups:groups,utilityExecution:renderer.utilityExecution,pool:pool,commandBuffer:cb,leases:&leases,
     terminalCapacity:{true},recordsEvidence:false)
    let capturePrepared=captures()-captureStart,published = !state.shadows.isEmpty
    let preparedIDs=state.prepared?.keys.sorted() ?? []
@@ -149,30 +174,53 @@ final class SceneMetalRenderer {
     device:d,commandBuffer:cb,leases:&leases).lease != nil && leases.count==prefixCount
    let rejections=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionStart
    let namedAbsent=state.prepared?[2] == nil
-   if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
+   if held>0 && !separateDomain {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
    // Replay only the original consumer calls. Ordering and stopped-prefix
    // preparation above are entirely the actual production frame owner.
-   if !partial {
+   if !partial && !retiredProvider {
     let capture=renderer.captureRawDependencyProvider(layer:provider,source:sources.sources[11],imageTextures:sources,
      imagePipeline:image,frameContext:frame,worldFrames:world,cameraFrame:camera,parallax:.init(),
      viewportSize:CGSize(width:size,height:size),mainPass:pass)
     precondition(capture == .published)
    }
    let resource=renderer.textureRegistry.completeNamedLayerTargetTexture(reference:reference,frameEpoch:epoch)
-   let named=partial ? nil:renderer.staticModelDraws(layer:layers.last!,worldFrames:world,snapshot:frame.dynamicValues,requiresCompleteNamedInputs:true)?.first
-   let currentIdentity=partial || (named?.texture === resource && named?.premultiplied == true)
+   let named=partial ? nil:renderer.staticModelDraws(layer:currentLayers.first{$0.id==2}!,worldFrames:world,snapshot:frame.dynamicValues,requiresCompleteNamedInputs:true)?.first{$0.texture === resource}
+   let currentIdentity=partial || (retiredProvider ? named == nil && resource == nil
+    : named?.texture === resource && named?.premultiplied == true)
    let beforeDraw=leases.count
-   for layer in layers where layer.contentKind=="model" {
+   var activePass=pass
+   for layer in currentLayers where layer.contentKind=="model" {
+    let modelPass=groups?.renderPass(forLayerID:layer.id) ?? pass
+    if modelPass !== activePass {activePass.closeForOffscreen(); activePass=modelPass}
     _=renderer.drawStaticModel(layer:layer,state:state,worldFrames:world,frameContext:frame,cameraFrame:camera,
-      lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
+      lighting:lighting,pass:modelPass,commandBuffer:cb,leases:&leases)
    }
    let afterDraw=leases.count,totalCaptures=captures()-captureStart
    precondition(pass.finishEnsuringClear());pass.armCompositionPins()
+   if let memberPass {precondition(memberPass.finishEnsuringClear());memberPass.armCompositionPins()}
    for lease in leases {lease.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
    precondition(cb.status == .completed);renderer.textureRegistry.commitFramePublication()
    var bytes=[UInt8](repeating:0,count:size*size*4)
    output.getBytes(&bytes,bytesPerRow:size*4,from:MTLRegionMake2D(0,0,size,size),mipmapLevel:0)
    func pixel(_ x:Int,_ y:Int)->[Int] {let i=((y*size/64)*size+x*size/64)*4;return [Int(bytes[i+2]),Int(bytes[i+1]),Int(bytes[i]),Int(bytes[i+3])]}
+   if lateMixed {
+    precondition(error == nil && published && namedAbsent && currentIdentity && capturePrepared == 1,
+     "A ready part of the incomplete caster must publish a map without caching partial color.")
+    precondition(pixel(28,12)==[0,0,128,255] && pixel(44,12)==[0,128,0,255],
+     "Color must draw both the ready part and its late named peer.")
+   }
+   if let memberTarget {
+    var rgba=[UInt8](repeating:0,count:4)
+    memberTarget.getBytes(&rgba,bytesPerRow:4,from:MTLRegionMake2D(44*size/64,12*size/64,1,1),mipmapLevel:0)
+    if retiredProvider {
+     precondition(prefixCount == 1 && afterDraw == 1 && published && currentIdentity && rgba == [0,0,0,255],
+      "An authored provider retired this frame must not reserve depth from its stale source snapshot.")
+    } else {
+     precondition(prefixCount == 2 && afterDraw == 2 && !published && rejections == 1,
+      "The late independent color domain must acquire depth before the optional shadow map.")
+     precondition(rgba==[0,128,0,255],"The current named source must reach the independent color domain.")
+    }
+   }
    final=["mode":mode,"extent":size,"typedInvalid":error as Any? ?? NSNull(),"preparedIDs":preparedIDs,
     "preparedPartCount":preparedPartCount,"sceneDepthReady":sceneDepthReady,"namedUnvisited":namedAbsent,"prefixLeases":prefixCount,"beforeDrawLeases":beforeDraw,
     "afterDrawLeases":afterDraw,"capturesPrepared":capturePrepared,"capturesTotal":totalCaptures,

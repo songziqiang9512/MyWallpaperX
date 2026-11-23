@@ -113,6 +113,10 @@ extension SceneMetalRenderer {
             return Depth(acquisition: acquisition, clears: true)
         }
 
+        func hasSceneDepthDecision(for pass: SceneMainPassEncoder) -> Bool {
+            sceneDepthByPass[ObjectIdentifier(pass)] != nil
+        }
+
         private func qualifiedSceneDepthDomain(pass: SceneMainPassEncoder,
                                                commandBuffer: MTLCommandBuffer) -> SceneDepthDomain? {
             guard acceptsDepthBindings else { return nil }
@@ -175,12 +179,19 @@ extension SceneMetalRenderer {
                          worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
                          state: StaticModelFrame? = nil,
                          requiresCompleteNamedInputs: Bool = false) -> [StaticModelDraw]? {
-        guard let parts = staticModelResources[layer.id] else { return [] }
+        let resolved = resolveStaticModelDraws(layer: layer, worldFrames: worldFrames, snapshot: snapshot, state: state)
+        return requiresCompleteNamedInputs && !resolved.complete ? nil : resolved.draws
+    }
+
+    private func resolveStaticModelDraws(layer: SceneRenderDescriptor.Layer,
+        worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
+        state: StaticModelFrame?) -> (draws: [StaticModelDraw], complete: Bool) {
+        guard let parts = staticModelResources[layer.id] else { return ([], true) }
         let alpha = SceneDynamicLayerValues.alpha(layerID: layer.id,
             authoredValue: layer.alpha, snapshot: snapshot)
-        guard alpha > 0 else { return [] }
+        guard alpha > 0 else { return ([], true) }
         let world = staticModelWorld(for: layer.id, worldFrames: worldFrames)
-        guard SceneStaticModelPipeline.isFinite(world) else { return [] }
+        guard SceneStaticModelPipeline.isFinite(world) else { return ([], true) }
         let normalMatrix = parts.contains { $0.material.requiresSurfaceNormal }
             ? SceneStaticModelPipeline.normalMatrix(for: world) : nil
         var hasMissingInput = false
@@ -240,7 +251,7 @@ extension SceneMetalRenderer {
                 sampling: sampling, premultiplied: premultiplied,
                 world: world, normalMatrix: partNormalMatrix, material: material, alpha: alpha)
         }
-        return requiresCompleteNamedInputs && hasMissingInput ? nil : draws
+        return (draws, !hasMissingInput)
     }
 
     func staticModelWorld(for layerID: Int,
@@ -644,8 +655,8 @@ extension SceneMetalRenderer {
     }
 
     /// Preserve the original mandatory allocation prefix before optional shadow.
-    /// Only an actual capture's typed invalid result aborts the frame. A resource
-    /// miss leaves the prefix for the original draw and the suffix unprepared.
+    /// Missing model inputs limit the optional map to ready draws. Capacity
+    /// failures still leave the original mandatory prefix for the draw.
     func prepareOrderedModelShadow(
         state: StaticModelFrame, lights: [SceneLightSnapshot.ShadowLight], lighting: SceneLightSnapshot,
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
@@ -664,6 +675,8 @@ extension SceneMetalRenderer {
     ) -> String? {
         guard staticModelResources.pipeline != nil else { return nil }
         state.prepared = [:]
+        var shadowOnlyDraws: [Int: [StaticModelDraw]] = [:]
+        var pendingRawDepth: [(pass: SceneMainPassEncoder, providerID: Int)] = []
         var colorPass: SceneMainPassEncoder?
         var particlePass: SceneMainPassEncoder?
         for layer in orderedLayers {
@@ -673,6 +686,7 @@ extension SceneMetalRenderer {
             if let pass, drawsLayer {
                 if dependencyRuntime.requiresCapture(for: layer.id, activeStaticModelConsumerLayerIDs: activeNamedModels),
                    !dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                    let modelSourceOnly = dependencyRuntime.isStaticModelSourceProvider(layer.id)
                     let source = baseMaterialTextureSelection(for: layer, imageTextures: imageTextures,
                         readyProviderUsesAuthoredLayerColor: baseMaterialReadyProviderUsesAuthoredLayerColor(
                             for: layer, dynamicValues: frameContext.dynamicValues)).source
@@ -680,7 +694,7 @@ extension SceneMetalRenderer {
                         imageTextures: imageTextures, imagePipeline: imagePipeline, frameContext: frameContext,
                         worldFrames: worldFrames, cameraFrame: cameraFrame, parallax: parallax,
                         viewportSize: viewportSize, mainPass: pass,
-                        preparesCapacityOnly: !dependencyRuntime.isStaticModelSourceProvider(layer.id))
+                        preparesCapacityOnly: !modelSourceOnly)
                     if case let .invalid(reason)? = result {
 #if DEBUG
                         executionTrace?.recordRouteOperation(layerID: layer.id,
@@ -690,14 +704,29 @@ extension SceneMetalRenderer {
 
                         return reason
                     }
-                    if case .unavailable? = result { return nil }
+                    if case .unavailable? = result, !modelSourceOnly || source != nil { return nil }
                 }
                 if visible.contains(layer.id) {
                     if layer.contentKind == "model" {
-                        guard let draws = staticModelDraws(layer: layer, worldFrames: worldFrames,
-                            snapshot: frameContext.dynamicValues, state: state, requiresCompleteNamedInputs: true) else { return nil }
-                        state.prepared?[layer.id] = draws
-                        if !draws.isEmpty {
+                        let (draws, complete) = resolveStaticModelDraws(layer: layer, worldFrames: worldFrames,
+                            snapshot: frameContext.dynamicValues, state: state)
+                        if complete {
+                            state.prepared?[layer.id] = draws
+                        } else if !draws.isEmpty {
+                            // Color must retry the full lookup if a publication arrives later.
+                            shadowOnlyDraws[layer.id] = draws
+                        }
+                        var needsDepth = !draws.isEmpty
+                        if !complete && !needsDepth && !state.hasSceneDepthDecision(for: pass),
+                           let binding = dependencyRuntime.plan.staticModelBindingsByConsumerLayerID[layer.id] {
+                            let providerID = binding.providerLayerID
+                            if dependencyRuntime.requiresGraphOutputCapture(for: providerID) {
+                                needsDepth = framePlans[providerID] != nil
+                            } else {
+                                pendingRawDepth.append((pass, providerID))
+                            }
+                        }
+                        if needsDepth {
                             let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
                                 device: device, commandBuffer: commandBuffer, leases: &leases)
                             guard depth.lease != nil else { return nil }
@@ -757,10 +786,18 @@ extension SceneMetalRenderer {
                         height: pass.targetExtent.height, pixelFormat: pass.targetPixelFormat, then: { true })
                 }) else { return nil }
         }
+        for (pass, providerID) in pendingRawDepth where !state.hasSceneDepthDecision(for: pass) {
+            let source = SceneNamedTextureReference(providerLayerID: providerID, variant: .primary)
+            guard textureRegistry.completeNamedLayerTargetResource(
+                reference: source, frameEpoch: textureRegistry.frameEpoch) != nil else { continue }
+            let depth = state.sharedDepth(pass: pass, pool: staticModelDepthTargetPool,
+                device: device, commandBuffer: commandBuffer, leases: &leases)
+            guard depth.lease != nil else { return nil }
+        }
         guard terminalCapacity() else { return nil }
         emitModelShadow(state: state, lights: lights, orderedLayers: orderedLayers,
             mainPass: mainPass, groups: groups, pool: pool, commandBuffer: commandBuffer,
-            recordsEvidence: recordsEvidence, cameraFrame: cameraFrame)
+            recordsEvidence: recordsEvidence, cameraFrame: cameraFrame, shadowOnlyDraws: shadowOnlyDraws)
         return nil
     }
 
@@ -769,7 +806,8 @@ extension SceneMetalRenderer {
         orderedLayers: [SceneRenderDescriptor.Layer], mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?, pool: SceneOffscreenTexturePool,
         commandBuffer: MTLCommandBuffer, recordsEvidence: Bool,
-        cameraFrame: SceneParticleCameraFrame, mandatoryCapacity: () -> Bool = { true }
+        cameraFrame: SceneParticleCameraFrame, shadowOnlyDraws: [Int: [StaticModelDraw]] = [:],
+        mandatoryCapacity: () -> Bool = { true }
     ) {
         guard let pipeline = staticModelResources.pipeline else { return }
         let includesDirectional = lights.contains { if case .directional = $0 { return true }; return false }
@@ -779,7 +817,7 @@ extension SceneMetalRenderer {
                               clip: simd_float4x4?)] = []
         var receiverExtent = 0
         for layer in orderedLayers {
-            let draws = state.prepared?[layer.id] ?? []
+            let draws = state.prepared?[layer.id] ?? shadowOnlyDraws[layer.id] ?? []
             if draws.isEmpty { continue }
             // Native models use Y-up world winding. Canvas and fitted cameras
             // retain their reflected authored convention in the same light map.

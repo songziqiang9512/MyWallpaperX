@@ -2,8 +2,7 @@
 """RF13: self-authored named model color and directional-shadow consumers.
 
 App cases require MWX_NAMED_MODEL_SHADOW_APP pointing to a frozen staged App.
-Only own inputs, app.log, scene-preview.log and PNGs are inspected. The original
-three-input RF12 red remains immutable under /private/tmp/mwx-rf13.
+Only own inputs, app.log, scene-preview.log and PNGs are inspected.
 """
 import hashlib
 import json
@@ -725,6 +724,7 @@ def mixed_main():
 ''')
     a=s.index('  let candidates=renderer.shadowDrawCandidates(');b=s.index('  let noCopy=',a)
     s=s[:a]+r'''
+  _ = renderer.textureRegistry.beginFrame(frameIndex: 1, layerSources: [:], assetStates: renderer.fixtureAssetStates())
   var terminalCalled=false
   let image=SceneImageLayerPipeline(device:d)!
   let error=renderer.prepareOrderedModelShadow(state:state,lights:[.directional(light)],lighting:lighting,orderedLayers:layers,visible:visible,

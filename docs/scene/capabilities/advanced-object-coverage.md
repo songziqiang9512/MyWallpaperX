@@ -157,6 +157,8 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 验收沿真实Frame收集→原灯map→接收者像素及map深度，用translucent有覆盖/孔洞/透明边界，与同输入normal及明确castfalse作可区分对照；核material与layer alpha、mask含义、cull/改名和camera-depth独立，保additive原行为与三灯邻例。冻结真实星环MDL/TEX与接收球面、灯/相机/相位，旧/新App核实际投影和孔洞，另用未参与修复的真实作者保原受光/完整图。官方证据不足时依此明确几何覆盖算法验收；若原景投影难以归因，使用同真实资产的自有控制，不拟合阴影ROI或以caster计数代像素收益。当前资格见[模型运行证据](model-runtime-evidence.md#model-shadow-coverage)。
 
+有序命名来源准备以已就绪部件为当前阴影输入。纯模型raw provider确定无当前源，或模型部件在其准备位置尚拿不到当前publication，只退出缺失部件的本帧投影及接收范围；前后健康层和同层ready部件继续沿原顺序取得必需附件，再用原灯图。部分draw只供本次发图，颜色准备缓存仍只收完整层，使普通绘制在publication晚到后重新取资源；发图截点后的供货随下一帧进入影图。某pass尚无深度决定时，已接纳的当前graph输出在原位置保留颜色深度；raw来源须在可选影图前确有本帧完整发布才预约。尚无发布或已经退役的raw来源不耗该域深度。保原身份失败、混合provider、已有源的容量或编码失败和必需附件优先级，不加跨帧缓存、回放或第二资源owner。验收同时量缺失时的健康投影、普通颜色晚取、完整回供、同层健康部件及原配额和取消反例，以实际接收像素为准。
+
 <a id="model-zero-coverage-work"></a>
 ### 确定零覆盖的模型工作
 

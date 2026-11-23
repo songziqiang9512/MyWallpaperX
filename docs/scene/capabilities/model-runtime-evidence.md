@@ -383,11 +383,21 @@ IFO296成熟说明的“ra)”由作者26字符、速度5/平滑4、间隔2的�
 
 本次固定同真实几何、相机、灯及四近点，只把远lit noncaster设translucent、层alpha恒1，typed material依次absent/0/1。旧67b三CB健康，zero仍保draw，fit和近RGBA错误地与正值同；当前0d54三CB全部正确，zero的fit/近RGBA恢复absent，absent与one所有业务字段与旧逐值同，三行bodyDepth精确同。正值合法caster实深度<1；不是换cast、关灯或统一提亮。这只授typed Frame材质输入，不冒SceneScript/属性面板回流或作者自然动画。
 
-CameraFamily实际226行与永久normal0受影两CB完成，原217+3输入和全部220行输出字段逐值同，未排除token或放宽旧断言。新增六行核cold1→dynamic0、cold0→dynamic1、additive0，以及同层健康part与缺named part：零part不查询，健康颜色/深度/合法影仍在；正值和normal0仍查询并保持未就绪语义。normal0实际受影开/关仍为32/56、cameraDepth .001900196同。Native九方法先实际通过；按审查退去过大失败域golden后，最终九方法复用同226+2真实读回作CPU断言重放，carrier/input/产品不变，不另编译GPU。新mixed-named两反例只核query、pending与健康色深，不固定撤影或零池来保护旧失败域；相邻ordered named缺项仍会扩大影图失败范围，留[开放队列](../roadmap/scene-open-breakpoint-queue.md)，本次不盲删完整性标记。
+CameraFamily实际226行与永久normal0受影两CB完成，原217+3输入和全部220行输出字段逐值同，未排除token或放宽旧断言。新增六行核cold1→dynamic0、cold0→dynamic1、additive0，以及同层健康part与缺named part：零part不查询，健康颜色/深度/合法影仍在；正值和normal0仍查询并保持未就绪语义。normal0实际受影开/关仍为32/56、cameraDepth .001900196同。Native九方法先实际通过；按审查退去过大失败域golden后，最终九方法复用同226+2真实读回作CPU断言重放，carrier/input/产品不变，不另编译GPU。mixed-named两反例核query、pending与健康色深，ordered影图的独立验证见[命名贴图晚到](#model-named-shadow-locality)。
 
 Debug29.067秒，Frame/project/锁文件前后同，strict-deep及trusted helpers通过；exe17bd1c19…ae434、dylib89146505…43ee1、metallib仍7c94461a…c2cbb7。冻结33八秒/after4/75%和独立343五秒/after3两App共70.055秒通过，五身份与输入前后同，均stopped/surfaces released/GPU drained。after分别F239/R3与F172/R2，28/2模型进入同次main/export/seal、GPU completed且截断/解析错0；2268×1474冻结PNG仍为1d1e6cde…9916，与前一有效基线字节同，独立地球纹理/大气/暗侧/文字齐。未重跑未受影响的原358四十秒窗，不据短运行授自然环闪全部关闭、官方一致或性能收益。
 
 当前源、实际GPU及完整App证据归`.artifacts/scene-model-non-normal-zero-20261117`和同名formal run；此前层零/材质零caster资格保于`.artifacts/scene-model-known-zero-20261117`，其native不可变manifest仍反映封口时App pending，实际App/最终独审另附。更早dc8与已淘汰五点重建归`.artifacts/scene-model-zero-layer-alpha-20261117`。本轮保唯一DD、bd01对照App与未解决真实几何输入，不重写旧包身份。
+
+## 命名贴图晚到时的模型投影 <a id="model-named-shadow-locality"></a>
+
+按[模型阴影合同](advanced-object-coverage.md#model-shadow-coverage)，单个raw命名源缺货或模型只有部分素材可用时，原ordered Frame以已就绪part生成影图，颜色继续等当前帧供货。独立组合的颜色深度仍优先于可选影图。零就绪模型的graph来源沿当前frame plan预约，raw来源只凭当前帧完整primary发布预约。真实容量失败和身份无效仍走原边界。产品一文件+53/−15，增长集中于暂存可投影part和复用原深度预约，均限本帧ordered路径，无新持久状态、缓存、纹理类型或PSO。
+
+同一Debug App回归在旧版因独立接收区仍为RGB `(81,81,81)`而失败，修复版降到`(5,5,5)`。只破坏命名来源的PNG，独立模型仍为`(0,90,0)`，缺图模型区域与未遮挡区均为`(81,81,81)`。ready/after实际导出各与同命令缓冲的main/seal及GPU完成配对。常态供货的前后四张PNG逐字节一致，改名与重编号的缺货变体保同一像素结果，延迟需求和零alpha对照的各阶段ROI在旧/新一致。一次性缺货的首epoch，旧版无影图，新版投一份健康影，回供后同帧恢复命名模型的颜色编码，下一epoch影图恢复两份caster。此首帧结论来自原生事件，后续截图用于核实稳定像素。
+
+11项原生Metal测试通过。部分就绪的同一模型真实写入影深度，晚到part随后实际绘出颜色。独立组紧配额下，两份颜色深度先获准，可选影图按配额失败；来源本帧已移除而快照残留时，仅申请一份健康深度，健康投影保持。只含局部投影修复的中间版本在紧配额门失败，凭快照预约的中间版本在移除来源反例失败。最终版经独立审查；同层多材质载体验证的是Frame消费边界，实际App发布仍用已接入的单slot输入。
+
+独立作者原包3455121165的project/pkg/tree摘要一致，两份签名App分别在F303/F270实际绘出命名模型115/122/127，同次终端导出与GPU完成配对；启动期spot101和point105各有19个caster的深度事件。场景相位不同，独立原包验证健康播放。直接对照、构建身份、原生读回与复现材料归`.artifacts/scene-named-shadow-locality-20261123`，原包报告及终端图归正式运行`scene-named-shadow-locality-author-20261123`。
 
 ## 半透明模型的覆盖阴影 <a id="model-shadow-coverage"></a>
 

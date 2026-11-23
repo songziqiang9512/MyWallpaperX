@@ -186,8 +186,9 @@ final class TextureRegistry {
  }
 }
 struct SceneCompositionGroupFrameRuntime {
- func renderPass(forLayerID:Int)->SceneMainPassEncoder? { nil }
- func closeAllGroupEncoders() {}
+ var passesByLayer:[Int:SceneMainPassEncoder]=[:]
+ func renderPass(forLayerID:Int)->SceneMainPassEncoder? { passesByLayer[forLayerID] }
+ func closeAllGroupEncoders() { passesByLayer.values.forEach { $0.closeForOffscreen() } }
  func terminalScratch(matching:MTLTexture,on:MTLCommandBuffer)->MTLTexture? {nil}
  func sourceIsAvailable(forLayerID:Int)->Bool {false}
  func compositeTargetPass(forRootID:Int)->SceneMainPassEncoder? {nil}

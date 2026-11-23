@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 476,
-      "bytes": 111002
+      "lines": 478,
+      "bytes": 112023
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 198,
-      "bytes": 59774
+      "lines": 197,
+      "bytes": 58996
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 585,
-      "bytes": 167457
+      "lines": 595,
+      "bytes": 169766
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,20 +487,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "2a789dd025509c1cd2584d19edd67ff8c22ed1c0bceb9827374c60318df93241",
-      "after": "5bf57bd353a50675a5c1e57d875696d26b8b35bd67a16e1dfe4f8df22f4ff38f",
-      "owner": "Existing Scene direct model runtime evidence",
-      "reason": "Record verified opaque primitive identity and actual directional comparison events with matched caster geometry.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-shadow-fragment-taps"
+      "before": "5bf57bd353a50675a5c1e57d875696d26b8b35bd67a16e1dfe4f8df22f4ff38f",
+      "after": "b692bd7cd1781c7110fc4456c97b40969c3883d73b6d70141ce2610b99263eef",
+      "owner": "Existing Scene model runtime evidence",
+      "reason": "Record scoped named-source failure, actual App pixels and GPU depth priority in the authoritative model evidence.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-named-shadow-locality"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "63a7455642f0d19004d383529dcabe0e55e5dbaae74c9993b9e44e4623808ec5",
-      "after": "486074fd25002811135ff8f24ca2ca6100593074d10ef09a838cc9b5eaaf5823",
-      "owner": "repository governance",
-      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "486074fd25002811135ff8f24ca2ca6100593074d10ef09a838cc9b5eaaf5823",
+      "after": "b9e3159b1187abae7c90e43484bf8dfeff14dd1c055ffc7ac2d803fb0a8981e7",
+      "owner": "Existing Scene static model frame/shadow and named dependency owners",
+      "reason": "Specify locality and publication timing when one ordered model albedo is late, with existing mandatory lease and identity boundaries.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
     },
     {
       "section": "bodies",

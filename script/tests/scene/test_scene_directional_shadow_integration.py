@@ -43,7 +43,7 @@ def quad(x0, x1, y0, y1, z, material):
 def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
                     layer_alpha=1, texture_alpha=255, tint_mask=False,
                     caster_x=70, caster_z=20, angle=2.35619449019,
-                    caster_first=False, moving=False, bloom=False, healthy_effect=False, singular_caster=False, extra_valid_caster=False, perspective=False, parent_offset=0, moving_light=False, color_blend=0, healthy_visible=True):
+                    caster_first=False, moving=False, bloom=False, healthy_effect=False, singular_caster=False, extra_valid_caster=False, perspective=False, parent_offset=0, moving_light=False, color_blend=0, healthy_visible=True, named_source=None):
     receiver = {'id': 1, 'model': 'models/receiver.mdl', 'origin': '0 96 0',
                 'perspective': False, 'castshadow': False}
     occluder = {'id': 2, 'model': 'models/caster.mdl', 'origin': '0 96 0',
@@ -97,6 +97,22 @@ def fixture_entries(*, cast=True, light_cast=True, caster=True, caster_lit=True,
     if extra_valid_caster:
         scene['objects'].append({'id': 5, 'model': 'models/valid.mdl', 'origin': '0 96 0', 'perspective': False, 'castshadow': True})
         entries['models/valid.mdl'] = quad(30, 50, 38, 58, 20, 'materials/caster.json')
+    if named_source is not None:
+        if extra_valid_caster:
+            entries['materials/peer.json'] = entries['materials/caster.json']
+            entries['models/valid.mdl'] = quad(30, 50, 38, 58, 20, 'materials/peer.json')
+        material = json.loads(entries['materials/caster.json'])
+        material['passes'][0]['textures'] = ['_rt_imageLayerComposite_11_a']
+        entries['materials/caster.json'] = json.dumps(material).encode()
+        occluder['dependencies'] = [11]
+        scene['objects'].append({'id': 11, 'image': 'models/provider.json',
+                                 'origin': '80 48 0', 'size': '20 20', 'visible': False})
+        entries.update({
+            'models/provider.json': json.dumps({'material': 'materials/provider.json'}).encode(),
+            'materials/provider.json': json.dumps({'passes': [{'shader': 'genericimage',
+                'textures': ['materials/provider.png']}]}).encode(),
+            'materials/provider.png': entries['materials/green.png'] if named_source == 'ready' else b'not an image\n',
+        })
     # Preserve these canonical-down ROI quads with an explicit authored
     # reflection, including the singular caster's independent zero-Z scale.
     for obj in scene['objects']:
@@ -126,7 +142,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest('requires immutable MWX_DIRECTIONAL_SHADOW_APP')
         app = Path(configured).resolve(strict=True)
         cls.executable = app / 'Contents/MacOS/MyWallpaperX' if app.suffix == '.app' else app
-        cls.app = cls.executable.parents[3]
+        cls.app = cls.executable.parents[2]
         cls.binaries = [cls.executable, cls.executable.parent / 'MyWallpaperX.debug.dylib',
                         cls.app / 'Contents/Resources/default.metallib']
         cls.identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in cls.binaries}
@@ -195,6 +211,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             after = Image.open(work / 'evidence/scene-after-window.png').convert('RGB')
             self.assertIsNone(ImageChops.difference(ready, after).getbbox(), report)
         if (options.get('caster', True) and options.get('layer_alpha', 1) == 1
+                and options.get('named_source') != 'missing'
                 and options.get('texture_alpha', 255) == 255 and options.get('caster_x', 70) == 70
                 and options.get('caster_z', 20) == 20 and not moving and not options.get('singular_caster') and not options.get('parent_offset')):
             rgb = pixels['scene-ready-window.png']['caster']
@@ -246,6 +263,20 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             self.assertGreater(pixels['valid_caster'][1], max(pixels['valid_caster'][0], pixels['valid_caster'][2]) + 20, result)
             for a, b in zip(pixels['caster'], pixels['control']):
                 self.assertAlmostEqual(a, b, delta=3, msg=str(result))
+
+    def test_unavailable_named_caster_keeps_independent_shadow(self):
+        missing = self.run_case('missing-named-caster', named_source='missing', extra_valid_caster=True)
+        ready = self.run_case('ready-named-caster', named_source='ready', extra_valid_caster=True)
+        for phase in ('scene-ready-window.png', 'scene-after-window.png'):
+            absent = missing['pixels'][phase]
+            supplied = ready['pixels'][phase]
+            self.assertLess(max(absent['valid_shadow']), min(absent['control']) * .3, missing)
+            for region in ('valid_shadow', 'valid_caster', 'control'):
+                self.assertEqual(absent[region], supplied[region], (region, missing, ready))
+            for region in ('shadow', 'caster'):
+                self.assertEqual(absent[region], absent['control'], (region, missing))
+            self.assertLess(max(supplied['shadow']), min(supplied['control']) * .3, ready)
+        self.assert_shadow_lifecycle(missing)
 
     def test_default_cast_and_bloom_preserve_shadow(self):
         self.assert_visibility(self.run_case('cast-omitted', cast='omitted'), shadowed=True)
