@@ -859,13 +859,12 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 资源计费与使用期",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-11-17",
+      "lastReviewed": "2026-11-24",
       "reviewBasis": {
-        "kind": "navigation-audit",
-        "sourceSHA256": "6b4b917c9118321c90de0e81aeba3159bc84dc18a6979bf63d50000cb83d8af4",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "核对原总额、深度/scratch队列与pin，以及同帧资源入口唯一完整驻留预检、busy/rejected分类；退上层重复扫描，无新预约owner。",
-        "limitations": "仅导航与职责审查；本次GPU/App/成本按模型证据限定，未授自然环闪或全类型作者覆盖。全局registry既有未登记设计文档另留开放队列。"
+        "kind": "git-document-change",
+        "revision": "4a68cab1090b025f73b23c5a3a6b5bf4dc7b50d7",
+        "scope": "审阅原资源准备、发布与条件 TEX 设计的现行职责。",
+        "limitations": "条件图集的原包对照已完成，运行实现和热供货仍在开放队列。"
       }
     },
     {
