@@ -102,7 +102,8 @@ def fixture_entries(arm: str, topology_action: str | None = None) -> dict[str, b
 
 
 def background_cut_entries(*, sorting: bool, writes_depth: bool,
-                           main_observer: bool = False, named_albedo: bool = False) -> dict[str, bytes]:
+                           main_observer: bool = False, named_albedo: bool = False,
+                           implicit_text: bool = False) -> dict[str, bytes]:
     scene = world.native_world_scene([
         {"id": 1, "model": "models/red_field.mdl", "perspective": True, "castshadow": False},
         {"id": 20, "image": "models/util/composelayer.json", "config": {"passthrough": True},
@@ -115,6 +116,8 @@ def background_cut_entries(*, sorting: bool, writes_depth: bool,
          "depthtest": "enabled", "perspective": True},
         {"id": 30, "model": "models/green_marker.mdl", "perspective": True, "castshadow": False},
     ])
+    if implicit_text:
+        del scene["objects"][2]["depthtest"]
     scene["general"]["transparentsorting"] = sorting
     if main_observer:
         scene["objects"].insert(3, {"id": 22, "image": "models/prefix_filter.json",
@@ -335,11 +338,14 @@ class SceneNativeCameraFrameIntegrationTests(unittest.TestCase):
             ("sort-off", False, True, False, False), ("sort-on", True, True, False, False),
             ("read-only-model", True, False, False, False), ("main-reader", True, True, True, False),
             ("named-writer", True, True, False, True),
+            ("implicit-text", True, True, False, False),
         ):
             with self.subTest(name=name):
-                moves = sorting and writes_depth and not (observer or named_albedo)
+                implicit_text = name == "implicit-text"
+                moves = sorting and writes_depth and not (observer or named_albedo or implicit_text)
                 entries = background_cut_entries(sorting=sorting, writes_depth=writes_depth,
-                                                 main_observer=observer, named_albedo=named_albedo)
+                                                 main_observer=observer, named_albedo=named_albedo,
+                                                 implicit_text=implicit_text)
                 # Shift the right-side source marker to a witness the model
                 # cannot subsequently cover. World x=-.36 maps to source
                 # x=.24 on the card and x=.264 at the marker's depth.

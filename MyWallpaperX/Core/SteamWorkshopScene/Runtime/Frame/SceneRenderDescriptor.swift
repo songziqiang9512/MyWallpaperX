@@ -166,6 +166,7 @@ nonisolated struct SceneRenderDescriptorBuilder {
             && sceneDocument.general.farZ.map {
                 $0.isFinite && $0 > (sceneDocument.general.nearZ ?? 0.01)
             } != false
+        let hasNativeWorldModel = !directStaticModelMaterialLinks.isEmpty
         let preparedModelStates = imageMaterialFacts.compactMapValues { fact in
             guard preparesNativeImageState || fact.state?.supportsImageAdditiveRGB == true
             else { return nil as SceneMaterialRenderState? }
@@ -299,7 +300,9 @@ nonisolated struct SceneRenderDescriptorBuilder {
                 if preparesNativeImageState, contentKind == "text",
                    (layer.colorBlendMode ?? 0) == 0,
                    case let .object(fields)? = object.authoredValue {
-                    layer.imageMaterialRenderState = .compileTextDepth(fields["depthtest"]?.stringValue)
+                    let authoredDepthTest = fields["depthtest"]
+                    layer.imageMaterialRenderState = .compileTextDepth(authoredDepthTest?.stringValue,
+                        useReadOnlyDefault: hasNativeWorldModel && authoredDepthTest == nil)
                 }
                 return layer
             },

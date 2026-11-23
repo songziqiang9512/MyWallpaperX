@@ -2,11 +2,12 @@ import Foundation
 
 /// Launch/preparation-only normalization of authored material fields.
 nonisolated extension SceneMaterialRenderState {
-    static func compileTextDepth(_ depthTest: String?) -> Self? {
-        guard typed(depthTest, as: Depth.self) == .enabled else { return nil }
+    static func compileTextDepth(_ depthTest: String?, useReadOnlyDefault: Bool) -> Self? {
+        guard useReadOnlyDefault || typed(depthTest, as: Depth.self) == .enabled else { return nil }
         return .init(rawValues: .init(blending: nil, depthTest: depthTest,
             depthWrite: nil, cullMode: nil, alphaWriting: nil),
-            blending: .translucent, depthTest: .enabled, depthWrite: .enabled,
+            blending: .translucent, depthTest: .enabled,
+            depthWrite: useReadOnlyDefault ? .disabled : .enabled,
             cullMode: .noCull, alphaWriting: .unspecified)
     }
 

@@ -416,7 +416,7 @@ TEXT_DEPTH_CASES = (
 )
 
 
-def perspective_text_depth_entries(*, named_first=False, renamed=False, sorting=True, prefix=False):
+def perspective_text_depth_entries(*, named_first=False, renamed=False, sorting=True, prefix=False, implicit=False):
     objects = [{"id": 2, "model": "models/near.mdl", "castshadow": False}]
     entries = {
         "models/near.mdl": mdl_quad(-5, 5, .38, 1.18, 1, "materials/orange.json"),
@@ -454,6 +454,8 @@ void main() {{
                "pointsize": 24, "padding": 40, "color": "1 1 1", "origin": f"{x} {y} 0",
                "scale": "0.0055 0.0055 1", "horizontalalign": "center",
                "verticalalign": "center", "depthtest": depth_test, "perspective": True}
+        if implicit and depth_test == "enabled":
+            del obj["depthtest"]
         if effect:
             obj["effects"] = [{"id": layer + 200, "file": f"effects/{effect}/effect.json", "visible": True,
                                "passes": [{"id": 0, "constantshadervalues": {"alpha": .5}}]}]
@@ -749,9 +751,9 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                             msg=str((name, path.name, region, measurement)))
 
     def test_independent_perspective_text_blends_over_world_only_with_sorting(self):
-        for sorting in (False, True):
-            with self.subTest(sorting=sorting):
-                self.run_perspective_text_depth_case(sorting=sorting)
+        for sorting, implicit in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(sorting=sorting, implicit=implicit):
+                self.run_perspective_text_depth_case(sorting=sorting, implicit=implicit)
 
     def test_world_text_order_preserves_actual_main_prefix_reader(self):
         self.run_perspective_text_depth_case(prefix=True)
@@ -761,10 +763,13 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
             with self.subTest(renamed=renamed):
                 self.run_perspective_text_depth_case(named_first=True, renamed=renamed)
 
-    def run_perspective_text_depth_case(self, *, named_first=False, renamed=False, sorting=True, prefix=False):
-        entries = perspective_text_depth_entries(named_first=named_first, renamed=renamed, sorting=sorting, prefix=prefix)
+    def run_perspective_text_depth_case(self, *, named_first=False, renamed=False, sorting=True, prefix=False, implicit=False):
+        entries = perspective_text_depth_entries(named_first=named_first, renamed=renamed, sorting=sorting,
+                                                 prefix=prefix, implicit=implicit)
         name = (("late-named-text-renamed" if renamed else "late-named-text") if named_first
                 else "text-prefix" if prefix else f"text-sort-{sorting}")
+        if implicit:
+            name += "-implicit"
         provider = (901 if renamed else 11) if named_first else None
         (self.evidence_root / (name + "-protocol.json")).write_bytes(encoded({
             "entries": {k: hashlib.sha256(v).hexdigest() for k, v in entries.items()},

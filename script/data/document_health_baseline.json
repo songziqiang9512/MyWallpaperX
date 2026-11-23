@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 503,
-      "bytes": 116596
+      "lines": 505,
+      "bytes": 117228
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 101,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 295996
+      "bytes": 297065
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66961
+      "bytes": 67065
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,10 +496,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "89eb3504f7eef7e03a75f8493e5adfdd3039cd49574d6822e760cd63782754b9",
-      "after": "fbd8ccbc4332fe87499b02c636216c8ff509cfa5ffeda5a6c50ae7940f021e90",
-      "owner": "Scene world terminal composition",
-      "reason": "Replace the graph-only transparency eligibility with the existing plain-source and local-graph routes, keeping the current main-pass barriers.",
+      "before": "fbd8ccbc4332fe87499b02c636216c8ff509cfa5ffeda5a6c50ae7940f021e90",
+      "after": "fa4f12bef4115b794dd6125a8a9ff0b74a6bf3570611dcbae0220dd8a14184c1",
+      "owner": "Scene native world text and depth",
+      "reason": "Define omitted text read-only depth and preserve explicit and framebuffer prefix rules.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#perspective-image-terminal-depth"
     },
     {
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8f323ec134ceabeea1b40e245e4785288719c331f46a37cb59fdf0dcd3f159ca",
-      "after": "006b9059292935d5f90e5375e386058e0b92aacf1bef7b9043e617823aa5e7ca",
-      "owner": "Scene authored text and viewport",
-      "reason": "Replace historical manual observation with directly matched author output and quantified outline.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#text-screen-anchor-viewport"
+      "before": "006b9059292935d5f90e5375e386058e0b92aacf1bef7b9043e617823aa5e7ca",
+      "after": "640ac24c272efe5e04e6512528e4fefc1e7a315fe7c78729b19da23b1470b692",
+      "owner": "Scene native world text and depth",
+      "reason": "Record actual near/far glyphs, same original, and TEX-independent scene comparisons.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-text-occlusion-333"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9d34d0063edec99fc3fb7cf3f3b7ba82261d2262f529b1a9163b8151e62d3a7e",
-      "after": "d2a3cf5ee022e17b115c4a03dfe78f5b07bc473061d0232e584ff84c9a8d6d67",
-      "owner": "Scene authored texture and property preparation",
-      "reason": "Track the evidenced conditional texture and shared sampler publication gap.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
+      "before": "051a6674c70d1edaa2afe83453c78e09c3fab1220f653f13351871ded876a294",
+      "after": "b335b2766da4995ce3dcc3ecd487679a346060f99e72f7f3442017ef88010363",
+      "owner": "Scene native world text and depth",
+      "reason": "Retire the resolved text-occlusion part of the queue.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-box-text-occlusion-333"
     },
     {
       "section": "bodies",

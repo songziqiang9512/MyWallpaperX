@@ -168,7 +168,7 @@
 | 3768724269 /3287715210 | 前者的光束范围/根部/右上渐变仍需定位；后者旧眼周/横移细竖纹尚无同条件native差异。[328体积开关STOP](../capabilities/runtime-evidence-current.md#point-volume-328-stop)未给出明确可逆贡献，85不再列优先归因；不由旧反馈扩正交/阴影合同，不原样补跑，待新的明确ROI/贡献。 |
 | 3750813609 /3363252053 | 相机过强/纵向反转的同输入体验；375另核时钟颜色、雨量与雷电。 |
 | 3747492842 | 闪烁/光束位置/crop/文字构图。 |
-| 3248220186 /3337494481 | 前者运动/密度/亮度；后者跨面文字、扁盒/粉顶、遮挡与solid亮度。 |
+| 3248220186 /3337494481 | 前者运动、密度与亮度。后者[侧字透盒已恢复](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333)，扁盒、粉顶与solid亮度分别待画面对照。 |
 | 2938612768 /2775915974 | 293默认裁屏已沿[原文字与画幅](../capabilities/runtime-evidence-current.md#text-screen-anchor-viewport)定位，重启须点击/更晚相位的具体新差异，不重复默认移位对照或改anchor；277顶部灰边仍须实际画幅/图层与相位资格。 |
 | 3712499998 | 作者明确声明21→22、28→29、33→34三对文字，子层有独立近邻位置及压缩Y scale；原R0六层均有效visible，不能将副本文字直接判引擎重复draw或删child。样式反馈仍开，重启须具体glyph/geometry/样式差异及同viewport/phase消费者或官方参考，不重跑原默认短窗；薄事实在`.artifacts/scene-text-pairs-371-next-20261109/`。 |
 | 3477054430 | [本轮短窗](../capabilities/runtime-evidence-current.md#rescreen-recent-inputs)月亮、猫、耳机与楼体完整；紫月边对应默认moonlightcolor及同帧u_Color，不立配色缺陷。完整运动、低频响应与受光仍待明确同条件ROI，不重复默认整景。 |

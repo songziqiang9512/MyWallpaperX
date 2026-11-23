@@ -187,7 +187,7 @@ extension SceneMetalRenderer {
                 }
                 modelFrame.imageMaterialStates[id] = state
                 if groups == nil, layer.contentKind == "text", imagePipeline.supportsReadOnlyDepth {
-                    mayOrderText = true
+                    mayOrderText = mayOrderText || sortsTransparency || state.depthWrite == .enabled
                 } else if groups == nil, sortsTransparency,
                           layer.contentKind == "image" || (layer.contentKind == "solid" && layer.effects.isEmpty) {
                     layerDepths[id] = worldTransparencyDepth(layer, state: state, cameraFrame: cameraFrame,
