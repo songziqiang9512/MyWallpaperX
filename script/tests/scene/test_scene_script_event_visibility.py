@@ -756,7 +756,7 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         self.assertEqual(len(rows), 4)
         for row in rows:
             with self.subTest(name=row["name"], path=row["path"]):
-                self.assertEqual(row["birth"], 1 if row["path"] == "dynamic" else 0, row)
+                self.assertEqual(row["birth"], 2 if row["path"] == "dynamic" else 1, row)
                 self.assertEqual(row["unchanged"], 0, row)
 
     def test_perspective_no_consumer_only_admits_explicit_prepared_noop(self) -> None:
