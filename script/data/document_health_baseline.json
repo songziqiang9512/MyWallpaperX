@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 295891
+      "bytes": 295996
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "365b6bf8845afda3fad1d314ff41e1ff952f27d87f3116ca4fe81601fdc41734",
-      "after": "8f323ec134ceabeea1b40e245e4785288719c331f46a37cb59fdf0dcd3f159ca",
-      "owner": "Scene authored texture and property preparation",
-      "reason": "Record original hot edits, official transparent control, independent logo and capture receipts.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-mask-376"
+      "before": "8f323ec134ceabeea1b40e245e4785288719c331f46a37cb59fdf0dcd3f159ca",
+      "after": "006b9059292935d5f90e5375e386058e0b92aacf1bef7b9043e617823aa5e7ca",
+      "owner": "Scene authored text and viewport",
+      "reason": "Replace historical manual observation with directly matched author output and quantified outline.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#text-screen-anchor-viewport"
     },
     {
       "section": "bodies",
