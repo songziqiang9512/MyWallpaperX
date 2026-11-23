@@ -141,7 +141,6 @@
 | <a id="puppet-morph-peer-fallback"></a>3504669359 | 默认四秒旧强白圆未重现，固定圆核及材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。身体166的三个普通叠加槽已从共同解析失败中恢复实际骨骼动作，见[原包与固定相位对照](../capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence)。clip700接入后已在实际合成重现闭眼与睁眼，[固定相位和独立作者](../capabilities/runtime-evidence-current.md#puppet-mdmp-oracle)通过。形变扩域按[能力边界](../capabilities/advanced-object-coverage.md#puppet-mdmp-morph)等活动输入。 |
 | 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
-| 3141464346 | [裁切](../capabilities/runtime-evidence-current.md#ring-cover-314)已由原画幅及已有Windows图定位。保Puppet位置与共域彩弧细节，须有同viewport、同音源及相位的可区分差异，再核13/351的group尾与main，不重跑默认/静音对。 |
 | 2957870426 | PCM/静音已供，目标audio消费者仍未资格。中央竖光、birth Color Random/colorn与ROI须真实出生及颜色单位，不凭bus非零关闭；3383210272并入本次主要效果可见性优先项。 |
 | 3586308277 | SDR原色已恢复，扫描方向/可见度仍未知。[原作者两阶段](../capabilities/runtime-evidence-current.md#shimmer-phase)的Day430主字形均浅绿，未见可归属扫描变化；不能由所选4814近稳像素判冻结。冷常量/时钟链未见首错，g_Time实际上传未读回；现有两图不覆盖完整周期。此项收口，转其他基础播放；重启须可归属扫描ROI/实际phase或明确首错，不第三场延时、调方向/速度/颜色、重跑SDR或新增钩子。 |
 | 3351179520 | [归档画面按主体配准](../capabilities/runtime-evidence-current.md#circular-text-alignment)后环位、可见轮廓与遮挡对应，本轮无几何首错。保已知 Atami 替代和动态相位边界；重启须同视口/声源的同字串偏差，再以同帧 slot1→422→399→799/main 区分字形、MVP 和 g_Time。无需再跑默认整景。 |

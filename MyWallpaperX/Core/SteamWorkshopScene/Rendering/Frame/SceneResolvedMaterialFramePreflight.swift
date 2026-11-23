@@ -347,10 +347,11 @@ extension SceneMetalRenderer {
                 }
                 let model = imageModel(layer, nil)
                 capturedUnitModelMatrix = model
+                let memberLayerIDs = utilityExecution.membersByRootID[layerID]
                 guard let source = SceneResolvedMaterialUtilitySource.prepare(
                     layer: layer, unitModelMatrix: model, cameraFrame: cameraFrame,
                     viewportSize: viewportSize, groups: compositionGroupRuntime,
-                    memberLayerIDs: utilityExecution.membersByRootID[layer.id],
+                    memberLayerIDs: memberLayerIDs,
                     sourceTexture: selectedMainSource, frameEpoch: textureRegistry.frameEpoch,
                     preparedMaterial: preparedSourceMaterial
                 ) else {
@@ -359,14 +360,27 @@ extension SceneMetalRenderer {
                 }
                 utilityCaptureGeometry = source.geometry
                 framebufferSourceMaterial = source.material
-                desiredSize = source.geometry.pixelSize
+                let publishesGraphOutput = dependencyRuntime.requiresGraphOutputCapture(for: layerID)
                 if claim.supportsTerminalMaterialReplay,
                    frameVisibleLayerIDs.contains(layerID),
-                   !dependencyRuntime.requiresGraphOutputCapture(for: layerID),
+                   !publishesGraphOutput,
                    source.permitsAttachmentRead(layer: layer, alpha: effectDrawAlpha, cameraFrame: cameraFrame,
                        viewportSize: viewportSize, groups: compositionGroupRuntime,
-                       memberLayerIDs: utilityExecution.membersByRootID[layer.id]) {
+                       memberLayerIDs: memberLayerIDs) {
                     terminalReplayTarget = selectedMainSource
+                }
+                if terminalReplayTarget == nil, !publishesGraphOutput,
+                   utility.kind == .composition, utility.copyBackground, source.material == nil,
+                   memberLayerIDs == nil, layer.childLayerIDs.isEmpty, selectedMainSource === mainTarget,
+                   !cameraFrame.resolvesPerspective(for: layer),
+                   let extent = SceneLayerEffectSourceExtent.resolve(
+                       publishedRenderSizeWH: nil, authoredRenderSizeWH: layer.renderSizeWH,
+                       candidateMappedSize: nil
+                   ), Int(exactly: extent.pixelSize.width.rounded(.up)) != nil,
+                      Int(exactly: extent.pixelSize.height.rounded(.up)) != nil {
+                    desiredSize = extent.pixelSize
+                } else {
+                    desiredSize = source.geometry.pixelSize
                 }
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
@@ -495,7 +509,7 @@ extension SceneMetalRenderer {
                 textureFrame = geometry.sourceUV
                 capturesMainTarget = true
                 effectSourceExtent = SceneLayerEffectSourceExtent(
-                    pixelSize: geometry.pixelSize
+                    pixelSize: desiredSize
                 )
             case .transparentDirectDraw:
                 guard let directDrawOutputMVP =

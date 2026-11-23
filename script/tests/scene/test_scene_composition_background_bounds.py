@@ -676,6 +676,44 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     def test_true_background_renamed_quarter_turn_keeps_source_axes_and_order(self):
         self.run_fixture(copy_background=True, renamed=True, quarter_turn=True)
 
+    def run_childless_local_raster(self, *, renamed, size, scale):
+        project, entries = app_fixture.fixture_entries(effect=True, childless=True, renamed=renamed)
+        scene = json.loads(entries["scene.json"])
+        prefix, root = scene["objects"]
+        prefix.update(color="1 0 0", origin="128 128 0", size="256 256")
+        root.update(origin="128 128 0", size=f"{size[0]} {size[1]}", scale=scale, alpha=.5,
+                    copybackground=True)
+        scene["objects"].append(dict(prefix, id=875, name="Later marker", color="1 1 1", size="10 10"))
+        entries["scene.json"] = app_fixture.encoded(scene)
+        protocol = {"canvas": app_fixture.CANVAS, "layerIDs": {"composition": root["id"]},
+            "oracle": {name: {"canvasRect": rect, "expectedRGB": color} for name, rect, color in (
+                ("prefix", (92, 113, 100, 121), (127, 128, 128)),
+                ("outside", (54, 113, 62, 121), (255, 0, 0)),
+                ("late", (126, 126, 130, 130), (255, 255, 255)),
+            )}, "channelTolerance": app_fixture.CHANNEL_TOLERANCE}
+        with patch.object(app_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(app_fixture, "preregistration", return_value=protocol):
+            log, _ = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.run_case(self, effect=True)
+        observations = app_fixture.structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        events = [e for e in observations["events"] if e.get("captureRequestID")]
+        self.assertGreaterEqual(len(events), 2)
+        for event in events:
+            self.assertEqual((event["gpuStatus"], event["truncatedRows"]), ("completed", 0))
+            root_rows = [r for r in event["rows"] if r.get("layerID") == root["id"]]
+            capture, = [r for r in root_rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded"]
+            draw, = [r for r in root_rows if r["kind"] == "material" and r.get("slot") == 0
+                     and r["outcome"] == "draw-encoded"]
+            for texture in (capture["target"], draw["source"], draw["target"]):
+                self.assertEqual((texture["width"], texture["height"]), size)
+            self.assertEqual(capture["target"]["textureToken"], draw["source"]["textureToken"])
+
+    def test_childless_background_uses_authored_effect_raster(self):
+        self.run_childless_local_raster(renamed=False, size=(128, 64), scale="0.75 2 1")
+
+    def test_renamed_non_square_raster_preserves_the_same_background_cut(self):
+        self.run_childless_local_raster(renamed=True, size=(48, 96), scale="2 1.33333333 1")
+
     def run_ordinary_root_program(self, *, enabled):
         source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
         project, entries = ordinary_root_program_fixture(enabled=enabled)
