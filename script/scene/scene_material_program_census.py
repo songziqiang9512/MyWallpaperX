@@ -10,6 +10,12 @@ present in the evidence input.
 """
 
 from __future__ import annotations
+import sys
+from pathlib import Path
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
 
 import argparse
 from collections import Counter
@@ -30,7 +36,7 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_capability_census_io import is_sample_directory_name
-from generate_scene_shader_cache_identity import build_identity, write_identity
+from script.assets.generate_scene_shader_cache_identity import build_identity, write_identity
 from scene_real_test_fixture_config import load_fixture_config
 from scene_swift_source_sets import (
     scene_swift_source_relpaths,

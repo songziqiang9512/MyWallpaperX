@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scene_helper_qualification_sites.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scene/scene_helper_qualification_sites.py"
 SPEC = importlib.util.spec_from_file_location("scene_helper_qualification_sites", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None
 TOOL = importlib.util.module_from_spec(SPEC)
