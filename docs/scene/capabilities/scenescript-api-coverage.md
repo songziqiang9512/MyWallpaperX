@@ -50,6 +50,11 @@ Layer `color` setter接受有限三分量原值；[公开颜色教程](https://d
 
 普通命令在既有 commit/下一 cadence 可见；camera、authored TRS、visibility、particle 的当帧投影各沿已实现消费者，不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
 
+<a id="authored-text-current-value"></a>
+层句柄写入的文字沿原提交进入后继 `update(value)` 和 Layer getter。已接纳的文字求值实际把它改为另一个值后，提交时从原 `authoredLayerValues` 退掉这笔旧写入，后续由已有 Evaluation snapshot 持有当前值。保留目标定义供后续写入复用。同批有新 `.text` 写入时，其值仍按原阶段供下次 cadence，重复写相同字符串也算新写入。无输出、拒绝或只使用 setter 的层继续持有原值。不扩展同帧 setter 投影，不新增回调、字段 epoch、状态或资源。
+
+验收沿真实 App 验证一次跨层写入、有状态文字继续增长、句柄读到当前文字、后续定时替换及纯 setter 邻例，保资源及目标改名。原播放器用未改包的媒体事件链核完整两行与剩余时间，保封面和作者布局。失败写入不替换健康文字的原值。
+
 <a id="current-frame-authored-transforms"></a>
 ### 作者变换与派生画面的同帧设计
 

@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 285468
+      "bytes": 287021
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 223,
-      "bytes": 41301
+      "lines": 228,
+      "bytes": 42231
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 65799
+      "lines": 214,
+      "bytes": 66384
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -451,11 +451,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "617d2526dfd95eacd3ad8a1572a9f079ef2ca2fff3668089c3ee0839ad19a76d",
-      "after": "7076c0ae38699743dde2c6b4416677034c84e9cccb43b194483082541c92a235",
-      "owner": "repository governance",
-      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "7076c0ae38699743dde2c6b4416677034c84e9cccb43b194483082541c92a235",
+      "after": "d743c1063933128347643129a1bedbe254aa0a249fbd1ac7e0221bd86b6cfd05",
+      "owner": "Scene text and media presentation",
+      "reason": "Define the authored text setter handoff to the published stateful string value.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#authored-text-current-value"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "56e4a309acb8b367a5a5357a18494c7ae728d6a63ad14149eca4764074b00c94",
-      "after": "b8cee7499b51879e74462eb2f5afde2624250e5660e4820c15b80330ec3e8c2d",
-      "owner": "Scene effect raster composition",
-      "reason": "Record sustained fixed PCM, the Windows stripe control, and the native GPU/pixel contrast.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-led-stripe-322"
+      "before": "b8cee7499b51879e74462eb2f5afde2624250e5660e4820c15b80330ec3e8c2d",
+      "after": "c9cf23fbf83f96ef0a1fbc582bceecaaa1fa03076a7327d345e53ef0c6c62280",
+      "owner": "Scene text and media presentation",
+      "reason": "Record original macOS and Windows media-session evidence, diagnostics and actual rendering recovery.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-player-text-current-360"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5eced447a57bb8f6c8886ba20b80db543d0b9e4e27229cffea81f36689dcd71f",
-      "after": "1a0cb64a80347dc94bcb3dc05d1792062e8f469b04ce3a71c845a55768d14b48",
-      "owner": "Scene effect raster composition",
-      "reason": "Track the verified LED bar flicker at the bounded effect raster and sampling boundary.",
+      "before": "1a0cb64a80347dc94bcb3dc05d1792062e8f469b04ce3a71c845a55768d14b48",
+      "after": "c0787b7c3a23a05ba6dac56b55d972f94d4c00a9469753146a644a42d491a3cf",
+      "owner": "Scene text and media presentation",
+      "reason": "Track outstanding layout evidence and the independently reproduced paused raster baseline.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

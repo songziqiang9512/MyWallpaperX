@@ -955,7 +955,9 @@ extension SceneDesktopWallpaperSession {
             puppetAnimationCommands: admittedOwnerEffects.flatMap(\.puppetAnimationCommands),
             scriptFrame: sceneScriptFrame,
             timing: timing,
-            layerPlan: admission.layerPlan,
+            layerPlan: admission.layerPlan.retiringConsumedTextSeeds(
+                publishedValues: sceneScriptStringResult.values,
+                admittedEffects: admittedOwnerEffects, excluding: rejectedOwnerTargets),
             rejectedOwnerTargets: rejectedOwnerTargets
         )
         SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)

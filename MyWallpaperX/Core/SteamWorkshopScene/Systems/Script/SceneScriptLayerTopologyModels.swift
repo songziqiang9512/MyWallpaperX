@@ -72,6 +72,29 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
             if let value = authoredLayerValues[target] { values[target] = value }
         }
     }
+
+    func retiringConsumedTextSeeds(
+        publishedValues: [SceneDynamicTarget: SceneDynamicValue],
+        admittedEffects: [SceneScriptOwnerEffects], excluding rejected: Set<SceneDynamicTarget>
+    ) -> Self {
+        guard !authoredLayerValues.isEmpty else { return self }
+        var consumed: Set<SceneDynamicTarget> = []
+        for (target, value) in publishedValues where !rejected.contains(target) {
+            if case .text(_, .content) = target, let seed = authoredLayerValues[target], seed != value {
+                consumed.insert(target)
+            }
+        }
+        guard !consumed.isEmpty else { return self }
+        // A newly admitted write seeds the next cadence even if it repeats the old value.
+        for effect in admittedEffects {
+            for mutation in effect.layerMutations where mutation.fields.contains(.text) {
+                consumed.remove(.text(layerID: mutation.layerID, field: .content))
+            }
+        }
+        var plan = self
+        for target in consumed { plan.authoredLayerValues.removeValue(forKey: target) }
+        return plan
+    }
 }
 
 nonisolated struct SceneScriptOwnerEffectsAdmission: Sendable {

@@ -53,6 +53,36 @@ def fixture_entries(paused):
         "models/own_solid.json": encoded({"solidlayer": True, "width": 256, "height": 256})}
 
 
+def text_setter_fixture(*, scripted, renamed=False):
+    project, entries = fixture_entries(False)
+    scene = json.loads(entries["scene.json"])
+    text, peer = scene["objects"]
+    ticker, reader, setter_only = ("Tick", "Check", "Keep") if not renamed else ("Title", "Witness", "Caption")
+    target_ids = (11, 12, 13) if not renamed else (416, 208, 731)
+    labels = [dict(text, id=layer_id, name=name, text=value, origin=f"128 {y} 0")
+              for layer_id, name, value, y in zip(target_ids, (ticker, reader, setter_only),
+                  ("Biii", "READY", "KEEP"), (74, 112, 150), strict=True)]
+    if scripted:
+        labels[0]["text"] = {"value": "EMPTY", "script": """export function update(value) {
+            return value.length < 4 ? value + 'i' : value;
+        }"""}
+        labels[1]["text"] = {"value": "WAIT", "script": f"""export function update() {{
+            return thisScene.getLayer({json.dumps(ticker)}).text === 'Biii' ? 'READY' : 'WAIT';
+        }}"""}
+        labels[2]["text"] = "OLD"
+        labels.insert(0, {"id": 10, "name": "One-shot writer", "origin": {"value": "0 0 0", "script": f"""
+            export function init(value) {{
+                const text = thisScene.getLayer({json.dumps(ticker)});
+                text.text = 'A';
+                thisScene.getLayer({json.dumps(setter_only)}).text = 'KEEP';
+                engine.setTimeout(() => {{ text.text = 'B'; }}, 1400);
+                return value;
+            }}"""}})
+    scene["objects"] = [*labels, peer]
+    entries["scene.json"] = encoded(scene)
+    return project, entries
+
+
 def measure(path):
     decoded = png_rgb_pixels(path)
     if decoded is None:
@@ -81,13 +111,13 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
         cls.app = Path(executable).resolve(strict=True)
         cls.frozen_app_hashes = app_hashes(cls.app)
 
-    def run_scene(self, paused):
+    def run_scene(self, paused, *, fixture=None, label=None, capture="scene-ready-window.png"):
         self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)
         with tempfile.TemporaryDirectory(prefix="mwx-paused-text-") as temporary:
             root = Path(temporary)
             content, home, evidence = root / "content", root / "home", root / "evidence"
             content.mkdir(); home.mkdir()
-            project, entries = fixture_entries(paused)
+            project, entries = fixture or fixture_entries(paused)
             (content / "project.json").write_bytes(encoded(project))
             (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
             inputs = (content / "project.json", content / "scene.pkg")
@@ -103,7 +133,7 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
                        MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
             if paused:
                 env["MWX_SCENE_DEBUG_TEXT_RASTER_DELAY"] = "2"
-            identity = {"command": command, "paused": paused, "protocol": PROTOCOL,
+            identity = {"command": command, "paused": paused, "protocol": {**PROTOCOL, "requiredCapture": capture},
                 "appSHA256": self.frozen_app_hashes, "inputSHA256": file_hashes(inputs),
                 "entrySHA256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()},
                 "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
@@ -120,7 +150,7 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
                 self.assertIn("gpuDrained=true", log)
                 self.assertRegex(log, r"phase=snapshot reason=ready request=\d+ source=metal ")
                 self.assertNotRegex(log, r"phase=snapshot-failed reason=ready ")
-                pixels = measure(evidence / PROTOCOL["requiredCapture"])
+                pixels = measure(evidence / capture)
                 self.assertGreater(pixels["whiteCount"], PROTOCOL["minimumWhitePixels"], pixels)
                 self.assertGreater(pixels["greenCount"], PROTOCOL["minimumGreenPixels"], pixels)
                 completed = [tuple(map(int, row)) for row in re.findall(
@@ -155,7 +185,7 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
                 (root / "pixels.json").write_bytes(encoded(pixels))
                 (root / "app.log").write_text(log)
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
-                    saved = Path(destination) / self._testMethodName / ("paused" if paused else "control")
+                    saved = Path(destination) / self._testMethodName / (label or ("paused" if paused else "control"))
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
                         if (root / name).exists():
@@ -170,3 +200,12 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
         for key in ("dimensions", "whiteCount", "whiteBounds", "whiteMaskSHA256"):
             with self.subTest(measurement=key):
                 self.assertEqual(paused[key], control[key], (paused, control))
+
+    def test_authored_text_setter_seeds_a_stateful_callback_and_remains_on_plain_text(self):
+        capture = "scene-after-window.png"
+        control = self.run_scene(False, fixture=text_setter_fixture(scripted=False), capture=capture)
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                scripted = self.run_scene(False, fixture=text_setter_fixture(scripted=True, renamed=renamed),
+                    label="renamed" if renamed else "scripted", capture=capture)
+                self.assertEqual(scripted, control)
