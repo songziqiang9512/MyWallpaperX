@@ -15,7 +15,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 3589454154 环黑点/快速闪烁（持续开放） | [成熟原包相邻实呈帧](../capabilities/model-runtime-evidence.md#model-shadow-temporal-contribution)已区分479有效覆盖进出、覆盖近稳时的受影阶跃及两者抵消。先在已证拟合XY不变的受影帧查同一片元及实际tap赢家；缺覆盖时需实际覆盖正反例和可比播放成本，不重开默认N2。旧728848及官方关影仍未闭，保合法投影体和材质。 |
+| 3589454154 环黑点/快速闪烁（持续开放） | [片元与实际tap](../capabilities/model-runtime-evidence.md#model-shadow-fragment-taps)确认同面与换面阶跃并存，17个479暗tap有实际前方几何，另有翻转依赖其它投影层。重启影滤波先取真实足迹误差及可比播放成本，保合法主影与现用偏差；颜色覆盖保原N2停止线。旧728848与官方关影仍待查。 |
 | 同输入天空背景点位差异（观察） | 3589454154原生/官方对照中的天空点位差异尚未归因，未认定产品缺陷。保留已有同输入画面，待环闪主问题收稳后再定位；本轮不开展新矩阵或按星点位置改算法。 |
 | 模型用户视频与其它贴图slot（待证） | [用户静图slot0已接通](../capabilities/model-runtime-evidence.md#model-user-albedo)；现用户视频仅PMA，模型straight需求会拒绝同key视频并保旧，尚无作者选视频像素证据，不按后缀放宽用途。静图现仍沿旧declared-key兜底准备PMA与straight两用途，后续核实际消费者和物理纹理是否冗余再裁剪，不把ready计数当驻留量。其它slot的provider/动画仍需实际消费者与独立样本，不由slot0静图推广。 |
 | 3662790108 全镜头与开场 | 默认开场随Date.now()，主过渡20秒、部分元素到25秒，复测自然播放至少30秒并区分远近镜头。[TRS同帧](../capabilities/model-runtime-evidence.md#current-authored-transforms)、[透明模型深度](../capabilities/model-runtime-evidence.md#model-translucent-camera-depth)、[普通图像冷深度](../capabilities/runtime-evidence-current.md#world-orbit-labels)和[零指数径向](../capabilities/model-runtime-evidence.md#spot-radial-falloff)已分别处理切镜头错相、地球斜纹、第二段说明和远端矮行星。焦点选帧与六个航天器两侧近景只授[模型证据](../capabilities/model-runtime-evidence.md#solar-model-views)范围，未见新模型缺片；Hubble高光细节与JWST暗面受光仍未知。余15卫星B及17有MDL航天器两侧已补实际49目标选帧/独审，未见新明确缺片；Charon眩光、Triton/Proteus窄相、北斗高光和三体水滴B细节仍未知，9作者占位不是缺图。[太阳标签短按双击](../capabilities/model-runtime-evidence.md#solar-label-double-click)已验证总览到近景；完整过渡、遮挡、返回与原生鼠标仍开放；黄色/蓝色完整3秒切换仅原小Saturn可辨，不能由HOLD正常授全部运动。旧钟/胶囊缺片观察已纠正，实际面板重叠见文字行。347已用户验收，不再把旧转向顺序当硬前置。 |
