@@ -51,6 +51,17 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 
 图片自然/显示尺寸与物理纹理尺寸分别保留；EXIF 方向由 ImageTextureUploader 解释，像素、mapped/physical extent 保持一致。source size 回填不重算已准备 graph 计划。purpose、alpha、数据通道和编码格式不是可互换的事实，领域规则归[采样与颜色](../capabilities/render-graph-shader-coverage.md#sampling)。
 
+<a id="conditional-tex-atlas"></a>
+### 条件 TEX 图集
+
+TEXB0004 的条件声明和 mip 内图块由原容器入口读取。各 mip 的矩形坐标独立，图块按记录引用条件 ID，沿基图该矩形的 RGBA 替换路径准备。每级原 atlas extent、UV、颜色用途和 mip 顺序保持。入口验证范围和长度，并把未陈述的字段按位置读取。已知布局失效时沿基图局部恢复，未知条件和缺键选择默认。普通 PNG、压缩、sprite、volume 和视频仍走各自的原入口。此前把声明计数当 mip 计数的读取分支在已确认的条件域退出。多条同时成立且相交时的官方次序、半透明补丁的官方组合均另有各自验收。
+
+准备阶段把条件声明编译为原 typed property 的键和比较值。原 base-image 资源 owner 按真实纹理来源及用途合并同一 atlas 的消费者，启动只准备当前选择。已准备的真实消费者将其条件键提供给原属性可用性报告。对热编辑复用现有资源就绪与 property revision 的提交门，按变化键请求下一份完整候选，保持当前纹理和已提交属性到共同可用。每份物理纹理发布后保持不变，新旧交叠只到在途帧或正在准备的请求退出。无需在帧内重读文件、重求条件、重编材质、重建 Puppet 或永久保留全部候选。
+
+接纳在各 Surface 与下一份真实 property snapshot 同批切换。普通来源更新沿原发布，Puppet 复用当前几何的 encode/prepare 和本地坐标，只重新绑定实际采样图集及 resource generation。失败或过期请求由原资源事务结束，保持健康 peer 与当前图。材质附属纹理沿其各自的 consumer 验收，读取格式的证据先于该路径的热接入。
+
+原包复现以面具正反切、两主题、同图集双消费者和真实 GPU 末端为验收。独立原包需有非零并逐级变化的图块矩形，另核改名、条件等价、缺键、范围坏枝和普通 TEX 邻例。记录首次准备与反复切换的开销、过期结果和退出，现行实现与画面见[原包对照](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)。
+
 <a id="material-graph-view"></a>
 ### 材质的图资源视图
 

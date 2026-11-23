@@ -97,8 +97,8 @@
       "bytes": 9092
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 81,
-      "bytes": 10668
+      "lines": 92,
+      "bytes": 12866
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 293341
+      "bytes": 294390
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 214,
-      "bytes": 66564
+      "lines": 215,
+      "bytes": 66964
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -469,11 +469,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
-      "before": "f9bb7795fc9849f705576c404216c32489804c23373fa13203902d0d7ad4d2fb",
-      "after": "b3acce96026612220dfbcb21ab7fa7eb4b0a758d091a3465b98cbba8247085ed",
-      "owner": "Existing Scene resource, evidence and developer-tool owners",
-      "reason": "Consolidate current resource evidence: single typed residency admission with actual 63-second-per-side cost, retained history/cancel behavior, rejected N2 healthy-author counterexample and existing background capture. Retire superseded details and duplicate gate debt; no new runtime/cache owner.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#material-graph-view"
+      "before": "b3acce96026612220dfbcb21ab7fa7eb4b0a758d091a3465b98cbba8247085ed",
+      "after": "d080bbd9a3bda80b3236976e01d5c8a419f5ec4d96ca8563562a538a7fcd6bf9",
+      "owner": "Scene authored texture and property preparation",
+      "reason": "Define each authored mip rectangle, prepared atlas selection and the original property/resource commit boundary.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#conditional-tex-atlas"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7a65db5766a72620cf115b4e651a543eab954f35a1f5fe263c23ee3fa8b71b7d",
-      "after": "6dd9910bd55172200dc3b1acf2b0c1d40a44320597d4be01c10090d3593f1f80",
-      "owner": "Scene shared pointer, Script and Puppet frame owner",
-      "reason": "Record actual GPU signed dual-surface motion, old comparison, close variant, and author peer.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-drag-surface-318"
+      "before": "6dd9910bd55172200dc3b1acf2b0c1d40a44320597d4be01c10090d3593f1f80",
+      "after": "7d5ecbc944cd88d235fb18600c9e3ad64f595b65fcdbe3f2f95462141905d988",
+      "owner": "Scene authored texture and property preparation",
+      "reason": "Record both clients and both single-texture controls for the visible author mask.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-conditional-mask-376"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bb03e34e7f4a8d29a6bdff76c7d259d6f3ff0272e71133e5ac30abe614703d49",
-      "after": "9d34d0063edec99fc3fb7cf3f3b7ba82261d2262f529b1a9163b8151e62d3a7e",
-      "owner": "Scene shared pointer, Script and Puppet frame owner",
-      "reason": "Keep the physical and official qualification gap tied to the already verified dual-surface repair.",
+      "before": "9d34d0063edec99fc3fb7cf3f3b7ba82261d2262f529b1a9163b8151e62d3a7e",
+      "after": "d2a3cf5ee022e17b115c4a03dfe78f5b07bc473061d0232e584ff84c9a8d6d67",
+      "owner": "Scene authored texture and property preparation",
+      "reason": "Track the evidenced conditional texture and shared sampler publication gap.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {
