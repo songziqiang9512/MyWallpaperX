@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 290354
+      "bytes": 291097
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 66125
+      "lines": 212,
+      "bytes": 65684
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6fd6cbe117cc7ed5c93b24e1cf0c32feaf90c740f3755fce86ae16bfcca33236",
-      "after": "eb37fea159e6b8bd2bbeab7849add596f2972073edc9f5392a8e70ccca9eeb59",
-      "owner": "Scene local effect composition",
-      "reason": "Replace positioning-only evidence with official uniform probes and the local-raster shape recovery.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#ring-cover-314"
+      "before": "eb37fea159e6b8bd2bbeab7849add596f2972073edc9f5392a8e70ccca9eeb59",
+      "after": "2c2d9724e25c406fcb889eb821bbeaa80343bbc5e6ec8e68cfd67da5d6736662",
+      "owner": "Scene author conditions and visual evidence",
+      "reason": "Qualify the current published package with both clients and the visible preview ring evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#preview-ring-361744"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f7b24c62d13dc33adb4aa6c68cf912b31fb9eaa664e6216f36528cfc80dc7872",
-      "after": "4ce200dc4f27fc0da0b52afd2a99154e2b27cdcea935eca8c83dc80f07160cab",
-      "owner": "Scene local effect composition",
-      "reason": "Retire the validated ring distortion entry and retain the independent layer-source reachability item.",
+      "before": "4ce200dc4f27fc0da0b52afd2a99154e2b27cdcea935eca8c83dc80f07160cab",
+      "after": "f6a5507632e46c89f3dd1ce7488711df613a1adc6c3d0a8c9b8bb9fdc605510d",
+      "owner": "Scene author conditions and visual evidence",
+      "reason": "Retire the absent current effect as an engine breakpoint.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
