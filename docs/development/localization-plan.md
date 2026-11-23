@@ -27,10 +27,10 @@
 | 检查模块 | `script/governance/check_localization.py`：catalog 完整性/占位符/复数、`--extraction` 对比编译期 `.stringsdata`、`--hardcoded` 检测、`--compile` 校验 catalog 可编译 |
 | 构建 | Debug checkpoint 构建通过（0 error）；产物含 5 个 lproj，扩展资源独立打包且主 App 无重复条目 |
 | 场景属性名 | `WorkshopPropertyDisplayStrings.json` 增加 `ru-ru`、`de-de`、`fr-fr` 各 225 条 |
-| 帮助书 | `MyWallpaperXHelp` 增加 `ru`、`de`、`fr` 三份完整翻译；`help.js` 搜索状态提示支持五种语言 |
+| 帮助书 | 保留原有内容与结构，配色改为 macOS 原生语义色：`Canvas` 级表面、系统蓝强调、原生字体、跟随 `prefers-color-scheme` 的浅色与深色两套变量，去掉装饰性彩色光晕。WebKit 在 `file://` 下会拒绝父目录资源，样式、脚本与图标改为每个语言目录自包含，另加 `script/governance/check_help_bundle.py` 校验五份一致 |
 | 中文回归 | catalog 的 1460 条 `zh-Hans` 全部可追溯到迁移前源码原文；3 条因扫描器无法解析嵌套插值/转义引号而人工核对一致，未发现改写导致的文案变化 |
 | 布局静态审查 | 58 处固定宽度约束逐条判定：邻近文案控件的 28 处均为图标、缩略图、数值标签或输入框，没有"固定宽度装文案"的违规。译文相对英文长度实测：中文 0.35×、俄语 1.12×、德语 1.27×、法语 1.30×，单条最大 2.70×（德语 `Connecting`）；布局按德语/法语核对，最大膨胀集中在自适应菜单项。已把三处承载长文案的单行标签改为可换行（Steam 扫码提示两处、Pixabay 空状态）；设置行副标题改为最多三行换行、宽度上限 430pt，标题与副标题都带 tooltip 兜底。另用 AppKit 离屏渲染了五语言面板样张（同一批真实文案在 760pt 宽度下的排版），英文/德文/俄文/法文均无截断、长说明正确换行 |
-| 帮助书 | 按“桌面即世界”重做：深空粒子场、章节色随阅读切换、左侧章节导航与安静阅读列；自托管 Bodoni Moda / Spectral / JetBrains Mono 子集共 72KB；十节内容按代码事实重写（三引擎、四类来源、资料库、能耗与暂停规则、显示器与系统、参考资料），五语言各 10 节且结构一致、`aria-current` 正确；Apple Help 语言声明补齐五种并设英文为源；设计检测器只剩斜体标题与破折号两类刻意选择 |
+| 帮助书 | 按“桌面即世界”重做：深空粒子场、章节色随阅读切换、左侧章节导航与安静阅读列；自托管 Bodoni Moda / Spectral / JetBrains Mono 子集共 72KB；十节内容按代码事实重写（三引擎、四类来源、资料库、能耗与暂停规则、显示器与系统、参考资料），五语言各 10 节且结构一致、`aria-current` 正确；Apple Help 语言声明补齐五种并设英文为源。页面在 WebKit 的 `file://` 下会被拒绝加载父目录资源，因此样式与脚本内联进每份页面、字体留在各自语言目录，另加 `script/governance/check_help_bundle.py` 校验五份样式一致；设计检测器只剩斜体标题与破折号两类刻意选择 |
 | 复数 | 21 条含单一数量占位符的高频文案已加复数变体：英文/德文/法文 `one`+`other`、俄文 `one`/`few`/`many`/`other`、中文只 `other`；编译产物为 5 份 `Localizable.stringsdict`（每条含 `NSStringPluralRuleType`） |
 | 复数限制 | 约 8 条含多个数字占位符的文案（如 `Showing %lld of %lld wallpapers`）无法交给 String Catalog 的复数机制——`xcstringstool` 明确警告无法推断复数作用于哪个参数。它们保留单一形式，数量为 1 时英文会出现 "1 wallpapers" 这类语法瑕疵；要修必须改写源码文案（把第二参数拆出），属于后续批次 |
 | 术语一致性 | 统计关键概念译法：德文壁纸统一 `Wallpaper`（164 次，无 `Hintergrundbild`）、法文 `fond d’écran`（117 次）、俄文 `обои/обоев` 词形变化一致；playlist、Workshop、Settings 各语言均统一。修正了两处不一致：法语 `parcourir le Workshop` → `l’Atelier`，英文源 `Preferences changed…` → `Settings changed…`（旧术语已在标准中废止） |

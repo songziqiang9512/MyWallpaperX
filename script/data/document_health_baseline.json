@@ -230,7 +230,7 @@
     },
     "docs/development/localization-plan.md": {
       "lines": 201,
-      "bytes": 20693
+      "bytes": 21195
     }
   },
   "archives": [
@@ -622,10 +622,10 @@
     {
       "section": "bodies",
       "path": "docs/development/localization-plan.md",
-      "before": "9d18a19f93a648349baeccdbcd928d1671c3233c8f560c11c36ce724ab999cf7",
-      "after": "e1c50a6f6a05d60e7d0709d7eb328993d4e3a1b0d60cc46412303699f878711e",
+      "before": "e1c50a6f6a05d60e7d0709d7eb328993d4e3a1b0d60cc46412303699f878711e",
+      "after": "718ad087895e0d0e8ae740193bcf1689c5f6d0c151fd22fa5f21dc56e0420b37",
       "owner": "Localization migration plan owner",
-      "reason": "Record the rebuilt help book: new visual world, ten factual sections, five languages and the detector result.",
+      "reason": "Record reverting the help book to its original content with a macOS-native palette and self-contained assets for WebKit.",
       "decision": "docs/development/localization-plan.md#current-state"
     }
   ]
