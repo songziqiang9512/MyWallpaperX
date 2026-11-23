@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 289108
+      "bytes": 289830
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 214,
-      "bytes": 66701
+      "bytes": 66413
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ceb7d32dcec5909b7c325f7d0818fa416ef4baedb263ddaaeb5803fd95886cb3",
-      "after": "cac6c5fcda90ac808dcfe53854677fd4145229f810575b4f586d186c81aeb5c9",
-      "owner": "Scene local effect composition",
-      "reason": "Record paired real Godrays evidence, same-phase Gaussian footprint result, and failed carrier cause.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-chain-godrays-286"
+      "before": "cac6c5fcda90ac808dcfe53854677fd4145229f810575b4f586d186c81aeb5c9",
+      "after": "6fd6cbe117cc7ed5c93b24e1cf0c32feaf90c740f3755fce86ae16bfcca33236",
+      "owner": "Scene particle audio and emission",
+      "reason": "Record the actual official floor beams and local exponent admission and emission boundary.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#floor-beam-emitter-338211"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "49471b3d5b13436ee8b96c494adea20cf98372bc2d6e8eba66ae96c346f8a223",
-      "after": "71bcbd887276fda894a9ad51164b16818c7842db29f2ba48278f8684db44434a",
-      "owner": "Scene local effect composition",
-      "reason": "Replace the unlocalized chain observation with a measured Godrays processing boundary.",
+      "before": "71bcbd887276fda894a9ad51164b16818c7842db29f2ba48278f8684db44434a",
+      "after": "f7b24c62d13dc33adb4aa6c68cf912b31fb9eaa664e6216f36528cfc80dc7872",
+      "owner": "Scene particle audio and emission",
+      "reason": "Point the floor beam observation at its paired runtime evidence and the shared audio input dependency.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

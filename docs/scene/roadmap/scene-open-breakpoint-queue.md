@@ -128,7 +128,7 @@
 |---|---|
 | 3781003282 | [同轨迹实机与888显隐](../capabilities/runtime-evidence-current.md#pointer-halo-378)确认红色 halo 在两端有效跟踪，白方未在六点、持留与窗口中央复现。重启须能重现的指针位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | 3306942838 · 图2 | 头动偏移过大；head24/body28独立root，particle642只引用body attachment；1606未准备与bone52降级仍非根因。官方reader的[state1/零mask/TRS准备已证](../capabilities/runtime-evidence-current.md#puppet-attachments)，mask→pose仍UNKNOWN，330 STOP不解除。重启只补真实消费者，再核同相位头/体pose→geometry；不调幅拟合或套329修法。 |
-| 3382111183 | 六个活动 beam emitter（115/178/335/173/167/170）的 exponent100 仍被现计划≤16拒绝。官方 reader/evaluator 与相对64→16投影已取得静态边界；共同音频候选未恢复338321目标且用户报闪烁，已撤回，不再重复消费端/指数研究。下一事实须是实际 provider 的绝对域/状态或合格同声源数值与 ROI；不由 Script AudioBuffers 可超1外推particle，不调gain/bounds或强注入1。原供值与候选停止线归[运行证据](../capabilities/runtime-evidence-current.md#instance-color)。 |
+| 3382111183 | [原包与六层显隐对照](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已定位脚边水平彩条。六层未通过指数计划，还需核可实际触发出生的供值和运动；先取运行端实际PCM、原始/准备频谱和同窗出生，再确定域和计划范围。频谱供值与338321同查，各自保运行验收。 |
 | 3383210272 / 3463406101 | [原曲目](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机成熟帧各2颗。[同帧对照](../capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)已将幅值差定位至准备64档，同帧16档支持取峰。暂收口供值研究，转可直接归因的开放项。重启须有可配对的运行端PCM、原始64谱与准备值，沿[设计](../../architecture/system-audio-spectrum-design.md)裁决分析窗及分域，再验原曲目宽双束、闪烁及相邻消费者。不重跑旧板/同WAV或单改取峰、增益和出生。 [独立前景](../capabilities/runtime-evidence-current.md#author-forefront-pulse-346)已用同WAV确定75/e265材质执行，阈值下移只作诊断，排在同一共享频谱供值阶段。 |
 | 3617449489 | 尚未定位用户所指环。原project与旧census摘要相同，当前作者说明含“取消3D音频条”（不等同于环）；17对象无Script，两个leaves4粒子无audio，唯一Shake音谱分支AUDIOPROCESSING默认0、作者仅DIRECTION1，Sound不证明有环。保反馈待具体ROI/对应producer或输入版本，不先跑PCM/调频率；薄输入与停止线在`.artifacts/scene-audio-ring-20261108/`。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
@@ -136,7 +136,7 @@
 | 2868108515 | [链左实图与Godrays单变量](../capabilities/runtime-evidence-current.md#author-chain-godrays-286)确认39/e43181为规则密纹的必要层。旧234726和本轮51 WaterFlow控制均独立。固定相位的H/V脚印能显著降低密纹，下一轮用可通过原颜色终端的官版中间extent或射线探针裁定局部工作栅格，再保背景和射线。退出两个未执行的诊断变体。 |
 | 2887099508 · 图5 | [黑纹](../capabilities/runtime-evidence-current.md#basic-interaction-288)未重现，待同相位ROI或具体版本。原生持续悬停待合格输入，仅在出现可重复的命中问题时复核。 |
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
-| 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
+| 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer。 |
 | 3498814983 /3605722997 /3827673174 | 前后两项当前目录已移除，保原反馈为输入不可用；360572当前可运行。头脸取景仍须固定横屏camera/cover/平移与作者画布，portrait preview不能证明投影错误。 |
 | <a id="puppet-morph-peer-fallback"></a>3504669359 | 默认四秒旧强白圆未重现，固定圆核及材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。身体166的三个普通叠加槽已从共同解析失败中恢复实际骨骼动作，见[原包与固定相位对照](../capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence)。clip700接入后已在实际合成重现闭眼与睁眼，[固定相位和独立作者](../capabilities/runtime-evidence-current.md#puppet-mdmp-oracle)通过。形变扩域按[能力边界](../capabilities/advanced-object-coverage.md#puppet-mdmp-morph)等活动输入。 |
 | 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |

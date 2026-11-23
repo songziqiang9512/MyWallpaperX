@@ -507,7 +507,7 @@ ambient 接通与 L0 实测使用签名 Debug `82d701ba…191a154`，4396 构建
 
 3383210272 原作者 WAV 前16秒经原生产 PCM 链，未经增益或作者参数修改。粒子 peak/cubic/缺省bounds与粗档 peak 候选曾使323/124实例增多，但主要彩光仍缺；候选12路径已精确恢复、未提交。官方相对64→16 max不资格项目 display-height64 的绝对域。281 同 WAV 两静帧仅授16档消费与 pulse 执行，不判断眼部闪动或新增闪烁；不重跑旧早晚窗、调gain/bounds/pow或强制出生。
 
-源码、首轮独审限制、当前受控资格与实际作者原字节归 `.artifacts/scene-instance-color-20261108/`；被撤回候选、Mirage只读研究、原生/绘制输入和未闭绝对单位证据归 `.artifacts/scene-particle-audio-consumer-20261108/` 与 `.artifacts/scene-audio16-producer-20261108/`，保具体停止线。338两束方向/闪烁、302红色来源、官方颜色全语义、动态属性/Timeline端到端及性能仍未授资格。
+源码、首轮独审限制、当前受控资格与实际作者原字节归 `.artifacts/scene-instance-color-20261108/`；被撤回候选、Mirage只读研究、原生/绘制输入和未闭绝对单位证据归 `.artifacts/scene-particle-audio-consumer-20261108/` 与 `.artifacts/scene-audio16-producer-20261108/`。338321的两束方向/闪烁、302红色来源、官方颜色全语义、动态属性/Timeline端到端及性能仍开放。<a id="floor-beam-emitter-338211"></a>独立3382111183实际官版原曲下4/10张有13根近水平彩条，长度75–375像素；只隐藏115/178/335/173/167/170后10张均无，邻层斜条及粒子仍在。本机签名优化 `4bf3d344…1949a` 以同曲离线解码PCM走生产频谱，25张实际终帧均无这六层的draw，六层在预热和实播均报 `audio-response-plan-unavailable`。理由为作者exponent100超现计划16。现有频率映射上限.96经当前范围和指数最多约.000239，单移门限仍不足以产生可见出生。已定位条形owner和首断点，待同一时钟下的实际供值与逐粒运动。对照及独立作者结构复核归 `.artifacts/scene-floor-beam-emitters-20261124/evidence.zip`。
 
 <a id="beam-contribution"></a>
 ## 彩光自然出生的同帧贡献
