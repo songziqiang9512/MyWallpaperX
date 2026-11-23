@@ -1,74 +1,76 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "The system lock screen interface is unavailable.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The system lock screen interface is unavailable."
+  "sourceLanguage" : "en",
+  "strings" : {
+    "The system lock screen interface is unavailable." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die dynamische Sperrbildschirm-Schnittstelle ist nicht verfügbar."
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "系统动态锁屏接口不可用。"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The system lock screen interface is unavailable."
           }
         },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Интерфейс динамического экрана блокировки недоступен."
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’interface d’écran de verrouillage dynamique n’est pas disponible."
           }
         },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die dynamische Sperrbildschirm-Schnittstelle ist nicht verfügbar."
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Интерфейс динамического экрана блокировки недоступен."
           }
         },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’interface d’écran de verrouillage dynamique n’est pas disponible."
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统动态锁屏接口不可用。"
           }
         }
       }
     },
-    "Video Lock Screen": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Video Lock Screen"
+    "Video Lock Screen" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video-Sperrbildschirm"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "视频动态锁屏"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video Lock Screen"
           }
         },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Видеоэкран блокировки"
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Écran de verrouillage vidéo"
           }
         },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Video-Sperrbildschirm"
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видеоэкран блокировки"
           }
         },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Écran de verrouillage vidéo"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频动态锁屏"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }
