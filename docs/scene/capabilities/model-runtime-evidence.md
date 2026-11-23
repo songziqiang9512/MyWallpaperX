@@ -96,7 +96,11 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 缩放整轮仍保FAIL4：旧epoch1的23份sealed ledger在主动resize后以allocation-reprepare取消，F83 epoch2同Program全部恢复；诊断把取消合成rejected/零allocation，而工具又跨epoch要求signature/mapping单调，旧347同链亦有4fail。没有取消帧像素，不保证中间无闪断；固定10×10重prepare不等于23份物理新pair或性能损失。此责任沿[开放队列](../roadmap/scene-open-breakpoint-queue.md#legacy-gate-debt)修正，不借此改资源架构或将原report改PASS。
 
-**自然开场后的太阳标签双击** <a id="solar-label-double-click"></a>。2026-11-23同签名Debug及不变366原包，保默认开场与实时时钟。phase=launched后约31.6秒，同点命中1333：短按的两个cursorDown相隔160ms，终端从太阳系总览进入太阳近景；单按和实到316ms的双按均保总览。三场R3分别F250/258/257，经同CB导出、封口、GPU完成及排空；1964×1276中心400²内RGB三分量≥230由415/420变159645。两档按住时长也不同，只授Debug合成边沿的标签入口与终态；原生鼠标、返回、完整过渡和官方一致待证。截图、实际时序与身份归`.artifacts/scene-solar-label-click-20261123`。
+**自然开场后的太阳近景与返回** <a id="solar-label-double-click"></a>。2026-11-23同一签名Debug及不变366原包，保默认开场与实时时钟。约31.6秒，合成指针的同点两次按下以160ms间隔命中1333，画面进入太阳近景。单按和实到316ms的双按均保总览。三场R3各与同命令缓冲导出、封口及GPU完成配对，1964×1276中心400²内RGB均≥230的像素从415/420变159645。两档按住时长也不同。原对照归`.artifacts/scene-solar-label-click-20261123`。
+
+现役源码的两份签名构建复用同一原包和同一原生事件序列，将Quartz事件定向投递给各自AppKit证据窗口。两场均实际命中太阳标签1333并进入近景。普通Debug在太阳盘3701收到两次按下，发送间隔161ms，回调日志间隔326ms，最终保近景。优化诊断构建的对应发送间隔165ms、回调日志间隔146ms，实际返回总览。作者按模拟帧的`Date.now()`检查`[40,300)`ms，回调日志给可观察时序，未单独读取脚本时钟。普通Debug与优化诊断的呈现间隔P95分别为316.7ms和75.0ms，仅作本次输入节奏背景。
+
+同一优化场的空白双按后F666、盘面短单按后F814、盘面双按后F1039，中心81796像素中亮像素为151→81597→152，已编码模型part为6→464→6，界面重新出现远景标签及轨道。单按后2.82秒的F843仍有81575亮像素/464 part。四图各与同请求/命令缓冲的导出、封口和GPU完成配对，停止后Surface释放、GPU排空。普通Debug有一次退出取消的周期采集，未纳入已取得的画面。窗口定向输入的往返已闭合，普通桌面global路由、遮挡与完整过渡仍待证。截图、原始日志、当前签名与独审归`.artifacts/scene-solar-native-roundtrip-20261123`。
 
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 

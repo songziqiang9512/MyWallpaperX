@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 58996
+      "bytes": 59041
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 595,
-      "bytes": 169766
+      "lines": 599,
+      "bytes": 170888
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,11 +487,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "5bf57bd353a50675a5c1e57d875696d26b8b35bd67a16e1dfe4f8df22f4ff38f",
-      "after": "b692bd7cd1781c7110fc4456c97b40969c3883d73b6d70141ce2610b99263eef",
-      "owner": "Existing Scene model runtime evidence",
-      "reason": "Record scoped named-source failure, actual App pixels and GPU depth priority in the authoritative model evidence.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#model-named-shadow-locality"
+      "before": "b692bd7cd1781c7110fc4456c97b40969c3883d73b6d70141ce2610b99263eef",
+      "after": "e42da6869da9c2f8355199ace225a3ba6d126f38ce8a9ccc5f9ea2ebf4204060",
+      "owner": "Existing Scene author playback evidence and open queue",
+      "reason": "Record targeted Quartz/AppKit authored entry and return, including the timing control and remaining desktop scope.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-label-double-click"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dfecae9f6aa50825d835a1b61dbd84ab8bf1e182c1b98187de0176dbbb030cd1",
-      "after": "861db8014bbb48b356617002a0d73660b151e90a8ea55064906d17f56553f69f",
-      "owner": "repository governance",
-      "reason": "Reconcile current Scene evidence with valid test links after merging the collections repair.",
-      "decision": "docs/development/repository-workflow.md#并行与验证"
+      "before": "40c8877d1efc9c28e46ed15adc7b0deb2a4128b2961162ab03965d4ba9a1adc9",
+      "after": "df5a36566f7c1d511e60e90baed1168077ed7e844e54b81a0102a089b712765e",
+      "owner": "Existing Scene author playback evidence and open queue",
+      "reason": "Record targeted Quartz/AppKit authored entry and return, including the timing control and remaining desktop scope.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
       "section": "bodies",
