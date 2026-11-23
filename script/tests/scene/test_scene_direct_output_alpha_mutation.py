@@ -17,7 +17,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 import sys
 
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
-from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+from script.scene.scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [

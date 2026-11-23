@@ -11,7 +11,7 @@ from unittest import mock
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import audit_codex_artifacts as audit
+from script.governance import audit_codex_artifacts as audit
 
 
 class AuditCodexArtifactsTests(unittest.TestCase):

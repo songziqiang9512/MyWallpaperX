@@ -13,7 +13,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_runtime_switch_benchmark import (
+from script.web.web_runtime_switch_benchmark import (
     apply_process_outcome,
     score_log,
     validate_bundled_video_archive,

@@ -13,8 +13,8 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import scene_diagnostic_report as diagnostic
-from scene_wallpaper_graph_output_metrics import structured_runtime_observations
+from script.scene import scene_diagnostic_report as diagnostic
+from script.scene.scene_wallpaper_graph_output_metrics import structured_runtime_observations
 
 
 def resolved_execution(
@@ -920,7 +920,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             report_path.write_text(json.dumps(payload), encoding="utf-8")
             command = [
                 sys.executable,
-                str(SCRIPT_DIR / "scene_diagnostic_report.py"),
+                str(SCRIPT_DIR / "scene/scene_diagnostic_report.py"),
                 str(report_path),
             ]
             first = subprocess.run(command, capture_output=True, text=True)

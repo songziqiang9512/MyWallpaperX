@@ -25,7 +25,7 @@ from script.tests.scene.test_scene_material_texture_transform import (
     preserve_evidence,
     source_hashes,
 )
-from scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 from script.tests.support.scene_compiler_fixture import (
     compiler_bundle as fixture_compiler_bundle,
     fixture_sources,

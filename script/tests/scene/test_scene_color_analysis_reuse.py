@@ -14,7 +14,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "script"))
-from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+from script.scene.scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 HARNESS = r'''

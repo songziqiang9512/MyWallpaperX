@@ -44,7 +44,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
         parent = Path(os.environ.get("MWX_BLEND_REGION_EVIDENCE", "/private/tmp/mwx-blend-region"))
         parent.mkdir(parents=True, exist_ok=True)
         paths = [Path(__file__), HARNESS, PROJECTION_SOURCE, *SOURCES, SHADER, FOG,
-                 (Path(__file__).parent / "support/scene_color_blend_capture_test_support.py")]
+                 (Path(__file__).resolve().parents[1] / "support/scene_color_blend_capture_test_support.py")]
         identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix="blend-region-", dir=parent) as directory:
             root = Path(directory)

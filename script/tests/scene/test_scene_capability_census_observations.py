@@ -20,10 +20,10 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-import scene_capability_census as census
-import scene_capability_census_io as census_io
-from scene_capability_census_io import ResolvedResource
-from scene_capability_census_profiles import family_key, scenescript_audio_registrations, script_profile
+from script.scene import scene_capability_census as census
+from script.scene import scene_capability_census_io as census_io
+from script.scene.scene_capability_census_io import ResolvedResource
+from script.scene.scene_capability_census_profiles import family_key, scenescript_audio_registrations, script_profile
 from script.tests.support.scene_capability_census_test_support import json_bytes, make_fixture, pkg
 
 

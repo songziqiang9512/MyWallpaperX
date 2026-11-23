@@ -17,8 +17,8 @@ from unittest.mock import patch
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import scene_product_entry_audio_baseline as baseline
-import scene_wallpaper_benchmark as benchmark
+from script.scene import scene_product_entry_audio_baseline as baseline
+from script.scene import scene_wallpaper_benchmark as benchmark
 
 
 def particle_audio_event(

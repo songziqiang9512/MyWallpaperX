@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 
 try:
-    from script import check_code_health, verify_scene_change
+    from script.governance import check_code_health
+    from script import verify_scene_change
 except ModuleNotFoundError:
     import check_code_health
     import verify_scene_change

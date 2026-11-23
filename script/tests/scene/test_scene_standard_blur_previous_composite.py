@@ -20,7 +20,7 @@ STOCK_ROOT = (
 )
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_swift_source_sets import scene_swift_sources
 from script.tests.scene.test_scene_prepared_script_resource_catalog import swift_declaration
 
 

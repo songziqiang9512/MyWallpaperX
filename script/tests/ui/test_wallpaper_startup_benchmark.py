@@ -12,8 +12,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-import wallpaper_startup_benchmark as benchmark
-from wallpaper_startup_benchmark import (
+from script.web import wallpaper_startup_benchmark as benchmark
+from script.web.wallpaper_startup_benchmark import (
     PRODUCTION_BUNDLE_ID, STARTUP_BUNDLE_ID, input_paths_match, native_result_valid,
     reset_startup_defaults, summarize, summarize_paired,
 )

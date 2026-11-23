@@ -13,7 +13,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_ROOT = REPOSITORY_ROOT / "script"
 sys.path.insert(0, str(SCRIPT_ROOT))
 
-from scene_swift_source_sets import (  # noqa: E402
+from script.scene.scene_swift_source_sets import (  # noqa: E402
     SceneSwiftSourceSetError,
     scene_swift_source_relpaths,
     scene_swift_source_relpaths_by_basename,

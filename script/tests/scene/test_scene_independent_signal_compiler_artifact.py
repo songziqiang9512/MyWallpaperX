@@ -13,7 +13,7 @@ import unittest
 
 from script.tests.scene import test_scene_shader_compiler_harness as harness_support
 
-from scene_shader_compiler_artifact import ArtifactFailure, request_cache_key
+from script.scene.scene_shader_compiler_artifact import ArtifactFailure, request_cache_key
 
 
 class SceneIndependentSignalCompilerArtifactTests(unittest.TestCase):

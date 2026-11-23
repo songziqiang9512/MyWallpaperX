@@ -10,7 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "script"))
 
-from scene_wallpaper_media_properties import (
+from script.scene.scene_wallpaper_media_properties import (
     media_properties_callback_metrics,
     media_properties_expectation_failures,
 )

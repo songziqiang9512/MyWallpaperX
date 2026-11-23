@@ -16,7 +16,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 from unittest import mock
-from scene_sample_snapshot import tree_manifest
+from script.scene.scene_sample_snapshot import tree_manifest
 
 
 PERFORMANCE_LOG = (

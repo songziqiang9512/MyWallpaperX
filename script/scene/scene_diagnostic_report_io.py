@@ -15,7 +15,7 @@ class DiagnosticReportError(ValueError):
 
 
 PREVIEW_ORACLE_REGISTRY_PATH = (
-    Path(__file__).resolve().parent / "scene_sample_preview_oracle_registry.json"
+    Path(__file__).resolve().parents[1] / "data" / "scene_sample_preview_oracle_registry.json"
 )
 
 

@@ -481,8 +481,8 @@ def build_archive(
             raw_by_id.setdefault(sample_id, []).append((report_index, index, sample))
 
     preview_oracle_registry_path = (
-        Path(__file__).resolve().parent
-        / "scene_sample_preview_oracle_registry.json"
+        Path(__file__).resolve().parents[1]
+        / "data/scene_sample_preview_oracle_registry.json"
     )
     preview_oracle_uncontrolled = load_preview_oracle_registry(
         preview_oracle_registry_path

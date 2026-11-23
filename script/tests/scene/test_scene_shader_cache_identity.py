@@ -17,7 +17,7 @@ from generate_scene_shader_cache_identity import (
     SEMANTIC_DIRECTORIES, SEMANTIC_FILES, TOOLCHAIN_FILES,
     build_identity, write_identity,
 )
-from scene_shader_compiler_request_contract import request_cache_key
+from script.scene.scene_shader_compiler_request_contract import request_cache_key
 from script.tests.scene.test_scene_shader_compiler_request_contract import request
 
 

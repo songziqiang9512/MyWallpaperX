@@ -21,7 +21,7 @@ from unittest import mock
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import web_benchmark_capture as capture
+from script.web import web_benchmark_capture as capture
 
 
 def write_rgb_png(path: Path, red: int, green: int, blue: int) -> None:

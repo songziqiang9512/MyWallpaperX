@@ -153,7 +153,7 @@ def validate(root: Path, index: dict, discovered: set[str] | None = None) -> lis
 
 def validate_routing(root: Path, index: dict) -> list[str]:
     """Resolve gate and nearest-test pointers against their existing sole registry."""
-    from script.document_health import anchors
+    from script.governance.document_health import anchors
     errors = []
     registry_path = root / 'script/data/scene_validation_gates.json'
     registry = json.loads(registry_path.read_text()) if registry_path.exists() else {'gates': {}, 'path_groups': []}
@@ -240,7 +240,7 @@ def query(index: dict, term: str, root: Path) -> dict:
 
 def first_read_lines(root: Path, pointer: str) -> int:
     """Count the selected Markdown section, including its nested subsections."""
-    from script.document_links import markdown_outline
+    from script.governance.document_links import markdown_outline
     path, _, fragment = pointer.partition('#')
     text = (root / path).read_text()
     lines = text.splitlines()

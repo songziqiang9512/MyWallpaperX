@@ -13,7 +13,7 @@ SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
 
-from scene_swift_source_sets import scene_swift_sources_by_basename
+from script.scene.scene_swift_source_sets import scene_swift_sources_by_basename
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

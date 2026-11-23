@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'script'))
 import verify_scene_change as verify
 import run_scene_tests as runner
-from web_wallpaper_benchmark import load_sample_matrix
+from script.web.web_wallpaper_benchmark import load_sample_matrix
 
 
 class CIReleaseRoutingTests(unittest.TestCase):
@@ -48,7 +48,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
             with self.subTest(path=path):
                 modules, _, _ = verify.mapped_tests([path], registry)
                 self.assertIn(consumer, modules)
-                self.assertTrue((ROOT / 'script/tests' / (consumer + '.py')).is_file())
+                self.assertTrue(any((ROOT / 'script/tests').rglob(consumer + '.py')))
 
     def test_unknown_fixture_is_still_blocked_beside_known_input(self):
         args = SimpleNamespace(base='HEAD', phase='inner', test_scope='changed', ci=True)
@@ -63,15 +63,15 @@ class CIReleaseRoutingTests(unittest.TestCase):
     def test_native_app_harness_selects_its_actual_direct_consumers(self):
         modules, _, _ = verify.mapped_tests(['script/tests/support/native_app_harness.py'], verify.load_registry())
         paths = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard',
-                                         '--', 'script/tests/test_*.py'], cwd=ROOT, text=True).split('\0')
+                                         '--', 'script/tests'], cwd=ROOT, text=True).split('\0')
         consumers = set()
         for name in paths:
             path = ROOT / name
-            if path.parent != ROOT / 'script/tests' or not path.is_file():
+            if not path.is_file() or path.suffix != '.py' or not path.name.startswith('test_'):
                 continue
             for node in ast.walk(ast.parse(path.read_text())):
                 if isinstance(node, ast.ImportFrom) and (
-                    node.module in {'script.tests.native_app_harness', 'native_app_harness'}
+                    (node.module or '').endswith('native_app_harness')
                     or (node.module == 'script.tests' and any(n.name == 'native_app_harness' for n in node.names))
                 ):
                     consumers.add(path.stem)

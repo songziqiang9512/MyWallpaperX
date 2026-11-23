@@ -14,8 +14,8 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_shader_compiler_artifact import request_cache_key  # noqa: E402
-from scene_shader_compiler_color_transfer_contract import (  # noqa: E402
+from script.scene.scene_shader_compiler_artifact import request_cache_key  # noqa: E402
+from script.scene.scene_shader_compiler_color_transfer_contract import (  # noqa: E402
     IndependentSignalContractFailure,
     parse_expected_transfer,
     prepare_independent_signal_contract,

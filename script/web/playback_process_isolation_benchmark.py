@@ -4,6 +4,10 @@
 The Scene argument must point to an isolated copy. No user media is modified;
 the app's native DEBUG runner drives the real production clients and children.
 """
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+
 import argparse
 import json
 import os

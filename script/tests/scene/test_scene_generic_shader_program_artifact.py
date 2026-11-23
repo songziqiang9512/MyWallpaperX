@@ -16,8 +16,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_swift_source_sets import scene_swift_sources
-from scene_shader_compiler_artifact import build_program_artifact
+from script.scene.scene_swift_source_sets import scene_swift_sources
+from script.scene.scene_shader_compiler_artifact import build_program_artifact
 from script.tests.support.scene_generic_shader_provider_test_support import (
     assert_independent_signal_request_contract,
     assert_provider_backed_spatial_weighted_profile,

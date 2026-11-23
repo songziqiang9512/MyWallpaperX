@@ -15,9 +15,9 @@ from unittest import mock
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_failure_state_benchmark import EXPECTED_CHECKS, validate_app_report
-import web_failure_state_benchmark as benchmark
-from web_debug_defaults import DEBUG_DEFAULTS_PREFIX, make_debug_defaults_suite
+from script.web.web_failure_state_benchmark import EXPECTED_CHECKS, validate_app_report
+from script.web import web_failure_state_benchmark as benchmark
+from script.web.web_debug_defaults import DEBUG_DEFAULTS_PREFIX, make_debug_defaults_suite
 
 
 def passing_report() -> dict:

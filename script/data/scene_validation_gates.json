@@ -3744,7 +3744,9 @@
         "script/governance/check_localization.py",
         "script/check_localization.py",
         "script/fixtures/scene_shader_compiler/**",
-        "script/tests/fixtures/scene_shader_compiler/**"
+        "script/tests/fixtures/scene_shader_compiler/**",
+        "MyWallpaperXHelp/**",
+        "MyWallpaperXHelp"
       ],
       "modules": [
         "test_scene_governance_contract",

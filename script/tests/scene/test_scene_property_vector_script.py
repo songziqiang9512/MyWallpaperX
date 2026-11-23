@@ -252,7 +252,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.proof = Path(os.environ["MWX_NAMED_SCRIPT_PROOF"]) if os.environ.get("MWX_NAMED_SCRIPT_PROOF") else None
         cls.proof_inputs = list(dict.fromkeys([
-            Path(__file__), (Path(__file__).parent / "support/scene_vector_vm_test_support.py"),
+            Path(__file__), (Path(__file__).resolve().parents[1] / "support/scene_vector_vm_test_support.py"),
             *SOURCES, *C_SOURCES, *(FIXTURES / name for name in FIXTURE_NAMES),
             DOCUMENT_MODELS,
             SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift",

@@ -7,7 +7,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_space_lifecycle_benchmark import score_log
+from script.web.web_space_lifecycle_benchmark import score_log
 
 
 SAMPLE_ID = "1509243786"

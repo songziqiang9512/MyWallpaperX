@@ -12,8 +12,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_shader_compiler_artifact import ArtifactFailure, build_program_artifact
-from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+from script.scene.scene_shader_compiler_artifact import ArtifactFailure, build_program_artifact
+from script.scene.scene_shader_compiler_harness import normalize_wallpaper_engine_pair
 
 
 def artifact_arguments(fragment_msl: str) -> dict:

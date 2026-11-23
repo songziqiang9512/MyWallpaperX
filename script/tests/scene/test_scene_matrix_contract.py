@@ -14,8 +14,8 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 from script.assets import generate_scene_full_matrix as matrix_generator
-from scene_matrix_suite import load_scene_matrix
-from scene_matrix_contract import (
+from script.scene.scene_matrix_suite import load_scene_matrix
+from script.scene.scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
     EFFECT_EXECUTION_EXACT_KINDS,
     EFFECT_EXECUTION_EXPECTATIONS,

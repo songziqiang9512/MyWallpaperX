@@ -7,7 +7,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_audio_restart_benchmark import (
+from script.web.web_audio_restart_benchmark import (
     is_same_or_descendant,
     real_workshop_root,
     score_log,

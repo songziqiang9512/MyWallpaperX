@@ -17,9 +17,9 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-import scene_capability_census as census
-import scene_sample_debug_archive as debug_archive
-from scene_capability_census_io import (
+from script.scene import scene_capability_census as census
+from script.scene import scene_sample_debug_archive as debug_archive
+from script.scene.scene_capability_census_io import (
     PkgArchive,
     ensure_outputs_outside_roots,
     is_sample_directory_name,

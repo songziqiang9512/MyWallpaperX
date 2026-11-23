@@ -13,7 +13,7 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-from scene_real_test_fixture_config import load_fixture_config
+from script.scene.scene_real_test_fixture_config import load_fixture_config
 
 
 class SceneRealTestFixtureConfigTests(unittest.TestCase):

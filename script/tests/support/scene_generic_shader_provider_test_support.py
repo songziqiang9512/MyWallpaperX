@@ -8,7 +8,7 @@ import tempfile
 import textwrap
 from typing import Any
 
-from scene_shader_compiler_artifact import ArtifactFailure, request_cache_key
+from script.scene.scene_shader_compiler_artifact import ArtifactFailure, request_cache_key
 
 
 def assert_sampling_semantics_request_and_cache_namespaces(

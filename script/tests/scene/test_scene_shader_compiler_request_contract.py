@@ -13,18 +13,18 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_shader_compiler_request_contract import (  # noqa: E402
+from script.scene.scene_shader_compiler_request_contract import (  # noqa: E402
     RequestContractFailure,
     request_cache_key,
     validated_request_stages,
 )
-from scene_shader_compiler_input_color_contract import (  # noqa: E402
+from script.scene.scene_shader_compiler_input_color_contract import (  # noqa: E402
     InputColorContractFailure,
     lower_ordinary_color_boundary,
     ordinary_color_boundary,
     ordinary_boundary_cache_key,
 )
-from scene_shader_compiler_artifact import (  # noqa: E402
+from script.scene.scene_shader_compiler_artifact import (  # noqa: E402
     ArtifactFailure,
     build_program_artifact,
 )

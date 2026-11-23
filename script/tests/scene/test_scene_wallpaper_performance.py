@@ -24,8 +24,8 @@ DEBUG_ARGUMENTS_RUNNER_SOURCE = (
     / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Arguments.swift"
 )
 
-import scene_wallpaper_benchmark as benchmark
-import scene_preview_visual_evidence as visual
+from script.scene import scene_wallpaper_benchmark as benchmark
+from script.scene import scene_preview_visual_evidence as visual
 from script.assets import generate_scene_full_matrix as matrix_generator
 from script.tests.support.scene_wallpaper_graph_output_test_support import (
     assert_named_graph_output_publication_has_one_terminal_owner,

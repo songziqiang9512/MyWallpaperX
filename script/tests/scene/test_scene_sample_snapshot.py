@@ -13,8 +13,8 @@ from unittest.mock import patch
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import scene_sample_snapshot as snapshot
-import scene_capability_census_io as census_io
+from script.scene import scene_sample_snapshot as snapshot
+from script.scene import scene_capability_census_io as census_io
 
 
 class SceneSampleSnapshotTests(unittest.TestCase):

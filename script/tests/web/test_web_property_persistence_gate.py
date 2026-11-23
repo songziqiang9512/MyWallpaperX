@@ -10,7 +10,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_property_persistence_gate import (
+from script.web.web_property_persistence_gate import (
     A_ID,
     B_ID,
     is_same_or_descendant,

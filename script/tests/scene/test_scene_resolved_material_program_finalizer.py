@@ -24,7 +24,7 @@ STOCK_MATERIAL_ROOT = (
 )
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_swift_source_sets import (  # noqa: E402
+from script.scene.scene_swift_source_sets import (  # noqa: E402
     scene_swift_sources,
     scene_swift_sources_by_basename,
 )

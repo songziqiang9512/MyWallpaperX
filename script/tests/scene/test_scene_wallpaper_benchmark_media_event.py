@@ -13,7 +13,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import scene_wallpaper_benchmark as benchmark
+from script.scene import scene_wallpaper_benchmark as benchmark
 
 
 MEDIA_TARGET = (

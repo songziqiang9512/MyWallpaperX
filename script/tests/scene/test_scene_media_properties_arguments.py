@@ -10,7 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "script"))
 
-from scene_wallpaper_media_event import append_media_properties_arguments
+from script.scene.scene_wallpaper_media_event import append_media_properties_arguments
 
 
 class SceneMediaPropertiesArgumentsTests(unittest.TestCase):

@@ -9,6 +9,10 @@ import re
 import subprocess
 from pathlib import Path
 
+import sys
+_sys_scene = Path(__file__).resolve().parents[1] / "scene"
+if str(_sys_scene) not in sys.path:
+    sys.path.insert(0, str(_sys_scene))
 from scene_real_test_fixture_config import load_fixture_config
 
 

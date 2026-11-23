@@ -16,7 +16,7 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[2]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-from scene_sample_acceptance_ledger import (  # noqa: E402
+from script.scene.scene_sample_acceptance_ledger import (  # noqa: E402
     ALLOWED_VERDICTS,
     DEFAULT_OUTPUT,
     build_ledger,
@@ -25,7 +25,7 @@ from scene_sample_acceptance_ledger import (  # noqa: E402
     main,
     validate_verdict_references,
 )
-from scene_capability_census_io import iter_sample_directories
+from script.scene.scene_capability_census_io import iter_sample_directories
 
 
 V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"

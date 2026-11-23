@@ -18,12 +18,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_shader_compiler_artifact import (
+from script.scene.scene_shader_compiler_artifact import (
     ArtifactFailure,
     build_program_artifact,
     request_cache_key,
 )
-from scene_shader_compiler_harness import (
+from script.scene.scene_shader_compiler_harness import (
     HarnessFailure,
     normalize_wallpaper_engine_pair,
     parse_limits,
