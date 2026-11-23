@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 283508
+      "bytes": 284532
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 212,
-      "bytes": 65137
+      "bytes": 65328
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1346100b61f493b1c57b5a32581ff194b4dace899cd9b98ca7bf06650e8dd06b",
-      "after": "d59c11c243026e39f75fe8dca5f306df2eff0d6ab59508bb7690bdba0ad2d53b",
-      "owner": "Scene world terminal composition",
-      "reason": "Record real Windows and native arrow recovery, retained cover and independent same-target regression.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#moon-arrow-and-veil-345"
+      "before": "d59c11c243026e39f75fe8dca5f306df2eff0d6ab59508bb7690bdba0ad2d53b",
+      "after": "56e4a309acb8b367a5a5357a18494c7ae728d6a63ad14149eca4764074b00c94",
+      "owner": "Scene world depth and text composition",
+      "reason": "Record isolated official sphere, material depth and text blend controls with host frame evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-sphere-depth-324"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "94b2536191b4f3d342f7b61d074a566a937705616856aed9af8f8956e5f95106",
-      "after": "c7d6e7657b1fcc63f32966f31750a9c871dd68d0529414037052e657bacb4d44",
-      "owner": "Scene world terminal composition",
-      "reason": "Retain the bounded open moon veil cause after the separate arrow repair.",
+      "before": "c7d6e7657b1fcc63f32966f31750a9c871dd68d0529414037052e657bacb4d44",
+      "after": "5eced447a57bb8f6c8886ba20b80db543d0b9e4e27229cffea81f36689dcd71f",
+      "owner": "Scene world depth and text composition",
+      "reason": "Group shared world depth evidence and retain separately testable read and write boundaries.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {
