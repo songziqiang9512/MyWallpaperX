@@ -290,7 +290,7 @@ private struct Checks {
             expect(isolated.state.phase == .unknown && isolated.state.identity?.displayName == "账号 A"
                 && isolated.scopeID == refreshScope && isolated.sessionEpoch == refreshEpoch && FixtureProtocol.requests.count == refreshRequests,
                 "account metadata failure neither logs out a trusted identity nor changes browsing scope")
-            expect(accountProjection.pixivAccountStatus == "已登录：账号 A（501） · 资料暂不可用",
+            expect(accountProjection.pixivAccountStatus == "Signed in: 账号 A（501） · Profile unavailable",
                 "the real account projection keeps the trusted name and reports optional metadata failure")
         }
 
