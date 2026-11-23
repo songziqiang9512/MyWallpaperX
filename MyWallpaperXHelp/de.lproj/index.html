@@ -98,7 +98,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 @media print {
   :root { color-scheme:light; --paper:#fff; --ink:#000; --muted:#333; --glass:#fff; --line:#ccc; }body::before { display:none; }.layout { display:block; }.sidebar,.topbar,.search-status,.skip,.quick-links { display:none; }main { padding:0; }.guide-section { border:0; box-shadow:none; break-inside:avoid; }.art { print-color-adjust:exact; }
 }
-
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
 (() => {
@@ -156,7 +155,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
     });
   });
 })();
-
 </script></head>
 <body id="top"><a class="skip" href="#main">Zum Inhalt springen</a><div class="layout">
 <aside class="sidebar">
@@ -615,88 +613,86 @@ Alle Wiedergabelisten
 
 <section class="guide-section" id="login">
 <div class="section-heading"><h2>Anmeldung, Schritt für Schritt</h2><span class="tag">Steam-Anmeldung</span></div>
-<p>Beginne beim Steam-Konto-Steuerelement. Die QR-Anmeldung erfordert Scannen und Bestätigen in der Steam-Mobile-App. Die Passwortanmeldung kann danach eine mobile Bestätigung, einen Authenticator-Code oder einen E-Mail-Code verlangen. Folge dem aktuellen Hinweis.</p>
+<p>Der Workshop kommuniziert über den in der App enthaltenen Dienst mit Steam. Melde dich mit dem QR-Code oder mit Kontoname und Passwort an; in beiden Fällen kann Steam eine zweite Bestätigung verlangen, bevor die Sitzung nutzbar ist.</p>
 <aside class="tip">
-<strong>Anmeldung merken</strong>Aktiviere bei Bedarf Angemeldet bleiben. Wenn du beim nächsten Mal zur Anmeldung aufgefordert wirst und das nicht aktiviert war, ist das nicht unbedingt ein Fehler. Eine ausdrückliche Meldung „Sitzung konnte nicht gespeichert werden“ weist jedoch auf einen Speicherfehler hin. Halte Passwörter, Codes, QR-Bilder und Sitzungstoken aus Berichten heraus.
+<strong>Anmeldung merken</strong>Aktiviere „Angemeldet bleiben“, um die Sitzung im Schlüsselbund zu speichern, sodass der nächste Start sie ohne Nachfrage wiederherstellt. Ohne diese Option meldest du dich beim nächsten Mal erneut an — das ist kein Fehler. Eine Meldung, dass die Sitzung nicht gespeichert werden konnte, ist dagegen ein echter Speicherfehler. Halte Passwörter, Codes, QR-Bilder und Sitzungstoken aus Berichten heraus.
 </aside>
 
 <details>
-
 <summary>
 QR-Code lässt sich nicht scannen / Warten auf Bestätigung
 </summary>
-<div class="answer"><p>Scanne mit der Steam-Mobile-App. Klicke auf den Code oder die Vergrößern-Schaltfläche für eine größere Ansicht. Aktualisiere einen unbrauchbaren Code und scanne den neuen. Ein Wechsel der Anmeldemethode bricht den vorherigen Versuch ab.</p></div>
+<div class="answer"><p>Scanne mit der Steam-Mobile-App. Klicke auf den Code oder wechsle mit Tab zu „QR-Code vergrößern“, um eine größere Ansicht zu erhalten. Aktualisiere einen unbrauchbaren Code und scanne den neuen. Ein Wechsel zwischen QR und Passwort bricht den vorherigen Versuch ab.</p></div>
 </details>
 
 <details>
-
 <summary>
 Bestätige diese Anmeldung in der Steam-Mobile-App
 </summary>
-<div class="answer"><p>Ein gescannter Code oder ein akzeptiertes Passwort kann dennoch eine mobile Bestätigung erfordern. Lass das Anmeldefenster offen und bestätige in Steam. Schließen oder Esc bricht die Authentifizierung ab.</p></div>
+<div class="answer"><p>Ein gescannter Code oder ein akzeptiertes Passwort kann dennoch eine mobile Bestätigung erfordern. Die Anfrage erscheint in der Steam-App unter dem Gerätenamen „MyWallpaperX SteamService“. Lass das Fenster offen und bestätige dort; Schließen oder Esc bricht den Versuch ab.</p></div>
 </details>
 
 <details>
-
 <summary>
 Der vorherige Verifizierungscode wurde abgelehnt
 </summary>
-<div class="answer"><p>Prüfe, ob Steam einen Authenticator-Code oder einen E-Mail-Code verlangt. Gib für diesen Versuch einen frischen Code ein; alte Codes, Tippfehler oder die falsche Quelle können abgelehnt werden. Prüfe bei E-Mail die angezeigte E-Mail-Domain.</p></div>
+<div class="answer"><p>Steam verlangt entweder einen Authenticator-Code oder einen E-Mail-Code. Gib für diesen Versuch einen frischen Code ein; alte Codes, Tippfehler und die falsche Quelle werden abgelehnt. Bei E-Mail zeigt das Fenster, an welche Domain die Nachricht ging.</p></div>
 </details>
 
 <details>
-
 <summary>
-Anmeldung fehlgeschlagen · InvalidPassword / accessDenied
+Anmeldung abgelehnt · accessDenied
 </summary>
-<div class="answer"><p>Steam hat Anmeldedaten oder Zugriff abgelehnt. Nutze den Kontonamen und das Passwort des Steam-Logins, nicht den Anzeigenamen des Profils. Auch Kontoberechtigungen können eine Rolle spielen. Prüfe Anmeldedaten und Kontostatus im offiziellen Steam-Client.</p></div>
+<div class="answer"><p>Steam hat die Anmeldedaten oder den Zugriff des Kontos abgelehnt. Nutze den Kontonamen und das Passwort deiner Anmeldung, nicht den Anzeigenamen des Profils. Ein falsches Passwort und eine Kontoeinschränkung erscheinen beide hier; prüfe das Konto im offiziellen Steam-Client.</p></div>
 </details>
 
 <details>
-
 <summary>
-authExpired / Steam-Token abgelehnt
+authExpired / gespeicherte Anmeldung abgelehnt
 </summary>
-<div class="answer"><p>Die gespeicherte Sitzung ist abgelaufen, wurde widerrufen oder abgelehnt. Melde dich über das Kontomenü mit dem gewünschten Konto erneut an.</p></div>
+<div class="answer"><p>Die gespeicherte Sitzung ist abgelaufen oder wurde widerrufen. Melde dich über das Kontomenü mit dem gewünschten Konto erneut an. Eine Meldung bei der Wiederherstellung unterscheidet einen Netzwerkfehler von einer abgelaufenen Sitzung; bei einem Netzwerkfehler bleibt die gespeicherte Anmeldung erhalten und du kannst es erneut versuchen.</p></div>
 </details>
 
 <details>
-
 <summary>
-Authentifizierungs-Timeout / Dienst-Timeout / Netzwerk
+Netzwerk-Timeout
 </summary>
-<div class="answer"><p>Die Authentifizierung wurde nicht rechtzeitig abgeschlossen. Verbindung, ein Proxy, die Verfügbarkeit von Steam oder eine verzögerte mobile Bestätigung können eine Rolle spielen. Prüfe Bestätigung und Verbindung und versuche es dann erneut. Ein Timeout allein beweist kein falsches Passwort.</p></div>
+<div class="answer"><p>Die Authentifizierung wurde nicht rechtzeitig abgeschlossen. Verbindung, ein Proxy, die Verfügbarkeit von Steam oder eine verzögerte mobile Bestätigung können eine Rolle spielen; ein Timeout allein beweist kein falsches Passwort. Prüfe den Bestätigungsstatus und deine Verbindung und versuche es dann erneut.</p></div>
 </details>
 
 <details>
-
 <summary>
-rateLimited / RateLimitExceeded
+rateLimited
 </summary>
-<div class="answer"><p>Steam begrenzt Anfragen vorübergehend. Warte, bevor du es erneut versuchst, statt wiederholt Codes zu aktualisieren oder Anmeldedaten zu senden.</p></div>
+<div class="answer"><p>Steam begrenzt Anfragen. Warte, bevor du es erneut versuchst, statt Codes zu aktualisieren oder Anmeldedaten in einer Schleife erneut zu senden.</p></div>
 </details>
 
 <details>
-
 <summary>
 Angemeldet, aber die Sitzung konnte nicht gespeichert werden
 </summary>
-<div class="answer"><p>Die aktuelle Sitzung ist nutzbar, aber das Speichern ist fehlgeschlagen und beim nächsten Mal ist eventuell eine erneute Anmeldung nötig. Das ist etwas anderes, als Angemeldet bleiben auszulassen. Wenn es wiederholt auftritt, melde die Meldung und die App-Version; lösche nicht als Erstes deinen Schlüsselbund.</p></div>
+<div class="answer"><p>Die Sitzung funktioniert jetzt, aber das Speichern im Schlüsselbund ist fehlgeschlagen, sodass du beim nächsten Mal erneut gefragt werden kannst. Das unterscheidet sich davon, „Angemeldet bleiben“ auszulassen. Wenn es wiederholt auftritt, notiere die Meldung und die App-Version; lösche nicht als Erstes deinen Schlüsselbund.</p></div>
 </details>
 
 <details>
-
 <summary>
-Steam-Dienst nicht verfügbar / inkompatible Version / Verbindung verloren
+Steam-Dienst nicht verfügbar / inkompatibel / Verbindung verloren
 </summary>
-<div class="answer"><p>Eine nicht verfügbare oder inkompatible Komponente erfordert meist ein Update oder eine Neuinstallation der vollständigen App; mische keine Komponenten aus verschiedenen Builds. Bei einer verlorenen Verbindung starte neu und versuche es erneut; wenn es bleibt, melde die laufende Version und Quelle.</p></div>
+<div class="answer"><p>Der in der App enthaltene Steam-Dienst wurde nicht gestartet, ist beendet worden oder spricht eine andere Protokollversion. Aktualisiere oder installiere die vollständige App neu, statt Komponenten zu mischen. Bei einer verlorenen Verbindung starte neu und versuche es erneut; wenn es bleibt, melde die laufende Version.</p></div>
 </details>
 
+<details>
+<summary>
+Was ohne Anmeldung geht
+</summary>
+<div class="answer"><p>Öffentliche Workshop-Seiten und die Suche lassen sich vor der Anmeldung lesen. Herunterladen, Abonnements und Meine Abonnements erfordern eine abgeschlossene Anmeldung.</p></div>
+</details>
 </section>
 
 <section class="guide-section" id="downloads">
 <div class="section-heading"><h2>Einen fehlgeschlagenen Download verstehen</h2><span class="tag">Ursachen &amp; nächste Schritte</span></div>
-<p>Öffne die Download-Aufgaben und ermittle die fehlgeschlagene Phase: Manifest-Download, CDN-Autorisierung, Datenblöcke oder Speichern lokaler Dateien. Dieselbe Fehlernummer kann in verschiedenen Phasen unterschiedliche Prüfungen erfordern.</p><div class="error-example"><span>So könnte eine Meldung aussehen · Formatbeispiel</span><samp>Manifest-Download fehlgeschlagen (HTTP 503, Knoten &lt;server&gt;, &lt;count&gt; Versuche). Prüfe die Netzwerk- und Proxy-Einstellungen und versuche es später erneut.</samp></div>
+<p>Öffne die Download-Aufgaben und ermittle die fehlgeschlagene Phase: Manifest-Download, CDN-Autorisierung, Datenblöcke oder Speichern lokaler Dateien. Dieselbe Fehlernummer kann in verschiedenen Phasen unterschiedliche Prüfungen erfordern.</p>
+<p>Der Downloader nutzt den CDN-Client von SteamKit. Ein Manifest darf höchstens 8 GiB bzw. 200.000 Dateien umfassen; Manifest- und Chunk-Übertragungen erhalten jeweils bis zu drei Versuche sowie nach einem 403 eine erneute Autorisierung. Eine Aufgabe, die in derselben Phase wiederholt fehlschlägt, wird nicht durch noch mehr Wiederholungen behoben.</p><div class="error-example"><span>So könnte eine Meldung aussehen · Formatbeispiel</span><samp>Manifest-Download fehlgeschlagen (HTTP 503, Knoten &lt;server&gt;, &lt;count&gt; Versuche). Prüfe die Netzwerk- und Proxy-Einstellungen und versuche es später erneut.</samp></div>
 <details>
 
 <summary>

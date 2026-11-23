@@ -230,7 +230,7 @@
     },
     "docs/development/localization-plan.md": {
       "lines": 201,
-      "bytes": 21622
+      "bytes": 21520
     }
   },
   "archives": [
@@ -622,10 +622,10 @@
     {
       "section": "bodies",
       "path": "docs/development/localization-plan.md",
-      "before": "718ad087895e0d0e8ae740193bcf1689c5f6d0c151fd22fa5f21dc56e0420b37",
-      "after": "57ef1aaf83a9cd0440057365097beacbb5155c8a93cc60b413703f262d9e439e",
+      "before": "57ef1aaf83a9cd0440057365097beacbb5155c8a93cc60b413703f262d9e439e",
+      "after": "cf88d25a0370617f958dd354dfb0baf47331bcf3d00dfec6d5bcc34751245aac",
       "owner": "Localization migration plan owner",
-      "reason": "Record the help-book content pass: page-based toolbar chapter, new system chapter, online sources, corrected naming, five languages.",
+      "reason": "Record the SteamKit sign-in/download rewrite and the single-source help assets pipeline.",
       "decision": "docs/development/localization-plan.md#current-state"
     }
   ]

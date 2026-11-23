@@ -98,7 +98,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 @media print {
   :root { color-scheme:light; --paper:#fff; --ink:#000; --muted:#333; --glass:#fff; --line:#ccc; }body::before { display:none; }.layout { display:block; }.sidebar,.topbar,.search-status,.skip,.quick-links { display:none; }main { padding:0; }.guide-section { border:0; box-shadow:none; break-inside:avoid; }.art { print-color-adjust:exact; }
 }
-
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
 (() => {
@@ -156,7 +155,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
     });
   });
 })();
-
 </script></head>
 <body id="top"><a class="skip" href="#main">跳转到正文</a><div class="layout">
 <aside class="sidebar">
@@ -584,89 +582,88 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 </section>
 
 <section class="guide-section" id="login">
-<div class="section-heading"><h2>登录遇到问题，按提示处理</h2><span class="tag">Steam 登录</span></div>
-<p>从工具栏 Steam 账号入口开始。二维码登录使用 Steam 手机应用扫码并确认；账号密码登录可能继续要求手机批准、手机令牌或邮箱验证码。请按面板当前提示操作。</p>
+<div class="section-heading"><h2>登录，一次一个提示</h2><span class="tag">Steam 登录</span></div>
+<p>创意工坊通过应用内置的 Steam 服务与 Steam 通信。你可以扫码登录，也可以用账号名和密码登录；无论哪种，Steam 都可能再要一次确认，会话才算可用。</p>
 <aside class="tip">
-<strong>“记住登录”保存的是会话</strong>按需要勾选「记住登录」。忘记勾选时，下次重新登录不一定是故障；若明确提示「本次登录未能保存」，则是保存失败。不要在反馈中提供密码、验证码、二维码或登录令牌。
+<strong>记住登录</strong>勾选「记住我」会把会话存进钥匙串，下次启动直接恢复、不再询问。不勾选就下次重新登录——这不是失败。只有明确提示「会话无法保存」才是保存失败。反馈问题时不要附上密码、验证码、二维码图片或会话令牌。
 </aside>
 
 <details>
-
 <summary>
-二维码扫不出／等待扫码确认
+二维码扫不上 / 一直等确认
 </summary>
-<div class="answer"><p>用 Steam 手机应用扫描。点击二维码或「放大二维码」看大图；旧码不可用时点刷新，扫描新码。切换登录方式会取消旧的验证流程。</p></div>
+<div class="answer"><p>用 Steam 手机应用扫码。点二维码，或按 Tab 到「放大二维码」看更大的图。二维码失效就刷新再扫新的。在扫码和密码之间切换会取消上一次尝试。</p></div>
 </details>
 
 <details>
-
 <summary>
-请在 Steam 手机应用中确认本次登录
+请在 Steam 手机应用中确认这次登录
 </summary>
-<div class="answer"><p>扫码或密码通过后，还可能需要手机端确认。保持登录面板打开，去 Steam 手机应用批准此次登录；关闭面板或按 Esc 会取消本次认证。</p></div>
+<div class="answer"><p>扫码通过或密码被接受之后，仍可能需要在手机上确认。请求会以设备名「MyWallpaperX SteamService」出现在 Steam 应用里。保持面板打开并在手机上确认；关闭面板或按 Esc 会取消这次登录。</p></div>
 </details>
 
 <details>
-
 <summary>
-上一枚验证码被拒绝，请重新输入
+上一次的验证码被拒绝
 </summary>
-<div class="answer"><p>核对当前要求的是手机令牌还是邮箱验证码。输入当前这一次登录对应的新验证码；旧码、输错或用错来源都可能被拒绝。邮箱验证还要核对提示的邮箱域名。</p></div>
+<div class="answer"><p>Steam 这次要的是令牌验证码或邮箱验证码。为本次尝试输入新码；旧码、输入错误或来源不对都会被拒绝。走邮箱时，面板会显示验证码发到了哪个域名。</p></div>
 </details>
 
 <details>
-
 <summary>
-登录未完成 · InvalidPassword / accessDenied
+登录被拒绝 · accessDenied
 </summary>
-<div class="answer"><p>Steam 拒绝了凭据或访问请求。使用 Steam 登录账号名与密码，不要把个人资料昵称当账号名；也可能与账号权限有关。先核对登录信息，再在 Steam 官方客户端确认账号状态。</p></div>
+<div class="answer"><p>Steam 拒绝了凭据或账号访问。用登录用的账号名和密码，不是个人资料的显示名。密码错误和账号受限都会落在这里；请到官方 Steam 客户端核对账号状态。</p></div>
 </details>
 
 <details>
-
 <summary>
-authExpired / Steam token rejected
+authExpired / 保存的登录被拒
 </summary>
-<div class="answer"><p>保存的会话已过期、撤销或被 Steam 拒绝。用工具栏账号菜单重新登录；切换账号时确认正在登录的是需要使用的账号。</p></div>
+<div class="answer"><p>保存的会话已过期或被撤销。从账号菜单用目标账号重新登录。恢复失败时会区分网络问题和会话过期；网络问题会保留已保存的登录，可以直接重试。</p></div>
 </details>
 
 <details>
-
 <summary>
-Steam 认证等待超时／服务响应超时／network
+网络超时
 </summary>
-<div class="answer"><p>认证没有及时完成；可能是网络、代理、Steam 服务或手机确认等待超时。确认手机端是否已批准，检查连接后重新登录。单凭超时不能断定密码错误。</p></div>
+<div class="answer"><p>登录没能在限定时间内完成。可能是网络、代理、Steam 可用性，或手机确认迟迟未点；单凭超时不能证明密码错误。先确认手机上的确认状态和网络，再重试。</p></div>
 </details>
 
 <details>
-
 <summary>
-rateLimited / RateLimitExceeded
+rateLimited
 </summary>
-<div class="answer"><p>Steam 暂时限制请求。等待一段时间再尝试，避免连续刷新二维码或反复提交密码。</p></div>
+<div class="answer"><p>Steam 正在限流。等一会儿再试，不要反复刷新二维码或重复提交密码。</p></div>
 </details>
 
 <details>
-
 <summary>
-已登录，但本次登录未能保存
+登录成功，但会话没能保存
 </summary>
-<div class="answer"><p>此次会话已经登录成功，但保存登录状态失败，下次可能需要重登。它与「未勾选记住登录」不同；如果重复出现，保留完整提示和应用版本用于反馈，不必先删除整个钥匙串。</p></div>
+<div class="answer"><p>这次会话可用，但写入钥匙串失败，下次可能还要登录。这和「没勾记住我」是两回事。如果反复出现，记录提示和应用版本；不要一上来就删钥匙串。</p></div>
 </details>
 
 <details>
-
 <summary>
-Steam 服务组件不可用／版本不兼容／连接已中断
+Steam 服务不可用 / 版本不兼容 / 连接断开
 </summary>
-<div class="answer"><p>组件不可用或协议不兼容通常需要更新或重新安装完整 App；不要混用不同构建里的组件。连接中断可先重开 App 再试；持续发生时同时记录运行中的 App 版本和来源。</p></div>
+<div class="answer"><p>内置的 Steam 服务没起来、已退出，或协议版本不一致。请更新或重装完整的应用，不要混装不同构建的组件。连接断开时先重启再试；持续出现请附上运行版本。</p></div>
+</details>
+
+<details>
+<summary>
+不登录能做什么
+</summary>
+<div class="answer"><p>公开的创意工坊页面和搜索在登录前就能浏览。下载、订阅和「我的订阅」需要完成登录。</p></div>
 </details>
 
 </section>
 
 <section class="guide-section" id="downloads">
 <div class="section-heading"><h2>下载失败，先读懂这一行</h2><span class="tag">原因与处理</span></div>
-<p>先打开工具栏「下载任务」，看失败发生在哪一步：下载清单、获取 CDN 授权、下载数据块，还是保存本地文件。同一个错误数字，出现在不同阶段时需要检查的地方不同。</p><div class="error-example"><span>报错可能长这样 · 格式示例</span><samp>下载清单失败（HTTP 503，节点 &lt;服务器&gt;，已尝试 &lt;次数&gt; 次）。请检查网络及代理设置，稍后重试。</samp></div>
+<p>先打开工具栏「下载任务」，看失败发生在哪一步：下载清单、获取 CDN 授权、下载数据块，还是保存本地文件。同一个错误数字，出现在不同阶段时需要检查的地方不同。</p>
+<p>下载走 SteamKit 的 CDN 客户端。单个清单不超过 8 GiB 或 20 万个文件；清单和分块传输各最多尝试 3 次，403 之后额外允许一次重新鉴权。一直卡在同一阶段的失败，反复重试并不会变好。</p><div class="error-example"><span>报错可能长这样 · 格式示例</span><samp>下载清单失败（HTTP 503，节点 &lt;服务器&gt;，已尝试 &lt;次数&gt; 次）。请检查网络及代理设置，稍后重试。</samp></div>
 <details>
 
 <summary>

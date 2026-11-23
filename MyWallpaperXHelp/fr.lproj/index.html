@@ -98,7 +98,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 @media print {
   :root { color-scheme:light; --paper:#fff; --ink:#000; --muted:#333; --glass:#fff; --line:#ccc; }body::before { display:none; }.layout { display:block; }.sidebar,.topbar,.search-status,.skip,.quick-links { display:none; }main { padding:0; }.guide-section { border:0; box-shadow:none; break-inside:avoid; }.art { print-color-adjust:exact; }
 }
-
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
 (() => {
@@ -156,7 +155,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
     });
   });
 })();
-
 </script></head>
 <body id="top"><a class="skip" href="#main">Aller au contenu</a><div class="layout">
 <aside class="sidebar">
@@ -615,88 +613,87 @@ Toutes les listes de lecture
 
 <section class="guide-section" id="login">
 <div class="section-heading"><h2>Connexion, une étape à la fois</h2><span class="tag">Connexion Steam</span></div>
-<p>Commencez par le bouton du compte Steam. La connexion par QR code nécessite un scan et une approbation dans l’app mobile Steam. La connexion par mot de passe peut ensuite demander une approbation mobile, un code d’authentificateur ou un code par e-mail. Suivez l’instruction affichée.</p>
+<p>L’Atelier communique avec Steam via le service intégré à l’app. Connectez-vous par QR code ou avec votre nom de compte et votre mot de passe ; dans les deux cas, Steam peut demander une seconde confirmation avant que la session soit utilisable.</p>
 <aside class="tip">
-<strong>Mémoriser une connexion</strong>Activez Se souvenir de moi si vous le souhaitez. Une demande de connexion ultérieure n’est pas forcément un échec si l’option était décochée. Un message explicite « la session n’a pas pu être enregistrée » indique bien un échec d’enregistrement. Ne joignez jamais mots de passe, codes, images QR ou jetons de session à un signalement.
+<strong>Mémoriser une connexion</strong>Activez Se souvenir de moi pour conserver la session dans votre trousseau, afin que le prochain lancement la restaure sans vous la redemander. Sans cette option, vous vous reconnectez la prochaine fois : ce n’est pas un échec. Un message indiquant que la session n’a pas pu être enregistrée signale un véritable échec d’enregistrement. Ne joignez jamais mots de passe, codes, images QR ou jetons de session à un signalement.
 </aside>
 
 <details>
-
 <summary>
 Impossible de scanner le QR code / en attente d’approbation
 </summary>
-<div class="answer"><p>Scannez avec l’app mobile Steam. Cliquez sur le code ou sur le bouton d’agrandissement pour l’afficher en plus grand. Actualisez un code inutilisable et scannez le nouveau. Changer de méthode de connexion annule la tentative précédente.</p></div>
+<div class="answer"><p>Scannez avec l’app mobile Steam. Cliquez sur le code, ou appuyez sur Tab pour atteindre « Agrandir le QR code » et l’afficher en plus grand. Actualisez un code inutilisable et scannez le nouveau. Passer du QR code au mot de passe annule la tentative précédente.</p></div>
 </details>
 
 <details>
-
 <summary>
 Confirmez cette connexion dans l’app mobile Steam
 </summary>
-<div class="answer"><p>Un code scanné ou un mot de passe accepté peut encore nécessiter une approbation mobile. Laissez le panneau de connexion ouvert et approuvez dans Steam. Le fermer ou le fait d’appuyer sur Esc annule l’authentification.</p></div>
+<div class="answer"><p>Un code scanné ou un mot de passe accepté peut encore nécessiter une approbation mobile. La demande apparaît dans l’app Steam sous le nom d’appareil « MyWallpaperX SteamService ». Laissez le panneau ouvert et approuvez la demande dans l’app ; le fermer ou appuyer sur Esc annule la tentative.</p></div>
 </details>
 
 <details>
-
 <summary>
 Le code de vérification précédent a été refusé
 </summary>
-<div class="answer"><p>Vérifiez si Steam demande un code d’authentificateur ou un code par e-mail. Saisissez un nouveau code pour cette tentative ; les anciens codes, les fautes de frappe ou une mauvaise source peuvent être refusés. Pour l’e-mail, vérifiez le domaine affiché.</p></div>
+<div class="answer"><p>Steam demande soit un code d’authentificateur, soit un code par e-mail. Saisissez un nouveau code pour cette tentative ; les anciens codes, les fautes de frappe ou une mauvaise source sont refusés. Pour l’e-mail, le panneau indique le domaine vers lequel le message a été envoyé.</p></div>
 </details>
 
 <details>
-
 <summary>
-Échec de la connexion · InvalidPassword / accessDenied
+Connexion refusée · accessDenied
 </summary>
-<div class="answer"><p>Steam a refusé les identifiants ou l’accès. Utilisez le nom de compte et le mot de passe de connexion Steam, pas le nom affiché du profil. Les autorisations du compte peuvent aussi entrer en jeu. Vérifiez les identifiants et l’état du compte dans le client Steam officiel.</p></div>
+<div class="answer"><p>Steam a refusé les identifiants ou l’accès du compte. Utilisez le nom de compte et le mot de passe avec lesquels vous vous connectez, pas le nom affiché du profil. Un mot de passe erroné comme une restriction du compte aboutissent à ce message ; vérifiez l’état du compte dans le client Steam officiel.</p></div>
 </details>
 
 <details>
-
 <summary>
-authExpired / jeton Steam refusé
+authExpired / connexion enregistrée refusée
 </summary>
-<div class="answer"><p>La session enregistrée a expiré, a été révoquée ou refusée. Reconnectez-vous depuis le menu du compte, avec le compte souhaité.</p></div>
+<div class="answer"><p>La session enregistrée a expiré ou a été révoquée. Reconnectez-vous depuis le menu du compte avec le compte souhaité. Un message lors de la restauration distingue une panne réseau d’une session expirée ; une panne réseau conserve la connexion enregistrée et vous permet de réessayer.</p></div>
 </details>
 
 <details>
-
 <summary>
-Délai d’authentification / délai du service / réseau
+Délai réseau
 </summary>
-<div class="answer"><p>L’authentification ne s’est pas terminée à temps. La connectivité, un proxy, la disponibilité de Steam ou une approbation mobile tardive peuvent être en cause. Vérifiez l’approbation et la connexion, puis réessayez. Un délai dépassé ne prouve pas à lui seul un mot de passe erroné.</p></div>
+<div class="answer"><p>L’authentification ne s’est pas terminée à temps. La connectivité, un proxy, la disponibilité de Steam ou une approbation mobile tardive peuvent être en cause ; un délai dépassé ne prouve pas à lui seul un mot de passe erroné. Vérifiez l’état de l’approbation et votre connexion, puis réessayez.</p></div>
 </details>
 
 <details>
-
 <summary>
-rateLimited / RateLimitExceeded
+rateLimited
 </summary>
-<div class="answer"><p>Steam limite temporairement les requêtes. Patientez avant de réessayer plutôt que d’actualiser les codes ou de soumettre les identifiants en boucle.</p></div>
+<div class="answer"><p>Steam limite les requêtes. Patientez avant de réessayer plutôt que d’actualiser les codes ou de soumettre les identifiants en boucle.</p></div>
 </details>
 
 <details>
-
 <summary>
 Connexion réussie, mais la session n’a pas pu être enregistrée
 </summary>
-<div class="answer"><p>La session actuelle est utilisable, mais son enregistrement a échoué et vous devrez peut-être vous reconnecter la prochaine fois. Cela diffère d’une option Se souvenir de moi laissée décochée. Si le problème se répète, signalez le message et la version de l’app ; ne commencez pas par supprimer votre trousseau.</p></div>
+<div class="answer"><p>La session fonctionne à présent, mais son enregistrement dans le trousseau a échoué, si bien que vous devrez peut-être vous reconnecter la prochaine fois. Cela diffère d’une option Se souvenir de moi laissée décochée. Si le problème se répète, notez le message et la version de l’app ; ne commencez pas par supprimer votre trousseau.</p></div>
 </details>
 
 <details>
-
 <summary>
-Service Steam indisponible / version incompatible / connexion perdue
+Service Steam indisponible / incompatible / connexion perdue
 </summary>
-<div class="answer"><p>Un composant indisponible ou incompatible nécessite généralement une mise à jour ou une réinstallation complète de l’app ; ne mélangez pas des composants de versions différentes. En cas de connexion perdue, redémarrez et réessayez, puis signalez la version en cours et la source si le problème persiste.</p></div>
+<div class="answer"><p>Le service Steam intégré à l’app n’a pas démarré, s’est arrêté ou utilise une version de protocole différente. Mettez à jour ou réinstallez l’app complète plutôt que de mélanger des composants. En cas de connexion perdue, redémarrez et réessayez ; si le problème persiste, signalez la version en cours.</p></div>
+</details>
+
+<details>
+<summary>
+Parcourir sans se connecter
+</summary>
+<div class="answer"><p>Les pages publiques de l’Atelier et la recherche restent consultables avant la connexion. Le téléchargement, les abonnements et Mes abonnements nécessitent une connexion complète.</p></div>
 </details>
 
 </section>
 
 <section class="guide-section" id="downloads">
 <div class="section-heading"><h2>Comprendre un téléchargement échoué</h2><span class="tag">Causes et étapes suivantes</span></div>
-<p>Ouvrez la fenêtre Tâches de téléchargement et identifiez l’étape en échec : téléchargement du manifeste, autorisation CDN, blocs de données ou enregistrement des fichiers locaux. Un même numéro d’erreur peut appeler des vérifications différentes selon l’étape.</p><div class="error-example"><span>Un message peut ressembler à ceci · exemple de format</span><samp>Échec du téléchargement du manifeste (HTTP 503, nœud &lt;server&gt;, &lt;count&gt; tentatives). Vérifiez vos réglages réseau et proxy, puis réessayez plus tard.</samp></div>
+<p>Ouvrez la fenêtre Tâches de téléchargement et identifiez l’étape en échec : téléchargement du manifeste, autorisation CDN, blocs de données ou enregistrement des fichiers locaux. Un même numéro d’erreur peut appeler des vérifications différentes selon l’étape.</p>
+<p>Le téléchargeur s’appuie sur le client CDN de SteamKit. Un manifeste ne peut pas dépasser 8 Gio ni 200 000 fichiers ; les transferts de manifeste et de blocs disposent chacun de trois tentatives au maximum, plus une ré-autorisation après un 403. Une tâche qui échoue toujours à la même étape ne se corrige pas en réessayant avec plus d’insistance.</p><div class="error-example"><span>Un message peut ressembler à ceci · exemple de format</span><samp>Échec du téléchargement du manifeste (HTTP 503, nœud &lt;server&gt;, &lt;count&gt; tentatives). Vérifiez vos réglages réseau et proxy, puis réessayez plus tard.</samp></div>
 <details>
 
 <summary>

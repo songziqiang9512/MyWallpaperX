@@ -98,7 +98,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
 @media print {
   :root { color-scheme:light; --paper:#fff; --ink:#000; --muted:#333; --glass:#fff; --line:#ccc; }body::before { display:none; }.layout { display:block; }.sidebar,.topbar,.search-status,.skip,.quick-links { display:none; }main { padding:0; }.guide-section { border:0; box-shadow:none; break-inside:avoid; }.art { print-color-adjust:exact; }
 }
-
 </style><script defer>
 /* Search is an enhancement; all chapters and anchors work without JavaScript. */
 (() => {
@@ -156,7 +155,6 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; 
     });
   });
 })();
-
 </script></head>
 <body id="top"><a class="skip" href="#main">Skip to content</a><div class="layout">
 <aside class="sidebar">
@@ -615,88 +613,87 @@ All Playlists
 
 <section class="guide-section" id="login">
 <div class="section-heading"><h2>Sign-in, one prompt at a time</h2><span class="tag">Steam sign-in</span></div>
-<p>Start at the Steam account control. QR sign-in needs scanning and approval in the Steam mobile app. Password sign-in may then require mobile approval, an authenticator code or an email code. Follow the current prompt.</p>
+<p>The Workshop talks to Steam through the service that ships inside the app. Sign in with the QR code or with your account name and password; either way Steam may ask for a second confirmation before the session becomes usable.</p>
 <aside class="tip">
-<strong>Remembering a sign-in</strong>Enable Remember me if desired. Being asked to sign in next time is not necessarily a failure if it was unchecked. An explicit “session could not be saved” message does indicate a save failure. Keep passwords, codes, QR images and session tokens out of reports.
+<strong>Remembering a sign-in</strong>Enable Remember me to keep the session in your keychain, so the next launch restores it without a prompt. Without it you sign in again next time — that is not a failure. A message saying the session could not be saved is a real save failure. Keep passwords, codes, QR images and session tokens out of reports.
 </aside>
 
 <details>
-
 <summary>
 QR code will not scan / waiting for approval
 </summary>
-<div class="answer"><p>Scan with the Steam mobile app. Click the code or the enlarge button for a larger view. Refresh an unusable code and scan the new one. Switching sign-in methods cancels the previous attempt.</p></div>
+<div class="answer"><p>Scan with the Steam mobile app. Click the code, or press Tab to “Enlarge QR Code”, for a larger view. Refresh an unusable code and scan the new one. Switching between QR and password cancels the previous attempt.</p></div>
 </details>
 
 <details>
-
 <summary>
 Confirm this sign-in in the Steam mobile app
 </summary>
-<div class="answer"><p>A scanned code or accepted password may still require mobile approval. Leave the sign-in panel open and approve in Steam. Closing it or pressing Esc cancels authentication.</p></div>
+<div class="answer"><p>A scanned code or an accepted password can still need mobile approval. The request appears in the Steam app under the device name “MyWallpaperX SteamService”. Leave the panel open and approve there; closing it or pressing Esc cancels the attempt.</p></div>
 </details>
 
 <details>
-
 <summary>
 Previous verification code was rejected
 </summary>
-<div class="answer"><p>Check whether Steam requests an authenticator code or an email code. Enter a fresh code for this attempt; old codes, typos or the wrong source can be rejected. For email, check the displayed email domain.</p></div>
+<div class="answer"><p>Steam asks for either an authenticator code or an email code. Enter a fresh code for this attempt; old codes, typos and the wrong source are rejected. For email, the panel shows which domain the message went to.</p></div>
 </details>
 
 <details>
-
 <summary>
-Sign-in failed · InvalidPassword / accessDenied
+Sign-in rejected · accessDenied
 </summary>
-<div class="answer"><p>Steam rejected credentials or access. Use the Steam login account name and password, not the profile display name. Account permissions may also be involved. Check credentials and account status in the official Steam client.</p></div>
+<div class="answer"><p>Steam refused the credentials or the account’s access. Use the account name and password you log in with, not the profile display name. A wrong password and an account restriction both surface here; check the account in the official Steam client.</p></div>
 </details>
 
 <details>
-
 <summary>
-authExpired / Steam token rejected
+authExpired / saved sign-in rejected
 </summary>
-<div class="answer"><p>The saved session expired, was revoked or was rejected. Sign in again from the account menu, using the intended account.</p></div>
+<div class="answer"><p>The saved session expired or was revoked. Sign in again from the account menu with the intended account. A restore message separates a network failure from an expired session; a network failure keeps the saved sign-in and lets you retry.</p></div>
 </details>
 
 <details>
-
 <summary>
-Authentication timeout / service timeout / network
+Network timeout
 </summary>
-<div class="answer"><p>Authentication did not complete in time. Connectivity, a proxy, Steam availability or delayed mobile approval may be involved. Check approval and connectivity, then retry. A timeout alone does not prove a wrong password.</p></div>
+<div class="answer"><p>Authentication did not finish in time. Connectivity, a proxy, Steam availability or a delayed mobile approval can be involved; a timeout alone does not prove a wrong password. Check the approval state and your connection, then retry.</p></div>
 </details>
 
 <details>
-
 <summary>
-rateLimited / RateLimitExceeded
+rateLimited
 </summary>
-<div class="answer"><p>Steam is temporarily limiting requests. Wait before retrying instead of repeatedly refreshing codes or submitting credentials.</p></div>
+<div class="answer"><p>Steam is limiting requests. Wait before retrying instead of refreshing codes or resubmitting credentials in a loop.</p></div>
 </details>
 
 <details>
-
 <summary>
 Signed in, but the session could not be saved
 </summary>
-<div class="answer"><p>The current session is usable, but saving it failed and you may need to sign in next time. This differs from leaving Remember me off. If repeated, report the message and app version; do not start by deleting your keychain.</p></div>
+<div class="answer"><p>The session works now, but saving it to the keychain failed, so you may be asked again next time. This differs from leaving Remember me off. If it repeats, note the message and app version; do not start by deleting your keychain.</p></div>
 </details>
 
 <details>
-
 <summary>
-Steam service unavailable / incompatible version / connection lost
+Steam service unavailable / incompatible / connection lost
 </summary>
-<div class="answer"><p>An unavailable or incompatible component usually requires updating or reinstalling the complete app; do not mix components from different builds. For a lost connection, restart and retry, then report the running version and source if it persists.</p></div>
+<div class="answer"><p>The in-app Steam service did not start, exited, or speaks a different protocol version. Update or reinstall the complete app rather than mixing components. For a lost connection, restart and retry; if it persists, report the running version.</p></div>
+</details>
+
+<details>
+<summary>
+Browsing without signing in
+</summary>
+<div class="answer"><p>Public Workshop pages and search can be read before you sign in. Downloading, subscriptions and My Subscriptions require a completed sign-in.</p></div>
 </details>
 
 </section>
 
 <section class="guide-section" id="downloads">
 <div class="section-heading"><h2>Make sense of a failed download</h2><span class="tag">Causes & next steps</span></div>
-<p>Open Download tasks and identify the failing stage: manifest download, CDN authorization, data chunks or saving local files. The same error number can call for different checks at different stages.</p><div class="error-example"><span>A message may look like this · format example</span><samp>Manifest download failed (HTTP 503, node &lt;server&gt;, attempted &lt;count&gt; times). Check your network and proxy settings and try again later.</samp></div>
+<p>Open Download tasks and identify the failing stage: manifest lookup, CDN authorization, chunk transfer or saving local files. The same error number can call for different checks at different stages.</p>
+<p>The downloader runs on SteamKit’s CDN client. A manifest may not exceed 8 GiB or 200,000 files; manifest and chunk transfers get up to three attempts each, plus one re-authorisation replay after a 403. A task that keeps failing at the same stage is not fixed by retrying harder.</p><div class="error-example"><span>A message may look like this · format example</span><samp>Manifest download failed (HTTP 503, node &lt;server&gt;, attempted &lt;count&gt; times). Check your network and proxy settings and try again later.</samp></div>
 <details>
 
 <summary>
