@@ -121,7 +121,7 @@
 | 2999907577 | 旧终端主体完整，大片背景灰与有效默认tint相符；876e6流体的执行不授像素贡献。后续只在需要时用现有selector7→8(None)定位白弧/流体贡献，不按preview判缺纹理。 |
 | 3436945972 /3463406101 /3443450456 | 分别偏暗、暗绿配色及灰白底黑字；同亮度、遮罩、配色/时段与音频输入后定位writer，不从preview归tone-map/blend。3382111183另并入本次主要效果可见性优先项。 |
 | 3498814983 /3605722997 /3827673174 | 前后两项当前目录已移除，保原反馈为输入不可用；360572当前可运行。头脸取景仍须固定横屏camera/cover/平移与作者画布，portrait preview不能证明投影错误。 |
-| <a id="puppet-morph-peer-fallback"></a>3504669359 | 默认四秒旧强白圆未重现，固定圆核及材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。现役签名App另复现默认可见身体166：首clip700的双曲线在MDLA reader报invalid auxiliary，普通additive槽720/718/716的初始化因此取不到动画metadata。R2/F313仍从bind几何经材质到同CB终端/GPU完成，运行正常排空；整场性能采集未过呈现流计数门。下次先证通用曲线长度与后续记录边界，再核已知骨骼基底及独立additive姿态能否恢复实际主图活动；边界不确定的记录仍按实际解析边界失败。700的七骨TRS与参考等值，双曲线及MDMP的眼部morph仍需其真实几何消费者。原始回执见正式运行`scene-puppet-morph-peer-fallback-20261123`。 |
+| <a id="puppet-morph-peer-fallback"></a>3504669359 | 默认四秒旧强白圆未重现，固定圆核及材质/终端边界见[运行证据](../capabilities/runtime-evidence-current.md#coverage)。身体166的三个普通叠加槽已从共同解析失败中恢复实际骨骼动作，见[原包与固定相位对照](../capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence)。clip700的骨骼基底参与原叠加；眼部仍缺MDMP几何消费。后续先资格真实曲线→形态的配对、坐标与skin前后次序，再核眼部选帧像素及普通骨骼邻例。 |
 | 2982559622 | [竹林→池塘](../capabilities/runtime-evidence-current.md#coverage)已实际出图，退出该条件切换待核。103.alpha确为Vec3错误返回；111/94的条件+Script包装仍有冷准入边界，视频属于effect slot1。重启须合法附着回调/视频句柄及具体可见失败，不先放包装、不重跑默认或0→1。初始111短暂纹理未供与正常切换分开。 |
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
 | 3141464346 | [裁切](../capabilities/runtime-evidence-current.md#ring-cover-314)已由原画幅及已有Windows图定位。保Puppet位置与共域彩弧细节，须有同viewport、同音源及相位的可区分差异，再核13/351的group尾与main，不重跑默认/静音对。 |

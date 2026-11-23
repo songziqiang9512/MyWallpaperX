@@ -59,6 +59,15 @@ def matrix(x: float = 0, y: float = 0) -> list[float]:
     return result
 
 
+def with_paired_curves(record: bytes, samples: int) -> bytes:
+    # Replace the absent pre-bounds channel, leaving bounds and events intact.
+    tail = bytes(1 + 25 + 4)
+    assert record.endswith(tail)
+    values = struct.pack(f"<{samples}f", *(index / (samples - 1) for index in range(samples)))
+    return (record[:-len(tail)] + b"\1" + struct.pack("<4I", 1, 0x4225DD93, 2, len(values))
+            + values + struct.pack("<HI", 1, len(values)) + values + tail[1:])
+
+
 def fixture_mdl(
     *, reference: list[list[float]] | None = None,
     root_bind: list[float] | None = None,
@@ -198,6 +207,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
                              track_samples=single_channels),
             animation_record(740, "Unavailable optional Single", 2, 2, fps=2, mode="single",
                              track_samples=single_channels, post_bounds_scalar=[[0] * 3] * 2),
+            with_paired_curves(animation_record(741, "Skeletal Single", 2, 2, fps=2, mode="single",
+                                                track_samples=single_channels), 3),
             animation_record(909, "Unrequested Loop", 1, 2, fps=1, track_samples=channels(12)),
         ]
         for name in ("cold-single.mdl", "cold-loop-demand.mdl"):
@@ -214,6 +225,18 @@ class ScenePuppetPreparationTests(unittest.TestCase):
                                  track_samples=channels(7)),
             ]
             files[name + ".mdl"] = fixture_mdl(animation_records=records)
+        def composed_clip(clip_id: int, start: tuple[float, ...], end: tuple[float, ...]) -> bytes:
+            root = [(*pose, 1, 1, 1) for pose in (start, end)]
+            child = [(2, 0, 0, 0, 0, 0, 1, 1, 1)] * 2
+            return animation_record(clip_id, f"Authored pose {clip_id}", 1, 2, fps=1,
+                                    track_samples={0: root, 1: child})
+        first = composed_clip(510, (12, 0, 0, 0, 0, 1.2), (20, 0, 0, 0, 0, 1.2))
+        following = [composed_clip(520, (40, 0, 0, 0, 0, 0), (60, 0, 0, 0, 0, 0)),
+                     composed_clip(530, (4, 0, 0, 0, 0, 0), (8, 0, 0, 1.2, 0, 0)),
+                     composed_clip(540, (4, 0, 0, 0, 0, 0), (4, 6, 0, 0, 0.8, 0))]
+        files["layered-ordinary.mdl"] = fixture_mdl(animation_records=[first, *following])
+        files["layered-curves.mdl"] = fixture_mdl(
+            animation_records=[with_paired_curves(first, 2), *following])
         inputs = directory / "inputs"
         inputs.mkdir()
         for name, data in files.items():
@@ -335,6 +358,20 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertEqual(row["visible"], [True, False], row)
             self.assertEqual(row["currentFrames"], [0.75, 0], row)
             self.assertEqual(row["rootXs"], [4, 10.5, 23.5], row)
+
+    def test_pre_bounds_curves_keep_the_first_opaque_bone_pose_and_additive_order(self) -> None:
+        rows = self.result["layered-curves"]
+        ordinary, skeletal, reversed_additives = (rows[k] for k in ("ordinary", "skeletal", "reversed"))
+        self.assertEqual(ordinary["fallback"], "")
+        self.assertIn("skeletal playback only", skeletal["fallback"])
+        self.assertEqual(skeletal["animationIDs"], [510, 520, 530, 540])
+        self.assertEqual(skeletal["slots"], [0, 1, 2, 3])
+        self.assertEqual(skeletal["rootXs"], [8, 9.75, 13.25])
+        self.assertEqual(skeletal["matrices"], ordinary["matrices"])
+        self.assertEqual(skeletal["points"], ordinary["points"])
+        self.assertEqual(reversed_additives["rootXs"], skeletal["rootXs"])
+        self.assertNotEqual(reversed_additives["matrices"], skeletal["matrices"])
+        self.assertNotEqual(reversed_additives["points"], skeletal["points"])
 
     def test_default_pose_keeps_reference_and_does_not_inherit_script_or_animation(self) -> None:
         row = self.result["default-reference"]
@@ -485,6 +522,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(row["availableSingleIDs"], [739], row)
         self.assertFalse(row["unrequestedLoopPrepared"], row)
         self.assertFalse(row["badSinglePrepared"], row)
+        self.assertFalse(row["unrequestedSkeletalSinglePrepared"], row)
         self.assertTrue(row["requiredLoopPrepared"], row)
         self.assertEqual(row["metadata"], {"id": 739, "name": "Owned actual Single",
                                          "fps": 2, "frameCount": 2}, row)
@@ -499,6 +537,16 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(row["badRequired"]["kind"], "bind", row)
         self.assertIn("unconsumed", row["badRequired"]["fallback"], row)
         self.assertIn("740", row["badRequired"]["fallback"], row)
+
+    def test_skeletal_single_is_prepared_for_an_authored_slot_but_unavailable_for_creation(self) -> None:
+        row = self.result["cold-single"]["skeletalSingle"]
+        self.assertEqual(row["kind"], "animation", row)
+        self.assertEqual(row["animationIDs"], [741], row)
+        self.assertEqual(row["sampledRootX"], 17, row)
+        self.assertEqual(row["points"], [[3, -20], [23, -20], [13, 20]], row)
+        self.assertIn("skeletal playback only", row["fallback"], row)
+        self.assertEqual(row["availableSingleIDs"], [739], row)
+        self.assertFalse(row["runtimeCreationMetadata"], row)
 
 
 if __name__ == "__main__":

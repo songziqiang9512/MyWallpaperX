@@ -895,7 +895,7 @@
       "owner": "scene-puppet-reader/evaluator/playback",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": "Legacy MDLV0013/MDLS0001/MDLA0001 animation uses the existing rig, full-TRS evaluator, playback and geometry consumers; exact versioned zero-trailer contract and local bind fallback: docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh. ",
+      "design_notes": "Legacy MDLV0013/MDLS0001/MDLA0001 animation uses the existing rig, full-TRS evaluator, playback and geometry consumers; exact versioned zero-trailer contract and local bind fallback: docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh. MDLA6 pre-bounds curves retain structural record boundaries; the existing authored image pose owns skeletal playback with an explicit partial diagnostic. See designDoc#puppet-prebounds-curves.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",

@@ -138,7 +138,6 @@ nonisolated enum SceneMdlPuppetAnimationReader {
     private static let maxTotalSamples = 8_000_000
     private static let transformByteCount = 36
     private static let maxAbsoluteTransformValue: Float = 1_000_000
-    private static let auxiliaryTrackKey: UInt32 = 0x418A_55D5
     // Project preparation budgets, not official file-format limits.
     private static let maxEventsPerAnimation = 1024
     private static let maxTotalEvents = 4096
@@ -480,23 +479,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         let hasAuxiliaryTrack = data[cursor]
         cursor += 1
         if hasAuxiliaryTrack == 1 {
-            let expectedBytes = sampleCount * 4
-            guard cursor + 16 + expectedBytes <= bound,
-                  readUInt32(data, at: cursor) == 1,
-                  readUInt32(data, at: cursor + 4) == auxiliaryTrackKey,
-                  readUInt32(data, at: cursor + 8) == 1,
-                  Int(readUInt32(data, at: cursor + 12)) == expectedBytes
-            else {
-                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
-            }
-            cursor += 16
-            for frameIndex in 0 ..< sampleCount {
-                let value = readFloat(data, at: cursor + frameIndex * 4)
-                guard value.isFinite, value >= 0, value <= 1.0001 else {
-                    throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
-                }
-            }
-            cursor += expectedBytes
+            try skipPreBoundsCurves(data, cursor: &cursor, bound: bound,
+                animationID: animationID, sampleCount: sampleCount)
         } else if hasAuxiliaryTrack != 0 {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
@@ -567,6 +551,30 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         )
         return (alphaByBone, events, bounds, hasAuxiliaryTrack == 1,
                 hasPostBoundsScalarTrack, derivedSource)
+    }
+
+    private static func skipPreBoundsCurves(
+        _ data: Data, cursor: inout Int, bound: Int, animationID: Int, sampleCount: Int
+    ) throws {
+        let failure = SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        guard cursor + 4 <= bound else { throw failure }
+        let eventCount = Int(readUInt32(data, at: cursor))
+        cursor += 4
+        guard eventCount > 0 else { throw failure }
+        let sampleBytes = sampleCount * 4
+        for _ in 0 ..< eventCount {
+            guard cursor + 8 <= bound else { throw failure }
+            // The linkage and flags belong to the unconsumed morph channel.
+            let curveCount = Int(readUInt32(data, at: cursor + 4) & 0xffff)
+            cursor += 8
+            guard curveCount > 0 else { throw failure }
+            for curve in 0 ..< curveCount {
+                if curve > 0 { cursor += 2 } // The first curve ID is implicit.
+                guard cursor + 4 + sampleBytes <= bound,
+                      Int(readUInt32(data, at: cursor)) == sampleBytes else { throw failure }
+                cursor += 4 + sampleBytes
+            }
+        }
     }
 
     private static func readEvents(

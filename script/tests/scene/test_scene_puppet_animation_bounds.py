@@ -33,6 +33,22 @@ class SceneMdlPuppetAnimationBoundsTests(legacy.SceneMdlPuppetAnimationReaderTes
                 record(), legacy.animation_record(742, "Next", 3, 2,
                     events=[legacy.event_record(0.1, {"name": "bad", "frame": 3})])]),
         }
+        curve_bytes = struct.pack("<I3f", 12, 0, 0.5, 1)
+        known = struct.pack("<IfHH", 1, 17.29191017150879, 1, 0) + curve_bytes
+        with_curves = record(auxiliary=True)
+        assert with_curves.count(known) == 1
+        # One event has an implicit curve and an explicit curve with a different ID.
+        event = struct.pack("<fHH", 41.5, 2, 0) + curve_bytes + struct.pack("<H", 19) + curve_bytes
+        other_event = struct.pack("<fHH", 62, 1, 0) + curve_bytes
+        following = legacy.animation_record(1064, "Following clip", 3, 2, fps=20)
+        for label, curves in (
+            ("valid", struct.pack("<I", 2) + event + other_event),
+            ("bad-count", struct.pack("<I", 2) + event),
+            ("bad-size", struct.pack("<I", 1) + event[:-16] + struct.pack("<I3f", 8, 0, 0.5, 1)),
+            ("truncated", struct.pack("<I", 1) + event[:-1]),
+        ):
+            cls.bounds_fixtures[f"pre-bounds-{label}.mdl"] = legacy.build_mdl([
+                with_curves.replace(known, curves), following])
         for label, values in (
             ("nan", (float("nan"), -2, 0, 8, 3, 11)),
             ("inf", (-4, -2, 0, float("inf"), 3, 11)),
@@ -120,6 +136,17 @@ class SceneMdlPuppetAnimationBoundsTests(legacy.SceneMdlPuppetAnimationReaderTes
         self.assertEqual(self.results["bounds-zero-extent.mdl"]["animations"][0]["bounds"],
                          [2, -3, 1, 2, -3, 1])
         self.assertTrue(self.results["valid.mdl"]["animations"][1]["hasAuxiliaryScalarTrack"])
+
+    def test_pre_bounds_curves_preserve_following_clip_and_reject_bad_framing(self):
+        entry = self.results["pre-bounds-valid.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        first, following = entry["animations"]
+        self.assertEqual((first["id"], first["bounds"], first["hasAuxiliaryScalarTrack"]),
+                         (741, list(self.bounds), True))
+        self.assertEqual((following["id"], following["fps"], following["sampleCounts"],
+                          following["hasAuxiliaryScalarTrack"]), (1064, 20, [4, 4], False))
+        for label in ("bad-count", "bad-size", "truncated"):
+            self.assertFalse(self.results[f"pre-bounds-{label}.mdl"]["ok"])
 
     def test_invalid_bounds_and_scalar_flags_fail_closed(self):
         for name in self.bounds_fixtures:

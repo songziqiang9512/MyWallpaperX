@@ -365,6 +365,49 @@ private enum ScenePuppetPreparationCases {
                 asset: preparation, usesDefaultConfiguration: true))]
     }
 
+    private static func layeredCurveMotion(
+        mesh: String,
+        view: SceneResourceView,
+        reverseAdditives: Bool = false
+    ) throws -> [String: Any] {
+        let ids = [510, 520, 530, 540]
+        let blends = [0.5, 1, 0.75, 0.25]
+        let slots = (reverseAdditives ? [0, 1, 3, 2] : [0, 1, 2, 3]).map { index in
+            ScenePuppetAnimationLayer(id: 71 + index, animationID: ids[index], name: "Slot \(index)",
+                additive: index >= 2, blend: blends[index], blendIn: false, blendOut: false,
+                blendTime: 0, rate: 1, visible: true, visibilityBinding: nil)
+        }
+        let layer = SceneRenderDescriptor.Layer(id: 75, puppetMeshPath: mesh,
+            puppetAnimationLayers: slots, hasInlineScript: false)
+        let prepared = try ScenePreparedPuppetResources.prepare(descriptor: .init(layers: [layer]),
+            resourceView: view, cancellationCheck: {})
+        guard let pose = prepared.posesByLayerID[layer.id],
+              case let .evaluated(_, selection, evaluator, _, fallback) = pose.geometry else {
+            return try describe(prepared.posesByLayerID[layer.id])
+        }
+        let runtime = ScenePuppetAnimationPlaybackRuntime()
+        try runtime.register(layerID: layer.id, selection: selection, authoredLayers: slots).get()
+        var matrices: [[[Float]]] = [], rootXs: [Float] = []
+        var points: [[Float]] = [], animationIDs: [Int] = [], slotIndices: [Int] = []
+        for (index, time) in [0.0, 0.25, 0.75].enumerated() {
+            let frame = runtime.advance(frameIndex: UInt64(index), sceneTime: time,
+                dynamicValues: .init(frameIndex: UInt64(index), values: [:]))
+            guard let sampled = frame[layer.id] else { throw ProbeStop.stopped }
+            let pose = try evaluator.boneTransforms(selection: selection,
+                frameSamples: sampled.samples, blends: sampled.blends)
+            rootXs.append(pose.local[0].columns.3.x)
+            matrices.append(pose.local.map { matrix in
+                (0..<4).flatMap { column in (0..<4).map { matrix[column][$0] } }
+            })
+            points = try evaluator.deformedPositions(selection: selection, frameSamples: sampled.samples)
+                .map { [$0.x, $0.y] }
+            animationIDs = frame.animationSnapshots.map(\.animationID)
+            slotIndices = frame.animationSnapshots.compactMap { $0.identity.animationLayerIndex }
+        }
+        return ["animationIDs": animationIDs, "slots": slotIndices, "fallback": fallback ?? "",
+            "rootXs": rootXs, "matrices": matrices, "points": points]
+    }
+
     private static func coldSingleChecks(_ root: URL, view: SceneResourceView) throws -> [String: Any] {
         let path = "cold-single.mdl"
         let plain = sourceLayer(810, mesh: path)
@@ -391,15 +434,29 @@ private enum ScenePuppetPreparationCases {
 
         let loopPath = "cold-loop-demand.mdl"
         let loop = sourceLayer(822, mesh: loopPath, animated: true, animationID: 909)
+        let skeletal = sourceLayer(823, mesh: loopPath, animated: true, animationID: 741)
         let loopPrepared = try ScenePreparedPuppetResources.prepare(descriptor: .init(layers: [
-            sourceLayer(821, mesh: loopPath), loop]), resourceView: view, cancellationCheck: {})
+            sourceLayer(821, mesh: loopPath), loop, skeletal]), resourceView: view, cancellationCheck: {})
         guard case let .ready(loopAsset)? = loopPrepared.assetsByMeshPath[loopPath],
-              case let .success(loopEvaluator) = loopAsset.evaluator else { throw ProbeStop.stopped }
+              case let .success(loopEvaluator) = loopAsset.evaluator,
+              let skeletalPose = loopPrepared.posesByLayerID[skeletal.id],
+              case let .evaluated(_, skeletalSelection, _, _, _) = skeletalPose.geometry else {
+            throw ProbeStop.stopped
+        }
+        try runtime.register(layerID: skeletal.id, selection: skeletalSelection,
+            authoredLayers: skeletal.puppetAnimationLayers,
+            availableSingleAnimations: skeletalPose.availableSingleAnimations).get()
+        var skeletalSingle = try describe(skeletalPose)
+        skeletalSingle["availableSingleIDs"] = skeletalPose.availableSingleAnimations.map(\.id)
+        skeletalSingle["runtimeCreationMetadata"] = runtime.singleAnimationSource(
+            layerID: skeletal.id, name: "Skeletal Single") != nil
         return ["assetCount": prepared.assetsByMeshPath.count,
             "fileExists": FileManager.default.fileExists(atPath: root.appendingPathComponent(path).path),
             "availableSingleIDs": plainPose.availableSingleAnimations.map(\.id),
             "unrequestedLoopPrepared": evaluator.hasPreparedAnimation(animationID: 909),
             "badSinglePrepared": evaluator.hasPreparedAnimation(animationID: 740),
+            "unrequestedSkeletalSinglePrepared": evaluator.hasPreparedAnimation(animationID: 741),
+            "skeletalSingle": skeletalSingle,
             "metadata": metadata.map { ["id": $0.animationID, "name": $0.name,
                 "fps": $0.framesPerSecond, "frameCount": $0.frameCount] as [String: Any] } ?? [:],
             "cold": before, "selected": try describe(selected), "afterRemoval": after,
@@ -455,6 +512,10 @@ private enum ScenePuppetPreparationCases {
         output["optional-hidden-bind"] = try optionalHiddenChecks(asset("bind.mdl"))
         output["local-additive"] = try localAdditiveChecks(asset("partial-additive.mdl", authoredIDs: [101, 202, 204, 303]))
         output["local-additive-renamed"] = try localAdditiveChecks(asset("renamed-partial-resource.mdl", authoredIDs: [7101, 7202, 7204, 7303]))
+        output["layered-curves"] = [
+            "ordinary": try layeredCurveMotion(mesh: "layered-ordinary.mdl", view: resourceView),
+            "skeletal": try layeredCurveMotion(mesh: "layered-curves.mdl", view: resourceView),
+            "reversed": try layeredCurveMotion(mesh: "layered-curves.mdl", view: resourceView, reverseAdditives: true)]
         var orders: [String: Any] = [:]
         for (label, path, reversed) in [("plain-first", "shared.mdl", false),
                                         ("animated-first", "shared.mdl", true),

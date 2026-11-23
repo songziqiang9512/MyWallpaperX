@@ -52,7 +52,7 @@ nonisolated struct SceneMdlPuppetAnimation {
     let hasAlphaContribution: Bool
     let events: [Event]
     let bounds: Bounds?
-    /// The reader validates this channel; consumers must not mistake it for TRS-only.
+    /// Framed pre-bounds curves whose deformation remains unconsumed.
     let hasAuxiliaryScalarTrack: Bool
     /// Structurally decoded, but has no qualified pose consumer yet.
     let hasPostBoundsScalarTrack: Bool
@@ -97,6 +97,10 @@ nonisolated struct SceneMdlPuppetAnimation {
 
     nonisolated var durationSeconds: Float {
         Float(frameCount) / framesPerSecond
+    }
+
+    var isSingleCreationCandidate: Bool {
+        mode == "single" && !hasAuxiliaryScalarTrack
     }
 }
 

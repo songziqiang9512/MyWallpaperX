@@ -30,7 +30,7 @@ enum ScenePuppetLayerLoad {
             guard case let .success(set?) = animationSet,
                   case let .success(evaluator) = evaluator else { return [] }
             return set.animations.filter {
-                $0.mode == "single" && evaluator.hasPreparedAnimation(animationID: $0.id)
+                $0.isSingleCreationCandidate && evaluator.hasPreparedAnimation(animationID: $0.id)
             }
         }
     }
@@ -127,7 +127,7 @@ enum ScenePuppetLayerLoad {
         let animationSet = Result { try SceneMdlPuppetAnimationReader.read(data: data) }
         let evaluator: Result<ScenePuppetAnimationEvaluator, Error> = Result {
             let animations = ((try? animationSet.get())?.animations ?? []).filter {
-                $0.mode == "single" || authoredAnimationIDs.contains($0.id)
+                $0.isSingleCreationCandidate || authoredAnimationIDs.contains($0.id)
             }
             return try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig.get(),
                 additiveAnimations: animations, optionalAnimationIDs: Set(animations.map(\.id)))
@@ -314,8 +314,12 @@ enum ScenePuppetLayerLoad {
             }
             selection = .init(clips: clips, composition: clips.count == 1
                 && clips[0].layer.additive == false ? .singleAbsolute : .layered)
+            let poseMessage = clips.contains { $0.animation.hasAuxiliaryScalarTrack }
+                ? (unavailableMessage.map { $0 + "; " } ?? "")
+                    + "skeletal playback only: pre-bounds morph curves unavailable"
+                : unavailableMessage
             return .init(geometry: .evaluated(asset, selection, evaluator, kind,
-                fallbackMessage: unavailableMessage))
+                fallbackMessage: poseMessage))
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
             return .init(geometry: .bind(asset,
                 fallbackMessage: (fallbackMessage.map { $0 + "; " } ?? "")

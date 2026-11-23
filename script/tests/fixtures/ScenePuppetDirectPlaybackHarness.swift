@@ -69,7 +69,7 @@ func makeSubject(lateSingular: Bool = false, channel: String? = nil,
     if let channel {
         animations.append(SceneMdlPuppetAnimation(id: 8, name: "hidden-channel", mode: "loop",
             framesPerSecond: 1, frameCount: 1,
-            transformsByBone: [[transform(), transform()], [transform(), transform()]],
+            transformsByBone: [[transform(), transform(z: 2)], [transform(), transform()]],
             alphaByBone: channel == "alpha" ? [[1, 0.5], [1, 1]] : nil,
             hasAuxiliaryScalarTrack: channel == "aux"))
         layers.append(ScenePuppetAnimationLayer(id: 72, animationID: 8, name: "optional", additive: true,
@@ -296,9 +296,12 @@ func membershipChecks() throws -> [String: Any] {
             let hidden = prepare(value, frame(1))
             channels = channels && value.state.directModelPoseStatus == .animated
                 && read(hidden)![0].position.z == 7
-            let active = prepare(value, frame(1, hidden: false))
+            let activeSample = frame(1, hidden: false)
+            let active = prepare(value, activeSample)
+            let activePose = value.state.poseConfiguration(animationFrame: activeSample)
             channels = channels && value.state.directModelPoseStatus == .bindFallback(.unsupportedAnimationChannels)
                 && read(active) == value.vertices
+                && activePose?.bones.worldMatrices[14] == 6
             let restored = prepare(value, frame(1))
             channels = channels && value.state.directModelPoseStatus == .animated
                 && read(restored)![0].position.z == 7

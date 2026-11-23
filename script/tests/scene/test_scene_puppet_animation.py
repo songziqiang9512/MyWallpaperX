@@ -385,7 +385,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
             "nan-transform.mdl": build_mdl(
                 [animation_record(101, "Idle", 2, 2, nan_transform=True)]
             ),
-            "bad-auxiliary.mdl": build_mdl(
+            "renamed-auxiliary-linkage.mdl": build_mdl(
                 [animation_record(101, "Idle", 2, 2, auxiliary=True, bad_auxiliary_key=True)]
             ),
             "valid-mirror.mdl": build_mdl(
@@ -943,8 +943,10 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
     def test_non_finite_transform_fails_closed(self):
         self.assertIn("invalid animation 101 transform", self.results["nan-transform.mdl"]["error"])
 
-    def test_unknown_auxiliary_shape_fails_closed(self):
-        self.assertIn("invalid verified auxiliary track", self.results["bad-auxiliary.mdl"]["error"])
+    def test_auxiliary_linkage_is_not_a_format_key(self):
+        entry = self.results["renamed-auxiliary-linkage.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertTrue(entry["animations"][0]["hasAuxiliaryScalarTrack"])
 
     def test_mirror_and_single_animation_modes_are_preserved(self):
         self.assertEqual(self.results["valid-mirror.mdl"]["animations"][0]["mode"], "mirror")

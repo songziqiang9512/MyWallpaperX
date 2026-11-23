@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 478,
-      "bytes": 112023
+      "lines": 485,
+      "bytes": 113659
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 95,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 270970
+      "bytes": 272055
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 161,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 197,
-      "bytes": 59428
+      "bytes": 59158
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "486074fd25002811135ff8f24ca2ca6100593074d10ef09a838cc9b5eaaf5823",
-      "after": "b9e3159b1187abae7c90e43484bf8dfeff14dd1c055ffc7ac2d803fb0a8981e7",
-      "owner": "Existing Scene static model frame/shadow and named dependency owners",
-      "reason": "Specify locality and publication timing when one ordered model albedo is late, with existing mandatory lease and identity boundaries.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-shadow-coverage"
+      "before": "b9e3159b1187abae7c90e43484bf8dfeff14dd1c055ffc7ac2d803fb0a8981e7",
+      "after": "f9d8644d45ac5bdd7bf9b10d10f2798907b40b9505c3b50d314ce15b007883fc",
+      "owner": "Existing MDLA reader and Puppet authored pose",
+      "reason": "Define pre-bounds curve framing, authored skeletal and Direct boundaries and link actual evidence.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-prebounds-curves"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a548b3195857374efa26f09aff8965019bd8392a96d732dadf927ed79d24d55e",
-      "after": "f177e8970536c88702921744ddf3cad3db45d14bf2364e28d33a83c93f932458",
-      "owner": "Existing Scene particle emission and runtime evidence owners",
-      "reason": "Define and verify the existing call-time transform path for a first change on an indexed particle hierarchy.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#particle-emit-prefix-first-transform"
+      "before": "a439d54e28a61fbe57cfc140b250512530394b7e6bd72e451f1dc9e4173cc47d",
+      "after": "16656f590ea8dd9746fe24020fd75a4294284c70b792ef29e7bcc87fbdfdeb7b",
+      "owner": "Existing Scene image Puppet runtime evidence",
+      "reason": "Record paired final pixels, actual authored clip commands and independent GPU results.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-prebounds-curve-evidence"
     },
     {
       "section": "bodies",

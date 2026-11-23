@@ -366,6 +366,13 @@ Surface 退休已销毁成员的 CPU/GPU/clock 引用，重建不复活；准备
 
 源码：[Selection](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)、[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)、[Surface 装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)。
 
+<a id="puppet-prebounds-curves"></a>
+### 带未消费曲线的骨骼动画
+
+MDLA6 的 bounds 前辅助区按有序事件、曲线数、隐式首曲线编号与后续显式编号、每曲线字节长推进原游标。三个原包的记录精确落到后继 clip 与 MDLA 声明末端；关联字段在 MDMP 中复现，尚无播放时钟或变形语义。移除固定标识和单曲线许可，保持当前 dense 采样长度、声明块边界及后续 bounds/普通事件。曲线来由记在原辅助通道字段；准备骨骼时无曲线消费者，无需复制样本或校验其权重范围。计数或长度无法确定记录边界时继续拒绝该动画块，不扫描猜测后继起点。
+
+图片的作者动画按原有 ID、opaque 骨骼基底及叠加顺序保留可解 TRS/骨 alpha/普通事件，沿原冷准备、会话 cadence、Surface pose 和主图几何。含未消费曲线的作者槽继续控制已接入通道，原 pose 诊断标出仅支持骨骼部分。DirectModel 可按原规则注册已准备的骨骼与时间元数据；活动曲线仍让可见网格使用 bind，并沿原属性准入边界。脚本动态创建 Single 只接可完整执行的源。未知后置 scalar、坏骨骼和不明 framing 保原降级；不将必需基底变成可选槽。没有新增 owner、时钟、缓存或帧内解析。验收用真实 MDLA 的多曲线及后继动画、改名与畸形长度、按实际参考保护 opaque 次序，再以固定两姿态的 App 主图和独立作者核对。MDMP 形变、采样语义及官方形变画面留后续。 [App 与原作者证据](runtime-evidence-current.md#puppet-prebounds-curve-evidence)。
+
 <a id="puppet-instances"></a>
 ### 运行时 Single 实例
 
@@ -461,7 +468,7 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 <a id="limits"></a>
 ## 当前缺口与最近门
 
-MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消费的 scalar/shape 仍由 Selection/Evaluator 拒绝；某个恒定数值不能证明它是深度或绘制顺序。bounds 前的 timed morph 曲线与 MDMP 几何尚无 prepared/evaluator 消费者，不能丢弃曲线后把静态 TRS 视为完整动画。更广 dense/reference composition、多 opaque alpha、Direct attachment/多 part 动画、fractional source clipping、未知 MDL profiles、全部光照/物理/阴影组合仍有边界。
+MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消费的 scalar/shape 仍由 Selection/Evaluator 拒绝；某个恒定数值不能证明它是深度或绘制顺序。bounds 前曲线的骨骼播放边界见[对应合同](#puppet-prebounds-curves)，MDMP 形变尚无几何消费者。更广 dense/reference composition、多 opaque alpha、Direct attachment/多 part 动画、fractional source clipping、未知 MDL profiles、全部光照/物理/阴影组合仍有边界。
 
 最近行为入口：[bind 几何](../../../script/tests/scene/test_scene_direct_model_bind_geometry.py)、[动画消费者](../../../script/tests/scene/test_scene_direct_model_animation_live_consumers.py)、[裁剪 GPU](../../../script/tests/scene/test_scene_puppet_clipping_render.py)、[普通 effect 受光](../../../script/tests/scene/test_scene_ordinary_effect_lighting.py)。未闭项的下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。
 
