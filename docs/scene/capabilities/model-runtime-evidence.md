@@ -96,6 +96,8 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 缩放整轮仍保FAIL4：旧epoch1的23份sealed ledger在主动resize后以allocation-reprepare取消，F83 epoch2同Program全部恢复；诊断把取消合成rejected/零allocation，而工具又跨epoch要求signature/mapping单调，旧347同链亦有4fail。没有取消帧像素，不保证中间无闪断；固定10×10重prepare不等于23份物理新pair或性能损失。此责任沿[开放队列](../roadmap/scene-open-breakpoint-queue.md#legacy-gate-debt)修正，不借此改资源架构或将原report改PASS。
 
+**自然开场后的太阳标签双击** <a id="solar-label-double-click"></a>。2026-11-23同签名Debug及不变366原包，保默认开场与实时时钟。phase=launched后约31.6秒，同点命中1333：短按的两个cursorDown相隔160ms，终端从太阳系总览进入太阳近景；单按和实到316ms的双按均保总览。三场R3分别F250/258/257，经同CB导出、封口、GPU完成及排空；1964×1276中心400²内RGB三分量≥230由415/420变159645。两档按住时长也不同，只授Debug合成边沿的标签入口与终态；原生鼠标、返回、完整过渡和官方一致待证。截图、实际时序与身份归`.artifacts/scene-solar-label-click-20261123`。
+
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
 按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal供后继入参与自身getter，准入TRS进入同帧world snapshot；init/主动返回归原journal，passive Timeline保原投影。显式粒子发射调用点仍待证。

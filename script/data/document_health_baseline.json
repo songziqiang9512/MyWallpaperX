@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 202,
-      "bytes": 62431
+      "bytes": 62559
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 567,
-      "bytes": 161879
+      "lines": 569,
+      "bytes": 162578
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,11 +487,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "4a7b8320ae5fc49ecfdd7374c3d1f3e40ffb40fdcb8ba9c11c43c3fa44ab0937",
-      "after": "54f305f2731d36a57989ba0671359214866577ccc52e01acbe1674789bbd300c",
-      "owner": "Existing Scene model runtime evidence",
-      "reason": "Record observable init argument/getter alignment, prior-owner assignment precedence and the independent signed real author playback.",
-      "decision": "docs/scene/capabilities/model-runtime-evidence.md#current-authored-transforms"
+      "before": "54f305f2731d36a57989ba0671359214866577ccc52e01acbe1674789bbd300c",
+      "after": "983fcde31909825bba35541393807efd85bc5ef286fd725ca444fb03bcd3c9fa",
+      "owner": "Existing Scene author view evidence and open queue owners",
+      "reason": "Qualify the timed Sun-label interaction on the original Scene package and narrow the remaining input and transition claims.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-label-double-click"
     },
     {
       "section": "bodies",
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2504a6069a8ca65c2e20a030b45a196e7a9f2573c65b2bf6d104614b0ea66de1",
-      "after": "6ea89a19f35d838835463679f1dc8bc683a978262b5ea1d59f7bb72bc1a40133",
-      "owner": "repository-governance",
-      "reason": "The Scene design document moved to history; the stale gate-debt note shrinks to state the resolved fact, so the baseline ratchets down.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      "before": "cda7138e13393590cb09b20ed78355851858f2e673f939ecfb66f678511ac602",
+      "after": "68b2b53ef6ac5ac10b4565b4e336197363393ceb008b390a5a653fcde5a374c0",
+      "owner": "Existing Scene author view evidence and open queue owners",
+      "reason": "Qualify the timed Sun-label interaction on the original Scene package and narrow the remaining input and transition claims.",
+      "decision": "docs/scene/capabilities/model-runtime-evidence.md#solar-label-double-click"
     }
   ]
 }
