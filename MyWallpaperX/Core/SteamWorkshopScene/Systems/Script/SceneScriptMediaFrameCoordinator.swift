@@ -109,7 +109,8 @@ nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
                 entry.owner.initializeIfNeeded(input: input, frame: frame,
                     scriptPropertiesJSON: properties, userPropertiesJSON: userPropertiesJSON,
                     expectedGeneration: entry.owner.generation, interruptBudget: nil,
-                    retainsValueForNextUpdate: true)
+                    retainsValueForNextUpdate: true,
+                    usesCurrentTransformReadBaseline: entry.registration.family == .vector && vectorInputs[target] != input)
             }
             switch result {
             case let .success(value):

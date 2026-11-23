@@ -59,7 +59,7 @@ Layer `color` setter接受有限三分量原值；[公开颜色教程](https://d
 
 Coordinator增量折入成功TRS journal，供后继回调入参；有效init/返回归同owner journal。passive Timeline仍投影动画，当帧准入值取自layerPlan。首次跨层写入缺定义时，最终typed overlay从已收敛的plan取该定义及seed，同帧发布值与world变换资格；其余目标复用原索引，提交后按revision刷新。未知目标、阶段前缀及拓扑生效时机保持。
 
-原vector C入口只追加已准备target的field选择值，在实际update前消费timer/事件前缀并统一自身getter；Bool读值作用域收敛到LayerValueHost，Core旧副本退出。raw vector返回进入既有journal，angles只沿原bridge转换一次，不做Swift完整mutation镜像。explicit init返回也入journal并推进当前入参，C init getter未接此read scope。其它field、pre-script骨骼/getTransformMatrix及owner寿命保原阶段。不新增持久状态、仲裁表、时钟、图重建或逐回调全journal重扫。
+原vector C入口在update前消费timer/事件前缀并统一getter。仅当前序写入实际改变TRS init入参时，用脚本单位暂置原owner读基线，退出即清。回调内setter优先，返回沿原journal。初始化内timer/video-ended改同字段的入参同步待证；骨骼/getTransformMatrix保原阶段。
 
 当前callback抛错/bad-return或本地提交失败的写入不折入后继输入；最终沿原owner原子拒绝、依赖拒绝和commit/discard，健康peer及重绘重试保持。前序成功回调输入只是本cadence候选，不新增跨owner回放或全局反事实事务，shared堆副作用也不冒充typed回滚。旧按诊断字符串吞掉angles坏返回的分支退出；真实write-only合法setter由原C入口处理。
 

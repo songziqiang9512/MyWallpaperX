@@ -547,29 +547,44 @@ enum SceneDocumentLoader {
         return report
     }
     static func passiveTransform(_ mode: String) throws -> [String:Any] {
-        let (descriptor,domain,runtime) = try setup("models/passive-transform.json",transformFields:true)
-        let target = SceneDynamicTarget.layer(layerID:102,field:mode.contains("angle") ? .angles : .origin)
+        let field: SceneDynamicLayerField = mode == "init-scale" ? .scale : mode.contains("angle") ? .angles : .origin
+        let renamed = mode == "init-scale"
+        let receiver = renamed ? "Receiver" : "B"
+        let (descriptor,domain,runtime) = try setup(
+            renamed ? "models/renamed-transform.json" : "models/passive-transform.json",
+            labels: renamed ? ["Writer",receiver,"Peer"] : ["A",receiver,"C"], transformFields:true)
+        let target = SceneDynamicTarget.layer(layerID:102,field:field)
         func binding(_ index: Int, _ field: String, _ source: String) -> SceneScriptBindingIR {
             .init(source:source,owner:.init(kind:.object,objectIndex:index,objectID:101+index,
                 effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
                 targetPath:[.key("objects"),.index(index),.key(field)],properties:[:],
-                authoredValue:field == "visible" ? .bool(true) : .string("0 0 0"),
+                authoredValue:field == "visible" ? .bool(true) : .string(field == "scale" ? "1 1 1" : "0 0 0"),
                 valueType:field == "visible" ? .boolean : .string,
                 wrapperKeys:mode == "timeline" && index == 1 ? ["animation","script","value"] : ["script","value"])
         }
         let body: String
         switch mode {
-        case "init-order": body = "export function init(v){shared.initInput=v;return v;}"
+        case "init-order","init-scale","init-angles","init-setter","init-no-change","init-throw":
+            let setter = mode == "init-setter" ? "thisLayer.origin=new Vec3(7,8,9);" : ""
+            let finish = mode == "init-throw" ? "throw new Error('init rejected');"
+                : mode == "init-setter" ? "return v;" : "return read;"
+            body = """
+                export function init(v){\(setter) const read=thisLayer.\(field.rawValue);
+                shared.initValues={argument:v,getter:read,alias:thisScene.getLayer('\(receiver)').\(field.rawValue)};
+                \(finish)}
+                """
         case "angle-write": body = "export function init(v){thisLayer.angles=new Vec3(10,20,30);return 'bad-vector';}"
         case "angle-bad": body = "export function init(v){return 'bad-vector';}"
         case "timer": body = "export function init(v){engine.setTimeout(()=>{thisLayer.origin=new Vec3(6,7,8);},10);return v;}"
         default: body = "export function init(v){return new Vec3(1,2,3);}"
         }
         var scripts: [SceneScriptBindingIR] = []
-        if mode == "init-order" {
-            scripts.append(binding(0,"visible","export function init(v){thisScene.getLayer('B').origin=new Vec3(4,5,6);return v;}"))
+        if mode.hasPrefix("init-"), mode != "init-no-change" {
+            let values = field == .scale ? "1+1,9/3,4" : field == .angles ? "10,20,30" : "4,5,6"
+            scripts.append(binding(0,"visible",
+                "export function init(v){thisScene.getLayer('\(receiver)').\(field.rawValue)=new Vec3(\(values));return v;}"))
         }
-        scripts.append(binding(1,mode.contains("angle") ? "angles" : "origin",body))
+        scripts.append(binding(1,field.rawValue,body))
         let late = mode == "late-main" ? "thisScene.getLayer('B').origin=new Vec3(8,9,10);" : ""
         scripts.append(binding(2,"visible","export function update(v){\(late)thisLayer.origin=new Vec3(9,8,7);return true;}"))
         let program = SceneScriptVectorProgram.compile(domain:domain,descriptor:descriptor,
@@ -604,7 +619,7 @@ enum SceneDocumentLoader {
         runtime.commit(nextPlan.layerPlan)
         let laterTimeline: [SceneDynamicTarget:SceneDynamicValue] = mode == "timeline" ? [target:.vector3(8,9,10)] : [:]
         let observer = try SceneScriptValueOwner(domain:domain,source:
-            "export function update(v){return JSON.stringify(shared.initInput ?? null);}",
+            "export function update(v){return JSON.stringify(shared.initValues ?? null);}",
             target:.text(layerID:101,field:.content),valueType:.string,effectNames:[],generation:1,budget:.default)
         let observed = try observer.evaluate(input:.string(""),frame:frame(1),scriptPropertiesJSON:"",
             userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
@@ -614,7 +629,7 @@ enum SceneDocumentLoader {
             "nextFailures":next.vector.failures.count,"admissionFailures":firstPlan.rejectedOwners.count+nextPlan.rejectedOwners.count,
             "first":firstValue,"next":vector(runtime.snapshot().authoredLayerValues[target]),
             "peer":vector(runtime.snapshot().authoredLayerValues[.layer(layerID:103,field:.origin)]),
-            "initInput":try JSONSerialization.jsonObject(with:Data(raw.utf8),options:[.fragmentsAllowed]),
+            "initValues":try JSONSerialization.jsonObject(with:Data(raw.utf8),options:[.fragmentsAllowed]),
             "scriptValue":vector(next.vector.values[target]),
             "followsTimeline":next.vector.timelineInputTargets.contains(target),
             "timelineAdmission":vector(next.vector.valuesForAdmission(timelineValues:laterTimeline,excluding:[])[target])]
@@ -622,15 +637,17 @@ enum SceneDocumentLoader {
         return report
     }
     static func main() throws {
+        let passiveModes = ["init-order","init-scale","init-angles","init-setter","init-no-change","init-throw",
+            "late-main","angle-write","angle-bad","timer","timeline"]
         if CommandLine.arguments.contains("--passive-transforms") {
             print(String(decoding:try JSONSerialization.data(withJSONObject:["passiveTransforms":
-                try ["init-order","late-main","angle-write","angle-bad","timer","timeline"].map { try passiveTransform($0) }],options:[.sortedKeys]),as:UTF8.self));return
+                try passiveModes.map { try passiveTransform($0) }],options:[.sortedKeys]),as:UTF8.self));return
         }
         print(String(decoding:try JSONSerialization.data(withJSONObject:[
             "authored":[sortAndField("thisScene.sortLayer(thisLayer,0);thisLayer.alpha=0.5"),
                 sortAndField("thisLayer.alpha=0.5;thisScene.sortLayer(thisLayer,0)"),
                 sortAndField("thisScene.sortLayer(thisScene.getLayer('B'),1-1);thisLayer.alpha=0.5")],
-            "passiveTransforms":try ["init-order","late-main","angle-write","angle-bad","timer","timeline"].map { try passiveTransform($0) },
+            "passiveTransforms":try passiveModes.map { try passiveTransform($0) },
             "transformCadence":try ["base","getter","media","init","laterReturn","laterSetter","throw","badReturn"].map { try transformCadence($0) }
                 + [transformCadence("base",renamed:true)],
             "sortOnly":sortAndField("thisScene.sortLayer(thisLayer,0)"),
@@ -720,6 +737,11 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
         rows = {row["mode"]: row for row in self.result["passiveTransforms"]}
         for mode, row in rows.items():
             with self.subTest(mode=mode):
+                if mode == "init-throw":
+                    self.assertEqual(row["initialFailures"], 1)
+                    self.assertEqual(row["first"], [4, 5, 6])
+                    self.assertEqual(row["peer"], [9, 8, 7])
+                    continue
                 self.assertEqual(row["initialFailures"], 1 if mode == "angle-bad" else 0)
                 self.assertEqual(row["firstFailures"], 1 if mode == "angle-bad" else 0)
                 self.assertEqual(row["nextFailures"], 1 if mode == "angle-bad" else 0)
@@ -728,8 +750,20 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
                 self.assertIs(row["followsTimeline"], mode == "timeline")
                 if mode != "timeline":
                     self.assertIsNone(row["scriptValue"])
-        self.assertEqual(rows["init-order"]["initInput"], {"x": 4, "y": 5, "z": 6})
+        for mode, argument, getter in (
+            ("init-order", [4, 5, 6], [4, 5, 6]),
+            ("init-scale", [2, 3, 4], [2, 3, 4]),
+            ("init-angles", [10, 20, 30], [10, 20, 30]),
+            ("init-setter", [4, 5, 6], [7, 8, 9]),
+            ("init-no-change", [0, 0, 0], [0, 0, 0]),
+            ("init-throw", [4, 5, 6], [4, 5, 6]),
+        ):
+            with self.subTest(mode=mode):
+                for field, expected in (("argument", argument), ("getter", getter), ("alias", getter)):
+                    for axis, value in zip(("x", "y", "z"), expected):
+                        self.assertAlmostEqual(rows[mode]["initValues"][field][axis], value, places=12)
         self.assertEqual(rows["init-order"]["next"], [4, 5, 6])
+        self.assertEqual(rows["init-setter"]["next"], [7, 8, 9])
         self.assertEqual(rows["late-main"]["first"], [8, 9, 10])
         self.assertEqual(rows["late-main"]["next"], [8, 9, 10])
         self.assertEqual(rows["timer"]["next"], [6, 7, 8])

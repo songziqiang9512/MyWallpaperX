@@ -163,7 +163,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         expectedGeneration: UInt64,
         interruptBudget: UInt64?,
         retainsValueForNextUpdate: Bool = false,
-        propertyRefresh: Bool = false
+        propertyRefresh: Bool = false,
+        usesCurrentTransformReadBaseline: Bool = false
     ) -> Result<SceneScriptValueEvaluation?, SceneScriptScalarRuntimeFailure> {
         guard input.valueType == valueType,
               Self.acceptsScriptScalarValue(input, for: target),
@@ -174,6 +175,14 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         let scriptInput = sceneScriptInput(input)
+        let readBaseline = usesCurrentTransformReadBaseline ? transformReadBaseline(scriptInput) : nil
+        if let readBaseline,
+           let failure = configureAuthoredLayerReadBaselines([readBaseline]) {
+            return .failure(failure)
+        }
+        defer {
+            if readBaseline != nil { clearAuthoredLayerReadBaselines() }
+        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var didInitialize: UInt32 = 0
@@ -430,6 +439,18 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             mutations: callbackMutations,
             valueFollowsInput: valueFollowsInput
         )
+    }
+
+    private func transformReadBaseline(_ scriptInput: SceneDynamicValue) -> SceneScriptLayerMutation? {
+        let field = SceneScriptLayerMutation.Fields(rawValue: authoredTransformField)
+        guard !field.isEmpty, let layerID, case let .vector3(x, y, z) = scriptInput else { return nil }
+        let value = SIMD3(x, y, z)
+        return .init(kind: .upsert, isDynamic: false, fields: field,
+            layerID: layerID, orderIndex: 0, visible: true, alpha: 1,
+            origin: field == .origin ? value : .zero,
+            scale: field == .scale ? value : .init(repeating: 1),
+            angles: field == .angles ? value : .zero,
+            color: .init(repeating: 1), pointSize: 0, text: "", font: "", assetPath: nil)
     }
 
     private func visibilityReadBaseline(

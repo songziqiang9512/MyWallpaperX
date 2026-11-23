@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 223,
-      "bytes": 41505
+      "bytes": 41277
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 203,
-      "bytes": 62853
+      "lines": 202,
+      "bytes": 62431
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -221,8 +221,8 @@
       "bytes": 14367
     },
     "docs/scene/capabilities/model-runtime-evidence.md": {
-      "lines": 565,
-      "bytes": 161204
+      "lines": 567,
+      "bytes": 161879
     },
     "docs/development/localization-contract.md": {
       "lines": 390,
@@ -487,10 +487,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/model-runtime-evidence.md",
-      "before": "56567c4da3023e300941010c4b1f139dbf8f3f900ee1dfc2c9e6f3a3eaa903fa",
-      "after": "4a7b8320ae5fc49ecfdd7374c3d1f3e40ffb40fdcb8ba9c11c43c3fa44ab0937",
+      "before": "4a7b8320ae5fc49ecfdd7374c3d1f3e40ffb40fdcb8ba9c11c43c3fa44ab0937",
+      "after": "54f305f2731d36a57989ba0671359214866577ccc52e01acbe1674789bbd300c",
       "owner": "Existing Scene model runtime evidence",
-      "reason": "Record first-cadence authored transform red/green terminal pixels, actual creator Saturn world draws, team-signed independent playback, and remaining coverage.",
+      "reason": "Record observable init argument/getter alignment, prior-owner assignment precedence and the independent signed real author playback.",
       "decision": "docs/scene/capabilities/model-runtime-evidence.md#current-authored-transforms"
     },
     {

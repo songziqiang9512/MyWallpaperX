@@ -98,7 +98,7 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 
 ## 作者变换与大气的同帧消费 <a id="current-authored-transforms"></a>
 
-按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal供后继update入参与自身getter，准入TRS进入同帧world snapshot；init/主动返回归原journal，passive Timeline保原投影。C init getter及显式粒子发射调用点仍待证。
+按[变换合同](scenescript-api-coverage.md#current-frame-authored-transforms)，原callback journal供后继入参与自身getter，准入TRS进入同帧world snapshot；init/主动返回归原journal，passive Timeline保原投影。显式粒子发射调用点仍待证。
 
 当前原生4方法的9回调顺序变体与6个init/timer/Timeline邻例通过，覆盖改名、当前input/getter、后返回/后setter、无update、坏返回/失败peer；旧同输入7项红保留。原20组实际输出严格不变，未将其冒为当前完整18方法重跑；C/Bool/返回诊断/timer最近门保实际原身份。Debug67.578s，十产品/project/锁文件前后相同，签名及原helpers验证通过；exe115ef63a…a2b0、dylibed363a0c…5ba4，metallib仍cd47906e…30b4。四同输入App控制各F77/request1完整到main/seal/GPUcompleted、trunc0并排空，红体与青标记质心距离从359.5–479.54降至0.539–0.542 PNG像素，低于事前1.5门限；绿色peer完整，未改输入/阈值或按相位拟合。
 
@@ -107,6 +107,8 @@ a58c06080同签名Debug（exe453a90b9/dylib8ebc6f49/metallibcd47906e），私有
 独立原3437487219无覆盖值，当前F165/R1的112/114到同main/seal/GPU完成、trunc0并排空；1280×831原图见连续地表、云、暗面、大气、银河与time/date。必要控制、作者原图/实际行摘录、身份、失败分类及独审归`.artifacts/scene-current-authored-transforms-20261115`，独立原作者报告归`.artifacts/scene-evidence/runs/scene-current-authored-transforms-20261115`。黄色及其它星体的完整移动、余镜头和官方一致仍沿队列继续，不由本批局部通过关闭366。
 
 2026-11-23补首次跨层变换。两个改名/等价式控制每帧只显示本帧首次写入的模型，端点红块从居中横向76×23像素变为右侧竖向48×115，青色peer同位置同像素数。原3589454154的440/467/474在F0由缺值恢复脚本位置和缩放，440实际world scale由.08333变.00680725，三层同F0提交并GPU完成。项目签名Debug的原358及独立3437487219短窗均PASS；初次临时签名的343 helper拒绝由项目签名复跑解除。Snapshot、LayerOrder和NativeCamera共43方法通过，独审无阻断。两产品净+32行，仅在已准入值缺索引时取计划定义，再沿原revision提交。此批未量首帧逐卫星像素、环闪或官方一致。原截图、日志与报告归`.artifacts/scene-evidence/runs/scene-first-transform-20261123`。
+
+同日修初始化getter。前序脚本移模型，后序init返回getter时红块质心从639.5恢复879.0，完整RGB逐像素等同返回入参的对照，绿块不变。QuickJS实测origin、改名scale、angles脚本单位、别名、同回调setter和抛错，36方法通过。相邻初始化夹具临时去重Timeline类型后，原/新同12绿2红。两产品净+22行，仅前写改变入参时装入原读基线，独审无阻断。签名Debug原3577990983五秒PASS，人物、烟花、时钟与dock完整，210的scale bad-return局部回退并排空；未证原包前序写或同owner初始化前缀。原图日志归`.artifacts/scene-evidence/runs/scene-init-transform-20261123`。
 
 ## 夜光遮罩的相位供货 <a id="model-mask-phase"></a>
 
