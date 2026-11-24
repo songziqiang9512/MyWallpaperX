@@ -6,7 +6,9 @@ private nonisolated extension SceneShadowQuality {
     var directionalDimensionLimit: Int? {
         switch self {
         case .disabled: nil
+        case .low: 512
         case .medium: 1024
+        case .high: 2048
         case .adaptive: 4096
         }
     }

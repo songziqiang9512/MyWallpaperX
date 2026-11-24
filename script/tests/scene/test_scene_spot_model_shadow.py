@@ -329,7 +329,8 @@ def authored_cone_vectors():
             receiver_half_extent=10, toward_light=[-offset, 0, 40], slope=[0, 0],
             light_position=[80, 48, 40], light_intensity=2,
             casters=[rectangle(midpoint-2, midpoint+2, 46, 50)], inside=inside))
-    return vectors
+    return [dict(vector, name=f"{vector['name']}-{resolution}", shadow_resolution=resolution)
+            for resolution in (512, 1024) for vector in vectors]
 
 
 def authored_cone_main():
@@ -359,8 +360,11 @@ def authored_cone_main():
                         'let concrete=SceneSpotShadowProjection.make(light:spot(1))!\n   let projection:SceneSpotShadowProjection?=concrete')
     code = code.replace('projection.worldToLight', 'concrete.worldToLight')
     code = code.replace('projection.tanHalfAngle', 'concrete.tanHalfAngle')
+    descriptor = 'pixelFormat:.depth32Float,width:1024,height:1024,mipmapped:false'
+    code = code.replace('   let depthDesc = ', '   let shadowResolution=v["shadow_resolution"] as! Int\n   let depthDesc = ', 1)
+    code = code.replace(descriptor, descriptor.replace('1024', 'shadowResolution'), 1)
     code = code.replace('"pixels":pixels,"completed":true',
-                        '"pixels":pixels,"completed":true,"insideProjection":insideProjection')
+                        '"pixels":pixels,"completed":true,"insideProjection":insideProjection,"shadowResolution":map.width')
     return code
 
 
@@ -390,6 +394,7 @@ class SceneSpotModelAuthoredConeTests(unittest.TestCase):
         for vector, row in zip(self.vectors, self.report['rows']):
             with self.subTest(case=vector['name']):
                 self.assertEqual(row['insideProjection'], vector['inside'])
+                self.assertEqual(row['shadowResolution'], vector['shadow_resolution'])
 
     def test_wide_direct_light_only_omits_optional_perspective_shadow(self):
         main = r'''

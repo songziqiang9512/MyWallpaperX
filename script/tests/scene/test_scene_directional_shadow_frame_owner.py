@@ -902,18 +902,17 @@ def model_shadow_density_cases():
              dict(name='renamed-extent-2049', width=2049, height=8, layerID=8113,
                   materialPath='surfaces/Π renamed finish',
                   budgetBytes=384 * 1024 * 1024, lights=directional)]
-    rows += [dict(name=f'four-budget-{budget}', width=2049, height=8,
-                  budgetBytes=budget * 1024 * 1024, lights=four)
-             for budget in [16, 12, 384]]
-    mixed = dict(name='mixed-with-spot-gap', width=2049, height=8,
-                  budgetBytes=384 * 1024 * 1024,
+    rows += [dict(name=f'four-{budget}-{cap}', width=2049, height=8,
+                  budgetBytes=budget * 1024 * 1024, lights=four, directionalLimit=cap)
+             for budget, cap in [(16, 4096), (12, 4096), (384, 4096), (16, 2048), (3, 512)]]
+    mixed = dict(width=2049, height=8, budgetBytes=384 * 1024 * 1024,
                   lights=[{'kind': kind, 'id': i} for kind, i in
                           [('directional', 101), ('invalid-spot', 102),
                            ('point', 103), ('spot', 104)]])
-    rows += [mixed, dict(mixed, name='medium-mixed-with-spot-gap', directionalLimit=1024),
-             dict(mixed, name='disabled-mixed-with-spot-gap', directionalLimit=None),
-             dict(name='unlit-large-pass', width=4096, height=8, lit=False,
-                  budgetBytes=384 * 1024 * 1024, lights=directional)]
+    rows += [dict(mixed, name=f'{tier}-mixed-with-spot-gap', directionalLimit=cap)
+             for tier, cap in [('ultra', 4096), ('high', 2048), ('medium', 1024), ('low', 512), ('disabled', None)]]
+    rows.append(dict(name='unlit-large-pass', width=4096, height=8, lit=False,
+                     budgetBytes=384 * 1024 * 1024, lights=directional))
     return rows
 
 
@@ -932,8 +931,7 @@ class SceneDirectionalShadowDensityTests(unittest.TestCase):
         cls.rows = {row['name']: row for row in report['rows']}
 
     def assert_healthy_color(self, row):
-        for key in ['finished', 'completed']:
-            self.assertTrue(row[key], row)
+        self.assertTrue(row['finished'] and row['completed'], row)
         self.assertGreater(max(row['colorRGBA'][:3]), 0, row)
         self.assertEqual(row['colorRGBA'][3], 255, row)
 
@@ -956,29 +954,32 @@ class SceneDirectionalShadowDensityTests(unittest.TestCase):
         self.assertEqual(self.rows['renamed-extent-2049']['maps'], self.rows['extent-2049']['maps'])
         self.assertEqual(self.rows['renamed-extent-2049']['colorRGBA'], self.rows['extent-2049']['colorRGBA'])
 
-    def test_atomic_upgrade_rejection_retains_original_four_light_partial_prefix(self):
-        for name, ids, edge in [('four-budget-16', [101, 102, 103, 104], 1024),
-                                ('four-budget-12', [101, 102, 103], 1024),
-                                ('four-budget-384', [101, 102, 103, 104], 4096)]:
+    def test_budget_preserves_lights_at_their_tier_or_its_fallback(self):
+        for name, count, edge in [('four-16-4096', 4, 1024), ('four-12-4096', 3, 1024), ('four-384-4096', 4, 4096),
+                                  ('four-16-2048', 4, 1024), ('four-3-512', 3, 512)]:
             with self.subTest(case=name):
                 row = self.rows[name]
                 self.assert_healthy_color(row)
                 self.assertTrue(row['colorEncodedLit'], row)
-                self.assert_maps(row, [(i, [slot], edge, edge) for slot, i in enumerate(ids)])
-                for actual, upgraded in zip(row['maps'], self.rows['four-budget-384']['maps']):
-                    self.assertEqual(actual['matrix'], upgraded['matrix'])
+                self.assert_maps(row, [(101 + slot, [slot], edge, edge) for slot in range(count)])
+                reference = 'low-mixed-with-spot-gap' if edge == 512 else 'four-384-4096'
+                self.assertEqual([m['matrix'] for m in row['maps']], [self.rows[reference]['maps'][0]['matrix']] * count)
 
     def test_mixed_projection_sizes_keep_original_slots_after_invalid_spot(self):
-        row = self.rows['mixed-with-spot-gap']
-        self.assert_healthy_color(row)
-        self.assertTrue(row['colorEncodedLit'], row)
-        self.assert_maps(row, [(101, [0], 4096, 4096),
-                               (103, [2], 3072, 2048), (104, [3], 1024, 1024)])
-        medium = self.rows['medium-mixed-with-spot-gap']
-        self.assert_healthy_color(medium)
-        self.assert_maps(medium, [(101, [0], 1024, 1024),
-                                  (103, [2], 3072, 2048), (104, [3], 1024, 1024)])
-        self.assertEqual(medium['maps'][0]['matrix'], row['maps'][0]['matrix'])
+        ultra = self.rows['ultra-mixed-with-spot-gap']['maps'][0]['matrix']
+        tiers = [('ultra', 4096, 1024), ('high', 2048, 1024), ('medium', 1024, 1024), ('low', 512, 512)]
+        for tier, edge, local in tiers:
+            row = self.rows[f'{tier}-mixed-with-spot-gap']
+            self.assert_healthy_color(row)
+            self.assertTrue(row['colorEncodedLit'], row)
+            self.assert_maps(row, [(101, [0], edge, edge), (103, [2], 3 * local, 2 * local), (104, [3], local, local)])
+            matrix = row['maps'][0]['matrix']
+            if tier == 'low':
+                self.assertEqual(matrix[2::4], ultra[2::4], row)
+                offsets = [value * 256 for value in matrix[12:14]]
+                self.assertEqual(offsets, [round(value) for value in offsets], row)
+            else:
+                self.assertEqual(matrix, ultra, row)
         disabled = self.rows['disabled-mixed-with-spot-gap']
         self.assert_healthy_color(disabled)
         self.assert_maps(disabled, [])

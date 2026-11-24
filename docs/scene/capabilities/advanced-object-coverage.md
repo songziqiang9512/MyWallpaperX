@@ -107,18 +107,18 @@ Host 在原 Catalog 前编译该计划并合并需求。原资源 worker 仍先�
 
 受控真实479 caster/462 BC3 receiver/456 cameraDepth探针已资格：只微移远lit noncaster时，近面alpha/PID/颜色几何固定，重拟合仍改变近影；完整覆盖且滤波余量充分的held-fit及shadowoff均逐bit稳定。这只证独立fit依赖，不授自然闪烁首因或作者完整BRDF，实际记录归模型证据。当前候选在原`SceneDirectionalShadowProjection.make`找到相关bounds后替换XY，不改凸裁剪、合法屏外caster、Z、depthBias、map/分配和原N3比较；无历史、持久状态、层名单或第二fitter。
 
-每轴原跨度S、中心C及原XY padding p复用；R沿真实输入（产品唯一producer以1024拟合，物理图1024/2048/4096）。最小跨度M=max(S+2p,S/(1−6/R))，再E=2^(ceil(16·log2(M))/16)，世界格距q=E/R，C按q就近取整。正负取整规则固定；输出直接由E及格中心构造一次矩阵，不先建旧矩阵再反解。E≥S/(1−6/R)保证取整前至少3格余量，中心最大移动.5格后保≥2.5格N3保守footprint；原退化轴正padding仍保。不另造小分辨率许可/分配fallback，当前产品R固定1024，现有实际低分辨率数学载体单独核其消费者范围。物理密图是coarse格的整数倍，中心移动整coarse格不改变理想采样相位。
+每轴原跨度S、中心C及原XY padding p复用；R 沿当前阴影档的基础贴图尺寸（低档 512，其余启用档 1024）。最小跨度M=max(S+2p,S/(1−6/R))，再E=2^(ceil(16·log2(M))/16)，世界格距q=E/R，C按q就近取整。正负取整规则固定；输出直接由E及格中心构造一次矩阵，不先建旧矩阵再反解。E≥S/(1−6/R)保证取整前至少3格余量，中心最大移动.5格后保≥2.5格N3保守footprint；原退化轴正padding仍保。只拟合实际档位所用的基础网格。物理密图是 coarse 格的整数倍，中心移动整 coarse 格不改变理想采样相位。
 
-尺度向上分档自身最多扩4.427%，补足原padding后相对旧连续跨度最坏约4.634%，不能只报前一个数。跨档可pop，光向旋转/相机裁剪成员变化及实际几何/无shadow颜色欠采样仍可能闪；不以本算法授全部稳定。明确选择固定world原点：任意共同平移可改变采样相位，旧连续fit的逐UV平移不变要求退出，几何/深度/完整覆盖不退出。同一world几何的等价parent表达及改名保持；任意平移核≤一coarse格的相位差与覆盖，整格平移核原等价，不选第一caster/物体名作锚。普通帧只新增两轴log2/ceil/exp2与round，不重做bounds/clip、不添GPU工作或资源；实际成本仍须观测。
+尺度向上分档自身最多扩 4.427%。采样余量主导时，R=1024 与 R=512 的离散跨度相对紧边界 S 的上界分别约为 5.04% 与 5.67%。原有正 padding 主导时，按 S+2p 再向上分档。跨档可pop，光向旋转/相机裁剪成员变化及实际几何/无shadow颜色欠采样仍可能闪；不以本算法授全部稳定。明确选择固定world原点：任意共同平移可改变采样相位，旧连续fit的逐UV平移不变要求退出，几何/深度/完整覆盖不退出。同一world几何的等价parent表达及改名保持；任意平移核≤一coarse格的相位差与覆盖，整格平移核原等价，不选第一caster/物体名作锚。普通帧只新增两轴log2/ceil/exp2与round，不重做bounds/clip、不添GPU工作或资源；实际成本仍须观测。
 
 先在原CPU fit门核clip/屏外/退化域及真实变换，补正负/镜像/非uniform、跨度档边界、网格格边界和2.5格余量，按新采样合同修订上述旧UV断言而不放宽几何判定。GPU对比必须直接复用旧探针已执行的四个receiverWorld Float32矩阵，不按新texel重新生成位移；原点位、caster/相机/BC3、held/off及完整主影均保持。候选未带来可归属像素稳定或损坏主影时撤回，不继续加迟滞/缓存；通过后再核成熟原景、独立作者与同输入成本。
 
 <a id="model-directional-shadow-density"></a>
 ### 定向阴影的输出密度与共同预约
 
-目标是降低主投影台阶与微几何二值采样形成的粗黑痕。Frame沿已有受光prepared draw收集其实际颜色pass物理extent，最长边≤1024用1024、≤2048用2048，其余用4096；未受光层不参与。退固定全部方向光1024选择，point/spot仍保1024单face与原atlas。每灯只拟合一次原1024 guard-band矩阵，密图和回退图复用同一保守世界域，不因预约失败重做凸裁剪；每帧至多四个短期plan只带消费者所需的slot、lightID、projection、resolution。该自有默认质量策略不映射未证的官方cascade字段，也不新增性能档位UI。
+受光 prepared draw 的实际颜色 pass 物理范围决定定向图的原自适应档 1024／2048／4096，结果由当前阴影档封顶。低档使用 512，点光六面和聚光单面也用 512；其它启用档的局部单面为 1024。每灯只按本档基础尺寸拟合一次 guard-band，密图和回退图复用同一世界域。每帧至多四个短期 plan 只带 slot、lightID、projection 和实际 resolution。采样消费实际图宽高。 [设置生效合同](../architecture/runtime-architecture.md#effective-quality-policy)
 
-确有高图plan才升级整组已资格灯：唯一pool事务一次stage所有各自desired尺寸，全部成功后才发布pins和编码。失败退原逐灯1024局部成功链，保原灯序与无效projection空slot；不能让前灯高图挤掉本可保留的后灯。Frame只传实际fallback slot/extent，pool仅在真实allocation失败的reclaim阶段保护这些暖图；成功stage仍可沿原预算退出闲置低图，不预占双份pin或另造回滚。原私有事务接收混合kind/extent并按CacheKey返回，旧公开adapter沿同一core，单kind-only core退出；Collection惰性映射避免转换请求数组，预算、物理identity、revision、stage、submission pin、reset/cancel继续唯一原owner。缓存受原预算及有界尺寸控制，没有新cache/历史/资源owner、shader、PSO或ABI。
+确有高图plan才升级整组已资格灯：唯一pool事务一次stage所有各自desired尺寸，全部成功后才发布pins和编码。失败退该档基础尺寸的逐灯局部成功链，保原灯序与无效projection空slot；不能让前灯高图挤掉本可保留的后灯。Frame只传实际fallback slot/extent，pool仅在真实allocation失败的reclaim阶段保护这些暖图；成功stage仍可沿原预算退出闲置低图，不预占双份pin或另造回滚。原私有事务接收混合kind/extent并按CacheKey返回，旧公开adapter沿同一core，单kind-only core退出；Collection惰性映射避免转换请求数组，预算、物理identity、revision、stage、submission pin、reset/cancel继续唯一原owner。缓存受原预算及有界尺寸控制，没有新cache/历史/资源owner、shader、PSO或ABI。
 
 更密图会增加depth带宽、驻留和在途图成本，不能把放大map当成零代价修复。按[实际运行证据](model-runtime-evidence.md#model-directional-shadow-density)保冻结同世界域/资源的质量对照、原作者成熟播放与独立作者；生产门核尺寸边界、高度主导、四灯紧预算/原partial、混合灯与无效spot空slot、无受光接收者，以及高图失败后暖低图零分配复用/原内容和在途生命周期。高图收益不足时收敛尺寸或转覆盖积分；不能用圆形大模糊掩盖真实各向异性，也不据未知cascade参数删远caster。快速闪烁的频率、一般大场景稳定化及所有硬件成本仍须独立资格。
 

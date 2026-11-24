@@ -884,23 +884,24 @@ extension SceneMetalRenderer {
             }
         }
         guard !casters.isEmpty, mandatoryCapacity() else { return }
+        let baseResolution = min(1024, dimensionLimit)
         let directionalResolution: Int
         if receiverExtent > 2048 { directionalResolution = 4096 }
         else if receiverExtent > 1024 { directionalResolution = 2048 }
-        else { directionalResolution = 1024 }
+        else { directionalResolution = baseResolution }
         var plans: [(slot: Int, lightID: Int, projection: SceneStaticModelShadowProjection,
                      resolution: Int)] = []
         for (slot, light) in lights.enumerated() {
             guard let lightID = light.layerID else { continue }
             let projection: SceneStaticModelShadowProjection
-            var resolution = 1024
+            var resolution = baseResolution
             switch light {
             case .directional(let value):
                 // The conservative base-map border also covers denser maps,
                 // so allocation fallback reuses this fit without clipping again.
                 guard let value = SceneDirectionalShadowProjection.make(bounds: bounds,
                     receiverBounds: receiverBounds,
-                    directionTowardLight: value.directionTowardLight, resolution: 1024) else { continue }
+                    directionTowardLight: value.directionTowardLight, resolution: baseResolution) else { continue }
                 projection = .directional(value)
                 resolution = min(directionalResolution, dimensionLimit)
             case .spot(let value):
@@ -912,12 +913,12 @@ extension SceneMetalRenderer {
             plans.append((slot, lightID, projection, resolution))
         }
         let targets: [Int: SceneOffscreenTexturePool.PinnedTexture]?
-        if plans.contains(where: { $0.resolution > 1024 }) {
+        if plans.contains(where: { $0.resolution > baseResolution }) {
             targets = pool.reserveModelShadows(dimensions: plans.map { plan in
                 (plan.slot, plan.resolution * plan.projection.atlasColumns,
                     plan.resolution * plan.projection.atlasRows)
             }, fallbackDimensions: plans.map { plan in
-                (plan.slot, 1024 * plan.projection.atlasColumns, 1024 * plan.projection.atlasRows)
+                (plan.slot, baseResolution * plan.projection.atlasColumns, baseResolution * plan.projection.atlasRows)
             }, commandBuffer: commandBuffer)
         } else { targets = nil }
         // Upgrade the complete light set atomically; one large map must not
@@ -927,7 +928,7 @@ extension SceneMetalRenderer {
             if let targets { target = targets[slot] }
             else {
                 target = pool.reserveModelShadow(slot: slot,
-                    width: 1024 * projection.atlasColumns, height: 1024 * projection.atlasRows,
+                    width: baseResolution * projection.atlasColumns, height: baseResolution * projection.atlasRows,
                     commandBuffer: commandBuffer)
             }
             guard let target else { continue }
@@ -966,8 +967,9 @@ extension SceneMetalRenderer {
             guard encoded else { continue }
 #if DEBUG
             if recordsEvidence {
-                NSLog("MWX Scene shadow phase=depth-written epoch=%llu light=%d generation=%llu casters=%d",
-                    textureRegistry.frameEpoch, lightID, target.pin.generation, casters.count)
+                NSLog("MWX Scene shadow phase=depth-written epoch=%llu light=%d generation=%llu casters=%d width=%d height=%d faces=%d",
+                    textureRegistry.frameEpoch, lightID, target.pin.generation, casters.count,
+                    target.texture.width, target.texture.height, projection.faceCount)
                 let epoch = textureRegistry.frameEpoch, generation = target.pin.generation
                 commandBuffer.addCompletedHandler { completed in
                     NSLog("MWX Scene shadow phase=completed epoch=%llu light=%d generation=%llu status=%ld",

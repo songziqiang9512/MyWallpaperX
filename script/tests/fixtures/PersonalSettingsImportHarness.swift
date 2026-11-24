@@ -372,7 +372,7 @@ extension Notification.Name {
         }
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: unwritableRecoveryParent.path)
         let modeBefore = PlaybackQualityPreference.current.scene.postProcessing
-        let importedShadows: SceneShadowQuality = .medium
+        let importedShadows: SceneShadowQuality = .high
         let importedPointVolume: SceneVolumeLightingQuality = .disabled
         let importedReflections: SceneReflectionQuality = .disabled
         let importedMode: ScenePostProcessingMode = modeBefore.requestsDisplayHDR ? .ultra : .ultraDisplayHDR

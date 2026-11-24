@@ -89,11 +89,13 @@ def vectors():
     add("same-world-mirrored-nonuniform",
         casters=[box([-.625, -4.5, .75], [-.375, -3.5, .8], world=mirrored)],
         receivers=[box([-.75, -5, .4], [-.25, -3, .6], world=mirrored, clip=IDENTITY)])
-    for name, offset in [("grid-shift-positive", [7, 5]),
-                         ("grid-shift-negative", [-11, -9]),
-                         ("grid-cell-before", [.49, -.49]),
-                         ("grid-cell-after", [.51, -.51])]:
-        add(name, relativeTo="base", shiftInReturnedTexels=offset)
+    add("low-base", resolution=512)
+    for prefix, resolution in [("", 1024), ("low-", 512)]:
+        for name, offset in [("grid-shift-positive", [7, 5]),
+                             ("grid-shift-negative", [-11, -9]),
+                             ("grid-cell-before", [.49, -.49]),
+                             ("grid-cell-after", [.51, -.51])]:
+            add(prefix + name, resolution=resolution, relativeTo=prefix + "base", shiftInReturnedTexels=offset)
     # Literal spans straddle the unit extent's six-texel margin boundary.
     # Expected extents below come from that physical contract, not a second fitter.
     for name, span in [("extent-bin-below", .9931640625),
@@ -102,10 +104,14 @@ def vectors():
         half = span / 2
         add(name, casters=[box([-half, -half, .75], [half, half, .8])],
             witnesses=[[x, y, .5] for x in [-half, half] for y in [-half, half]])
-    add("padding-near-cell-edge", relativeTo="padding-reference",
-        casters=copy.deepcopy(result[-1]["casters"]),
-        witnesses=copy.deepcopy(result[-1]["witnesses"]),
-        shiftInReturnedTexels=[.499, -.499])
+    low_half = .494140625
+    add("low-padding-reference", resolution=512,
+        casters=[box([-low_half, -low_half, .75], [low_half, low_half, .8])],
+        witnesses=[[x, y, .5] for x in [-low_half, low_half] for y in [-low_half, low_half]])
+    for prefix, resolution in [("", 1024), ("low-", 512)]:
+        reference = next(item for item in result if item["name"] == prefix + "padding-reference")
+        add(prefix + "padding-near-cell-edge", resolution=resolution, relativeTo=reference["name"],
+            casters=reference["casters"], witnesses=reference["witnesses"], shiftInReturnedTexels=[.499, -.499])
     return result
 
 
@@ -199,25 +205,24 @@ class SceneDirectionalShadowFitTests(unittest.TestCase):
         self.witnesses_inside(self.rows["parent-translation-equivalent"])
 
     def test_world_grid_integer_shifts_and_cell_boundary_keep_coverage(self):
-        base = self.rows["base"]
-        for name in ["grid-shift-positive", "grid-shift-negative"]:
-            row = self.rows[name]
-            self.witnesses_inside(row)
-            for actual, expected in zip(row["witnessClip"], base["witnessClip"]):
-                for a, b in zip(actual, expected):
-                    self.assertLessEqual(abs(a-b), 1e-5)
-        before, after = self.rows["grid-cell-before"], self.rows["grid-cell-after"]
-        for name in ["base", "grid-shift-positive", "grid-shift-negative",
-                     "grid-cell-before", "grid-cell-after"]:
-            row = self.rows[name]
-            self.witnesses_inside(row)
-            for actual, expected in zip(row["worldUnitsPerTexel"], base["worldUnitsPerTexel"]):
-                self.assertLessEqual(abs(actual-expected), 8 * 2**-23 * expected)
-            for offset in row["matrix"][12:14]:
-                coordinate = offset * 1024 / 2
-                self.assertLessEqual(abs(coordinate-round(coordinate)), 1e-4)
-        for a, b in zip(before["matrix"][12:14], after["matrix"][12:14]):
-            self.assertAlmostEqual(abs(a-b) * 1024 / 2, 1, delta=1e-4)
+        for prefix, resolution in [("", 1024), ("low-", 512)]:
+            with self.subTest(resolution=resolution):
+                base, positive, negative, before, after = [self.rows[prefix + name] for name in (
+                    "base", "grid-shift-positive", "grid-shift-negative", "grid-cell-before", "grid-cell-after")]
+                for row in [positive, negative]:
+                    for actual, expected in zip(row["witnessClip"], base["witnessClip"]):
+                        for a, b in zip(actual, expected):
+                            self.assertLessEqual(abs(a-b), 1e-5)
+                for row in [base, positive, negative, before, after]:
+                    self.witnesses_inside(row)
+                    for actual, expected in zip(row["worldUnitsPerTexel"], base["worldUnitsPerTexel"]):
+                        self.assertLessEqual(abs(actual-expected), 8 * 2**-23 * expected)
+                    for offset in row["matrix"][12:14]:
+                        coordinate = offset * resolution / 2
+                        self.assertLessEqual(abs(coordinate-round(coordinate)), 1e-4)
+                for a, b in zip(before["matrix"][12:14], after["matrix"][12:14]):
+                    self.assertAlmostEqual(abs(a-b) * resolution / 2, 1, delta=1e-4)
+        self.assertEqual(self.rows["low-base"]["matrix"][2::4], self.rows["base"]["matrix"][2::4])
 
     def test_extent_bin_crossing_and_filter_margin_are_bounded(self):
         for name, extent in [("extent-bin-below", 1),
@@ -227,10 +232,12 @@ class SceneDirectionalShadowFitTests(unittest.TestCase):
             self.witnesses_inside(row)
             for step in row["worldUnitsPerTexel"]:
                 self.assertLessEqual(abs(step*1024-extent), 8 * 2**-23 * extent)
-        row = self.rows["padding-near-cell-edge"]
-        margins = [(1-abs(value))*1024/2 for point in row["witnessClip"] for value in point[:2]]
-        self.assertGreaterEqual(min(margins), 2.5)
-        self.assertLess(min(margins), 2.6)
+        for prefix, resolution in [("", 1024), ("low-", 512)]:
+            with self.subTest(resolution=resolution):
+                row = self.rows[prefix + "padding-near-cell-edge"]
+                margins = [(1-abs(value))*resolution/2 for point in row["witnessClip"] for value in point[:2]]
+                self.assertGreaterEqual(min(margins), 2.5)
+                self.assertLess(min(margins), 2.6)
 
 
 if __name__ == "__main__":

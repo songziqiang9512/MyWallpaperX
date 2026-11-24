@@ -382,7 +382,9 @@ extension AppKitSettingsContainerView {
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneTextureQualityPopup))
         let shadowTiers: [(SceneShadowQuality, String)] = [
             (.disabled, String(localized: "Disabled")),
+            (.low, String(localized: "Low")),
             (.medium, String(localized: "Medium")),
+            (.high, String(localized: "High")),
             (.adaptive, String(localized: "Ultra")),
         ]
         for (tier, title) in shadowTiers {

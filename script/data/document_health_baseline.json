@@ -13,8 +13,8 @@
       "bytes": 8300
     },
     "docs/architecture/repository-map.md": {
-      "lines": 50,
-      "bytes": 12275
+      "lines": 52,
+      "bytes": 12552
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 83,
@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 170,
-      "bytes": 32883
+      "lines": 179,
+      "bytes": 34729
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -94,7 +94,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 278,
-      "bytes": 53643
+      "bytes": 53804
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 541,
-      "bytes": 123651
+      "bytes": 123576
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -369,28 +369,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "c036426c6a5d7cdebcd34ec3763ef415ec5188b81ae0d7a3cb0f09a5db5afbd7",
-      "after": "9f6289bee2ab6790d2df5c347c515e8b6f77b298bbeb71dd915cff6be2522415",
+      "before": "9f6289bee2ab6790d2df5c347c515e8b6f77b298bbeb71dd915cff6be2522415",
+      "after": "2d261718ec08847a70e2f63198aaa7664a0baf12e781dc430487ac530f735877",
       "owner": "Scene runtime / Metal",
-      "reason": "约定体积的单意图、冷准备与相关作者光照职责。",
+      "reason": "接管五档、冷准备与实际阴影资源选择。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "eb5dba50d44287fd241769762ac6f10bf70f00e9e13bc98612329c2e80224bbb",
-      "after": "ca1b825b531999f72ee1cc286988f1df031be4b7ac2a00937425d4c550f97092",
+      "before": "ca1b825b531999f72ee1cc286988f1df031be4b7ac2a00937425d4c550f97092",
+      "after": "1db1865af9673d5530766835a6eaa6e89670a0866585dc06b4d572798cbdd752",
       "owner": "Scene lighting / Quality",
-      "reason": "记录共享聚光体积接管、真实输出及验证覆盖。",
+      "reason": "记录阴影档接线、实际成像、物理贴图及未覆盖范围。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "a2c3d823e1c24e729b0b6a33fdc7f5313a09bd00ee7b9e9422a9d31e4162e273",
-      "after": "66fdc0b3fd0e11908999e9f6dda8a55afd756e3c93935f2640ca8d749017aedf",
+      "before": "66fdc0b3fd0e11908999e9f6dda8a55afd756e3c93935f2640ca8d749017aedf",
+      "after": "ec4fd806b619e54e93bf0283a771b51dc349a14b916c4da3013b9b3e56f2d52b",
       "owner": "Repository navigation",
-      "reason": "路由同一体积偏好到原点光和聚光编码。",
+      "reason": "路由 Scene 阴影档到原光空间贴图。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

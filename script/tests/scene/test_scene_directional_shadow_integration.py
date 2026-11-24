@@ -186,7 +186,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             result = subprocess.run(command, cwd=REPO, env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=90)
         log = (work / 'app.log').read_text()
         preview = (work / 'evidence/scene-preview.log').read_text()
-        pixels = {}
+        pixels, shadow_edges = {}, {}
         for path in sorted((work / 'evidence').glob('*window.png')):
             image = Image.open(path).convert('RGB')
             row = {}
@@ -194,12 +194,25 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
                 x, y = round(point[0] * image.width), round(point[1] * image.height)
                 row[label] = ImageStat.Stat(image.crop((x-3, y-3, x+3, y+3))).mean
             pixels[path.name] = row
+            if name.startswith('shadow-resolution-'):
+                # The left boundary of the z20 caster's projected x50..70
+                # footprint is clear of both actual foreground geometry and peers.
+                y = image.height // 2
+                cover = max(image.width / 160, image.height / 96)
+                left, right = [round(image.width / 2 + (x - 80) * cover) for x in (46, 54)]
+                span = range(left, right + 1)
+                light, dark = row['control'][0], row['shadow'][0]
+                levels = [dark + fraction * (light - dark) for fraction in (.9, .5, .1)]
+                shadow_edges[path.name] = [
+                    next((80 + (x - image.width / 2) / cover for x in span if image.getpixel((x, y))[0] <= level), None)
+                    for level in levels
+                ]
         events = {}
         for phase, epoch, light, generation, detail in re.findall(r'shadow phase=(depth-written|receiver|completed) epoch=(\d+) light=(\d+) generation=(\d+) ([^\n]+)', log):
             key = f'{epoch}:{light}:{generation}'
             events.setdefault(key, {}).setdefault(phase, []).append(detail)
         (work/'shadow-events.json').write_text(json.dumps(events, indent=2))
-        report = {'shadowEvents': events, 'pixels': pixels, 'exit': result.returncode,
+        report = {'shadowEvents': events, 'pixels': pixels, 'shadowEdgeX': shadow_edges, 'exit': result.returncode,
                   'completion': 'state=completed frame=1 ' in log, 'drained': 'gpuDrained=true' in log,
                   'prepared': set(map(int, re.search(r'prepared static model layers: \[([^\]]*)\]', preview).group(1).replace(' ', '').split(','))) == (({1, 2} if options.get('caster', True) else {1}) | ({5} if options.get('extra_valid_caster') else set())),
                   'immutable': all(sha(Path(k)) == v for k, v in self.identity.items()), 'work': str(work)}
@@ -274,6 +287,34 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
             self.assertAlmostEqual(no_maps['healthy'][1], 100, delta=3)
             self.assertGreater(min(no_maps['shadow']), 50)
             self.assertLess(max(base['shadow']), min(no_maps['shadow']) * 0.3)
+
+    def test_user_shadow_resolution_tiers_change_native_maps_and_keep_author_casters(self):
+        options = {"named_source": "ready", "caster_first": True, "healthy_effect": True}
+        reference_package = None
+        for tier, resolution in (("low", 512), ("medium", 1024), ("high", 2048), ("ultra", 4096)):
+            with self.subTest(tier=tier):
+                result = self.run_case("shadow-resolution-" + tier, shadow_quality=tier, **options)
+                self.assert_shadow_lifecycle(result)
+                package = (Path(result["work"]) / "content/scene.pkg").read_bytes()
+                if reference_package is None:
+                    reference_package = package
+                self.assertEqual(reference_package, package)
+                maps = [write for details in result["shadowEvents"].values()
+                    if "layer=1" in details.get("receiver", []) and "status=4" in details.get("completed", [])
+                    for write in details.get("depth-written", [])]
+                self.assertTrue(maps, result)
+                for write in maps:
+                    self.assertRegex(write, rf"\bwidth={resolution} height={resolution} faces=1\b")
+                for capture in ("scene-ready-window.png", "scene-after-window.png"):
+                    pixels = result["pixels"][capture]
+                    self.assertGreater(min(pixels["shadow"]), 2, result)
+                    self.assertLess(max(pixels["shadow"]), min(pixels["control"]) * .3, result)
+                    self.assertAlmostEqual(pixels["healthy"][1], 100, delta=3)
+                    start, center, end = result['shadowEdgeX'][capture]
+                    self.assertTrue(all(x is not None for x in (start, center, end)), result)
+                    self.assertAlmostEqual(center, 50, delta=1.0, msg=result)
+                    self.assertGreaterEqual(end, start, result)
+                    self.assertLessEqual(end - start, 2.0, result)
 
     def test_singular_caster_is_local_and_valid_caster_still_shadows(self):
         result = self.run_case('singular-and-valid', singular_caster=True, extra_valid_caster=True)

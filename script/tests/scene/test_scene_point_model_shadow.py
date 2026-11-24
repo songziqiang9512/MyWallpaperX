@@ -338,7 +338,7 @@ def geometric_tap_rays(point,size):
  return out
 
 
-def seam_vectors():
+def seam_vectors(face_size):
  rows=[]
  for seed in gap_cases():
   if seed['gapWorld']!=.1 or seed['family']=='axis':continue
@@ -352,13 +352,13 @@ def seam_vectors():
    triangles=[[vertices[0],vertices[1],vertices[2]],[vertices[0],vertices[2],vertices[3]]]
    row=json.loads(json.dumps(seed));row.update(name=seed['name']+f'-partial{side}',casterTriangles=triangles)
    n=mul(q,-1/length(q));camera_right=r;camera_up=cross(n,camera_right)
-   row.update(receiverNormal=n,cameraRight=camera_right,cameraUp=camera_up,faceSize=1024)
+   row.update(receiverNormal=n,cameraRight=camera_right,cameraUp=camera_up,faceSize=face_size)
    # Keep exact-axis ties observable: receiver at world origin makes the
    # 1-pixel camera center exact, rather than subtracting a rounded view offset.
    original_receiver=row['receiver'];light=quant(mul(original_receiver,-1))
    triangles=[[quant(sub(p,original_receiver)) for p in tri] for tri in triangles]
    row.update(receiver=[0,0,0],light_position=light,casterTriangles=triangles)
-   relative=sub(row['receiver'],light);taps=geometric_tap_rays(relative,1024)
+   relative=sub(row['receiver'],light);taps=geometric_tap_rays(relative,face_size)
    for tap in taps:
     ray=tap['ray'];den=dot(n,ray);reference_t=dot(n,relative)/den
     hits=[h for tri in triangles if (h:=hit(light,ray,tri)) is not None and 0<h[0]<reference_t]
@@ -380,6 +380,7 @@ def seam_vectors():
   rows.append(row)
  row=json.loads(json.dumps(rows[-5]));row.update(name='seam-tintmask-alpha0',coverageAlpha=0,usesCoverage=False,tintMask=True,expectedVisibility=rows[0]['expectedVisibility']);rows.append(row)
  row=json.loads(json.dumps(rows[0]));row.update(name='seam-unlit-caster',casterLit=False);rows.append(row)
+ for row in rows: row['name']+=f'-face{face_size}'
  return rows
 
 
@@ -393,7 +394,7 @@ def seam_main():
 class ScenePointModelShadowSeamTests(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
-  cls.vectors=seam_vectors()
+  cls.vectors=seam_vectors(512)+seam_vectors(1024)
   cls.report=run_point(spot.sources(),'import Foundation\nimport Metal\nimport simd\n'+model.LIGHTING_STUB+seam_main(),label='point-seams',metal_sources=[model.METAL_SOURCE],input_value=cls.vectors)
 
  def test_independent_four_weighted_cross_face_rays_and_coverage(self):

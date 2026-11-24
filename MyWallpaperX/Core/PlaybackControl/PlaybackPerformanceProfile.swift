@@ -35,7 +35,9 @@ nonisolated enum ScenePostProcessingMode: String, Sendable {
 
 nonisolated enum SceneShadowQuality: String, Sendable {
     case disabled
+    case low
     case medium
+    case high
     case adaptive = "ultra"
 }
 

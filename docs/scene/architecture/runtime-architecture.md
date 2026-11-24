@@ -136,7 +136,7 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 兼容降低 HDR 工作域时，带 `clear=false` 的作者场景继续通过原 `sceneColor` 保存跨帧 raw。用当前 SDR 附件描述建立资源，终端把完成 raw 复制到当前 drawable，普通 Bloom 在显示副本上执行。暂停重导出及 GPU 完成保持原身份规则。普通作者 SDR 的 `clear=false` 仍沿其原合成路径。
 
-质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。全部作者灯仍由现有状态供直接灯、体积及几何消费者读取，「禁用」只撤可选阴影绘制和实际贴图采样。「中」沿原 PCF 和投影 fit，将定向图封顶 1024。「超高」保现有自适应预算。点／聚光沿原尺寸和采样，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。
+质量请求在 [Scene 冷准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)将阴影档投影给原静态模型和光空间深度图。全部作者灯仍由现有状态供直接灯、体积及几何消费者读取，「禁用」只撤可选阴影绘制和实际贴图采样。定向阴影的低／中／高／超高实际封顶分别为 512／1024／2048／4096。低档点光和聚光用 512 单面，其余档用 1024 单面。沿原 PCF、受光域拟合和预算回退，每次新准备在候选中固定阴影档，旧会话持续用已准备资源。重新应用、属性重载和 daemon 恢复会采用新意图。 [阴影密度合同](../capabilities/advanced-object-coverage.md#model-directional-shadow-density)
 
 <a id="scene-volume-lighting-policy"></a>
 体积照明在同一 Scene 准备请求生效。禁用时撤点光体积及专用遮挡深度，并跳过聚光锥的 Plan、PSO 和主域／组域绘制。共享体积偏好沿旧字段保存和交付，已显示会话保本代资源直到重载。点光的清屏透视、作者无阴影准入和聚光锥的作者几何继续归原 owner。主相机深度、表面光、作者阴影、父组仍需的程式与具名输出走原链。 [点光合同](../capabilities/advanced-object-coverage.md#point-light-volume) · [聚光合同](../capabilities/advanced-object-coverage.md#spot-light-frame)

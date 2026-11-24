@@ -90,6 +90,13 @@ import Foundation
         var qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality"]
         SceneDaemonProtocol.writeRenderQuality(requestedQuality, to: &qualityChangePayload)
         let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(requestedQuality))
+            && [SceneShadowQuality.low, .high].allSatisfy { tier in
+                var quality = requestedQuality
+                quality.shadows = tier
+                var payload = qualityChangePayload
+                SceneDaemonProtocol.writeRenderQuality(quality, to: &payload)
+                return decode(payload) == .success(.setSceneRenderQuality(quality))
+            }
         var shadowLoadPayload = hdrLoadPayload
         shadowLoadPayload.removeValue(forKey: "scenePostProcessing")
         shadowLoadPayload["shadowQuality"] = "disabled"

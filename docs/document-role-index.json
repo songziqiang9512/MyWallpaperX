@@ -135,10 +135,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3af52a83d7d588b240345596a7d60199974f8d9c552cae07bc7e66270d30f53a",
+        "sourceSHA256": "aa7e23de49cab8fe8f16c13cc7d7b41bdcecf03c2f0b52b56654d1c5715c0151",
         "method": "document_registry --audit + document_health --check",
-        "scope": "三引擎质量入口、Scene 体积编码及现役证据。",
-        "limitations": "导航审查，真实画面见工作卡。"
+        "scope": "三引擎质量入口与 Scene 阴影消费。",
+        "limitations": "运行现象见现役工作卡。"
       }
     },
     {
@@ -349,7 +349,15 @@
       "path": "docs/development/wallpaper-quality-work-card.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。"
+      "retirementCondition": "完成各引擎画质纵向链、实际退役与验收，稳定规则交现有合同后撤除工作卡。",
+      "lastReviewed": "2026-11-25",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "537ac6d082d7d0369ed854b31f1a2be60f0da17ac83f4fb7c10d335faeaf36fc",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene 阴影档与具体实屏、原生覆盖。",
+        "limitations": "余下批次以运行实际资格为准。"
+      }
     },
     {
       "path": "docs/history/README.md",
@@ -839,10 +847,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0342c10eb9bdb8a366acc52e22b9fc140b255e4f949000780fdb4afd8c12fc43",
+        "sourceSHA256": "3433703908d95e1c897b1f7355e97d13d340fa8f9345d9bca35fb4f537b2b474",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene 质量、原光域及体积的有效所有权。",
-        "limitations": "运行现象和未覆盖范围见现役工作卡。"
+        "scope": "Scene 质量与阴影冷准备职责。",
+        "limitations": "硬件与画面证据见现役工作卡。"
       }
     },
     {
@@ -915,7 +923,15 @@
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "模型、Puppet 与光照"
+      "purpose": "模型、Puppet 与光照",
+      "lastReviewed": "2026-11-25",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "13edefa5c266ecec70a82f2b7c3fcdf1a162be4b3df7099782c3941682c06bc4",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "真实阴影档的世界网格、纹理与回退职责。",
+        "limitations": "未将物理宽度等同帧时间或功耗。"
+      }
     },
     {
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
