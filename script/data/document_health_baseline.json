@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 315290
+      "bytes": 316433
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 228,
-      "bytes": 42231
+      "bytes": 42173
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 120,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 215,
-      "bytes": 66291
+      "lines": 214,
+      "bytes": 65907
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4a3c38874af0e67d7a77ac9938af01cc0ad21f80a0d11c1e05a27234a13c0d3f",
-      "after": "58cc861a4294c5345e58c7faa3d4ab8238a2d0e7c0cb98ae47e3d392b2ba5de6",
-      "owner": "Shared Scene author spectrum",
-      "reason": "Qualifies measured axis anchors and step response with fixed-index readback, and corrects file versus device-frame continuity.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361"
+      "before": "58cc861a4294c5345e58c7faa3d4ab8238a2d0e7c0cb98ae47e3d392b2ba5de6",
+      "after": "5f2081bba17314a7555e5fb8fb8d0ebaef345d181637c7f4d30abb0fa78fa30c",
+      "owner": "Scene object color script admission",
+      "reason": "Updates the existing color admission contract and records qualified original-package visible output and independent regressions.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#hidden-media-color-owner"
     },
     {
       "section": "bodies",

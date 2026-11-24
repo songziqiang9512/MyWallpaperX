@@ -497,7 +497,6 @@ nonisolated extension SceneScriptVectorProgram {
         }
         guard layer.id == layerID,
               layer.layerIndex == objectIndex,
-              layer.visible != false,
               layer.dependencyLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
               !namedTextureDependencyLayerIDs.contains(layerID),

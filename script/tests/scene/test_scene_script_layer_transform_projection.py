@@ -455,11 +455,6 @@ enum Harness {
         )
         var hiddenColorDescriptor = colorDescriptor
         hiddenColorDescriptor.layers[0].visible = false
-        let hiddenColor = SceneScriptVectorProgram.project(
-            descriptor: hiddenColorDescriptor,
-            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
-            admittedLayerColorConsumerIDs: [101]
-        )
         func visibilityBinding(_ authored: Bool, layerID: Int = 101) -> SceneScriptBindingIR {
             .init(source: "export function update(value) { return value; }",
                 owner: .init(kind: .object, objectIndex: 0, objectID: layerID,
@@ -570,7 +565,6 @@ enum Harness {
             },
             "unclaimedColorRejected": unclaimedColor.candidates.isEmpty,
             "mismatchedColorRejected": mismatchedColor.candidates.isEmpty,
-            "hiddenColorRejected": hiddenColor.candidates.isEmpty,
             "effectColorRejected": effectColor.candidates.isEmpty,
             "effectfulTextColorDefinition": textColor.definitions.contains {
                 $0.target == .text(layerID: 101, field: .color)
@@ -636,11 +630,10 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["mismatchRejected"])
         self.assertTrue(self.result["wrongPathRejected"])
 
-    def test_image_color_requires_exact_visible_direct_consumer(self) -> None:
+    def test_image_color_requires_exact_direct_consumer(self) -> None:
         self.assertTrue(self.result["colorDefinition"])
         self.assertTrue(self.result["unclaimedColorRejected"])
         self.assertTrue(self.result["mismatchedColorRejected"])
-        self.assertTrue(self.result["hiddenColorRejected"])
         self.assertTrue(self.result["effectColorRejected"])
         self.assertTrue(self.result["duplicateColorRejected"])
 

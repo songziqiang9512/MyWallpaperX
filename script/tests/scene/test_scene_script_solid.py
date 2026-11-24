@@ -104,13 +104,14 @@ extension Harness {
     static func colorOwner(
         source: String, kind: String = "solid", id: Int = 92,
         name: String = "color subject", properties: [String: SceneJSONValue] = [:],
-        effectful: Bool = false, admitted: Bool = true, matchingSeed: Bool = true
+        effectful: Bool = false, admitted: Bool = true, matchingSeed: Bool = true,
+        visible: Bool = true
     ) throws -> (program: SceneScriptVectorProgram, descriptor: SceneRenderDescriptor,
                  target: SceneDynamicTarget) {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0, id: 20, constantShaderValues: [:])
         let descriptor = SceneRenderDescriptor(layers: [.init(
-            id: id, layerIndex: 0, name: name, visible: true,
+            id: id, layerIndex: 0, name: name, visible: visible,
             originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
             colorRGB: matchingSeed ? [0.2, 0.4, 0.6] : [0.2, 0.4, 0.9],
             scaleHasScript: nil, alpha: 1,
@@ -191,7 +192,7 @@ extension Harness {
             ("mismatchedSeed", "solid", false, true, false),
         ] {
             let owner = try colorOwner(source: source, kind: kind, effectful: effectful,
-                                       admitted: admitted, matchingSeed: matchingSeed)
+                                       admitted: admitted, matchingSeed: matchingSeed, visible: admitted)
             let result = owner.program.evaluate(inputs: [owner.target: .vector3(0.2, 0.4, 0.6)],
                                                 effectivePropertyValues: [:], frame: frame)
             facts[label + "Rejected"] = owner.program.bindings.isEmpty
@@ -235,7 +236,7 @@ extension Harness {
         let color = new Vec3(0.2, 0.4, 0.6);
         export function mediaThumbnailChanged(event) { color = event.primaryColor.copy(); }
         export function update(value) { return color.copy(); }
-        """, id: 905, name: "Renamed thumbnail signal")
+        """, kind: "image", id: 905, name: "Renamed thumbnail signal", visible: false)
         let mediaIndex = SceneDynamicSnapshotResolver.prepare(definitions: media.program.definitions)
         let mediaSeed = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1, index: mediaIndex)
         let mediaResult = media.program.evaluate(
@@ -284,7 +285,7 @@ class DynamicSolidTests(unittest.TestCase):
    for stage in ("Admitted","NonWhiteSeed","Typed","Consumed"):
     with self.subTest(case=case,stage=stage): self.assertTrue(self.value["colorCases"][case+stage])
 
- def test_solid_color_media_event_uses_real_vec3_owner_and_consumer(self):
+ def test_prepared_hidden_image_receives_media_color_through_the_vec3_owner(self):
   for key in ("mediaOwner","mediaTyped","mediaConsumed"):
    with self.subTest(key=key): self.assertTrue(self.value["colorCases"][key])
 

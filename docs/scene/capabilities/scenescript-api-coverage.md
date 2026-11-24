@@ -129,7 +129,7 @@ C entry 的读取作用域归原 primitive owner：在 video-ended 前序分发�
 <a id="commands"></a>
 ## 播放、事件与副作用
 
-独立可见 solid 与无 effect 的 image 颜色脚本在准备期取得真实消费者后，生成同一 `.layer(.color)` Vec3 owner。solid 的白纹理复用原资源，颜色由 typed snapshot 进入原合成 uniform；不为脚本颜色重建纹理。solid 的 effect 后缀沿原执行链消费 source 颜色，末端不重复乘色；依赖、named、隐藏及错误 seed 等尚未取得此准入的形态保持原边界。
+<a id="object-color-admission"></a>solid 与无 effect 的 image 由启动准备确定颜色消费者，生成 `.layer(.color)` Vec3 owner。准入的初始隐藏层仍执行 init 和媒体事件，帧快照决定绘制。solid 复用白纹理，typed 颜色由合成 uniform 或 effect 首端消费一次。依赖、named、错误 seed 及无消费者沿原准入边界。
 
 | 领域 | 当前实际入口 |
 |---|---|
