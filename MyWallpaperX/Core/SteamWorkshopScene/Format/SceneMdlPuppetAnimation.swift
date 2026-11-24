@@ -130,7 +130,7 @@ nonisolated struct SceneMdlPuppetAnimation {
     }
 
     var isSingleCreationCandidate: Bool {
-        mode == "single" && !hasAuxiliaryScalarTrack && legacyControls == nil
+        mode == "single" && !hasAuxiliaryScalarTrack && !hasPostBoundsScalarTrack && legacyControls == nil
     }
 }
 

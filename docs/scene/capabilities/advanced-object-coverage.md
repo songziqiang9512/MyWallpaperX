@@ -414,9 +414,9 @@ MDLS0002 的编译段承载单条连续双段链的骨序，前置记录以末�
 <a id="puppet-prebounds-curves"></a>
 ### 带未消费曲线的骨骼动画
 
-MDLA6 的 bounds 前辅助区按有序事件、曲线数、隐式首曲线编号与后续显式编号、每曲线字节长推进原游标。三个原包的记录精确落到后继 clip 与 MDLA 声明末端。骨骼准备沿用 dense 采样长度、声明块边界及后续 bounds/普通事件，未绑定的曲线仅推进游标。计数或长度无法确定记录边界时继续拒绝该动画块。
+MDLA6 的 bounds 前辅助区按有序事件、隐式首曲线与后续显式编号和计长跨度推进。bounds 后有独立的每骨定长 `frameCount+1` 标量。仍由原 Reader 确认记录边界和后继事件，未消费载荷仅跳过。失去边界或坏骨轨保原降级。
 
-图片的作者动画按原有 ID、opaque 骨骼基底及叠加顺序保留可解 TRS、骨 alpha 和普通事件，沿原冷准备、会话 cadence、Surface pose 和主图几何。未绑定曲线的作者槽继续控制已接入通道，pose 诊断标出仅支持骨骼部分。DirectModel 保已准备骨骼与时间元数据，活动曲线期间可见网格仍用 bind。动态 Single 只接完整可执行的源。未知后置 scalar、坏骨骼和不明 framing 保原降级。[图片形变](#puppet-mdmp-morph)和[骨骼原作者证据](runtime-evidence-current.md#puppet-prebounds-curve-evidence)。
+图片作者槽沿原 ID、顺序、混合、cadence 和 pose 发布已解 TRS、骨 alpha、事件及可配对形变。前置曲线未配对或后置标量未消费时诊断指出局部缺口，退役后置标量挡住整段骨轨的门。固定官版同相位替换后置采样，384身体与377拉弦的主要轮廓由普通轨驱动；沿原部件顺序呈现，不推断标量排序或写入骨坐标。Direct 的后置轨整槽边界归其冷准备，前置曲线仍可保骨查询而绘bind。动态 Single 须有完整消费。验收核同相位运动、坏 framing、改名和独立原作者，沿[图片形变](#puppet-mdmp-morph)与[运行证据](runtime-evidence-current.md#puppet-prebounds-curve-evidence)。
 
 <a id="puppet-mdmp-morph"></a>
 ### 图片 Puppet 的 MDMP 形变

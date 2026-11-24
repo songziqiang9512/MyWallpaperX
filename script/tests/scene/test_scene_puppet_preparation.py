@@ -395,7 +395,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             records = [
                 animation_record(101 + offset, "Moving base", 1, 2, fps=1,
                                  track_samples=channels(30)),
-                animation_record(202 + offset, "Unsupported reference", 1, 2, fps=1,
+                animation_record(202 + offset, "Reference root", 1, 2, fps=1,
                                  track_states=[1, 0], track_samples=channels(12)),
                 animation_record(204 + offset, "Unknown post-bounds channel", 1, 2, fps=1,
                                  track_samples=channels(9), post_bounds_scalar=[[float("nan"), 765], [0, 0]]),
@@ -504,39 +504,42 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertTrue(passed)
 
-    def test_unsupported_additives_keep_healthy_motion_and_original_slot_identity(self) -> None:
+    def test_post_bounds_slot_preserves_motion_and_reference_root_keeps_bind(self) -> None:
         for key, offset in (("local-additive", 0), ("local-additive-renamed", 7000)):
             with self.subTest(resource=key):
                 row = self.result[key]["partial"]
                 self.assertEqual(row["kind"], "animation", row)
-                self.assertEqual(row["animationIDs"], [101 + offset, 303 + offset], row)
-                self.assertEqual(row["slotIDs"], [81, 84], row)
-                self.assertEqual(row["slotIndices"], [0, 3], row)
-                self.assertEqual(row["preparedIDs"], [101 + offset, 303 + offset], row)
-                self.assertEqual(row["rootXs"], [4, 11.25, 25.75], row)
-                self.assertEqual(row["lastPoints"], [[11.75, -20], [31.75, -20], [21.75, 20]], row)
-                self.assertEqual(row["rootXs"], self.result[key]["healthyOnly"]["rootXs"], row)
-                for omitted in (202 + offset, 204 + offset, 912, 923):
-                    self.assertIn(str(omitted), row["fallback"], row)
+                self.assertEqual(row["animationIDs"], [101 + offset, 202 + offset, 204 + offset, 303 + offset], row)
+                self.assertEqual(row["slotIDs"], [81, 912, 923, 84], row)
+                self.assertEqual(row["slotIndices"], [0, 1, 2, 3], row)
+                self.assertEqual(row["preparedIDs"], row["animationIDs"], row)
+                self.assertEqual(row["rootXs"], [4, 12.5, 29.5], row)
+                self.assertEqual(row["lastPoints"], [[15.5, -20], [35.5, -20], [25.5, 20]], row)
+                self.assertEqual(self.result[key]["healthyOnly"]["rootXs"], [4, 11.25, 25.75], row)
+                self.assertIn("post-bounds scalar channel unavailable", row["fallback"], row)
+                only, opaque = (self.result[key][case] for case in ("scalarOnly", "opaqueScalar"))
+                self.assertEqual(only["sampledRootX"], 9, only)
+                self.assertEqual(opaque["sampledRootX"], 30, opaque)
+                reference = self.result[key]["opaqueReference"]
+                self.assertEqual(reference["sampledRootX"], 7, reference)
 
-    def test_opaque_aliases_and_absent_clip_ids_do_not_become_optional_additives(self) -> None:
+    def test_absent_required_clip_keeps_bind(self) -> None:
         for key in ("local-additive", "local-additive-renamed"):
-            for case in ("badOpaqueReference", "badOpaqueScalar", "opaqueAlias", "missingID", "badOnly"):
-                with self.subTest(resource=key, case=case):
-                    row = self.result[key][case]
-                    self.assertEqual(row["kind"], "bind", row)
-                    self.assertEqual(row["animationIDs"], [], row)
+            with self.subTest(resource=key):
+                row = self.result[key]["missingID"]
+                self.assertEqual(row["kind"], "bind", row)
+                self.assertEqual(row["animationIDs"], [], row)
             self.assertEqual(self.result[key]["default"],
                              {"kind": "bind", "fallback": "", "animationIDs": []})
 
-    def test_hidden_healthy_slot_keeps_metadata_and_frozen_pose_after_additive_filtering(self) -> None:
+    def test_hidden_slots_keep_metadata_and_do_not_move_the_frozen_pose(self) -> None:
         for key, offset in (("local-additive", 0), ("local-additive-renamed", 7000)):
             row = self.result[key]["hidden"]
-            self.assertEqual(row["animationIDs"], [101 + offset, 303 + offset], row)
-            self.assertEqual(row["slotIndices"], [0, 2], row)
-            self.assertEqual(row["slotIDs"], [81, 84], row)
-            self.assertEqual(row["visible"], [True, False], row)
-            self.assertEqual(row["currentFrames"], [0.75, 0], row)
+            self.assertEqual(row["animationIDs"], [101 + offset, 204 + offset, 303 + offset], row)
+            self.assertEqual(row["slotIndices"], [0, 1, 2], row)
+            self.assertEqual(row["slotIDs"], [81, 923, 84], row)
+            self.assertEqual(row["visible"], [True, False, False], row)
+            self.assertEqual(row["currentFrames"], [0.75, 0, 0], row)
             self.assertEqual(row["rootXs"], [4, 10.5, 23.5], row)
 
     def test_pre_bounds_curves_keep_the_first_opaque_bone_pose_and_additive_order(self) -> None:
@@ -800,7 +803,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertFalse(row["fileExists"], row)
         self.assertEqual(row["availableSingleIDs"], [739], row)
         self.assertFalse(row["unrequestedLoopPrepared"], row)
-        self.assertFalse(row["badSinglePrepared"], row)
+        self.assertFalse(row["unrequestedScalarSinglePrepared"], row)
         self.assertFalse(row["unrequestedSkeletalSinglePrepared"], row)
         self.assertTrue(row["requiredLoopPrepared"], row)
         self.assertEqual(row["metadata"], {"id": 739, "name": "Owned actual Single",
@@ -813,9 +816,6 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(row["selected"]["points"], [[3, -20], [23, -20], [13, 20]], row)
         self.assertEqual(row["afterRemoval"], row["selected"], row)
         self.assertEqual(row["loopSource"]["animationIDs"], [909], row)
-        self.assertEqual(row["badRequired"]["kind"], "bind", row)
-        self.assertIn("unconsumed", row["badRequired"]["fallback"], row)
-        self.assertIn("740", row["badRequired"]["fallback"], row)
 
     def test_skeletal_single_is_prepared_for_an_authored_slot_but_unavailable_for_creation(self) -> None:
         row = self.result["cold-single"]["skeletalSingle"]
@@ -826,6 +826,11 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertIn("skeletal playback only", row["fallback"], row)
         self.assertEqual(row["availableSingleIDs"], [739], row)
         self.assertFalse(row["runtimeCreationMetadata"], row)
+        scalar = self.result["cold-single"]["scalarSingle"]
+        self.assertEqual(scalar["animationIDs"], [740], scalar)
+        self.assertEqual(scalar["sampledRootX"], 17, scalar)
+        self.assertEqual(scalar["points"], row["points"], scalar)
+        self.assertIn("post-bounds scalar channel unavailable", scalar["fallback"], scalar)
 
 
 if __name__ == "__main__":

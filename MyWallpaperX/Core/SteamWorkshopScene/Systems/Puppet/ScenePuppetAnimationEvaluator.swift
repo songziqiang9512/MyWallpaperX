@@ -74,7 +74,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         try self.init(bindPositions: mesh.vertices.map { SIMD3($0.x, $0.y, $0.z) },
                       rig: rig, additiveAnimations: additiveAnimations,
                       optionalAnimationIDs: optionalAnimationIDs,
-                      morphVertexAddresses: morphVertexAddresses)
+                      morphVertexAddresses: morphVertexAddresses, allowsUnconsumedPostBoundsScalar: true)
     }
 
     /// Direct models supply their validated XYZ channel without an image mesh.
@@ -83,7 +83,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         rig: SceneMdlPuppetRig,
         additiveAnimations: [SceneMdlPuppetAnimation] = [],
         optionalAnimationIDs: Set<Int> = [],
-        morphVertexAddresses: [Int]? = nil
+        morphVertexAddresses: [Int]? = nil,
+        allowsUnconsumedPostBoundsScalar: Bool = false
     ) throws {
         guard bindPositions.count == rig.vertexWeights.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -193,6 +194,9 @@ nonisolated struct ScenePuppetAnimationEvaluator {
                 throw ScenePuppetAnimationEvaluationFailure.duplicateAdditiveAnimation(animation.id)
             }
             do {
+                if !allowsUnconsumedPostBoundsScalar && animation.hasPostBoundsScalarTrack {
+                    throw ScenePuppetAnimationEvaluationFailure.unconsumedAuxiliaryChannel(animation.id)
+                }
                 preparedAnimations[animation.id] = .success(try Self.prepare(animation: animation, rig: rig))
             } catch {
                 if !optionalAnimationIDs.contains(animation.id) { throw error }
@@ -693,9 +697,6 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         animation: SceneMdlPuppetAnimation,
         rig: SceneMdlPuppetRig
     ) throws -> PreparedAnimation {
-        guard !animation.hasPostBoundsScalarTrack else {
-            throw ScenePuppetAnimationEvaluationFailure.unconsumedAuxiliaryChannel(animation.id)
-        }
         if animation.legacyControls != nil, rig.referenceLocalMatricesColumnMajor != nil,
            rig.planarConstraint == nil {
             throw ScenePuppetAnimationEvaluationFailure.unqualifiedLegacyConstraint(animation.id)

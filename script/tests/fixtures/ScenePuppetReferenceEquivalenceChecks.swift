@@ -119,7 +119,8 @@ enum ScenePuppetReferenceEquivalenceChecks {
         }
         checks["constant-away-from-bind-rejected"] = rejects(fixture(Array(repeating:
             transform(1, translation: SIMD3(300, 1646.4677734375, 0)), count: 3)))
-        checks["unknown-scalar-rejected"] = rejects(fixture(Array(repeating: transform(), count: 3), postBounds: true))
+        checks["post-bounds-keeps-bind-reference-and-sampled-motion"] = accepted(fixture(
+            Array(repeating: transform(), count: 3), postBounds: true))
         let (mesh, rig, clip) = fixture(Array(repeating: transform(), count: 3))
         var badBones = rig.bones
         var matrix = badBones[0].bindLocalMatrixColumnMajor; matrix[0] = .nan

@@ -327,6 +327,10 @@ enum ScenePuppetLayerLoad {
                 poseMessage = (poseMessage.map { $0 + "; " } ?? "")
                     + "skeletal playback only: pre-bounds morph curves unavailable"
             }
+            if clips.contains(where: { $0.animation.hasPostBoundsScalarTrack }) {
+                poseMessage = (poseMessage.map { $0 + "; " } ?? "")
+                    + "post-bounds scalar channel unavailable"
+            }
             if clips.contains(where: { $0.animation.legacyControls != nil
                 && ($0.layer.additive != true || !evaluator.hasPreparedPlanarControls(animationID: $0.animation.id)) }) {
                 poseMessage = (poseMessage.map { $0 + "; " } ?? "") + "legacy Puppet constraints partially unavailable"

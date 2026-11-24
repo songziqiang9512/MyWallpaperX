@@ -345,19 +345,17 @@ private enum ScenePuppetPreparationCases {
                 "fallback": fallback ?? ""]
         }
         let active = slot(81, resource: ids[0], additive: false)
-        let badReference = slot(912, resource: ids[1], additive: true)
-        let badScalar = slot(923, resource: ids[2], additive: true)
+        let reference = slot(912, resource: ids[1], additive: true)
+        let scalar = slot(923, resource: ids[2], additive: true)
         let tail = slot(84, resource: ids[3], additive: true)
-        let authored = [active, badReference, badScalar, tail]
+        let authored = [active, reference, scalar, tail]
         return ["partial": try motion(authored), "healthyOnly": try motion([active, tail]),
-            "badOpaqueReference": try describe(pose([
+            "opaqueReference": try describe(pose([
                 slot(912, resource: ids[1], additive: false), tail])),
-            "badOpaqueScalar": try describe(pose([
+            "opaqueScalar": try describe(pose([
                 active, slot(923, resource: ids[2], additive: false)])),
-            "opaqueAlias": try describe(pose([
-                active, badScalar, slot(924, resource: ids[2], additive: false)])),
             "missingID": try describe(pose([active, slot(99, resource: 999999, additive: true)])),
-            "badOnly": try describe(pose([badScalar])),
+            "scalarOnly": try describe(pose([scalar])),
             "hidden": try motion([active,
                 slot(923, resource: ids[2], additive: true, visible: false),
                 slot(84, resource: ids[3], additive: true, visible: false, script: true)]),
@@ -419,10 +417,8 @@ private enum ScenePuppetPreparationCases {
             throw ProbeStop.stopped
         }
         let required = sourceLayer(811, mesh: path, animated: true, animationID: 739)
-        let bad = sourceLayer(812, mesh: path, animated: true, animationID: 740)
         let before = try describe(plainPose)
         let selected = ScenePuppetLayerLoad.preparePose(for: required, asset: .ready(asset))
-        let failed = ScenePuppetLayerLoad.preparePose(for: bad, asset: .ready(asset))
         let runtime = ScenePuppetAnimationPlaybackRuntime()
         try runtime.register(layerID: 810, selection: empty, authoredLayers: [],
             availableSingleAnimations: plainPose.availableSingleAnimations).get()
@@ -435,8 +431,9 @@ private enum ScenePuppetPreparationCases {
         let loopPath = "cold-loop-demand.mdl"
         let loop = sourceLayer(822, mesh: loopPath, animated: true, animationID: 909)
         let skeletal = sourceLayer(823, mesh: loopPath, animated: true, animationID: 741)
+        let scalar = sourceLayer(824, mesh: loopPath, animated: true, animationID: 740)
         let loopPrepared = try ScenePreparedPuppetResources.prepare(descriptor: .init(layers: [
-            sourceLayer(821, mesh: loopPath), loop, skeletal]), resourceView: view, cancellationCheck: {})
+            sourceLayer(821, mesh: loopPath), loop, skeletal, scalar]), resourceView: view, cancellationCheck: {})
         guard case let .ready(loopAsset)? = loopPrepared.assetsByMeshPath[loopPath],
               case let .success(loopEvaluator) = loopAsset.evaluator,
               let skeletalPose = loopPrepared.posesByLayerID[skeletal.id],
@@ -454,13 +451,14 @@ private enum ScenePuppetPreparationCases {
             "fileExists": FileManager.default.fileExists(atPath: root.appendingPathComponent(path).path),
             "availableSingleIDs": plainPose.availableSingleAnimations.map(\.id),
             "unrequestedLoopPrepared": evaluator.hasPreparedAnimation(animationID: 909),
-            "badSinglePrepared": evaluator.hasPreparedAnimation(animationID: 740),
+            "unrequestedScalarSinglePrepared": evaluator.hasPreparedAnimation(animationID: 740),
             "unrequestedSkeletalSinglePrepared": evaluator.hasPreparedAnimation(animationID: 741),
             "skeletalSingle": skeletalSingle,
+            "scalarSingle": try describe(loopPrepared.posesByLayerID[scalar.id]),
             "metadata": metadata.map { ["id": $0.animationID, "name": $0.name,
                 "fps": $0.framesPerSecond, "frameCount": $0.frameCount] as [String: Any] } ?? [:],
             "cold": before, "selected": try describe(selected), "afterRemoval": after,
-            "default": defaultPose, "badRequired": try describe(failed),
+            "default": defaultPose,
             "requiredLoopPrepared": loopEvaluator.hasPreparedAnimation(animationID: 909),
             "loopAssetCount": loopPrepared.assetsByMeshPath.count,
             "loopSource": try describe(loopPrepared.posesByLayerID[822]),

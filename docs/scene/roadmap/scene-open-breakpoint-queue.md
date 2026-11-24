@@ -124,9 +124,9 @@
 |---|---|
 | 条件 TEX · 附属消费者 | [3766299002 面具与独立3791967416袖标](../capabilities/runtime-evidence-current.md#author-conditional-mask-376)已沿作者基图与Puppet事务恢复。3747492842的附属材质同时带三路Combo；后续确认该消费者的选择、供货与实际画面，动态构造和图层发射源保各自的生命周期。重叠条件次序待作者正例。 |
 | 3187857248 | [原包单/双Surface拖动](../capabilities/runtime-evidence-current.md#puppet-drag-surface-318)已恢复双Surface脚本拖动，作者命中范围与小幅变形保持。若物理单屏仍间歇失败，先取原生真实按下点/当前骨位置、持有与释放，再核命中、骨写与末端。官版按键传输未获资格。 |
-| 3781003282 | [同轨迹实机与888显隐](../capabilities/runtime-evidence-current.md#pointer-halo-378)确认红色 halo 在两端有效跟踪，白方未在六点、持留与窗口中央复现。重启须能重现的指针位置、画幅或桌面版本，再判888采样与独立395/e16。 |
+| 3781003282 | 中央白方[未重现](../capabilities/runtime-evidence-current.md#pointer-halo-378)。重启须可复现位置、画幅或桌面版本，再判888采样与独立395/e16。 |
 | 3306942838 · 图2 | [原包、官版同轨与关槽对照](../capabilities/runtime-evidence-current.md#puppet-body-slot-330)恢复身体槽1632及头肩向左同步。正向仍有少量相对偏移，等同相位与同取景的头肩对照再判其它槽、角度或绑定。 |
-| Puppet 后置标量轨 · 3842265910 | [双瞳已恢复](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384)。身体36的2448/2518仍因后置标量轨降到bind。官版只关两槽仍见双瞳；身体实动需对照标量作用与同根普通TRS，不复用眼部排序规则。 |
+| Puppet 后置标量轨 | [384与独立377的普通骨轨已恢复](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs)。同相位标量替换未证主要遮挡差。重启须有单骨/同位置的可见交叠对照，再分纯绘制顺序、骨权重或几何作用。 |
 | 3382111183 | [官版曲线及原曲实机](../capabilities/runtime-evidence-current.md#floor-beam-emitter-338211)已测同档左右均值取峰、smoothstep后取幂和越1供值。待共享准备值合格后接普通发射器，验原包出生和运动。 |
 | 3383210272 / 3463406101 | [原曲目](../capabilities/runtime-evidence-current.md#beam-shared-pcm)官版成双束、本机成熟帧各2颗。[同帧对照](../capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)已将幅值差定位至准备64档，同帧16档支持取峰。暂收口供值研究，转可直接归因的开放项。重启须有可配对的运行端PCM、原始64谱与准备值，沿[设计](../../architecture/system-audio-spectrum-design.md)裁决分析窗及分域，再验原曲目宽双束、闪烁及相邻消费者。不重跑旧板/同WAV或单改取峰、增益和出生。 [独立前景](../capabilities/runtime-evidence-current.md#author-forefront-pulse-346)已用同WAV确定75/e265材质执行，阈值下移只作诊断，排在同一共享频谱供值阶段。 |
 | 2814167871 /2835398595 | 眼部为132/e1与98/e0的pulse RGB增亮，16档band0/1均值跨.5才响应；281强度属性默认1、283常量.51。[默认PCM前5秒](../capabilities/runtime-evidence-current.md#eye-audio-input)无跨线正控；后续同作者WAV的281两App静帧已有真实16档消费，但不能判眼部闪动或闪烁。粗档候选已撤回，283不追加矩阵。重启须可裁决实际供值/首错，再核同帧pulse→tail→眼RGB；不调gain/作者参数、不强注入1，不由bus非零关闭。 |
@@ -239,7 +239,7 @@
 | 3337494481 | 已修复。盒体侧背文字不再错误透出。[文字遮挡](../capabilities/runtime-evidence-current.md#author-box-text-occlusion-333) |
 | 3509243656 | 已修复。轨迹打开后进入原作者发射和绘制，关后停止，再开恢复。[属性热切](../capabilities/runtime-evidence-current.md#author-normal-depth-trails-350) |
 | 3769761761 | 部分修复。斜光的预热、缺省初速和缺省相位已恢复，显式相位和持续湍流另核。[初速](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed) · [相位](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-phase) |
-| 3842265910 | 已修复双瞳缺失，身体动画按上方独立项跟进。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) |
+| 3842265910 | 已修复双瞳缺失及身体普通骨轨。后置标量仍开放。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) · [身体](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs) |
 | 3306942838 | 部分修复。头肩脱节的主要槽与同步运动已恢复，正向相对偏移另核。[头肩](../capabilities/runtime-evidence-current.md#puppet-body-slot-330) |
 | 3455121165 | 已修复。默认排序下时钟下方的原作者音条已恢复。[钟下音条](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
 

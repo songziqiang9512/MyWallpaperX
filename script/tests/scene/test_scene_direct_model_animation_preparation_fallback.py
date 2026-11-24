@@ -76,14 +76,16 @@ struct SceneRenderDescriptor {
         return result
     }
     static func animation(_ id: Int, state: SceneMdlPuppetAnimation.TransformTrackState = .sampled,
-                          referenceX: Float? = nil, count: Int = 1) -> SceneMdlPuppetAnimation {
+                          referenceX: Float? = nil, count: Int = 1,
+                          postBounds: Bool = false) -> SceneMdlPuppetAnimation {
         let track = (0...4).map { index in
             SceneMdlPuppetAnimation.Transform(translation: SIMD3(referenceX ?? (3 + Float(index)), 2, 1),
                 rotation: .zero, scale: SIMD3(repeating: 1))
         }
         return .init(id: id, name: "own-motion", mode: "loop", framesPerSecond: 2, frameCount: 4,
             transformsByBone: Array(repeating: track, count: count),
-            transformTrackStates: Array(repeating: state, count: count))
+            transformTrackStates: Array(repeating: state, count: count),
+            hasPostBoundsScalarTrack: postBounds)
     }
     static func model(singular: Bool = false, noRig: Bool = false) -> SceneMdlStaticModel {
         var bind = SceneMatrix.translation(SIMD3(3, 2, 1))
@@ -175,6 +177,13 @@ struct SceneRenderDescriptor {
             b = layer(202, animation: 20, visible: false, additive: true); layers[0] = b
             clips.append(animation(20, state: .referenceCandidate, referenceX: 99))
         case "duplicate": layers[0] = layer(202, animation: 10, visible: false)
+        case "duplicate-before-post-bounds":
+            layers[0] = layer(202, animation: 10, visible: false)
+            layers.append(layer(303, animation: 20, visible: false, additive: true))
+            clips.append(animation(20, postBounds: true))
+        case "visible-post-bounds":
+            layers[0] = layer(202, animation: 20, visible: true, additive: true)
+            clips.append(animation(20, postBounds: true))
         case "bone-count":
             layers[0] = layer(202, animation: 20, visible: false); clips.append(animation(20, count: 2))
         case "singular-rig":
@@ -253,7 +262,8 @@ struct SceneRenderDescriptor {
     static func main() throws {
         var output: [String: Any] = [:]
         for name in ["missing", "missing-renamed", "old-string", "explicit-false-flag", "visible-bad",
-                     "reference-selection", "reference-evaluation", "duplicate", "bone-count", "singular-rig",
+                     "reference-selection", "reference-evaluation", "duplicate", "duplicate-before-post-bounds",
+                     "visible-post-bounds", "bone-count", "singular-rig",
                      "reader-failure", "attachments-failure", "no-rig"] { output[name] = try probe(name) }
         output["healthy-eight"] = try healthyEight()
         output["projection"] = projectionFacts()
@@ -344,6 +354,13 @@ class DirectModelAnimationPreparationFallbackTests(unittest.TestCase):
             self.assertIn(reason, self.rows[name]["error"])
             self.assertNotIn("selected", self.rows[name])
         self.assertEqual(self.rows["no-rig"], {"none": True})
+
+    def test_post_bounds_keeps_direct_rejection_and_cold_failure_order(self):
+        row = self.rows["duplicate-before-post-bounds"]
+        self.assertEqual(row["futureFailure"], "evaluation.duplicateAdditiveAnimation", row)
+        self.assertEqual(row["selected"], [10], row)
+        self.assertEqual(row["rootTranslation"], [4, 2, 1], row)
+        self.assertIn("unconsumed post-bounds scalar", self.rows["visible-post-bounds"]["error"])
 
     def test_healthy_eight_conditions_prepare_once_and_switch_as_a_complete_group(self):
         row = self.rows["healthy-eight"]
