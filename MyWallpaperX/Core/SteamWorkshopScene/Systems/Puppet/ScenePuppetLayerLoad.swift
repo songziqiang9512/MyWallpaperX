@@ -125,9 +125,11 @@ enum ScenePuppetLayerLoad {
             try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
         }
         let animationSet = Result {
-            try SceneMdlPuppetAnimationReader.read(data: data, imageMorphLayout: .init(
+            let controlLayout = try? rig.get()
+            return try SceneMdlPuppetAnimationReader.read(data: data, imageMorphLayout: .init(
                 vertexOffset: mesh.vertexDataOffset, stride: mesh.vertexStride,
-                count: mesh.vertices.count))
+                count: mesh.vertices.count), hasLegacyControlTracks: controlLayout?.hasLegacyControlTracks == true,
+                planarGoalTrack: controlLayout?.planarConstraint?.goalTrackIndex)
         }
         let evaluator: Result<ScenePuppetAnimationEvaluator, Error> = Result {
             let source = try? animationSet.get()
@@ -320,18 +322,26 @@ enum ScenePuppetLayerLoad {
             }
             selection = .init(clips: clips, composition: clips.count == 1
                 && clips[0].layer.additive == false ? .singleAbsolute : .layered)
-            let poseMessage = clips.contains {
-                $0.animation.hasAuxiliaryScalarTrack && $0.animation.morphTargets.isEmpty
-            }
-                ? (unavailableMessage.map { $0 + "; " } ?? "")
+            var poseMessage = unavailableMessage
+            if clips.contains(where: { $0.animation.hasAuxiliaryScalarTrack && $0.animation.morphTargets.isEmpty }) {
+                poseMessage = (poseMessage.map { $0 + "; " } ?? "")
                     + "skeletal playback only: pre-bounds morph curves unavailable"
-                : unavailableMessage
+            }
+            if clips.contains(where: { $0.animation.legacyControls != nil
+                && ($0.layer.additive != true || !evaluator.hasPreparedPlanarControls(animationID: $0.animation.id)) }) {
+                poseMessage = (poseMessage.map { $0 + "; " } ?? "") + "legacy Puppet constraints partially unavailable"
+            }
             return .init(geometry: .evaluated(asset, selection, evaluator, kind,
                 fallbackMessage: poseMessage))
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            let message = (fallbackMessage.map { $0 + "; " } ?? "")
+                + "\(kind.failurePrefix): \(failure.description)"
+            if case .unqualifiedLegacyConstraint = failure, case let .success(evaluator) = asset.evaluator {
+                return .init(geometry: .evaluated(asset, .init(clips: [], composition: .layered),
+                    evaluator, .reference, fallbackMessage: message))
+            }
             return .init(geometry: .bind(asset,
-                fallbackMessage: (fallbackMessage.map { $0 + "; " } ?? "")
-                    + "\(kind.failurePrefix): \(failure.description)"))
+                fallbackMessage: message))
         } catch {
             return .init(geometry: .bind(asset, fallbackMessage:
                 (fallbackMessage.map { $0 + "; " } ?? "")

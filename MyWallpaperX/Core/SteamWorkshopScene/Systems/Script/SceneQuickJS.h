@@ -300,13 +300,14 @@ size_t mwx_scene_quickjs_owner_layer_mutation_count(
 size_t mwx_scene_quickjs_owner_puppet_bone_mutation_count(
     MWXSceneQuickJSOwner *owner
 );
-/* Local getters use local_matrices; world getters use the render hierarchy. */
+/* The constraint anchor's public world uses its query local and actual parent. */
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     MWXSceneQuickJSOwner *owner,
     int64_t layer_id,
     uint32_t bone_count,
     const double *local_matrices,
     const double *render_local_matrices,
+    int32_t query_world_anchor,
     const int32_t *parents,
     const double *layer_to_world,
     const uint8_t *impulse_unavailable,

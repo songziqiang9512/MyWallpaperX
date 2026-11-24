@@ -42,6 +42,7 @@ final class ScenePuppetPlaybackState {
     struct PoseConfiguration {
         let bones: ScenePuppetLayerLoad.BoneConfiguration
         let queryLocalMatrices: [Double]
+        let queryWorldAnchor: Int?
         let attachmentFrames: [String: simd_float4x4]
         let meshToWorld: simd_float4x4
     }
@@ -138,6 +139,7 @@ final class ScenePuppetPlaybackState {
     private var boneWrittenInFrame = false
 #endif
     private var boneRevision: UInt64 = 0
+    private var evaluatedPose: (frameIndex: UInt64, boneRevision: UInt64)?
     private var translationMotions: [Int: ScenePuppetTranslationMotion] = [:]
     static func make(
         layerID: Int, mesh: SceneMdlPuppetMesh,
@@ -172,7 +174,8 @@ final class ScenePuppetPlaybackState {
     /// never stop bone physics or leave child world transforms on an old pose.
     @discardableResult
     func prepareFrame(
-        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
+        frameIndex: UInt64? = nil
     ) -> [String: simd_float4x4] {
         adoptMembership(animationFrame)
         let frameSamples = animationFrame.samples
@@ -226,6 +229,12 @@ final class ScenePuppetPlaybackState {
                     boneWorldMatrices: worldMatrixScratch) ?? [:]) : [:]
         case let .image(image):
             do {
+                let hasCurrentPose = evaluatedPose?.frameIndex == frameIndex && frameIndex != nil
+                if hasCurrentPose, evaluatedPose?.boneRevision != boneRevision {
+                    try evaluator.applyOverrides(renderBoneOverrides, to: &localMatrixScratch,
+                                                 worlds: &worldMatrixScratch)
+                    evaluatedPose?.boneRevision = boneRevision
+                }
                 if image.hasBoneAlpha {
                     try evaluator.writeVertexCoverages(
                         selection: selection, frameSamples: frameSamples,
@@ -243,7 +252,8 @@ final class ScenePuppetPlaybackState {
                             worldMatricesScratch: &worldMatrixScratch,
                             boneOverrides: renderBoneOverrides, blends: animationFrame.blends,
                             morphCoverage: morphCoverage,
-                            combinesBoneCoverage: hasBoneAlpha
+                            combinesBoneCoverage: hasBoneAlpha,
+                            poseAlreadyWritten: hasCurrentPose
                         )
                     }
                 }
@@ -300,15 +310,18 @@ final class ScenePuppetPlaybackState {
     /// consume this result instead of evaluating independent hierarchies.
     func poseConfiguration(
         animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
-        meshToWorld: simd_float4x4 = matrix_identity_float4x4
+        meshToWorld: simd_float4x4 = matrix_identity_float4x4,
+        frameIndex: UInt64? = nil
     ) -> PoseConfiguration? {
         adoptMembership(animationFrame)
-        guard let transforms = try? evaluator.boneTransforms(
-            selection: selection,
-            frameSamples: animationFrame.samples,
-            boneOverrides: renderBoneOverrides,
-            blends: animationFrame.blends
-        ) else { return nil }
+        evaluatedPose = nil
+        let queryAnchor: ScenePuppetAnimationEvaluator.QueryAnchor?
+        do {
+            queryAnchor = try evaluator.writePoseMatrices(selection: selection,
+                frameSamples: animationFrame.samples, boneOverrides: renderBoneOverrides,
+                blends: animationFrame.blends, locals: &localMatrixScratch, worlds: &worldMatrixScratch)
+        } catch { return nil }
+        if let frameIndex { evaluatedPose = (frameIndex, boneRevision) }
         func flatten(_ matrix: simd_float4x4) -> [Double] {
             [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
@@ -316,10 +329,14 @@ final class ScenePuppetPlaybackState {
         let bones = ScenePuppetLayerLoad.BoneConfiguration(
             names: evaluator.boneNames,
             parentIndices: evaluator.boneParentIndices,
-            worldMatrices: transforms.world.flatMap(flatten),
-            localMatrices: transforms.local.flatMap(flatten)
+            worldMatrices: worldMatrixScratch.flatMap(flatten),
+            localMatrices: localMatrixScratch.flatMap(flatten)
         )
         var queryLocalMatrices = bones.localMatrices
+        if let queryAnchor {
+            let first = queryAnchor.index * 16
+            queryLocalMatrices.replaceSubrange(first..<(first + 16), with: flatten(queryAnchor.local))
+        }
         for (index, origin) in queryBoneOrigins {
             let offset = index * 16 + 12
             queryLocalMatrices[offset] = Double(origin.x)
@@ -329,9 +346,10 @@ final class ScenePuppetPlaybackState {
         return PoseConfiguration(
             bones: bones,
             queryLocalMatrices: queryLocalMatrices,
+            queryWorldAnchor: queryAnchor?.index,
             attachmentFrames: ScenePuppetAttachmentPoseProjection.frames(
                 attachments: attachments,
-                boneWorldMatrices: transforms.world
+                boneWorldMatrices: worldMatrixScratch
             ) ?? [:],
             meshToWorld: meshToWorld
         )
@@ -348,6 +366,7 @@ final class ScenePuppetPlaybackState {
         boneWrittenInFrame = false
 #endif
         guard hasTranslationPhysics else { return }
+        evaluatedPose = nil
         do {
             try evaluator.writeLocalMatrices(selection: selection,
                 frameSamples: animationFrame.samples, blends: animationFrame.blends,
@@ -390,6 +409,7 @@ final class ScenePuppetPlaybackState {
         signatureScratch = Array(repeating: FrameSignature(sample: nil, visible: false),
             count: next.clips.count)
         preparedFrameSignature = nil
+        evaluatedPose = nil
         if case let .image(image) = geometry {
             image.adopt(next, evaluator: evaluator)
         }

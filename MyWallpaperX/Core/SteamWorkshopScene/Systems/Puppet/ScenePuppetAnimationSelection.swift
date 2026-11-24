@@ -14,7 +14,7 @@ struct ScenePuppetAnimationSelection {
 
         nonisolated var supportsDirectModelChannels: Bool {
             !animation.hasAlphaContribution && !animation.hasAuxiliaryScalarTrack
-                && !animation.hasPostBoundsScalarTrack
+                && !animation.hasPostBoundsScalarTrack && animation.legacyControls == nil
         }
     }
 
@@ -137,6 +137,7 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
     case invalidReferenceTransform(Int)
     case invalidReferenceTrack(Int)
     case unconsumedAuxiliaryChannel(Int)
+    case unqualifiedLegacyConstraint(Int)
     case unsupportedReferenceComposition
     case invalidFrame(Int)
     case duplicateAdditiveAnimation(Int)
@@ -161,6 +162,8 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
             return "puppet animation reference track \(index) is outside the bounded bind-equivalent profile"
         case .unconsumedAuxiliaryChannel(let id):
             return "puppet animation \(id) has an unconsumed post-bounds scalar channel"
+        case .unqualifiedLegacyConstraint(let id):
+            return "puppet animation \(id) cannot identify the compiled constraint's bind tracks"
         case .unsupportedReferenceComposition:
             return "puppet reference tracks require at most one opaque clip"
         case .invalidFrame(let index):

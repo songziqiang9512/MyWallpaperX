@@ -96,19 +96,34 @@ nonisolated struct SceneMdlPuppetRig: Equatable {
         let boneWeights: SIMD4<Float>
     }
 
+    struct PlanarConstraint: Equatable {
+        let root: Int
+        let joint: Int
+        let end: Int
+        let goalTrackIndex: Int
+        let referenceGoal: SIMD3<Float>
+        let referenceGuide: SIMD2<Float>
+    }
+
     let bones: [Bone]
     let vertexWeights: [VertexWeights]
     /// Optional assembled character pose, independent of the mesh's skinning bind.
     let referenceLocalMatricesColumnMajor: [[Float]]?
     let referencePoseDiagnostic: String?
+    let hasLegacyControlTracks: Bool
+    let planarConstraint: PlanarConstraint?
 
     init(bones: [Bone], vertexWeights: [VertexWeights],
          referenceLocalMatricesColumnMajor: [[Float]]? = nil,
-         referencePoseDiagnostic: String? = nil) {
+         referencePoseDiagnostic: String? = nil,
+         hasLegacyControlTracks: Bool = false,
+         planarConstraint: PlanarConstraint? = nil) {
         self.bones = bones
         self.vertexWeights = vertexWeights
         self.referenceLocalMatricesColumnMajor = referenceLocalMatricesColumnMajor
         self.referencePoseDiagnostic = referencePoseDiagnostic
+        self.hasLegacyControlTracks = hasLegacyControlTracks
+        self.planarConstraint = planarConstraint
     }
 }
 
@@ -271,14 +286,16 @@ nonisolated enum SceneMdlPuppetRigReader {
         )
         return SceneMdlPuppetRig(bones: skeleton.bones, vertexWeights: weights,
             referenceLocalMatricesColumnMajor: skeleton.reference,
-            referencePoseDiagnostic: skeleton.diagnostic)
+            referencePoseDiagnostic: skeleton.diagnostic, hasLegacyControlTracks: skeleton.hasControls,
+            planarConstraint: skeleton.constraint)
     }
 
     private static func readBones(
         data: Data,
         blockOffset: Int,
         isMDLS0002: Bool
-    ) throws -> (bones: [SceneMdlPuppetRig.Bone], reference: [[Float]]?, diagnostic: String?) {
+    ) throws -> (bones: [SceneMdlPuppetRig.Bone], reference: [[Float]]?, diagnostic: String?, hasControls: Bool,
+                 constraint: SceneMdlPuppetRig.PlanarConstraint?) {
         var cursor = blockOffset + markerSize
         guard cursor + 8 <= data.count else {
             throw SceneMdlPuppetRigReadError.invalidSkeletonBounds
@@ -358,37 +375,45 @@ nonisolated enum SceneMdlPuppetRigReader {
                 physicsDiagnostic: physicsDiagnostic
             ))
         }
-        guard cursor < endOffset else { return (bones, nil, nil) }
-        guard let referenceFlag = referenceFlagOffset(
+        guard cursor < endOffset else { return (bones, nil, nil, false, nil) }
+        guard let envelope = referenceEnvelope(
             in: data, after: cursor, end: endOffset,
             boneCount: boneCount, isMDLS0002: isMDLS0002
         ) else {
-            return (bones, nil, "unsupported-reference-pose-prefix")
+            return (bones, nil, "unsupported-reference-pose-prefix", false, nil)
         }
-        guard data[referenceFlag] == 1 else { return (bones, nil, nil) }
-        guard isMDLS0002 else {
-            throw SceneMdlPuppetRigReadError.unsupportedReferencePose
-        }
-        cursor = referenceFlag + 1
-        guard boneCount * matrixByteCount <= endOffset - cursor else {
-            throw SceneMdlPuppetRigReadError.invalidReferenceBounds
-        }
-        var reference: [[Float]] = []
-        reference.reserveCapacity(boneCount)
-        for boneIndex in 0..<boneCount {
-            do {
-                reference.append(try readMatrix(data: data, at: cursor, boneIndex: boneIndex))
-            } catch {
-                throw SceneMdlPuppetRigReadError.invalidReferenceMatrix(boneIndex)
+        let recordsStart = cursor + 2
+        let hasReference = data[envelope.flag] == 1
+        cursor = envelope.flag + 1
+        var reference: [[Float]]?
+        if hasReference {
+            guard isMDLS0002 else { throw SceneMdlPuppetRigReadError.unsupportedReferencePose }
+            guard boneCount * matrixByteCount <= endOffset - cursor else {
+                throw SceneMdlPuppetRigReadError.invalidReferenceBounds
             }
-            cursor += matrixByteCount
+            var matrices: [[Float]] = []
+            matrices.reserveCapacity(boneCount)
+            for boneIndex in 0..<boneCount {
+                do {
+                    matrices.append(try readMatrix(data: data, at: cursor, boneIndex: boneIndex))
+                } catch {
+                    throw SceneMdlPuppetRigReadError.invalidReferenceMatrix(boneIndex)
+                }
+                cursor += matrixByteCount
+            }
+            reference = matrices
         }
-        return (bones, reference, nil)
+        let hasControls = envelope.count == 2
+        let constraint = hasControls
+            ? readPlanarConstraint(in: data, recordsStart: recordsStart, referenceEnd: cursor,
+                                   hasReference: hasReference, bound: endOffset, bones: bones)
+            : nil
+        return (bones, reference, nil, hasControls, constraint)
     }
 
-    private static func referenceFlagOffset(
+    private static func referenceEnvelope(
         in data: Data, after bonesEnd: Int, end: Int, boneCount: Int, isMDLS0002: Bool
-    ) -> Int? {
+    ) -> (flag: Int, count: Int)? {
         guard end - bonesEnd >= 3 else { return nil }
         let recordCount = Int(data[bonesEnd]) | (Int(data[bonesEnd + 1]) << 8)
         var cursor = bonesEnd + 2
@@ -396,7 +421,6 @@ nonisolated enum SceneMdlPuppetRigReader {
             guard isMDLS0002,
                   recordCount <= (end - cursor - 1) / preReferenceRecordByteCount
             else { return nil }
-            // These records identify the matrix segment only. The IK data is not evaluated here.
             for _ in 0..<recordCount {
                 guard data[cursor] == 0,
                       readUInt32(data, at: cursor + 1) < UInt32(boneCount),
@@ -405,7 +429,60 @@ nonisolated enum SceneMdlPuppetRigReader {
                 cursor += preReferenceRecordByteCount
             }
         }
-        return data[cursor] <= 1 ? cursor : nil
+        return data[cursor] <= 1 ? (cursor, recordCount) : nil
+    }
+
+    private static func readPlanarConstraint(
+        in data: Data, recordsStart: Int, referenceEnd: Int, hasReference: Bool,
+        bound: Int, bones: [SceneMdlPuppetRig.Bone]
+    ) -> SceneMdlPuppetRig.PlanarConstraint? {
+        let firstRole = readUInt32(data, at: recordsStart + 5)
+        let secondRecord = recordsStart + preReferenceRecordByteCount
+        guard firstRole != readUInt32(data, at: secondRecord + 5),
+              readUInt32(data, at: recordsStart + 1) == readUInt32(data, at: secondRecord + 1)
+        else { return nil }
+        let end = Int(readUInt32(data, at: recordsStart + 1))
+        let goalTrack = Int(firstRole)
+        let guideTrack = 1 - goalTrack
+
+        var cursor = referenceEnd + (hasReference ? 2 * matrixByteCount : 0)
+        let lengthsEnd = cursor + 6 + bones.count * 4
+        guard lengthsEnd <= bound, readUInt32(data, at: cursor) == 0,
+              readUInt16(data, at: cursor + 4) == bones.count else { return nil }
+        cursor = lengthsEnd
+        for _ in bones {
+            guard bound - cursor >= 2 else { return nil }
+            cursor += 2 + readUInt16(data, at: cursor) * 16
+        }
+        // The compiled group contains variable ancestry lists. This record is
+        // the one-root, one-effector layout with a three-joint ordered path.
+        guard bound - cursor >= 52, readUInt16(data, at: cursor) == 1 else { return nil }
+        cursor += 2
+        guard readUInt16(data, at: cursor + 12) == 1,
+              readUInt16(data, at: cursor + 18) == 1,
+              readUInt16(data, at: cursor + 36) == 3 else { return nil }
+        let root = Int(readUInt32(data, at: cursor + 38))
+        let joint = Int(readUInt32(data, at: cursor + 42))
+        guard root < bones.count, joint < bones.count, bones[joint].parentIndex == root,
+              Int(readUInt32(data, at: cursor)) == root,
+              Int(readUInt32(data, at: cursor + 14)) == root,
+              Int(readUInt32(data, at: cursor + 20)) == end,
+              Int(readUInt32(data, at: cursor + 46)) == end,
+              bones[end].parentIndex == joint else { return nil }
+
+        let goal = hasReference ? referenceEnd + goalTrack * matrixByteCount
+            : recordsStart + goalTrack * preReferenceRecordByteCount + 9
+        let guide = hasReference ? referenceEnd + guideTrack * matrixByteCount
+            : recordsStart + guideTrack * preReferenceRecordByteCount + 9
+        let goalAxis = SIMD2(readFloat(data, at: goal), readFloat(data, at: goal + 4))
+        guard goalAxis.x.isFinite, goalAxis.y.isFinite else { return nil }
+        let referenceGoal = SIMD3(readFloat(data, at: goal + 48), readFloat(data, at: goal + 52),
+                                  atan2(goalAxis.y, goalAxis.x))
+        let referenceGuide = SIMD2(readFloat(data, at: guide + 48), readFloat(data, at: guide + 52))
+        guard referenceGoal.x.isFinite, referenceGoal.y.isFinite, referenceGoal.z.isFinite,
+              referenceGuide.x.isFinite, referenceGuide.y.isFinite else { return nil }
+        return .init(root: root, joint: joint, end: end, goalTrackIndex: goalTrack,
+                     referenceGoal: referenceGoal, referenceGuide: referenceGuide)
     }
 
     private static func readVertexWeights(
@@ -516,6 +593,10 @@ nonisolated enum SceneMdlPuppetRigReader {
         guard offset < bound else { return nil }
         let limit = min(bound, offset + maxBytes + 1)
         return data[offset ..< limit].firstIndex(of: 0)
+    }
+
+    private static func readUInt16(_ data: Data, at offset: Int) -> Int {
+        Int(data[offset]) | (Int(data[offset + 1]) << 8)
     }
 
     private static func readUInt32(_ data: Data, at offset: Int) -> UInt32 {

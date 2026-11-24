@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import shutil
 import struct
 import subprocess
@@ -12,9 +13,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.scene.test_scene_puppet_mesh import build_attachment_block, build_mdl
-from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.scene.test_scene_puppet_animation import animation_record
+from script.tests.scene.test_scene_puppet_mesh import build_attachment_block, build_mdl
+from script.tests.scene.test_scene_puppet_rig import build_rig_mdl
+from script.tests.support.scene_pkg_fixture import make_package
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -130,6 +132,169 @@ def fixture_mdl(
     return bytes(body + skeleton + attachments + block)
 
 
+LEGACY_CONTROL_CASES = {
+    "bind": {},
+    "assembled": {"assembled": True},
+    "reordered": {"assembled": True, "roles": (0, 1)},
+    "truncated": {"assembled": True, "fault": "truncated"},
+    "nonplanar": {"assembled": True, "fault": "nonplanar"},
+    "unmapped": {"assembled": True, "fault": "unmapped"},
+    "unmapped-bind": {"fault": "unmapped"},
+    "empty-mdla4": {"roles": ()},
+    "empty-mdla5": {"assembled": True, "roles": ()},
+}
+
+
+def legacy_control_mdl(
+    *, assembled: bool = False, roles: tuple[int, ...] = (1, 0), fault: str | None = None,
+) -> bytes:
+    bind = [matrix(1, 2), matrix(4), matrix(0, 3)]
+    original_controls = [matrix(5, 5), matrix(2, 9)]
+    assembled_controls = [matrix(16, 8), matrix(13, 12)]
+    skeleton_tail = struct.pack("<H", len(roles))
+    for role in roles:
+        skeleton_tail += struct.pack("<BII16f", 0, 2, role, *original_controls[role])
+    skeleton_tail += bytes([assembled])
+    if assembled:
+        for value in [matrix(12, 5), *bind[1:], *(assembled_controls[role] for role in roles)]:
+            skeleton_tail += struct.pack("<16f", *value)
+    if roles:
+        skeleton_tail += struct.pack("<IH3f", 0, 3, 0, 4, 3)
+        skeleton_tail += struct.pack("<HI3fHI3fH", 1, 1, 4, 0, 0, 1, 2, 0, 3, 0, 0)
+        joint = 0 if fault == "unmapped" else 1
+        skeleton_tail += struct.pack("<HIIIHIHIIfIH3I",
+            1, 0, 1, 1, 1, 0, 1, 2, 1, 7, 0, 3, 0, joint, 2)
+        skeleton_tail += b"\1" + bytes(76 * 3) + b"\1" + struct.pack("<3I", 0, 1, 2)
+    bones = build_rig_mdl(
+        magic=b"MDLV0019" if assembled else b"MDLV0017",
+        skeleton_marker=b"MDLS0002\0",
+        animation_marker=b"MDLA0005\0" if assembled else b"MDLA0004\0",
+        bone_count=3, bone_states=(3, 1, 3),
+        bone_names=("pivot-renamed", "elbow-renamed", "tip-renamed") if roles == (0, 1)
+            else ("carrier", "link", "end"),
+        bind_matrices=bind, skeleton_tail=skeleton_tail)
+
+    def sample(x: float, y: float, rz: float = 0, ry: float = 0) -> tuple[float, ...]:
+        return (x, y, 0, 0, ry, rz, 1, 1, 1)
+
+    def clip(clip_id: int, mode: str, root_end: float) -> bytes:
+        body = animation_record(clip_id, f"Motion {clip_id}", 1, 3, fps=2, mode=mode,
+            track_samples={0: [sample(1, 2), sample(root_end, 2)],
+                           1: [sample(4, 0)] * 2, 2: [sample(0, 3)] * 2},
+            legacy_trailer=not assembled, legacy_trailer34=assembled)
+        if not roles:
+            return body
+        trailer_size = 34 if assembled else 10
+        goal_x, goal_y = (16, 8) if assembled else (5, 5)
+        guide_x, guide_y = (13, 12) if assembled else (2, 9)
+        goal_tilt = 0.25 if fault == "nonplanar" and clip_id == 610 else 0
+        samples = [
+            (sample(goal_x, goal_y, 0.125), sample(goal_x - 1, goal_y + 1, 0.375, goal_tilt)),
+            (sample(guide_x, guide_y), sample(guide_x + 2, guide_y - 1)),
+        ]
+        tracks = b"".join(struct.pack("<II18f", 0, 72, *samples[role][0], *samples[role][1])
+                          for role in roles)
+        if fault == "truncated":
+            return body[:-trailer_size] + tracks[:-36]
+        return body[:-trailer_size] + tracks + body[-trailer_size:]
+
+    records = [clip(610, "single", 2)]
+    if fault != "truncated":
+        records.append(clip(620, "loop", 3))
+    animations = b"".join(records)
+    return bones + struct.pack("<II", len(bones) + 8 + len(animations), len(records)) + animations
+
+
+# This observation runs in the existing generated harness because its prepared
+# asset keeps the exact Reader results fileprivate.
+LEGACY_CONTROL_PROBE = r'''
+private func inspectLegacyPose(_ evaluator: ScenePuppetAnimationEvaluator,
+                               selection: ScenePuppetAnimationSelection) throws -> [String: Any] {
+    func capture(_ samples: [ScenePuppetAnimationEvaluator.FrameSample?]) throws -> [String: Any] {
+        var local = Array(repeating: matrix_identity_float4x4, count: evaluator.boneCount)
+        var world = local
+        let query = try evaluator.writePoseMatrices(selection: selection, frameSamples: samples,
+            boneOverrides: [:], blends: nil, locals: &local, worlds: &world)
+        let points = try evaluator.deformedPositions(selection: selection, frameSamples: samples)
+        return ["world": world.map { [$0.columns.3.x, $0.columns.3.y] },
+            "rootRight": [world[0].columns.0.x, world[0].columns.0.y],
+            "tipRight": [world[2].columns.0.x, world[2].columns.0.y],
+            "points": points.map { [$0.x, $0.y] },
+            "queryIndex": query?.index as Any? ?? NSNull(),
+            "queryLocal": query.map {
+                [$0.local.columns.3.x, $0.local.columns.3.y, $0.local.columns.0.x, $0.local.columns.0.y]
+            } as Any? ?? NSNull()]
+    }
+    let phase = ScenePuppetAnimationEvaluator.FrameSample(frameA: 1, frameB: 1)
+    return ["active": try capture([phase, phase]), "inactive": try capture([nil, nil])]
+}
+
+private func describeLegacyControls(_ source: ScenePuppetLayerLoad.AssetPreparation,
+                                    path: String) throws -> [String: Any] {
+    guard case let .ready(asset) = source else { return failure(source) }
+    let rig = try asset.rig.get()
+    var row = bones(source)
+    row["hasTracks"] = rig.hasLegacyControlTracks
+    row["singleIDs"] = asset.singleAnimations.map(\.id)
+    if let plan = rig.planarConstraint {
+        row["chain"] = [plan.root, plan.joint, plan.end]
+        row["goalTrack"] = plan.goalTrackIndex
+        row["referenceGoal"] = [plan.referenceGoal.x, plan.referenceGoal.y, plan.referenceGoal.z]
+        row["referenceGuide"] = [plan.referenceGuide.x, plan.referenceGuide.y]
+    }
+    switch asset.animationSet {
+    case let .failure(error):
+        row["error"] = String(describing: error)
+        row["pose"] = try describe(ScenePuppetLayerLoad.preparePose(
+            for: sourceLayer(51, mesh: path, animated: true, animationID: 610), asset: source))
+    case let .success(set):
+        row["clips"] = set?.animations.map { clip -> [String: Any] in
+            var fields: [String: Any] = [
+                "id": clip.id, "ordinaryTrackSamples": clip.transformsByBone.map(\.count),
+                "rootX": clip.transformsByBone[0].map { $0.translation.x }
+            ]
+            switch clip.legacyControls {
+            case let .some(.planar(controls)):
+                fields["controls"] = "planar"
+                fields["goals"] = controls.goals.map { [$0.x, $0.y, $0.z] }
+                fields["guides"] = controls.guides.map { [$0.x, $0.y] }
+            case .some(.unconsumed):
+                fields["controls"] = "unconsumed"
+            case nil:
+                fields["controls"] = "absent"
+            }
+            return fields
+        }
+        let evaluator = try asset.evaluator.get()
+        row["preparedIDs"] = set?.animations.map(\.id).filter(evaluator.hasPreparedAnimation)
+        if rig.hasLegacyControlTracks, rig.planarConstraint == nil {
+            let clip = ScenePuppetAnimationLayer(id: 4, animationID: 620, name: "Authored loop",
+                additive: true, blend: 1, blendIn: false, blendOut: false,
+                blendTime: 0, rate: 1, visible: true, visibilityBinding: nil)
+            let layer = SceneRenderDescriptor.Layer(id: 52, puppetMeshPath: path,
+                puppetAnimationLayers: [clip], hasInlineScript: false)
+            row["pose"] = try describe(ScenePuppetLayerLoad.preparePose(for: layer, asset: source))
+        }
+        if let set, set.animations.allSatisfy({
+            if case .some(.planar) = $0.legacyControls { return true }
+            return false
+        }) {
+            let layers = zip(set.animations, [0.5, 0.25]).map { clip, blend in
+                ScenePuppetAnimationLayer(id: clip.id, animationID: clip.id, name: clip.name,
+                    additive: true, blend: blend, blendIn: false, blendOut: false,
+                    blendTime: 0, rate: 1, visible: true, visibilityBinding: nil)
+            }
+            if let selection = try ScenePuppetAnimationSelector.select(
+                layers: layers, animationSet: set).get() {
+                row["geometry"] = try inspectLegacyPose(evaluator, selection: selection)
+            }
+        }
+    }
+    return row
+}
+'''
+
+
 class ScenePuppetPreparationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -137,14 +302,27 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc unavailable")
         cls._temporary = tempfile.TemporaryDirectory(prefix="mwx-puppet-preparation-")
         directory = Path(cls._temporary.name)
-        source_paths = [LAYER_LOAD, CASES,
+        source_paths = [LAYER_LOAD, CASES, Path(__file__),
                         Path(make_package.__code__.co_filename), Path(animation_record.__code__.co_filename),
+                        Path(build_rig_mdl.__code__.co_filename),
                         *(SCENE / item for item in SOURCES)]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
         # Keep the complete production file unchanged; append test cases in the
         # same file only to observe its fileprivate immutable CPU products.
         harness = directory / "preparation.swift"
-        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + CASES.read_bytes())
+        cases = CASES.read_text()
+        output_marker = '        output["resource-read-checks"] = try resourceReadChecks(root)'
+        legacy_cases = json.dumps(list(LEGACY_CONTROL_CASES))
+        cases = cases.replace(output_marker, output_marker + f"""
+        var legacyControlRows: [String: Any] = [:]
+        for label in {legacy_cases} {{
+            let path = "legacy-controls-\\(label).mdl"
+            legacyControlRows[label] = try describeLegacyControls(
+                asset(path, authoredIDs: [610, 620]), path: path)
+        }}
+        output["legacy-controls"] = legacyControlRows
+""")
+        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + (cases + LEGACY_CONTROL_PROBE).encode())
         binary = directory / "preparation"
         compilation = subprocess.run(
             ["swiftc", *(str(SCENE / item) for item in SOURCES), str(harness),
@@ -237,6 +415,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         files["layered-ordinary.mdl"] = fixture_mdl(animation_records=[first, *following])
         files["layered-curves.mdl"] = fixture_mdl(
             animation_records=[with_paired_curves(first, 2), *following])
+        for label, options in LEGACY_CONTROL_CASES.items():
+            files[f"legacy-controls-{label}.mdl"] = legacy_control_mdl(**options)
         inputs = directory / "inputs"
         inputs.mkdir()
         for name, data in files.items():
@@ -372,6 +552,105 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         self.assertEqual(reversed_additives["rootXs"], skeletal["rootXs"])
         self.assertNotEqual(reversed_additives["matrices"], skeletal["matrices"])
         self.assertNotEqual(reversed_additives["points"], skeletal["points"])
+
+    def test_legacy_controls_follow_roles_and_preserve_independent_assembly(self) -> None:
+        rows = self.result["legacy-controls"]
+        for name, goal_track, goal, guide, bone_root in (
+            ("bind", 1, [5, 5, 0], [2, 9], [1, 2, 0]),
+            ("assembled", 1, [16, 8, 0], [13, 12], [12, 5, 0]),
+            ("reordered", 0, [16, 8, 0], [13, 12], [12, 5, 0]),
+        ):
+            with self.subTest(name=name):
+                row = rows[name]
+                self.assertTrue(row["available"])
+                self.assertTrue(row["hasTracks"])
+                self.assertEqual(row["parents"], [-1, 0, 1])
+                self.assertEqual(row["local"][12:15], bone_root)
+                self.assertEqual(row["chain"], [0, 1, 2])
+                self.assertEqual(row["goalTrack"], goal_track)
+                self.assertEqual(row["referenceGoal"], goal)
+                self.assertEqual(row["referenceGuide"], guide)
+                self.assertEqual(row["singleIDs"], [])
+                self.assertEqual(row["preparedIDs"], [610, 620])
+                self.assertEqual([clip["id"] for clip in row["clips"]], [610, 620])
+                for clip, root_end in zip(row["clips"], (2, 3), strict=True):
+                    self.assertEqual(clip["controls"], "planar")
+                    self.assertEqual(clip["ordinaryTrackSamples"], [2, 2, 2])
+                    self.assertEqual(clip["rootX"], [1, root_end])
+                    self.assertEqual(clip["goals"],
+                                     [[goal[0], goal[1], 0.125], [goal[0] - 1, goal[1] + 1, 0.375]])
+                    self.assertEqual(clip["guides"], [guide, [guide[0] + 2, guide[1] - 1]])
+        self.assertEqual(rows["reordered"]["clips"], rows["assembled"]["clips"])
+        self.assertEqual(rows["reordered"]["names"], ["pivot-renamed", "elbow-renamed", "tip-renamed"])
+        self.assertEqual(rows["reordered"]["geometry"], rows["assembled"]["geometry"])
+
+    def test_legacy_constraints_keep_the_query_anchor_and_skin_the_weighted_pose(self) -> None:
+        geometry = self.result["legacy-controls"]["bind"]["geometry"]
+        active = geometry["active"]
+        self.assertEqual(active["queryIndex"], 0)
+        self.assertEqual(active["queryLocal"], [2, 2, 1, 0])
+        root, joint, tip = active["world"]
+        self.assertEqual(root, [2, 2])
+        self.assertAlmostEqual(math.dist(root, joint), 4, places=5)
+        self.assertAlmostEqual(math.dist(joint, tip), 3, places=5)
+        self.assertAlmostEqual(tip[0], 4.25, places=5)
+        self.assertAlmostEqual(tip[1], 5.75, places=5)
+        self.assertGreater((tip[0] - root[0]) * (joint[1] - root[1])
+                           - (tip[1] - root[1]) * (joint[0] - root[0]), 0)
+        self.assertAlmostEqual(math.atan2(*active["tipRight"][::-1]), 0.28125, places=5)
+        self.assertNotEqual(active["rootRight"], [1, 0])
+        self.assertGreater(math.dist(active["points"][0], geometry["inactive"]["points"][0]), 1)
+        inactive = geometry["inactive"]
+        self.assertIsNone(inactive["queryIndex"])
+        self.assertIsNone(inactive["queryLocal"])
+        self.assertEqual(inactive["world"], [[1, 2], [5, 2], [5, 5]])
+        self.assertEqual(inactive["points"], [[-10, -20], [10, -20], [0, 20]])
+
+    def test_legacy_control_framing_and_local_unsupported_values_have_distinct_results(self) -> None:
+        rows = self.result["legacy-controls"]
+        truncated = rows["truncated"]
+        self.assertTrue(truncated["available"])
+        self.assertEqual(truncated["chain"], [0, 1, 2])
+        self.assertIn("invalid verified auxiliary track", truncated["error"])
+        self.assertIn("610", truncated["error"])
+        self.assertEqual(truncated["pose"]["kind"], "reference")
+        self.assertEqual(truncated["pose"]["localTranslations"],
+                         [[12, 5, 0], [4, 0, 0], [0, 3, 0]])
+        nonplanar = rows["nonplanar"]
+        self.assertEqual(nonplanar["clips"][1], rows["assembled"]["clips"][1])
+        self.assertEqual(nonplanar["clips"][0], {
+            "id": 610, "controls": "unconsumed", "ordinaryTrackSamples": [2, 2, 2], "rootX": [1, 2]})
+        self.assertEqual(nonplanar["preparedIDs"], [610, 620])
+        self.assertEqual(nonplanar["singleIDs"], [])
+        for name in ("unmapped", "unmapped-bind"):
+            row = rows[name]
+            self.assertTrue(row["hasTracks"])
+            self.assertNotIn("chain", row)
+            self.assertEqual([clip["controls"] for clip in row["clips"]], ["unconsumed", "unconsumed"])
+            self.assertEqual([clip["rootX"] for clip in row["clips"]], [[1, 2], [1, 3]])
+            self.assertEqual(row["singleIDs"], [])
+        assembled, bind = rows["unmapped"], rows["unmapped-bind"]
+        self.assertEqual(assembled["preparedIDs"], [])
+        self.assertEqual(assembled["pose"]["kind"], "reference")
+        self.assertEqual(assembled["pose"]["animationIDs"], [])
+        self.assertEqual(assembled["pose"]["localTranslations"],
+                         [[12, 5, 0], [4, 0, 0], [0, 3, 0]])
+        self.assertEqual(assembled["pose"]["points"], [[1, -17], [21, -17], [11, 23]])
+        self.assertEqual(bind["preparedIDs"], [610, 620])
+        self.assertEqual(bind["pose"]["kind"], "animation")
+        self.assertEqual(bind["pose"]["animationIDs"], [620])
+        self.assertEqual(bind["pose"]["sampledRootX"], 3)
+
+    def test_empty_legacy_control_tables_keep_the_existing_version_trailers(self) -> None:
+        for version in (4, 5):
+            row = self.result["legacy-controls"][f"empty-mdla{version}"]
+            with self.subTest(version=version):
+                self.assertFalse(row["hasTracks"])
+                self.assertNotIn("chain", row)
+                self.assertEqual([clip["id"] for clip in row["clips"]], [610, 620])
+                self.assertEqual([clip["controls"] for clip in row["clips"]], ["absent", "absent"])
+                self.assertEqual(row["preparedIDs"], [610, 620])
+                self.assertEqual(row["singleIDs"], [610])
 
     def test_default_pose_keeps_reference_and_does_not_inherit_script_or_animation(self) -> None:
         row = self.result["default-reference"]

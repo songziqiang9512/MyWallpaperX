@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 532,
-      "bytes": 121682
+      "lines": 541,
+      "bytes": 123654
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 110,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 310316
+      "bytes": 312610
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 172,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 215,
-      "bytes": 66266
+      "bytes": 66234
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -496,11 +496,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "313bc78f07b83e3cf9162d1df802baa3bf81237cc946be48359ed1ef17c635ed",
-      "after": "c217ca108cb2c0f08d2bb4efe5cf41f42f2f38f5d333788e9f43f2509771e9f7",
-      "owner": "Scene Puppet animation preparation",
-      "reason": "Define dense reference masking with format bounds and original supported reference guards.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-dense-bind-reference-tracks"
+      "before": "c217ca108cb2c0f08d2bb4efe5cf41f42f2f38f5d333788e9f43f2509771e9f7",
+      "after": "3ac235e4f1f42349a73d55d1223fca893f0625dab3a37fff81ec24ae2328ca13",
+      "owner": "Scene legacy Puppet constraints",
+      "reason": "Canonical prepared rig, shared pose, and bounded fallback for legacy planar constraints.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#puppet-planar-compiled-constraints"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3d3b1f6d0e54afe98a392b87ce3036ca60f3b36733874e3c08279448a92f773c",
-      "after": "3548fd3bfa051f319b9dea65a467cbf4a129ca77bafe50fec525b000e50a6ce2",
-      "owner": "Scene Sphere emitter birth",
-      "reason": "Qualifies native and official Sprite motion and direction weights, with original author and rejection controls.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#zero-radius-sphere-launch"
+      "before": "3548fd3bfa051f319b9dea65a467cbf4a129ca77bafe50fec525b000e50a6ce2",
+      "after": "9b626e320350463b058f7386cd8989298eb199f6ce79b5cbe774181f6d1544c3",
+      "owner": "Scene legacy Puppet constraints",
+      "reason": "Official compiled chain, weighted targets and independent skin proof, plus signed native playback and closest negative controls.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#puppet-planar-constraints-native"
     },
     {
       "section": "bodies",

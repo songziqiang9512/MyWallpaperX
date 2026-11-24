@@ -165,6 +165,14 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
         return JS_ThrowTypeError(context, "bone physics impulse is unsupported for this bone");
     if (magic == PUPPET_BONE_GET_LOCAL_ORIGIN)
         return mwx_scene_quickjs_layer_make_vec3(context, handle->domain, &owner->puppet_bone_local[bone][12]);
+    if (magic == PUPPET_BONE_GET_WORLD && bone_index == owner->puppet_bone_query_world_anchor) {
+        int32_t parent = owner->puppet_bone_parent[bone];
+        const double *basis = parent < 0 ? owner->puppet_layer_to_world : owner->puppet_bone_world[parent];
+        double query_world[16];
+        if (!puppet_matrix_multiply(basis, owner->puppet_bone_local[bone], query_world))
+            return JS_ThrowRangeError(context, "Puppet world transform is out of range");
+        return mwx_scene_quickjs_layer_make_mat4(context, handle->domain, query_world);
+    }
     if (magic == PUPPET_BONE_GET_WORLD || magic == PUPPET_BONE_GET_LOCAL)
         return mwx_scene_quickjs_layer_make_mat4(context, handle->domain,
             magic == PUPPET_BONE_GET_WORLD
@@ -302,7 +310,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_bone_mutation_at(
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t bone_count,
     const double *local_matrices, const double *render_local_matrices,
-    const int32_t *parents,
+    int32_t query_world_anchor, const int32_t *parents,
     const double *layer_to_world,
     const uint8_t *impulse_unavailable,
     char *diagnostic, size_t diagnostic_capacity
@@ -311,6 +319,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     if (owner == NULL || owner->domain == NULL || owner->domain->callback_active ||
         !owner->target_layer_configured || bone_count == 0 ||
         bone_count > MWX_SCENE_QUICKJS_MAX_PUPPET_BONES ||
+        query_world_anchor < -1 || query_world_anchor >= (int32_t)bone_count ||
         local_matrices == NULL || render_local_matrices == NULL ||
         parents == NULL || layer_to_world == NULL ||
         layer_id != owner->domain->layers[owner->target_layer_index].layer_id) {
@@ -369,6 +378,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
         memcpy(owner->puppet_bone_impulse_unavailable, impulse_unavailable, bone_count);
     owner->puppet_bone_layer_id = layer_id;
     owner->puppet_bone_count = bone_count;
+    owner->puppet_bone_query_world_anchor = query_world_anchor;
     return MWX_SCENE_QUICKJS_OK;
 }
 

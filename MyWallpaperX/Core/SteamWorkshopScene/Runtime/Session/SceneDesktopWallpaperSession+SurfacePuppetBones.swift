@@ -85,7 +85,7 @@ extension SceneDesktopWallpaperSession.Surface {
                 frameIndex: timing.frameIndex, meshToWorld: meshToWorld
             )
             guard let pose = playback.poseConfiguration(
-                animationFrame: samples, meshToWorld: meshToWorld
+                animationFrame: samples, meshToWorld: meshToWorld, frameIndex: timing.frameIndex
             ) else { return nil }
             posesByLayerID[layerID] = pose
             if !pose.attachmentFrames.isEmpty {
@@ -147,6 +147,7 @@ extension SceneDesktopWallpaperSession.Surface {
             let configured = try context.configurePuppetBones(
                 layerID: layerID, localMatrices: pose.queryLocalMatrices,
                 renderLocalMatrices: bones.localMatrices,
+                queryWorldAnchor: pose.queryWorldAnchor,
                 // Names were installed at launch; frame refresh never reallocates them.
                 names: [], parents: bones.parentIndices.map(Int32.init),
                 layerToWorld: transform)

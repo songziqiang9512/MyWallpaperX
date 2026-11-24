@@ -33,6 +33,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         let hasAlphaContribution: Bool
         let alphaByBone: [[Float]]?
         let morphVaries: Bool
+        let planarControls: SceneMdlPuppetAnimation.PlanarControls?
+        let planarControlsVary: Bool
     }
 
     /// Vertex data that is invariant for the lifetime of a playback state.
@@ -209,7 +211,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         guard let prepared = try? preparedAnimationsByID[animationID]?.get() else {
             return false
         }
-        return prepared.drivenBones.isEmpty && !prepared.alphaVaries
+        return prepared.drivenBones.isEmpty && !prepared.alphaVaries && !prepared.planarControlsVary
             && (!prepared.morphVaries || !hasMorphGeometry)
     }
 
@@ -219,6 +221,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
 
     func hasPreparedAnimation(animationID: Int) -> Bool {
         (try? preparedAnimationsByID[animationID]?.get()) != nil
+    }
+
+    func hasPreparedPlanarControls(animationID: Int) -> Bool {
+        (try? preparedAnimationsByID[animationID]?.get())?.planarControls != nil
     }
 
     /// Cold pose selection preserves the original compiler failure for required sources.
@@ -398,7 +404,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         boneOverrides: [Int: simd_float4x4] = [:],
         blends: [Double]? = nil,
         morphCoverage: UnsafeMutableBufferPointer<Float>? = nil,
-        combinesBoneCoverage: Bool = false
+        combinesBoneCoverage: Bool = false,
+        poseAlreadyWritten: Bool = false
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -407,7 +414,7 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             localMatricesScratch: &localMatricesScratch,
             skinMatricesScratch: &skinMatricesScratch,
             worldMatricesScratch: &worldMatricesScratch,
-            boneOverrides: boneOverrides, blends: blends)
+            boneOverrides: boneOverrides, blends: blends, poseAlreadyWritten: poseAlreadyWritten)
         if let addresses = morphVertexAddresses,
            try writeMorphedPositions(selection: selection, frameSamples: frameSamples, blends: blends,
                 addresses: addresses, skinMatrices: skinMatricesScratch, into: output,
@@ -496,7 +503,8 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         skinMatricesScratch: inout [simd_float4x4],
         worldMatricesScratch: inout [simd_float4x4],
         boneOverrides: [Int: simd_float4x4] = [:],
-        blends: [Double]? = nil
+        blends: [Double]? = nil,
+        poseAlreadyWritten: Bool = false
     ) throws {
         guard localMatricesScratch.count >= rig.bones.count,
               skinMatricesScratch.count >= rig.bones.count else {
@@ -505,17 +513,11 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         guard worldMatricesScratch.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
-        try writeLocalMatrices(
-            selection: selection,
-            frameSamples: frameSamples,
-            blends: blends,
-            into: &localMatricesScratch
-        )
-        try applyOverrides(
-            boneOverrides,
-            to: &localMatricesScratch,
-            worlds: &worldMatricesScratch
-        )
+        if !poseAlreadyWritten {
+            try writePoseMatrices(selection: selection, frameSamples: frameSamples,
+                boneOverrides: boneOverrides, blends: blends,
+                locals: &localMatricesScratch, worlds: &worldMatricesScratch)
+        }
         try ScenePuppetSkinMatrixProjection.write(
             worldMatrices: worldMatricesScratch,
             bones: rig.bones,
@@ -524,41 +526,40 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         )
     }
 
-    func applyOverrides(
-        _ overrides: [Int: simd_float4x4],
-        to locals: inout [simd_float4x4],
-        worlds: inout [simd_float4x4]
-    ) throws {
-        for (index, matrix) in overrides {
-            guard rig.bones.indices.contains(index) else {
-                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
-            }
-            guard Self.isFinite(matrix) else {
-                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-            }
-            locals[index] = matrix
-        }
-        // The VM boundary already resolves all writes to parent-relative
-        // matrices. Authored parent-first order is the only hierarchy pass.
-        for (index, bone) in rig.bones.enumerated() {
-            let local = locals[index]
-            guard Self.isFinite(local) else {
-                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-            }
-            worlds[index] = bone.parentIndex >= 0
-                ? worlds[bone.parentIndex] * local : local
-            guard Self.isFinite(worlds[index]) else {
-                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-            }
-        }
-    }
-
-    private static func isFinite(_ matrix: simd_float4x4) -> Bool {
+    static func isFinite(_ matrix: simd_float4x4) -> Bool {
         [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
             .allSatisfy { column in
                 column.x.isFinite && column.y.isFinite
                     && column.z.isFinite && column.w.isFinite
             }
+    }
+
+    func planarControls(
+        selection: ScenePuppetAnimationSelection, frameSamples: [FrameSample?], blends: [Double]?
+    ) throws -> PlanarControlPose? {
+        guard let chain = rig.planarConstraint else { return nil }
+        var result = PlanarControlPose(goal: chain.referenceGoal, guide: chain.referenceGuide)
+        var hasContributor = false
+        for (index, clip) in selection.clips.enumerated() {
+            guard clip.layer.additive == true, let sample = frameSamples[index],
+                  let tracks = (try? preparedAnimationsByID[clip.animation.id]?.get())?.planarControls
+            else { continue }
+            let weight = Float(blends?[index] ?? clip.layer.blend ?? 1)
+            guard weight > 0 else { continue }
+            try Self.validate(sample, lastFrame: tracks.goals.count - 1)
+            let a = tracks.goals[sample.frameA]
+            let b = tracks.goals[sample.frameB]
+            var goal = a + (b - a) * sample.fraction
+            goal.z = a.z + Self.planarAngle(b.z - a.z) * sample.fraction
+            var delta = goal - chain.referenceGoal
+            delta.z = Self.planarAngle(delta.z)
+            result.goal += delta * weight
+            let guide = tracks.guides[sample.frameA]
+            result.guide += (guide + (tracks.guides[sample.frameB] - guide) * sample.fraction
+                - chain.referenceGuide) * weight
+            hasContributor = true
+        }
+        return hasContributor ? result : nil
     }
 
     private func localMatrices(
@@ -695,6 +696,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         guard !animation.hasPostBoundsScalarTrack else {
             throw ScenePuppetAnimationEvaluationFailure.unconsumedAuxiliaryChannel(animation.id)
         }
+        if animation.legacyControls != nil, rig.referenceLocalMatricesColumnMajor != nil,
+           rig.planarConstraint == nil {
+            throw ScenePuppetAnimationEvaluationFailure.unqualifiedLegacyConstraint(animation.id)
+        }
         let boneCount = rig.bones.count
         guard animation.transformsByBone.count == boneCount,
               animation.transformTrackStates.count == boneCount else {
@@ -707,11 +712,33 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         var referenceBoneCount = 0
         let usesDenseBindReference = animation.referenceTrackPolicy == .denseBindReference
             && rig.referenceLocalMatricesColumnMajor == nil && rig.referencePoseDiagnostic == nil
+        let neutralConstraint: SceneMdlPuppetRig.PlanarConstraint?
+        if let chain = rig.planarConstraint, animation.legacyControls != nil,
+           [chain.joint, chain.end].allSatisfy({ index in
+               let bind = Self.matrix(fromColumnMajor: rig.bones[index].bindLocalMatrixColumnMajor)
+               return animation.transformsByBone[index].allSatisfy {
+                   Self.maxDifference(Self.matrix(from: $0), bind) <= 0.001
+               }
+           }) {
+            neutralConstraint = chain
+        } else {
+            neutralConstraint = nil
+        }
+        let planarControls: SceneMdlPuppetAnimation.PlanarControls?
+        if neutralConstraint != nil, case let .planar(tracks)? = animation.legacyControls {
+            planarControls = tracks
+        } else {
+            planarControls = nil
+        }
         for (boneIndex, track) in animation.transformsByBone.enumerated() {
             guard animation.frameCount >= 0, animation.frameCount < Int.max,
                   track.isEmpty == false,
                   track.count == animation.frameCount + 1 else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+            }
+            if let chain = neutralConstraint, boneIndex == chain.joint || boneIndex == chain.end {
+                posesByBone.append([])
+                continue
             }
             let isReference = animation.transformTrackStates[boneIndex] == .referenceCandidate
             if isReference && usesDenseBindReference {
@@ -772,7 +799,12 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             alphaByBone: animation.alphaByBone,
             morphVaries: animation.morphTargets.contains { target in
                 target.weights.dropFirst().contains { $0 != target.weights[0] }
-            }
+            },
+            planarControls: planarControls,
+            planarControlsVary: planarControls.map { tracks in
+                tracks.goals.dropFirst().contains { $0 != tracks.goals[0] }
+                    || tracks.guides.dropFirst().contains { $0 != tracks.guides[0] }
+            } ?? false
         )
     }
 

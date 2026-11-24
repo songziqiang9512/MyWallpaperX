@@ -72,7 +72,7 @@ extension SceneDesktopWallpaperSession.Surface {
         let attachmentFrames = ScenePuppetAttachmentFrameSnapshot(
             framesByParentLayerID: puppetPlaybackStates.reduce(into: [:]) { result, entry in
                 guard let samples = puppetAnimationFrame[entry.key] else { return }
-                result[entry.key] = entry.value.prepareFrame(animationFrame: samples)
+                result[entry.key] = entry.value.prepareFrame(animationFrame: samples, frameIndex: timing.frameIndex)
             }
         )
         let frameProjection = metalView.renderer.resolveFrameWorldProjection(

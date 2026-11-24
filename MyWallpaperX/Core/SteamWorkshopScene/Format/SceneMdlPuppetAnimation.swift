@@ -43,6 +43,16 @@ nonisolated struct SceneMdlPuppetAnimation {
         let coverages: [Float]?
     }
 
+    struct PlanarControls {
+        let goals: [SIMD3<Float>]
+        let guides: [SIMD2<Float>]
+    }
+
+    enum LegacyControls {
+        case unconsumed
+        case planar(PlanarControls)
+    }
+
     let id: Int
     let name: String
     let mode: String
@@ -69,6 +79,7 @@ nonisolated struct SceneMdlPuppetAnimation {
     /// Structurally decoded, but has no qualified pose consumer yet.
     let hasPostBoundsScalarTrack: Bool
     let morphTargets: [MorphTarget]
+    let legacyControls: LegacyControls?
 
     init(
         id: Int,
@@ -88,7 +99,8 @@ nonisolated struct SceneMdlPuppetAnimation {
         rawFlags: UInt32 = 0,
         derivedSource: DerivedSource? = nil,
         morphTargets: [MorphTarget] = [],
-        referenceTrackPolicy: ReferenceTrackPolicy = .bindEquivalentOnly
+        referenceTrackPolicy: ReferenceTrackPolicy = .bindEquivalentOnly,
+        legacyControls: LegacyControls? = nil
     ) {
         self.id = id
         self.name = name
@@ -110,6 +122,7 @@ nonisolated struct SceneMdlPuppetAnimation {
         self.hasAuxiliaryScalarTrack = hasAuxiliaryScalarTrack
         self.hasPostBoundsScalarTrack = hasPostBoundsScalarTrack
         self.morphTargets = morphTargets
+        self.legacyControls = legacyControls
     }
 
     nonisolated var durationSeconds: Float {
@@ -117,7 +130,7 @@ nonisolated struct SceneMdlPuppetAnimation {
     }
 
     var isSingleCreationCandidate: Bool {
-        mode == "single" && !hasAuxiliaryScalarTrack
+        mode == "single" && !hasAuxiliaryScalarTrack && legacyControls == nil
     }
 }
 

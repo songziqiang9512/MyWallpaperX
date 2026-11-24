@@ -8,6 +8,7 @@ extension SceneScriptValueOwner {
         layerID: Int,
         localMatrices: [Double],
         renderLocalMatrices: [Double]? = nil,
+        queryWorldAnchor: Int? = nil,
         names: [String] = [],
         parents: [Int32]? = nil,
         impulseUnavailable: [UInt8]? = nil,
@@ -33,7 +34,7 @@ extension SceneScriptValueOwner {
                         unavailable.withUnsafeBufferPointer { flags in
                             mwx_scene_quickjs_owner_configure_puppet_bones(
                                 handle, Int64(layerID), UInt32(count), local.baseAddress,
-                                render.baseAddress, parents.baseAddress, transform.baseAddress,
+                                render.baseAddress, Int32(queryWorldAnchor ?? -1), parents.baseAddress, transform.baseAddress,
                                 impulseUnavailable == nil ? nil : flags.baseAddress,
                                 &diagnostic, diagnostic.count
                             )

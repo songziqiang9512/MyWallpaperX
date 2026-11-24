@@ -17,12 +17,12 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| Puppet 旧动画的辅助轨 · 3174321827 / 3139661653 | [组装姿态与实际画面](../capabilities/runtime-evidence-current.md#puppet-counted-reference-317)已恢复317胸前双臂。原317的 MDLA0005/171 和独立 MDLA0004/965、970仍未越过辅助轨准备。先对照真正活动轨的计数、字节跨度和官版关轨后的连续姿态，保本次静态reference及已有完整动画。不从初始 pose 推断 IK。 |
 | Sphere 全零方向的出生可见性（待证） | [固定零半径初速](../capabilities/runtime-evidence-current.md#zero-radius-sphere-launch)已恢复。显式全零 Directions 的隔离 Sprite 在官版窗内无像素，本机可见且静止。需分出生资格与可见条件，先找活动作者或单轴逐步归零的反例，保零速度和非零轴的正常出生。 |
 | 固体效果末端取样与音频供值 · 3612940332 | [作者尺寸和原包红弧](../capabilities/runtime-evidence-current.md#solid-background-raster-361)已恢复工作纹理尺寸和随PCM跳动的红弧。官版末端沿放置栅格，现本机最后作者材质仍在局部 pair 求值。仅在实际同附件读取可保顺序、预算和无别名时评估原末端路径；先用同UV与尺寸的导数见证。独立的32档供值差沿[共享音频设计](../../architecture/system-audio-spectrum-design.md)验证，使用端点后混音与同帧标定，保显示谱响应。 |
 | 世界粒子的内圈密度 · 3653620838 | [Radius及CP2](../capabilities/runtime-evidence-current.md#world-pointer-force-365)已完成隔离，原包密度仍不同。下次固定CP1相位和指针窗外，隔离 Vortex 长时径向约束、切向增益与生命周期；环形模式另证。 |
 | 月雾的遮挡范围 · 3453730450 | [只读主深度与实机](../capabilities/runtime-evidence-current.md#moon-fog-main-depth)已恢复部分重叠遮挡。锁姿态后右月面变化方向相同，本机幅度偏小，中心仍随测试开关变化；两端共有灰纹也未归因。若继续，固定同相机与两批粒子的出生位置、朝向和尺度，沿实际交叠边缘比较几何覆盖与存活轨迹，再决定修正点。 |
 | 细丝纹理的覆盖峰值 · 3454689854 | [原生薄丝与单属性对照](../capabilities/runtime-evidence-current.md#author-silk-raster-345)确认两端均有丝线而本机偏暗。固定单条、相位和末端栅格，仅改变现有 sourceCapture 工作尺寸，比较原图alpha覆盖、缩采样后覆盖与主图局部对比，再区分重放或混合。全局纹理上限和作者透明度保留至取得该边界证据。 |
+| Puppet 约束的剩余时序与组合 | [原317和313已恢复主要播放](../capabilities/runtime-evidence-current.md#puppet-planar-constraints-native)。固定根解析投影在317额外+96对照的肘误差约2.17px，313极近伸直时官版定槽后仍收敛。待有原包可见差异再核有效根位移与收敛。复杂链、挂点及同链脚本与物理后写按实际消费者验证。 |
 | 默认隐藏图层的共享颜色生产者 · 3461057594 | 388有普通图片颜色消费者，作者 init 建立 `shared.miPrimaryColor`，媒体事件可开启图层。颜色候选按 authored false 提前淘汰388，408的 `mix` 因缺生产者首帧报错。默认媒体组隐藏。开启 `mediainfo`，用已知封面颜色核共享值、408回调及当前帧实际回绘。 |
 | 向量右值写入标量成员 · 3201593389 | 161/204 的 Hue Shift 默认活动 cursor 分支把 `frac` 的向量结果写入单个成员。strict GLSL 与 bounded Metal 在同一赋值失败，原图经局部旁路仍写主画布。26的同源关闭分支实际绘制。沿现有 typed 转换验证首分量与明确只取 X 的等价写法、改名和不应降阶的反例，官版原包画面待查。[Wallpaper Engine 方言](https://docs.wallpaperengine.io/en/scene/shader/syntax.html) · [HLSL 转换](https://microsoft.github.io/hlsl-specs/specs/4-Conv.html#Conv.vtrunc) |
 | 初始组合源未解析 · 2982559622 | 两次原包的111/e0在开头三次 preflight 读到 `resourceSnapshotUnresolved`，随后整景 Ready 且有终端 GPU 回执。保独立的103属性脚本 bad-return。先核111所需视频或命名源、显隐与首次可用时刻，再查目标 Program 有无恢复。 |

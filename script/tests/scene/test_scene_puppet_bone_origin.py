@@ -33,15 +33,26 @@ HARNESS = r'''
                 }
                 if(v.x===3){thisLayer.setLocalBoneOrigin(0,new Vec3(8,9,10));throw new Error('abort');}
                 if(v.x===4){for(let i=0;i<257;i++)thisLayer.setLocalBoneOrigin(0,new Vec3(i,0,0));}
+                if(v.x===5||v.x===6){
+                    const root=thisLayer.getBoneTransform('root');
+                    const tip=thisLayer.getBoneTransform('tip');
+                    if(v.x===6)return new Vec3(root.translation().x,root.m[0],tip.translation().x);
+                    if(root.translation().x!==12||root.m[0]!==2||tip.translation().x!==27)
+                        throw new Error('query anchor changed the render hierarchy');
+                    thisLayer.setBoneTransform('tip',tip.translation(new Vec3(35,15,7)));
+                    return thisLayer.getBoneTransform('tip').translation();
+                }
                 return thisLayer.getLocalBoneOrigin(0);
             }
             """
         let root:[Double]=[2,0,0,0,0,3,0,0,0,0,1,0,2,3,0,1]
         let tip:[Double]=[0,1,0,0,-1,0,0,0,0,0,1,0,3,2,0,1]
         let layer:[Double]=[1,0,0,0,0,1,0,0,0,0,1,0,10,0,0,1]
-        func makeOwner() throws -> SceneScriptValueOwner {
+        func makeOwner(renderRoot:[Double]?=nil,queryWorldAnchor:Int?=nil) throws -> SceneScriptValueOwner {
             let owner=try SceneScriptValueOwner(domain:domain,source:source,target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
-            try owner.configurePuppetBones(layerID:42,localMatrices:root+tip,names:["root","tip"],parents:[-1,0],layerToWorld:layer)
+            try owner.configurePuppetBones(layerID:42,localMatrices:root+tip,
+                renderLocalMatrices:renderRoot.map{$0+tip},queryWorldAnchor:queryWorldAnchor,
+                names:["root","tip"],parents:[-1,0],layerToWorld:layer)
             return owner
         }
         var owner=try makeOwner()
@@ -64,6 +75,11 @@ HARNESS = r'''
         run(3,"throwing");run(0,"afterThrow")
         owner=try makeOwner()
         run(4,"overflow");run(0,"afterOverflow")
+        let renderRoot:[Double]=[4,0,0,0,0,4,0,0,0,0,1,0,5,3,0,1]
+        owner=try makeOwner(renderRoot:renderRoot,queryWorldAnchor:0)
+        run(5,"queryAnchor")
+        owner=try makeOwner(renderRoot:renderRoot)
+        run(6,"noQueryAnchor")
         print(String(decoding:try JSONSerialization.data(withJSONObject:output,options:[.sortedKeys]),as:UTF8.self))
     }
 }
@@ -83,6 +99,13 @@ class PuppetBoneOriginTests(unittest.TestCase):
         self.assertEqual(self.value.get('candidateWrites'),1)
         m=self.value['candidateMatrices'][0]
         self.assertEqual(m,[2,0,0,0,0,3,0,0,0,0,1,0,5,6,7,1])
+
+    def test_world_query_anchor_overrides_only_its_own_getter(self):
+        self.assertEqual(self.value.get('queryAnchor'),[35,15,7])
+        self.assertEqual(self.value.get('queryAnchorWrites'),1)
+        self.assertEqual(self.value['queryAnchorMatrices'],[[0,1,0,0,-1,0,0,0,0,0,1,0,5,3,7,1]])
+        self.assertEqual(self.value.get('noQueryAnchor'),[15,4,27])
+        self.assertEqual(self.value.get('noQueryAnchorWrites'),0)
 
     def test_copy_getter_commit_and_discard_share_matrix_transaction(self):
         self.assertEqual(self.value.get('rolledBack'),[2,3,0])

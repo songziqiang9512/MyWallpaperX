@@ -33,6 +33,7 @@ extension SceneDesktopWallpaperLaunchContext {
         layerID: Int,
         localMatrices: [Double],
         renderLocalMatrices: [Double]? = nil,
+        queryWorldAnchor: Int? = nil,
         names: [String],
         parents: [Int32]? = nil,
         impulseUnavailable: [UInt8]? = nil,
@@ -47,7 +48,7 @@ extension SceneDesktopWallpaperLaunchContext {
             guard visited.insert(ObjectIdentifier(owner)).inserted else { continue }
             try owner.configurePuppetBones(
                 layerID: layerID, localMatrices: localMatrices,
-                renderLocalMatrices: renderLocalMatrices, names: names,
+                renderLocalMatrices: renderLocalMatrices, queryWorldAnchor: queryWorldAnchor, names: names,
                 parents: parents, impulseUnavailable: impulseUnavailable,
                 layerToWorld: layerToWorld
             )

@@ -1,6 +1,16 @@
 import simd
 
 nonisolated extension ScenePuppetAnimationEvaluator {
+    struct PlanarControlPose {
+        var goal: SIMD3<Float>
+        var guide: SIMD2<Float>
+    }
+
+    struct QueryAnchor {
+        let index: Int
+        let local: simd_float4x4
+    }
+
     var boneNames: [String] { rig.bones.map(\.name) }
     var boneParentIndices: [Int] { rig.bones.map(\.parentIndex) }
 
@@ -12,12 +22,117 @@ nonisolated extension ScenePuppetAnimationEvaluator {
     ) throws -> (local: [simd_float4x4], world: [simd_float4x4]) {
         var local = Array(repeating: matrix_identity_float4x4, count: rig.bones.count)
         var world = local
-        try writeLocalMatrices(
-            selection: selection, frameSamples: frameSamples, blends: blends, into: &local
-        )
-        try applyOverrides(boneOverrides, to: &local, worlds: &world)
+        try writePoseMatrices(selection: selection, frameSamples: frameSamples,
+                              boneOverrides: boneOverrides, blends: blends, locals: &local, worlds: &world)
         return (local, world)
     }
+
+    @discardableResult
+    func writePoseMatrices(
+        selection: ScenePuppetAnimationSelection, frameSamples: [FrameSample?],
+        boneOverrides: [Int: simd_float4x4], blends: [Double]?,
+        locals: inout [simd_float4x4], worlds: inout [simd_float4x4]
+    ) throws -> QueryAnchor? {
+        try writeLocalMatrices(selection: selection, frameSamples: frameSamples, blends: blends, into: &locals)
+        let controls = try planarControls(selection: selection, frameSamples: frameSamples, blends: blends)
+        if let chain = rig.planarConstraint, let controls {
+            try writeWorldMatrices(in: 0..<chain.root, locals: locals, worlds: &worlds)
+            let index = rig.bones[chain.root].parentIndex
+            let parent = index < 0 ? matrix_identity_float4x4 : worlds[index]
+            let anchor = applyPlanarConstraint(chain, controls: controls, parent: parent, locals: &locals)
+            try applyOverrides(boneOverrides, to: &locals, worlds: &worlds, startingAt: chain.root)
+            return boneOverrides[chain.root] == nil ? anchor : nil
+        }
+        try applyOverrides(boneOverrides, to: &locals, worlds: &worlds)
+        return nil
+    }
+
+    func applyOverrides(
+        _ overrides: [Int: simd_float4x4], to locals: inout [simd_float4x4],
+        worlds: inout [simd_float4x4], startingAt: Int = 0
+    ) throws {
+        var start = startingAt
+        for (index, matrix) in overrides {
+            guard rig.bones.indices.contains(index) else {
+                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+            }
+            locals[index] = matrix
+            start = min(start, index)
+        }
+        try writeWorldMatrices(in: start..<rig.bones.count, locals: locals, worlds: &worlds)
+    }
+
+    private func writeWorldMatrices(
+        in range: Range<Int>, locals: [simd_float4x4], worlds: inout [simd_float4x4]
+    ) throws {
+        for index in range {
+            let parent = rig.bones[index].parentIndex
+            let local = locals[index]
+            guard Self.isFinite(local) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+            }
+            let world = parent < 0 ? local : worlds[parent] * local
+            guard Self.isFinite(world) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+            }
+            worlds[index] = world
+        }
+    }
+
+    private func applyPlanarConstraint(
+        _ chain: SceneMdlPuppetRig.PlanarConstraint, controls: PlanarControlPose,
+        parent: simd_float4x4, locals: inout [simd_float4x4]
+    ) -> QueryAnchor? {
+        let queryLocal = locals[chain.root]
+        let root = parent * queryLocal
+        let joint = root * locals[chain.joint]
+        let end = joint * locals[chain.end]
+        guard root.columns.3.z == joint.columns.3.z, joint.columns.3.z == end.columns.3.z else { return nil }
+        let origin = SIMD2(root.columns.3.x, root.columns.3.y)
+        let jointPosition = SIMD2(joint.columns.3.x, joint.columns.3.y)
+        let endPosition = SIMD2(end.columns.3.x, end.columns.3.y)
+        let first = jointPosition - origin
+        let second = endPosition - jointPosition
+        let target = SIMD2(controls.goal.x, controls.goal.y) - origin
+        let targetLength = simd_length(target)
+        let firstLength = Double(simd_length(first)), secondLength = Double(simd_length(second))
+        let distance = min(max(Double(targetLength), abs(firstLength - secondLength)), firstLength + secondLength)
+        guard distance.isFinite, distance > 0, firstLength > 0, secondLength > 0 else { return nil }
+        let axis = targetLength > 0 ? target / targetLength : first / Float(firstLength)
+        let perpendicular = SIMD2(-axis.y, axis.x)
+        let guideSide = simd_dot(controls.guide - origin, perpendicular)
+        let side: Double = guideSide == 0
+            ? (simd_dot(first, perpendicular) < 0 ? -1 : 1) : (guideSide < 0 ? -1 : 1)
+        let along = (firstLength * firstLength - secondLength * secondLength + distance * distance) / (2 * distance)
+        let bend = sqrt(max(0, firstLength * firstLength - along * along))
+        let solvedFirst = axis * Float(along) + perpendicular * Float(bend * side)
+        let solvedEnd = axis * Float(distance)
+        let solvedSecond = solvedEnd - solvedFirst
+
+        let rootDelta = atan2(solvedFirst.y, solvedFirst.x) - atan2(first.y, first.x)
+        let jointDelta = atan2(solvedSecond.y, solvedSecond.x) - atan2(second.y, second.x)
+        let endDelta = controls.goal.z - atan2(end.columns.0.y, end.columns.0.x)
+        let actualRoot = Self.planarTransform(root, at: origin, angle: rootDelta)
+        let actualJoint = Self.planarTransform(joint, at: origin + solvedFirst, angle: jointDelta)
+        let actualEnd = Self.planarTransform(end, at: origin + solvedEnd, angle: endDelta)
+        let rootLocal = rig.bones[chain.root].parentIndex < 0 ? actualRoot : simd_inverse(parent) * actualRoot
+        let jointLocal = simd_inverse(actualRoot) * actualJoint
+        let endLocal = simd_inverse(actualJoint) * actualEnd
+        guard Self.isFinite(rootLocal), Self.isFinite(jointLocal), Self.isFinite(endLocal) else { return nil }
+        locals[chain.root] = rootLocal
+        locals[chain.joint] = jointLocal
+        locals[chain.end] = endLocal
+        return .init(index: chain.root, local: queryLocal)
+    }
+
+    private static func planarTransform(_ matrix: simd_float4x4, at origin: SIMD2<Float>,
+                                        angle: Float) -> simd_float4x4 {
+        var result = SceneMatrix.eulerXYZ(SIMD3(0, 0, angle)) * matrix
+        result.columns.3 = SIMD4(origin.x, origin.y, matrix.columns.3.z, matrix.columns.3.w)
+        return result
+    }
+
+    static func planarAngle(_ angle: Float) -> Float { atan2(sin(angle), cos(angle)) }
 
     static func matrix(fromColumnMajor values: [Float]) -> simd_float4x4 {
         simd_float4x4(columns: (

@@ -156,7 +156,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
     private static let maxEventPayloadBytes = 4096
 
     static func read(
-        data rawData: Data, imageMorphLayout: SceneMdlPuppetAnimationSet.ImageMorphLayout? = nil
+        data rawData: Data, imageMorphLayout: SceneMdlPuppetAnimationSet.ImageMorphLayout? = nil,
+        hasLegacyControlTracks: Bool = false, planarGoalTrack: Int? = nil
     ) throws -> SceneMdlPuppetAnimationSet? {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
         let presentMarkers = knownAnimationMarkers.compactMap { marker in
@@ -209,7 +210,10 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             boneCount: boneCount,
             trailerContract: contract.trailer,
             hasMorphTail: hasMorphTail,
-            morphGroups: imageMorphs?.groups
+            morphGroups: imageMorphs?.groups,
+            hasLegacyControlTracks: hasLegacyControlTracks
+                && (contract.trailer == .legacyZeros(10) || contract.trailer == .perBoneAlphaZeros29),
+            planarGoalTrack: planarGoalTrack
         )
         // Exported source-take IDs and addressable clip IDs belong to distinct domains.
         let derived = records.filter { $0.derivedSource != nil }
@@ -361,7 +365,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         boneCount: Int,
         trailerContract: TrailerContract,
         hasMorphTail: Bool,
-        morphGroups: [UInt32: [MorphShape]]?
+        morphGroups: [UInt32: [MorphShape]]?,
+        hasLegacyControlTracks: Bool, planarGoalTrack: Int?
     ) throws -> [SceneMdlPuppetAnimation] {
         var cursor = headerOffset + 4
         guard endOffset > cursor, endOffset <= data.count else {
@@ -440,7 +445,7 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 )
             }
             let sampleCount = frameCount + 1
-            totalSamples += sampleCount * boneCount
+            totalSamples += sampleCount * (boneCount + (hasLegacyControlTracks ? 2 : 0))
             guard totalSamples <= maxTotalSamples else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
             }
@@ -454,6 +459,10 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 permitsReferenceCandidates: trailerContract == .modernAuxiliary
                     || trailerContract == .modernBoundsAuxiliary
             )
+            let legacyControls = hasLegacyControlTracks
+                ? try readLegacyControls(data: data, cursor: &cursor, bound: endOffset,
+                                         sampleCount: sampleCount, goalTrack: planarGoalTrack, animationID: id)
+                : nil
             let trailer = try readTrailer(
                 data: data,
                 cursor: &cursor,
@@ -496,7 +505,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
                 recordOrdinal: index, rawMode: rawMode, rawFlags: rawFlags,
                 derivedSource: trailer.derivedSource, morphTargets: trailer.morphTargets,
                 referenceTrackPolicy: trailerContract == .modernBoundsAuxiliary && rawFlags == 0
-                    ? .denseBindReference : .bindEquivalentOnly
+                    ? .denseBindReference : .bindEquivalentOnly,
+                legacyControls: legacyControls
             ))
         }
         guard cursor == endOffset else {
@@ -569,6 +579,50 @@ nonisolated enum SceneMdlPuppetAnimationReader {
             states.append(state)
         }
         return (tracks, states)
+    }
+
+    private static func readLegacyControls(
+        data: Data, cursor: inout Int, bound: Int, sampleCount: Int, goalTrack: Int?, animationID: Int
+    ) throws -> SceneMdlPuppetAnimation.LegacyControls {
+        let bytes = sampleCount * transformByteCount
+        var goals: [SIMD3<Float>] = []
+        var guides: [SIMD2<Float>] = []
+        var qualifies = goalTrack != nil
+        if qualifies {
+            goals.reserveCapacity(sampleCount)
+            guides.reserveCapacity(sampleCount)
+        }
+        for slot in 0..<2 {
+            guard bound - cursor >= 8 + bytes,
+                  readUInt32(data, at: cursor) == 0,
+                  Int(readUInt32(data, at: cursor + 4)) == bytes else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            let trackStart = cursor + 8
+            cursor = trackStart + bytes
+            guard qualifies else { continue }
+            for sample in 0..<sampleCount {
+                let offset = trackStart + sample * transformByteCount
+                let x = readFloat(data, at: offset)
+                let y = readFloat(data, at: offset + 4)
+                guard x.isFinite, y.isFinite, readFloat(data, at: offset + 8) == 0 else {
+                    qualifies = false
+                    break
+                }
+                if slot == goalTrack {
+                    let angle = readFloat(data, at: offset + 20)
+                    guard angle.isFinite, readFloat(data, at: offset + 12) == 0,
+                          readFloat(data, at: offset + 16) == 0 else {
+                        qualifies = false
+                        break
+                    }
+                    goals.append(SIMD3(x, y, angle))
+                } else {
+                    guides.append(SIMD2(x, y))
+                }
+            }
+        }
+        return qualifies ? .planar(.init(goals: goals, guides: guides)) : .unconsumed
     }
 
     private static func readTrailer(

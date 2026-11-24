@@ -601,6 +601,7 @@ struct MWXSceneQuickJSOwner {
     size_t puppet_bone_mutation_count;
     int64_t puppet_bone_layer_id;
     uint32_t puppet_bone_count;
+    int32_t puppet_bone_query_world_anchor;
     uint8_t puppet_bone_impulse_unavailable[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES];
     int32_t puppet_bone_parent[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES];
     double puppet_layer_to_world[16];
