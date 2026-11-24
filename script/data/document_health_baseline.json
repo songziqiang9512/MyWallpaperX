@@ -121,8 +121,8 @@
       "bytes": 7411
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 323,
-      "bytes": 64680
+      "lines": 332,
+      "bytes": 66393
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 401,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 304983
+      "bytes": 305811
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 170,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 217,
-      "bytes": 67549
+      "bytes": 67433
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -433,11 +433,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "cb3b5fb15684b53964c55ab4897bca5a150a0597e05a76105787e18b82ee07b3",
-      "after": "91b62caf026dfb05d136c8be1c617e9b6a632109250d97eeea90a270025c9af9",
-      "owner": "Scene particle prepared simulation",
-      "reason": "Define authored starttime in simulation seconds and place the live rate once at the wall-clock boundary.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "91b62caf026dfb05d136c8be1c617e9b6a632109250d97eeea90a270025c9af9",
+      "after": "67c0423819e27f97b315cae8da80c183e2f83714b4c4992df2c253437823f3ec",
+      "owner": "Scene particle simulation",
+      "reason": "Records the posed standard Vortex and literal emitter input through existing owners.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#oriented-vortex"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "73128f601a4e25374f33a3948b2989cd07f5505d10b418b5daffd233424b8cb1",
-      "after": "7444e5c8b40067e2d6fd8a896b4a21f517979a5777647d811979f0dbf5f9bdea",
-      "owner": "Scene utility source and effect execution",
-      "reason": "Retain matched official and signed native color selection, original media motion, and unaffected author evidence.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#fullscreen-native-source-380"
+      "before": "7444e5c8b40067e2d6fd8a896b4a21f517979a5777647d811979f0dbf5f9bdea",
+      "after": "40d575c1d032c82610187323c65205eca53d18a157b6d09fbd5bcd111bade611",
+      "owner": "Scene particle simulation",
+      "reason": "Retains the causal signed and scaled axis controls, exact author motion and mirrored peer pixels.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#vortex-axis-world-365"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3bb9139738715898199401b6f926e89dbe4f5ab4522867fd56521beae7bb8f99",
-      "after": "c98dfc3975829d7248d94bbff6c97ea1e3ac2039ff74099adc057a1c1175f5a2",
-      "owner": "Scene utility source and effect execution",
-      "reason": "Remove the resolved contiguous Fullscreen issue after real author GPU and visual qualification.",
+      "before": "c98dfc3975829d7248d94bbff6c97ea1e3ac2039ff74099adc057a1c1175f5a2",
+      "after": "a5a5f003ae3199494ea32c6ca753bbb5be837f9f07aa2cddc2059bd524a6ec94",
+      "owner": "Scene particle simulation",
+      "reason": "Routes the remaining 365 visual difference after actual inner motion and world emission work.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-feedback"
     },
     {

@@ -406,7 +406,7 @@
       "owner": "scene-particle",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
-      "design_notes": "",
+      "design_notes": "Standard v2 flags2 explicit oriented point design: designDoc#oriented-vortex. Retain inactive serialized ring values only in this proven scope. Reuse original world direction frame and ordered force and emitter; world child basis and independently authored ring mode remain bounded. Current visible evidence is separate from exact gain or phase parity.",
       "matchPatterns": [],
       "contentPatterns": [
         "case v2 = \"vortex_v2\""

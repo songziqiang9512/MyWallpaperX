@@ -136,6 +136,8 @@ extension SceneParticleDefinitionParser {
     private nonisolated static func vortex(
         _ root: [String: Any], version: SceneParticleVortex.Version
     ) -> SceneParticleVortex {
+        let flags = integer(root["flags"])
+        let controlPoint = integer(root["controlpoint"])
         let scalarFields = ["distanceinner", "distanceouter", "speedinner", "speedouter"]
         var supportedFields = Set([
             "id", "name", "axis", "distanceinner", "distanceouter", "flags",
@@ -149,6 +151,9 @@ extension SceneParticleDefinitionParser {
             ])
         } else {
             supportedFields.insert("controlpoint")
+            if flags == 2, let controlPoint, (1 ... 7).contains(controlPoint) {
+                supportedFields.formUnion(["ringradius", "ringwidth", "ringpulldistance"])
+            }
         }
         return .init(
             version: version,
@@ -162,8 +167,8 @@ extension SceneParticleDefinitionParser {
                 || scalarFields.contains {
                     root[$0] != nil && !(root[$0] is NSNull) && number(root[$0]) == nil
                 }
-                || (root["flags"] != nil && integer(root["flags"]) == nil)
-                || (root["controlpoint"] != nil && integer(root["controlpoint"]) == nil)
+                || (root["flags"] != nil && flags == nil)
+                || (root["controlpoint"] != nil && controlPoint == nil)
                 || (version == .v2 && root["audioprocessingmode"] != nil
                     && !(root["audioprocessingmode"] is NSNull)
                     && integer(root["audioprocessingmode"]) == nil),

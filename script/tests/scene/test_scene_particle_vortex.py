@@ -57,11 +57,12 @@ import Foundation
             )
             var controlPoints: [Int: SIMD3<Double>] = [:]
             var controlPointAngles: [Int: SIMD3<Double>] = [:]
+            let point = item["dynamicPointID"] as? Int ?? 0
             if let value = item["dynamicCP"] as? [Double] {
                 controlPoints[0] = SIMD3(value[0], value[1], value[2])
             }
             if let value = item["dynamicAngles"] as? [Double] {
-                controlPointAngles[0] = SIMD3(value[0], value[1], value[2])
+                controlPointAngles[point] = SIMD3(value[0], value[1], value[2])
             }
             var states: [[String: Any]] = []
             var snapshots: [String: SceneParticleSimulator.FrameSnapshot] = [:]
@@ -77,7 +78,7 @@ import Foundation
                     points[0] = SIMD3(value[0], value[1], value[2])
                 }
                 if let value = stage["dynamicAngles"] as? [Double] {
-                    angles[0] = SIMD3(value[0], value[1], value[2])
+                    angles[point] = SIMD3(value[0], value[1], value[2])
                 }
                 let speed = (stage["instanceSpeed"] as? Double).flatMap {
                     SceneParticleDefinitionParser().parseInstanceOverride(["speed": $0])
@@ -213,6 +214,20 @@ def fixtures() -> list[dict]:
             definition["operator"][0], definition["operator"][1] = definition["operator"][1], definition["operator"][0]
         cases.append({"name": name, "definition": definition, "instanceSpeed": 0.94, "deltas": [0.1] * 5})
     cases.extend(radius_fixtures(base))
+    oriented = copy.deepcopy(base)
+    oriented["emitter"][0]["origin"] = "120 0 0"
+    oriented["controlpoint"] = [{"id": 3, "flags": 16}]
+    oriented["operator"][1].update(flags=2, controlpoint=3, speedouter=250)
+    cases.append({"name": "oriented-point", "definition": oriented})
+    with_ring_fields = copy.deepcopy(oriented)
+    with_ring_fields["operator"][1].update(ringradius=256, ringwidth=5, ringpulldistance=250)
+    cases.extend([
+        {"name": "oriented-point-serialized-fields", "definition": with_ring_fields},
+        {"name": "oriented-point-flipped", "definition": with_ring_fields,
+         "dynamicPointID": 3, "dynamicAngles": [math.pi, 0, 0]},
+        {"name": "oriented-point-unrelated-angle", "definition": with_ring_fields,
+         "dynamicPointID": 2, "dynamicAngles": [math.pi, 0, 0]},
+    ])
     return cases
 
 
@@ -383,6 +398,16 @@ class SceneParticleVortexTests(unittest.TestCase):
         for field in ["position", "velocity"]:
             for index, sign in enumerate([1, -1, 1]):
                 self.assertAlmostEqual(positive[field][index], sign * negative[field][index], delta=1e-8)
+
+    def test_oriented_point_applies_its_current_axis_and_ignores_inactive_ring_fields(self):
+        original = self.result["oriented-point"]
+        self.assertIn("vortexBounded", original["diagnostics"])
+        self.assertEqual(original, self.result["oriented-point-serialized-fields"])
+        self.assertEqual(original, self.result["oriented-point-unrelated-angle"])
+        positive, flipped = (self.particle(name) for name in ("oriented-point", "oriented-point-flipped"))
+        self.assertLess(positive["position"][1], -10)
+        for axis, sign in enumerate((1, -1, 1)):
+            self.assertAlmostEqual(positive["position"][axis], flipped["position"][axis] * sign, delta=1e-8)
 
     def test_partitioning_display_delta_does_not_change_fixed_step_result(self):
         for field in ["position", "velocity"]:

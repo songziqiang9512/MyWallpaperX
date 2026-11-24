@@ -1,8 +1,6 @@
 import Foundation
 
 nonisolated extension SceneParticleSimulator {
-    /// Both admitted author versions accelerate clockwise around positive Z.
-    /// The prepared plan owns version-specific units; Movement integrates position.
     func applyVortex(
         plan: SceneParticleVortexPlan?,
         duration: Double,
@@ -13,38 +11,72 @@ nonisolated extension SceneParticleSimulator {
         let audioScale = audioScale ?? 1
         let speedScale = effectiveSpeedOverride
         guard speedScale.isFinite else { return }
-        if plan.usesControlPointOrigin && !vortexOriginIsActive { return }
+        if plan.controlPoint == 0 && !vortexOriginIsActive { return }
 
-        for index in particles.indices {
-            let center = positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
-            let relative = particles[index].position - center
-            let axial = plan.axis * dot(relative, plan.axis)
-            let radial = relative - axial
-            let radialLength = SceneParticleSimulationMath.length(radial)
-            guard radialLength.isFinite, radialLength > 1e-12 else { continue }
-            let distance = plan.usesInfiniteAxis
-                ? radialLength
-                : SceneParticleSimulationMath.length(relative)
-            guard distance.isFinite else { continue }
-            let amount = plan.distanceOuter > plan.distanceInner
-                ? min(max(
-                    (distance - plan.distanceInner)
-                        / (plan.distanceOuter - plan.distanceInner),
-                    0
-                ), 1)
-                : 0
-            let speed = plan.speedInner + (plan.speedOuter - plan.speedInner) * amount
-            let tangent = cross(radial, plan.axis) / radialLength
-            let acceleration = tangent * speed * speedScale * audioScale
-            var velocity = particles[index].velocity
-            if plan.maintainsRadius {
-                velocity -= radial / radialLength * dot(velocity, radial / radialLength)
+        var center = SIMD3<Double>.zero
+        var axis = plan.axis
+        var worldFrame: SceneParticleWorldSpaceFrame?
+        let usesOrientedPoint = (plan.controlPoint ?? 0) != 0
+        if let point = plan.controlPoint, usesOrientedPoint {
+            guard let position = controlPointLocalPosition(point) else { return }
+            center = position
+            let angles: SIMD3<Double>
+            if let dynamic = dynamicControlPointAngles[point] {
+                angles = dynamic
+            } else if let bound = activeInstanceOverride?.controlPointAngles[point] {
+                guard let value = bound.boundedVectorSeed else { return }
+                angles = value
+            } else {
+                angles = plan.defaultControlPointAngles
             }
-            velocity += acceleration * duration
-            guard SceneParticleSimulationMath.isGPUFinite(velocity) else { continue }
-            particles[index].velocity = velocity
-            if plan.maintainsRadius && particles[index].vortexRadius == nil {
-                particles[index].vortexRadius = radialLength
+            axis = SceneParticleSimulationMath.rotateXYZ(
+                axis, sine: SIMD3(sin(angles.x), sin(angles.y), sin(angles.z)),
+                cosine: SIMD3(cos(angles.x), cos(angles.y), cos(angles.z))
+            )
+            if definition.flags.isWorldSpace {
+                guard controlPointParticleSpace == nil, let frame = activeWorldSpaceFrame else { return }
+                worldFrame = frame
+                axis = frame.worldParticleDirection(axis)
+            }
+        }
+        let axisLength = SceneParticleSimulationMath.length(axis)
+        guard axisLength.isFinite, axisLength > 1e-12 else { return }
+        // The scaled axis contributes to the impulse. Projection onto the
+        // radial plane uses only its direction.
+        let unitAxis = axis / axisLength
+        let rootCenter = center + referencePositionOffset
+        let pinsOriginRadius = plan.pinsOriginRadius
+        let distanceSpan = plan.distanceOuter - plan.distanceInner
+        let speedSpan = plan.speedOuter - plan.speedInner
+        let impulseScale = speedScale * audioScale * duration
+        particles.withUnsafeMutableBufferPointer { buffer in
+            for index in buffer.indices {
+                let particleCenter = controlPointParticleSpace.map {
+                    center + positionReferenceOffset(for: buffer[index], space: $0)
+                } ?? rootCenter
+                let localRelative = buffer[index].position - particleCenter
+                let relative = worldFrame?.worldParticleDirection(localRelative) ?? localRelative
+                let radial = relative - unitAxis * dot(relative, unitAxis)
+                let radialLength = SceneParticleSimulationMath.length(radial)
+                guard radialLength.isFinite, radialLength > 1e-12 else { continue }
+                let distance = plan.usesInfiniteAxis ? radialLength : SceneParticleSimulationMath.length(relative)
+                guard distance.isFinite else { continue }
+                let amount = distanceSpan > 0 ? min(max((distance - plan.distanceInner) / distanceSpan, 0), 1) : 0
+                let speed = plan.speedInner + speedSpan * amount
+                let tangent = cross(radial, axis) / (usesOrientedPoint ? distance : radialLength)
+                var impulse = tangent * (speed * impulseScale)
+                if plan.maintainsRadius {
+                    let unit = radial / radialLength
+                    let localVelocity = buffer[index].velocity
+                    let velocity = worldFrame?.worldParticleDirection(localVelocity) ?? localVelocity
+                    impulse -= unit * dot(velocity, unit)
+                }
+                let velocity = buffer[index].velocity + (worldFrame?.localParticleDirection(impulse) ?? impulse)
+                guard SceneParticleSimulationMath.isGPUFinite(velocity) else { continue }
+                buffer[index].velocity = velocity
+                if pinsOriginRadius && buffer[index].vortexRadius == nil {
+                    buffer[index].vortexRadius = radialLength
+                }
             }
         }
     }

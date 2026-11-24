@@ -84,7 +84,8 @@ enum SceneParticleChildTemplateSupport {
             case .reduceMovement:
                 return definition.supportsBoundedReduceMovement(value)
             case .vortex:
-                return definition.vortexPlan(for: value)?.usesControlPointOrigin == true
+                guard let point = definition.vortexPlan(for: value)?.controlPoint else { return false }
+                return point == 0 || !definition.flags.isWorldSpace
             default: return false
             }
         }

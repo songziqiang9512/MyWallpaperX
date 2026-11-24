@@ -25,11 +25,15 @@ nonisolated struct SceneParticleVortexPlan: Equatable, Sendable {
     let speedOuter: Double
     let maintainsRadius: Bool
     let usesInfiniteAxis: Bool
-    let usesControlPointOrigin: Bool
+    let controlPoint: Int?
+    var defaultControlPointAngles: SIMD3<Double> = .zero
+
+    var pinsOriginRadius: Bool { maintainsRadius && controlPoint == 0 }
 }
 
 nonisolated extension SceneParticleOperator {
     var vortexPlan: SceneParticleVortexPlan? {
+        let point = controlPoint ?? 0
         guard case let .vortex(value) = kind,
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
               (value.version == .classic
@@ -37,7 +41,9 @@ nonisolated extension SceneParticleOperator {
                 : rawFlags == 0 || rawFlags == 2),
               blendInStart == nil, blendInEnd == nil,
               blendOutStart == nil, blendOutEnd == nil,
-              controlPoint == nil || (value.version == .v2 && controlPoint == 0),
+              controlPoint == nil || (value.version == .v2 && (
+                  point == 0 || (rawFlags == 2 && (1 ... 7).contains(point))
+              )),
               value.version == .classic || value.axis == nil
                 || value.axis == .vector([0, 0, 1]),
               value.version == .classic || !audioResponse.isEnabled,
@@ -65,7 +71,7 @@ nonisolated extension SceneParticleOperator {
             speedOuter: speedOuter * accelerationScale,
             maintainsRadius: value.version == .v2 && rawFlags == 2,
             usesInfiniteAxis: value.version == .classic && rawFlags == 1,
-            usesControlPointOrigin: value.version == .v2
+            controlPoint: value.version == .v2 ? point : nil
         )
     }
 

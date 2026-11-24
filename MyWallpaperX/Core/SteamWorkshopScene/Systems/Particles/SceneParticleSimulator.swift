@@ -161,7 +161,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             )
         }
         self.controlPointFrame = controlPointFrame
-        maintainsVortexRadius = operatorExecutionPlans.contains { $0.vortex?.maintainsRadius == true }
+        maintainsVortexRadius = operatorExecutionPlans.contains { $0.vortex?.pinsOriginRadius == true }
         var controlPointsByID: [Int: SceneParticleControlPoint] = [:]
         var controlPointIdentities: Set<Int> = []
         var controlPointSourcesAreValid = true
@@ -559,7 +559,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         let existingParticleIDUpperBound = nextParticleID
         if playback.intent == .playing {
-            for index in definition.emitters.indices { emit(index: index, duration: duration) }
+            let emitterWorldFrame = controlPointParticleSpace == nil ? activeWorldSpaceFrame : nil
+            for index in definition.emitters.indices {
+                emit(index: index, duration: duration, worldSpaceFrame: emitterWorldFrame)
+            }
         }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
@@ -632,7 +635,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
-    private nonisolated func emit(index: Int, duration: Double) {
+    private nonisolated func emit(index: Int, duration: Double, worldSpaceFrame: SceneParticleWorldSpaceFrame?) {
         let emitter = definition.emitters[index]
 #if DEBUG
         componentObservation?.record("emitter", index, "attempted", reason: "natural-emission-dispatch", time: simulationTime)
@@ -650,7 +653,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             dynamicControlPointAngles: dynamicControlPointAngles,
             controlPointsByID: controlPointsByID,
             controlPointSourcesAreValid: controlPointSourcesAreValid,
-            preparedOrigin: spawnPlan.origin, controlPointFrame: controlPointFrame
+            preparedOrigin: spawnPlan.origin, controlPointFrame: controlPointFrame,
+            worldSpaceFrame: worldSpaceFrame
         ) else {
 #if DEBUG
             componentObservation?.record("emitter", index, "unavailable", reason: "control-point-frame-unavailable", time: simulationTime)
@@ -755,7 +759,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 dynamicControlPointAngles: dynamicControlPointAngles,
                 controlPointsByID: controlPointsByID,
                 controlPointSourcesAreValid: controlPointSourcesAreValid,
-                preparedOrigin: emitterSpawnPlans[0].origin, controlPointFrame: controlPointFrame) else {
+                preparedOrigin: emitterSpawnPlans[0].origin, controlPointFrame: controlPointFrame,
+                worldSpaceFrame: activeWorldSpaceFrame) else {
             throw SceneParticleEmissionFailure.unavailable
         }
         if explicitBirthEventStart == nil { explicitBirthEventStart = birthEvents.count }

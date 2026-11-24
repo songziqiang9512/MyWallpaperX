@@ -290,7 +290,7 @@ extension Harness {
             case "radius": if case let .controlPointRadius(plan) = op.kind { readerPrepared[name] = plan != nil }
             case "force": readerPrepared[name] = definition.controlPointForcePlan(for: op) != nil
             case "reduce": readerPrepared[name] = definition.supportsBoundedReduceMovement(op)
-            default: readerPrepared[name] = definition.vortexPlan(for: op)?.usesControlPointOrigin == true
+            default: readerPrepared[name] = definition.vortexPlan(for: op)?.controlPoint != nil
             }
             let path = "particles/options-reader-\(name).json"
             try writeJSON(raw, to: directory.appendingPathComponent(path))

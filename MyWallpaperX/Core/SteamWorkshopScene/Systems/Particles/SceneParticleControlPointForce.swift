@@ -211,10 +211,14 @@ private nonisolated extension SIMD3 where Scalar == Double {
     }
 }
 
-private nonisolated extension SceneParticleBoundValue {
+nonisolated extension SceneParticleBoundValue {
     var boundedStaticVector: SIMD3<Double>? {
-        guard userPropertyKey == nil, !hasScript, !hasAnimation,
-              case let .vector(values) = value, values.count == 3 else { return nil }
+        guard userPropertyKey == nil, !hasScript, !hasAnimation else { return nil }
+        return boundedVectorSeed
+    }
+
+    var boundedVectorSeed: SIMD3<Double>? {
+        guard case let .vector(values) = value, values.count == 3 else { return nil }
         let result = SIMD3(values[0], values[1], values[2])
         return result.isBounded ? result : nil
     }
@@ -312,12 +316,15 @@ nonisolated extension SceneParticleDefinition {
         controlPointSourcesAreValid: Bool? = nil,
         preparedOrigin: SIMD3<Double>? = nil,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
         requiresLiveInput: Bool = true
     ) -> SceneParticleEmitterControlPointFrame? {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
         guard let source = emitterControlPointSource(for: emitter) else {
-            return .init(origin: localOrigin, sine: .zero, cosine: .init(repeating: 1))
+            let position = flags.isWorldSpace && emitter.kind == .sphereRandom && emitter.origin != nil
+                ? worldSpaceFrame?.localParticleDirection(localOrigin) ?? localOrigin : localOrigin
+            return .init(origin: position, sine: .zero, cosine: .init(repeating: 1))
         }
         guard (0 ... 7).contains(source),
               controlPointSourcesAreValid
@@ -499,12 +506,16 @@ nonisolated extension SceneParticleDefinition {
 
 nonisolated extension SceneParticleDefinition {
     func vortexPlan(for value: SceneParticleOperator) -> SceneParticleVortexPlan? {
-        guard let plan = value.vortexPlan else { return nil }
-        if plan.maintainsRadius && !supportsRadiusVortexSequence { return nil }
-        if plan.usesControlPointOrigin {
-            guard SceneParticleSimulationMath.supportsControlPointSource(0, in: self)
-            else { return nil }
-            if let point = controlPoints.first(where: { $0.id == 0 }),
+        guard var plan = value.vortexPlan else { return nil }
+        if plan.pinsOriginRadius && !supportsRadiusVortexSequence { return nil }
+        if let source = plan.controlPoint {
+            guard SceneParticleSimulationMath.supportsControlPointSource(source, in: self) else { return nil }
+            let point = controlPoints.first { $0.id == source }
+            if source != 0 {
+                guard let point, let angles = point.boundedEmitterAngle(identity: source),
+                      point.boundedEmitterOffset != nil else { return nil }
+                plan.defaultControlPointAngles = angles
+            } else if let point,
                point.hasMalformedOffset || point.hasMalformedMetadata
                 || !point.hasBoundedStaticInput(identity: 0)
                 || (point.offset != nil && point.offset != .vector([0, 0, 0])) {

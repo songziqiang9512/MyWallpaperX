@@ -1,6 +1,7 @@
 import simd
 
 nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
+    private let localToWorldDirection: simd_double3x3
     let worldToLocalDirection: simd_double3x3
     let birthPositionOffset: SIMD3<Double>
 
@@ -28,12 +29,14 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
         guard inverse.columns.0.allFinite,
               inverse.columns.1.allFinite,
               inverse.columns.2.allFinite else { return nil }
+        localToWorldDirection = localToWorld
         worldToLocalDirection = inverse
         birthPositionOffset = .zero
     }
 
-    fileprivate init(direction: simd_double3x3, birthOffset: SIMD3<Double>) {
-        worldToLocalDirection = direction
+    fileprivate init(reference: Self, birthOffset: SIMD3<Double>) {
+        localToWorldDirection = reference.localToWorldDirection
+        worldToLocalDirection = reference.worldToLocalDirection
         birthPositionOffset = birthOffset
     }
 
@@ -44,6 +47,11 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
         let sceneDirection = SIMD3(direction.x, -direction.y, direction.z)
         let local = worldToLocalDirection * sceneDirection
         return SIMD3(local.x, -local.y, local.z)
+    }
+
+    nonisolated func worldParticleDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+        let world = localToWorldDirection * SIMD3(direction.x, -direction.y, direction.z)
+        return SIMD3(world.x, -world.y, world.z)
     }
 
     nonisolated func localDirection(_ worldDirection: SIMD3<Double>) -> SIMD3<Double> {
@@ -74,7 +82,7 @@ nonisolated struct SceneParticleRootWorldTranslationPlan: Equatable, Sendable {
         let local = directionFrame.worldToLocalDirection * delta
         let offset = SIMD3(local.x, -local.y, local.z)
         guard Float(offset.x).isFinite, Float(offset.y).isFinite, Float(offset.z).isFinite else { return nil }
-        return .init(direction: directionFrame.worldToLocalDirection, birthOffset: offset)
+        return .init(reference: directionFrame, birthOffset: offset)
     }
 
     private static func isFinite(_ frame: simd_float4x4) -> Bool {

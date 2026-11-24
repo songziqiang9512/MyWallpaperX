@@ -151,7 +151,7 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 ## 需要保留的数值边界
 
 - Remap 仍由原 `SceneParticleRemapValue` 准备 velocity/simplex 与 scalar-speed/FBM 两条有界计划；真实input selector/range、其他输出/操作及外层lifecycle blend尚缺完整消费者。独立静态范围、晚EventDeath实例与sine正控的当前资格见[运行证据](runtime-evidence-current.md)；场景对齐候选类不等于所有时钟/预热/rate行为已定，sine及作者缺省参数仍未资格。新实现沿[标量Remap合同](../architecture/runtime-architecture.md#particle-scalar-remap)替换两份平行可选计划，保原noise/RNG行为；不能用猜公式或新增字段组合白名单补第三路径。
-- Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
+- Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。现有默认原点的 v2 固定半径及强度为项目有界响应。显式控制点的方案见[定向 Vortex](#oriented-vortex)。
 - Plane Collision消费原准备平面；静态Sphere由[球体合同](#sphere-collision)维护。壁纸画布边界的实现范围归[Bounds合同](#bounds-collision)。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
 - Position Around Count 是序列除数，支持大于等于 1 的有限作者数值，保留小数。整数可沿 ID 取余，小数沿原分段余数，超出 ID 范围的除数直接消费原 ID；计数只参与相位计算。准备时由同一 typed plan 汇合控制点和发射源约束，出生只消费该计划。未资格的轴、Mirror、periodic 与空间组合仍沿原边界。
@@ -160,6 +160,15 @@ Sphere沿原DefinitionParser一次准备显式local origin、radius及bouncefact
 - 线性 Movement 把作者 drag 消费为每秒速度半衰次数，步内速度保留量为 `2^(-drag × dt)`。沿原 gravity 输入与当前空间变换，按同一步内的保留量积分重力，再交原位置、Vortex 与数值接纳链。零 drag 仍作整步重力积分，负值保有符号增长。因子每次 operator 求一次，替换原逐粒子线性阻尼；Angular Movement 沿其独立合同。固定客户端同龄及正负初速对照支持此项目模型，精确时步顺序和大 drag 偏差仍待资格。
 
 源码：[Remap](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift)、[Vortex](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift)、[Plane Collision](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift)、[Sphere Plan](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionSphere.swift)、[碰撞消费](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Collision.swift)。
+
+<a id="oriented-vortex"></a>
+### Vortex v2 的显式定向控制点
+
+`flags=2` 的 v2 可读取已准备的非原点控制点。该作用接受可供货的局部点及其角度，沿当前 typed 角度、实例值、声明默认的优先级，在算子当步计算旋转轴。该模式的 `ringradius`、`ringwidth` 和 `ringpulldistance` 是留存值，官版删字段对照限于此模式。真正环形选择、拉力、额外旗标和未资格控制点空间保留原边界。
+
+General 世界粒子仍存于原参考坐标。无控制点供货的根球形发射器显式 origin 使用世界位移，在共用发射入口投影一次。随机形状位移、初速度和既有出生锚点各沿原消费者。显式点 Vortex 用相同世界帧的方向基底把当前选点的轴与粒子相对量带到受力空间，并保留轴的幅度。原有 Vortex 槽在作者顺序增加切向速度并约束径向速度，Movement 保唯一位置积分。径向投影使用单位轴，切向近似按当前相对距离和原 v2 强度折算，受力一次映回原粒子空间。世界子粒子的局部 scale、具体长时增益、角序和非均匀倍率须由各自对照限定。
+
+同一 Vortex kernel 保已有非世界原点固定半径。显式定向点退出 CP0 零角零位及必须隔离后续算子的关卡，沿原计划、固定模拟步、当前参考点和粒子 rollback。缺当前基底或不可用控制点仅略过该算子，后继约束和 Force 按作者顺序继续。无需其首帧固定半径状态和额外资源。验收核镜像角度、删留停用字段、原点世界出生、旋转和独立倍率、旧原点邻例、原包内圈及健康外场，并把近似结果与官方相位分开记录。
 
 <a id="children"></a>
 ## Child 与事件
