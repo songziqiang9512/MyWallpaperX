@@ -3,7 +3,7 @@
 
 # 共享音频分析与消费域设计
 
-> 状态：现三类消费者共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)已证从准备64档取组内峰值。48kHz相邻轴、局部取峰与精确短窗候选有证据，44.1kHz及x86精确物理窗待证。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)区分跨声道快影响和组内较慢恢复。取得可测更新律、相邻端点及作者画面后再切Scene域。
+> 状态：仍共用显示响应。[粒子16档](../scene/capabilities/runtime-evidence-current.md#particle-audio-prepared-fold)、[前景16档](../scene/capabilities/runtime-evidence-current.md#author-low-band-pulse-346)和[shader 32档](../scene/capabilities/runtime-evidence-current.md#author-spectrum-prepared-fold-361)在已测档取准备64档组峰。[同PCM脉冲](../scene/capabilities/runtime-evidence-current.md#author-spectrum-pulse-361)及前景区分快影响与慢恢复。48kHz有短窗候选，44.1kHz、运行原谱及更新律待证。再验作者画面。
 
 ## 目标与职责
 
