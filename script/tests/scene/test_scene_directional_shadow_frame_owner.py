@@ -33,6 +33,7 @@ SOURCES = list(dict.fromkeys([
         'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']),
     SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',
+    SCENE/'Resources/Textures/SceneNamedTextureReference.swift',
     SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Compilation/Material/SceneMaterialRenderState+Compilation.swift',
     SCENE/'Format/SceneMdlPuppetMeshReader.swift',
@@ -70,7 +71,7 @@ struct SceneRenderDescriptor {
   let id:Int;var visible:Bool? = true;var pointLight:ScenePointLightDefinition? = nil
   var tubeLight:SceneTubeLightDefinition? = nil
   var spotLight:SceneSpotLightDefinition? = nil;var directionalLight:SceneDirectionalLightDefinition? = nil
-  var dependencyLayerIDs:[Int]=[]
+  var dependencyLayerIDs:[Int]=[];var childLayerIDs:[Int]=[]
   var parentID:Int? = nil;var displayScriptOwnership:SceneLayerDisplayScriptOwnership? = nil
   var utilityLayer:Bool? = false;var usesPerspective:Bool? = false
   // This shadow fixture has ordinary model/image receivers, no composition.
@@ -153,6 +154,11 @@ struct NamedAlbedo {
  let isPremultiplied:Bool
 }
 final class BindingObserver {
+ struct Plan {
+  struct Binding { let providerLayerID:Int }
+  let staticModelBindingsByConsumerLayerID:[Int:Binding] = [:]
+ }
+ let plan = Plan()
  var encoded:[Int:Bool] = [:]
  var namedQueries:[String] = []
  func staticModelNamedAlbedo(for id:Int, materialPath:String, expectedReference:String,
@@ -170,6 +176,7 @@ final class TextureRegistry {
  let frameEpoch:UInt64 = 1
  var candidates:[SceneAssetTextureIdentity:SceneTextureCandidate]=[:]
  var properties:[SceneUserPropertyTextureIdentity:FixturePropertyLookup]=[:]
+ func completeNamedLayerTargetResource(reference:SceneNamedTextureReference,frameEpoch:UInt64)->PreparedTexture? { nil }
  func lookup(_ request:FixtureAssetRequest)->FixturePropertyLookup? {
   guard case let .materialUserProperty(identity)=request else {return nil}
   return properties[identity]

@@ -22,6 +22,7 @@ import zlib
 from script.tests.scene import test_scene_reflection_history_integration as app_runner
 from script.tests.scene.test_scene_static_model_reader import build_model
 from script.tests.scene.test_scene_static_model_parts import join_parts
+from script.tests.support.scene_color_blend_capture_test_support import assert_main_background_reader
 from script.web.web_benchmark_capture import png_rgb_pixels
 from script.scene.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
@@ -604,6 +605,7 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         sources = [Path(__file__), Path(app_runner.__file__),
                    REPO / "script/tests/scene/test_scene_static_model_reader.py",
                    REPO / "script/tests/scene/test_scene_static_model_parts.py",
+                   REPO / "script/tests/support/scene_color_blend_capture_test_support.py",
                    REPO / "script/tests/support/scene_pkg_fixture.py",
                    REPO / "script/web/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
@@ -831,14 +833,9 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                     self.assertGreater(pixels[case]["count"], 100, (case, pixels))
                     self.assertEqual(pixels[case][color], pixels[case]["count"], (case, pixels))
                 if prefix:
-                    read, = (r for r in rows if r["kind"] == "background-copy"
-                             and r.get("layerID") == TARGET_LAYER and r.get("outcome") == "encoded")
-                    blend, = (r for r in rows if r["kind"] == "color-blend-background"
-                              and r.get("layerID") == TARGET_LAYER and r.get("outcome") == "draw-encoded")
-                    self.assertEqual(read["source"]["textureToken"], blend["target"]["textureToken"])
-                    self.assertEqual(read["target"]["textureToken"], blend["source"]["textureToken"])
-                    self.assertLess(rows.index(terminals[2]), rows.index(read))
-                    self.assertLess(rows.index(blend), rows.index(terminals[4]))
+                    reads = assert_main_background_reader(self, rows, TARGET_LAYER, terminals[2]["target"])
+                    self.assertLess(rows.index(terminals[2]), rows.index(reads[0]))
+                    self.assertLess(rows.index(reads[-1]), rows.index(terminals[4]))
 
     def run_perspective_image_depth_case(self, *, sorting):
         label = 6 if sorting else 7

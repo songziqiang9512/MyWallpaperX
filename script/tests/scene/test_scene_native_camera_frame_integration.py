@@ -23,6 +23,7 @@ from script.tests.scene import test_scene_native_world_composition as world
 from script.tests.scene.test_scene_native_world_composition import encoded, mdl_quad, model_material, png
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.scene.test_scene_reflection_history_integration import METAL_FAILURE, sha256
+from script.tests.support.scene_color_blend_capture_test_support import assert_main_background_reader
 from script.web.web_benchmark_capture import png_rgb_pixels
 
 
@@ -46,6 +47,7 @@ SOURCES = tuple(REPO / path for path in (
     "script/tests/scene/test_scene_native_camera_frame_integration.py",
     "script/tests/scene/test_scene_native_world_composition.py",
     "script/tests/scene/test_scene_static_model_reader.py",
+    "script/tests/support/scene_color_blend_capture_test_support.py",
     "script/tests/support/scene_pkg_fixture.py",
     "script/tests/scene/test_scene_reflection_history_integration.py",
     "script/web/web_benchmark_capture.py"))
@@ -394,14 +396,8 @@ class SceneNativeCameraFrameIntegrationTests(unittest.TestCase):
                     self.assertEqual(group["target"]["textureToken"], seal["target"]["textureToken"])
                     reads = ()
                     if observer:
-                        copy, = (r for r in rows if r["kind"] == "background-copy"
-                                 and r.get("layerID") == 22 and r.get("outcome") == "encoded")
-                        blend, = (r for r in rows if r["kind"] == "color-blend-background"
-                                  and r.get("layerID") == 22 and r.get("outcome") == "draw-encoded")
-                        self.assertEqual(copy["source"]["textureToken"], source["source"]["textureToken"])
-                        self.assertEqual(copy["target"]["textureToken"], blend["source"]["textureToken"])
-                        self.assertEqual(blend["target"]["textureToken"], seal["target"]["textureToken"])
-                        reads = (copy, blend)
+                        self.assertEqual(source["source"]["textureToken"], seal["target"]["textureToken"])
+                        reads = assert_main_background_reader(self, rows, 22, seal["target"])
                     if named_albedo:
                         provider_paint, = (r for r in rows if r["kind"] == "material" and r.get("layerID") == 41
                                            and r.get("effectIndex") == 0 and r.get("outcome") == "draw-encoded")

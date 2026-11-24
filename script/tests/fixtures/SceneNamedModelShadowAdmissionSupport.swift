@@ -46,6 +46,7 @@ final class SceneResolvedMaterialRuntimeBridge {
   enum DependencyOwnership: Equatable {case none}
   var supportsTerminalMaterialReplay:Bool {fatalError("graph claim outside sizing probe")}
   var supportsPlacementSpaceTerminalReplay:Bool {fatalError("graph claim outside sizing probe")}
+  var sceneBackgroundRequirement:Never? {fatalError("graph claim outside sizing probe")}
   var dependencyOwnership:DependencyOwnership {fatalError("graph claim outside sizing probe")}
   var admittedGraphs:[SceneAuthoredEffectRenderPlan] {fatalError("graph claim outside sizing probe")}
  }

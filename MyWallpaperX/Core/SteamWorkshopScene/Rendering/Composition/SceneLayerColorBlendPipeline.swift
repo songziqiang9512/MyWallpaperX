@@ -30,14 +30,14 @@ vertex SceneLayerBlendVaryings sceneLayerColorBlendVert(
     return out;
 }
 
-fragment float4 sceneLayerColorBlendFrag(
-    SceneLayerBlendVaryings input [[stage_in]],
-    texture2d<float> layerTexture [[texture(0)]],
-    texture2d<float> backgroundTexture [[texture(1)]],
-    texture2d<float> clipMask [[texture(2)]],
-    constant uint2 &blend [[buffer(0)]],
-    constant float4 &clipTransform [[buffer(1)]],
-    constant SceneImageDistanceFogUniforms &distanceFog [[buffer(2)]]
+inline float4 sceneLayerColorBlend(
+    SceneLayerBlendVaryings input,
+    texture2d<float> layerTexture,
+    float4 background,
+    texture2d<float> clipMask,
+    constant uint2 &blend,
+    constant float4 &clipTransform,
+    constant SceneImageDistanceFogUniforms &distanceFog
 ) {
     constexpr sampler sampler2d(filter::linear, address::clamp_to_edge);
     constexpr sampler linearClipSampler(filter::linear, address::clamp_to_zero);
@@ -45,7 +45,6 @@ fragment float4 sceneLayerColorBlendFrag(
         : clipMask.sample(linearClipSampler,
             input.modelPosition * clipTransform.zw + clipTransform.xy).r;
     float4 layer = layerTexture.sample(sampler2d, input.texcoord);
-    float4 background = backgroundTexture.read(uint2(input.position.xy));
     float3 straightLayer = blend.y == 1u ? layer.rgb
         : layer.a > 0.0 ? layer.rgb / layer.a : float3(0.0);
     const float shapeCoverage = input.vertexCoverage * clipCoverage;
@@ -61,10 +60,40 @@ fragment float4 sceneLayerColorBlendFrag(
     }
     return float4(blended, background.a);
 }
+
+fragment float4 sceneLayerColorBlendFrag(
+    SceneLayerBlendVaryings input [[stage_in]],
+    texture2d<float> layerTexture [[texture(0)]],
+    texture2d<float> background [[texture(1)]],
+    texture2d<float> clipMask [[texture(2)]],
+    constant uint2 &blend [[buffer(0)]],
+    constant float4 &clipTransform [[buffer(1)]],
+    constant SceneImageDistanceFogUniforms &distanceFog [[buffer(2)]]
+) {
+    return sceneLayerColorBlend(input, layerTexture, background.read(uint2(input.position.xy)),
+        clipMask, blend, clipTransform, distanceFog);
+}
+"""
+
+private let sceneLayerColorBlendAttachmentSource = """
+
+fragment float4 sceneLayerColorBlendAttachmentFrag(
+    SceneLayerBlendVaryings input [[stage_in]],
+    texture2d<float> layerTexture [[texture(0)]],
+    float4 background [[color(0)]],
+    texture2d<float> clipMask [[texture(2)]],
+    constant uint2 &blend [[buffer(0)]],
+    constant float4 &clipTransform [[buffer(1)]],
+    constant SceneImageDistanceFogUniforms &distanceFog [[buffer(2)]]
+) {
+    return sceneLayerColorBlend(input, layerTexture, background, clipMask, blend, clipTransform, distanceFog);
+}
 """
 
 final class SceneLayerColorBlendPipelineState {
     let renderPipeline: MTLRenderPipelineState
+    let attachmentPipeline: MTLRenderPipelineState?
+    let pixelFormat: MTLPixelFormat
 
     init?(
         device: MTLDevice,
@@ -78,10 +107,14 @@ final class SceneLayerColorBlendPipelineState {
         ).flatMap { try? String(contentsOf: $0, encoding: .utf8) }
         guard let fogSource else { return nil }
         let options = MTLCompileOptions()
-        guard let library = try? device.makeLibrary(
-            source: fogSource + "\n" + sceneLayerColorBlendShaderSource,
-            options: options
-        ), let vertex = library.makeFunction(name: "sceneLayerColorBlendVert"),
+        let source = fogSource + "\n" + sceneLayerColorBlendShaderSource
+        let supportsAttachment = device.supportsFamily(.apple2)
+            && (pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float)
+        let withAttachment = supportsAttachment ? try? device.makeLibrary(
+            source: source + "\n" + sceneLayerColorBlendAttachmentSource, options: options
+        ) : nil
+        guard let library = withAttachment ?? (try? device.makeLibrary(source: source, options: options)),
+           let vertex = library.makeFunction(name: "sceneLayerColorBlendVert"),
            let fragment = library.makeFunction(name: "sceneLayerColorBlendFrag") else {
             return nil
         }
@@ -95,10 +128,22 @@ final class SceneLayerColorBlendPipelineState {
             return nil
         }
         renderPipeline = state
+        if let attachment = withAttachment?.makeFunction(name: "sceneLayerColorBlendAttachmentFrag") {
+            descriptor.fragmentFunction = attachment
+            attachmentPipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+        } else {
+            attachmentPipeline = nil
+        }
+        self.pixelFormat = pixelFormat
     }
 }
 
 final class SceneLayerColorBlendPipeline {
+    enum Background {
+        case snapshot(MTLTexture)
+        case attachment(MTLRenderPipelineState)
+    }
+
     private let state: SceneLayerColorBlendPipelineState
     let framebufferSnapshot: SceneFramebufferSnapshot
 
@@ -135,9 +180,16 @@ final class SceneLayerColorBlendPipeline {
         framebufferSnapshot.capture(target: target, commandBuffer: commandBuffer, region: region)
     }
 
+    func attachmentPipeline(for target: MTLTexture, sampling source: MTLTexture) -> MTLRenderPipelineState? {
+        guard let pipeline = state.attachmentPipeline, target.pixelFormat == state.pixelFormat,
+              target.sampleCount == 1, (source.parent ?? source) !== (target.parent ?? target)
+        else { return nil }
+        return pipeline
+    }
+
     func draw(
         layerTexture: MTLTexture,
-        backgroundTexture: MTLTexture,
+        background: Background,
         blendMode: Int,
         mvp: simd_float4x4,
         sourceIsStraightAlpha: Bool = false,
@@ -150,9 +202,9 @@ final class SceneLayerColorBlendPipeline {
             length: vertices.count * MemoryLayout<SceneQuadVertex>.stride,
             index: 0
         )
-        bindGeometry(
+        bind(
             layerTexture: layerTexture,
-            backgroundTexture: backgroundTexture,
+            background: background,
             blendMode: blendMode,
             mvp: mvp,
             sourceIsStraightAlpha: sourceIsStraightAlpha,
@@ -177,13 +229,32 @@ final class SceneLayerColorBlendPipeline {
         distanceFog: SceneImageDistanceFogUniforms = .init(),
         encoder: MTLRenderCommandEncoder
     ) {
+        bind(layerTexture: layerTexture, background: .snapshot(backgroundTexture), blendMode: blendMode,
+             mvp: mvp, sourceIsStraightAlpha: sourceIsStraightAlpha, distanceFog: distanceFog, encoder: encoder)
+    }
+
+    private func bind(
+        layerTexture: MTLTexture,
+        background: Background,
+        blendMode: Int,
+        mvp: simd_float4x4,
+        sourceIsStraightAlpha: Bool,
+        distanceFog: SceneImageDistanceFogUniforms,
+        encoder: MTLRenderCommandEncoder
+    ) {
         var mvpCopy = mvp
         var mode = SIMD2<UInt32>(UInt32(blendMode), sourceIsStraightAlpha ? 1 : 0)
         var fog = distanceFog
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
-        encoder.setRenderPipelineState(state.renderPipeline)
+        switch background {
+        case let .snapshot(texture):
+            encoder.setRenderPipelineState(state.renderPipeline)
+            encoder.setFragmentTexture(texture, index: 1)
+        case let .attachment(pipeline):
+            encoder.setRenderPipelineState(pipeline)
+        }
         encoder.setVertexBytes(
             &mvpCopy,
             length: MemoryLayout<simd_float4x4>.size,
@@ -192,7 +263,6 @@ final class SceneLayerColorBlendPipeline {
         encoder.setFragmentBytes(&mode, length: MemoryLayout<SIMD2<UInt32>>.size, index: 0)
         encoder.setFragmentBytes(&fog, length: MemoryLayout<SceneImageDistanceFogUniforms>.stride, index: 2)
         encoder.setFragmentTexture(layerTexture, index: 0)
-        encoder.setFragmentTexture(backgroundTexture, index: 1)
         SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: layerTexture)
     }
 
@@ -278,6 +348,30 @@ enum SceneLayerColorBlendRenderer {
         }
 
         guard let colorBlendPipeline else { return false }
+        let sourceIsStraightAlpha = uniforms.sourceSampling.y == 1
+        if geometryProduct == nil, mainPass.isSceneRoot,
+           layer.utilityLayer == nil || layer.childLayerIDs.isEmpty,
+           mvp.columns.0.w == 0, mvp.columns.1.w == 0,
+           mvp.columns.3.w.isFinite, mvp.columns.3.w > 0,
+           mainPass.encodePreparedDraw({ target, _ in
+               guard let attachment = colorBlendPipeline.attachmentPipeline(for: target, sampling: texture)
+               else { return nil }
+               mainPass.closeForOffscreen()
+               return { encoder in
+                   colorBlendPipeline.draw(layerTexture: texture, background: .attachment(attachment),
+                       blendMode: blendMode, mvp: mvp, sourceIsStraightAlpha: sourceIsStraightAlpha,
+                       distanceFog: uniforms.distanceFog, encoder: encoder)
+               }
+           }) {
+#if DEBUG
+            if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                let target = mainPass.compositionTarget
+                trace.recordComposition(.init(kind: "color-blend-background", layerID: layer.id, slot: 1,
+                    source: target, target: target, access: "color-attachment-read", outcome: "draw-encoded"))
+            }
+#endif
+            return true
+        }
         let captured = mainPass.withReadableTarget { target, commandBuffer in
             // This fragment reads background only at its current pixel. Custom
             // geometry and unproven projection keep the full capture contract.
@@ -318,7 +412,7 @@ enum SceneLayerColorBlendRenderer {
                     backgroundTexture: background,
                     blendMode: blendMode,
                     mvp: geometryMVP,
-                    sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
+                    sourceIsStraightAlpha: sourceIsStraightAlpha,
                     distanceFog: uniforms.distanceFog,
                     encoder: encoder
                 )
@@ -338,10 +432,10 @@ enum SceneLayerColorBlendRenderer {
         }
         colorBlendPipeline.draw(
             layerTexture: texture,
-            backgroundTexture: background,
+            background: .snapshot(background),
             blendMode: blendMode,
             mvp: mvp,
-            sourceIsStraightAlpha: uniforms.sourceSampling.y == 1,
+            sourceIsStraightAlpha: sourceIsStraightAlpha,
             distanceFog: uniforms.distanceFog,
             encoder: encoder
         )

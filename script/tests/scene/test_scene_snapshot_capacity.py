@@ -395,7 +395,7 @@ FRAME_MAIN=r'''
   if !hidden {
    let bg=pass.withReadableTarget {t,c in renderer.imageCompositor.color.snapshot(target:t,commandBuffer:c)}!!
    let transform=SceneMatrix.translation(SIMD3(-0.5,-0.5,0))*SceneMatrix.scale(SIMD3(0.5,0.5,1))
-   renderer.imageCompositor.color.draw(layerTexture:green,backgroundTexture:bg,blendMode:1,mvp:transform,encoder:pass.encoder()!)
+   renderer.imageCompositor.color.draw(layerTexture:green,background:.snapshot(bg),blendMode:1,mvp:transform,encoder:pass.encoder()!)
   }
   var observed:[SceneParticlePerformanceObservation]?=[]
   if !hidden && !utility {_=particle.drawBatches(prepared,model:matrix_identity_float4x4,cameraFrame:camera,viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,performanceObservations:&observed)}

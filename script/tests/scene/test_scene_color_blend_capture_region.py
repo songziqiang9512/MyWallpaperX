@@ -118,6 +118,20 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
                 self.assertEqual(rows["fractional", mode, hdr]["bytes"],
                                  rows["renamed-equivalent-matrix", mode, hdr]["bytes"])
 
+    def test_current_attachment_quad_matches_frozen_prefix_and_removes_the_copy(self):
+        rows = self.result["attachmentRows"]
+        self.assertEqual(len(rows), 10)
+        for row in rows:
+            with self.subTest(name=row["name"], hdr=row["hdr"]):
+                self.assertTrue(row["equal"] and row["changed"] and row["aliasRejected"], row)
+                uses_attachment = row["deviceSupportsAttachment"] and row["name"] not in (
+                    "perspective", "composition-with-child")
+                if uses_attachment:
+                    self.assertEqual((row["copies"], row["bytes"], row["capacity"]), (0, 0, 0), row)
+                else:
+                    self.assertEqual(row["copies"], row["referenceCopies"], row)
+                    self.assertGreater(row["bytes"], 0, row)
+
     def test_terminal_quad_rebinds_read_only_depth_after_color_pass(self):
         for row in self.result["terminalDepth"]:
             self.assertTrue(row["completed"] and row["drawn"] and row["missingRejected"], row)

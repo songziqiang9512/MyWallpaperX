@@ -287,6 +287,15 @@ Geometry 的 primary named 输入表示 provider 自身的 authored-local 色图
 
 验收以同物理画幅的官方及本机原帧，核不同局部尺寸的导数、真实槽、主色前绘和独立后绘、一次终端写及 GPU 完成。改名、投影等价表达式、位移或过滤反例及独立作者沿实际路径验证。取样替代只在支持现有 attachment ABI 的 GPU 生效。比较原 GPU 阶段及主目标成本，分开截图与性能计时。整张主图复制可作为对照，采用前须证明可见收益与成本。
 
+<a id="root-quad-current-color-blend"></a>
+### 普通四边形的主色混合
+
+普通高级混合的末端原本以片元位置整数坐标读取冻结的同像素主色。根主画布上的标准四边形，若放置为恒定正齐次 W、来源与主附件存储分离，且颜色附件为现有支持的单采样格式，可在原作者截点由可选 PSO 直接读取 `color(0)`。两片共享一条光栅边，每一层最多覆盖一个片元。无子项的局部 Composition 工作输出与普通图片使用同一终端资格。
+
+原主画布 owner 完成前序 encoder 后，主终端以原 clear/load 生命周期读取当前附件。两种背景入口共用混合、颜色表示、雾、覆盖和背景 alpha 的原片元计算，源纹理继续经 slot0；实际写入只有一次。直接路径退出当前 `background-copy` 和对应物理背景绑定，原图层 source capture、具名/历史纹理、组、网格、折射及未取得可选 PSO 的路径各保原来源和冻结快照。复用设备资格、原 PSO 仓库和主合成入口。
+
+验收先比普通及 HDR 的整图 RGB/alpha，并覆盖相邻有重叠的不同四边形、边界像素、清屏、透明输入和非合格网格。真实作者同截点核作者历史、前后绘和终端主图，并独立测复制计数、GPU 时间、实际呈现与目标分配。附件读遵循 [Metal 隐式 imageblock](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf)。
+
 <a id="placement-only-composition-tail"></a>
 ### 透明 Composition 的末材放置栅格
 
