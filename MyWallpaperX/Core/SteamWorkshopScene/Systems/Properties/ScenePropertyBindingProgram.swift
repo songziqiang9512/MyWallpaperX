@@ -449,6 +449,7 @@ nonisolated struct ScenePropertyBindingCompiler {
             let admitsConditionalBoolean = binding.target.acceptsConditionalBoolean
                 && admittedConditionalBooleanKeys.contains(binding.reference.key)
             var isValid = true
+            var validatedProjectDefault: SceneDynamicValue?
             if binding.reference.isConditional, !admitsConditionalBoolean {
                 isValid = false
                 diagnostics.append(Self.compileDiagnostic(
@@ -488,19 +489,22 @@ nonisolated struct ScenePropertyBindingCompiler {
                         message: String(localized: "Property kind doesn’t match the binding target.")
                     ))
                 } else if let defaultValue = property.defaultValue {
-                    let defaultValidation = binding.reference.isConditional
+                    let defaultValidation: Result<SceneDynamicValue?, ScenePropertyBindingProgram.ValueError> =
+                        binding.reference.isConditional
                         && admitsConditionalBoolean
                         ? Self.validateConditionalValue(
                             defaultValue,
                             condition: binding.reference.condition,
                             propertyKind: property.kind
-                        )
+                        ).map { nil }
                         : ScenePropertyBindingProgram.convert(
                             defaultValue,
                             for: mapped.target,
                             as: mapped.valueType
-                        ).map { _ in () }
-                    if case let .failure(error) = defaultValidation {
+                        ).map(Optional.some)
+                    switch defaultValidation {
+                    case let .success(value): validatedProjectDefault = value
+                    case let .failure(error):
                         isValid = false
                         diagnostics.append(Self.compileDiagnostic(
                             code: Self.propertyDefaultCode(error),
@@ -520,7 +524,23 @@ nonisolated struct ScenePropertyBindingCompiler {
                     ))
                 }
             }
-            guard let fallback = binding.fallbackValue else {
+            let seed: Result<SceneDynamicValue, ScenePropertyBindingProgram.ValueError>
+            if let fallback = binding.fallbackValue {
+                // The VM input retains its independently typed authored fallback.
+                let inputFallback: SceneUserPropertyValue
+                switch (binding.target, propertyKind, fallback) {
+                case (.scriptProperty, .color, .number), (.scriptProperty, .slider, .bool):
+                    inputFallback = propertyDefinitions.first?.defaultValue ?? fallback
+                default:
+                    inputFallback = fallback
+                }
+                seed = Self.convertAuthoredFallback(inputFallback, target: binding.target, as: mapped.valueType)
+            } else if isValid, binding.hasUnspecifiedEffectSeed == true,
+                      case .effectConstant = mapped.target,
+                      mapped.propertyKind == .slider, mapped.valueType == .scalar,
+                      let validatedProjectDefault {
+                seed = .success(validatedProjectDefault)
+            } else {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 diagnostics.append(Self.compileDiagnostic(
                     code: .missingAuthoredValue,
@@ -530,21 +550,8 @@ nonisolated struct ScenePropertyBindingCompiler {
                 ))
                 continue
             }
-            // This checkpoint describes the declared producer. The VM input
-            // retains its independently typed authored fallback.
-            let inputFallback: SceneUserPropertyValue
-            switch (binding.target, propertyKind, fallback) {
-            case (.scriptProperty, .color, .number), (.scriptProperty, .slider, .bool):
-                inputFallback = propertyDefinitions.first?.defaultValue ?? fallback
-            default:
-                inputFallback = fallback
-            }
             let authoredValue: SceneDynamicValue
-            switch Self.convertAuthoredFallback(
-                inputFallback,
-                target: binding.target,
-                as: mapped.valueType
-            ) {
+            switch seed {
             case let .success(value):
                 authoredValue = value
             case let .failure(error):

@@ -94,6 +94,7 @@ nonisolated struct SceneUserPropertyBinding: Codable, Equatable, Hashable {
     let fallbackValue: SceneUserPropertyValue?
     let path: SceneUserPropertyPath
     let target: SceneUserPropertyBindingTarget
+    var hasUnspecifiedEffectSeed: Bool? = nil
 
     nonisolated func preservesAuthoredVisibility(
         propertyKind: SceneUserPropertyKind?
@@ -559,12 +560,18 @@ nonisolated struct SceneUserPropertyBindingParser {
                 fallbackValue = SceneUserPropertyValue.parse(dictionary["value"])
                 ownsProviderFallback = false
             }
-            let binding = SceneUserPropertyBinding(
+            var binding = SceneUserPropertyBinding(
                 reference: reference,
                 fallbackValue: fallbackValue,
                 path: propertyPath,
                 target: target
             )
+            if case .shaderValue = target, dictionary["user"] is String,
+               dictionary["value"] == nil || dictionary["value"] is NSNull,
+               dictionary["animation"] == nil, dictionary["script"] == nil,
+               dictionary["scriptproperties"] == nil {
+                binding.hasUnspecifiedEffectSeed = true
+            }
             bindings.append(binding)
             if case let .unsupported(reason) = target {
                 diagnostics.append(.init(

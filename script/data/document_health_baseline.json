@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 309930
+      "bytes": 310867
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 170,
-      "bytes": 29291
+      "lines": 172,
+      "bytes": 30025
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 216,
-      "bytes": 66914
+      "lines": 215,
+      "bytes": 66502
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -442,11 +442,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "4d8763da370b65936018b654a84eb82598f54925a678daf95d34e04053a2ee51",
-      "after": "10aab4ed5ec094511a7c206612ef79fa410608ea6bd6f48378a625924c702f96",
-      "owner": "Scene shared pointer, Script and Puppet frame owner",
-      "reason": "Define FIFO selection, matched shared input and bone pose, retirement, and retained single screen layer attachments.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#cursor-puppet-surface"
+      "before": "10aab4ed5ec094511a7c206612ef79fa410608ea6bd6f48378a625924c702f96",
+      "after": "8b03d7a809a475ced26626270e6ac0e8c86fee6239074ae75fa7d9b30abcd7b4",
+      "owner": "Scene material property binding and prepared uniform",
+      "reason": "Defines the direct missing-seed Slider contract and exact reflected scalar consumer check.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
     },
     {
       "section": "bodies",
@@ -577,11 +577,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "52bf47c72fe38fe304f9365ff913b6253ca53dc5be520c66751628cfb4b3b3bd",
-      "after": "42c079e82fc0fac424ad17cad4a2f4ed5a84b68a6ede6c9a5d48075cee475e2f",
-      "owner": "Scene native Sprite depth and MainPass",
-      "reason": "Records official read/write and same-system controls, native GPU order and independent orthographic coverage.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-clock-sprite-depth-324"
+      "before": "42c079e82fc0fac424ad17cad4a2f4ed5a84b68a6ede6c9a5d48075cee475e2f",
+      "after": "1b936a8aba71e7beb4ffd42f52c9e00ff4ebc0c7bb25166ca4385fc12832f44c",
+      "owner": "Scene material property binding and prepared uniform",
+      "reason": "Records official, signed App, rename and wrong ABI Shader seed and hot-update evidence.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#author-null-shake-seed-377"
     },
     {
       "section": "bodies",
@@ -640,10 +640,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c6a23070147a7e45607ae1461a70f624c4b867c9fb98b5bdd911c10154ad7a58",
-      "after": "6d5905e780e1aab1b98656856b0f55bf49c4504943c459bb25ca350a68c8788b",
-      "owner": "Scene native Sprite depth and MainPass",
-      "reason": "Retires the verified translucent depth entry while retaining the remaining clock background and halo differences.",
+      "before": "6d5905e780e1aab1b98656856b0f55bf49c4504943c459bb25ca350a68c8788b",
+      "after": "daff4ee0709552d1497aa1ebe5ccba6a62552f19f4e4f58a0726ab80ae06f5e7",
+      "owner": "Scene material property binding and prepared uniform",
+      "reason": "Retires the closed authored missing-seed Slider issue.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     },
     {

@@ -1,4 +1,4 @@
-"""Missing shader-property inputs retain a typed authored fallback, not a VM."""
+"""Authored shader fallbacks and project scalar seeds through the typed Program."""
 from __future__ import annotations
 
 import hashlib
@@ -19,6 +19,7 @@ SOURCES = list(dict.fromkeys([
     *material_fixture.SWIFT_SOURCES,
     *material_fixture.SHARED_FIXTURE_SOURCES,
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift",
 ]))
 
 HARNESS = r'''
@@ -34,13 +35,21 @@ enum Vec2FallbackHarness {
               displayCondition: nil, defaultValue: value, options: [])
     }
 
-    static func root(_ key: String, _ value: Any, layer: Int = 41,
+    static func root(_ key: String, _ value: Any?, layer: Int = 41,
                      name: String = "Coverage", resource: String = "effects/own/frame.json",
-                     rawUser: Any? = nil) -> [String: Any] {
+                     rawUser: Any? = nil, sibling: Bool = false,
+                     metadata: [String: Any] = [:]) -> [String: Any] {
+        var binding = metadata
+        binding["user"] = rawUser ?? key
+        binding["value"] = value
         let pass: [String: Any] = ["id": 9,
-            "constantshadervalues": [name: ["user": rawUser ?? key, "value": value]]]
-        let effect: [String: Any] = ["id": 5, "file": resource, "passes": [pass]]
-        return ["objects": [["id": layer, "effects": [effect]]]]
+            "constantshadervalues": [name: binding]]
+        var effects: [[String: Any]] = [["id": 5, "file": resource, "passes": [pass]]]
+        if sibling {
+            effects.append(["id": 6, "file": resource, "passes": [["id": 10,
+                "constantshadervalues": [name: ["user": key, "value": 0.077] as [String: Any]]]]])
+        }
+        return ["objects": [["id": layer, "effects": effects]]]
     }
 
     static func compile(_ root: [String: Any], properties: [SceneUserPropertyDefinition] = [])
@@ -64,10 +73,50 @@ enum Vec2FallbackHarness {
             definitions: compilation.program.definitions).snapshot
         return ["definitions": compilation.program.definitions.count,
             "instructions": compilation.program.instructions.count,
+            "rebuildKeys": compilation.program.rebuildRequiredKeys.sorted(),
             "values": compilation.program.definitions.map { components($0.authoredValue) },
             "types": compilation.program.definitions.map { $0.valueType.rawValue },
             "snapshotCount": snapshot.count,
             "diagnostics": compilation.diagnostics.map { $0.code.rawValue }.sorted()]
+    }
+
+    static func scalarCycle(_ value: Any?, key: String, name: String, layer: Int) -> [String: Any] {
+        let properties = [property(key, .slider, .number(0.07))]
+        let compilation = compile(root(key, value, layer: layer, name: name,
+            resource: "effects/\(key)/shape.json", sibling: true), properties: properties)
+        let program = compilation.program
+        let targets: [SceneDynamicTarget] = (0 ... 1).map {
+            .effectConstant(layerID: layer, effectIndex: $0, passIndex: 0, name: name)
+        }
+        var state = ScenePropertyLiveUpdateState(program: program, effectiveValues: [key: .number(0.07)],
+            activeConsumerTargets: Set(targets), propertyDefinitions: properties)
+        func readFrame() -> [[String: Any]] {
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: state.revision,
+                generation: state.revision + 1, definitions: program.definitions, userValues: state.userValues).snapshot
+            return targets.map { target in
+                guard let resolved = snapshot[target] else { return [:] }
+                let bytes = SceneResolvedMaterialUniformEncoder.encode(resolved.value, as: .float)
+                let floatValue = bytes?.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }
+                return ["value": components(resolved.value), "source": resolved.source.rawValue,
+                        "floatBytes": bytes?.count ?? 0, "floatValue": floatValue ?? -1,
+                        "rejectsVectorABI": SceneResolvedMaterialUniformEncoder.encode(resolved.value, as: .float2) == nil]
+            }
+        }
+        var frames = [readFrame()]
+        var accepted: [Bool] = []
+        let updates: [SceneUserPropertyValue] = [.number(0.02), .number(0.08), .string("invalid"), .number(0.02)]
+        for update in updates {
+            accepted.append(state.apply(update, forPropertyKey: key))
+            frames.append(readFrame())
+        }
+        var row = summary(compilation)
+        row["authoredSeeds"] = targets.map { target in
+            program.definitions.first(where: { $0.target == target }).map { components($0.authoredValue) } ?? []
+        }
+        row["accepted"] = accepted
+        row["frames"] = frames
+        row["revision"] = state.revision
+        return row
     }
 
     static func preparedBinding(_ definition: SceneDynamicTargetDefinition, key: String,
@@ -182,6 +231,31 @@ enum Vec2FallbackHarness {
         duplicate["objects"] = (duplicate["objects"] as! [[String: Any]])
             + (root("second", "0.2 0.8")["objects"] as! [[String: Any]])
         output["duplicateTarget"] = summary(compile(duplicate))
+        output["scalarSeedCycles"] = [
+            "null": scalarCycle(NSNull(), key: "amount", name: "Amplitude", layer: 41),
+            "omittedRenamed": scalarCycle(nil, key: "renamedStrength", name: "Magnitude", layer: 73),
+            "explicit": scalarCycle(0.065, key: "explicitGain", name: "Gain", layer: 49),
+        ]
+        let scalarKey = "gain"
+        let validScalar = property(scalarKey, .slider, .number(0.07))
+        var duplicateScalar = root(scalarKey, NSNull(), name: "Amplitude")
+        duplicateScalar["objects"] = (duplicateScalar["objects"] as! [[String: Any]])
+            + (root("duplicate", nil, name: "Amplitude")["objects"] as! [[String: Any]])
+        output["invalidScalarSeeds"] = [
+            "missingKey": summary(compile(root(scalarKey, NSNull()))),
+            "wrongKind": summary(compile(root(scalarKey, nil),
+                properties: [property(scalarKey, .bool, .bool(true))])),
+            "missingDefault": summary(compile(root(scalarKey, NSNull()),
+                properties: [property(scalarKey, .slider, nil)])),
+            "nonfiniteDefault": summary(compile(root(scalarKey, NSNull()),
+                properties: [property(scalarKey, .slider, .number(.infinity))])),
+            "malformedValue": summary(compile(root(scalarKey, ["bad": 1]), properties: [validScalar])),
+            "wrongTypeValue": summary(compile(root(scalarKey, false), properties: [validScalar])),
+            "scriptAttached": summary(compile(root(scalarKey, NSNull(),
+                metadata: ["script": "export function update(value) { return value; }"]), properties: [validScalar])),
+            "duplicateTarget": summary(compile(duplicateScalar,
+                properties: [validScalar, property("duplicate", .slider, .number(0.06))])),
+        ]
         output["floatOverflowConsumerRejected"] = SceneResolvedMaterialUniformEncoder.encode(
             SceneDynamicValue.vector2(0, 1e300), as: .float2) == nil
         output["CPUOnly"] = true // no Metal device/command queue is created
@@ -277,6 +351,33 @@ class SceneShaderVec2AuthoredFallbackTests(unittest.TestCase):
             for key in ["wrongLayer", "timelineConflict", "scriptConflict", "unprovedScriptAttachment", "producerWrapperKey"]:
                 self.assertNotEqual(row[key], "accepted", key)
         self.assertTrue(self.result["CPUOnly"])
+
+    def test_scalar_project_seed_keeps_same_key_sibling_live(self) -> None:
+        for name, row in self.result["scalarSeedCycles"].items():
+            with self.subTest(seed=name):
+                self.assertEqual(row["definitions"], 2)
+                self.assertEqual(row["instructions"], 2)
+                self.assertEqual(row["types"], ["scalar", "scalar"])
+                self.assertEqual(row["authoredSeeds"], [[0.065 if name == "explicit" else 0.07], [0.077]])
+                self.assertEqual(row["rebuildKeys"], [])
+                self.assertEqual(row["accepted"], [True, True, False, True])
+                self.assertEqual(row["revision"], 3)
+                for frame, expected in zip(row["frames"], (0.07, 0.02, 0.08, 0.08, 0.02), strict=True):
+                    self.assertEqual(len(frame), 2)
+                    for uniform in frame:
+                        self.assertEqual(uniform["value"], [expected])
+                        self.assertEqual(uniform["source"], "userProperty")
+                        self.assertEqual(uniform["floatBytes"], 4)
+                        self.assertAlmostEqual(uniform["floatValue"], expected, places=7)
+                        self.assertTrue(uniform["rejectsVectorABI"])
+
+    def test_scalar_project_seed_does_not_rescue_invalid_or_competing_sources(self) -> None:
+        for name, row in self.result["invalidScalarSeeds"].items():
+            with self.subTest(seed=name):
+                self.assertEqual(row["definitions"], 0)
+                self.assertEqual(row["instructions"], 0)
+                self.assertEqual(row["snapshotCount"], 0)
+                self.assertIn("gain", row["rebuildKeys"])
 
 
 if __name__ == "__main__":

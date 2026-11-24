@@ -38,6 +38,8 @@ Utility 冷准备的完整 effect target 先取得原层级准备与 SourceRoute
 
 effect pass 的数值常量从已有 authored pass 解析，保原 wrapper、fallback、Timeline 与来源声明。DocumentResolver 的启动 effective 投影继续服务显隐、资源、combo 等入口；有效数值由原 BindingProgram→liveState→DynamicSnapshot→uniform 消费，不再用 resolved pass 的启动属性值充当材质 authored fallback。沿 SceneDocument 原解析职责替换该投影，不增加值副本、类型推断器或每帧补偿；base-material 输入保持自身 owner。
 
+直接绑定项目 Slider 的 effect scalar 若省略 `value` 或显式声明 JSON null，绑定编译沿原默认值类型检查取得合法项目默认值用于定义目标。启动值及后续热更仍由原属性指令发布；有效用户覆盖优先，显式作者种子和 shader default 保原职责。解析只区分缺种子与非法非空种子，保持原始材质声明。冷准入消费实际活动的非数组 `float` 字段，保持不兼容目标的局部拒绝。缺键、错型、缺项目默认、冲突及 Script/Timeline 声明未获得此资格；保持同键真实重建需求。验收用同包两个初值、现有窗口往返热更、显式值、坏键及独立正常作者，证真实 uniform 和合成。
+
 BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时，该固定数值 fallback 不再依赖 effective 启动投影，因此不为它新增 key 的重建要求。同 key 的其他资源、combo 或启动消费者已有的重建标记继续保留；不能从集合删 key、按部分 mutation 绕开事务，或把尚无合法 definition 的输入一起放宽。合法同 key Bool writer 可沿原 ready/expected-target 门热更，其他真实消费者未准备时仍整体拒绝更新。
 
 准备阶段按完整 layer/effect/pass/name 查真实 writer。同 key 的合法 visibility、其他 layer/pass 或其他数值 target 不阻止本 target 使用已有合法 fallback；也不能借其值、类型或存在性作为本 target 的 producer。保原 authoredFallbackTargets 索引及直接 wrapper 合同，不另发许可、建立 registry 或复制状态。该索引只说明现有 definition 的目标归属；实际 type/ABI、来源和编码值与 fallback 对应仍由原 Program/uniform 消费者负责，不能把 Set membership 说成完整字节验证。

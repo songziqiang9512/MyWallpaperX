@@ -48,26 +48,26 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         variants: SceneResolvedMaterialVariantCache?
     ) -> Bool {
         guard let producerType else { return true }
-        guard let fallback = dynamic.authoredFallback,
-              fallback.valueKind.localizedLowercase == "binding",
-              SceneResolvedMaterialDirectUserBindingContract.matches(
-                  dynamic: dynamic,
-                  fallback: fallback
-              ) else {
-            return true
+        let usesProjectScalarSeed = dynamic.authoredFallback == nil && producerType == .scalar
+        if !usesProjectScalarSeed {
+            guard let fallback = dynamic.authoredFallback,
+                  fallback.valueKind.localizedLowercase == "binding",
+                  SceneResolvedMaterialDirectUserBindingContract.matches(
+                      dynamic: dynamic,
+                      fallback: fallback
+                  ) else { return true }
+            let expected: SceneDynamicValueType
+            switch fallback.componentBitPatterns.count {
+            case 1: expected = .scalar
+            case 2: expected = .vector2
+            case 3: expected = .vector3
+            case 4: expected = .vector4
+            default: return true
+            }
+            if producerType == expected { return true }
+            guard producerType == .scalar, expected == .vector2 else { return false }
         }
-        let expected: SceneDynamicValueType
-        switch fallback.componentBitPatterns.count {
-        case 1: expected = .scalar
-        case 2: expected = .vector2
-        case 3: expected = .vector3
-        case 4: expected = .vector4
-        default: return true
-        }
-        if producerType == expected { return true }
-        guard producerType == .scalar, expected == .vector2, let variants else {
-            return false
-        }
+        guard let variants else { return false }
         let envelope = variants.launchEnvelopeCapabilitySnapshot()
         guard envelope.allEntriesReady else { return false }
         var hasConsumer = false
@@ -75,7 +75,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             for binding in variant.preparedUniformBindings {
                 guard case let .dynamic(prepared) = binding.source,
                       prepared.declaration == dynamic else { continue }
-                guard prepared.splatsScalarToFloat2 else { return false }
+                let admitsScalar = usesProjectScalarSeed
+                    ? binding.field.type == .float && binding.field.arrayCount == nil
+                    : prepared.splatsScalarToFloat2
+                guard admitsScalar else { return false }
                 hasConsumer = true
             }
         }
