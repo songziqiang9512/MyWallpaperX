@@ -161,8 +161,8 @@
       "bytes": 5107
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 243,
-      "bytes": 68611
+      "lines": 245,
+      "bytes": 69233
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -640,11 +640,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e3a793be4410a19f2dd61cd2c98dd2ea69c7f5a37d9430089f0f7bd756dfde88",
-      "after": "531036f9f81d05b4a869fb6279d785454e1e1a5de2fde2415b198aa03e408373",
-      "owner": "Scene open breakpoint queue",
-      "reason": "按用户要求保留已修复现象和资格锚点，防止接续时重复排查。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#resolved-user-feedback"
+      "before": "ea838c2f5c00ca8f85ddfb2fa4be0df76c2ca89990c58e4206a2e17a32777334",
+      "after": "8fa7a28cace3170d1bb591f85394543bb6ef5b401c8815adf5934eb7a9bf854e",
+      "owner": "Scene sample screening",
+      "reason": "Record the newly discovered input range and the observed short-window presentation qualification.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties"
     },
     {
       "section": "bodies",

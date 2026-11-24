@@ -6,6 +6,8 @@
 
 2026-11-24 增量筛查以现库859个目录与仓库旧归档522个 ID 对账，旧3个已不在库，340个待核。9个复用 project、包和树摘要均一致的既有实际运行。本轮331个输入进入签名候选 `740bf83d…d3016f` 的默认4秒流程，329个取得匹配终端 GPU 回执。3736952187 缺 project，3822067395 缺首帧。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放，后续仍须实际音频、媒体、交互、成熟时段及官版对照。
 
+2026-11-25 实库862个目录，新增3822608807、3842434470、3842709835均以 `31d5b1b8f` 的签名候选完成默认4秒、终端GPU与停止排空。三者各取得左→右→左轨迹的3张匹配GPU帧。两件X-Ray的17/e0均由通用Program消费鼠标，移位有局部像素变化，回位逐像素相同。3822608807含持续动态，轨迹图只授实际终端捕获。当前未定位共同渲染断点；两场短窗呈现诊断归下方工具项。原始报告与帧归 `.artifacts/scene-evidence/runs/scene-author-intake-delta-20261125/`。
+
 11-24 的31项观察按首个可见断点复核。接续先对照页尾[已修复的用户反馈](#resolved-user-feedback)及[运行证据](../capabilities/runtime-evidence-current.md)。优先处理可复现的播放阻断、画面及交互差异，沿各行停止线推进。11-07补报13项中8项实跑、5项仅有census，定位与图1–5归`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
@@ -191,7 +193,7 @@
 <a id="properties"></a>
 ## 属性与工具资格
 
-本轮证据位于当前worktree的`.artifacts/scene-problem-retest-20261107/`；旧635集合只用于差集和原条件对账，来源由本轮selection/input-drift收据维护。当前746个可解析输入不等于全库已播放验收，目标外目录及未资格的属性、周期、ROI仍保未知。
+11-07定向复验归`.artifacts/scene-problem-retest-20261107/`，该轮746个可解析输入及旧635集合的差集由selection/input-drift收据维护。未触发的属性、周期及ROI仍待资格。
 
 | 定位 | 下一步 |
 |---|---|
@@ -199,7 +201,7 @@
 | effect 显隐 / history | 同 scene-time 像素 A/B、真实 descriptor 变化与 349 类 activation 切换仍需实际 App 资格。运行时材料失败的已提交历史保持、首帧/reset 与 capability-level 反例归[运行证据](../capabilities/runtime-evidence-current.md#stale-history-seed)，职责归[history 合同](../capabilities/render-graph-shader-coverage.md#history-read-write-split)；不把重建透明内容当成历史保持，不另建 owner。 |
 | text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
 | 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
-| presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
+| presented / performance 记录 | 实际GPU完成与系统呈现分开。3822608807、3842434470的后台短窗有合格鼠标帧，普通检测分别缺呈现流数量与interval身份而整轮CHECK。沿present callback核短窗/多Surface呈现；独立视觉任务须能单报画面结论，终端PNG不能授权性能对照。 |
 | 自有ABI与验证载体职责 | `SceneQuickJS.c`仍2801行，是自有适配而非第三方源码；既有domain/owner、输入和typed调用职责须收敛，不能以第三方豁免、搬行或新增wrapper宣称达标。`test_scene_generic_shader_program_artifact.py`、`test_scene_dependency_graph_output_runtime.py`及`test_scene_particle_simulator.py`也仍超1000行，混有内嵌Swift壳、legacy与跨主题probe。沿真实结果生产职责退重复和失效部分，保ABI、原字节和像素oracle；当前CodeHealth只覆盖Swift，不能授C/Python全语言合规。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 周期终端截图与收尾 | 366首15 A有8次superseded，后续四矮行星B在teardown拒绝series-0011/request14，均使整轮采集FAIL；已选各目标HOLD内的成功帧不受此自动否定，也不能将整轮改记PASS。沿原截图请求owner核周期请求与结束排空，只在有实际目标缺帧时补对应目标，不为采集失败改播放或延时重跑全轮。 |
