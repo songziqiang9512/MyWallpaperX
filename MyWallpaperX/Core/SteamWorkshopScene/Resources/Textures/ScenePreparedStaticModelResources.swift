@@ -196,6 +196,7 @@ struct ScenePreparedStaticModelResources {
         descriptor: SceneRenderDescriptor,
         directionalShadowDimensionLimit: Int? = 4096,
         pointVolumeEnabled: Bool = true,
+        modelReflectionsEnabled: Bool = true,
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
@@ -350,9 +351,9 @@ struct ScenePreparedStaticModelResources {
             }
 
             guard !entries.isEmpty else { return .empty }
-            let reflectiveLayerIDs = Set(entries.compactMap { id, parts in
+            let reflectiveLayerIDs: Set<Int> = modelReflectionsEnabled ? Set(entries.compactMap { id, parts in
                 parts.contains { ($0.material.surfaceProfile?.reflectivity ?? 0) > 0 } ? id : nil
-            })
+            }) : []
             guard let pipeline = SceneStaticModelPipeline(
                 device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
                 preparesReflection: !reflectiveLayerIDs.isEmpty,

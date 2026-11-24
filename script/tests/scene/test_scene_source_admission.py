@@ -294,7 +294,9 @@ enum SceneDaemonProtocolFailure:Error {case invalidPayload(String)}
 enum SceneDaemonProtocol {
     static let version=2
     static func shortcutObject(_ value:ScenePlaybackShortcutConfiguration)->[String:Any]{[:]}
-''' + method(protocol, '    static func sourceObject(') + '\n' + method(protocol, '    static func boolean(_ raw: Any?) -> Bool?') + r'''
+''' + '\n'.join(method(protocol, signature) for signature in (
+            '    static func sourceObject(', '    static func boolean(_ raw: Any?) -> Bool?',
+            '    static func writeRenderQuality(')) + r'''
 }
 struct DaemonPlaybackProcessRegistry {static let shared=Self();let acceptsNewProcesses=true}
 struct Backoff {mutating func reset(){}}
@@ -324,6 +326,7 @@ struct Execution {let presented:Bool}
     var lastPropertyRevision:UInt64=0
     var restartWorkItem:DispatchWorkItem?,handshakeWorkItem:DispatchWorkItem?
     var performanceProfile=(maxFPS:60,ignored:false)
+    var sceneRenderQuality = SceneRenderQuality()
     var isPaused=false
     var outputFrames=FrameBuffer()
     var sessionGeneration:UInt64=1
@@ -399,7 +402,8 @@ struct PlaybackMuteState {static let shared=Self();var isMuted:Bool{false}}
     }
 }
 '''
-        self.assertEqual(len(compile_run(self, text, [SOURCE])), 7)
+        profile = ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift'
+        self.assertEqual(len(compile_run(self, text, [SOURCE, profile])), 7)
 
 
 if __name__ == '__main__':

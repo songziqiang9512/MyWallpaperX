@@ -103,6 +103,7 @@ final class AppKitSettingsContainerView: NSView {
     let scenePostProcessingPopup = NSPopUpButton()
     let sceneShadowsPopup = NSPopUpButton()
     let scenePointVolumePopup = NSPopUpButton()
+    let sceneReflectionsSwitch = NSSwitch()
     let sceneMediaInfoSwitch = NSSwitch()
     let webFrameRatePopup = NSPopUpButton()
     let resetQualityButton = NSButton(title: String(localized: "Restore Default Quality"), target: nil, action: nil)

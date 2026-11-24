@@ -410,15 +410,25 @@ nonisolated enum SceneDaemonProtocol {
         return PlaybackPerformanceProfile(rawValue: value)
     }
 
+    static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any]) {
+        payload["scenePostProcessing"] = quality.postProcessing.rawValue
+        payload["shadowQuality"] = quality.shadows.rawValue
+        payload["pointVolumeQuality"] = quality.pointVolume.rawValue
+        payload["reflectionQuality"] = quality.reflections.rawValue
+    }
+
     private static func renderQuality(_ payload: [String: Any], fallback: SceneRenderQuality? = nil) -> SceneRenderQuality? {
         let postProcessingRaw = payload["scenePostProcessing"] ?? fallback.map { $0.postProcessing.rawValue as Any }
         let shadowRaw = payload["shadowQuality"] ?? fallback.map { $0.shadows.rawValue as Any }
         let pointVolumeRaw = payload["pointVolumeQuality"] ?? fallback.map { $0.pointVolume.rawValue as Any }
+        let reflectionRaw = payload["reflectionQuality"] ?? fallback.map { $0.reflections.rawValue as Any }
         guard let postProcessing = (postProcessingRaw as? String).flatMap(ScenePostProcessingMode.init(rawValue:)),
               let shadows = (shadowRaw as? String).flatMap(SceneShadowQuality.init(rawValue:)),
-              let pointVolume = (pointVolumeRaw as? String).flatMap(ScenePointVolumeQuality.init(rawValue:))
+              let pointVolume = (pointVolumeRaw as? String).flatMap(ScenePointVolumeQuality.init(rawValue:)),
+              let reflections = (reflectionRaw as? String).flatMap(SceneReflectionQuality.init(rawValue:))
         else { return nil }
-        return .init(postProcessing: postProcessing, shadows: shadows, pointVolume: pointVolume)
+        return .init(postProcessing: postProcessing, shadows: shadows, pointVolume: pointVolume,
+            reflections: reflections)
     }
 
     private static func displayConfiguration(

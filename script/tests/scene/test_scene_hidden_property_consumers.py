@@ -94,10 +94,14 @@ struct SceneResolvedMaterialRuntimeCatalog {
 // Prepared-program dictionaries are leaves. Alias lookup is the production
 // runtime method, so the candidate projection must cover the same consumers.
 final class SceneResolvedMaterialRuntimeBridge {
-    struct PreparedSourceMaterial { var sharedModelPath: String? }
+    struct PreparedSourceMaterial {
+        var sharedModelPath: String?
+        var requiresSceneEnvironment = false
+    }
     struct SourceMaterialConsumer { var layerID: Int; var prototypeLayerID: Int }
     __SOURCE_MATERIAL_STORAGE__
     private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
+    private(set) var hasSourceMaterialSceneEnvironmentConsumer = false
     __SOURCE_MATERIAL_CONSUMER__
 }
 

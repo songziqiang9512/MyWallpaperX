@@ -390,12 +390,35 @@ extension SceneMetalRenderer {
                 $0.alpha > 0 && ($0.material.surfaceProfile?.reflectivity ?? 0) > 0
             } == true
         }
+        var sourceConsumers: [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer]?
+        func demandedSourceMaterials(in runtime: SceneResolvedMaterialRuntimeBridge)
+            -> [SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer] {
+            if let sourceConsumers { return sourceConsumers }
+            let demanded = orderedLayers.compactMap { layer -> SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer? in
+                guard let consumer = runtime.sourceMaterialConsumer(layerID: layer.id, modelPath: layer.imagePath) else { return nil }
+                let needed = frameVisibleLayerIDs.contains(layer.id)
+                    || dependencyRuntime.providerBindingsByLayerID[layer.id]?.contains {
+                        resolvedMaterialFrameTargetPlans[$0.consumerLayerID] != nil
+                    } == true
+                    || dependencyRuntime.staticModelConsumerLayerIDsByProviderLayerID[layer.id]
+                        .map { !$0.isDisjoint(with: activeStaticModelNamedAlbedoLayerIDs) } == true
+                return needed ? consumer : nil
+            }
+            sourceConsumers = demanded
+            return demanded
+        }
         var reflectionDemand: Bool?
         func requiresImageReflection() -> Bool {
             if let reflectionDemand { return reflectionDemand }
-            let needed = hasReflectionConsumers(imageTextures: imageTextures,
+            var needed = hasReflectionConsumers(imageTextures: imageTextures,
                 framePlans: resolvedMaterialFrameTargetPlans, visibleLayerIDs: frameVisibleLayerIDs,
                 orderedLayers: orderedLayers)
+            if !needed, let runtime = imageCompositor.resolvedMaterialRuntime,
+               runtime.hasSourceMaterialSceneEnvironmentConsumer {
+                needed = demandedSourceMaterials(in: runtime).contains { consumer in
+                    runtime.sourceMaterials[consumer.prototypeLayerID]?.requiresSceneEnvironment == true
+                }
+            }
             reflectionDemand = needed
             return needed
         }
@@ -478,9 +501,9 @@ extension SceneMetalRenderer {
                     mainPass: mainPass, groups: groups,
                     commandBuffer: commandBuffer, leases: &frameDepthLeases)
             }
-            // Named graph colors can arrive after this reservation. The
-            // ready reflector and those models use one mandatory root depth.
-            guard groups == nil, hasReadyReflectiveModel,
+            // Named graph colors can arrive after this reservation. All
+            // models in this route use one mandatory root depth.
+            guard groups == nil,
                   !particleBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }),
                   !dependencyRuntime.plan.requiredProviderLayerIDs.contains(where: { id in
                       dependencyRuntime.requiresCapture(for: id,
@@ -524,17 +547,7 @@ extension SceneMetalRenderer {
                 batches: particleBatchesByID, particlePipeline: particlePipeline,
                 mainPass: mainPass, groups: compositionGroupRuntime,
                 utilityExecution: frameProjection.utilityExecution) {
-            let activeConsumers = Set(resolvedMaterialFrameTargetPlans.keys)
-            let demanded = orderedLayers.compactMap { layer -> SceneResolvedMaterialRuntimeBridge.SourceMaterialConsumer? in
-                guard let consumer = runtime.sourceMaterialConsumer(layerID: layer.id, modelPath: layer.imagePath) else { return nil }
-                let needed = frameVisibleLayerIDs.contains(layer.id)
-                    || dependencyRuntime.providerBindingsByLayerID[layer.id]?.contains {
-                        activeConsumers.contains($0.consumerLayerID)
-                    } == true
-                    || dependencyRuntime.staticModelConsumerLayerIDsByProviderLayerID[layer.id]
-                        .map { !$0.isDisjoint(with: activeStaticModelNamedAlbedoLayerIDs) } == true
-                return needed ? consumer : nil
-            }
+            let demanded = demandedSourceMaterials(in: runtime)
             let terminalPins: [SceneOffscreenTexturePool.PinnedTexture]?
             if !demanded.isEmpty, sceneColor == nil, displayMappingPostProcess != nil {
                 // Reserve the existing neutral composition slot, not the

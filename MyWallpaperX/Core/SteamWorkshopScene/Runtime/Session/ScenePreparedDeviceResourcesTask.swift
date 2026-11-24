@@ -21,6 +21,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let descriptor: SceneRenderDescriptor
     private let directionalShadowDimensionLimit: Int?
     private let pointVolumeEnabled: Bool
+    private let modelReflectionsEnabled: Bool
     private let resourceView: SceneResourceView
     private let device: MTLDevice
     private let cacheDirectory: URL
@@ -41,6 +42,7 @@ final class ScenePreparedDeviceResourcesTask {
         descriptor: SceneRenderDescriptor,
         directionalShadowDimensionLimit: Int?,
         pointVolumeEnabled: Bool,
+        modelReflectionsEnabled: Bool,
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
@@ -58,6 +60,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.descriptor = descriptor
         self.directionalShadowDimensionLimit = directionalShadowDimensionLimit
         self.pointVolumeEnabled = pointVolumeEnabled
+        self.modelReflectionsEnabled = modelReflectionsEnabled
         self.resourceView = resourceView
         self.device = device
         self.cacheDirectory = cacheDirectory
@@ -134,6 +137,7 @@ final class ScenePreparedDeviceResourcesTask {
                     descriptor: descriptor,
                     directionalShadowDimensionLimit: directionalShadowDimensionLimit,
                     pointVolumeEnabled: pointVolumeEnabled,
+                    modelReflectionsEnabled: modelReflectionsEnabled,
                     resourceView: resourceView,
                     device: device,
                     textureLoader: baseImages.textureLoader,

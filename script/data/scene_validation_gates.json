@@ -546,7 +546,8 @@
         "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
         "MyWallpaperX/Core/PlaybackControl/PlaybackEngineControlling.swift",
         "MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift",
-        "MyWallpaperX/Core/PlaybackControl/PlaybackIntentEpoch.swift"
+        "MyWallpaperX/Core/PlaybackControl/PlaybackIntentEpoch.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
       ],
       "modules": [
         "test_playback_command_multiplexer"

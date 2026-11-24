@@ -64,12 +64,13 @@ import Foundation
         let hdrLoadValid: Bool
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(hdrLoadPayload) {
             hdrLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, shadows: .adaptive)
-                && quality.pointVolume == .enabled
+                && quality.pointVolume == .enabled && quality.reflections == .enabled
         } else { hdrLoadValid = false }
-        let qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality",
-            "scenePostProcessing": "displayHDR", "shadowQuality": "medium", "pointVolumeQuality": "disabled"]
-        let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(
-            .init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)))
+        let requestedQuality = SceneRenderQuality(postProcessing: .ultraDisplayHDR,
+            shadows: .medium, pointVolume: .disabled, reflections: .disabled)
+        var qualityChangePayload: [String: Any] = ["v": 2, "cmd": "setSceneRenderQuality"]
+        SceneDaemonProtocol.writeRenderQuality(requestedQuality, to: &qualityChangePayload)
+        let qualityChangeValid = decode(qualityChangePayload) == .success(.setSceneRenderQuality(requestedQuality))
         var shadowLoadPayload = hdrLoadPayload
         shadowLoadPayload.removeValue(forKey: "scenePostProcessing")
         shadowLoadPayload["shadowQuality"] = "disabled"
@@ -83,8 +84,14 @@ import Foundation
         if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(pointVolumeLoadPayload) {
             pointVolumeLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, pointVolume: .disabled)
         } else { pointVolumeLoadValid = false }
+        var reflectionLoadPayload = hdrLoadPayload
+        reflectionLoadPayload["reflectionQuality"] = "disabled"
+        let reflectionLoadValid: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, _, quality)) = decode(reflectionLoadPayload) {
+            reflectionLoadValid = quality == .init(postProcessing: .ultraDisplayHDR, reflections: .disabled)
+        } else { reflectionLoadValid = false }
         let invalidQualityValues: [Any] = [true, "unknown", NSNull()]
-        let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality"]
+        let qualityKeys = ["scenePostProcessing", "shadowQuality", "pointVolumeQuality", "reflectionQuality"]
         let malformedQualityRejected = [hdrLoadPayload, qualityChangePayload].allSatisfy { payload in
             qualityKeys.allSatisfy { key in
                 invalidQualityValues.allSatisfy { value in
@@ -479,6 +486,7 @@ import Foundation
             "hdrLoadValid": hdrLoadValid,
             "shadowLoadValid": shadowLoadValid,
             "pointVolumeLoadValid": pointVolumeLoadValid,
+            "reflectionLoadValid": reflectionLoadValid,
             "qualityChangeValid": qualityChangeValid,
             "malformedQualityRejected": malformedQualityRejected,
             "incompleteQualityUpdateRejected": incompleteQualityUpdateRejected,

@@ -282,6 +282,7 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             directionalShadowDimensionLimit: sceneRenderQuality.shadows.directionalDimensionLimit,
             pointVolumeEnabled: sceneRenderQuality.pointVolume == .enabled,
+            modelReflectionsEnabled: sceneRenderQuality.reflections == .enabled,
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,

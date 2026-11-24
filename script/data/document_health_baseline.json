@@ -77,8 +77,8 @@
       "bytes": 73409
     },
     "docs/development/wallpaper-quality-work-card.md": {
-      "lines": 78,
-      "bytes": 14216
+      "lines": 90,
+      "bytes": 16286
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -93,8 +93,8 @@
       "bytes": 5047
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 267,
-      "bytes": 50446
+      "lines": 269,
+      "bytes": 51122
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -369,19 +369,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8adb2c0f159ed48faafc3938f018d3962c9ee931b3b027d801ed101e0b69fc44",
-      "after": "1d268ccfeaf930f9df03a89bd5eba33ef8f20dcc0a39b09c2123ee76752d6d38",
+      "before": "1d268ccfeaf930f9df03a89bd5eba33ef8f20dcc0a39b09c2123ee76752d6d38",
+      "after": "0afa259654d4f020d88ba77a8fc77b76435ae5072f69a109cbd7eeaf4f2e5470",
       "owner": "Scene runtime / Metal",
-      "reason": "点光体积开关与共享灯、主相机深度及聚光职责。",
+      "reason": "补模型反射冷准备、作者环境和独立持久帧的权威交界。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-quality-work-card.md",
-      "before": "d775758d9b3c1d49a39b5cd1a5c982c079f064e8b3b6929983ac076fbc797108",
-      "after": "bdb55214dc5d148b0bac24aa21df5bca15dd66d94a79cb4e78ed66ecf7c78694",
+      "before": "bdb55214dc5d148b0bac24aa21df5bca15dd66d94a79cb4e78ed66ecf7c78694",
+      "after": "a589a5b268884ae83a9d1168df0f562a8059e8e525664e53882910cb4e2cf91f",
       "owner": "Scene runtime / App playback",
-      "reason": "定点光体积开关准备、默认和热路径的现役边界。",
+      "reason": "记录同包模型反射像素、独立 authored input 保持与关闭档产出。",
       "decision": "docs/development/wallpaper-quality-work-card.md#execution"
     },
     {

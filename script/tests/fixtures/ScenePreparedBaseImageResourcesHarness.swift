@@ -352,7 +352,7 @@ final class SceneImageEffectPipelineRepository {
 enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
     struct MaterialPlan { static let empty = Self() }
-    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?, pointVolumeEnabled: Bool,
+    static func prepare(descriptor: SceneRenderDescriptor, directionalShadowDimensionLimit: Int?, pointVolumeEnabled: Bool, modelReflectionsEnabled: Bool,
                         resourceView: SceneResourceView, device: MTLDevice, textureLoader: SceneTextureLoader,
                         materialPlan: MaterialPlan,
                         albedoStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
@@ -430,6 +430,7 @@ struct SceneResolvedMaterialVariantCache {
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture
     var hasAudioSpectrumConsumer: Bool { false }
+    var hasSceneEnvironmentConsumer: Bool { false }
     static func launchValidated(template: TestTemplate,
                                 textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
                                 assetFormatFacts: Int) -> Result<Self, TestError> {
@@ -474,14 +475,16 @@ final class SceneResolvedMaterialRuntimeBridge {
         enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
         let declaredDynamicTargets: Set<SceneDynamicTarget>
         let hasAudioSpectrumConsumer: Bool
+        let requiresSceneEnvironment: Bool
         let outputDomain: OutputDomain
         let sharedModelPath: String?
         init(declaredDynamicTargets: Set<SceneDynamicTarget>,
-             hasAudioSpectrumConsumer: Bool,
+             hasAudioSpectrumConsumer: Bool, requiresSceneEnvironment: Bool,
              bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
              outputDomain: OutputDomain, sharedModelPath: String?) {
             self.declaredDynamicTargets = declaredDynamicTargets
             self.hasAudioSpectrumConsumer = hasAudioSpectrumConsumer
+            self.requiresSceneEnvironment = requiresSceneEnvironment
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
         }
@@ -781,7 +784,7 @@ enum Checks {
             "completedDrainStillCompletes":heldDrained.wait(timeout:.now()+5) == .success,
             "cancelledWorkerCannotPublishReady":heldPrepared.deferredStatus(for:1) != .ready]
         func task() -> ScenePreparedDeviceResourcesTask {
-            .init(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true, resourceView: deferredView, device: device,
+            .init(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true, modelReflectionsEnabled: true, resourceView: deferredView, device: device,
                 sceneGeneration: 1, cacheDirectory: root, deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic],
                 cancellationCheck: {})
         }
@@ -802,7 +805,7 @@ enum Checks {
         let workerRelease = DispatchSemaphore(value: 0)
         let waiterEntered = DispatchSemaphore(value: 0)
         let waiterReturned = DispatchSemaphore(value: 0)
-        let pending = ScenePreparedDeviceResourcesTask(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true,
+        let pending = ScenePreparedDeviceResourcesTask(descriptor: deferredDescriptor, directionalShadowDimensionLimit: 4096, pointVolumeEnabled: true, modelReflectionsEnabled: true,
             resourceView: deferredView, device: device, sceneGeneration: 1,
             cacheDirectory: root,
             imageGeometryModels: [automatic], cancellationCheck: {

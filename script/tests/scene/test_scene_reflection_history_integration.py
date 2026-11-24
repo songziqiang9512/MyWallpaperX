@@ -20,6 +20,9 @@ import tempfile
 import unittest
 import zlib
 
+from script.scene.scene_wallpaper_graph_output_metrics import (
+    structured_runtime_observations, terminal_composition_snapshot, terminal_snapshot_metrics,
+)
 from script.tests.support.scene_pkg_fixture import make_package
 from script.tests.support.scene_display_reconciliation_fixture import (
     assert_retained_surfaces, load_reconciliation_snapshots, reconciliation_interval,
@@ -300,6 +303,11 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="rf04-reflection-history-", dir=destination))
         sources = [Path(__file__), REPO / "script/tests/support/scene_pkg_fixture.py",
                    REPO / "script/tests/scene/test_scene_static_model_reader.py",
+                   REPO / "script/tests/scene/test_scene_authored_environment_integration.py",
+                   REPO / "script/tests/scene/test_scene_named_model_shadow.py",
+                   REPO / "script/tests/scene/test_scene_directional_shadow_integration.py",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+                   REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
                    REPO / "script/tests/support/scene_display_reconciliation_fixture.py",
                    REPO / "script/web/web_benchmark_capture.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
@@ -625,6 +633,117 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     self.assertFalse(result["completedSourceSubmissions"], result)
                     self.assert_pixel(settled["grazing"], [0, 0, 0])
 
+    def run_model_reflection_quality_pair(self, entries, *, with_program=False, with_source=False):
+        rois = dict(MODEL_ROIS)
+        if with_program or with_source:
+            rois["authorProgram"] = (28, 48)
+        scope = "source" if with_source else "mixed" if with_program else "only"
+        identities = []
+        for quality in ("enabled", "disabled"):
+            with self.subTest(quality=quality):
+                name = f"model-reflection-quality-{scope}-{quality}"
+                result = self.run_case(1, capture=True, name=name, rois=rois, entries=entries,
+                    extra_arguments=("-mwx.playback.quality", f"{{ sceneReflectionQuality = {quality}; }}"))
+                work = self.evidence_root / name
+                identity = json.loads((work / "identity.json").read_text())
+                identities.append((identity["package"], identity["project"]))
+                log = (work / "app.log").read_text()
+                self.assertRegex(log, rf"phase=session-candidate [^\n]*reflectionQuality={quality}\b")
+
+                capture = terminal_snapshot_metrics(work / "evidence", log)
+                observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+                self.assertEqual(observations["parse_errors"], 0)
+                receipt = terminal_composition_snapshot(capture, observations)
+                self.assertTrue(receipt["composition_receipt_matched"], receipt)
+                event = next(e for e in observations["events"] if e.get("captureRequestID") == capture["request_id"]
+                             and e.get("commandBufferToken") == capture["command_buffer_token"])
+                self.assertEqual(event["truncatedRows"], 0, event)
+
+                pixels = result["pixels"]["scene-after-window.png"]
+                enabled = quality == "enabled"
+                if enabled:
+                    red, green, blue = pixels["grazing"]["mean"]
+                    self.assertGreater(red, 25, pixels["grazing"])
+                    self.assertLessEqual(max(green, blue), PIXEL_TOLERANCE, pixels["grazing"])
+                else:
+                    self.assert_pixel(pixels["grazing"], [0, 0, 0])
+                for roi, rgb in {"front": [0, 0, 0], "unoccludedBlue": [0, 0, 255],
+                                 "historyRed": [255, 0, 0], "opaquePeer": [0, 100 if with_program else 255, 0],
+                                 "exterior": [0, 0, 0]}.items():
+                    self.assert_pixel(pixels[roi], rgb)
+                rows = event["rows"]
+                model = [r for r in rows if r["kind"] == "model-reflection" and r.get("layerID") == 10]
+                self.assertEqual([r["slot"] for r in model], [6] if enabled else [], model)
+                if enabled or with_program or with_source:
+                    self.assertGreaterEqual(len(set(result["completedSourceSubmissions"])), 2, result)
+                else:
+                    self.assertFalse(result["completedSourceSubmissions"], result)
+                if with_program or with_source:
+                    self.assert_pixel(pixels["authorProgram"], [255, 0, 0])
+                if with_source:
+                    self.assertIn("source material encoded: layer=1 ", log)
+                if with_program:
+                    self.assertIn("phase=named-graph-output-publication layer=31 status=succeeded", log)
+                    program = [r for r in rows if r["kind"] == "material" and r.get("layerID") == 1
+                               and r.get("outcome") == "draw-encoded" and r.get("slot") == 3]
+                    self.assertEqual(len(program), 1, program)
+                    self.assertEqual(program[0]["source"]["logical"], "provider:sceneEnvironment")
+                    if enabled:
+                        self.assertEqual(program[0]["source"]["textureToken"], model[0]["source"]["textureToken"])
+        self.assertEqual(len(identities), 2)
+        self.assertEqual(identities[0], identities[1])
+
+    def test_model_reflection_quality_skips_optional_history_for_same_authored_model(self):
+        self.run_model_reflection_quality_pair(model_reflection_entries(1))
+
+    def test_model_reflection_quality_preserves_shared_authored_program(self):
+        from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
+        from script.tests.scene.test_scene_named_model_shadow import named_fixture
+
+        entries = model_reflection_entries(1, stem="model-reflector")
+        scene = json.loads(entries["scene.json"])
+        authored = author_environment(slot=3, shader_default=False)
+        receiver = json.loads(authored.pop("scene.json"))["objects"][0]
+        receiver.update(origin="28 48 0", size="20 20")
+        receiver["effects"][0]["id"] = 100
+        scene["objects"].insert(0, receiver)
+        entries.update(authored)
+
+        # The green model cannot finish its early draw plan until the hidden
+        # effect provider publishes. No light or depth particle changes this order.
+        named_scene, named_entries = named_fixture("forward-graph-neighbor")
+        provider = next(layer for layer in named_scene["objects"] if layer["id"] == 31)
+        scene["objects"].append(provider)
+        peer = next(layer for layer in scene["objects"] if layer["id"] == 13)
+        peer["dependencies"] = [31]
+        material_path = "materials/opaque-green.json"
+        material = json.loads(entries[material_path])
+        material["passes"][0]["textures"] = ["_rt_imageLayerComposite_31_a"]
+        entries[material_path] = json.dumps(material).encode()
+        for path in ("models/provider.json", "materials/provider.json", "materials/green.png",
+                     "effects/own_dim/effect.json", "materials/own_dim.json", "shaders/own_dim.vert",
+                     "shaders/own_dim.frag"):
+            entries[path] = named_entries[path]
+        entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+        self.run_model_reflection_quality_pair(entries, with_program=True)
+
+    def test_model_reflection_quality_preserves_authored_source_material_environment(self):
+        from script.tests.scene.test_scene_authored_environment_integration import fixture_entries as author_environment
+
+        entries = model_reflection_entries(1)
+        scene = json.loads(entries["scene.json"])
+        scene["objects"].insert(0, {"id": 1, "image": "models/environment-source.json",
+                                    "origin": "28 48 0", "size": "20 20"})
+        authored = author_environment(slot=3, shader_default=True)
+        material = json.loads(authored["materials/environment.json"])
+        material["passes"][0]["textures"][0] = "materials/albedo.png"
+        entries["materials/environment-source.json"] = json.dumps(material).encode()
+        entries["models/environment-source.json"] = json.dumps({"material": "materials/environment-source.json"}).encode()
+        for path in ("materials/albedo.png", "shaders/own_environment.vert", "shaders/own_environment.frag"):
+            entries[path] = authored[path]
+        entries["scene.json"] = json.dumps(scene, sort_keys=True).encode()
+        self.run_model_reflection_quality_pair(entries, with_source=True)
+
     def test_user_albedo_keeps_reflection_when_named_fallback_is_not_selected(self):
         source_root = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
         for relative in (
@@ -685,6 +804,15 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
                     for actual, expected in zip(settled["grazing"]["mean"], reference, strict=True):
                         self.assertAlmostEqual(actual, expected, delta=PIXEL_TOLERANCE)
                 reference = settled["grazing"]["mean"]
+
+    def test_model_reflection_quality_disabled_capture_off_drawable_remains_legal(self):
+        name = "model-reflection-quality-disabled-capture-off"
+        result = self.run_case(1, capture=False, name=name, entries=model_reflection_entries(1),
+            extra_arguments=("-mwx.playback.quality", "{ sceneReflectionQuality = disabled; }"))
+        log = (self.evidence_root / name / "app.log").read_text()
+        self.assertRegex(log, r"phase=session-candidate [^\n]*reflectionQuality=disabled\b")
+        self.assertRegex(log, r"phase=session-first-frame [^\n]*gpu=completed")
+        self.assertFalse(result["completedSourceSubmissions"], result)
 
     def test_capture_off_product_drawable_remains_legal(self):
         # SceneDebugFrameCapture.configure forces framebufferOnly=false only

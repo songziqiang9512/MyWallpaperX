@@ -12,7 +12,7 @@ extension SceneMetalRenderer {
             return true
         }
         guard let runtime = imageCompositor.resolvedMaterialRuntime else { return false }
-        return runtime.executionLayerIDs.contains {
+        return runtime.hasSourceMaterialSceneEnvironmentConsumer || runtime.executionLayerIDs.contains {
             runtime.requiresSceneEnvironment(layerID: $0)
         }
     }

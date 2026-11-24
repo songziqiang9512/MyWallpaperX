@@ -839,10 +839,10 @@
       "lastReviewed": "2026-11-25",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3ba1ae837bbb15412efb3a5cad098ba90ea93352c8aaa9e493655394f6428870",
+        "sourceSHA256": "902a36052088e2dd00b3ef7d7077dc7b7cb1c9b7f7aed334981eca536c71d693",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后处理、阴影和点光体积由同一质量请求进入 Scene 准备，原共享模型深度及投影仍分开。",
-        "limitations": "导航与源码核对；隔离 App 以及真机、作者样本的实测范围见各工作片。"
+        "scope": "Scene 质量进入后处理、阴影、点光体积与模型反射；作者环境与模型槽消费独立。",
+        "limitations": "导航及源码核对；实测限于独立签名 App 与选定具名和基础材质样本。"
       }
     },
     {

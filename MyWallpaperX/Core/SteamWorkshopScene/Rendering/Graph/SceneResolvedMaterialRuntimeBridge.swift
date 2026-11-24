@@ -301,9 +301,11 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceMaterialPrototypeByModel = shared.compactMapValues {
                 $0.count == 1 ? $0.first?.id : nil
             }
+            hasSourceMaterialSceneEnvironmentConsumer = sourceMaterials.values.contains(where: \.requiresSceneEnvironment)
         }
     }
     private(set) var sourceMaterialPrototypeByModel: [String: Int] = [:]
+    private(set) var hasSourceMaterialSceneEnvironmentConsumer = false
     let visibleExecutionRootLayerIDs: Set<Int>
 #if DEBUG
     private let executionEvidenceLock = NSLock()

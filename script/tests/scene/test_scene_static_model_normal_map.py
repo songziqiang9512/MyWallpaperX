@@ -54,6 +54,10 @@ def cases():
         row("reflection-left", pixels=[37, 128, 218, 255], reflection=True),
         row("reflection-flat", pixels=[128, 128, 255, 255], reflection=True),
         row("reflection-additive", pixels=[218, 128, 218, 255], reflection=True, additive=True),
+        row("reflection-right-quality-disabled", pixels=[218, 128, 218, 255],
+            reflection=True, modelReflectionsEnabled=False),
+        row("reflection-additive-quality-disabled", pixels=[218, 128, 218, 255],
+            reflection=True, additive=True, modelReflectionsEnabled=False),
         row("renamed", renamed=True),
     ]
 
@@ -180,7 +184,7 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
         for row in self.rows.values():
             self.assertTrue(row["completed"], row)
             self.assertEqual(row["outside"], [64, 0, 0, 0]
-                if row["name"] == "reflection-additive" else [0, 0, 0, 0], row)
+                if row["name"].startswith("reflection-additive") else [0, 0, 0, 0], row)
 
     def test_perturbed_normal_selects_independent_reflection_bands(self):
         right, left, flat = [self.rows["reflection-" + name] for name in ["right", "left", "flat"]]
@@ -192,6 +196,23 @@ class SceneStaticModelNormalMapTests(unittest.TestCase):
         additive = self.rows["reflection-additive"]
         self.assertEqual(additive["rgba"][0], 64, additive)
         self.assertEqual(additive["rgba"][1:], right["rgba"][1:], additive)
+
+    def test_disabled_model_reflection_omits_psos_and_keeps_authored_material(self):
+        for name in ("reflection-right", "reflection-additive"):
+            with self.subTest(blend=name):
+                enabled = self.rows[name]
+                disabled = self.rows[name + "-quality-disabled"]
+                self.assertTrue(enabled["reflectionPSOPrepared"], enabled)
+                self.assertFalse(disabled["reflectionPSOPrepared"], disabled)
+                self.assertEqual(enabled["reflectiveLayerIDs"], [7], enabled)
+                self.assertEqual(disabled["reflectiveLayerIDs"], [], disabled)
+                for row in (enabled, disabled):
+                    self.assertTrue(row["authoredReflection"], row)
+                    self.assertEqual(row["authoredReflectivity"], 1, row)
+                self.assertEqual(disabled["encoding"], enabled["encoding"])
+                self.assertEqual(disabled["rgba"][:3], disabled["outside"][:3], disabled)
+                self.assertEqual(disabled["rgba"][3], enabled["rgba"][3], disabled)
+                self.assertEqual(disabled["depth"], enabled["depth"], disabled)
 
 
 if __name__ == "__main__":

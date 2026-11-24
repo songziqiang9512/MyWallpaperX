@@ -130,6 +130,7 @@ struct ScenePlaybackLoadRequest {
 enum ScenePlaybackTextureUpdateOutcome { case superseded, failed(String) }
 enum SceneDaemonProtocol { static let version = 2
     __SOURCE_OBJECT__
+    __RENDER_QUALITY__
 }
 enum SceneDaemonProtocolFailure: Error { case invalidPayload(String) }
 @MainActor final class DaemonPlaybackProcessRegistry {
@@ -155,6 +156,7 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     var expectedTerminationGenerations: Set<UInt64> = []
     var sessionGeneration: UInt64 = 1
     var endpointReady = true
+    var sceneRenderQuality = SceneRenderQuality()
     var sourceSchemaVersion: Int?, requestRetirementSchemaVersion: Int?
     struct IdleTransport { var deadline: DispatchWorkItem? }
     var idleTransport: IdleTransport?
@@ -346,10 +348,12 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
         methods.append(method_body(endpoint, '    func discardIdleTransport()'))
         protocol = (SCENE / 'Runtime/IPC/SceneDaemonProtocol.swift').read_text()
         source = source.replace('__SOURCE_OBJECT__', method_body(protocol, '    static func sourceObject('))
+        source = source.replace('__RENDER_QUALITY__', method_body(protocol, '    static func writeRenderQuality('))
         methods += [method_body(events, signature) for signature in [
             '    func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
         source = source.replace('__CLIENT_METHODS__', '\n'.join(methods).replace('private ', ''))
         self.run_probe(source, [MODELS, ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift',
+            ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift',
             SCENE / 'Systems/Properties/SceneUserProperty.swift',
             ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
             SCENE / 'Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift',

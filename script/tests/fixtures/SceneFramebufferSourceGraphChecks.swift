@@ -95,6 +95,7 @@
             let sourceMaterial = SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial(
                 declaredDynamicTargets: [],
                 hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer,
+                requiresSceneEnvironment: false,
                 bindFrame: { input in
                     if let injectedFailure { return .failure(injectedFailure) }
                     let result = SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)

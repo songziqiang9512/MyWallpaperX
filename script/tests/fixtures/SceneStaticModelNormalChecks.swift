@@ -260,6 +260,7 @@
         let assets = try SceneStaticModelAssetInputs(materialPlan: materialPlan, resourceView: resourceView,
             descriptor: descriptor, loader: loader, device: device)
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
+            modelReflectionsEnabled: item["modelReflectionsEnabled"] as? Bool ?? true,
             resourceView: resourceView, device: device, textureLoader: loader,
             materialPlan: materialPlan, albedoStates: assets.launchStates,
             preparedSources: &sources, cancellationCheck: {})
@@ -427,6 +428,13 @@
             "noiseReplicatesRed": resources[7]!.first!.pigment?.replicatesRed ?? false,
             "depth": readback.contents().bindMemory(to: Float.self, capacity: 1).pointee,
             "requests": loader.requests, "completed": true]
+        if reflection {
+            result["reflectionPSOPrepared"] = resources.pipeline!.supportsReflection
+            result["reflectiveLayerIDs"] = resources.reflectiveLayerIDs.sorted()
+            let profile = resources[7]!.first!.material.surfaceProfile
+            result["authoredReflection"] = profile?.reflectionEnabled ?? false
+            result["authoredReflectivity"] = profile?.reflectivity ?? 0
+        }
         if let probes = item["probePixels"] as? [[Int]] {
             result["probes"] = probes.map { rgba($0[0], $0[1]) }
             result["normalMipCount"] = normalTexture.mipmapLevelCount

@@ -211,13 +211,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         case let .setSceneRenderQuality(quality):
             sceneRenderQuality = quality
             if endpointReady {
-                send([
+                var payload: [String: Any] = [
                     "v": SceneDaemonProtocol.version,
-                    "cmd": "setSceneRenderQuality",
-                    "scenePostProcessing": quality.postProcessing.rawValue,
-                    "shadowQuality": quality.shadows.rawValue,
-                    "pointVolumeQuality": quality.pointVolume.rawValue
-                ])
+                    "cmd": "setSceneRenderQuality"
+                ]
+                SceneDaemonProtocol.writeRenderQuality(quality, to: &payload)
+                send(payload)
             }
             return activeIntent != nil || pendingIntent != nil
         case let .setVolume(volume):
@@ -714,11 +713,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "userPropertyTextures": textures,
             "userShortcuts": SceneDaemonProtocol.shortcutObject(request.userShortcuts),
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
-            "profile": performanceProfile.maxFPS,
-            "scenePostProcessing": sceneRenderQuality.postProcessing.rawValue,
-            "shadowQuality": sceneRenderQuality.shadows.rawValue,
-            "pointVolumeQuality": sceneRenderQuality.pointVolume.rawValue
+            "profile": performanceProfile.maxFPS
         ]
+        SceneDaemonProtocol.writeRenderQuality(sceneRenderQuality, to: &payload)
         if let sourceObject { payload["source"] = sourceObject }
         if let recordID = request.recordID {
             payload["recordID"] = recordID

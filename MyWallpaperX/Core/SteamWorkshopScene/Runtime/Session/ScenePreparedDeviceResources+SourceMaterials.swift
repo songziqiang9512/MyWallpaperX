@@ -90,7 +90,8 @@ extension ScenePreparedDeviceResources {
                     if case let .dynamic(value) = declaration.value { return value.target }
                     return nil
                 }
-            ), hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer, bindFrame: { input in
+            ), hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer,
+                requiresSceneEnvironment: variants.hasSceneEnvironmentConsumer, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,
                 sharedModelPath: entry.sharedModelPath)

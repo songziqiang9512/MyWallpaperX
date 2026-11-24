@@ -54,6 +54,7 @@ enum SceneDaemonProtocol {
     }
     static func shortcutObject(_ value:Int)->[String:Any]{[:]}
     // PROTOCOL_BOOLEAN
+    // PROTOCOL_QUALITY
 }
 @MainActor final class SceneDaemonClient {
     struct Lifetime {
@@ -403,7 +404,8 @@ IDLE_TAIL = r'''
         checks["queueAndCancellationDoNotSendLoadBeforeRetirement"]=cancelledQueued
             && a.queuedSwitchPreparation?.ticket == next
             && !a.sent.contains{$0["cmd"] as? String == "loadScene"}
-        a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)
+        a.sceneRenderQuality = .init(postProcessing: .ultraDisplayHDR, shadows: .medium,
+            pointVolume: .disabled, reflections: .disabled)
         ack(a,ra,opa)
         let newRequest=a.pendingRequestID
         checks["successfulRetirementAdoptsSameProcessWithFreshRequest"]=retiredA == 1 && oldLease == nil
@@ -416,6 +418,7 @@ IDLE_TAIL = r'''
             newLoad?["scenePostProcessing"] as? String == "displayHDR"
             && newLoad?["shadowQuality"] as? String == "medium"
             && newLoad?["pointVolumeQuality"] as? String == "disabled"
+            && newLoad?["reflectionQuality"] as? String == "disabled"
         ack(a,ra,opa)
         checks["duplicateAckDoesNotReplayOrFinishTwice"]=retiredA == 1 && a.pendingRequestID == newRequest
         a.stop();exit(a,ca)
@@ -521,6 +524,8 @@ class SceneDaemonSwitchCancellationTests(unittest.TestCase):
         events = (IPC / "SceneDaemonClient+Events.swift").read_text()
         protocol = (IPC / "SceneDaemonProtocol.swift").read_text()
         support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
+        support = support.replace("// PROTOCOL_QUALITY",
+            method(protocol, "static func writeRenderQuality(_ quality: SceneRenderQuality, to payload: inout [String: Any])"))
         for signature in ("func ensureSession()->Bool", "func replayPendingIntent()"):
             support = support.replace(signature + " " + function_body(support, signature), "")
         support = support.replace("func stop() " + function_body(support, "func stop()"),

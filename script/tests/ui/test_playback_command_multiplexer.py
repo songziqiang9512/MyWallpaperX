@@ -96,6 +96,7 @@ final class Handler: PlaybackEngineControlling {
         var quality = PlaybackQualityPreference.defaults
         quality.scene.shadows = .medium
         quality.scene.pointVolume = .disabled
+        quality.scene.reflections = .disabled
         mux.applyQualityPreference(quality, defaults: suite)
         mux.applyQualityPreference(quality, defaults: suite)
         precondition(PlaybackQualityPreference.read(from: suite) == quality)
@@ -103,6 +104,7 @@ final class Handler: PlaybackEngineControlling {
         suite.set(["sceneShadowQuality": "future"], forKey: PlaybackQualityPreference.userDefaultsKey)
         precondition(PlaybackQualityPreference.read(from: suite).scene.shadows == .adaptive)
         precondition(PlaybackQualityPreference.read(from: suite).scene.pointVolume == .enabled)
+        precondition(PlaybackQualityPreference.read(from: suite).scene.reflections == .enabled)
         suite.removePersistentDomain(forName: suiteName)
         video.volume = 0
         let previousVolumeCommands = video.volumeCommands

@@ -112,7 +112,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
-        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled)), to: .scene))
+        precondition(mux.dispatch(.setSceneRenderQuality(.init(postProcessing: .ultraDisplayHDR, shadows: .medium, pointVolume: .disabled, reflections: .disabled)), to: .scene))
         precondition(scene.commands.isEmpty)
         scene.endpointReady = true
         scene.hasRequestRetirementControl = true
@@ -132,12 +132,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         precondition(scene.commands.first?["scenePostProcessing"] as? String == "displayHDR")
         precondition(scene.commands.first?["shadowQuality"] as? String == "medium")
         precondition(scene.commands.first?["pointVolumeQuality"] as? String == "disabled")
+        precondition(scene.commands.first?["reflectionQuality"] as? String == "disabled")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
         precondition(mux.dispatch(.setSceneRenderQuality(.init(shadows: .disabled)), to: .scene))
         precondition(scene.commands.last?["cmd"] as? String == "setSceneRenderQuality")
         precondition(scene.commands.last?["scenePostProcessing"] as? String == "ultra")
         precondition(scene.commands.last?["shadowQuality"] as? String == "disabled")
         precondition(scene.commands.last?["pointVolumeQuality"] as? String == "enabled")
+        precondition(scene.commands.last?["reflectionQuality"] as? String == "enabled")
         // Web preparing alongside retained Video must pause/resume both surfaces.
         engine.currentPlaybackContentKind = .web
         engine.currentWebRequestID = UUID()
@@ -372,7 +374,9 @@ final class Host {
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),
-        ])).replace("// SOURCE_ENCODER", method(protocol, "static func sourceObject("))
+        ])).replace("// SOURCE_ENCODER", "\n".join([
+            method(protocol, "static func sourceObject("), method(protocol, "static func writeRenderQuality("),
+        ]))
         with tempfile.TemporaryDirectory(prefix="mwx-pause-delivery-") as directory:
             path = Path(directory)
             (path / "Harness.swift").write_text(harness)

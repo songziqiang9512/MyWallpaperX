@@ -373,6 +373,8 @@ extension AppKitSettingsContainerView {
         scenePointVolumePopup.addItems(withTitles: [String(localized: "Disabled"), String(localized: "Enabled")])
         qualitySection.addRow(makeSettingRow(title: String(localized: "Point Light Volume"), iconSystemName: "light.max",
             subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: scenePointVolumePopup))
+        qualitySection.addRow(makeSettingRow(title: String(localized: "Model Reflections"), iconSystemName: "sparkle",
+            subtitle: String(localized: "Some effect changes require reloading the wallpaper"), trailing: sceneReflectionsSwitch))
         webFrameRatePopup.addItems(withTitles: [
             String(localized: "Match Display (up to 60 FPS)"),
             String(localized: "Follow Animation Frame Rate"),
@@ -383,7 +385,9 @@ extension AppKitSettingsContainerView {
         qualitySection.addRow(makeSettingRow(
             title: String(localized: "Video Quality"), iconSystemName: "film",
             trailing: NSTextField(labelWithString: String(localized: "Original Video"))))
-        for control in [sceneMaxFPSSegmented, scenePostProcessingPopup, sceneShadowsPopup, scenePointVolumePopup, webFrameRatePopup] as [NSControl] {
+        let controls: [NSControl] = [sceneMaxFPSSegmented, scenePostProcessingPopup,
+                                     sceneShadowsPopup, scenePointVolumePopup, sceneReflectionsSwitch, webFrameRatePopup]
+        for control in controls {
             control.target = self
             control.action = #selector(handleQualityChange(_:))
         }
@@ -400,6 +404,7 @@ extension AppKitSettingsContainerView {
         refreshScenePostProcessingMenu(quality.scene.postProcessing)
         sceneShadowsPopup.selectItem(at: sceneShadowsPopup.indexOfItem(withRepresentedObject: quality.scene.shadows.rawValue))
         scenePointVolumePopup.selectItem(at: quality.scene.pointVolume == .disabled ? 0 : 1)
+        sceneReflectionsSwitch.state = quality.scene.reflections == .enabled ? .on : .off
     }
 
     @objc private func handleQualityChange(_ sender: NSControl) {
@@ -409,6 +414,8 @@ extension AppKitSettingsContainerView {
             quality.profile = sceneMaxFPSSegmented.selectedSegment == 0 ? .efficient : .standard
         } else if sender === webFrameRatePopup {
             quality.webFrameRateMode = webFrameRatePopup.indexOfSelectedItem == 1 ? .followAnimationFrameRate : .display
+        } else if sender === sceneReflectionsSwitch {
+            quality.scene.reflections = sceneReflectionsSwitch.state == .on ? .enabled : .disabled
         } else if sender === scenePointVolumePopup {
             quality.scene.pointVolume = scenePointVolumePopup.indexOfSelectedItem == 0 ? .disabled : .enabled
         } else if let mode = (sender as? NSPopUpButton)?.selectedItem?.representedObject as? String {
@@ -453,6 +460,7 @@ extension AppKitSettingsContainerView {
             pauseOtherAppFullscreenSwitch,
             pauseWhenUnpluggedSwitch,
             pauseWhenIdleSwitch,
+            sceneReflectionsSwitch,
             multiDisplaySwitch
         ]
         switches.forEach { $0.controlSize = .mini }
