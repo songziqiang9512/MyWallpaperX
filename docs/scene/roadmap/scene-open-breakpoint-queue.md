@@ -6,9 +6,7 @@
 
 2026-11-24 增量筛查以现库859个目录与仓库旧归档522个 ID 对账，旧3个已不在库，340个待核。9个复用 project、包和树摘要均一致的既有实际运行。本轮331个输入进入签名候选 `740bf83d…d3016f` 的默认4秒流程，329个取得匹配终端 GPU 回执。3736952187 缺 project，3822067395 缺首帧。8个异常保并发原始记录及串行8秒复验。结果归 `.artifacts/scene-new-author-intake-20261124/intake-index.json`，短窗覆盖默认播放，后续仍须实际音频、媒体、交互、成熟时段及官版对照。
 
-11-24 的31项用户观察按首个可见断点复核。接续前先对照页尾[已修复的用户反馈](#resolved-user-feedback)，只选择仍开放且有当前证据的具体问题。
-
-先处理有当前证据的播放阻断、画面和基本交互。选题时简看现有画面和[运行证据](../capabilities/runtime-evidence-current.md)，已修的子现象记在页尾。旧反馈若看不出具体问题，等新的可重复输入或明确差异再排，不延长试验或推测改法。仍开放的项目沿各行已有停止线。2026-11-07补报13个作者定位与图1–5；8项曾进入默认App运行，5项仅有census。原图及逐项对账保于`.artifacts/scene-user-feedback-20261107/`。
+11-24 的31项观察按首个可见断点复核。接续先对照页尾[已修复的用户反馈](#resolved-user-feedback)及[运行证据](../capabilities/runtime-evidence-current.md)。优先处理可复现的播放阻断、画面及交互差异，沿各行停止线推进。11-07补报13项中8项实跑、5项仅有census，定位与图1–5归`.artifacts/scene-user-feedback-20261107/`。
 
 样本ID和layer仅用于复现，不选择算法。隐藏、空媒体、延迟和未触发分支不直接判缺图；Program准入、实际绑定、CPU求值、GPU执行、局部tail消费和最终像素贡献分别记录，未知保持未知。
 
@@ -239,6 +237,7 @@
 | 3509243656 | 已修复。轨迹打开后进入原作者发射和绘制，关后停止，再开恢复。[属性热切](../capabilities/runtime-evidence-current.md#author-normal-depth-trails-350) |
 | 3769761761 | 部分修复。斜光预热、缺省初速和相位已修复。[原包](../capabilities/runtime-evidence-current.md#ember-turbulent-birth-speed) · [持续湍流与覆盖](../capabilities/runtime-evidence-current.md#ember-continuous-field-and-coverage) |
 | 3842265910 | 已修复双瞳缺失及身体普通骨轨。后置标量仍开放。[双瞳](../capabilities/runtime-evidence-current.md#puppet-pupil-color-order-384) · [身体](../capabilities/runtime-evidence-current.md#puppet-post-bounds-trs) |
+| 3372715909 | 已定位。原包时间和日期被作者重建的全屏视频覆盖，测试副本调层序后恢复。官版原包此次无对照画面。[时钟与层序](../capabilities/runtime-evidence-current.md#author-clock-video-order-337) |
 | 3306942838 | 部分修复。头肩脱节的主要槽与同步运动已恢复，正向相对偏移另核。[头肩](../capabilities/runtime-evidence-current.md#puppet-body-slot-330) |
 | 3455121165 | 已修复。默认排序下时钟下方的原作者音条已恢复。[钟下音条](../capabilities/runtime-evidence-current.md#native-composition-audio-prefix) |
 
